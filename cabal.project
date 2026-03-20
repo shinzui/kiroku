@@ -1,0 +1,7 @@
+packages:
+  kiroku-store
+
+with-compiler: ghc-9.12.2
+
+tests: True
+benchmarks: True

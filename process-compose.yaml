@@ -1,0 +1,26 @@
+version: "0.5"
+
+log_location: ./.dev/process-compose.log
+log_level: debug
+
+processes:
+  postgres:
+    command: pg_ctl start -w -l $PGLOG -o "--unix_socket_directories='$PGHOST'" -o "-c listen_addresses=''"
+    is_daemon: true
+    shutdown:
+      command: pg_ctl stop -D $PGDATA
+    readiness_probe:
+      exec:
+        command: pg_ctl status -D $PGDATA
+      initial_delay_seconds: 1
+      period_seconds: 5
+    availability:
+      restart: on_failure
+
+  create_database:
+    command: just create-database
+    depends_on:
+      postgres:
+        condition: process_healthy
+    availability:
+      restart: "no"

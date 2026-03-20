@@ -1,0 +1,23 @@
+# Nix
+result
+result-*
+
+# Cabal
+dist-newstyle/
+cabal.project.local
+cabal.project.local~
+
+# PostgreSQL local data
+.pg/
+
+# Process compose
+.dev/
+
+# Editor
+*~
+*.swp
+.idea/
+.vscode/
+
+# direnv
+.direnv/

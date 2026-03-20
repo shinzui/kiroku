@@ -251,7 +251,7 @@ Build modules in an order that enables Haskell-level benchmarking at each milest
 
 ## Benchmark Infrastructure
 
-### Tool Choice: `criterion` + custom harness
+### Tool Choice: `tasty-bench` + custom harness
 
 ```haskell
 -- Benchmark harness sketch
@@ -265,14 +265,14 @@ withBenchEnv :: (BenchEnv -> IO a) -> IO a
 -- Tears down after
 ```
 
-Use `criterion` for microbenchmarks (individual operations) and a custom harness for concurrency/throughput tests that need to coordinate multiple threads and measure aggregate throughput.
+Use `tasty-bench` for microbenchmarks (individual operations) — it's lightweight, depends only on `tasty`, and supports CSV/JSON output for trend tracking. Use a custom harness for concurrency/throughput tests that need to coordinate multiple threads and measure aggregate throughput.
 
 ### Benchmark Organization
 
 ```
 kiroku-store/
   bench/
-    Main.hs                        -- criterion entry point
+    Main.hs                        -- tasty-bench entry point
     Kiroku/
       Bench/
         SQL.hs                     -- Track 1: raw SQL benchmarks via hasql
