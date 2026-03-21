@@ -49,6 +49,10 @@ test:
 bench:
     cabal bench all
 
+# Run SQL benchmarks (Track 1)
+bench-sql *ARGS:
+    kiroku-store/bench/sql/run_benchmarks.sh {{ARGS}}
+
 # --- Nix ---
 
 # Build via nix

@@ -5,6 +5,7 @@
 CREATE TABLE IF NOT EXISTS streams (
     stream_id    BIGSERIAL    PRIMARY KEY,
     stream_uuid  TEXT         NOT NULL,
+    category     TEXT         GENERATED ALWAYS AS (split_part(stream_uuid, '-', 1)) STORED,
     stream_version BIGINT     NOT NULL DEFAULT 0,
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
     deleted_at   TIMESTAMPTZ,
@@ -57,6 +58,17 @@ CREATE INDEX IF NOT EXISTS ix_events_correlation_id
 -- Causation tracing
 CREATE INDEX IF NOT EXISTS ix_events_causation_id
     ON events (causation_id) WHERE causation_id IS NOT NULL;
+
+-- Category filtering (for readCategory — uses generated column, not LIKE)
+CREATE INDEX IF NOT EXISTS ix_streams_category
+    ON streams (category);
+
+-- Category read path: find $all entries by originating stream, ordered by global position
+-- Enables efficient category reads by allowing the planner to: look up category stream_ids →
+-- index scan $all for each → merge ordered by stream_version
+CREATE INDEX IF NOT EXISTS ix_stream_events_all_by_origin
+    ON stream_events (original_stream_id, stream_version)
+    WHERE stream_id = 0;
 
 -- Triggers
 

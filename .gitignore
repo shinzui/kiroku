@@ -21,3 +21,7 @@ cabal.project.local~
 
 # direnv
 .direnv/
+
+# Benchmark results (generated)
+kiroku-store/bench/results/*.txt
+kiroku-store/bench/results/*.json
