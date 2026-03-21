@@ -4,16 +4,16 @@
 -- Streams (including $all as stream_id = 0)
 CREATE TABLE IF NOT EXISTS streams (
     stream_id    BIGSERIAL    PRIMARY KEY,
-    stream_uuid  TEXT         NOT NULL,
-    category     TEXT         GENERATED ALWAYS AS (split_part(stream_uuid, '-', 1)) STORED,
+    stream_name  TEXT         NOT NULL,
+    category     TEXT         GENERATED ALWAYS AS (split_part(stream_name, '-', 1)) STORED,
     stream_version BIGINT     NOT NULL DEFAULT 0,
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
     deleted_at   TIMESTAMPTZ,
-    CONSTRAINT ix_streams_stream_uuid UNIQUE (stream_uuid)
+    CONSTRAINT ix_streams_stream_name UNIQUE (stream_name)
 );
 
 -- Seed the $all stream
-INSERT INTO streams (stream_id, stream_uuid, stream_version)
+INSERT INTO streams (stream_id, stream_name, stream_version)
 VALUES (0, '$all', 0)
 ON CONFLICT DO NOTHING;
 
@@ -77,7 +77,7 @@ CREATE OR REPLACE FUNCTION notify_events() RETURNS TRIGGER AS $$
 BEGIN
     PERFORM pg_notify(
         TG_TABLE_SCHEMA || '.events',
-        NEW.stream_uuid || ',' || NEW.stream_id || ',' || NEW.stream_version
+        NEW.stream_name || ',' || NEW.stream_id || ',' || NEW.stream_version
     );
     RETURN NEW;
 END;

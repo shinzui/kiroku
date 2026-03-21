@@ -1,5 +1,5 @@
 module Kiroku.Store.Types (
-    StreamUuid (..),
+    StreamName (..),
     StreamId (..),
     EventId (..),
     EventType (..),
@@ -20,7 +20,7 @@ import Data.UUID (UUID)
 import GHC.Generics (Generic)
 
 -- Stream identification
-newtype StreamUuid = StreamUuid Text
+newtype StreamName = StreamName Text
     deriving stock (Eq, Ord, Show, Generic)
 
 newtype StreamId = StreamId Int64
@@ -69,7 +69,7 @@ data EventData = EventData
 -- | Stream metadata returned by getStream.
 data StreamInfo = StreamInfo
     { id :: !StreamId
-    , uuid :: !StreamUuid
+    , name :: !StreamName
     , version :: !StreamVersion
     , createdAt :: !UTCTime
     , deletedAt :: !(Maybe UTCTime)

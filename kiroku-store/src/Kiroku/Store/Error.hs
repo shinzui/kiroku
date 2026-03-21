@@ -7,8 +7,8 @@ import Kiroku.Store.Types
 
 -- | Errors that can occur during an append operation.
 data AppendError
-    = WrongExpectedVersion !StreamUuid !ExpectedVersion !StreamVersion
-    | StreamNotFound !StreamUuid
-    | StreamAlreadyExists !StreamUuid
+    = WrongExpectedVersion !StreamName !ExpectedVersion !StreamVersion
+    | StreamNotFound !StreamName
+    | StreamAlreadyExists !StreamName
     | DuplicateEvent !EventId
     deriving stock (Eq, Show, Generic)

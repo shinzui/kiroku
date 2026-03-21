@@ -26,7 +26,7 @@ WITH
   stream_update AS (
     UPDATE streams
     SET stream_version = stream_version + (SELECT count(*) FROM new_events)
-    WHERE stream_uuid = 'bench-concurrent-' || :client_id
+    WHERE stream_name = 'bench-concurrent-' || :client_id
     RETURNING stream_id, stream_version - (SELECT count(*) FROM new_events) AS initial_version
   ),
 

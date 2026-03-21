@@ -39,15 +39,15 @@ Every PostgreSQL event store must solve the tension between **concurrent write t
 -- Streams (including $all as stream_id = 0)
 CREATE TABLE streams (
     stream_id    BIGSERIAL    PRIMARY KEY,
-    stream_uuid  TEXT         NOT NULL,
+    stream_name  TEXT         NOT NULL,
     stream_version BIGINT     NOT NULL DEFAULT 0,
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
     deleted_at   TIMESTAMPTZ,
-    CONSTRAINT ix_streams_stream_uuid UNIQUE (stream_uuid)
+    CONSTRAINT ix_streams_stream_name UNIQUE (stream_name)
 );
 
 -- Seed the $all stream
-INSERT INTO streams (stream_id, stream_uuid, stream_version)
+INSERT INTO streams (stream_id, stream_name, stream_version)
 VALUES (0, '$all', 0);
 
 -- Reset sequence past the reserved stream_id=0
@@ -82,7 +82,7 @@ CREATE TABLE stream_events (
 CREATE TABLE subscriptions (
     subscription_id   BIGSERIAL    PRIMARY KEY,
     subscription_name TEXT         NOT NULL UNIQUE,
-    stream_uuid       TEXT         NOT NULL DEFAULT '$all',
+    stream_name       TEXT         NOT NULL DEFAULT '$all',
     last_seen         BIGINT       NOT NULL DEFAULT 0,
     created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now()
@@ -117,7 +117,7 @@ CREATE OR REPLACE FUNCTION notify_events() RETURNS TRIGGER AS $$
 BEGIN
     PERFORM pg_notify(
         TG_TABLE_SCHEMA || '.events',
-        NEW.stream_uuid || ',' || NEW.stream_id || ',' || NEW.stream_version
+        NEW.stream_name || ',' || NEW.stream_id || ',' || NEW.stream_version
     );
     RETURN NEW;
 END;
@@ -197,7 +197,7 @@ WITH
   stream_update AS (
     UPDATE streams
     SET stream_version = stream_version + (SELECT count(*) FROM new_events)
-    WHERE stream_uuid = $8
+    WHERE stream_name = $8
       AND stream_version = $9    -- expected_version
     RETURNING stream_id, stream_version - (SELECT count(*) FROM new_events) AS initial_version
   ),
@@ -255,7 +255,7 @@ CROSS JOIN all_update au;
 | Variant | Source Stream Step | Use Case |
 |---|---|---|
 | `append_expected_version` | UPDATE ... WHERE stream_version = $expected | Standard optimistic concurrency |
-| `append_stream_exists` | UPDATE ... WHERE stream_uuid = $uuid (no version check, fail if 0 rows) | Append to existing stream, any version |
+| `append_stream_exists` | UPDATE ... WHERE stream_name = $uuid (no version check, fail if 0 rows) | Append to existing stream, any version |
 | `append_any_version` | UPDATE ... (no version check) / INSERT on miss | Append-only logging streams, create-or-append |
 | `append_no_stream` | INSERT ... ON CONFLICT DO NOTHING | Creating a new stream (fail if exists) |
 | `link_events` | (no event insert, link existing event_ids) | Projections building custom streams |
@@ -304,7 +304,7 @@ JOIN events e ON e.event_id = se.event_id
 JOIN streams s ON s.stream_id = se.original_stream_id
 WHERE se.stream_id = 0
   AND se.stream_version > $1
-  AND s.stream_uuid LIKE $2 || '-%'     -- category prefix
+  AND s.stream_name LIKE $2 || '-%'     -- category prefix
 ORDER BY se.stream_version ASC
 LIMIT $3;
 ```
@@ -314,9 +314,9 @@ LIMIT $3;
 **Get stream info (version, existence check):**
 
 ```sql
-SELECT stream_id, stream_uuid, stream_version, created_at, deleted_at
+SELECT stream_id, stream_name, stream_version, created_at, deleted_at
 FROM streams
-WHERE stream_uuid = $1;
+WHERE stream_name = $1;
 ```
 
 Useful for pre-append version checks, aggregate loading (to know current version before reading events), and existence checks. Returns empty if stream doesn't exist.
@@ -340,7 +340,7 @@ The notification channel is schema-scoped: `<schema>.events` (e.g., `public.even
 
 ```haskell
 -- Stream identification
-newtype StreamUuid = StreamUuid Text
+newtype StreamName = StreamName Text
 newtype StreamId = StreamId Int64
 
 -- Event identification
@@ -371,7 +371,7 @@ data EventData = EventData
 -- Stream metadata (from getStream)
 data StreamInfo = StreamInfo
     { streamInfoId      :: StreamId
-    , streamInfoUuid    :: StreamUuid
+    , streamInfoName    :: StreamName
     , streamInfoVersion :: StreamVersion
     , streamInfoCreatedAt :: UTCTime
     , streamInfoDeletedAt :: Maybe UTCTime
@@ -401,9 +401,9 @@ data AppendResult = AppendResult
 
 -- Errors
 data AppendError
-    = WrongExpectedVersion StreamUuid ExpectedVersion StreamVersion
-    | StreamNotFound StreamUuid
-    | StreamAlreadyExists StreamUuid
+    = WrongExpectedVersion StreamName ExpectedVersion StreamVersion
+    | StreamNotFound StreamName
+    | StreamAlreadyExists StreamName
     | DuplicateEvent EventId
 ```
 
@@ -481,7 +481,7 @@ data Notifier = Notifier
     }
 
 data Notification = Notification
-    { notifStreamUuid :: StreamUuid
+    { notifStreamName :: StreamName
     , notifStreamId   :: StreamId
     , notifVersion    :: StreamVersion
     }
@@ -498,7 +498,7 @@ Following Commanded's pattern:
 | PostgreSQL Error | Constraint | Kiroku Error |
 |---|---|---|
 | `unique_violation` (23505) | `events_pkey` | `DuplicateEvent` |
-| `unique_violation` (23505) | `ix_streams_stream_uuid` | `StreamAlreadyExists` (retryable) |
+| `unique_violation` (23505) | `ix_streams_stream_name` | `StreamAlreadyExists` (retryable) |
 | `unique_violation` (23505) | other | `WrongExpectedVersion` |
 | `foreign_key_violation` (23503) | — | `StreamNotFound` |
 
@@ -668,7 +668,7 @@ Builds on kiroku-store. Adds subscriptions, projections, and higher-level APIs. 
 | Immutability | Triggers (not rules) | Enables gated hard deletes via session variable. |
 | Transaction isolation | READ COMMITTED | The CTE handles concurrency via row-level locks. No need for SERIALIZABLE. |
 | Write concurrency | Row-level lock on source stream + $all row | Source stream UPDATE serializes same-stream writes (inherent to optimistic concurrency). $all row serializes global position assignment. Cross-stream writes contend only on $all. |
-| Same-stream concurrency | Row lock only (no advisory locks) | The CTE's `UPDATE streams WHERE stream_uuid` row lock is sufficient for correctness. Advisory locks would reduce wasted retries under contention but add complexity. Cross-stream contention is low in practice. Revisit if high retry rates observed on hot streams. |
+| Same-stream concurrency | Row lock only (no advisory locks) | The CTE's `UPDATE streams WHERE stream_name` row lock is sufficient for correctness. Advisory locks would reduce wasted retries under contention but add complexity. Cross-stream contention is low in practice. Revisit if high retry rates observed on hot streams. |
 | Multi-tenant isolation | Schema-per-tenant from Phase 1 | Parameterize all SQL with schema prefix and scope NOTIFY channels per schema. Avoids costly retrofit. Full tenant lifecycle (create/drop/migrate) deferred to later phases. |
 | Backward reads | Include in Phase 1 | Trivial (`ORDER BY stream_version DESC`). Needed for "latest N events" and snapshot-based aggregate loading. |
 | Event ID generation | UUIDv7 via PostgreSQL 18+ `uuidv7()` | Time-ordered UUIDs for better B-tree locality and sequential insert performance. Requires PostgreSQL 18+. |

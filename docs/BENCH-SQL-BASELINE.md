@@ -112,7 +112,7 @@ The Haskell API should encourage batched appends as the default path. A sensible
 
 Initial category reads using `LIKE 'prefix-%'` were p50=5.1ms / p99=42.3ms — unacceptable. Three changes brought them to p50=1.06ms / p99=3.26ms:
 
-1. **Generated `category` column** on `streams`: `GENERATED ALWAYS AS (split_part(stream_uuid, '-', 1)) STORED` — enables `= $1` instead of `LIKE`, zero maintenance.
+1. **Generated `category` column** on `streams`: `GENERATED ALWAYS AS (split_part(stream_name, '-', 1)) STORED` — enables `= $1` instead of `LIKE`, zero maintenance.
 2. **Partial index** `ix_stream_events_all_by_origin ON stream_events (original_stream_id, stream_version) WHERE stream_id = 0` — allows the planner to scan `$all` entries per originating stream rather than scanning all of `$all`.
 3. **LATERAL join query pattern** — forces the planner to: find category streams → index scan each via the partial index → merge and sort → LIMIT 100. Without LATERAL, the planner chose a full `$all` scan with post-hoc filtering.
 
@@ -149,7 +149,7 @@ Bench 6 readers maintained p99=1.8ms while 8 writers pushed 16.6K events/s. This
 
 Two additions to `schema.sql` based on benchmark findings:
 
-1. **`category` generated column** on `streams` — `split_part(stream_uuid, '-', 1)`, stored. Enables efficient category filtering without LIKE.
+1. **`category` generated column** on `streams` — `split_part(stream_name, '-', 1)`, stored. Enables efficient category filtering without LIKE.
 2. **`ix_stream_events_all_by_origin` partial index** — `(original_stream_id, stream_version) WHERE stream_id = 0`. Enables per-stream scanning within `$all` for category reads.
 
 Both are additive — no changes to existing columns, indexes, or write path.

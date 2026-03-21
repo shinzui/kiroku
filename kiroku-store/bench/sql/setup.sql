@@ -17,28 +17,28 @@ COMMIT;
 SELECT setval('streams_stream_id_seq', 1);
 
 -- Create streams for sequential benchmarks (Benchmark 1 & 2)
-INSERT INTO streams (stream_uuid) VALUES ('bench-sequential-single')
-ON CONFLICT (stream_uuid) DO NOTHING;
+INSERT INTO streams (stream_name) VALUES ('bench-sequential-single')
+ON CONFLICT (stream_name) DO NOTHING;
 
-INSERT INTO streams (stream_uuid) VALUES ('bench-sequential-batch-10')
-ON CONFLICT (stream_uuid) DO NOTHING;
+INSERT INTO streams (stream_name) VALUES ('bench-sequential-batch-10')
+ON CONFLICT (stream_name) DO NOTHING;
 
-INSERT INTO streams (stream_uuid) VALUES ('bench-sequential-batch-100')
-ON CONFLICT (stream_uuid) DO NOTHING;
+INSERT INTO streams (stream_name) VALUES ('bench-sequential-batch-100')
+ON CONFLICT (stream_name) DO NOTHING;
 
-INSERT INTO streams (stream_uuid) VALUES ('bench-sequential-batch-1000')
-ON CONFLICT (stream_uuid) DO NOTHING;
+INSERT INTO streams (stream_name) VALUES ('bench-sequential-batch-1000')
+ON CONFLICT (stream_name) DO NOTHING;
 
 -- Create streams for concurrent benchmarks (Benchmark 3 & 4)
-INSERT INTO streams (stream_uuid)
+INSERT INTO streams (stream_name)
 SELECT 'bench-concurrent-' || i
 FROM generate_series(0, 127) AS i
-ON CONFLICT (stream_uuid) DO NOTHING;
+ON CONFLICT (stream_name) DO NOTHING;
 
 -- Populate 100K events across 100 streams for read benchmarks (Benchmark 5 & 6)
 DO $$
 DECLARE
-    v_stream_uuid TEXT;
+    v_stream_name TEXT;
     v_stream_id BIGINT;
     v_batch_size INT := 100;
     v_batches INT := 10;  -- 10 batches × 100 events × 100 streams = 100K events
@@ -54,16 +54,16 @@ DECLARE
 BEGIN
     -- Create 100 read-bench streams across 10 categories
     FOR i IN 0..99 LOOP
-        v_stream_uuid := 'benchcat' || (i / 10) || '-' || i;
-        INSERT INTO streams (stream_uuid) VALUES (v_stream_uuid)
-        ON CONFLICT (stream_uuid) DO NOTHING;
+        v_stream_name := 'benchcat' || (i / 10) || '-' || i;
+        INSERT INTO streams (stream_name) VALUES (v_stream_name)
+        ON CONFLICT (stream_name) DO NOTHING;
     END LOOP;
 
     -- Populate each stream with events
     FOR i IN 0..99 LOOP
-        v_stream_uuid := 'benchcat' || (i / 10) || '-' || i;
+        v_stream_name := 'benchcat' || (i / 10) || '-' || i;
 
-        SELECT stream_id INTO v_stream_id FROM streams WHERE stream_uuid = v_stream_uuid;
+        SELECT stream_id INTO v_stream_id FROM streams WHERE stream_name = v_stream_name;
 
         FOR batch IN 1..v_batches LOOP
             -- Build arrays for this batch

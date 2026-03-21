@@ -118,7 +118,7 @@ Build modules in an order that enables Haskell-level benchmarking at each milest
 
 **Goal:** Initialize database, core types defined.
 
-- [ ] `Kiroku.Store.Types` — all domain types from DESIGN.md (`StreamUuid`, `EventId`, `EventData`, `RecordedEvent`, `StreamInfo`, `AppendResult`, `AppendError`, `ExpectedVersion`)
+- [ ] `Kiroku.Store.Types` — all domain types from DESIGN.md (`StreamName`, `EventId`, `EventData`, `RecordedEvent`, `StreamInfo`, `AppendResult`, `AppendError`, `ExpectedVersion`)
 - [ ] `Kiroku.Store.Schema` — `initializeSchema :: Pool -> Text -> IO ()` (schema-parameterized DDL)
 - [ ] Test: initialize schema, verify tables exist, verify `$all` stream seeded
 

@@ -11,7 +11,7 @@ SELECT e.event_id, e.event_type, e.data, e.created_at,
 FROM stream_events se
 JOIN events e ON e.event_id = se.event_id
 JOIN streams s ON s.stream_id = se.stream_id
-WHERE s.stream_uuid = 'benchcat' || (:stream_num / 10) || '-' || :stream_num
+WHERE s.stream_name = 'benchcat' || (:stream_num / 10) || '-' || :stream_num
   AND se.stream_version > :start_version
 ORDER BY se.stream_version ASC
 LIMIT 100;
