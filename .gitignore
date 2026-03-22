@@ -25,3 +25,10 @@ cabal.project.local~
 # Benchmark results (generated)
 kiroku-store/bench/results/*.txt
 kiroku-store/bench/results/*.json
+# Seihou temp files
+.seihou/*.tmp
+
+# --- seihou:claude-gitignore ---
+.claude/
+CLAUDE.local.md
+# --- /seihou:claude-gitignore ---
