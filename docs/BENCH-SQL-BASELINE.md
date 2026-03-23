@@ -156,6 +156,6 @@ Both are additive — no changes to existing columns, indexes, or write path.
 
 ## Next steps
 
-1. Proceed to Milestone 2: implement Haskell append operations
-2. Compare Haskell append overhead against these SQL baselines (target: < 20% overhead)
+1. ~~Proceed to Milestone 2: implement Haskell append operations~~ **Done.** See `docs/BENCH-HASKELL-APPEND.md`.
+2. ~~Compare Haskell append overhead against these SQL baselines (target: < 20% overhead)~~ **Done.** Gate 2 passed — negative overhead (Haskell is 1.5–5x faster).
 3. Use LATERAL join pattern for `readCategory` in the Haskell API
