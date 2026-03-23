@@ -36,6 +36,26 @@ main = do
                     n <- atomicModifyIORef' counter (\n -> (n + 1, n))
                     pure (StreamName (prefix <> "-" <> T.pack (show n)))
 
+            -- Pre-populate streams for category benchmarks (B10)
+            -- 100 categories × 10 streams × 100 events = 100K events
+            putStrLn "\n--- Pre-populating category data (100 cats × 10 streams × 100 events) ---"
+            catT0 <- getCurrentTime
+            mapM_
+                ( \cat -> do
+                    mapM_
+                        ( \s -> do
+                            let sn = StreamName ("cat" <> T.pack (show cat) <> "-" <> T.pack (show s))
+                            let evts = map (\i -> makeEvent ("E" <> T.pack (show i))) [1 .. 100 :: Int]
+                            r' <- runStoreIO store $ appendToStream sn NoStream evts
+                            forceAppend r'
+                        )
+                        [1 .. 10 :: Int]
+                )
+                [1 .. 100 :: Int]
+            catT1 <- getCurrentTime
+            let catElapsed = realToFrac (diffUTCTime catT1 catT0) :: Double
+            putStrLn $ "  Setup time: " <> show catElapsed <> "s (100K events)"
+
             -- Pre-populate streams for read benchmarks
             -- B4: Single stream with 1000 events
             let readStreamName = StreamName "bench-read-stream"
@@ -134,6 +154,16 @@ main = do
                         r' <- runStoreIO store $ readStreamForward readStreamName (StreamVersion 0) 100
                         forceRead r'
                     , bench "$all forward (100-event page)" $ whnfIO $ do
+                        r' <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
+                        forceRead r'
+                    ]
+                , bgroup
+                    "category"
+                    [ bench "category forward (100-event page)" $ whnfIO $ do
+                        -- Read from cat1 category (has 10 streams × 100 events = 1000 events)
+                        r' <- runStoreIO store $ readCategory (CategoryName "cat1") (GlobalPosition 0) 100
+                        forceRead r'
+                    , bench "$all forward (100-event page, baseline)" $ whnfIO $ do
                         r' <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
                         forceRead r'
                     ]
