@@ -6,6 +6,7 @@ import Data.Generics.Labels ()
 import Data.IORef
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Vector qualified as V
 import EphemeralPg qualified as Pg
 import Hasql.Pool qualified as Pool
 import Hasql.Pool.Config qualified as Pool.Config
@@ -13,9 +14,14 @@ import Kiroku.Store
 import Test.Tasty.Bench
 
 -- | Force evaluation of an append result or fail the benchmark.
-forceResult :: Either AppendError AppendResult -> IO ()
-forceResult (Right r) = (r ^. #streamVersion) `seq` (r ^. #globalPosition) `seq` pure ()
-forceResult (Left e) = error ("Benchmark append failed: " <> show e)
+forceAppend :: Either StoreError AppendResult -> IO ()
+forceAppend (Right r) = (r ^. #streamVersion) `seq` (r ^. #globalPosition) `seq` pure ()
+forceAppend (Left e) = error ("Benchmark append failed: " <> show e)
+
+-- | Force evaluation of a read result or fail the benchmark.
+forceRead :: Either StoreError (V.Vector RecordedEvent) -> IO ()
+forceRead (Right v) = V.length v `seq` pure ()
+forceRead (Left e) = error ("Benchmark read failed: " <> show e)
 
 main :: IO ()
 main = do
@@ -37,6 +43,23 @@ main = do
                 n <- atomicModifyIORef' counter (\n -> (n + 1, n))
                 pure (StreamName (prefix <> "-" <> T.pack (show n)))
 
+        -- Pre-populate streams for read benchmarks
+        -- B4: Single stream with 1000 events
+        let readStreamName = StreamName "bench-read-stream"
+        let readEvents = map (\i -> makeEvent ("E" <> T.pack (show i))) [1 .. 1000 :: Int]
+        r <- runStoreIO store $ appendToStream readStreamName NoStream readEvents
+        forceAppend r
+
+        -- B5: 10 streams with 100 events each for $all reads (1000 total)
+        mapM_
+            ( \s -> do
+                let sn = StreamName ("bench-all-" <> T.pack (show s))
+                let evts = map (\i -> makeEvent ("E" <> T.pack (show i))) [1 .. 100 :: Int]
+                r' <- runStoreIO store $ appendToStream sn NoStream evts
+                forceAppend r'
+            )
+            [1 .. 10 :: Int]
+
         defaultMain
             [ bgroup
                 "append"
@@ -44,45 +67,53 @@ main = do
                     "single-event"
                     [ bench "NoStream (new stream)" $ whnfIO $ do
                         sn <- nextStream "bench-single"
-                        r <- appendToStream store sn NoStream [makeEvent "BenchEvent"]
-                        forceResult r
+                        r' <- runStoreIO store $ appendToStream sn NoStream [makeEvent "BenchEvent"]
+                        forceAppend r'
                     , bench "AnyVersion (new stream)" $ whnfIO $ do
                         sn <- nextStream "bench-any"
-                        r <- appendToStream store sn AnyVersion [makeEvent "BenchEvent"]
-                        forceResult r
+                        r' <- runStoreIO store $ appendToStream sn AnyVersion [makeEvent "BenchEvent"]
+                        forceAppend r'
                     ]
                 , bgroup
                     "batch-10"
                     [ bench "NoStream" $ whnfIO $ do
                         sn <- nextStream "bench-b10"
                         let events = map (\i -> makeEvent ("E" <> T.pack (show i))) [1 .. 10 :: Int]
-                        r <- appendToStream store sn NoStream events
-                        forceResult r
+                        r' <- runStoreIO store $ appendToStream sn NoStream events
+                        forceAppend r'
                     ]
                 , bgroup
                     "batch-100"
                     [ bench "NoStream" $ whnfIO $ do
                         sn <- nextStream "bench-b100"
                         let events = map (\i -> makeEvent ("E" <> T.pack (show i))) [1 .. 100 :: Int]
-                        r <- appendToStream store sn NoStream events
-                        forceResult r
+                        r' <- runStoreIO store $ appendToStream sn NoStream events
+                        forceAppend r'
                     ]
                 , bgroup
                     "sequential"
                     [ bench "10 appends to same stream" $ whnfIO $ do
                         sn <- nextStream "bench-seq"
-                        -- First event creates the stream
-                        r0 <- appendToStream store sn NoStream [makeEvent "Init"]
-                        forceResult r0
+                        r0 <- runStoreIO store $ appendToStream sn NoStream [makeEvent "Init"]
+                        forceAppend r0
                         let Right res0 = r0
                         let go _ 0 = pure ()
                             go v n = do
-                                r <- appendToStream store sn (ExactVersion v) [makeEvent "Seq"]
-                                case r of
+                                r' <- runStoreIO store $ appendToStream sn (ExactVersion v) [makeEvent "Seq"]
+                                case r' of
                                     Right res -> go (res ^. #streamVersion) (n - 1 :: Int)
                                     Left e -> error ("Sequential append failed: " <> show e)
                         go (res0 ^. #streamVersion) 9
                     ]
+                ]
+            , bgroup
+                "read"
+                [ bench "stream forward (100-event page)" $ whnfIO $ do
+                    r' <- runStoreIO store $ readStreamForward readStreamName (StreamVersion 0) 100
+                    forceRead r'
+                , bench "$all forward (100-event page)" $ whnfIO $ do
+                    r' <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
+                    forceRead r'
                 ]
             ]
 

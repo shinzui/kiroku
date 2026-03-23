@@ -1,6 +1,6 @@
 module Kiroku.Store.Error (
-    AppendError (..),
-    -- Internal helpers used by Append module
+    StoreError (..),
+    -- Internal helpers used by Effect module
     mapUsageError,
     emptyResultError,
 ) where
@@ -14,17 +14,17 @@ import Hasql.Errors qualified as Errors
 import Hasql.Pool (UsageError (..))
 import Kiroku.Store.Types
 
--- | Errors that can occur during an append operation.
-data AppendError
+-- | Errors that can occur during store operations.
+data StoreError
     = WrongExpectedVersion !StreamName !ExpectedVersion !StreamVersion
     | StreamNotFound !StreamName
     | StreamAlreadyExists !StreamName
     | DuplicateEvent !EventId
-    | -- | An unexpected error from the database that doesn't map to a known append error.
-      UnexpectedError !Text
+    | -- | A connection or database error.
+      ConnectionError !Text
     deriving stock (Eq, Show, Generic)
 
-{- | Map a hasql UsageError to an AppendError.
+{- | Map a hasql UsageError to an StoreError.
 
 Pattern matches on the error hierarchy:
   UsageError -> SessionUsageError -> StatementSessionError -> ServerStatementError -> ServerError
@@ -35,36 +35,36 @@ PostgreSQL error code mapping:
   23505 (unique_violation) + other                  -> WrongExpectedVersion
   23503 (foreign_key_violation)                     -> StreamNotFound
 -}
-mapUsageError :: Text -> ExpectedVersion -> UsageError -> AppendError
+mapUsageError :: Text -> ExpectedVersion -> UsageError -> StoreError
 mapUsageError streamName expected = \case
     SessionUsageError sessionErr ->
         mapSessionError streamName expected sessionErr
     ConnectionUsageError connErr ->
-        UnexpectedError ("Connection error: " <> T.pack (show connErr))
+        ConnectionError ("Connection error: " <> T.pack (show connErr))
     AcquisitionTimeoutUsageError ->
-        UnexpectedError "Connection pool acquisition timeout"
+        ConnectionError "Connection pool acquisition timeout"
 
-mapSessionError :: Text -> ExpectedVersion -> Errors.SessionError -> AppendError
+mapSessionError :: Text -> ExpectedVersion -> Errors.SessionError -> StoreError
 mapSessionError streamName expected = \case
     Errors.StatementSessionError _ _ _ _ _ stmtErr ->
         mapStatementError streamName expected stmtErr
     other ->
-        UnexpectedError ("Session error: " <> T.pack (show other))
+        ConnectionError ("Session error: " <> T.pack (show other))
 
-mapStatementError :: Text -> ExpectedVersion -> Errors.StatementError -> AppendError
+mapStatementError :: Text -> ExpectedVersion -> Errors.StatementError -> StoreError
 mapStatementError streamName expected = \case
     Errors.ServerStatementError serverErr ->
         mapServerError streamName expected serverErr
     other ->
-        UnexpectedError ("Statement error: " <> T.pack (show other))
+        ConnectionError ("Statement error: " <> T.pack (show other))
 
-mapServerError :: Text -> ExpectedVersion -> Errors.ServerError -> AppendError
+mapServerError :: Text -> ExpectedVersion -> Errors.ServerError -> StoreError
 mapServerError streamName expected (Errors.ServerError code message detail _hint _position)
     | code == "23505" = mapUniqueViolation streamName expected message detail
     | code == "23503" = StreamNotFound (StreamName streamName)
-    | otherwise = UnexpectedError ("Server error " <> code <> ": " <> message)
+    | otherwise = ConnectionError ("Server error " <> code <> ": " <> message)
 
-{- | Map a unique_violation (23505) to an AppendError.
+{- | Map a unique_violation (23505) to an StoreError.
 
 PostgreSQL reports constraint violations with:
   - message: "duplicate key value violates unique constraint \"events_pkey\""
@@ -72,7 +72,7 @@ PostgreSQL reports constraint violations with:
 
 We check both message and detail for the constraint name.
 -}
-mapUniqueViolation :: Text -> ExpectedVersion -> Text -> Maybe Text -> AppendError
+mapUniqueViolation :: Text -> ExpectedVersion -> Text -> Maybe Text -> StoreError
 mapUniqueViolation streamName expected message detail
     | containsConstraint "events_pkey" = DuplicateEvent (extractEventId detail)
     | containsConstraint "ix_streams_stream_name" = StreamAlreadyExists (StreamName streamName)
@@ -100,7 +100,7 @@ or existence check failed silently. Map based on the ExpectedVersion:
   NoStream       -> StreamAlreadyExists (stream already exists)
   AnyVersion     -> should never happen
 -}
-emptyResultError :: Text -> ExpectedVersion -> AppendError
+emptyResultError :: Text -> ExpectedVersion -> StoreError
 emptyResultError streamName = \case
     ExactVersion v ->
         WrongExpectedVersion (StreamName streamName) (ExactVersion v) (StreamVersion 0)
@@ -109,7 +109,7 @@ emptyResultError streamName = \case
     NoStream ->
         StreamAlreadyExists (StreamName streamName)
     AnyVersion ->
-        UnexpectedError "AnyVersion append returned empty result (unexpected)"
+        ConnectionError "AnyVersion append returned empty result (unexpected)"
 
 {- | Extract a UUID from a PostgreSQL detail string like:
 "Key (event_id)=(01234567-89ab-7def-8012-34567890abcd) already exists."

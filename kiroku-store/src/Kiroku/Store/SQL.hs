@@ -1,18 +1,26 @@
 {-# LANGUAGE MultilineStrings #-}
 
 module Kiroku.Store.SQL (
+    -- * Append statements
     AppendParams (..),
     appendExpectedVersion,
     appendStreamExists,
     appendNoStream,
     appendAnyVersion,
+
+    -- * Read statements
+    readStreamForwardStmt,
+    readStreamBackwardStmt,
+    readAllForwardStmt,
+    readAllBackwardStmt,
+    getStreamStmt,
 ) where
 
 import Control.Lens ((^.))
 import Data.Aeson (Value)
 import Data.Functor.Contravariant ((>$<))
 import Data.Generics.Labels ()
-import Data.Int (Int64)
+import Data.Int (Int32, Int64)
 import Data.Text (Text)
 import Data.Time (UTCTime)
 import Data.UUID (UUID)
@@ -313,4 +321,174 @@ appendAnyVersionSQL =
            au.initial_global_version + (SELECT count(*) FROM new_events)
     FROM stream_upsert su
     CROSS JOIN all_update au
+    """
+
+-- ---------------------------------------------------------------------------
+-- Read Statements
+-- ---------------------------------------------------------------------------
+
+-- | Shared decoder for a RecordedEvent row (11 columns).
+recordedEventRow :: D.Row RecordedEvent
+recordedEventRow =
+    RecordedEvent
+        <$> (EventId <$> D.column (D.nonNullable D.uuid))
+        <*> (EventType <$> D.column (D.nonNullable D.text))
+        <*> (StreamVersion <$> D.column (D.nonNullable D.int8))
+        <*> (GlobalPosition <$> D.column (D.nonNullable D.int8))
+        <*> (StreamId <$> D.column (D.nonNullable D.int8))
+        <*> (StreamVersion <$> D.column (D.nonNullable D.int8))
+        <*> D.column (D.nonNullable D.jsonb)
+        <*> D.column (D.nullable D.jsonb)
+        <*> D.column (D.nullable D.uuid)
+        <*> D.column (D.nullable D.uuid)
+        <*> D.column (D.nonNullable D.timestamptz)
+
+-- | Shared decoder for a StreamInfo row (5 columns).
+streamInfoRow :: D.Row StreamInfo
+streamInfoRow =
+    StreamInfo
+        <$> (StreamId <$> D.column (D.nonNullable D.int8))
+        <*> (StreamName <$> D.column (D.nonNullable D.text))
+        <*> (StreamVersion <$> D.column (D.nonNullable D.int8))
+        <*> D.column (D.nonNullable D.timestamptz)
+        <*> D.column (D.nullable D.timestamptz)
+
+-- | Encoder for stream read params: (stream_name, start_version, limit).
+readStreamEncoder :: E.Params (Text, Int64, Int32)
+readStreamEncoder =
+    ((\(a, _, _) -> a) >$< E.param (E.nonNullable E.text))
+        <> ((\(_, b, _) -> b) >$< E.param (E.nonNullable E.int8))
+        <> ((\(_, _, c) -> c) >$< E.param (E.nonNullable E.int4))
+
+-- | Encoder for $all read params: (start_position, limit).
+readAllEncoder :: E.Params (Int64, Int32)
+readAllEncoder =
+    (fst >$< E.param (E.nonNullable E.int8))
+        <> (snd >$< E.param (E.nonNullable E.int4))
+
+-- | Read events from a named stream in forward order.
+readStreamForwardStmt :: Statement (Text, Int64, Int32) (Vector RecordedEvent)
+readStreamForwardStmt =
+    preparable
+        readStreamForwardSQL
+        readStreamEncoder
+        (D.rowVector recordedEventRow)
+
+-- | Read events from a named stream in backward order.
+readStreamBackwardStmt :: Statement (Text, Int64, Int32) (Vector RecordedEvent)
+readStreamBackwardStmt =
+    preparable
+        readStreamBackwardSQL
+        readStreamEncoder
+        (D.rowVector recordedEventRow)
+
+-- | Read events from the global $all stream in forward order.
+readAllForwardStmt :: Statement (Int64, Int32) (Vector RecordedEvent)
+readAllForwardStmt =
+    preparable
+        readAllForwardSQL
+        readAllEncoder
+        (D.rowVector recordedEventRow)
+
+-- | Read events from the global $all stream in backward order.
+readAllBackwardStmt :: Statement (Int64, Int32) (Vector RecordedEvent)
+readAllBackwardStmt =
+    preparable
+        readAllBackwardSQL
+        readAllEncoder
+        (D.rowVector recordedEventRow)
+
+-- | Get stream metadata by name.
+getStreamStmt :: Statement Text (Maybe StreamInfo)
+getStreamStmt =
+    preparable
+        getStreamSQL
+        (E.param (E.nonNullable E.text))
+        (D.rowMaybe streamInfoRow)
+
+-- ---------------------------------------------------------------------------
+-- Read SQL Templates
+-- ---------------------------------------------------------------------------
+
+{- | Read from a named stream in forward order.
+Resolves stream name to ID via subquery, joins stream_events with events,
+filters on stream_version > start_version, orders ascending, limits.
+For stream reads, global_position is set to 0 (not available without $all join).
+-}
+readStreamForwardSQL :: Text
+readStreamForwardSQL =
+    """
+    SELECT e.event_id, e.event_type,
+           se.stream_version, 0::bigint AS global_position,
+           se.original_stream_id, se.original_stream_version,
+           e.data, e.metadata, e.causation_id, e.correlation_id,
+           e.created_at
+    FROM stream_events se
+    JOIN events e ON e.event_id = se.event_id
+    WHERE se.stream_id = (SELECT stream_id FROM streams WHERE stream_name = $1)
+      AND se.stream_version > $2
+    ORDER BY se.stream_version ASC
+    LIMIT $3
+    """
+
+-- | Read from a named stream in backward order.
+readStreamBackwardSQL :: Text
+readStreamBackwardSQL =
+    """
+    SELECT e.event_id, e.event_type,
+           se.stream_version, 0::bigint AS global_position,
+           se.original_stream_id, se.original_stream_version,
+           e.data, e.metadata, e.causation_id, e.correlation_id,
+           e.created_at
+    FROM stream_events se
+    JOIN events e ON e.event_id = se.event_id
+    WHERE se.stream_id = (SELECT stream_id FROM streams WHERE stream_name = $1)
+      AND se.stream_version > $2
+    ORDER BY se.stream_version DESC
+    LIMIT $3
+    """
+
+{- | Read from the global $all stream in forward order.
+stream_id = 0 is the $all stream. stream_version on $all is the global position.
+-}
+readAllForwardSQL :: Text
+readAllForwardSQL =
+    """
+    SELECT e.event_id, e.event_type,
+           se.stream_version, se.stream_version AS global_position,
+           se.original_stream_id, se.original_stream_version,
+           e.data, e.metadata, e.causation_id, e.correlation_id,
+           e.created_at
+    FROM stream_events se
+    JOIN events e ON e.event_id = se.event_id
+    WHERE se.stream_id = 0
+      AND se.stream_version > $1
+    ORDER BY se.stream_version ASC
+    LIMIT $2
+    """
+
+-- | Read from the global $all stream in backward order.
+readAllBackwardSQL :: Text
+readAllBackwardSQL =
+    """
+    SELECT e.event_id, e.event_type,
+           se.stream_version, se.stream_version AS global_position,
+           se.original_stream_id, se.original_stream_version,
+           e.data, e.metadata, e.causation_id, e.correlation_id,
+           e.created_at
+    FROM stream_events se
+    JOIN events e ON e.event_id = se.event_id
+    WHERE se.stream_id = 0
+      AND se.stream_version > $1
+    ORDER BY se.stream_version DESC
+    LIMIT $2
+    """
+
+-- | Get stream metadata by name.
+getStreamSQL :: Text
+getStreamSQL =
+    """
+    SELECT stream_id, stream_name, stream_version, created_at, deleted_at
+    FROM streams
+    WHERE stream_name = $1
     """

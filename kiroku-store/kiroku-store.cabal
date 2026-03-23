@@ -19,7 +19,9 @@ library
     Kiroku.Store
     Kiroku.Store.Append
     Kiroku.Store.Connection
+    Kiroku.Store.Effect
     Kiroku.Store.Error
+    Kiroku.Store.Read
     Kiroku.Store.Schema
     Kiroku.Store.Types
 
@@ -28,6 +30,7 @@ library
     , aeson              >=2.1
     , base               >=4.18   && <5
     , bytestring         >=0.11
+    , effectful-core     >=2.4
     , file-embed         >=0.0.15
     , generic-lens       >=2.2
     , hasql              >=1.8
@@ -80,3 +83,4 @@ benchmark kiroku-store-bench
     , tasty-bench   >=0.4
     , text          >=2.0
     , uuid
+    , vector        >=0.13
