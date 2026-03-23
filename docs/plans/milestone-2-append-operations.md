@@ -36,7 +36,7 @@ global positions.
 - [x] M2.6: Update `Kiroku.Store` re-exports to include `Append` and `Schema` (2026-03-22)
 - [x] M2.7: Update `kiroku-store.cabal` with new modules and dependencies (2026-03-22)
 - [x] M2.8: Integration tests for all append variants and error paths (2026-03-22)
-- [ ] M2.9: Benchmark gate — append throughput vs SQL baseline
+- [x] M2.9: Benchmark gate — append throughput vs SQL baseline (2026-03-22)
 
 
 ## Surprises & Discoveries
@@ -127,7 +127,43 @@ global positions.
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+### Milestone 2 Complete (2026-03-22)
+
+All 9 sub-milestones completed. The append write path is fully operational.
+
+**What was achieved:**
+- 4 append CTE variants working (ExactVersion, StreamExists, NoStream, AnyVersion)
+- Schema initialization via embedded DDL (file-embed)
+- UUIDv7 pre-generation via mmzk-typeid
+- PostgreSQL error code mapping (23505, 23503)
+- 11 integration tests passing via ephemeral-pg
+- Benchmark gate passed with negative overhead vs SQL baseline
+
+**Benchmark results:**
+
+| Operation | SQL Baseline | Haskell | Overhead |
+|---|---|---|---|
+| Single-event append | 328μs / 2,620 TPS | 64.8μs / 15,432 TPS | -80% (faster) |
+| 10-event batch | 586μs / 14,939 ev/s | 202μs / 49,505 ev/s | -66% (faster) |
+| 100-event batch | 2.28ms / 43,166 ev/s | 1.55ms / 64,516 ev/s | -32% (faster) |
+
+The Haskell implementation is faster than the pgbench SQL baseline because:
+1. hasql prepared statements avoid per-query SQL parsing
+2. Client-side UUIDv7 generation is cheaper than PL/pgSQL random generation
+3. Binary protocol encoding is more efficient than text format
+
+**Lessons learned:**
+- Data-modifying CTEs cannot see each other's changes — upsert is the correct
+  pattern for create-or-append semantics
+- `OverloadedRecordDot` requires explicit pragma even with GHC2024
+- Error mapping needs both `message` and `detail` fields from PostgreSQL
+- `-threaded` RTS is required for hasql-pool (registerDelay)
+
+**What remains for the store (future milestones):**
+- Read operations (Milestone 3)
+- Public API handle (Milestone 4)
+- Links & categories (Milestone 5)
+- Lifecycle & deletes (Milestone 6)
 
 
 ## Context and Orientation
