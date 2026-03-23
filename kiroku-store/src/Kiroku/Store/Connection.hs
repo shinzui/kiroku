@@ -14,6 +14,7 @@ import Hasql.Connection.Settings qualified as Conn
 import Hasql.Pool (Pool)
 import Hasql.Pool qualified as Pool
 import Hasql.Pool.Config qualified as Pool.Config
+import Kiroku.Store.Schema (initializeSchema)
 
 -- | Connection settings for the store.
 data ConnectionSettings = ConnectionSettings
@@ -55,10 +56,12 @@ withStore settings = bracket acquire release
 
     acquire = do
         p <- Pool.acquire poolConfig
+        let s = settings ^. #schema
+        initializeSchema p s
         pure
             KirokuStore
                 { pool = p
-                , schema = settings ^. #schema
+                , schema = s
                 }
 
     release store =

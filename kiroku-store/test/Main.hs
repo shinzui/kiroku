@@ -9,8 +9,6 @@ import Data.Text qualified as T
 import Data.UUID qualified as UUID
 import Data.Vector qualified as V
 import EphemeralPg qualified as Pg
-import Hasql.Pool qualified as Pool
-import Hasql.Pool.Config qualified as Pool.Config
 import Kiroku.Store
 import Test.Hspec
 
@@ -241,6 +239,46 @@ main = hspec $ do
                 Right info <- runStoreIO store $ getStream (StreamName "no-such-stream")
                 info `shouldBe` Nothing
 
+        describe "integration: full lifecycle through withStore" $ do
+            it "append, read forward, read $all, getStream — all through public API" $ \store -> do
+                -- Append events to two streams
+                Right _ <-
+                    runStoreIO store $
+                        appendToStream
+                            (StreamName "integ-orders")
+                            NoStream
+                            [ makeEvent "OrderCreated" (Aeson.object [("id", Aeson.String "1")])
+                            , makeEvent "OrderShipped" (Aeson.object [("id", Aeson.String "1")])
+                            ]
+                Right _ <-
+                    runStoreIO store $
+                        appendToStream
+                            (StreamName "integ-users")
+                            NoStream
+                            [ makeEvent "UserRegistered" (Aeson.object [("name", Aeson.String "alice")])
+                            ]
+
+                -- Read from a named stream
+                Right orders <- runStoreIO store $ readStreamForward (StreamName "integ-orders") (StreamVersion 0) 100
+                V.length orders `shouldBe` 2
+                (V.head orders ^. #eventType) `shouldBe` EventType "OrderCreated"
+                (orders V.! 1 ^. #eventType) `shouldBe` EventType "OrderShipped"
+
+                -- Read from $all — should see all 3 events in global order
+                Right allEvents <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
+                V.length allEvents `shouldBe` 3
+                (V.head allEvents ^. #globalPosition) `shouldBe` GlobalPosition 1
+                (allEvents V.! 2 ^. #globalPosition) `shouldBe` GlobalPosition 3
+
+                -- Query stream metadata
+                Right orderInfo <- runStoreIO store $ getStream (StreamName "integ-orders")
+                case orderInfo of
+                    Just si -> (si ^. #version) `shouldBe` StreamVersion 2
+                    Nothing -> expectationFailure "Expected stream info"
+
+                Right noInfo <- runStoreIO store $ getStream (StreamName "nonexistent")
+                noInfo `shouldBe` Nothing
+
 -- | Create a simple EventData with auto-generated ID.
 makeEvent :: Text -> Value -> EventData
 makeEvent typ payload =
@@ -253,22 +291,14 @@ makeEvent typ payload =
         , correlationId = Nothing
         }
 
-{- | Bracket that creates an ephemeral PostgreSQL database, initializes the
-schema, and provides a KirokuStore handle.
+{- | Bracket that creates an ephemeral PostgreSQL database and provides a
+KirokuStore handle. Uses 'withStore' which auto-initializes the schema.
 -}
 withTestStore :: (KirokuStore -> IO ()) -> IO ()
 withTestStore action = do
     result <- Pg.withCached $ \db -> do
-        let poolConfig =
-                Pool.Config.settings
-                    [ Pool.Config.staticConnectionSettings (Pg.connectionSettings db)
-                    , Pool.Config.size 4
-                    ]
-        pool <- Pool.acquire poolConfig
-        initializeSchema pool "public"
-        let store = KirokuStore{pool = pool, schema = "public"}
-        action store
-        Pool.release pool
+        let settings = defaultConnectionSettings (Pg.connectionString db)
+        withStore settings action
     case result of
         Left err -> error ("Failed to start ephemeral PostgreSQL: " <> show err)
         Right () -> pure ()
