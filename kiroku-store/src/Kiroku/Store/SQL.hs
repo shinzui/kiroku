@@ -1,5 +1,4 @@
 {-# LANGUAGE MultilineStrings #-}
-{-# LANGUAGE OverloadedRecordDot #-}
 
 module Kiroku.Store.SQL (
     AppendParams (..),
@@ -9,8 +8,10 @@ module Kiroku.Store.SQL (
     appendAnyVersion,
 ) where
 
+import Control.Lens ((^.))
 import Data.Aeson (Value)
 import Data.Functor.Contravariant ((>$<))
+import Data.Generics.Labels ()
 import Data.Int (Int64)
 import Data.Text (Text)
 import Data.Time (UTCTime)
@@ -38,14 +39,14 @@ data AppendParams = AppendParams
 -- | Encoder for the common 8 parameters shared by all append variants.
 appendParamsEncoder :: E.Params AppendParams
 appendParamsEncoder =
-    ((\p -> p.eventIds) >$< E.param (E.nonNullable (E.foldableArray (E.nonNullable E.uuid))))
-        <> ((\p -> p.eventTypes) >$< E.param (E.nonNullable (E.foldableArray (E.nonNullable E.text))))
-        <> ((\p -> p.causationIds) >$< E.param (E.nonNullable (E.foldableArray (E.nullable E.uuid))))
-        <> ((\p -> p.correlationIds) >$< E.param (E.nonNullable (E.foldableArray (E.nullable E.uuid))))
-        <> ((\p -> p.payloads) >$< E.param (E.nonNullable (E.foldableArray (E.nonNullable E.jsonb))))
-        <> ((\p -> p.metadatas) >$< E.param (E.nonNullable (E.foldableArray (E.nullable E.jsonb))))
-        <> ((\p -> p.createdAts) >$< E.param (E.nonNullable (E.foldableArray (E.nonNullable E.timestamptz))))
-        <> ((\p -> p.streamName) >$< E.param (E.nonNullable E.text))
+    ((^. #eventIds) >$< E.param (E.nonNullable (E.foldableArray (E.nonNullable E.uuid))))
+        <> ((^. #eventTypes) >$< E.param (E.nonNullable (E.foldableArray (E.nonNullable E.text))))
+        <> ((^. #causationIds) >$< E.param (E.nonNullable (E.foldableArray (E.nullable E.uuid))))
+        <> ((^. #correlationIds) >$< E.param (E.nonNullable (E.foldableArray (E.nullable E.uuid))))
+        <> ((^. #payloads) >$< E.param (E.nonNullable (E.foldableArray (E.nonNullable E.jsonb))))
+        <> ((^. #metadatas) >$< E.param (E.nonNullable (E.foldableArray (E.nullable E.jsonb))))
+        <> ((^. #createdAts) >$< E.param (E.nonNullable (E.foldableArray (E.nonNullable E.timestamptz))))
+        <> ((^. #streamName) >$< E.param (E.nonNullable E.text))
 
 -- | Encoder for append_expected_version: base params + expected version (Int64).
 appendExpectedEncoder :: E.Params (AppendParams, Int64)

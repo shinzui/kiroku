@@ -1,8 +1,8 @@
-{-# LANGUAGE OverloadedRecordDot #-}
-
 module Main where
 
+import Control.Lens ((^.))
 import Data.Aeson qualified as Aeson
+import Data.Generics.Labels ()
 import Data.IORef
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -14,7 +14,7 @@ import Test.Tasty.Bench
 
 -- | Force evaluation of an append result or fail the benchmark.
 forceResult :: Either AppendError AppendResult -> IO ()
-forceResult (Right r) = r.streamVersion `seq` r.globalPosition `seq` pure ()
+forceResult (Right r) = (r ^. #streamVersion) `seq` (r ^. #globalPosition) `seq` pure ()
 forceResult (Left e) = error ("Benchmark append failed: " <> show e)
 
 main :: IO ()
@@ -71,6 +71,7 @@ main = do
                     "sequential"
                     [ bench "10 appends to same stream" $ whnfIO $ do
                         sn <- nextStream "bench-seq"
+                        -- First event creates the stream
                         r0 <- appendToStream store sn NoStream [makeEvent "Init"]
                         forceResult r0
                         let Right res0 = r0
@@ -78,9 +79,9 @@ main = do
                             go v n = do
                                 r <- appendToStream store sn (ExactVersion v) [makeEvent "Seq"]
                                 case r of
-                                    Right res -> go res.streamVersion (n - 1 :: Int)
+                                    Right res -> go (res ^. #streamVersion) (n - 1 :: Int)
                                     Left e -> error ("Sequential append failed: " <> show e)
-                        go res0.streamVersion 9
+                        go (res0 ^. #streamVersion) 9
                     ]
                 ]
             ]

@@ -1,16 +1,17 @@
-{-# LANGUAGE OverloadedRecordDot #-}
-
 module Kiroku.Store.Append (
     appendToStream,
 ) where
 
+import Control.Lens ((^.))
 import Data.Aeson (Value)
+import Data.Generics.Labels ()
 import Data.Maybe (isNothing)
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import Data.UUID (UUID)
 import Data.UUID.V7 qualified as V7
 import Data.Vector qualified as V
+import GHC.Generics (Generic)
 import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Kiroku.Store.Connection (KirokuStore (..))
@@ -47,8 +48,7 @@ appendToStream store (StreamName name) expected events = do
     let params = buildAppendParams name now prepared
 
     -- 3. Run the appropriate CTE variant
-    let thePool = store.pool
-    result <- Pool.use thePool $ case expected of
+    result <- Pool.use (store ^. #pool) $ case expected of
         ExactVersion (StreamVersion v) ->
             Session.statement (params, v) SQL.appendExpectedVersion
         StreamExists ->
@@ -76,6 +76,7 @@ data PreparedEvent = PreparedEvent
     , peCausationId :: !(Maybe UUID)
     , peCorrelationId :: !(Maybe UUID)
     }
+    deriving stock (Generic)
 
 {- | Prepare events by generating UUIDv7s for any event that doesn't
 have a caller-supplied event ID.
@@ -106,12 +107,12 @@ prepareEvents events = do
 buildAppendParams :: Text -> UTCTime -> [PreparedEvent] -> SQL.AppendParams
 buildAppendParams name now prepared =
     SQL.AppendParams
-        { eventIds = V.fromList (map (\e -> e.peEventId) prepared)
-        , eventTypes = V.fromList (map (\e -> let EventType t = e.peEventType in t) prepared)
-        , causationIds = V.fromList (map (\e -> e.peCausationId) prepared)
-        , correlationIds = V.fromList (map (\e -> e.peCorrelationId) prepared)
-        , payloads = V.fromList (map (\e -> e.pePayload) prepared)
-        , metadatas = V.fromList (map (\e -> e.peMetadata) prepared)
+        { eventIds = V.fromList (map (^. #peEventId) prepared)
+        , eventTypes = V.fromList (map (\e -> let EventType t = e ^. #peEventType in t) prepared)
+        , causationIds = V.fromList (map (^. #peCausationId) prepared)
+        , correlationIds = V.fromList (map (^. #peCorrelationId) prepared)
+        , payloads = V.fromList (map (^. #pePayload) prepared)
+        , metadatas = V.fromList (map (^. #peMetadata) prepared)
         , createdAts = V.fromList (replicate (length prepared) now)
         , streamName = name
         }

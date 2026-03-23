@@ -52,10 +52,12 @@ test-suite kiroku-store-test
     , aeson
     , base          >=4.18 && <5
     , ephemeral-pg  >=0.2
+    , generic-lens  >=2.2
     , hasql         >=1.8
     , hasql-pool    >=1.2
     , hspec         >=2.10
     , kiroku-store
+    , lens          >=5.2
     , text          >=2.0
     , uuid
     , vector        >=0.13
@@ -71,8 +73,10 @@ benchmark kiroku-store-bench
     , base          >=4.18 && <5
     , deepseq       >=1.4
     , ephemeral-pg  >=0.2
+    , generic-lens  >=2.2
     , hasql-pool    >=1.2
     , kiroku-store
+    , lens          >=5.2
     , tasty-bench   >=0.4
     , text          >=2.0
     , uuid

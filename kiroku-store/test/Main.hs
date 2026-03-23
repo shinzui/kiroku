@@ -1,9 +1,9 @@
-{-# LANGUAGE OverloadedRecordDot #-}
-
 module Main where
 
+import Control.Lens ((^.))
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
+import Data.Generics.Labels ()
 import Data.Text (Text)
 import Data.UUID qualified as UUID
 import EphemeralPg qualified as Pg
@@ -23,8 +23,8 @@ main = hspec $ do
                     case result of
                         Left err -> expectationFailure ("Expected success, got: " <> show err)
                         Right r -> do
-                            r.streamVersion `shouldBe` StreamVersion 1
-                            r.globalPosition `shouldBe` GlobalPosition 1
+                            (r ^. #streamVersion) `shouldBe` StreamVersion 1
+                            (r ^. #globalPosition) `shouldBe` GlobalPosition 1
 
                 it "fails when stream already exists" $ \store -> do
                     let event = makeEvent "OrderCreated" (Aeson.object [])
@@ -39,15 +39,15 @@ main = hspec $ do
                 it "appends when version matches" $ \store -> do
                     let event1 = makeEvent "OrderCreated" (Aeson.object [])
                     Right r1 <- appendToStream store (StreamName "order-789") NoStream [event1]
-                    r1.streamVersion `shouldBe` StreamVersion 1
+                    (r1 ^. #streamVersion) `shouldBe` StreamVersion 1
 
                     let event2 = makeEvent "OrderUpdated" (Aeson.object [])
                     result <- appendToStream store (StreamName "order-789") (ExactVersion (StreamVersion 1)) [event2]
                     case result of
                         Left err -> expectationFailure ("Expected success, got: " <> show err)
                         Right r -> do
-                            r.streamVersion `shouldBe` StreamVersion 2
-                            r.globalPosition `shouldBe` GlobalPosition 2
+                            (r ^. #streamVersion) `shouldBe` StreamVersion 2
+                            (r ^. #globalPosition) `shouldBe` GlobalPosition 2
 
                 it "fails on version conflict" $ \store -> do
                     let event1 = makeEvent "OrderCreated" (Aeson.object [])
@@ -68,7 +68,7 @@ main = hspec $ do
                     result <- appendToStream store (StreamName "stream-exists-test") StreamExists [event2]
                     case result of
                         Left err -> expectationFailure ("Expected success, got: " <> show err)
-                        Right r -> r.streamVersion `shouldBe` StreamVersion 2
+                        Right r -> (r ^. #streamVersion) `shouldBe` StreamVersion 2
 
                 it "fails when stream does not exist" $ \store -> do
                     let event = makeEvent "Created" (Aeson.object [])
@@ -83,7 +83,7 @@ main = hspec $ do
                     result <- appendToStream store (StreamName "any-new") AnyVersion [event]
                     case result of
                         Left err -> expectationFailure ("Expected success, got: " <> show err)
-                        Right r -> r.streamVersion `shouldBe` StreamVersion 1
+                        Right r -> (r ^. #streamVersion) `shouldBe` StreamVersion 1
 
                 it "appends to an existing stream" $ \store -> do
                     let event1 = makeEvent "Created" (Aeson.object [])
@@ -93,7 +93,7 @@ main = hspec $ do
                     result <- appendToStream store (StreamName "any-existing") AnyVersion [event2]
                     case result of
                         Left err -> expectationFailure ("Expected success, got: " <> show err)
-                        Right r -> r.streamVersion `shouldBe` StreamVersion 2
+                        Right r -> (r ^. #streamVersion) `shouldBe` StreamVersion 2
 
             describe "batch append" $ do
                 it "appends multiple events with sequential versions" $ \store -> do
@@ -106,22 +106,22 @@ main = hspec $ do
                     case result of
                         Left err -> expectationFailure ("Expected success, got: " <> show err)
                         Right r -> do
-                            r.streamVersion `shouldBe` StreamVersion 3
-                            r.globalPosition `shouldBe` GlobalPosition 3
+                            (r ^. #streamVersion) `shouldBe` StreamVersion 3
+                            (r ^. #globalPosition) `shouldBe` GlobalPosition 3
 
             describe "global position contiguity" $ do
                 it "assigns contiguous global positions across streams" $ \store -> do
                     let event1 = makeEvent "A" (Aeson.object [])
                     Right r1 <- appendToStream store (StreamName "stream-a") NoStream [event1]
-                    r1.globalPosition `shouldBe` GlobalPosition 1
+                    (r1 ^. #globalPosition) `shouldBe` GlobalPosition 1
 
                     let event2 = makeEvent "B" (Aeson.object [])
                     Right r2 <- appendToStream store (StreamName "stream-b") NoStream [event2]
-                    r2.globalPosition `shouldBe` GlobalPosition 2
+                    (r2 ^. #globalPosition) `shouldBe` GlobalPosition 2
 
                     let event3 = makeEvent "C" (Aeson.object [])
                     Right r3 <- appendToStream store (StreamName "stream-c") NoStream [event3]
-                    r3.globalPosition `shouldBe` GlobalPosition 3
+                    (r3 ^. #globalPosition) `shouldBe` GlobalPosition 3
 
             describe "duplicate event ID" $ do
                 it "rejects duplicate event IDs" $ \store -> do
