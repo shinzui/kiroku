@@ -17,6 +17,7 @@ library
   import:          common
   exposed-modules:
     Kiroku.Store
+    Kiroku.Store.Append
     Kiroku.Store.Connection
     Kiroku.Store.Error
     Kiroku.Store.Schema
@@ -25,13 +26,15 @@ library
   other-modules:   Kiroku.Store.SQL
   build-depends:
     , aeson              >=2.1
-    , base               >=4.18 && <5
+    , base               >=4.18   && <5
     , bytestring         >=0.11
+    , file-embed         >=0.0.15
     , generic-lens       >=2.2
     , hasql              >=1.8
     , hasql-pool         >=1.2
     , hasql-transaction  >=1.1
     , lens               >=5.2
+    , mmzk-typeid        >=0.6
     , text               >=2.0
     , time               >=1.12
     , uuid               >=1.3
@@ -47,9 +50,14 @@ test-suite kiroku-store-test
   build-depends:
     , aeson
     , base          >=4.18 && <5
+    , ephemeral-pg  >=0.2
+    , hasql         >=1.8
+    , hasql-pool    >=1.2
     , hspec         >=2.10
     , kiroku-store
+    , text          >=2.0
     , uuid
+    , vector        >=0.13
 
 benchmark kiroku-store-bench
   import:         common

@@ -1,14 +1,37 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Kiroku.Store.Schema (
+    SchemaInitError (..),
     initializeSchema,
 ) where
 
+import Control.Exception (Exception, throwIO)
+import Data.ByteString (ByteString)
+import Data.FileEmbed (embedFile)
 import Data.Text (Text)
-import Hasql.Pool (Pool)
+import Data.Text.Encoding qualified as TE
+import Hasql.Pool (Pool, UsageError)
+import Hasql.Pool qualified as Pool
+import Hasql.Session qualified as Session
+
+-- | Exception thrown when schema initialization fails.
+newtype SchemaInitError = SchemaInitError UsageError
+    deriving stock (Show)
+    deriving anyclass (Exception)
 
 {- | Initialize the event store schema in the given PostgreSQL schema.
 Idempotent — safe to call on every startup.
 -}
 initializeSchema :: Pool -> Text -> IO ()
-initializeSchema _pool _schema =
-    -- TODO: Execute DDL from DESIGN.md, parameterized by schema name
-    pure ()
+initializeSchema pool _schema = do
+    result <- Pool.use pool (Session.script schemaDDL)
+    case result of
+        Left err -> throwIO (SchemaInitError err)
+        Right () -> pure ()
+
+-- | Schema DDL embedded at compile time from sql/schema.sql.
+schemaDDLBytes :: ByteString
+schemaDDLBytes = $(embedFile "sql/schema.sql")
+
+schemaDDL :: Text
+schemaDDL = TE.decodeUtf8 schemaDDLBytes
