@@ -28,6 +28,8 @@ import Effectful.Error.Static (Error, runErrorNoCallStack, throwError)
 import GHC.Generics (Generic)
 import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
+import Hasql.Transaction qualified as Tx
+import Hasql.Transaction.Sessions qualified as TxSessions
 import Kiroku.Store.Connection (KirokuStore (..))
 import Kiroku.Store.Error (StoreError (..), emptyResultError, mapUsageError)
 import Kiroku.Store.SQL qualified as SQL
@@ -45,6 +47,9 @@ data Store :: Effect where
     ReadAllForward :: GlobalPosition -> Int32 -> Store m (Vector RecordedEvent)
     ReadAllBackward :: GlobalPosition -> Int32 -> Store m (Vector RecordedEvent)
     GetStream :: StreamName -> Store m (Maybe StreamInfo)
+    LinkToStream :: StreamName -> [EventId] -> Store m LinkResult
+    ReadCategoryForward :: CategoryName -> GlobalPosition -> Int32 -> Store m (Vector RecordedEvent)
+    AppendMultiStream :: [(StreamName, ExpectedVersion, [EventData])] -> Store m [AppendResult]
 
 type instance DispatchOf Store = Dynamic
 
@@ -119,6 +124,69 @@ runStorePool store = interpret_ $ \case
         case result of
             Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
             Right info -> pure info
+    LinkToStream (StreamName name) eventIds -> do
+        let uuids = V.fromList [uid | EventId uid <- eventIds]
+        result <-
+            Eff.liftIO $
+                Pool.use (store ^. #pool) $
+                    Session.statement (uuids, name) SQL.linkToStreamStmt
+        case result of
+            Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
+            Right linkResult -> pure linkResult
+    ReadCategoryForward (CategoryName cat) (GlobalPosition startPos) limit -> do
+        result <-
+            Eff.liftIO $
+                Pool.use (store ^. #pool) $
+                    Session.statement (startPos, cat, limit) SQL.readCategoryForwardStmt
+        case result of
+            Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
+            Right events -> pure events
+    AppendMultiStream ops -> do
+        now <- Eff.liftIO getCurrentTime
+        -- Prepare all events for all streams
+        preparedOps <-
+            Eff.liftIO $
+                mapM
+                    ( \(sn, ev, evts) -> do
+                        prepared <- prepareEvents evts
+                        pure (sn, ev, prepared)
+                    )
+                    ops
+        let txn =
+                mapM
+                    ( \(StreamName name, expected, prepared) -> do
+                        let params = buildAppendParams name now prepared
+                        case expected of
+                            ExactVersion (StreamVersion v) ->
+                                Tx.statement (params, v) SQL.appendExpectedVersion
+                            StreamExists ->
+                                Tx.statement params SQL.appendStreamExists
+                            NoStream ->
+                                Tx.statement params SQL.appendNoStream
+                            AnyVersion ->
+                                Tx.statement params SQL.appendAnyVersion
+                    )
+                    preparedOps
+        result <-
+            Eff.liftIO $
+                Pool.use (store ^. #pool) $
+                    TxSessions.transaction TxSessions.ReadCommitted TxSessions.Write txn
+        case result of
+            Left usageErr -> case ops of
+                ((StreamName firstName, firstExpected, _) : _) ->
+                    throwError (mapUsageError firstName firstExpected usageErr)
+                [] ->
+                    throwError (ConnectionError (T.pack (show usageErr)))
+            Right results -> do
+                -- Check for any Nothing results (version conflicts)
+                let indexed = zip ops results
+                mapM
+                    ( \((StreamName sn, ev, _), mResult) ->
+                        case mResult of
+                            Nothing -> throwError (emptyResultError sn ev)
+                            Just r -> pure r
+                    )
+                    indexed
 
 -- | Convenience: run a Store computation to IO.
 runStoreIO ::

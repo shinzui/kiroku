@@ -10,6 +10,8 @@ module Kiroku.Store.Types (
     RecordedEvent (..),
     StreamInfo (..),
     AppendResult (..),
+    LinkResult (..),
+    CategoryName (..),
 ) where
 
 import Data.Aeson (Value)
@@ -102,3 +104,14 @@ data AppendResult = AppendResult
     , globalPosition :: !GlobalPosition
     }
     deriving stock (Eq, Show, Generic)
+
+-- | Result of a successful link operation.
+data LinkResult = LinkResult
+    { streamId :: !StreamId
+    , streamVersion :: !StreamVersion
+    }
+    deriving stock (Eq, Show, Generic)
+
+-- | Category prefix of a stream name (the part before the first @-@).
+newtype CategoryName = CategoryName Text
+    deriving stock (Eq, Ord, Show, Generic)

@@ -8,11 +8,15 @@ module Kiroku.Store.SQL (
     appendNoStream,
     appendAnyVersion,
 
+    -- * Link statements
+    linkToStreamStmt,
+
     -- * Read statements
     readStreamForwardStmt,
     readStreamBackwardStmt,
     readAllForwardStmt,
     readAllBackwardStmt,
+    readCategoryForwardStmt,
     getStreamStmt,
 ) where
 
@@ -491,4 +495,96 @@ getStreamSQL =
     SELECT stream_id, stream_name, stream_version, created_at, deleted_at
     FROM streams
     WHERE stream_name = $1
+    """
+
+-- ---------------------------------------------------------------------------
+-- Link Statements
+-- ---------------------------------------------------------------------------
+
+-- | Link existing events into a target stream (upsert semantics).
+linkToStreamStmt :: Statement (Vector UUID, Text) LinkResult
+linkToStreamStmt =
+    preparable
+        linkToStreamSQL
+        linkEncoder
+        linkResultDecoder
+
+linkEncoder :: E.Params (Vector UUID, Text)
+linkEncoder =
+    (fst >$< E.param (E.nonNullable (E.foldableArray (E.nonNullable E.uuid))))
+        <> (snd >$< E.param (E.nonNullable E.text))
+
+linkResultDecoder :: D.Result LinkResult
+linkResultDecoder =
+    D.singleRow $
+        LinkResult
+            <$> (StreamId <$> D.column (D.nonNullable D.int8))
+            <*> (StreamVersion <$> D.column (D.nonNullable D.int8))
+
+linkToStreamSQL :: Text
+linkToStreamSQL =
+    """
+    WITH
+      event_list AS (
+        SELECT event_id, idx
+        FROM unnest($1::uuid[]) WITH ORDINALITY AS t(event_id, idx)
+      ),
+      stream_upsert AS (
+        INSERT INTO streams (stream_name, stream_version)
+        VALUES ($2, (SELECT count(*) FROM event_list))
+        ON CONFLICT (stream_name)
+        DO UPDATE SET stream_version = streams.stream_version + (SELECT count(*) FROM event_list)
+        RETURNING stream_id, stream_version - (SELECT count(*) FROM event_list) AS initial_version
+      ),
+      link_inserts AS (
+        INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
+        SELECT el.event_id, su.stream_id, su.initial_version + el.idx,
+               orig.original_stream_id, orig.original_stream_version
+        FROM event_list el
+        CROSS JOIN stream_upsert su
+        JOIN LATERAL (
+          SELECT se.original_stream_id, se.original_stream_version
+          FROM stream_events se
+          WHERE se.event_id = el.event_id AND se.stream_id <> 0
+          LIMIT 1
+        ) orig ON true
+      )
+    SELECT su.stream_id, su.initial_version + (SELECT count(*) FROM event_list)
+    FROM stream_upsert su
+    """
+
+-- ---------------------------------------------------------------------------
+-- Category Read Statements
+-- ---------------------------------------------------------------------------
+
+-- | Read events from streams matching a category, in global position order.
+readCategoryForwardStmt :: Statement (Int64, Text, Int32) (Vector RecordedEvent)
+readCategoryForwardStmt =
+    preparable
+        readCategoryForwardSQL
+        readCategoryEncoder
+        (D.rowVector recordedEventRow)
+
+readCategoryEncoder :: E.Params (Int64, Text, Int32)
+readCategoryEncoder =
+    ((\(a, _, _) -> a) >$< E.param (E.nonNullable E.int8))
+        <> ((\(_, b, _) -> b) >$< E.param (E.nonNullable E.text))
+        <> ((\(_, _, c) -> c) >$< E.param (E.nonNullable E.int4))
+
+readCategoryForwardSQL :: Text
+readCategoryForwardSQL =
+    """
+    SELECT e.event_id, e.event_type,
+           se.stream_version, se.stream_version AS global_position,
+           se.original_stream_id, se.original_stream_version,
+           e.data, e.metadata, e.causation_id, e.correlation_id,
+           e.created_at
+    FROM stream_events se
+    JOIN events e ON e.event_id = se.event_id
+    JOIN streams s ON s.stream_id = se.original_stream_id
+    WHERE se.stream_id = 0
+      AND se.stream_version > $1
+      AND s.category = $2
+    ORDER BY se.stream_version ASC
+    LIMIT $3
     """

@@ -1,5 +1,6 @@
 module Kiroku.Store.Append (
     appendToStream,
+    appendMultiStream,
 ) where
 
 import Effectful (Eff, (:>))
@@ -16,3 +17,10 @@ appendToStream ::
     [EventData] ->
     Eff es AppendResult
 appendToStream name expected events = send (AppendToStream name expected events)
+
+-- | Atomically append events to multiple streams in a single transaction.
+appendMultiStream ::
+    (HasCallStack, Store :> es) =>
+    [(StreamName, ExpectedVersion, [EventData])] ->
+    Eff es [AppendResult]
+appendMultiStream ops = send (AppendMultiStream ops)

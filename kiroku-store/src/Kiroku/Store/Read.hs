@@ -3,6 +3,7 @@ module Kiroku.Store.Read (
     readStreamBackward,
     readAllForward,
     readAllBackward,
+    readCategory,
     getStream,
 ) where
 
@@ -47,6 +48,15 @@ readAllBackward ::
     Int32 ->
     Eff es (Vector RecordedEvent)
 readAllBackward startPos limit = send (ReadAllBackward startPos limit)
+
+-- | Read events from streams matching a category, in global position order.
+readCategory ::
+    (HasCallStack, Store :> es) =>
+    CategoryName ->
+    GlobalPosition ->
+    Int32 ->
+    Eff es (Vector RecordedEvent)
+readCategory cat startPos limit = send (ReadCategoryForward cat startPos limit)
 
 -- | Query stream metadata. Returns 'Nothing' for nonexistent streams.
 getStream ::
