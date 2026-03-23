@@ -7,6 +7,8 @@ module Kiroku.Store.Error (
 
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.UUID (UUID)
+import Data.UUID qualified as UUID
 import GHC.Generics (Generic)
 import Hasql.Errors qualified as Errors
 import Hasql.Pool (UsageError (..))
@@ -57,23 +59,37 @@ mapStatementError streamName expected = \case
         UnexpectedError ("Statement error: " <> T.pack (show other))
 
 mapServerError :: Text -> ExpectedVersion -> Errors.ServerError -> AppendError
-mapServerError streamName expected (Errors.ServerError code _message detail _hint _position)
-    | code == "23505" = mapUniqueViolation streamName expected detail
+mapServerError streamName expected (Errors.ServerError code message detail _hint _position)
+    | code == "23505" = mapUniqueViolation streamName expected message detail
     | code == "23503" = StreamNotFound (StreamName streamName)
-    | otherwise = UnexpectedError ("Server error " <> code <> ": " <> T.pack (show detail))
+    | otherwise = UnexpectedError ("Server error " <> code <> ": " <> message)
 
-mapUniqueViolation :: Text -> ExpectedVersion -> Maybe Text -> AppendError
-mapUniqueViolation streamName expected detail =
-    case detail of
-        Just d
-            | "events_pkey" `T.isInfixOf` d ->
-                -- TODO: extract event_id from detail if possible
-                DuplicateEvent (EventId (error "TODO: extract event_id from constraint detail"))
-            | "ix_streams_stream_name" `T.isInfixOf` d ->
-                StreamAlreadyExists (StreamName streamName)
-        _ ->
-            -- Generic unique violation — treat as version conflict
-            WrongExpectedVersion (StreamName streamName) expected (StreamVersion 0)
+{- | Map a unique_violation (23505) to an AppendError.
+
+PostgreSQL reports constraint violations with:
+  - message: "duplicate key value violates unique constraint \"events_pkey\""
+  - detail: "Key (event_id)=(uuid-value) already exists."
+
+We check both message and detail for the constraint name.
+-}
+mapUniqueViolation :: Text -> ExpectedVersion -> Text -> Maybe Text -> AppendError
+mapUniqueViolation streamName expected message detail
+    | containsConstraint "events_pkey" = DuplicateEvent (extractEventId detail)
+    | containsConstraint "ix_streams_stream_name" = StreamAlreadyExists (StreamName streamName)
+    | otherwise =
+        -- Generic unique violation — treat as version conflict
+        WrongExpectedVersion (StreamName streamName) expected (StreamVersion 0)
+  where
+    containsConstraint name =
+        name `T.isInfixOf` message || maybe False (T.isInfixOf name) detail
+
+    -- Try to extract event_id from detail like "Key (event_id)=(uuid) already exists."
+    extractEventId (Just d) = case extractUuidFromDetail d of
+        Just uid -> EventId uid
+        Nothing -> EventId nilUUID
+    extractEventId Nothing = EventId nilUUID
+
+    nilUUID = UUID.nil
 
 {- | Infer the appropriate error from an empty CTE result.
 
@@ -94,3 +110,16 @@ emptyResultError streamName = \case
         StreamAlreadyExists (StreamName streamName)
     AnyVersion ->
         UnexpectedError "AnyVersion append returned empty result (unexpected)"
+
+{- | Extract a UUID from a PostgreSQL detail string like:
+"Key (event_id)=(01234567-89ab-7def-8012-34567890abcd) already exists."
+-}
+extractUuidFromDetail :: Text -> Maybe UUID
+extractUuidFromDetail detail =
+    case T.breakOn "=(" detail of
+        (_, rest)
+            | not (T.null rest) ->
+                let afterParen = T.drop 2 rest -- skip "=("
+                    uuidText = T.takeWhile (/= ')') afterParen
+                 in UUID.fromText uuidText
+        _ -> Nothing
