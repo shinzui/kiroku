@@ -22,21 +22,23 @@ These three capabilities complete Phase 1b of the kiroku-store implementation pl
 
 ## Progress
 
-- [ ] M5.1: Add `linkToStream` SQL and hasql statement
-- [ ] M5.2: Add `readCategory` SQL and hasql statement
-- [ ] M5.3: Extend the `Store` effect GADT with `LinkToStream`, `ReadCategoryForward`, and `AppendMultiStream`
-- [ ] M5.4: Create `Kiroku.Store.Link` module with `linkToStream` public API
-- [ ] M5.5: Add `readCategory` to `Kiroku.Store.Read`
-- [ ] M5.6: Implement multi-stream transaction support
-- [ ] M5.7: Update `Kiroku.Store` public API re-exports
-- [ ] M5.8: Tests — link events, category reads, multi-stream atomicity
-- [ ] M5.9: Benchmark — category read performance at scale
-- [ ] M5.10: Document results and update plan
+- [x] M5.1: Add `linkToStream` SQL and hasql statement (2026-03-23)
+- [x] M5.2: Add `readCategory` SQL and hasql statement (2026-03-23)
+- [x] M5.3: Extend the `Store` effect GADT with `LinkToStream`, `ReadCategoryForward`, and `AppendMultiStream` (2026-03-23)
+- [x] M5.4: Create `Kiroku.Store.Link` module with `linkToStream` public API (2026-03-23)
+- [x] M5.5: Add `readCategory` to `Kiroku.Store.Read` (2026-03-23)
+- [x] M5.6: Implement multi-stream transaction support (2026-03-23)
+- [x] M5.7: Update `Kiroku.Store` public API re-exports (2026-03-23)
+- [x] M5.8: Tests — link events, category reads, multi-stream atomicity (2026-03-23)
+- [x] M5.9: Benchmark — category read performance at scale (2026-03-23)
+- [x] M5.10: Document results and update plan (2026-03-23)
 
 
 ## Surprises & Discoveries
 
-(None yet.)
+- **Multi-stream transaction rollback requires `Tx.condemn`.** The append CTEs use `ON CONFLICT DO NOTHING` (for `NoStream`) which silently returns zero rows rather than raising a PG error. Without `Tx.condemn`, hasql-transaction commits the transaction even when one append returned `Nothing`, leaving the successful appends persisted. Fix: check results inside the `Transaction` monad and call `Tx.condemn` before returning if any result is `Nothing`.
+
+- **Category read overhead is negligible.** At 100K events across 100 categories, category read (1.05ms/100-event page) is within 2% of `$all` read (1.03ms/100-event page). The `ix_streams_category` index + `ix_stream_events_all_by_origin` partial index make the category filter effectively free.
 
 
 ## Decision Log
@@ -72,7 +74,20 @@ These three capabilities complete Phase 1b of the kiroku-store implementation pl
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+All 10 milestones complete. The store now supports:
+
+1. **`linkToStream`** — link existing events into projection-built streams without duplicating event data or $all entries. Upsert semantics (target stream created automatically).
+2. **`readCategory`** — read events by category prefix (Message-DB convention) in global position order. Uses the `category` generated column + index.
+3. **`appendMultiStream`** — atomically append to multiple streams in a single hasql-transaction. Rollback on any version conflict via `Tx.condemn`.
+
+**Test results:** 32 tests pass (20 existing + 12 new: 5 link, 4 category read, 3 multi-stream).
+
+**Benchmark results (100K events, 100 categories):**
+- B10 category forward (100-event page): **1.05 ms** (target < 3ms) — PASS
+- $all forward baseline (100-event page): **1.03 ms**
+- Category filter overhead: ~2% — negligible
+
+**Decision validated:** Using the `category` generated column with equality check is the right approach. The index path `ix_streams_category` → `ix_stream_events_all_by_origin` delivers near-zero overhead for category filtering.
 
 
 ## Context and Orientation
