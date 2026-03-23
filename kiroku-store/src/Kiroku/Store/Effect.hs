@@ -152,21 +152,26 @@ runStorePool store = interpret_ $ \case
                         pure (sn, ev, prepared)
                     )
                     ops
-        let txn =
-                mapM
-                    ( \(StreamName name, expected, prepared) -> do
-                        let params = buildAppendParams name now prepared
-                        case expected of
-                            ExactVersion (StreamVersion v) ->
-                                Tx.statement (params, v) SQL.appendExpectedVersion
-                            StreamExists ->
-                                Tx.statement params SQL.appendStreamExists
-                            NoStream ->
-                                Tx.statement params SQL.appendNoStream
-                            AnyVersion ->
-                                Tx.statement params SQL.appendAnyVersion
-                    )
-                    preparedOps
+        let txn = do
+                results <-
+                    mapM
+                        ( \(StreamName name, expected, prepared) -> do
+                            let params = buildAppendParams name now prepared
+                            case expected of
+                                ExactVersion (StreamVersion v) ->
+                                    Tx.statement (params, v) SQL.appendExpectedVersion
+                                StreamExists ->
+                                    Tx.statement params SQL.appendStreamExists
+                                NoStream ->
+                                    Tx.statement params SQL.appendNoStream
+                                AnyVersion ->
+                                    Tx.statement params SQL.appendAnyVersion
+                        )
+                        preparedOps
+                -- If any result is Nothing (version conflict), condemn the transaction
+                case any isNothing results of
+                    True -> Tx.condemn >> pure results
+                    False -> pure results
         result <-
             Eff.liftIO $
                 Pool.use (store ^. #pool) $

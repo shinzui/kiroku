@@ -279,6 +279,166 @@ main = hspec $ do
                 Right noInfo <- runStoreIO store $ getStream (StreamName "nonexistent")
                 noInfo `shouldBe` Nothing
 
+        -- =================================================================
+        -- Link tests (M5.8)
+        -- =================================================================
+        describe "linkToStream" $ do
+            it "links a single event to a new stream" $ \store -> do
+                let event = makeEvent "OrderCreated" (Aeson.object [("id", Aeson.String "1")])
+                Right appendR <- runStoreIO store $ appendToStream (StreamName "source-1") NoStream [event]
+                -- Read back to get the event ID
+                Right events <- runStoreIO store $ readStreamForward (StreamName "source-1") (StreamVersion 0) 100
+                let eid = V.head events ^. #eventId
+                -- Link it
+                Right linkR <- runStoreIO store $ linkToStream (StreamName "linked-1") [eid]
+                (linkR ^. #streamVersion) `shouldBe` StreamVersion 1
+                -- Read the linked stream
+                Right linked <- runStoreIO store $ readStreamForward (StreamName "linked-1") (StreamVersion 0) 100
+                V.length linked `shouldBe` 1
+                (V.head linked ^. #eventId) `shouldBe` eid
+                (V.head linked ^. #originalStreamId) `shouldBe` (appendR ^. #streamId)
+                (V.head linked ^. #originalVersion) `shouldBe` StreamVersion 1
+
+            it "links multiple events with sequential versions" $ \store -> do
+                let events =
+                        [ makeEvent "A" (Aeson.object [])
+                        , makeEvent "B" (Aeson.object [])
+                        , makeEvent "C" (Aeson.object [])
+                        ]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "source-multi") NoStream events
+                Right srcEvents <- runStoreIO store $ readStreamForward (StreamName "source-multi") (StreamVersion 0) 100
+                let eids = V.toList (V.map (^. #eventId) srcEvents)
+                Right linkR <- runStoreIO store $ linkToStream (StreamName "linked-multi") eids
+                (linkR ^. #streamVersion) `shouldBe` StreamVersion 3
+                Right linked <- runStoreIO store $ readStreamForward (StreamName "linked-multi") (StreamVersion 0) 100
+                V.length linked `shouldBe` 3
+                (V.head linked ^. #streamVersion) `shouldBe` StreamVersion 1
+                (linked V.! 1 ^. #streamVersion) `shouldBe` StreamVersion 2
+                (linked V.! 2 ^. #streamVersion) `shouldBe` StreamVersion 3
+
+            it "links events to an existing stream and bumps version" $ \store -> do
+                let events1 = [makeEvent "A" (Aeson.object [])]
+                    events2 = [makeEvent "B" (Aeson.object [])]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "src-a") NoStream events1
+                Right _ <- runStoreIO store $ appendToStream (StreamName "src-b") NoStream events2
+                Right evA <- runStoreIO store $ readStreamForward (StreamName "src-a") (StreamVersion 0) 100
+                Right evB <- runStoreIO store $ readStreamForward (StreamName "src-b") (StreamVersion 0) 100
+                let eidA = V.head evA ^. #eventId
+                    eidB = V.head evB ^. #eventId
+                -- Link first event
+                Right r1 <- runStoreIO store $ linkToStream (StreamName "linked-existing") [eidA]
+                (r1 ^. #streamVersion) `shouldBe` StreamVersion 1
+                -- Link second event to same stream
+                Right r2 <- runStoreIO store $ linkToStream (StreamName "linked-existing") [eidB]
+                (r2 ^. #streamVersion) `shouldBe` StreamVersion 2
+                -- Read all linked events
+                Right linked <- runStoreIO store $ readStreamForward (StreamName "linked-existing") (StreamVersion 0) 100
+                V.length linked `shouldBe` 2
+
+            it "linked events still appear in $all at original global positions" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "orig-all") NoStream [makeEvent "X" (Aeson.object [])]
+                Right srcEvents <- runStoreIO store $ readStreamForward (StreamName "orig-all") (StreamVersion 0) 100
+                let eid = V.head srcEvents ^. #eventId
+                _ <- runStoreIO store $ linkToStream (StreamName "linked-all") [eid]
+                -- Read $all — should have exactly 1 event (not duplicated)
+                Right allEvents <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
+                let matchingEvents = V.filter (\e -> (e ^. #eventId) == eid) allEvents
+                V.length matchingEvents `shouldBe` 1
+
+            it "rejects linking the same event to the same stream twice" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "src-dup") NoStream [makeEvent "X" (Aeson.object [])]
+                Right srcEvents <- runStoreIO store $ readStreamForward (StreamName "src-dup") (StreamVersion 0) 100
+                let eid = V.head srcEvents ^. #eventId
+                Right _ <- runStoreIO store $ linkToStream (StreamName "linked-dup") [eid]
+                result <- runStoreIO store $ linkToStream (StreamName "linked-dup") [eid]
+                case result of
+                    Left _ -> pure () -- Expected: some error (PK violation)
+                    Right _ -> expectationFailure "Expected error for duplicate link"
+
+        -- =================================================================
+        -- Category read tests (M5.8)
+        -- =================================================================
+        describe "readCategory" $ do
+            it "reads events from matching category streams in global position order" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "order-1") NoStream [makeEvent "OrderCreated" (Aeson.object [])]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "order-2") NoStream [makeEvent "OrderShipped" (Aeson.object [])]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "user-1") NoStream [makeEvent "UserRegistered" (Aeson.object [])]
+                Right result <- runStoreIO store $ readCategory (CategoryName "order") (GlobalPosition 0) 100
+                V.length result `shouldBe` 2
+                (V.head result ^. #eventType) `shouldBe` EventType "OrderCreated"
+                (result V.! 1 ^. #eventType) `shouldBe` EventType "OrderShipped"
+                -- Verify global positions are ascending
+                (V.head result ^. #globalPosition) `shouldSatisfy` (< (result V.! 1 ^. #globalPosition))
+
+            it "supports pagination with start position and limit" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "cat-1") NoStream [makeEvent "A" (Aeson.object [])]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "cat-2") NoStream [makeEvent "B" (Aeson.object [])]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "cat-3") NoStream [makeEvent "C" (Aeson.object [])]
+                -- Read first 2
+                Right page1 <- runStoreIO store $ readCategory (CategoryName "cat") (GlobalPosition 0) 2
+                V.length page1 `shouldBe` 2
+                -- Read from cursor
+                let cursor = page1 V.! 1 ^. #globalPosition
+                Right page2 <- runStoreIO store $ readCategory (CategoryName "cat") cursor 100
+                V.length page2 `shouldBe` 1
+
+            it "returns empty for nonexistent category" $ \store -> do
+                Right result <- runStoreIO store $ readCategory (CategoryName "nope") (GlobalPosition 0) 100
+                V.length result `shouldBe` 0
+
+            it "includes linked events that originate from category streams" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "evt-1") NoStream [makeEvent "EventA" (Aeson.object [])]
+                Right srcEvents <- runStoreIO store $ readStreamForward (StreamName "evt-1") (StreamVersion 0) 100
+                let eid = V.head srcEvents ^. #eventId
+                -- Link into a different-category stream
+                Right _ <- runStoreIO store $ linkToStream (StreamName "projection-1") [eid]
+                -- Category "evt" should still return the event (it originates from evt-1)
+                Right result <- runStoreIO store $ readCategory (CategoryName "evt") (GlobalPosition 0) 100
+                V.length result `shouldBe` 1
+                (V.head result ^. #eventType) `shouldBe` EventType "EventA"
+
+        -- =================================================================
+        -- Multi-stream transaction tests (M5.8)
+        -- =================================================================
+        describe "appendMultiStream" $ do
+            it "atomically appends to two streams" $ \store -> do
+                let ops =
+                        [ (StreamName "multi-a", NoStream, [makeEvent "A" (Aeson.object [])])
+                        , (StreamName "multi-b", NoStream, [makeEvent "B" (Aeson.object [])])
+                        ]
+                Right results <- runStoreIO store $ appendMultiStream ops
+                length results `shouldBe` 2
+                ((results !! 0) ^. #streamVersion) `shouldBe` StreamVersion 1
+                ((results !! 1) ^. #streamVersion) `shouldBe` StreamVersion 1
+
+            it "rolls back all streams on version conflict" $ \store -> do
+                -- Create stream multi-c
+                Right _ <- runStoreIO store $ appendToStream (StreamName "multi-c") NoStream [makeEvent "C" (Aeson.object [])]
+                let ops =
+                        [ (StreamName "multi-d", NoStream, [makeEvent "D" (Aeson.object [])])
+                        , (StreamName "multi-c", NoStream, [makeEvent "C2" (Aeson.object [])]) -- conflict: already exists
+                        ]
+                result <- runStoreIO store $ appendMultiStream ops
+                case result of
+                    Left _ -> do
+                        -- Verify multi-d was NOT created (rollback)
+                        Right info <- runStoreIO store $ getStream (StreamName "multi-d")
+                        info `shouldBe` Nothing
+                    Right _ -> expectationFailure "Expected error for version conflict"
+
+            it "appends to three streams with different expected versions" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "tri-1") NoStream [makeEvent "X" (Aeson.object [])]
+                let ops =
+                        [ (StreamName "tri-1", ExactVersion (StreamVersion 1), [makeEvent "X2" (Aeson.object [])])
+                        , (StreamName "tri-2", NoStream, [makeEvent "Y" (Aeson.object [])])
+                        , (StreamName "tri-3", AnyVersion, [makeEvent "Z" (Aeson.object [])])
+                        ]
+                Right results <- runStoreIO store $ appendMultiStream ops
+                length results `shouldBe` 3
+                ((results !! 0) ^. #streamVersion) `shouldBe` StreamVersion 2
+                ((results !! 1) ^. #streamVersion) `shouldBe` StreamVersion 1
+                ((results !! 2) ^. #streamVersion) `shouldBe` StreamVersion 1
+
 -- | Create a simple EventData with auto-generated ID.
 makeEvent :: Text -> Value -> EventData
 makeEvent typ payload =
