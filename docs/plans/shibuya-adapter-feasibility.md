@@ -35,7 +35,7 @@ After this plan is complete, a developer can: (1) consume kiroku subscriptions a
 
 ## Surprises & Discoveries
 
-- The adapter could not use `subscriptionStream` to produce the `Eff es` stream directly. The `Stream IO RecordedEvent` returned by `subscriptionStream` cannot be lifted to `Stream (Eff es)` without `morphInner` (which is in the `streamly` package but not straightforward to use with effectful's `Eff`). Instead, the adapter builds the TBQueue and subscription directly, constructing the `Eff es` stream via `Stream.unfoldrM` with `liftIO`. The library's `subscriptionStream` remains useful for non-Shibuya consumers.
+- The adapter uses `Stream.morphInner liftIO` from `Streamly.Data.Stream` to lift the `Stream IO RecordedEvent` from `subscriptionStream` into `Stream (Eff es) RecordedEvent`. This is a clean one-liner that avoids duplicating TBQueue logic. Initially the adapter was built by reimplementing the queue bridge, but consulting the streamly source revealed `morphInner` is exported from the public API in streamly-core.
 
 - GHC's `DuplicateRecordFields` creates ambiguity when multiple types share field names (`payload`, `batchSize`). Record dot syntax (`event.fieldName`) does not resolve the ambiguity in all contexts (where-clause bindings, constructors from different modules). Pattern matching and lens-based access (`^. #field`) are more reliable.
 
