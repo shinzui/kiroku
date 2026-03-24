@@ -1,5 +1,9 @@
 module Main where
 
+import Control.Concurrent (threadDelay)
+import Control.Concurrent.Async qualified as Async
+import Control.Concurrent.STM (atomically, newTVarIO, readTVar, writeTVar)
+import Control.Exception (SomeException)
 import Control.Lens ((^.))
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
@@ -541,6 +545,245 @@ main = hspec $ do
                 Right mId <- runStoreIO store $ hardDeleteStream (StreamName "hard-no-such")
                 mId `shouldBe` Nothing
 
+        -- =================================================================
+        -- Subscription tests (M7.7)
+        -- =================================================================
+        describe "subscribe" $ do
+            it "catches up from position 0 on a store with existing events" $ \store -> do
+                -- Append 10 events
+                let events = map (\i -> makeEvent ("E" <> T.pack (show i)) (Aeson.object [])) [1 .. 10 :: Int]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "catchup-1") NoStream events
+                -- Give the EventPublisher time to process
+                threadDelay 200_000
+                -- Subscribe from position 0
+                ref <- newIORef ([] :: [RecordedEvent])
+                countRef <- newTVarIO (0 :: Int)
+                let handler' evt = do
+                        modifyIORef' ref (evt :)
+                        n <- atomically $ do
+                            c <- readTVar countRef
+                            let c' = c + 1
+                            writeTVar countRef c'
+                            pure c'
+                        if n >= 10
+                            then pure Stop
+                            else pure Continue
+                let cfg =
+                        SubscriptionConfig
+                            { name = SubscriptionName "catchup-test"
+                            , target = AllStreams
+                            , handler = handler'
+                            , batchSize = 100
+                            }
+                handle <- subscribe store cfg
+                result <- waitWithTimeout 10_000_000 handle
+                case result of
+                    Left timeout -> expectationFailure timeout
+                    Right (Left err) -> expectationFailure ("Subscription failed: " <> show err)
+                    Right (Right ()) -> pure ()
+                collected <- readIORef ref
+                length collected `shouldBe` 10
+
+            it "receives live events appended after subscription starts" $ \store -> do
+                ref <- newIORef ([] :: [RecordedEvent])
+                countRef <- newTVarIO (0 :: Int)
+                let handler' evt = do
+                        modifyIORef' ref (evt :)
+                        n <- atomically $ do
+                            c <- readTVar countRef
+                            let c' = c + 1
+                            writeTVar countRef c'
+                            pure c'
+                        if n >= 5
+                            then pure Stop
+                            else pure Continue
+                let cfg =
+                        SubscriptionConfig
+                            { name = SubscriptionName "live-test"
+                            , target = AllStreams
+                            , handler = handler'
+                            , batchSize = 100
+                            }
+                handle <- subscribe store cfg
+                -- Give subscription time to start
+                threadDelay 100_000
+                -- Append 5 events
+                let events = map (\i -> makeEvent ("Live" <> T.pack (show i)) (Aeson.object [])) [1 .. 5 :: Int]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "live-1") NoStream events
+                -- Wait for subscription to complete
+                result <- waitWithTimeout 10_000_000 handle
+                case result of
+                    Left timeout -> expectationFailure timeout
+                    Right (Left err) -> expectationFailure ("Subscription failed: " <> show err)
+                    Right (Right ()) -> pure ()
+                collected <- readIORef ref
+                length collected `shouldBe` 5
+
+            it "persists checkpoint and resumes from saved position" $ \store -> do
+                -- Append 10 events
+                let events = map (\i -> makeEvent ("CP" <> T.pack (show i)) (Aeson.object [])) [1 .. 10 :: Int]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "ckpt-1") NoStream events
+                threadDelay 200_000
+                -- First subscription: process 5 events then stop
+                countRef1 <- newTVarIO (0 :: Int)
+                let handler1 _evt = do
+                        n <- atomically $ do
+                            c <- readTVar countRef1
+                            let c' = c + 1
+                            writeTVar countRef1 c'
+                            pure c'
+                        if n >= 5
+                            then pure Stop
+                            else pure Continue
+                let cfg1 =
+                        SubscriptionConfig
+                            { name = SubscriptionName "ckpt-test"
+                            , target = AllStreams
+                            , handler = handler1
+                            , batchSize = 100
+                            }
+                h1 <- subscribe store cfg1
+                _ <- waitWithTimeout 10_000_000 h1
+                -- Second subscription with same name: should resume from position 5
+                ref2 <- newIORef ([] :: [RecordedEvent])
+                countRef2 <- newTVarIO (0 :: Int)
+                let handler2 evt = do
+                        modifyIORef' ref2 (evt :)
+                        n <- atomically $ do
+                            c <- readTVar countRef2
+                            let c' = c + 1
+                            writeTVar countRef2 c'
+                            pure c'
+                        if n >= 5
+                            then pure Stop
+                            else pure Continue
+                let cfg2 =
+                        SubscriptionConfig
+                            { name = SubscriptionName "ckpt-test"
+                            , target = AllStreams
+                            , handler = handler2
+                            , batchSize = 100
+                            }
+                h2 <- subscribe store cfg2
+                _ <- waitWithTimeout 10_000_000 h2
+                collected <- readIORef ref2
+                -- Should receive events 6–10 only
+                length collected `shouldBe` 5
+
+            it "delivers only category-matching events during catch-up" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "order-1") NoStream [makeEvent "OrderCreated" (Aeson.object [])]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "order-2") NoStream [makeEvent "OrderShipped" (Aeson.object [])]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "user-1") NoStream [makeEvent "UserRegistered" (Aeson.object [])]
+                threadDelay 200_000
+                ref <- newIORef ([] :: [RecordedEvent])
+                countRef <- newTVarIO (0 :: Int)
+                let handler' evt = do
+                        modifyIORef' ref (evt :)
+                        n <- atomically $ do
+                            c <- readTVar countRef
+                            let c' = c + 1
+                            writeTVar countRef c'
+                            pure c'
+                        if n >= 2
+                            then pure Stop
+                            else pure Continue
+                let cfg =
+                        SubscriptionConfig
+                            { name = SubscriptionName "cat-sub-test"
+                            , target = Category (CategoryName "order")
+                            , handler = handler'
+                            , batchSize = 100
+                            }
+                handle <- subscribe store cfg
+                _ <- waitWithTimeout 10_000_000 handle
+                collected <- readIORef ref
+                length collected `shouldBe` 2
+                -- All events should be order events
+                mapM_ (\e -> (e ^. #eventType) `shouldSatisfy` (\(EventType t) -> T.isPrefixOf "Order" t)) collected
+
+            it "cancels a running subscription cleanly" $ \store -> do
+                let handler' _evt = pure Continue
+                let cfg =
+                        SubscriptionConfig
+                            { name = SubscriptionName "cancel-test"
+                            , target = AllStreams
+                            , handler = handler'
+                            , batchSize = 100
+                            }
+                handle <- subscribe store cfg
+                -- Give it time to start
+                threadDelay 100_000
+                cancel handle
+                result <- waitWithTimeout 5_000_000 handle
+                -- Should exit cleanly (AsyncCancelled or Right ())
+                case result of
+                    Left _timeout -> expectationFailure "Cancel did not terminate in time"
+                    Right (Left _) -> pure () -- AsyncCancelled is expected
+                    Right (Right ()) -> pure ()
+
+            it "receives events appended to an initially empty store" $ \store -> do
+                ref <- newIORef ([] :: [RecordedEvent])
+                let handler' evt = do
+                        modifyIORef' ref (evt :)
+                        pure Stop
+                let cfg =
+                        SubscriptionConfig
+                            { name = SubscriptionName "empty-store-test"
+                            , target = AllStreams
+                            , handler = handler'
+                            , batchSize = 100
+                            }
+                handle <- subscribe store cfg
+                -- Give subscription time to start in live mode
+                threadDelay 100_000
+                -- Append one event
+                Right _ <- runStoreIO store $ appendToStream (StreamName "empty-1") NoStream [makeEvent "First" (Aeson.object [])]
+                result <- waitWithTimeout 10_000_000 handle
+                case result of
+                    Left timeout -> expectationFailure timeout
+                    Right (Left err) -> expectationFailure ("Subscription failed: " <> show err)
+                    Right (Right ()) -> pure ()
+                collected <- readIORef ref
+                length collected `shouldBe` 1
+
+            it "handles rapid appends without losing events (debouncing)" $ \store -> do
+                ref <- newIORef ([] :: [RecordedEvent])
+                countRef <- newTVarIO (0 :: Int)
+                let handler' evt = do
+                        modifyIORef' ref (evt :)
+                        n <- atomically $ do
+                            c <- readTVar countRef
+                            let c' = c + 1
+                            writeTVar countRef c'
+                            pure c'
+                        if n >= 50
+                            then pure Stop
+                            else pure Continue
+                let cfg =
+                        SubscriptionConfig
+                            { name = SubscriptionName "debounce-test"
+                            , target = AllStreams
+                            , handler = handler'
+                            , batchSize = 100
+                            }
+                handle <- subscribe store cfg
+                threadDelay 100_000
+                -- Append 50 events rapidly to different streams
+                mapM_
+                    ( \i -> do
+                        let sn = StreamName ("rapid-" <> T.pack (show (i :: Int)))
+                        Right _ <- runStoreIO store $ appendToStream sn NoStream [makeEvent ("R" <> T.pack (show i)) (Aeson.object [])]
+                        pure ()
+                    )
+                    [1 .. 50]
+                result <- waitWithTimeout 30_000_000 handle
+                case result of
+                    Left timeout -> expectationFailure timeout
+                    Right (Left err) -> expectationFailure ("Subscription failed: " <> show err)
+                    Right (Right ()) -> pure ()
+                collected <- readIORef ref
+                length collected `shouldBe` 50
+
     -- =================================================================
     -- Health monitoring tests (M6.8)
     -- =================================================================
@@ -585,3 +828,15 @@ withTestStore action = do
     case result of
         Left err -> error ("Failed to start ephemeral PostgreSQL: " <> show err)
         Right () -> pure ()
+
+{- | Wait for a subscription with a timeout (in microseconds).
+Returns Left on timeout, or the subscription result.
+-}
+waitWithTimeout :: Int -> SubscriptionHandle -> IO (Either String (Either SomeException ()))
+waitWithTimeout micros handle = do
+    result <- Async.race (threadDelay micros) (wait handle)
+    case result of
+        Left () -> do
+            cancel handle
+            pure (Left "Subscription timed out")
+        Right r -> pure (Right r)

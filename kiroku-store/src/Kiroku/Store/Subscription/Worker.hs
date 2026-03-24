@@ -31,10 +31,11 @@ runWorker ::
 runWorker pool schema liveChan pubPosVar config = do
     -- Read checkpoint from database
     checkpoint <- loadCheckpoint pool (name config)
-    -- Phase 1: catch-up
-    finalPos <- catchUp pool schema config checkpoint pubPosVar
-    -- Phase 2: live
-    liveLoop pool liveChan config finalPos
+    -- Phase 1: catch-up (returns Nothing if handler said Stop)
+    result <- catchUp pool schema config checkpoint pubPosVar
+    case result of
+        Nothing -> pure () -- Handler said Stop during catch-up; exit
+        Just finalPos -> liveLoop pool liveChan config finalPos
 
 -- Load the checkpoint from the database, defaulting to 0.
 loadCheckpoint :: Pool -> SubscriptionName -> IO GlobalPosition
@@ -46,28 +47,29 @@ loadCheckpoint pool (SubscriptionName subName) = do
         Right (Just pos) -> pure (GlobalPosition pos)
 
 -- Phase 1: catch-up. Queries the database directly in batches until we
--- reach the EventPublisher's current position.
+-- reach the EventPublisher's current position. Returns Nothing if the
+-- handler said Stop, or Just position if catch-up completed normally.
 catchUp ::
     Pool ->
     Text ->
     SubscriptionConfig ->
     GlobalPosition ->
     TVar GlobalPosition ->
-    IO GlobalPosition
+    IO (Maybe GlobalPosition)
 catchUp pool schema config startPos pubPosVar = go startPos
   where
     go cursor = do
         pubPos <- atomically (readTVar pubPosVar)
         if cursor >= pubPos
-            then pure cursor
+            then pure (Just cursor)
             else do
                 events <- fetchBatch pool schema config cursor
                 if V.null events
-                    then pure cursor
+                    then pure (Just cursor)
                     else do
                         result <- processEvents pool config events
                         case result of
-                            Nothing -> pure cursor -- handler said Stop; position already saved
+                            Nothing -> pure Nothing -- handler said Stop
                             Just newPos -> go newPos
 
 -- Phase 2: live. Reads from the TChan pushed by the EventPublisher.
