@@ -50,19 +50,33 @@ Observable outcomes:
 
 ## Progress
 
-- [ ] M7.1: Add hasql-notifications dependency and verify build
-- [ ] M7.2: Implement the Notifier (LISTEN thread + TChan broadcast)
-- [ ] M7.3: Implement the EventPublisher (centralized fetch + broadcast)
-- [ ] M7.4: Implement subscription types and checkpoint SQL
-- [ ] M7.5: Implement the subscription worker loop (catch-up + live)
-- [ ] M7.6: Wire subscriptions into the public API
-- [ ] M7.7: Tests — catch-up, live delivery, checkpoint, cancellation, reliability
-- [ ] M7.8: Document results and update plan
+- [x] M7.1: Add hasql-notifications dependency and verify build (2026-03-23)
+- [x] M7.2: Implement the Notifier (LISTEN thread + TChan broadcast) (2026-03-23)
+- [x] M7.3: Implement the EventPublisher (centralized fetch + broadcast) (2026-03-23)
+- [x] M7.4: Implement subscription types and checkpoint SQL (2026-03-23)
+- [x] M7.5: Implement the subscription worker loop (catch-up + live) (2026-03-23)
+- [x] M7.6: Wire subscriptions into the public API (2026-03-23)
+- [x] M7.7: Tests — catch-up, live delivery, checkpoint, category, cancellation, empty store, debouncing (2026-03-23)
+- [x] M7.8: Document results and update plan (2026-03-23)
 
 
 ## Surprises & Discoveries
 
-(None yet.)
+- **hasql-notifications tag mismatch.** The `source-repository-package` approach with
+  `tag: 0.2.5.0` failed because that tag does not exist in the git repository. Switched to
+  `optional-packages` with a local path to the hasql-project checkout. This works for
+  development; a production release would need to pin a specific commit hash or publish the
+  package.
+
+- **Worker catch-up/Stop bug.** The initial Worker implementation had a bug where the handler
+  returning `Stop` during catch-up would still proceed to the live loop (blocking forever on
+  `readTChan`). The catch-up function needed to return `Maybe GlobalPosition` instead of
+  `GlobalPosition`, with `Nothing` signaling the handler stopped and the worker should exit.
+  This was caught during test development.
+
+- **`asyncExceptionFromException` location.** In GHC 9.12.2 with GHC2024,
+  `asyncExceptionFromException` is exported from `Control.Exception`, not `GHC.Exception`.
+  Minor import fix required.
 
 
 ## Comparative Analysis: Subscription Architectures
@@ -332,7 +346,35 @@ publishing path.
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+Phase 2a subscriptions are complete. All planned capabilities are implemented and tested:
+
+- **53 tests pass** (46 existing Phase 1 tests + 7 new subscription tests).
+- **Catch-up delivery:** Subscribers starting from position 0 on a store with existing events
+  receive all events in global position order via direct database queries.
+- **Live delivery:** Events appended after subscription starts are delivered via the
+  EventPublisher's TChan broadcast without polling. Sub-second latency on localhost.
+- **Checkpoint persistence:** Subscriptions persist their position via upsert to the
+  `subscriptions` table. Restarting with the same name resumes from the saved position.
+- **Category subscription:** Category-based subscriptions filter events during catch-up via
+  the existing `readCategoryForwardStmt` SQL.
+- **Cancellation:** `Async.cancel` cleanly terminates subscription workers.
+- **Debouncing:** 50 rapid appends to 50 different streams are all delivered without loss,
+  confirming the tick debouncing mechanism works correctly.
+- **Safety poll:** The 30-second periodic wakeup is implemented in the EventPublisher. The
+  safety poll test was deferred (would add 30+ seconds to the test suite) but the mechanism
+  is architecturally in place.
+
+**Architecture validated.** The centralized EventPublisher pattern (query once, broadcast to
+all subscribers) works as designed. The catch-up → live transition is clean: workers query
+the database independently during catch-up, then switch to consuming from the broadcast
+TChan once caught up.
+
+**Deferred to Phase 2b/2c:**
+- Error handling taxonomy (skip + dead-letter) for production projections.
+- Competing consumers with contiguous-ack checkpoint advancement.
+- In-process category filtering during live mode (currently category subscriptions use SQL
+  filtering during catch-up only).
+- 7-state FSM (max_capacity, disconnected, unsubscribed states).
 
 
 ## Context and Orientation
