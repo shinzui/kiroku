@@ -25,7 +25,7 @@ After implementation, the existing test suite and benchmarks must still compile 
 - [x] Milestone 8: Generalize `Kiroku.Store.Connection` (`withStore`) (2026-03-24)
 - [x] Milestone 9: Generalize `Kiroku.Store.Effect` (`prepareEvents`, `runStoreIO`) (2026-03-24)
 - [x] Milestone 10: Update `Kiroku.Store` re-exports and fix test/bench compilation (2026-03-24)
-- [ ] Milestone 11: Full build and test validation
+- [x] Milestone 11: Full build and test validation (2026-03-24)
 
 
 ## Surprises & Discoveries
@@ -54,7 +54,7 @@ After implementation, the existing test suite and benchmarks must still compile 
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+All 11 milestones completed. Every public `IO` function (except `runStoreIO` by design) is now `MonadIO m` or `MonadUnliftIO m`. Types are parameterized by `m` with `IO`-defaulted aliases. The entire library, test suite, and benchmark suite compile cleanly. No downstream code changes were needed thanks to the type alias strategy. The `unliftio-core` dependency was the only new addition. The codebase is now ready for a future effectful migration of the infrastructure layer.
 
 
 ## Context and Orientation
