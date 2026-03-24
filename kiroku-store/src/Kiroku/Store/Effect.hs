@@ -22,11 +22,11 @@ import Data.UUID (UUID)
 import Data.UUID.V7 qualified as V7
 import Data.Vector (Vector)
 import Data.Vector qualified as V
-import Effectful (Dispatch (..), DispatchOf, Eff, Effect, IOE, (:>))
-import Effectful qualified as Eff
+import Effectful (Dispatch (..), DispatchOf, Eff, Effect, IOE, runEff, (:>))
 import Effectful.Dispatch.Dynamic (interpret_)
 import Effectful.Error.Static (Error, runErrorNoCallStack, throwError)
 import GHC.Generics (Generic)
+import Hasql.Pool (Pool)
 import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Hasql.Transaction qualified as Tx
@@ -71,7 +71,7 @@ runStorePool store = interpret_ $ \case
     AppendToStream (StreamName name) expected events -> do
         -- Check if stream is soft-deleted before appending
         streamCheck <-
-            Eff.liftIO $
+            liftIO $
                 Pool.use (store ^. #pool) $
                     Session.statement name SQL.getStreamStmt
         case streamCheck of
@@ -79,10 +79,10 @@ runStorePool store = interpret_ $ \case
                 | info ^. #deletedAt /= Nothing ->
                     throwError (StreamNotFound (StreamName name))
             _ -> pure ()
-        now <- Eff.liftIO getCurrentTime
-        prepared <- Eff.liftIO (prepareEvents events)
+        now <- liftIO getCurrentTime
+        prepared <- prepareEvents events
         let params = buildAppendParams name now prepared
-        result <- Eff.liftIO $ Pool.use (store ^. #pool) $ case expected of
+        result <- liftIO $ Pool.use (store ^. #pool) $ case expected of
             ExactVersion (StreamVersion v) ->
                 Session.statement (params, v) SQL.appendExpectedVersion
             StreamExists ->
@@ -101,91 +101,55 @@ runStorePool store = interpret_ $ \case
     ReadStreamForward (StreamName name) (StreamVersion startVer) limit -> do
         -- Check if stream is soft-deleted; return empty if so
         streamCheck <-
-            Eff.liftIO $
+            liftIO $
                 Pool.use (store ^. #pool) $
                     Session.statement name SQL.getStreamStmt
         case streamCheck of
             Right (Just info)
                 | info ^. #deletedAt /= Nothing ->
                     pure V.empty
-            _ -> do
-                result <-
-                    Eff.liftIO $
-                        Pool.use (store ^. #pool) $
-                            Session.statement (name, startVer, limit) SQL.readStreamForwardStmt
-                case result of
-                    Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
-                    Right events -> pure events
+            _ ->
+                usePool (store ^. #pool) $
+                    Session.statement (name, startVer, limit) SQL.readStreamForwardStmt
     ReadStreamBackward (StreamName name) (StreamVersion startVer) limit -> do
         -- Check if stream is soft-deleted; return empty if so
         streamCheck <-
-            Eff.liftIO $
+            liftIO $
                 Pool.use (store ^. #pool) $
                     Session.statement name SQL.getStreamStmt
         case streamCheck of
             Right (Just info)
                 | info ^. #deletedAt /= Nothing ->
                     pure V.empty
-            _ -> do
-                result <-
-                    Eff.liftIO $
-                        Pool.use (store ^. #pool) $
-                            Session.statement (name, startVer, limit) SQL.readStreamBackwardStmt
-                case result of
-                    Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
-                    Right events -> pure events
-    ReadAllForward (GlobalPosition startPos) limit -> do
-        result <-
-            Eff.liftIO $
-                Pool.use (store ^. #pool) $
-                    Session.statement (startPos, limit) SQL.readAllForwardStmt
-        case result of
-            Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
-            Right events -> pure events
-    ReadAllBackward (GlobalPosition startPos) limit -> do
-        result <-
-            Eff.liftIO $
-                Pool.use (store ^. #pool) $
-                    Session.statement (startPos, limit) SQL.readAllBackwardStmt
-        case result of
-            Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
-            Right events -> pure events
-    GetStream (StreamName name) -> do
-        result <-
-            Eff.liftIO $
-                Pool.use (store ^. #pool) $
-                    Session.statement name SQL.getStreamStmt
-        case result of
-            Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
-            Right info -> pure info
+            _ ->
+                usePool (store ^. #pool) $
+                    Session.statement (name, startVer, limit) SQL.readStreamBackwardStmt
+    ReadAllForward (GlobalPosition startPos) limit ->
+        usePool (store ^. #pool) $
+            Session.statement (startPos, limit) SQL.readAllForwardStmt
+    ReadAllBackward (GlobalPosition startPos) limit ->
+        usePool (store ^. #pool) $
+            Session.statement (startPos, limit) SQL.readAllBackwardStmt
+    GetStream (StreamName name) ->
+        usePool (store ^. #pool) $
+            Session.statement name SQL.getStreamStmt
     LinkToStream (StreamName name) eventIds -> do
         let uuids = V.fromList [uid | EventId uid <- eventIds]
-        result <-
-            Eff.liftIO $
-                Pool.use (store ^. #pool) $
-                    Session.statement (uuids, name) SQL.linkToStreamStmt
-        case result of
-            Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
-            Right linkResult -> pure linkResult
-    ReadCategoryForward (CategoryName cat) (GlobalPosition startPos) limit -> do
-        result <-
-            Eff.liftIO $
-                Pool.use (store ^. #pool) $
-                    Session.statement (startPos, cat, limit) SQL.readCategoryForwardStmt
-        case result of
-            Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
-            Right events -> pure events
+        usePool (store ^. #pool) $
+            Session.statement (uuids, name) SQL.linkToStreamStmt
+    ReadCategoryForward (CategoryName cat) (GlobalPosition startPos) limit ->
+        usePool (store ^. #pool) $
+            Session.statement (startPos, cat, limit) SQL.readCategoryForwardStmt
     AppendMultiStream ops -> do
-        now <- Eff.liftIO getCurrentTime
+        now <- liftIO getCurrentTime
         -- Prepare all events for all streams
         preparedOps <-
-            Eff.liftIO $
-                mapM
-                    ( \(sn, ev, evts) -> do
-                        prepared <- prepareEvents evts
-                        pure (sn, ev, prepared)
-                    )
-                    ops
+            mapM
+                ( \(sn, ev, evts) -> do
+                    prepared <- prepareEvents evts
+                    pure (sn, ev, prepared)
+                )
+                ops
         let txn = do
                 results <-
                     mapM
@@ -207,7 +171,7 @@ runStorePool store = interpret_ $ \case
                     True -> Tx.condemn >> pure results
                     False -> pure results
         result <-
-            Eff.liftIO $
+            liftIO $
                 Pool.use (store ^. #pool) $
                     TxSessions.transaction TxSessions.ReadCommitted TxSessions.Write txn
         case result of
@@ -226,40 +190,41 @@ runStorePool store = interpret_ $ \case
                             Just r -> pure r
                     )
                     indexed
-    SoftDeleteStream (StreamName name) -> do
-        result <-
-            Eff.liftIO $
-                Pool.use (store ^. #pool) $
-                    Session.statement name SQL.softDeleteStreamStmt
-        case result of
-            Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
-            Right mId -> pure mId
+    SoftDeleteStream (StreamName name) ->
+        usePool (store ^. #pool) $
+            Session.statement name SQL.softDeleteStreamStmt
     HardDeleteStream (StreamName name) -> do
         let txn = do
                 Tx.sql "SET LOCAL kiroku.enable_hard_deletes = 'on'"
                 Tx.statement name SQL.hardDeleteStreamCTE
-        result <-
-            Eff.liftIO $
-                Pool.use (store ^. #pool) $
-                    TxSessions.transaction TxSessions.ReadCommitted TxSessions.Write txn
-        case result of
-            Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
-            Right mId -> pure mId
-    UndeleteStream (StreamName name) -> do
-        result <-
-            Eff.liftIO $
-                Pool.use (store ^. #pool) $
-                    Session.statement name SQL.undeleteStreamStmt
-        case result of
-            Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
-            Right mId -> pure mId
+        usePool (store ^. #pool) $
+            TxSessions.transaction TxSessions.ReadCommitted TxSessions.Write txn
+    UndeleteStream (StreamName name) ->
+        usePool (store ^. #pool) $
+            Session.statement name SQL.undeleteStreamStmt
 
 -- | Convenience: run a Store computation to IO.
 runStoreIO ::
     KirokuStore ->
     Eff '[Store, Error StoreError, IOE] a ->
     IO (Either StoreError a)
-runStoreIO store = Eff.runEff . runErrorNoCallStack . runStorePool store
+runStoreIO store = runEff . runErrorNoCallStack . runStorePool store
+
+-- ---------------------------------------------------------------------------
+-- Internal pool helper
+-- ---------------------------------------------------------------------------
+
+-- | Run a hasql session against the pool, mapping pool errors to 'StoreError'.
+usePool ::
+    (IOE :> es, Error StoreError :> es) =>
+    Pool ->
+    Session.Session a ->
+    Eff es a
+usePool pool session = do
+    result <- liftIO (Pool.use pool session)
+    case result of
+        Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
+        Right a -> pure a
 
 -- ---------------------------------------------------------------------------
 -- Internal helpers (moved from Append)
