@@ -27,6 +27,7 @@ library
     Kiroku.Store.Read
     Kiroku.Store.Schema
     Kiroku.Store.Subscription
+    Kiroku.Store.Subscription.Effect
     Kiroku.Store.Subscription.EventPublisher
     Kiroku.Store.Subscription.Types
     Kiroku.Store.Subscription.Worker
