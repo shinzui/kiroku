@@ -20,6 +20,7 @@ library
     Kiroku.Store.Append
     Kiroku.Store.Connection
     Kiroku.Store.Effect
+    Kiroku.Store.Effect.Resource
     Kiroku.Store.Error
     Kiroku.Store.Lifecycle
     Kiroku.Store.Link
