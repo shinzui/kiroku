@@ -30,6 +30,7 @@ library
     Kiroku.Store.Subscription
     Kiroku.Store.Subscription.Effect
     Kiroku.Store.Subscription.EventPublisher
+    Kiroku.Store.Subscription.Stream
     Kiroku.Store.Subscription.Types
     Kiroku.Store.Subscription.Worker
     Kiroku.Store.Types
@@ -50,6 +51,7 @@ library
     , lens                 >=5.2
     , mmzk-typeid          >=0.6
     , stm
+    , streamly-core        >=0.3
     , text                 >=2.0
     , time                 >=1.12
     , unliftio-core        >=0.2
