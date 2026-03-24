@@ -21,13 +21,18 @@ last processed global position) so that after a restart the subscription resumes
 left off rather than replaying from the beginning. Fourth, cancel a running subscription
 gracefully.
 
-The subscription system uses a decentralized pull-based architecture informed by all three
-major PostgreSQL event store implementations (Commanded, Hindsight, and Marten). A single
-Notifier thread listens for PostgreSQL notifications and broadcasts a "tick" to all active
-subscribers via STM. Each subscriber runs its own worker loop, pulling batches from the
-database whenever it receives a tick or has unprocessed events remaining. This design
-provides inherent backpressure — a slow subscriber simply pulls less frequently without
-affecting other subscribers.
+The subscription system uses a hybrid architecture informed by all three major PostgreSQL
+event store implementations (Commanded, Hindsight, and Marten). A Notifier thread listens
+for PostgreSQL notifications and wakes a centralized EventPublisher. The EventPublisher
+queries the database once per notification, then broadcasts fetched events to all
+subscribers via a `TChan (Vector RecordedEvent)`. Each subscriber receives the same events
+without issuing its own database query — 30+ subscribers means 1 query, not 30+.
+
+Three reliability mechanisms ensure events are never missed. First, LISTEN/NOTIFY provides
+sub-10ms wakeup for live delivery. Second, a periodic safety poll (every 30 seconds) wakes
+the EventPublisher even if LISTEN/NOTIFY is down, bounding maximum delivery latency.
+Third, tick debouncing in the EventPublisher collapses rapid notifications into a single
+database query, reducing burst load during high-throughput appends.
 
 Observable outcomes:
 
@@ -47,11 +52,12 @@ Observable outcomes:
 
 - [ ] M7.1: Add hasql-notifications dependency and verify build
 - [ ] M7.2: Implement the Notifier (LISTEN thread + TChan broadcast)
-- [ ] M7.3: Implement subscription types and checkpoint SQL
-- [ ] M7.4: Implement the subscription worker loop
-- [ ] M7.5: Wire subscriptions into the public API
-- [ ] M7.6: Tests — catch-up, live delivery, checkpoint, cancellation
-- [ ] M7.7: Document results and update plan
+- [ ] M7.3: Implement the EventPublisher (centralized fetch + broadcast)
+- [ ] M7.4: Implement subscription types and checkpoint SQL
+- [ ] M7.5: Implement the subscription worker loop (catch-up + live)
+- [ ] M7.6: Wire subscriptions into the public API
+- [ ] M7.7: Tests — catch-up, live delivery, checkpoint, cancellation, reliability
+- [ ] M7.8: Document results and update plan
 
 
 ## Surprises & Discoveries
@@ -81,15 +87,15 @@ flows through the notification pipeline — the Publisher fetches events by stre
 range from the NOTIFY payload (`stream_uuid,stream_id,first_version,last_version`).
 
 **What we take:** The NOTIFY trigger design (on `streams` table, schema-scoped channel,
-fires once per append). The checkpoint concept (contiguous-ack advancement before
-persisting). The `SubscriptionHandle` pattern (cancel + wait). The advisory lock two-part
-key design (for future competing consumers).
+fires once per append). The centralized Publisher pattern (query once, broadcast to all
+subscribers — eliminates the thundering herd problem at 30+ subscribers). The checkpoint
+concept (contiguous-ack advancement before persisting). The `SubscriptionHandle` pattern
+(cancel + wait). The advisory lock two-part key design (for future competing consumers).
 
-**What we leave:** The centralized Publisher that fetches events in the notification
-pipeline (creates a bottleneck — all subscribers share one Publisher's fetch throughput).
-The 7-state FSM complexity (overkill for Phase 2a — `max_capacity`, `disconnected`, and
-`unsubscribed` states are Phase 2c concerns). The OTP/GenStage supervision tree (Elixir-
-specific). Competing consumers and partition-aware distribution (Phase 2c).
+**What we leave:** The OTP/GenStage supervision tree (Elixir-specific). The 7-state FSM
+complexity (overkill for Phase 2a — `max_capacity`, `disconnected`, and `unsubscribed`
+states are Phase 2c concerns). Competing consumers and partition-aware distribution
+(Phase 2c).
 
 ### Hindsight (Haskell) — Cleanest Haskell implementation, limited production use
 
@@ -105,17 +111,16 @@ The worker loop is simple: fetch a batch → process each event → update curso
 was empty, wait for tick. Server-side event filtering (`AND event_name = ANY($4)`) reduces
 unnecessary data transfer.
 
-**What we take:** The decentralized pull-based architecture (each subscriber pulls
-independently). The `TChan ()` broadcast pattern (no event data in the notification
-channel). The worker loop structure (fetch → process → wait). The `Notifier` type design
+**What we take:** The `TChan` broadcast pattern for fan-out. The `Notifier` type design
 and reconnection logic. The `SubscriptionHandle` pattern (`cancel` via `Async.cancel`,
 `wait` via `Async.waitCatch`).
 
-**What we leave:** The compound `(transactionXid8, seqNo)` cursor (we use contiguous
-`GlobalPosition` instead). The `EventMatcher` type-level machinery (complex, and our
-handlers are simpler — they receive `RecordedEvent` and decide what to do). Hindsight's
-limited production track record means we validate the architecture with our own tests rather
-than trusting it at face value.
+**What we leave:** The decentralized pull-based architecture where each subscriber queries
+the database independently — this causes a thundering herd with 30+ subscribers (all wake
+simultaneously, all issue separate queries, pool exhausted). The compound
+`(transactionXid8, seqNo)` cursor (we use contiguous `GlobalPosition` instead). The
+`EventMatcher` type-level machinery. Hindsight's limited production track record means we
+validate the architecture with our own tests rather than trusting it at face value.
 
 ### Marten (.NET) — Most battle-tested, but polling-based
 
@@ -139,34 +144,56 @@ latency and database load). The gap detection machinery (Strategy E produces gap
 positions, making this unnecessary). The `HighWaterDetector` / `GapDetector` / skip tracking
 complexity. The .NET-specific Polly resilience patterns.
 
-### Architecture decision: Decentralized pull-based with LISTEN/NOTIFY
+### Architecture decision: Centralized EventPublisher with LISTEN/NOTIFY + safety poll
 
-The chosen architecture combines Hindsight's decentralized pull-based worker model with
-Commanded's NOTIFY trigger design and Marten's error handling philosophy:
+The chosen architecture combines Commanded's centralized Publisher pattern with Hindsight's
+TChan broadcast mechanism, adds reliability guarantees absent from both, and defers Marten's
+error handling to Phase 2b:
 
 1. **Notification layer (from Commanded):** PostgreSQL NOTIFY trigger fires on `streams`
-   table, schema-scoped channel, once per append.
+   table, schema-scoped channel, once per append. The Notifier thread receives notifications
+   and writes ticks to a `TChan ()`.
 
-2. **Broadcast layer (from Hindsight):** Single Notifier thread, `TChan ()` broadcast, each
-   subscriber gets a personal channel via `dupTChan`. No event data flows through the
-   notification channel.
+2. **EventPublisher (from Commanded, adapted):** A single EventPublisher thread reads ticks
+   from the Notifier's TChan, queries the database once to fetch new events from `$all`
+   starting after the last-published position, and broadcasts the fetched events to all
+   subscribers via a `TChan (Vector RecordedEvent)`. This eliminates the thundering herd:
+   30+ subscribers = 1 database query, not 30+. Unlike Commanded's per-stream Publisher,
+   our EventPublisher reads from `$all` in global position order — all subscribers see the
+   same global event stream.
 
-3. **Worker layer (from Hindsight):** Each subscriber has its own worker thread that
-   independently pulls batches from the database. Inherent backpressure — slow subscribers
-   don't affect fast ones.
+3. **Subscriber layer (hybrid):** Each subscriber has its own worker thread that reads from
+   its personal `TChan (Vector RecordedEvent)` (obtained via `dupTChan`). During catch-up
+   (reading historical events before reaching the Publisher's current position), the worker
+   queries the database directly. Once caught up, it switches to consuming events pushed by
+   the EventPublisher. This means slow subscribers during catch-up don't affect the
+   Publisher or other subscribers.
 
-4. **Checkpoint layer (from Commanded):** Persistent checkpoint table, upsert-based saves.
+4. **Reliability layer (new — absent from Hindsight and partially from Commanded):**
+   - **Periodic safety poll:** The EventPublisher wakes every 30 seconds even without a
+     LISTEN/NOTIFY tick. This bounds maximum delivery latency if the Notifier connection
+     drops. LISTEN/NOTIFY is not durable — notifications during a connection gap are lost
+     forever. The safety poll ensures the database (the source of truth) is checked
+     regardless.
+   - **Tick debouncing:** When the EventPublisher wakes, it drains all pending ticks from
+     the TChan before querying. This collapses rapid notifications (e.g., 10 appends in
+     quick succession) into a single database query.
+   - **Notifier reconnection:** On connection failure, the Notifier waits 1 second and
+     retries. On `AsyncException` it exits cleanly. During reconnection, the safety poll
+     ensures events are still delivered.
+
+5. **Checkpoint layer (from Commanded):** Persistent checkpoint table, upsert-based saves.
    Contiguous-ack advancement deferred to Phase 2c (simple last-processed-position
    checkpointing is sufficient for Phase 2a).
 
-5. **Error handling (from Marten, deferred):** Skip + dead-letter taxonomy for Phase 2b
+6. **Error handling (from Marten, deferred):** Skip + dead-letter taxonomy for Phase 2b
    projections. Phase 2a handlers throw on error — the subscription stops, which is the
    safest default.
 
-This avoids the centralized Publisher bottleneck (Commanded), eliminates polling overhead
-(Marten), and leverages the proven `TChan` broadcast pattern (Hindsight) — while using
-Kiroku's gap-free `GlobalPosition` as a simpler cursor than any of the three reference
-implementations.
+This architecture uses Kiroku's gap-free `GlobalPosition` as a simpler cursor than any of
+the three reference implementations. The EventPublisher's `$all` query is the same
+`readAllForwardStmt` already implemented in Phase 1 — no new SQL is needed for the
+publishing path.
 
 
 ## Decision Log
@@ -192,21 +219,42 @@ implementations.
   `/Users/shinzui/Keikaku/hub/haskell/hasql-project/hasql-notifications/`.
   Date: 2026-03-23
 
-- Decision: Use a decentralized pull-based architecture (each subscriber pulls independently)
-  rather than a centralized Publisher that fetches and distributes events.
-  Rationale: Commanded's architecture routes all event data through a centralized Publisher
-  (GenStage consumer) that fetches events from storage and broadcasts via PubSub. This
-  creates a throughput bottleneck — all subscribers share one Publisher's fetch capacity. If
-  one subscriber is slow, backpressure propagates to the Publisher, delaying all subscribers.
-  Hindsight's approach gives each subscriber its own worker thread that independently pulls
-  from the database. The Notifier merely broadcasts a `()` tick — no event data flows through
-  the notification channel. This provides inherent backpressure per-subscriber, eliminates the
-  Publisher as a single point of failure, and simplifies the code. Marten's polling approach
-  was also rejected — LISTEN/NOTIFY provides sub-10ms notification latency vs. polling's
-  inherent delay and database load. The trade-off is that each subscriber independently
-  queries the database, which means N subscribers issue N queries per tick. For typical
-  workloads (< 20 concurrent subscribers) this is acceptable; the database is the source of
-  truth regardless.
+- Decision: Use a centralized EventPublisher that queries once and broadcasts events to all
+  subscribers, rather than decentralized pull where each subscriber queries independently.
+  Rationale: Hindsight's decentralized pull-based architecture causes a thundering herd at
+  scale. When a NOTIFY arrives, all subscribers wake simultaneously and each issues its own
+  database query. With 30+ subscribers, this means 30+ concurrent queries hitting PostgreSQL
+  in a burst, exhausting a typical connection pool (10–20 connections). Commanded solves this
+  with a centralized Publisher that queries once and pushes event data to subscribers via
+  in-process messaging. We adopt this pattern: the EventPublisher reads from `$all` once per
+  notification, then broadcasts the fetched events to all subscribers via `TChan (Vector
+  RecordedEvent)`. 30+ subscribers = 1 query. The trade-off is that the EventPublisher
+  becomes a throughput bottleneck — but since it reads from `$all` (a single indexed query
+  taking ~1ms for 100 events), this bottleneck is far above practical subscription counts.
+  Subscribers during catch-up still query independently (they need historical events the
+  Publisher has already passed), so the pool must accommodate some concurrent catch-up
+  queries, but this is bounded and temporary.
+  Date: 2026-03-23
+
+- Decision: Add a periodic safety poll (every 30 seconds) to the EventPublisher as a
+  reliability backstop.
+  Rationale: LISTEN/NOTIFY is not durable. If the Notifier's PostgreSQL connection drops,
+  notifications during the reconnection window are lost forever. Hindsight has no mitigation
+  for this — subscribers sit in `readTChan` indefinitely, receiving no events until a new
+  notification arrives after reconnection. Adding a 30-second periodic wakeup to the
+  EventPublisher guarantees bounded delivery latency regardless of LISTEN/NOTIFY health. The
+  database is always the source of truth; the safety poll simply ensures we check it. The
+  30-second interval is a balance between latency (acceptable for most projections) and
+  database load (one extra query every 30 seconds is negligible).
+  Date: 2026-03-23
+
+- Decision: Debounce ticks in the EventPublisher — drain all pending ticks before querying.
+  Rationale: During high-throughput appends (e.g., bulk import writing 100 batches in 1
+  second), the Notifier produces 100 ticks in rapid succession. Without debouncing, the
+  EventPublisher would issue 100 queries. By draining all pending ticks from the TChan before
+  querying, rapid notifications collapse into a single database query that fetches all new
+  events at once. This is especially important because the EventPublisher is centralized —
+  any time it spends on redundant queries delays delivery to all subscribers.
   Date: 2026-03-23
 
 - Decision: Milestone numbering continues from M7 (Milestones 1–6 were kiroku-store Phase 1).
@@ -445,10 +493,11 @@ catching up from that position. After processing events, it updates `last_seen`.
 
 ## Plan of Work
 
-The work proceeds in seven milestones. Milestones 7.1–7.2 set up the notification
-infrastructure. Milestone 7.3 adds checkpoint persistence. Milestone 7.4 implements the
-core subscription worker loop. Milestone 7.5 wires the public API. Milestone 7.6 adds
-tests. Milestone 7.7 documents results.
+The work proceeds in eight milestones. Milestones 7.1–7.3 build the notification and
+publishing infrastructure. Milestone 7.4 adds subscription types and checkpoint persistence.
+Milestone 7.5 implements the worker loop with catch-up and live modes. Milestone 7.6 wires
+the public API. Milestone 7.7 adds tests including reliability scenarios. Milestone 7.8
+documents results.
 
 ### Milestone 7.1 — Add hasql-notifications dependency and verify build
 
@@ -459,8 +508,8 @@ in `cabal.project` pointing to the local hasql project or the git repository.
 Edit `cabal.project` to add a `source-repository-package` stanza for `hasql-notifications`
 pointing to the git repository at `https://github.com/diogob/hasql-notifications` (or the
 local path if preferred). Add `hasql-notifications` and `stm` to `build-depends` in
-`kiroku-store.cabal`. Also add `async` (for spawning the Notifier and subscription worker
-threads). Run `cabal build all` to verify.
+`kiroku-store.cabal`. Also add `async` (for spawning the Notifier, EventPublisher, and
+subscription worker threads). Run `cabal build all` to verify.
 
 At the end of this milestone, `cabal build all` compiles with the new dependencies available.
 
@@ -468,30 +517,60 @@ At the end of this milestone, `cabal build all` compiles with the new dependenci
 
 Create `kiroku-store/src/Kiroku/Store/Notification.hs`. This module provides a `Notifier`
 type that manages a dedicated PostgreSQL connection, listens for events on the
-`<schema>.events` channel, and broadcasts ticks to all subscribers via a `TChan ()`.
+`<schema>.events` channel, and writes ticks to a `TChan ()`.
 
-The `Notifier` type holds three things: a broadcast `TChan ()`, an `Async ()` for the
+The `Notifier` type holds three things: a `TChan ()` (tick channel), an `Async ()` for the
 listener thread, and the dedicated `Hasql.Connection` for cleanup.
 
 `startNotifier` takes a `Text` (connection string) and a `Text` (schema name), acquires a
 dedicated `Hasql.Connection`, computes the channel name as `<schema>.events`, calls
 `Notifications.listen`, and spawns an async thread that runs `waitForNotifications`. The
-notification handler writes `()` to the broadcast TChan on every notification. The
-thread runs inside `forever` with reconnection logic: on connection failure, wait 1 second
-and retry; on `AsyncException`, exit cleanly.
+notification handler writes `()` to the TChan on every notification. The thread runs inside
+`forever` with reconnection logic: on connection failure, wait 1 second and retry; on
+`AsyncException`, exit cleanly.
 
 `stopNotifier` cancels the async thread, waits for it to terminate, and releases the
 dedicated connection.
 
-`subscribeNotifier` returns a personal `TChan ()` via `dupTChan`.
-
-Update `KirokuStore` in `Connection.hs` to include a `notifier :: Notifier` field. Update
-`withStore` to start the Notifier on acquire and stop it on release.
-
 At the end of this milestone, `cabal build all` compiles. The Notifier starts and stops
 cleanly within `withStore`.
 
-### Milestone 7.3 — Implement subscription types and checkpoint SQL
+### Milestone 7.3 — Implement the EventPublisher
+
+Create `kiroku-store/src/Kiroku/Store/Subscription/EventPublisher.hs`. This module provides
+the centralized EventPublisher that reads events from the database once per notification and
+broadcasts them to all subscribers.
+
+The `EventPublisher` type holds: a `TChan (Vector RecordedEvent)` (broadcast channel for
+subscribers), an `Async ()` (publisher thread), and a `TVar GlobalPosition` (the last-
+published position, readable by subscribers to know where the live stream starts).
+
+The publisher thread loop:
+
+1. Wait for a wakeup signal. Use `STM.orElse` to wake on either:
+   a. A tick from the Notifier's `TChan ()`, or
+   b. A timeout (30 seconds) via `registerDelay` for the periodic safety poll.
+2. On wakeup, drain all pending ticks from the TChan (debouncing). This collapses multiple
+   rapid notifications into a single database query.
+3. Query `readAllForwardStmt` from the pool, starting after the last-published position,
+   with a configurable batch size (default 1000 — larger than subscriber batch size because
+   the Publisher serves all subscribers).
+4. If events were fetched:
+   a. Write the `Vector RecordedEvent` to the broadcast `TChan`.
+   b. Update the `TVar GlobalPosition` to the last event's position.
+   c. If the batch was full (1000 events), loop immediately without waiting (there may be
+      more events to fetch).
+5. If no events were fetched, go back to step 1.
+
+`startPublisher` takes a `Pool`, the Notifier's `TChan ()`, and spawns the publisher thread.
+`stopPublisher` cancels the thread and waits for termination.
+`subscribePublisher` returns a personal `TChan (Vector RecordedEvent)` via `dupTChan`.
+`publisherPosition` reads the `TVar GlobalPosition` (used by workers to know when catch-up
+is complete).
+
+At the end of this milestone, `cabal build all` compiles.
+
+### Milestone 7.4 — Implement subscription types and checkpoint SQL
 
 Create `kiroku-store/src/Kiroku/Store/Subscription/Types.hs` with the subscription types:
 
@@ -501,7 +580,7 @@ Create `kiroku-store/src/Kiroku/Store/Subscription/Types.hs` with the subscripti
 - `SubscriptionResult` — what the handler returns: `Continue` or `Stop`.
 - `EventHandler` — the handler type: `RecordedEvent -> IO SubscriptionResult`.
 - `SubscriptionConfig` — configuration record: `subscriptionName`, `target`, `handler`,
-  `batchSize` (default 100), `startFrom` (a `GlobalPosition`, default 0).
+  `batchSize` (default 100).
 - `SubscriptionHandle` — returned to the caller: `cancel :: IO ()` (stop the subscription)
   and `wait :: IO (Either SomeException ())` (block until the subscription completes or
   fails, re-throwing any exception from the worker).
@@ -520,38 +599,38 @@ Add hasql statements to `kiroku-store/src/Kiroku/Store/SQL.hs`:
 
 At the end of this milestone, `cabal build all` compiles with the new types and SQL.
 
-### Milestone 7.4 — Implement the subscription worker loop
+### Milestone 7.5 — Implement the subscription worker loop
 
 Create `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs`. This module contains the
 worker loop that each subscription runs in its own thread.
 
-The worker loop follows Hindsight's pattern:
+The worker operates in two phases:
 
-1. Read the checkpoint from the database. If no checkpoint exists and `startFrom` is
-   provided, use that position; otherwise start from 0.
-2. Enter the main loop:
-   a. Fetch a batch of events from the database starting after the current cursor. Use
-      `readAllForward` for `AllStreams` or `readCategoryForward` for `Category`.
-   b. If the batch is non-empty, process each event by calling the handler. If any handler
-      call returns `Stop`, exit the loop. Update the cursor to the last event's global
-      position. Persist the checkpoint.
-   c. If the batch is empty, wait for a tick from the Notifier's TChan. On tick, loop back
-      to fetch again.
-3. On exit (whether from `Stop` or cancellation), persist the final checkpoint.
+**Phase 1 — Catch-up.** On startup, the worker reads its checkpoint from the database. If
+behind the EventPublisher's current position (read from the `TVar GlobalPosition`), the
+worker queries the database directly using `readAllForwardStmt` or `readCategoryForwardStmt`
+(via `Pool.use`), processing events batch by batch until it reaches the Publisher's position.
+During catch-up, the worker does not read from the Publisher's `TChan` — it pulls
+independently. This means catch-up queries use pool connections, but catch-up is temporary
+and bounded.
 
-The worker uses `Pool.use` from the store's pool to execute reads and checkpoint saves. It
-does not need its own dedicated connection — reads and checkpoint writes are short-lived
-sessions that return the connection to the pool immediately.
+**Phase 2 — Live.** Once caught up, the worker switches to reading from its personal
+`TChan (Vector RecordedEvent)` (obtained via `subscribePublisher`). Each batch pushed by the
+EventPublisher is received and processed. For `AllStreams` subscriptions, every event in the
+batch is relevant. For `Category` subscriptions, the worker filters the batch in-process to
+retain only events from matching streams (using the `originalStreamId` / stream name prefix
+match). No database query is needed in live mode — the EventPublisher already fetched the
+events.
 
-The fetch step uses the Store effect's existing `readAllForwardStmt` and
-`readCategoryForwardStmt` SQL statements directly (via `Pool.use` + `Session.statement`),
-bypassing the effectful layer. This is intentional — the subscription worker runs in `IO`,
-not in an `Eff` monad, because it is a long-lived concurrent thread that manages its own
-lifecycle.
+In both phases, the worker calls the handler for each event. If the handler returns `Stop`,
+the worker exits. After processing each batch, the worker persists its checkpoint.
+
+On exit (whether from `Stop`, handler exception, or cancellation), the worker persists the
+final checkpoint.
 
 At the end of this milestone, `cabal build all` compiles.
 
-### Milestone 7.5 — Wire subscriptions into the public API
+### Milestone 7.6 — Wire subscriptions into the public API
 
 Create `kiroku-store/src/Kiroku/Store/Subscription.hs` as the public API module. It
 re-exports the types from `Subscription.Types` and provides a single function:
@@ -560,25 +639,32 @@ re-exports the types from `Subscription.Types` and provides a single function:
 
 This function:
 
-1. Gets a personal TChan from the Notifier via `subscribeNotifier`.
-2. Spawns the worker loop as an `Async` thread.
-3. Returns a `SubscriptionHandle` wrapping the async thread — `cancel` calls
+1. Gets a personal `TChan (Vector RecordedEvent)` from the EventPublisher via
+   `subscribePublisher`.
+2. Reads the EventPublisher's current position via `publisherPosition`.
+3. Spawns the worker loop as an `Async` thread.
+4. Returns a `SubscriptionHandle` wrapping the async thread — `cancel` calls
    `Async.cancel`, `wait` calls `Async.waitCatch`.
+
+Update `KirokuStore` in `Connection.hs` to include both a `notifier :: Notifier` and a
+`publisher :: EventPublisher` field. Update `withStore` to start/stop both in the bracket
+(Notifier first, then EventPublisher which depends on the Notifier's TChan).
 
 Update `kiroku-store/src/Kiroku/Store.hs` to re-export the `Subscription` module.
 
 Update `kiroku-store.cabal` to add all new modules to `exposed-modules`:
 `Kiroku.Store.Notification`, `Kiroku.Store.Subscription`,
-`Kiroku.Store.Subscription.Types`, `Kiroku.Store.Subscription.Worker`.
+`Kiroku.Store.Subscription.Types`, `Kiroku.Store.Subscription.Worker`,
+`Kiroku.Store.Subscription.EventPublisher`.
 
 At the end of this milestone, `cabal build all` compiles and the full subscription API is
 available.
 
-### Milestone 7.6 — Tests
+### Milestone 7.7 — Tests
 
 Add subscription tests to `kiroku-store/test/Main.hs`. The test helpers need a small
-update: `withTestStore` currently creates a `KirokuStore` which now includes a `Notifier`.
-The `Notifier` needs a real PostgreSQL connection, which `ephemeral-pg` provides.
+update: `withTestStore` currently creates a `KirokuStore` which now includes a `Notifier`
+and `EventPublisher`. Both need a real PostgreSQL connection, which `ephemeral-pg` provides.
 
 Test cases:
 
@@ -606,10 +692,19 @@ returns `Stop` after receiving all order events. Verify only order events were r
 **Empty store test:** Subscribe from position 0 on an empty store. Append an event. Handler
 receives it and returns `Stop`. Verify exactly 1 event received.
 
+**Safety poll test:** Subscribe from position 0 on an empty store. Disable or do not start
+the Notifier (or use a store where LISTEN/NOTIFY is not firing). Append an event. Verify
+the handler receives the event within 35 seconds (30-second safety poll + margin). This
+confirms events are delivered even without LISTEN/NOTIFY.
+
+**Debouncing test:** Append 50 events rapidly (50 separate appends to different streams).
+Subscribe from position 0. Verify all 50 events are received. This confirms debouncing
+does not lose events.
+
 At the end of this milestone, `cabal test all` passes with all existing tests plus the
 new subscription tests.
 
-### Milestone 7.7 — Document results and update plan
+### Milestone 7.8 — Document results and update plan
 
 Update this plan's Progress, Surprises & Discoveries, and Outcomes & Retrospective
 sections. Record test results. Note any deviations from the plan.
@@ -636,12 +731,17 @@ Edit `cabal.project` to add a `source-repository-package` stanza for
 
 **Step 3: Create Notification module.**
 
-Create `kiroku-store/src/Kiroku/Store/Notification.hs`. Update `Connection.hs` to add
-`Notifier` to `KirokuStore` and update `withStore`.
+Create `kiroku-store/src/Kiroku/Store/Notification.hs`.
 
     cabal build all
 
-**Step 4: Create subscription types and checkpoint SQL.**
+**Step 4: Create EventPublisher module.**
+
+Create `kiroku-store/src/Kiroku/Store/Subscription/EventPublisher.hs`.
+
+    cabal build all
+
+**Step 5: Create subscription types and checkpoint SQL.**
 
 Create `kiroku-store/src/Kiroku/Store/Subscription/Types.hs`. Update
 `kiroku-store/sql/schema.sql` with `subscriptions` table. Add checkpoint hasql statements
@@ -649,20 +749,21 @@ to `SQL.hs`.
 
     cabal build all
 
-**Step 5: Create subscription worker.**
+**Step 6: Create subscription worker.**
 
 Create `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs`.
 
     cabal build all
 
-**Step 6: Create subscription public API.**
+**Step 7: Create subscription public API and update KirokuStore.**
 
-Create `kiroku-store/src/Kiroku/Store/Subscription.hs`. Update `Store.hs` re-exports.
-Update `kiroku-store.cabal` exposed-modules.
+Create `kiroku-store/src/Kiroku/Store/Subscription.hs`. Update `Connection.hs` to add
+`Notifier` and `EventPublisher` to `KirokuStore` and update `withStore`. Update `Store.hs`
+re-exports. Update `kiroku-store.cabal` exposed-modules.
 
     cabal build all
 
-**Step 7: Add tests.**
+**Step 8: Add tests.**
 
 Update `kiroku-store/test/Main.hs`.
 
@@ -670,7 +771,7 @@ Update `kiroku-store/test/Main.hs`.
 
 Expected: all existing 46 tests pass plus new subscription tests.
 
-**Step 8: Update plan with results.**
+**Step 9: Update plan with results.**
 
 
 ## Validation and Acceptance
@@ -698,8 +799,10 @@ Key behaviors:
 - Category subscription: only events from streams matching the category prefix are
   delivered.
 - Cancellation: cancelling a subscription handle causes the worker to exit cleanly.
-- The Notifier thread starts and stops within the `withStore` bracket without resource
-  leaks.
+- Safety poll: events are delivered within 30 seconds even without LISTEN/NOTIFY.
+- Debouncing: rapid appends do not cause duplicate or lost events.
+- The Notifier and EventPublisher threads start and stop within the `withStore` bracket
+  without resource leaks.
 
 ### Behavior verification
 
@@ -718,11 +821,24 @@ multiple times is safe. Checkpoint saves use `INSERT ... ON CONFLICT ... DO UPDA
 — saving the same checkpoint twice is harmless. Tests use `ephemeral-pg` which creates a
 fresh PostgreSQL database per run.
 
-If the Notifier connection drops, the reconnection logic waits 1 second and retries. During
-the reconnection window, subscribers simply wait on the TChan — they miss no events because
-the next tick will trigger a catch-up pull from the database. LISTEN/NOTIFY is not durable
-(notifications are lost if no connection is listening), but the pull-based architecture
-makes this safe: the database is the source of truth, not the notification channel.
+Three mechanisms ensure events are never missed:
+
+1. **Notifier reconnection.** If the LISTEN connection drops, the Notifier waits 1 second
+   and retries. During the reconnection window, NOTIFY messages are lost.
+
+2. **Safety poll.** The EventPublisher wakes every 30 seconds regardless of LISTEN/NOTIFY
+   health. This guarantees that even during a prolonged Notifier outage, events are
+   discovered within 30 seconds. The database is always the source of truth — the
+   EventPublisher queries from its last-published position, so no events are skipped.
+
+3. **Cursor-based reads.** Both the EventPublisher and catch-up workers read using
+   `WHERE stream_version > $cursor`. This is idempotent — re-reading from the same cursor
+   returns the same events. Duplicate processing is prevented by the checkpoint: the worker
+   only processes events with positions greater than its last checkpoint.
+
+The combination of LISTEN/NOTIFY (sub-10ms latency) and safety poll (30-second backstop)
+provides both low-latency delivery and guaranteed reliability. LISTEN/NOTIFY is the fast
+path; the safety poll is the safety net.
 
 
 ## Interfaces and Dependencies
@@ -751,7 +867,7 @@ lifecycle management.
 In `kiroku-store/src/Kiroku/Store/Notification.hs`:
 
     data Notifier = Notifier
-        { broadcastChan :: !(TChan ())
+        { tickChan :: !(TChan ())
         , listenerThread :: !(Async ())
         , listenerConn :: !Connection
         }
@@ -762,8 +878,35 @@ In `kiroku-store/src/Kiroku/Store/Notification.hs`:
     stopNotifier :: Notifier -> IO ()
     -- ^ Cancel thread, wait for exit, release connection
 
-    subscribeNotifier :: Notifier -> IO (TChan ())
+### New module: `Kiroku.Store.Subscription.EventPublisher`
+
+In `kiroku-store/src/Kiroku/Store/Subscription/EventPublisher.hs`:
+
+    data EventPublisher = EventPublisher
+        { broadcastChan :: !(TChan (Vector RecordedEvent))
+        -- ^ Broadcast channel; subscribers get personal copies via dupTChan
+        , publisherThread :: !(Async ())
+        , lastPublished :: !(TVar GlobalPosition)
+        -- ^ Last-published position; workers read this to know when catch-up is done
+        }
+
+    startPublisher :: Pool -> TChan () -> IO EventPublisher
+    -- ^ pool -> notifierTickChan -> IO EventPublisher
+    -- Spawns the publisher thread. The thread:
+    -- 1. Waits for tick OR 30-second timeout (safety poll)
+    -- 2. Drains all pending ticks (debouncing)
+    -- 3. Queries readAllForwardStmt from lastPublished position
+    -- 4. Broadcasts fetched events to broadcastChan
+    -- 5. Updates lastPublished TVar
+
+    stopPublisher :: EventPublisher -> IO ()
+    -- ^ Cancel thread, wait for exit
+
+    subscribePublisher :: EventPublisher -> IO (TChan (Vector RecordedEvent))
     -- ^ Get a personal TChan via dupTChan
+
+    publisherPosition :: EventPublisher -> STM GlobalPosition
+    -- ^ Read the last-published position (non-blocking STM read)
 
 ### New module: `Kiroku.Store.Subscription.Types`
 
@@ -799,8 +942,16 @@ In `kiroku-store/src/Kiroku/Store/Subscription/Types.hs`:
 
 In `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs`:
 
-    runWorker :: Pool -> TChan () -> SubscriptionConfig -> IO ()
-    -- ^ Main worker loop. Runs until handler returns Stop or thread is cancelled.
+    runWorker
+        :: Pool
+        -> TChan (Vector RecordedEvent)
+        -> TVar GlobalPosition
+        -> SubscriptionConfig
+        -> IO ()
+    -- ^ Main worker loop. Two phases:
+    -- Phase 1 (catch-up): queries database directly until reaching publisherPosition
+    -- Phase 2 (live): reads from TChan, no database queries
+    -- Runs until handler returns Stop or thread is cancelled.
 
 ### New module: `Kiroku.Store.Subscription`
 
@@ -818,9 +969,11 @@ In `kiroku-store/src/Kiroku/Store/Subscription.hs`:
         { pool :: !Pool
         , schema :: !Text
         , notifier :: !Notifier
+        , publisher :: !EventPublisher
         }
 
-`withStore` updated to call `startNotifier` / `stopNotifier` in the bracket.
+`withStore` updated to start Notifier then EventPublisher on acquire, and stop
+EventPublisher then Notifier on release (reverse order).
 
 ### Updated module: `Kiroku.Store.SQL`
 
@@ -845,3 +998,20 @@ Add after existing tables:
         created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
         updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now()
     );
+
+
+---
+
+**Revision — 2026-03-23:** Replaced decentralized pull-based architecture (Hindsight-style)
+with centralized EventPublisher (Commanded-style). Research into Hindsight's subscription
+system revealed a thundering herd problem at 30+ subscribers: all subscribers wake
+simultaneously on each NOTIFY and issue independent database queries, exhausting the
+connection pool. The centralized EventPublisher queries the database once per notification
+and broadcasts fetched events to all subscribers via `TChan (Vector RecordedEvent)`. Added
+three reliability mechanisms: (1) periodic 30-second safety poll to guarantee delivery even
+if LISTEN/NOTIFY fails, (2) tick debouncing to collapse rapid notifications into a single
+query, (3) Notifier reconnection with safety poll backstop. Added M7.3 (EventPublisher) as
+a new milestone, renumbered subsequent milestones. Updated architecture decision in
+Comparative Analysis, added three new decisions to Decision Log, updated Interfaces section
+with `EventPublisher` type and `Worker` signature, updated tests to include safety poll and
+debouncing scenarios.
