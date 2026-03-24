@@ -5,3 +5,7 @@ with-compiler: ghc-9.12.2
 
 tests: True
 benchmarks: True
+
+-- hasql-notifications: LISTEN/NOTIFY for hasql (not yet on Hackage with hasql >= 1.10 support)
+optional-packages:
+  /Users/shinzui/Keikaku/hub/haskell/hasql-project/hasql-notifications/hasql-notifications.cabal
