@@ -6,6 +6,7 @@ module Kiroku.Store.Effect (
 
     -- * Interpreters
     runStorePool,
+    runStoreResource,
     runStoreIO,
 ) where
 
@@ -32,6 +33,7 @@ import Hasql.Session qualified as Session
 import Hasql.Transaction qualified as Tx
 import Hasql.Transaction.Sessions qualified as TxSessions
 import Kiroku.Store.Connection (KirokuStore (..))
+import Kiroku.Store.Effect.Resource (KirokuStoreResource, getKirokuStore)
 import Kiroku.Store.Error (StoreError (..), emptyResultError, mapUsageError)
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Types
@@ -209,6 +211,15 @@ runStoreIO ::
     Eff '[Store, Error StoreError, IOE] a ->
     IO (Either StoreError a)
 runStoreIO store = runEff . runErrorNoCallStack . runStorePool store
+
+-- | Interpret Store by reading the store handle from 'KirokuStoreResource'.
+runStoreResource ::
+    (IOE :> es, Error StoreError :> es, KirokuStoreResource :> es) =>
+    Eff (Store : es) a ->
+    Eff es a
+runStoreResource action = do
+    store <- getKirokuStore
+    runStorePool store action
 
 -- ---------------------------------------------------------------------------
 -- Internal pool helper
