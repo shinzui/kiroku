@@ -27,6 +27,7 @@ library
     Kiroku.Store.Read
     Kiroku.Store.Schema
     Kiroku.Store.Subscription.EventPublisher
+    Kiroku.Store.Subscription.Types
     Kiroku.Store.Types
 
   other-modules:   Kiroku.Store.SQL

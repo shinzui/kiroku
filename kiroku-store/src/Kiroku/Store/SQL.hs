@@ -23,6 +23,10 @@ module Kiroku.Store.SQL (
     softDeleteStreamStmt,
     undeleteStreamStmt,
     hardDeleteStreamCTE,
+
+    -- * Checkpoint statements
+    getCheckpointStmt,
+    saveCheckpointStmt,
 ) where
 
 import Control.Lens ((^.))
@@ -671,4 +675,43 @@ hardDeleteStreamSQL =
       )
     DELETE FROM streams WHERE stream_id = (SELECT stream_id FROM target)
     RETURNING stream_id
+    """
+
+-- ---------------------------------------------------------------------------
+-- Checkpoint Statements
+-- ---------------------------------------------------------------------------
+
+-- | Read the last-seen global position for a subscription.
+getCheckpointStmt :: Statement Text (Maybe Int64)
+getCheckpointStmt =
+    preparable
+        getCheckpointSQL
+        (E.param (E.nonNullable E.text))
+        (D.rowMaybe (D.column (D.nonNullable D.int8)))
+
+-- | Upsert a checkpoint: insert or update the last-seen position.
+saveCheckpointStmt :: Statement (Text, Int64) ()
+saveCheckpointStmt =
+    preparable
+        saveCheckpointSQL
+        ( (fst >$< E.param (E.nonNullable E.text))
+            <> (snd >$< E.param (E.nonNullable E.int8))
+        )
+        D.noResult
+
+getCheckpointSQL :: Text
+getCheckpointSQL =
+    """
+    SELECT last_seen
+    FROM subscriptions
+    WHERE subscription_name = $1
+    """
+
+saveCheckpointSQL :: Text
+saveCheckpointSQL =
+    """
+    INSERT INTO subscriptions (subscription_name, last_seen, updated_at)
+    VALUES ($1, $2, now())
+    ON CONFLICT (subscription_name)
+    DO UPDATE SET last_seen = $2, updated_at = now()
     """

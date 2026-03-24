@@ -70,6 +70,16 @@ CREATE INDEX IF NOT EXISTS ix_stream_events_all_by_origin
     ON stream_events (original_stream_id, stream_version)
     WHERE stream_id = 0;
 
+-- Subscriptions (checkpoint persistence for subscription positions)
+CREATE TABLE IF NOT EXISTS subscriptions (
+    subscription_id   BIGSERIAL    PRIMARY KEY,
+    subscription_name TEXT         NOT NULL UNIQUE,
+    stream_name       TEXT         NOT NULL DEFAULT '$all',
+    last_seen         BIGINT       NOT NULL DEFAULT 0,
+    created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
 -- Triggers
 
 -- NOTIFY on stream changes (fires once per append, not per event)
