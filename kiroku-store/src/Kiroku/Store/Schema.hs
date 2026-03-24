@@ -6,6 +6,7 @@ module Kiroku.Store.Schema (
 ) where
 
 import Control.Exception (Exception, throwIO)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.ByteString (ByteString)
 import Data.FileEmbed (embedFile)
 import Data.Text (Text)
@@ -22,8 +23,8 @@ newtype SchemaInitError = SchemaInitError UsageError
 {- | Initialize the event store schema in the given PostgreSQL schema.
 Idempotent — safe to call on every startup.
 -}
-initializeSchema :: Pool -> Text -> IO ()
-initializeSchema pool _schema = do
+initializeSchema :: (MonadIO m) => Pool -> Text -> m ()
+initializeSchema pool _schema = liftIO $ do
     result <- Pool.use pool (Session.script schemaDDL)
     case result of
         Left err -> throwIO (SchemaInitError err)

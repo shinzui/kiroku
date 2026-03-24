@@ -9,6 +9,7 @@ module Kiroku.Store.Subscription (
 import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.STM (atomically)
 import Control.Lens ((^.))
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Generics.Labels ()
 import Kiroku.Store.Connection (KirokuStore (..))
 import Kiroku.Store.Subscription.EventPublisher qualified as Pub
@@ -24,8 +25,8 @@ The subscription spawns a worker thread that:
 3. Switches to live mode, reading events from the EventPublisher's
    broadcast channel.
 -}
-subscribe :: KirokuStore -> SubscriptionConfig -> IO SubscriptionHandle
-subscribe store config = do
+subscribe :: (MonadIO m) => KirokuStore -> SubscriptionConfig -> m SubscriptionHandle
+subscribe store config = liftIO $ do
     liveChan <- atomically $ Pub.subscribePublisher (store ^. #publisher)
     let pubPosVar = Pub.lastPublished (store ^. #publisher)
     thread <-

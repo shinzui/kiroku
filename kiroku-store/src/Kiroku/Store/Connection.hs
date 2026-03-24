@@ -1,12 +1,14 @@
 module Kiroku.Store.Connection (
     KirokuStore (..),
-    ConnectionSettings (..),
+    ConnectionSettingsM (..),
+    ConnectionSettings,
     defaultConnectionSettings,
     withStore,
 ) where
 
 import Control.Exception (bracket)
 import Control.Lens ((^.))
+import Control.Monad.IO.Unlift (MonadUnliftIO, withRunInIO)
 import Data.Generics.Labels ()
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -23,8 +25,8 @@ import Kiroku.Store.Schema (initializeSchema)
 import Kiroku.Store.Subscription.EventPublisher (EventPublisher)
 import Kiroku.Store.Subscription.EventPublisher qualified as Publisher
 
--- | Connection settings for the store.
-data ConnectionSettings = ConnectionSettings
+-- | Connection settings for the store, parameterized by monad.
+data ConnectionSettingsM m = ConnectionSettings
     { connString :: !Text
     -- ^ PostgreSQL connection string (libpq URI or key=value format)
     , poolSize :: !Int
@@ -33,10 +35,13 @@ data ConnectionSettings = ConnectionSettings
     -- ^ Schema name for multi-tenant isolation (default: "public")
     , idleInTransactionTimeout :: !Int
     -- ^ idle_in_transaction_session_timeout in seconds (default: 30)
-    , observationHandler :: !(Maybe (Observation -> IO ()))
+    , observationHandler :: !(Maybe (Observation -> m ()))
     -- ^ Optional callback for pool connection lifecycle events
     }
     deriving stock (Generic)
+
+-- | Connection settings defaulting to 'IO'.
+type ConnectionSettings = ConnectionSettingsM IO
 
 -- | Default connection settings.
 defaultConnectionSettings :: Text -> ConnectionSettings
@@ -59,8 +64,9 @@ data KirokuStore = KirokuStore
     deriving stock (Generic)
 
 -- | Bracket-style store lifecycle.
-withStore :: ConnectionSettings -> (KirokuStore -> IO a) -> IO a
-withStore settings = bracket acquire release
+withStore :: (MonadUnliftIO m) => ConnectionSettings -> (KirokuStore -> m a) -> m a
+withStore settings action = withRunInIO $ \runInIO ->
+    bracket acquire release (runInIO . action)
   where
     poolConfig :: Pool.Config.Config
     poolConfig =

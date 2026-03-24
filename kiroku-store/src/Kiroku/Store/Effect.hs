@@ -10,6 +10,7 @@ module Kiroku.Store.Effect (
 ) where
 
 import Control.Lens ((^.))
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Aeson (Value)
 import Data.Generics.Labels ()
 import Data.Int (Int32, Int64)
@@ -278,8 +279,8 @@ data PreparedEvent = PreparedEvent
 {- | Prepare events by generating UUIDv7s for any event that doesn't
 have a caller-supplied event ID.
 -}
-prepareEvents :: [EventData] -> IO [PreparedEvent]
-prepareEvents evts = do
+prepareEvents :: (MonadIO m) => [EventData] -> m [PreparedEvent]
+prepareEvents evts = liftIO $ do
     let needCount = length (filter (\(EventData eid _ _ _ _ _) -> isNothing eid) evts)
     newIds <-
         if needCount > 0

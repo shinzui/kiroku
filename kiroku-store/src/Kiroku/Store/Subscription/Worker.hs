@@ -3,6 +3,7 @@ module Kiroku.Store.Subscription.Worker (
 ) where
 
 import Control.Concurrent.STM (TChan, TVar, atomically, readTChan, readTVar)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Int (Int64)
 import Data.Text (Text)
 import Data.Vector (Vector)
@@ -22,13 +23,14 @@ Phase 2 (live): reads from TChan, no database queries.
 Runs until the handler returns 'Stop' or the thread is cancelled.
 -}
 runWorker ::
+    (MonadIO m) =>
     Pool ->
     Text ->
     TChan (Vector RecordedEvent) ->
     TVar GlobalPosition ->
     SubscriptionConfig ->
-    IO ()
-runWorker pool schema liveChan pubPosVar config = do
+    m ()
+runWorker pool schema liveChan pubPosVar config = liftIO $ do
     -- Read checkpoint from database
     checkpoint <- loadCheckpoint pool (name config)
     -- Phase 1: catch-up (returns Nothing if handler said Stop)

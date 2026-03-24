@@ -10,6 +10,7 @@ import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.STM (TChan, atomically, newBroadcastTChanIO, writeTChan)
 import Control.Exception (SomeException, asyncExceptionFromException, catch)
 import Control.Monad (forever, void)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Text (Text)
 import Hasql.Connection (Connection)
 import Hasql.Connection qualified as Connection
@@ -37,8 +38,8 @@ to the broadcast TChan on every notification.
 On connection failure during the loop, waits 1 second and retries.
 On 'AsyncException' (from cancellation), exits cleanly.
 -}
-startNotifier :: Text -> Text -> IO Notifier
-startNotifier connString schema = do
+startNotifier :: (MonadIO m) => Text -> Text -> m Notifier
+startNotifier connString schema = liftIO $ do
     chan <- newBroadcastTChanIO
     conn <- acquireOrFail connString
     let channel = toPgIdentifier (schema <> ".events")
@@ -54,8 +55,8 @@ startNotifier connString schema = do
 {- | Stop the Notifier. Cancels the listener thread and releases the
 dedicated connection.
 -}
-stopNotifier :: Notifier -> IO ()
-stopNotifier notifier = do
+stopNotifier :: (MonadIO m) => Notifier -> m ()
+stopNotifier notifier = liftIO $ do
     Async.cancel (listenerThread notifier)
     void $ Async.waitCatch (listenerThread notifier)
     Connection.release (listenerConn notifier)

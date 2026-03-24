@@ -24,6 +24,7 @@ import Control.Concurrent.STM (
     writeTVar,
  )
 import Control.Concurrent.STM qualified as STM
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Int (Int32, Int64)
 import Data.Vector (Vector)
 import Data.Vector qualified as V
@@ -59,8 +60,8 @@ safetyPollMicros = 30_000_000
 Notifier (or a 30-second safety poll timeout), queries the database for
 new events, and broadcasts them to all subscribers.
 -}
-startPublisher :: Pool -> TChan () -> IO EventPublisher
-startPublisher pool notifierChan = do
+startPublisher :: (MonadIO m) => Pool -> TChan () -> m EventPublisher
+startPublisher pool notifierChan = liftIO $ do
     bChan <- newBroadcastTChanIO
     pos <- newTVarIO (GlobalPosition 0)
     -- Get a personal copy of the notifier's broadcast channel
@@ -74,8 +75,8 @@ startPublisher pool notifierChan = do
             }
 
 -- | Stop the EventPublisher thread.
-stopPublisher :: EventPublisher -> IO ()
-stopPublisher pub = do
+stopPublisher :: (MonadIO m) => EventPublisher -> m ()
+stopPublisher pub = liftIO $ do
     Async.cancel (publisherThread pub)
     () <$ Async.waitCatch (publisherThread pub)
 

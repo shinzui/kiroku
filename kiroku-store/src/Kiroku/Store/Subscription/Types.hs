@@ -2,9 +2,12 @@ module Kiroku.Store.Subscription.Types (
     SubscriptionName (..),
     SubscriptionTarget (..),
     SubscriptionResult (..),
+    EventHandlerM,
     EventHandler,
-    SubscriptionConfig (..),
-    SubscriptionHandle (..),
+    SubscriptionConfigM (..),
+    SubscriptionConfig,
+    SubscriptionHandleM (..),
+    SubscriptionHandle,
 ) where
 
 import Control.Exception (SomeException)
@@ -32,22 +35,31 @@ data SubscriptionResult
       Stop
     deriving stock (Eq, Show)
 
--- | Handler callback invoked for each event.
-type EventHandler = RecordedEvent -> IO SubscriptionResult
+-- | Handler callback invoked for each event, parameterized by monad.
+type EventHandlerM m = RecordedEvent -> m SubscriptionResult
 
--- | Configuration for starting a subscription.
-data SubscriptionConfig = SubscriptionConfig
+-- | Handler callback defaulting to 'IO'.
+type EventHandler = EventHandlerM IO
+
+-- | Configuration for starting a subscription, parameterized by monad.
+data SubscriptionConfigM m = SubscriptionConfig
     { name :: !SubscriptionName
     , target :: !SubscriptionTarget
-    , handler :: !EventHandler
+    , handler :: !(EventHandlerM m)
     , batchSize :: !Int32
     -- ^ Number of events to fetch per batch during catch-up (default: 100)
     }
 
--- | Handle returned to the caller for lifecycle management.
-data SubscriptionHandle = SubscriptionHandle
-    { cancel :: !(IO ())
+-- | Configuration defaulting to 'IO'.
+type SubscriptionConfig = SubscriptionConfigM IO
+
+-- | Handle returned to the caller for lifecycle management, parameterized by monad.
+data SubscriptionHandleM m = SubscriptionHandle
+    { cancel :: !(m ())
     -- ^ Cancel the subscription gracefully
-    , wait :: !(IO (Either SomeException ()))
+    , wait :: !(m (Either SomeException ()))
     -- ^ Block until the subscription completes or fails
     }
+
+-- | Handle defaulting to 'IO'.
+type SubscriptionHandle = SubscriptionHandleM IO
