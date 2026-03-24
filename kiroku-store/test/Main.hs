@@ -4,6 +4,7 @@ import Control.Lens ((^.))
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
+import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.UUID qualified as UUID
@@ -438,6 +439,128 @@ main = hspec $ do
                 ((results !! 0) ^. #streamVersion) `shouldBe` StreamVersion 2
                 ((results !! 1) ^. #streamVersion) `shouldBe` StreamVersion 1
                 ((results !! 2) ^. #streamVersion) `shouldBe` StreamVersion 1
+
+        -- =================================================================
+        -- Soft delete tests (M6.8)
+        -- =================================================================
+        describe "softDeleteStream" $ do
+            it "soft-deletes a stream and getStream shows deletedAt" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "del-1") NoStream [makeEvent "A" (Aeson.object [])]
+                Right mId <- runStoreIO store $ softDeleteStream (StreamName "del-1")
+                mId `shouldSatisfy` (/= Nothing)
+                Right info <- runStoreIO store $ getStream (StreamName "del-1")
+                case info of
+                    Just si -> (si ^. #deletedAt) `shouldSatisfy` (/= Nothing)
+                    Nothing -> expectationFailure "Expected stream info with deletedAt set"
+
+            it "returns empty for reads from a soft-deleted stream" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "del-read") NoStream [makeEvent "A" (Aeson.object [])]
+                Right _ <- runStoreIO store $ softDeleteStream (StreamName "del-read")
+                Right fwd <- runStoreIO store $ readStreamForward (StreamName "del-read") (StreamVersion 0) 100
+                V.length fwd `shouldBe` 0
+                Right bwd <- runStoreIO store $ readStreamBackward (StreamName "del-read") (StreamVersion 0) 100
+                V.length bwd `shouldBe` 0
+
+            it "rejects appends to a soft-deleted stream" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "del-append") NoStream [makeEvent "A" (Aeson.object [])]
+                Right _ <- runStoreIO store $ softDeleteStream (StreamName "del-append")
+                result <- runStoreIO store $ appendToStream (StreamName "del-append") StreamExists [makeEvent "B" (Aeson.object [])]
+                case result of
+                    Left (StreamNotFound _) -> pure ()
+                    other -> expectationFailure ("Expected StreamNotFound, got: " <> show other)
+
+            it "returns Nothing for nonexistent stream" $ \store -> do
+                Right mId <- runStoreIO store $ softDeleteStream (StreamName "no-such")
+                mId `shouldBe` Nothing
+
+            it "returns Nothing for already-deleted stream" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "del-twice") NoStream [makeEvent "A" (Aeson.object [])]
+                Right _ <- runStoreIO store $ softDeleteStream (StreamName "del-twice")
+                Right mId <- runStoreIO store $ softDeleteStream (StreamName "del-twice")
+                mId `shouldBe` Nothing
+
+            it "events from soft-deleted stream still appear in $all" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "del-all") NoStream [makeEvent "KeepInAll" (Aeson.object [])]
+                Right _ <- runStoreIO store $ softDeleteStream (StreamName "del-all")
+                Right allEvents <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
+                let matching = V.filter (\e -> (e ^. #eventType) == EventType "KeepInAll") allEvents
+                V.length matching `shouldBe` 1
+
+        -- =================================================================
+        -- Undelete tests (M6.8)
+        -- =================================================================
+        describe "undeleteStream" $ do
+            it "restores a soft-deleted stream" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "undel-1") NoStream [makeEvent "A" (Aeson.object [])]
+                Right _ <- runStoreIO store $ softDeleteStream (StreamName "undel-1")
+                Right mId <- runStoreIO store $ undeleteStream (StreamName "undel-1")
+                mId `shouldSatisfy` (/= Nothing)
+                Right info <- runStoreIO store $ getStream (StreamName "undel-1")
+                case info of
+                    Just si -> (si ^. #deletedAt) `shouldBe` Nothing
+                    Nothing -> expectationFailure "Expected stream info"
+
+            it "reads work after undelete" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "undel-read") NoStream [makeEvent "A" (Aeson.object [])]
+                Right _ <- runStoreIO store $ softDeleteStream (StreamName "undel-read")
+                Right _ <- runStoreIO store $ undeleteStream (StreamName "undel-read")
+                Right events <- runStoreIO store $ readStreamForward (StreamName "undel-read") (StreamVersion 0) 100
+                V.length events `shouldBe` 1
+
+            it "appends work after undelete" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "undel-append") NoStream [makeEvent "A" (Aeson.object [])]
+                Right _ <- runStoreIO store $ softDeleteStream (StreamName "undel-append")
+                Right _ <- runStoreIO store $ undeleteStream (StreamName "undel-append")
+                Right r <- runStoreIO store $ appendToStream (StreamName "undel-append") StreamExists [makeEvent "B" (Aeson.object [])]
+                (r ^. #streamVersion) `shouldBe` StreamVersion 2
+
+            it "returns Nothing for non-deleted stream" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "undel-noop") NoStream [makeEvent "A" (Aeson.object [])]
+                Right mId <- runStoreIO store $ undeleteStream (StreamName "undel-noop")
+                mId `shouldBe` Nothing
+
+        -- =================================================================
+        -- Hard delete tests (M6.8)
+        -- =================================================================
+        describe "hardDeleteStream" $ do
+            it "hard-deletes a stream completely" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "hard-1") NoStream [makeEvent "A" (Aeson.object [])]
+                Right mId <- runStoreIO store $ hardDeleteStream (StreamName "hard-1")
+                mId `shouldSatisfy` (/= Nothing)
+                Right info <- runStoreIO store $ getStream (StreamName "hard-1")
+                info `shouldBe` Nothing
+
+            it "events from hard-deleted stream no longer appear in $all" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "hard-all") NoStream [makeEvent "HardDelEvent" (Aeson.object [])]
+                Right _ <- runStoreIO store $ hardDeleteStream (StreamName "hard-all")
+                Right allEvents <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
+                let matching = V.filter (\e -> (e ^. #eventType) == EventType "HardDelEvent") allEvents
+                V.length matching `shouldBe` 0
+
+            it "returns Nothing for nonexistent stream" $ \store -> do
+                Right mId <- runStoreIO store $ hardDeleteStream (StreamName "hard-no-such")
+                mId `shouldBe` Nothing
+
+    -- =================================================================
+    -- Health monitoring tests (M6.8)
+    -- =================================================================
+    describe "observationHandler" $ do
+        it "receives observations during store operations" $ \() -> do
+            ref <- newIORef ([] :: [Observation])
+            let handler obs = modifyIORef' ref (obs :)
+            result <- Pg.withCached $ \db -> do
+                let settings =
+                        (defaultConnectionSettings (Pg.connectionString db))
+                            { observationHandler = Just handler
+                            }
+                withStore settings $ \store -> do
+                    Right _ <- runStoreIO store $ appendToStream (StreamName "obs-test") NoStream [makeEvent "X" (Aeson.object [])]
+                    pure ()
+            case result of
+                Left err -> error ("Failed to start ephemeral PostgreSQL: " <> show err)
+                Right () -> pure ()
+            observations <- readIORef ref
+            length observations `shouldSatisfy` (> 0)
 
 -- | Create a simple EventData with auto-generated ID.
 makeEvent :: Text -> Value -> EventData
