@@ -38,8 +38,13 @@ in  { project =
       ]
     , bundles = [] : List Schema.PackageBundle
     , dependencies =
-      [ "hasql/hasql"
-      , "hasql/hasql-pool"
+      [ "effectful/effectful"
+      , "hasql/hasql"
+      , "hasql:hasql-notifications"
+      , "hasql:hasql-pool"
+      , "hasql:hasql-transaction"
+      , "MMZK1526/mmzk-typeid"
+      , "shinzui/ephemeral-pg"
       ]
     , apis = [] : List Schema.Api
     , agents = [] : List Schema.AgentHint
