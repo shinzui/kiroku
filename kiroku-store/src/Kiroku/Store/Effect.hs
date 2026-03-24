@@ -50,6 +50,9 @@ data Store :: Effect where
     LinkToStream :: StreamName -> [EventId] -> Store m LinkResult
     ReadCategoryForward :: CategoryName -> GlobalPosition -> Int32 -> Store m (Vector RecordedEvent)
     AppendMultiStream :: [(StreamName, ExpectedVersion, [EventData])] -> Store m [AppendResult]
+    SoftDeleteStream :: StreamName -> Store m (Maybe StreamId)
+    HardDeleteStream :: StreamName -> Store m (Maybe StreamId)
+    UndeleteStream :: StreamName -> Store m (Maybe StreamId)
 
 type instance DispatchOf Store = Dynamic
 
@@ -65,6 +68,16 @@ runStorePool ::
     Eff es a
 runStorePool store = interpret_ $ \case
     AppendToStream (StreamName name) expected events -> do
+        -- Check if stream is soft-deleted before appending
+        streamCheck <-
+            Eff.liftIO $
+                Pool.use (store ^. #pool) $
+                    Session.statement name SQL.getStreamStmt
+        case streamCheck of
+            Right (Just info)
+                | info ^. #deletedAt /= Nothing ->
+                    throwError (StreamNotFound (StreamName name))
+            _ -> pure ()
         now <- Eff.liftIO getCurrentTime
         prepared <- Eff.liftIO (prepareEvents events)
         let params = buildAppendParams name now prepared
@@ -85,21 +98,41 @@ runStorePool store = interpret_ $ \case
             Right (Just r) ->
                 pure r
     ReadStreamForward (StreamName name) (StreamVersion startVer) limit -> do
-        result <-
+        -- Check if stream is soft-deleted; return empty if so
+        streamCheck <-
             Eff.liftIO $
                 Pool.use (store ^. #pool) $
-                    Session.statement (name, startVer, limit) SQL.readStreamForwardStmt
-        case result of
-            Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
-            Right events -> pure events
+                    Session.statement name SQL.getStreamStmt
+        case streamCheck of
+            Right (Just info)
+                | info ^. #deletedAt /= Nothing ->
+                    pure V.empty
+            _ -> do
+                result <-
+                    Eff.liftIO $
+                        Pool.use (store ^. #pool) $
+                            Session.statement (name, startVer, limit) SQL.readStreamForwardStmt
+                case result of
+                    Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
+                    Right events -> pure events
     ReadStreamBackward (StreamName name) (StreamVersion startVer) limit -> do
-        result <-
+        -- Check if stream is soft-deleted; return empty if so
+        streamCheck <-
             Eff.liftIO $
                 Pool.use (store ^. #pool) $
-                    Session.statement (name, startVer, limit) SQL.readStreamBackwardStmt
-        case result of
-            Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
-            Right events -> pure events
+                    Session.statement name SQL.getStreamStmt
+        case streamCheck of
+            Right (Just info)
+                | info ^. #deletedAt /= Nothing ->
+                    pure V.empty
+            _ -> do
+                result <-
+                    Eff.liftIO $
+                        Pool.use (store ^. #pool) $
+                            Session.statement (name, startVer, limit) SQL.readStreamBackwardStmt
+                case result of
+                    Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
+                    Right events -> pure events
     ReadAllForward (GlobalPosition startPos) limit -> do
         result <-
             Eff.liftIO $
@@ -192,6 +225,33 @@ runStorePool store = interpret_ $ \case
                             Just r -> pure r
                     )
                     indexed
+    SoftDeleteStream (StreamName name) -> do
+        result <-
+            Eff.liftIO $
+                Pool.use (store ^. #pool) $
+                    Session.statement name SQL.softDeleteStreamStmt
+        case result of
+            Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
+            Right mId -> pure mId
+    HardDeleteStream (StreamName name) -> do
+        let txn = do
+                Tx.sql "SET LOCAL kiroku.enable_hard_deletes = 'on'"
+                Tx.statement name SQL.hardDeleteStreamCTE
+        result <-
+            Eff.liftIO $
+                Pool.use (store ^. #pool) $
+                    TxSessions.transaction TxSessions.ReadCommitted TxSessions.Write txn
+        case result of
+            Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
+            Right mId -> pure mId
+    UndeleteStream (StreamName name) -> do
+        result <-
+            Eff.liftIO $
+                Pool.use (store ^. #pool) $
+                    Session.statement name SQL.undeleteStreamStmt
+        case result of
+            Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
+            Right mId -> pure mId
 
 -- | Convenience: run a Store computation to IO.
 runStoreIO ::

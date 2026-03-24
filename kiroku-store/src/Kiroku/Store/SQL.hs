@@ -18,6 +18,11 @@ module Kiroku.Store.SQL (
     readAllBackwardStmt,
     readCategoryForwardStmt,
     getStreamStmt,
+
+    -- * Lifecycle statements
+    softDeleteStreamStmt,
+    undeleteStreamStmt,
+    hardDeleteStreamCTE,
 ) where
 
 import Control.Lens ((^.))
@@ -587,4 +592,83 @@ readCategoryForwardSQL =
       AND s.category = $2
     ORDER BY se.stream_version ASC
     LIMIT $3
+    """
+
+-- ---------------------------------------------------------------------------
+-- Lifecycle Statements
+-- ---------------------------------------------------------------------------
+
+-- | Soft-delete a stream by setting deleted_at. Returns Nothing if stream doesn't exist or is already deleted.
+softDeleteStreamStmt :: Statement Text (Maybe StreamId)
+softDeleteStreamStmt =
+    preparable
+        softDeleteStreamSQL
+        (E.param (E.nonNullable E.text))
+        (D.rowMaybe (StreamId <$> D.column (D.nonNullable D.int8)))
+
+-- | Undelete a soft-deleted stream by clearing deleted_at. Returns Nothing if stream doesn't exist or is not deleted.
+undeleteStreamStmt :: Statement Text (Maybe StreamId)
+undeleteStreamStmt =
+    preparable
+        undeleteStreamSQL
+        (E.param (E.nonNullable E.text))
+        (D.rowMaybe (StreamId <$> D.column (D.nonNullable D.int8)))
+
+{- | Hard-delete CTE: cascading delete of stream_events, orphaned events, and the stream row.
+Must be executed within a transaction that has SET LOCAL kiroku.enable_hard_deletes = 'on'.
+-}
+hardDeleteStreamCTE :: Statement Text (Maybe StreamId)
+hardDeleteStreamCTE =
+    preparable
+        hardDeleteStreamSQL
+        (E.param (E.nonNullable E.text))
+        (D.rowMaybe (StreamId <$> D.column (D.nonNullable D.int8)))
+
+-- ---------------------------------------------------------------------------
+-- Lifecycle SQL Templates
+-- ---------------------------------------------------------------------------
+
+softDeleteStreamSQL :: Text
+softDeleteStreamSQL =
+    """
+    UPDATE streams
+    SET deleted_at = now()
+    WHERE stream_name = $1
+      AND deleted_at IS NULL
+    RETURNING stream_id
+    """
+
+undeleteStreamSQL :: Text
+undeleteStreamSQL =
+    """
+    UPDATE streams
+    SET deleted_at = NULL
+    WHERE stream_name = $1
+      AND deleted_at IS NOT NULL
+    RETURNING stream_id
+    """
+
+hardDeleteStreamSQL :: Text
+hardDeleteStreamSQL =
+    """
+    WITH
+      target AS (
+        SELECT stream_id FROM streams WHERE stream_name = $1
+      ),
+      deleted_junctions AS (
+        DELETE FROM stream_events
+        WHERE stream_id = (SELECT stream_id FROM target)
+           OR original_stream_id = (SELECT stream_id FROM target)
+        RETURNING event_id
+      ),
+      deleted_events AS (
+        DELETE FROM events
+        WHERE event_id IN (SELECT DISTINCT event_id FROM deleted_junctions)
+          AND NOT EXISTS (
+            SELECT 1 FROM stream_events se
+            WHERE se.event_id = events.event_id
+          )
+      )
+    DELETE FROM streams WHERE stream_id = (SELECT stream_id FROM target)
+    RETURNING stream_id
     """

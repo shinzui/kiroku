@@ -21,6 +21,7 @@ library
     Kiroku.Store.Connection
     Kiroku.Store.Effect
     Kiroku.Store.Error
+    Kiroku.Store.Lifecycle
     Kiroku.Store.Link
     Kiroku.Store.Read
     Kiroku.Store.Schema
