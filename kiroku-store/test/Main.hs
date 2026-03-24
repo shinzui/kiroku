@@ -5,6 +5,7 @@ import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.STM (atomically, newTVarIO, readTVar, writeTVar)
 import Control.Exception (SomeException)
 import Control.Lens ((^.))
+import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
@@ -13,8 +14,12 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.UUID qualified as UUID
 import Data.Vector qualified as V
+import Effectful (Eff, IOE, runEff, (:>))
+import Effectful.Error.Static (runErrorNoCallStack)
 import EphemeralPg qualified as Pg
 import Kiroku.Store
+import Kiroku.Store.Subscription.Effect qualified as SubEff
+import Kiroku.Store.Subscription.Types (SubscriptionConfigM (..))
 import Test.Hspec
 
 main :: IO ()
@@ -783,6 +788,46 @@ main = hspec $ do
                     Right (Right ()) -> pure ()
                 collected <- readIORef ref
                 length collected `shouldBe` 50
+
+            it "catches up with an Eff-based handler via the effectful API" $ \store -> do
+                -- Append 10 events
+                let events = map (\i -> makeEvent ("Eff" <> T.pack (show i)) (Aeson.object [])) [1 .. 10 :: Int]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "eff-sub-1") NoStream events
+                threadDelay 200_000
+                -- Subscribe using the effectful API with an Eff-based handler
+                ref <- newIORef ([] :: [RecordedEvent])
+                countRef <- newTVarIO (0 :: Int)
+                result <- runEff . runErrorNoCallStack @StoreError . runStorePool store . runSubscription store $ do
+                    let effHandler :: (IOE :> es) => RecordedEvent -> Eff es SubscriptionResult
+                        effHandler evt = do
+                            liftIO $ modifyIORef' ref (evt :)
+                            n <- liftIO $ atomically $ do
+                                c <- readTVar countRef
+                                let c' = c + 1
+                                writeTVar countRef c'
+                                pure c'
+                            if n >= 10
+                                then pure Stop
+                                else pure Continue
+                    let cfg =
+                            SubscriptionConfig
+                                { name = SubscriptionName "eff-catchup-test"
+                                , target = AllStreams
+                                , handler = effHandler
+                                , batchSize = 100
+                                }
+                    handle <- SubEff.subscribe cfg
+                    liftIO $ do
+                        r <- waitWithTimeout 10_000_000 handle
+                        case r of
+                            Left timeout -> expectationFailure timeout
+                            Right (Left err) -> expectationFailure ("Subscription failed: " <> show err)
+                            Right (Right ()) -> pure ()
+                case result of
+                    Left err -> expectationFailure ("Store error: " <> show err)
+                    Right () -> pure ()
+                collected <- readIORef ref
+                length collected `shouldBe` 10
 
     -- =================================================================
     -- Health monitoring tests (M6.8)
