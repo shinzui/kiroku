@@ -23,19 +23,23 @@ After this plan is complete, a developer can: (1) consume kiroku subscriptions a
 - [x] Implement `Kiroku.Store.Subscription.Stream` module with `subscriptionStream`. (2026-03-24)
 - [x] Add the module to the cabal file's exposed-modules. (2026-03-24)
 - [x] Verify the library compiles. (2026-03-24)
-- [ ] Add shibuya-core and related test dependencies to kiroku-store.
-- [ ] Update cabal.project with source-repository-package entries for shibuya-core's transitive dependencies if needed.
-- [ ] Implement `Shibuya/Adapter/Kiroku.hs` in the test directory.
-- [ ] Write single-subscription integration test (catch-up and live delivery).
-- [ ] Write multi-subscription test: three category subscriptions under Shibuya supervision.
-- [ ] Write failure-isolation test: one failing handler does not affect others.
-- [ ] Write coordinated-shutdown test: `stopApp` cleanly stops all subscriptions.
-- [ ] Run full test suite and record results.
+- [x] Add shibuya-core and related test dependencies to kiroku-store. (2026-03-24)
+- [x] Update cabal.project with source-repository-package entries for shibuya-core's transitive dependencies. (2026-03-24)
+- [x] Implement `Shibuya/Adapter/Kiroku.hs` in the test directory. (2026-03-24)
+- [x] Write single-subscription integration test (catch-up and live delivery). (2026-03-24)
+- [x] Write multi-subscription test: three category subscriptions under Shibuya supervision. (2026-03-24)
+- [x] Write failure-isolation test: one failing handler does not affect others. (2026-03-24)
+- [x] Write coordinated-shutdown test: `stopApp` cleanly stops all subscriptions. (2026-03-24)
+- [x] Run full test suite and record results. (2026-03-24)
 
 
 ## Surprises & Discoveries
 
-(None yet.)
+- The adapter could not use `subscriptionStream` to produce the `Eff es` stream directly. The `Stream IO RecordedEvent` returned by `subscriptionStream` cannot be lifted to `Stream (Eff es)` without `morphInner` (which is in the `streamly` package but not straightforward to use with effectful's `Eff`). Instead, the adapter builds the TBQueue and subscription directly, constructing the `Eff es` stream via `Stream.unfoldrM` with `liftIO`. The library's `subscriptionStream` remains useful for non-Shibuya consumers.
+
+- GHC's `DuplicateRecordFields` creates ambiguity when multiple types share field names (`payload`, `batchSize`). Record dot syntax (`event.fieldName`) does not resolve the ambiguity in all contexts (where-clause bindings, constructors from different modules). Pattern matching and lens-based access (`^. #field`) are more reliable.
+
+- `NoFieldSelectors` in the defining module (shibuya-core) means OverloadedRecordDot doesn't work for those fields when imported into a module without `NoFieldSelectors`. Lens-based access works as a fallback.
 
 
 ## Decision Log
@@ -71,7 +75,18 @@ After this plan is complete, a developer can: (1) consume kiroku subscriptions a
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+All three milestones completed successfully. The full test suite passes (59 tests, 0 failures).
+
+**Milestone 1**: The `Kiroku.Store.Subscription.Stream` module provides `subscriptionStream :: KirokuStore -> SubscriptionConfig -> Natural -> IO (Stream IO RecordedEvent, IO ())`. It works as designed — a TBQueue bridges the push-based subscription handler to a pull-based Streamly stream.
+
+**Milestone 2**: The proof-of-concept adapter at `kiroku-store/test/Shibuya/Adapter/Kiroku.hs` wraps a kiroku subscription into a Shibuya `Adapter es RecordedEvent`. Both catch-up and live event delivery work through the Shibuya pipeline.
+
+**Milestone 3**: Multi-subscription supervision validated three key operational benefits:
+1. **Concurrent multi-subscription**: Three category subscriptions (orders, payments, inventory) run under a single `runApp`, each receiving only its category's events.
+2. **Failure isolation**: A crashing handler in one subscription does not affect healthy ones. The failed processor shows `Failed` state in metrics while others continue processing.
+3. **Coordinated shutdown**: `stopAppGracefully` cleanly terminates all subscriptions and drains in-flight work.
+
+**Key finding**: The combination of kiroku + Shibuya provides real operational value beyond bare `SubscriptionHandle` values. A single `runApp` call manages the lifecycle of multiple projections with failure isolation and coordinated shutdown — functionality that would otherwise require significant custom infrastructure.
 
 
 ## Context and Orientation

@@ -9,3 +9,17 @@ benchmarks: True
 -- hasql-notifications: LISTEN/NOTIFY for hasql (not yet on Hackage with hasql >= 1.10 support)
 optional-packages:
   /Users/shinzui/Keikaku/hub/haskell/hasql-project/hasql-notifications/hasql-notifications.cabal
+  /Users/shinzui/Keikaku/bokuno/shibuya-project/shibuya/shibuya-core/shibuya-core.cabal
+
+-- hs-opentelemetry (GHC 9.12 support, needed by shibuya-core)
+source-repository-package
+  type: git
+  location: https://github.com/iand675/hs-opentelemetry
+  tag: adc464b0a45e56a983fa1441be6e432b50c29e0e
+  subdir: api
+
+source-repository-package
+  type: git
+  location: https://github.com/iand675/hs-opentelemetry
+  tag: adc464b0a45e56a983fa1441be6e432b50c29e0e
+  subdir: propagators/w3c
