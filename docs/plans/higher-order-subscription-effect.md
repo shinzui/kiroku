@@ -30,13 +30,14 @@ The subscription thread converts the `Eff`-based handler to `IO` via effectful's
 
 ## Progress
 
-- [ ] Milestone 1: Make Subscribe higher-order — update GADT, interpreter, convenience wrappers
-- [ ] Milestone 2: Add effectful subscription test, update re-exports, full validation
+- [x] Milestone 1: Make Subscribe higher-order — update GADT, interpreter, convenience wrappers (2026-03-24)
+- [x] Milestone 2: Add effectful subscription test, update re-exports, full validation (2026-03-24)
 
 
 ## Surprises & Discoveries
 
-(None yet.)
+- The `effectful-core` package was not in the test suite's `build-depends`, so it had to be added to use `Effectful` imports in the test. The library already depends on it, but the test suite needs its own declaration.
+- The record update `config{handler = ...}` worked cleanly to convert from `SubscriptionConfigM (Eff localEs)` to `SubscriptionConfigM IO` because Haskell's record update syntax allows changing the phantom-like monad parameter through the handler field.
 
 
 ## Decision Log
@@ -64,7 +65,17 @@ The subscription thread converts the `Eff`-based handler to `IO` via effectful's
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+Both milestones completed on 2026-03-24. All 54 tests pass (53 existing + 1 new), benchmarks compile.
+
+**What was delivered:**
+- The `Subscription` effect is now higher-order: `Subscribe :: SubscriptionConfigM m -> Subscription m SubscriptionHandle`.
+- The `subscribe` convenience wrapper accepts `SubscriptionConfigM (Eff es)`, allowing handlers to use any effects in the caller's stack.
+- The interpreter uses `interpret` + `localUnliftIO` with `ConcUnlift Persistent (Limited 1)` to convert the `Eff`-based handler to `IO` for the async worker thread.
+- A new test ("catches up with an Eff-based handler via the effectful API") validates the end-to-end unlift path.
+
+**Backwards compatibility:** The existing `IO`-based `Kiroku.Store.Subscription.subscribe` is unchanged. Existing tests pass without modification. The re-exports from `Kiroku.Store` work unchanged.
+
+**Complexity assessment:** The implementation was simpler than anticipated. The key insight was that effectful's `ConcUnlift Persistent` strategy is designed precisely for this use case (async threads outliving the handler callback). The change was ~30 lines of new code in `Effect.hs` and ~40 lines of new test code.
 
 
 ## Context and Orientation
