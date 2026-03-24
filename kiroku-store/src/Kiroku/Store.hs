@@ -11,6 +11,7 @@ module Kiroku.Store (
     module Kiroku.Store.Lifecycle,
     module Kiroku.Store.Link,
     module Kiroku.Store.Read,
+    module Kiroku.Store.Subscription,
 
     -- * Pool observation types (re-exported from hasql-pool)
     Observation (..),
@@ -27,4 +28,5 @@ import Kiroku.Store.Error
 import Kiroku.Store.Lifecycle
 import Kiroku.Store.Link
 import Kiroku.Store.Read
+import Kiroku.Store.Subscription
 import Kiroku.Store.Types

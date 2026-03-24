@@ -17,7 +17,11 @@ import Hasql.Pool qualified as Pool
 import Hasql.Pool.Config qualified as Pool.Config
 import Hasql.Pool.Observation (Observation)
 import Hasql.Session qualified as Session
+import Kiroku.Store.Notification (Notifier)
+import Kiroku.Store.Notification qualified as Notifier
 import Kiroku.Store.Schema (initializeSchema)
+import Kiroku.Store.Subscription.EventPublisher (EventPublisher)
+import Kiroku.Store.Subscription.EventPublisher qualified as Publisher
 
 -- | Connection settings for the store.
 data ConnectionSettings = ConnectionSettings
@@ -45,10 +49,12 @@ defaultConnectionSettings cs =
         , observationHandler = Nothing
         }
 
--- | The store handle. Holds a connection pool and schema name.
+-- | The store handle. Holds a connection pool, schema name, and subscription infrastructure.
 data KirokuStore = KirokuStore
     { pool :: !Pool
     , schema :: !Text
+    , notifier :: !Notifier
+    , publisher :: !EventPublisher
     }
     deriving stock (Generic)
 
@@ -69,12 +75,22 @@ withStore settings = bracket acquire release
     acquire = do
         p <- Pool.acquire poolConfig
         let s = settings ^. #schema
+            cs = settings ^. #connString
         initializeSchema p s
+        -- Start Notifier (dedicated LISTEN connection)
+        n <- Notifier.startNotifier cs s
+        -- Start EventPublisher (depends on Notifier's TChan)
+        pub <- Publisher.startPublisher p (Notifier.tickChan n)
         pure
             KirokuStore
                 { pool = p
                 , schema = s
+                , notifier = n
+                , publisher = pub
                 }
 
-    release store =
+    release store = do
+        -- Stop in reverse order: Publisher first, then Notifier, then pool
+        Publisher.stopPublisher (store ^. #publisher)
+        Notifier.stopNotifier (store ^. #notifier)
         Pool.release (store ^. #pool)
