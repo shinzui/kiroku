@@ -110,3 +110,28 @@ benchmark kiroku-store-bench
     , time          >=1.12
     , uuid
     , vector        >=0.13
+
+benchmark kiroku-shibuya-overhead
+  import:         common
+  type:           exitcode-stdio-1.0
+  main-is:        ShibuyaOverhead.hs
+  hs-source-dirs: bench
+  ghc-options:    -threaded -rtsopts "-with-rtsopts=-N -A32m" -O2
+  build-depends:
+    , aeson
+    , base            >=4.18 && <5
+    , containers      >=0.6
+    , effectful       >=2.4
+    , effectful-core  >=2.4
+    , ephemeral-pg    >=0.2
+    , generic-lens    >=2.2
+    , kiroku-store
+    , lens            >=5.2
+    , shibuya-core
+    , stm
+    , streamly        >=0.11
+    , streamly-core   >=0.3
+    , text            >=2.0
+    , time            >=1.12
+    , unliftio        >=0.2
+    , uuid

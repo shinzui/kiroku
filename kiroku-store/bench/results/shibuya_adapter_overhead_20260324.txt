@@ -1,0 +1,54 @@
+=== Kiroku Shibuya Adapter Overhead Benchmark ===
+    5 iterations per measurement
+    GHC 9.12.2, -O2, -threaded -rtsopts "-with-rtsopts=-N -A32m"
+    macOS (Apple Silicon), ephemeral PostgreSQL
+
+--- 100 events ---
+
+  bare subscribe:      median 3 ms  [3 ms .. 4 ms]  (31566 events/s, 32 μs/event)
+  subscriptionStream:  median 2 ms  [2 ms .. 3 ms]  (42052 events/s, 24 μs/event)
+  shibuya adapter:     median 1 ms  [1 ms .. 1 ms]  (75930 events/s, 13 μs/event)
+
+  stream vs bare:    -25%
+  shibuya vs bare:   -58%
+  shibuya vs stream: -45%  (adapter + framework overhead)
+
+--- 1000 events ---
+
+  bare subscribe:      median 10 ms  [10 ms .. 11 ms]  (96256 events/s, 10 μs/event)
+  subscriptionStream:  median 10 ms  [10 ms .. 11 ms]  (95776 events/s, 10 μs/event)
+  shibuya adapter:     median 11 ms  [10 ms .. 11 ms]  (91609 events/s, 11 μs/event)
+
+  stream vs bare:    +1%
+  shibuya vs bare:   +5%
+  shibuya vs stream: +5%  (adapter + framework overhead)
+
+--- 5000 events ---
+
+  bare subscribe:      median 44 ms  [42 ms .. 46 ms]  (113196 events/s, 9 μs/event)
+  subscriptionStream:  median 48 ms  [43 ms .. 49 ms]  (104323 events/s, 10 μs/event)
+  shibuya adapter:     median 47 ms  [46 ms .. 47 ms]  (107386 events/s, 9 μs/event)
+
+  stream vs bare:    +9%
+  shibuya vs bare:   +5%
+  shibuya vs stream: -3%  (adapter + framework overhead)
+
+--- Analysis ---
+
+At 100 events, startup costs dominate — the stream-based approaches appear
+faster because the TBQueue decouples the subscription worker from the
+consumer, allowing the worker to batch-fetch ahead while the consumer
+processes.
+
+At 1000 events, the approaches converge. The Shibuya framework adds ~5%
+overhead over bare subscribe, which includes: TBQueue bridge, morphInner
+monad lifting, Ingested/Envelope wrapping, NQE supervision, metrics
+tracking, and ack handling.
+
+At 5000 events, all three approaches are within noise of each other
+(~100K–113K events/s). The database catch-up query dominates the total
+time, making adapter overhead negligible in practice.
+
+The Shibuya adapter's overhead (supervision, metrics, ack semantics) is
+effectively free for real-world event store workloads where PostgreSQL
+I/O is the bottleneck.
