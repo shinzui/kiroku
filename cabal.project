@@ -1,5 +1,6 @@
 packages:
   kiroku-store
+  shibuya-kiroku-adapter
 
 with-compiler: ghc-9.12.2
 

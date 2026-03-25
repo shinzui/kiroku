@@ -35,6 +35,19 @@ in  { project =
         , docs = [] : List Schema.DocRef
         , config = [] : List Schema.ConfigItem
         }
+      , { name = "shibuya-kiroku-adapter"
+        , type = Schema.PackageType.Library
+        , language = Schema.Language.Haskell
+        , path = Some "shibuya-kiroku-adapter"
+        , description = Some "Shibuya adapter for Kiroku event store subscriptions"
+        , lifecycle = None Schema.Lifecycle
+        , visibility = Schema.Visibility.Public
+        , runtime = { deployable = False, exposesApi = False }
+        , runtimeEnvironment = None Schema.RuntimeEnvironment
+        , dependencies = [] : List Schema.Dependency
+        , docs = [] : List Schema.DocRef
+        , config = [] : List Schema.ConfigItem
+        }
       ]
     , bundles = [] : List Schema.PackageBundle
     , dependencies =
@@ -45,6 +58,7 @@ in  { project =
       , "hasql:hasql-transaction"
       , "MMZK1526/mmzk-typeid"
       , "shinzui/ephemeral-pg"
+      , "shinzui/shibuya"
       ]
     , apis = [] : List Schema.Api
     , agents = [] : List Schema.AgentHint
