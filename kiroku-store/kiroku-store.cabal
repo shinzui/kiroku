@@ -66,13 +66,10 @@ test-suite kiroku-store-test
   main-is:        Main.hs
   hs-source-dirs: test
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N
-  other-modules:  Shibuya.Adapter.Kiroku
   build-depends:
     , aeson
     , async           >=2.2
     , base            >=4.18 && <5
-    , containers      >=0.6
-    , effectful       >=2.4
     , effectful-core  >=2.4
     , ephemeral-pg    >=0.2
     , generic-lens    >=2.2
@@ -81,12 +78,8 @@ test-suite kiroku-store-test
     , hspec           >=2.10
     , kiroku-store
     , lens            >=5.2
-    , shibuya-core
     , stm
-    , streamly        >=0.11
-    , streamly-core   >=0.3
     , text            >=2.0
-    , unliftio        >=0.2
     , uuid
     , vector          >=0.13
 
