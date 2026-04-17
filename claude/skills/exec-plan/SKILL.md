@@ -229,9 +229,21 @@ When starting work in **create** or **implement** mode, use the `AskUserQuestion
 
     Would you like to associate this work with an intention? If so, provide the Intention ID (or press enter to skip).
 
-If the user provides an Intention ID, store it for the duration of the session and include an `Intention:` git trailer on every commit:
+If the user provides an Intention ID, store it for the duration of the session and:
 
-    Intention: <IntentionId>
+1. **Add it to the top of the plan.** When creating a new ExecPlan, include the Intention ID immediately after the title heading:
+
+        # <Short, action-oriented title>
+
+        Intention: <IntentionId>
+
+        This ExecPlan is a living document. ...
+
+    When implementing an existing plan that does not yet have an `Intention:` line, insert it in the same position (after the title, before the living-document preamble).
+
+2. **Include an `Intention:` git trailer on every commit:**
+
+        Intention: <IntentionId>
 
 When both an ExecPlan and an Intention are active, commits must include both trailers:
 
