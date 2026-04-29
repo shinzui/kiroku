@@ -93,7 +93,7 @@ Track milestone-level progress across all child plans. Each entry names the chil
 
 - [x] EP-1: M1 — Schema, CTE, concurrency audit findings document (2026-04-29; 21 findings: 3 must-fix, 4 should-fix, 14 deferred / cross-plan / no-issue)
 - [x] EP-1: M2 — Landed F1 (hard-delete orphan), F2 (soft-delete TOCTOU), F3 (linkToStream gap), F4 (multi-stream deadlock pre-lock), F5 (link rejects soft-deleted target), F6 (TRUNCATE bypass triggers); deferred F7 to EP-4 Haddock. 66/66 tests pass; reads within 3% of baseline; +12 regression tests. (commits 01c0ee6, e903062, a5754d6, 12a154b, 6d195e8, 8edfbee)
-- [x] EP-2: M1 — Public API and error model audit findings document (2026-04-29; 34 findings F1–F34: 2 must-fix [F1 multi-stream attribution, F25 `withSubscription` bracket], 10 should-fix including a Haddock D-series, 7 deferred-with-rationale, 5 cross-plan to EP-3/EP-4/EP-5, 5 no-issue)
+- [x] EP-2: M1 — Public API and error model audit findings document (2026-04-29; 34 findings F1–F34: 1 must-fix [F25 `withSubscription` bracket], 11 should-fix including F1 [downgraded from must-fix after reading SQL — buggy in principle but unreachable via current paths] and the Haddock D-series, 7 deferred-with-rationale, 5 cross-plan to EP-3/EP-4/EP-5, 5 no-issue)
 - [ ] EP-2: M2 — Land API/error-model fixes and document the contract
 - [ ] EP-3: M1 — Subscription robustness audit findings document
 - [ ] EP-3: M2 — Land subscription fixes (Category live-mode filter, lifecycle helpers, etc.)

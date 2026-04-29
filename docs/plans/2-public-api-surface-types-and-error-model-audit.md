@@ -30,19 +30,19 @@ A reader can verify the change by reading the new audit document, building the p
   - [x] For each item, record purpose, contract (preconditions, postconditions, error cases), and severity classification
   - [x] Cross-check `shibuya-kiroku-adapter/src/` for actual usage patterns and identify ergonomics issues from real call sites — adapter findings folded into F25/F27 (subscription bridge) and F16 (`KirokuStore (..)` field access)
   - [x] Record findings inline in Surprises & Discoveries with file:line references
-- [ ] Milestone 2: Land must-fix corrections
-  - [ ] **F1** — fix the multi-stream error attribution bug in `Effect.hs:160-164`
-  - [ ] **F25** — add a `withSubscription` bracket (and `Eff` equivalent), wire into `bracket`, regression-test that throwing inside the body cancels the worker
-  - [ ] **F19** — refine `StoreError` with `PoolAcquisitionTimeout`, `ConnectionLost`, `UnexpectedServerError` constructors (additive; keep `ConnectionError` as catch-all)
-  - [ ] **F20** — change `DuplicateEvent` to take `Maybe EventId` so the `UUID.nil` fallback is explicit
-  - [ ] **F22** — add `deriving anyclass (Exception)` to `StoreError`
-  - [ ] **F18** — re-export `SchemaInitError` from `Kiroku.Store` so consumers do not have to import `Kiroku.Store.Schema`
-  - [ ] **F26** — add `defaultSubscriptionConfig`
-  - [ ] **F30–F33 (D-series)** — Haddock additions for under-documented public symbols (types, effect wrappers, `withStore` lifecycle, subscription rationale)
-  - [ ] **F12, F21, F23** — Haddock-only entries (linked-event semantics, constraint-name dependency, idempotent-retry guidance)
-  - [ ] Confirm `cabal build kiroku-store kiroku-store-test` and `cabal build shibuya-kiroku-adapter` are both green; run `cabal test kiroku-store`
+- [ ] Milestone 2: Land corrections
+  - [ ] **F25 (must-fix)** — add a `withSubscription` bracket (and `Eff` equivalent), wire into `bracket`, regression-test that throwing inside the body cancels the worker
+  - [ ] **F1 (should-fix-defensive)** — replace static first-stream attribution in `Effect.hs:160-164` with detail-based recovery; unit-test the new helper against a synthesized `ServerError`
+  - [ ] **F19 (should-fix)** — refine `StoreError` with `PoolAcquisitionTimeout`, `ConnectionLost`, `UnexpectedServerError` constructors (additive; keep `ConnectionError` as catch-all)
+  - [ ] **F20 (should-fix)** — change `DuplicateEvent` to take `Maybe EventId` so the `UUID.nil` fallback is explicit
+  - [ ] **F22 (should-fix)** — add `deriving anyclass (Exception)` to `StoreError`
+  - [ ] **F18 (should-fix)** — re-export `SchemaInitError` from `Kiroku.Store` so consumers do not have to import `Kiroku.Store.Schema`
+  - [ ] **F26 (should-fix)** — add `defaultSubscriptionConfig`
+  - [ ] **F30–F33 (D-series, should-fix-haddock)** — Haddock additions for under-documented public symbols (types, effect wrappers, `withStore` lifecycle, subscription rationale)
+  - [ ] **F12, F21, F23 (should-fix-haddock)** — Haddock-only entries (linked-event semantics, constraint-name dependency, idempotent-retry guidance)
+  - [ ] Confirm `cabal build kiroku-store kiroku-store-test` and `cabal build shibuya-kiroku-adapter` are all green; run `cabal test kiroku-store`
   - [ ] Update the MasterPlan's Exec-Plan Registry status and Progress section
-  - [ ] Defer (record only): F2 (empty-list edges — should-fix downgraded to defer if M2 budget is tight; will be revisited if any consumer reports surprise), F3 (split `Store` GADT), F8 (`Ord EventId`), F9 (`AnyVersion` rename), F13 (`LinkResult.globalPosition`), F16 (`KirokuStore (..)`), F24 (`Error.hs` exports)
+  - [ ] Defer (record only): F2 (empty-list edges — Haddock-only deferred), F3 (split `Store` GADT), F8 (`Ord EventId`), F9 (`AnyVersion` rename), F13 (`LinkResult.globalPosition`), F16 (`KirokuStore (..)`), F24 (`Error.hs` exports)
 
 
 ## Surprises & Discoveries
@@ -56,7 +56,7 @@ recommended; recorded for completeness).
 
 #### Effect-layer correctness
 
-  * **F1 (must-fix). Multi-stream error attribution.**
+  * **F1 (should-fix, defensive). Multi-stream error attribution is statically misattributed.**
     `kiroku-store/src/Kiroku/Store/Effect.hs:160-164` — on `Left usageErr` from
     the multi-stream transaction the interpreter unconditionally maps the error
     against the *first* stream's `(name, expected)`:
@@ -65,16 +65,32 @@ recommended; recorded for completeness).
             ((StreamName firstName, firstExpected, _) : _) ->
                 throwError (mapUsageError firstName firstExpected usageErr)
 
-    User-visible symptom: a multi-stream call with
-    `[("a", AnyVersion, ..), ("b", NoStream, ..)]` where `b` already exists
-    raises a `23505` (`ix_streams_stream_name`) inside the transaction; the
-    interpreter routes it through `mapUsageError "a" AnyVersion`, so the
-    consumer observes `StreamAlreadyExists "a"` even though `a` was fine. Or,
-    when the conflict is a generic unique-violation that falls through the
-    constraint-name match, it surfaces as
-    `WrongExpectedVersion (StreamName "a") AnyVersion (StreamVersion 0)` — the
-    wrong stream, the wrong expected version, *and* the wrong actual version.
-    Severity: **must-fix**. Fix proposal in M2 description below.
+    Reality check after reading `kiroku-store/src/Kiroku/Store/SQL.hs`:
+    `appendNoStream` uses `ON CONFLICT (stream_name) DO NOTHING`,
+    `appendAnyVersion` uses `ON CONFLICT (stream_name) DO UPDATE`, and
+    `appendStreamExists`/`appendExpectedVersion` use `UPDATE streams ... WHERE
+    stream_name = $1` — none of these paths raise a `23505` on
+    `ix_streams_stream_name`. They return 0 rows, which routes through the
+    `Right results` branch where the per-stream attribution
+    (`Effect.hs:165-174`) correctly maps each `Nothing` to its owning
+    `(StreamName, ExpectedVersion)`. The only `Left usageErr` paths reachable
+    through current SQL are: `events_pkey` 23505 (which produces
+    `DuplicateEvent` — a constructor with no stream attribution, so the bug
+    is invisible), pool/connection errors (no attribution either), and
+    server errors with codes other than 23505/23503 (also no attribution).
+
+    The bug is therefore a *latent* misattribution — defensible against a
+    future schema change (e.g., a new INSERT path that does raise
+    `ix_streams_stream_name`) and a code-clarity issue, but not a
+    user-observable defect today. Severity: **should-fix-defensive**
+    (downgraded from must-fix after reading the SQL). Fix in M2 replaces
+    the static first-stream attribution with detail-based recovery (parse
+    the PostgreSQL detail string for `Key (stream_name)=(value)` and look
+    up the matching op), falling back to first-stream when detail cannot
+    be parsed.
+
+    No regression test is feasible against current SQL; the M2 fix carries
+    a focused unit test of the new helper using a synthesized `ServerError`.
 
   * **F2 (should-fix). Empty-list edge cases are unspecified.**
     `appendToStream name expected []`, `appendMultiStream []`, and
@@ -359,14 +375,16 @@ recommended; recorded for completeness).
 
 ### Summary by severity
 
-  * **Must-fix (3):** F1 (multi-stream attribution), F25 (`withSubscription`
-    bracket).
-  * **Should-fix (10):** F2 (empty-list edges), F12 (linked-event Haddock),
-    F18 (`SchemaInitError` re-export), F19 (`ConnectionError` refinement),
-    F20 (`extractEventId` nil fallback), F21 (constraint-name dependency
-    Haddock), F22 (`StoreError` derives `Exception`), F23 (idempotent-retry
-    Haddock), F26 (`defaultSubscriptionConfig`), and the D-series F30–F33
-    (Haddock additions, treated collectively as one should-fix bundle).
+  * **Must-fix (1):** F25 (`withSubscription` bracket — implicit lifecycle
+    contract is not enforced by any helper, consumers will forget to cancel
+    and leak worker threads).
+  * **Should-fix (11):** F1 (multi-stream attribution — defensive),
+    F2 (empty-list edges), F12 (linked-event Haddock), F18 (`SchemaInitError`
+    re-export), F19 (`ConnectionError` refinement), F20 (`extractEventId` nil
+    fallback), F21 (constraint-name dependency Haddock), F22 (`StoreError`
+    derives `Exception`), F23 (idempotent-retry Haddock), F26
+    (`defaultSubscriptionConfig`), and the D-series F30–F33 (Haddock additions,
+    treated collectively as one should-fix bundle).
   * **Defer-with-rationale (7):** F3, F8, F9, F13, F16, F24, plus
     F11/F17/F28/F29 (no-issue, but a Haddock-only follow-up bundled into
     the D-series).
@@ -389,8 +407,8 @@ schema work), F25 (touches `Subscription.hs` shared with EP-3), and F27
   Rationale: The MasterPlan scopes the adapter as out-of-scope as a target. Reading it is the cheapest way to validate that the API works for its intended audience.
   Date: 2026-04-29
 
-- Decision: For the multi-stream error attribution fix (F1), parse the PostgreSQL `ServerError` detail string to recover the actual offending stream when the conflict is a `23505` unique violation on `ix_streams_stream_name`; fall back to the existing first-stream behaviour with a documented "(unknown stream within multi-stream)" caveat for any other usage error.
-  Rationale: The transaction interface returns a single `Either UsageError result` — there is no per-statement attribution at the hasql layer without restructuring the transaction. Parsing the `Key (stream_name)=(value)` detail recovers the stream for the most common conflict (a concurrent `NoStream` on an existing stream); other conflicts are rare enough that the imprecise mapping is acceptable for v0.1 and easy to refine later. The alternative (rebuild the multi-stream interpreter to thread per-statement try/catch) is a structural refactor that EP-2's M2 budget cannot absorb without delaying every other must-fix.
+- Decision: Downgrade F1 (multi-stream attribution) from must-fix to should-fix-defensive after reading the SQL paths, and land a defensive recovery helper rather than a regression test.
+  Rationale: Walking `kiroku-store/src/Kiroku/Store/SQL.hs` shows none of the four append CTEs raise a `ix_streams_stream_name` 23505 (`appendNoStream` uses `ON CONFLICT DO NOTHING`; `appendAnyVersion` uses `ON CONFLICT DO UPDATE`; the version-checking variants use `UPDATE`-based gating). The only `Left usageErr` paths reachable today are `events_pkey` (which produces `DuplicateEvent` — no stream attribution) and pool/connection/server errors (no stream attribution either). The bug is therefore latent: it would manifest only if a future schema change introduced an INSERT path without `ON CONFLICT`. The defensive fix (parse the PostgreSQL detail for `Key (stream_name)=(value)` and look up the matching op, falling back to first-stream when detail is missing) lands as a clarity refactor with a unit test, not a hspec regression.
   Date: 2026-04-29
 
 - Decision: Refine `StoreError` additively (add `PoolAcquisitionTimeout`, `ConnectionLost`, `UnexpectedServerError` constructors) and keep `ConnectionError !Text` as a catch-all so existing exhaustive pattern matches keep compiling. Pattern matches that explicitly enumerate cases will get incomplete-pattern warnings under `-Wall`, which is the desired signal.
