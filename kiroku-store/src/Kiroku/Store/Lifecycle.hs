@@ -34,19 +34,54 @@ softDeleteStream name = send (SoftDeleteStream name)
 {- | Permanently remove a stream, its events (where they are not
 referenced by other streams), and its links.
 
+== Authorization model
+
 Hard delete is gated by a session-local PostgreSQL GUC
 (@kiroku.enable_hard_deletes@) that the interpreter sets inside its
 transaction. Direct @DELETE@ or @TRUNCATE@ against the underlying
 tables without setting that GUC raises an exception via the
-@protect_deletion@ trigger. The interpreter cleans up junction rows
-('stream_events') first, then deletes orphaned 'events' rows — events
-still linked to other streams from this one's hard-deleted source
-junctions are removed; events linked to streams /not/ owned by this
-deletion are preserved.
+@protect_deletion@ and @protect_truncation@ triggers in
+@kiroku-store/sql/schema.sql@.
+
+/The GUC is an advisory protection, not a security boundary./ Any
+PostgreSQL session with @DELETE@ privilege on @events@,
+@stream_events@, and @streams@ can issue @SET LOCAL
+kiroku.enable_hard_deletes = \'on\'@ before its own @DELETE@ —
+PostgreSQL grants @SET LOCAL@ to every session. The trigger exists
+to make accidental issuance of @DELETE@ (a typo, an ad-hoc operator
+query, an ORM that does not know the table is meant to be
+append-only) fail loudly rather than to enforce role-based access
+control.
+
+In practice the model is "applications running with full @DELETE@
+privilege on the data tables are trusted to call hard-delete
+correctly". Production deployments that need stricter control should:
+
+* Run the application as a low-privileged role with only @INSERT,
+  UPDATE, SELECT@ on the data tables (not @DELETE@); soft-delete
+  via 'softDeleteStream' is unaffected. Issue hard-deletes from a
+  separate, more privileged role gated by your own access controls.
+
+* /Or/ wrap calls to 'hardDeleteStream' in your application's
+  authorization layer before they reach this function. Reading the
+  @protect_deletion@ trigger as a security boundary is incorrect.
+
+== Event preservation semantics
+
+The interpreter cleans up junction rows ('stream_events') first,
+then deletes orphaned 'events' rows — events still linked to other
+streams from this one's hard-deleted source junctions are removed;
+events linked to streams /not/ owned by this deletion are preserved.
+
+== Result
 
 Returns @Just streamId@ on success, @Nothing@ if the stream did not
 exist. There is no \"undo\" — for reversible deletes use
-'softDeleteStream' instead.
+'softDeleteStream' instead. The deletion emits no in-band audit row;
+operators relying on an audit log must capture hard-deletes through
+the connection-pool observation handler (see
+'Kiroku.Store.Connection.ConnectionSettings.observationHandler') or
+record an application-level event /before/ calling this function.
 -}
 hardDeleteStream ::
     (HasCallStack, Store :> es) =>
