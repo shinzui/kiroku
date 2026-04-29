@@ -25,37 +25,381 @@ A reader can verify the change by reading the new audit and tuning documents, ru
 
 ## Progress
 
-- [ ] Milestone 1: Failure-mode and observability gap inventory
-  - [ ] Catalog every failure mode the package can encounter (DB-side, network-side, application-side)
-  - [ ] For each, record what currently surfaces to the caller (error, exception, silent retry, log) and what *should* surface
-  - [ ] Inventory every existing observability hook and identify gaps
-  - [ ] Identify every tunable and document its current default and acceptable range
+- [x] Milestone 1: Failure-mode and observability gap inventory (2026-04-29)
+  - [x] Catalog every failure mode the package can encounter (DB-side, network-side, application-side)
+  - [x] For each, record what currently surfaces to the caller (error, exception, silent retry, log) and what *should* surface
+  - [x] Inventory every existing observability hook and identify gaps
+  - [x] Identify every tunable and document its current default and acceptable range
 - [ ] Milestone 2: Land hardening changes
-  - [ ] Extend the observation/event surface (callbacks or an event-emitter type) to cover identified gaps
-  - [ ] Add a failure-injection harness in the test suite (or coordinate with EP-6)
-  - [ ] Write the Production Tuning guide
+  - [ ] Introduce `KirokuEvent` sum type and `eventHandler` field on `ConnectionSettings`
+  - [ ] Wire emit sites for must-fix findings F1–F5 (Notifier reconnect, publisher pool error, worker checkpoint/fetch/save errors)
+  - [ ] Add `statementTimeout` field on `ConnectionSettings` and wire into `initSession` (F8)
+  - [ ] Replace Notifier's fixed 1-second reconnect delay with capped exponential backoff (F7)
+  - [ ] Promote `Notifier.acquireOrFail` startup error from `IOException` to a structured `NotifierStartError` (F6)
+  - [ ] Add subscription-lifecycle events (started, caught-up, stopped, failed) (F14)
+  - [ ] Add hard-delete observation event (F13, cross-plan with EP-4.F6)
+  - [ ] Add failure-injection regression test: listener-disconnect-and-recover emits expected events
+  - [ ] Write `docs/PRODUCTION-TUNING.md` (F16)
   - [ ] Update the MasterPlan's Exec-Plan Registry status and Progress section
 
 
 ## Surprises & Discoveries
 
-(None yet. The findings document produced in Milestone 1 will be reflected here.)
+### Milestone 1 audit (2026-04-29) — 18 findings
 
-Initial leads identified during MasterPlan research:
+The audit reads `Connection.hs`, `Schema.hs`, `Notification.hs`,
+`Subscription/EventPublisher.hs`, `Subscription/Worker.hs`,
+`Subscription/Effect.hs`, `Subscription.hs`, `Subscription/Stream.hs`,
+`Effect.hs`, `Error.hs`, and `Lifecycle.hs`. It also reads
+`docs/PRODUCTION-DEPLOYMENT.md` (produced by EP-4) to avoid duplicating
+what is already documented and to identify the gaps that document
+explicitly leaves to EP-5.
 
-- The Notifier silently swallows connection failures and reconnects after 1 second (`Notification.hs:67-79`). No signal to the caller. Severity: must-fix.
-- The EventPublisher silently swallows pool errors during `fetchAndBroadcast` (`EventPublisher.hs:107-110`); the 30-second safety poll is the only recovery path. No signal. Severity: must-fix.
-- No metric for: append latency, append throughput, read latency, subscription catch-up lag, subscription live-mode lag, publisher batch size, NOTIFY rate, pool acquisition wait time. The `observationHandler` covers only pool connection lifecycle. Severity: should-fix; many are easy.
-- The `idleInTransactionTimeout` is configurable (default 30s), but `statement_timeout` is not. A long-running query can hold a pool connection indefinitely. Severity: should-fix; consider adding a `statementTimeout` field on `ConnectionSettings`.
-- Pool saturation behaviour is documented in `docs/BENCH-GATE3.md` (B9): 64 writers × 100 appends, pool size 10, throughput 1262 ops/s, ~0.79ms avg latency. Document this as a known limit. Operational guidance: set pool size relative to writer concurrency.
-- The `EventPublisher` polls every 30s as a safety net. Latency under a fully-broken NOTIFY scenario is up to 30s. Document.
-- No log emission anywhere. Every error is either thrown or returned in a Left. Severity: a callback-based or `co-log`-style logging hook should be considered.
+Findings are numbered F1–F18 (EP-5 numbering — distinct from EP-1's,
+EP-2's, EP-3's, and EP-4's F-numbers). Severity values: must-fix
+(silent failures with no operator signal that can hide data loss,
+silent re-processing, or unbounded wait), should-fix (improves
+operability with bounded blast radius if not landed), deferred-with-rationale
+(would require non-trivial work and ships safely without).
+
+#### Group A — Notifier silent failures (must-fix)
+
+* **F1 (must-fix). Notifier reconnect emits no signal.**
+  `Notification.hs:90-122` `listenerLoop` catches every
+  non-`AsyncCancelled` exception, releases the dead connection, sleeps
+  one second, and reconnects via `bracketOnError`. None of the four
+  observable transitions (listener-down, reconnect-attempt-started,
+  reconnect-succeeded, reconnect-failed-and-will-retry) reaches the
+  caller. An operator with the database briefly unreachable for
+  fifteen minutes sees no signal at all; subscriptions appear to
+  freeze and then silently resume when the database comes back. The
+  store's `observationHandler` does not cover the dedicated listener
+  connection — that connection is owned by `Notification.hs`
+  directly via `Hasql.Connection`, not by `hasql-pool`. *Cross-plan
+  origin:* this is the same gap surfaced as EP-3.F3, routed to EP-5
+  for the unified observation surface.
+
+#### Group B — EventPublisher silent failures (must-fix)
+
+* **F2 (must-fix). `EventPublisher.fetchAndBroadcast` swallows pool errors silently.**
+  `Subscription/EventPublisher.hs:165-171` pattern-matches `Left _err`
+  and returns `()`, leaving the publisher to wait for the next tick
+  or the 30-second safety poll. Pool exhaustion (every connection
+  busy with application work) and statement-level errors (e.g., a
+  malformed payload that the SQL CTE rejects on the read path) both
+  fall into this branch. The publisher will sit idle until the next
+  notification or the 30-second timeout, at which point it tries
+  again. Subscribers see the resulting latency spike but no
+  structured cause. *Cross-plan origin:* same as EP-3.F7 and EP-3.F12.
+
+#### Group C — Worker silent failures (must-fix)
+
+* **F3 (must-fix). `Worker.loadCheckpoint` returns `GlobalPosition 0` on any DB error.**
+  `Subscription/Worker.hs:62-68` maps `Left _err` to
+  `pure (GlobalPosition 0)`, which causes the worker to start
+  catch-up from the global beginning rather than the saved
+  checkpoint. At-least-once handlers are idempotent so the
+  correctness blast radius is bounded, but the operational blast
+  radius is large: a transient pool error at subscription startup
+  silently re-processes the entire history. *Cross-plan origin:*
+  same as EP-3.F13.
+
+* **F4 (must-fix). `Worker.fetchBatch` returns an empty vector on any DB error.**
+  `Subscription/Worker.hs:151-168` (both `AllStreams` and `Category`
+  arms) maps `Left _err` to `pure V.empty`. The catch-up loop at
+  lines 79-93 treats an empty vector as "no more events" and returns
+  `Just cursor`, which signals catch-up complete and triggers the
+  switch to live mode. A persistent error (e.g. a permission
+  revocation) can therefore make catch-up appear to finish prematurely
+  while the cursor sits at a stale position. The category live loop at
+  lines 142-149 has the same shape: an empty vector loops back without
+  observable failure.
+
+* **F5 (must-fix). `Worker.saveCheckpoint` swallows DB errors silently.**
+  `Subscription/Worker.hs:197-199` discards the result of
+  `Pool.use` with `() <$ ...`. A transient error during checkpoint
+  save means the next subscription with the same name re-processes
+  events the handler has already seen — again, idempotent handlers
+  mask the correctness issue, but the operator has no way to detect
+  the situation.
+
+#### Group D — Hardening of existing failure paths (should-fix)
+
+* **F6 (should-fix). `Notifier.acquireOrFail` raises raw `IOException`.**
+  `Notification.hs:124-129` calls `fail ("Notifier: failed to acquire connection: " <> show err)`.
+  `fail` in `IO` raises an `IOException` whose message embeds the
+  underlying hasql `ConnectionError`. The shape is asymmetric to
+  `Schema.SchemaInitError`'s structured exception. Production
+  callers wrapping `withStore` in a structured retry policy see
+  schema-init failures as a typed exception they can match on but
+  notifier-startup failures as a generic `IOException`. Add a
+  dedicated `NotifierStartError UsageError` constructor (or reuse
+  the existing `Hasql.Pool.UsageError` shape, but Notifier uses raw
+  `Hasql.Connection`, so the underlying error is
+  `Hasql.Connection.ConnectionError`).
+
+* **F7 (should-fix). Notifier reconnect uses a fixed 1-second delay.**
+  `Notification.hs:111` `threadDelay 1_000_000`. Under a sustained
+  outage (for example, the database has been migrated to a new
+  endpoint and the connection string is now wrong) the listener
+  hot-loops a reconnect every second, producing connection-failure
+  log spam in PostgreSQL and consuming local resources. Replace with
+  capped exponential backoff: 1 s → 2 s → 4 s → 8 s → 16 s capped at
+  30 s. The 30-second cap aligns with the publisher's safety-poll
+  cadence so the maximum latency between database recovery and
+  subscription wakeup remains bounded by 30 s.
+
+* **F8 (should-fix). No `statement_timeout` setting.**
+  `Connection.hs:140-143` sets `idle_in_transaction_session_timeout`
+  via `initSession` but does not set `statement_timeout`. A
+  pathological query (an accidental `LIMIT` -less read on a multi-million-row
+  stream, an index-disabled query, a network partition that keeps
+  the TCP connection up but stalls the server) can hold a pool
+  connection indefinitely. Add `statementTimeout :: Maybe Int`
+  (seconds) to `ConnectionSettings`; wire into `initSession` when set.
+  A reasonable default for callers to consider is 30 s — long enough
+  to absorb GC pauses and transient slow disks, short enough to free
+  the pool slot under genuine pathology. Default `Nothing` (current
+  behaviour) for backward compatibility.
+
+* **F9 (deferred-with-rationale). hasql-pool acquisition timeout is not exposed.**
+  `Hasql.Pool.Config.acquisitionTimeout` exists; `defaultConnectionSettings`
+  does not surface it. The pool's default is finite (10 s in current
+  hasql-pool), so the failure mode is at least bounded — `Pool.use`
+  returns `AcquisitionTimeoutUsageError`, which `mapUsageError` maps
+  to `PoolAcquisitionTimeout`. The current behaviour is correct but
+  not tunable. Defer with rationale: tuning the pool acquisition
+  timeout requires a careful interplay with `statementTimeout` and
+  the application's own retry policy. Adding the field is cheap; the
+  guidance is what is hard. EP-5 documents the existing 10 s default
+  in the Production Tuning guide and leaves the field for a future
+  audit when concrete tuning need emerges.
+
+#### Group E — Internal tunables (deferred-with-rationale)
+
+* **F10 (deferred-with-rationale). `publisherBatchSize` and `safetyPollMicros` are not public.**
+  `Subscription/EventPublisher.hs:88-93` hard-codes `publisherBatchSize = 1000`
+  and `safetyPollMicros = 30_000_000` (30 s). The first determines the
+  fan-out batch from publisher to subscriber queues; the second is the
+  fallback wakeup if NOTIFY is dropped or the trigger fails. Neither
+  is exposed on `ConnectionSettings`. Promoting them to the public API
+  expands the surface for callers that mostly should not need to
+  touch these — the defaults are well-supported by the EP-1 and
+  EP-3 audit work. Defer with rationale: revisit if a benchmark or
+  field report demonstrates the defaults are wrong for a real
+  workload, at which point the right path is to tune the default
+  rather than expose the knob.
+
+* **F11 (no-issue, document only). `queueCapacity` default of 16 batches.**
+  `Subscription/Types.hs:91-97` defaults to 16 batches per
+  subscriber. At the publisher's batch size of 1000 events, that is
+  ~16,000 events of headroom per subscriber. For a slow handler at
+  100 ms per event, a full queue represents ~27 minutes of buffered
+  work — useful for absorbing a transient handler stall, plenty of
+  rope to hang oneself with. The Haddock documents the math; the
+  Production Tuning guide should restate it with a recommended
+  formula.
+
+#### Group F — New emit sites that would benefit from observation
+
+* **F13 (should-fix, cross-plan from EP-4.F6). Hard-delete emits no observable signal.**
+  `Effect.hs:175-187` runs the hard-delete transaction with no
+  side-channel. Operators relying on an audit log have no in-band
+  record of what was hard-deleted and when. EP-4 documented this in
+  `docs/PRODUCTION-DEPLOYMENT.md` with the recommendation that
+  callers record an application-level event before calling
+  `hardDeleteStream`. EP-5 should also surface a
+  `KirokuEventHardDeleted streamName streamId` event through the new
+  observation channel so operators with a structured log can
+  reconstruct hard-deletes without an application-level event being
+  necessary. The application-level event remains the right approach
+  for compliance-grade audit; the observation event is a fail-safe.
+
+* **F14 (should-fix). No subscription-lifecycle events.**
+  Subscription start, catch-up completion, normal stop (handler
+  returned `Stop`), failed-stop (worker died), and overflow are all
+  invisible to the operator. A subscription that has been stuck in
+  catch-up for an hour is indistinguishable from a healthy one.
+  Emit:
+  * `KirokuEventSubscriptionStarted name fromPosition`
+  * `KirokuEventSubscriptionCaughtUp name atPosition` — fired once
+    when catch-up completes.
+  * `KirokuEventSubscriptionStopped name atPosition reason` —
+    `reason` covers `HandlerStop`, `Cancelled`, `Overflowed`, `WorkerCrashed`.
+
+* **F15 (deferred-with-rationale). No schema-init lifecycle events.**
+  `Schema.hs:58-63` returns `()` on success and throws `SchemaInitError`
+  on failure. Startup tracing (a healthcheck that asserts schema is
+  ready) is doable from the caller side: catch `SchemaInitError`,
+  succeed on `Right`. Adding observation events at schema-init
+  would be of marginal value — the success path is one event, the
+  failure path is already structured. Defer.
+
+#### Group G — Documentation gaps (should-fix)
+
+* **F16 (should-fix). No production tuning guide.**
+  `docs/PRODUCTION-DEPLOYMENT.md` (produced by EP-4) covers
+  privilege separation, hard-delete authorization, schema migration,
+  connection-string handling, at-rest encryption, multi-tenant
+  pattern, observability framing, and the PostgreSQL 18 minimum.
+  It does not cover *tuning*: pool size selection relative to writer
+  concurrency, recommended `statement_timeout` and
+  `idle_in_transaction_session_timeout`, subscription
+  `batchSize`/`queueCapacity` choice, what metrics to alert on, what
+  the 30-second safety poll's worst-case latency is, the trade-offs
+  of `DropSubscription` vs `DropOldest`. Write
+  `docs/PRODUCTION-TUNING.md` as a sibling to PRODUCTION-DEPLOYMENT,
+  link both from `kiroku-store`'s README (when it exists) and from
+  the `withStore` Haddock.
+
+#### Group H — Cross-plan / no-issue / deferred
+
+* **F12 (deferred-with-rationale). Publisher uses the application pool.**
+  `Connection.hs:154` wires the publisher to the same pool the
+  application's appends and reads use. Application-side pool
+  exhaustion therefore stalls publisher reads (F2). A dedicated
+  publisher connection (or a small dedicated pool of size 1-2)
+  would isolate the two. The change is non-trivial — it adds
+  another lifecycle owner inside `KirokuStore` and another tunable.
+  Defer; recommend the operator either size the application pool
+  generously (so the publisher's single concurrent read fits) or
+  monitor pool acquisition latency via `observationHandler` and
+  raise pool size when it climbs.
+
+* **F17 (deferred-with-rationale). Per-statement latency observability.**
+  Append/read/lifecycle latencies are not surfaced. Adding them
+  requires a wrapper around every `Pool.use` site or an in-process
+  metrics library dependency. Both are a significantly larger
+  change than the rest of M2. Defer; recommend external
+  instrumentation: callers wire `prometheus-client` or `ekg-core`
+  into the new `eventHandler` callback for the events EP-5 does
+  emit, and use PostgreSQL's own `pg_stat_statements` for
+  per-statement latency profiling.
+
+* **F18 (cross-plan from EP-3.F30, EP-6 owns). `threadDelay` in subscription tests.**
+  `test/Main.hs` subscription tests at lines 716-990 use
+  `threadDelay`-based synchronisation. EP-3 added new regression
+  tests with deterministic STM/`MVar` barriers but did not refactor
+  the older ones. EP-5's failure-injection harness adds new tests
+  with deterministic barriers (no `threadDelay`); EP-6 still owns
+  the suite-wide restructure.
+
+### Tunable Inventory
+
+#### Public, on `ConnectionSettings` (`Connection.hs:29-78`)
+
+| Field | Default | Range / Notes |
+|---|---|---|
+| `connString` | required | Passed verbatim to libpq. |
+| `poolSize` | 10 | B9 in `docs/BENCH-GATE3.md` shows pool sizes above ~32 hit `$all`-row contention as the dominant ceiling, not pool slots. Recommend `max(2, expected_concurrent_writers)` for write-heavy workloads, default for read-mixed. |
+| `schema` | `"public"` | LISTEN channel only; not a table prefix. EP-4 documented in detail. |
+| `idleInTransactionTimeout` | 30 s | Tunes `idle_in_transaction_session_timeout`. Raise if long-lived transactions are expected from the application; default suits typical workloads. |
+| `observationHandler` | `Nothing` | hasql-pool's connection-lifecycle events (acquire, ready-for-use, terminate). |
+
+Missing public tunables (added in M2):
+
+| Field | Default | Range / Notes |
+|---|---|---|
+| `statementTimeout` | `Nothing` | When `Just s`, sets `statement_timeout = 's'` in `initSession`. Recommend 30 s as a starting point for typical workloads. |
+| `eventHandler` | `Nothing` | New `KirokuEvent`-based observation channel for events that hasql-pool's `Observation` does not cover (notifier reconnects, publisher pool errors, worker checkpoint errors, subscription lifecycle, hard-delete). |
+
+#### Public, on `SubscriptionConfig` (`Subscription/Types.hs:85-104`)
+
+| Field | Default | Range / Notes |
+|---|---|---|
+| `batchSize` | 100 | Catch-up batch size. Larger reduces per-event overhead; smaller improves handler responsiveness to `Stop`. |
+| `queueCapacity` | 16 (batches) | Per-subscriber queue, in batches. Effective event capacity is `queueCapacity * publisherBatchSize` (default ~16,000 events). |
+| `overflowPolicy` | `DropSubscription` | `DropSubscription` is correctness-preserving; `DropOldest` trades correctness for liveness. |
+
+#### Internal (not exposed)
+
+| Constant | File | Value | Notes |
+|---|---|---|---|
+| `publisherBatchSize` | `EventPublisher.hs:88-89` | 1000 | Publisher fan-out batch size. |
+| `safetyPollMicros` | `EventPublisher.hs:92-93` | 30 s | Fallback wakeup if NOTIFY is missed. |
+| Notifier reconnect delay | `Notification.hs:111` | 1 s (fixed) | M2 replaces with exponential backoff capped at 30 s (F7). |
+| Notifier `application_name` | `Notification.hs:138` | `"kiroku-listener"` | Used for `pg_stat_activity` visibility. |
+
+### Recommended Observation Surface (`KirokuEvent`)
+
+Introduce a `Kiroku.Store.Observability` module owning a `KirokuEvent`
+sum type and a re-export to `Kiroku.Store`. The `Observation` re-export
+from hasql-pool stays unchanged for pool-lifecycle events. The new
+type covers events the package emits itself:
+
+    data KirokuEvent
+        = -- | Notifier listener thread caught a non-async exception
+          -- and is about to attempt reconnection. The 'SomeException'
+          -- carries the underlying cause for diagnostics. The 'Int' is
+          -- the consecutive failure count starting at 1 — used to drive
+          -- the exponential backoff and useful as a metric.
+          KirokuEventNotifierReconnecting !SomeException !Int
+        | -- | Notifier successfully re-established the LISTEN
+          -- connection after one or more reconnect attempts. Pairs
+          -- with the most recent 'KirokuEventNotifierReconnecting'.
+          KirokuEventNotifierReconnected
+        | -- | EventPublisher's read query failed; the publisher will
+          -- retry on the next tick or safety poll. The 'UsageError'
+          -- carries the underlying cause.
+          KirokuEventPublisherPoolError !UsageError
+        | -- | A subscription's worker thread encountered a DB error
+          -- in 'loadCheckpoint', 'fetchBatch', or 'saveCheckpoint'.
+          -- The phase identifies which.
+          KirokuEventSubscriptionDbError !SubscriptionName !SubscriptionDbPhase !UsageError
+        | -- | A subscription's worker has just started; events will
+          -- begin from the recorded position (0 if no checkpoint).
+          KirokuEventSubscriptionStarted !SubscriptionName !GlobalPosition
+        | -- | A subscription has reached the publisher's
+          -- 'lastPublished' position and is switching to live mode.
+          KirokuEventSubscriptionCaughtUp !SubscriptionName !GlobalPosition
+        | -- | A subscription has stopped. The reason discriminates
+          -- normal completion (handler returned 'Stop') from cancellation,
+          -- overflow, and worker-thread crashes.
+          KirokuEventSubscriptionStopped !SubscriptionName !GlobalPosition !SubscriptionStopReason
+        | -- | A hard-delete was issued. Operators relying on a fail-safe
+          -- audit log can capture this. Compliance-grade audit should
+          -- still record an application-level event before issuing the
+          -- delete (per 'docs/PRODUCTION-DEPLOYMENT.md').
+          KirokuEventHardDeleteIssued !StreamName !StreamId
+
+    data SubscriptionDbPhase = LoadCheckpoint | FetchBatch | SaveCheckpoint
+
+    data SubscriptionStopReason
+        = StopHandlerRequested
+        | StopCancelled
+        | StopOverflowed
+        | StopWorkerCrashed !SomeException
+
+The `eventHandler :: Maybe (KirokuEvent -> m ())` field is added to
+`ConnectionSettingsM`. The current `observationHandler` field is
+preserved for hasql-pool events.
+
+This list is the audit's recommended starter set. Subsequent
+production experience may add or refine constructors; the design is
+sum-typed precisely so additions surface as `-Wincomplete-patterns`
+warnings rather than as silent regressions in caller code.
 
 
 ## Decision Log
 
 - Decision: Treat observability as a callback-based extension API (consistent with the existing `observationHandler` pattern) rather than depending on a logging framework. Callers wire `co-log`, `katip`, `prometheus-client`, etc., on top.
   Rationale: Library-level logging frameworks lock callers into a logging stack. Callbacks are minimal-commitment and easy to thread.
+  Date: 2026-04-29
+
+- Decision: Introduce a new `KirokuEvent` sum type in a new `Kiroku.Store.Observability` module rather than extending hasql-pool's `Observation`. Add a separate `eventHandler :: Maybe (KirokuEvent -> m ())` field on `ConnectionSettings`; do not replace or rename the existing `observationHandler`.
+  Rationale: hasql-pool's `Observation` is owned upstream; extending it would require a fork. A package-owned sum type lets EP-5 add new constructors as production experience reveals new gaps without an upstream coordination cost. Pattern-match incompleteness on consumer sites surfaces as a compiler warning, never as silent misclassification. Keeping both handlers separates "who owns the lifecycle" (hasql-pool for connections, kiroku-store for everything else); merging them into one would force callers to switch on a constructor for "is this mine to handle?" on every event.
+  Date: 2026-04-29
+
+- Decision: M2 lands the must-fix observability findings (F1 Notifier reconnect, F2 publisher pool error, F3/F4/F5 worker DB errors), the should-fix tightening of existing failure paths (F6 structured `NotifierStartError`, F7 exponential backoff, F8 `statementTimeout`, F13 hard-delete event, F14 subscription lifecycle events), and the documentation gap (F16 production tuning guide). It defers F9, F10, F12, F15, F17 with rationale recorded in Surprises & Discoveries. F11 is documentation-only and folds into F16.
+  Rationale: The must-fix items address the silent-failure operator-blindness gaps that motivated this audit. The should-fix items round out the observation surface to a coherent shape (so callers wiring it once cover the lifecycle, not a partial slice). The deferred items are either non-trivial work that can ship safely without (F12 publisher pool isolation), or tuning surface that is easier to leave latent until a concrete need surfaces (F9, F10), or out-of-scope tasks owned by other plans (F18 owned by EP-6).
+  Date: 2026-04-29
+
+- Decision: Notifier reconnect backoff is capped exponential: `min(30s, 2^(attempt-1))` for `attempt = 1, 2, …`. After a successful reconnect the counter resets to 1.
+  Rationale: 30 s aligns with the publisher's safety-poll cadence — under sustained outage the worst-case latency between database recovery and subscription wakeup is bounded by the safety poll regardless of the reconnect delay, so capping the backoff at the safety-poll cadence avoids unnecessary additional latency. The exponential schedule (1, 2, 4, 8, 16, 30, 30, …) reduces hot-loop log spam after a few seconds of outage. Reset on success ensures a transient blip does not penalise the next blip.
+  Date: 2026-04-29
+
+- Decision: The new `eventHandler` callback is invoked synchronously from the emit site (Notifier loop, publisher loop, worker loop, hard-delete interpreter). Slow callbacks therefore stall those loops. The Haddock contract states this and recommends asynchronous fan-out (e.g., write to a TQueue, drain in a separate thread) for callbacks that may block.
+  Rationale: A library-side async wrapper would impose policy (queue size, overflow behaviour) on every caller. The hasql-pool `observationHandler` follows the same synchronous-emit convention; staying consistent is the smaller surprise. Callers needing async fan-out can wire it in 5 lines.
   Date: 2026-04-29
 
 

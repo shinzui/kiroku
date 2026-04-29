@@ -41,7 +41,7 @@ Each child plan begins with an *audit milestone* that produces a findings docume
 | EP-2 | Public API surface, types and error model audit | docs/plans/2-public-api-surface-types-and-error-model-audit.md | None | EP-1 | Complete |
 | EP-3 | Subscription system robustness audit | docs/plans/3-subscription-system-robustness-audit.md | None | EP-1, EP-2 | Complete |
 | EP-4 | Multi-tenancy, security and schema lifecycle audit | docs/plans/4-multi-tenancy-security-and-schema-lifecycle-audit.md | None | EP-1 | Complete |
-| EP-5 | Operational hardening: observability, failure modes, limits | docs/plans/5-operational-hardening-observability-failure-modes-limits.md | None | EP-1, EP-2, EP-3 | Not Started |
+| EP-5 | Operational hardening: observability, failure modes, limits | docs/plans/5-operational-hardening-observability-failure-modes-limits.md | None | EP-1, EP-2, EP-3 | In Progress |
 | EP-6 | Test and benchmark hardening for production confidence | docs/plans/6-test-and-benchmark-hardening-for-production-confidence.md | None | EP-1, EP-2, EP-3, EP-4, EP-5 | Not Started |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
@@ -99,7 +99,7 @@ Track milestone-level progress across all child plans. Each entry names the chil
 - [x] EP-3: M2 — Landed F1 (listener-conn leak), F18 (Category live filter via DB-driven loop), F6 (bounded per-subscriber backpressure with OverflowPolicy), at-least-once Haddock contract; deferred F2, F3, F7, F8, F12, F13, F29, F30 with rationale. 76/76 kiroku-store tests pass; 5/5 adapter tests pass; Haddock builds clean. (commits 6041e8f, bd107d4, 2c3f3f4, fe69688)
 - [x] EP-4: M1 — Multi-tenancy, security, schema lifecycle audit findings document (2026-04-29; 18 findings F1–F18: schema field is plumbed-but-inert at the SQL layer with two layers of dead plumbing in `Worker.hs` and `Schema.hs` [F1, must-fix to land Haddock + dead-code removal in M2, ties EP-2.F14]; listener/trigger schema-name coupling is implicit and silently breaks under non-default `schema` [F2, must-document]; hard-delete is footgun-protection rather than a security boundary [F5, must-document via Lifecycle Haddock]; `initializeSchema` is idempotent only for additive DDL [F7, must-document, aligns with the existing `project_schema_migration.md` memory note]; DDL execution privilege requirement is undocumented [F9, must-document via a Production Deployment doc]; TRUNCATE bypass already closed by EP-1.F6 [F15, confirmation]; connection-string and prepared-statement audit returned no SQL-injection vectors [F10/F11/F12/F14, no-issue]; tenant lifecycle, hard-delete audit log, NOTIFY-payload JSON encoding, partition-trigger semantics are deferred-with-rationale [F4/F6/F13/F16])
 - [x] EP-4: M2 — Landed F1/F18 (rewrote `Connection.hs:34` Haddock to name the actual schema-field contract; removed the dead `schema :: Text` parameter from `Worker.runWorker`/`catchUp`/`liveLoopCategoryDriven`/`fetchBatch` and the `Subscription.hs:107` call site), F5 (Lifecycle Haddock with advisory-not-security framing for hard-delete authorization, audit-log gap, three production tightening patterns), F7 (Schema.hs Haddock with additive-only DDL contract + privilege requirements, references parked partition plan + `project_schema_migration.md`), F9 (`docs/PRODUCTION-DEPLOYMENT.md` aggregating DDL/runtime privilege separation, hard-delete authorization, schema migration, connection-string handling, at-rest encryption, multi-tenant pattern, observability, PostgreSQL 18+ requirement); deferred F4, F6, F13, F16 with rationale + the option-A schema-prefixing rejection. 76/76 kiroku-store tests pass; 5/5 adapter tests pass; Haddock builds clean. (commits 9f344bc, 8470f36, 9db5a7f)
-- [ ] EP-5: M1 — Failure-mode and observability gap inventory
+- [x] EP-5: M1 — Failure-mode and observability gap inventory (2026-04-29; 18 findings F1–F18: 5 must-fix [F1 Notifier-reconnect signal, F2 publisher pool-error swallow, F3/F4/F5 Worker checkpoint/fetch/save silent failures]; 7 should-fix [F6 structured NotifierStartError, F7 exponential reconnect backoff, F8 statementTimeout field, F13 hard-delete observation event, F14 subscription-lifecycle events, F16 PRODUCTION-TUNING.md]; 6 deferred-with-rationale [F9 acquisition-timeout exposure, F10 internal tunables, F11 queueCapacity guidance folds into F16, F12 publisher pool isolation, F15 schema-init events, F17 per-statement latency]; F18 cross-plan to EP-6)
 - [ ] EP-5: M2 — Land observation-handler enrichment and failure-injection harness
 - [ ] EP-6: M1 — Test and benchmark gap inventory
 - [ ] EP-6: M2 — Land property tests, deterministic subscription tests, stress benchmarks
@@ -273,6 +273,49 @@ the MasterPlan's earlier "EP-4 owns the schema-name decision (either remove the
 field or wire it through)" framing in the Integration Points section — the
 third option (document the actual contract) was not enumerated there but is
 documented in EP-4's Decision Log.
+
+### EP-5 audit (2026-04-29) — cross-plan findings
+
+EP-5 Milestone 1 produced 18 findings (F1–F18, EP-5 numbering — distinct from
+EP-1, EP-2, EP-3, and EP-4). Three items are cross-plan and recorded here for
+traceability. Full details and severity classification live in EP-5's
+Surprises & Discoveries section
+(`docs/plans/5-operational-hardening-observability-failure-modes-limits.md`).
+
+  * **EP-5.F13 ↔ EP-4.F6.** Hard-delete observability event closes the
+    audit-log gap EP-4 documented in `docs/PRODUCTION-DEPLOYMENT.md`. EP-5
+    surfaces the event through its new `eventHandler` callback so operators
+    with a structured log can reconstruct hard-deletes without an
+    application-level event being mandatory. EP-4's recommendation that
+    compliance-grade audit still be application-level (recorded *before*
+    `hardDeleteStream` is called) remains in force; the observation event is
+    a fail-safe, not a substitute. No code changes to `Lifecycle.hs` or
+    `PRODUCTION-DEPLOYMENT.md`'s authorization framing required from EP-5 —
+    only the new emit site in `Effect.hs`.
+
+  * **EP-5.F1/F2/F3/F4/F5 ↔ EP-3.F3/F7/F12/F13.** EP-3 routed four
+    silent-failure findings to EP-5 for the unified observation surface.
+    EP-5's audit confirms five must-fix sites (EP-3 routed four; EP-5's audit
+    surfaced an additional one in `Worker.fetchBatch` that EP-3 did not
+    explicitly enumerate). All five resolve through the same change in M2:
+    introducing `KirokuEvent` and emitting structured events at every site
+    that currently swallows a `Left _err`. The fixes do not modify the
+    behaviour of those code paths (failures still degrade gracefully —
+    notifier reconnects, publisher waits, worker uses safe defaults); they
+    only add a side-channel signal.
+
+  * **EP-5.F18 → EP-6.** `test/Main.hs` subscription tests still mix
+    `threadDelay` synchronisation with the deterministic STM/`MVar` style
+    EP-3 introduced. EP-5's M2 failure-injection regression tests use the
+    deterministic style; the suite-wide restructure to eliminate
+    `threadDelay` from older tests remains owned by EP-6 (consistent with
+    EP-3.F30's earlier route).
+
+EP-5 explicitly *does not* extend `kiroku-store`'s `cabal` build with a new
+external dependency for metrics or logging. The `KirokuEvent` callback is the
+extension point; callers wire `prometheus-client`, `ekg-core`, `katip`,
+`co-log`, etc., themselves. This continues the pattern established by the
+existing `observationHandler` field.
 
 
 ## Decision Log
