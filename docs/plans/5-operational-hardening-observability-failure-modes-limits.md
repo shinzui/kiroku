@@ -30,17 +30,17 @@ A reader can verify the change by reading the new audit and tuning documents, ru
   - [x] For each, record what currently surfaces to the caller (error, exception, silent retry, log) and what *should* surface
   - [x] Inventory every existing observability hook and identify gaps
   - [x] Identify every tunable and document its current default and acceptable range
-- [ ] Milestone 2: Land hardening changes
-  - [ ] Introduce `KirokuEvent` sum type and `eventHandler` field on `ConnectionSettings`
-  - [ ] Wire emit sites for must-fix findings F1–F5 (Notifier reconnect, publisher pool error, worker checkpoint/fetch/save errors)
-  - [ ] Add `statementTimeout` field on `ConnectionSettings` and wire into `initSession` (F8)
-  - [ ] Replace Notifier's fixed 1-second reconnect delay with capped exponential backoff (F7)
-  - [ ] Promote `Notifier.acquireOrFail` startup error from `IOException` to a structured `NotifierStartError` (F6)
-  - [ ] Add subscription-lifecycle events (started, caught-up, stopped, failed) (F14)
-  - [ ] Add hard-delete observation event (F13, cross-plan with EP-4.F6)
-  - [ ] Add failure-injection regression test: listener-disconnect-and-recover emits expected events
-  - [ ] Write `docs/PRODUCTION-TUNING.md` (F16)
-  - [ ] Update the MasterPlan's Exec-Plan Registry status and Progress section
+- [x] Milestone 2: Land hardening changes (2026-04-29)
+  - [x] Introduce `KirokuEvent` sum type and `eventHandler` field on `ConnectionSettings` (commit 47dfcd9)
+  - [x] Wire emit sites for must-fix findings F1–F5 (Notifier reconnect, publisher pool error, worker checkpoint/fetch/save errors) (commit 47dfcd9)
+  - [x] Add `statementTimeout` field on `ConnectionSettings` and wire into `initSession` (F8) (commit 47dfcd9)
+  - [x] Replace Notifier's fixed 1-second reconnect delay with capped exponential backoff (F7) (commit 47dfcd9)
+  - [x] Promote `Notifier.acquireOrFail` startup error from `IOException` to a structured `NotifierStartError` (F6) (commit 47dfcd9)
+  - [x] Add subscription-lifecycle events (started, caught-up, stopped, failed) (F14) (commit 47dfcd9)
+  - [x] Add hard-delete observation event (F13, cross-plan with EP-4.F6) (commit 47dfcd9)
+  - [x] Add failure-injection regression test: listener-disconnect-and-recover emits expected events (3 new tests in commit 47dfcd9)
+  - [x] Write `docs/PRODUCTION-TUNING.md` (F16)
+  - [x] Update the MasterPlan's Exec-Plan Registry status and Progress section
 
 
 ## Surprises & Discoveries
@@ -405,7 +405,121 @@ warnings rather than as silent regressions in caller code.
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+### Milestone 1 — Audit (2026-04-29)
+
+The audit produced 18 findings (F1–F18) across the package's failure
+modes, tunables, and observability gaps. Severity classification yielded
+5 must-fix (silent failures with no operator signal), 7 should-fix
+(operability and documentation tightening), and 6 deferred-with-rationale
+(non-trivial work or tuning surface that ships safely without). One
+finding (F18 `threadDelay` synchronisation in older subscription tests)
+remains owned by EP-6 alongside the earlier EP-3.F30 routing.
+
+The audit confirmed all four EP-3 routings (F3 Notifier reconnect, F7
+publisher pool error, F12 publisher queue depth, F13 worker checkpoint)
+and surfaced one additional must-fix the prior plans had not enumerated:
+`Worker.fetchBatch` swallows DB errors and returns an empty vector, which
+the catch-up loop interprets as "no more events" — making catch-up appear
+to complete prematurely with the cursor still stale. The audit also
+folded EP-2.F15 (no `statement_timeout`) into the M2 scope rather than
+leaving it for a future plan, since the hardening change is small and
+naturally accompanies the new `eventHandler` plumbing.
+
+### Milestone 2 — Implementation (2026-04-29)
+
+The new `Kiroku.Store.Observability` module owns the `KirokuEvent` sum
+type, `SubscriptionDbPhase`, and `SubscriptionStopReason`. The package's
+public API now exposes:
+
+* `ConnectionSettings.eventHandler :: Maybe (KirokuEvent -> m ())` —
+  alongside the existing `observationHandler` for hasql-pool's
+  connection lifecycle.
+* `ConnectionSettings.statementTimeout :: Maybe Int` — wired into
+  `initSession`. Default `Nothing` preserves existing behaviour.
+* `NotifierStartError ConnectionError` — re-exported from
+  `Kiroku.Store`. Replaces the prior `IOException`-via-`fail` shape.
+* The full `KirokuEvent` taxonomy and its supporting enums.
+
+The notifier's reconnect path now emits structured events with the
+consecutive failure count and uses capped exponential backoff (1s, 2s,
+4s, 8s, 16s, 30s thereafter). The publisher emits pool errors. The
+worker emits structured DB errors per phase plus subscription
+lifecycle events (Started, CaughtUp, Stopped with a reason that
+discriminates HandlerRequested, Cancelled, Overflowed,
+WorkerCrashed). The hard-delete interpreter emits
+`KirokuEventHardDeleteIssued` on success.
+
+Three failure-injection regression tests cover the new surface:
+listener-backend termination produces both reconnect events; a normal
+subscription lifecycle produces Started → CaughtUp → Stopped; a
+hard-delete produces the audit event when the stream existed and not
+when it did not.
+
+`docs/PRODUCTION-TUNING.md` is the operator's tuning companion to
+`docs/PRODUCTION-DEPLOYMENT.md`, covering pool sizing,
+`statement_timeout`, batch-size and queue-capacity selection,
+`DropSubscription` vs `DropOldest`, the safety-poll cadence rationale,
+and a "what to monitor" table with explicit alert criteria for each
+signal the package emits.
+
+Final state:
+
+* 79/79 `kiroku-store` tests pass (76 prior + 3 new failure-injection
+  tests).
+* 5/5 `shibuya-kiroku-adapter` tests pass.
+* `cabal haddock` builds clean (only pre-existing Generic-derived link
+  warnings).
+* No new build dependencies; `KirokuEvent` is the extension point and
+  callers wire `prometheus-client`, `ekg-core`, `katip`, etc.
+  themselves.
+
+Items deferred-with-rationale (recorded in M1 Surprises & Discoveries
+under their finding numbers):
+
+* F9 (acquisition-timeout exposure on `ConnectionSettings`) — the
+  10-second hasql-pool default is correct, tuning guidance is the
+  hard part. Defer until concrete need surfaces.
+* F10 (`publisherBatchSize`/`safetyPollMicros` made public) — defaults
+  validated by EP-1 and EP-3 audit work; expose only when a benchmark
+  shows the default is wrong for a real workload.
+* F11 (queueCapacity guidance) — folded into F16 (the production
+  tuning guide); no code change needed.
+* F12 (dedicated publisher pool) — non-trivial change; mitigated by
+  application pool sizing and `KirokuEventPublisherPoolError`
+  observability.
+* F15 (schema-init lifecycle events) — the success/failure paths are
+  already well-shaped (`SchemaInitError` is structured); marginal
+  value adding observation events.
+* F17 (per-statement latency observability) — out of scope for this
+  package's extension points; recommend `pg_stat_statements` plus
+  application-side instrumentation at `runStoreIO` call sites.
+* F18 (`threadDelay` in older subscription tests) — owned by EP-6
+  alongside EP-3.F30.
+
+### Lessons learned
+
+The `eventHandler` field clashes by name with the same-named field on
+`KirokuStore` (added to cache the user-supplied callback for the
+hard-delete interpreter). `DuplicateRecordFields` lets both compile
+but record-update syntax becomes ambiguous; switching tests to lens
+syntax (`& #eventHandler .~ ...`) avoids the ambiguity. Future
+additions to `ConnectionSettings` and `KirokuStore` should either
+keep field names disjoint or commit to lens-based update across the
+test suite.
+
+The observability surface is intentionally synchronous-emit (matching
+the existing `observationHandler` convention). The Haddock contract
+states this and recommends async fan-out for slow callbacks. A
+library-side async wrapper would impose policy (queue size, overflow
+behaviour) on every caller; staying synchronous and documenting the
+contract is the smaller surprise.
+
+The audit's must-fix vs should-fix split was useful for keeping M2
+scope bounded but the line is fuzzy in practice — a strict reading
+would have left F8 `statementTimeout` for a future plan. The more
+pragmatic choice was to bundle the small hardening fixes that
+naturally accompanied the new field plumbing. EP-6 picks up the
+`threadDelay` test refactor; everything else lands here.
 
 
 ## Context and Orientation
