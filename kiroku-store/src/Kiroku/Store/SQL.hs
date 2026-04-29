@@ -22,7 +22,12 @@ module Kiroku.Store.SQL (
     -- * Lifecycle statements
     softDeleteStreamStmt,
     undeleteStreamStmt,
-    hardDeleteStreamCTE,
+
+    -- * Hard-delete statements (used in sequence inside one transaction)
+    findStreamIdStmt,
+    deleteStreamJunctionsStmt,
+    deleteOrphanedEventsStmt,
+    deleteStreamRowStmt,
 
     -- * Checkpoint statements
     getCheckpointStmt,
@@ -618,15 +623,78 @@ undeleteStreamStmt =
         (E.param (E.nonNullable E.text))
         (D.rowMaybe (StreamId <$> D.column (D.nonNullable D.int8)))
 
-{- | Hard-delete CTE: cascading delete of stream_events, orphaned events, and the stream row.
-Must be executed within a transaction that has SET LOCAL kiroku.enable_hard_deletes = 'on'.
+{- | Look up a stream's id by name. Returns Nothing if the stream does not exist.
+Used as the first step in hard-delete; subsequent steps key off the id rather
+than the name so a single resolution is reused.
 -}
-hardDeleteStreamCTE :: Statement Text (Maybe StreamId)
-hardDeleteStreamCTE =
+findStreamIdStmt :: Statement Text (Maybe Int64)
+findStreamIdStmt =
     preparable
-        hardDeleteStreamSQL
+        "SELECT stream_id FROM streams WHERE stream_name = $1"
         (E.param (E.nonNullable E.text))
-        (D.rowMaybe (StreamId <$> D.column (D.nonNullable D.int8)))
+        (D.rowMaybe (D.column (D.nonNullable D.int8)))
+
+{- | Delete every junction row that references the given stream — both rows whose
+@stream_id@ is the target (the stream's own and any links from elsewhere) and
+rows whose @original_stream_id@ is the target ($all entries plus link rows in
+other streams that referenced events originating from the deleted stream).
+
+Returns the distinct set of @event_id@s that lost at least one junction row.
+The caller passes this set to @deleteOrphanedEventsStmt@ to remove event payloads
+that no longer have any surviving junctions.
+
+The previous single-CTE implementation tried to inline the orphan-event delete,
+but PostgreSQL §7.8.2 specifies that data-modifying CTEs run against the same
+snapshot, so the @NOT EXISTS@ subquery on stream_events saw the pre-delete state
+and never deleted any events. Splitting into two statements within the same
+hasql-transaction lets each statement see the previous statement's effects.
+-}
+deleteStreamJunctionsStmt :: Statement Int64 (Vector UUID)
+deleteStreamJunctionsStmt =
+    preparable
+        """
+        WITH deleted AS (
+          DELETE FROM stream_events
+          WHERE stream_id = $1
+             OR original_stream_id = $1
+          RETURNING event_id
+        )
+        SELECT DISTINCT event_id FROM deleted
+        """
+        (E.param (E.nonNullable E.int8))
+        (D.rowVector (D.column (D.nonNullable D.uuid)))
+
+{- | Delete event payloads from the @events@ table for the given event ids,
+but only those whose junction rows have all been removed. Events that still
+have any surviving @stream_events@ row are preserved (they remain visible from
+their other homes).
+
+Must be called after @deleteStreamJunctionsStmt@ within the same transaction
+so the @NOT EXISTS@ subquery sees the post-delete state of @stream_events@.
+-}
+deleteOrphanedEventsStmt :: Statement (Vector UUID) ()
+deleteOrphanedEventsStmt =
+    preparable
+        """
+        DELETE FROM events
+        WHERE event_id = ANY($1::uuid[])
+          AND NOT EXISTS (
+            SELECT 1 FROM stream_events
+            WHERE stream_events.event_id = events.event_id
+          )
+        """
+        (E.param (E.nonNullable (E.foldableArray (E.nonNullable E.uuid))))
+        D.noResult
+
+{- | Delete the @streams@ row for the given stream id. Used as the final step
+of hard-delete after junction rows and orphan events are cleared.
+-}
+deleteStreamRowStmt :: Statement Int64 ()
+deleteStreamRowStmt =
+    preparable
+        "DELETE FROM streams WHERE stream_id = $1"
+        (E.param (E.nonNullable E.int8))
+        D.noResult
 
 -- ---------------------------------------------------------------------------
 -- Lifecycle SQL Templates
@@ -649,31 +717,6 @@ undeleteStreamSQL =
     SET deleted_at = NULL
     WHERE stream_name = $1
       AND deleted_at IS NOT NULL
-    RETURNING stream_id
-    """
-
-hardDeleteStreamSQL :: Text
-hardDeleteStreamSQL =
-    """
-    WITH
-      target AS (
-        SELECT stream_id FROM streams WHERE stream_name = $1
-      ),
-      deleted_junctions AS (
-        DELETE FROM stream_events
-        WHERE stream_id = (SELECT stream_id FROM target)
-           OR original_stream_id = (SELECT stream_id FROM target)
-        RETURNING event_id
-      ),
-      deleted_events AS (
-        DELETE FROM events
-        WHERE event_id IN (SELECT DISTINCT event_id FROM deleted_junctions)
-          AND NOT EXISTS (
-            SELECT 1 FROM stream_events se
-            WHERE se.event_id = events.event_id
-          )
-      )
-    DELETE FROM streams WHERE stream_id = (SELECT stream_id FROM target)
     RETURNING stream_id
     """
 

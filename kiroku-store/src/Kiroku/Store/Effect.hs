@@ -198,7 +198,14 @@ runStorePool store = interpret_ $ \case
     HardDeleteStream (StreamName name) -> do
         let txn = do
                 Tx.sql "SET LOCAL kiroku.enable_hard_deletes = 'on'"
-                Tx.statement name SQL.hardDeleteStreamCTE
+                mSid <- Tx.statement name SQL.findStreamIdStmt
+                case mSid of
+                    Nothing -> pure Nothing
+                    Just sid -> do
+                        affected <- Tx.statement sid SQL.deleteStreamJunctionsStmt
+                        Tx.statement affected SQL.deleteOrphanedEventsStmt
+                        Tx.statement sid SQL.deleteStreamRowStmt
+                        pure (Just (StreamId sid))
         usePool (store ^. #pool) $
             TxSessions.transaction TxSessions.ReadCommitted TxSessions.Write txn
     UndeleteStream (StreamName name) ->

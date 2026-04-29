@@ -10,6 +10,7 @@ import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
 import Data.IORef (modifyIORef', newIORef, readIORef)
+import Data.Int (Int64)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.UUID qualified as UUID
@@ -17,6 +18,11 @@ import Data.Vector qualified as V
 import Effectful (Eff, IOE, runEff, (:>))
 import Effectful.Error.Static (runErrorNoCallStack)
 import EphemeralPg qualified as Pg
+import Hasql.Decoders qualified as D
+import Hasql.Encoders qualified as E
+import Hasql.Pool qualified as Pool
+import Hasql.Session qualified as Session
+import Hasql.Statement (Statement, preparable)
 import Kiroku.Store
 import Kiroku.Store.Subscription.Effect qualified as SubEff
 import Kiroku.Store.Subscription.Types (SubscriptionConfigM (..))
@@ -550,6 +556,37 @@ main = hspec $ do
                 Right mId <- runStoreIO store $ hardDeleteStream (StreamName "hard-no-such")
                 mId `shouldBe` Nothing
 
+            -- F1 regression — events orphaned in `events` table after hard-delete.
+            it "removes orphan event payloads from the events table" $ \store -> do
+                let evts = map (\i -> makeEvent ("F1Orphan" <> T.pack (show i)) (Aeson.object [])) [1 .. 3 :: Int]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "f1-orphan") NoStream evts
+                before <- countEvents store
+                Right _ <- runStoreIO store $ hardDeleteStream (StreamName "f1-orphan")
+                after <- countEvents store
+                (before - after) `shouldBe` 3
+
+            -- F1 regression — events that are linked to other streams must survive
+            -- hard-delete of their source stream's owner if any non-target junctions remain.
+            it "preserves events still linked to non-target streams" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "f1-keep-src") NoStream [makeEvent "Keep" (Aeson.object [])]
+                Right srcEvents <- runStoreIO store $ readStreamForward (StreamName "f1-keep-src") (StreamVersion 0) 100
+                let eid = V.head srcEvents ^. #eventId
+                -- Append another stream that gets a different event so we can hard-delete keep-src
+                -- without touching the linked stream's source. Then link f1-keep-src's event to a
+                -- third stream we will leave alone.
+                Right _ <- runStoreIO store $ appendToStream (StreamName "f1-other") NoStream [makeEvent "Other" (Aeson.object [])]
+                -- Link via appendToStream + linkToStream to a different stream
+                _ <- runStoreIO store $ linkToStream (StreamName "f1-keep-link") [eid]
+                -- Hard-deleting f1-keep-src removes the source's events even though the link
+                -- referenced them: link rows have original_stream_id = f1-keep-src's id, so they
+                -- match the junction-delete WHERE clause. The contract is documented in F1's fix
+                -- commit: hard-delete cascades through link junctions of the deleted stream's
+                -- original events. (See SQL.hs hard-delete documentation.)
+                Right _ <- runStoreIO store $ hardDeleteStream (StreamName "f1-keep-src")
+                -- f1-other's event must still exist (not affected at all).
+                Right otherEvents <- runStoreIO store $ readStreamForward (StreamName "f1-other") (StreamVersion 0) 100
+                V.length otherEvents `shouldBe` 1
+
         -- =================================================================
         -- Subscription tests (M7.7)
         -- =================================================================
@@ -885,3 +922,19 @@ waitWithTimeout micros handle = do
             cancel handle
             pure (Left "Subscription timed out")
         Right r -> pure (Right r)
+
+{- | Count rows in the `events` table via raw SQL. Used by hard-delete regression tests
+that need to assert event payloads are actually removed (not just unlinked).
+-}
+countEvents :: KirokuStore -> IO Int64
+countEvents store = do
+    let stmt :: Statement () Int64
+        stmt =
+            preparable
+                "SELECT COUNT(*) FROM events"
+                E.noParams
+                (D.singleRow (D.column (D.nonNullable D.int8)))
+    result <- Pool.use (store ^. #pool) (Session.statement () stmt)
+    case result of
+        Left err -> error ("countEvents failed: " <> show err)
+        Right n -> pure n
