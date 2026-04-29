@@ -73,5 +73,6 @@ toEnvelope event =
             , partition = Nothing
             , enqueuedAt = Just ts
             , traceContext = Nothing
+            , attempt = Nothing
             , payload = event
             }

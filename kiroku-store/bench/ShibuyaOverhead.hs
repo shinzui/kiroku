@@ -206,6 +206,7 @@ mkIngested cancelAction event =
                 , partition = Nothing
                 , enqueuedAt = Just (event ^. #createdAt)
                 , traceContext = Nothing
+                , attempt = Nothing
                 , payload = event
                 }
         , ack =
