@@ -31,11 +31,12 @@ A reader can verify the change by reading the new audit document, running `cabal
   - [x] Audit DDL execution and identify the migration gap (F7, F8, F9)
   - [x] Audit connection-string handling and SQL-injection surface (F10, F11, F12, F13, F14)
   - [x] Classify every finding by severity (every F-entry has a Severity line)
-- [ ] Milestone 2: Land must-fix corrections
-  - [ ] Decide and act on the schema-name field (wire it through, remove it, or document its actual contract)
-  - [ ] Document the hard-delete authorization model in `Kiroku.Store.Lifecycle` Haddocks
-  - [ ] Add a schema-initialization warning or coordination doc; align with the existing `project_schema_migration.md` memory note
-  - [ ] Update the MasterPlan's Exec-Plan Registry status and Progress section
+- [x] Milestone 2: Land must-fix corrections (2026-04-29; F1/F7/F18 schema-field Haddock + dead-plumbing removal, F5 hard-delete authorization Haddock, F9 Production Deployment guide; F4/F6/F13/F16 deferred-with-rationale per Decision Log)
+  - [x] Decide and act on the schema-name field (option C: documented the actual contract; rewrote `Connection.hs:34` Haddock; removed dead `schema :: Text` plumbing from `Worker.runWorker`/`catchUp`/`liveLoopCategoryDriven`/`fetchBatch` and the `Subscription.hs:107` call site; kept the field for forward compatibility with a future option-A implementation) (commit 9f344bc)
+  - [x] Document the hard-delete authorization model in `Kiroku.Store.Lifecycle` Haddocks (advisory-not-security framing, audit-log gap, three production tightening patterns) (commit 8470f36)
+  - [x] Add a schema-initialization warning or coordination doc; align with the existing `project_schema_migration.md` memory note (folded into `Schema.hs:initializeSchema` Haddock alongside F1's removal of the dead plumbing; references the parked partition plan and the memory note) (commit 9f344bc)
+  - [x] Add a Production Deployment doc covering DDL/runtime privilege separation, hard-delete authorization, schema migration, connection-string handling, at-rest encryption, multi-tenant patterns, observability, and required PostgreSQL version (`docs/PRODUCTION-DEPLOYMENT.md`) (commit 9db5a7f)
+  - [x] Update the MasterPlan's Exec-Plan Registry status and Progress section (this commit)
 
 
 ## Surprises & Discoveries
@@ -470,7 +471,141 @@ LISTEN channel name only) and adds the F2 coupling note.
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+### M2 outcomes (2026-04-29)
+
+What this plan delivered:
+
+  * The `ConnectionSettings.schema` field's actual contract is now
+    unambiguous in the `Connection.hs:34` Haddock (option C from the
+    Plan of Work). It controls only the LISTEN channel name; tables
+    are looked up via `search_path`. The Haddock names the
+    listener/trigger coupling requirement (F2) so any user who sets a
+    non-default `schema` understands they must align it with
+    `TG_TABLE_SCHEMA` via `search_path` discipline. Two layers of dead
+    plumbing — `Worker.runWorker`/`catchUp`/`liveLoopCategoryDriven`/
+    `fetchBatch` accepting an unused `schema :: Text`, and
+    `Subscription.subscribe` passing `store ^. #schema` to it — have
+    been removed. The field stays in the public type for forward
+    compatibility with a future option-A implementation that
+    schema-prefixes SQL.
+
+  * The hard-delete authorization model is documented in
+    `Lifecycle.hardDeleteStream`'s Haddock as /advisory protection,
+    not security boundary/. A reader of the `protect_deletion` trigger
+    cannot now mistake the GUC for role-based access control. The
+    Haddock names two production patterns for stricter control: a
+    separate `kiroku_purge` role with `DELETE` privilege, or
+    application-level authorization wrapping `hardDeleteStream`. The
+    audit-log gap is named explicitly with a recommended workaround
+    (record an application event /before/ calling).
+
+  * The schema migration story is documented in `Schema.hs:
+    initializeSchema`'s Haddock (additive-only DDL contract; reference
+    to `project_schema_migration.md` and the parked partition plan as
+    the "extract `kiroku-migrate` when this becomes a problem"
+    guidance). Required privileges for the connecting user are named
+    explicitly.
+
+  * `docs/PRODUCTION-DEPLOYMENT.md` aggregates DDL/runtime privilege
+    separation, hard-delete authorization, schema migration,
+    connection-string handling (including the "do not derive Show on
+    `ConnectionSettingsM`" rule), at-rest encryption non-coverage, the
+    supported multi-tenant pattern, observability, and the PostgreSQL
+    18+ requirement. This is a docs-only addition.
+
+What this plan deliberately did /not/ do:
+
+  * No SQL.hs changes. Option (A) — schema-prefixed table names —
+    requires touching every prepared statement and is a substantial
+    change to a file owned by EP-1. No production caller has asked
+    for table-level multi-tenant isolation. When such a requirement
+    appears, option (A) becomes the right next step and the existing
+    `schema` field is already in place.
+
+  * No removal of `ConnectionSettings.schema`. Option (B) is a public
+    API breaking change for any caller already setting it (notably
+    the adapter at `shibuya-kiroku-adapter/`). The cost outweighs the
+    benefit when the field has a coherent (if narrow) contract under
+    option (C).
+
+  * No tightening of the hard-delete GUC mechanism. The current model
+    "applications running with full DELETE privilege are trusted" is
+    correct for the package's current consumer set. Tightening
+    (`SECURITY DEFINER`, role allowlist, single-use token) is a
+    feature for a different trust model and was deferred. The
+    documentation change closes the highest-leverage risk (false
+    sense of security) at the lowest cost.
+
+  * No `kiroku-migrate` extraction. The `project_schema_migration.md`
+    memory note already records the trigger; the parked partition
+    plan is the most likely first migration target. A Haddock warning
+    on `initializeSchema` gives any future contributor the heads-up
+    they need without spinning up a parallel package now.
+
+  * No NOTIFY-payload JSON encoding (F13). The current
+    comma-delimited payload is benign for the in-process Notifier
+    (which ignores the payload) and there is no external consumer
+    today. When one appears, encode the payload as JSON.
+
+  * No partition-trigger semantics work (F16). The schema is not
+    partitioned; the parked plan owns the analysis when the partition
+    work is unparked.
+
+  * No hard-delete audit row (F6). Routed to EP-5 (operational
+    hardening) for observation-handler enrichment plus a separate
+    decision on whether to add an in-band `kiroku.HardDeleted` event
+    (which would require a public API change to `hardDeleteStream`
+    cross-plan to EP-2).
+
+Production-readiness verdict for the multi-tenancy / security /
+schema-lifecycle subsystem:
+
+  * **Multi-tenancy.** `kiroku-store` does not provide table-level
+    multi-tenant isolation today. The supported pattern (separate
+    schema per tenant + `search_path` discipline + one `withStore` per
+    tenant) is documented in `Connection.hs` Haddock and in
+    `docs/PRODUCTION-DEPLOYMENT.md`. Acceptable for production use
+    with single-tenant services or operationally-isolated tenants;
+    /not/ acceptable for production use as a shared multi-tenant
+    backbone without an audit of `search_path` discipline and tenant
+    role provisioning.
+
+  * **Hard-delete security.** Acceptable for production use under the
+    documented trust model (applications with full DELETE privilege
+    are trusted). Operators wanting stricter control have the
+    documented `kiroku_purge` pattern. The audit-log gap is a known
+    deferred item routed to EP-5.
+
+  * **Schema lifecycle.** Acceptable for production use at the
+    current single-schema-version state. The next non-trivial DDL
+    change (most likely the unparking of the partition plan) is the
+    documented trigger to extract `kiroku-migrate`.
+
+  * **Connection-string handling and SQL injection.** No defects.
+    Audit closed.
+
+  * **TRUNCATE / row-trigger bypass.** Closed by EP-1.F6.
+
+Deferred-findings register (recorded for the MasterPlan's final
+verdict):
+
+  * F4 — Tenant lifecycle (create/drop/migrate). Trigger: a real
+    multi-tenant deployment requirement.
+  * F6 — Hard-delete audit log. Routed to EP-5; in-band audit row
+    would also need EP-2 coordination.
+  * F13 — NOTIFY-payload JSON encoding. Trigger: an external consumer
+    of the NOTIFY channel that parses the payload.
+  * F16 — Partition-trigger semantics. Trigger: the parked partition
+    plan is unparked.
+  * Option (A) — wire `schema` through SQL. Trigger: a real
+    multi-tenant deployment requirement that needs table-level
+    isolation rather than search-path-driven isolation.
+  * `kiroku-migrate` extraction. Trigger: the first non-trivial DDL
+    change (per `project_schema_migration.md`).
+
+Tests: 76/76 kiroku-store, 5/5 shibuya-kiroku-adapter. Build clean.
+Haddock builds clean (warnings present are pre-existing and unrelated
+to this plan).
 
 
 ## Context and Orientation
