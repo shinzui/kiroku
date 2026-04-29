@@ -24,6 +24,7 @@ import Kiroku.Store.Error (extractStreamNameFromDetail)
 import Kiroku.Store.Subscription.Effect qualified as SubEff
 import Kiroku.Store.Subscription.EventPublisher (publisherPosition)
 import Kiroku.Store.Subscription.Types (OverflowPolicy (..), SubscriptionConfigM (..), SubscriptionOverflowed (..))
+import Test.Concurrency qualified as Concurrency
 import Test.Helpers
 import Test.Hspec
 import Test.Properties qualified as Properties
@@ -31,6 +32,7 @@ import Test.Properties qualified as Properties
 main :: IO ()
 main = hspec $ do
     Properties.spec
+    Concurrency.spec
     around withTestStore $ do
         describe "appendToStream" $ do
             describe "NoStream" $ do
