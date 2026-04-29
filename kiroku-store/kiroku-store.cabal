@@ -69,6 +69,7 @@ test-suite kiroku-store-test
   hs-source-dirs: test
   other-modules:
     Test.Concurrency
+    Test.FailureInjection
     Test.Helpers
     Test.Properties
 

@@ -25,6 +25,7 @@ import Kiroku.Store.Subscription.Effect qualified as SubEff
 import Kiroku.Store.Subscription.EventPublisher (publisherPosition)
 import Kiroku.Store.Subscription.Types (OverflowPolicy (..), SubscriptionConfigM (..), SubscriptionOverflowed (..))
 import Test.Concurrency qualified as Concurrency
+import Test.FailureInjection qualified as FailureInjection
 import Test.Helpers
 import Test.Hspec
 import Test.Properties qualified as Properties
@@ -33,6 +34,7 @@ main :: IO ()
 main = hspec $ do
     Properties.spec
     Concurrency.spec
+    FailureInjection.spec
     around withTestStore $ do
         describe "appendToStream" $ do
             describe "NoStream" $ do
@@ -1007,7 +1009,16 @@ main = hspec $ do
                             , target = AllStreams
                             , handler = handler'
                             , batchSize = 100
-                            , queueCapacity = 16
+                            , -- Sized to absorb 50 publisher batches without
+                              -- backpressure overflow. The default 16 was
+                              -- intermittently overrun under load (the
+                              -- publisher emits one batch per append because
+                              -- there is no inter-append debounce window in
+                              -- this loop), surfacing as
+                              -- SubscriptionOverflowed in flaky CI runs.
+                              -- Coverage of the bounded-queue policy lives
+                              -- in the F6 overflow test below, not here.
+                              queueCapacity = 64
                             , overflowPolicy = DropSubscription
                             }
                 handle <- subscribe store cfg
