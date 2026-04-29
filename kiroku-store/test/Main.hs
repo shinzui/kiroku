@@ -12,26 +12,19 @@ import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
 import Data.IORef (modifyIORef', newIORef, readIORef, writeIORef)
-import Data.Int (Int32, Int64)
-import Data.Text (Text)
+import Data.Int (Int64)
 import Data.Text qualified as T
 import Data.UUID qualified as UUID
 import Data.Vector qualified as V
 import Effectful (Eff, IOE, runEff, (:>))
 import Effectful.Error.Static (runErrorNoCallStack)
 import EphemeralPg qualified as Pg
-import Hasql.Connection qualified as Connection
-import Hasql.Connection.Settings qualified as Conn
-import Hasql.Decoders qualified as D
-import Hasql.Encoders qualified as E
-import Hasql.Pool qualified as Pool
-import Hasql.Session qualified as Session
-import Hasql.Statement (Statement, preparable, unpreparable)
 import Kiroku.Store
 import Kiroku.Store.Error (extractStreamNameFromDetail)
 import Kiroku.Store.Subscription.Effect qualified as SubEff
 import Kiroku.Store.Subscription.EventPublisher (publisherPosition)
 import Kiroku.Store.Subscription.Types (OverflowPolicy (..), SubscriptionConfigM (..), SubscriptionOverflowed (..))
+import Test.Helpers
 import Test.Hspec
 
 main :: IO ()
@@ -1379,143 +1372,3 @@ main = hspec $ do
                     | KirokuEventHardDeleteIssued (StreamName name') _ <- evts
                     ]
             hardDeletes `shouldBe` ["hard-delete-evt"]
-
--- | Create a simple EventData with auto-generated ID.
-makeEvent :: Text -> Value -> EventData
-makeEvent typ payload =
-    EventData
-        { eventId = Nothing
-        , eventType = EventType typ
-        , payload = payload
-        , metadata = Nothing
-        , causationId = Nothing
-        , correlationId = Nothing
-        }
-
-{- | Bracket that creates an ephemeral PostgreSQL database and provides a
-KirokuStore handle. Uses 'withStore' which auto-initializes the schema.
--}
-withTestStore :: (KirokuStore -> IO ()) -> IO ()
-withTestStore action = do
-    result <- Pg.withCached $ \db -> do
-        let settings = defaultConnectionSettings (Pg.connectionString db)
-        withStore settings action
-    case result of
-        Left err -> error ("Failed to start ephemeral PostgreSQL: " <> show err)
-        Right () -> pure ()
-
-{- | Wait for a subscription with a timeout (in microseconds).
-Returns Left on timeout, or the subscription result.
--}
-waitWithTimeout :: Int -> SubscriptionHandle -> IO (Either String (Either SomeException ()))
-waitWithTimeout micros handle = do
-    result <- Async.race (threadDelay micros) (wait handle)
-    case result of
-        Left () -> do
-            cancel handle
-            pure (Left "Subscription timed out")
-        Right r -> pure (Right r)
-
-{- | Count rows in the `events` table via raw SQL. Used by hard-delete regression tests
-that need to assert event payloads are actually removed (not just unlinked).
--}
-countEvents :: KirokuStore -> IO Int64
-countEvents store = do
-    let stmt :: Statement () Int64
-        stmt =
-            preparable
-                "SELECT COUNT(*) FROM events"
-                E.noParams
-                (D.singleRow (D.column (D.nonNullable D.int8)))
-    result <- Pool.use (store ^. #pool) (Session.statement () stmt)
-    case result of
-        Left err -> error ("countEvents failed: " <> show err)
-        Right n -> pure n
-
-{- | Try to TRUNCATE the named table without the GUC; returns True if the
-operation was rejected by the protect_truncation trigger (the expected
-behavior after F6) and False if it succeeded.
--}
-truncateRejected :: KirokuStore -> Text -> IO Bool
-truncateRejected store tableName = do
-    -- TRUNCATE cannot use bind parameters for the table name; build the SQL
-    -- as a non-prepared statement. The test only passes literal table names.
-    let stmt :: Statement () ()
-        stmt = unpreparable ("TRUNCATE " <> tableName) E.noParams D.noResult
-    result <- Pool.use (store ^. #pool) (Session.statement () stmt)
-    case result of
-        Left _ -> pure True -- Trigger raised an exception
-        Right () -> pure False -- Truncate succeeded (no protection)
-
--- | Look up the pid of the kiroku-listener backend in pg_stat_activity.
-findListenerPid :: Pool.Pool -> IO (Maybe Int32)
-findListenerPid pool = do
-    let stmt :: Statement () (Maybe Int32)
-        stmt =
-            preparable
-                "SELECT pid::int4 FROM pg_stat_activity WHERE application_name = 'kiroku-listener' LIMIT 1"
-                E.noParams
-                (D.rowMaybe (D.column (D.nonNullable D.int4)))
-    result <- Pool.use pool (Session.statement () stmt)
-    case result of
-        Left err -> error ("findListenerPid failed: " <> show err)
-        Right mPid -> pure mPid
-
--- | Wait until the listener appears in pg_stat_activity, or fail after the budget.
-waitForListenerPid :: Pool.Pool -> Int -> IO Int32
-waitForListenerPid pool budgetMicros
-    | budgetMicros <= 0 = error "waitForListenerPid: timeout — kiroku-listener never appeared in pg_stat_activity"
-    | otherwise = do
-        m <- findListenerPid pool
-        case m of
-            Just pid -> pure pid
-            Nothing -> do
-                threadDelay 50_000
-                waitForListenerPid pool (budgetMicros - 50_000)
-
--- | Wait until the listener pid in pg_stat_activity differs from the supplied pid.
-waitForListenerPidNotEqual :: Pool.Pool -> Int32 -> Int -> IO Int32
-waitForListenerPidNotEqual pool oldPid budgetMicros
-    | budgetMicros <= 0 = error "waitForListenerPidNotEqual: timeout — listener did not reconnect"
-    | otherwise = do
-        m <- findListenerPid pool
-        case m of
-            Just pid | pid /= oldPid -> pure pid
-            _ -> do
-                threadDelay 50_000
-                waitForListenerPidNotEqual pool oldPid (budgetMicros - 50_000)
-
--- | Terminate the named backend pid via pg_terminate_backend.
-terminateBackend :: Pool.Pool -> Int32 -> IO ()
-terminateBackend pool pid = do
-    let stmt :: Statement Int32 Bool
-        stmt =
-            preparable
-                "SELECT pg_terminate_backend($1::int4)"
-                (E.param (E.nonNullable E.int4))
-                (D.singleRow (D.column (D.nonNullable D.bool)))
-    result <- Pool.use pool (Session.statement pid stmt)
-    case result of
-        Left err -> error ("terminateBackend failed: " <> show err)
-        Right _ -> pure ()
-
-{- | Count kiroku-listener connections via a fresh connection (used after the
-store has shut down, when the application pool is no longer available).
--}
-listenerCount :: Text -> IO Int64
-listenerCount connStr = do
-    eConn <- Connection.acquire (Conn.connectionString connStr)
-    case eConn of
-        Left err -> error ("listenerCount: failed to acquire verification conn: " <> show err)
-        Right conn -> do
-            let stmt :: Statement () Int64
-                stmt =
-                    preparable
-                        "SELECT COUNT(*) FROM pg_stat_activity WHERE application_name = 'kiroku-listener'"
-                        E.noParams
-                        (D.singleRow (D.column (D.nonNullable D.int8)))
-            r <- Connection.use conn (Session.statement () stmt)
-            Connection.release conn
-            case r of
-                Left err -> error ("listenerCount: query failed: " <> show err)
-                Right n -> pure n

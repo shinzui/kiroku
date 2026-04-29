@@ -214,6 +214,21 @@ not synchronization points and stay.
   Rationale: `QuickCheck` would also work; `hedgehog`'s explicit generator type and integrated shrinking are a better fit for the operation-sequence properties this suite needs.
   Date: 2026-04-29
 
+- Decision: Pragmatic test-module split. Extract the shared fixtures and helpers
+  (`withTestStore`, `makeEvent`, `waitWithTimeout`, `countEvents`,
+  `truncateRejected`, listener-pid utilities, plus new STM/event-handler barriers)
+  into `kiroku-store/test/Test/Helpers.hs`. Add the *new* test categories as their
+  own modules (`Test/Properties.hs`, `Test/Concurrency.hs`,
+  `Test/FailureInjection.hs`). Leave the existing scenario tests in `Main.hs` —
+  splitting them adds no new coverage and risks introducing transcription bugs.
+  Rationale: The MasterPlan goal is production-readiness verification, not file
+  layout cleanup. The plan's "Specific items expected" enumerated a per-domain
+  module split, but the Validation & Acceptance section requires only that the
+  build succeed and new property/concurrency/failure-injection tests run; no
+  acceptance criterion depends on the existing scenarios moving file. Recording
+  this so a future contributor knows the split is intentional, not forgotten.
+  Date: 2026-04-29
+
 
 ## Outcomes & Retrospective
 
