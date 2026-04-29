@@ -25,13 +25,13 @@ A reader can verify the change by running `cabal test kiroku-store` (the existin
 
 ## Progress
 
-- [ ] Milestone 1: Test and benchmark gap inventory
-  - [ ] Catalogue the existing test suite by function-under-test and scenario-tested
-  - [ ] Catalogue the existing benchmark suite by what it measures
-  - [ ] List invariants from EP-1 through EP-5 that should be property-tested
-  - [ ] List concurrency scenarios that should be deterministic-tested
-  - [ ] List failure-injection scenarios needed (cross-plan with EP-5)
-  - [ ] List stress-benchmark gaps
+- [x] Milestone 1: Test and benchmark gap inventory (2026-04-29; 24 findings F1–F24: 11 must-fix, 9 should-fix, 4 deferred-with-rationale)
+  - [x] Catalogue the existing test suite by function-under-test and scenario-tested
+  - [x] Catalogue the existing benchmark suite by what it measures
+  - [x] List invariants from EP-1 through EP-5 that should be property-tested
+  - [x] List concurrency scenarios that should be deterministic-tested
+  - [x] List failure-injection scenarios needed (cross-plan with EP-5)
+  - [x] List stress-benchmark gaps
 - [ ] Milestone 2: Land tests and benchmarks
   - [ ] Add property-based tests using `hedgehog` or `QuickCheck`
   - [ ] Replace `threadDelay`-based subscription synchronization with STM barriers
@@ -43,16 +43,169 @@ A reader can verify the change by running `cabal test kiroku-store` (the existin
 
 ## Surprises & Discoveries
 
-(None yet. Findings produced in Milestone 1 will be reflected here.)
+### M1 — Gap inventory (2026-04-29)
 
-Initial leads:
+The audit confirms the initial leads and adds five more findings. Total: 24 findings
+(F1–F24, EP-6 numbering — distinct from EP-1 through EP-5). 11 must-fix,
+9 should-fix, 4 deferred-with-rationale.
 
-- The existing subscription tests use `threadDelay 100_000` and `threadDelay 200_000` for synchronization between the test thread and the subscription worker (`kiroku-store/test/Main.hs:556-830`). Under load, slow CI machines, or aggressive optimization, these delays can be insufficient and tests flake. Severity: must-fix; replace with STM-based barriers.
-- No property-based tests exist. The CTE invariants identified by EP-1 (no orphans on any failure path; global position contiguity; idempotent retries; lifecycle-safe reads) are perfect candidates for property testing. Each generates a sequence of operations and asserts an invariant after the sequence.
-- No multi-stream concurrency tests. Two concurrent `appendMultiStream` operations touching overlapping streams can deadlock (per EP-1's audit hypothesis); no test demonstrates the deadlock or the absence of one.
-- The pool-saturation benchmark (`B9` in `bench/Main.hs:77-103`) is a wall-clock measurement embedded in `main`, not a tasty-bench benchmark. It produces ad-hoc output. Consider promoting to a structured benchmark.
-- No baseline-regression workflow. `docs/BENCH-GATE3.md` records absolute numbers but there is no automated check that future changes don't regress them.
-- The bench results directory `kiroku-store/bench/results/` has many timestamped files but no canonical "baseline" against which to compare. Establish one.
+#### Existing Coverage Map
+
+`kiroku-store/test/Main.hs` is 1521 lines — larger than the 887 the plan baseline
+recorded because EP-1 through EP-5 each landed regression tests (66 → 79 cases).
+The suite covers every public function in `Kiroku.Store`:
+
+  * `appendToStream` — 11 scenarios across the four `ExpectedVersion` constructors,
+    batch append, global position contiguity, duplicate event id rejection.
+  * `readStreamForward` / `readStreamBackward` — 4 scenarios (read-your-own-writes,
+    pagination, empty stream, `getStream` integration).
+  * `readAllForward` / `readAllBackward` — 3 scenarios.
+  * `readCategory` — 4 scenarios (filtering, pagination, empty, link inclusion).
+  * `linkToStream` — 7 scenarios including F3 (silent version gap), F5 (link to
+    soft-deleted target).
+  * `appendMultiStream` — 4 scenarios including F4 ordering preservation. Multi-stream
+    *concurrency* is explicitly punted to EP-6 (the F4 test comment states this).
+  * `softDeleteStream` / `undeleteStream` / `hardDeleteStream` — 16 scenarios
+    including F1 (orphan removal), F6 (TRUNCATE protection on three tables).
+  * `subscribe` / `withSubscription` — 12 scenarios covering catch-up, live mode,
+    checkpoint persistence, F18 (Category live filter), F25 (bracket), cancellation,
+    empty store, debouncing, F6 (overflow policy), Eff API.
+  * `Notifier` reconnection — 1 scenario (F1 listener-conn release post-reconnect).
+  * `KirokuEvent` observation — 3 scenarios (F1 reconnect events, F14 lifecycle,
+    F13 hard-delete audit).
+  * Pure helpers — 5 scenarios for `extractStreamNameFromDetail`.
+
+Functions with zero direct tests: none in the public API. Every constructor of
+`StoreError` is exercised by at least one test except `PoolAcquisitionTimeout`,
+`ConnectionLost`, `UnexpectedServerError` — these were added by EP-2 F19/F20
+without dedicated reproducers. **F1 (must-fix)**: add a failure-injection test
+that pins the pool, drains it, and observes `PoolAcquisitionTimeout`.
+
+#### Invariant List (F2–F8 — property targets)
+
+  * **F2 (must-fix).** *Global position contiguity.* For any sequence of `appendToStream`,
+    `appendMultiStream`, and `linkToStream` calls, the global positions assigned form
+    a contiguous prefix of `[1..N]`. Source: EP-1 F2 (soft-delete TOCTOU) and F3
+    (linkToStream silent version gap) — both fixed; this property guards against
+    regressions.
+  * **F3 (must-fix).** *No orphan events after lifecycle ops.* For any sequence of
+    appends followed by a `hardDeleteStream`, the `events` table contains exactly
+    one row per surviving `stream_events` row (no orphans, no missing payloads).
+    Source: EP-1 F1.
+  * **F4 (must-fix).** *Soft-delete write barrier.* After `softDeleteStream`, no
+    `appendToStream` of any `ExpectedVersion` succeeds until `undeleteStream`.
+    Source: EP-1 F2; the existing scenario tests cover three constructors but a
+    property test verifies arbitrary sequences cannot bypass it.
+  * **F5 (must-fix).** *Idempotent caller-supplied event ids.* For any sequence of
+    appends, every event id is unique → all succeed; any id is duplicated → exactly
+    the duplicate fails with `DuplicateEvent`. Source: EP-1 audit.
+  * **F6 (should-fix).** *Lifecycle round-trip.* `softDelete; undelete` returns a
+    stream to a state functionally equivalent to its pre-delete state (reads return
+    the same events, version unchanged, appends succeed at the same expected
+    version). Source: EP-1 audit.
+  * **F7 (should-fix).** *`readStreamForward` order.* For any append sequence,
+    `readStreamForward s 0 N` returns events in `streamVersion`-ascending order.
+    Source: EP-1.
+  * **F8 (deferred).** *Link round-trip.* For any link, the linked event's
+    `originalStreamId` and `originalVersion` match the source's `streamId`,
+    `streamVersion`. Source: EP-1. Deferred — this is a structural invariant of
+    the schema's foreign keys, already exercised by every link scenario test;
+    a property test would not add coverage.
+
+#### Concurrency Scenarios (F9–F13)
+
+Existing scenario tests are single-threaded. The deterministic concurrency harness
+must add:
+
+  * **F9 (must-fix).** *Two concurrent appends to different streams.* Both succeed,
+    global positions interleave but stay contiguous, both finish without deadlock.
+  * **F10 (must-fix).** *Two concurrent `appendToStream` calls to the same stream
+    with `ExactVersion 0`.* Exactly one returns success at `streamVersion 1`; the
+    other returns `WrongExpectedVersion`. No deadlock.
+  * **F11 (must-fix).** *Two concurrent `appendMultiStream` calls touching the same
+    streams in opposite order.* EP-1 F4 landed a sorted `SELECT … FOR UPDATE`
+    pre-pass to prevent deadlock; this test verifies it. Both calls eventually
+    succeed (in serialized order) without `40P01` deadlock detection firing.
+  * **F12 (should-fix).** *Subscription concurrent with hot writes.* A live
+    subscription receives all events appended during its run, in `globalPosition`
+    order, with no duplicates within a single worker run.
+  * **F13 (should-fix).** *Multiple subscriptions to `$all`.* Two named subscriptions
+    each receive every event independently; they do not interfere via the
+    publisher's broadcast.
+
+#### Failure-Injection Scenarios (F14–F18)
+
+Coordinated with EP-5's findings (already landed for emit-side observability).
+
+  * **F14 (must-fix).** *Listener kill + recovery via NOTIFY.* Already present at
+    `test/Main.hs:1233` (existing F1 reconnect test) — verify reconnect; **add**
+    an event appended *during the down window* is still delivered via the safety
+    poll. Closes the EP-5 F1 cross-plan.
+  * **F15 (must-fix).** *Pool exhaustion.* Hold all pool connections in long-running
+    transactions; the next `appendToStream` returns `PoolAcquisitionTimeout`
+    (the EP-2 F19 constructor). Closes EP-2 F19's reproducer gap (cross-plan).
+  * **F16 (should-fix).** *Slow handler triggers `OverflowPolicy`.* The existing
+    F6 overflow test exercises `DropSubscription`. The plan's stated scope is
+    one policy; we already have it. Folded into F12 above as "the at-least-once
+    contract under load".
+  * **F17 (should-fix).** *Hard-delete event audit fail-safe.* Already present at
+    `test/Main.hs:1357` (F13 EP-5). No additional test required from EP-6 —
+    confirmation only.
+  * **F18 (deferred).** *Database paused mid-append.* Producing a deterministic
+    pause via `ephemeral-pg` is awkward (would require SIGSTOP on the postmaster
+    and risks leaving zombie clusters across CI runs). The pool exhaustion test
+    (F15) covers the same `Pool.use` failure path. Deferred.
+
+#### Stress Benchmark Gaps (F19–F22)
+
+  * **F19 (should-fix).** *Multi-writer concurrent stress.* Promote the existing
+    B9 wall-clock measurement (`bench/Main.hs:77-103`) to a structured tasty-bench
+    benchmark with N = {8, 32, 64} writers, recording p50/p95/p99 from in-process
+    timing samples.
+  * **F20 (should-fix).** *Subscription catch-up time.* Append 100K events, then
+    measure time to catch up from position 0. The current bench suite has no
+    subscription benchmark.
+  * **F21 (deferred).** *10KB and 100KB JSONB payload performance.* Useful but
+    out-of-scope for the production-readiness verdict — `kiroku` does not impose
+    a payload-size limit and the SCALING-ANALYSIS doc already notes that large
+    payloads degrade throughput proportionally. Deferred.
+  * **F22 (deferred).** *Sustained-throughput soak test (1M events, steady-state
+    memory).* Worth doing but takes >30 minutes per run — it does not fit in
+    `cabal bench`'s expected runtime envelope. Tracked as a future Justfile
+    target; deferred.
+
+#### Baseline Regression (F23–F24)
+
+  * **F23 (must-fix).** *Establish baseline-regression workflow.* The current
+    `kiroku-store/bench/results/` has 11 timestamped files (sql_bench_*,
+    haskell_bench_m3, shibuya_adapter_overhead) but no canonical baseline. Pick
+    the latest Haskell M3 run (`haskell_bench_m3_20260322.txt`) as the baseline
+    for `bench/Main.hs` outputs; capture an inline baseline CSV at
+    `kiroku-store/bench/results/baseline.csv` and add a `just bench-regression`
+    target that runs `cabal bench`, parses tasty-bench's CSV mode, and
+    compares against baseline at a 5% threshold (configurable).
+  * **F24 (must-fix).** *Document baseline update protocol.* Add a section to
+    `docs/PRODUCTION-TUNING.md` (or a new `docs/BENCH-REGRESSION.md`) explaining
+    when to update the baseline and require a Decision Log entry. Without this,
+    every flaky CI bench run will tempt a contributor to silently update the
+    baseline.
+
+#### threadDelay Inventory
+
+Subscription tests at `test/Main.hs` use `threadDelay` for synchronization at
+the following lines:
+
+  * 726, 799, 916, 1106 — `threadDelay 200_000` waiting for EventPublisher to
+    process appended events before subscribing. **Replace** with
+    `atomically (publisherPosition pub >>= check . (>= GlobalPosition n))`.
+  * 782, 958, 983, 1017, 1162, 1186, 1332 — `threadDelay 100_000` waiting for
+    the subscription worker to enter live mode. **Replace** with an
+    `eventHandler`-driven `MVar` barrier that opens on
+    `KirokuEventSubscriptionCaughtUp` for the named subscription.
+
+The remaining `threadDelay` usages (1165, 1192 — Async.race timeouts;
+1412 — `waitWithTimeout`; 1473, 1485 — listener-pid polling intervals) are
+not synchronization points and stay.
 
 
 ## Decision Log
