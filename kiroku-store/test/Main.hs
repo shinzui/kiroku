@@ -11,7 +11,7 @@ import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
 import Data.IORef (modifyIORef', newIORef, readIORef, writeIORef)
-import Data.Int (Int64)
+import Data.Int (Int32, Int64)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.UUID qualified as UUID
@@ -19,6 +19,8 @@ import Data.Vector qualified as V
 import Effectful (Eff, IOE, runEff, (:>))
 import Effectful.Error.Static (runErrorNoCallStack)
 import EphemeralPg qualified as Pg
+import Hasql.Connection qualified as Connection
+import Hasql.Connection.Settings qualified as Conn
 import Hasql.Decoders qualified as D
 import Hasql.Encoders qualified as E
 import Hasql.Pool qualified as Pool
@@ -1065,6 +1067,31 @@ main = hspec $ do
                 `shouldBe` Nothing
 
     -- =================================================================
+    -- Notifier reconnection tests (EP-3 F1)
+    -- =================================================================
+    describe "Notifier reconnection" $ do
+        -- F1 regression — the listener loop reconnects on backend termination,
+        -- and `stopNotifier` must release the *current* (post-reconnect)
+        -- connection. Without the fix, the original Notifier.listenerConn was
+        -- a frozen reference to the first conn and the reconnected conn leaked
+        -- past `withStore` exit. We assert no kiroku-listener backend remains
+        -- in pg_stat_activity after the store shuts down.
+        it "releases the reconnected listener connection on shutdown" $ \() -> do
+            result <- Pg.withCached $ \db -> do
+                let connStr = Pg.connectionString db
+                    settings = defaultConnectionSettings connStr
+                withStore settings $ \store -> do
+                    pid1 <- waitForListenerPid (store ^. #pool) 5_000_000
+                    terminateBackend (store ^. #pool) pid1
+                    pid2 <- waitForListenerPidNotEqual (store ^. #pool) pid1 15_000_000
+                    pid2 `shouldNotBe` pid1
+                -- After withStore exits, no kiroku-listener connection remains.
+                listenerCount connStr
+            case result of
+                Left err -> error ("Failed to start ephemeral PostgreSQL: " <> show err)
+                Right n -> n `shouldBe` (0 :: Int64)
+
+    -- =================================================================
     -- Health monitoring tests (M6.8)
     -- =================================================================
     describe "observationHandler" $ do
@@ -1151,3 +1178,76 @@ truncateRejected store tableName = do
     case result of
         Left _ -> pure True -- Trigger raised an exception
         Right () -> pure False -- Truncate succeeded (no protection)
+
+-- | Look up the pid of the kiroku-listener backend in pg_stat_activity.
+findListenerPid :: Pool.Pool -> IO (Maybe Int32)
+findListenerPid pool = do
+    let stmt :: Statement () (Maybe Int32)
+        stmt =
+            preparable
+                "SELECT pid::int4 FROM pg_stat_activity WHERE application_name = 'kiroku-listener' LIMIT 1"
+                E.noParams
+                (D.rowMaybe (D.column (D.nonNullable D.int4)))
+    result <- Pool.use pool (Session.statement () stmt)
+    case result of
+        Left err -> error ("findListenerPid failed: " <> show err)
+        Right mPid -> pure mPid
+
+-- | Wait until the listener appears in pg_stat_activity, or fail after the budget.
+waitForListenerPid :: Pool.Pool -> Int -> IO Int32
+waitForListenerPid pool budgetMicros
+    | budgetMicros <= 0 = error "waitForListenerPid: timeout — kiroku-listener never appeared in pg_stat_activity"
+    | otherwise = do
+        m <- findListenerPid pool
+        case m of
+            Just pid -> pure pid
+            Nothing -> do
+                threadDelay 50_000
+                waitForListenerPid pool (budgetMicros - 50_000)
+
+-- | Wait until the listener pid in pg_stat_activity differs from the supplied pid.
+waitForListenerPidNotEqual :: Pool.Pool -> Int32 -> Int -> IO Int32
+waitForListenerPidNotEqual pool oldPid budgetMicros
+    | budgetMicros <= 0 = error "waitForListenerPidNotEqual: timeout — listener did not reconnect"
+    | otherwise = do
+        m <- findListenerPid pool
+        case m of
+            Just pid | pid /= oldPid -> pure pid
+            _ -> do
+                threadDelay 50_000
+                waitForListenerPidNotEqual pool oldPid (budgetMicros - 50_000)
+
+-- | Terminate the named backend pid via pg_terminate_backend.
+terminateBackend :: Pool.Pool -> Int32 -> IO ()
+terminateBackend pool pid = do
+    let stmt :: Statement Int32 Bool
+        stmt =
+            preparable
+                "SELECT pg_terminate_backend($1::int4)"
+                (E.param (E.nonNullable E.int4))
+                (D.singleRow (D.column (D.nonNullable D.bool)))
+    result <- Pool.use pool (Session.statement pid stmt)
+    case result of
+        Left err -> error ("terminateBackend failed: " <> show err)
+        Right _ -> pure ()
+
+{- | Count kiroku-listener connections via a fresh connection (used after the
+store has shut down, when the application pool is no longer available).
+-}
+listenerCount :: Text -> IO Int64
+listenerCount connStr = do
+    eConn <- Connection.acquire (Conn.connectionString connStr)
+    case eConn of
+        Left err -> error ("listenerCount: failed to acquire verification conn: " <> show err)
+        Right conn -> do
+            let stmt :: Statement () Int64
+                stmt =
+                    preparable
+                        "SELECT COUNT(*) FROM pg_stat_activity WHERE application_name = 'kiroku-listener'"
+                        E.noParams
+                        (D.singleRow (D.column (D.nonNullable D.int8)))
+            r <- Connection.use conn (Session.statement () stmt)
+            Connection.release conn
+            case r of
+                Left err -> error ("listenerCount: query failed: " <> show err)
+                Right n -> pure n
