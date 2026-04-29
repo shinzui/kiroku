@@ -32,3 +32,4 @@ kiroku-store/bench/results/*.json
 .claude/
 CLAUDE.local.md
 # --- /seihou:claude-gitignore ---
+.agents/
