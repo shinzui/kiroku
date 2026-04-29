@@ -5,6 +5,7 @@ module Kiroku.Store.Error (
     emptyResultError,
 ) where
 
+import Control.Exception (Exception)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.UUID (UUID)
@@ -14,35 +15,100 @@ import Hasql.Errors qualified as Errors
 import Hasql.Pool (UsageError (..))
 import Kiroku.Store.Types
 
--- | Errors that can occur during store operations.
+{- | Errors that can occur during store operations.
+
+The constructor set is designed for additive evolution: new failure modes
+are added rather than changing existing constructors. Pattern matches that
+do not handle a new constructor will surface as @-Wincomplete-patterns@
+warnings, never as silent misclassification.
+
+The 'ConnectionError' catch-all is retained for backward compatibility:
+anything not matched by a more specific constructor falls through to it.
+Consumers should match on the specific constructors first when they want
+to make retry-vs-escalate decisions.
+
+'StoreError' derives 'Exception' so it can be thrown with 'throwIO' from
+any 'IO' or 'MonadIO' context. The standard pattern for store callers
+remains @runStoreIO :: IO (Either StoreError a)@; the 'Exception' instance
+is for callers who prefer the exception-based idiom (e.g., when bridging
+to libraries that expect 'SomeException').
+-}
 data StoreError
-    = WrongExpectedVersion !StreamName !ExpectedVersion !StreamVersion
-    | StreamNotFound !StreamName
-    | StreamAlreadyExists !StreamName
-    | DuplicateEvent !EventId
-    | -- | A connection or database error.
+    = {- | The actual stream version did not match the caller's
+      'ExactVersion' expectation. The third field is the actual
+      version (or 'StreamVersion' 0 when the version could not be
+      recovered, e.g., the row was concurrently soft-deleted).
+      -}
+      WrongExpectedVersion !StreamName !ExpectedVersion !StreamVersion
+    | -- | The named stream does not exist (or has been soft-deleted).
+      StreamNotFound !StreamName
+    | {- | The named stream already exists. Returned for 'NoStream'
+      expectations against an existing stream and for 'linkToStream'
+      targets that already exist with conflicting state.
+      -}
+      StreamAlreadyExists !StreamName
+    | {- | A caller-supplied @event_id@ collides with an existing event.
+
+      The constructor carries 'Just' the id when the PostgreSQL detail
+      string could be parsed, 'Nothing' otherwise. A 'Nothing' payload
+      is rare in practice; it occurs when the server's locale changes
+      the detail-string format. Consumers that want to surface the
+      offending id to the user should match on 'Just'.
+      -}
+      DuplicateEvent !(Maybe EventId)
+    | {- | The connection pool timed out acquiring a connection. Almost
+      always retryable after a small backoff; sustained timeouts
+      indicate that the pool is undersized for the offered load or
+      that the database is unreachable.
+      -}
+      PoolAcquisitionTimeout
+    | {- | A network or session-level error tore down the connection
+      mid-operation. The 'Text' carries the underlying hasql error
+      description for diagnostics. Retryable in most cases.
+      -}
+      ConnectionLost !Text
+    | {- | PostgreSQL raised a server error whose @SQLSTATE@ code is
+      outside the set this store recognises (currently @23505@
+      unique violation and @23503@ foreign key violation). The first
+      'Text' is the @SQLSTATE@ code, the second is the human-readable
+      message. This is *not* generally retryable — investigate.
+      -}
+      UnexpectedServerError !Text !Text
+    | {- | Catch-all for everything not matched by a more specific
+      constructor above. Retained for backward compatibility with
+      consumers that already pattern-match on it; new code should
+      prefer the specific constructors.
+      -}
       ConnectionError !Text
     deriving stock (Eq, Show, Generic)
+    deriving anyclass (Exception)
 
-{- | Map a hasql UsageError to an StoreError.
+{- | Map a hasql 'UsageError' to a 'StoreError'.
 
 Pattern matches on the error hierarchy:
   UsageError -> SessionUsageError -> StatementSessionError -> ServerStatementError -> ServerError
 
 PostgreSQL error code mapping:
-  23505 (unique_violation) + events_pkey          -> DuplicateEvent
-  23505 (unique_violation) + ix_streams_stream_name -> StreamAlreadyExists
-  23505 (unique_violation) + other                  -> WrongExpectedVersion
-  23503 (foreign_key_violation)                     -> StreamNotFound
+  23505 (unique_violation) + events_pkey            -> 'DuplicateEvent'
+  23505 (unique_violation) + ix_streams_stream_name -> 'StreamAlreadyExists'
+  23505 (unique_violation) + other                  -> 'WrongExpectedVersion'
+  23503 (foreign_key_violation)                     -> 'StreamNotFound'
+  any other server code                             -> 'UnexpectedServerError'
+
+The constraint-name matching depends on the literal strings @events_pkey@
+and @ix_streams_stream_name@. If a future schema migration renames a
+constraint, the @23505@ branch falls through to the generic
+'WrongExpectedVersion' mapping; keep the names stable in
+@kiroku-store/sql/schema.sql@.
 -}
 mapUsageError :: Text -> ExpectedVersion -> UsageError -> StoreError
 mapUsageError streamName expected = \case
     SessionUsageError sessionErr ->
         mapSessionError streamName expected sessionErr
     ConnectionUsageError connErr ->
-        ConnectionError ("Connection error: " <> T.pack (show connErr))
+        ConnectionLost (T.pack (show connErr))
     AcquisitionTimeoutUsageError ->
-        ConnectionError "Connection pool acquisition timeout"
+        PoolAcquisitionTimeout
 
 mapSessionError :: Text -> ExpectedVersion -> Errors.SessionError -> StoreError
 mapSessionError streamName expected = \case
@@ -62,7 +128,7 @@ mapServerError :: Text -> ExpectedVersion -> Errors.ServerError -> StoreError
 mapServerError streamName expected (Errors.ServerError code message detail _hint _position)
     | code == "23505" = mapUniqueViolation streamName expected message detail
     | code == "23503" = StreamNotFound (StreamName streamName)
-    | otherwise = ConnectionError ("Server error " <> code <> ": " <> message)
+    | otherwise = UnexpectedServerError code message
 
 {- | Map a unique_violation (23505) to an StoreError.
 
@@ -71,6 +137,11 @@ PostgreSQL reports constraint violations with:
   - detail: "Key (event_id)=(uuid-value) already exists."
 
 We check both message and detail for the constraint name.
+
+When the events_pkey case fires but the detail string cannot be parsed
+(e.g., the server's locale produced an unexpected format), the
+'DuplicateEvent' constructor carries 'Nothing' rather than a fabricated
+all-zeroes UUID — see 'extractEventId'.
 -}
 mapUniqueViolation :: Text -> ExpectedVersion -> Text -> Maybe Text -> StoreError
 mapUniqueViolation streamName expected message detail
@@ -84,12 +155,8 @@ mapUniqueViolation streamName expected message detail
         name `T.isInfixOf` message || maybe False (T.isInfixOf name) detail
 
     -- Try to extract event_id from detail like "Key (event_id)=(uuid) already exists."
-    extractEventId (Just d) = case extractUuidFromDetail d of
-        Just uid -> EventId uid
-        Nothing -> EventId nilUUID
-    extractEventId Nothing = EventId nilUUID
-
-    nilUUID = UUID.nil
+    extractEventId (Just d) = EventId <$> extractUuidFromDetail d
+    extractEventId Nothing = Nothing
 
 {- | Infer the appropriate error from an empty CTE result.
 
