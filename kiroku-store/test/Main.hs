@@ -4,12 +4,13 @@ import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.STM (atomically, newTVarIO, readTVar, writeTVar)
 import Control.Exception (SomeException)
+import Control.Exception qualified
 import Control.Lens ((^.))
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
-import Data.IORef (modifyIORef', newIORef, readIORef)
+import Data.IORef (modifyIORef', newIORef, readIORef, writeIORef)
 import Data.Int (Int64)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -986,6 +987,55 @@ main = hspec $ do
                     Right () -> pure ()
                 collected <- readIORef ref
                 length collected `shouldBe` 10
+
+        -- =================================================================
+        -- withSubscription bracket tests (EP-2 F25)
+        -- =================================================================
+        describe "withSubscription" $ do
+            -- F25 regression — bracket cancels the worker on normal scope exit.
+            it "cancels the worker on normal scope exit" $ \store -> do
+                handleRef <- newIORef Nothing
+                let cfg =
+                        SubscriptionConfig
+                            { name = SubscriptionName "withsub-normal"
+                            , target = AllStreams
+                            , handler = \_ -> pure Continue
+                            , batchSize = 100
+                            }
+                withSubscription store cfg $ \h -> do
+                    writeIORef handleRef (Just h)
+                    threadDelay 100_000
+                Just h <- readIORef handleRef
+                -- Worker must terminate now that the scope has exited.
+                outcome <- Async.race (threadDelay 2_000_000) (wait h)
+                case outcome of
+                    Left () -> expectationFailure "worker did not exit after withSubscription scope"
+                    Right _ -> pure ()
+
+            -- F25 regression — bracket cancels the worker even when the body throws.
+            it "cancels the worker when the body throws" $ \store -> do
+                handleRef <- newIORef Nothing
+                let cfg =
+                        SubscriptionConfig
+                            { name = SubscriptionName "withsub-throw"
+                            , target = AllStreams
+                            , handler = \_ -> pure Continue
+                            , batchSize = 100
+                            }
+                result <-
+                    Control.Exception.try @SomeException $
+                        withSubscription store cfg $ \h -> do
+                            writeIORef handleRef (Just h)
+                            threadDelay 100_000
+                            error "withSubscription body deliberately throws"
+                case result of
+                    Left _ -> pure ()
+                    Right () -> expectationFailure "expected exception to propagate"
+                Just h <- readIORef handleRef
+                outcome <- Async.race (threadDelay 2_000_000) (wait h)
+                case outcome of
+                    Left () -> expectationFailure "worker did not exit after exception in withSubscription body"
+                    Right _ -> pure ()
 
     -- =================================================================
     -- Health monitoring tests (M6.8)
