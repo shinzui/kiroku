@@ -26,9 +26,11 @@ import Kiroku.Store.Subscription.EventPublisher (publisherPosition)
 import Kiroku.Store.Subscription.Types (OverflowPolicy (..), SubscriptionConfigM (..), SubscriptionOverflowed (..))
 import Test.Helpers
 import Test.Hspec
+import Test.Properties qualified as Properties
 
 main :: IO ()
 main = hspec $ do
+    Properties.spec
     around withTestStore $ do
         describe "appendToStream" $ do
             describe "NoStream" $ do
