@@ -150,6 +150,7 @@ appendExpectedVersionSQL =
         SET stream_version = stream_version + (SELECT count(*) FROM new_events)
         WHERE stream_name = $8
           AND stream_version = $9
+          AND deleted_at IS NULL
         RETURNING stream_id, stream_version - (SELECT count(*) FROM new_events) AS initial_version
       ),
       inserted_events AS (
@@ -200,6 +201,7 @@ appendStreamExistsSQL =
         UPDATE streams
         SET stream_version = stream_version + (SELECT count(*) FROM new_events)
         WHERE stream_name = $8
+          AND deleted_at IS NULL
         RETURNING stream_id, stream_version - (SELECT count(*) FROM new_events) AS initial_version
       ),
       inserted_events AS (
@@ -305,6 +307,7 @@ appendAnyVersionSQL =
         VALUES ($8, (SELECT count(*) FROM new_events))
         ON CONFLICT (stream_name)
         DO UPDATE SET stream_version = streams.stream_version + (SELECT count(*) FROM new_events)
+          WHERE streams.deleted_at IS NULL
         RETURNING stream_id, stream_version - (SELECT count(*) FROM new_events) AS initial_version
       ),
       inserted_events AS (
@@ -443,7 +446,7 @@ readStreamForwardSQL =
            e.created_at
     FROM stream_events se
     JOIN events e ON e.event_id = se.event_id
-    WHERE se.stream_id = (SELECT stream_id FROM streams WHERE stream_name = $1)
+    WHERE se.stream_id = (SELECT stream_id FROM streams WHERE stream_name = $1 AND deleted_at IS NULL)
       AND se.stream_version > $2
     ORDER BY se.stream_version ASC
     LIMIT $3
@@ -460,7 +463,7 @@ readStreamBackwardSQL =
            e.created_at
     FROM stream_events se
     JOIN events e ON e.event_id = se.event_id
-    WHERE se.stream_id = (SELECT stream_id FROM streams WHERE stream_name = $1)
+    WHERE se.stream_id = (SELECT stream_id FROM streams WHERE stream_name = $1 AND deleted_at IS NULL)
       AND se.stream_version > $2
     ORDER BY se.stream_version DESC
     LIMIT $3

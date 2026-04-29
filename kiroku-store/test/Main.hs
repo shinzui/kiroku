@@ -501,6 +501,36 @@ main = hspec $ do
                 let matching = V.filter (\e -> (e ^. #eventType) == EventType "KeepInAll") allEvents
                 V.length matching `shouldBe` 1
 
+            -- F2 regression — the protection against writes to a soft-deleted stream is
+            -- enforced by a `deleted_at IS NULL` filter inside each append CTE, not by a
+            -- pre-check that races concurrent soft-deletes. These tests exercise every
+            -- append variant so a reader can see at a glance which constructor maps to
+            -- which error after a soft-delete.
+            it "ExactVersion append rejected against soft-deleted stream" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "f2-cte-exv") NoStream [makeEvent "Init" (Aeson.object [])]
+                Right _ <- runStoreIO store $ softDeleteStream (StreamName "f2-cte-exv")
+                result <- runStoreIO store $ appendToStream (StreamName "f2-cte-exv") (ExactVersion (StreamVersion 1)) [makeEvent "X" (Aeson.object [])]
+                case result of
+                    Left (WrongExpectedVersion _ _ _) -> pure ()
+                    Left (StreamNotFound _) -> pure ()
+                    other -> expectationFailure ("Expected WrongExpectedVersion or StreamNotFound, got: " <> show other)
+
+            it "AnyVersion append rejected against soft-deleted stream" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "f2-cte-any") NoStream [makeEvent "Init" (Aeson.object [])]
+                Right _ <- runStoreIO store $ softDeleteStream (StreamName "f2-cte-any")
+                result <- runStoreIO store $ appendToStream (StreamName "f2-cte-any") AnyVersion [makeEvent "X" (Aeson.object [])]
+                case result of
+                    Left (StreamNotFound _) -> pure ()
+                    other -> expectationFailure ("Expected StreamNotFound, got: " <> show other)
+
+            it "NoStream append rejected against soft-deleted stream" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "f2-cte-no") NoStream [makeEvent "Init" (Aeson.object [])]
+                Right _ <- runStoreIO store $ softDeleteStream (StreamName "f2-cte-no")
+                result <- runStoreIO store $ appendToStream (StreamName "f2-cte-no") NoStream [makeEvent "X" (Aeson.object [])]
+                case result of
+                    Left (StreamAlreadyExists _) -> pure ()
+                    other -> expectationFailure ("Expected StreamAlreadyExists, got: " <> show other)
+
         -- =================================================================
         -- Undelete tests (M6.8)
         -- =================================================================

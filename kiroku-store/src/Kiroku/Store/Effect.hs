@@ -71,16 +71,6 @@ runStorePool ::
     Eff es a
 runStorePool store = interpret_ $ \case
     AppendToStream (StreamName name) expected events -> do
-        -- Check if stream is soft-deleted before appending
-        streamCheck <-
-            liftIO $
-                Pool.use (store ^. #pool) $
-                    Session.statement name SQL.getStreamStmt
-        case streamCheck of
-            Right (Just info)
-                | info ^. #deletedAt /= Nothing ->
-                    throwError (StreamNotFound (StreamName name))
-            _ -> pure ()
         now <- liftIO getCurrentTime
         prepared <- prepareEvents events
         let params = buildAppendParams name now prepared
@@ -100,32 +90,12 @@ runStorePool store = interpret_ $ \case
                 throwError (emptyResultError name expected)
             Right (Just r) ->
                 pure r
-    ReadStreamForward (StreamName name) (StreamVersion startVer) limit -> do
-        -- Check if stream is soft-deleted; return empty if so
-        streamCheck <-
-            liftIO $
-                Pool.use (store ^. #pool) $
-                    Session.statement name SQL.getStreamStmt
-        case streamCheck of
-            Right (Just info)
-                | info ^. #deletedAt /= Nothing ->
-                    pure V.empty
-            _ ->
-                usePool (store ^. #pool) $
-                    Session.statement (name, startVer, limit) SQL.readStreamForwardStmt
-    ReadStreamBackward (StreamName name) (StreamVersion startVer) limit -> do
-        -- Check if stream is soft-deleted; return empty if so
-        streamCheck <-
-            liftIO $
-                Pool.use (store ^. #pool) $
-                    Session.statement name SQL.getStreamStmt
-        case streamCheck of
-            Right (Just info)
-                | info ^. #deletedAt /= Nothing ->
-                    pure V.empty
-            _ ->
-                usePool (store ^. #pool) $
-                    Session.statement (name, startVer, limit) SQL.readStreamBackwardStmt
+    ReadStreamForward (StreamName name) (StreamVersion startVer) limit ->
+        usePool (store ^. #pool) $
+            Session.statement (name, startVer, limit) SQL.readStreamForwardStmt
+    ReadStreamBackward (StreamName name) (StreamVersion startVer) limit ->
+        usePool (store ^. #pool) $
+            Session.statement (name, startVer, limit) SQL.readStreamBackwardStmt
     ReadAllForward (GlobalPosition startPos) limit ->
         usePool (store ^. #pool) $
             Session.statement (startPos, limit) SQL.readAllForwardStmt

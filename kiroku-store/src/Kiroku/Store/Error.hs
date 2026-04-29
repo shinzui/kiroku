@@ -95,10 +95,13 @@ mapUniqueViolation streamName expected message detail
 
 When the CTE returns 0 rows (no ServerError raised), the version check
 or existence check failed silently. Map based on the ExpectedVersion:
-  ExactVersion v -> WrongExpectedVersion (version mismatch)
-  StreamExists   -> StreamNotFound (stream doesn't exist)
+  ExactVersion v -> WrongExpectedVersion (version mismatch, or soft-deleted)
+  StreamExists   -> StreamNotFound (stream doesn't exist, or soft-deleted)
   NoStream       -> StreamAlreadyExists (stream already exists)
-  AnyVersion     -> should never happen
+  AnyVersion     -> StreamNotFound (only happens when the existing row is
+                    soft-deleted and the upsert's DO UPDATE WHERE filter
+                    rejects it; the soft-delete CTE filter was added in
+                    EP-1 F2, so this branch is the soft-deleted-stream case)
 -}
 emptyResultError :: Text -> ExpectedVersion -> StoreError
 emptyResultError streamName = \case
@@ -109,7 +112,7 @@ emptyResultError streamName = \case
     NoStream ->
         StreamAlreadyExists (StreamName streamName)
     AnyVersion ->
-        ConnectionError "AnyVersion append returned empty result (unexpected)"
+        StreamNotFound (StreamName streamName)
 
 {- | Extract a UUID from a PostgreSQL detail string like:
 "Key (event_id)=(01234567-89ab-7def-8012-34567890abcd) already exists."
