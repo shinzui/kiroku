@@ -2,7 +2,8 @@ module Kiroku.Store.Subscription.Worker (
     runWorker,
 ) where
 
-import Control.Concurrent.STM (TChan, TVar, atomically, check, readTChan, readTVar)
+import Control.Concurrent.STM (TBQueue, TVar, atomically, check, readTBQueue, readTVar)
+import Control.Exception (throwIO)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Int (Int64)
 import Data.Text (Text)
@@ -12,25 +13,32 @@ import Hasql.Pool (Pool)
 import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Kiroku.Store.SQL qualified as SQL
+import Kiroku.Store.Subscription.EventPublisher (SubscriberStatus (..))
 import Kiroku.Store.Subscription.Types
 import Kiroku.Store.Types (CategoryName (..), GlobalPosition (..), RecordedEvent (..))
 
 {- | Run the subscription worker loop. Two phases:
 
 Phase 1 (catch-up): queries database directly until reaching publisherPosition.
-Phase 2 (live): reads from TChan, no database queries.
+Phase 2 (live): for AllStreams, reads from the bounded TBQueue the publisher
+delivers to; for Category, re-queries the database whenever the publisher
+advances (the broadcast TBQueue is unused for category subscriptions).
 
-Runs until the handler returns 'Stop' or the thread is cancelled.
+Runs until the handler returns 'Stop', the thread is cancelled, or the
+publisher signals overflow on the subscriber's status TVar (in which
+case 'Kiroku.Store.Subscription.Types.SubscriptionOverflowed' is thrown
+and surfaces through 'Async.waitCatch').
 -}
 runWorker ::
     (MonadIO m) =>
     Pool ->
     Text ->
-    TChan (Vector RecordedEvent) ->
+    TBQueue (Vector RecordedEvent) ->
+    TVar SubscriberStatus ->
     TVar GlobalPosition ->
     SubscriptionConfig ->
     m ()
-runWorker pool schema liveChan pubPosVar config = liftIO $ do
+runWorker pool schema liveQueue statusVar pubPosVar config = liftIO $ do
     -- Read checkpoint from database
     checkpoint <- loadCheckpoint pool (name config)
     -- Phase 1: catch-up (returns Nothing if handler said Stop)
@@ -39,8 +47,8 @@ runWorker pool schema liveChan pubPosVar config = liftIO $ do
         Nothing -> pure () -- Handler said Stop during catch-up; exit
         Just finalPos ->
             -- Phase 2: live. Two strategies depending on target:
-            --   * AllStreams: read pre-broadcast events from `liveChan`.
-            --     The publisher already broadcasts every appended event.
+            --   * AllStreams: read pre-broadcast events from `liveQueue`.
+            --     The publisher delivers every appended event.
             --   * Category:  bypass the broadcast and re-query the database
             --     with `readCategoryForwardStmt` whenever `lastPublished`
             --     advances. The broadcast carries unfiltered $all events;
@@ -49,7 +57,7 @@ runWorker pool schema liveChan pubPosVar config = liftIO $ do
             --     Decision Log). The DB-driven loop reuses the catch-up
             --     query and avoids both.
             case target config of
-                AllStreams -> liveLoop pool liveChan config finalPos
+                AllStreams -> liveLoop pool liveQueue statusVar config finalPos
                 Category{} -> liveLoopCategoryDriven pool schema config pubPosVar finalPos
 
 -- Load the checkpoint from the database, defaulting to 0.
@@ -87,24 +95,34 @@ catchUp pool schema config startPos pubPosVar = go startPos
                             Nothing -> pure Nothing -- handler said Stop
                             Just newPos -> go newPos
 
--- Phase 2: live (AllStreams). Reads from the TChan pushed by the EventPublisher.
+-- Phase 2: live (AllStreams). Reads from the bounded TBQueue the publisher
+-- delivers to. Atomically observes the subscriber's status and surfaces
+-- 'SubscriptionOverflowed' if the publisher signalled overflow under
+-- 'DropSubscription'.
 liveLoop ::
     Pool ->
-    TChan (Vector RecordedEvent) ->
+    TBQueue (Vector RecordedEvent) ->
+    TVar SubscriberStatus ->
     SubscriptionConfig ->
     GlobalPosition ->
     IO ()
-liveLoop pool liveChan config startPos = go startPos
+liveLoop pool liveQueue statusVar config startPos = go startPos
   where
     go _cursor = do
-        events <- atomically (readTChan liveChan)
-        if V.null events
-            then go _cursor
-            else do
-                result <- processEvents pool config events
-                case result of
-                    Nothing -> pure () -- handler said Stop
-                    Just newPos -> go newPos
+        next <- atomically $ do
+            status <- readTVar statusVar
+            case status of
+                Overflowed -> pure (Left ())
+                Active -> Right <$> readTBQueue liveQueue
+        case next of
+            Left () -> throwIO (SubscriptionOverflowed (name config))
+            Right events
+                | V.null events -> go _cursor
+                | otherwise -> do
+                    result <- processEvents pool config events
+                    case result of
+                        Nothing -> pure () -- handler said Stop
+                        Just newPos -> go newPos
 
 -- Phase 2: live (Category). Bypasses the broadcast and re-queries the database
 -- whenever `lastPublished` advances. This guarantees correct category filtering

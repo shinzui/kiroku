@@ -1,5 +1,7 @@
 module Kiroku.Store.Subscription.EventPublisher (
     EventPublisher (..),
+    Subscriber (..),
+    SubscriberStatus (..),
     startPublisher,
     stopPublisher,
     subscribePublisher,
@@ -10,41 +12,75 @@ import Control.Concurrent.Async (Async)
 import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.STM (
     STM,
+    TBQueue,
     TChan,
     TVar,
     atomically,
     dupTChan,
-    newBroadcastTChanIO,
+    isFullTBQueue,
+    modifyTVar',
+    newTBQueue,
+    newTVar,
     newTVarIO,
     readTChan,
     readTVar,
+    readTVarIO,
     registerDelay,
+    tryReadTBQueue,
     tryReadTChan,
-    writeTChan,
+    writeTBQueue,
     writeTVar,
  )
 import Control.Concurrent.STM qualified as STM
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Data.Foldable (for_)
 import Data.Int (Int32, Int64)
+import Data.IntMap.Strict (IntMap)
+import Data.IntMap.Strict qualified as IntMap
 import Data.Vector (Vector)
 import Data.Vector qualified as V
 import Hasql.Pool (Pool)
 import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Kiroku.Store.SQL qualified as SQL
+import Kiroku.Store.Subscription.Types (OverflowPolicy (..))
 import Kiroku.Store.Types (GlobalPosition (..), RecordedEvent (..))
+import Numeric.Natural (Natural)
 
 {- | The centralized EventPublisher. Reads events from the database once per
-notification and broadcasts them to all subscribers via a broadcast TChan.
-This eliminates the thundering herd problem: 30+ subscribers = 1 query.
+notification and fans them out to a registry of bounded per-subscriber
+queues. The registry replaces the prior unbounded broadcast 'TChan' so
+that one slow subscriber cannot grow the publisher's fan-out memory
+without limit (EP-3 F6).
 -}
 data EventPublisher = EventPublisher
-    { broadcastChan :: !(TChan (Vector RecordedEvent))
-    -- ^ Broadcast channel; subscribers get personal copies via dupTChan
+    { subscribers :: !(TVar (IntMap Subscriber))
+    -- ^ Active subscriber registry, keyed by an internal id.
+    , nextSubscriberId :: !(TVar Int)
     , publisherThread :: !(Async ())
     , lastPublished :: !(TVar GlobalPosition)
     -- ^ Last-published position; workers read this to know when catch-up is done
     }
+
+{- | A registered subscriber. The publisher owns one of these per
+'Kiroku.Store.Subscription.subscribe' call. The worker reads from
+'subQueue' under normal operation; on overflow under 'DropSubscription'
+the publisher flips 'subStatus' to 'Overflowed' and the worker
+terminates the subscription with 'SubscriptionOverflowed'.
+-}
+data Subscriber = Subscriber
+    { subQueue :: !(TBQueue (Vector RecordedEvent))
+    , subStatus :: !(TVar SubscriberStatus)
+    , subPolicy :: !OverflowPolicy
+    }
+
+-- | Subscriber lifecycle status as observed by its worker.
+data SubscriberStatus
+    = -- | Healthy; worker reads from the queue normally.
+      Active
+    | -- | Publisher signalled overflow; worker should surface a structured error.
+      Overflowed
+    deriving stock (Eq, Show)
 
 {- | Publisher batch size — larger than subscriber batch size because the
 Publisher serves all subscribers.
@@ -58,18 +94,22 @@ safetyPollMicros = 30_000_000
 
 {- | Start the EventPublisher. Spawns a thread that waits for ticks from the
 Notifier (or a 30-second safety poll timeout), queries the database for
-new events, and broadcasts them to all subscribers.
+new events, and delivers them to every active subscriber. Per-subscriber
+overflow handling is determined by each subscription's
+'OverflowPolicy'.
 -}
 startPublisher :: (MonadIO m) => Pool -> TChan () -> m EventPublisher
 startPublisher pool notifierChan = liftIO $ do
-    bChan <- newBroadcastTChanIO
+    subsVar <- newTVarIO IntMap.empty
+    nextIdVar <- newTVarIO 0
     pos <- newTVarIO (GlobalPosition 0)
     -- Get a personal copy of the notifier's broadcast channel
     tickChan <- atomically (dupTChan notifierChan)
-    thread <- Async.async (publisherLoop pool tickChan bChan pos)
+    thread <- Async.async (publisherLoop pool tickChan subsVar pos)
     pure
         EventPublisher
-            { broadcastChan = bChan
+            { subscribers = subsVar
+            , nextSubscriberId = nextIdVar
             , publisherThread = thread
             , lastPublished = pos
             }
@@ -80,17 +120,38 @@ stopPublisher pub = liftIO $ do
     Async.cancel (publisherThread pub)
     () <$ Async.waitCatch (publisherThread pub)
 
--- | Get a personal TChan for receiving broadcast events.
-subscribePublisher :: EventPublisher -> STM (TChan (Vector RecordedEvent))
-subscribePublisher pub = dupTChan (broadcastChan pub)
+{- | Register a new subscriber with the given queue capacity and overflow
+policy. Returns the bounded queue, the subscriber's status TVar, and an
+@unsubscribe@ action that the caller must invoke when the subscription
+ends (worker exits, cancellation). Failing to unsubscribe causes the
+publisher to keep delivering to a queue with no reader, which will fill
+and trigger the configured policy unnecessarily.
+-}
+subscribePublisher ::
+    EventPublisher ->
+    -- | Queue capacity (number of batches)
+    Natural ->
+    OverflowPolicy ->
+    STM (TBQueue (Vector RecordedEvent), TVar SubscriberStatus, IO ())
+subscribePublisher pub cap policy = do
+    queue <- newTBQueue cap
+    status <- newTVar Active
+    sid <- readTVar (nextSubscriberId pub)
+    writeTVar (nextSubscriberId pub) (sid + 1)
+    let sub = Subscriber{subQueue = queue, subStatus = status, subPolicy = policy}
+    modifyTVar' (subscribers pub) (IntMap.insert sid sub)
+    let unsubscribe =
+            atomically $
+                modifyTVar' (subscribers pub) (IntMap.delete sid)
+    pure (queue, status, unsubscribe)
 
 -- | Read the last-published global position.
 publisherPosition :: EventPublisher -> STM GlobalPosition
 publisherPosition pub = readTVar (lastPublished pub)
 
 -- Internal: the publisher loop.
-publisherLoop :: Pool -> TChan () -> TChan (Vector RecordedEvent) -> TVar GlobalPosition -> IO ()
-publisherLoop pool tickChan bChan posVar = loop
+publisherLoop :: Pool -> TChan () -> TVar (IntMap Subscriber) -> TVar GlobalPosition -> IO ()
+publisherLoop pool tickChan subsVar posVar = loop
   where
     loop = do
         -- Wait for a tick OR safety poll timeout
@@ -102,7 +163,7 @@ publisherLoop pool tickChan bChan posVar = loop
         loop
 
     fetchAndBroadcast = do
-        GlobalPosition pos <- atomically (readTVar posVar)
+        GlobalPosition pos <- readTVarIO posVar
         result <- Pool.use pool (Session.statement (pos, publisherBatchSize) SQL.readAllForwardStmt)
         case result of
             Left _err ->
@@ -113,13 +174,32 @@ publisherLoop pool tickChan bChan posVar = loop
                 | otherwise -> do
                     let lastEvent = V.last events
                         newPos = globalPosition lastEvent
-                    atomically $ do
-                        writeTChan bChan events
-                        writeTVar posVar newPos
+                    -- Snapshot the current subscriber set, then deliver outside
+                    -- the snapshot's STM transaction. Each delivery is its own
+                    -- atomic step so a slow subscriber under DropSubscription
+                    -- cannot rollback another's enqueue.
+                    subs <- readTVarIO subsVar
+                    for_ (IntMap.elems subs) (deliverBatch events)
+                    -- Advance posVar after attempting delivery to all subscribers.
+                    -- Subscribers under DropSubscription have already been marked
+                    -- Overflowed; their workers will observe and exit. Subscribers
+                    -- under DropOldest have lost the oldest batch but their queues
+                    -- are not full anymore.
+                    atomically (writeTVar posVar newPos)
                     -- If we got a full batch, there may be more — loop immediately
                     if V.length events >= fromIntegral publisherBatchSize
                         then fetchAndBroadcast
                         else pure ()
+
+    deliverBatch events sub = atomically $ do
+        full <- isFullTBQueue (subQueue sub)
+        if not full
+            then writeTBQueue (subQueue sub) events
+            else case subPolicy sub of
+                DropSubscription -> writeTVar (subStatus sub) Overflowed
+                DropOldest -> do
+                    _ <- tryReadTBQueue (subQueue sub)
+                    writeTBQueue (subQueue sub) events
 
 -- Wait for either a tick or a 30-second timeout (safety poll).
 waitForWakeup :: TChan () -> IO ()

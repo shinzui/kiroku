@@ -3,7 +3,7 @@ module Main where
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
-import Control.Concurrent.STM (atomically, newTVarIO, readTVar, writeTVar)
+import Control.Concurrent.STM (atomically, check, newTVarIO, readTVar, writeTVar)
 import Control.Exception (SomeException)
 import Control.Exception qualified
 import Control.Lens ((^.))
@@ -30,7 +30,8 @@ import Hasql.Statement (Statement, preparable, unpreparable)
 import Kiroku.Store
 import Kiroku.Store.Error (extractStreamNameFromDetail)
 import Kiroku.Store.Subscription.Effect qualified as SubEff
-import Kiroku.Store.Subscription.Types (SubscriptionConfigM (..))
+import Kiroku.Store.Subscription.EventPublisher (publisherPosition)
+import Kiroku.Store.Subscription.Types (OverflowPolicy (..), SubscriptionConfigM (..), SubscriptionOverflowed (..))
 import Test.Hspec
 
 main :: IO ()
@@ -742,6 +743,8 @@ main = hspec $ do
                             , target = AllStreams
                             , handler = handler'
                             , batchSize = 100
+                            , queueCapacity = 16
+                            , overflowPolicy = DropSubscription
                             }
                 handle <- subscribe store cfg
                 result <- waitWithTimeout 10_000_000 handle
@@ -771,6 +774,8 @@ main = hspec $ do
                             , target = AllStreams
                             , handler = handler'
                             , batchSize = 100
+                            , queueCapacity = 16
+                            , overflowPolicy = DropSubscription
                             }
                 handle <- subscribe store cfg
                 -- Give subscription time to start
@@ -809,6 +814,8 @@ main = hspec $ do
                             , target = AllStreams
                             , handler = handler1
                             , batchSize = 100
+                            , queueCapacity = 16
+                            , overflowPolicy = DropSubscription
                             }
                 h1 <- subscribe store cfg1
                 _ <- waitWithTimeout 10_000_000 h1
@@ -831,6 +838,8 @@ main = hspec $ do
                             , target = AllStreams
                             , handler = handler2
                             , batchSize = 100
+                            , queueCapacity = 16
+                            , overflowPolicy = DropSubscription
                             }
                 h2 <- subscribe store cfg2
                 _ <- waitWithTimeout 10_000_000 h2
@@ -874,6 +883,8 @@ main = hspec $ do
                             , target = Category (CategoryName "order")
                             , handler = handler'
                             , batchSize = 100
+                            , queueCapacity = 16
+                            , overflowPolicy = DropSubscription
                             }
                 handle <- subscribe store cfg
                 -- Block until catch-up has delivered the seed event — the
@@ -921,6 +932,8 @@ main = hspec $ do
                             , target = Category (CategoryName "order")
                             , handler = handler'
                             , batchSize = 100
+                            , queueCapacity = 16
+                            , overflowPolicy = DropSubscription
                             }
                 handle <- subscribe store cfg
                 _ <- waitWithTimeout 10_000_000 handle
@@ -937,6 +950,8 @@ main = hspec $ do
                             , target = AllStreams
                             , handler = handler'
                             , batchSize = 100
+                            , queueCapacity = 16
+                            , overflowPolicy = DropSubscription
                             }
                 handle <- subscribe store cfg
                 -- Give it time to start
@@ -960,6 +975,8 @@ main = hspec $ do
                             , target = AllStreams
                             , handler = handler'
                             , batchSize = 100
+                            , queueCapacity = 16
+                            , overflowPolicy = DropSubscription
                             }
                 handle <- subscribe store cfg
                 -- Give subscription time to start in live mode
@@ -993,6 +1010,8 @@ main = hspec $ do
                             , target = AllStreams
                             , handler = handler'
                             , batchSize = 100
+                            , queueCapacity = 16
+                            , overflowPolicy = DropSubscription
                             }
                 handle <- subscribe store cfg
                 threadDelay 100_000
@@ -1011,6 +1030,74 @@ main = hspec $ do
                     Right (Right ()) -> pure ()
                 collected <- readIORef ref
                 length collected `shouldBe` 50
+
+            -- F6 regression — the publisher's broadcast was an unbounded TChan;
+            -- a slow subscriber's dupTChan grew without limit until the host
+            -- ran out of memory. The fix replaces the broadcast with a
+            -- per-subscriber bounded TBQueue plus an overflow policy. With
+            -- DropSubscription, the publisher signals overflow on the
+            -- subscriber's status TVar; the worker observes it on its next
+            -- STM read and surfaces SubscriptionOverflowed via wait/waitCatch.
+            it "surfaces SubscriptionOverflowed when a slow subscriber overruns its queue (F6)" $ \store -> do
+                firstSeen <- newEmptyMVar
+                release <- newEmptyMVar
+                seenCount <- newTVarIO (0 :: Int)
+                let handler' _evt = do
+                        n <- atomically $ do
+                            c <- readTVar seenCount
+                            let c' = c + 1
+                            writeTVar seenCount c'
+                            pure c'
+                        if n == 1
+                            then do
+                                putMVar firstSeen ()
+                                takeMVar release
+                            else pure ()
+                        pure Continue
+                let cfg =
+                        SubscriptionConfig
+                            { name = SubscriptionName "f6-overflow-test"
+                            , target = AllStreams
+                            , handler = handler'
+                            , batchSize = 100
+                            , queueCapacity = 1
+                            , overflowPolicy = DropSubscription
+                            }
+                handle <- subscribe store cfg
+                -- First append: triggers handler, which blocks on the release MVar.
+                Right _ <- runStoreIO store $ appendToStream (StreamName "f6-1") NoStream [makeEvent "E1" (Aeson.object [])]
+                takeMVar firstSeen
+                -- While the worker is stuck inside the handler, append events one
+                -- at a time and wait for the publisher to fetch each individually.
+                -- Each append corresponds to a separate publisher batch written
+                -- to the subscriber's queue. Capacity is 1, so the second
+                -- write fills it and the third triggers DropSubscription.
+                let waitForPub n = atomically $ do
+                        GlobalPosition p <- publisherPosition (store ^. #publisher)
+                        check (p >= n)
+                let appendOne i = do
+                        let sn = StreamName ("f6-" <> T.pack (show (i :: Int)))
+                        Right _ <- runStoreIO store $ appendToStream sn NoStream [makeEvent "Ex" (Aeson.object [])]
+                        waitForPub (fromIntegral i)
+                -- Append 4 more events with publisher synchronisation. Combined
+                -- with the first event, that is 5 publisher batches.
+                appendOne 2
+                appendOne 3
+                appendOne 4
+                appendOne 5
+                -- Release the handler. Worker exits processEvents and on the
+                -- next STM read observes Overflowed.
+                putMVar release ()
+                result <- waitWithTimeout 10_000_000 handle
+                case result of
+                    Left timeout -> expectationFailure timeout
+                    Right (Right ()) -> expectationFailure "expected SubscriptionOverflowed, got clean exit"
+                    Right (Left e) ->
+                        case Control.Exception.fromException e of
+                            Just (SubscriptionOverflowed sn) ->
+                                sn `shouldBe` SubscriptionName "f6-overflow-test"
+                            Nothing ->
+                                expectationFailure ("expected SubscriptionOverflowed, got: " <> show e)
 
             it "catches up with an Eff-based handler via the effectful API" $ \store -> do
                 -- Append 10 events
@@ -1038,6 +1125,8 @@ main = hspec $ do
                                 , target = AllStreams
                                 , handler = effHandler
                                 , batchSize = 100
+                                , queueCapacity = 16
+                                , overflowPolicy = DropSubscription
                                 }
                     handle <- SubEff.subscribe cfg
                     liftIO $ do
@@ -1065,6 +1154,8 @@ main = hspec $ do
                             , target = AllStreams
                             , handler = \_ -> pure Continue
                             , batchSize = 100
+                            , queueCapacity = 16
+                            , overflowPolicy = DropSubscription
                             }
                 withSubscription store cfg $ \h -> do
                     writeIORef handleRef (Just h)
@@ -1085,6 +1176,8 @@ main = hspec $ do
                             , target = AllStreams
                             , handler = \_ -> pure Continue
                             , batchSize = 100
+                            , queueCapacity = 16
+                            , overflowPolicy = DropSubscription
                             }
                 result <-
                     Control.Exception.try @SomeException $

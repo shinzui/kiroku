@@ -9,7 +9,7 @@ module Kiroku.Store.Subscription (
 
 import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.STM (atomically)
-import Control.Exception (bracket)
+import Control.Exception (bracket, finally)
 import Control.Lens ((^.))
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.IO.Unlift (MonadUnliftIO, withRunInIO)
@@ -36,11 +36,24 @@ has a structured lifecycle (e.g., the Streamly 'subscriptionStream' bridge).
 -}
 subscribe :: (MonadIO m) => KirokuStore -> SubscriptionConfig -> m SubscriptionHandle
 subscribe store config = liftIO $ do
-    liveChan <- atomically $ Pub.subscribePublisher (store ^. #publisher)
+    (queue, statusVar, unsubscribe) <-
+        atomically $
+            Pub.subscribePublisher
+                (store ^. #publisher)
+                (queueCapacity config)
+                (overflowPolicy config)
     let pubPosVar = Pub.lastPublished (store ^. #publisher)
+    -- `finally unsubscribe` removes this subscription from the publisher's
+    -- registry whenever the worker exits — gracefully on Stop, by
+    -- cancellation, or on any exception (including SubscriptionOverflowed).
+    -- Forgetting to unsubscribe would leave a registry entry with no reader,
+    -- and the publisher would needlessly trigger this subscriber's overflow
+    -- policy on the next batch.
     thread <-
-        Async.async $
-            runWorker (store ^. #pool) (store ^. #schema) liveChan pubPosVar config
+        Async.async
+            ( runWorker (store ^. #pool) (store ^. #schema) queue statusVar pubPosVar config
+                `finally` unsubscribe
+            )
     pure
         SubscriptionHandle
             { cancel = Async.cancel thread

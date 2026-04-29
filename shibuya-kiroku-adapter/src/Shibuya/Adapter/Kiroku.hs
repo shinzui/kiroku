@@ -70,6 +70,7 @@ import Effectful (Eff, IOE, liftIO, (:>))
 import Kiroku.Store.Connection (KirokuStore)
 import Kiroku.Store.Subscription.Stream (subscriptionStream)
 import Kiroku.Store.Subscription.Types (
+    OverflowPolicy (..),
     SubscriptionConfigM (..),
     SubscriptionName (..),
     SubscriptionResult (..),
@@ -130,6 +131,8 @@ kirokuAdapter store (KirokuAdapterConfig subName subTarget bs buf) = do
                 , target = subTarget
                 , handler = \_ -> pure Continue
                 , batchSize = bs
+                , queueCapacity = 16
+                , overflowPolicy = DropSubscription
                 }
 
     (ioStream, cancelAction) <- liftIO $ subscriptionStream store subConfig buf

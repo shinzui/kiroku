@@ -29,7 +29,7 @@ import EphemeralPg qualified as Pg
 import Kiroku.Store
 import Kiroku.Store.Subscription (subscribe)
 import Kiroku.Store.Subscription.Stream (subscriptionStream)
-import Kiroku.Store.Subscription.Types (SubscriptionConfigM (..), SubscriptionHandleM (..))
+import Kiroku.Store.Subscription.Types (OverflowPolicy (..), SubscriptionConfigM (..), SubscriptionHandleM (..))
 import Shibuya.Adapter (Adapter (..))
 import Shibuya.App (ProcessorId (..), SupervisionStrategy (..), mkProcessor, runApp, stopApp)
 import Shibuya.Core.Ack (AckDecision (..))
@@ -120,6 +120,8 @@ benchBareSubscribe store n nextId = do
                 , target = AllStreams
                 , handler = handler
                 , batchSize = 500
+                , queueCapacity = 16
+                , overflowPolicy = DropSubscription
                 }
     handle <- subscribe store cfg
     waitForCount countVar n 30_000_000
@@ -139,6 +141,8 @@ benchSubscriptionStream store n nextId = do
                 , target = AllStreams
                 , handler = \_ -> pure Continue
                 , batchSize = 500
+                , queueCapacity = 16
+                , overflowPolicy = DropSubscription
                 }
 
     t0 <- getCurrentTime
@@ -163,6 +167,8 @@ benchShibuyaAdapter store n nextId = do
                     , target = AllStreams
                     , handler = \_ -> pure Continue
                     , batchSize = 500
+                    , queueCapacity = 16
+                    , overflowPolicy = DropSubscription
                     }
 
         (ioStream, cancelAction) <- liftIO $ subscriptionStream store cfg 256
