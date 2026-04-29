@@ -30,19 +30,20 @@ A reader can verify the change by reading the new audit document, building the p
   - [x] For each item, record purpose, contract (preconditions, postconditions, error cases), and severity classification
   - [x] Cross-check `shibuya-kiroku-adapter/src/` for actual usage patterns and identify ergonomics issues from real call sites — adapter findings folded into F25/F27 (subscription bridge) and F16 (`KirokuStore (..)` field access)
   - [x] Record findings inline in Surprises & Discoveries with file:line references
-- [ ] Milestone 2: Land corrections
-  - [ ] **F25 (must-fix)** — add a `withSubscription` bracket (and `Eff` equivalent), wire into `bracket`, regression-test that throwing inside the body cancels the worker
-  - [ ] **F1 (should-fix-defensive)** — replace static first-stream attribution in `Effect.hs:160-164` with detail-based recovery; unit-test the new helper against a synthesized `ServerError`
-  - [ ] **F19 (should-fix)** — refine `StoreError` with `PoolAcquisitionTimeout`, `ConnectionLost`, `UnexpectedServerError` constructors (additive; keep `ConnectionError` as catch-all)
-  - [ ] **F20 (should-fix)** — change `DuplicateEvent` to take `Maybe EventId` so the `UUID.nil` fallback is explicit
-  - [ ] **F22 (should-fix)** — add `deriving anyclass (Exception)` to `StoreError`
-  - [ ] **F18 (should-fix)** — re-export `SchemaInitError` from `Kiroku.Store` so consumers do not have to import `Kiroku.Store.Schema`
-  - [ ] **F26 (should-fix)** — add `defaultSubscriptionConfig`
-  - [ ] **F30–F33 (D-series, should-fix-haddock)** — Haddock additions for under-documented public symbols (types, effect wrappers, `withStore` lifecycle, subscription rationale)
-  - [ ] **F12, F21, F23 (should-fix-haddock)** — Haddock-only entries (linked-event semantics, constraint-name dependency, idempotent-retry guidance)
-  - [ ] Confirm `cabal build kiroku-store kiroku-store-test` and `cabal build shibuya-kiroku-adapter` are all green; run `cabal test kiroku-store`
-  - [ ] Update the MasterPlan's Exec-Plan Registry status and Progress section
-  - [ ] Defer (record only): F2 (empty-list edges — Haddock-only deferred), F3 (split `Store` GADT), F8 (`Ord EventId`), F9 (`AnyVersion` rename), F13 (`LinkResult.globalPosition`), F16 (`KirokuStore (..)`), F24 (`Error.hs` exports)
+- [x] Milestone 2: Land corrections (2026-04-29)
+  - [x] **F25 (must-fix)** — `withSubscription` bracket helpers in IO and Eff variants. Two regression tests: normal-exit and exception-in-body. (commit 323cf0f)
+  - [x] **F1 (should-fix-defensive)** — `attributeMultiStreamError` plus pure `extractStreamNameFromDetail`. Five unit tests for the parser. (commit 971a307)
+  - [x] **F19 (should-fix)** — `PoolAcquisitionTimeout`, `ConnectionLost`, `UnexpectedServerError` constructors added; `ConnectionError` retained as catch-all. (commit 4d994eb)
+  - [x] **F20 (should-fix)** — `DuplicateEvent !(Maybe EventId)`. (commit 4d994eb)
+  - [x] **F22 (should-fix)** — `StoreError` derives `Exception`. (commit 4d994eb)
+  - [x] **F18 (should-fix)** — `SchemaInitError` re-exported from `Kiroku.Store`. (commit 6a3f35d)
+  - [x] **F26 (should-fix)** — `defaultSubscriptionConfig` smart constructor in `Subscription.Types`. (commit 6a3f35d)
+  - [x] **F30–F33 (D-series, should-fix-haddock)** — Haddocks for `Types.hs` (newtypes, `ExpectedVersion`, records), `Append/Lifecycle/Link/Read.hs` (per-function contracts), `Connection.hs` (`withStore` lifecycle), `Effect/Resource.hs` (static-vs-dynamic), `Subscription/Effect.hs` (`ConcUnlift` rationale). (commit 6b3903c)
+  - [x] **F12, F21, F23 (should-fix-haddock)** — folded into the D-series commit (linked-event paragraph in `RecordedEvent`, constraint-name caveat in `Error.hs`'s `mapUsageError`, idempotent-retry note on `appendToStream`).
+  - [x] Confirm `cabal build kiroku-store kiroku-store-test` and `cabal build shibuya-kiroku-adapter` are all green; run `cabal test kiroku-store` — 73/73 pass.
+  - [x] Pre-existing breakage: Shibuya `Envelope` gained an `attempt` field; adapter and `bench/ShibuyaOverhead.hs` updated (commit 9bd82a1) to make EP-2's verification step possible. Not itself an EP-2 finding.
+  - [ ] Update the MasterPlan's Exec-Plan Registry status and Progress section (final step of this milestone)
+  - **Deferred (recorded only):** F2 (empty-list edges — covered by Haddocks in Append/Link), F3 (split `Store` GADT), F8 (`Ord EventId` time-ordering), F9 (`AnyVersion` rename), F13 (`LinkResult.globalPosition`), F16 (`KirokuStore (..)` open data constructor), F24 (`Error.hs` internal-helper exports). All seven are documented above with rationales in the Decision Log.
 
 
 ## Surprises & Discoveries
@@ -433,7 +434,102 @@ schema work), F25 (touches `Subscription.hs` shared with EP-3), and F27
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+### Outcomes (2026-04-29)
+
+EP-2 is complete. The `kiroku-store` public-API surface has been audited
+end-to-end (34 findings F1–F34), every must-fix and should-fix item has
+landed (10 commits over 2026-04-29), seven items are formally deferred with
+rationale, and five cross-plan items have been mirrored to the MasterPlan
+for EP-3/EP-4/EP-5 to inherit.
+
+What exists now that did not before:
+
+  * `withSubscription` bracket helpers in both IO (`Kiroku.Store.Subscription`)
+    and `Eff` (`Kiroku.Store.Subscription.Effect`) variants. The implicit
+    "must cancel before scope exits" contract is now enforceable via a
+    single helper, with tested exception-safety.
+  * Refined `StoreError` model: `PoolAcquisitionTimeout`, `ConnectionLost`,
+    and `UnexpectedServerError` constructors give consumers programmatic
+    handles for retry-vs-escalate decisions; `ConnectionError` is retained
+    as a catch-all for backward compatibility. `DuplicateEvent` now carries
+    `Maybe EventId` so the `UUID.nil` fallback is explicit. `StoreError`
+    derives `Exception`.
+  * `attributeMultiStreamError` defensive helper that recovers the
+    offending stream from PostgreSQL detail strings on multi-stream
+    failures. Latent bug today (current SQL paths do not raise the
+    relevant error) but the future is now safe by default.
+  * `defaultSubscriptionConfig` smart constructor with `batchSize = 100`.
+  * `SchemaInitError` re-exported from `Kiroku.Store` so consumers can
+    catch schema-init failures without reaching for the internal module.
+  * Per-symbol Haddocks across `Types.hs`, `Append/Lifecycle/Link/Read.hs`,
+    `Connection.hs`, `Effect/Resource.hs`, `Subscription/Effect.hs`. The
+    `RecordedEvent` field semantics, the `withStore` acquire/release
+    order, the `ConcUnlift Persistent (Limited 1)` choice, and the
+    constraint-name dependency in `mapUsageError` are now documented
+    inline.
+
+How to verify:
+
+  * `cabal build kiroku-store kiroku-store-test shibuya-kiroku-adapter` —
+    green.
+  * `cabal test kiroku-store` — 73/73 pass (was 66/66 at EP-1 close;
+    +5 pure parser tests for F1, +2 bracket tests for F25).
+  * Public surface inventory: `cabal repl kiroku-store` then
+    `:browse Kiroku.Store` shows the new `SchemaInitError` re-export,
+    new `StoreError` constructors, `defaultSubscriptionConfig`, and the
+    Haddocks render under `cabal haddock kiroku-store`.
+
+### Retrospective
+
+What worked:
+
+  * Reading the SQL during the audit (rather than treating the EP-2 plan
+    body's claims as ground truth) caught the F1 misclassification before
+    M2 spent budget on a fix-with-regression-test that wouldn't fire. The
+    audit-then-fix cadence is the right shape for this kind of work.
+  * Splitting M2 into five focused commits (F25, F19/20/22, F1, F18/26,
+    D-series) kept each change reviewable in isolation and made the
+    treefmt round-trip on Haddock-comment style cheap to reformat.
+  * Carrying the integration point with EP-1 — the multi-stream
+    interpreter at `Effect.hs:160-164` — was straightforward because EP-1
+    had already landed its F4 pre-lock pass on the same line range, and
+    the diff was localised.
+
+What surprised:
+
+  * The Shibuya `Envelope` type's `attempt` field landing during EP-2
+    blocked verification with a pre-existing breakage. Fixed in a tiny
+    courtesy commit (9bd82a1) so EP-2's gate could close; the proper
+    treatment is "Shibuya update; not in EP-2 scope but blocks
+    verification."
+  * The treefmt hook re-runs on every commit and rewrites multi-line
+    Haddocks from `-- |` to `{- | ... -}` form — every Haddock-bearing
+    commit needed a second `git add && git commit` round-trip. Worth
+    knowing for future plans that touch documentation heavily.
+  * The "must-fix-before-production" classification for F1 in the EP-2
+    plan body was based on a misreading of the SQL append paths — once
+    the actual `ON CONFLICT` clauses were inspected, the bug turned out
+    to be unreachable through current SQL. Reclassified to
+    should-fix-defensive in commit b159d0c. Lesson for future audits:
+    classify only after walking the implementation, not just the surface.
+
+Cross-plan handoffs (mirrored to MasterPlan):
+
+  * **EP-3:** F25 helpers will be useful in EP-3's lifecycle tests; F27
+    (`subscriptionStream` discards `wait`) is EP-3's to fix.
+  * **EP-4:** F14 (schema field is dead for SQL but live for LISTEN) and
+    F18 coordination (re-export landed in EP-2 may need to follow the
+    schema name through if EP-4 reworks `Kiroku.Store.Schema`).
+  * **EP-5:** F15 (`statement_timeout`) and F34 (production warning
+    flags in cabal) belong to EP-5's operational hardening.
+
+Deferred items, all with rationale in the Decision Log:
+
+  * F2 (empty-list edges), F3 (split `Store` GADT), F8 (`Ord EventId`
+    time-ordering), F9 (`AnyVersion` rename), F13 (`LinkResult.globalPosition`),
+    F16 (`KirokuStore (..)` open constructor), F24 (`Error.hs` internal
+    helper exports). None is reachable from a hot path; all are easier
+    to land later than to undo now.
 
 
 ## Context and Orientation
