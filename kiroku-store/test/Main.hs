@@ -371,6 +371,33 @@ main = hspec $ do
                     Left _ -> pure () -- Expected: some error (PK violation)
                     Right _ -> expectationFailure "Expected error for duplicate link"
 
+            -- F3 regression — silent version gap when source events do not exist.
+            -- Before the fix, the CTE's `JOIN LATERAL` silently dropped link rows for
+            -- event_ids that had no `stream_events` row (e.g. never existed, or were
+            -- hard-deleted). The `stream_upsert` had already bumped `stream_version`,
+            -- so the stream advanced by N but only some link rows were inserted.
+            it "rejects link when the source event does not exist" $ \store -> do
+                let bogus = EventId (case UUID.fromString "11111111-1111-7111-8111-111111111111" of Just u -> u; Nothing -> error "bad uuid")
+                result <- runStoreIO store $ linkToStream (StreamName "f3-bogus") [bogus]
+                case result of
+                    Left _ -> pure ()
+                    Right r -> expectationFailure ("Expected error for missing event, got: " <> show r)
+                -- Target stream must not have been left in a half-created state.
+                Right info <- runStoreIO store $ getStream (StreamName "f3-bogus")
+                info `shouldBe` Nothing
+
+            it "rejects link with a mix of valid and missing events (no partial commit)" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "f3-mixed-src") NoStream [makeEvent "Real" (Aeson.object [])]
+                Right realEvents <- runStoreIO store $ readStreamForward (StreamName "f3-mixed-src") (StreamVersion 0) 100
+                let realId = V.head realEvents ^. #eventId
+                let bogus = EventId (case UUID.fromString "22222222-2222-7222-8222-222222222222" of Just u -> u; Nothing -> error "bad uuid")
+                result <- runStoreIO store $ linkToStream (StreamName "f3-mixed-tgt") [realId, bogus]
+                case result of
+                    Left _ -> pure ()
+                    Right r -> expectationFailure ("Expected error for partial-missing batch, got: " <> show r)
+                Right info <- runStoreIO store $ getStream (StreamName "f3-mixed-tgt")
+                info `shouldBe` Nothing
+
         -- =================================================================
         -- Category read tests (M5.8)
         -- =================================================================
