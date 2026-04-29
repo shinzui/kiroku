@@ -24,6 +24,10 @@ module Kiroku.Store (
     runSubscription,
     runSubscriptionResource,
 
+    -- * Schema initialization
+    -- $schema
+    SchemaInitError (..),
+
     -- * Pool observation types (re-exported from hasql-pool)
     Observation (..),
     ConnectionStatus (..),
@@ -40,6 +44,17 @@ import Kiroku.Store.Error
 import Kiroku.Store.Lifecycle
 import Kiroku.Store.Link
 import Kiroku.Store.Read
+import Kiroku.Store.Schema (SchemaInitError (..))
 import Kiroku.Store.Subscription
 import Kiroku.Store.Subscription.Effect (Subscription, runSubscription, runSubscriptionResource)
 import Kiroku.Store.Types
+
+{- $schema
+'withStore' calls 'Kiroku.Store.Schema.initializeSchema' as part of its
+acquire phase. Schema initialization is idempotent (the embedded DDL uses
+@CREATE TABLE IF NOT EXISTS@), but it can fail (e.g., insufficient
+permissions to create tables). On failure, 'withStore' propagates a
+'SchemaInitError' via 'Control.Exception.throwIO'. Callers that want to
+handle this case explicitly can catch 'SchemaInitError' alongside any
+'StoreError' raised during operation.
+-}

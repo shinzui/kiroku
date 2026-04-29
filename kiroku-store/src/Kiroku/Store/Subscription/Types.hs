@@ -6,6 +6,7 @@ module Kiroku.Store.Subscription.Types (
     EventHandler,
     SubscriptionConfigM (..),
     SubscriptionConfig,
+    defaultSubscriptionConfig,
     SubscriptionHandleM (..),
     SubscriptionHandle,
 ) where
@@ -52,6 +53,32 @@ data SubscriptionConfigM m = SubscriptionConfig
 
 -- | Configuration defaulting to 'IO'.
 type SubscriptionConfig = SubscriptionConfigM IO
+
+{- | Build a 'SubscriptionConfig' with the recommended defaults.
+
+The catch-up batch size defaults to 100 events per database fetch — large
+enough to amortise round-trip overhead on typical projection workloads,
+small enough that a single slow handler call does not stall the worker
+for long. Override the 'batchSize' field on the returned record if a
+different value suits the workload.
+
+@
+let cfg = defaultSubscriptionConfig "my-projection" AllStreams handler
+withSubscription store cfg $ \\h -> wait h
+@
+-}
+defaultSubscriptionConfig ::
+    SubscriptionName ->
+    SubscriptionTarget ->
+    EventHandlerM m ->
+    SubscriptionConfigM m
+defaultSubscriptionConfig name' target' handler' =
+    SubscriptionConfig
+        { name = name'
+        , target = target'
+        , handler = handler'
+        , batchSize = 100
+        }
 
 -- | Handle returned to the caller for lifecycle management, parameterized by monad.
 data SubscriptionHandleM m = SubscriptionHandle
