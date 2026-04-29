@@ -22,17 +22,70 @@ import Kiroku.Store.Subscription.Worker (runWorker)
 {- | Start a subscription. Returns a handle for cancellation and waiting.
 
 The subscription spawns a worker thread that:
-1. Reads the checkpoint from the database (or starts from position 0).
-2. Catches up by querying the database directly until reaching the
-   EventPublisher's current position.
-3. Switches to live mode, reading events from the EventPublisher's
-   broadcast channel.
+
+1. Reads the checkpoint from the database (or starts from global position 0
+   for a fresh subscription name).
+2. Catches up by querying the database directly until it reaches the
+   'Kiroku.Store.Subscription.EventPublisher.lastPublished' cursor.
+3. Switches to live mode. For 'Kiroku.Store.Subscription.Types.AllStreams'
+   subscriptions, the worker reads pre-broadcast events from the
+   publisher's bounded per-subscriber queue. For
+   'Kiroku.Store.Subscription.Types.Category' subscriptions, the worker
+   bypasses the broadcast entirely and re-queries the database with the
+   SQL category filter whenever 'lastPublished' advances.
 
 The returned 'SubscriptionHandle' carries an implicit lifecycle contract:
 the worker thread runs until 'cancel' is called or the handler returns 'Stop'.
 Forgetting to cancel leaks the thread. Prefer 'withSubscription' for any
 non-trivial code path; use the bare 'subscribe' only when the caller already
 has a structured lifecycle (e.g., the Streamly 'subscriptionStream' bridge).
+
+=== Delivery semantics
+
+Events are delivered __at least once__. The store's checkpoint is advanced
+__per batch__, not per event: when the handler returns 'Continue' for every
+event in a batch the checkpoint is saved at the batch tail; when the handler
+returns 'Stop' for some event the checkpoint is saved at that event. The
+following events on the boundary therefore __replay__ on the next
+subscription with the same 'Kiroku.Store.Subscription.Types.SubscriptionName':
+
+* The handler returned 'Continue' but the worker was cancelled or the
+  process crashed before 'saveCheckpoint' completed. The events processed
+  by the handler are re-delivered.
+* The handler was interrupted between events (cancellation, crash) inside
+  one batch. The events already processed are re-delivered along with the
+  not-yet-processed ones.
+* The publisher could not reach the database for one cycle (transient
+  pool error). The next cycle re-fetches and re-broadcasts; subscribers
+  that had already exited catch-up may see those events delivered late
+  with no checkpoint advance in between, so a subsequent restart replays
+  them.
+
+Handlers must therefore be idempotent — process a duplicate event without
+producing a wrong-on-replay result — or be tolerant of duplicates by some
+domain-specific check (e.g., a unique key on the projection table).
+
+=== Failure modes
+
+The 'Kiroku.Store.Subscription.Types.SubscriptionHandleM.wait' on the
+returned handle resolves with one of:
+
+* @Right ()@ — the handler returned 'Stop' for some event and the worker
+  exited cleanly. The checkpoint is saved at that event.
+* @Left e@ where @e@ is 'Control.Concurrent.Async.AsyncCancelled' — the
+  caller invoked 'cancel'. No checkpoint advance is guaranteed; events
+  in flight at cancellation time will replay.
+* @Left e@ where @e@ is
+  'Kiroku.Store.Subscription.Types.SubscriptionOverflowed' — the publisher
+  marked this subscription overflowed under
+  'Kiroku.Store.Subscription.Types.DropSubscription'. Investigate the
+  slow handler and either fix the slowness, raise 'queueCapacity', or
+  switch to 'Kiroku.Store.Subscription.Types.DropOldest' if the consumer
+  can tolerate event loss.
+* @Left e@ for any exception thrown by the handler — handler exceptions
+  are not caught; the worker thread dies and the original exception
+  propagates to the consumer. This is intentional: a handler that
+  throws is signalling that the subscription cannot proceed safely.
 -}
 subscribe :: (MonadIO m) => KirokuStore -> SubscriptionConfig -> m SubscriptionHandle
 subscribe store config = liftIO $ do

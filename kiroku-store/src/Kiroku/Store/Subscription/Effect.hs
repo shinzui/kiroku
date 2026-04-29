@@ -50,6 +50,24 @@ scope exits. The subscription thread captures the effect environment; if the
 @Eff@ computation finishes while the thread is still running, the environment
 becomes invalid. Prefer 'withSubscription' (also exported from this module)
 which wraps subscribe/cancel in a @bracket@ and is exception-safe.
+
+=== Delivery semantics
+
+Identical to 'Kiroku.Store.Subscription.subscribe': events are delivered
+__at least once__, the checkpoint is advanced __per batch__, and handlers
+must be idempotent. See the Haddock on
+'Kiroku.Store.Subscription.subscribe' for the full enumeration of replay
+boundaries (cancel-after-Continue, mid-batch cancellation, transient
+publisher pool errors) and the failure-mode table for
+'Kiroku.Store.Subscription.Types.SubscriptionHandleM.wait'.
+
+The effectful interpreter wraps the user's handler with the
+@ConcUnlift Persistent (Limited 1)@ unlift strategy (see 'runSubscription').
+This preserves the worker's single-threaded contract: only one handler
+invocation is in flight at a time, and the effect environment outlives
+all handler calls so 'Effectful.State.Static.Local.State' /
+'Effectful.Reader.Static.Reader' contents remain consistent across the
+subscription.
 -}
 subscribe :: (HasCallStack, Subscription :> es) => SubscriptionConfigM (Eff es) -> Eff es SubscriptionHandle
 subscribe config = send (Subscribe config)
