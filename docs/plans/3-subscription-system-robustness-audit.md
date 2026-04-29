@@ -30,13 +30,13 @@ A reader can verify the change by running `cabal test kiroku-store`, the new det
   - [x] Trace each delivery path end-to-end (live, catch-up, post-cancellation, post-disconnect, post-handler-Stop) and record what events the consumer sees
   - [x] Classify every finding by severity
   - [x] Cross-link cross-plan findings (Notifier connection failure → EP-5 observability; backpressure → consumer-facing config; etc.) in the MasterPlan
-- [ ] Milestone 2: Land must-fix corrections
-  - [ ] F1: release reconnected listener connection on shutdown
-  - [ ] F18: correct `Category` live-mode filter via DB-driven loop
-  - [ ] F6: bounded per-subscriber backpressure with overflow policy
-  - [ ] At-least-once delivery contract Haddock on `Subscription.hs` + `Subscription/Effect.hs`
-  - [ ] Regression tests using deterministic STM/MVar barriers (no `threadDelay`)
-  - [ ] Update the MasterPlan's Exec-Plan Registry status and Progress section
+- [x] Milestone 2: Land must-fix corrections (2026-04-29; 76/76 tests pass; adapter 5/5 pass)
+  - [x] F1: release reconnected listener connection on shutdown (commit 6041e8f)
+  - [x] F18: correct `Category` live-mode filter via DB-driven loop (commit bd107d4)
+  - [x] F6: bounded per-subscriber backpressure with overflow policy (commit 2c3f3f4)
+  - [x] At-least-once delivery contract Haddock on `Subscription.hs` + `Subscription/Effect.hs` (commit fe69688)
+  - [x] Regression tests using deterministic STM/MVar barriers — F1 uses pid round-trip, F18 uses MVar barrier on first catch-up event, F6 uses MVar release + publisher-position synchronisation. Existing `threadDelay`-based tests left untouched per Decision Log; EP-6 owns the conversion.
+  - [x] Update the MasterPlan's Exec-Plan Registry status and Progress section
 
 
 ## Surprises & Discoveries
@@ -290,9 +290,67 @@ path. Findings are grouped by component and labelled `EP-3.F<n>`. Severity legen
   * **F30** — test suite restructure is EP-6 territory; M2 adds new
     deterministic tests but does not refactor existing ones.
 
-### M2 — Implementation outcomes
+### M2 — Implementation outcomes (2026-04-29)
 
-(Filled as fixes land; see Progress section for the live checklist.)
+  * **F1 fix landed (commit 6041e8f).** `Notifier.listenerConn` is now a
+    `TVar Connection` updated on each successful reconnection;
+    `stopNotifier` releases the *current* connection. Two latent bugs
+    surfaced and were fixed alongside: (a) `Hasql.Connection.use`'s
+    cleanup-after-interruption can swallow the original exception and
+    return `Left DriverSessionError`, in which case `waitForNotifications`
+    returns normally rather than propagating; the new loop treats any
+    return as a reconnect signal. (b) An async cancellation between
+    `acquireOrFail` and the TVar write would have leaked the new
+    connection; `bracketOnError` in the reconnect path releases it.
+    The connection is now tagged with `application_name = 'kiroku-listener'`
+    so the regression test can verify via `pg_stat_activity` that no
+    listener backend remains after `withStore` exits.
+
+  * **F18 fix landed (commit bd107d4).** Category subscriptions now use
+    `liveLoopCategoryDriven` in `Subscription/Worker.hs`: the worker
+    waits via STM for `lastPublished` to advance past its cursor, then
+    queries `readCategoryForwardStmt` directly. The broadcast TBQueue
+    is unused for Category targets. The dead `filterEvents` helper was
+    removed.
+
+  * **F6 fix landed (commit 2c3f3f4).** Replaced the unbounded broadcast
+    `TChan` with a per-subscriber registry of bounded `TBQueue`s. New
+    config fields: `queueCapacity :: Natural` (default 16 batches) and
+    `overflowPolicy :: OverflowPolicy` (default `DropSubscription`). The
+    publisher iterates the registry and applies the policy on full;
+    `DropSubscription` flips a status `TVar` that the worker observes
+    on its next STM read and surfaces as `SubscriptionOverflowed` via
+    `Async.waitCatch`. `Subscription.subscribe` wraps `runWorker` in
+    `finally unsubscribe` so the publisher's registry is always cleaned
+    up. New dependency: `containers` (for `IntMap.Strict`).
+
+  * **At-least-once Haddock landed (commit fe69688).** A "Delivery
+    semantics" section on both `Subscription.subscribe` and
+    `Subscription.Effect.subscribe` enumerates the replay boundaries
+    (cancel-after-Continue, mid-batch cancellation, transient publisher
+    pool errors) and the failure-mode table for `wait` (clean exit,
+    AsyncCancelled, SubscriptionOverflowed, handler exception).
+
+  * **Deferred-with-rationale.** F2 (listener dies on reacquire failure),
+    F3/F7/F12/F13 (observability hooks), F8 (configurable batch size),
+    F29 (`subscriptionStream` lifecycle), F30 (existing test refactor).
+    Decision Log entries above record each.
+
+  * **Regression evidence.** `cabal test kiroku-store` ends 76/76 passing
+    (was 73/73); `cabal test shibuya-kiroku-adapter` ends 5/5 passing.
+    Three new tests added: F1 connection-leak verifier, F18 live-mode
+    category filter, F6 SubscriptionOverflowed surfacing. Haddock builds
+    clean. No existing test was modified.
+
+  * **API impact.** `SubscriptionConfig` gains two required fields
+    (`queueCapacity`, `overflowPolicy`); call sites in
+    `kiroku-store/test/Main.hs`, `kiroku-store/bench/ShibuyaOverhead.hs`,
+    and `shibuya-kiroku-adapter/.../Kiroku.hs` were updated. The
+    `defaultSubscriptionConfig` smart constructor sets safe defaults so
+    new consumers can adopt without seeing the new fields. The new
+    typed exception `SubscriptionOverflowed` is exported from
+    `Kiroku.Store.Subscription.Types` (and re-exported via
+    `Kiroku.Store`).
 
 
 ## Decision Log
@@ -336,7 +394,84 @@ path. Findings are grouped by component and labelled `EP-3.F<n>`. Severity legen
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+### What was achieved
+
+EP-3 produced a written audit of the subscription system (30 findings,
+F1–F30) and landed every must-fix item plus the at-least-once Haddock
+contract:
+
+* **F1** (listener-conn leak on reconnect) → fixed; `Notifier` now
+  tracks the current connection in a `TVar` and `stopNotifier` always
+  releases the live socket.
+* **F6** (unbounded broadcast TChan) → fixed; per-subscriber bounded
+  `TBQueue` registry with `OverflowPolicy` (`DropSubscription` default,
+  `DropOldest` opt-in) replaces the broadcast model.
+* **F18** (Category live-mode passes everything through) → fixed;
+  Category subscriptions now use a DB-driven live loop reusing
+  `readCategoryForwardStmt`.
+* **At-least-once contract** → made explicit in Haddock on both the
+  IO and Eff `subscribe` entrypoints.
+
+A second-order benefit: while writing the F1 regression test, we
+discovered that `Hasql.Connection.use`'s cleanup-after-interruption can
+swallow the original exception and return `Left DriverSessionError`;
+the original listener loop's `forever waitForNotifications` would then
+loop indefinitely on a dead connection without ever reaching the catch
+handler. The new loop treats any return from `waitForNotifications` as
+a reconnect signal, so this latent bug is fixed for free.
+
+### What was deferred
+
+Six should-fix items deferred-with-rationale (Decision Log):
+F2 (listener dies on reacquire failure), F3/F7/F12/F13 (observability
+gaps), F8 (configurable batch size), F29 (`subscriptionStream` discards
+`wait`), F30 (existing test refactor). All routed to EP-5 or EP-6 with
+a Decision Log entry naming the rationale.
+
+### Lessons learned
+
+  * Reading the dependency's source matters. The `Hasql.Connection.use`
+    error path was not obvious from its type signature; the original
+    Notifier code looked correct on paper. The fix had to detect that
+    `waitForNotifications` *returning* (rather than throwing) means a
+    swallowed error.
+
+  * The bounded-backpressure refactor (F6) had a wide blast radius —
+    `SubscriptionConfig` gained two required fields, every call site in
+    tests, benchmarks, and the adapter had to be updated. The
+    `defaultSubscriptionConfig` smart constructor (added in EP-2) made
+    this less painful; future API changes should land alongside an
+    update to the smart constructor.
+
+  * Choosing `DropSubscription` over `DropOldest`/`BlockPublisher` as
+    the default is a production-safety decision: surfacing a typed
+    error is better than silently corrupting at-least-once semantics.
+    Consumers who prefer best-effort delivery opt in explicitly.
+
+  * The DB-driven Category live loop (F18) is structurally a
+    never-exiting catch-up; the implementation collapses to ~10 lines
+    once the broadcast detour is removed. Category subscriptions are
+    now strictly simpler than AllStreams subscriptions, despite being
+    more "specialised." Worth flagging for EP-6 if it does a worker
+    cleanup pass.
+
+### Production-readiness verdict for the subscription subsystem
+
+Subscriptions are now production-ready in the following sense:
+
+* No correctness bugs remain in the delivery path. Category filtering
+  works in both catch-up and live modes; AllStreams broadcast is
+  bounded; the listener does not leak connections on reconnect.
+* The at-least-once contract is documented; handler authors who read
+  the Haddock will know what idempotence guarantees they must provide.
+
+Operational polish remains: observability gaps (F3, F7, F12, F13)
+mean operators have limited visibility into reconnect storms, publisher
+pool errors, and checkpoint-load failures. EP-5 owns this work. The
+listener still dies on reacquire failure (F2) — correctness is
+preserved by the publisher's safety poll, but a long DB outage will
+leave the listener thread dead until process restart. EP-5 should
+bundle this with the observation-handler enrichment.
 
 
 ## Context and Orientation

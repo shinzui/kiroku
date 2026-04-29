@@ -39,7 +39,7 @@ Each child plan begins with an *audit milestone* that produces a findings docume
 |---|-------|------|-----------|-----------|--------|
 | EP-1 | Schema, CTE and concurrency correctness audit | docs/plans/1-schema-cte-and-concurrency-correctness-audit.md | None | None | Complete |
 | EP-2 | Public API surface, types and error model audit | docs/plans/2-public-api-surface-types-and-error-model-audit.md | None | EP-1 | Complete |
-| EP-3 | Subscription system robustness audit | docs/plans/3-subscription-system-robustness-audit.md | None | EP-1, EP-2 | In Progress |
+| EP-3 | Subscription system robustness audit | docs/plans/3-subscription-system-robustness-audit.md | None | EP-1, EP-2 | Complete |
 | EP-4 | Multi-tenancy, security and schema lifecycle audit | docs/plans/4-multi-tenancy-security-and-schema-lifecycle-audit.md | None | EP-1 | Not Started |
 | EP-5 | Operational hardening: observability, failure modes, limits | docs/plans/5-operational-hardening-observability-failure-modes-limits.md | None | EP-1, EP-2, EP-3 | Not Started |
 | EP-6 | Test and benchmark hardening for production confidence | docs/plans/6-test-and-benchmark-hardening-for-production-confidence.md | None | EP-1, EP-2, EP-3, EP-4, EP-5 | Not Started |
@@ -96,7 +96,7 @@ Track milestone-level progress across all child plans. Each entry names the chil
 - [x] EP-2: M1 — Public API and error model audit findings document (2026-04-29; 34 findings F1–F34: 1 must-fix [F25 `withSubscription` bracket], 11 should-fix including F1 [downgraded from must-fix after reading SQL — buggy in principle but unreachable via current paths] and the Haddock D-series, 7 deferred-with-rationale, 5 cross-plan to EP-3/EP-4/EP-5, 5 no-issue)
 - [x] EP-2: M2 — Landed F25 (`withSubscription` bracket — IO + Eff variants), F1 (defensive multi-stream attribution helper), F19/F20/F22 (`StoreError` refinement: `PoolAcquisitionTimeout`/`ConnectionLost`/`UnexpectedServerError` constructors, `DuplicateEvent` takes `Maybe EventId`, derives `Exception`), F18 (`SchemaInitError` re-exported), F26 (`defaultSubscriptionConfig`), D-series Haddocks across `Types.hs`/`Append/Lifecycle/Link/Read.hs`/`Connection.hs`/`Effect/Resource.hs`/`Subscription/Effect.hs`. 7 items deferred-with-rationale. 73/73 tests pass; reads/appends behave identically (no functional regressions). (commits 323cf0f, 4d994eb, 971a307, 6a3f35d, 6b3903c, plus b159d0c reclassification and 9bd82a1 adapter hotfix)
 - [x] EP-3: M1 — Subscription robustness audit findings document (2026-04-29; 30 findings F1–F30: 3 must-fix [F1 listener leak on reconnect, F6 unbounded broadcast, F18 Category live-mode filter] + at-least-once Haddock contract; 8 should-fix [4 cross-plan to EP-5, 4 deferred-with-rationale]; 2 cross-plan to EP-2/EP-6; remainder no-issue)
-- [ ] EP-3: M2 — Land subscription fixes (F1 listener-conn leak, F18 Category live filter, F6 bounded backpressure, at-least-once Haddock)
+- [x] EP-3: M2 — Landed F1 (listener-conn leak), F18 (Category live filter via DB-driven loop), F6 (bounded per-subscriber backpressure with OverflowPolicy), at-least-once Haddock contract; deferred F2, F3, F7, F8, F12, F13, F29, F30 with rationale. 76/76 kiroku-store tests pass; 5/5 adapter tests pass; Haddock builds clean. (commits 6041e8f, bd107d4, 2c3f3f4, fe69688)
 - [ ] EP-4: M1 — Multi-tenancy, security, schema lifecycle audit findings document
 - [ ] EP-4: M2 — Land must-fix corrections and explicit deferred-decisions for the rest
 - [ ] EP-5: M1 — Failure-mode and observability gap inventory
