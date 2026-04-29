@@ -6,7 +6,7 @@ import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM (atomically, check, newTVarIO, readTVar, writeTVar)
 import Control.Exception (SomeException)
 import Control.Exception qualified
-import Control.Lens ((^.))
+import Control.Lens ((&), (.~), (^.))
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
@@ -1265,6 +1265,120 @@ main = hspec $ do
                 Right () -> pure ()
             observations <- readIORef ref
             length observations `shouldSatisfy` (> 0)
+
+    -- =================================================================
+    -- KirokuEvent observation surface (EP-5 F1, F13, F14)
+    -- =================================================================
+    describe "KirokuEvent observation" $ do
+        -- EP-5 F1 regression — terminating the listener backend triggers
+        -- KirokuEventNotifierReconnecting then KirokuEventNotifierReconnected.
+        -- Before EP-5 the reconnect path emitted no signal at all.
+        it "emits notifier reconnect events on backend termination (F1)" $ \() -> do
+            ref <- newIORef ([] :: [KirokuEvent])
+            let evtHandler e = modifyIORef' ref (e :)
+            result <- Pg.withCached $ \db -> do
+                let settings =
+                        defaultConnectionSettings (Pg.connectionString db)
+                            & #eventHandler .~ Just evtHandler
+                withStore settings $ \store -> do
+                    pid1 <- waitForListenerPid (store ^. #pool) 5_000_000
+                    terminateBackend (store ^. #pool) pid1
+                    _ <- waitForListenerPidNotEqual (store ^. #pool) pid1 15_000_000
+                    pure ()
+            case result of
+                Left err -> error ("Failed to start ephemeral PostgreSQL: " <> show err)
+                Right () -> pure ()
+            evts <- readIORef ref
+            let isReconnecting (KirokuEventNotifierReconnecting _ _) = True
+                isReconnecting _ = False
+                isReconnected KirokuEventNotifierReconnected = True
+                isReconnected _ = False
+            any isReconnecting evts `shouldBe` True
+            any isReconnected evts `shouldBe` True
+
+        -- EP-5 F14 regression — subscriptions emit started, caught-up, and
+        -- stopped events. Before EP-5 the lifecycle was invisible.
+        --
+        -- Subscribe before appending so the worker enters catch-up at
+        -- position 0, immediately reaches the publisher's position 0,
+        -- emits CaughtUp, transitions to live mode, then receives the
+        -- two appended events and stops.
+        it "emits subscription lifecycle events (F14)" $ \() -> do
+            ref <- newIORef ([] :: [KirokuEvent])
+            let evtHandler e = modifyIORef' ref (e :)
+            result <- Pg.withCached $ \db -> do
+                let settings =
+                        defaultConnectionSettings (Pg.connectionString db)
+                            & #eventHandler .~ Just evtHandler
+                withStore settings $ \store -> do
+                    countRef <- newTVarIO (0 :: Int)
+                    let h _ = do
+                            n <- atomically $ do
+                                c <- readTVar countRef
+                                writeTVar countRef (c + 1)
+                                pure (c + 1)
+                            if n >= 2 then pure Stop else pure Continue
+                    let cfg =
+                            SubscriptionConfig
+                                { name = SubscriptionName "lifecycle-test"
+                                , target = AllStreams
+                                , handler = h
+                                , batchSize = 100
+                                , queueCapacity = 16
+                                , overflowPolicy = DropSubscription
+                                }
+                    handle <- subscribe store cfg
+                    -- Give the worker a moment to enter live mode.
+                    threadDelay 200_000
+                    Right _ <-
+                        runStoreIO store $
+                            appendToStream (StreamName "lifecycle-1") NoStream [makeEvent "X" (Aeson.object [])]
+                    Right _ <-
+                        runStoreIO store $
+                            appendToStream (StreamName "lifecycle-1") (ExactVersion (StreamVersion 1)) [makeEvent "Y" (Aeson.object [])]
+                    _ <- waitWithTimeout 10_000_000 handle
+                    pure ()
+            case result of
+                Left err -> error ("Failed to start ephemeral PostgreSQL: " <> show err)
+                Right () -> pure ()
+            evts <- readIORef ref
+            let isStarted (KirokuEventSubscriptionStarted (SubscriptionName "lifecycle-test") _) = True
+                isStarted _ = False
+                isCaughtUp (KirokuEventSubscriptionCaughtUp (SubscriptionName "lifecycle-test") _) = True
+                isCaughtUp _ = False
+                isStopped (KirokuEventSubscriptionStopped (SubscriptionName "lifecycle-test") _ StopHandlerRequested) = True
+                isStopped _ = False
+            any isStarted evts `shouldBe` True
+            any isCaughtUp evts `shouldBe` True
+            any isStopped evts `shouldBe` True
+
+        -- EP-5 F13 regression — hard-delete emits a fail-safe audit event.
+        -- Before EP-5 there was no in-band audit signal.
+        it "emits a hard-delete event when the stream existed (F13)" $ \() -> do
+            ref <- newIORef ([] :: [KirokuEvent])
+            let evtHandler e = modifyIORef' ref (e :)
+            result <- Pg.withCached $ \db -> do
+                let settings =
+                        defaultConnectionSettings (Pg.connectionString db)
+                            & #eventHandler .~ Just evtHandler
+                withStore settings $ \store -> do
+                    Right _ <-
+                        runStoreIO store $
+                            appendToStream (StreamName "hard-delete-evt") NoStream [makeEvent "X" (Aeson.object [])]
+                    Right _ <- runStoreIO store $ hardDeleteStream (StreamName "hard-delete-evt")
+                    -- A hard-delete on a non-existent stream must not emit
+                    -- the event — verify by issuing a second one.
+                    Right _ <- runStoreIO store $ hardDeleteStream (StreamName "never-existed")
+                    pure ()
+            case result of
+                Left err -> error ("Failed to start ephemeral PostgreSQL: " <> show err)
+                Right () -> pure ()
+            evts <- readIORef ref
+            let hardDeletes =
+                    [ name'
+                    | KirokuEventHardDeleteIssued (StreamName name') _ <- evts
+                    ]
+            hardDeletes `shouldBe` ["hard-delete-evt"]
 
 -- | Create a simple EventData with auto-generated ID.
 makeEvent :: Text -> Value -> EventData

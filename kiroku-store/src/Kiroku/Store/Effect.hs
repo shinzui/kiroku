@@ -13,6 +13,7 @@ module Kiroku.Store.Effect (
 import Control.Lens ((^.))
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Aeson (Value)
+import Data.Foldable (for_)
 import Data.Generics.Labels ()
 import Data.Int (Int32, Int64)
 import Data.Maybe (isNothing)
@@ -35,6 +36,7 @@ import Hasql.Transaction.Sessions qualified as TxSessions
 import Kiroku.Store.Connection (KirokuStore (..))
 import Kiroku.Store.Effect.Resource (KirokuStoreResource, getKirokuStore)
 import Kiroku.Store.Error (StoreError (..), attributeMultiStreamError, emptyResultError, mapUsageError)
+import Kiroku.Store.Observability (KirokuEvent (..))
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Types
 
@@ -183,8 +185,17 @@ runStorePool store = interpret_ $ \case
                         Tx.statement affected SQL.deleteOrphanedEventsStmt
                         Tx.statement sid SQL.deleteStreamRowStmt
                         pure (Just (StreamId sid))
-        usePool (store ^. #pool) $
-            TxSessions.transaction TxSessions.ReadCommitted TxSessions.Write txn
+        result <-
+            usePool (store ^. #pool) $
+                TxSessions.transaction TxSessions.ReadCommitted TxSessions.Write txn
+        -- Emit a fail-safe audit signal when the delete actually removed
+        -- rows. Compliance-grade audit should still record an
+        -- application-level event before calling hardDeleteStream — see
+        -- docs/PRODUCTION-DEPLOYMENT.md.
+        case result of
+            Just sid -> liftIO $ for_ (store ^. #eventHandler) ($ KirokuEventHardDeleteIssued (StreamName name) sid)
+            Nothing -> pure ()
+        pure result
     UndeleteStream (StreamName name) ->
         usePool (store ^. #pool) $
             Session.statement name SQL.undeleteStreamStmt

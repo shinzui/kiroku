@@ -21,6 +21,7 @@ import Hasql.Pool.Observation (Observation)
 import Hasql.Session qualified as Session
 import Kiroku.Store.Notification (Notifier)
 import Kiroku.Store.Notification qualified as Notifier
+import Kiroku.Store.Observability (KirokuEvent)
 import Kiroku.Store.Schema (initializeSchema)
 import Kiroku.Store.Subscription.EventPublisher (EventPublisher)
 import Kiroku.Store.Subscription.EventPublisher qualified as Publisher
@@ -73,8 +74,37 @@ data ConnectionSettingsM m = ConnectionSettings
     -}
     , idleInTransactionTimeout :: !Int
     -- ^ idle_in_transaction_session_timeout in seconds (default: 30)
+    , statementTimeout :: !(Maybe Int)
+    {- ^ When @Just s@, set @statement_timeout = 's'@ (in seconds) on
+    every pooled connection via @initSession@. Bounds the wall-clock
+    runtime of any single statement; protects against pathological
+    queries holding pool slots indefinitely. Default 'Nothing'
+    (PostgreSQL's session default applies — typically @0@,
+    meaning no timeout).
+
+    A reasonable starting value for typical workloads is @Just 30@
+    (30 seconds) — long enough to absorb GC pauses and transient
+    slow disks, short enough to free the pool slot under genuine
+    pathology. See @docs\/PRODUCTION-TUNING.md@ for sizing
+    guidance.
+    -}
     , observationHandler :: !(Maybe (Observation -> m ()))
     -- ^ Optional callback for pool connection lifecycle events
+    , eventHandler :: !(Maybe (KirokuEvent -> m ()))
+    {- ^ Optional callback for store-emitted operational events. See
+    "Kiroku.Store.Observability" for the event taxonomy. Covers
+    notifier reconnection, publisher pool errors, subscription
+    lifecycle and per-phase database errors, and hard-delete
+    issuance — events that 'observationHandler' (which surfaces
+    @hasql-pool@'s connection-lifecycle observations) does not
+    cover.
+
+    Invoked synchronously from the originating thread (notifier
+    loop, publisher loop, worker loop, store interpreter); slow
+    callbacks stall those loops. For callbacks that may block, fan
+    out asynchronously (e.g., write to a 'TBQueue' and drain in a
+    separate thread).
+    -}
     }
     deriving stock (Generic)
 
@@ -89,7 +119,9 @@ defaultConnectionSettings cs =
         , poolSize = 10
         , schema = "public"
         , idleInTransactionTimeout = 30
+        , statementTimeout = Nothing
         , observationHandler = Nothing
+        , eventHandler = Nothing
         }
 
 -- | The store handle. Holds a connection pool, schema name, and subscription infrastructure.
@@ -98,6 +130,14 @@ data KirokuStore = KirokuStore
     , schema :: !Text
     , notifier :: !Notifier
     , publisher :: !EventPublisher
+    , eventHandler :: !(Maybe (KirokuEvent -> IO ()))
+    {- ^ Effective event handler captured from
+    'ConnectionSettingsM.eventHandler' when 'withStore' acquires
+    the store. Surfaces hard-delete events emitted by
+    'Kiroku.Store.Effect.runStorePool' and is the channel
+    'Kiroku.Store.Subscription.subscribe' threads through to
+    'Kiroku.Store.Subscription.Worker.runWorker'.
+    -}
     }
     deriving stock (Generic)
 
@@ -133,13 +173,21 @@ withStore :: (MonadUnliftIO m) => ConnectionSettings -> (KirokuStore -> m a) -> 
 withStore settings action = withRunInIO $ \runInIO ->
     bracket acquire release (runInIO . action)
   where
+    initScript :: Text
+    initScript =
+        T.intercalate "; " $
+            ("SET idle_in_transaction_session_timeout = '" <> T.pack (show (settings ^. #idleInTransactionTimeout)) <> "s'")
+                : maybe
+                    []
+                    (\t -> ["SET statement_timeout = '" <> T.pack (show t) <> "s'"])
+                    (settings ^. #statementTimeout)
+
     poolConfig :: Pool.Config.Config
     poolConfig =
         Pool.Config.settings $
             [ Pool.Config.staticConnectionSettings (Conn.connectionString (settings ^. #connString))
             , Pool.Config.size (settings ^. #poolSize)
-            , Pool.Config.initSession $
-                Session.script ("SET idle_in_transaction_session_timeout = '" <> T.pack (show (settings ^. #idleInTransactionTimeout)) <> "s'")
+            , Pool.Config.initSession (Session.script initScript)
             ]
                 ++ maybe [] (\h -> [Pool.Config.observationHandler h]) (settings ^. #observationHandler)
 
@@ -147,17 +195,19 @@ withStore settings action = withRunInIO $ \runInIO ->
         p <- Pool.acquire poolConfig
         let s = settings ^. #schema
             cs = settings ^. #connString
+            evtHandler = settings ^. #eventHandler
         initializeSchema p s
         -- Start Notifier (dedicated LISTEN connection)
-        n <- Notifier.startNotifier cs s
+        n <- Notifier.startNotifier cs s evtHandler
         -- Start EventPublisher (depends on Notifier's TChan)
-        pub <- Publisher.startPublisher p (Notifier.tickChan n)
+        pub <- Publisher.startPublisher p (Notifier.tickChan n) evtHandler
         pure
             KirokuStore
                 { pool = p
                 , schema = s
                 , notifier = n
                 , publisher = pub
+                , eventHandler = evtHandler
                 }
 
     release store = do

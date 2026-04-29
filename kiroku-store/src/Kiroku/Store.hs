@@ -28,6 +28,14 @@ module Kiroku.Store (
     -- $schema
     SchemaInitError (..),
 
+    -- * Notifier startup
+    NotifierStartError (..),
+
+    -- * Operational events emitted by the store itself
+    KirokuEvent (..),
+    SubscriptionDbPhase (..),
+    SubscriptionStopReason (..),
+
     -- * Pool observation types (re-exported from hasql-pool)
     Observation (..),
     ConnectionStatus (..),
@@ -43,6 +51,8 @@ import Kiroku.Store.Effect.Resource
 import Kiroku.Store.Error
 import Kiroku.Store.Lifecycle
 import Kiroku.Store.Link
+import Kiroku.Store.Notification (NotifierStartError (..))
+import Kiroku.Store.Observability (KirokuEvent (..), SubscriptionDbPhase (..), SubscriptionStopReason (..))
 import Kiroku.Store.Read
 import Kiroku.Store.Schema (SchemaInitError (..))
 import Kiroku.Store.Subscription

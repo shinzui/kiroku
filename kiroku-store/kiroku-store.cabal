@@ -25,6 +25,7 @@ library
     Kiroku.Store.Lifecycle
     Kiroku.Store.Link
     Kiroku.Store.Notification
+    Kiroku.Store.Observability
     Kiroku.Store.Read
     Kiroku.Store.Schema
     Kiroku.Store.Subscription

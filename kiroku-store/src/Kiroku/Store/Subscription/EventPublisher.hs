@@ -42,6 +42,7 @@ import Data.Vector qualified as V
 import Hasql.Pool (Pool)
 import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
+import Kiroku.Store.Observability (KirokuEvent (..))
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Subscription.Types (OverflowPolicy (..))
 import Kiroku.Store.Types (GlobalPosition (..), RecordedEvent (..))
@@ -97,15 +98,28 @@ Notifier (or a 30-second safety poll timeout), queries the database for
 new events, and delivers them to every active subscriber. Per-subscriber
 overflow handling is determined by each subscription's
 'OverflowPolicy'.
+
+If an 'eventHandler' callback is supplied, the publisher emits
+'Kiroku.Store.Observability.KirokuEventPublisherPoolError' when its read
+query returns a 'Pool.UsageError'. The publisher continues to run on the
+30-second safety poll regardless of the event firing; the event is the
+operator's only structured signal that pool exhaustion or a server
+error stalled the broadcast.
 -}
-startPublisher :: (MonadIO m) => Pool -> TChan () -> m EventPublisher
-startPublisher pool notifierChan = liftIO $ do
+startPublisher ::
+    (MonadIO m) =>
+    Pool ->
+    TChan () ->
+    -- | optional event handler for publisher-side observability
+    Maybe (KirokuEvent -> IO ()) ->
+    m EventPublisher
+startPublisher pool notifierChan mHandler = liftIO $ do
     subsVar <- newTVarIO IntMap.empty
     nextIdVar <- newTVarIO 0
     pos <- newTVarIO (GlobalPosition 0)
     -- Get a personal copy of the notifier's broadcast channel
     tickChan <- atomically (dupTChan notifierChan)
-    thread <- Async.async (publisherLoop pool tickChan subsVar pos)
+    thread <- Async.async (publisherLoop pool tickChan subsVar pos mHandler)
     pure
         EventPublisher
             { subscribers = subsVar
@@ -150,8 +164,14 @@ publisherPosition :: EventPublisher -> STM GlobalPosition
 publisherPosition pub = readTVar (lastPublished pub)
 
 -- Internal: the publisher loop.
-publisherLoop :: Pool -> TChan () -> TVar (IntMap Subscriber) -> TVar GlobalPosition -> IO ()
-publisherLoop pool tickChan subsVar posVar = loop
+publisherLoop ::
+    Pool ->
+    TChan () ->
+    TVar (IntMap Subscriber) ->
+    TVar GlobalPosition ->
+    Maybe (KirokuEvent -> IO ()) ->
+    IO ()
+publisherLoop pool tickChan subsVar posVar mHandler = loop
   where
     loop = do
         -- Wait for a tick OR safety poll timeout
@@ -166,9 +186,10 @@ publisherLoop pool tickChan subsVar posVar = loop
         GlobalPosition pos <- readTVarIO posVar
         result <- Pool.use pool (Session.statement (pos, publisherBatchSize) SQL.readAllForwardStmt)
         case result of
-            Left _err ->
-                -- Pool error; safety poll will retry later
-                pure ()
+            Left err -> do
+                -- Surface the pool error so operators see why broadcast
+                -- has stalled; the 30-second safety poll will retry.
+                for_ mHandler ($ KirokuEventPublisherPoolError err)
             Right events
                 | V.null events -> pure ()
                 | otherwise -> do

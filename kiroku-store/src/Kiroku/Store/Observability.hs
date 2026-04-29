@@ -1,0 +1,152 @@
+{- | Structured operational events emitted by 'Kiroku.Store'.
+
+This module provides the 'KirokuEvent' sum type and its supporting
+enumerations. It complements
+'Kiroku.Store.Connection.ConnectionSettings.observationHandler' (which
+covers @hasql-pool@'s connection-lifecycle events) with events the
+package emits itself:
+
+* Notifier reconnection (the dedicated @LISTEN@ connection went bad and
+  is being re-established).
+* EventPublisher pool errors (the publisher's read query failed and
+  will retry on the next tick or 30-second safety poll).
+* Per-subscription database errors (checkpoint load, batch fetch,
+  checkpoint save).
+* Subscription lifecycle (started, caught-up, stopped).
+* Hard-delete issuance (a fail-safe audit signal — see
+  @docs\/PRODUCTION-DEPLOYMENT.md@ for the recommended in-band audit
+  pattern).
+
+Wire 'Kiroku.Store.Connection.ConnectionSettingsM.eventHandler' to a
+callback that forwards to your structured logger or metrics pipeline.
+The callback runs synchronously on the emit-site thread (notifier loop,
+publisher loop, worker loop, store interpreter); slow callbacks therefore
+stall those loops. For callbacks that may block, fan out asynchronously
+(write to a 'Control.Concurrent.STM.TBQueue' and drain in a separate
+thread).
+
+The constructor set is /additive/: new events are added rather than
+existing constructors changed. Pattern matches that do not handle a
+new constructor will surface as @-Wincomplete-patterns@ warnings, never
+as silent regressions.
+-}
+module Kiroku.Store.Observability (
+    KirokuEvent (..),
+    SubscriptionDbPhase (..),
+    SubscriptionStopReason (..),
+) where
+
+import Control.Exception (SomeException)
+import Hasql.Pool (UsageError)
+import Kiroku.Store.Subscription.Types (SubscriptionName)
+import Kiroku.Store.Types (GlobalPosition, StreamId, StreamName)
+
+{- | A structured operational event emitted by 'Kiroku.Store' itself.
+
+Events are emitted synchronously from the originating thread; consumer
+callbacks should be fast or fan out to an asynchronous worker. See the
+module Haddock for context.
+-}
+data KirokuEvent
+    = {- | The dedicated @LISTEN@ connection encountered a non-async
+      exception and the listener loop is about to attempt reconnection.
+      The 'Int' is the consecutive failure count starting at @1@; it
+      drives the exponential-backoff delay (capped at 30 seconds) and
+      is useful as a metric label for sustained-outage alerting.
+      -}
+      KirokuEventNotifierReconnecting !Int !SomeException
+    | {- | The listener loop successfully re-established the @LISTEN@
+      connection. Pairs with the most recent
+      'KirokuEventNotifierReconnecting'; the failure counter resets to
+      @0@ on observing this event.
+      -}
+      KirokuEventNotifierReconnected
+    | {- | The 'Kiroku.Store.Subscription.EventPublisher.EventPublisher'
+      read query returned a 'UsageError'. The publisher will retry on
+      the next notification tick or the 30-second safety poll. Sustained
+      emissions indicate either pool exhaustion (the publisher shares
+      the application pool) or a persistent server error.
+      -}
+      KirokuEventPublisherPoolError !UsageError
+    | {- | A subscription's worker thread encountered a 'UsageError' in
+      the database phase identified by 'SubscriptionDbPhase'. The
+      worker continues running with safe defaults (zero checkpoint,
+      empty batch, dropped save) — the event is the operator's only
+      signal that this happened.
+      -}
+      KirokuEventSubscriptionDbError !SubscriptionName !SubscriptionDbPhase !UsageError
+    | {- | A subscription's worker thread has just started; the worker
+      will begin from the recorded 'GlobalPosition' (zero if no
+      checkpoint exists or 'KirokuEventSubscriptionDbError' fired in
+      the @LoadCheckpoint@ phase).
+      -}
+      KirokuEventSubscriptionStarted !SubscriptionName !GlobalPosition
+    | {- | The subscription has reached the EventPublisher's
+      @lastPublished@ position and is switching from catch-up to
+      live mode at the indicated 'GlobalPosition'. Fires at most
+      once per worker run.
+      -}
+      KirokuEventSubscriptionCaughtUp !SubscriptionName !GlobalPosition
+    | {- | The subscription's worker has stopped at the indicated
+      'GlobalPosition'. The 'SubscriptionStopReason' discriminates
+      normal completion (handler returned 'Stop') from cancellation,
+      overflow, and worker-thread crashes.
+      -}
+      KirokuEventSubscriptionStopped !SubscriptionName !GlobalPosition !SubscriptionStopReason
+    | {- | A hard-delete transaction completed successfully. Operators
+      relying on a fail-safe audit log can capture this event;
+      compliance-grade audit should still record an application-level
+      event /before/ calling
+      'Kiroku.Store.Lifecycle.hardDeleteStream' (see
+      @docs\/PRODUCTION-DEPLOYMENT.md@). Not emitted when the named
+      stream did not exist.
+      -}
+      KirokuEventHardDeleteIssued !StreamName !StreamId
+    deriving stock (Show)
+
+-- | Which database phase a 'KirokuEventSubscriptionDbError' fired in.
+data SubscriptionDbPhase
+    = {- | 'Kiroku.Store.Subscription.Worker' failed to read the saved
+      checkpoint at subscription startup. The worker continues with
+      'Kiroku.Store.Types.GlobalPosition' @0@; on a fresh subscription
+      this is correct, on an existing subscription it silently
+      re-processes events.
+      -}
+      LoadCheckpoint
+    | {- | The worker's catch-up or category-live database fetch
+      returned an error. The worker substitutes an empty batch; the
+      catch-up loop interprets this as \"no more events\" and may
+      prematurely switch to live mode at a stale cursor.
+      -}
+      FetchBatch
+    | {- | The worker's @saveCheckpoint@ statement failed. The
+      subscription continues running but the next restart with the
+      same name re-processes events the handler has already seen.
+      -}
+      SaveCheckpoint
+    deriving stock (Eq, Show)
+
+-- | Why a subscription's worker thread stopped.
+data SubscriptionStopReason
+    = {- | The handler returned 'Kiroku.Store.Subscription.Types.Stop'
+      for some event. This is the normal completion path. The
+      checkpoint is saved at the event the handler returned 'Stop'
+      for.
+      -}
+      StopHandlerRequested
+    | {- | The caller invoked 'Kiroku.Store.Subscription.Types.cancel'.
+      No checkpoint advance is guaranteed; events in flight at
+      cancellation time will replay on the next restart.
+      -}
+      StopCancelled
+    | {- | The publisher marked the subscription overflowed under
+      'Kiroku.Store.Subscription.Types.DropSubscription' and the
+      worker surfaced
+      'Kiroku.Store.Subscription.Types.SubscriptionOverflowed'.
+      -}
+      StopOverflowed
+    | {- | The worker thread died from an uncaught exception (typically
+      a handler exception). The 'SomeException' carries the cause.
+      -}
+      StopWorkerCrashed !SomeException
+    deriving stock (Show)
