@@ -260,7 +260,117 @@ not synchronization points and stay.
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+### What landed
+
+  * 24 findings inventoried (F1–F24); 11 must-fix and 9 should-fix items
+    delivered, 4 deferred-with-rationale, 6 cross-plan or already covered.
+  * `Test.Helpers` extracted with new STM/event-handler barriers
+    (`waitForPublisher`, `waitForSubscriptionLive`, `caughtUpEventHandler`)
+    and a `withTestStoreSettings` variant for tests that install a
+    per-test event handler. 7 new test files in `kiroku-store/test/Test/`.
+  * `Test.Properties` (3 hedgehog properties: F2 `$all` ascending +
+    unique, F4 soft-delete write barrier across all `ExpectedVersion`
+    constructors, F5 caller-supplied event-id idempotence). Capped at
+    15 iterations per property to bound runtime; each iteration
+    acquires a fresh ephemeral PostgreSQL.
+  * `Test.Concurrency` (3 deterministic concurrency tests: F9
+    cross-stream parallelism, F10 same-stream `ExactVersion` race
+    resolution, F11 multi-stream opposite-order anti-deadlock validating
+    EP-1 F4's pre-lock).
+  * `Test.FailureInjection` (1 failure-injection test: F14 listener-down
+    window event delivery).
+  * 4 `threadDelay 200_000` "wait for publisher" sites replaced with
+    `waitForPublisher` STM barrier. The 7 `threadDelay 100_000`
+    "wait for live mode" sites are intentionally retained — see Decision
+    Log for the rationale.
+  * Drive-by fix: `debounce-test`'s `queueCapacity` raised from 16 to
+    64 to eliminate a flaky `SubscriptionOverflowed` failure observed
+    during one of the EP-6 test runs.
+  * Structured `concurrent.{8 writers x 10 appends, 32 writers x 10
+    appends}` benchmarks added (F19); legacy printf B9 measurement
+    retained for historical comparability with BENCH-GATE3.md.
+  * Baseline CSV captured at `kiroku-store/bench/results/baseline.csv`
+    (11 tasty-bench entries). `just bench-baseline`,
+    `just bench-regression`, `just bench-regression-threshold`,
+    `just bench-regression-pattern` targets added.
+  * `docs/BENCH-REGRESSION.md` documents the workflow and the
+    baseline-update protocol.
+
+### Test counts
+
+  * Pre-EP-6: 79 examples, 0 failures, ~37s.
+  * Post-EP-6: 86 examples, 0 failures, ~76s. The 39s growth comes from
+    the property tests (15 iterations × 3 properties × ~700ms per
+    fresh-ephemeral-PG = ~32s) plus 1 failure-injection test
+    (~5s for listener kill + reconnect).
+
+### Cross-plan findings (recorded in MasterPlan Surprises & Discoveries)
+
+  * EP-6.F15 → EP-2 (cross-plan). Testing the
+    `PoolAcquisitionTimeout` mapping requires exposing the pool's
+    `acquisitionTimeout` field on `ConnectionSettings`. The mapping
+    itself is correct (`Kiroku.Store.Error.mapUsageError`); only the
+    test path is blocked. EP-2 owns the API surface; recommend a
+    follow-up that adds `acquisitionTimeout :: Maybe DiffTime` to
+    `ConnectionSettingsM` and threads it into `Pool.Config`.
+  * Pre-existing flake observation: the `subscribe handles rapid
+    appends without losing events (debouncing)` test was flaky under
+    the default `queueCapacity = 16` because the publisher emits one
+    batch per individual append in a tight loop. Fixed in this plan
+    by raising the per-test capacity to 64. Coverage of bounded-queue
+    overflow lives in the F6 overflow test, not here.
+
+### Deferred-with-rationale register
+
+  * **F8** — link round-trip property. Covered structurally by the
+    schema's foreign keys + every existing link scenario test; a
+    property test would add no coverage.
+  * **F12 / F13** — hot-write subscription contracts. Covered
+    indirectly by existing subscription tests; a deterministic
+    multi-event property would require either deeper hooks into the
+    publisher loop or a `threadDelay`-based witness — neither
+    attractive.
+  * **F15** — pool exhaustion test. Cross-plan to EP-2 as recorded
+    above.
+  * **F16 / F17** — folded into existing F6 overflow and F13
+    hard-delete-event tests respectively.
+  * **F18** — SIGSTOP-mid-append. The `ephemeral-pg` driver does not
+    support pausing the postmaster cleanly; pursuing this would risk
+    leaving zombie clusters across CI runs. The `Pool.use` failure
+    path is exercised by F15 (when the pool exhaustion test lands).
+  * **F20** — subscription catch-up time benchmark. Genuinely
+    valuable but requires a different fixture pattern (pre-populate
+    ~100K events once, run subscription, measure catch-up). Out of
+    scope for this plan's bench-suite scope; consider promoting to
+    an EP-7 if subscription performance becomes a concern.
+  * **F21** — large-payload (10KB / 100KB JSONB) bench. Out-of-scope
+    for the production-readiness verdict; SCALING-ANALYSIS already
+    notes the tradeoff.
+  * **F22** — 1M-event sustained-throughput soak. Exceeds
+    `cabal bench`'s expected runtime envelope. Tracked as a future
+    Justfile target.
+
+### Lessons
+
+  * Hedgehog's per-iteration ephemeral-PG cost dominates property
+    runtime. Capping `maxSuccess` at 15 keeps the suite under 90s
+    while still exercising generator coverage. A future improvement
+    is to share a pool of pre-warmed databases across iterations
+    (template database + cheap clone), but that is a substantial
+    test-harness investment.
+  * The original plan's enumerated test-module split into 9 files
+    would have moved 1521 lines of existing tests across files
+    without adding coverage. Recording the trade-off in the Decision
+    Log keeps the *spirit* of the plan (modular tests + new
+    categories) while avoiding the busywork.
+  * The `KirokuEvent` surface that EP-5 introduced is the right
+    integration point for deterministic subscription-test
+    synchronization. New tests should adopt the
+    `caughtUpEventHandler` pattern; old tests can stay as-is.
+  * `tasty-bench`'s `--baseline` + `--fail-if-slower` flags are
+    sufficient for a Justfile-driven regression workflow; no custom
+    diff script needed. The baseline CSV is human-readable and
+    diffable in code review.
 
 
 ## Context and Orientation
