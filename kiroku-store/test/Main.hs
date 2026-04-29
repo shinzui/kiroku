@@ -398,6 +398,26 @@ main = hspec $ do
                 Right info <- runStoreIO store $ getStream (StreamName "f3-mixed-tgt")
                 info `shouldBe` Nothing
 
+            -- F5 regression — linkToStream against a soft-deleted target stream.
+            -- Symmetric with the appendAnyVersion soft-delete check from F2: the
+            -- DO UPDATE clause's WHERE filters on deleted_at IS NULL, so the
+            -- upsert returns no row and the interpreter maps that to StreamNotFound.
+            it "rejects link to a soft-deleted target stream" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "f5-src") NoStream [makeEvent "X" (Aeson.object [])]
+                Right srcEvents <- runStoreIO store $ readStreamForward (StreamName "f5-src") (StreamVersion 0) 100
+                let eid = V.head srcEvents ^. #eventId
+                Right _ <- runStoreIO store $ appendToStream (StreamName "f5-target") NoStream [makeEvent "Init" (Aeson.object [])]
+                Right _ <- runStoreIO store $ softDeleteStream (StreamName "f5-target")
+                result <- runStoreIO store $ linkToStream (StreamName "f5-target") [eid]
+                case result of
+                    Left (StreamNotFound _) -> pure ()
+                    other -> expectationFailure ("Expected StreamNotFound for soft-deleted target, got: " <> show other)
+                -- Soft-deleted target's version must not have advanced.
+                Right info <- runStoreIO store $ getStream (StreamName "f5-target")
+                case info of
+                    Just si -> (si ^. #version) `shouldBe` StreamVersion 1
+                    Nothing -> expectationFailure "soft-deleted stream row should still exist"
+
         -- =================================================================
         -- Category read tests (M5.8)
         -- =================================================================

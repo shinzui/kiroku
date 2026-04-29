@@ -107,8 +107,12 @@ runStorePool store = interpret_ $ \case
             Session.statement name SQL.getStreamStmt
     LinkToStream (StreamName name) eventIds -> do
         let uuids = V.fromList [uid | EventId uid <- eventIds]
-        usePool (store ^. #pool) $
-            Session.statement (uuids, name) SQL.linkToStreamStmt
+        result <-
+            usePool (store ^. #pool) $
+                Session.statement (uuids, name) SQL.linkToStreamStmt
+        case result of
+            Nothing -> throwError (StreamNotFound (StreamName name))
+            Just r -> pure r
     ReadCategoryForward (CategoryName cat) (GlobalPosition startPos) limit ->
         usePool (store ^. #pool) $
             Session.statement (startPos, cat, limit) SQL.readCategoryForwardStmt

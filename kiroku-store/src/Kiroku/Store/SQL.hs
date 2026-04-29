@@ -518,8 +518,14 @@ getStreamSQL =
 -- Link Statements
 -- ---------------------------------------------------------------------------
 
--- | Link existing events into a target stream (upsert semantics).
-linkToStreamStmt :: Statement (Vector UUID, Text) LinkResult
+{- | Link existing events into a target stream (upsert semantics).
+Returns @Nothing@ when the target stream exists and is soft-deleted (the
+@DO UPDATE WHERE streams.deleted_at IS NULL@ filter rejects the upsert,
+so the stream_upsert CTE produces no rows). The interpreter maps @Nothing@
+to @StreamNotFound@ for symmetry with @appendAnyVersion@'s soft-deleted
+behavior added in EP-1 F2.
+-}
+linkToStreamStmt :: Statement (Vector UUID, Text) (Maybe LinkResult)
 linkToStreamStmt =
     preparable
         linkToStreamSQL
@@ -531,9 +537,9 @@ linkEncoder =
     (fst >$< E.param (E.nonNullable (E.foldableArray (E.nonNullable E.uuid))))
         <> (snd >$< E.param (E.nonNullable E.text))
 
-linkResultDecoder :: D.Result LinkResult
+linkResultDecoder :: D.Result (Maybe LinkResult)
 linkResultDecoder =
-    D.singleRow $
+    D.rowMaybe $
         LinkResult
             <$> (StreamId <$> D.column (D.nonNullable D.int8))
             <*> (StreamVersion <$> D.column (D.nonNullable D.int8))
@@ -551,6 +557,7 @@ linkToStreamSQL =
         VALUES ($2, (SELECT count(*) FROM event_list))
         ON CONFLICT (stream_name)
         DO UPDATE SET stream_version = streams.stream_version + (SELECT count(*) FROM event_list)
+          WHERE streams.deleted_at IS NULL
         RETURNING stream_id, stream_version - (SELECT count(*) FROM event_list) AS initial_version
       ),
       link_inserts AS (
