@@ -38,7 +38,7 @@ Each child plan begins with an *audit milestone* that produces a findings docume
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
 | EP-1 | Schema, CTE and concurrency correctness audit | docs/plans/1-schema-cte-and-concurrency-correctness-audit.md | None | None | Complete |
-| EP-2 | Public API surface, types and error model audit | docs/plans/2-public-api-surface-types-and-error-model-audit.md | None | EP-1 | Not Started |
+| EP-2 | Public API surface, types and error model audit | docs/plans/2-public-api-surface-types-and-error-model-audit.md | None | EP-1 | In Progress |
 | EP-3 | Subscription system robustness audit | docs/plans/3-subscription-system-robustness-audit.md | None | EP-1, EP-2 | Not Started |
 | EP-4 | Multi-tenancy, security and schema lifecycle audit | docs/plans/4-multi-tenancy-security-and-schema-lifecycle-audit.md | None | EP-1 | Not Started |
 | EP-5 | Operational hardening: observability, failure modes, limits | docs/plans/5-operational-hardening-observability-failure-modes-limits.md | None | EP-1, EP-2, EP-3 | Not Started |
@@ -93,7 +93,7 @@ Track milestone-level progress across all child plans. Each entry names the chil
 
 - [x] EP-1: M1 — Schema, CTE, concurrency audit findings document (2026-04-29; 21 findings: 3 must-fix, 4 should-fix, 14 deferred / cross-plan / no-issue)
 - [x] EP-1: M2 — Landed F1 (hard-delete orphan), F2 (soft-delete TOCTOU), F3 (linkToStream gap), F4 (multi-stream deadlock pre-lock), F5 (link rejects soft-deleted target), F6 (TRUNCATE bypass triggers); deferred F7 to EP-4 Haddock. 66/66 tests pass; reads within 3% of baseline; +12 regression tests. (commits 01c0ee6, e903062, a5754d6, 12a154b, 6d195e8, 8edfbee)
-- [ ] EP-2: M1 — Public API and error model audit findings document
+- [x] EP-2: M1 — Public API and error model audit findings document (2026-04-29; 34 findings F1–F34: 2 must-fix [F1 multi-stream attribution, F25 `withSubscription` bracket], 10 should-fix including a Haddock D-series, 7 deferred-with-rationale, 5 cross-plan to EP-3/EP-4/EP-5, 5 no-issue)
 - [ ] EP-2: M2 — Land API/error-model fixes and document the contract
 - [ ] EP-3: M1 — Subscription robustness audit findings document
 - [ ] EP-3: M2 — Land subscription fixes (Category live-mode filter, lifecycle helpers, etc.)
@@ -154,6 +154,49 @@ will implement; EP-2's planned multi-stream-error-attribution fix and EP-4's pla
 decision both also touch `Effect.hs`. The three plans must coordinate sequencing on that file —
 EP-1 should land first (its fix is mechanical: insert a sorted `SELECT ... FOR UPDATE` pre-pass at
 the top of the multi-stream branch), then EP-2 and EP-4 in either order.
+
+### EP-2 audit (2026-04-29) — cross-plan findings
+
+EP-2 Milestone 1 produced 34 findings (F1–F34, EP-2 numbering — distinct from EP-1's F1–F21).
+Five items are cross-plan and recorded here for traceability. Full details and severity
+classification live in EP-2's Surprises & Discoveries section
+(`docs/plans/2-public-api-surface-types-and-error-model-audit.md`).
+
+  * **EP-2.F14 → EP-4.** `ConnectionSettings.schema` (`Connection.hs:34-35`) is consumed by the
+    Notifier (it builds the LISTEN channel name `<schema>.events`) but ignored by every SQL
+    statement in `SQL.hs` (all references unqualified table names). Multi-tenant isolation is
+    impossible. EP-4 owns the decision to either wire the schema through SQL statements or
+    remove the field. EP-2 will not touch this in M2.
+
+  * **EP-2.F15 → EP-5.** `defaultConnectionSettings` sets `idle_in_transaction_session_timeout`
+    via the pool's `initSession` but does not set `statement_timeout`. A runaway query holds a
+    pool slot indefinitely. EP-5 owns operational tuning of session-level Postgres GUCs.
+
+  * **EP-2.F18 → EP-4 coordination.** `kiroku-store.cabal` lists `Kiroku.Store.Schema` and
+    `Kiroku.Store.Notification` as `exposed-modules` but `Kiroku.Store` does not re-export them.
+    Consumers that want to catch `SchemaInitError` must import `Kiroku.Store.Schema` directly,
+    leaking an internal module name. EP-2 plans to re-export `SchemaInitError` from
+    `Kiroku.Store` in M2; if EP-4's schema-lifecycle work moves the type or replaces it with a
+    multi-tenant equivalent, the two plans must coordinate in `Connection.hs` / `Schema.hs`.
+
+  * **EP-2.F25 → EP-3 coordination.** The missing `withSubscription` bracket
+    (`Subscription.hs`, `Subscription/Effect.hs`) is must-fix and EP-2 will land it in M2. The
+    new helper takes the same `SubscriptionConfig` and returns the same `SubscriptionHandle`,
+    so the surface change is additive. EP-3 (subscription robustness) should adopt the bracket
+    in any tests it writes and is the natural home for the lifecycle-failure semantics
+    (handler crash, worker crash, cancel-while-handling-batch).
+
+  * **EP-2.F27 → EP-3.** `subscriptionStream` returns the cancel action but discards the
+    `wait :: Either SomeException ()` half of the `SubscriptionHandle`. If the underlying
+    worker crashes the Streamly stream hangs on an empty queue with no observable error. EP-3
+    owns subscription robustness; the fix is in `Subscription/Stream.hs` and likely involves
+    threading the `wait`-style observer through the stream's termination signal.
+
+EP-2 explicitly *does not* introduce a new constructor for the F11/F23 idempotent-retry case
+(`ExactVersion` retry collides with `WrongExpectedVersion` instead of `DuplicateEvent`). The
+recovery is the same in both cases (re-read and decide), so a Haddock note on `appendToStream`
+is the right intervention. This decision overrides MasterPlan's earlier "F11 → EP-2 should
+decide whether to distinguish" prompt.
 
 
 ## Decision Log

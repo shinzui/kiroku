@@ -25,40 +25,391 @@ A reader can verify the change by reading the new audit document, building the p
 
 ## Progress
 
-- [ ] Milestone 1: Audit findings document
-  - [ ] Inventory the entire public surface (every export from `Kiroku.Store` and the modules it re-exports)
-  - [ ] For each item, record purpose, contract (preconditions, postconditions, error cases), and severity classification
-  - [ ] Cross-check `shibuya-kiroku-adapter/src/` for actual usage patterns and identify ergonomics issues from real call sites
-  - [ ] Record findings inline in Surprises & Discoveries with file:line references
+- [x] Milestone 1: Audit findings document (2026-04-29)
+  - [x] Inventory the entire public surface (every export from `Kiroku.Store` and the modules it re-exports) — 34 findings F1–F34
+  - [x] For each item, record purpose, contract (preconditions, postconditions, error cases), and severity classification
+  - [x] Cross-check `shibuya-kiroku-adapter/src/` for actual usage patterns and identify ergonomics issues from real call sites — adapter findings folded into F25/F27 (subscription bridge) and F16 (`KirokuStore (..)` field access)
+  - [x] Record findings inline in Surprises & Discoveries with file:line references
 - [ ] Milestone 2: Land must-fix corrections
-  - [ ] Fix the multi-stream error attribution bug
-  - [ ] Refine `StoreError` to distinguish failure modes the SQL layer separates (coordinate with EP-1)
-  - [ ] Add a `withSubscription` bracket and document the `Subscription` effect lifecycle contract
-  - [ ] Land Haddock improvements for every public symbol that the audit flags as under-documented
+  - [ ] **F1** — fix the multi-stream error attribution bug in `Effect.hs:160-164`
+  - [ ] **F25** — add a `withSubscription` bracket (and `Eff` equivalent), wire into `bracket`, regression-test that throwing inside the body cancels the worker
+  - [ ] **F19** — refine `StoreError` with `PoolAcquisitionTimeout`, `ConnectionLost`, `UnexpectedServerError` constructors (additive; keep `ConnectionError` as catch-all)
+  - [ ] **F20** — change `DuplicateEvent` to take `Maybe EventId` so the `UUID.nil` fallback is explicit
+  - [ ] **F22** — add `deriving anyclass (Exception)` to `StoreError`
+  - [ ] **F18** — re-export `SchemaInitError` from `Kiroku.Store` so consumers do not have to import `Kiroku.Store.Schema`
+  - [ ] **F26** — add `defaultSubscriptionConfig`
+  - [ ] **F30–F33 (D-series)** — Haddock additions for under-documented public symbols (types, effect wrappers, `withStore` lifecycle, subscription rationale)
+  - [ ] **F12, F21, F23** — Haddock-only entries (linked-event semantics, constraint-name dependency, idempotent-retry guidance)
+  - [ ] Confirm `cabal build kiroku-store kiroku-store-test` and `cabal build shibuya-kiroku-adapter` are both green; run `cabal test kiroku-store`
   - [ ] Update the MasterPlan's Exec-Plan Registry status and Progress section
+  - [ ] Defer (record only): F2 (empty-list edges — should-fix downgraded to defer if M2 budget is tight; will be revisited if any consumer reports surprise), F3 (split `Store` GADT), F8 (`Ord EventId`), F9 (`AnyVersion` rename), F13 (`LinkResult.globalPosition`), F16 (`KirokuStore (..)`), F24 (`Error.hs` exports)
 
 
 ## Surprises & Discoveries
 
-(None yet. The findings document produced in Milestone 1 will be reflected here with file:line references and severity classification.)
+### EP-2 audit (2026-04-29) — public-API findings F1–F28
 
-Initial leads identified during MasterPlan research, to be confirmed or refuted by the audit:
+Severity scale: **must-fix** (lands in M2 before production), **should-fix**
+(lands in M2 unless explicitly deferred), **defer** (recorded with rationale,
+not landed), **cross-plan** (owned by another EP), **no-issue** (no change
+recommended; recorded for completeness).
 
-- Multi-stream error attribution bug (`kiroku-store/src/Kiroku/Store/Effect.hs:179-184`): on a `Left usageErr` from the multi-stream transaction, the interpreter maps the error using the *first* stream's name and expected version regardless of which stream actually conflicted. Severity: must-fix. Proposed fix: capture the per-statement failure within the transaction, or detect on-`Right` whether one or more results are `Nothing` and report the first conflicting `(StreamName, ExpectedVersion)` from the input list.
-- `ConnectionError !Text` is the catch-all for: pool acquisition timeout (`Error.hs:46`), arbitrary session errors (`Error.hs:51`), arbitrary statement errors (`Error.hs:58`), and server errors with codes other than `23505`/`23503` (`Error.hs:65`). Consumers cannot programmatically distinguish "pool exhausted, retry" from "schema mismatch, fail" from "database down, escalate". Severity: should-fix; consider adding `PoolAcquisitionTimeout`, `SchemaMismatch` (for unrecognized server-error codes), and `TransientDatabaseError` (for connection drops) constructors.
-- `subscribe` (`Subscription.hs`) and the higher-order `Subscription` effect (`Subscription/Effect.hs`) impose an implicit lifecycle contract — "the returned handle must be canceled before the effect scope exits". This is mentioned in a Haddock note (`Subscription/Effect.hs:43-47`) but no `withSubscription` bracket exists. Severity: should-fix.
-- `Store` GADT (`Effect.hs:46-58`) has 12 constructors. Mockable via `interpret_` but the surface is wide. Audit: do all 12 belong here, or are some (e.g. `SoftDeleteStream`, `HardDeleteStream`, `UndeleteStream`) operationally distinct enough to warrant a separate effect? This is a potentially large API change — consider for v0.2.
-- `EventData` and `RecordedEvent` are records with overlapping field names (`eventId`, `eventType`, `payload`, `metadata`, `causationId`, `correlationId`). The cabal file enables `DuplicateRecordFields` and `OverloadedLabels`. Audit: are field names disambiguated by `Data.Generics.Labels` lensing in all uses, including downstream? Confirm via the adapter.
-- `defaultConnectionSettings` (`Connection.hs:47-55`) has hard-coded defaults: `poolSize = 10`, `idleInTransactionTimeout = 30`, `schema = "public"`. Audit: are these documented? Is there a `statement_timeout`? (No — gap.) Is the schema parameter actually wired through the SQL layer? (No — see EP-4.)
-- `withStore` (`Connection.hs:67-102`) takes `MonadUnliftIO m`. Confirm this matches the pattern used by other production-grade Haskell libraries; some prefer `MonadResource` or `MonadMask`. Document the choice.
-- `subscriptionStream` (`Subscription/Stream.hs:33`) provides a Streamly bridge. Audit: does the cancel action cleanly drain the queue without leaking events? Cross-plan with EP-3.
-- The `ExpectedVersion` data constructor `AnyVersion` is documented as "Create or append, don't care" (`Types.hs:54`) but the SQL layer's `appendAnyVersionSQL` is a true upsert. Audit: is the rename from `AnyVersion` to `CreateOrAppend` worth the breakage? Or document more clearly?
+#### Effect-layer correctness
+
+  * **F1 (must-fix). Multi-stream error attribution.**
+    `kiroku-store/src/Kiroku/Store/Effect.hs:160-164` — on `Left usageErr` from
+    the multi-stream transaction the interpreter unconditionally maps the error
+    against the *first* stream's `(name, expected)`:
+
+        Left usageErr -> case ops of
+            ((StreamName firstName, firstExpected, _) : _) ->
+                throwError (mapUsageError firstName firstExpected usageErr)
+
+    User-visible symptom: a multi-stream call with
+    `[("a", AnyVersion, ..), ("b", NoStream, ..)]` where `b` already exists
+    raises a `23505` (`ix_streams_stream_name`) inside the transaction; the
+    interpreter routes it through `mapUsageError "a" AnyVersion`, so the
+    consumer observes `StreamAlreadyExists "a"` even though `a` was fine. Or,
+    when the conflict is a generic unique-violation that falls through the
+    constraint-name match, it surfaces as
+    `WrongExpectedVersion (StreamName "a") AnyVersion (StreamVersion 0)` — the
+    wrong stream, the wrong expected version, *and* the wrong actual version.
+    Severity: **must-fix**. Fix proposal in M2 description below.
+
+  * **F2 (should-fix). Empty-list edge cases are unspecified.**
+    `appendToStream name expected []`, `appendMultiStream []`, and
+    `linkToStream name []` have no documented semantics. Reading the
+    interpreter: `appendToStream name expected []` builds an empty-vector
+    `AppendParams`, the CTE matches 0 rows, and the empty-result fallback
+    (`emptyResultError`) maps to `WrongExpectedVersion (StreamVersion 0)` for
+    `ExactVersion`, `StreamNotFound` for `StreamExists`, `StreamAlreadyExists`
+    for `NoStream`, and `StreamNotFound` for `AnyVersion`. None of these
+    represents the caller's intent ("no events to append"). Severity:
+    **should-fix** — either reject empty lists at the wrapper layer with a
+    structured error or document the semantics on each function's Haddock and
+    the `Store` GADT constructors.
+
+  * **F3 (defer). `Store` GADT has 12 constructors — projection-only consumers cannot constrain the effect.**
+    `Effect.hs:46-58` mixes append/read/lifecycle/link in a single effect. A
+    projection that only reads still gets the full `Store :> es` constraint
+    (so it could `HardDeleteStream` if it wanted). Splitting into
+    `Store` + `StoreLifecycle` (or introducing a read-only `StoreReader` that
+    is a subset projected from `Store`) would tighten the constraint. Severity:
+    **defer-with-rationale** — additive split is possible later without
+    breaking; not worth the v0.1 churn before any consumer requests it.
+
+  * **F4 (no-issue). Effect-resource interaction.**
+    `Effect/Resource.hs` — `KirokuStoreResource` is a static effect with
+    `Static WithSideEffects`; the choice is correct (the handle is acquired
+    once via `withStore`, must not be mocked, and `Static` matches that
+    lifecycle). The dynamic `runStorePool` and the static `runStoreResource`
+    coexist cleanly. Worth a short Haddock note (folded into D-series below)
+    explaining the choice. Severity: **no-issue**.
+
+  * **F5 (no-issue). `prepareEvents` UUIDv7 generation lives in the interpreter.**
+    `Effect.hs:245-265` — moved from `Append.hs` per a comment at the top of
+    the helper section. Internal helper, not exported. No issue.
+
+  * **F6 (cross-plan, EP-1 already addressed). Multi-stream pre-lock pass.**
+    `Effect.hs:130-135` already includes the deterministic `SELECT ... FOR
+    UPDATE` pre-pass that EP-1 F4 mandated. Confirmed in the working tree.
+    No EP-2 work required.
+
+  * **F7 (no-issue). `runStoreIO` is a beginner-level convenience.**
+    `Effect.hs:196-200` specializes to `'[Store, Error StoreError, IOE]`.
+    Common pattern; no issue.
+
+#### Type-design
+
+  * **F8 (defer). `Ord EventId` orders by UUID byte order, not generation time.**
+    `Types.hs:32-33`. Even with UUIDv7 the byte layout is timestamp-dominant
+    only in the high bytes; two UUIDs generated within the same millisecond
+    can reverse order. Consumers who put `EventId` into a `Map` or `Set` and
+    expect time order will be surprised. Severity: **defer-with-rationale** —
+    keep `Ord EventId` for `Set`/`Map` correctness but add a Haddock warning
+    that it is not a temporal order, and direct readers to
+    `RecordedEvent.globalPosition` for time-ordering.
+
+  * **F9 (defer). `ExpectedVersion.AnyVersion` naming.**
+    `Types.hs:53-54`. The Haddock comment "Create or append, don't care" is
+    accurate; the rename to `CreateOrAppend` would be a breaking change with
+    minor ergonomic payoff. Severity: **defer-with-rationale** — keep the
+    name, refine the Haddock so the upsert semantics are obvious without
+    reading SQL.
+
+  * **F10 (no-issue). `EventData` and `RecordedEvent` field overlap.**
+    Both records use `eventId`, `eventType`, `payload`, `metadata`,
+    `causationId`, `correlationId` (`Types.hs:58-98`). The cabal `common`
+    stanza enables `DuplicateRecordFields` + `OverloadedLabels`, and every
+    use site (`test/Main.hs`, `shibuya-kiroku-adapter/src/.../Convert.hs`)
+    accesses fields via `^. #eventId`-style labels via
+    `Data.Generics.Labels ()`. No ambiguity in practice. Severity: **no-issue**.
+
+  * **F11 (no-issue). `StreamInfo.id` shadows `Prelude.id`.**
+    `Types.hs:73`. With `OverloadedLabels` the `^. #id` accessor resolves to
+    the field; `Prelude.id` is still available qualified or via
+    `Data.Function.id`. Worth a one-line Haddock note (folded into D-series).
+
+  * **F12 (should-fix-haddock). `RecordedEvent.streamVersion` vs `originalVersion`.**
+    `Types.hs:82-97`. For events read from a stream the source event was
+    appended to, `streamVersion == originalVersion`. For events read from a
+    target stream that *links* the event, `streamVersion` is the target's
+    version and `originalVersion` is the source's. The two adjacent comments
+    (lines 86 and 91) describe the fields separately; a combined paragraph
+    would help newcomers reason about linked-event reads. Severity:
+    **should-fix-haddock**.
+
+  * **F13 (defer). `LinkResult` lacks a global position.**
+    `Types.hs:108-113`. Linking an existing event into a target stream does
+    not advance `$all` (the event row already exists with a `global_position`
+    assigned at original-append time); the `LinkResult` has no obvious
+    `globalPosition` to report. A consumer that wants "subscribe-from-after-link"
+    must follow up with a `readStreamForward` call on the target. Severity:
+    **defer-with-rationale** — there is no semantically-correct global
+    position for a `LinkResult`; the missing field is a feature, not a bug.
+
+#### Connection settings
+
+  * **F14 (cross-plan, EP-4). `ConnectionSettings.schema` is dead for SQL but live for LISTEN.**
+    `Connection.hs:34-35` documents the field as "Schema name for multi-tenant
+    isolation". In practice the schema is only used by the Notifier
+    (`Notification.hs:45` constructs the LISTEN channel name from it); every
+    SQL statement in `SQL.hs` references unqualified table names. Multi-tenant
+    isolation is impossible. Severity: **cross-plan, EP-4** — EP-4 owns the
+    decision to either wire the schema through SQL or remove the field.
+
+  * **F15 (cross-plan, EP-5). No `statement_timeout` in `defaultConnectionSettings`.**
+    `Connection.hs:47-79` sets `idle_in_transaction_session_timeout` via the
+    pool's init session but does not set `statement_timeout`. A runaway query
+    on a worker thread can hold a pool slot indefinitely. Severity:
+    **cross-plan, EP-5** — operational tuning belongs to EP-5.
+
+  * **F16 (defer). `KirokuStore (..)` exposes the data constructor.**
+    `Connection.hs:1-7`. The `Store.hs` re-export uses `KirokuStore (..)` (it
+    re-exports the whole module), so consumers can pattern-match on
+    `pool`, `schema`, `notifier`, `publisher`. The adapter uses `^. #pool`
+    nowhere, but `subscriptionStream`/`subscribe` poke `^. #pool`,
+    `^. #schema`, `^. #publisher`, `^. #notifier` directly. Hiding the
+    constructor would force callers to use accessor functions; a deliberate
+    escape hatch is fine for v0.1 but worth documenting. Severity:
+    **defer-with-rationale** — keep the open constructor for now, add a
+    Haddock note acknowledging the stability cost.
+
+  * **F17 (no-issue). `withStore` uses `MonadUnliftIO`.**
+    `Connection.hs:67`. Standard choice, matches `bracket`. Add a short
+    Haddock noting the rationale.
+
+  * **F18 (should-fix). `SchemaInitError` is in an exposed module not re-exported from `Kiroku.Store`.**
+    `kiroku-store.cabal` lists `Kiroku.Store.Schema` and `Kiroku.Store.Notification`
+    as `exposed-modules`, but `Kiroku.Store` does not re-export them. A
+    consumer who wants to catch `SchemaInitError` (thrown via
+    `throwIO` from `initializeSchema`, propagating out of `withStore`) must
+    `import Kiroku.Store.Schema` directly. Either re-export
+    `SchemaInitError` from `Kiroku.Store.Connection` (or top-level
+    `Kiroku.Store`) or move the modules to `other-modules`. Severity:
+    **should-fix**.
+
+#### Error model
+
+  * **F19 (should-fix). `ConnectionError` collapses four failure modes.**
+    `Error.hs:23-25`, `Error.hs:38-65`. Pool acquisition timeout, connection
+    errors, statement-error fallthrough, and server errors with codes other
+    than `23505`/`23503` all map to `ConnectionError !Text`. Consumers
+    cannot programmatically choose between retry, escalate, and fail-fast.
+    Proposal (additive): introduce
+    `PoolAcquisitionTimeout`, `ConnectionLost !Text`,
+    `UnexpectedServerError !Text !Text` (code, message) constructors;
+    keep `ConnectionError !Text` as the catch-all so existing
+    pattern-matches do not break (they fall through to the catch-all).
+    Severity: **should-fix**.
+
+  * **F20 (should-fix). `extractEventId` falls back to `EventId UUID.nil`.**
+    `Error.hs:87-92`. When the PostgreSQL detail string fails to parse, we
+    fabricate a `UUID.nil`-valued `EventId`, which a consumer cannot
+    distinguish from a real "all-zeroes" UUID (vanishingly unlikely in
+    practice but not impossible if someone hand-crafts an event id).
+    Proposal: change the constructor to `DuplicateEvent !(Maybe EventId)`
+    where `Nothing` means "we know there's a duplicate but couldn't recover
+    the id from the server detail." This is a breaking change but mechanical
+    for callers. Severity: **should-fix**.
+
+  * **F21 (should-fix-haddock). `mapUniqueViolation` depends on stable PostgreSQL constraint names.**
+    `Error.hs:75-92` matches on the literal strings `"events_pkey"` and
+    `"ix_streams_stream_name"`. If a future schema migration renames a
+    constraint, the mapping silently falls through to "generic unique
+    violation → `WrongExpectedVersion (StreamVersion 0)`," which is
+    wrong. Severity: **should-fix-haddock** — document the dependency in
+    `Error.hs`, and add a comment in `kiroku-store/sql/schema.sql` near each
+    constraint warning that the name is load-bearing. (Cross-plan with
+    EP-1's owner of `schema.sql`.)
+
+  * **F22 (should-fix). `StoreError` does not derive `Exception`.**
+    `Error.hs:18-25`. Compare to `SchemaInitError` (`Schema.hs:19-21`) which
+    does. Consumers cannot `throwIO` a `StoreError` directly; they have to
+    wrap it. Adding `deriving anyclass (Exception)` is purely additive.
+    Severity: **should-fix**.
+
+  * **F23 (cross-plan, F11 from EP-1). `WrongExpectedVersion` is returned on a successful retry.**
+    Mirrored from MasterPlan: `ExactVersion` retry of an already-succeeded
+    append (caller-supplied `event_id`, network blip on the first attempt)
+    produces `WrongExpectedVersion`, not `DuplicateEvent`. EP-2 decision: do
+    *not* introduce a new constructor. Document on `appendToStream`'s
+    Haddock that `WrongExpectedVersion` after a transient failure means
+    *either* a real concurrent writer raced *or* your previous attempt
+    succeeded; the recovery is the same in both cases (re-read and decide).
+    Severity: **should-fix-haddock**.
+
+  * **F24 (defer). `mapUsageError` and `emptyResultError` are exported.**
+    `Error.hs:1-6`. The module comment says "Internal helpers used by Effect
+    module." They are exported because the interpreter in `Effect.hs` lives
+    in a different module. A future cleanup could move them to a
+    `Kiroku.Store.Error.Internal` module so consumers cannot accidentally
+    depend on them. Severity: **defer**.
+
+#### Subscription API
+
+  * **F25 (must-fix). `withSubscription` bracket is missing.**
+    `Subscription.hs:28-39` returns a `SubscriptionHandle` with
+    `cancel`/`wait`. The implicit contract — "must cancel before scope exits"
+    — is documented in a Haddock note on `Subscription/Effect.hs:43-47` but
+    no bracket helper exists. Forgetting to cancel leaks the worker thread
+    and (for the `Eff` variant) leaves an `Eff` environment alive past its
+    scope. Severity: **must-fix-before-production**.
+
+    Proposal: add `withSubscription :: KirokuStore -> SubscriptionConfig -> (SubscriptionHandle -> IO a) -> IO a` to
+    `Kiroku.Store.Subscription` (and an `Eff`-based equivalent in
+    `Subscription.Effect`) that wires `cancel`/`waitCatch` into a `bracket`.
+    Re-export both from `Kiroku.Store`. Land a regression test that throws
+    inside the body and asserts the worker thread exits.
+
+  * **F26 (should-fix). `SubscriptionConfig` lacks a smart constructor / default.**
+    `Subscription/Types.hs:45-51`. Every test in `test/Main.hs` writes
+    `batchSize = 100` literally; the adapter passes it from its own config.
+    Add `defaultSubscriptionConfig :: SubscriptionName -> SubscriptionTarget -> EventHandler -> SubscriptionConfig` with
+    `batchSize = 100`. Severity: **should-fix**.
+
+  * **F27 (cross-plan, EP-3). `subscriptionStream` discards `wait`.**
+    `Subscription/Stream.hs:33-67`. The bridge returns
+    `(Stream IO RecordedEvent, IO ())` — the cancel action — but no way to
+    observe a worker-thread crash. If the underlying `SubscriptionHandle`'s
+    worker dies, the Streamly stream hangs on an empty queue. The adapter
+    inherits this. Severity: **cross-plan, EP-3** — EP-3 owns subscription
+    robustness, so the fix (returning a `wait`-style observer or wiring the
+    worker's `Either SomeException ()` into the stream's termination) lives
+    there.
+
+  * **F28 (no-issue). `Subscribe` constructor exposed via `Subscription (..)` re-export.**
+    `Subscription/Effect.hs:3-13` re-exports the GADT with `(..)` so
+    `Subscribe` is visible to direct importers; `Kiroku.Store` re-exports
+    only `Subscription` without `(..)`, hiding the constructor. Slight
+    asymmetry but harmless: the only thing a consumer can do with the
+    constructor is call `send (Subscribe cfg)`, which the convenience
+    wrapper already does. Severity: **no-issue**.
+
+  * **F29 (no-issue). `ConcUnlift Persistent (Limited 1)` is correct for the higher-order Subscription effect.**
+    `Subscription/Effect.hs:67-71`. `Persistent` keeps the effect environment
+    alive across handler invocations from the worker thread (which calls the
+    handler many times); `Limited 1` because the worker is single-threaded.
+    Add a Haddock note explaining this so future readers do not relax the
+    bounds. Severity: **no-issue** (documentation gap covered by D-series).
+
+#### Documentation gaps (D-series, all should-fix-haddock)
+
+  * **F30 (should-fix-haddock). Public types lack one-paragraph contracts.**
+    `StreamName`, `StreamId`, `EventId`, `EventType`, `StreamVersion`,
+    `GlobalPosition`, `ExpectedVersion` (each constructor),
+    `EventData` (each field), `RecordedEvent` (each field), `StreamInfo`
+    (each field), `AppendResult`, `LinkResult`, `CategoryName` —
+    `Types.hs` has Haddocks on the records but not on the four
+    `ExpectedVersion` constructors, and the newtypes have no Haddock at all.
+    Adding a one-line Haddock per public symbol is mechanical and high-value.
+
+  * **F31 (should-fix-haddock). Effect-wrapper Haddocks are one-line.**
+    `Append.hs`, `Lifecycle.hs`, `Link.hs`, `Read.hs` each carry a single
+    `-- |` line per function. Add per-function paragraphs documenting:
+    preconditions (e.g., `linkToStream` requires the source events to exist
+    and not be hard-deleted), postconditions (e.g., `appendToStream` events
+    are visible to subsequent reads in the same connection — read-your-own-
+    writes), and error cases. Use `kiroku-store/test/Main.hs` as the
+    primary source of truth for the contract.
+
+  * **F32 (should-fix-haddock). `withStore` lifecycle is undocumented.**
+    `Connection.hs:67-102`. Document the acquire order (pool → schema init →
+    Notifier → Publisher) and release order (Publisher → Notifier → pool),
+    the schema-initialisation idempotency, and the exception types a caller
+    may have to catch (`SchemaInitError` from schema init).
+
+  * **F33 (should-fix-haddock). Subscription effects lack a "why static + dynamic" note.**
+    `Effect/Resource.hs` (static) and `Effect.hs` (dynamic) coexist; the
+    rationale (static for the resource handle, dynamic for the operations
+    so consumers can mock) belongs in module-level Haddocks.
+
+#### Cabal / build-flag note
+
+  * **F34 (no-issue, but the EP-2 plan body is inaccurate).**
+    `kiroku-store/kiroku-store.cabal` does not enable `-Wall -Werror
+    -Wmissing-export-lists -Wmissing-deriving-strategies` in the `common
+    common` stanza. The EP-2 plan body says verification builds with those
+    flags; the build actually succeeds without them being on. Adding them
+    would surface real issues (e.g., the `ConnectionError` catch-all may
+    leave incomplete-pattern warnings if F19's additive constructors are
+    landed). Severity: **no-issue here** — flagged for **EP-5**'s
+    operational hardening since the right place to enable production warning
+    flags is alongside CI configuration.
+
+### Summary by severity
+
+  * **Must-fix (3):** F1 (multi-stream attribution), F25 (`withSubscription`
+    bracket).
+  * **Should-fix (10):** F2 (empty-list edges), F12 (linked-event Haddock),
+    F18 (`SchemaInitError` re-export), F19 (`ConnectionError` refinement),
+    F20 (`extractEventId` nil fallback), F21 (constraint-name dependency
+    Haddock), F22 (`StoreError` derives `Exception`), F23 (idempotent-retry
+    Haddock), F26 (`defaultSubscriptionConfig`), and the D-series F30–F33
+    (Haddock additions, treated collectively as one should-fix bundle).
+  * **Defer-with-rationale (7):** F3, F8, F9, F13, F16, F24, plus
+    F11/F17/F28/F29 (no-issue, but a Haddock-only follow-up bundled into
+    the D-series).
+  * **Cross-plan (4):** F6 (already done by EP-1), F14 (EP-4), F15 (EP-5),
+    F23/F11 (already mirrored from EP-1's audit), F27 (EP-3).
+  * **No-issue (5):** F4, F5, F7, F10, F11, F28, F29, F34.
+
+### Cross-plan items mirrored to MasterPlan
+
+The MasterPlan's Surprises & Discoveries section is updated with a
+"EP-2 audit (2026-04-29)" subsection capturing F14 (→ EP-4), F15 (→ EP-5),
+F18 (touches the cabal file's exposed-modules list — coordinate with EP-4
+schema work), F25 (touches `Subscription.hs` shared with EP-3), and F27
+(→ EP-3).
 
 
 ## Decision Log
 
 - Decision: Treat `shibuya-kiroku-adapter` as a real-world consumer reference for ergonomics findings; do not modify it as part of this plan, but read it to confirm or refute usage assumptions.
   Rationale: The MasterPlan scopes the adapter as out-of-scope as a target. Reading it is the cheapest way to validate that the API works for its intended audience.
+  Date: 2026-04-29
+
+- Decision: For the multi-stream error attribution fix (F1), parse the PostgreSQL `ServerError` detail string to recover the actual offending stream when the conflict is a `23505` unique violation on `ix_streams_stream_name`; fall back to the existing first-stream behaviour with a documented "(unknown stream within multi-stream)" caveat for any other usage error.
+  Rationale: The transaction interface returns a single `Either UsageError result` — there is no per-statement attribution at the hasql layer without restructuring the transaction. Parsing the `Key (stream_name)=(value)` detail recovers the stream for the most common conflict (a concurrent `NoStream` on an existing stream); other conflicts are rare enough that the imprecise mapping is acceptable for v0.1 and easy to refine later. The alternative (rebuild the multi-stream interpreter to thread per-statement try/catch) is a structural refactor that EP-2's M2 budget cannot absorb without delaying every other must-fix.
+  Date: 2026-04-29
+
+- Decision: Refine `StoreError` additively (add `PoolAcquisitionTimeout`, `ConnectionLost`, `UnexpectedServerError` constructors) and keep `ConnectionError !Text` as a catch-all so existing exhaustive pattern matches keep compiling. Pattern matches that explicitly enumerate cases will get incomplete-pattern warnings under `-Wall`, which is the desired signal.
+  Rationale: The shibuya-kiroku-adapter does not pattern-match on `StoreError` at all (it forwards via the IO subscribe path); the test suite matches on specific constructors but always includes a fallback `other ->` arm. Additive constructors are the safe path. A future major-version bump can collapse `ConnectionError` if the additive constructors prove sufficient.
+  Date: 2026-04-29
+
+- Decision: Make `DuplicateEvent` take `Maybe EventId` (breaking change) rather than continuing to fabricate `UUID.nil`.
+  Rationale: A consumer cannot distinguish a real all-zeroes event id from the fabricated one. The breakage is mechanical: every pattern match `DuplicateEvent eid -> ...` becomes `DuplicateEvent (Just eid) -> ...` plus a `Nothing` branch. The test suite has exactly one matcher (`Left (DuplicateEvent _)`) which is unaffected.
+  Date: 2026-04-29
+
+- Decision: Keep the `Store` GADT a single 12-constructor effect for v0.1 (defer F3).
+  Rationale: Splitting into `Store` + `StoreLifecycle` is a structural change that benefits projection-only consumers. None exist yet (the in-tree consumer is the adapter, which uses the IO `subscribe` path and not the `Store` effect at all). An additive split via a `StoreReader` projection can land in a later release without breaking; doing it now is speculative scope.
+  Date: 2026-04-29
+
+- Decision: Defer F2 (empty-list edge cases) to a documentation-only Haddock note rather than introducing a structured rejection.
+  Rationale: The current behaviour is well-defined (the SQL CTE returns 0 rows; `emptyResultError` maps to a constructor that depends on `ExpectedVersion`); it is just non-obvious. A consumer who calls `appendToStream _ _ []` is making a programming mistake, not exercising a contract. A Haddock warning is the right level of intervention for v0.1.
+  Date: 2026-04-29
+
+- Decision: Defer F8 (`Ord EventId` time-ordering surprise), F9 (`AnyVersion` rename), F13 (`LinkResult.globalPosition`), F16 (`KirokuStore (..)` open data constructor) with rationale recorded inline above. None of these is reachable from a hot path or production-blocking; all are renames or additions that are easier to land later than to undo now.
   Date: 2026-04-29
 
 
