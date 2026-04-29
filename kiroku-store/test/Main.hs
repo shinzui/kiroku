@@ -2,6 +2,7 @@ module Main where
 
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async qualified as Async
+import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM (atomically, newTVarIO, readTVar, writeTVar)
 import Control.Exception (SomeException)
 import Control.Exception qualified
@@ -836,6 +837,66 @@ main = hspec $ do
                 collected <- readIORef ref2
                 -- Should receive events 6–10 only
                 length collected `shouldBe` 5
+
+            -- F18 regression — Category subscriptions in live mode previously
+            -- received unfiltered events from $all because `filterEvents` was
+            -- a no-op for Category. The fix routes Category live-mode through
+            -- a DB-driven loop that re-uses the SQL category filter. Before
+            -- the fix, the handler would observe the UserNoise event below.
+            it "delivers only category-matching events during live mode (F18)" $ \store -> do
+                seedSeen <- newEmptyMVar
+                ref <- newIORef ([] :: [RecordedEvent])
+                countRef <- newTVarIO (0 :: Int)
+                let handler' evt = do
+                        modifyIORef' ref (evt :)
+                        n <- atomically $ do
+                            c <- readTVar countRef
+                            let c' = c + 1
+                            writeTVar countRef c'
+                            pure c'
+                        -- After the catch-up seed event, signal that we are
+                        -- entering live mode. Subsequent appends exercise
+                        -- the live path under the new DB-driven loop.
+                        if n == 1
+                            then putMVar seedSeen ()
+                            else pure ()
+                        if n >= 3 then pure Stop else pure Continue
+                -- Pre-seed an order event so catch-up fires the handler once.
+                Right _ <-
+                    runStoreIO store $
+                        appendToStream
+                            (StreamName "order-seed")
+                            NoStream
+                            [makeEvent "OrderSeed" (Aeson.object [])]
+                let cfg =
+                        SubscriptionConfig
+                            { name = SubscriptionName "f18-live-test"
+                            , target = Category (CategoryName "order")
+                            , handler = handler'
+                            , batchSize = 100
+                            }
+                handle <- subscribe store cfg
+                -- Block until catch-up has delivered the seed event — the
+                -- worker has finished catch-up and is about to enter live
+                -- mode.
+                takeMVar seedSeen
+                -- Append a non-matching user event followed by two matching
+                -- order events. Under the bug, UserNoise would slip through
+                -- the live broadcast unfiltered.
+                Right _ <- runStoreIO store $ appendToStream (StreamName "user-1") NoStream [makeEvent "UserNoise" (Aeson.object [])]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "order-2") NoStream [makeEvent "OrderTwo" (Aeson.object [])]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "order-3") NoStream [makeEvent "OrderThree" (Aeson.object [])]
+                result <- waitWithTimeout 10_000_000 handle
+                case result of
+                    Left timeout -> expectationFailure timeout
+                    Right (Left err) -> expectationFailure ("Subscription failed: " <> show err)
+                    Right (Right ()) -> pure ()
+                collected <- readIORef ref
+                length collected `shouldBe` 3
+                -- No UserNoise event should have been delivered.
+                mapM_
+                    (\e -> (e ^. #eventType) `shouldNotBe` EventType "UserNoise")
+                    collected
 
             it "delivers only category-matching events during catch-up" $ \store -> do
                 Right _ <- runStoreIO store $ appendToStream (StreamName "order-1") NoStream [makeEvent "OrderCreated" (Aeson.object [])]

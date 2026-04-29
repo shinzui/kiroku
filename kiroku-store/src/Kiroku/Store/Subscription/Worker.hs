@@ -2,7 +2,7 @@ module Kiroku.Store.Subscription.Worker (
     runWorker,
 ) where
 
-import Control.Concurrent.STM (TChan, TVar, atomically, readTChan, readTVar)
+import Control.Concurrent.STM (TChan, TVar, atomically, check, readTChan, readTVar)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Int (Int64)
 import Data.Text (Text)
@@ -37,7 +37,20 @@ runWorker pool schema liveChan pubPosVar config = liftIO $ do
     result <- catchUp pool schema config checkpoint pubPosVar
     case result of
         Nothing -> pure () -- Handler said Stop during catch-up; exit
-        Just finalPos -> liveLoop pool liveChan config finalPos
+        Just finalPos ->
+            -- Phase 2: live. Two strategies depending on target:
+            --   * AllStreams: read pre-broadcast events from `liveChan`.
+            --     The publisher already broadcasts every appended event.
+            --   * Category:  bypass the broadcast and re-query the database
+            --     with `readCategoryForwardStmt` whenever `lastPublished`
+            --     advances. The broadcast carries unfiltered $all events;
+            --     filtering them in-process would require a stream-id ->
+            --     category map and a cache invalidation story (EP-3 F18
+            --     Decision Log). The DB-driven loop reuses the catch-up
+            --     query and avoids both.
+            case target config of
+                AllStreams -> liveLoop pool liveChan config finalPos
+                Category{} -> liveLoopCategoryDriven pool schema config pubPosVar finalPos
 
 -- Load the checkpoint from the database, defaulting to 0.
 loadCheckpoint :: Pool -> SubscriptionName -> IO GlobalPosition
@@ -74,7 +87,7 @@ catchUp pool schema config startPos pubPosVar = go startPos
                             Nothing -> pure Nothing -- handler said Stop
                             Just newPos -> go newPos
 
--- Phase 2: live. Reads from the TChan pushed by the EventPublisher.
+-- Phase 2: live (AllStreams). Reads from the TChan pushed by the EventPublisher.
 liveLoop ::
     Pool ->
     TChan (Vector RecordedEvent) ->
@@ -85,11 +98,38 @@ liveLoop pool liveChan config startPos = go startPos
   where
     go _cursor = do
         events <- atomically (readTChan liveChan)
-        let filtered = filterEvents config events
-        if V.null filtered
+        if V.null events
             then go _cursor
             else do
-                result <- processEvents pool config filtered
+                result <- processEvents pool config events
+                case result of
+                    Nothing -> pure () -- handler said Stop
+                    Just newPos -> go newPos
+
+-- Phase 2: live (Category). Bypasses the broadcast and re-queries the database
+-- whenever `lastPublished` advances. This guarantees correct category filtering
+-- (the SQL `readCategoryForwardStmt` filters at source) at the cost of one DB
+-- round-trip per publisher tick. See EP-3 F18 Decision Log for the rationale
+-- versus extending RecordedEvent or maintaining an in-process category cache.
+liveLoopCategoryDriven ::
+    Pool ->
+    Text ->
+    SubscriptionConfig ->
+    TVar GlobalPosition ->
+    GlobalPosition ->
+    IO ()
+liveLoopCategoryDriven pool schema config pubPosVar startPos = go startPos
+  where
+    go cursor = do
+        -- Wait until the publisher has advanced past our cursor.
+        atomically $ do
+            pubPos <- readTVar pubPosVar
+            check (pubPos > cursor)
+        events <- fetchBatch pool schema config cursor
+        if V.null events
+            then go cursor
+            else do
+                result <- processEvents pool config events
                 case result of
                     Nothing -> pure () -- handler said Stop
                     Just newPos -> go newPos
@@ -113,27 +153,6 @@ fetchBatch pool schema config (GlobalPosition pos) =
             case result of
                 Left _err -> pure V.empty
                 Right events -> pure events
-
--- Filter events for category subscriptions during live mode.
--- For AllStreams, all events pass through. For Category, only events
--- from matching streams are retained.
-filterEvents :: SubscriptionConfig -> Vector RecordedEvent -> Vector RecordedEvent
-filterEvents config events =
-    case target config of
-        AllStreams -> events
-        Category (CategoryName _cat) ->
-            -- During live mode, the EventPublisher broadcasts all events from $all.
-            -- For category subscriptions, we filter in-process. The category is
-            -- determined by the originalStreamId — but we don't have the stream name
-            -- in RecordedEvent, only the stream ID. During catch-up we use the SQL
-            -- filter. During live, we pass all events through since the EventPublisher
-            -- reads from $all. Category filtering in live mode requires joining with
-            -- streams table or having stream name in RecordedEvent.
-            --
-            -- For Phase 2a, category subscriptions always use catch-up mode (the worker
-            -- re-queries from the database rather than filtering the broadcast). This
-            -- is a simplification; Phase 2b can add in-process category filtering.
-            events
 
 -- Process a batch of events through the handler. Returns the new cursor
 -- position if all events were processed (handler returned Continue for all),
