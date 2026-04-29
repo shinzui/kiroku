@@ -1,0 +1,12 @@
+Name,Mean (ps),2*Stdev (ps)
+All.append.single-event.NoStream (new stream),198347912,19290344
+All.append.single-event.AnyVersion (new stream),156942333,8456878
+All.append.batch-10.NoStream,375444335,30505732
+All.append.batch-100.NoStream,2479733203,81291552
+All.append.sequential.10 appends to same stream,1612505468,53697076
+All.read.stream forward (100-event page),1044765625,57971808
+All.read.$all forward (100-event page),1023347265,55651888
+All.category.category forward (100-event page),1025707031,73720366
+"All.category.$all forward (100-event page, baseline)",993606640,56004768
+All.concurrent.8 writers x 10 appends,14842631250,493039012
+All.concurrent.32 writers x 10 appends,671754750000,15262281980

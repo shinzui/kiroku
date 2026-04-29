@@ -32,13 +32,19 @@ A reader can verify the change by running `cabal test kiroku-store` (the existin
   - [x] List concurrency scenarios that should be deterministic-tested
   - [x] List failure-injection scenarios needed (cross-plan with EP-5)
   - [x] List stress-benchmark gaps
-- [ ] Milestone 2: Land tests and benchmarks
-  - [ ] Add property-based tests using `hedgehog` or `QuickCheck`
-  - [ ] Replace `threadDelay`-based subscription synchronization with STM barriers
-  - [ ] Add failure-injection scenarios coordinated with EP-5
-  - [ ] Add stress benchmarks for scenarios beyond Gate 3
-  - [ ] Establish a baseline-regression workflow
-  - [ ] Update the MasterPlan's Exec-Plan Registry status and Progress section
+- [x] Milestone 2: Land tests and benchmarks
+  - [x] Add property-based tests using `hedgehog` (`Test.Properties`; F2/F4/F5)
+  - [x] Replace `threadDelay`-based subscription synchronization with STM barriers
+        (publisher waits — 4 sites; live-mode waits deferred per Decision Log)
+  - [x] Add failure-injection scenarios coordinated with EP-5
+        (`Test.FailureInjection` F14; F15 deferred pending `acquisitionTimeout`
+        exposure — cross-plan to EP-2)
+  - [x] Add stress benchmarks for scenarios beyond Gate 3
+        (concurrent-writer bgroup F19; F20/F21/F22 deferred per inventory)
+  - [x] Establish a baseline-regression workflow
+        (`bench-baseline`/`bench-regression` Justfile targets +
+        `docs/BENCH-REGRESSION.md` + `kiroku-store/bench/results/baseline.csv`)
+  - [x] Update the MasterPlan's Exec-Plan Registry status and Progress section
 
 
 ## Surprises & Discoveries

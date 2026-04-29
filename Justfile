@@ -53,6 +53,33 @@ bench:
 bench-sql *ARGS:
     kiroku-store/bench/sql/run_benchmarks.sh {{ARGS}}
 
+# Capture a fresh kiroku-store benchmark baseline (overwrites baseline.csv)
+bench-baseline:
+    @mkdir -p kiroku-store/bench/results
+    @touch kiroku-store/bench/results/baseline.csv
+    cabal bench kiroku-store:kiroku-store-bench \
+        --benchmark-options="--csv $PWD/kiroku-store/bench/results/baseline.csv"
+    @echo "Baseline written to kiroku-store/bench/results/baseline.csv"
+    @echo "Review the change before committing — see docs/BENCH-REGRESSION.md"
+
+# Run benchmarks and compare to baseline; fail if any benchmark is >10% slower
+bench-regression:
+    just bench-regression-threshold 10
+
+# Run benchmarks against baseline with a custom slowdown threshold (percent)
+bench-regression-threshold THRESHOLD:
+    @if [ ! -s kiroku-store/bench/results/baseline.csv ]; then \
+        echo "kiroku-store/bench/results/baseline.csv is empty or missing — capture one with 'just bench-baseline'"; \
+        exit 1; \
+    fi
+    cabal bench kiroku-store:kiroku-store-bench \
+        --benchmark-options="--baseline $PWD/kiroku-store/bench/results/baseline.csv --fail-if-slower {{THRESHOLD}}"
+
+# Re-run a single benchmark against baseline; pattern matches tasty-bench's --pattern
+bench-regression-pattern PATTERN:
+    cabal bench kiroku-store:kiroku-store-bench \
+        --benchmark-options="--baseline $PWD/kiroku-store/bench/results/baseline.csv --fail-if-slower 10 --pattern {{PATTERN}}"
+
 # --- Nix ---
 
 # Build via nix

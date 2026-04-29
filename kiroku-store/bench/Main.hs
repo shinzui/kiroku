@@ -13,6 +13,27 @@ import EphemeralPg qualified as Pg
 import Kiroku.Store
 import Test.Tasty.Bench
 
+{- | Run @writers@ concurrent appenders, each performing @ops@ appends to
+its own unique stream. Used by the structured concurrent-writer
+benchmarks (EP-6 F19); replaces the wall-clock @mapConcurrently_@
+measurement that previously lived inline in @main@.
+
+The @runCounter@ ref is bumped once per call so stream names are unique
+across the many iterations tasty-bench runs.
+-}
+runConcurrentWriters :: KirokuStore -> IORef Int -> Int -> Int -> IO ()
+runConcurrentWriters store runCounter writers ops = do
+    runId <- atomicModifyIORef' runCounter (\m -> (m + 1, m))
+    mapConcurrently_
+        (\tid -> mapM_ (appendOne tid runId) [1 .. ops])
+        [1 .. writers]
+  where
+    appendOne :: Int -> Int -> Int -> IO ()
+    appendOne tid runId i = do
+        let sn = StreamName ("conc-" <> T.pack (show runId) <> "-" <> T.pack (show tid) <> "-" <> T.pack (show i))
+        r <- runStoreIO store $ appendToStream sn AnyVersion [makeEvent "ConcEvent"]
+        forceAppend r
+
 -- | Force evaluation of an append result or fail the benchmark.
 forceAppend :: Either StoreError AppendResult -> IO ()
 forceAppend (Right r) = (r ^. #streamVersion) `seq` (r ^. #globalPosition) `seq` pure ()
@@ -102,6 +123,10 @@ main = do
             putStrLn $ "  Avg latency: " <> show avgLatency <> " ms"
             putStrLn "---"
 
+            -- Counter shared by the concurrent-writer benchmarks so each
+            -- iteration uses a fresh stream-name run-id.
+            concCounter <- newIORef (0 :: Int)
+
             defaultMain
                 [ bgroup
                     "append"
@@ -166,6 +191,17 @@ main = do
                     , bench "$all forward (100-event page, baseline)" $ whnfIO $ do
                         r' <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
                         forceRead r'
+                    ]
+                , -- F19 — Concurrent-writer stress as structured benchmarks.
+                  -- The legacy ad-hoc B9 measurement (still present above
+                  -- for historical comparability) prints throughput and
+                  -- latency once; these bgroup entries surface the same
+                  -- workload through tasty-bench so it participates in the
+                  -- baseline-regression workflow (Justfile bench-regression).
+                  bgroup
+                    "concurrent"
+                    [ bench "8 writers x 10 appends" $ whnfIO $ runConcurrentWriters store concCounter 8 10
+                    , bench "32 writers x 10 appends" $ whnfIO $ runConcurrentWriters store concCounter 32 10
                     ]
                 ]
     case result of
