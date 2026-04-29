@@ -139,3 +139,31 @@ DROP TRIGGER IF EXISTS no_delete_streams ON streams;
 CREATE TRIGGER no_delete_streams
     BEFORE DELETE ON streams
     FOR EACH ROW EXECUTE FUNCTION protect_deletion();
+
+-- TRUNCATE bypasses row-level triggers, so the BEFORE DELETE triggers above
+-- do not protect against an operator running TRUNCATE on these tables. Add
+-- statement-level BEFORE TRUNCATE triggers gated by the same GUC so the
+-- protection is symmetric. See EP-1 F6.
+CREATE OR REPLACE FUNCTION protect_truncation() RETURNS TRIGGER AS $$
+BEGIN
+    IF current_setting('kiroku.enable_hard_deletes', true) = 'on' THEN
+        RETURN NULL;
+    END IF;
+    RAISE EXCEPTION 'TRUNCATE requires: SET LOCAL kiroku.enable_hard_deletes = ''on''';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS no_truncate_events ON events;
+CREATE TRIGGER no_truncate_events
+    BEFORE TRUNCATE ON events
+    FOR EACH STATEMENT EXECUTE FUNCTION protect_truncation();
+
+DROP TRIGGER IF EXISTS no_truncate_stream_events ON stream_events;
+CREATE TRIGGER no_truncate_stream_events
+    BEFORE TRUNCATE ON stream_events
+    FOR EACH STATEMENT EXECUTE FUNCTION protect_truncation();
+
+DROP TRIGGER IF EXISTS no_truncate_streams ON streams;
+CREATE TRIGGER no_truncate_streams
+    BEFORE TRUNCATE ON streams
+    FOR EACH STATEMENT EXECUTE FUNCTION protect_truncation();

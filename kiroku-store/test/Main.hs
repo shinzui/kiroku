@@ -22,7 +22,7 @@ import Hasql.Decoders qualified as D
 import Hasql.Encoders qualified as E
 import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
-import Hasql.Statement (Statement, preparable)
+import Hasql.Statement (Statement, preparable, unpreparable)
 import Kiroku.Store
 import Kiroku.Store.Subscription.Effect qualified as SubEff
 import Kiroku.Store.Subscription.Types (SubscriptionConfigM (..))
@@ -633,6 +633,26 @@ main = hspec $ do
                 Right mId <- runStoreIO store $ hardDeleteStream (StreamName "hard-no-such")
                 mId `shouldBe` Nothing
 
+            -- F6 regression — TRUNCATE on protected tables must be gated by the
+            -- same GUC as DELETE. Without the BEFORE TRUNCATE triggers added in
+            -- EP-1 F6, an operator could TRUNCATE events / stream_events / streams
+            -- without setting kiroku.enable_hard_deletes, bypassing the row-level
+            -- protect_deletion check.
+            it "TRUNCATE on events is rejected without the GUC" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "f6-truncate") NoStream [makeEvent "X" (Aeson.object [])]
+                rejected <- truncateRejected store "events"
+                rejected `shouldBe` True
+
+            it "TRUNCATE on stream_events is rejected without the GUC" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "f6-truncate-se") NoStream [makeEvent "X" (Aeson.object [])]
+                rejected <- truncateRejected store "stream_events"
+                rejected `shouldBe` True
+
+            it "TRUNCATE on streams is rejected without the GUC" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "f6-truncate-s") NoStream [makeEvent "X" (Aeson.object [])]
+                rejected <- truncateRejected store "streams"
+                rejected `shouldBe` True
+
             -- F1 regression — events orphaned in `events` table after hard-delete.
             it "removes orphan event payloads from the events table" $ \store -> do
                 let evts = map (\i -> makeEvent ("F1Orphan" <> T.pack (show i)) (Aeson.object [])) [1 .. 3 :: Int]
@@ -1015,3 +1035,18 @@ countEvents store = do
     case result of
         Left err -> error ("countEvents failed: " <> show err)
         Right n -> pure n
+
+{- | Try to TRUNCATE the named table without the GUC; returns True if the
+operation was rejected by the protect_truncation trigger (the expected
+behavior after F6) and False if it succeeded.
+-}
+truncateRejected :: KirokuStore -> Text -> IO Bool
+truncateRejected store tableName = do
+    -- TRUNCATE cannot use bind parameters for the table name; build the SQL
+    -- as a non-prepared statement. The test only passes literal table names.
+    let stmt :: Statement () ()
+        stmt = unpreparable ("TRUNCATE " <> tableName) E.noParams D.noResult
+    result <- Pool.use (store ^. #pool) (Session.statement () stmt)
+    case result of
+        Left _ -> pure True -- Trigger raised an exception
+        Right () -> pure False -- Truncate succeeded (no protection)
