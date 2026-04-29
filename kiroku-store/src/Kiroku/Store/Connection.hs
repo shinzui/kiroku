@@ -28,11 +28,49 @@ import Kiroku.Store.Subscription.EventPublisher qualified as Publisher
 -- | Connection settings for the store, parameterized by monad.
 data ConnectionSettingsM m = ConnectionSettings
     { connString :: !Text
-    -- ^ PostgreSQL connection string (libpq URI or key=value format)
+    {- ^ PostgreSQL connection string (libpq URI or key=value format).
+    Reaches libpq verbatim; no application-level parsing or
+    substitution. May contain a password.
+    -}
     , poolSize :: !Int
     -- ^ Connection pool size (default: 10)
     , schema :: !Text
-    -- ^ Schema name for multi-tenant isolation (default: "public")
+    {- ^ PostgreSQL schema name used to construct the LISTEN channel
+    name (default: @"public"@).
+
+    /This field controls the LISTEN channel name only./ It is
+    /not/ used to qualify table names in any SQL the store
+    issues; every prepared statement in
+    "Kiroku.Store.SQL" references @streams@, @events@, and
+    @stream_events@ unqualified. Table resolution therefore
+    follows the connection's @search_path@, not this field.
+
+    Concretely:
+
+    * The 'Kiroku.Store.Notification.Notifier' issues
+      @LISTEN \<schema\>.events@ on its dedicated connection.
+    * The @notify_events()@ trigger in @sql\/schema.sql@ publishes
+      to @TG_TABLE_SCHEMA || \'.events\'@ — i.e., the schema in
+      which the @streams@ table actually lives, as resolved by
+      PostgreSQL at trigger-fire time.
+
+    Those two channel names must be byte-identical for
+    notification-driven subscription wakeups to work. With the
+    defaults ('schema' = @"public"@ and PostgreSQL's default
+    @search_path = "$user", public@) they coincide. If you set a
+    non-default 'schema', you must also ensure the application
+    user's @search_path@ resolves @streams@ in that same schema —
+    otherwise the listener silently receives no notifications and
+    subscriptions fall back to the 30-second safety poll.
+
+    Genuine schema-per-tenant isolation (table-level segregation)
+    is /not/ provided by this package today. To get it, set
+    @search_path@ in the connection string and run a separate
+    'KirokuStore' per tenant; the package will treat the tenant's
+    schema as if it were @public@ and write to whatever
+    @streams@\/@events@\/@stream_events@ that @search_path@
+    resolves to.
+    -}
     , idleInTransactionTimeout :: !Int
     -- ^ idle_in_transaction_session_timeout in seconds (default: 30)
     , observationHandler :: !(Maybe (Observation -> m ()))

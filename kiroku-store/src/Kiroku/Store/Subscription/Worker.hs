@@ -6,7 +6,6 @@ import Control.Concurrent.STM (TBQueue, TVar, atomically, check, readTBQueue, re
 import Control.Exception (throwIO)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Int (Int64)
-import Data.Text (Text)
 import Data.Vector (Vector)
 import Data.Vector qualified as V
 import Hasql.Pool (Pool)
@@ -32,17 +31,16 @@ and surfaces through 'Async.waitCatch').
 runWorker ::
     (MonadIO m) =>
     Pool ->
-    Text ->
     TBQueue (Vector RecordedEvent) ->
     TVar SubscriberStatus ->
     TVar GlobalPosition ->
     SubscriptionConfig ->
     m ()
-runWorker pool schema liveQueue statusVar pubPosVar config = liftIO $ do
+runWorker pool liveQueue statusVar pubPosVar config = liftIO $ do
     -- Read checkpoint from database
     checkpoint <- loadCheckpoint pool (name config)
     -- Phase 1: catch-up (returns Nothing if handler said Stop)
-    result <- catchUp pool schema config checkpoint pubPosVar
+    result <- catchUp pool config checkpoint pubPosVar
     case result of
         Nothing -> pure () -- Handler said Stop during catch-up; exit
         Just finalPos ->
@@ -58,7 +56,7 @@ runWorker pool schema liveQueue statusVar pubPosVar config = liftIO $ do
             --     query and avoids both.
             case target config of
                 AllStreams -> liveLoop pool liveQueue statusVar config finalPos
-                Category{} -> liveLoopCategoryDriven pool schema config pubPosVar finalPos
+                Category{} -> liveLoopCategoryDriven pool config pubPosVar finalPos
 
 -- Load the checkpoint from the database, defaulting to 0.
 loadCheckpoint :: Pool -> SubscriptionName -> IO GlobalPosition
@@ -74,19 +72,18 @@ loadCheckpoint pool (SubscriptionName subName) = do
 -- handler said Stop, or Just position if catch-up completed normally.
 catchUp ::
     Pool ->
-    Text ->
     SubscriptionConfig ->
     GlobalPosition ->
     TVar GlobalPosition ->
     IO (Maybe GlobalPosition)
-catchUp pool schema config startPos pubPosVar = go startPos
+catchUp pool config startPos pubPosVar = go startPos
   where
     go cursor = do
         pubPos <- atomically (readTVar pubPosVar)
         if cursor >= pubPos
             then pure (Just cursor)
             else do
-                events <- fetchBatch pool schema config cursor
+                events <- fetchBatch pool config cursor
                 if V.null events
                     then pure (Just cursor)
                     else do
@@ -131,19 +128,18 @@ liveLoop pool liveQueue statusVar config startPos = go startPos
 -- versus extending RecordedEvent or maintaining an in-process category cache.
 liveLoopCategoryDriven ::
     Pool ->
-    Text ->
     SubscriptionConfig ->
     TVar GlobalPosition ->
     GlobalPosition ->
     IO ()
-liveLoopCategoryDriven pool schema config pubPosVar startPos = go startPos
+liveLoopCategoryDriven pool config pubPosVar startPos = go startPos
   where
     go cursor = do
         -- Wait until the publisher has advanced past our cursor.
         atomically $ do
             pubPos <- readTVar pubPosVar
             check (pubPos > cursor)
-        events <- fetchBatch pool schema config cursor
+        events <- fetchBatch pool config cursor
         if V.null events
             then go cursor
             else do
@@ -155,11 +151,10 @@ liveLoopCategoryDriven pool schema config pubPosVar startPos = go startPos
 -- Fetch a batch of events from the database based on subscription target.
 fetchBatch ::
     Pool ->
-    Text ->
     SubscriptionConfig ->
     GlobalPosition ->
     IO (Vector RecordedEvent)
-fetchBatch pool schema config (GlobalPosition pos) =
+fetchBatch pool config (GlobalPosition pos) =
     case target config of
         AllStreams -> do
             result <- Pool.use pool (Session.statement (pos, batchSize config) SQL.readAllForwardStmt)
