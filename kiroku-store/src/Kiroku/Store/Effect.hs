@@ -34,7 +34,7 @@ import Hasql.Transaction qualified as Tx
 import Hasql.Transaction.Sessions qualified as TxSessions
 import Kiroku.Store.Connection (KirokuStore (..))
 import Kiroku.Store.Effect.Resource (KirokuStoreResource, getKirokuStore)
-import Kiroku.Store.Error (StoreError (..), emptyResultError, mapUsageError)
+import Kiroku.Store.Error (StoreError (..), attributeMultiStreamError, emptyResultError, mapUsageError)
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Types
 
@@ -157,11 +157,8 @@ runStorePool store = interpret_ $ \case
                 Pool.use (store ^. #pool) $
                     TxSessions.transaction TxSessions.ReadCommitted TxSessions.Write txn
         case result of
-            Left usageErr -> case ops of
-                ((StreamName firstName, firstExpected, _) : _) ->
-                    throwError (mapUsageError firstName firstExpected usageErr)
-                [] ->
-                    throwError (ConnectionError (T.pack (show usageErr)))
+            Left usageErr ->
+                throwError (attributeMultiStreamError [(sn, ev) | (sn, ev, _) <- ops] usageErr)
             Right results -> do
                 -- Check for any Nothing results (version conflicts)
                 let indexed = zip ops results

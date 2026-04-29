@@ -3,6 +3,9 @@ module Kiroku.Store.Error (
     -- Internal helpers used by Effect module
     mapUsageError,
     emptyResultError,
+    attributeMultiStreamError,
+    -- Internal pure helper exposed for unit testing
+    extractStreamNameFromDetail,
 ) where
 
 import Control.Exception (Exception)
@@ -193,3 +196,81 @@ extractUuidFromDetail detail =
                     uuidText = T.takeWhile (/= ')') afterParen
                  in UUID.fromText uuidText
         _ -> Nothing
+
+{- | Extract a stream name from a PostgreSQL unique-violation detail string
+like @"Key (stream_name)=(orders-1) already exists."@.
+
+Returns @Nothing@ when the format is unrecognized — most commonly because
+the server emitted a non-English locale variant or because a future schema
+change altered the constraint's column. Callers should use a sensible
+fallback (e.g., the first stream in a multi-stream operation) rather than
+treat 'Nothing' as a fatal condition.
+-}
+extractStreamNameFromDetail :: Text -> Maybe Text
+extractStreamNameFromDetail detail =
+    case T.breakOn "=(" detail of
+        (_, rest)
+            | not (T.null rest) ->
+                let afterParen = T.drop 2 rest -- skip "=("
+                    inner = T.takeWhile (/= ')') afterParen
+                 in if T.null inner then Nothing else Just inner
+        _ -> Nothing
+
+{- | For 'appendMultiStream' errors, recover the offending stream from the
+PostgreSQL detail string when possible.
+
+The multi-stream interpreter's transaction returns a single
+@Either UsageError result@; per-statement attribution is not visible at the
+@hasql@ layer. When the failure is a @23505@ unique violation on
+@ix_streams_stream_name@, the PostgreSQL detail string carries the
+offending stream name (e.g., @"Key (stream_name)=(multi-c) already exists."@)
+and we look up the matching op to recover its 'ExpectedVersion'.
+
+When the detail cannot be parsed (any other failure mode, including
+@events_pkey@ violations whose 'DuplicateEvent' constructor carries no
+stream attribution, generic server errors, and connection errors), we fall
+back to attributing against the first stream in the input list and let
+'mapUsageError' map the rest.
+
+This is defensive — the current SQL paths in @kiroku-store/src/Kiroku/Store/SQL.hs@
+do not raise @ix_streams_stream_name@ violations because every append CTE
+uses @ON CONFLICT DO NOTHING@/@DO UPDATE@ — but a future schema change could
+introduce a path that does, and the attribution should be correct from day
+one.
+-}
+attributeMultiStreamError ::
+    {- | The (name, expected) pairs from the multi-stream ops, in the order
+    the caller supplied them.
+    -}
+    [(StreamName, ExpectedVersion)] ->
+    UsageError ->
+    StoreError
+attributeMultiStreamError [] usageErr =
+    -- Defensive: an empty multi-stream call should not reach the
+    -- transaction layer, but if it somehow does, surface the raw error.
+    ConnectionError ("Empty multi-stream usage error: " <> T.pack (show usageErr))
+attributeMultiStreamError ops@((StreamName firstName, firstExpected) : _) usageErr =
+    case extractServerError usageErr of
+        Just (Errors.ServerError "23505" message (Just detail) _ _)
+            | "ix_streams_stream_name" `T.isInfixOf` message
+                || "ix_streams_stream_name" `T.isInfixOf` detail
+            , Just sn <- extractStreamNameFromDetail detail
+            , Just (StreamName name, expected) <- lookupStream sn ops ->
+                mapUsageError name expected usageErr
+        _ ->
+            mapUsageError firstName firstExpected usageErr
+  where
+    lookupStream tgt = lookup' tgt
+    lookup' _ [] = Nothing
+    lookup' tgt (op@(StreamName n, _) : rest)
+        | n == tgt = Just op
+        | otherwise = lookup' tgt rest
+
+-- | Walk a 'UsageError' down to the underlying 'Errors.ServerError', if any.
+extractServerError :: UsageError -> Maybe Errors.ServerError
+extractServerError = \case
+    SessionUsageError (Errors.StatementSessionError _ _ _ _ _ stmtErr) ->
+        case stmtErr of
+            Errors.ServerStatementError serverErr -> Just serverErr
+            _ -> Nothing
+    _ -> Nothing

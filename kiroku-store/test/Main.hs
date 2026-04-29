@@ -25,6 +25,7 @@ import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Hasql.Statement (Statement, preparable, unpreparable)
 import Kiroku.Store
+import Kiroku.Store.Error (extractStreamNameFromDetail)
 import Kiroku.Store.Subscription.Effect qualified as SubEff
 import Kiroku.Store.Subscription.Types (SubscriptionConfigM (..))
 import Test.Hspec
@@ -1036,6 +1037,32 @@ main = hspec $ do
                 case outcome of
                     Left () -> expectationFailure "worker did not exit after exception in withSubscription body"
                     Right _ -> pure ()
+
+    -- =================================================================
+    -- Pure helpers (no database fixture)
+    -- =================================================================
+
+    -- F1 regression — pure detail parser used by attributeMultiStreamError.
+    -- The integration scenario that would exercise this code path
+    -- (ix_streams_stream_name 23505 raised inside an appendMultiStream txn)
+    -- is unreachable via current SQL because every append CTE uses ON CONFLICT
+    -- DO NOTHING / DO UPDATE. The pure helper is unit-tested here so a future
+    -- schema change that introduces such a path arrives with the attribution
+    -- already correct.
+    describe "extractStreamNameFromDetail" $ do
+        it "extracts the stream name from a typical PostgreSQL detail" $ do
+            extractStreamNameFromDetail "Key (stream_name)=(orders-1) already exists."
+                `shouldBe` Just "orders-1"
+        it "extracts a stream name containing dashes and digits" $ do
+            extractStreamNameFromDetail "Key (stream_name)=(multi-c-2) already exists."
+                `shouldBe` Just "multi-c-2"
+        it "returns Nothing when the detail is empty" $ do
+            extractStreamNameFromDetail "" `shouldBe` Nothing
+        it "returns Nothing when the detail does not contain '=('" $ do
+            extractStreamNameFromDetail "no key here" `shouldBe` Nothing
+        it "returns Nothing for an empty parenthesised value" $ do
+            extractStreamNameFromDetail "Key (stream_name)=() already exists."
+                `shouldBe` Nothing
 
     -- =================================================================
     -- Health monitoring tests (M6.8)
