@@ -502,6 +502,30 @@ main = hspec $ do
                 ((results !! 1) ^. #streamVersion) `shouldBe` StreamVersion 1
                 ((results !! 2) ^. #streamVersion) `shouldBe` StreamVersion 1
 
+            -- F4 regression — pre-lock pass over named streams in stream_id order.
+            -- The deterministic deadlock-prevention scenario (two concurrent calls
+            -- touching the same streams in opposite orders) is covered by EP-6's
+            -- planned concurrency-test harness; this test verifies that the
+            -- pre-lock does not change user-visible ordering of global positions
+            -- within a single multi-stream call.
+            it "preserves user-supplied ordering of global positions" $ \store -> do
+                let ops =
+                        [ (StreamName "f4-zzz", NoStream, [makeEvent "Z" (Aeson.object [])])
+                        , (StreamName "f4-mmm", NoStream, [makeEvent "M" (Aeson.object [])])
+                        , (StreamName "f4-aaa", NoStream, [makeEvent "A" (Aeson.object [])])
+                        ]
+                Right results <- runStoreIO store $ appendMultiStream ops
+                length results `shouldBe` 3
+                let p0 = (results !! 0) ^. #globalPosition
+                    p1 = (results !! 1) ^. #globalPosition
+                    p2 = (results !! 2) ^. #globalPosition
+                p0 `shouldSatisfy` (< p1)
+                p1 `shouldSatisfy` (< p2)
+                -- Read $all and confirm the events appear in user-supplied order.
+                Right allEvts <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
+                let names = V.toList (V.map (^. #eventType) allEvts)
+                names `shouldBe` [EventType "Z", EventType "M", EventType "A"]
+
         -- =================================================================
         -- Soft delete tests (M6.8)
         -- =================================================================

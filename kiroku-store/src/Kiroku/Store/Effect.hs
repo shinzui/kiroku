@@ -126,7 +126,13 @@ runStorePool store = interpret_ $ \case
                     pure (sn, ev, prepared)
                 )
                 ops
+        let names = V.fromList [n | (StreamName n, _, _) <- ops]
         let txn = do
+                -- Pre-lock the user-named streams in deterministic (stream_id)
+                -- order to avoid row-lock deadlocks between concurrent
+                -- multi-stream txns touching overlapping streams in different
+                -- user orders. See EP-1 F4.
+                Tx.statement names SQL.lockStreamsForMultiStmt
                 results <-
                     mapM
                         ( \(StreamName name, expected, prepared) -> do

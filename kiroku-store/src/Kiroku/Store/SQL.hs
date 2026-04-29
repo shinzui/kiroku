@@ -29,6 +29,9 @@ module Kiroku.Store.SQL (
     deleteOrphanedEventsStmt,
     deleteStreamRowStmt,
 
+    -- * Multi-stream pre-lock (avoids row-lock deadlocks)
+    lockStreamsForMultiStmt,
+
     -- * Checkpoint statements
     getCheckpointStmt,
     saveCheckpointStmt,
@@ -709,6 +712,32 @@ deleteStreamRowStmt =
     preparable
         "DELETE FROM streams WHERE stream_id = $1"
         (E.param (E.nonNullable E.int8))
+        D.noResult
+
+{- | Pre-acquire row locks on the named streams in deterministic (stream_id)
+order. Used by AppendMultiStream to avoid row-lock deadlocks between
+concurrent multi-stream transactions that touch overlapping streams in
+different orders.
+
+Streams that don't yet exist (NoStream variant on a fresh stream) are not
+matched by the WHERE clause, so they aren't pre-locked here; concurrent
+INSERTs of a fresh stream serialize on the unique index on @stream_name@.
+\$all is intentionally NOT included in the pre-lock — its row lock is
+acquired by each per-stream CTE inside the transaction, after the source
+stream's row lock, so deadlocks between multi-stream and single-stream
+transactions are avoided as long as both lock kinds in the same order
+(source-first, then $all). See EP-1 F4.
+-}
+lockStreamsForMultiStmt :: Statement (Vector Text) ()
+lockStreamsForMultiStmt =
+    preparable
+        """
+        SELECT 1 FROM streams
+        WHERE stream_name = ANY($1::text[])
+        ORDER BY stream_id
+        FOR UPDATE
+        """
+        (E.param (E.nonNullable (E.foldableArray (E.nonNullable E.text))))
         D.noResult
 
 -- ---------------------------------------------------------------------------
