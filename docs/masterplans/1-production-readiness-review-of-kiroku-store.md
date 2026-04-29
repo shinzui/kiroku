@@ -40,7 +40,7 @@ Each child plan begins with an *audit milestone* that produces a findings docume
 | EP-1 | Schema, CTE and concurrency correctness audit | docs/plans/1-schema-cte-and-concurrency-correctness-audit.md | None | None | Complete |
 | EP-2 | Public API surface, types and error model audit | docs/plans/2-public-api-surface-types-and-error-model-audit.md | None | EP-1 | Complete |
 | EP-3 | Subscription system robustness audit | docs/plans/3-subscription-system-robustness-audit.md | None | EP-1, EP-2 | Complete |
-| EP-4 | Multi-tenancy, security and schema lifecycle audit | docs/plans/4-multi-tenancy-security-and-schema-lifecycle-audit.md | None | EP-1 | Not Started |
+| EP-4 | Multi-tenancy, security and schema lifecycle audit | docs/plans/4-multi-tenancy-security-and-schema-lifecycle-audit.md | None | EP-1 | In Progress |
 | EP-5 | Operational hardening: observability, failure modes, limits | docs/plans/5-operational-hardening-observability-failure-modes-limits.md | None | EP-1, EP-2, EP-3 | Not Started |
 | EP-6 | Test and benchmark hardening for production confidence | docs/plans/6-test-and-benchmark-hardening-for-production-confidence.md | None | EP-1, EP-2, EP-3, EP-4, EP-5 | Not Started |
 
@@ -97,7 +97,7 @@ Track milestone-level progress across all child plans. Each entry names the chil
 - [x] EP-2: M2 — Landed F25 (`withSubscription` bracket — IO + Eff variants), F1 (defensive multi-stream attribution helper), F19/F20/F22 (`StoreError` refinement: `PoolAcquisitionTimeout`/`ConnectionLost`/`UnexpectedServerError` constructors, `DuplicateEvent` takes `Maybe EventId`, derives `Exception`), F18 (`SchemaInitError` re-exported), F26 (`defaultSubscriptionConfig`), D-series Haddocks across `Types.hs`/`Append/Lifecycle/Link/Read.hs`/`Connection.hs`/`Effect/Resource.hs`/`Subscription/Effect.hs`. 7 items deferred-with-rationale. 73/73 tests pass; reads/appends behave identically (no functional regressions). (commits 323cf0f, 4d994eb, 971a307, 6a3f35d, 6b3903c, plus b159d0c reclassification and 9bd82a1 adapter hotfix)
 - [x] EP-3: M1 — Subscription robustness audit findings document (2026-04-29; 30 findings F1–F30: 3 must-fix [F1 listener leak on reconnect, F6 unbounded broadcast, F18 Category live-mode filter] + at-least-once Haddock contract; 8 should-fix [4 cross-plan to EP-5, 4 deferred-with-rationale]; 2 cross-plan to EP-2/EP-6; remainder no-issue)
 - [x] EP-3: M2 — Landed F1 (listener-conn leak), F18 (Category live filter via DB-driven loop), F6 (bounded per-subscriber backpressure with OverflowPolicy), at-least-once Haddock contract; deferred F2, F3, F7, F8, F12, F13, F29, F30 with rationale. 76/76 kiroku-store tests pass; 5/5 adapter tests pass; Haddock builds clean. (commits 6041e8f, bd107d4, 2c3f3f4, fe69688)
-- [ ] EP-4: M1 — Multi-tenancy, security, schema lifecycle audit findings document
+- [x] EP-4: M1 — Multi-tenancy, security, schema lifecycle audit findings document (2026-04-29; 18 findings F1–F18: schema field is plumbed-but-inert at the SQL layer with two layers of dead plumbing in `Worker.hs` and `Schema.hs` [F1, must-fix to land Haddock + dead-code removal in M2, ties EP-2.F14]; listener/trigger schema-name coupling is implicit and silently breaks under non-default `schema` [F2, must-document]; hard-delete is footgun-protection rather than a security boundary [F5, must-document via Lifecycle Haddock]; `initializeSchema` is idempotent only for additive DDL [F7, must-document, aligns with the existing `project_schema_migration.md` memory note]; DDL execution privilege requirement is undocumented [F9, must-document via a Production Deployment doc]; TRUNCATE bypass already closed by EP-1.F6 [F15, confirmation]; connection-string and prepared-statement audit returned no SQL-injection vectors [F10/F11/F12/F14, no-issue]; tenant lifecycle, hard-delete audit log, NOTIFY-payload JSON encoding, partition-trigger semantics are deferred-with-rationale [F4/F6/F13/F16])
 - [ ] EP-4: M2 — Land must-fix corrections and explicit deferred-decisions for the rest
 - [ ] EP-5: M1 — Failure-mode and observability gap inventory
 - [ ] EP-5: M2 — Land observation-handler enrichment and failure-injection harness
@@ -236,6 +236,43 @@ live-mode filter (a DB-driven loop bypassing the broadcast) reuses the existing
 `readCategoryForwardStmt` and avoids changing the public type owned by EP-2.
 This decision overrides the MasterPlan's earlier "RecordedEvent shape change
 crosses EP-2" prompt.
+
+### EP-4 audit (2026-04-29) — cross-plan findings
+
+EP-4 Milestone 1 produced 18 findings (F1–F18, EP-4 numbering — distinct from
+EP-1, EP-2, and EP-3). Two items are cross-plan and recorded here for
+traceability. Full details and severity classification live in EP-4's Surprises
+& Discoveries section
+(`docs/plans/4-multi-tenancy-security-and-schema-lifecycle-audit.md`).
+
+  * **EP-4.F1 / F18 ↔ EP-2.F14.** `ConnectionSettings.schema` is plumbed but
+    inert at the SQL layer: `SQL.hs` references all tables unqualified, and
+    the `schema` parameter is also threaded dead through
+    `Subscription.hs:107` → `Worker.hs:41,82,139,162` (where `fetchBatch`'s
+    body never references it) and `Schema.hs:27` (where it is bound as
+    `_schema`). EP-4 owns the resolution and adopts option (C) — document the
+    actual contract (the LISTEN channel name only), remove the dead
+    plumbing, and rewrite the `Connection.hs:35` Haddock. EP-2's earlier
+    `EP-2.F14 → EP-4` route is now resolved here in M2; EP-2 will not need
+    to revisit `Connection.hs`.
+
+  * **EP-4.F6 → EP-5.** Hard-delete emits no in-band audit row. The current
+    `hardDeleteStream` removes junctions, orphan events, and the stream row
+    but records nothing on `$all`. Recommend EP-5 surface hard-deletes via
+    the observation handler at minimum; an in-band `kiroku.HardDeleted`
+    event on `$all` (or a dedicated audit stream) would also need a public
+    API change cross-plan to EP-2 (a `reason` argument). Routed to EP-5 for
+    operational-hardening prioritisation.
+
+EP-4 explicitly *does not* implement schema-prefixed SQL (option A) or remove
+the `schema` field (option B). The DESIGN.md aspiration "schema-per-tenant from
+Phase 1, parameterize all SQL with schema prefix" remains documentation-only;
+when a real multi-tenant deployment requirement appears, option (A) becomes
+the right next step and the field is already in place. This decision overrides
+the MasterPlan's earlier "EP-4 owns the schema-name decision (either remove the
+field or wire it through)" framing in the Integration Points section — the
+third option (document the actual contract) was not enumerated there but is
+documented in EP-4's Decision Log.
 
 
 ## Decision Log

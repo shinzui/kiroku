@@ -25,12 +25,12 @@ A reader can verify the change by reading the new audit document, running `cabal
 
 ## Progress
 
-- [ ] Milestone 1: Audit findings document
-  - [ ] Trace the `schema` parameter end-to-end through the codebase: what reads it, what writes it, what *should* use it but doesn't
-  - [ ] Audit the hard-delete authorization model and the GUC mechanism
-  - [ ] Audit DDL execution and identify the migration gap
-  - [ ] Audit connection-string handling and SQL-injection surface
-  - [ ] Classify every finding by severity
+- [x] Milestone 1: Audit findings document (2026-04-29; 18 findings F1–F18: 3 must-fix/must-document with code or Haddock work [F1 schema-field rewrite + dead-plumbing removal, F18 Haddock — folded into F1, F9 production-deployment doc], 4 must-document [F2 listener/trigger coupling, F5 hard-delete authorization framing, F7 migration story, F17 at-rest plaintext]; 4 should-document [F8 concurrent startup race, F12 latent injection vector, F13 NOTIFY payload, F14 connString not logged — closed as no-issue]; 4 defer-with-rationale [F4 tenant lifecycle, F6 hard-delete audit log, F13 JSON payload, F16 partition triggers]; 4 no-issue [F8, F10, F11, F12, F14]; 1 confirmation [F15 TRUNCATE bypass closed by EP-1.F6]; 1 cross-plan tie-back [F18 ↔ EP-2.F14])
+  - [x] Trace the `schema` parameter end-to-end through the codebase: what reads it, what writes it, what *should* use it but doesn't (F1)
+  - [x] Audit the hard-delete authorization model and the GUC mechanism (F5, F6, F15)
+  - [x] Audit DDL execution and identify the migration gap (F7, F8, F9)
+  - [x] Audit connection-string handling and SQL-injection surface (F10, F11, F12, F13, F14)
+  - [x] Classify every finding by severity (every F-entry has a Severity line)
 - [ ] Milestone 2: Land must-fix corrections
   - [ ] Decide and act on the schema-name field (wire it through, remove it, or document its actual contract)
   - [ ] Document the hard-delete authorization model in `Kiroku.Store.Lifecycle` Haddocks
@@ -40,24 +40,431 @@ A reader can verify the change by reading the new audit document, running `cabal
 
 ## Surprises & Discoveries
 
-(None yet. The findings document produced in Milestone 1 will be reflected here with file:line references and severity classification.)
+### M1 audit — 2026-04-29
 
-Initial leads identified during MasterPlan research:
+Eighteen findings (F1–F18, EP-4 numbering — distinct from EP-1, EP-2, and
+EP-3). All citations name files relative to the repo root. Severity tags:
+**must-fix** (land code in M2), **must-document** (land Haddock or doc in
+M2), **should-fix-or-document** (land in M2 if cheap, otherwise defer with
+rationale), **defer-with-rationale** (record reason; revisit when triggers
+fire), **no-issue** (audited and closed), **confirmation** (verifies a
+prior plan's fix is in place).
 
-- The `schema` field of `ConnectionSettings` (default `"public"`) is plumbed into `KirokuStore.schema` (`Connection.hs:60`, line 91) and read by `Notifier.startNotifier` to construct the LISTEN channel name `<schema>.events` (`Notification.hs:46`). Nothing else in the codebase reads it. Crucially, the SQL statements in `SQL.hs` reference table names *without* any schema prefix (e.g. `FROM stream_events`, `UPDATE streams`). Severity: must-fix-or-document. The advertised "schema-per-tenant" support does not actually exist as long as PostgreSQL's `search_path` has not been explicitly set per session — the SQL hits whatever `streams`/`events`/`stream_events` are first in `search_path`. Two stores with different `schema` values pointing at the same database will write to the same tables.
-- `initializeSchema` (`Schema.hs:26-31`) runs the embedded DDL on every `withStore` acquire. The DDL is idempotent (`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, `CREATE OR REPLACE FUNCTION`) but does not migrate. Severity: must-decide. Either (1) document that `schema.sql` cannot be changed in a backwards-incompatible way without a migration tool, or (2) extract a `kiroku-migrate` package now (per the existing `project_schema_migration.md` memory note that flagged schema-migration extraction as the next non-trivial DDL trigger).
-- Hard-delete authorization: any SQL session with `INSERT/UPDATE` privilege on `streams` can issue `SET LOCAL kiroku.enable_hard_deletes = 'on'; DELETE FROM streams WHERE ...`. The trigger `protect_deletion()` checks the GUC; the GUC is settable by the session. Severity: should-fix-or-document. The current model is "if you have DB write access, you can hard-delete" — fine for trusted-application contexts, surprising for anyone reading the trigger as a security boundary.
-- DDL execution privilege: `initializeSchema` requires the connection's user to have `CREATE TABLE`, `CREATE INDEX`, and `CREATE FUNCTION` privileges. Production deployments often run application services as low-privilege users. Severity: must-document. Recommend separating DDL initialization from application runtime — a one-time setup script or migration tool.
-- Connection string: `ConnectionSettings.connString :: Text` is passed to `Hasql.Connection.Settings.connectionString`. Confirm that hasql sanitises libpq input correctly (it does — libpq parses it directly). No SQL injection at this boundary.
-- All SQL queries use parameterised placeholders (`$1`, `$2`, ...) via hasql encoders. Confirm by reading every prepared statement; no string concatenation of user input into SQL.
-- `notify_events()` payload includes `NEW.stream_name`. A stream name of `'foo,1,2','attacker_payload'` could form a malformed NOTIFY payload. The Notifier's listener does not parse the payload (`Notification.hs:69-70` just writes `()` ticks), so this is benign for the in-process subscription system. But any *external* consumer of the NOTIFY channel that parses the payload as CSV is at risk. Severity: should-document.
-- The `protect_deletion` trigger at `schema.sql:119-141` is row-level. `TRUNCATE streams` would bypass it. EP-1 also flags this as a TRUNCATE bypass; EP-4 owns the security framing. Decide: add `BEFORE TRUNCATE ... FOR EACH STATEMENT` triggers, or document the bypass as a known administrative escape hatch.
+#### Multi-tenancy
+
+**F1 — `schema` field is plumbed but inert at the SQL layer.**
+*Severity: must-fix (rewrite Haddock + remove dead plumbing) plus
+cross-plan to EP-2.*
+
+`ConnectionSettings.schema` (`kiroku-store/src/Kiroku/Store/Connection.hs:34`,
+defaults `"public"` at line 52) is held by `KirokuStore.schema`
+(`Connection.hs:60`) and read in three places only:
+
+  1. `Kiroku.Store.Notification.startNotifier`
+     (`Notification.hs:62`) constructs the LISTEN channel name as
+     `toPgIdentifier (schema <> ".events")`. The Notifier subscribes
+     to `<schema>.events` and writes `()` ticks to its broadcast
+     `TChan` whenever NOTIFY fires.
+  2. `Kiroku.Store.Subscription.subscribe`
+     (`Subscription.hs:107`) passes `store ^. #schema` as the second
+     argument to `runWorker`.
+  3. `Kiroku.Store.Schema.initializeSchema` (`Schema.hs:27`) takes a
+     `Text` second argument named `_schema` (the underscore prefix is
+     intentional — the binding is unused). The body ignores it.
+
+The Worker's chain (`Worker.hs:41` `runWorker` → `catchUp` (line 82) →
+`liveLoopCategoryDriven` (line 139) → `fetchBatch` (line 162)) accepts
+`schema :: Text` at every level but `fetchBatch`'s body
+(`Worker.hs:162-173`) does not reference the parameter. The argument
+is dead. So the *Subscription* path also threads a useless schema name.
+
+`Kiroku.Store.SQL.hs` references all tables unqualified (e.g.,
+`FROM stream_events`, `UPDATE streams`, `INSERT INTO events`,
+`DELETE FROM streams`). The grep at the audit checklist below confirms
+zero schema prefixes in SQL.hs. Therefore the advertised "Schema name
+for multi-tenant isolation" Haddock at `Connection.hs:35` is incorrect:
+two `KirokuStore` handles connecting to the same database with
+different `schema` values will write to and read from whichever
+`streams`/`events`/`stream_events` PostgreSQL's `search_path` resolves
+to first. There is no per-store table isolation.
+
+`docs/DESIGN.md:672` records the original aspiration as Decision-Log
+entry "Multi-tenant isolation | Schema-per-tenant from Phase 1 |
+Parameterize all SQL with schema prefix and scope NOTIFY channels per
+schema." Only the latter half is implemented; the prefixing was never
+done.
+
+Resolution path in M2: option (C) from the Plan of Work — document the
+actual contract, remove the dead plumbing in `Worker.hs` and
+`Schema.hs`, and rewrite the `schema` Haddock to name what the field
+actually controls (the LISTEN channel name only). Options (A) wire
+through SQL and (B) remove the field are both heavier and warrant a
+real multi-tenant requirement; record the rejection rationale in the
+Decision Log. Cross-plan to EP-2 — the public Haddock owner — as
+EP-4.F1 ↔ EP-2.F14 (the same item, EP-2 named it first; EP-4 owns the
+fix).
+
+**F2 — Listener/trigger schema-name coupling is implicit.**
+*Severity: must-document.*
+
+`schema.sql:88-91` constructs the NOTIFY channel from
+`TG_TABLE_SCHEMA || '.events'` — the schema in which the `streams`
+table actually lives, as resolved by PostgreSQL at trigger-fire time.
+`Notification.hs:62` constructs the listener's channel name from
+`<schema>.events` where `schema` is the application-supplied
+`ConnectionSettings.schema`.
+
+These names must be byte-identical for the listener to receive
+notifications. With defaults (`schema = "public"` and the default
+PostgreSQL `search_path = "$user", public`), they coincide because
+`streams` lives in `public` and the connection's `schema` is
+`"public"`. Set `schema = "tenant_a"` without also placing `streams`
+in a `tenant_a` schema (or vice versa) and the listener silently
+receives nothing — the EventPublisher's 30-second safety poll
+(`EventPublisher.hs`) eventually catches up but normal subscription
+latency stops being notification-driven.
+
+Currently no codepath sets `search_path` per session; no codepath
+verifies that `current_schema()` for `streams` matches
+`ConnectionSettings.schema`. The mismatch is silent.
+
+Resolution path in M2: document this coupling in the `schema` Haddock
+under F1's rewrite. Note that any user setting a non-default `schema`
+must also ensure the application's connection-string sets
+`search_path` (or the database's per-user `search_path`) such that
+`streams`/`events`/`stream_events` resolve to that schema. Defer
+mechanical enforcement (a session check or a `current_schema()` probe)
+to a follow-up plan if multi-tenant deployments materialise.
+
+**F3 — Two stores against one database silently share tables.**
+*Severity: confirmation of F1; documented under F1's resolution.*
+
+Reproduction: open `withStore (defaults { schema = "a" })` and
+`withStore (defaults { schema = "b" })` against the same PostgreSQL
+instance. Both invoke `initializeSchema` (idempotent, no-op on the
+second call). Both `LISTEN` on different channels (`a.events`,
+`b.events`). Both append paths `INSERT INTO streams` resolve to the
+same table (whichever `streams` PostgreSQL's `search_path` finds).
+Subscriber B will not see A's appends because the trigger publishes on
+whichever schema `streams` actually lives in (default: `public`), not
+on the application-supplied schema name. But the data is in the same
+tables.
+
+This is the practical consequence of F1 + F2 and is closed by F1's
+documentation work.
+
+**F4 — Tenant lifecycle (create/drop/migrate) is unimplemented.**
+*Severity: defer-with-rationale.*
+
+There is no API for creating a new tenant schema, dropping a tenant's
+data, or migrating a tenant's tables. `docs/DESIGN.md:672` defers this
+to "later phases". No production caller has asked for it.
+
+Defer to a follow-up plan with this trigger: a real production
+requirement for tenant isolation appears (a service genuinely needs
+two unrelated tenants to share a `kiroku-store` deployment). Until
+then, the F1 documentation is the contract.
+
+#### Hard-delete authorization
+
+**F5 — Hard-delete is gated by a footgun GUC, not a security boundary.**
+*Severity: should-fix-or-document → resolved as must-document.*
+
+`schema.sql:119-141` defines `protect_deletion()` which checks
+`current_setting('kiroku.enable_hard_deletes', true) = 'on'` and raises
+otherwise. The GUC is set per-transaction via `Tx.sql "SET LOCAL
+kiroku.enable_hard_deletes = 'on'"` inside the `HardDeleteStream` arm
+of `Kiroku.Store.Effect.runStorePool` (`Effect.hs:177`).
+
+Authorization model: any PostgreSQL session with `DELETE` privilege on
+`events`, `stream_events`, `streams` *and* `SET LOCAL` rights (which
+PostgreSQL grants to every session) can hard-delete. The trigger
+exists to prevent *accidental* `DELETE` (typo, ad-hoc operator query),
+not malicious deletion by a session that already has `DELETE`
+privilege. A misreading of this trigger as a security boundary is the
+real risk.
+
+Possible tightening (deferred):
+
+  - Replace the GUC with a `SECURITY DEFINER` function callable only by
+    a specific role. Requires DBA-managed role provisioning.
+  - Check `current_user` / `session_user` against an allowlist inside
+    `protect_deletion`. Couples the package to specific role names.
+  - Issue a single-use token via the application layer. Adds state.
+
+None of these are clearly better than the GUC-as-footgun-protection
+model for the package's current trust assumptions (the application is
+trusted; the trigger guards against accidental issuance of `DELETE`).
+
+Resolution path in M2: document the actual model in the
+`hardDeleteStream` Haddock at `Lifecycle.hs:34-50`. The existing
+Haddock describes the GUC mechanism but does not state explicitly that
+this is an *advisory* protection rather than a *security* boundary.
+Add that statement, name who can hard-delete (any session with
+`DELETE` privilege), and recommend that production deployments use
+PostgreSQL's standard role/grant system to scope `DELETE` privilege if
+hard-delete must be restricted.
+
+**F6 — Hard-delete emits no audit log.**
+*Severity: defer-with-rationale.*
+
+`HardDeleteStream` (`Effect.hs:175-187`) deletes junction rows, orphan
+events, and the stream row, but does not record an audit event. A
+production deployment that hard-deletes for GDPR compliance has no
+in-band record that the deletion happened.
+
+Recommendation surfaced for future: append a `kiroku.HardDeleted` event
+to `$all` (or to a dedicated audit stream) before the GUC is enabled,
+carrying the deleted stream id and the reason. The current API's
+`hardDeleteStream :: StreamName -> Eff es (Maybe StreamId)` does not
+take a "reason" argument; adding one is a public API change cross-plan
+to EP-2.
+
+Defer to EP-5 (operational hardening) or a follow-up audit-logging
+plan. EP-5's observation-handler enrichment already plans to surface
+hard-delete events to operators via the existing observation channel;
+in-band audit-row generation is a separate concern.
+
+#### Schema lifecycle / migration
+
+**F7 — `initializeSchema` is idempotent only for additive DDL.**
+*Severity: must-document.*
+
+`Kiroku.Store.Schema.initializeSchema` (`Schema.hs:23-31`) runs the
+embedded DDL on every `withStore` acquire via
+`Hasql.Pool.use pool (Session.script schemaDDL)`. The script uses:
+
+  - `CREATE TABLE IF NOT EXISTS` (lines 5, 24, 35, 74)
+  - `CREATE INDEX IF NOT EXISTS` (lines 47, 51, 55, 59, 63, 69)
+  - `CREATE OR REPLACE FUNCTION` (lines 86, 102, 119, 147)
+  - `DROP TRIGGER IF EXISTS` followed by `CREATE TRIGGER` (lines
+    96-99, 108-111, 113-116, 128-141, 156-169) — additive in effect
+  - `INSERT ... ON CONFLICT DO NOTHING` (lines 16-18) — idempotent
+  - `SELECT setval(...)` with `GREATEST` (line 21) — idempotent
+
+This handles every change of the form "add a column with a default",
+"add an index", "redefine a function", "add a trigger". It does *not*
+handle:
+
+  - Renaming a column. `ALTER TABLE ... RENAME COLUMN` is not
+    idempotent. Two starts: first succeeds, second fails with `column
+    "x" does not exist`.
+  - Changing a column type. Same issue.
+  - Adding a constraint. `ALTER TABLE ... ADD CONSTRAINT` is not
+    idempotent.
+  - Removing a column.
+  - Reordering columns.
+
+For any backwards-incompatible change, two simultaneous `withStore`
+processes would race; the second would observe a half-applied state.
+
+This aligns with the existing `project_schema_migration.md` memory
+note: schema-migration extraction is triggered by the first
+non-trivial DDL change. The note is current and correct; this finding
+confirms it without changing it.
+
+Resolution path in M2: add a Haddock to `initializeSchema` that names
+the additive-only contract explicitly. Reference the parked partition
+plan (`docs/plans/partition-ready-schema.md`) and the
+`project_schema_migration.md` note as the canonical "extract
+`kiroku-migrate` when this becomes a problem" guidance.
+
+**F8 — Concurrent `withStore` startup is safe under additive DDL.**
+*Severity: no-issue.*
+
+Two processes invoking `withStore` concurrently each call
+`initializeSchema`. PostgreSQL serialises the DDL via the system
+catalog locks: the second `CREATE TABLE IF NOT EXISTS` waits for the
+first's transaction to commit, then sees the table and returns
+silently. `INSERT ... ON CONFLICT DO NOTHING` and `SELECT setval(...,
+GREATEST(...))` are commutative. `CREATE OR REPLACE FUNCTION` is
+last-write-wins on identical text. `DROP TRIGGER IF EXISTS` followed by
+`CREATE TRIGGER` is idempotent — the second process drops the trigger
+the first just created and re-creates it; behaviour is unchanged.
+
+A transient race window exists where the second `DROP TRIGGER` sees
+the trigger and the second `CREATE TRIGGER` then sees an existing one
+and fails. PostgreSQL's catalog locks make this exceedingly unlikely
+in practice, but the pattern is "drop before create" which is not
+fully atomic. Tracking under M2's documentation work is sufficient —
+note that simultaneous deploy starts are theoretically racy and
+recommend serialising deploys.
+
+**F9 — DDL execution privilege requirement is undocumented.**
+*Severity: must-document.*
+
+`initializeSchema` requires:
+
+  - `CREATE` on the target schema (for `CREATE TABLE`).
+  - `CREATE` on the target schema (for `CREATE INDEX`).
+  - `CREATE` on the target schema (for `CREATE FUNCTION`).
+  - `TRIGGER` on the target tables (for `CREATE TRIGGER`).
+  - `INSERT, UPDATE, SELECT` on `streams` (for the seed row + `setval`).
+
+A least-privilege production deployment runs the application as a user
+without these privileges; DDL is run once at deploy time by a
+migration job under an elevated role.
+
+`Connection.hs` does not name the privilege requirement anywhere. A
+caller wiring up a least-privilege role would discover this only at
+runtime via `SchemaInitError`.
+
+Resolution path in M2: add a `Production Deployment` section
+(README-style) covering the principle of least privilege:
+
+  - One-time setup as elevated user: run the equivalent of
+    `withStore` once (or extract the DDL — see `kiroku-migrate`
+    extraction trigger in F7) under a role with
+    `CREATE`/`TRIGGER`/`INSERT`-on-`streams` privileges.
+  - Runtime as application user: needs only `INSERT, UPDATE, SELECT,
+    DELETE` on `events`, `stream_events`, `streams`, `subscriptions`
+    plus `EXECUTE` on `protect_deletion()`/`protect_truncation()` (the
+    latter only if the application performs hard-deletes).
+
+#### Connection-string handling and SQL injection
+
+**F10 — `connString` reaches libpq directly with no application
+substitution.** *Severity: no-issue.*
+
+`Connection.hs:101` passes `Conn.connectionString (settings ^.
+#connString)` to `Hasql.Pool.Config.staticConnectionSettings`.
+`Notification.hs:127` does the same for the listener. Both reach libpq
+unchanged. libpq parses the URI/key=value format itself; there is no
+intermediate Haskell-level concatenation that could create an
+injection vector at this boundary.
+
+**F11 — Every prepared statement uses positional parameters.**
+*Severity: no-issue.*
+
+Audit method: read all of `kiroku-store/src/Kiroku/Store/SQL.hs`
+end-to-end (804 lines). Every `Statement` declaration uses hasql
+positional placeholders (`$1`, `$2`, ...) bound via `Encoders` with
+typed parameters. There is no `T.intercalate`, no `T.concat`, no `<>`
+in any SQL string body. The only `<>` operators in `SQL.hs` are
+hasql's `Contravariant` composition for encoders (e.g., line 72-78,
+`(^. #eventTypes) >$< E.param ...`), not string concatenation. SQL
+injection via user-supplied stream names, event types, etc. is not
+possible.
+
+**F12 — `idle_in_transaction_session_timeout` interpolation is safe by
+construction.** *Severity: no-issue.*
+
+`Connection.hs:104` builds the init-session SQL as
+`"SET idle_in_transaction_session_timeout = '" <> T.pack (show
+(settings ^. #idleInTransactionTimeout)) <> "s'"`. The interpolated
+value is the result of `show :: Int -> String`, so it is always a
+sequence of decimal digits and possibly a leading `-`. No injection
+vector at the current type. Documented as latent-injection-vector for
+future change: if `idleInTransactionTimeout` ever becomes
+user-supplied `Text`, this pattern becomes an injection risk and
+should be rewritten using a prepared statement.
+
+**F13 — `notify_events()` payload is comma-delimited and unescaped.**
+*Severity: should-document.*
+
+`schema.sql:86-94` constructs the NOTIFY payload as `NEW.stream_name ||
+',' || NEW.stream_id || ',' || NEW.stream_version`. A stream name
+containing a literal comma (e.g., `"foo,bar"`) produces a payload
+indistinguishable from a `stream_name="foo"`, `stream_id="bar"` pair.
+
+The in-process Notifier (`Notification.hs:90-122`) writes `()` ticks
+on every NOTIFY without parsing the payload — the format does not
+matter for the EventPublisher's wakeup mechanism. The format is also
+not part of any documented external contract: there is no consumer
+outside the package.
+
+For a future external consumer (e.g., a sidecar that tails the NOTIFY
+channel for cross-process projection updates), the format is a
+liability. Recommend a JSON encoding (`json_build_object('stream_name',
+NEW.stream_name, 'stream_id', NEW.stream_id, 'stream_version',
+NEW.stream_version)::text`) when an external consumer is added. Defer
+the change; the Haddock work in M2 will mention this trap.
+
+**F14 — `connString` is not logged.** *Severity: no-issue.*
+
+`grep -rn 'putStrLn\|hPutStrLn\|print\|trace' kiroku-store/src/`
+returns zero hits in any code path that touches `connString` or
+`ConnectionSettings`. The `ConnectionSettings` and `KirokuStore`
+records do not derive `Show`. The dedicated listener connection's
+`acquireOrFail` (`Notification.hs:125-135`) calls `fail (... <> show
+err)` on acquisition failure: `err` is a hasql
+`Hasql.Connection.ConnectionError` whose `Show` instance does not
+include the raw connection string. No password leakage path observed.
+
+#### Trigger and bypass surface
+
+**F15 — TRUNCATE bypass is closed by `protect_truncation` triggers.**
+*Severity: confirmation of EP-1.F6.*
+
+`schema.sql:147-169` defines `protect_truncation()` and three
+`BEFORE TRUNCATE ... FOR EACH STATEMENT` triggers gated by the same
+`kiroku.enable_hard_deletes` GUC. The test suite exercises this:
+`kiroku-store/test/Main.hs` includes "TRUNCATE on events is rejected
+without the GUC", "TRUNCATE on stream_events is rejected without the
+GUC", "TRUNCATE on streams is rejected without the GUC" (76/76 tests
+green). EP-4 has no further work here; security framing is unified
+with the hard-delete GUC discussed under F5.
+
+**F16 — Partition detach is not relevant at current schema.**
+*Severity: defer.*
+
+`ALTER TABLE ... DETACH PARTITION` could bypass row-level triggers if
+the schema were partitioned. The schema is not partitioned; the
+parked plan at `docs/plans/partition-ready-schema.md` would introduce
+partitioning. The trigger semantics under partitioning are documented
+in that plan's Known Defects section. EP-4 has no work here unless
+the partition plan is unparked.
+
+#### Confidentiality and at-rest concerns
+
+**F17 — Event payloads are stored as plaintext JSONB.**
+*Severity: should-document.*
+
+`schema.sql:30-31` declares `data JSONB NOT NULL` and `metadata JSONB`
+on `events`. The package does not encrypt these fields. Any caller
+storing PII or secrets in event payloads must encrypt before append
+and decrypt on read — kiroku-store treats payloads as opaque bytes.
+
+Resolution path in M2: add a brief note to the `Production Deployment`
+section that the package does not provide at-rest encryption beyond
+PostgreSQL's standard data-at-rest options (filesystem encryption,
+TDE). Callers store JSONB; sensitivity classification is the caller's
+responsibility.
+
+**F18 — ConnectionSettings Haddock is misleading on the `schema` field.**
+*Severity: must-fix (Haddock change), folded into F1's resolution.*
+
+`Connection.hs:35` reads:
+
+    -- ^ Schema name for multi-tenant isolation (default: "public")
+
+This Haddock implies that setting `schema` produces multi-tenant
+isolation. F1 establishes that it does not. Cross-references
+EP-2.F14, which routed the schema-field decision to this plan. F1's
+M2 resolution rewrites this Haddock to name the actual contract (the
+LISTEN channel name only) and adds the F2 coupling note.
 
 
 ## Decision Log
 
 - Decision: Treat the schema-name field's resolution as a must-fix or must-document item — it cannot remain in its current "plumbed but inert" state once consumers depend on the package.
   Rationale: A field whose name suggests multi-tenant isolation but does nothing is a footgun. Either wire it through (substantial change), remove it (minor breaking change), or document its actual contract (documentation only). The choice depends on whether the package commits to multi-tenant isolation as a feature now or defers it.
+  Date: 2026-04-29
+
+- Decision: Adopt option (C) for the schema-name field — document the actual contract and remove dead plumbing — over option (A) wire-through-SQL or option (B) remove-the-field.
+  Rationale: There is no production caller asking for schema-per-tenant isolation today (F4). The DESIGN.md aspiration (schema-prefixed SQL) was never implemented, and implementing it now would touch every prepared statement in `SQL.hs` (~30+ statements, 800 lines) plus require coordinating with EP-1's owned file. Removing the field (option B) is a public API breaking change for any caller already setting it (notably the adapter at `shibuya-kiroku-adapter/`). Option (C) is the lightest intervention that closes the footgun: the Haddock will name the only thing the field actually controls (the LISTEN channel name) and the dead plumbing in `Worker.hs:41,82,139,162` and `Schema.hs:27` will be removed. The field stays for forward compatibility — when a real multi-tenant requirement appears, option (A) becomes the right next step and the field is already in place. Cross-plan EP-2.F14 routed the decision here; EP-2's audit reached the same conclusion (a Haddock note rather than a constructor change).
+  Date: 2026-04-29
+
+- Decision: Defer F4 (tenant lifecycle), F6 (hard-delete audit log), F13 (NOTIFY payload JSON encoding), F16 (partition trigger semantics).
+  Rationale: All four are feature additions, not defects, and none has a production caller. Triggers for each are recorded in the finding text. Recording the deferrals in this plan's Decision Log preserves the rationale for the production-readiness verdict.
+  Date: 2026-04-29
+
+- Decision: Frame the hard-delete authorization model (F5) as advisory, not security; document in `Lifecycle.hs` rather than tighten the GUC mechanism.
+  Rationale: The trust model "applications running with full DELETE privilege are trusted" is correct for the package's current consumer set (single-application services). Tightening the trigger (`SECURITY DEFINER` function, role allowlist, single-use token) is a feature for a different trust model that no consumer has asked for; the cost is API or operational complexity. The risk is that a reader of the trigger code mistakes the GUC for a security boundary; the fix is a documentation note that names the model explicitly. This avoids the worst outcome (false sense of security) at the lowest cost.
+  Date: 2026-04-29
+
+- Decision: Defer extracting `kiroku-migrate` (F7); land a Haddock warning instead.
+  Rationale: The existing `project_schema_migration.md` memory note already records "extract `kiroku-migrate` when a non-trivial DDL change appears". No such change is queued today; the parked partition plan is the most likely future trigger, and `project_partition_plan_parked.md` already names the unpark conditions. Adding a Haddock to `initializeSchema` that names the additive-only contract gives any future contributor — including the MasterPlan's reader — the heads-up they need without spinning up a parallel package now.
   Date: 2026-04-29
 
 
