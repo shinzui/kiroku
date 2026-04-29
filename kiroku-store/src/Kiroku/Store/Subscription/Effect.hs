@@ -77,10 +77,23 @@ withSubscription config = bracket (subscribe config) (liftIO . cancel)
 -- Interpreters
 -- ---------------------------------------------------------------------------
 
-{- | Interpret Subscription by delegating to the MonadIO-based subscribe.
+{- | Interpret 'Subscription' by delegating to the @MonadIO@-based
+'Kiroku.Store.Subscription.subscribe'.
 
-Uses @ConcUnlift Persistent (Limited 1)@ to convert the @Eff@-based handler
-to @IO@ for the async worker thread.
+The unlift strategy is @ConcUnlift Persistent (Limited 1)@:
+
+* @Persistent@ — the effect environment must outlive each individual
+  handler invocation. The worker thread calls the handler many times
+  over its lifetime; an @Ephemeral@ unlift would reset the environment
+  between calls and lose any 'Effectful.State.Static.Local.State' /
+  'Effectful.Reader.Static.Reader' contents.
+* @Limited 1@ — only one concurrent unlift is in flight at any time.
+  The worker thread is single-threaded by construction (events are
+  processed sequentially within a subscription), so a higher bound
+  would be wasteful. A @Limited 0@ would prevent any unlift and break
+  the handler entirely.
+
+Do not relax these bounds without restructuring the worker.
 -}
 runSubscription ::
     (IOE :> es) =>

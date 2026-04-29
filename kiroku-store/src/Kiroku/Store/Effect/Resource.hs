@@ -19,7 +19,18 @@ import Kiroku.Store.Connection (ConnectionSettings, KirokuStore, withStore)
 -- KirokuStoreResource static effect
 -- ---------------------------------------------------------------------------
 
--- | Static effect carrying a 'KirokuStore' handle.
+{- | Static effect carrying a 'KirokuStore' handle.
+
+Static rather than dynamic because the store handle is acquired exactly
+once per program and is not meant to be mocked — the dynamic mocking
+surface lives on the 'Kiroku.Store.Effect.Store' effect that operates
+against the handle. Splitting the resource (static) from the operations
+(dynamic) keeps mocking ergonomic without requiring callers to swap the
+handle itself.
+
+@Static WithSideEffects@ rather than @Static NoSideEffects@ because the
+underlying connection pool performs IO during operation lookup.
+-}
 data KirokuStoreResource :: Effect
 
 type instance DispatchOf KirokuStoreResource = Static WithSideEffects

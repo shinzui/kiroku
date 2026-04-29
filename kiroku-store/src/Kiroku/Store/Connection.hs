@@ -63,7 +63,34 @@ data KirokuStore = KirokuStore
     }
     deriving stock (Generic)
 
--- | Bracket-style store lifecycle.
+{- | Bracket-style store lifecycle.
+
+Acquire phase, in order:
+
+1. Acquire the connection pool from @hasql-pool@ with the configured
+   size and the @idle_in_transaction_session_timeout@ init session.
+2. Run the embedded schema DDL (@kiroku-store/sql/schema.sql@).
+   Idempotent under repeat starts. Failures throw
+   'Kiroku.Store.Schema.SchemaInitError' (re-exported from
+   'Kiroku.Store').
+3. Start the 'Kiroku.Store.Notification.Notifier' on a dedicated
+   connection: @LISTEN \<schema\>.events@.
+4. Start the 'Kiroku.Store.Subscription.EventPublisher' which consumes
+   notifier ticks and broadcasts new events to subscribers.
+
+Release phase, in reverse order:
+
+1. Cancel the 'Kiroku.Store.Subscription.EventPublisher' worker.
+2. Stop the 'Kiroku.Store.Notification.Notifier' (cancel listener,
+   release connection).
+3. Release the pool.
+
+The @bracket@ semantics guarantee release runs on either normal exit
+or an exception in the body. The 'MonadUnliftIO' constraint matches
+'Control.Exception.bracket'; consumers in pure 'IO' get an exact match,
+consumers in effectful monads with an unlift in scope (e.g., a
+'ReaderT'-like stack) get the same guarantee transparently.
+-}
 withStore :: (MonadUnliftIO m) => ConnectionSettings -> (KirokuStore -> m a) -> m a
 withStore settings action = withRunInIO $ \runInIO ->
     bracket acquire release (runInIO . action)

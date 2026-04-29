@@ -15,7 +15,15 @@ import GHC.Stack (HasCallStack)
 import Kiroku.Store.Effect (Store (..))
 import Kiroku.Store.Types
 
--- | Read events from a named stream in forward (ascending version) order.
+{- | Read events from a named stream in forward (ascending version)
+order.
+
+The cursor is exclusive: events with @streamVersion > startVer@ are
+returned. To read the entire stream from the beginning, pass
+@'StreamVersion' 0@. Returns an empty vector for nonexistent or
+soft-deleted streams. The @limit@ caps the batch size; pass a large
+value for \"read everything\".
+-}
 readStreamForward ::
     (HasCallStack, Store :> es) =>
     StreamName ->
@@ -24,7 +32,15 @@ readStreamForward ::
     Eff es (Vector RecordedEvent)
 readStreamForward name startVer limit = send (ReadStreamForward name startVer limit)
 
--- | Read events from a named stream in backward (descending version) order.
+{- | Read events from a named stream in backward (descending version)
+order.
+
+The cursor is exclusive: events with @streamVersion < startVer@ are
+returned (events older than the cursor). To read the entire stream from
+the latest event backward, pass @'StreamVersion' 0@ (the SQL treats it
+as \"newer than any\"). Returns an empty vector for nonexistent or
+soft-deleted streams.
+-}
 readStreamBackward ::
     (HasCallStack, Store :> es) =>
     StreamName ->
@@ -33,7 +49,16 @@ readStreamBackward ::
     Eff es (Vector RecordedEvent)
 readStreamBackward name startVer limit = send (ReadStreamBackward name startVer limit)
 
--- | Read events from the global @$all@ stream in forward order.
+{- | Read events from the global @$all@ stream in forward
+('GlobalPosition'-ascending) order.
+
+Cursor exclusive: events with @globalPosition > startPos@ are returned.
+@$all@ contains every event ever appended (including events from
+soft-deleted streams; they survive in @$all@ even after their owning
+stream is hidden). Hard-deleted streams' events do /not/ appear in
+@$all@. The seed row at @globalPosition = 0@ is internal and is never
+returned.
+-}
 readAllForward ::
     (HasCallStack, Store :> es) =>
     GlobalPosition ->
@@ -41,7 +66,12 @@ readAllForward ::
     Eff es (Vector RecordedEvent)
 readAllForward startPos limit = send (ReadAllForward startPos limit)
 
--- | Read events from the global @$all@ stream in backward order.
+{- | Read events from the global @$all@ stream in backward
+('GlobalPosition'-descending) order.
+
+Cursor exclusive. To start from the most recent event, pass
+@'GlobalPosition' 0@ (treated as \"after everything\" by the SQL).
+-}
 readAllBackward ::
     (HasCallStack, Store :> es) =>
     GlobalPosition ->
@@ -49,7 +79,14 @@ readAllBackward ::
     Eff es (Vector RecordedEvent)
 readAllBackward startPos limit = send (ReadAllBackward startPos limit)
 
--- | Read events from streams matching a category, in global position order.
+{- | Read events whose source stream's category prefix matches the given
+'CategoryName', in 'GlobalPosition' order.
+
+The category is the substring of a 'StreamName' before the first @-@:
+@StreamName "orders-1"@ has @CategoryName "orders"@. Linked events
+appear at their /source/ position; the category is the source's
+category, not the link target's.
+-}
 readCategory ::
     (HasCallStack, Store :> es) =>
     CategoryName ->
@@ -58,7 +95,12 @@ readCategory ::
     Eff es (Vector RecordedEvent)
 readCategory cat startPos limit = send (ReadCategoryForward cat startPos limit)
 
--- | Query stream metadata. Returns 'Nothing' for nonexistent streams.
+{- | Query stream metadata.
+
+Returns 'Just' for both live and soft-deleted streams (with @deletedAt@
+populated). Returns 'Nothing' for hard-deleted streams and streams that
+have never been created.
+-}
 getStream ::
     (HasCallStack, Store :> es) =>
     StreamName ->
