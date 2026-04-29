@@ -25,41 +25,312 @@ A reader can verify the change by running `cabal test kiroku-store`, the new det
 
 ## Progress
 
-- [ ] Milestone 1: Audit findings document
-  - [ ] Read every file in `kiroku-store/src/Kiroku/Store/Subscription/` and the supporting `Notification.hs`
-  - [ ] Trace each delivery path end-to-end (live, catch-up, post-cancellation, post-disconnect, post-handler-Stop) and record what events the consumer sees
-  - [ ] Classify every finding by severity
-  - [ ] Cross-link cross-plan findings (Notifier connection failure → EP-5 observability; backpressure → EP-2 API; etc.) in the MasterPlan
+- [x] Milestone 1: Audit findings document (2026-04-29; 30 findings F1–F30: 3 must-fix [F1 listener leak, F6 unbounded broadcast, F18 Category live-mode filter] + at-least-once Haddock contract; 8 should-fix [4 cross-plan to EP-5, 4 deferred-with-rationale]; 2 cross-plan to EP-2/EP-6; remainder no-issue)
+  - [x] Read every file in `kiroku-store/src/Kiroku/Store/Subscription/` and the supporting `Notification.hs`
+  - [x] Trace each delivery path end-to-end (live, catch-up, post-cancellation, post-disconnect, post-handler-Stop) and record what events the consumer sees
+  - [x] Classify every finding by severity
+  - [x] Cross-link cross-plan findings (Notifier connection failure → EP-5 observability; backpressure → consumer-facing config; etc.) in the MasterPlan
 - [ ] Milestone 2: Land must-fix corrections
-  - [ ] Implement `Category` live-mode filtering (or document the behavioural change)
-  - [ ] Add bounded backpressure to `EventPublisher` broadcast (or document the head-of-line risk)
-  - [ ] Make the at-least-once delivery contract explicit in Haddocks
-  - [ ] Replace `threadDelay`-based test synchronization with deterministic STM-based barriers (or coordinate with EP-6)
+  - [ ] F1: release reconnected listener connection on shutdown
+  - [ ] F18: correct `Category` live-mode filter via DB-driven loop
+  - [ ] F6: bounded per-subscriber backpressure with overflow policy
+  - [ ] At-least-once delivery contract Haddock on `Subscription.hs` + `Subscription/Effect.hs`
+  - [ ] Regression tests using deterministic STM/MVar barriers (no `threadDelay`)
   - [ ] Update the MasterPlan's Exec-Plan Registry status and Progress section
 
 
 ## Surprises & Discoveries
 
-(None yet. The findings document produced in Milestone 1 will be reflected here with file:line references and severity classification.)
+### Milestone 1 audit (2026-04-29) — 27 findings
 
-Initial leads identified during MasterPlan research:
+The audit walked every file listed under Concrete Steps and traced every delivery
+path. Findings are grouped by component and labelled `EP-3.F<n>`. Severity legend:
 
-- `Worker.filterEvents` (`Subscription/Worker.hs:120-136`) for `Category` subscriptions in live mode returns all events unfiltered. The comment in the source admits this is a documented gap. Severity: must-fix-before-production. Proposed fix: either (1) re-query the database in live mode to apply the SQL category filter (a perf cost), (2) cache the stream-id-to-category map in the publisher and pass category alongside events, or (3) include the source stream's category in the `RecordedEvent` so the worker can filter in-process. Each has tradeoffs; the audit recommends one.
-- The `EventPublisher` broadcast `TChan` (`Subscription/EventPublisher.hs:45`, `newBroadcastTChanIO`) is unbounded. A slow subscriber that doesn't drain its `dupTChan` causes `writeTChan` to enqueue unboundedly in memory. STM `TChan` does not block writers when readers are slow — the channel just grows. Severity: must-fix-before-production for any service expecting bounded memory. Proposed fix: bounded `TBQueue` per subscriber with a backpressure policy (drop-oldest, block-publisher, kill-slow-subscriber); document the choice.
-- Notifier connection failure path (`Notification.hs:67-79`) catches a `SomeException`, sleeps 1 second, reconnects, re-LISTENs, and resumes. During the 1s window, NOTIFYs are missed. The `EventPublisher`'s 30-second safety poll covers correctness, but there is no observability surfaced — the consumer has no idea the listener crashed. Severity: should-fix; cross-plan with EP-5 for the observability hook.
-- The `EventPublisher` swallows pool errors silently (`EventPublisher.hs:107-110`). Same observability concern.
-- Worker cancel during checkpoint save: `processEvents` (`Subscription/Worker.hs:141-162`) calls `saveCheckpoint` *after* the handler returns `Continue` for every event in a batch. If the worker is cancelled between handler-return and checkpoint-save, the events have been *acted on* by the handler but no checkpoint advance is persisted. On restart the events are replayed. This is the at-least-once contract; confirm it is documented.
-- Worker cancel during `processEvents` mid-batch: cancellation is asynchronous. Cancel raises `AsyncCancelled` between any two `IO` operations. If cancel arrives between handler-return-Continue and the next handler call, the state is "events 1..i processed, events i+1..n not". On restart, events 1..i are replayed because no checkpoint was saved. Confirm and document.
-- Worker handler-throws: the handler is `RecordedEvent -> IO SubscriptionResult`. If the handler raises an exception, what happens? The worker thread dies; the consumer sees this via `Async.waitCatch` returning `Left e`. Confirm; document the contract that handler exceptions are uncaught and the subscription terminates.
-- `runSubscription` (`Subscription/Effect.hs:62-71`) uses `localUnliftIO env (ConcUnlift Persistent (Limited 1))`. The `Limited 1` means only one concurrent unlift; this is correct because the worker is single-threaded. Confirm with a test that two concurrent handler calls (impossible by design but a future regression risk) would error rather than corrupt state.
-- `subscriptionStream` (`Subscription/Stream.hs:33-67`) provides a Streamly bridge with a bounded `TBQueue`. This is the *pull-based* path with backpressure on the consumer side; the *push-based* `subscribe` path has no backpressure (see broadcast `TChan` finding above). Document this contrast clearly.
-- The existing subscription tests in `kiroku-store/test/Main.hs:556-830` use `threadDelay 100_000` and `threadDelay 200_000` for synchronization. This is fragile under load. EP-6 owns test-quality, but this plan's fix milestone should replace these with deterministic STM-based barriers if it lands new subscription tests.
+  * **Must-fix-before-production** — landing in M2.
+  * **Should-fix** — recommended but not blocking; deferred-with-rationale.
+  * **No-issue** — confirmed correct; documenting for the deferred-findings register.
+  * **Cross-plan** — surfaces in another plan's domain; recorded in MasterPlan.
+
+#### Notifier (`kiroku-store/src/Kiroku/Store/Notification.hs`)
+
+  * **F1 — Reconnected listener connection leaks on shutdown.** *Must-fix.*
+    `listenerLoop` (`Notification.hs:66-79`) acquires `newConn` after a connection
+    error and recurses with `go newConn`. The fresh connection is held in the
+    closure's `currentConn` argument, but `Notifier.listenerConn` (set at
+    `startNotifier` time, line 52) still references the *original* connection.
+    `stopNotifier` (`Notification.hs:58-62`) calls `Connection.release` on
+    `listenerConn` only — the reconnected connection is never released. A long-lived
+    store that experiences several listener reconnects across its lifetime leaks
+    one Postgres connection per reconnect, all held until process exit. M2 fix
+    is to thread the current connection through a `TVar` so `stopNotifier` can
+    release whichever connection is current at shutdown time.
+
+  * **F2 — Listener thread dies if reconnection fails.** *Should-fix; defer.* Inside
+    the catch handler (`Notification.hs:74-79`), `acquireOrFail connStr` is called
+    after the 1-second sleep; if it fails, the exception propagates out of the
+    catch (the catch only wraps the `forever waitForNotifications` LHS), the
+    recursion is abandoned, and the `Async.async` thread dies. The store's other
+    components (publisher, pool) keep running; consumers see no events delivered
+    via the listener path, but the publisher's 30-second safety poll still drives
+    progress. Severity is *should-fix* because correctness is preserved (events
+    still surface, with up-to-30s latency), but observability is poor (no signal
+    the listener died). Deferred-with-rationale: the proper fix is a retry loop
+    around `acquireOrFail` with backoff, plus an observability hook for "listener
+    died after N retries"; both are best done as part of EP-5's observation-handler
+    enrichment.
+
+  * **F3 — Reconnection loop has no observability hook.** *Should-fix.* Cross-plan
+    with EP-5: every retry burns a `threadDelay 1s` and re-LISTENs silently.
+    Recommended fix in EP-5 is to thread the optional `observationHandler` into
+    the `Notifier` or add a `notifierObservationHandler` callback so reconnection
+    events surface to operators.
+
+  * **F4 — `acquireOrFail` uses `fail`.** *No-issue (documented).* `fail` produces
+    an `IOError` that propagates from `withStore`'s acquire phase. Consumers
+    catching `IOException` see it; consumers expecting a structured error do not.
+    EP-2.M2 already added a structured `SchemaInitError`; an analogous structured
+    error for listener-acquire failure could be added in EP-4's lifecycle work
+    but the current behaviour is acceptable: a store that cannot establish the
+    listener is unusable, and `fail` produces a clear "Notifier: failed to acquire
+    connection" message.
+
+  * **F5 — Lifecycle ordering is correct.** *No-issue.* `withStore` (`Connection.hs:125-129`)
+    stops the publisher first (which depends on the notifier's tick channel),
+    then the notifier (which closes its dedicated connection), then releases the
+    pool. Reverse-acquire order. Cancellation propagates correctly via `Async.cancel`
+    + `waitCatch`. Confirmed by tracing.
+
+#### EventPublisher (`kiroku-store/src/Kiroku/Store/Subscription/EventPublisher.hs`)
+
+  * **F6 — Broadcast `TChan` is unbounded.** *Must-fix.* The publisher's
+    `broadcastChan :: TChan (Vector RecordedEvent)` (line 42) and each subscriber's
+    `dupTChan` (line 85) form an unbounded queue: `writeTChan` never blocks, never
+    drops, never retries — it just appends. A subscriber whose handler is slow,
+    blocked, or stuck causes its personal `dupTChan` to grow indefinitely; over
+    minutes of high-throughput appends this leads to OOM in the host process.
+    Other subscribers are unaffected by the slow subscriber's queue (they have
+    their own `dupTChan`s), so the failure mode is: one slow subscription
+    silently kills the *entire* process. This is the highest-risk finding for
+    production. M2 fix is to replace the broadcast model with a per-subscriber
+    bounded `TBQueue` and a configurable overflow policy
+    (default: cancel the slow subscription with a structured error).
+
+  * **F7 — Pool errors silently swallowed in publisher loop.** *Should-fix; cross-plan
+    with EP-5.* `fetchAndBroadcast` (`EventPublisher.hs:104-110`) discards pool
+    errors with `Left _err -> pure ()`, relying on the 30-second safety poll for
+    eventual retry. There is no observability hook — operators do not learn that
+    the publisher cannot reach the database. Cross-plan: EP-5 owns the
+    observation-handler enrichment.
+
+  * **F8 — `publisherBatchSize = 1000` hard-coded.** *Should-fix; defer.*
+    `EventPublisher.hs:53` defines `publisherBatchSize = 1000`. At very high event
+    rates (≫ 1000 events/sec) this caps publisher throughput at one batch per
+    DB round-trip. The publisher's tight loop (`fetchAndBroadcast` recurses when
+    it gets a full batch) compensates somewhat, but the value is not configurable
+    without a code change. Deferred: add to `ConnectionSettings` later if a real
+    workload demands it; today's adapter benchmark does not stress this.
+
+  * **F9 — 30-second safety poll can deliver large batches at once.** *No-issue
+    (documented).* If the listener is dead and the safety poll is the only source
+    of progress, subscribers see up to 30 seconds of events in a single batch
+    when the publisher fires. This is the intended correctness fallback. M2
+    Haddock should mention the latency expectation.
+
+  * **F10 — Publisher reads `$all` only.** *No-issue.* By design: subscribers that
+    need category filtering apply it client-side (or — after F11's fix — drop
+    the broadcast entirely for category targets). The publisher cannot
+    pre-filter at source because it serves all subscribers, who may want
+    different subsets.
+
+  * **F11 — `lastPublished` and `writeTChan` updated atomically.** *No-issue.*
+    `EventPublisher.hs:116-118` advances `posVar` in the same `atomically` block
+    as the broadcast write. So any worker that reads `pubPos` *after* the broadcast
+    sees the new position, and any worker that reads it *before* sees the old
+    position and re-runs catch-up. The catch-up converges to live mode invariant
+    holds.
+
+  * **F12 — Publisher uses application pool.** *Should-fix; cross-plan with EP-5.*
+    `Pool.use pool ...` for the publisher's read takes a connection from the
+    same `hasql-pool` that application appends use. Under pool exhaustion, the
+    publisher cannot make progress. The 30-second safety poll exacerbates this
+    because every safety-poll firing then takes 30+ seconds to recover. EP-5
+    should evaluate dedicating one connection to the publisher (similar to the
+    Notifier's dedicated `LISTEN` connection).
+
+#### Worker — catch-up phase (`kiroku-store/src/Kiroku/Store/Subscription/Worker.hs`)
+
+  * **F13 — `loadCheckpoint` swallows DB errors.** *Should-fix; defer.*
+    `loadCheckpoint` (`Worker.hs:43-49`) returns `GlobalPosition 0` for both
+    "no checkpoint yet" and "DB error reading checkpoint". The latter silently
+    re-processes every event. Severity is should-fix — at-least-once handlers
+    must be idempotent so the *correctness* impact is bounded — but the
+    *observability* impact is poor (no signal that something is wrong).
+    Deferred: differentiate via the EP-5 observation-handler enrichment or
+    surface as a `SubscriptionResult` variant at that point.
+
+  * **F14 — dupTChan-creation-precedes-thread-spawn invariant holds.** *No-issue.*
+    `Subscription.hs:38-43` calls `subscribePublisher` (which dupTChans the
+    broadcast channel) *before* `Async.async`, so any broadcast that occurs
+    between catch-up's last `pubPos` read and the live-mode entry is queued in
+    the worker's dupTChan and observed in the next `readTChan`. No events
+    lost. M2 will add a regression test.
+
+  * **F15 — Catch-up race is benign.** *No-issue.* The race "publisher advances
+    between `readTVar pubPosVar` and `fetchBatch`" can leave the worker with
+    `cursor < newest pubPos` when it exits catch-up, but the events past `cursor`
+    are already in the worker's dupTChan (created at subscribe time, before
+    spawn — see F14). The worker enters live mode and reads them. Verified
+    by code path inspection; M2 will add a regression test.
+
+  * **F16 — `fetchBatch` for `Category` filters at source.** *No-issue.*
+    `Worker.hs:111-115` calls `readCategoryForwardStmt` which JOINs `streams`
+    on `category = $2`. Correct.
+
+  * **F17 — `processEvents` saves checkpoint at batch tail.** *No-issue (must
+    document).* Continue → checkpoint at `globalPosition` of last event in the
+    batch; Stop → checkpoint at the just-handled event's position. This is the
+    at-least-once boundary: any cancellation or crash between the last handler
+    return and the next checkpoint save causes the *whole batch* to replay.
+    This is the contract M2 will document explicitly in Haddock.
+
+#### Worker — live phase
+
+  * **F18 — `Category` live-mode does not filter.** *Must-fix.* `Worker.hs:120-136`
+    documents this as a Phase 2a simplification: live broadcasts contain all
+    events from `$all`, and `filterEvents` for `Category` returns the input
+    unchanged. A category subscription in live mode therefore receives events
+    from streams in *all* categories. The acceptance test in M2 catches this:
+    subscribe to category `"order"`, append events to streams `order-1`,
+    `user-1`, `order-2` interleaved while the subscription is in live mode;
+    before the fix, the handler sees the `user-1` event too. M2 fix: replace
+    the live-mode TBQueue read for category subscriptions with a DB-driven
+    loop that wakes on `lastPublished` advancing and queries with
+    `readCategoryForwardStmt`. Decision Log records the rationale for this
+    over the alternative (extending `RecordedEvent` with `category`).
+
+  * **F19 — Handler returns `Stop` mid-batch in live mode.** *No-issue.*
+    `processEvents` saves the checkpoint at the just-handled event and the
+    worker exits cleanly. Verified by code path tracing; the existing
+    "cancels a running subscription cleanly" test indirectly covers this.
+
+  * **F20 — `liveLoop` does not update `lastPublished`.** *No-issue.* The
+    publisher owns `lastPublished`; workers read it during catch-up only.
+    A worker's processed position is private to the subscription
+    (`subscriptions.last_processed_position` row in the DB). No invariant
+    violation.
+
+  * **F21 — `liveLoop`'s `_cursor` is unused.** *No-issue.* Cosmetic; the
+    cursor is implicit in the dupTChan/TBQueue. Defer to EP-6 if it does
+    a Worker cleanup pass.
+
+#### Lifecycle and cancellation
+
+  * **F22 — Cancel during `atomically (readTBQueue ...)` is safe.** *No-issue.*
+    STM blocking operations are interruptible; `Async.cancel` raises
+    `AsyncCancelled` which STM unwinds cleanly without a partial commit.
+
+  * **F23 — Cancel during `Pool.use` is safe.** *No-issue.* Hasql sessions
+    use interruptible socket reads; cancellation lands at the next blocking
+    syscall and the connection is returned to the pool by the bracketed
+    handler inside `Pool.use`.
+
+  * **F24 — Cancel after handler-Continue, before `saveCheckpoint`, replays
+    events on restart.** *No-issue (the at-least-once contract).* This is
+    one of the at-least-once boundaries M2 will document. Same applies to
+    cancellation between any two handler calls within `processEvents` —
+    the partial work is not checkpointed and replays.
+
+  * **F25 — Handler exception kills the worker thread.** *No-issue (must
+    document).* `processEvents` does not catch exceptions thrown by the
+    handler; the `Async.async` thread dies and `Async.waitCatch` returns
+    `Left e`. M2 Haddock documents this contract: a handler that throws
+    terminates the subscription. Consumers that want resilient handlers
+    must catch their own exceptions and return `Continue`/`Stop` themselves.
+
+#### Effect interpreter (`kiroku-store/src/Kiroku/Store/Subscription/Effect.hs`)
+
+  * **F26 — `localUnliftIO ConcUnlift Persistent (Limited 1)` rationale.**
+    *No-issue.* Already documented in `runSubscription`'s Haddock
+    (`Subscription/Effect.hs:80-97`, landed in EP-2 M2). Persistent + Limited 1
+    matches the worker's single-threaded design. Verified.
+
+  * **F27 — `wait` is `IO` only.** *Cross-plan with EP-2 (already complete).*
+    `SubscriptionHandle.wait :: IO (Either SomeException ())` — there is no
+    `Eff`-lifted variant. EP-2.F27 noted this and recommended `withSubscription`
+    (which EP-2 landed) as the ergonomic alternative. No M2 work needed here.
+
+#### Streamly bridge (`kiroku-store/src/Kiroku/Store/Subscription/Stream.hs`)
+
+  * **F28 — Bridge ignores user-supplied handler.** *No-issue.* Documented in
+    Haddock (`Subscription/Stream.hs:28-29`).
+
+  * **F29 — Bridge `subscriptionStream` discards `wait`.** *Cross-plan with
+    EP-2.F27 (already noted).* The Streamly stream silently hangs if the
+    underlying worker crashes. EP-2 owns the lifecycle helper redesign;
+    EP-3 does not change behaviour here.
+
+#### Test suite
+
+  * **F30 — Existing subscription tests use `threadDelay`.** *Cross-plan with
+    EP-6.* `kiroku-store/test/Main.hs:716-990` synchronises with the publisher
+    via `threadDelay 100_000`/`200_000` between subscribe-time and
+    append-time. Fragile under load (e.g., on a busy CI runner the publisher's
+    safety poll might fire before the appends arrive, or the dupTChan might
+    not be ready). EP-6 owns the suite restructure. M2 will add new
+    regression tests using deterministic STM/`MVar` barriers from the start;
+    converting the existing tests is left to EP-6.
+
+### Cross-plan items routed to MasterPlan
+
+  * **F3, F7, F12, F13** — observability gaps routed to EP-5.
+  * **F18 fix touches `SQL.hs`** — additive only (no new statement needed if
+    the chosen fix is the DB-driven loop using existing `readCategoryForwardStmt`),
+    but if a stream-id-to-category lookup is added later it crosses EP-1's
+    domain. Tracked in MasterPlan integration points.
+  * **F30** — test suite restructure is EP-6 territory; M2 adds new
+    deterministic tests but does not refactor existing ones.
+
+### M2 — Implementation outcomes
+
+(Filled as fixes land; see Progress section for the live checklist.)
 
 
 ## Decision Log
 
 - Decision: Make the at-least-once delivery contract a *required* output of this plan, even if no code changes are needed to honour it. The contract should be in the Haddock for `subscribe`, `Subscription.subscribe`, and `EventHandler`.
   Rationale: Handler authors who do not know the contract will write non-idempotent handlers and silently produce wrong results on subscription restart. This is the single highest-leverage documentation improvement in the package.
+  Date: 2026-04-29
+
+- Decision: Fix F18 (Category live-mode filter) by giving Category subscriptions a dedicated DB-driven live loop that bypasses the broadcast entirely, rather than (a) extending `RecordedEvent` with a `category` field or (b) maintaining an in-process `StreamId → CategoryName` cache.
+  Rationale: Option (a) modifies the public `RecordedEvent` type owned by EP-2 (already complete) and changes every read path to populate the new field — large blast radius. Option (b) requires a new SQL statement plus an in-memory cache invalidation story (what if a stream is hard-deleted and its id reused?) and still does occasional DB queries on first encounter. The chosen DB-driven loop reuses the existing `readCategoryForwardStmt` (which already filters at source), waits on `lastPublished` advancing via STM, and is structurally identical to a never-exiting catch-up. The cost is one DB query per tick for category subscribers, which is acceptable: typical projection workloads run at ≤ tens of ticks per second after the publisher's debouncing, and the publisher's `publisherBatchSize = 1000` already amortises the round-trip.
+  Date: 2026-04-29
+
+- Decision: Fix F6 (unbounded broadcast) by replacing `TChan` + `dupTChan` with a per-subscriber bounded `TBQueue` registry inside the publisher. Default `queueCapacity = 10000` events, default `overflowPolicy = DropSubscription` (cancel the slow subscriber and surface a structured error via `Async.waitCatch`).
+  Rationale: Among the three policies (block-publisher, drop-oldest, drop-subscription), only drop-subscription provides head-of-line-blocking-free production safety: a slow subscription cannot affect other subscribers' delivery latency, cannot grow memory unboundedly, and surfaces *as a typed error* the operator can act on. The drop-oldest policy silently corrupts at-least-once into "events sometimes skipped". The block-publisher policy reintroduces the head-of-line problem this fix is supposed to solve. Drop-subscription is the safest default; consumers who prefer drop-oldest can opt in via `overflowPolicy = DropOldest`.
+  Date: 2026-04-29
+
+- Decision: Use `Effectful.Exception.bracket` (already imported in `Subscription/Effect.hs`) for the publisher subscriber registry's `bracket (subscribe, unsubscribe)` lifecycle, threading the unsubscribe action through `Subscription.subscribe` rather than expecting callers to remember it. The `cancel` action in the returned `SubscriptionHandle` includes the unsubscribe.
+  Rationale: A subscription's queue must be removed from the publisher's registry when the worker terminates, otherwise the publisher writes to a queue with no reader, eventually filling it (and triggering the overflow policy on a subscription that *was* cancelled — wrong signal). Hooking unsubscribe into `cancel` is symmetric with the existing `Async.cancel` and matches the existing `withSubscription` bracket semantics.
+  Date: 2026-04-29
+
+- Decision: Defer F2 (listener dies on reacquire failure) to EP-5. The fix is a retry loop with exponential backoff plus an observation-handler hook for "listener died after N retries". EP-5 owns the observation enrichment.
+  Rationale: Correctness is preserved today (the publisher's safety poll keeps subscribers fed). Adding a retry loop without the observation hook would mask the failure entirely; better to land both together.
+  Date: 2026-04-29
+
+- Decision: Defer F3, F7, F12, F13 (observability gaps in Notifier reconnect, publisher pool errors, publisher pool sharing, checkpoint load errors) to EP-5.
+  Rationale: All four are observability holes; EP-5 owns the observation-handler enrichment that exposes them as a coherent set of metrics rather than four independent log lines.
+  Date: 2026-04-29
+
+- Decision: Defer F8 (configurable `publisherBatchSize`) until a real workload demands it.
+  Rationale: 1000 events per batch handles every workload the adapter benchmark currently stresses. Adding a knob without a concrete demand creates an API commitment with no validation. Revisit if a future stream measures throughput-bound on this constant.
+  Date: 2026-04-29
+
+- Decision: Defer F29 (`subscriptionStream` discards `wait`) to a future EP-2/EP-3 collaboration.
+  Rationale: The fix requires changing `subscriptionStream`'s return type or introducing a separate "stream + handle" pair, which is an API surface change. EP-2 (already complete) declined to expand the surface in M2; revisit when a consumer reports a real issue. The current behaviour (Streamly stream silently hangs on worker crash) is documented behaviour as of EP-2's findings.
+  Date: 2026-04-29
+
+- Decision: Add new regression tests using deterministic STM/`MVar` barriers; do *not* refactor the existing `threadDelay`-based subscription tests.
+  Rationale: The existing tests pass under load on the current setup. EP-6 owns the suite restructure and will convert all tests at once. Mixing styles in this commit would confuse the EP-6 work later.
   Date: 2026-04-29
 
 

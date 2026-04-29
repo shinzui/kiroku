@@ -39,7 +39,7 @@ Each child plan begins with an *audit milestone* that produces a findings docume
 |---|-------|------|-----------|-----------|--------|
 | EP-1 | Schema, CTE and concurrency correctness audit | docs/plans/1-schema-cte-and-concurrency-correctness-audit.md | None | None | Complete |
 | EP-2 | Public API surface, types and error model audit | docs/plans/2-public-api-surface-types-and-error-model-audit.md | None | EP-1 | Complete |
-| EP-3 | Subscription system robustness audit | docs/plans/3-subscription-system-robustness-audit.md | None | EP-1, EP-2 | Not Started |
+| EP-3 | Subscription system robustness audit | docs/plans/3-subscription-system-robustness-audit.md | None | EP-1, EP-2 | In Progress |
 | EP-4 | Multi-tenancy, security and schema lifecycle audit | docs/plans/4-multi-tenancy-security-and-schema-lifecycle-audit.md | None | EP-1 | Not Started |
 | EP-5 | Operational hardening: observability, failure modes, limits | docs/plans/5-operational-hardening-observability-failure-modes-limits.md | None | EP-1, EP-2, EP-3 | Not Started |
 | EP-6 | Test and benchmark hardening for production confidence | docs/plans/6-test-and-benchmark-hardening-for-production-confidence.md | None | EP-1, EP-2, EP-3, EP-4, EP-5 | Not Started |
@@ -95,8 +95,8 @@ Track milestone-level progress across all child plans. Each entry names the chil
 - [x] EP-1: M2 — Landed F1 (hard-delete orphan), F2 (soft-delete TOCTOU), F3 (linkToStream gap), F4 (multi-stream deadlock pre-lock), F5 (link rejects soft-deleted target), F6 (TRUNCATE bypass triggers); deferred F7 to EP-4 Haddock. 66/66 tests pass; reads within 3% of baseline; +12 regression tests. (commits 01c0ee6, e903062, a5754d6, 12a154b, 6d195e8, 8edfbee)
 - [x] EP-2: M1 — Public API and error model audit findings document (2026-04-29; 34 findings F1–F34: 1 must-fix [F25 `withSubscription` bracket], 11 should-fix including F1 [downgraded from must-fix after reading SQL — buggy in principle but unreachable via current paths] and the Haddock D-series, 7 deferred-with-rationale, 5 cross-plan to EP-3/EP-4/EP-5, 5 no-issue)
 - [x] EP-2: M2 — Landed F25 (`withSubscription` bracket — IO + Eff variants), F1 (defensive multi-stream attribution helper), F19/F20/F22 (`StoreError` refinement: `PoolAcquisitionTimeout`/`ConnectionLost`/`UnexpectedServerError` constructors, `DuplicateEvent` takes `Maybe EventId`, derives `Exception`), F18 (`SchemaInitError` re-exported), F26 (`defaultSubscriptionConfig`), D-series Haddocks across `Types.hs`/`Append/Lifecycle/Link/Read.hs`/`Connection.hs`/`Effect/Resource.hs`/`Subscription/Effect.hs`. 7 items deferred-with-rationale. 73/73 tests pass; reads/appends behave identically (no functional regressions). (commits 323cf0f, 4d994eb, 971a307, 6a3f35d, 6b3903c, plus b159d0c reclassification and 9bd82a1 adapter hotfix)
-- [ ] EP-3: M1 — Subscription robustness audit findings document
-- [ ] EP-3: M2 — Land subscription fixes (Category live-mode filter, lifecycle helpers, etc.)
+- [x] EP-3: M1 — Subscription robustness audit findings document (2026-04-29; 30 findings F1–F30: 3 must-fix [F1 listener leak on reconnect, F6 unbounded broadcast, F18 Category live-mode filter] + at-least-once Haddock contract; 8 should-fix [4 cross-plan to EP-5, 4 deferred-with-rationale]; 2 cross-plan to EP-2/EP-6; remainder no-issue)
+- [ ] EP-3: M2 — Land subscription fixes (F1 listener-conn leak, F18 Category live filter, F6 bounded backpressure, at-least-once Haddock)
 - [ ] EP-4: M1 — Multi-tenancy, security, schema lifecycle audit findings document
 - [ ] EP-4: M2 — Land must-fix corrections and explicit deferred-decisions for the rest
 - [ ] EP-5: M1 — Failure-mode and observability gap inventory
@@ -197,6 +197,45 @@ EP-2 explicitly *does not* introduce a new constructor for the F11/F23 idempoten
 recovery is the same in both cases (re-read and decide), so a Haddock note on `appendToStream`
 is the right intervention. This decision overrides MasterPlan's earlier "F11 → EP-2 should
 decide whether to distinguish" prompt.
+
+### EP-3 audit (2026-04-29) — cross-plan findings
+
+EP-3 Milestone 1 produced 30 findings (F1–F30, EP-3 numbering — distinct from EP-1 and EP-2).
+Four items are cross-plan and recorded here for traceability. Full details and severity
+classification live in EP-3's Surprises & Discoveries section
+(`docs/plans/3-subscription-system-robustness-audit.md`).
+
+  * **EP-3.F3 → EP-5.** `Notification.hs:67-79` listener reconnect loop has no
+    observability hook; operators have no signal that the listener crashed and
+    reconnected. Cross-plan: EP-5 owns the observation-handler enrichment.
+    Bundled with F2 (listener dies on reacquire failure) — both fixes naturally
+    land together as a single retry-with-backoff-plus-observation change.
+
+  * **EP-3.F7 / F12 → EP-5.** `EventPublisher.hs:104-110` swallows pool errors
+    silently; the publisher uses the application pool which means pool
+    exhaustion can stall progress. Both gaps surface to operators only via the
+    30-second safety poll's eventual recovery. EP-5 owns the unified
+    observation-handler enrichment (publisher pool errors, publisher
+    queue-depth metric).
+
+  * **EP-3.F13 → EP-5.** `Worker.hs:43-49` `loadCheckpoint` swallows DB errors
+    and returns `GlobalPosition 0`, silently re-processing every event. The
+    correctness impact is bounded by at-least-once handlers being idempotent,
+    but the observability impact is poor. Routed to EP-5 as part of the
+    structured-logging pass.
+
+  * **EP-3.F30 → EP-6.** `kiroku-store/test/Main.hs:716-990` existing
+    subscription tests rely on `threadDelay` for synchronisation. EP-3 M2 adds
+    new regression tests using deterministic STM/`MVar` barriers but does
+    *not* refactor the existing tests; EP-6 owns the suite restructure and
+    will convert them in one pass to avoid mixing styles.
+
+EP-3 explicitly *does not* extend `RecordedEvent` with a `category` field as the
+MasterPlan's initial decomposition contemplated. The chosen fix for the Category
+live-mode filter (a DB-driven loop bypassing the broadcast) reuses the existing
+`readCategoryForwardStmt` and avoids changing the public type owned by EP-2.
+This decision overrides the MasterPlan's earlier "RecordedEvent shape change
+crosses EP-2" prompt.
 
 
 ## Decision Log
