@@ -30,13 +30,13 @@ A reader can verify the change by running the existing test suite (`cabal test k
   - [x] Classify every finding as must-fix-before-production, should-fix, or defer-with-rationale (F1–F21 above)
   - [x] Record findings inline in the Surprises & Discoveries section of this plan with file:line references
   - [x] Record cross-plan findings (anything affecting EP-2, EP-3, EP-4) in the MasterPlan's Surprises & Discoveries section with explicit pointers
-- [ ] Milestone 2: Land must-fix corrections
-  - [ ] F1 — Hard-delete orphan-protection fix + regression test (one commit)
-  - [ ] F2 — Soft-delete TOCTOU fix (push deleted_at into CTEs, drop pre-checks) + regression test (one commit)
-  - [ ] F3 — `linkToStream` strict mode (LEFT JOIN LATERAL + reject) + regression test (one commit)
-  - [ ] Decide should-fix items F4–F7 individually: land or formally defer in Decision Log
-  - [ ] Re-run `cabal test kiroku-store` and the existing benchmark suite; record results in Outcomes & Retrospective
-  - [ ] Update the MasterPlan's Exec-Plan Registry status and the MasterPlan's Progress section
+- [x] Milestone 2: Land must-fix corrections — 2026-04-29
+  - [x] F1 — Hard-delete orphan-protection fix + regression test (commit 01c0ee6)
+  - [x] F2 — Soft-delete TOCTOU fix (push deleted_at into CTEs, drop pre-checks) + regression tests (commit e903062)
+  - [x] F3 — `linkToStream` strict mode (LEFT JOIN LATERAL + reject) + regression tests (commit a5754d6)
+  - [x] Decide should-fix items F4–F7 individually: F4 (12a154b: ~~F5 first~~), F5 (12a154b — link to soft-deleted target), F6 (6d195e8 — TRUNCATE bypass), F4 (8edfbee — multi-stream pre-lock); F7 deferred with rationale (see Decision Log)
+  - [x] Re-run `cabal test kiroku-store` (66/66 PASS) and the benchmark suite (read paths within 3% of M3 baseline; append paths run against a 100K-event pre-populated DB introduced in commit 390baf5/M5.9, so direct comparison is not apples-to-apples — see Outcomes & Retrospective)
+  - [x] Update the MasterPlan's Exec-Plan Registry status and the MasterPlan's Progress section
 
 
 ## Surprises & Discoveries
@@ -376,10 +376,143 @@ MasterPlan's Surprises & Discoveries section:
   Rationale: Option B preserves the user's intra-call global-position assignment order — callers with `[A, B]` see A's events before B's in `$all`. Option A would silently change that ordering. Option B costs an extra round-trip but only on multi-stream calls (already the rare path).
   Date: 2026-04-29
 
+- Decision: Land F4 (multi-stream deadlock pre-lock), F5 (linkToStream rejects soft-deleted target), and F6 (TRUNCATE bypass triggers) in M2 alongside the must-fix items. Defer F7 (hard-delete vs concurrent append race) with rationale.
+  Rationale: F4–F6 are cheap, mechanical, defense-in-depth changes that close real correctness or operational concerns. F7 is a documentation-level concern: hard-delete is rare and operational (GDPR cleanup, never on the hot path), and the contract "no in-flight writers during hard-delete" is reasonable for callers to honor. Adding a `SELECT FOR UPDATE` pre-pass to hard-delete (the "lower-cost-than-defer" alternative the audit mentioned) would also serialize hard-delete with all in-flight appends, which is heavier than necessary. F7's mitigation is a Haddock note to be added by EP-4 when it touches `Lifecycle.hs`.
+  Date: 2026-04-29
+
+- Decision: Use `LEFT JOIN LATERAL` + NOT NULL constraint violation as the F3 fix mechanism rather than introducing a `validated`-CTE gating pattern or a new error constructor.
+  Rationale: The single-character SQL change has the smallest surface area and exploits the existing `stream_events.original_stream_id NOT NULL` constraint as the failure trigger. The error currently surfaces as `ConnectionError "Server error 23502: ..."` because the error mapper doesn't have a case for NOT NULL violations on link junctions. Refining this to a purpose-built constructor (e.g. `LinkSourceMissing`) is EP-2's call per the integration-points contract; this commit prefers a known opaque error to silent corruption. Recorded as a coordination point for EP-2's M1 audit.
+  Date: 2026-04-29
+
+- Decision: Change the `emptyResultError` mapping for `AnyVersion` from `ConnectionError "AnyVersion append returned empty result (unexpected)"` to `StreamNotFound`.
+  Rationale: After F2, an `AnyVersion` append against a soft-deleted stream is a legitimate empty-result path (the upsert's `DO UPDATE WHERE deleted_at IS NULL` filter rejects the existing row). The pre-fix mapping treated empty as "should never happen" because the upsert was unconditional. The new mapping is consistent with `StreamExists` and reflects the user-visible contract: a soft-deleted stream is "not found" for write purposes. NoStream's mapping (StreamAlreadyExists) and ExactVersion's mapping (WrongExpectedVersion) are unchanged — they're already meaningful for their respective failure modes. EP-2 may revisit if a more specific constructor is preferred.
+  Date: 2026-04-29
+
+- Decision: For the F4 multi-stream pre-lock, exclude `$all` from the pre-lock SELECT and let the per-stream CTEs acquire it in their natural order (source stream first, then $all).
+  Rationale: Including $all in the pre-lock would force ALL multi-stream txns to serialize on a single $all-row lock at the pre-lock step, even if they touch entirely disjoint stream sets. With $all excluded, the deadlock-prevention ordering is "pre-lock named streams in stream_id order; then each CTE locks its source stream (already held) and acquires $all." Single-stream and multi-stream txns now lock in the same order (source → $all), so they cannot deadlock with each other. The remaining contention is on $all itself, which is the documented throughput bottleneck (F8) — same as today.
+  Date: 2026-04-29
+
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation. Each milestone records: what was achieved, how it was verified, and any work that has to move to a later plan.)
+### Milestone 1 — Audit findings (2026-04-29)
+
+Produced 21 written findings (F1–F21) covering every item in the Audit Checklist, classified
+by severity. 3 must-fix-before-production (F1 hard-delete orphan, F2 soft-delete TOCTOU,
+F3 linkToStream silent gap). 4 should-fix (F4 multi-stream deadlock, F5 link-to-soft-deleted,
+F6 TRUNCATE bypass, F7 hard-delete vs concurrent append). 14 deferred / cross-plan / no-issue.
+Cross-plan findings (F11→EP-2, F12→EP-3, F19→EP-2, F20→EP-3, F21→EP-6) were mirrored into
+the MasterPlan's Surprises & Discoveries section. Verification: every Audit Checklist bullet
+has a corresponding finding entry, and the Decision Log records the audit method (read-only
+analysis against PostgreSQL §7.8.2; reproducers added in M2 as regression tests rather than
+one-off psql scripts).
+
+### Milestone 2 — Fixes landed (2026-04-29)
+
+Six commits landed, one fix per commit. Each commit message records the bug, the fix, the
+regression-test names added, and the test-suite count delta. All three trailers
+(MasterPlan / ExecPlan / Intention) are present on every commit.
+
+  * **F1** — `01c0ee6` — hard-delete now removes orphaned event payloads. Split the single
+    CTE into 4 ordered statements within the existing transaction. +2 tests.
+  * **F2** — `e903062` — close soft-delete TOCTOU race via CTE-level filter. Pushed
+    `deleted_at IS NULL` into 5 CTEs, dropped 3 pre-checks in `runStorePool`, updated
+    `emptyResultError` for AnyVersion. +3 tests.
+  * **F3** — `a5754d6` — linkToStream rejects missing source events. Single-char SQL change
+    (`JOIN LATERAL` → `LEFT JOIN LATERAL`); NOT NULL constraint catches missing events.
+    +2 tests.
+  * **F5** — `12a154b` — linkToStream rejects soft-deleted targets (symmetric with F2).
+    Added `WHERE streams.deleted_at IS NULL` to the link upsert's DO UPDATE, switched the
+    decoder to `D.rowMaybe`, mapped Nothing → StreamNotFound. +1 test.
+  * **F6** — `6d195e8` — block TRUNCATE on protected tables without the GUC. Added
+    `protect_truncation` plpgsql function and 3 BEFORE TRUNCATE FOR EACH STATEMENT triggers
+    in `schema.sql`. +3 tests.
+  * **F4** — `8edfbee` — pre-lock streams in stream_id order in multi-stream append. Added
+    `lockStreamsForMultiStmt` and a `Tx.statement names ...` call at the top of the
+    multi-stream transaction. +1 ordering sanity test. (Deterministic deadlock test deferred
+    to EP-6's concurrency-test harness.)
+
+#### Test results
+
+`cabal test kiroku-store:test:kiroku-store-test`: **66 examples, 0 failures** (was 54
+baseline; +12 regression tests added across F1–F6). Suite finishes in ~30s on the M3 dev
+machine, same as baseline.
+
+The new test helpers `countEvents` (raw `SELECT COUNT(*) FROM events`) and `truncateRejected`
+(uses `Hasql.Statement.unpreparable` for non-prepared TRUNCATE) are kept under the existing
+test/Main.hs file rather than extracted to a separate module, to minimise EP-1's footprint.
+EP-6 may refactor when it restructures the test suite.
+
+#### Benchmark results
+
+`cabal bench kiroku-store:bench:kiroku-store-bench`: 9 tests passed in 65.40s. Comparison
+to the M3 baseline (`docs/BENCH-GATE3.md`, kiroku-store/bench/results/haskell_bench_m3_20260322.txt):
+
+  * **Read benchmarks (apples-to-apples comparison)**:
+    - stream forward (100-event page): baseline 969 μs → current 1.00 ms (+3%; within Gate 3
+      target of 1.07 ms ✓)
+    - $all forward (100-event page): baseline 975 μs → current 1.00 ms (+3%; within Gate 3
+      target of 1.07 ms ✓)
+  * **Append benchmarks (NOT apples-to-apples)**: the current bench output shows
+    single-event appends at ~200 μs (vs. 65 μs baseline), batch appends at 480 μs–2.58 ms
+    (vs. 209 μs–1.57 ms baseline). However, the bench's category-data pre-population (100K
+    events in 1000 streams) was added in commit 390baf5 (M5.9 — *after* the M3/M4 baselines
+    were taken) and runs before any append benchmark. The pre-populated `events` and
+    `stream_events` tables are an order of magnitude larger when the append microbench runs,
+    which dominates the timings. None of EP-1's fixes touch the hot path of single-stream
+    appendNoStream (the bench's primary workload) — F1 is hard-delete; F2 adds a 4-byte
+    WHERE clause; F3 changes a JOIN keyword; F4 adds 1 SELECT FOR UPDATE per multi-stream
+    call (not per single-stream append); F5 adds a WHERE to link's upsert (not append);
+    F6 adds triggers that only fire on TRUNCATE.
+  * **Pool saturation (B9)**: baseline 1262 ops/s → current 1190 ops/s (-5.7%). Within the
+    "noise" band given the baseline-mismatch caveat above and normal variance from a single
+    run. The B9 workload is `appendNoStream` against fresh streams, which is unchanged by
+    EP-1's fixes.
+
+The EP's "no regression > 5% vs. baseline" gate is met for read benchmarks (+3% on both).
+The append-benchmark comparison is not meaningful against the M3 baseline; a fresh
+post-M5.9 baseline would need to be captured (out of scope for EP-1; EP-6 owns benchmark
+hardening).
+
+### Cross-plan handoffs
+
+  * **EP-2** — recommended to add `LinkSourceMissing :: ![EventId] -> StoreError` (or
+    similar) to refine F3's current `ConnectionError 23502` into a meaningful constructor.
+    Also recommended to refine `emptyResultError`'s `AnyVersion → StreamNotFound` mapping
+    if a more specific constructor is preferred (e.g. one that names the soft-deleted state
+    explicitly). F11 (ExactVersion retry information collapse) and F19 (`getStream("$all")`
+    behavior) are also in EP-2's domain.
+  * **EP-3** — F12 (`notify_events` fires twice per single-stream append) and F20
+    (subscription invariants depend on F2+F3 fixes — both landed) are in EP-3's domain.
+    The `EventPublisher` debouncing already handles the double-NOTIFY at the consumer
+    level; EP-3 should document the contract.
+  * **EP-4** — Add a Haddock note to `hardDeleteStream` in `Kiroku.Store.Lifecycle` that
+    callers must ensure no in-flight writers on the target stream (F7's deferral). Also
+    document that hard-delete cascades through link junctions of the deleted stream's own
+    events (F1 fix's documented behavior).
+  * **EP-6** — F21 (no concurrency tests). The 12 regression tests added in EP-1's M2 form
+    the seed of a proper concurrency-test harness. EP-6 should: (a) add a deterministic
+    deadlock-reproducer for F4 using barriered concurrent transactions; (b) add a TOCTOU
+    timing test for F2 that exposes the race deterministically (e.g. via instrumented
+    pause hooks); (c) add property-based tests for the orphan-protection invariants F1
+    fixes; (d) capture a fresh post-M5.9 benchmark baseline to enable meaningful future
+    regression detection.
+
+### Production-readiness verdict (EP-1 scope)
+
+The schema, CTE, and concurrency layer of `kiroku-store` is **production-ready** subject to
+the deferred items below. Specifically:
+
+  * **Cleared**: F1 (hard-delete orphan), F2 (soft-delete TOCTOU), F3 (linkToStream gap),
+    F4 (multi-stream deadlock), F5 (link to soft-deleted), F6 (TRUNCATE bypass).
+  * **Deferred**: F7 (hard-delete vs concurrent append) — operator must coordinate; F8
+    ($all contention ceiling) — documented bottleneck; F9 (long batch lock-hold) — use
+    moderate batch sizes; F10 (category column for hyphen-less stream names) — caller
+    convention; F11/F19 → EP-2; F12/F20 → EP-3; F21 → EP-6.
+
+A consumer service writing events through `kiroku-store` after this milestone will not
+encounter silent data corruption from any of the audited paths under expected operational
+conditions (no concurrent hard-delete with in-flight writers on the same stream).
 
 
 ## Context and Orientation

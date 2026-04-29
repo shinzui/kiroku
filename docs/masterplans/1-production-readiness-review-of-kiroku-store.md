@@ -37,7 +37,7 @@ Each child plan begins with an *audit milestone* that produces a findings docume
 
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
-| EP-1 | Schema, CTE and concurrency correctness audit | docs/plans/1-schema-cte-and-concurrency-correctness-audit.md | None | None | In Progress |
+| EP-1 | Schema, CTE and concurrency correctness audit | docs/plans/1-schema-cte-and-concurrency-correctness-audit.md | None | None | Complete |
 | EP-2 | Public API surface, types and error model audit | docs/plans/2-public-api-surface-types-and-error-model-audit.md | None | EP-1 | Not Started |
 | EP-3 | Subscription system robustness audit | docs/plans/3-subscription-system-robustness-audit.md | None | EP-1, EP-2 | Not Started |
 | EP-4 | Multi-tenancy, security and schema lifecycle audit | docs/plans/4-multi-tenancy-security-and-schema-lifecycle-audit.md | None | EP-1 | Not Started |
@@ -92,7 +92,7 @@ These are shared artifacts that two or more child plans touch, where uncoordinat
 Track milestone-level progress across all child plans. Each entry names the child plan and the milestone. This section provides an at-a-glance view of the entire initiative.
 
 - [x] EP-1: M1 — Schema, CTE, concurrency audit findings document (2026-04-29; 21 findings: 3 must-fix, 4 should-fix, 14 deferred / cross-plan / no-issue)
-- [ ] EP-1: M2 — Land must-fix corrections (F1 hard-delete orphan, F2 soft-delete TOCTOU, F3 linkToStream version gap) with regression tests
+- [x] EP-1: M2 — Landed F1 (hard-delete orphan), F2 (soft-delete TOCTOU), F3 (linkToStream gap), F4 (multi-stream deadlock pre-lock), F5 (link rejects soft-deleted target), F6 (TRUNCATE bypass triggers); deferred F7 to EP-4 Haddock. 66/66 tests pass; reads within 3% of baseline; +12 regression tests. (commits 01c0ee6, e903062, a5754d6, 12a154b, 6d195e8, 8edfbee)
 - [ ] EP-2: M1 — Public API and error model audit findings document
 - [ ] EP-2: M2 — Land API/error-model fixes and document the contract
 - [ ] EP-3: M1 — Subscription robustness audit findings document
