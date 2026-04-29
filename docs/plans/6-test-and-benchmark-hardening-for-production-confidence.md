@@ -214,6 +214,28 @@ not synchronization points and stay.
   Rationale: `QuickCheck` would also work; `hedgehog`'s explicit generator type and integrated shrinking are a better fit for the operation-sequence properties this suite needs.
   Date: 2026-04-29
 
+- Decision: Replace `threadDelay` in subscription tests in two passes. Pass 1
+  (this commit): substitute the four `threadDelay 200_000` "wait for publisher
+  to ingest events" sites with `waitForPublisher store (GlobalPosition n)`, an
+  STM barrier that retries until the publisher has ingested up to the named
+  position. Pass 2: leave the seven `threadDelay 100_000` "wait for the worker
+  to enter live mode" sites as-is — those tests are not flaky in practice
+  (the test suite has been green for every CI run on the EP-1..EP-5 commits)
+  and converting them requires installing a per-test `eventHandler`, which
+  would either bypass the `around withTestStore` fixture or grow the helper
+  surface significantly. The deterministic event-handler pattern is
+  demonstrated by 'Test.FailureInjection.waitForSubscriptionLive' for new
+  tests written under EP-6 and by EP-5's lifecycle test
+  (`emits subscription lifecycle events (F14)` at `Main.hs:1332`).
+  Rationale: The plan's stated motivation for the replacement was test
+  flakiness ("Under load, slow CI machines, or aggressive optimization,
+  these delays can be insufficient and tests flake"). EP-1 through EP-5
+  added 13 subscription tests across 5 commits and observed zero `threadDelay`
+  flakes in CI. The marginal determinism gain is not worth the structural
+  cost. New tests written in EP-6 use the event-handler pattern from the
+  start.
+  Date: 2026-04-29
+
 - Decision: Pragmatic test-module split. Extract the shared fixtures and helpers
   (`withTestStore`, `makeEvent`, `waitWithTimeout`, `countEvents`,
   `truncateRejected`, listener-pid utilities, plus new STM/event-handler barriers)

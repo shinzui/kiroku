@@ -715,8 +715,8 @@ main = hspec $ do
                 -- Append 10 events
                 let events = map (\i -> makeEvent ("E" <> T.pack (show i)) (Aeson.object [])) [1 .. 10 :: Int]
                 Right _ <- runStoreIO store $ appendToStream (StreamName "catchup-1") NoStream events
-                -- Give the EventPublisher time to process
-                threadDelay 200_000
+                -- Wait until the EventPublisher has ingested all 10 events.
+                waitForPublisher store (GlobalPosition 10)
                 -- Subscribe from position 0
                 ref <- newIORef ([] :: [RecordedEvent])
                 countRef <- newTVarIO (0 :: Int)
@@ -789,7 +789,7 @@ main = hspec $ do
                 -- Append 10 events
                 let events = map (\i -> makeEvent ("CP" <> T.pack (show i)) (Aeson.object [])) [1 .. 10 :: Int]
                 Right _ <- runStoreIO store $ appendToStream (StreamName "ckpt-1") NoStream events
-                threadDelay 200_000
+                waitForPublisher store (GlobalPosition 10)
                 -- First subscription: process 5 events then stop
                 countRef1 <- newTVarIO (0 :: Int)
                 let handler1 _evt = do
@@ -906,7 +906,7 @@ main = hspec $ do
                 Right _ <- runStoreIO store $ appendToStream (StreamName "order-1") NoStream [makeEvent "OrderCreated" (Aeson.object [])]
                 Right _ <- runStoreIO store $ appendToStream (StreamName "order-2") NoStream [makeEvent "OrderShipped" (Aeson.object [])]
                 Right _ <- runStoreIO store $ appendToStream (StreamName "user-1") NoStream [makeEvent "UserRegistered" (Aeson.object [])]
-                threadDelay 200_000
+                waitForPublisher store (GlobalPosition 3)
                 ref <- newIORef ([] :: [RecordedEvent])
                 countRef <- newTVarIO (0 :: Int)
                 let handler' evt = do
@@ -1096,7 +1096,7 @@ main = hspec $ do
                 -- Append 10 events
                 let events = map (\i -> makeEvent ("Eff" <> T.pack (show i)) (Aeson.object [])) [1 .. 10 :: Int]
                 Right _ <- runStoreIO store $ appendToStream (StreamName "eff-sub-1") NoStream events
-                threadDelay 200_000
+                waitForPublisher store (GlobalPosition 10)
                 -- Subscribe using the effectful API with an Eff-based handler
                 ref <- newIORef ([] :: [RecordedEvent])
                 countRef <- newTVarIO (0 :: Int)
