@@ -37,6 +37,9 @@ Errors (all variants of 'Kiroku.Store.Error.StoreError'):
 * 'Kiroku.Store.Error.WrongExpectedVersion' — 'ExactVersion' mismatch.
 * 'Kiroku.Store.Error.StreamNotFound' — 'StreamExists' against a missing
   or soft-deleted stream.
+* 'Kiroku.Store.Error.ReservedStreamName' — the target is @$all@, which
+  is the global read stream and cannot be appended as an application
+  stream.
 * 'Kiroku.Store.Error.StreamAlreadyExists' — 'NoStream' against an
   existing stream (including soft-deleted).
 * 'Kiroku.Store.Error.DuplicateEvent' — caller-supplied 'eventId'
@@ -66,6 +69,10 @@ there is no partial-commit state. The interpreter pre-locks the named
 streams in deterministic @stream_id@ order to avoid deadlocks when two
 concurrent multi-stream calls touch overlapping streams in different
 user orders.
+
+@$all@ is reserved for the global read stream. If any operation targets
+@$all@, the whole call is rejected before opening the transaction with
+'Kiroku.Store.Error.ReservedStreamName'.
 
 Per-stream errors are attributed to the stream that caused them: the
 @Right results@ branch of the interpreter iterates the input list and

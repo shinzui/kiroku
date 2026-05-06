@@ -27,6 +27,14 @@ import GHC.Generics (Generic)
 are unique per store; the substring before the first @-@ is the
 stream's category, used by 'CategoryName'-targeted reads and
 subscriptions.
+
+All names except @$all@ are ordinary application stream names. Names
+such as @"skill-installer"@, @"$skill-installer"@, names containing
+commas, and names without a dash are accepted by the store. The exact
+name @$all@ is reserved for the global read stream and mutating APIs
+reject it with 'Kiroku.Store.Error.ReservedStreamName'; use
+'Kiroku.Store.Read.readAllForward' or
+'Kiroku.Store.Read.readAllBackward' to read the global sequence.
 -}
 newtype StreamName = StreamName Text
     deriving stock (Eq, Ord, Show, Generic)

@@ -23,16 +23,20 @@ The practical result is confidence that application streams can be hot without c
 
 ## Progress
 
-- [ ] Audit stream-name semantics, reserved `$all` behavior, and current tests.
-- [ ] Add a `skill-installer` hot-stream workload that verifies per-stream and `$all` order.
-- [ ] Decide whether `$all` and other reserved-looking names need validation, documentation, or code-level rejection.
-- [ ] Land must-fix tests or code changes.
-- [ ] Record the final hot/system stream verdict.
+- [x] Audit stream-name semantics, reserved `$all` behavior, and current tests. Completed 2026-05-06.
+- [x] Add a `skill-installer` hot-stream workload that verifies per-stream and `$all` order. Completed 2026-05-06.
+- [x] Decide whether `$all` and other reserved-looking names need validation, documentation, or code-level rejection. Completed 2026-05-06.
+- [x] Land must-fix tests or code changes. Completed 2026-05-06.
+- [x] Record the final hot/system stream verdict. Completed 2026-05-06.
 
 
 ## Surprises & Discoveries
 
-(None yet.)
+- The audit confirmed the planned risk: `$all` is the seeded `streams` row with `stream_id = 0`, so the existing public mutation paths could target it unless the interpreter rejected it first. The fix rejects `$all` before append, multi-stream append, link, soft-delete, hard-delete, or undelete opens a database write. Evidence: `cabal test kiroku-store --test-options='--match "stream-name contract"'` passed 5 examples.
+  Date: 2026-05-06
+
+- System-looking stream names other than the exact `$all` name do not need a broad reservation rule for this audit. `skill-installer`, `$skill-installer`, `skill,installer`, and `skillinstaller` all append and read as ordinary streams. The comma-name NOTIFY payload ambiguity remains an external-listener documentation risk from `docs/plans/4-multi-tenancy-security-and-schema-lifecycle-audit.md`, not an ordering or hot-stream correctness issue for the in-process store.
+  Date: 2026-05-06
 
 
 ## Decision Log
@@ -41,10 +45,25 @@ The practical result is confidence that application streams can be hot without c
   Rationale: The schema stores stream names as free-form `TEXT`; only `$all` is currently special because it is seeded as `stream_id = 0`.
   Date: 2026-05-06
 
+- Decision: Reserve only the exact stream name `$all` at the public interpreter boundary instead of adding a schema `CHECK` or reserving every `$`-prefixed stream.
+  Rationale: The dangerous case is the seeded `$all` row, because mutation would collide with or corrupt the global read stream semantics. `$skill-installer` is a plausible application/system stream name and has no special backing row. A code-level guard gives callers a clear `ReservedStreamName` `StoreError` without requiring a migration.
+  Date: 2026-05-06
+
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+Completed on 2026-05-06. The final contract is: every stream name except the exact `$all` name is an ordinary application stream name. The exact `$all` name is reserved for global reads through `readAllForward` and `readAllBackward`; attempts to append, multi-stream append, link, soft-delete, hard-delete, or undelete `$all` fail with `ReservedStreamName`.
+
+The permanent evidence is a 32-writer `skill-installer` stress test in `kiroku-store/test/Test/Concurrency.hs`, contract tests in `kiroku-store/test/Main.hs`, and Haddock updates in the public stream, append, link, and lifecycle modules. Validation passed:
+
+    cabal test kiroku-store --test-options='--match "skill-installer"'
+    1 example, 0 failures
+
+    cabal test kiroku-store --test-options='--match "stream-name contract"'
+    5 examples, 0 failures
+
+    cabal test kiroku-store
+    97 examples, 0 failures
 
 
 ## Context and Orientation
@@ -111,3 +130,6 @@ All tests should use `withTestStore`, so they are safe to rerun. If adding a sch
 This plan uses existing store APIs from `Kiroku.Store`: `appendToStream`, `appendMultiStream` if needed, `readStreamForward`, `readAllForward`, `getStream`, `runStoreIO`, `StreamName`, `ExpectedVersion`, `StreamVersion`, and `GlobalPosition`.
 
 Coordinate with EP-1 at `docs/plans/8-high-write-append-ordering-and-atomicity-audit.md` for shared concurrency helpers. Coordinate with EP-4 at `docs/plans/10-large-store-read-path-and-index-performance-audit.md` if the `skill-installer` workload should become a benchmark.
+
+
+Revision note 2026-05-06: Marked the plan complete after implementing the hot `skill-installer` stress test, `$all` reserved-name rejection, public contract documentation, and validation evidence. The revision records the final stream-name contract and why the audit chose interpreter-level rejection over schema changes.

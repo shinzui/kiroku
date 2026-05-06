@@ -154,6 +154,71 @@ main = hspec $ do
                         Left (DuplicateEvent _) -> pure ()
                         other -> expectationFailure ("Expected DuplicateEvent, got: " <> show other)
 
+            describe "stream-name contract" $ do
+                it "treats system-looking names other than $all as ordinary streams" $ \store -> do
+                    let names =
+                            [ StreamName "skill-installer"
+                            , StreamName "$skill-installer"
+                            , StreamName "skill,installer"
+                            , StreamName "skillinstaller"
+                            ]
+                    mapM_
+                        ( \name -> do
+                            Right r <- runStoreIO store $ appendToStream name NoStream [makeEvent "StreamNameContract" (Aeson.object [])]
+                            (r ^. #streamVersion) `shouldBe` StreamVersion 1
+                            Right events <- runStoreIO store $ readStreamForward name (StreamVersion 0) 10
+                            V.length events `shouldBe` 1
+                        )
+                        names
+
+                it "rejects $all as an application append target" $ \store -> do
+                    result <- runStoreIO store $ appendToStream (StreamName "$all") AnyVersion [makeEvent "BadAllAppend" (Aeson.object [])]
+                    case result of
+                        Left (ReservedStreamName (StreamName "$all")) -> pure ()
+                        other -> expectationFailure ("Expected ReservedStreamName for $all append, got: " <> show other)
+                    Right allEvents <- runStoreIO store $ readAllForward (GlobalPosition 0) 10
+                    V.length allEvents `shouldBe` 0
+
+                it "rejects $all as a multi-stream append target without partial commit" $ \store -> do
+                    result <-
+                        runStoreIO store $
+                            appendMultiStream
+                                [ (StreamName "multi-reserved-ok", NoStream, [makeEvent "ShouldRollback" (Aeson.object [])])
+                                , (StreamName "$all", AnyVersion, [makeEvent "BadAllMulti" (Aeson.object [])])
+                                ]
+                    case result of
+                        Left (ReservedStreamName (StreamName "$all")) -> pure ()
+                        other -> expectationFailure ("Expected ReservedStreamName for $all multi-stream append, got: " <> show other)
+                    Right info <- runStoreIO store $ getStream (StreamName "multi-reserved-ok")
+                    info `shouldBe` Nothing
+
+                it "rejects $all as a link target" $ \store -> do
+                    Right _ <- runStoreIO store $ appendToStream (StreamName "reserved-link-source") NoStream [makeEvent "Source" (Aeson.object [])]
+                    Right srcEvents <- runStoreIO store $ readStreamForward (StreamName "reserved-link-source") (StreamVersion 0) 10
+                    let eid = V.head srcEvents ^. #eventId
+                    result <- runStoreIO store $ linkToStream (StreamName "$all") [eid]
+                    case result of
+                        Left (ReservedStreamName (StreamName "$all")) -> pure ()
+                        other -> expectationFailure ("Expected ReservedStreamName for $all link, got: " <> show other)
+                    Right allEvents <- runStoreIO store $ readAllForward (GlobalPosition 0) 10
+                    V.length allEvents `shouldBe` 1
+
+                it "rejects lifecycle operations against $all" $ \store -> do
+                    soft <- runStoreIO store $ softDeleteStream (StreamName "$all")
+                    hard <- runStoreIO store $ hardDeleteStream (StreamName "$all")
+                    undel <- runStoreIO store $ undeleteStream (StreamName "$all")
+                    let shouldBeReserved label result =
+                            case result of
+                                Left (ReservedStreamName (StreamName "$all")) -> pure ()
+                                other -> expectationFailure ("Expected ReservedStreamName for " <> label <> ", got: " <> show other)
+                    shouldBeReserved "softDeleteStream $all" soft
+                    shouldBeReserved "hardDeleteStream $all" hard
+                    shouldBeReserved "undeleteStream $all" undel
+                    Right info <- runStoreIO store $ getStream (StreamName "$all")
+                    case info of
+                        Just si -> (si ^. #deletedAt) `shouldBe` Nothing
+                        Nothing -> expectationFailure "Expected reserved $all stream row to remain present"
+
         describe "readStreamForward" $ do
             it "reads events in forward order (read-your-own-writes)" $ \store -> do
                 let events =

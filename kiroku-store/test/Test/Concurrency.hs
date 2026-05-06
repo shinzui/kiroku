@@ -47,6 +47,26 @@ spec = describe "kiroku-store concurrency (deterministic)" $ do
             V.length allEvents `shouldBe` writerCount
             globalPositions allEvents `shouldBe` [1 .. fromIntegral writerCount]
 
+    it "many AnyVersion writers to skill-installer preserve stream and global order" $
+        withTestStore $ \store -> do
+            let writerCount = 32
+                stream = StreamName "skill-installer"
+            results <-
+                Async.forConcurrently [1 .. writerCount] $ \i -> do
+                    runStoreIO store $
+                        appendToStream
+                            stream
+                            AnyVersion
+                            [makeEvent ("SkillInstaller" <> T.pack (show i)) (Aeson.object [])]
+            mapM_ assertRightAppend results
+            Right streamEvents <- runStoreIO store $ readStreamForward stream (StreamVersion 0) 1000
+            V.length streamEvents `shouldBe` writerCount
+            streamVersions streamEvents `shouldBe` [1 .. fromIntegral writerCount]
+            Right allEvents <- runStoreIO store $ readAllForward (GlobalPosition 0) 1000
+            V.length allEvents `shouldBe` writerCount
+            globalPositions allEvents `shouldBe` [1 .. fromIntegral writerCount]
+            Set.fromList (eventIds streamEvents) `shouldBe` Set.fromList (eventIds allEvents)
+
     it "many batched writers to different streams preserve batch-local and global order" $
         withTestStore $ \store -> do
             let streamCount = 12
@@ -249,6 +269,11 @@ globalPositions :: V.Vector RecordedEvent -> [Int64]
 globalPositions =
     map
         (\e -> case e ^. #globalPosition of GlobalPosition n -> n)
+        . V.toList
+
+eventIds :: V.Vector RecordedEvent -> [EventId]
+eventIds =
+    map (^. #eventId)
         . V.toList
 
 labelStream :: StreamName -> Text

@@ -36,7 +36,7 @@ Alternatives considered. Extending the completed production-readiness MasterPlan
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
 | EP-1 | High-write append ordering and atomicity audit | docs/plans/8-high-write-append-ordering-and-atomicity-audit.md | None | None | Complete |
-| EP-2 | Hot system stream and skill-installer workload audit | docs/plans/7-hot-system-stream-and-skill-installer-workload-audit.md | None | EP-1 | Not Started |
+| EP-2 | Hot system stream and skill-installer workload audit | docs/plans/7-hot-system-stream-and-skill-installer-workload-audit.md | None | EP-1 | Complete |
 | EP-3 | Subscription ordering catch-up and checkpoint reliability audit | docs/plans/9-subscription-ordering-catch-up-and-checkpoint-reliability-audit.md | None | EP-1, EP-2 | Not Started |
 | EP-4 | Large-store read path and index performance audit | docs/plans/10-large-store-read-path-and-index-performance-audit.md | None | EP-1, EP-2, EP-3 | Not Started |
 
@@ -69,8 +69,8 @@ Plans that can proceed in parallel: EP-1 and EP-2 can run their audit milestones
 
 - [x] EP-1: Audit append CTE and interpreter ordering invariants under concurrent writes.
 - [x] EP-1: Land must-fix ordering tests or code changes and record the verdict.
-- [ ] EP-2: Audit hot/system stream names, including `skill-installer` and `$all`.
-- [ ] EP-2: Land reserved-name or hot-stream fixes, tests, and documentation if needed.
+- [x] EP-2: Audit hot/system stream names, including `skill-installer` and `$all`.
+- [x] EP-2: Land reserved-name or hot-stream fixes, tests, and documentation if needed.
 - [ ] EP-3: Audit subscription catch-up, live delivery, and checkpoint ordering under write pressure.
 - [ ] EP-3: Land subscription reliability tests or fixes and record delivery-contract verdict.
 - [ ] EP-4: Audit query plans, benchmark coverage, and large-store performance red flags.
@@ -80,6 +80,9 @@ Plans that can proceed in parallel: EP-1 and EP-2 can run their audit milestones
 ## Surprises & Discoveries
 
 - EP-1 found no must-fix append SQL or interpreter correctness issue. The permanent change is regression coverage in `kiroku-store/test/Test/Concurrency.hs` proving contiguous per-stream versions, contiguous `$all` positions, overlapping `appendMultiStream` ordering, and duplicate-event rollback under high-write scenarios. Focused validation passed with 8 concurrency examples and full validation passed with 91 examples.
+  Date: 2026-05-06
+
+- EP-2 found that `$all` needed an explicit public mutation guard because it is the seeded global stream row. The final contract reserves only the exact `$all` name; `skill-installer`, `$skill-installer`, comma-containing names, and no-dash names remain ordinary application streams. Validation passed with 1 focused `skill-installer` stress example, 5 stream-name contract examples, and the full 97-example `kiroku-store` suite.
   Date: 2026-05-06
 
 
@@ -95,6 +98,10 @@ Plans that can proceed in parallel: EP-1 and EP-2 can run their audit milestones
 
 - Decision: Keep hard dependencies empty and model all ordering as soft dependencies.
   Rationale: Each audit can begin against the current working tree. The plans should share findings, but no plan needs another plan's new code to compile before it can start.
+  Date: 2026-05-06
+
+- Decision: EP-2 reserves only the exact `$all` stream name and enforces it in the interpreter instead of schema DDL.
+  Rationale: The seeded `$all` row is the only name with special ordering semantics. Interpreter-level rejection returns a domain `StoreError`, avoids a migration, and leaves `$`-prefixed application/system streams such as `$skill-installer` usable.
   Date: 2026-05-06
 
 

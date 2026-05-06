@@ -16,6 +16,7 @@ import Data.Aeson (Value)
 import Data.Foldable (for_)
 import Data.Generics.Labels ()
 import Data.Int (Int32, Int64)
+import Data.List (find)
 import Data.Maybe (isNothing)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -73,6 +74,7 @@ runStorePool ::
     Eff es a
 runStorePool store = interpret_ $ \case
     AppendToStream (StreamName name) expected events -> do
+        rejectReservedApplicationStream name
         now <- liftIO getCurrentTime
         prepared <- prepareEvents events
         let params = buildAppendParams name now prepared
@@ -108,6 +110,7 @@ runStorePool store = interpret_ $ \case
         usePool (store ^. #pool) $
             Session.statement name SQL.getStreamStmt
     LinkToStream (StreamName name) eventIds -> do
+        rejectReservedApplicationStream name
         let uuids = V.fromList [uid | EventId uid <- eventIds]
         result <-
             usePool (store ^. #pool) $
@@ -119,6 +122,9 @@ runStorePool store = interpret_ $ \case
         usePool (store ^. #pool) $
             Session.statement (startPos, cat, limit) SQL.readCategoryForwardStmt
     AppendMultiStream ops -> do
+        case find (\(StreamName name, _, _) -> isReservedApplicationStream name) ops of
+            Just (sn, _, _) -> throwError (ReservedStreamName sn)
+            Nothing -> pure ()
         now <- liftIO getCurrentTime
         -- Prepare all events for all streams
         preparedOps <-
@@ -171,10 +177,12 @@ runStorePool store = interpret_ $ \case
                             Just r -> pure r
                     )
                     indexed
-    SoftDeleteStream (StreamName name) ->
+    SoftDeleteStream (StreamName name) -> do
+        rejectReservedApplicationStream name
         usePool (store ^. #pool) $
             Session.statement name SQL.softDeleteStreamStmt
     HardDeleteStream (StreamName name) -> do
+        rejectReservedApplicationStream name
         let txn = do
                 Tx.sql "SET LOCAL kiroku.enable_hard_deletes = 'on'"
                 mSid <- Tx.statement name SQL.findStreamIdStmt
@@ -196,7 +204,8 @@ runStorePool store = interpret_ $ \case
             Just sid -> liftIO $ for_ (store ^. #eventHandler) ($ KirokuEventHardDeleteIssued (StreamName name) sid)
             Nothing -> pure ()
         pure result
-    UndeleteStream (StreamName name) ->
+    UndeleteStream (StreamName name) -> do
+        rejectReservedApplicationStream name
         usePool (store ^. #pool) $
             Session.statement name SQL.undeleteStreamStmt
 
@@ -231,6 +240,18 @@ usePool pool session = do
     case result of
         Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
         Right a -> pure a
+
+-- | The seeded $all row is the global read stream, not an application stream.
+isReservedApplicationStream :: Text -> Bool
+isReservedApplicationStream = (== "$all")
+
+rejectReservedApplicationStream ::
+    (Error StoreError :> es) =>
+    Text ->
+    Eff es ()
+rejectReservedApplicationStream name
+    | isReservedApplicationStream name = throwError (ReservedStreamName (StreamName name))
+    | otherwise = pure ()
 
 -- ---------------------------------------------------------------------------
 -- Internal helpers (moved from Append)

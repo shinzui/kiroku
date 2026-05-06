@@ -26,6 +26,10 @@ Preconditions:
   stream is left in its pre-call state. (See EP-1 F3.)
 * The target must not be soft-deleted. Linking to a soft-deleted target
   fails with 'Kiroku.Store.Error.StreamNotFound'. (See EP-1 F5.)
+* The target must not be @$all@. @$all@ is the global read stream, and
+  linking into it would bypass the append-only global ordering contract;
+  the interpreter rejects this with
+  'Kiroku.Store.Error.ReservedStreamName'.
 * Linking the same event into the same target stream twice fails with
   a primary-key violation on the junction's @(stream_id, event_id)@
   uniqueness.

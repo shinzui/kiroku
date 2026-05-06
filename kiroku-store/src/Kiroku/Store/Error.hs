@@ -45,6 +45,12 @@ data StoreError
       WrongExpectedVersion !StreamName !ExpectedVersion !StreamVersion
     | -- | The named stream does not exist (or has been soft-deleted).
       StreamNotFound !StreamName
+    | {- | The named stream is reserved for store internals and cannot be
+      used as an application stream target. For now this applies only
+      to @$all@, which is the global read stream backed by the seeded
+      @streams.stream_id = 0@ row.
+      -}
+      ReservedStreamName !StreamName
     | {- | The named stream already exists. Returned for 'NoStream'
       expectations against an existing stream and for 'linkToStream'
       targets that already exist with conflicting state.

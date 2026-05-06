@@ -21,6 +21,11 @@ Soft-deleted streams are invisible to 'Kiroku.Store.Read.readStreamForward'
 @$all@ stream — the global event log is append-only — and to
 'Kiroku.Store.Read.readCategory'. Use 'undeleteStream' to restore.
 
+The exact stream name @$all@ is reserved for the global read stream.
+Lifecycle operations reject it with
+'Kiroku.Store.Error.ReservedStreamName' so callers cannot hide, remove,
+or restore the internal global stream row.
+
 Returns @Just streamId@ on success, or @Nothing@ if the stream did not
 exist or was already soft-deleted. Reverse with 'undeleteStream' or
 'hardDeleteStream'.
@@ -76,7 +81,8 @@ events linked to streams /not/ owned by this deletion are preserved.
 == Result
 
 Returns @Just streamId@ on success, @Nothing@ if the stream did not
-exist. There is no \"undo\" — for reversible deletes use
+exist. The exact stream name @$all@ is rejected with
+'Kiroku.Store.Error.ReservedStreamName'. There is no \"undo\" — for reversible deletes use
 'softDeleteStream' instead. The deletion emits no in-band audit row;
 operators relying on an audit log must capture hard-deletes through
 the connection-pool observation handler (see
@@ -94,7 +100,8 @@ hardDeleteStream name = send (HardDeleteStream name)
 Reads of the restored stream return its full event history. Subsequent
 appends behave as if the soft-delete never happened. Returns
 @Just streamId@ on success, @Nothing@ if the stream is missing or was
-not soft-deleted (already live).
+not soft-deleted (already live). The exact stream name @$all@ is
+rejected with 'Kiroku.Store.Error.ReservedStreamName'.
 -}
 undeleteStream ::
     (HasCallStack, Store :> es) =>
