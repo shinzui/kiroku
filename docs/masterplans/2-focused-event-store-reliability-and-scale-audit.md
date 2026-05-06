@@ -37,7 +37,7 @@ Alternatives considered. Extending the completed production-readiness MasterPlan
 |---|-------|------|-----------|-----------|--------|
 | EP-1 | High-write append ordering and atomicity audit | docs/plans/8-high-write-append-ordering-and-atomicity-audit.md | None | None | Complete |
 | EP-2 | Hot system stream and skill-installer workload audit | docs/plans/7-hot-system-stream-and-skill-installer-workload-audit.md | None | EP-1 | Complete |
-| EP-3 | Subscription ordering catch-up and checkpoint reliability audit | docs/plans/9-subscription-ordering-catch-up-and-checkpoint-reliability-audit.md | None | EP-1, EP-2 | Not Started |
+| EP-3 | Subscription ordering catch-up and checkpoint reliability audit | docs/plans/9-subscription-ordering-catch-up-and-checkpoint-reliability-audit.md | None | EP-1, EP-2 | Complete |
 | EP-4 | Large-store read path and index performance audit | docs/plans/10-large-store-read-path-and-index-performance-audit.md | None | EP-1, EP-2, EP-3 | Not Started |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
@@ -71,8 +71,8 @@ Plans that can proceed in parallel: EP-1 and EP-2 can run their audit milestones
 - [x] EP-1: Land must-fix ordering tests or code changes and record the verdict.
 - [x] EP-2: Audit hot/system stream names, including `skill-installer` and `$all`.
 - [x] EP-2: Land reserved-name or hot-stream fixes, tests, and documentation if needed.
-- [ ] EP-3: Audit subscription catch-up, live delivery, and checkpoint ordering under write pressure.
-- [ ] EP-3: Land subscription reliability tests or fixes and record delivery-contract verdict.
+- [x] EP-3: Audit subscription catch-up, live delivery, and checkpoint ordering under write pressure.
+- [x] EP-3: Land subscription reliability tests or fixes and record delivery-contract verdict.
 - [ ] EP-4: Audit query plans, benchmark coverage, and large-store performance red flags.
 - [ ] EP-4: Land benchmark/doc updates and final growth-risk verdict.
 
@@ -83,6 +83,9 @@ Plans that can proceed in parallel: EP-1 and EP-2 can run their audit milestones
   Date: 2026-05-06
 
 - EP-2 found that `$all` needed an explicit public mutation guard because it is the seeded global stream row. The final contract reserves only the exact `$all` name; `skill-installer`, `$skill-installer`, comma-containing names, and no-dash names remain ordinary application streams. Validation passed with 1 focused `skill-installer` stress example, 5 stream-name contract examples, and the full 97-example `kiroku-store` suite.
+  Date: 2026-05-06
+
+- EP-3 found one must-fix subscription transition issue: all-stream subscribers register their live queue before catch-up, so writes during catch-up could be fetched from SQL and later replayed from the queued live batch. The fix filters live batches to positions greater than the worker cursor and makes checkpoint upserts monotonic with `GREATEST`. New tests cover catch-up/live transition under writes, cancellation replay, handler `Stop` boundaries, overflow restart replay, and mixed `skill-installer` category ordering. Validation passed with 14 focused subscription examples and the full 101-example `kiroku-store` suite.
   Date: 2026-05-06
 
 
@@ -102,6 +105,10 @@ Plans that can proceed in parallel: EP-1 and EP-2 can run their audit milestones
 
 - Decision: EP-2 reserves only the exact `$all` stream name and enforces it in the interpreter instead of schema DDL.
   Rationale: The seeded `$all` row is the only name with special ordering semantics. Interpreter-level rejection returns a domain `StoreError`, avoids a migration, and leaves `$`-prefixed application/system streams such as `$skill-installer` usable.
+  Date: 2026-05-06
+
+- Decision: EP-3 keeps the live publisher queue registered before catch-up and filters stale all-stream live batches in the worker.
+  Rationale: Early registration avoids missing live notifications while catch-up is running. Cursor-based filtering prevents duplicate handler delivery and protects checkpoint ordering without redesigning publisher lifecycle.
   Date: 2026-05-06
 
 

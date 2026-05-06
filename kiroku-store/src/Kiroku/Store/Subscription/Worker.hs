@@ -176,12 +176,19 @@ liveLoop pool liveQueue statusVar config emit posRef startPos = go startPos
         case next of
             Left () -> throwIO (SubscriptionOverflowed (name config))
             Right events
-                | V.null events -> go cursor
+                | V.null freshEvents -> go cursor
                 | otherwise -> do
-                    result <- processEvents pool config events emit posRef
+                    result <- processEvents pool config freshEvents emit posRef
                     case result of
                         Nothing -> pure () -- handler said Stop
                         Just newPos -> go newPos
+              where
+                -- A subscription registers its live queue before catch-up begins.
+                -- Events appended during catch-up may therefore be both fetched
+                -- from SQL by catch-up and already waiting in the live queue.
+                -- Drop those stale queue entries so live mode cannot replay them
+                -- or move the checkpoint backward.
+                freshEvents = V.filter ((> cursor) . globalPosition) events
 
 -- Phase 2: live (Category). Bypasses the broadcast and re-queries the database
 -- whenever `lastPublished` advances. This guarantees correct category filtering

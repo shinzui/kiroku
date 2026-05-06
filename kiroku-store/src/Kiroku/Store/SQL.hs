@@ -800,5 +800,5 @@ saveCheckpointSQL =
     INSERT INTO subscriptions (subscription_name, last_seen, updated_at)
     VALUES ($1, $2, now())
     ON CONFLICT (subscription_name)
-    DO UPDATE SET last_seen = $2, updated_at = now()
+    DO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now()
     """

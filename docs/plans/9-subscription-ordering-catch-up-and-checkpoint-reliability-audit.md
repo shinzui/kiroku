@@ -23,17 +23,21 @@ The user-visible behavior is that projection workers and consumers can trust sub
 
 ## Progress
 
-- [ ] Audit the publisher, worker, checkpoint SQL, subscription API, and current tests for ordering assumptions.
-- [ ] Add tests for catch-up-to-live transition while writes are ongoing.
-- [ ] Add tests for checkpoint monotonicity and replay boundaries after cancellation, overflow, or handler stop.
-- [ ] Add category subscription ordering tests under mixed-category writes.
-- [ ] Land any must-fix subscription code changes.
-- [ ] Record the final subscription reliability verdict.
+- [x] Audit the publisher, worker, checkpoint SQL, subscription API, and current tests for ordering assumptions. Completed 2026-05-06 after reading `Kiroku.Store.Subscription`, `Subscription.EventPublisher`, `Subscription.Worker`, checkpoint SQL in `SQL.hs`, and the existing `subscribe` examples in `kiroku-store/test/Main.hs`.
+- [x] Add tests for catch-up-to-live transition while writes are ongoing. Completed 2026-05-06 with `does not replay catch-up events when switching to all-stream live mode`, which blocks catch-up, appends positions 6 through 10 while the live queue is active, and verifies the handled positions are exactly 1 through 11 after a live stop event.
+- [x] Add tests for checkpoint monotonicity and replay boundaries after cancellation, overflow, or handler stop. Completed 2026-05-06 with cancellation-before-save replay, handler `Stop` boundary replay, overflow restart replay, and monotonic checkpoint SQL.
+- [x] Add category subscription ordering tests under mixed-category writes. Completed 2026-05-06 with a mixed `skill-installer`, `skill-*`, `user-*`, and `order-*` workload proving category `skill` sees only global positions 1, 3, 5, and 7.
+- [x] Land any must-fix subscription code changes. Completed 2026-05-06 by filtering stale all-stream live batches and making checkpoint upserts monotonic.
+- [x] Record the final subscription reliability verdict. Completed 2026-05-06 after `cabal test kiroku-store --test-options='--match "subscribe"'` passed 14 subscription examples and `cabal test kiroku-store` passed 101 examples.
 
 
 ## Surprises & Discoveries
 
-(None yet.)
+- All-stream subscriptions registered their live queue before catch-up. If events were appended while catch-up was blocked, catch-up could process those events from SQL and then live mode could read the same already-processed positions from the queue. The fix filters each live batch to `globalPosition > cursor` before invoking the handler. Evidence: the focused subscription suite includes `does not replay catch-up events when switching to all-stream live mode`, which now passes with exact positions 1 through 11.
+  Date: 2026-05-06
+
+- `saveCheckpointSQL` overwrote `subscriptions.last_seen` with the supplied position. That was safe for normal increasing worker flow but fragile if any stale or duplicate batch reached checkpoint saving. The SQL now uses `GREATEST(subscriptions.last_seen, EXCLUDED.last_seen)` so checkpoint persistence is monotonic even under replay-like boundaries.
+  Date: 2026-05-06
 
 
 ## Decision Log
@@ -42,10 +46,20 @@ The user-visible behavior is that projection workers and consumers can trust sub
   Rationale: `Kiroku.Store.Subscription` already documents replay scenarios around cancellation, crash, and checkpoint saving. This audit should reject gaps and reordering while accepting documented duplicates.
   Date: 2026-05-06
 
+- Decision: Keep the all-stream catch-up/live fix in `Worker.liveLoop` instead of changing publisher registration order.
+  Rationale: The publisher queue is intentionally registered before the worker starts so live notifications are not missed. Filtering stale live batches by the worker's durable cursor preserves that design while preventing duplicate handler calls and backward checkpoint attempts.
+  Date: 2026-05-06
+
+- Decision: Make checkpoint monotonicity a SQL invariant.
+  Rationale: The worker should normally save increasing positions, but the `subscriptions` table is the durable boundary. Using `GREATEST` at the upsert prevents a lower retry or stale batch from moving persisted progress backward.
+  Date: 2026-05-06
+
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+EP-3 is complete. Subscriptions now have regression coverage for all-stream catch-up/live transition under concurrent writes, cancellation before checkpoint save, handler `Stop` checkpoint boundaries, overflow restart replay, and mixed-category `skill` subscriptions that include the `skill-installer` stream name. The implementation change in `Kiroku.Store.Subscription.Worker.liveLoop` prevents already-processed all-stream positions from being delivered again when the worker switches from SQL catch-up to live queue consumption. The SQL checkpoint upsert now refuses to move durable progress backward.
+
+The final delivery-contract verdict is positive with one targeted fix: subscriptions preserve increasing global positions and no gaps for the tested all-stream scenarios; category subscriptions preserve increasing matching positions and ignore non-matching categories; checkpoint restart behavior replays rather than skips after cancellation and overflow. Validation passed with 14 focused `subscribe` examples and the full 101-example `kiroku-store` suite on 2026-05-06.
 
 
 ## Context and Orientation

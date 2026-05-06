@@ -911,6 +911,168 @@ main = hspec $ do
                 -- Should receive events 6–10 only
                 length collected `shouldBe` 5
 
+            it "does not replay catch-up events when switching to all-stream live mode" $ \store -> do
+                let seedEvents = map (\i -> makeEvent ("TransitionSeed" <> T.pack (show i)) (Aeson.object [])) [1 .. 5 :: Int]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "transition-seed") NoStream seedEvents
+                waitForPublisher store (GlobalPosition 5)
+
+                firstSeen <- newEmptyMVar
+                releaseFirst <- newEmptyMVar
+                countRef <- newTVarIO (0 :: Int)
+                ref <- newIORef ([] :: [RecordedEvent])
+                let stopType = EventType "TransitionStopAfterLive"
+                    handler' evt = do
+                        modifyIORef' ref (evt :)
+                        n <- atomically $ do
+                            c <- readTVar countRef
+                            let c' = c + 1
+                            writeTVar countRef c'
+                            pure c'
+                        if n == 1
+                            then do
+                                putMVar firstSeen ()
+                                takeMVar releaseFirst
+                            else pure ()
+                        if evt ^. #eventType == stopType
+                            then pure Stop
+                            else pure Continue
+                let cfg =
+                        SubscriptionConfig
+                            { name = SubscriptionName "transition-no-duplicates"
+                            , target = AllStreams
+                            , handler = handler'
+                            , batchSize = 2
+                            , queueCapacity = 32
+                            , overflowPolicy = DropSubscription
+                            }
+                handle <- subscribe store cfg
+                takeMVar firstSeen
+
+                mapM_
+                    ( \i -> do
+                        let sn = StreamName ("transition-during-" <> T.pack (show (i :: Int)))
+                        Right _ <- runStoreIO store $ appendToStream sn NoStream [makeEvent ("TransitionDuring" <> T.pack (show i)) (Aeson.object [])]
+                        pure ()
+                    )
+                    [6 .. 10]
+                waitForPublisher store (GlobalPosition 10)
+                putMVar releaseFirst ()
+                atomically $ do
+                    c <- readTVar countRef
+                    check (c >= 10)
+
+                Right _ <- runStoreIO store $ appendToStream (StreamName "transition-stop") NoStream [makeEvent "TransitionStopAfterLive" (Aeson.object [])]
+                result <- waitWithTimeout 10_000_000 handle
+                case result of
+                    Left timeout -> expectationFailure timeout
+                    Right (Left err) -> expectationFailure ("Subscription failed: " <> show err)
+                    Right (Right ()) -> pure ()
+
+                collected <- reverse <$> readIORef ref
+                map (^. #globalPosition) collected `shouldBe` map GlobalPosition [1 .. 11]
+
+            it "does not skip an event when cancelled before checkpoint save" $ \store -> do
+                let events = map (\i -> makeEvent ("CancelReplay" <> T.pack (show i)) (Aeson.object [])) [1 .. 3 :: Int]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "cancel-replay") NoStream events
+                waitForPublisher store (GlobalPosition 3)
+
+                firstSeen <- newEmptyMVar
+                block <- newEmptyMVar
+                firstRef <- newIORef ([] :: [RecordedEvent])
+                let handler1 evt = do
+                        modifyIORef' firstRef (evt :)
+                        putMVar firstSeen ()
+                        takeMVar block
+                        pure Continue
+                    cfg1 =
+                        SubscriptionConfig
+                            { name = SubscriptionName "cancel-replay-test"
+                            , target = AllStreams
+                            , handler = handler1
+                            , batchSize = 100
+                            , queueCapacity = 16
+                            , overflowPolicy = DropSubscription
+                            }
+                h1 <- subscribe store cfg1
+                takeMVar firstSeen
+                cancel h1
+                _ <- waitWithTimeout 5_000_000 h1
+
+                ref2 <- newIORef ([] :: [RecordedEvent])
+                let handler2 evt = do
+                        modifyIORef' ref2 (evt :)
+                        pure Stop
+                    cfg2 =
+                        SubscriptionConfig
+                            { name = SubscriptionName "cancel-replay-test"
+                            , target = AllStreams
+                            , handler = handler2
+                            , batchSize = 100
+                            , queueCapacity = 16
+                            , overflowPolicy = DropSubscription
+                            }
+                h2 <- subscribe store cfg2
+                result <- waitWithTimeout 10_000_000 h2
+                case result of
+                    Left timeout -> expectationFailure timeout
+                    Right (Left err) -> expectationFailure ("Subscription failed: " <> show err)
+                    Right (Right ()) -> pure ()
+                replayed <- reverse <$> readIORef ref2
+                map (^. #globalPosition) replayed `shouldBe` [GlobalPosition 1]
+
+            it "saves checkpoints at Stop boundaries without skipping the next event" $ \store -> do
+                let events = map (\i -> makeEvent ("StopBoundary" <> T.pack (show i)) (Aeson.object [])) [1 .. 5 :: Int]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "stop-boundary") NoStream events
+                waitForPublisher store (GlobalPosition 5)
+
+                countRef1 <- newTVarIO (0 :: Int)
+                let handler1 _evt = do
+                        n <- atomically $ do
+                            c <- readTVar countRef1
+                            let c' = c + 1
+                            writeTVar countRef1 c'
+                            pure c'
+                        if n >= 3 then pure Stop else pure Continue
+                    cfg1 =
+                        SubscriptionConfig
+                            { name = SubscriptionName "stop-boundary-test"
+                            , target = AllStreams
+                            , handler = handler1
+                            , batchSize = 100
+                            , queueCapacity = 16
+                            , overflowPolicy = DropSubscription
+                            }
+                h1 <- subscribe store cfg1
+                _ <- waitWithTimeout 10_000_000 h1
+
+                ref2 <- newIORef ([] :: [RecordedEvent])
+                countRef2 <- newTVarIO (0 :: Int)
+                let handler2 evt = do
+                        modifyIORef' ref2 (evt :)
+                        n <- atomically $ do
+                            c <- readTVar countRef2
+                            let c' = c + 1
+                            writeTVar countRef2 c'
+                            pure c'
+                        if n >= 2 then pure Stop else pure Continue
+                    cfg2 =
+                        SubscriptionConfig
+                            { name = SubscriptionName "stop-boundary-test"
+                            , target = AllStreams
+                            , handler = handler2
+                            , batchSize = 100
+                            , queueCapacity = 16
+                            , overflowPolicy = DropSubscription
+                            }
+                h2 <- subscribe store cfg2
+                result <- waitWithTimeout 10_000_000 h2
+                case result of
+                    Left timeout -> expectationFailure timeout
+                    Right (Left err) -> expectationFailure ("Subscription failed: " <> show err)
+                    Right (Right ()) -> pure ()
+                replayed <- reverse <$> readIORef ref2
+                map (^. #globalPosition) replayed `shouldBe` [GlobalPosition 4, GlobalPosition 5]
+
             -- F18 regression — Category subscriptions in live mode previously
             -- received unfiltered events from $all because `filterEvents` was
             -- a no-op for Category. The fix routes Category live-mode through
@@ -1005,6 +1167,55 @@ main = hspec $ do
                 length collected `shouldBe` 2
                 -- All events should be order events
                 mapM_ (\e -> (e ^. #eventType) `shouldSatisfy` (\(EventType t) -> T.isPrefixOf "Order" t)) collected
+
+            it "preserves category subscription order under mixed skill-installer writes" $ \store -> do
+                let appendOne sn typ =
+                        runStoreIO store (appendToStream sn AnyVersion [makeEvent typ (Aeson.object [])]) >>= \result ->
+                            case result of
+                                Right _ -> pure ()
+                                Left err -> expectationFailure ("append failed: " <> show err)
+                appendOne (StreamName "skill-installer") "SkillInstallStarted"
+                appendOne (StreamName "user-1") "UserNoiseOne"
+                appendOne (StreamName "skill-worker") "SkillWorkerStarted"
+                appendOne (StreamName "order-1") "OrderNoiseOne"
+                appendOne (StreamName "skill-installer") "SkillInstallFinished"
+                appendOne (StreamName "user-2") "UserNoiseTwo"
+                appendOne (StreamName "skill-runner") "SkillRunnerFinished"
+                waitForPublisher store (GlobalPosition 7)
+
+                ref <- newIORef ([] :: [RecordedEvent])
+                countRef <- newTVarIO (0 :: Int)
+                let handler' evt = do
+                        modifyIORef' ref (evt :)
+                        n <- atomically $ do
+                            c <- readTVar countRef
+                            let c' = c + 1
+                            writeTVar countRef c'
+                            pure c'
+                        if n >= 4 then pure Stop else pure Continue
+                    cfg =
+                        SubscriptionConfig
+                            { name = SubscriptionName "skill-category-ordering"
+                            , target = Category (CategoryName "skill")
+                            , handler = handler'
+                            , batchSize = 2
+                            , queueCapacity = 16
+                            , overflowPolicy = DropSubscription
+                            }
+                handle <- subscribe store cfg
+                result <- waitWithTimeout 10_000_000 handle
+                case result of
+                    Left timeout -> expectationFailure timeout
+                    Right (Left err) -> expectationFailure ("Subscription failed: " <> show err)
+                    Right (Right ()) -> pure ()
+                collected <- reverse <$> readIORef ref
+                map (^. #globalPosition) collected `shouldBe` [GlobalPosition 1, GlobalPosition 3, GlobalPosition 5, GlobalPosition 7]
+                map (^. #eventType) collected
+                    `shouldBe` [ EventType "SkillInstallStarted"
+                               , EventType "SkillWorkerStarted"
+                               , EventType "SkillInstallFinished"
+                               , EventType "SkillRunnerFinished"
+                               ]
 
             it "cancels a running subscription cleanly" $ \store -> do
                 let handler' _evt = pure Continue
@@ -1171,6 +1382,34 @@ main = hspec $ do
                                 sn `shouldBe` SubscriptionName "f6-overflow-test"
                             Nothing ->
                                 expectationFailure ("expected SubscriptionOverflowed, got: " <> show e)
+
+                ref2 <- newIORef ([] :: [RecordedEvent])
+                countRef2 <- newTVarIO (0 :: Int)
+                let handler2 evt = do
+                        modifyIORef' ref2 (evt :)
+                        n <- atomically $ do
+                            c <- readTVar countRef2
+                            let c' = c + 1
+                            writeTVar countRef2 c'
+                            pure c'
+                        if n >= 4 then pure Stop else pure Continue
+                    cfg2 =
+                        SubscriptionConfig
+                            { name = SubscriptionName "f6-overflow-test"
+                            , target = AllStreams
+                            , handler = handler2
+                            , batchSize = 100
+                            , queueCapacity = 16
+                            , overflowPolicy = DropSubscription
+                            }
+                h2 <- subscribe store cfg2
+                replayResult <- waitWithTimeout 10_000_000 h2
+                case replayResult of
+                    Left timeout -> expectationFailure timeout
+                    Right (Left err) -> expectationFailure ("Subscription failed after overflow restart: " <> show err)
+                    Right (Right ()) -> pure ()
+                replayed <- reverse <$> readIORef ref2
+                map (^. #globalPosition) replayed `shouldBe` map GlobalPosition [2 .. 5]
 
             it "catches up with an Eff-based handler via the effectful API" $ \store -> do
                 -- Append 10 events
