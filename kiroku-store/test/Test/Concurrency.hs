@@ -12,17 +12,144 @@ module Test.Concurrency (spec) where
 
 import Control.Concurrent.Async qualified as Async
 import Control.Lens ((^.))
+import Control.Monad (forM_)
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
+import Data.Int (Int64)
 import Data.List (sort)
 import Data.Set qualified as Set
+import Data.Text (Text)
+import Data.Text qualified as T
+import Data.UUID qualified as UUID
 import Data.Vector qualified as V
 import Kiroku.Store
-import Test.Helpers (makeEvent, withTestStore)
+import Test.Helpers (countEvents, makeEvent, withTestStore)
 import Test.Hspec
 
 spec :: Spec
 spec = describe "kiroku-store concurrency (deterministic)" $ do
+    it "many AnyVersion writers to one stream preserve stream and global order" $
+        withTestStore $ \store -> do
+            let writerCount = 24
+                stream = StreamName "stress-one-stream"
+            results <-
+                Async.forConcurrently [1 .. writerCount] $ \i -> do
+                    runStoreIO store $
+                        appendToStream
+                            stream
+                            AnyVersion
+                            [makeEvent ("Stress" <> T.pack (show i)) (Aeson.object [])]
+            mapM_ assertRightAppend results
+            Right streamEvents <- runStoreIO store $ readStreamForward stream (StreamVersion 0) 1000
+            V.length streamEvents `shouldBe` writerCount
+            streamVersions streamEvents `shouldBe` [1 .. fromIntegral writerCount]
+            Right allEvents <- runStoreIO store $ readAllForward (GlobalPosition 0) 1000
+            V.length allEvents `shouldBe` writerCount
+            globalPositions allEvents `shouldBe` [1 .. fromIntegral writerCount]
+
+    it "many batched writers to different streams preserve batch-local and global order" $
+        withTestStore $ \store -> do
+            let streamCount = 12
+                batchSize = 10
+                totalEvents = streamCount * batchSize
+                mkStream i = StreamName ("stress-batch-" <> T.pack (show i))
+                mkBatch i =
+                    [ makeEvent ("Batch" <> T.pack (show i) <> "-" <> T.pack (show j)) (Aeson.object [])
+                    | j <- [1 .. batchSize]
+                    ]
+            results <-
+                Async.forConcurrently [1 .. streamCount] $ \i -> do
+                    runStoreIO store $ appendToStream (mkStream i) NoStream (mkBatch i)
+            mapM_ assertRightAppend results
+            forM_ [1 .. streamCount] $ \i -> do
+                Right streamEvents <- runStoreIO store $ readStreamForward (mkStream i) (StreamVersion 0) 1000
+                streamVersions streamEvents `shouldBe` [1 .. fromIntegral batchSize]
+            Right allEvents <- runStoreIO store $ readAllForward (GlobalPosition 0) 1000
+            V.length allEvents `shouldBe` totalEvents
+            globalPositions allEvents `shouldBe` [1 .. fromIntegral totalEvents]
+
+    it "large append batches return the final stream and global positions" $
+        withTestStore $ \store -> do
+            let stream = StreamName "stress-large-batches"
+                mkBatch label n =
+                    [ makeEvent (label <> "-" <> T.pack (show i)) (Aeson.object [])
+                    | i <- [1 .. n]
+                    ]
+            Right r10 <- runStoreIO store $ appendToStream stream NoStream (mkBatch "Batch10" 10)
+            (r10 ^. #streamVersion) `shouldBe` StreamVersion 10
+            (r10 ^. #globalPosition) `shouldBe` GlobalPosition 10
+            Right r100 <- runStoreIO store $ appendToStream stream AnyVersion (mkBatch "Batch100" 100)
+            (r100 ^. #streamVersion) `shouldBe` StreamVersion 110
+            (r100 ^. #globalPosition) `shouldBe` GlobalPosition 110
+            Right streamEvents <- runStoreIO store $ readStreamForward stream (StreamVersion 0) 200
+            streamVersions streamEvents `shouldBe` [1 .. 110]
+            Right allEvents <- runStoreIO store $ readAllForward (GlobalPosition 0) 200
+            globalPositions allEvents `shouldBe` [1 .. 110]
+
+    it "overlapping appendMultiStream stress preserves all-or-nothing ordering" $
+        withTestStore $ \store -> do
+            let streams = [StreamName "stress-multi-a", StreamName "stress-multi-b", StreamName "stress-multi-c"]
+                rotations =
+                    [ streams
+                    , [StreamName "stress-multi-b", StreamName "stress-multi-c", StreamName "stress-multi-a"]
+                    , [StreamName "stress-multi-c", StreamName "stress-multi-a", StreamName "stress-multi-b"]
+                    ]
+                opsFor i =
+                    [ (sn, AnyVersion, [makeEvent ("Multi" <> T.pack (show i) <> "-" <> labelStream sn) (Aeson.object [])])
+                    | sn <- rotations !! (i `mod` length rotations)
+                    ]
+            forM_ streams $ \sn -> do
+                result <- runStoreIO store $ appendToStream sn NoStream [makeEvent "init" (Aeson.object [])]
+                assertRightAppend result
+            results <-
+                Async.forConcurrently [1 .. 9] $ \i -> do
+                    runStoreIO store $ appendMultiStream (opsFor i)
+            mapM_ assertRightMulti results
+            forM_ streams $ \sn -> do
+                Right streamEvents <- runStoreIO store $ readStreamForward sn (StreamVersion 0) 100
+                streamVersions streamEvents `shouldBe` [1 .. 10]
+            Right allEvents <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
+            V.length allEvents `shouldBe` 30
+            globalPositions allEvents `shouldBe` [1 .. 30]
+
+    it "duplicate event failure leaves touched streams and $all unchanged" $
+        withTestStore $ \store -> do
+            let duplicate =
+                    EventId $
+                        case UUID.fromString "01234567-89ab-7def-8012-34567890abce" of
+                            Just u -> u
+                            Nothing -> error "bad uuid"
+                duplicateEvent =
+                    EventData
+                        { eventId = Just duplicate
+                        , eventType = EventType "Duplicate"
+                        , payload = Aeson.object []
+                        , metadata = Nothing
+                        , causationId = Nothing
+                        , correlationId = Nothing
+                        }
+            Right _ <- runStoreIO store $ appendToStream (StreamName "rollback-seed") NoStream [duplicateEvent]
+            Right _ <- runStoreIO store $ appendToStream (StreamName "rollback-a") NoStream [makeEvent "init-a" (Aeson.object [])]
+            Right _ <- runStoreIO store $ appendToStream (StreamName "rollback-b") NoStream [makeEvent "init-b" (Aeson.object [])]
+            beforeCount <- countEvents store
+            Right beforeAll <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
+            result <-
+                runStoreIO store $
+                    appendMultiStream
+                        [ (StreamName "rollback-a", AnyVersion, [duplicateEvent])
+                        , (StreamName "rollback-b", AnyVersion, [makeEvent "should-not-commit" (Aeson.object [])])
+                        ]
+            case result of
+                Left (DuplicateEvent _) -> pure ()
+                other -> expectationFailure ("duplicate event should abort the multi-stream transaction, got: " <> show other)
+            countEvents store `shouldReturn` beforeCount
+            Right afterAll <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
+            globalPositions afterAll `shouldBe` globalPositions beforeAll
+            Right streamA <- runStoreIO store $ readStreamForward (StreamName "rollback-a") (StreamVersion 0) 100
+            Right streamB <- runStoreIO store $ readStreamForward (StreamName "rollback-b") (StreamVersion 0) 100
+            streamVersions streamA `shouldBe` [1]
+            streamVersions streamB `shouldBe` [1]
+
     -- F9 — Two concurrent appends to different streams. Both calls
     -- must succeed, the global positions must be unique and contiguous,
     -- and the test must not deadlock.
@@ -101,3 +228,28 @@ spec = describe "kiroku-store concurrency (deterministic)" $ do
                         (\e -> case e ^. #globalPosition of GlobalPosition n -> n)
                         (V.toList allEvts)
             sort positions `shouldBe` [1, 2, 3, 4, 5, 6]
+
+assertRightAppend :: Either StoreError AppendResult -> IO ()
+assertRightAppend = \case
+    Right _ -> pure ()
+    Left err -> expectationFailure ("append should succeed, got: " <> show err)
+
+assertRightMulti :: Either StoreError [AppendResult] -> IO ()
+assertRightMulti = \case
+    Right _ -> pure ()
+    Left err -> expectationFailure ("appendMultiStream should succeed, got: " <> show err)
+
+streamVersions :: V.Vector RecordedEvent -> [Int64]
+streamVersions =
+    map
+        (\e -> case e ^. #streamVersion of StreamVersion n -> n)
+        . V.toList
+
+globalPositions :: V.Vector RecordedEvent -> [Int64]
+globalPositions =
+    map
+        (\e -> case e ^. #globalPosition of GlobalPosition n -> n)
+        . V.toList
+
+labelStream :: StreamName -> Text
+labelStream (StreamName name) = name
