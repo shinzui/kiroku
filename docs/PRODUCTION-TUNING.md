@@ -63,6 +63,15 @@ pipeline and alert when `Acquired` events back up — sustained
 acquisition latency above 100 ms means the pool is undersized for
 the load.
 
+The focused reliability-and-scale audit refreshed the `kiroku-store`
+benchmark baseline in May 2026. On the local PostgreSQL 18 benchmark
+host, the added gates measured roughly 1.6 ms for 10 hot
+`skill-installer` appends, 0.39 ms for one `appendMultiStream` touching
+three existing streams, and 4 ms for a category subscription catching up
+100 events. Treat these as regression guards for this repository rather
+than portable service-level objectives; production thresholds should
+come from your hardware and payload sizes.
+
 
 ## Statement timeout
 

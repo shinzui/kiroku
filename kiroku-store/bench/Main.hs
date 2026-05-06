@@ -34,10 +34,66 @@ runConcurrentWriters store runCounter writers ops = do
         r <- runStoreIO store $ appendToStream sn AnyVersion [makeEvent "ConcEvent"]
         forceAppend r
 
+-- | Exercise the hot stream named in the focused reliability audit.
+runHotSkillInstaller :: KirokuStore -> Int -> IO ()
+runHotSkillInstaller store ops =
+    mapM_
+        ( \i -> do
+            r <- runStoreIO store $ appendToStream (StreamName "skill-installer") AnyVersion [makeEvent ("SkillInstaller" <> T.pack (show i))]
+            forceAppend r
+        )
+        [1 .. ops]
+
+-- | Exercise appendMultiStream against existing streams.
+runAppendMultiStream :: KirokuStore -> IO ()
+runAppendMultiStream store = do
+    r <-
+        runStoreIO store $
+            appendMultiStream
+                [ (StreamName "bench-multi-a", AnyVersion, [makeEvent "MultiA"])
+                , (StreamName "bench-multi-b", AnyVersion, [makeEvent "MultiB"])
+                , (StreamName "bench-multi-c", AnyVersion, [makeEvent "MultiC"])
+                ]
+    forceAppendList r
+
+-- | Exercise subscription catch-up over a compact category-local backlog.
+runSubscriptionCatchup :: KirokuStore -> IORef Int -> IO ()
+runSubscriptionCatchup store runCounter = do
+    runId <- atomicModifyIORef' runCounter (\m -> (m + 1, m))
+    let cat = "benchsub" <> T.pack (show runId)
+        sn = StreamName (cat <> "-stream")
+        subName = SubscriptionName ("bench-sub-" <> T.pack (show runId))
+        events = map (\i -> makeEvent ("SubCatchup" <> T.pack (show i))) [1 .. 100 :: Int]
+    r <- runStoreIO store $ appendToStream sn NoStream events
+    forceAppend r
+    seenRef <- newIORef (0 :: Int)
+    let handler _ = do
+            n <- atomicModifyIORef' seenRef (\m -> let m' = m + 1 in (m', m'))
+            pure $ if n >= 100 then Stop else Continue
+        cfg =
+            SubscriptionConfig
+                { name = subName
+                , target = Category (CategoryName cat)
+                , handler = handler
+                , batchSize = 100
+                , queueCapacity = 16
+                , overflowPolicy = DropSubscription
+                }
+    handle <- subscribe store cfg
+    result <- wait handle
+    case result of
+        Right () -> pure ()
+        Left e -> error ("Subscription catch-up benchmark failed: " <> show e)
+
 -- | Force evaluation of an append result or fail the benchmark.
 forceAppend :: Either StoreError AppendResult -> IO ()
 forceAppend (Right r) = (r ^. #streamVersion) `seq` (r ^. #globalPosition) `seq` pure ()
 forceAppend (Left e) = error ("Benchmark append failed: " <> show e)
+
+-- | Force evaluation of multi-stream append results or fail the benchmark.
+forceAppendList :: Either StoreError [AppendResult] -> IO ()
+forceAppendList (Right rs) = mapM_ (\r -> (r ^. #streamVersion) `seq` (r ^. #globalPosition) `seq` pure ()) rs
+forceAppendList (Left e) = error ("Benchmark appendMultiStream failed: " <> show e)
 
 -- | Force evaluation of a read result or fail the benchmark.
 forceRead :: Either StoreError (V.Vector RecordedEvent) -> IO ()
@@ -94,6 +150,14 @@ main = do
                 )
                 [1 .. 10 :: Int]
 
+            -- Pre-create fixed streams for appendMultiStream benchmark iterations.
+            mapM_
+                ( \sn -> do
+                    r' <- runStoreIO store $ appendToStream sn NoStream [makeEvent "Init"]
+                    forceAppend r'
+                )
+                [StreamName "bench-multi-a", StreamName "bench-multi-b", StreamName "bench-multi-c"]
+
             -- B9: Pool saturation benchmark (64 concurrent writers, 100 appends each)
             putStrLn "\n--- B9: Pool saturation (64 writers × 100 appends, pool size 10) ---"
             satCounter <- newIORef (0 :: Int)
@@ -126,6 +190,7 @@ main = do
             -- Counter shared by the concurrent-writer benchmarks so each
             -- iteration uses a fresh stream-name run-id.
             concCounter <- newIORef (0 :: Int)
+            subCounter <- newIORef (0 :: Int)
 
             defaultMain
                 [ bgroup
@@ -188,6 +253,11 @@ main = do
                         -- Read from cat1 category (has 10 streams × 100 events = 1000 events)
                         r' <- runStoreIO store $ readCategory (CategoryName "cat1") (GlobalPosition 0) 100
                         forceRead r'
+                    , bench "exhausted-category" $ whnfIO $ do
+                        -- cat1 events are inserted early in setup; a high cursor proves
+                        -- category reads do not scan the rest of $all looking for matches.
+                        r' <- runStoreIO store $ readCategory (CategoryName "cat1") (GlobalPosition 90_000) 100
+                        forceRead r'
                     , bench "$all forward (100-event page, baseline)" $ whnfIO $ do
                         r' <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
                         forceRead r'
@@ -202,6 +272,12 @@ main = do
                     "concurrent"
                     [ bench "8 writers x 10 appends" $ whnfIO $ runConcurrentWriters store concCounter 8 10
                     , bench "32 writers x 10 appends" $ whnfIO $ runConcurrentWriters store concCounter 32 10
+                    ]
+                , bgroup
+                    "reliability-audit"
+                    [ bench "hot skill-installer 10 AnyVersion appends" $ whnfIO $ runHotSkillInstaller store 10
+                    , bench "appendMultiStream 3 existing streams" $ whnfIO $ runAppendMultiStream store
+                    , bench "subscription category catch-up 100 events" $ whnfIO $ runSubscriptionCatchup store subCounter
                     ]
                 ]
     case result of

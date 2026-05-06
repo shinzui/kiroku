@@ -611,12 +611,18 @@ readCategoryForwardSQL =
            se.original_stream_id, se.original_stream_version,
            e.data, e.metadata, e.causation_id, e.correlation_id,
            e.created_at
-    FROM stream_events se
+    FROM streams s
+    JOIN LATERAL (
+      SELECT se.*
+      FROM stream_events se
+      WHERE se.stream_id = 0
+        AND se.original_stream_id = s.stream_id
+        AND se.stream_version > $1
+      ORDER BY se.stream_version ASC
+      LIMIT $3
+    ) se ON true
     JOIN events e ON e.event_id = se.event_id
-    JOIN streams s ON s.stream_id = se.original_stream_id
-    WHERE se.stream_id = 0
-      AND se.stream_version > $1
-      AND s.category = $2
+    WHERE s.category = $2
     ORDER BY se.stream_version ASC
     LIMIT $3
     """

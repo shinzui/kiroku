@@ -1,12 +1,16 @@
 Name,Mean (ps),2*Stdev (ps)
-All.append.single-event.NoStream (new stream),198347912,19290344
-All.append.single-event.AnyVersion (new stream),156942333,8456878
-All.append.batch-10.NoStream,375444335,30505732
-All.append.batch-100.NoStream,2479733203,81291552
-All.append.sequential.10 appends to same stream,1612505468,53697076
-All.read.stream forward (100-event page),1044765625,57971808
-All.read.$all forward (100-event page),1023347265,55651888
-All.category.category forward (100-event page),1025707031,73720366
-"All.category.$all forward (100-event page, baseline)",993606640,56004768
-All.concurrent.8 writers x 10 appends,14842631250,493039012
-All.concurrent.32 writers x 10 appends,671754750000,15262281980
+All.append.single-event.NoStream (new stream),160037597,13217694
+All.append.single-event.AnyVersion (new stream),164304150,11927588
+All.append.batch-10.NoStream,402502636,36553814
+All.append.batch-100.NoStream,2574732812,185265218
+All.append.sequential.10 appends to same stream,1819265625,167373180
+All.read.stream forward (100-event page),1001133203,50744766
+All.read.$all forward (100-event page),997528515,72190056
+All.category.category forward (100-event page),1028052734,87617178
+All.category.exhausted-category,21578631,680918
+"All.category.$all forward (100-event page, baseline)",1017942578,90780866
+All.concurrent.8 writers x 10 appends,14525362500,1193892594
+All.concurrent.32 writers x 10 appends,645071900000,52988997290
+All.reliability-audit.hot skill-installer 10 AnyVersion appends,1586108203,60031436
+All.reliability-audit.appendMultiStream 3 existing streams,386386328,32406388
+All.reliability-audit.subscription category catch-up 100 events,3963421875,274197834

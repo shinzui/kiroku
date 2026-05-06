@@ -23,16 +23,26 @@ The useful outcome is a short list of must-fix performance red flags, accepted s
 
 ## Progress
 
-- [ ] Inventory current benchmarks, baseline files, and scaling documentation.
-- [ ] Capture query plans for stream, `$all`, category, and checkpoint read paths on representative data.
-- [ ] Add missing benchmark coverage for high-write, hot-stream, or subscription scenarios discovered by EP-1 through EP-3.
-- [ ] Review large-table risks: indexes, `$all` row contention, autovacuum, hard deletes, category cardinality, and benchmark baseline drift.
-- [ ] Land benchmark/doc updates and record the final scale-risk verdict.
+- [x] Inventory current benchmarks, baseline files, and scaling documentation. Completed 2026-05-06 after reading `kiroku-store/bench/Main.hs`, `kiroku-store/bench/results/baseline.csv`, `docs/BENCH-REGRESSION.md`, `docs/SCALING-ANALYSIS.md`, `docs/PRODUCTION-TUNING.md`, and the existing SQL benchmark scripts.
+- [x] Capture query plans for stream, `$all`, category, and checkpoint read paths on representative data. Completed 2026-05-06 with a throwaway PostgreSQL 18 database containing 100,000 events and 200,000 `stream_events` rows.
+- [x] Add missing benchmark coverage for high-write, hot-stream, or subscription scenarios discovered by EP-1 through EP-3. Completed 2026-05-06 by adding `reliability-audit` benchmarks for hot `skill-installer`, `appendMultiStream`, and subscription catch-up, plus `category.exhausted-category`.
+- [x] Review large-table risks: indexes, `$all` row contention, autovacuum, hard deletes, category cardinality, and benchmark baseline drift. Completed 2026-05-06; the only must-fix code issue was the category read query shape.
+- [x] Land benchmark/doc updates and record the final scale-risk verdict. Completed 2026-05-06 with a refreshed benchmark baseline and docs updates.
 
 
 ## Surprises & Discoveries
 
-(None yet.)
+- The direct Haskell category read query did not match the older SQL benchmark's LATERAL shape. On a 100K-event throwaway PostgreSQL 18 dataset, `readCategory` for category `benchcat1` after global position 50,000 scanned 50,000 `$all` rows with `ix_stream_events_stream_version` and returned no rows in about 9.88 ms. The LATERAL partial-index shape scanned `ix_stream_events_all_by_origin` once per category stream and returned no rows in about 0.116 ms. This became the only must-fix performance issue.
+  Date: 2026-05-06
+
+- Stream and `$all` reads used the intended `(stream_id, stream_version)` index on the same 100K-event dataset. Stream forward used `ix_stream_events_stream_version` plus `events_pkey`, returning 100 rows in about 0.195 ms. `$all` forward used the same stream-version index plus `events_pkey`, returning 100 rows in about 0.414 ms.
+  Date: 2026-05-06
+
+- Subscription checkpoint access remains small-table cheap. `getCheckpointStmt` used a sequential scan on the one-row throwaway `subscriptions` table, which is expected at that size; `saveCheckpointStmt` used the `subscriptions_subscription_name_key` conflict arbiter and completed in about 0.177 ms. The unique index is present for larger tables and for monotonic upsert conflict detection.
+  Date: 2026-05-06
+
+- The refreshed `kiroku-store/bench/results/baseline.csv` now contains 15 benchmark entries. Focused validation passed for `just bench-regression-pattern category` and `just bench-regression-pattern reliability-audit`. The full test suite passed twice with 101 examples and 0 failures.
+  Date: 2026-05-06
 
 
 ## Decision Log
@@ -41,10 +51,16 @@ The useful outcome is a short list of must-fix performance red flags, accepted s
   Rationale: Existing `docs/SCALING-ANALYSIS.md` argues against time-based partitioning for this schema. The correct first step is evidence and regression gates, not structural churn.
   Date: 2026-05-06
 
+- Decision: Change `readCategoryForwardSQL` to the LATERAL partial-index query shape and accept the refreshed benchmark baseline.
+  Rationale: The direct join can scan the remaining `$all` suffix when a category has no events after the cursor. The LATERAL shape keeps the read bounded by category stream count through `ix_stream_events_all_by_origin`. A normal category page remains about 1.03 ms in the refreshed baseline, and the new exhausted-category guard is about 21.6 us.
+  Date: 2026-05-06
+
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+Completed 2026-05-06. The audit found one must-fix performance issue and fixed it: category reads now use the same LATERAL partial-index strategy documented by the SQL baseline, avoiding expensive `$all` suffix scans for high cursors. No append, stream-read, `$all` read, or checkpoint schema change was needed.
+
+The final scale-risk verdict is that the current B-tree and subscription-checkpoint design remains sound for growth, with the residual risks already documented in the operational guides: `$all` row lock contention under high write concurrency, category cardinality for very broad categories, autovacuum pressure on the hot `streams` row, index bloat after hard deletes, and backup/restore time for large databases. Benchmark gates now cover hot `skill-installer` appends, `appendMultiStream`, subscription catch-up, normal category reads, and exhausted-category reads.
 
 
 ## Context and Orientation
@@ -113,3 +129,5 @@ Benchmark runs are safe to repeat, but they can be noisy. Do not update `kiroku-
 Use existing `tasty-bench`, `ephemeral-pg`, and `Justfile` benchmark tooling. Use PostgreSQL `EXPLAIN (ANALYZE, BUFFERS)` for query plans. Do not add external benchmark frameworks.
 
 Coordinate with EP-1 at `docs/plans/8-high-write-append-ordering-and-atomicity-audit.md`, EP-2 at `docs/plans/7-hot-system-stream-and-skill-installer-workload-audit.md`, and EP-3 at `docs/plans/9-subscription-ordering-catch-up-and-checkpoint-reliability-audit.md` before adding benchmark entries for their scenarios.
+
+Revision Note 2026-05-06: Implemented the audit, recorded query-plan evidence, changed category reads to the LATERAL partial-index shape, added focused benchmark gates, refreshed the benchmark baseline, and updated scaling and tuning documentation so the plan remains self-contained after completion.

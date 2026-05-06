@@ -38,7 +38,7 @@ Alternatives considered. Extending the completed production-readiness MasterPlan
 | EP-1 | High-write append ordering and atomicity audit | docs/plans/8-high-write-append-ordering-and-atomicity-audit.md | None | None | Complete |
 | EP-2 | Hot system stream and skill-installer workload audit | docs/plans/7-hot-system-stream-and-skill-installer-workload-audit.md | None | EP-1 | Complete |
 | EP-3 | Subscription ordering catch-up and checkpoint reliability audit | docs/plans/9-subscription-ordering-catch-up-and-checkpoint-reliability-audit.md | None | EP-1, EP-2 | Complete |
-| EP-4 | Large-store read path and index performance audit | docs/plans/10-large-store-read-path-and-index-performance-audit.md | None | EP-1, EP-2, EP-3 | Not Started |
+| EP-4 | Large-store read path and index performance audit | docs/plans/10-large-store-read-path-and-index-performance-audit.md | None | EP-1, EP-2, EP-3 | Complete |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
 
@@ -73,8 +73,8 @@ Plans that can proceed in parallel: EP-1 and EP-2 can run their audit milestones
 - [x] EP-2: Land reserved-name or hot-stream fixes, tests, and documentation if needed.
 - [x] EP-3: Audit subscription catch-up, live delivery, and checkpoint ordering under write pressure.
 - [x] EP-3: Land subscription reliability tests or fixes and record delivery-contract verdict.
-- [ ] EP-4: Audit query plans, benchmark coverage, and large-store performance red flags.
-- [ ] EP-4: Land benchmark/doc updates and final growth-risk verdict.
+- [x] EP-4: Audit query plans, benchmark coverage, and large-store performance red flags.
+- [x] EP-4: Land benchmark/doc updates and final growth-risk verdict.
 
 
 ## Surprises & Discoveries
@@ -86,6 +86,9 @@ Plans that can proceed in parallel: EP-1 and EP-2 can run their audit milestones
   Date: 2026-05-06
 
 - EP-3 found one must-fix subscription transition issue: all-stream subscribers register their live queue before catch-up, so writes during catch-up could be fetched from SQL and later replayed from the queued live batch. The fix filters live batches to positions greater than the worker cursor and makes checkpoint upserts monotonic with `GREATEST`. New tests cover catch-up/live transition under writes, cancellation replay, handler `Stop` boundaries, overflow restart replay, and mixed `skill-installer` category ordering. Validation passed with 14 focused subscription examples and the full 101-example `kiroku-store` suite.
+  Date: 2026-05-06
+
+- EP-4 found one must-fix performance issue: the Haskell category read query had drifted from the SQL benchmark's LATERAL partial-index shape and could scan the rest of `$all` when a category had no events after a high cursor. The fix restores the LATERAL shape, which uses `ix_stream_events_all_by_origin` per category stream. New benchmark gates cover exhausted-category reads, hot `skill-installer` appends, `appendMultiStream`, and subscription category catch-up. Validation passed with the full 101-example `kiroku-store` suite, a refreshed 15-entry benchmark baseline, `just bench-regression-pattern category`, and `just bench-regression-pattern reliability-audit`.
   Date: 2026-05-06
 
 
@@ -111,7 +114,13 @@ Plans that can proceed in parallel: EP-1 and EP-2 can run their audit milestones
   Rationale: Early registration avoids missing live notifications while catch-up is running. Cursor-based filtering prevents duplicate handler delivery and protects checkpoint ordering without redesigning publisher lifecycle.
   Date: 2026-05-06
 
+- Decision: EP-4 accepts the LATERAL category read query and refreshed benchmark baseline.
+  Rationale: The normal category page remains about 1 ms, while the high-cursor exhausted-category case is guarded at tens of microseconds instead of scanning a large `$all` suffix. This is the right scale tradeoff for category subscriptions and projection catch-up.
+  Date: 2026-05-06
+
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+Completed 2026-05-06. The initiative proved append ordering, hot/system stream behavior, subscription delivery, and large-store read paths with targeted tests, query plans, benchmark gates, and documentation updates. The store now explicitly rejects application mutation of `$all`, filters stale all-stream live subscription batches after catch-up, saves checkpoints monotonically, uses an index-friendly category read shape, and carries benchmark guards for the scenarios that motivated this audit.
+
+Residual risks remain operational rather than immediate correctness blockers: `$all` row lock contention under high write concurrency, category cardinality for very broad categories, autovacuum pressure on the hot `streams` row, index bloat after hard deletes, and backup/restore time for large databases. These are documented in `docs/SCALING-ANALYSIS.md`, `docs/PRODUCTION-TUNING.md`, and `docs/BENCH-REGRESSION.md`.

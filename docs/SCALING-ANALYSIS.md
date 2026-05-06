@@ -68,7 +68,7 @@ Same index, same analysis. Reads start from a specific global position and scan 
     WHERE se.stream_id = 0 AND se.stream_version > $1 AND s.category = $2
     ORDER BY se.stream_version ASC LIMIT $3
 
-Uses `ix_stream_events_all_by_origin` partial index and the LATERAL join pattern. This is the most complex read path. The query finds streams in the category, then scans each stream's `$all` entries via the partial index. Performance depends on the number of active streams per category. **Scales with category stream count, not total event count.** Already validated at p50=1.06ms with 100K events across 10 categories.
+Uses `ix_stream_events_all_by_origin` partial index and the LATERAL join pattern. This is the most complex read path. The query finds streams in the category, then scans each stream's `$all` entries via the partial index. Performance depends on the number of active streams per category. **Scales with category stream count, not total event count.** Already validated at about 1.03ms for a 100-event page with 100K events across 100 categories. The focused reliability-and-scale audit also added an `exhausted-category` benchmark at about 21.6us for a high cursor after a category has no newer events; this guards against accidentally scanning the rest of `$all` looking for category matches.
 
 ### Writes (append CTE)
 
@@ -274,4 +274,4 @@ The fundamental mismatch: **event stores have stream-centric access patterns, no
 | Backup/restore | **Medium** | pgbackrest for incremental backups. Streaming replication for failover |
 | Write throughput ceiling | **Low** | Already validated at ~50K events/s. Schema-per-tenant or Strategy D as escape hatches |
 
-The store's architecture is sound for billion-row scale. The primary investment should be in operational practices (VACUUM tuning, monitoring, incremental backups) and domain-driven archival (hot/cold partitioning), not time-based table partitioning.
+The store's architecture is sound for billion-row scale. A focused May 2026 audit captured plans on 100K representative events and confirmed the intended index paths for stream reads, `$all` reads, category reads, and subscription checkpoints after switching category reads back to the LATERAL partial-index shape. The primary investment should be in operational practices (VACUUM tuning, monitoring, incremental backups) and domain-driven archival (hot/cold partitioning), not time-based table partitioning.
