@@ -47,17 +47,17 @@ spec = describe "kiroku-store concurrency (deterministic)" $ do
             V.length allEvents `shouldBe` writerCount
             globalPositions allEvents `shouldBe` [1 .. fromIntegral writerCount]
 
-    it "many AnyVersion writers to skill-installer preserve stream and global order" $
+    it "many AnyVersion writers to invoice-payment preserve stream and global order" $
         withTestStore $ \store -> do
             let writerCount = 32
-                stream = StreamName "skill-installer"
+                stream = StreamName "invoice-payment"
             results <-
                 Async.forConcurrently [1 .. writerCount] $ \i -> do
                     runStoreIO store $
                         appendToStream
                             stream
                             AnyVersion
-                            [makeEvent ("SkillInstaller" <> T.pack (show i)) (Aeson.object [])]
+                            [makeEvent ("InvoicePayment" <> T.pack (show i)) (Aeson.object [])]
             mapM_ assertRightAppend results
             Right streamEvents <- runStoreIO store $ readStreamForward stream (StreamVersion 0) 1000
             V.length streamEvents `shouldBe` writerCount

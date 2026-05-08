@@ -66,7 +66,7 @@ the load.
 The focused reliability-and-scale audit refreshed the `kiroku-store`
 benchmark baseline in May 2026. On the local PostgreSQL 18 benchmark
 host, the added gates measured roughly 1.6 ms for 10 hot
-`skill-installer` appends, 0.39 ms for one `appendMultiStream` touching
+`invoice-payment` appends, 0.39 ms for one `appendMultiStream` touching
 three existing streams, and 4 ms for a category subscription catching up
 100 events. Treat these as regression guards for this repository rather
 than portable service-level objectives; production thresholds should

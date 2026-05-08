@@ -11,7 +11,7 @@ any benchmark regresses past a configurable threshold.
 This protects the Gate 3 throughput numbers (recorded in
 `docs/BENCH-GATE3.md`) from silent regressions across refactors and
 dependency bumps. It also protects the focused reliability-and-scale
-audit gates for hot `skill-installer` writes, `appendMultiStream`,
+audit gates for hot `invoice-payment` writes, `appendMultiStream`,
 subscription catch-up, and high-cursor category reads.
 
 ## Running
@@ -94,7 +94,7 @@ the baseline-regression workflow.
 ## Focused reliability-and-scale audit gates
 
 The May 2026 reliability-and-scale audit added four benchmark guards:
-`category.exhausted-category`, `reliability-audit.hot skill-installer 10
+`category.exhausted-category`, `reliability-audit.hot invoice-payment 10
 AnyVersion appends`, `reliability-audit.appendMultiStream 3 existing
 streams`, and `reliability-audit.subscription category catch-up 100
 events`. The baseline was refreshed after accepting the category read

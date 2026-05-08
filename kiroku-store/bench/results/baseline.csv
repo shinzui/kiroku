@@ -11,6 +11,6 @@ All.category.exhausted-category,21578631,680918
 "All.category.$all forward (100-event page, baseline)",1017942578,90780866
 All.concurrent.8 writers x 10 appends,14525362500,1193892594
 All.concurrent.32 writers x 10 appends,645071900000,52988997290
-All.reliability-audit.hot skill-installer 10 AnyVersion appends,1586108203,60031436
+All.reliability-audit.hot invoice-payment 10 AnyVersion appends,1586108203,60031436
 All.reliability-audit.appendMultiStream 3 existing streams,386386328,32406388
 All.reliability-audit.subscription category catch-up 100 events,3963421875,274197834

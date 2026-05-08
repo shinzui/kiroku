@@ -29,7 +29,7 @@ stream's category, used by 'CategoryName'-targeted reads and
 subscriptions.
 
 All names except @$all@ are ordinary application stream names. Names
-such as @"skill-installer"@, @"$skill-installer"@, names containing
+such as @"invoice-payment"@, @"$invoice-payment"@, names containing
 commas, and names without a dash are accepted by the store. The exact
 name @$all@ is reserved for the global read stream and mutating APIs
 reject it with 'Kiroku.Store.Error.ReservedStreamName'; use

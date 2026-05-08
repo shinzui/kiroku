@@ -26,7 +26,7 @@ The user-visible behavior is that projection workers and consumers can trust sub
 - [x] Audit the publisher, worker, checkpoint SQL, subscription API, and current tests for ordering assumptions. Completed 2026-05-06 after reading `Kiroku.Store.Subscription`, `Subscription.EventPublisher`, `Subscription.Worker`, checkpoint SQL in `SQL.hs`, and the existing `subscribe` examples in `kiroku-store/test/Main.hs`.
 - [x] Add tests for catch-up-to-live transition while writes are ongoing. Completed 2026-05-06 with `does not replay catch-up events when switching to all-stream live mode`, which blocks catch-up, appends positions 6 through 10 while the live queue is active, and verifies the handled positions are exactly 1 through 11 after a live stop event.
 - [x] Add tests for checkpoint monotonicity and replay boundaries after cancellation, overflow, or handler stop. Completed 2026-05-06 with cancellation-before-save replay, handler `Stop` boundary replay, overflow restart replay, and monotonic checkpoint SQL.
-- [x] Add category subscription ordering tests under mixed-category writes. Completed 2026-05-06 with a mixed `skill-installer`, `skill-*`, `user-*`, and `order-*` workload proving category `skill` sees only global positions 1, 3, 5, and 7.
+- [x] Add category subscription ordering tests under mixed-category writes. Completed 2026-05-06 with a mixed `invoice-payment`, `invoice-*`, `user-*`, and `order-*` workload proving category `invoice` sees only global positions 1, 3, 5, and 7.
 - [x] Land any must-fix subscription code changes. Completed 2026-05-06 by filtering stale all-stream live batches and making checkpoint upserts monotonic.
 - [x] Record the final subscription reliability verdict. Completed 2026-05-06 after `cabal test kiroku-store --test-options='--match "subscribe"'` passed 14 subscription examples and `cabal test kiroku-store` passed 101 examples.
 
@@ -57,7 +57,7 @@ The user-visible behavior is that projection workers and consumers can trust sub
 
 ## Outcomes & Retrospective
 
-EP-3 is complete. Subscriptions now have regression coverage for all-stream catch-up/live transition under concurrent writes, cancellation before checkpoint save, handler `Stop` checkpoint boundaries, overflow restart replay, and mixed-category `skill` subscriptions that include the `skill-installer` stream name. The implementation change in `Kiroku.Store.Subscription.Worker.liveLoop` prevents already-processed all-stream positions from being delivered again when the worker switches from SQL catch-up to live queue consumption. The SQL checkpoint upsert now refuses to move durable progress backward.
+EP-3 is complete. Subscriptions now have regression coverage for all-stream catch-up/live transition under concurrent writes, cancellation before checkpoint save, handler `Stop` checkpoint boundaries, overflow restart replay, and mixed-category `invoice` subscriptions that include the `invoice-payment` stream name. The implementation change in `Kiroku.Store.Subscription.Worker.liveLoop` prevents already-processed all-stream positions from being delivered again when the worker switches from SQL catch-up to live queue consumption. The SQL checkpoint upsert now refuses to move durable progress backward.
 
 The final delivery-contract verdict is positive with one targeted fix: subscriptions preserve increasing global positions and no gaps for the tested all-stream scenarios; category subscriptions preserve increasing matching positions and ignore non-matching categories; checkpoint restart behavior replays rather than skips after cancellation and overflow. Validation passed with 14 focused `subscribe` examples and the full 101-example `kiroku-store` suite on 2026-05-06.
 
@@ -81,7 +81,7 @@ Milestone 2 adds catch-up/live transition tests under writes. Create a subscript
 
 Milestone 3 adds checkpoint boundary tests. Cover handler `Stop`, cancellation before checkpoint save if it can be made deterministic, and overflow under `DropSubscription` if practical. The expected behavior is replay, not loss: restarting a subscription with the same `SubscriptionName` should deliver events from the last durable checkpoint forward. Checkpoints must never advance past an event the handler did not process.
 
-Milestone 4 adds category ordering pressure. Run multiple categories, including `skill-installer`'s `skill` category if EP-2 has landed that workload, append interleaved events across categories, and assert that a `Category (CategoryName "skill")` subscription sees only matching events in increasing global order.
+Milestone 4 adds category ordering pressure. Run multiple categories, including `invoice-payment`'s `invoice` category if EP-2 has landed that workload, append interleaved events across categories, and assert that a `Category (CategoryName "invoice")` subscription sees only matching events in increasing global order.
 
 Milestone 5 lands fixes and records the verdict. Any fix in `EventPublisher` or `Worker` must include a failing regression test and must preserve the documented at-least-once contract in `Subscription.hs`.
 
@@ -128,4 +128,4 @@ If a subscription test hangs, always use `waitWithTimeout` or `Async.race` and c
 
 Use `Kiroku.Store.Subscription.subscribe`, `withSubscription`, `SubscriptionConfig`, `defaultSubscriptionConfig`, `SubscriptionName`, `AllStreams`, `Category`, `Continue`, and `Stop`. Use `Kiroku.Store.Read.readAllForward` and `readCategory` to validate database state after subscription runs.
 
-Coordinate with EP-1 at `docs/plans/8-high-write-append-ordering-and-atomicity-audit.md` for high-write append scenarios and EP-2 at `docs/plans/7-hot-system-stream-and-skill-installer-workload-audit.md` for `skill-installer` category naming. Coordinate with EP-4 at `docs/plans/10-large-store-read-path-and-index-performance-audit.md` for any performance impact from category live-mode queries.
+Coordinate with EP-1 at `docs/plans/8-high-write-append-ordering-and-atomicity-audit.md` for high-write append scenarios and EP-2 at `docs/plans/7-hot-system-stream-and-invoice-payment-workload-audit.md` for `invoice-payment` category naming. Coordinate with EP-4 at `docs/plans/10-large-store-read-path-and-index-performance-audit.md` for any performance impact from category live-mode queries.

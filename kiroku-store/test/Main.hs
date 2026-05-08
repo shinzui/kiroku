@@ -157,10 +157,10 @@ main = hspec $ do
             describe "stream-name contract" $ do
                 it "treats system-looking names other than $all as ordinary streams" $ \store -> do
                     let names =
-                            [ StreamName "skill-installer"
-                            , StreamName "$skill-installer"
-                            , StreamName "skill,installer"
-                            , StreamName "skillinstaller"
+                            [ StreamName "invoice-payment"
+                            , StreamName "$invoice-payment"
+                            , StreamName "invoice,payment"
+                            , StreamName "invoicepayment"
                             ]
                     mapM_
                         ( \name -> do
@@ -1168,19 +1168,19 @@ main = hspec $ do
                 -- All events should be order events
                 mapM_ (\e -> (e ^. #eventType) `shouldSatisfy` (\(EventType t) -> T.isPrefixOf "Order" t)) collected
 
-            it "preserves category subscription order under mixed skill-installer writes" $ \store -> do
+            it "preserves category subscription order under mixed invoice-payment writes" $ \store -> do
                 let appendOne sn typ =
                         runStoreIO store (appendToStream sn AnyVersion [makeEvent typ (Aeson.object [])]) >>= \result ->
                             case result of
                                 Right _ -> pure ()
                                 Left err -> expectationFailure ("append failed: " <> show err)
-                appendOne (StreamName "skill-installer") "SkillInstallStarted"
+                appendOne (StreamName "invoice-payment") "InvoicePaymentStarted"
                 appendOne (StreamName "user-1") "UserNoiseOne"
-                appendOne (StreamName "skill-worker") "SkillWorkerStarted"
+                appendOne (StreamName "invoice-reminder") "InvoiceReminderSent"
                 appendOne (StreamName "order-1") "OrderNoiseOne"
-                appendOne (StreamName "skill-installer") "SkillInstallFinished"
+                appendOne (StreamName "invoice-payment") "InvoicePaymentFinished"
                 appendOne (StreamName "user-2") "UserNoiseTwo"
-                appendOne (StreamName "skill-runner") "SkillRunnerFinished"
+                appendOne (StreamName "invoice-refund") "InvoiceRefundFinished"
                 waitForPublisher store (GlobalPosition 7)
 
                 ref <- newIORef ([] :: [RecordedEvent])
@@ -1195,8 +1195,8 @@ main = hspec $ do
                         if n >= 4 then pure Stop else pure Continue
                     cfg =
                         SubscriptionConfig
-                            { name = SubscriptionName "skill-category-ordering"
-                            , target = Category (CategoryName "skill")
+                            { name = SubscriptionName "invoice-category-ordering"
+                            , target = Category (CategoryName "invoice")
                             , handler = handler'
                             , batchSize = 2
                             , queueCapacity = 16
@@ -1211,10 +1211,10 @@ main = hspec $ do
                 collected <- reverse <$> readIORef ref
                 map (^. #globalPosition) collected `shouldBe` [GlobalPosition 1, GlobalPosition 3, GlobalPosition 5, GlobalPosition 7]
                 map (^. #eventType) collected
-                    `shouldBe` [ EventType "SkillInstallStarted"
-                               , EventType "SkillWorkerStarted"
-                               , EventType "SkillInstallFinished"
-                               , EventType "SkillRunnerFinished"
+                    `shouldBe` [ EventType "InvoicePaymentStarted"
+                               , EventType "InvoiceReminderSent"
+                               , EventType "InvoicePaymentFinished"
+                               , EventType "InvoiceRefundFinished"
                                ]
 
             it "cancels a running subscription cleanly" $ \store -> do

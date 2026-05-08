@@ -35,11 +35,11 @@ runConcurrentWriters store runCounter writers ops = do
         forceAppend r
 
 -- | Exercise the hot stream named in the focused reliability audit.
-runHotSkillInstaller :: KirokuStore -> Int -> IO ()
-runHotSkillInstaller store ops =
+runHotInvoicePayment :: KirokuStore -> Int -> IO ()
+runHotInvoicePayment store ops =
     mapM_
         ( \i -> do
-            r <- runStoreIO store $ appendToStream (StreamName "skill-installer") AnyVersion [makeEvent ("SkillInstaller" <> T.pack (show i))]
+            r <- runStoreIO store $ appendToStream (StreamName "invoice-payment") AnyVersion [makeEvent ("InvoicePayment" <> T.pack (show i))]
             forceAppend r
         )
         [1 .. ops]
@@ -275,7 +275,7 @@ main = do
                     ]
                 , bgroup
                     "reliability-audit"
-                    [ bench "hot skill-installer 10 AnyVersion appends" $ whnfIO $ runHotSkillInstaller store 10
+                    [ bench "hot invoice-payment 10 AnyVersion appends" $ whnfIO $ runHotInvoicePayment store 10
                     , bench "appendMultiStream 3 existing streams" $ whnfIO $ runAppendMultiStream store
                     , bench "subscription category catch-up 100 events" $ whnfIO $ runSubscriptionCatchup store subCounter
                     ]
