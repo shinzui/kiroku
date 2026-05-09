@@ -1,5 +1,10 @@
 module Kiroku.Store.Error (
     StoreError (..),
+
+    -- * Append-precondition conflicts (Tx-flavored)
+    AppendConflict (..),
+    appendConflictToStoreError,
+    emptyResultConflict,
     -- Internal helpers used by Effect module
     mapUsageError,
     emptyResultError,
@@ -167,6 +172,71 @@ mapUniqueViolation streamName expected message detail
     extractEventId (Just d) = EventId <$> extractUuidFromDetail d
     extractEventId Nothing = Nothing
 
+{- | Append-precondition failures observable inside a
+'Hasql.Transaction.Transaction' body.
+
+'Kiroku.Store.Transaction.appendToStreamTx' returns
+@'Either' 'AppendConflict' 'AppendResult'@ rather than throwing, because
+'Hasql.Transaction.Transaction' has no exception channel — the caller
+decides whether to call 'Hasql.Transaction.condemn', branch around the
+conflict, or recover. Reserved-stream rejection is /not/ part of this
+sum because callers of 'appendToStreamTx' are expected to validate the
+stream name themselves before entering the transaction body (the
+high-level wrapper 'Kiroku.Store.Transaction.runTransactionAppending'
+does so prior to opening the transaction and surfaces
+'ReservedStreamName' as a 'StoreError' instead).
+
+The constructors are 1:1 with the corresponding 'StoreError' variants —
+see 'appendConflictToStoreError'.
+-}
+data AppendConflict
+    = {- | Mirror of 'WrongExpectedVersion'. The third field is the
+      actual stream version, or @StreamVersion 0@ when it could not
+      be recovered (e.g., the CTE returned no rows because the
+      target was concurrently soft-deleted).
+      -}
+      WrongExpectedVersionConflict !StreamName !ExpectedVersion !StreamVersion
+    | -- | Mirror of 'StreamNotFound'.
+      StreamNotFoundConflict !StreamName
+    | -- | Mirror of 'StreamAlreadyExists'.
+      StreamAlreadyExistsConflict !StreamName
+    deriving stock (Eq, Show, Generic)
+
+{- | Project an 'AppendConflict' onto the corresponding 'StoreError'
+constructor. Used by 'Kiroku.Store.Transaction.runTransactionAppending'
+when surfacing conflicts at the @Eff@ boundary.
+-}
+appendConflictToStoreError :: AppendConflict -> StoreError
+appendConflictToStoreError = \case
+    WrongExpectedVersionConflict sn ev sv -> WrongExpectedVersion sn ev sv
+    StreamNotFoundConflict sn -> StreamNotFound sn
+    StreamAlreadyExistsConflict sn -> StreamAlreadyExists sn
+
+{- | Infer the appropriate 'AppendConflict' from an empty CTE result.
+
+Mirror of 'emptyResultError' for the 'AppendConflict' surface. When the
+CTE returns 0 rows, the version check or existence check failed
+silently — the constructor depends on the supplied 'ExpectedVersion':
+
+  ExactVersion v -> WrongExpectedVersionConflict (version mismatch or
+                    soft-deleted)
+  StreamExists   -> StreamNotFoundConflict (missing or soft-deleted)
+  NoStream       -> StreamAlreadyExistsConflict
+  AnyVersion     -> StreamNotFoundConflict (only happens when the
+                    existing row is soft-deleted and the upsert's DO
+                    UPDATE WHERE filter rejects it)
+-}
+emptyResultConflict :: StreamName -> ExpectedVersion -> AppendConflict
+emptyResultConflict sn = \case
+    ExactVersion v ->
+        WrongExpectedVersionConflict sn (ExactVersion v) (StreamVersion 0)
+    StreamExists ->
+        StreamNotFoundConflict sn
+    NoStream ->
+        StreamAlreadyExistsConflict sn
+    AnyVersion ->
+        StreamNotFoundConflict sn
+
 {- | Infer the appropriate error from an empty CTE result.
 
 When the CTE returns 0 rows (no ServerError raised), the version check
@@ -180,15 +250,9 @@ or existence check failed silently. Map based on the ExpectedVersion:
                     EP-1 F2, so this branch is the soft-deleted-stream case)
 -}
 emptyResultError :: Text -> ExpectedVersion -> StoreError
-emptyResultError streamName = \case
-    ExactVersion v ->
-        WrongExpectedVersion (StreamName streamName) (ExactVersion v) (StreamVersion 0)
-    StreamExists ->
-        StreamNotFound (StreamName streamName)
-    NoStream ->
-        StreamAlreadyExists (StreamName streamName)
-    AnyVersion ->
-        StreamNotFound (StreamName streamName)
+emptyResultError streamName expected =
+    appendConflictToStoreError
+        (emptyResultConflict (StreamName streamName) expected)
 
 {- | Extract a UUID from a PostgreSQL detail string like:
 "Key (event_id)=(01234567-89ab-7def-8012-34567890abcd) already exists."

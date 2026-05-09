@@ -88,21 +88,26 @@ Milestone 1 — `RunTransaction` constructor and reinterpretation of existing tr
 
 Milestone 2 — Public `Tx`-flavored append building block:
 
-- [ ] Extract the per-statement dispatch in `appendToStream` (`Effect.hs:81-89`) into a
-      pure-Tx helper `appendPreparedTx :: Text -> UTCTime -> ExpectedVersion ->
-      [PreparedEvent] -> Hasql.Transaction.Transaction (Maybe AppendResult)`. Keep
-      `prepareEvents` and `buildAppendParams` in their current location; the new helper only
-      dispatches the four `SQL.append*` statements through `Tx.statement`.
-- [ ] Add public combinator `appendToStreamTx :: StreamName -> ExpectedVersion ->
+- [x] Extract the per-statement dispatch into a Tx-flavored helper
+      `appendDispatchTx :: ExpectedVersion -> SQL.AppendParams -> Tx.Transaction (Maybe
+      AppendResult)`. *(2026-05-09 — placed in `Kiroku.Store.Effect` next to
+      `prepareEvents`/`buildAppendParams`; surfaced under a `-- $internal` haddock
+      group. `appendMultiStream`'s inline dispatch is now a one-liner that calls the
+      shared helper.)*
+- [x] Add public combinator `appendToStreamTx :: StreamName -> ExpectedVersion ->
       [PreparedEvent] -> UTCTime -> Hasql.Transaction.Transaction (Either AppendConflict
-      AppendResult)` exported from `Kiroku.Store.Transaction`. Define a new sum type
-      `AppendConflict` in `Kiroku.Store.Error` (see Decision Log entry on conflict typing).
-- [ ] Re-implement the `AppendToStream` constructor's interpreter branch in terms of
-      `appendPreparedTx` running under a one-statement `Tx.Transaction` inside
-      `Pool.use`. Validate that the existing append test suite (`test/Main.hs:536+` for
-      multi, the equivalent single-stream describes) still passes unchanged. Keep
-      `Pool.use`-based dispatch (no `TxSessions.transaction`) as the default — wrapping a
-      single statement in a transaction would change retry semantics and is out of scope.
+      AppendResult)` exported from `Kiroku.Store.Transaction`. Add `AppendConflict` and
+      `appendConflictToStoreError` to `Kiroku.Store.Error`, plus a pure
+      `emptyResultConflict` helper that mirrors the existing `emptyResultError`
+      semantics. *(2026-05-09)*
+- [x] **`AppendToStream` interpreter left unchanged.** *(2026-05-09 — see Decision Log
+      entry on the M2 plan-text contradiction. The existing `Session.statement`-based
+      single-CTE path is preserved; only `appendMultiStream` now uses the shared
+      Tx-flavored dispatch.)*
+- [x] Tests in `kiroku-store/test/Test/Transaction.hs` driving `appendToStreamTx` directly
+      inside `runTransaction`: success-with-side-row, condemn-after-success rolling back
+      both the append and the side row, and version-conflict returning `Left`. *(2026-05-09
+      — full test suite is now 105 examples, 0 failures.)*
 
 Milestone 3 — Convenience wrapper for the keiro use case:
 
@@ -195,6 +200,32 @@ implementation. Provide concise evidence.
   multiple writes (each retry's prior partial work rolls back; the new attempt runs again).
   Document the retry behavior loudly and offer the no-retry sibling for callers that need
   it. Use `ReadCommitted` isolation as the default (mirrors existing transactional sites).
+  Date: 2026-05-09
+
+- Decision: During M2, leave the existing `AppendToStream` interpreter branch unchanged
+  rather than re-routing it through the new Tx-flavored helper.
+  Rationale: The plan text simultaneously asks to "Re-implement the `AppendToStream`
+  constructor's interpreter branch in terms of `appendPreparedTx` running under a
+  one-statement `Tx.Transaction` inside `Pool.use`" and to "Keep `Pool.use`-based
+  dispatch (no `TxSessions.transaction`) as the default — wrapping a single statement
+  in a transaction would change retry semantics and is out of scope." These cannot
+  both hold: a `Tx.Transaction` value can only be executed by `TxSessions.transaction`
+  / `transactionNoRetry`. Resolving in favor of the second clause preserves production
+  retry semantics. The shared `appendDispatchTx` helper still benefits the
+  `appendMultiStream` interpreter (which already runs inside a `Tx.Transaction`) and
+  the new public `appendToStreamTx`. The duplication between `appendDispatchTx` and
+  the inline `case expected of …` in `AppendToStream` is four lines and entirely
+  mechanical.
+  Date: 2026-05-09
+
+- Decision: `AppendConflict` does not include a `ReservedStreamConflict` constructor.
+  Rationale: `appendToStreamTx` does not enforce reserved-stream rejection — that is the
+  caller's responsibility (or `runTransactionAppending`\'s, which checks before opening
+  the transaction). Inside the transaction body, by the time
+  `appendDispatchTx` runs, the stream name has already been accepted at the SQL layer;
+  there is no path that surfaces `ReservedStreamConflict` from `appendToStreamTx`. The
+  high-level wrapper surfaces `Kiroku.Store.Error.ReservedStreamName` directly without
+  going through `AppendConflict`.
   Date: 2026-05-09
 
 - Decision: Mock/in-memory `Store` interpreters are out of scope for this plan and will

@@ -4,23 +4,27 @@ single ACID transaction.
 
 This module is the entry point for callers — most prominently the
 @keiro@ projection layer — that need to atomically write to their own
-SQL tables in the same transaction as an event append.
+SQL tables in the same transaction as an event append. The current
+milestone exposes two levels:
 
-In this milestone the module exposes the bare escape hatch only:
+* 'runTransaction' / 'runTransactionNoRetry' — bare escape hatch: run
+  an opaque 'Tx.Transaction' against the store's connection pool.
 
-* 'runTransaction' / 'runTransactionNoRetry' — run an opaque
-  'Tx.Transaction' against the store's connection pool. Higher-level
-  combinators (single-stream append + caller continuation, etc.) layer
-  on top in subsequent milestones.
+* 'appendToStreamTx' — a 'Tx.Transaction'-flavored single-stream
+  append. Useful inside a 'runTransaction' block when the caller
+  wants full control over conflict handling.
 
-The @-NoRetry@ variant uses
+A higher-level wrapper that combines an append with a caller-supplied
+continuation in one transaction will be added in the next milestone.
+
+The @-NoRetry@ variants use
 'Hasql.Transaction.Sessions.transactionNoRetry' under the hood; the
-default variant uses 'Hasql.Transaction.Sessions.transaction', which
+default variants use 'Hasql.Transaction.Sessions.transaction', which
 automatically retries the body on PostgreSQL serialization conflicts.
-The retry runs the entire @Transaction@ value more than once. This is
-safe for pure-SQL bodies (each retry's prior partial work rolls back
-inside Postgres before the next attempt begins) but should be considered
-when the caller is reasoning about external observability.
+The retry runs the entire 'Tx.Transaction' value more than once. This
+is safe for pure-SQL bodies (each retry's prior partial work rolls back
+inside Postgres before the next attempt begins) but should be
+considered when the caller reasons about external observability.
 
 Mocking: a mock 'Kiroku.Store.Effect.Store' interpreter cannot
 meaningfully execute an opaque 'Tx.Transaction' against in-memory state
@@ -31,13 +35,26 @@ module Kiroku.Store.Transaction (
     -- * Bare escape hatch
     runTransaction,
     runTransactionNoRetry,
+
+    -- * Tx-flavored append building block
+    appendToStreamTx,
+    PreparedEvent,
+    prepareEventsIO,
+
+    -- * Append-precondition conflicts
+    AppendConflict (..),
+    appendConflictToStoreError,
 ) where
 
+import Control.Monad.IO.Class (MonadIO)
+import Data.Time.Clock (UTCTime)
 import Effectful (Eff, (:>))
 import Effectful.Dispatch.Dynamic (send)
 import GHC.Stack (HasCallStack)
 import Hasql.Transaction qualified as Tx
-import Kiroku.Store.Effect (Store (..))
+import Kiroku.Store.Effect (PreparedEvent, Store (..), appendDispatchTx, buildAppendParams, prepareEvents)
+import Kiroku.Store.Error (AppendConflict (..), appendConflictToStoreError, emptyResultConflict)
+import Kiroku.Store.Types
 
 {- | Run an arbitrary 'Tx.Transaction' against the store's connection
 pool inside a 'BEGIN'/'COMMIT' block.
@@ -77,3 +94,53 @@ runTransactionNoRetry ::
     Tx.Transaction a ->
     Eff es a
 runTransactionNoRetry tx = send (RunTransactionNoRetry tx)
+
+-- ---------------------------------------------------------------------------
+-- Tx-flavored append
+-- ---------------------------------------------------------------------------
+
+{- | Generate UUIDv7s for any 'EventData' lacking a caller-supplied
+'eventId' and return the prepared list, ready to feed into
+'appendToStreamTx' inside a 'Tx.Transaction'.
+
+'Tx.Transaction' has no 'MonadIO' instance, so UUID generation must
+happen /before/ the transaction body runs. This helper is the IO-side
+preparation step paired with 'appendToStreamTx'.
+-}
+prepareEventsIO :: (MonadIO m) => [EventData] -> m [PreparedEvent]
+prepareEventsIO = prepareEvents
+
+{- | Append a batch of events to a single stream as part of a larger
+'Tx.Transaction'.
+
+The 'Tx.Transaction'-flavored counterpart to
+'Kiroku.Store.Append.appendToStream'. It does /not/ enforce the @$all@
+reserved-stream check — callers should validate the stream name before
+entering the transaction body, or use 'runTransactionAppending', which
+performs the rejection up front.
+
+The combinator returns 'Either' instead of throwing because
+'Tx.Transaction' has no exception channel. On 'Left' the caller decides
+whether to call 'Tx.condemn' to roll back the transaction, branch
+around the conflict, or commit (which would persist the rest of the
+transaction body without the append).
+
+The events list must be pre-prepared via 'prepareEventsIO' (which
+generates UUIDv7s) and the @createdAt@ timestamp must be captured by
+the caller prior to entering the transaction body.
+
+Empty event lists are a programming mistake — see
+'Kiroku.Store.Append.appendToStream' for the rationale.
+-}
+appendToStreamTx ::
+    StreamName ->
+    ExpectedVersion ->
+    [PreparedEvent] ->
+    UTCTime ->
+    Tx.Transaction (Either AppendConflict AppendResult)
+appendToStreamTx sn@(StreamName name) expected prepared now = do
+    let params = buildAppendParams name now prepared
+    mResult <- appendDispatchTx expected params
+    pure $ case mResult of
+        Just r -> Right r
+        Nothing -> Left (emptyResultConflict sn expected)

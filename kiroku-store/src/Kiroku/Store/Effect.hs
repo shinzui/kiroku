@@ -8,6 +8,15 @@ module Kiroku.Store.Effect (
     runStorePool,
     runStoreResource,
     runStoreIO,
+
+    -- * Internal building blocks
+
+    --
+    -- $internal
+    PreparedEvent,
+    prepareEvents,
+    buildAppendParams,
+    appendDispatchTx,
 ) where
 
 import Control.Lens ((^.))
@@ -157,15 +166,7 @@ runStorePool store = interpret_ $ \case
                     mapM
                         ( \(StreamName name, expected, prepared) -> do
                             let params = buildAppendParams name now prepared
-                            case expected of
-                                ExactVersion (StreamVersion v) ->
-                                    Tx.statement (params, v) SQL.appendExpectedVersion
-                                StreamExists ->
-                                    Tx.statement params SQL.appendStreamExists
-                                NoStream ->
-                                    Tx.statement params SQL.appendNoStream
-                                AnyVersion ->
-                                    Tx.statement params SQL.appendAnyVersion
+                            appendDispatchTx expected params
                         )
                         preparedOps
                 -- If any result is Nothing (version conflict), condemn the transaction
@@ -342,3 +343,36 @@ buildAppendParams name now prepared =
         , createdAts = V.fromList (replicate (length prepared) now)
         , streamName = name
         }
+
+{- | Dispatch the four 'SQL.append*' statements through 'Tx.statement',
+selecting the right one based on the supplied 'ExpectedVersion'.
+
+This is the shared building block used by 'AppendMultiStream'\'s
+interpreter branch and by 'Kiroku.Store.Transaction.appendToStreamTx'.
+'AppendToStream' keeps its 'Session.statement'-flavored dispatch — see
+the M2 entry in the Decision Log on plan 11 for why a 'Tx.Transaction'
+wrapping a single statement was rejected as a refactoring target.
+
+@'Nothing'@ comes back when the underlying CTE returns 0 rows — i.e.
+the precondition failed silently. Callers map that to either
+'Kiroku.Store.Error.AppendConflict' (the Tx surface) or
+'Kiroku.Store.Error.StoreError' (the @Eff@ surface).
+-}
+appendDispatchTx :: ExpectedVersion -> SQL.AppendParams -> Tx.Transaction (Maybe AppendResult)
+appendDispatchTx expected params = case expected of
+    ExactVersion (StreamVersion v) ->
+        Tx.statement (params, v) SQL.appendExpectedVersion
+    StreamExists ->
+        Tx.statement params SQL.appendStreamExists
+    NoStream ->
+        Tx.statement params SQL.appendNoStream
+    AnyVersion ->
+        Tx.statement params SQL.appendAnyVersion
+
+{- $internal
+These bindings are intentionally exposed so that
+"Kiroku.Store.Transaction" can compose appends with arbitrary
+'Tx.Transaction' work without re-implementing UUID prep, parameter
+packing, or per-version dispatch. They are not part of the supported
+public surface and may change without notice.
+-}
