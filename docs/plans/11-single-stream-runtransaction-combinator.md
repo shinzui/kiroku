@@ -131,11 +131,19 @@ Milestone 3 — Convenience wrapper for the keiro use case:
 
 Milestone 4 — Public surface and documentation:
 
-- [ ] Re-export `Kiroku.Store.Transaction` from `kiroku-store/src/Kiroku/Store.hs`.
-- [ ] Update Haddock module headers so the difference between
+- [x] Re-export `Kiroku.Store.Transaction` from `kiroku-store/src/Kiroku/Store.hs`.
+      *(Done in M1 along with the new module.)*
+- [x] Update Haddock module headers so the difference between
       `appendToStream` (Pool, no Haskell-layer txn) and `runTransactionAppending`
-      (txn-aware) is unambiguous to a first-time reader.
-- [ ] Add a `CHANGELOG.md` entry (kiroku-store) describing the new public surface.
+      (txn-aware) is unambiguous to a first-time reader. *(2026-05-09 — added a
+      "When to use this vs. `runTransactionAppending`" paragraph at the top of
+      `appendToStream`'s Haddock; full module-level prose on
+      `Kiroku.Store.Transaction` documents retry semantics, `Tx.condemn` behavior,
+      reserved-stream rejection ordering, and the IO/Tx prep boundary.)*
+- [x] Create a `CHANGELOG.md` for `kiroku-store` describing the new public surface.
+      *(2026-05-09 — the package didn't have one yet; created the file with an
+      `Unreleased` section, registered it under `extra-doc-files` in
+      `kiroku-store.cabal` so it lands in the source distribution.)*
 
 
 ## Surprises & Discoveries
@@ -264,7 +272,62 @@ implementation. Provide concise evidence.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+### Outcome (2026-05-09)
+
+The plan's stated purpose — "let a caller compose a single-stream append with
+arbitrary additional `Hasql.Transaction.Transaction` work in one ACID transaction" —
+is delivered as written. A `keiro` engineer can now write the worked example from
+the plan's purpose section verbatim:
+
+    runTransactionAppending name (ExactVersion v) events $ \appendResult -> do
+        Hasql.Transaction.statement
+            (myProjectionRow (streamId appendResult) (streamVersion appendResult))
+            insertProjectionRowStmt
+        pure appendResult
+
+…with the documented behavior (atomic commit, callback-condemn rollback,
+conflict-skip-callback, reserved-stream pre-flight) all covered by the new test
+suite under `kiroku-store/test/Test/Transaction.hs`. Final tally: 109 examples,
+0 failures, +7 examples vs. master.
+
+### Public surface delivered
+
+Exported from `Kiroku.Store.Transaction` (re-exported from `Kiroku.Store`):
+
+* `runTransaction`, `runTransactionNoRetry` — bare escape hatch.
+* `appendToStreamTx` — Tx-flavored single-stream append building block.
+* `runTransactionAppending`, `runTransactionAppendingNoRetry` — high-level wrapper.
+* `AppendConflict`, `appendConflictToStoreError`, `prepareEventsIO`, `PreparedEvent`.
+
+Internal building blocks (`PreparedEvent`, `prepareEvents`, `buildAppendParams`,
+`appendDispatchTx`) are now exported from `Kiroku.Store.Effect` under a clearly
+labeled `$internal` haddock group; `appendMultiStream`'s interpreter dispatches
+through the shared `appendDispatchTx`.
+
+### Gaps vs. the original plan
+
+* **`AppendToStream` interpreter not refactored.** The plan asked to re-route the
+  existing single-stream interpreter through the new Tx helper, but the same
+  paragraph forbade wrapping a single CTE in a `TxSessions.transaction`. Resolved
+  in favor of preserving production retry semantics — see Decision Log entry
+  dated 2026-05-09 on this trade-off. Net effect: ~10 lines of dispatch
+  duplication between `AppendToStream` and `appendDispatchTx`.
+* **`IOE :> es` constraint.** Plan's signature sketch missed it; documented in the
+  Decision Log. No user-facing impact in practice (every real interpreter
+  already needs `IOE`).
+* **`kiroku-shibuya-overhead` benchmark.** Pre-existing breakage on `master`
+  unrelated to this plan; verified by `git stash` and rebuild. Out of scope.
+
+### Lessons
+
+* Re-exporting low-level Effect helpers under a labeled `-- $internal` group is a
+  good middle ground when a sister module (here `Kiroku.Store.Transaction`)
+  legitimately needs them but they shouldn't grow callers across the codebase.
+* The plan's value was front-loaded into the Decision Log. Most of the
+  implementation surprises (the `AppendToStream` refactor contradiction, the
+  missing `IOE` constraint, the `ReservedStreamConflict`-omission rationale) were
+  recorded as new entries during implementation rather than rewriting earlier
+  sections — the running log proved more useful than re-editing the prose.
 
 
 ## Context and Orientation

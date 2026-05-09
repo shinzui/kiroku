@@ -1,9 +1,10 @@
-cabal-version: 3.0
-name:          kiroku-store
-version:       0.1.0.0
-synopsis:      High-performance PostgreSQL event store
-license:       BSD-3-Clause
-build-type:    Simple
+cabal-version:   3.0
+name:            kiroku-store
+version:         0.1.0.0
+synopsis:        High-performance PostgreSQL event store
+license:         BSD-3-Clause
+build-type:      Simple
+extra-doc-files: CHANGELOG.md
 
 common common
   default-language:   GHC2024

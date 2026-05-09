@@ -180,11 +180,12 @@ mapUniqueViolation streamName expected message detail
 'Hasql.Transaction.Transaction' has no exception channel — the caller
 decides whether to call 'Hasql.Transaction.condemn', branch around the
 conflict, or recover. Reserved-stream rejection is /not/ part of this
-sum because callers of 'appendToStreamTx' are expected to validate the
-stream name themselves before entering the transaction body (the
-high-level wrapper 'Kiroku.Store.Transaction.runTransactionAppending'
-does so prior to opening the transaction and surfaces
-'ReservedStreamName' as a 'StoreError' instead).
+sum because callers of 'Kiroku.Store.Transaction.appendToStreamTx' are
+expected to validate the stream name themselves before entering the
+transaction body (the high-level wrapper
+'Kiroku.Store.Transaction.runTransactionAppending' does so prior to
+opening the transaction and surfaces 'ReservedStreamName' as a
+'StoreError' instead).
 
 The constructors are 1:1 with the corresponding 'StoreError' variants —
 see 'appendConflictToStoreError'.

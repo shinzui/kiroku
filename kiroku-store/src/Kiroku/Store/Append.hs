@@ -12,6 +12,20 @@ import Kiroku.Store.Types
 {- | Append a batch of events to a single stream under the given
 'ExpectedVersion' precondition.
 
+When to use this vs.
+'Kiroku.Store.Transaction.runTransactionAppending':
+
+* Reach for 'appendToStream' by default. It is the cheapest path —
+  one CTE on a pool connection, no Haskell-layer @BEGIN@/@COMMIT@
+  envelope, no caller-driven retry semantics to reason about.
+* Reach for 'Kiroku.Store.Transaction.runTransactionAppending' /only/
+  when you need to atomically combine the append with additional SQL
+  writes that the store doesn't perform (most prominently a
+  projection-row insert from a downstream projection table). The
+  wrapper opens an explicit 'BEGIN'/'COMMIT', enables PostgreSQL
+  serialization-conflict retry of the entire body by default, and
+  threads the caller's continuation into the same transaction.
+
 Semantics:
 
 * If the precondition fails, the entire batch is rejected — appends are
