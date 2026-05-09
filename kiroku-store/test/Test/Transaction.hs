@@ -9,6 +9,7 @@ import Control.Lens ((^.))
 import Data.Aeson qualified as Aeson
 import Data.Functor.Contravariant ((>$<))
 import Data.Generics.Labels ()
+import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.Int (Int64)
 import Data.Text (Text)
 import Data.Time.Clock (getCurrentTime)
@@ -105,6 +106,123 @@ spec = around withTestStore $ do
                 other ->
                     expectationFailure
                         ("Expected Right (Left WrongExpectedVersionConflict), got: " <> show other)
+            rows <- countSideTable (store ^. #pool)
+            rows `shouldBe` 0
+
+    describe "runTransactionAppending" $ do
+        it "commits 3 events and a side-table row in one ACID transaction" $ \store -> do
+            createSideTable (store ^. #pool)
+            let evts =
+                    [ makeEvent "Created" (Aeson.object [("i", Aeson.Number 1)])
+                    , makeEvent "Updated" (Aeson.object [("i", Aeson.Number 2)])
+                    , makeEvent "Closed" (Aeson.object [("i", Aeson.Number 3)])
+                    ]
+            result <-
+                runStoreIO store $
+                    runTransactionAppending
+                        (StreamName "txn-wrapper-success-1")
+                        NoStream
+                        evts
+                        ( \ar -> do
+                            let StreamId sid = ar ^. #streamId
+                            Tx.statement (sid, "projection") insertSideRowStmt
+                            pure ar
+                        )
+            case result of
+                Right (Right ar) ->
+                    (ar ^. #streamVersion) `shouldBe` StreamVersion 3
+                other ->
+                    expectationFailure
+                        ("Expected Right (Right AppendResult), got: " <> show other)
+            -- Verify both the events and the side row landed.
+            rows <- countSideTable (store ^. #pool)
+            rows `shouldBe` 1
+            mInfo <- runStoreIO store $ getStream (StreamName "txn-wrapper-success-1")
+            case mInfo of
+                Right (Just info) -> (info ^. #version) `shouldBe` StreamVersion 3
+                other -> expectationFailure ("Expected stream with version 3, got: " <> show other)
+
+        it "rolls back the append and the side row when the callback condemns" $ \store -> do
+            createSideTable (store ^. #pool)
+            result <-
+                runStoreIO store $
+                    runTransactionAppending
+                        (StreamName "txn-wrapper-condemn-1")
+                        NoStream
+                        [makeEvent "Created" (Aeson.object [])]
+                        ( \ar -> do
+                            let StreamId sid = ar ^. #streamId
+                            Tx.statement (sid, "should-not-persist") insertSideRowStmt
+                            Tx.condemn
+                            pure ar
+                        )
+            -- The callback ran and returned, so the wrapper sees Right; but the
+            -- transaction was condemned, so neither write committed.
+            case result of
+                Right (Right _) -> pure ()
+                other ->
+                    expectationFailure
+                        ("Expected Right (Right AppendResult), got: " <> show other)
+            mInfo <- runStoreIO store $ getStream (StreamName "txn-wrapper-condemn-1")
+            mInfo `shouldBe` Right Nothing
+            rows <- countSideTable (store ^. #pool)
+            rows `shouldBe` 0
+
+        it "skips the callback and surfaces the version conflict" $ \store -> do
+            createSideTable (store ^. #pool)
+            -- Pre-populate the stream so ExactVersion 99 will mismatch.
+            _ <-
+                runStoreIO store $
+                    appendToStream
+                        (StreamName "txn-wrapper-conflict-1")
+                        NoStream
+                        [makeEvent "Created" (Aeson.object [])]
+            calledRef <- newIORef (0 :: Int)
+            result <-
+                runStoreIO store $
+                    runTransactionAppending
+                        (StreamName "txn-wrapper-conflict-1")
+                        (ExactVersion (StreamVersion 99))
+                        [makeEvent "Updated" (Aeson.object [])]
+                        ( \ar -> do
+                            -- Tx.Transaction has no MonadIO; the IORef bump can't go
+                            -- here. Instead, write a side row whose absence asserts
+                            -- non-invocation.
+                            let StreamId sid = ar ^. #streamId
+                            Tx.statement (sid, "should-not-run") insertSideRowStmt
+                            pure ar
+                        )
+            -- Bump the ref outside the Tx; assertion below proves the guard
+            -- works: if the callback HAD run, the side row would exist.
+            modifyIORef' calledRef (+ 1)
+            n <- readIORef calledRef
+            n `shouldBe` 1
+            case result of
+                Right (Left (WrongExpectedVersion _ _ _)) -> pure ()
+                other ->
+                    expectationFailure
+                        ("Expected Right (Left WrongExpectedVersion), got: " <> show other)
+            rows <- countSideTable (store ^. #pool)
+            rows `shouldBe` 0
+
+        it "rejects $all before opening any transaction" $ \store -> do
+            createSideTable (store ^. #pool)
+            result <-
+                runStoreIO store $
+                    runTransactionAppending
+                        (StreamName "$all")
+                        AnyVersion
+                        [makeEvent "Should" (Aeson.object [])]
+                        ( \ar -> do
+                            let StreamId sid = ar ^. #streamId
+                            Tx.statement (sid, "should-never-run") insertSideRowStmt
+                            pure ar
+                        )
+            case result of
+                Right (Left (ReservedStreamName (StreamName "$all"))) -> pure ()
+                other ->
+                    expectationFailure
+                        ("Expected Right (Left (ReservedStreamName \"$all\")), got: " <> show other)
             rows <- countSideTable (store ^. #pool)
             rows `shouldBe` 0
 

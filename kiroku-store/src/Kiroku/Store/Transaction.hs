@@ -4,8 +4,8 @@ single ACID transaction.
 
 This module is the entry point for callers — most prominently the
 @keiro@ projection layer — that need to atomically write to their own
-SQL tables in the same transaction as an event append. The current
-milestone exposes two levels:
+SQL tables in the same transaction as an event append. Three ergonomic
+levels are provided:
 
 * 'runTransaction' / 'runTransactionNoRetry' — bare escape hatch: run
   an opaque 'Tx.Transaction' against the store's connection pool.
@@ -14,8 +14,11 @@ milestone exposes two levels:
   append. Useful inside a 'runTransaction' block when the caller
   wants full control over conflict handling.
 
-A higher-level wrapper that combines an append with a caller-supplied
-continuation in one transaction will be added in the next milestone.
+* 'runTransactionAppending' / 'runTransactionAppendingNoRetry' — the
+  recommended high-level wrapper that combines a single-stream append
+  with the caller's 'Tx.Transaction' continuation in one atomic
+  transaction. This is the primary API for @keiro@-style projection
+  consumers.
 
 The @-NoRetry@ variants use
 'Hasql.Transaction.Sessions.transactionNoRetry' under the hood; the
@@ -41,19 +44,24 @@ module Kiroku.Store.Transaction (
     PreparedEvent,
     prepareEventsIO,
 
+    -- * Convenience wrapper for the keiro use case
+    runTransactionAppending,
+    runTransactionAppendingNoRetry,
+
     -- * Append-precondition conflicts
     AppendConflict (..),
     appendConflictToStoreError,
 ) where
 
-import Control.Monad.IO.Class (MonadIO)
-import Data.Time.Clock (UTCTime)
-import Effectful (Eff, (:>))
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Data.Functor (($>))
+import Data.Time.Clock (UTCTime, getCurrentTime)
+import Effectful (Eff, IOE, (:>))
 import Effectful.Dispatch.Dynamic (send)
 import GHC.Stack (HasCallStack)
 import Hasql.Transaction qualified as Tx
 import Kiroku.Store.Effect (PreparedEvent, Store (..), appendDispatchTx, buildAppendParams, prepareEvents)
-import Kiroku.Store.Error (AppendConflict (..), appendConflictToStoreError, emptyResultConflict)
+import Kiroku.Store.Error (AppendConflict (..), StoreError (..), appendConflictToStoreError, emptyResultConflict)
 import Kiroku.Store.Types
 
 {- | Run an arbitrary 'Tx.Transaction' against the store's connection
@@ -144,3 +152,91 @@ appendToStreamTx sn@(StreamName name) expected prepared now = do
     pure $ case mResult of
         Just r -> Right r
         Nothing -> Left (emptyResultConflict sn expected)
+
+-- ---------------------------------------------------------------------------
+-- Convenience wrapper
+-- ---------------------------------------------------------------------------
+
+{- | Append events to a single stream and run an arbitrary
+'Tx.Transaction' continuation in one ACID transaction.
+
+This is the recommended API for callers who want to combine an event
+append with their own SQL writes (canonical example: a projection row
+that must land iff the append commits).
+
+Behavior:
+
+* If the target stream is the reserved @$all@, the call rejects with
+  @'Left' ('ReservedStreamName' …)@ /before/ opening any transaction;
+  the continuation is not invoked.
+* UUIDv7 ids are generated for events with a 'Nothing' 'eventId', and
+  the current time is captured, before the transaction begins
+  ('Tx.Transaction' has no 'MonadIO' so this prep cannot happen
+  inside).
+* Inside the transaction, 'appendToStreamTx' is called. On 'Left'
+  (version conflict, missing stream, etc.), the transaction is
+  'Tx.condemn'-ed, the continuation is /not/ run, and the call returns
+  @'Left' storeErr@.
+* On 'Right' the continuation runs with the resulting 'AppendResult'.
+  If the continuation calls 'Tx.condemn', the transaction rolls back
+  at commit time and no writes — including the event append — are
+  visible.
+* The transaction body may execute more than once if PostgreSQL raises
+  a serialization conflict; use 'runTransactionAppendingNoRetry' to
+  disable retry.
+
+Connection-level failures from the @hasql-pool@ layer surface through
+the surrounding @'Effectful.Error.Static.Error' 'StoreError'@ effect
+('Kiroku.Store.Error.ConnectionError', 'ConnectionLost', etc.), not
+through the returned 'Either' — that 'Either' is reserved for semantic
+append-precondition conflicts (and the up-front reserved-stream
+rejection).
+-}
+runTransactionAppending ::
+    (HasCallStack, IOE :> es, Store :> es) =>
+    StreamName ->
+    ExpectedVersion ->
+    [EventData] ->
+    (AppendResult -> Tx.Transaction a) ->
+    Eff es (Either StoreError a)
+runTransactionAppending = runTransactionAppendingWith RunTransaction
+
+{- | Like 'runTransactionAppending' but uses
+'Hasql.Transaction.Sessions.transactionNoRetry' under the hood — the
+transaction body runs exactly once even on PostgreSQL serialization
+conflicts.
+-}
+runTransactionAppendingNoRetry ::
+    (HasCallStack, IOE :> es, Store :> es) =>
+    StreamName ->
+    ExpectedVersion ->
+    [EventData] ->
+    (AppendResult -> Tx.Transaction a) ->
+    Eff es (Either StoreError a)
+runTransactionAppendingNoRetry = runTransactionAppendingWith RunTransactionNoRetry
+
+{- | Shared implementation for 'runTransactionAppending' and
+'runTransactionAppendingNoRetry'. The only difference between the
+two wrappers is which 'Store' constructor is sent.
+-}
+runTransactionAppendingWith ::
+    (IOE :> es, Store :> es) =>
+    (forall x. Tx.Transaction x -> Store (Eff es) x) ->
+    StreamName ->
+    ExpectedVersion ->
+    [EventData] ->
+    (AppendResult -> Tx.Transaction a) ->
+    Eff es (Either StoreError a)
+runTransactionAppendingWith ctor sn@(StreamName name) expected events k
+    | name == "$all" = pure (Left (ReservedStreamName sn))
+    | otherwise = do
+        prepared <- prepareEventsIO events
+        now <- liftIO getCurrentTime
+        let body = do
+                outcome <- appendToStreamTx sn expected prepared now
+                case outcome of
+                    Left conflict ->
+                        Tx.condemn $> Left (appendConflictToStoreError conflict)
+                    Right ar ->
+                        Right <$> k ar
+        send (ctor body)

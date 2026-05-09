@@ -111,15 +111,23 @@ Milestone 2 — Public `Tx`-flavored append building block:
 
 Milestone 3 — Convenience wrapper for the keiro use case:
 
-- [ ] Add `runTransactionAppending` (final name in Interfaces section) to
-      `Kiroku.Store.Transaction`, which: prepares events in `Eff` (UUID v7, `getCurrentTime`),
-      builds `appendToStreamTx`, branches on `Either AppendConflict AppendResult`, runs the
-      caller's continuation, and threads `Tx.condemn` semantics through.
-- [ ] Tests in `kiroku-store/test/Test/Transaction.hs`: success path, callback-condemn path,
-      version-conflict path (callback never runs), reserved-stream rejection path
-      (`$all` rejected before opening the transaction).
-- [ ] Document the chosen retry mode (`transaction` vs `transactionNoRetry`) and its
+- [x] Add `runTransactionAppending` and `runTransactionAppendingNoRetry` to
+      `Kiroku.Store.Transaction`. Both reject `$all` up front, prep UUIDv7 ids and
+      `getCurrentTime` in `Eff`, call `appendToStreamTx` inside the transaction body,
+      `Tx.condemn` on `Left AppendConflict`, and run the caller's continuation on
+      `Right AppendResult`. The retry/no-retry pair is implemented via a shared
+      `runTransactionAppendingWith` that takes a rank-N `Store` constructor argument.
+      *(2026-05-09 — added `IOE :> es` to both wrapper signatures; see Decision Log
+      entry on the constraint that the plan's interface sketch missed.)*
+- [x] Tests in `kiroku-store/test/Test/Transaction.hs`: success path (3 events + side
+      row, version 3, both visible), callback-condemn path (Right return value but
+      both writes rolled back), version-conflict path (`Right (Left
+      WrongExpectedVersion)`, side row absent), reserved-stream rejection (`Right
+      (Left (ReservedStreamName \"$all\"))`, side row absent). *(2026-05-09)*
+- [x] Document the chosen retry mode (`transaction` vs `transactionNoRetry`) and its
       consequences in the Haddock for `runTransactionAppending` and `runTransaction`.
+      *(2026-05-09 — module-level prose plus per-binding notes on retry, condemn,
+      reserved-stream rejection ordering, and the IO/Tx prep boundary.)*
 
 Milestone 4 — Public surface and documentation:
 
@@ -216,6 +224,18 @@ implementation. Provide concise evidence.
   the new public `appendToStreamTx`. The duplication between `appendDispatchTx` and
   the inline `case expected of …` in `AppendToStream` is four lines and entirely
   mechanical.
+  Date: 2026-05-09
+
+- Decision: `runTransactionAppending` (and the no-retry sibling) carry an `IOE :> es`
+  constraint in addition to `Store :> es`.
+  Rationale: The plan's Interfaces section sketched the signature with only `Store :> es`,
+  but the wrapper must call `liftIO getCurrentTime` and `prepareEventsIO` (a `MonadIO`
+  helper) before entering the transaction body. `Tx.Transaction` has no `MonadIO` so this
+  prep cannot move inside. In practice, every caller that can interpret `Store` already
+  carries `IOE :> es` (the production interpreter `runStorePool` requires it), so adding
+  the constraint surfaces what was already implied without expanding requirements. The
+  alternative — bundling the prep into a new `Store` constructor — was considered but
+  rejected as adding more constructors to absorb behavior that belongs in the wrapper.
   Date: 2026-05-09
 
 - Decision: `AppendConflict` does not include a `ReservedStreamConflict` constructor.
