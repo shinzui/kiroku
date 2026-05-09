@@ -18,6 +18,7 @@ module Kiroku.Store (
     module Kiroku.Store.Link,
     module Kiroku.Store.Read,
     module Kiroku.Store.Subscription,
+    module Kiroku.Store.Transaction,
 
     -- * Subscription effect (interpreter only — import Effect module for @subscribe@)
     Subscription,
@@ -57,6 +58,7 @@ import Kiroku.Store.Read
 import Kiroku.Store.Schema (SchemaInitError (..))
 import Kiroku.Store.Subscription
 import Kiroku.Store.Subscription.Effect (Subscription, runSubscription, runSubscriptionResource)
+import Kiroku.Store.Transaction
 import Kiroku.Store.Types
 
 {- $schema

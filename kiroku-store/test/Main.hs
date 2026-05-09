@@ -29,12 +29,14 @@ import Test.FailureInjection qualified as FailureInjection
 import Test.Helpers
 import Test.Hspec
 import Test.Properties qualified as Properties
+import Test.Transaction qualified as Transaction
 
 main :: IO ()
 main = hspec $ do
     Properties.spec
     Concurrency.spec
     FailureInjection.spec
+    Transaction.spec
     around withTestStore $ do
         describe "appendToStream" $ do
             describe "NoStream" $ do

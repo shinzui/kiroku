@@ -34,6 +34,7 @@ library
     Kiroku.Store.Subscription.Stream
     Kiroku.Store.Subscription.Types
     Kiroku.Store.Subscription.Worker
+    Kiroku.Store.Transaction
     Kiroku.Store.Types
 
   other-modules:   Kiroku.Store.SQL
@@ -72,27 +73,29 @@ test-suite kiroku-store-test
     Test.FailureInjection
     Test.Helpers
     Test.Properties
+    Test.Transaction
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N
   build-depends:
     , aeson
-    , async           >=2.2
-    , base            >=4.18 && <5
-    , containers      >=0.6
-    , effectful-core  >=2.4
-    , ephemeral-pg    >=0.2
-    , generic-lens    >=2.2
-    , hasql           >=1.10
-    , hasql-pool      >=1.2
-    , hedgehog        >=1.4
-    , hspec           >=2.10
-    , hspec-hedgehog  >=0.0
+    , async              >=2.2
+    , base               >=4.18 && <5
+    , containers         >=0.6
+    , effectful-core     >=2.4
+    , ephemeral-pg       >=0.2
+    , generic-lens       >=2.2
+    , hasql              >=1.10
+    , hasql-pool         >=1.2
+    , hasql-transaction  >=1.1
+    , hedgehog           >=1.4
+    , hspec              >=2.10
+    , hspec-hedgehog     >=0.0
     , kiroku-store
-    , lens            >=5.2
+    , lens               >=5.2
     , stm
-    , text            >=2.0
+    , text               >=2.0
     , uuid
-    , vector          >=0.13
+    , vector             >=0.13
 
 benchmark kiroku-store-bench
   import:         common

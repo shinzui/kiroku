@@ -59,6 +59,18 @@ data Store :: Effect where
     SoftDeleteStream :: StreamName -> Store m (Maybe StreamId)
     HardDeleteStream :: StreamName -> Store m (Maybe StreamId)
     UndeleteStream :: StreamName -> Store m (Maybe StreamId)
+    {- | Run an arbitrary @hasql-transaction@ value in a 'BEGIN'/'COMMIT'
+    block on a single pool connection. Escape hatch from the abstract
+    'Store' effect into the underlying SQL world; mock interpreters are
+    expected to reject this constructor.
+    -}
+    RunTransaction :: Tx.Transaction a -> Store m a
+    {- | Like 'RunTransaction' but uses
+    'Hasql.Transaction.Sessions.transactionNoRetry' under the hood —
+    the body is run exactly once even on PostgreSQL serialization
+    conflicts.
+    -}
+    RunTransactionNoRetry :: Tx.Transaction a -> Store m a
 
 type instance DispatchOf Store = Dynamic
 
@@ -208,6 +220,10 @@ runStorePool store = interpret_ $ \case
         rejectReservedApplicationStream name
         usePool (store ^. #pool) $
             Session.statement name SQL.undeleteStreamStmt
+    RunTransaction tx ->
+        runTxOnPool (store ^. #pool) TxSessions.transaction tx
+    RunTransactionNoRetry tx ->
+        runTxOnPool (store ^. #pool) TxSessions.transactionNoRetry tx
 
 -- | Convenience: run a Store computation to IO.
 runStoreIO ::
@@ -237,6 +253,26 @@ usePool ::
     Eff es a
 usePool pool session = do
     result <- liftIO (Pool.use pool session)
+    case result of
+        Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
+        Right a -> pure a
+
+{- | Run a 'Tx.Transaction' against the pool using the supplied entry
+point ('TxSessions.transaction' or 'TxSessions.transactionNoRetry'),
+mapping pool errors to 'StoreError'. The isolation level and access
+mode mirror 'appendMultiStream' / 'HardDeleteStream'.
+-}
+runTxOnPool ::
+    (IOE :> es, Error StoreError :> es) =>
+    Pool ->
+    (TxSessions.IsolationLevel -> TxSessions.Mode -> Tx.Transaction a -> Session.Session a) ->
+    Tx.Transaction a ->
+    Eff es a
+runTxOnPool pool entry tx = do
+    result <-
+        liftIO $
+            Pool.use pool $
+                entry TxSessions.ReadCommitted TxSessions.Write tx
     case result of
         Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
         Right a -> pure a
