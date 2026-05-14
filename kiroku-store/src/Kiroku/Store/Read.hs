@@ -1,5 +1,6 @@
 module Kiroku.Store.Read (
     readStreamForward,
+    readStreamForwardStream,
     readStreamBackward,
     readAllForward,
     readAllBackward,
@@ -7,13 +8,18 @@ module Kiroku.Store.Read (
     getStream,
 ) where
 
+import Control.Lens ((^.))
+import Data.Generics.Labels ()
 import Data.Int (Int32)
 import Data.Vector (Vector)
+import Data.Vector qualified as V
 import Effectful (Eff, (:>))
 import Effectful.Dispatch.Dynamic (send)
 import GHC.Stack (HasCallStack)
 import Kiroku.Store.Effect (Store (..))
 import Kiroku.Store.Types
+import Streamly.Data.Stream (Stream)
+import Streamly.Data.Stream qualified as Stream
 
 {- | Read events from a named stream in forward (ascending version)
 order.
@@ -31,6 +37,41 @@ readStreamForward ::
     Int32 ->
     Eff es (Vector RecordedEvent)
 readStreamForward name startVer limit = send (ReadStreamForward name startVer limit)
+
+{- | Forward read a single stream as a constant-memory Streamly 'Stream'.
+
+The streaming sibling of 'readStreamForward'. Identical SQL path and identical
+error semantics: this function dispatches 'readStreamForward' repeatedly with
+the supplied @pageSize@ as the per-call limit, advancing the exclusive
+'StreamVersion' cursor across pages until the next call returns an empty
+batch.
+
+The exclusive-cursor convention is preserved end-to-end: passing
+@'StreamVersion' 0@ reads from the first event in the stream. Empty and
+nonexistent streams terminate the stream immediately with zero elements.
+
+The recommended @pageSize@ is @256@. Callers reading very wide events (large
+payloads / metadata) should pass a smaller value to keep per-page memory
+bounded; callers reading very long streams of small events may pass a larger
+value to reduce round-trip count.
+-}
+readStreamForwardStream ::
+    (HasCallStack, Store :> es) =>
+    StreamName ->
+    StreamVersion ->
+    Int32 ->
+    Stream (Eff es) RecordedEvent
+readStreamForwardStream name startVer pageSize =
+    Stream.concatMap (Stream.fromList . V.toList) pages
+  where
+    pages = Stream.unfoldrM nextPage startVer
+    nextPage cursor = do
+        events <- readStreamForward name cursor pageSize
+        if V.null events
+            then pure Nothing
+            else
+                let lastV = V.last events ^. #streamVersion
+                 in pure (Just (events, lastV))
 
 {- | Read events from a named stream in backward (descending version)
 order.
