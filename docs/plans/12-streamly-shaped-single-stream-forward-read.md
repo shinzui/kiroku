@@ -175,16 +175,13 @@ Milestone 2 — Tests: validate identity-with-Vector and multi-page hydration.
 
 Milestone 3 — Documentation and changelog.
 
-- [ ] Add a new entry under `## Unreleased` in `kiroku-store/CHANGELOG.md` describing
-      `readStreamForwardStream` and citing the rationale (Streamly substrate Integration
-      Point) without leaking keiro-internal vocabulary into the public changelog.
-- [ ] Run the targeted library + test build one final time from the repository root to
-      confirm everything still links and tests pass:
-
-      ```bash
-      cabal build kiroku-store:lib:kiroku-store
-      cabal test kiroku-store:kiroku-store-test
-      ```
+- [x] Add a new entry under `## Unreleased` in `kiroku-store/CHANGELOG.md` describing
+      `readStreamForwardStream`. Audience-neutral wording, no keiro-internal vocabulary.
+      — 2026-05-13
+- [x] Run the targeted library + test build one final time. — 2026-05-13.
+      `cabal build kiroku-store:lib:kiroku-store` reports `Up to date`;
+      `cabal test kiroku-store:kiroku-store-test` reports `Finished in 77.9530 seconds;
+      114 examples, 0 failures`.
 
 
 ## Surprises & Discoveries
@@ -278,7 +275,34 @@ implementation. Provide concise evidence.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+**Outcome — 2026-05-13.** Implementation matches the plan with no scope changes:
+`Kiroku.Store.Read.readStreamForwardStream` ships with the planned signature
+`(HasCallStack, Store :> es) => StreamName -> StreamVersion -> Int32 -> Stream (Eff es)
+RecordedEvent`, is re-exported from `Kiroku.Store` via the existing aggregate re-export,
+and is implemented as a `Stream.unfoldrM`-driven wrapper around the existing
+`readStreamForward` effect dispatch. No new SQL, no new effect constructor, no new
+error variant — exactly the design constraint the plan signed up for.
+
+The downstream consumer (`keiro`'s hydration phase, per the Purpose section) can now
+drop the bespoke `hydrationStream` wrapper from its call sites and import
+`readStreamForwardStream` directly. The Streamly substrate Integration Point in keiro's
+parent MasterPlan is satisfied for the forward single-stream read shape.
+
+**Validation.** All five planned Hspec examples pass under
+`cabal test kiroku-store:kiroku-store-test`. The full suite is `114 examples, 0
+failures` (109 prior + 5 new). The library builds clean with no new warnings.
+
+**Lessons learned.** Two minor things worth noting for future plans of this shape:
+
+1. `head`/`last` on a list incur GHC's `-Wx-partial` warning under the project's warning
+   defaults. Tests that need to inspect first/last elements should reach for
+   `Data.List.NonEmpty` rather than `Prelude.head` to keep the build warning-free.
+   Recorded in Surprises & Discoveries.
+
+2. The plan's "approximate expected count" estimate of 110 examples drifted to 114 by
+   the time implementation landed (the prior suite had grown). The `0 failures` signal
+   is what counts; future plans should phrase the bar as "all prior tests still pass
+   plus N new" rather than predicting a total.
 
 
 ## Context and Orientation

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Added — streaming single-stream forward read
+
+* `Kiroku.Store.Read.readStreamForwardStream` (re-exported from
+  `Kiroku.Store`): a Streamly `Stream (Eff es) RecordedEvent` companion to
+  `readStreamForward`. Internally paginates `readStreamForward` at a
+  caller-supplied page size and yields events one at a time, enabling
+  constant-memory folds over long streams. Shares SQL path and error
+  semantics with `readStreamForward`.
+
 ### Added — single-stream `RunTransaction` combinator (plan 11)
 
 * `Kiroku.Store.Transaction` (new module, re-exported from
