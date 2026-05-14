@@ -63,6 +63,15 @@ data Store :: Effect where
     ReadAllForward :: GlobalPosition -> Int32 -> Store m (Vector RecordedEvent)
     ReadAllBackward :: GlobalPosition -> Int32 -> Store m (Vector RecordedEvent)
     GetStream :: StreamName -> Store m (Maybe StreamInfo)
+    {- | Resolve a 'StreamName' to its surrogate 'StreamId' without
+    materializing the full 'StreamInfo' row. Mirrors 'GetStream'\'s
+    soft-delete semantics: returns 'Just' for both live and soft-deleted
+    streams, 'Nothing' for hard-deleted or never-created streams.
+
+    Cheaper than 'GetStream' — decodes one @int8@ column instead of five.
+    Surfaced as 'Kiroku.Store.Read.lookupStreamId'.
+    -}
+    LookupStreamId :: StreamName -> Store m (Maybe StreamId)
     LinkToStream :: StreamName -> [EventId] -> Store m LinkResult
     ReadCategoryForward :: CategoryName -> GlobalPosition -> Int32 -> Store m (Vector RecordedEvent)
     AppendMultiStream :: [(StreamName, ExpectedVersion, [EventData])] -> Store m [AppendResult]
@@ -150,6 +159,10 @@ runStorePool store = interpret_ $ \case
     GetStream (StreamName name) ->
         usePool (store ^. #pool) $
             Session.statement name SQL.getStreamStmt
+    LookupStreamId (StreamName name) ->
+        fmap (fmap StreamId) $
+            usePool (store ^. #pool) $
+                Session.statement name SQL.findStreamIdStmt
     LinkToStream (StreamName name) eventIds -> do
         rejectReservedApplicationStream name
         let uuids = V.fromList [uid | EventId uid <- eventIds]

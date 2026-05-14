@@ -333,6 +333,42 @@ main = hspec $ do
                 Right info <- runStoreIO store $ getStream (StreamName "no-such-stream")
                 info `shouldBe` Nothing
 
+        describe "lookupStreamId" $ do
+            it "returns the same id as getStream for a live stream" $ \store -> do
+                Right _ <-
+                    runStoreIO store $
+                        appendToStream
+                            (StreamName "lookup-live")
+                            NoStream
+                            [makeEvent "A" (Aeson.object [])]
+                Right mInfo <- runStoreIO store $ getStream (StreamName "lookup-live")
+                Right mSid <- runStoreIO store $ lookupStreamId (StreamName "lookup-live")
+                case (mInfo, mSid) of
+                    (Just info, Just sid) ->
+                        (info ^. #id) `shouldBe` sid
+                    _ ->
+                        expectationFailure "Expected both getStream and lookupStreamId to return Just"
+
+            it "returns Nothing for a stream that has never been created" $ \store -> do
+                Right mSid <- runStoreIO store $ lookupStreamId (StreamName "lookup-missing")
+                mSid `shouldBe` Nothing
+
+            it "returns Just the same id for a soft-deleted stream" $ \store -> do
+                Right _ <-
+                    runStoreIO store $
+                        appendToStream
+                            (StreamName "lookup-soft")
+                            NoStream
+                            [makeEvent "A" (Aeson.object [])]
+                Right mSidBefore <- runStoreIO store $ lookupStreamId (StreamName "lookup-soft")
+                Right _ <- runStoreIO store $ softDeleteStream (StreamName "lookup-soft")
+                Right mSidAfter <- runStoreIO store $ lookupStreamId (StreamName "lookup-soft")
+                mSidAfter `shouldBe` mSidBefore
+                Right mInfo <- runStoreIO store $ getStream (StreamName "lookup-soft")
+                case (mInfo, mSidAfter) of
+                    (Just info, Just sid) -> (info ^. #id) `shouldBe` sid
+                    _ -> expectationFailure "Expected Just on a soft-deleted stream"
+
         describe "integration: full lifecycle through withStore" $ do
             it "append, read forward, read $all, getStream — all through public API" $ \store -> do
                 -- Append events to two streams

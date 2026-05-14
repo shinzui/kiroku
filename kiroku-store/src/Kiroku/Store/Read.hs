@@ -6,6 +6,7 @@ module Kiroku.Store.Read (
     readAllBackward,
     readCategory,
     getStream,
+    lookupStreamId,
 ) where
 
 import Control.Lens ((^.))
@@ -147,3 +148,20 @@ getStream ::
     StreamName ->
     Eff es (Maybe StreamInfo)
 getStream name = send (GetStream name)
+
+{- | Look up a stream's surrogate id by name.
+
+Returns 'Just' the 'StreamId' for both live and soft-deleted streams (mirroring
+'getStream'\'s soft-delete behavior). Returns 'Nothing' for streams that have
+never been created and for streams that have been hard-deleted.
+
+This is a lighter-weight alternative to 'getStream' when the caller only needs
+the surrogate id: it decodes one @int8@ column instead of the five columns
+that 'StreamInfo' carries. Equivalent to projecting @info ^. #id@ from a
+successful 'getStream' result, but cheaper.
+-}
+lookupStreamId ::
+    (HasCallStack, Store :> es) =>
+    StreamName ->
+    Eff es (Maybe StreamId)
+lookupStreamId name = send (LookupStreamId name)
