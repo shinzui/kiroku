@@ -23,6 +23,7 @@ import Kiroku.Store.Notification (Notifier)
 import Kiroku.Store.Notification qualified as Notifier
 import Kiroku.Store.Observability (KirokuEvent)
 import Kiroku.Store.Schema (initializeSchema)
+import Kiroku.Store.Settings (StoreSettings, defaultStoreSettings)
 import Kiroku.Store.Subscription.EventPublisher (EventPublisher)
 import Kiroku.Store.Subscription.EventPublisher qualified as Publisher
 
@@ -105,6 +106,14 @@ data ConnectionSettingsM m = ConnectionSettings
     out asynchronously (e.g., write to a 'TBQueue' and drain in a
     separate thread).
     -}
+    , storeSettings :: !StoreSettings
+    {- ^ Interpreter-level hooks applied to 'EventData' on the append
+    path and to 'RecordedEvent' on the read and subscription paths.
+    Defaults to 'defaultStoreSettings' (no-op).
+
+    See "Kiroku.Store.Settings" for the hook semantics and the
+    OpenTelemetry trace-context use case that motivates this seam.
+    -}
     }
     deriving stock (Generic)
 
@@ -122,6 +131,7 @@ defaultConnectionSettings cs =
         , statementTimeout = Nothing
         , observationHandler = Nothing
         , eventHandler = Nothing
+        , storeSettings = defaultStoreSettings
         }
 
 -- | The store handle. Holds a connection pool, schema name, and subscription infrastructure.
@@ -137,6 +147,12 @@ data KirokuStore = KirokuStore
     'Kiroku.Store.Effect.runStorePool' and is the channel
     'Kiroku.Store.Subscription.subscribe' threads through to
     'Kiroku.Store.Subscription.Worker.runWorker'.
+    -}
+    , storeSettings :: !StoreSettings
+    {- ^ Interpreter-level hooks captured from
+    'ConnectionSettingsM.storeSettings' when 'withStore' acquires
+    the store. Reached by 'Kiroku.Store.Effect.runStorePool' and the
+    subscription publisher\/worker for every event flowing through.
     -}
     }
     deriving stock (Generic)
@@ -196,6 +212,7 @@ withStore settings action = withRunInIO $ \runInIO ->
         let s = settings ^. #schema
             cs = settings ^. #connString
             evtHandler = settings ^. #eventHandler
+            stSettings = settings ^. #storeSettings
         initializeSchema p s
         -- Start Notifier (dedicated LISTEN connection)
         n <- Notifier.startNotifier cs s evtHandler
@@ -208,6 +225,7 @@ withStore settings action = withRunInIO $ \runInIO ->
                 , notifier = n
                 , publisher = pub
                 , eventHandler = evtHandler
+                , storeSettings = stSettings
                 }
 
     release store = do
