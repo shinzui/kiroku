@@ -66,6 +66,16 @@ data Store :: Effect where
     LinkToStream :: StreamName -> [EventId] -> Store m LinkResult
     ReadCategoryForward :: CategoryName -> GlobalPosition -> Int32 -> Store m (Vector RecordedEvent)
     AppendMultiStream :: [(StreamName, ExpectedVersion, [EventData])] -> Store m [AppendResult]
+    {- | Fetch a set of 'RecordedEvent' rows that match an 'EventFilter'.
+    Surfaced to consumers as the smart constructors in
+    "Kiroku.Store.Causation": 'Kiroku.Store.Causation.findByCorrelation',
+    'Kiroku.Store.Causation.findCausationDescendants', and
+    'Kiroku.Store.Causation.findCausationAncestors'.
+
+    The filter is a closed sum ('EventFilter'); mock interpreters can
+    pattern-match exhaustively.
+    -}
+    FindEvents :: EventFilter -> Store m (Vector RecordedEvent)
     SoftDeleteStream :: StreamName -> Store m (Maybe StreamId)
     HardDeleteStream :: StreamName -> Store m (Maybe StreamId)
     UndeleteStream :: StreamName -> Store m (Maybe StreamId)
@@ -203,6 +213,18 @@ runStorePool store = interpret_ $ \case
                             Just r -> pure r
                     )
                     indexed
+    FindEvents filt -> do
+        evs <- case filt of
+            FilterCorrelation cid ->
+                usePool (store ^. #pool) $
+                    Session.statement cid SQL.findByCorrelationStmt
+            FilterCausationDescendants (EventId eid) ->
+                usePool (store ^. #pool) $
+                    Session.statement eid SQL.findCausationDescendantsStmt
+            FilterCausationAncestors (EventId eid) ->
+                usePool (store ^. #pool) $
+                    Session.statement eid SQL.findCausationAncestorsStmt
+        liftIO $ decodeEvents (store ^. #storeSettings) evs
     SoftDeleteStream (StreamName name) -> do
         rejectReservedApplicationStream name
         usePool (store ^. #pool) $

@@ -19,6 +19,11 @@ module Kiroku.Store.SQL (
     readCategoryForwardStmt,
     getStreamStmt,
 
+    -- * Causation / correlation statements
+    findByCorrelationStmt,
+    findCausationDescendantsStmt,
+    findCausationAncestorsStmt,
+
     -- * Lifecycle statements
     softDeleteStreamStmt,
     undeleteStreamStmt,
@@ -515,6 +520,119 @@ getStreamSQL =
     SELECT stream_id, stream_name, stream_version, created_at, deleted_at
     FROM streams
     WHERE stream_name = $1
+    """
+
+-- ---------------------------------------------------------------------------
+-- Causation / Correlation Statements
+-- ---------------------------------------------------------------------------
+
+{- | Return every event whose @correlation_id@ equals the input, in ascending
+@global_position@ order. Uses the @ix_events_correlation_id@ partial index.
+
+The @stream_events se ON se.stream_id = 0@ join resolves each event to its
+single row in the global @$all@ stream, which is also where the global
+position is materialized as @stream_version@.
+-}
+findByCorrelationStmt :: Statement UUID (Vector RecordedEvent)
+findByCorrelationStmt =
+    preparable
+        findByCorrelationSQL
+        (E.param (E.nonNullable E.uuid))
+        (D.rowVector recordedEventRow)
+
+findByCorrelationSQL :: Text
+findByCorrelationSQL =
+    """
+    SELECT e.event_id, e.event_type,
+           se.stream_version, se.stream_version AS global_position,
+           se.original_stream_id, se.original_stream_version,
+           e.data, e.metadata, e.causation_id, e.correlation_id,
+           e.created_at
+    FROM events e
+    JOIN stream_events se
+      ON se.event_id = e.event_id AND se.stream_id = 0
+    WHERE e.correlation_id = $1
+    ORDER BY se.stream_version ASC
+    """
+
+{- | Walk the causation graph forward from a seed event, returning the seed
+itself and every event whose @causation_id@ chain leads back to it. The
+result is ordered by ascending @global_position@.
+
+The recursive CTE follows @causation_id@ links downstream: each child's
+@causation_id@ equals a parent's @event_id@. Cost is @O(depth * log n)@
+backed by the @ix_events_causation_id@ partial index.
+-}
+findCausationDescendantsStmt :: Statement UUID (Vector RecordedEvent)
+findCausationDescendantsStmt =
+    preparable
+        findCausationDescendantsSQL
+        (E.param (E.nonNullable E.uuid))
+        (D.rowVector recordedEventRow)
+
+findCausationDescendantsSQL :: Text
+findCausationDescendantsSQL =
+    """
+    WITH RECURSIVE chain (event_id, depth) AS (
+        SELECT event_id, 0
+        FROM events
+        WHERE event_id = $1
+      UNION ALL
+        SELECT e.event_id, c.depth + 1
+        FROM events e
+        JOIN chain c ON e.causation_id = c.event_id
+    )
+    SELECT e.event_id, e.event_type,
+           se.stream_version, se.stream_version AS global_position,
+           se.original_stream_id, se.original_stream_version,
+           e.data, e.metadata, e.causation_id, e.correlation_id,
+           e.created_at
+    FROM chain c
+    JOIN events e ON e.event_id = c.event_id
+    JOIN stream_events se
+      ON se.event_id = e.event_id AND se.stream_id = 0
+    ORDER BY se.stream_version ASC
+    """
+
+{- | Walk the causation graph backward from a seed event, returning the seed
+itself and every ancestor reachable via @causation_id@. Result is ordered
+by ascending @depth@ (the seed is depth 0, its immediate cause is depth 1,
+etc.).
+
+The recursive CTE follows @causation_id@ links upstream: for each row
+@current@ already in the working set, its parent is the row of @events@
+whose @event_id@ equals @current.causation_id@.
+-}
+findCausationAncestorsStmt :: Statement UUID (Vector RecordedEvent)
+findCausationAncestorsStmt =
+    preparable
+        findCausationAncestorsSQL
+        (E.param (E.nonNullable E.uuid))
+        (D.rowVector recordedEventRow)
+
+findCausationAncestorsSQL :: Text
+findCausationAncestorsSQL =
+    """
+    WITH RECURSIVE chain (event_id, depth) AS (
+        SELECT event_id, 0
+        FROM events
+        WHERE event_id = $1
+      UNION ALL
+        SELECT parent.event_id, c.depth + 1
+        FROM events parent
+        JOIN events current ON parent.event_id = current.causation_id
+        JOIN chain c ON c.event_id = current.event_id
+    )
+    SELECT e.event_id, e.event_type,
+           se.stream_version, se.stream_version AS global_position,
+           se.original_stream_id, se.original_stream_version,
+           e.data, e.metadata, e.causation_id, e.correlation_id,
+           e.created_at
+    FROM chain c
+    JOIN events e ON e.event_id = c.event_id
+    JOIN stream_events se
+      ON se.event_id = e.event_id AND se.stream_id = 0
+    ORDER BY c.depth ASC
     """
 
 -- ---------------------------------------------------------------------------

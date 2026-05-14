@@ -14,6 +14,7 @@ module Kiroku.Store (
     module Kiroku.Store.Effect.Resource,
     module Kiroku.Store.Error,
     module Kiroku.Store.Append,
+    module Kiroku.Store.Causation,
     module Kiroku.Store.Lifecycle,
     module Kiroku.Store.Link,
     module Kiroku.Store.Read,
@@ -47,6 +48,7 @@ module Kiroku.Store (
 
 import Hasql.Pool.Observation (ConnectionReadyForUseReason (..), ConnectionStatus (..), ConnectionTerminationReason (..), Observation (..))
 import Kiroku.Store.Append
+import Kiroku.Store.Causation
 import Kiroku.Store.Connection
 import Kiroku.Store.Effect
 import Kiroku.Store.Effect.Resource

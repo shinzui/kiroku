@@ -12,6 +12,7 @@ module Kiroku.Store.Types (
     AppendResult (..),
     LinkResult (..),
     CategoryName (..),
+    EventFilter (..),
 ) where
 
 import Data.Aeson (Value)
@@ -260,3 +261,25 @@ many streams that share a prefix.
 -}
 newtype CategoryName = CategoryName Text
     deriving stock (Eq, Ord, Show, Generic)
+
+{- | Filter passed to the 'Kiroku.Store.Effect.FindEvents' constructor and the
+public smart constructors in "Kiroku.Store.Causation". Each constructor maps
+to one SQL statement in "Kiroku.Store.SQL".
+
+The sum is closed: mock interpreters that implement 'Kiroku.Store.Effect.Store'
+can pattern-match exhaustively. Adding a new filter is a breaking change for
+downstream interpreters and is captured by GHC's exhaustiveness check.
+-}
+data EventFilter
+    = -- | Match every event whose @correlation_id@ equals the supplied UUID.
+      FilterCorrelation !UUID
+    | {- | Match the seed event and every event whose @causation_id@ chain
+      walks back to it. The seed event itself is included as the depth-0
+      row when it exists.
+      -}
+      FilterCausationDescendants !EventId
+    | {- | Match the seed event and every event reachable by walking
+      @causation_id@ upward from the seed. The seed itself is included.
+      -}
+      FilterCausationAncestors !EventId
+    deriving stock (Eq, Show, Generic)

@@ -19,6 +19,7 @@ library
   exposed-modules:
     Kiroku.Store
     Kiroku.Store.Append
+    Kiroku.Store.Causation
     Kiroku.Store.Connection
     Kiroku.Store.Effect
     Kiroku.Store.Effect.Resource
