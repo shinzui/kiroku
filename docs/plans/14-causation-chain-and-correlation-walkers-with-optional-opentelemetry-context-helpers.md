@@ -248,41 +248,48 @@ Milestone 2 — Tests for the causation/correlation helpers.
 
 Milestone 3 — New `kiroku-otel` package with W3C trace-context helpers.
 
-- [ ] Create `kiroku-otel/` at the repository root with `kiroku-otel.cabal`, `src/`,
+- [x] Create `kiroku-otel/` at the repository root with `kiroku-otel.cabal`, `src/`,
       `test/`, and `CHANGELOG.md`. The cabal file declares the library target
       `kiroku-otel` exposing the single module `Kiroku.Otel.TraceContext`, with
       `build-depends` on `aeson`, `base`, `bytestring`, `kiroku-store`,
-      `hs-opentelemetry-api ^>= 0.3`, `hs-opentelemetry-propagator-w3c ^>= 0.1`, `text`,
-      `unordered-containers`. The package version is `0.1.0.0` and the synopsis is
-      "OpenTelemetry W3C trace-context helpers for Kiroku event metadata".
-- [ ] Add `kiroku-otel` to `packages:` in `cabal.project` at the repository root. The
+      `hs-opentelemetry-api ^>= 0.3`, `hs-opentelemetry-propagator-w3c ^>= 0.1`, `text`.
+      The package version is `0.1.0.0` and the synopsis is "OpenTelemetry W3C
+      trace-context helpers for Kiroku event metadata". `unordered-containers` was
+      dropped from the dep list during implementation: `aeson`'s `Data.Aeson.KeyMap`
+      and `Data.Aeson.Key` cover the JSON-object operations we need, so an explicit
+      `HashMap` dependency would be dead weight. Done 2026-05-14.
+- [x] Add `kiroku-otel` to `packages:` in `cabal.project` at the repository root. The
       file already lists `kiroku-store` and `shibuya-kiroku-adapter`. Do **not** add a
       new `source-repository-package` block for `hs-opentelemetry`; the project file
       already pins both `hs-opentelemetry-api` and `hs-opentelemetry-propagator-w3c` to
       git tag `adc464b0a45e56a983fa1441be6e432b50c29e0e` for the shibuya-core build,
       and `kiroku-otel` reuses that pin. See the Decision Log entry on the OTel version
-      pin and the design constraint in Purpose.
-- [ ] Implement `Kiroku.Otel.TraceContext` in `kiroku-otel/src/Kiroku/Otel/TraceContext.hs`
+      pin and the design constraint in Purpose. Done 2026-05-14.
+- [x] Implement `Kiroku.Otel.TraceContext` in `kiroku-otel/src/Kiroku/Otel/TraceContext.hs`
       with the two functions described in Interfaces and Dependencies.
       `injectTraceContext` calls `OpenTelemetry.Propagator.W3CTraceContext.encodeSpanContext`
       to obtain the `traceparent` and `tracestate` `ByteString`s, decodes them to UTF-8
       `Text`, and merges them into the existing `metadata` JSON object (creating one if
       `metadata` was `Nothing`). `extractTraceContext` reads `metadata`, pulls the two
       string fields if present, encodes them back to `ByteString`, and calls
-      `OpenTelemetry.Propagator.W3CTraceContext.decodeSpanContext`.
-- [ ] Add a test target `kiroku-otel-test` (Hspec) in `kiroku-otel.cabal`. Add the
+      `OpenTelemetry.Propagator.W3CTraceContext.decodeSpanContext`. Done 2026-05-14.
+- [x] Add a test target `kiroku-otel-test` (Hspec) in `kiroku-otel.cabal`. Add the
       single test file `kiroku-otel/test/Main.hs` with the test groups described in
-      Validation and Acceptance.
-- [ ] Add a `CHANGELOG.md` to `kiroku-otel/` with an `## Unreleased` heading describing
-      the initial helper surface. Reference it under `extra-doc-files` in the cabal file.
-- [ ] Update the repository root `mori.dhall` to register the new package under
+      Validation and Acceptance. Done 2026-05-14.
+- [x] Add a `CHANGELOG.md` to `kiroku-otel/` with an `## Unreleased` heading describing
+      the initial helper surface. Reference it under `extra-doc-files` in the cabal
+      file. Done 2026-05-14.
+- [x] Update the repository root `mori.dhall` to register the new package under
       `packages`: add a `Schema.Package` entry with `name = "kiroku-otel"`, `path = Some
       "kiroku-otel"`, and `description = Some "OpenTelemetry W3C trace-context helpers
       for Kiroku event metadata"`. Add `iand675/hs-opentelemetry` to `dependencies` so
-      `mori show --full` reflects the new dep.
-- [ ] Build and test the new package: from the repository root, run
+      `mori show --full` reflects the new dep. Done 2026-05-14; `mori show --full`
+      now lists three packages and includes `iand675/hs-opentelemetry` in the
+      dependencies stanza.
+- [x] Build and test the new package: from the repository root, run
       `cabal build kiroku-otel:lib:kiroku-otel` then `cabal test
-      kiroku-otel:kiroku-otel-test`. Expect a clean build and a green test suite.
+      kiroku-otel:kiroku-otel-test`. Done 2026-05-14; clean build, 6/6 examples passing
+      in ~1.6 ms.
 
 Milestone 4 — Documentation and changelog.
 
@@ -335,6 +342,28 @@ implementation. Provide concise evidence.
   -> Maybe UUID -> Maybe UUID -> EventData`, which builds an `EventData` from
   scratch via positional record syntax. This avoids per-call type annotations
   while keeping the test code readable.
+
+- **Surprise (2026-05-14)**: The same `DuplicateRecordFields` rule bit
+  `kiroku-otel` even harder than expected. The plan's sketch used
+  `re.metadata` / `ed.metadata` selectors; the GHC 9.12 error is
+  *"Ambiguous occurrence 'metadata'"* because both `EventData` and
+  `RecordedEvent` have a `metadata` field. Record-dot syntax with type
+  annotation (`metadata (ed :: EventData)`) is also rejected. Workaround:
+  pattern-match on the constructor (`case ed of EventData{metadata = m} -> …`
+  and `RecordedEvent{metadata = m} -> …`), then operate on a plain
+  `Maybe Aeson.Value`. The record *update* `ed{metadata = …}` still works
+  but emits a `-Wambiguous-fields` warning; the warning is informational
+  ("type-directed disambiguation will not be supported by
+  -XDuplicateRecordFields in future releases of GHC") so it's left as a
+  future-compatibility flag rather than a build break.
+
+- **Surprise (2026-05-14)**: `OpenTelemetry.Trace.Core.SpanContext` exposes
+  field names (`traceId`, `spanId`, `traceFlags`, `traceState`, `isRemote`)
+  that collide with the existing `Kiroku.Store.Types.RecordedEvent.eventType`
+  imports, so the test module also has to annotate each
+  `traceId (sc :: SpanContext)` access. Pattern-matching is not always
+  practical for the comparator-style assertion, so explicit type ascription
+  is used at the call site.
 
 
 ## Decision Log

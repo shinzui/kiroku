@@ -30,6 +30,12 @@ in  Schema.Project::{ project =
         , path = Some "shibuya-kiroku-adapter"
         , description = Some "Shibuya adapter for Kiroku event store subscriptions"
         }
+      , Schema.Package::{ name = "kiroku-otel"
+        , type = Schema.PackageType.Library
+        , language = Schema.Language.Haskell
+        , path = Some "kiroku-otel"
+        , description = Some "OpenTelemetry W3C trace-context helpers for Kiroku event metadata"
+        }
       ]
     , dependencies =
       [ "effectful/effectful"
@@ -37,6 +43,7 @@ in  Schema.Project::{ project =
       , "hasql:hasql-notifications"
       , "hasql:hasql-pool"
       , "hasql:hasql-transaction"
+      , "iand675/hs-opentelemetry"
       , "MMZK1526/mmzk-typeid"
       , "shinzui/ephemeral-pg"
       , "shinzui/shibuya"

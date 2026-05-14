@@ -1,6 +1,7 @@
 packages:
   kiroku-store
   shibuya-kiroku-adapter
+  kiroku-otel
 
 with-compiler: ghc-9.12.2
 
