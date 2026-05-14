@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+### Added — causation chain and correlation walkers (plan 14)
+
+* `Kiroku.Store.Causation` (new module, re-exported from `Kiroku.Store`):
+  * `findCausationDescendants :: EventId -> Eff es (Vector RecordedEvent)`
+    — walk the causation graph forward from a seed event. Returns the
+    seed plus every event whose `causation_id` chain leads back to it,
+    in ascending `global_position` order. Backed by the existing partial
+    index `ix_events_causation_id`, so cost scales as O(depth · log n)
+    against the total event count.
+  * `findCausationAncestors :: EventId -> Eff es (Vector RecordedEvent)`
+    — symmetric walk in the other direction: returns the seed plus
+    every ancestor reachable by following `causation_id` upward, in
+    leaf-first depth order. Uses the same index.
+  * `findByCorrelation :: UUID -> Eff es (Vector RecordedEvent)` — return
+    every event whose `correlation_id` equals the input, in ascending
+    `global_position` order. Backed by `ix_events_correlation_id`.
+* `Kiroku.Store.Effect.Store` gains a single new constructor
+  `FindEvents :: EventFilter -> Store m (Vector RecordedEvent)` whose
+  argument is a closed sum (`Kiroku.Store.Types.EventFilter` —
+  `FilterCorrelation`, `FilterCausationDescendants`, `FilterCausationAncestors`).
+  The closed-sum shape preserves exhaustiveness checking for downstream
+  mock interpreters.
+* The new reads honor `StoreSettings.decodeHook`, so any interpreter-level
+  decode customization wired through `ConnectionSettings` applies on
+  parity with `readStreamForward` / `readAllForward` / `readCategory`.
+
 ### Added — interpreter-level event-data hooks (plan 13)
 
 * `Kiroku.Store.Settings` (new module, re-exported from `Kiroku.Store`):

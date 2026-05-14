@@ -293,18 +293,22 @@ Milestone 3 — New `kiroku-otel` package with W3C trace-context helpers.
 
 Milestone 4 — Documentation and changelog.
 
-- [ ] Add an `## Unreleased` entry to `kiroku-store/CHANGELOG.md` (created by
+- [x] Add an `## Unreleased` entry to `kiroku-store/CHANGELOG.md` (created by
       `docs/plans/11-single-stream-runtransaction-combinator.md`) describing the new
       `Kiroku.Store.Causation` module and its three functions. Cite the existing
       `ix_events_causation_id` / `ix_events_correlation_id` indexes as the reason the
-      functions are cheap.
-- [ ] Run the targeted library + test build one final time from the repository root to
+      functions are cheap. Done 2026-05-14; entry sits above the plan-13 hooks
+      section.
+- [x] Run the targeted library + test build one final time from the repository root to
       confirm everything still links and tests pass:
 
       ```bash
       cabal build kiroku-store:lib:kiroku-store kiroku-otel:lib:kiroku-otel
       cabal test  kiroku-store:kiroku-store-test kiroku-otel:kiroku-otel-test
       ```
+
+      Done 2026-05-14; both libraries up-to-date, `kiroku-store-test` 125/125 in
+      ~85 s, `kiroku-otel-test` 6/6 in ~1.6 ms.
 
 
 ## Surprises & Discoveries
@@ -534,7 +538,91 @@ implementation. Provide concise evidence.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+### Completion — 2026-05-14
+
+**What shipped.** All four milestones landed in three commits on `master`:
+
+1. `feat(store): add Kiroku.Store.Causation with causation/correlation walkers`
+   (M1) — `EventFilter` ADT, three SQL statements, `FindEvents` effect
+   constructor + interpreter branch, and the public smart-constructor module
+   `Kiroku.Store.Causation` re-exported from `Kiroku.Store`.
+2. `test(store): cover causation chain and correlation walkers` (M2) — 7 new
+   examples in `Test.Causation`, bringing the kiroku-store suite from 118 to
+   125 examples (the 109 figure quoted in the plan was stale).
+3. `feat(otel): add kiroku-otel sister package with W3C trace-context helpers`
+   (M3 + M4 changelogs) — new `kiroku-otel` package with
+   `Kiroku.Otel.TraceContext`, its 6-example Hspec suite, `cabal.project`
+   registration, and `mori.dhall` registration. Both changelogs updated.
+
+**Behavior delivered against the Purpose.** A `keiro` engineer (or any
+`kiroku-store` consumer) can now write `findCausationDescendants
+(EventId triggerUuid)` to retrieve the trigger plus every descendant in
+global-position order, `findCausationAncestors` to walk the same chain
+in reverse from a leaf, and `findByCorrelation sagaUuid` to fan in
+every event for a saga across however many streams it touched. Tracing
+consumers opt in by depending on `kiroku-otel` and using
+`injectTraceContext` / `extractTraceContext` on the `metadata` JSONB
+column; `kiroku-store`'s `build-depends` is unchanged, preserving the
+"no transitive `hs-opentelemetry` dependency" constraint.
+
+**Validation evidence (commands the user can re-run).**
+
+```bash
+cabal build kiroku-store:lib:kiroku-store kiroku-otel:lib:kiroku-otel
+cabal test  kiroku-store:kiroku-store-test kiroku-otel:kiroku-otel-test
+```
+
+* `kiroku-store-test`: 125 examples, 0 failures, ~85 s on the ephemeral-pg
+  fixture.
+* `kiroku-otel-test`: 6 examples, 0 failures, ~1.6 ms.
+
+**Deviations from the plan.**
+
+* The ancestor-walk SQL uses a single self-join (`current.causation_id =
+  parent.event_id`) instead of the denser scalar-subquery shape originally
+  sketched in Interfaces and Dependencies. Recorded in the Decision Log; the
+  plan itself invited this simplification if no planner regression appeared.
+* `decodeEvents` (the `StoreSettings.decodeHook` plumbing) is run on
+  `FindEvents` results. Not called out in the original plan; added so the new
+  reads stay on parity with every other read constructor. Recorded in the
+  Decision Log.
+* `kiroku-otel`'s `injectTraceContext` is implemented via pattern matching
+  rather than record-dot syntax because `DuplicateRecordFields` on GHC 9.12
+  flags `ed.metadata` / `re.metadata` as ambiguous (both `EventData` and
+  `RecordedEvent` carry a `metadata` field of the same type). The
+  `ed{metadata = …}` *update* still compiles with a `-Wambiguous-fields`
+  notice, which GHC will retire in a future release. No follow-up needed
+  beyond keeping an eye on that warning.
+* The kiroku-store test suite gained 7 examples (118 → 125), not 6+1 as the
+  plan stated — the plan double-counted one of the four `findCausationDescendants`
+  cases.
+
+**What's left / follow-ups.** None blocking. Optional future work:
+
+* Streamly-shaped siblings (`findCausationDescendantsStream`,
+  `findByCorrelationStream`) for chains that grow past a few thousand events,
+  following the pattern from plan 12. Decision Log notes this is deliberately
+  deferred.
+* Eliminate the `-Wambiguous-fields` warning inside
+  `kiroku-otel/src/Kiroku/Otel/TraceContext.hs` by either renaming `metadata`
+  on one of the records or qualifying the record update via module-level
+  qualification once GHC drops the type-directed disambiguation rule.
+* A convenience `findCausationChain :: EventId -> Eff es (Vector
+  RecordedEvent)` combining ancestors and descendants, if real-world callers
+  want it.
+
+**Lessons.**
+
+* `DuplicateRecordFields` interacts poorly with `OverloadedRecordDot` and
+  with record update syntax when the same field name lives on multiple
+  records of the same overall payload type. Pattern-matching against the
+  constructor (`EventData{metadata = m}`) is the most robust workaround that
+  doesn't pull in lens; explicit type ascription works for record updates
+  but emits a deprecation warning.
+* The test target's `build-depends` should be audited against the library's
+  whenever a new test module reaches for a library-only transitive dep —
+  `Data.UUID.V7` only lives in `mmzk-typeid`, which the test target didn't
+  list.
 
 
 ## Context and Orientation
