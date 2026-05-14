@@ -48,6 +48,7 @@ import Kiroku.Store.Effect.Resource (KirokuStoreResource, getKirokuStore)
 import Kiroku.Store.Error (StoreError (..), attributeMultiStreamError, emptyResultError, mapUsageError)
 import Kiroku.Store.Observability (KirokuEvent (..))
 import Kiroku.Store.SQL qualified as SQL
+import Kiroku.Store.Settings (enrichEvents)
 import Kiroku.Store.Types
 
 -- ---------------------------------------------------------------------------
@@ -96,8 +97,9 @@ runStorePool ::
 runStorePool store = interpret_ $ \case
     AppendToStream (StreamName name) expected events -> do
         rejectReservedApplicationStream name
+        events' <- liftIO $ enrichEvents (store ^. #storeSettings) events
         now <- liftIO getCurrentTime
-        prepared <- prepareEvents events
+        prepared <- prepareEvents events'
         let params = buildAppendParams name now prepared
         result <- liftIO $ Pool.use (store ^. #pool) $ case expected of
             ExactVersion (StreamVersion v) ->
@@ -151,7 +153,8 @@ runStorePool store = interpret_ $ \case
         preparedOps <-
             mapM
                 ( \(sn, ev, evts) -> do
-                    prepared <- prepareEvents evts
+                    evts' <- liftIO $ enrichEvents (store ^. #storeSettings) evts
+                    prepared <- prepareEvents evts'
                     pure (sn, ev, prepared)
                 )
                 ops

@@ -28,6 +28,7 @@ import Test.Concurrency qualified as Concurrency
 import Test.FailureInjection qualified as FailureInjection
 import Test.Helpers
 import Test.Hspec
+import Test.InterpreterHooks qualified as InterpreterHooks
 import Test.Properties qualified as Properties
 import Test.ReadStream qualified as ReadStream
 import Test.Transaction qualified as Transaction
@@ -39,6 +40,7 @@ main = hspec $ do
     FailureInjection.spec
     Transaction.spec
     ReadStream.spec
+    InterpreterHooks.spec
     around withTestStore $ do
         describe "appendToStream" $ do
             describe "NoStream" $ do

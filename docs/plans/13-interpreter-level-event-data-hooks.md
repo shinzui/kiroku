@@ -114,30 +114,31 @@ and `KirokuStore`:
 
 Milestone 2 — Append-side `enrichEvent` hook:
 
-- [ ] Add internal helper `enrichEvents :: StoreSettings -> [EventData] -> IO [EventData]`
-      in `Kiroku.Store.Settings` (or a new `Kiroku.Store.Settings.Internal` module if
-      the public surface should stay narrow). When `enrichEvent` is `Nothing`,
-      return the list unchanged via `pure`. When `Just f`, `traverse f` over the
-      list.
-- [ ] Wire `enrichEvents` into `runStorePool`'s `AppendToStream` interpreter branch
-      at `kiroku-store/src/Kiroku/Store/Effect.hs:97`, calling it **before**
-      `prepareEvents`.
-- [ ] Wire `enrichEvents` into the `AppendMultiStream` branch at
-      `kiroku-store/src/Kiroku/Store/Effect.hs:145`, applying per-stream over the
-      `[EventData]` lists.
-- [ ] Wire `enrichEvents` into `runTransactionAppendingWith` in
-      `kiroku-store/src/Kiroku/Store/Transaction.hs` between the `$all` reject and
-      `prepareEventsIO`. Source the `StoreSettings` from the `KirokuStore` reachable
-      through the `Store` effect (see Decision Log on how — most likely via a new
-      `GetStoreSettings :: Store m StoreSettings` constructor or by passing the
-      store handle through to `Kiroku.Store.Transaction`'s wrapper).
-- [ ] Add a public convenience `enrichEventsIO :: KirokuStore -> [EventData] -> IO
+- [x] Add internal helper `enrichEvents :: StoreSettings -> [EventData] -> IO [EventData]`
+      in `Kiroku.Store.Settings`. (Landed in M1 to keep the new module cohesive;
+      no callers existed before this milestone wired them up.) — 2026-05-14
+- [x] Wire `enrichEvents` into `runStorePool`'s `AppendToStream` interpreter branch
+      at `kiroku-store/src/Kiroku/Store/Effect.hs`, calling it **before**
+      `prepareEvents`. — 2026-05-14
+- [x] Wire `enrichEvents` into the `AppendMultiStream` branch in the same
+      interpreter, applying per-stream over the `[EventData]` lists inside the
+      `mapM`. — 2026-05-14
+- [x] Wire `enrichEvents` into the transactional path via new public wrappers
+      `runTransactionAppendingResource` and `runTransactionAppendingResourceNoRetry`
+      in `Kiroku.Store.Transaction`. The existing `runTransactionAppending` and
+      `runTransactionAppendingNoRetry` remain as the no-hook fast path (documented
+      to bypass `enrichEvent` and to require manual `enrichEventsIO` if hook
+      coverage is wanted). — 2026-05-14
+- [x] Add public convenience `enrichEventsIO :: KirokuStore -> [EventData] -> IO
       [EventData]` exported from `Kiroku.Store.Transaction` for direct callers of
-      `appendToStreamTx`, who otherwise bypass the hook.
-- [ ] Add unit test `Test.InterpreterHooks.appendHookFires` exercising the marker
-      pattern described in Purpose section above (point 1). Place it in
-      `kiroku-store/test/Test/InterpreterHooks.hs`; wire the file into the cabal
-      file's `other-modules` and `Main.hs` `import qualified` list.
+      `appendToStreamTx`. — 2026-05-14
+- [x] Add unit test `Test.InterpreterHooks.appendHookFires` (under the
+      `InterpreterHooks > enrichEvent` describe block) exercising the marker
+      pattern from the Purpose section. Wire `Test.InterpreterHooks` into
+      `kiroku-store.cabal` (test-suite `other-modules`) and `test/Main.hs`. The
+      milestone adds two `enrichEvent` examples — one for `appendToStream`, one
+      for `appendMultiStream`. `cabal test kiroku-store` reports
+      `116 examples, 0 failures`. — 2026-05-14
 
 Milestone 3 — Read-side and subscription-side `decodeHook`:
 

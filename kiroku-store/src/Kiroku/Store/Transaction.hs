@@ -47,21 +47,31 @@ module Kiroku.Store.Transaction (
     -- * Convenience wrapper for the keiro use case
     runTransactionAppending,
     runTransactionAppendingNoRetry,
+    runTransactionAppendingResource,
+    runTransactionAppendingResourceNoRetry,
+
+    -- * Manual enrichment for direct 'appendToStreamTx' callers
+    enrichEventsIO,
 
     -- * Append-precondition conflicts
     AppendConflict (..),
     appendConflictToStoreError,
 ) where
 
+import Control.Lens ((^.))
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Functor (($>))
+import Data.Generics.Labels ()
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import Effectful (Eff, IOE, (:>))
 import Effectful.Dispatch.Dynamic (send)
 import GHC.Stack (HasCallStack)
 import Hasql.Transaction qualified as Tx
+import Kiroku.Store.Connection (KirokuStore)
 import Kiroku.Store.Effect (PreparedEvent, Store (..), appendDispatchTx, buildAppendParams, prepareEvents)
+import Kiroku.Store.Effect.Resource (KirokuStoreResource, getKirokuStore)
 import Kiroku.Store.Error (AppendConflict (..), StoreError (..), appendConflictToStoreError, emptyResultConflict)
+import Kiroku.Store.Settings qualified as Settings
 import Kiroku.Store.Types
 
 {- | Run an arbitrary 'Tx.Transaction' against the store's connection
@@ -191,6 +201,15 @@ the surrounding @'Effectful.Error.Static.Error' 'StoreError'@ effect
 through the returned 'Either' — that 'Either' is reserved for semantic
 append-precondition conflicts (and the up-front reserved-stream
 rejection).
+
+This wrapper does /not/ apply the
+'Kiroku.Store.Settings.enrichEvent' hook, because resolving the
+'StoreSettings' requires reaching the live 'KirokuStore' handle and the
+constraint set here is intentionally minimal. Callers running on a
+'Kiroku.Store.Effect.Resource.KirokuStoreResource'-flavored stack and
+wanting the hook should use 'runTransactionAppendingResource'; callers
+on a bare stack can call 'enrichEventsIO' explicitly before invoking
+this wrapper.
 -}
 runTransactionAppending ::
     (HasCallStack, IOE :> es, Store :> es) =>
@@ -205,6 +224,10 @@ runTransactionAppending = runTransactionAppendingWith RunTransaction
 'Hasql.Transaction.Sessions.transactionNoRetry' under the hood — the
 transaction body runs exactly once even on PostgreSQL serialization
 conflicts.
+
+Like 'runTransactionAppending', this wrapper bypasses the
+'Kiroku.Store.Settings.enrichEvent' hook; see that function's
+Haddock for guidance on hooking under different stacks.
 -}
 runTransactionAppendingNoRetry ::
     (HasCallStack, IOE :> es, Store :> es) =>
@@ -214,6 +237,61 @@ runTransactionAppendingNoRetry ::
     (AppendResult -> Tx.Transaction a) ->
     Eff es (Either StoreError a)
 runTransactionAppendingNoRetry = runTransactionAppendingWith RunTransactionNoRetry
+
+{- | Hook-aware variant of 'runTransactionAppending' for callers running
+under a 'Kiroku.Store.Effect.Resource.KirokuStoreResource' effect.
+
+Behaves exactly like 'runTransactionAppending' except that the
+'Kiroku.Store.Settings.enrichEvent' hook (if any) is applied to every
+'EventData' before the transaction body opens. The hook fires in
+'IO', /outside/ the transaction; subsequent retries of a serialization
+conflict do not re-invoke it (the enriched events are already prepared).
+
+This is the recommended path for callers — most prominently the
+@keiro@ projection layer — that want trace-context or PII-injection
+hooks to fire uniformly across both direct @'appendToStream'@ calls
+and transactional append+projection sites.
+-}
+runTransactionAppendingResource ::
+    (HasCallStack, IOE :> es, KirokuStoreResource :> es, Store :> es) =>
+    StreamName ->
+    ExpectedVersion ->
+    [EventData] ->
+    (AppendResult -> Tx.Transaction a) ->
+    Eff es (Either StoreError a)
+runTransactionAppendingResource sn expected events k = do
+    store <- getKirokuStore
+    events' <- liftIO $ enrichEventsIO store events
+    runTransactionAppendingWith RunTransaction sn expected events' k
+
+{- | Like 'runTransactionAppendingResource' but uses
+'Hasql.Transaction.Sessions.transactionNoRetry' under the hood.
+-}
+runTransactionAppendingResourceNoRetry ::
+    (HasCallStack, IOE :> es, KirokuStoreResource :> es, Store :> es) =>
+    StreamName ->
+    ExpectedVersion ->
+    [EventData] ->
+    (AppendResult -> Tx.Transaction a) ->
+    Eff es (Either StoreError a)
+runTransactionAppendingResourceNoRetry sn expected events k = do
+    store <- getKirokuStore
+    events' <- liftIO $ enrichEventsIO store events
+    runTransactionAppendingWith RunTransactionNoRetry sn expected events' k
+
+{- | Apply the store's 'Kiroku.Store.Settings.enrichEvent' hook (if any)
+to a list of 'EventData' values.
+
+Use this when calling 'appendToStreamTx' directly — that lower-level
+API does not see the interpreter and therefore does not run the hook
+on its own. Calling 'enrichEventsIO' yourself before
+'prepareEventsIO' restores hook coverage for that path.
+
+When 'Kiroku.Store.Settings.enrichEvent' is 'Nothing' the function
+returns the input list unchanged with no traversal.
+-}
+enrichEventsIO :: KirokuStore -> [EventData] -> IO [EventData]
+enrichEventsIO store = Settings.enrichEvents (store ^. #storeSettings)
 
 {- | Shared implementation for 'runTransactionAppending' and
 'runTransactionAppendingNoRetry'. The only difference between the
