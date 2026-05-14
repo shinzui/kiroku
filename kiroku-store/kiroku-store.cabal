@@ -72,6 +72,7 @@ test-suite kiroku-store-test
   main-is:        Main.hs
   hs-source-dirs: test
   other-modules:
+    Test.Causation
     Test.Concurrency
     Test.FailureInjection
     Test.Helpers

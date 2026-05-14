@@ -212,35 +212,39 @@ Milestone 1 — Effect-level building block in `kiroku-store`.
 
 Milestone 2 — Tests for the causation/correlation helpers.
 
-- [ ] Add a new test module `kiroku-store/test/Test/Causation.hs`, wired into the
+- [x] Add a new test module `kiroku-store/test/Test/Causation.hs`, wired into the
       `other-modules` list of `test-suite kiroku-store-test` in
       `kiroku-store/kiroku-store.cabal` and imported from `kiroku-store/test/Main.hs`.
-- [ ] Test "findCausationDescendants returns the seed event and every descendant in
+      Done 2026-05-14.
+- [x] Test "findCausationDescendants returns the seed event and every descendant in
       global-position order": append a 5-deep chain `A → B → C → D → E` across three
       streams `pm-trigger`, `pm-cmd`, `pm-result` (mimicking the PM hop pattern); each
       event after `A` supplies `causationId = Just (previousEvent.eventId)`. Call
       `findCausationDescendants (eventId A)` and assert the result is `[A, B, C, D, E]`
-      compared by `eventId` and by `globalPosition` strictly increasing.
-- [ ] Test "findCausationDescendants on an eventId with no descendants returns a vector
+      compared by `eventId` and by `globalPosition` strictly increasing. Done 2026-05-14.
+- [x] Test "findCausationDescendants on an eventId with no descendants returns a vector
       of length 1 (the seed only)": append one event with no causation arrow pointing
       at it; call `findCausationDescendants`; assert `V.length == 1` and the single
-      element's `eventId` matches.
-- [ ] Test "findCausationDescendants on a non-existent eventId returns an empty vector":
+      element's `eventId` matches. Done 2026-05-14.
+- [x] Test "findCausationDescendants on a non-existent eventId returns an empty vector":
       use a fresh `UUID.nil` (which is not used by any test event); assert `V.null`.
-- [ ] Test "findCausationAncestors walks from a leaf back to the root": with the same
+      Done 2026-05-14.
+- [x] Test "findCausationAncestors walks from a leaf back to the root": with the same
       chain `A → B → C → D → E`, call `findCausationAncestors (eventId E)` and assert
       the result is `[E, D, C, B, A]` (leaf-first; the SQL `ORDER BY depth ASC` walks
-      back from the leaf). Compare by `eventId`.
-- [ ] Test "findByCorrelation returns every event with the given correlation, in
+      back from the leaf). Compare by `eventId`. Done 2026-05-14.
+- [x] Test "findByCorrelation returns every event with the given correlation, in
       global-position order, across multiple streams": append 7 events across 4 streams
       with `correlationId = Just c`; append a noise event with no correlation; append
       an additional 5 events with `correlationId = Just c2` (a different correlation
       id). Call `findByCorrelation c`; assert the returned vector has length 7, every
       element's `correlationId == Just c`, and `globalPosition` is strictly increasing.
-- [ ] Test "findByCorrelation on an unknown correlation returns an empty vector".
-- [ ] Run the kiroku-store test suite: `cabal test kiroku-store:kiroku-store-test`.
-      Expect every prior test plus the six new ones to pass. Record the example count
-      before and after in Surprises & Discoveries.
+      Done 2026-05-14.
+- [x] Test "findByCorrelation on an unknown correlation returns an empty vector".
+      Done 2026-05-14.
+- [x] Run the kiroku-store test suite: `cabal test kiroku-store:kiroku-store-test`.
+      Done 2026-05-14; 125 examples (was 118), zero failures, ~82s wall time on the
+      ephemeral-pg fixture.
 
 Milestone 3 — New `kiroku-otel` package with W3C trace-context helpers.
 
@@ -302,7 +306,35 @@ Milestone 4 — Documentation and changelog.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+- **Surprise (2026-05-14)**: The plan asserted the kiroku-store test count was 109
+  examples (the M3 outcome of plan 11). The actual pre-existing count on master at
+  the start of M2 was 118 examples — the suite has grown by 9 examples since plan 11
+  through subsequent merges. After adding the seven `Test.Causation` examples the
+  total is 125, all passing. Evidence:
+
+  ```text
+  Finished in 82.0121 seconds
+  125 examples, 0 failures
+  Test suite kiroku-store-test: PASS
+  ```
+
+- **Surprise (2026-05-14)**: `Data.UUID.V7` is exposed only via the
+  `mmzk-typeid` package, which is in the *library*'s `build-depends` but not in
+  the *test target*'s. The test target listed `uuid` directly, so the test
+  module switched to `Data.UUID.V4.nextRandom` for ad-hoc UUID generation. The
+  store accepts any UUID for `eventId`; the column's default `uuidv7()` is only
+  used when the caller supplies `Nothing`. Versioning of test-event UUIDs is
+  irrelevant to the causation/correlation queries since both index on the raw
+  bytes.
+
+- **Surprise (2026-05-14)**: GHC 9.12 + `DuplicateRecordFields` rejects record
+  updates whose field name appears on multiple datatypes (`eventId`,
+  `causationId`, and `correlationId` all live on both `EventData` and
+  `RecordedEvent`), even when the expression being updated has an unambiguous
+  type. The test module compensates with `mkEventWithIds :: Text -> Maybe UUID
+  -> Maybe UUID -> Maybe UUID -> EventData`, which builds an `EventData` from
+  scratch via positional record syntax. This avoids per-call type annotations
+  while keeping the test code readable.
 
 
 ## Decision Log

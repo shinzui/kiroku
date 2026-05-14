@@ -24,6 +24,7 @@ import Kiroku.Store.Error (extractStreamNameFromDetail)
 import Kiroku.Store.Subscription.Effect qualified as SubEff
 import Kiroku.Store.Subscription.EventPublisher (publisherPosition)
 import Kiroku.Store.Subscription.Types (OverflowPolicy (..), SubscriptionConfigM (..), SubscriptionOverflowed (..))
+import Test.Causation qualified as Causation
 import Test.Concurrency qualified as Concurrency
 import Test.FailureInjection qualified as FailureInjection
 import Test.Helpers
@@ -41,6 +42,7 @@ main = hspec $ do
     Transaction.spec
     ReadStream.spec
     InterpreterHooks.spec
+    Causation.spec
     around withTestStore $ do
         describe "appendToStream" $ do
             describe "NoStream" $ do
