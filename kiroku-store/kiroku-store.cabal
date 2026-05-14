@@ -74,6 +74,7 @@ test-suite kiroku-store-test
     Test.FailureInjection
     Test.Helpers
     Test.Properties
+    Test.ReadStream
     Test.Transaction
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N
@@ -94,6 +95,7 @@ test-suite kiroku-store-test
     , kiroku-store
     , lens               >=5.2
     , stm
+    , streamly-core      >=0.3
     , text               >=2.0
     , time               >=1.12
     , uuid

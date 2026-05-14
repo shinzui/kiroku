@@ -155,39 +155,23 @@ Milestone 1 — Library: add `readStreamForwardStream` to `Kiroku.Store.Read`.
 
 Milestone 2 — Tests: validate identity-with-Vector and multi-page hydration.
 
-- [ ] Add `streamly-core >= 0.3` to the `test-suite kiroku-store-test` `build-depends`
-      stanza in `kiroku-store/kiroku-store.cabal`. The test suite does not currently link
-      against `streamly-core` (only the library target does).
-- [ ] Add a new test module `kiroku-store/test/Test/ReadStream.hs` housing the
-      `readStreamForwardStream` Hspec group. Wire it into the `other-modules` list of
-      `test-suite kiroku-store-test` in `kiroku-store/kiroku-store.cabal` and import it
-      from `kiroku-store/test/Main.hs`.
-- [ ] Test "identity with `readStreamForward` on a single-page stream": append 5 events
-      to a fresh stream, call `Stream.toList (readStreamForwardStream name (StreamVersion
-      0) 256)` and compare it with `V.toList <$> readStreamForward name (StreamVersion 0)
-      256`. The two lists must compare equal element-by-element.
-- [ ] Test "multi-page hydration in constant memory shape": append 1,000 events to a
-      fresh stream (in batches small enough not to time out the test), then fold
-      `readStreamForwardStream` with `Streamly.Data.Fold.length` at `pageSize = 256`. The
-      fold must return `1000`. The test also checks that the *first* and *last* events'
-      `streamVersion` and `eventType` match expectations, proving order is preserved
-      across page boundaries.
-- [ ] Test "page-boundary cursor invariant": with 5 events in the stream and `pageSize =
-      2`, fold the stream collecting the `streamVersion` of each event into a list. Expect
-      `[StreamVersion 1, StreamVersion 2, StreamVersion 3, StreamVersion 4, StreamVersion
-      5]` — no duplicates, no gaps, in order. This proves the cursor advance between
-      pages is correct.
-- [ ] Test "empty / nonexistent stream": call `readStreamForwardStream` on a stream that
-      was never created; the resulting stream must terminate immediately with zero
-      elements emitted (mirroring `readStreamForward`'s `V.length result == 0`
-      behaviour).
-- [ ] Test "non-zero start cursor": append 5 events; call `readStreamForwardStream name
-      (StreamVersion 2) 256` and assert that exactly 3 events come back, with
-      `streamVersion` values `[3, 4, 5]`. Confirms cursor exclusivity is preserved by the
-      streaming wrapper.
-- [ ] Run the full test suite from the repository root: `cabal test
-      kiroku-store:kiroku-store-test`. Expect every test (the prior suite plus the new
-      `readStreamForwardStream` group) to pass.
+- [x] Add `streamly-core >= 0.3` to the `test-suite kiroku-store-test` `build-depends`
+      stanza in `kiroku-store/kiroku-store.cabal`. — 2026-05-13
+- [x] Add a new test module `kiroku-store/test/Test/ReadStream.hs` housing the
+      `readStreamForwardStream` Hspec group. Wired into `other-modules` and called from
+      `test/Main.hs`. — 2026-05-13
+- [x] Test "identity with `readStreamForward` on a single-page stream". — 2026-05-13
+- [x] Test "multi-page hydration in constant memory shape" — 1,000 events folded with
+      `Streamly.Data.Fold.length` at `pageSize = 256`; first/last `streamVersion` and
+      `eventType` checked. Used a single `appendToStream` call with the 1,000-event list
+      rather than batching (the existing test suite already uses single-call appends, and
+      the SQL layer handles array params natively). — 2026-05-13
+- [x] Test "page-boundary cursor invariant" (5 events, `pageSize = 2`). — 2026-05-13
+- [x] Test "empty / nonexistent stream". — 2026-05-13
+- [x] Test "non-zero start cursor" (`StreamVersion 2`, expect 3 events). — 2026-05-13
+- [x] Run the full test suite. — 2026-05-13. `cabal test kiroku-store:kiroku-store-test`
+      reports `Finished in 78.9849 seconds; 114 examples, 0 failures` (109 prior +
+      5 new).
 
 Milestone 3 — Documentation and changelog.
 
@@ -209,7 +193,17 @@ Milestone 3 — Documentation and changelog.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+- 2026-05-13. The first test draft used `(head xs, last xs)` to pull the first and last
+  events from the materialized 1,000-event list. GHC's `-Wx-partial` raised a warning on
+  `head` (and `last`), violating the "no new warnings" acceptance bar. Refactored to use
+  `Data.List.NonEmpty.nonEmpty` plus `NE.head` / `NE.last`, which are total. The test
+  now compiles cleanly. Evidence: the Milestone 2 build output shows `[5 of 7] Compiling
+  Test.ReadStream` with no warnings after the refactor.
+
+- 2026-05-13. The plan's "approximate expected count" was 110 examples; the actual count
+  came in at 114 (109 prior + 5 new). The prior count drifted up between when the plan
+  was written and when it was implemented; the `0 failures` signal is what matters and
+  is observed.
 
 
 ## Decision Log
