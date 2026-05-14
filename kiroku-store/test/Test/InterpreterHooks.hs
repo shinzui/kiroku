@@ -14,6 +14,7 @@ Three concerns are covered (added across the plan's milestones):
 -}
 module Test.InterpreterHooks (spec) where
 
+import Control.Concurrent.MVar (newEmptyMVar, takeMVar, tryPutMVar)
 import Control.Lens ((&), (.~), (^.))
 import Data.Aeson qualified as Aeson
 import Data.Foldable (for_)
@@ -21,12 +22,13 @@ import Data.Generics.Labels ()
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.Vector qualified as V
 import Kiroku.Store
-import Test.Helpers (makeEvent, withTestStoreSettings)
+import Test.Helpers (makeEvent, waitForPublisher, waitWithTimeout, withTestStoreSettings)
 import Test.Hspec
 
 spec :: Spec
 spec = describe "InterpreterHooks" $ do
     describe "enrichEvent" appendHookFiresSpec
+    describe "decodeHook" readHookFiresSpec
 
 -- ---------------------------------------------------------------------------
 -- enrichEvent
@@ -78,3 +80,77 @@ appendHookFiresSpec = do
             Right vB <- runStoreIO store $ readStreamForward (StreamName "hook-multi-B") (StreamVersion 0) 10
             for_ (V.toList vA <> V.toList vB) $ \re ->
                 (re ^. #metadata) `shouldBe` Just (Aeson.object [("multi", Aeson.Bool True)])
+
+-- ---------------------------------------------------------------------------
+-- decodeHook
+-- ---------------------------------------------------------------------------
+
+readHookFiresSpec :: Spec
+readHookFiresSpec = do
+    it "applies decodeHook to readAllForward results" $ do
+        let marker = Aeson.object [("decoded", Aeson.String "yes")]
+            inject re = pure $ re & #metadata .~ Just marker
+            tweak cs =
+                cs
+                    & #storeSettings
+                        .~ defaultStoreSettings{decodeHook = Just inject}
+        withTestStoreSettings tweak $ \store -> do
+            Right _ <-
+                runStoreIO store $
+                    appendToStream
+                        (StreamName "hook-decode-1")
+                        NoStream
+                        [ makeEvent "E1" (Aeson.object [])
+                        , makeEvent "E2" (Aeson.object [])
+                        , makeEvent "E3" (Aeson.object [])
+                        ]
+            Right v <-
+                runStoreIO store $
+                    readAllForward (GlobalPosition 0) 10
+            V.length v `shouldBe` 3
+            for_ (V.toList v) $ \re ->
+                (re ^. #metadata) `shouldBe` Just marker
+
+    it "applies decodeHook to subscription handlers across catch-up and live phases" $ do
+        let marker = Aeson.object [("sub", Aeson.String "tagged")]
+            inject re = pure $ re & #metadata .~ Just marker
+            subName = SubscriptionName "hook-sub-1"
+            tweak cs =
+                cs
+                    & #storeSettings
+                        .~ defaultStoreSettings{decodeHook = Just inject}
+        withTestStoreSettings tweak $ \store -> do
+            -- Pre-append one event so the worker's catch-up path runs
+            -- before live mode kicks in.
+            Right warm <-
+                runStoreIO store $
+                    appendToStream
+                        (StreamName "hook-sub-stream-1")
+                        NoStream
+                        [makeEvent "warm" (Aeson.object [])]
+            waitForPublisher store (warm ^. #globalPosition)
+
+            seen <- newIORef ([] :: [Maybe Aeson.Value])
+            done <- newEmptyMVar
+            let handlerFn re = do
+                    modifyIORef' seen ((re ^. #metadata) :)
+                    n <- length <$> readIORef seen
+                    if n >= 2
+                        then Stop <$ tryPutMVar done ()
+                        else pure Continue
+                config = defaultSubscriptionConfig subName AllStreams handlerFn
+            sub <- subscribe store config
+            -- Append a second event to land in live mode.
+            Right _ <-
+                runStoreIO store $
+                    appendToStream
+                        (StreamName "hook-sub-stream-2")
+                        NoStream
+                        [makeEvent "live" (Aeson.object [])]
+            takeMVar done
+            res <- waitWithTimeout 2_000_000 sub
+            case res of
+                Right (Right ()) -> pure ()
+                other -> expectationFailure ("subscription did not finish cleanly: " <> show other)
+            metas <- reverse <$> readIORef seen
+            metas `shouldBe` [Just marker, Just marker]

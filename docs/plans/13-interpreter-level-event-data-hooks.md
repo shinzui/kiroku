@@ -142,23 +142,30 @@ Milestone 2 — Append-side `enrichEvent` hook:
 
 Milestone 3 — Read-side and subscription-side `decodeHook`:
 
-- [ ] Add internal helper
+- [x] Add internal helper
       `decodeEvents :: StoreSettings -> Vector RecordedEvent -> IO (Vector RecordedEvent)`
-      in `Kiroku.Store.Settings`. Same no-op shortcut as `enrichEvents` when the
-      hook is `Nothing`.
-- [ ] Wire `decodeEvents` into each read-shaped interpreter branch in
+      in `Kiroku.Store.Settings`. (Landed in M1 alongside `enrichEvents` for the
+      same module-cohesion reason.) — 2026-05-14
+- [x] Wire `decodeEvents` into each read-shaped interpreter branch in
       `runStorePool`: `ReadStreamForward`, `ReadStreamBackward`, `ReadAllForward`,
-      `ReadAllBackward`, `ReadCategoryForward`. Apply after `usePool` returns the
-      vector and before the value is returned from the branch.
-- [ ] Apply `decodeEvents` inside the subscription `EventPublisher` at
+      `ReadAllBackward`, `ReadCategoryForward`. Applied after `usePool` returns
+      the vector and before the value is returned from the branch. — 2026-05-14
+- [x] Apply `decodeEvents` inside the subscription `EventPublisher` at
       `kiroku-store/src/Kiroku/Store/Subscription/EventPublisher.hs` so that
       live-mode events are transformed once, in the publisher, before being
-      broadcast to all subscribers.
-- [ ] Apply `decodeEvents` inside the subscription `Worker`'s catch-up batch fetch
+      broadcast to all subscribers. `startPublisher` gained a `StoreSettings`
+      parameter; `withStore` threads it from `ConnectionSettings.storeSettings`.
+      — 2026-05-14
+- [x] Apply `decodeEvents` inside the subscription `Worker`'s catch-up batch fetch
       at `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs` so that catch-up
-      events are transformed in the same way as live events.
-- [ ] Add unit test `Test.InterpreterHooks.readHookFires` covering point 2 in the
-      Purpose section: both `readAllForward` and `subscribe` see the marker.
+      events are transformed in the same way as live events. `runWorker` gained a
+      `StoreSettings` parameter; `Kiroku.Store.Subscription.subscribe` reads it
+      from `KirokuStore.storeSettings` and passes it through. — 2026-05-14
+- [x] Add unit test `Test.InterpreterHooks.readHookFires` covering point 2 in the
+      Purpose section: both `readAllForward` and a short-lived `subscribe`
+      handler see the marker. Test exercises both catch-up (warm event appended
+      before `subscribe`) and live (event appended after `subscribe`) phases. —
+      2026-05-14
 
 Milestone 4 — Documentation, no-op fast-path verification, and benchmark check:
 

@@ -44,6 +44,7 @@ import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Kiroku.Store.Observability (KirokuEvent (..))
 import Kiroku.Store.SQL qualified as SQL
+import Kiroku.Store.Settings (StoreSettings, decodeEvents)
 import Kiroku.Store.Subscription.Types (OverflowPolicy (..))
 import Kiroku.Store.Types (GlobalPosition (..), RecordedEvent (..))
 import Numeric.Natural (Natural)
@@ -112,14 +113,18 @@ startPublisher ::
     TChan () ->
     -- | optional event handler for publisher-side observability
     Maybe (KirokuEvent -> IO ()) ->
+    {- | interpreter-level event hooks; 'Kiroku.Store.Settings.decodeHook'
+    runs once per fetched batch before fan-out to subscribers.
+    -}
+    StoreSettings ->
     m EventPublisher
-startPublisher pool notifierChan mHandler = liftIO $ do
+startPublisher pool notifierChan mHandler stSettings = liftIO $ do
     subsVar <- newTVarIO IntMap.empty
     nextIdVar <- newTVarIO 0
     pos <- newTVarIO (GlobalPosition 0)
     -- Get a personal copy of the notifier's broadcast channel
     tickChan <- atomically (dupTChan notifierChan)
-    thread <- Async.async (publisherLoop pool tickChan subsVar pos mHandler)
+    thread <- Async.async (publisherLoop pool tickChan subsVar pos mHandler stSettings)
     pure
         EventPublisher
             { subscribers = subsVar
@@ -170,8 +175,9 @@ publisherLoop ::
     TVar (IntMap Subscriber) ->
     TVar GlobalPosition ->
     Maybe (KirokuEvent -> IO ()) ->
+    StoreSettings ->
     IO ()
-publisherLoop pool tickChan subsVar posVar mHandler = loop
+publisherLoop pool tickChan subsVar posVar mHandler stSettings = loop
   where
     loop = do
         -- Wait for a tick OR safety poll timeout
@@ -190,9 +196,13 @@ publisherLoop pool tickChan subsVar posVar mHandler = loop
                 -- Surface the pool error so operators see why broadcast
                 -- has stalled; the 30-second safety poll will retry.
                 for_ mHandler ($ KirokuEventPublisherPoolError err)
-            Right events
-                | V.null events -> pure ()
+            Right rawEvents
+                | V.null rawEvents -> pure ()
                 | otherwise -> do
+                    -- Apply the decodeHook once per batch — every subscriber
+                    -- observes the same transformed view, and the cost is
+                    -- paid in one place instead of per-subscriber.
+                    events <- decodeEvents stSettings rawEvents
                     let lastEvent = V.last events
                         newPos = globalPosition lastEvent
                     -- Snapshot the current subscriber set, then deliver outside

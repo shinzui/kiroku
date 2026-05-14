@@ -48,7 +48,7 @@ import Kiroku.Store.Effect.Resource (KirokuStoreResource, getKirokuStore)
 import Kiroku.Store.Error (StoreError (..), attributeMultiStreamError, emptyResultError, mapUsageError)
 import Kiroku.Store.Observability (KirokuEvent (..))
 import Kiroku.Store.SQL qualified as SQL
-import Kiroku.Store.Settings (enrichEvents)
+import Kiroku.Store.Settings (decodeEvents, enrichEvents)
 import Kiroku.Store.Types
 
 -- ---------------------------------------------------------------------------
@@ -117,18 +117,26 @@ runStorePool store = interpret_ $ \case
                 throwError (emptyResultError name expected)
             Right (Just r) ->
                 pure r
-    ReadStreamForward (StreamName name) (StreamVersion startVer) limit ->
-        usePool (store ^. #pool) $
-            Session.statement (name, startVer, limit) SQL.readStreamForwardStmt
-    ReadStreamBackward (StreamName name) (StreamVersion startVer) limit ->
-        usePool (store ^. #pool) $
-            Session.statement (name, startVer, limit) SQL.readStreamBackwardStmt
-    ReadAllForward (GlobalPosition startPos) limit ->
-        usePool (store ^. #pool) $
-            Session.statement (startPos, limit) SQL.readAllForwardStmt
-    ReadAllBackward (GlobalPosition startPos) limit ->
-        usePool (store ^. #pool) $
-            Session.statement (startPos, limit) SQL.readAllBackwardStmt
+    ReadStreamForward (StreamName name) (StreamVersion startVer) limit -> do
+        evs <-
+            usePool (store ^. #pool) $
+                Session.statement (name, startVer, limit) SQL.readStreamForwardStmt
+        liftIO $ decodeEvents (store ^. #storeSettings) evs
+    ReadStreamBackward (StreamName name) (StreamVersion startVer) limit -> do
+        evs <-
+            usePool (store ^. #pool) $
+                Session.statement (name, startVer, limit) SQL.readStreamBackwardStmt
+        liftIO $ decodeEvents (store ^. #storeSettings) evs
+    ReadAllForward (GlobalPosition startPos) limit -> do
+        evs <-
+            usePool (store ^. #pool) $
+                Session.statement (startPos, limit) SQL.readAllForwardStmt
+        liftIO $ decodeEvents (store ^. #storeSettings) evs
+    ReadAllBackward (GlobalPosition startPos) limit -> do
+        evs <-
+            usePool (store ^. #pool) $
+                Session.statement (startPos, limit) SQL.readAllBackwardStmt
+        liftIO $ decodeEvents (store ^. #storeSettings) evs
     GetStream (StreamName name) ->
         usePool (store ^. #pool) $
             Session.statement name SQL.getStreamStmt
@@ -141,9 +149,11 @@ runStorePool store = interpret_ $ \case
         case result of
             Nothing -> throwError (StreamNotFound (StreamName name))
             Just r -> pure r
-    ReadCategoryForward (CategoryName cat) (GlobalPosition startPos) limit ->
-        usePool (store ^. #pool) $
-            Session.statement (startPos, cat, limit) SQL.readCategoryForwardStmt
+    ReadCategoryForward (CategoryName cat) (GlobalPosition startPos) limit -> do
+        evs <-
+            usePool (store ^. #pool) $
+                Session.statement (startPos, cat, limit) SQL.readCategoryForwardStmt
+        liftIO $ decodeEvents (store ^. #storeSettings) evs
     AppendMultiStream ops -> do
         case find (\(StreamName name, _, _) -> isReservedApplicationStream name) ops of
             Just (sn, _, _) -> throwError (ReservedStreamName sn)

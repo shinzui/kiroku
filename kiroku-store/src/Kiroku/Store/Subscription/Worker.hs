@@ -20,6 +20,7 @@ import Kiroku.Store.Observability (
     SubscriptionStopReason (..),
  )
 import Kiroku.Store.SQL qualified as SQL
+import Kiroku.Store.Settings (StoreSettings, decodeEvents)
 import Kiroku.Store.Subscription.EventPublisher (SubscriberStatus (..))
 import Kiroku.Store.Subscription.Types
 import Kiroku.Store.Types (CategoryName (..), GlobalPosition (..), RecordedEvent (..))
@@ -59,8 +60,13 @@ runWorker ::
     SubscriptionConfig ->
     -- | optional event handler for subscription observability
     Maybe (KirokuEvent -> IO ()) ->
+    {- | interpreter-level event hooks; 'Kiroku.Store.Settings.decodeHook'
+    runs on the catch-up fetch path, mirroring the publisher's
+    application in live mode.
+    -}
+    StoreSettings ->
     m ()
-runWorker pool liveQueue statusVar pubPosVar config mHandler = liftIO $ do
+runWorker pool liveQueue statusVar pubPosVar config mHandler stSettings = liftIO $ do
     let emit evt = for_ mHandler ($ evt)
         subName = name config
     posRef <- newIORef (GlobalPosition 0)
@@ -70,7 +76,7 @@ runWorker pool liveQueue statusVar pubPosVar config mHandler = liftIO $ do
             writeIORef posRef checkpoint
             emit (KirokuEventSubscriptionStarted subName checkpoint)
             -- Phase 1: catch-up (returns Nothing if handler said Stop)
-            result <- catchUp pool config checkpoint pubPosVar emit posRef
+            result <- catchUp pool config checkpoint pubPosVar emit posRef stSettings
             case result of
                 Nothing -> pure () -- Handler said Stop during catch-up; exit
                 Just finalPos -> do
@@ -88,7 +94,7 @@ runWorker pool liveQueue statusVar pubPosVar config mHandler = liftIO $ do
                     --     query and avoids both.
                     case target config of
                         AllStreams -> liveLoop pool liveQueue statusVar config emit posRef finalPos
-                        Category{} -> liveLoopCategoryDriven pool config pubPosVar emit posRef finalPos
+                        Category{} -> liveLoopCategoryDriven pool config pubPosVar emit posRef finalPos stSettings
 
     result <- try body
     pos <- readIORef posRef
@@ -133,8 +139,9 @@ catchUp ::
     TVar GlobalPosition ->
     (KirokuEvent -> IO ()) ->
     IORef GlobalPosition ->
+    StoreSettings ->
     IO (Maybe GlobalPosition)
-catchUp pool config startPos pubPosVar emit posRef = go startPos
+catchUp pool config startPos pubPosVar emit posRef stSettings = go startPos
   where
     go cursor = do
         writeIORef posRef cursor
@@ -142,7 +149,7 @@ catchUp pool config startPos pubPosVar emit posRef = go startPos
         if cursor >= pubPos
             then pure (Just cursor)
             else do
-                events <- fetchBatch pool config cursor emit
+                events <- fetchBatch pool config cursor emit stSettings
                 if V.null events
                     then pure (Just cursor)
                     else do
@@ -202,8 +209,9 @@ liveLoopCategoryDriven ::
     (KirokuEvent -> IO ()) ->
     IORef GlobalPosition ->
     GlobalPosition ->
+    StoreSettings ->
     IO ()
-liveLoopCategoryDriven pool config pubPosVar emit posRef startPos = go startPos
+liveLoopCategoryDriven pool config pubPosVar emit posRef startPos stSettings = go startPos
   where
     go cursor = do
         writeIORef posRef cursor
@@ -211,7 +219,7 @@ liveLoopCategoryDriven pool config pubPosVar emit posRef startPos = go startPos
         atomically $ do
             pubPos <- readTVar pubPosVar
             check (pubPos > cursor)
-        events <- fetchBatch pool config cursor emit
+        events <- fetchBatch pool config cursor emit stSettings
         if V.null events
             then go cursor
             else do
@@ -230,8 +238,9 @@ fetchBatch ::
     SubscriptionConfig ->
     GlobalPosition ->
     (KirokuEvent -> IO ()) ->
+    StoreSettings ->
     IO (Vector RecordedEvent)
-fetchBatch pool config (GlobalPosition pos) emit =
+fetchBatch pool config (GlobalPosition pos) emit stSettings =
     case target config of
         AllStreams -> do
             result <- Pool.use pool (Session.statement (pos, batchSize config) SQL.readAllForwardStmt)
@@ -244,7 +253,10 @@ fetchBatch pool config (GlobalPosition pos) emit =
         Left err -> do
             emit (KirokuEventSubscriptionDbError (name config) FetchBatch err)
             pure V.empty
-        Right events -> pure events
+        -- Apply decodeHook on the catch-up path so catch-up batches are
+        -- transformed identically to live batches (which the publisher
+        -- transforms once before fan-out).
+        Right events -> decodeEvents stSettings events
 
 -- Process a batch of events through the handler. Returns the new cursor
 -- position if all events were processed (handler returned Continue for all),

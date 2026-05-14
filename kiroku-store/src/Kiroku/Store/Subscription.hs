@@ -104,7 +104,7 @@ subscribe store config = liftIO $ do
     -- policy on the next batch.
     thread <-
         Async.async
-            ( runWorker (store ^. #pool) queue statusVar pubPosVar config (store ^. #eventHandler)
+            ( runWorker (store ^. #pool) queue statusVar pubPosVar config (store ^. #eventHandler) (store ^. #storeSettings)
                 `finally` unsubscribe
             )
     pure

@@ -217,7 +217,7 @@ withStore settings action = withRunInIO $ \runInIO ->
         -- Start Notifier (dedicated LISTEN connection)
         n <- Notifier.startNotifier cs s evtHandler
         -- Start EventPublisher (depends on Notifier's TChan)
-        pub <- Publisher.startPublisher p (Notifier.tickChan n) evtHandler
+        pub <- Publisher.startPublisher p (Notifier.tickChan n) evtHandler stSettings
         pure
             KirokuStore
                 { pool = p
