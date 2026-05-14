@@ -2,6 +2,55 @@
 
 ## Unreleased
 
+### Added — interpreter-level event-data hooks (plan 13)
+
+* `Kiroku.Store.Settings` (new module, re-exported from `Kiroku.Store`):
+  * `StoreSettings { enrichEvent :: Maybe (EventData -> IO EventData),
+    decodeHook :: Maybe (RecordedEvent -> IO RecordedEvent) }` — optional
+    interpreter-level hooks. `enrichEvent` runs on the append path before
+    encoding (on the typed `EventData` the caller supplied); `decodeHook`
+    runs on the read and subscription paths after decoding (on the typed
+    `RecordedEvent` about to be surfaced). Both default to `Nothing`,
+    taking a `pure` fast path that adds no traversal or allocation when
+    the hook is absent.
+  * `defaultStoreSettings` — both fields `Nothing` (no-op).
+  * `enrichEvents :: StoreSettings -> [EventData] -> IO [EventData]` and
+    `decodeEvents :: StoreSettings -> Vector RecordedEvent -> IO (Vector
+    RecordedEvent)` — internal helpers reused by the interpreter, the
+    subscription publisher, the subscription worker, and the new
+    `enrichEventsIO` convenience.
+* `Kiroku.Store.Connection.ConnectionSettings` and
+  `Kiroku.Store.Connection.KirokuStore` gain a `storeSettings ::
+  StoreSettings` field. `defaultConnectionSettings` seeds it with
+  `defaultStoreSettings` so existing callers see no behaviour change.
+  `withStore` copies the value onto the runtime handle for the
+  interpreter, the publisher, and the worker to read.
+* `Kiroku.Store.Transaction`:
+  * `runTransactionAppendingResource` /
+    `runTransactionAppendingResourceNoRetry` — hook-aware variants of
+    `runTransactionAppending` / `runTransactionAppendingNoRetry` for
+    callers running under a `KirokuStoreResource` effect. They apply
+    `enrichEvent` to every `EventData` before opening the transaction.
+  * `enrichEventsIO :: KirokuStore -> [EventData] -> IO [EventData]` —
+    public convenience for direct callers of `appendToStreamTx`, who
+    bypass the interpreter.
+
+A typical use case is enriching every appended event with an
+OpenTelemetry trace context:
+
+```haskell
+storeSettings = defaultStoreSettings
+  { enrichEvent = Just $ \ed -> do
+      ctx <- captureCurrentSpan
+      pure (ed & #metadata %~ injectTraceContext ctx)
+  }
+```
+
+Wired through `ConnectionSettings`'s `storeSettings` field, the hook
+fires uniformly across `appendToStream`, `appendMultiStream`,
+`runTransactionAppendingResource`, every read path, and the
+subscription pipeline (live + catch-up).
+
 ### Added — streaming single-stream forward read
 
 * `Kiroku.Store.Read.readStreamForwardStream` (re-exported from

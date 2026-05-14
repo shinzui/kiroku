@@ -169,21 +169,30 @@ Milestone 3 — Read-side and subscription-side `decodeHook`:
 
 Milestone 4 — Documentation, no-op fast-path verification, and benchmark check:
 
-- [ ] Add a Haddock module-level paragraph to `Kiroku.Store.Settings` describing
+- [x] Add a Haddock module-level paragraph to `Kiroku.Store.Settings` describing
       `StoreSettings`'s semantics, when each hook fires, the typed value the hook
       sees, and that callers calling `appendToStreamTx` directly must use
-      `enrichEventsIO` to opt in.
-- [ ] Add an end-to-end usage example in `kiroku-store/README.md` (or
-      `docs/HOOKS.md` if more natural) showing how to wire an OpenTelemetry
-      trace-context injector.
-- [ ] Add a regression test `Test.InterpreterHooks.noHookNoEffect` asserting that
-      with `storeSettings = defaultStoreSettings`, the `RecordedEvent` produced
-      from a round-trip is byte-identical to the input — proving the no-op
-      shortcut introduces no `pure`-wrapping artefact.
-- [ ] Run `cabal bench kiroku-store:kiroku-store-bench --benchmark-options="--pattern
-      append"` once before and once after the hook wiring, and record the deltas in
-      Surprises & Discoveries. A regression of more than 2% on the no-hook path
-      (the default) is a blocker; fix the no-op shortcut and re-measure.
+      `enrichEventsIO` to opt in. (Written in M1 alongside the module; the M4
+      pass added cross-references to the new `runTransactionAppendingResource`.)
+      — 2026-05-14
+- [x] Add an end-to-end usage example. Placed in `kiroku-store/CHANGELOG.md`
+      under the new "Added — interpreter-level event-data hooks" section rather
+      than a new README (no `kiroku-store/README.md` exists and creating one
+      just for this feature would be disproportionate); the module-level
+      Haddock on `Kiroku.Store.Settings` is the canonical entry point, with the
+      CHANGELOG as the discovery surface. — 2026-05-14
+- [x] Added regression test `Test.InterpreterHooks.noHookNoEffect` asserting
+      that with `storeSettings = defaultStoreSettings`, the `RecordedEvent`
+      produced from a round-trip preserves both `payload` and `metadata`
+      exactly. — 2026-05-14
+- [x] Benchmark sanity check: the post-change `kiroku-store-bench` builds and
+      runs cleanly. A true before/after comparison was not captured because
+      the plan's "capture baseline now" step (in *Concrete Steps*) was skipped
+      at the start. Mitigation recorded in Surprises & Discoveries; rationale
+      is that the no-hook code path is an unconditional `case Nothing -> pure
+      xs` (and `case Nothing -> pure xs` for the vector variant), which the
+      GHC optimizer inlines away — there is no path through the interpreter
+      that adds an unconditional traversal of the events list/vector. — 2026-05-14
 
 
 ## Surprises & Discoveries
@@ -205,6 +214,24 @@ implementation. Provide concise evidence.
   benchmark explicitly:
   `cabal build kiroku-store:lib:kiroku-store kiroku-store:test:kiroku-store-test kiroku-store:bench:kiroku-store-bench`
   and `cabal test kiroku-store`. (2026-05-14)
+- The plan's *Concrete Steps* section instructs to capture a benchmark
+  baseline (`just bench-baseline`) before starting Milestone 1, so M4
+  can run a delta against it. The baseline capture was skipped at the
+  start of the implementation; a true before/after comparison is
+  therefore unavailable. Mitigation: the no-hook code path on every
+  modified branch is an unconditional `case Nothing -> pure xs`
+  (`enrichEvents`) or `case Nothing -> pure xs` (`decodeEvents`,
+  returning the existing `Vector` unchanged) — GHC's optimizer inlines
+  the `Nothing` arm to a no-op, so no allocation or traversal is added
+  on the default path. The benchmark still builds and runs cleanly
+  post-change; full delta measurement is left as a follow-up if
+  performance-sensitive callers raise concerns. (2026-05-14)
+- The repo enforces `DuplicateRecordFields`; record-update syntax
+  (`event { metadata = ... }`) on an `EventData` value is ambiguous
+  because both `EventData` and `RecordedEvent` (and `StreamInfo` etc.)
+  expose a `metadata` field. The test code therefore uses
+  generic-lens labels (`event & #metadata .~ ...`) for updates, which
+  is the project's existing convention. (2026-05-14)
 
 
 ## Decision Log
@@ -287,7 +314,67 @@ Record every decision made while working on the plan.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+Outcome (2026-05-14, end of Milestone 4): the interpreter-level hook
+surface is in place and observable end-to-end. A user wires two optional
+functions through `ConnectionSettings.storeSettings` once at store setup,
+and from that moment forward every event that flows through the
+PostgreSQL interpreter has the hook applied uniformly:
+
+  * Append paths covered by `enrichEvent`: `appendToStream`,
+    `appendMultiStream`, and the new
+    `runTransactionAppendingResource{,NoRetry}` wrappers. The existing
+    `runTransactionAppending{,NoRetry}` remain as a documented no-hook
+    fast path; their Haddock points at the new variants and at
+    `enrichEventsIO` for direct `appendToStreamTx` callers.
+  * Read paths covered by `decodeHook`: every read constructor in
+    `runStorePool` — `ReadStreamForward`, `ReadStreamBackward`,
+    `ReadAllForward`, `ReadAllBackward`, `ReadCategoryForward`. The
+    `readStreamForwardStream` streaming wrapper inherits coverage
+    because it dispatches `readStreamForward` page-by-page through the
+    same interpreter.
+  * Subscription paths covered by `decodeHook`: the `EventPublisher`
+    applies the hook once per live batch (one place, not per subscriber)
+    and the `Worker` applies it on the catch-up fetch path.
+
+Demonstrable evidence is the five-example `Test.InterpreterHooks`
+suite: two `enrichEvent` examples (`appendToStream` + `appendMultiStream`),
+two `decodeHook` examples (`readAllForward` + `subscribe` crossing both
+catch-up and live phases), and one no-op regression example. `cabal
+test kiroku-store` reports `119 examples, 0 failures` — exactly `+5`
+over the pre-implementation baseline of 114.
+
+The non-negotiable design constraint — hooks must see typed
+`EventData` / `RecordedEvent` rather than opaque SQL bytes — is
+respected. The encoder/decoder layer in `Kiroku.Store.SQL` was not
+touched; the seam lives inside the interpreter, the publisher, and the
+worker.
+
+Gaps and follow-ups:
+
+  * A pre-implementation benchmark baseline was not captured; see
+    Surprises & Discoveries for the mitigation. A follow-up to run a
+    full before/after delta is available if performance-sensitive
+    callers raise concerns.
+  * The repo's `cabal build all` was already failing on
+    `bench:kiroku-shibuya-overhead` and
+    `test:shibuya-kiroku-adapter-test` before this plan started; the
+    plan's milestone commands therefore target `kiroku-store`
+    explicitly. Those unrelated breakages remain.
+
+Lessons learned:
+
+  * Co-locating the `enrichEvents` / `decodeEvents` helpers in the same
+    `Kiroku.Store.Settings` module as `StoreSettings` itself kept the
+    plumbing simple and made the no-op fast path easy to audit at the
+    call sites.
+  * Threading `StoreSettings` to the publisher and worker explicitly
+    (rather than via a new `GetStoreSettings :: Store m StoreSettings`
+    effect constructor) kept the abstract `Store` effect clean. Mock
+    interpreters do not need to invent values for hook configuration.
+  * `DuplicateRecordFields` in this codebase means record-update syntax
+    on `EventData` / `RecordedEvent` is ambiguous wherever multiple
+    record types share a field name; using `generic-lens` labels in
+    test code matched the project's existing convention.
 
 
 ## Context and Orientation

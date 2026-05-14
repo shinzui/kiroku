@@ -22,13 +22,14 @@ import Data.Generics.Labels ()
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.Vector qualified as V
 import Kiroku.Store
-import Test.Helpers (makeEvent, waitForPublisher, waitWithTimeout, withTestStoreSettings)
+import Test.Helpers (makeEvent, waitForPublisher, waitWithTimeout, withTestStore, withTestStoreSettings)
 import Test.Hspec
 
 spec :: Spec
 spec = describe "InterpreterHooks" $ do
     describe "enrichEvent" appendHookFiresSpec
     describe "decodeHook" readHookFiresSpec
+    describe "no hooks" noHookNoEffectSpec
 
 -- ---------------------------------------------------------------------------
 -- enrichEvent
@@ -154,3 +155,24 @@ readHookFiresSpec = do
                 other -> expectationFailure ("subscription did not finish cleanly: " <> show other)
             metas <- reverse <$> readIORef seen
             metas `shouldBe` [Just marker, Just marker]
+
+-- ---------------------------------------------------------------------------
+-- no-op fast path
+-- ---------------------------------------------------------------------------
+
+noHookNoEffectSpec :: Spec
+noHookNoEffectSpec = around withTestStore $
+    it "with defaultStoreSettings, a round-trip preserves payload and metadata exactly" $ \store -> do
+        let originalMeta = Just (Aeson.object [("k", Aeson.String "v")])
+            originalPayload = Aeson.object [("x", Aeson.Number 42), ("y", Aeson.String "z")]
+            event = makeEvent "Identity" originalPayload & #metadata .~ originalMeta
+        Right _ <-
+            runStoreIO store $
+                appendToStream (StreamName "no-hook-roundtrip") NoStream [event]
+        Right v <-
+            runStoreIO store $
+                readStreamForward (StreamName "no-hook-roundtrip") (StreamVersion 0) 10
+        V.length v `shouldBe` 1
+        let re = V.head v
+        (re ^. #payload) `shouldBe` originalPayload
+        (re ^. #metadata) `shouldBe` originalMeta
