@@ -142,7 +142,7 @@ benchmark kiroku-shibuya-overhead
     , generic-lens          >=2.2
     , kiroku-store
     , lens                  >=5.2
-    , shibuya-core
+    , shibuya-core          >=0.5  && <0.6
     , stm
     , streamly              >=0.11
     , streamly-core         >=0.3

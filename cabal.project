@@ -20,7 +20,6 @@ allow-newer:
 optional-packages:
   /Users/shinzui/Keikaku/hub/haskell/codd-project/codd/codd.cabal
   /Users/shinzui/Keikaku/hub/haskell/hasql-project/hasql-notifications/hasql-notifications.cabal
-  /Users/shinzui/Keikaku/bokuno/shibuya-project/shibuya/shibuya-core/shibuya-core.cabal
 
 -- hs-opentelemetry (GHC 9.12 support, needed by shibuya-core)
 source-repository-package

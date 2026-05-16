@@ -28,15 +28,14 @@ final: prev: {
 
   shibuya-core =
     let
-      src = pkgs.fetchFromGitHub {
-        owner = "shinzui";
-        repo = "shibuya";
-        rev = "f2441d45f52bdd57c8463f3771eedb1d79a01e8b";
-        hash = "sha256-gB0AWaHFMqC9AQIMxrRkN76UeCbzVmzkebaUKE/vjLo=";
+      src = pkgs.fetchurl {
+        url = "https://hackage.haskell.org/package/shibuya-core-0.5.0.0/shibuya-core-0.5.0.0.tar.gz";
+        hash = "sha256-24Af101mkjH+7uuRUw/cQMCz3kJzeUZ/DpcNNpbtI6k=";
       };
 
-      patched = pkgs.runCommand "shibuya-core-patched" { } ''
-        cp -r ${src}/shibuya-core $out
+      patched = pkgs.runCommand "shibuya-core-0.5.0.0-patched" { } ''
+        mkdir -p $out
+        tar -xzf ${src} --strip-components=1 -C $out
         chmod -R u+w $out
         ${pkgs.gnused}/bin/sed -i 's/^cabal-version: *3\.14/cabal-version: 3.4/' $out/shibuya-core.cabal
       '';

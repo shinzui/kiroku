@@ -44,7 +44,7 @@ library
     , base                  >=4.18 && <5
     , effectful-core        >=2.4
     , kiroku-store          >=0.1
-    , shibuya-core          >=0.1
+    , shibuya-core          >=0.5  && <0.6
     , streamly-core         >=0.3
     , text                  >=2.0
     , unordered-containers
@@ -68,7 +68,7 @@ test-suite shibuya-kiroku-adapter-test
     , hspec                   >=2.10
     , kiroku-store
     , lens                    >=5.2
-    , shibuya-core
+    , shibuya-core            >=0.5  && <0.6
     , shibuya-kiroku-adapter
     , stm
     , text                    >=2.0
