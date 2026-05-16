@@ -9,6 +9,10 @@ with-compiler: ghc-9.12.2
 tests: True
 benchmarks: True
 
+package codd
+  tests: False
+  benchmarks: False
+
 allow-newer:
   haxl:time
 

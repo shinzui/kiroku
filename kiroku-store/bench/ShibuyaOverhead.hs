@@ -19,6 +19,7 @@ import Control.Concurrent.STM qualified as STM
 import Control.Lens ((^.))
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
+import Data.HashMap.Strict qualified as HashMap
 import Data.IORef (atomicModifyIORef', newIORef, readIORef)
 import Data.List (sort)
 import Data.Text (Text)
@@ -213,6 +214,7 @@ mkIngested cancelAction event =
                 , enqueuedAt = Just (event ^. #createdAt)
                 , traceContext = Nothing
                 , attempt = Nothing
+                , attributes = HashMap.empty
                 , payload = event
                 }
         , ack =

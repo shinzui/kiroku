@@ -5,6 +5,7 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     treefmt-nix.url = "github:numtide/treefmt-nix";
+    haskell-nix.url = "github:shinzui/haskell-nix";
     pre-commit-hooks = {
       url = "github:cachix/git-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -17,6 +18,7 @@
       nixpkgs,
       flake-utils,
       treefmt-nix,
+      haskell-nix,
       pre-commit-hooks,
     }:
     flake-utils.lib.eachDefaultSystem (
@@ -26,7 +28,11 @@
 
         ghcVersion = "ghc9122";
 
-        hsPkgs = pkgs.haskell.packages.${ghcVersion};
+        haskellPackages = pkgs.haskell.packages.${ghcVersion}.override {
+          overrides =
+            pkgs.lib.composeExtensions (haskell-nix.lib.haskellExtension pkgs.haskell.lib.compose pkgs)
+              (import ./nix/haskell-overlay.nix { inherit pkgs; });
+        };
 
         treefmtEval = treefmt-nix.lib.evalModule pkgs ./treefmt.nix;
 
@@ -43,6 +49,14 @@
         postgresql = pkgs.postgresql_18;
       in
       {
+        packages = {
+          kiroku-store = haskellPackages.kiroku-store;
+          kiroku-store-migrations = haskellPackages.kiroku-store-migrations;
+          shibuya-kiroku-adapter = haskellPackages.shibuya-kiroku-adapter;
+          kiroku-otel = haskellPackages.kiroku-otel;
+          default = haskellPackages.kiroku-store;
+        };
+
         checks = {
           formatting = treefmtEval.config.build.check self;
           inherit pre-commit-check;
@@ -53,9 +67,10 @@
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = [
             # Haskell tooling
-            hsPkgs.ghc
+            (haskellPackages.ghcWithPackages (ps: [
+              ps.haskell-language-server
+            ]))
             pkgs.cabal-install
-            hsPkgs.haskell-language-server
 
             # PostgreSQL
             postgresql

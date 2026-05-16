@@ -23,6 +23,7 @@ module Shibuya.Adapter.Kiroku.Convert (
     toEnvelope,
 ) where
 
+import Data.HashMap.Strict qualified as HashMap
 import Data.Text qualified as T
 import Data.UUID qualified as UUID
 import Effectful (IOE, liftIO, (:>))
@@ -74,5 +75,6 @@ toEnvelope event =
             , enqueuedAt = Just ts
             , traceContext = Nothing
             , attempt = Nothing
+            , attributes = HashMap.empty
             , payload = event
             }
