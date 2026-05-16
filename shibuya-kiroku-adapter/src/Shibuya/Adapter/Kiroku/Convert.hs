@@ -9,13 +9,14 @@ RecordedEvent field   →  Envelope field
 eventId (UUID)        →  messageId (Text)
 globalPosition        →  cursor (CursorInt)
 createdAt             →  enqueuedAt
+metadata.traceparent  →  traceContext
 (the event itself)    →  payload
 (none)                →  partition = Nothing
-(none)                →  traceContext = Nothing
 @
 
-A production adapter could populate @traceContext@ from the event's
-@metadata@ field if it carries W3C trace headers.
+The adapter preserves W3C trace-context metadata when @metadata@ is a JSON
+object containing a string @traceparent@ key. A string @tracestate@ key is
+included when present.
 -}
 module Shibuya.Adapter.Kiroku.Convert (
     -- * Conversion
@@ -23,8 +24,12 @@ module Shibuya.Adapter.Kiroku.Convert (
     toEnvelope,
 ) where
 
+import Data.Aeson (Value (..))
+import Data.Aeson.Key qualified as Key
+import Data.Aeson.KeyMap qualified as KM
 import Data.HashMap.Strict qualified as HashMap
 import Data.Text qualified as T
+import Data.Text.Encoding qualified as TE
 import Data.UUID qualified as UUID
 import Effectful (IOE, liftIO, (:>))
 import Kiroku.Store.Types (
@@ -35,7 +40,7 @@ import Kiroku.Store.Types (
 import Shibuya.Core.Ack (AckDecision (..))
 import Shibuya.Core.AckHandle (AckHandle (..))
 import Shibuya.Core.Ingested (Ingested (..))
-import Shibuya.Core.Types (Cursor (..), Envelope (..), MessageId (..))
+import Shibuya.Core.Types (Cursor (..), Envelope (..), MessageId (..), TraceHeaders)
 
 {- | Wrap a 'RecordedEvent' into an 'Ingested' value suitable for Shibuya
 handlers.
@@ -67,14 +72,25 @@ global position is used as an integer 'Cursor' for ordering.
 -}
 toEnvelope :: RecordedEvent -> Envelope RecordedEvent
 toEnvelope event =
-    let RecordedEvent{eventId = EventId uuid, globalPosition = GlobalPosition pos, createdAt = ts} = event
+    let RecordedEvent{eventId = EventId uuid, globalPosition = GlobalPosition pos, createdAt = ts, metadata = meta} = event
      in Envelope
             { messageId = MessageId (T.pack (UUID.toString uuid))
             , cursor = Just (CursorInt (fromIntegral pos))
             , partition = Nothing
             , enqueuedAt = Just ts
-            , traceContext = Nothing
+            , traceContext = metadataTraceContext meta
             , attempt = Nothing
             , attributes = HashMap.empty
             , payload = event
             }
+
+metadataTraceContext :: Maybe Value -> Maybe TraceHeaders
+metadataTraceContext (Just (Object metadata)) = do
+    String traceparent <- KM.lookup (Key.fromString "traceparent") metadata
+    let traceparentHeader = ("traceparent", TE.encodeUtf8 traceparent)
+        traceHeaders =
+            case KM.lookup (Key.fromString "tracestate") metadata of
+                Just (String tracestate) -> [traceparentHeader, ("tracestate", TE.encodeUtf8 tracestate)]
+                _ -> [traceparentHeader]
+    pure traceHeaders
+metadataTraceContext _ = Nothing

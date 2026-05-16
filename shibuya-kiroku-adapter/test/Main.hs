@@ -13,10 +13,13 @@ import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Time (UTCTime (..), fromGregorian)
+import Data.UUID qualified as UUID
 import Effectful (runEff)
 import EphemeralPg qualified as Pg
 import Kiroku.Store
 import Shibuya.Adapter.Kiroku (KirokuAdapterConfig (..), kirokuAdapter)
+import Shibuya.Adapter.Kiroku.Convert (toEnvelope)
 import Shibuya.App (
     ProcessorId (..),
     SupervisionStrategy (..),
@@ -29,12 +32,46 @@ import Shibuya.App (
 import Shibuya.App qualified as Shibuya
 import Shibuya.Core.Ack (AckDecision (..))
 import Shibuya.Core.Ingested (Ingested (..))
+import Shibuya.Core.Types (Envelope (..))
 import Shibuya.Runner.Metrics (ProcessorState (..))
 import Shibuya.Telemetry.Effect (runTracingNoop)
 import Test.Hspec
 
 main :: IO ()
 main = hspec $ do
+    describe "toEnvelope" $ do
+        it "copies W3C trace metadata into Shibuya trace headers" $ do
+            let traceparent :: Text
+                traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+                tracestate :: Text
+                tracestate = "rojo=00f067aa0ba902b7"
+                Envelope{traceContext} =
+                    toEnvelope
+                        ( makeRecordedEvent
+                            ( Just $
+                                Aeson.object
+                                    [ "traceparent" Aeson..= traceparent
+                                    , "tracestate" Aeson..= tracestate
+                                    , "other" Aeson..= ("preserved" :: Text)
+                                    ]
+                            )
+                        )
+
+            traceContext
+                `shouldBe` Just
+                    [ ("traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
+                    , ("tracestate", "rojo=00f067aa0ba902b7")
+                    ]
+
+        it "omits trace headers when traceparent is absent or not a string" $ do
+            let Envelope{traceContext = missingTraceparent} =
+                    toEnvelope (makeRecordedEvent (Just (Aeson.object ["tracestate" Aeson..= ("state" :: Text)])))
+                Envelope{traceContext = nonStringTraceparent} =
+                    toEnvelope (makeRecordedEvent (Just (Aeson.object ["traceparent" Aeson..= Aeson.Number 1])))
+
+            missingTraceparent `shouldBe` Nothing
+            nonStringTraceparent `shouldBe` Nothing
+
     around withTestStore $ do
         describe "kirokuAdapter" $ do
             it "delivers catch-up events through Shibuya pipeline" $ \store -> do
@@ -344,6 +381,22 @@ makeEvent typ p =
         , metadata = Nothing
         , causationId = Nothing
         , correlationId = Nothing
+        }
+
+makeRecordedEvent :: Maybe Value -> RecordedEvent
+makeRecordedEvent meta =
+    RecordedEvent
+        { eventId = EventId UUID.nil
+        , eventType = EventType "TraceEvent"
+        , streamVersion = StreamVersion 1
+        , globalPosition = GlobalPosition 1
+        , originalStreamId = StreamId 1
+        , originalVersion = StreamVersion 1
+        , payload = Aeson.object []
+        , metadata = meta
+        , causationId = Nothing
+        , correlationId = Nothing
+        , createdAt = UTCTime (fromGregorian 2026 5 16) 0
         }
 
 withTestStore :: (KirokuStore -> IO ()) -> IO ()

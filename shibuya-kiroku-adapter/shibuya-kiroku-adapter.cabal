@@ -41,6 +41,7 @@ library
     Shibuya.Adapter.Kiroku.Convert
 
   build-depends:
+    , aeson                 >=2.1
     , base                  >=4.18 && <5
     , effectful-core        >=2.4
     , kiroku-store          >=0.1
@@ -72,3 +73,5 @@ test-suite shibuya-kiroku-adapter-test
     , shibuya-kiroku-adapter
     , stm
     , text                    >=2.0
+    , time                    >=1.12
+    , uuid                    >=1.3
