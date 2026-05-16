@@ -13,10 +13,13 @@ function in the package enforces these recommendations.
 
 ## Database privilege separation
 
-`Kiroku.Store.Schema.initializeSchema` runs every time `withStore`
-acquires the pool. The DDL it executes (`kiroku-store/sql/schema.sql`)
-needs higher privileges than the runtime queries do. Production
-deployments should split the two.
+`withStore` runs `Kiroku.Store.Schema.initializeSchema` every time it
+acquires the pool by default. The DDL it executes
+(`kiroku-store/sql/schema.sql`) needs higher privileges than the runtime
+queries do. Production deployments should split the two by running
+`kiroku-store-migrate` or `Kiroku.Store.Migrations.runKirokuMigrations`
+under a migration role, then starting the application with
+`SkipSchemaInitialization`.
 
 Privileges required to run `initializeSchema`:
 
@@ -47,13 +50,12 @@ Recommended pattern:
 
 1. Provision a `kiroku_admin` role with `CREATE` on the schema and
    `INSERT, UPDATE, SELECT, TRIGGER` on the data tables. Run
-   `initializeSchema` once at deploy time under this role — either by
-   running a small Haskell program that calls `withStore` and exits,
-   or (when you outgrow `initializeSchema`) by extracting a dedicated
-   `kiroku-migrate` package per the `project_schema_migration.md`
-   memory note.
+   `kiroku-store-migrate` once at deploy time under this role. The
+   migration package embeds Kiroku's timestamped SQL migrations and uses
+   `codd` to record which migrations have already run.
 2. Provision a `kiroku_app` role with `INSERT, UPDATE, SELECT` on the
-   data tables. The application connects as `kiroku_app`.
+   data tables. The application connects as `kiroku_app` and uses
+   `defaultConnectionSettings connString & #schemaInitialization .~ SkipSchemaInitialization`.
 3. If hard-delete is required, either grant `DELETE` to `kiroku_app`
    (in which case the GUC-gating in `protect_deletion` is the only
    line of defence — see "Hard-delete authorization" below), or

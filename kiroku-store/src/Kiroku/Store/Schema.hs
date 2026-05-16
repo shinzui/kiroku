@@ -44,10 +44,12 @@ at @docs\/plans\/partition-ready-schema.md@ and the
 Required privileges of the connecting user: @CREATE@ on the target
 schema (for the table\/index\/function creation), @TRIGGER@ on the
 created tables, and @INSERT, UPDATE, SELECT@ on @streams@ (for the
-seed row and @setval@). Production deployments typically run the
-application as a /lower/-privileged user and run @initializeSchema@
-once at deploy time under a more privileged role; see
-@docs\/PRODUCTION-DEPLOYMENT.md@.
+seed row and @setval@). Production deployments should prefer the
+@kiroku-store-migrate@ executable or
+'Kiroku.Store.Migrations.runKirokuMigrations' under a more privileged
+migration role, then open 'Kiroku.Store.withStore' with
+'Kiroku.Store.Connection.SkipSchemaInitialization' under the
+lower-privileged runtime role; see @docs\/PRODUCTION-DEPLOYMENT.md@.
 
 The @Text@ argument is unused. It was previously intended to be the
 target schema name, but the SQL is unqualified and resolves through

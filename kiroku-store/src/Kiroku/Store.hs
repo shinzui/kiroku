@@ -67,10 +67,10 @@ import Kiroku.Store.Types
 
 {- $schema
 'withStore' calls 'Kiroku.Store.Schema.initializeSchema' as part of its
-acquire phase. Schema initialization is idempotent (the embedded DDL uses
-@CREATE TABLE IF NOT EXISTS@), but it can fail (e.g., insufficient
-permissions to create tables). On failure, 'withStore' propagates a
-'SchemaInitError' via 'Control.Exception.throwIO'. Callers that want to
-handle this case explicitly can catch 'SchemaInitError' alongside any
-'StoreError' raised during operation.
+acquire phase by default. Schema initialization is idempotent (the embedded
+DDL uses @CREATE TABLE IF NOT EXISTS@), but it can fail (e.g.,
+insufficient permissions to create tables). On failure, 'withStore'
+propagates a 'SchemaInitError' via 'Control.Exception.throwIO'. Production
+callers can run @kiroku-store-migrate@ first and set
+'SkipSchemaInitialization' in 'ConnectionSettingsM.schemaInitialization'.
 -}

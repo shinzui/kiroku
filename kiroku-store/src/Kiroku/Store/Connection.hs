@@ -1,5 +1,6 @@
 module Kiroku.Store.Connection (
     KirokuStore (..),
+    SchemaInitialization (..),
     ConnectionSettingsM (..),
     ConnectionSettings,
     defaultConnectionSettings,
@@ -26,6 +27,12 @@ import Kiroku.Store.Schema (initializeSchema)
 import Kiroku.Store.Settings (StoreSettings, defaultStoreSettings)
 import Kiroku.Store.Subscription.EventPublisher (EventPublisher)
 import Kiroku.Store.Subscription.EventPublisher qualified as Publisher
+
+-- | Controls whether 'withStore' runs schema DDL during acquisition.
+data SchemaInitialization
+    = InitializeSchemaOnAcquire
+    | SkipSchemaInitialization
+    deriving stock (Eq, Show)
 
 -- | Connection settings for the store, parameterized by monad.
 data ConnectionSettingsM m = ConnectionSettings
@@ -114,6 +121,13 @@ data ConnectionSettingsM m = ConnectionSettings
     See "Kiroku.Store.Settings" for the hook semantics and the
     OpenTelemetry trace-context use case that motivates this seam.
     -}
+    , schemaInitialization :: !SchemaInitialization
+    {- ^ Startup schema behavior. The default is
+    'InitializeSchemaOnAcquire' for compatibility with existing tests and
+    local development. Production deployments can run
+    @kiroku-store-migrate@ first under a migration role and then use
+    'SkipSchemaInitialization' for lower-privilege runtime users.
+    -}
     }
     deriving stock (Generic)
 
@@ -132,6 +146,7 @@ defaultConnectionSettings cs =
         , observationHandler = Nothing
         , eventHandler = Nothing
         , storeSettings = defaultStoreSettings
+        , schemaInitialization = InitializeSchemaOnAcquire
         }
 
 -- | The store handle. Holds a connection pool, schema name, and subscription infrastructure.
@@ -163,10 +178,11 @@ Acquire phase, in order:
 
 1. Acquire the connection pool from @hasql-pool@ with the configured
    size and the @idle_in_transaction_session_timeout@ init session.
-2. Run the embedded schema DDL (@kiroku-store/sql/schema.sql@).
-   Idempotent under repeat starts. Failures throw
-   'Kiroku.Store.Schema.SchemaInitError' (re-exported from
-   'Kiroku.Store').
+2. Run the embedded schema DDL (@kiroku-store/sql/schema.sql@) when
+   'schemaInitialization' is 'InitializeSchemaOnAcquire'. Idempotent under
+   repeat starts. Failures throw 'Kiroku.Store.Schema.SchemaInitError'
+   (re-exported from 'Kiroku.Store'). When 'schemaInitialization' is
+   'SkipSchemaInitialization', acquisition assumes migrations already ran.
 3. Start the 'Kiroku.Store.Notification.Notifier' on a dedicated
    connection: @LISTEN \<schema\>.events@.
 4. Start the 'Kiroku.Store.Subscription.EventPublisher' which consumes
@@ -213,7 +229,9 @@ withStore settings action = withRunInIO $ \runInIO ->
             cs = settings ^. #connString
             evtHandler = settings ^. #eventHandler
             stSettings = settings ^. #storeSettings
-        initializeSchema p s
+        case settings ^. #schemaInitialization of
+            InitializeSchemaOnAcquire -> initializeSchema p s
+            SkipSchemaInitialization -> pure ()
         -- Start Notifier (dedicated LISTEN connection)
         n <- Notifier.startNotifier cs s evtHandler
         -- Start EventPublisher (depends on Notifier's TChan)

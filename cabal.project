@@ -1,5 +1,6 @@
 packages:
   kiroku-store
+  kiroku-store-migrations
   shibuya-kiroku-adapter
   kiroku-otel
 
@@ -8,8 +9,12 @@ with-compiler: ghc-9.12.2
 tests: True
 benchmarks: True
 
+allow-newer:
+  haxl:time
+
 -- hasql-notifications: LISTEN/NOTIFY for hasql (not yet on Hackage with hasql >= 1.10 support)
 optional-packages:
+  /Users/shinzui/Keikaku/hub/haskell/codd-project/codd/codd.cabal
   /Users/shinzui/Keikaku/hub/haskell/hasql-project/hasql-notifications/hasql-notifications.cabal
   /Users/shinzui/Keikaku/bokuno/shibuya-project/shibuya/shibuya-core/shibuya-core.cabal
 
