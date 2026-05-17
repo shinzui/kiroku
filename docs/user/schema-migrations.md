@@ -120,5 +120,7 @@ database differs from a checked-in expected-schema snapshot.
 
 Strict `codd` schema verification is intentionally deferred until Kiroku
 ships an expected-schema snapshot for the PostgreSQL version it supports.
-Kiroku currently relies on PostgreSQL 18 for `uuidv7()`, and `codd`
-currently warns that PostgreSQL 18 may not be fully supported.
+Kiroku supports PostgreSQL 17 or newer. PostgreSQL 18 provides the
+built-in `pg_catalog.uuidv7()` function, while PostgreSQL 17 receives a
+Kiroku-managed PL/pgSQL `uuidv7()` fallback from the bootstrap schema
+before `events.event_id DEFAULT uuidv7()` is parsed.

@@ -27,6 +27,8 @@ module Test.Helpers (
 
     -- * Raw SQL helpers
     countEvents,
+    insertEventUsingDefaultId,
+    serverVersionNum,
     truncateRejected,
 
     -- * Listener-pid helpers
@@ -122,6 +124,37 @@ countEvents store = do
     case result of
         Left err -> error ("countEvents failed: " <> show err)
         Right n -> pure n
+
+{- | Insert directly into @events@ without an @event_id@ so the database
+default is responsible for UUID generation. Returns the generated UUID
+text; used to prove the schema-level @uuidv7()@ fallback works.
+-}
+insertEventUsingDefaultId :: KirokuStore -> IO Text
+insertEventUsingDefaultId store = do
+    let stmt :: Statement () Text
+        stmt =
+            preparable
+                "INSERT INTO events (event_type, data) VALUES ('DefaultUuidGenerated', '{}'::jsonb) RETURNING event_id::text"
+                E.noParams
+                (D.singleRow (D.column (D.nonNullable D.text)))
+    result <- Pool.use (store ^. #pool) (Session.statement () stmt)
+    case result of
+        Left err -> error ("insertEventUsingDefaultId failed: " <> show err)
+        Right eventIdText -> pure eventIdText
+
+-- | Return PostgreSQL's numeric server version for failure messages.
+serverVersionNum :: KirokuStore -> IO Text
+serverVersionNum store = do
+    let stmt :: Statement () Text
+        stmt =
+            preparable
+                "SELECT current_setting('server_version_num')"
+                E.noParams
+                (D.singleRow (D.column (D.nonNullable D.text)))
+    result <- Pool.use (store ^. #pool) (Session.statement () stmt)
+    case result of
+        Left err -> error ("serverVersionNum failed: " <> show err)
+        Right version -> pure version
 
 {- | Try to TRUNCATE the named table without the GUC; returns 'True' if the
 operation was rejected by the @protect_truncation@ trigger (the expected

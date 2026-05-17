@@ -7,6 +7,7 @@ import Control.Concurrent.STM (atomically, check, newTVarIO, readTVar, writeTVar
 import Control.Exception (SomeException)
 import Control.Exception qualified
 import Control.Lens ((&), (.~), (^.))
+import Control.Monad (unless)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
@@ -44,6 +45,19 @@ main = hspec $ do
     InterpreterHooks.spec
     Causation.spec
     around withTestStore $ do
+        describe "schema initialization" $ do
+            it "provides a UUIDv7 database default for direct event inserts" $ \store -> do
+                eventIdText <- insertEventUsingDefaultId store
+                version <- serverVersionNum store
+                let isV7 = T.length eventIdText > 14 && T.index eventIdText 14 == '7'
+                unless isV7 $
+                    expectationFailure
+                        ( "expected database-generated event_id to be UUIDv7 on PostgreSQL "
+                            <> T.unpack version
+                            <> ", got "
+                            <> T.unpack eventIdText
+                        )
+
         describe "appendToStream" $ do
             describe "NoStream" $ do
                 it "creates a new stream and appends events" $ \store -> do

@@ -222,6 +222,8 @@ production-readiness review tracks the gap.
 
 ## Required PostgreSQL version
 
-PostgreSQL 18 or newer. The schema uses `uuidv7()` (introduced in 18)
-as the default for `events.event_id`. Earlier versions will fail at
-`initializeSchema` time with a function-not-found error.
+PostgreSQL 17 or newer. PostgreSQL 18 provides the built-in
+`pg_catalog.uuidv7()` used as the default for `events.event_id`.
+On PostgreSQL 17, Kiroku creates a schema-local PL/pgSQL `uuidv7()`
+fallback during schema initialization or migration application, before
+the `events` table default is parsed.

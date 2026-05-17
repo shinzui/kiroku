@@ -82,6 +82,11 @@ check_prereqs() {
         echo -e "${RED}Error: Schema not initialized. Run: just init-schema${NC}"
         exit 1
     fi
+
+    if ! psql -d "$DB" -tAc "SELECT to_regprocedure('uuidv7()') IS NOT NULL" 2>/dev/null | grep -q t; then
+        echo -e "${RED}Error: uuidv7() is not available. Re-run schema initialization: just init-schema${NC}"
+        exit 1
+    fi
 }
 
 # Reset database state for a clean benchmark

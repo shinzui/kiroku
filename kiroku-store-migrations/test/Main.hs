@@ -11,6 +11,7 @@ import Data.Attoparsec.Text (endOfInput, parseOnly)
 import Data.Generics.Labels ()
 import Data.Map qualified as Map
 import Data.Text (Text)
+import Data.Text qualified as T
 import Data.Time (secondsToDiffTime)
 import Data.Vector qualified as Vector
 import EphemeralPg qualified as Pg
@@ -36,6 +37,7 @@ main =
 
                     _ <- runKirokuMigrations coddSettings (secondsToDiffTime 5) LaxCheck
                     assertBootstrapApplied connStr
+                    assertDefaultUuidV7 connStr
 
                     withStore
                         ( defaultConnectionSettings connStr
@@ -56,6 +58,7 @@ main =
 
                     _ <- runKirokuMigrations coddSettings (secondsToDiffTime 5) LaxCheck
                     assertBootstrapApplied connStr
+                    assertDefaultUuidV7 connStr
                 case result of
                     Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
                     Right () -> pure ()
@@ -112,3 +115,42 @@ bootstrapStmt =
         "SELECT EXISTS (SELECT 1 FROM streams WHERE stream_id = 0 AND stream_name = '$all')"
         E.noParams
         (D.singleRow (D.column (D.nonNullable D.bool)))
+
+assertDefaultUuidV7 :: Text -> IO ()
+assertDefaultUuidV7 connStr = do
+    pool <- Pool.acquire poolConfig
+    result <- Pool.use pool (Session.statement () defaultUuidStmt)
+    versionResult <- Pool.use pool (Session.statement () serverVersionStmt)
+    Pool.release pool
+    case (result, versionResult) of
+        (Right eventIdText, Right version)
+            | T.length eventIdText > 14 && T.index eventIdText 14 == '7' -> pure ()
+            | otherwise ->
+                expectationFailure
+                    ( "expected migration-created database default to generate UUIDv7 on PostgreSQL "
+                        <> T.unpack version
+                        <> ", got "
+                        <> T.unpack eventIdText
+                    )
+        (Left err, _) -> expectationFailure ("default UUID insert failed: " <> show err)
+        (_, Left err) -> expectationFailure ("server version query failed: " <> show err)
+  where
+    poolConfig =
+        Pool.Config.settings
+            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
+            , Pool.Config.size 1
+            ]
+
+defaultUuidStmt :: Statement () Text
+defaultUuidStmt =
+    preparable
+        "INSERT INTO events (event_type, data) VALUES ('DefaultUuidGenerated', '{}'::jsonb) RETURNING event_id::text"
+        E.noParams
+        (D.singleRow (D.column (D.nonNullable D.text)))
+
+serverVersionStmt :: Statement () Text
+serverVersionStmt =
+    preparable
+        "SELECT current_setting('server_version_num')"
+        E.noParams
+        (D.singleRow (D.column (D.nonNullable D.text)))

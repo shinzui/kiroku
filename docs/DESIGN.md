@@ -55,7 +55,7 @@ SELECT setval('streams_stream_id_seq', (SELECT MAX(stream_id) FROM streams));
 
 -- Events (flat table — stream membership tracked in stream_events)
 CREATE TABLE events (
-    event_id       UUID         PRIMARY KEY DEFAULT uuidv7(),  -- PostgreSQL 18+
+    event_id       UUID         PRIMARY KEY DEFAULT uuidv7(),  -- PostgreSQL 17+ with Kiroku fallback; built-in on 18+
     event_type     TEXT         NOT NULL,
     causation_id   UUID,
     correlation_id UUID,
@@ -671,7 +671,7 @@ Builds on kiroku-store. Adds subscriptions, projections, and higher-level APIs. 
 | Same-stream concurrency | Row lock only (no advisory locks) | The CTE's `UPDATE streams WHERE stream_name` row lock is sufficient for correctness. Advisory locks would reduce wasted retries under contention but add complexity. Cross-stream contention is low in practice. Revisit if high retry rates observed on hot streams. |
 | Multi-tenant isolation | Schema-per-tenant from Phase 1 | Parameterize all SQL with schema prefix and scope NOTIFY channels per schema. Avoids costly retrofit. Full tenant lifecycle (create/drop/migrate) deferred to later phases. |
 | Backward reads | Include in Phase 1 | Trivial (`ORDER BY stream_version DESC`). Needed for "latest N events" and snapshot-based aggregate loading. |
-| Event ID generation | UUIDv7 via PostgreSQL 18+ `uuidv7()` | Time-ordered UUIDs for better B-tree locality and sequential insert performance. Requires PostgreSQL 18+. |
+| Event ID generation | UUIDv7 via `uuidv7()` | Time-ordered UUIDs for better B-tree locality and sequential insert performance. PostgreSQL 18 provides `pg_catalog.uuidv7()`; PostgreSQL 17 uses Kiroku's schema-local fallback. |
 | Idempotency | Server default with caller override | `DEFAULT uuidv7()` generates IDs automatically. Callers may supply their own UUID for idempotent retries — the `events_pkey` constraint rejects duplicates with a `DuplicateEvent` error. UUIDv7 is timestamp+random so retries must reuse the original UUID. |
 | Package split | `kiroku-store` + `kiroku` | Store is a standalone, high-performance library (append/read/link/delete). Framework adds subscriptions, projections, and higher-level APIs on top. Clean dependency boundary — store has no subscription/projection concerns. |
 | Version conflict orphans | Gate event INSERT on `stream_update` | All CTE steps gated via `EXISTS (SELECT 1 FROM stream_update)`. No orphaned events on version conflict. Negligible performance impact — row lock on `streams` is already held through transaction commit. |

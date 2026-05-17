@@ -14,7 +14,7 @@ Validate the CTE and schema performance with pure SQL before writing any Haskell
 
 ### 1.1 — Schema Setup
 
-Stand up the schema from DESIGN.md against a local PostgreSQL 18 instance:
+Stand up the schema from DESIGN.md against a local PostgreSQL 17-or-newer instance:
 
 - `streams`, `events`, `stream_events` tables
 - All indexes
@@ -108,7 +108,7 @@ Build modules in an order that enables Haskell-level benchmarking at each milest
 **Goal:** Cabal project compiles, nix shell works, can connect to PostgreSQL.
 
 - [ ] `kiroku-store.cabal` with dependencies: `hasql`, `hasql-pool`, `hasql-transaction`, `hasql-th`, `uuid`, `aeson`, `vector`
-- [ ] Nix flake with PostgreSQL 18, GHC, cabal
+- [ ] Nix flake with PostgreSQL 17 or newer, GHC, cabal
 - [ ] `Kiroku.Store.Connection` — `ConnectionSettings`, pool creation, `withPool` bracket
 - [ ] Smoke test: acquire connection from pool, run `SELECT 1`
 
@@ -285,7 +285,7 @@ kiroku-store/
 
 ### Environment Requirements
 
-- PostgreSQL 18 (for `uuidv7()`)
+- PostgreSQL 17 or newer (`uuidv7()` is built in on PostgreSQL 18 and backfilled by Kiroku on PostgreSQL 17)
 - Dedicated test database (not shared)
 - `fsync = off` for benchmarks (not realistic but isolates CPU/lock overhead from I/O)
 - Repeat with `fsync = on` for production-realistic numbers

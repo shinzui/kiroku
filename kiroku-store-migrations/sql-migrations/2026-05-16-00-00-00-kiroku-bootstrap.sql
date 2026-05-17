@@ -1,5 +1,32 @@
 -- Kiroku Store Schema
--- Requires PostgreSQL 18+ (for uuidv7())
+-- Supports PostgreSQL 17+.
+-- PostgreSQL 18 provides pg_catalog.uuidv7(); PostgreSQL 17 needs this
+-- public-schema fallback before events.event_id DEFAULT uuidv7() is parsed.
+DO $$
+BEGIN
+    IF to_regprocedure('pg_catalog.uuidv7()') IS NULL
+       AND to_regprocedure('uuidv7()') IS NULL THEN
+        EXECUTE $fn$
+            CREATE FUNCTION uuidv7()
+            RETURNS uuid
+            AS $body$
+            DECLARE
+                unix_ts_ms bytea;
+                uuid_bytes bytea;
+            BEGIN
+                unix_ts_ms = substring(int8send(floor(extract(epoch from clock_timestamp()) * 1000)::bigint) from 3);
+                uuid_bytes = uuid_send(gen_random_uuid());
+                uuid_bytes = overlay(uuid_bytes placing unix_ts_ms from 1 for 6);
+                uuid_bytes = set_byte(uuid_bytes, 6, (b'0111' || get_byte(uuid_bytes, 6)::bit(4))::bit(8)::int);
+                RETURN encode(uuid_bytes, 'hex')::uuid;
+            END
+            $body$
+            LANGUAGE plpgsql
+            VOLATILE
+        $fn$;
+    END IF;
+END
+$$;
 
 -- Streams (including $all as stream_id = 0)
 CREATE TABLE IF NOT EXISTS streams (
