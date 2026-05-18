@@ -1,5 +1,10 @@
 # Gate 2: Haskell Append Benchmark Results
 
+> See [`docs/perf-experiment-log.md`](perf-experiment-log.md) for the history
+> of append-performance experiments and
+> [`docs/PERF-METHODOLOGY.md`](PERF-METHODOLOGY.md) for the discipline future
+> optimization plans must follow.
+
 > Results from tasty-bench benchmarks via `appendToStream` against ephemeral PostgreSQL 18 (macOS, unix socket).
 > Run date: 2026-03-22. Milestone 2 (Append Operations).
 

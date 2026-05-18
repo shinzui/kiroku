@@ -45,7 +45,7 @@ Alternatives considered. **A single-plan implementation** was rejected because t
 |---|-------|------|-----------|-----------|--------|
 | EP-1 | Haskell-side append profiling with GHC -prof | docs/plans/25-haskell-side-append-profiling-with-ghc-prof.md | None | None | Not Started |
 | EP-2 | PostgreSQL-side append profiling with EXPLAIN ANALYZE and auto_explain | docs/plans/26-postgresql-side-append-profiling-with-explain-analyze-and-auto-explain.md | None | None | Not Started |
-| EP-3 | Append performance experiment ledger and methodology README | docs/plans/27-append-performance-experiment-ledger-and-methodology-readme.md | None | EP-1, EP-2 | In Progress |
+| EP-3 | Append performance experiment ledger and methodology README | docs/plans/27-append-performance-experiment-ledger-and-methodology-readme.md | None | EP-1, EP-2 | Complete |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
 Hard Deps and Soft Deps reference other rows by their # prefix (e.g., EP-1, EP-3).
@@ -79,9 +79,9 @@ Existing benchmark infrastructure that all three plans should leave alone but ma
 - [ ] EP-2: Harness runs the production append CTE under `EXPLAIN (ANALYZE, BUFFERS, TIMING)` and produces per-CTE-node timings.
 - [ ] EP-2: `auto_explain` configuration applied to a bench run; output captured.
 - [ ] EP-2: Short doc explains how to interpret the per-node timings.
-- [ ] EP-3: `docs/perf-experiment-log.md` exists with a header explaining the ledger format.
-- [ ] EP-3: Ledger backfilled with the experiments documented in plans 21-24 (anyversion split, event-count, one-event VALUES, singleton SQL trial, `stream_events_notify` informal trial, `streams.category` informal trial, two-round-trip restructure, hasql-overhead probe).
-- [ ] EP-3: Methodology README written stating the discipline future plans must follow and cross-referencing EP-1's and EP-2's harnesses.
+- [x] EP-3: `docs/perf-experiment-log.md` exists with a header explaining the ledger format. — 2026-05-18.
+- [x] EP-3: Ledger backfilled with the experiments documented in plans 21-24 (anyversion split, event-count, one-event VALUES, singleton SQL trial, `stream_events_notify` informal trial, `streams.category` informal trial, two-round-trip restructure, hasql-overhead probe). — 2026-05-18, 11 rows total.
+- [x] EP-3: Methodology README written stating the discipline future plans must follow and cross-referencing EP-1's and EP-2's harnesses. — 2026-05-18, `docs/PERF-METHODOLOGY.md` with the four-step discipline; cross-references to EP-1, EP-2, and the four `docs/BENCH-*.md` docs.
 
 
 ## Surprises & Discoveries
@@ -89,7 +89,16 @@ Existing benchmark infrastructure that all three plans should leave alone but ma
 Document cross-plan insights, dependency changes, scope adjustments, or unexpected
 interactions between child plans. Provide concise evidence.
 
-(None yet.)
+- EP-3 completed first, before EP-1 and EP-2 had landed. The methodology README
+  therefore cites EP-1 and EP-2 harness commands by ExecPlan file path
+  (`docs/plans/25-…` and `docs/plans/26-…`) rather than by literal `cabal bench`
+  invocation. Once EP-1 and EP-2 land, a small follow-up edit to
+  `docs/PERF-METHODOLOGY.md` can replace the "see the plan for the exact
+  command" wording with the actual command. Captured as the expected shape of
+  the soft-dependency window in this MasterPlan's Dependency Graph; no
+  cross-plan rework needed. Evidence: see `docs/PERF-METHODOLOGY.md` "Where the
+  harnesses live" section and the Outcomes & Retrospective in
+  `docs/plans/27-append-performance-experiment-ledger-and-methodology-readme.md`.
 
 
 ## Decision Log

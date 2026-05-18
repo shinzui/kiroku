@@ -1,5 +1,10 @@
 # Benchmark Regression Workflow
 
+> See [`docs/perf-experiment-log.md`](perf-experiment-log.md) for the history
+> of append-performance experiments and
+> [`docs/PERF-METHODOLOGY.md`](PERF-METHODOLOGY.md) for the discipline future
+> optimization plans must follow.
+
 ## What this is
 
 The `kiroku-store-bench` suite (`kiroku-store/bench/Main.hs`) carries an

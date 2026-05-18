@@ -37,11 +37,11 @@ The following granular steps track the work. Each step must be checked only afte
 - [x] Create `docs/perf-experiment-log.md` with an opening header that names the file's purpose, the append-only convention, and the row schema. No experiment rows yet. — 2026-05-18, file created with header + table populated in the same write.
 - [x] Backfill ledger entries for the experiments in `docs/plans/21-evaluate-append-hot-path-performance-experiments.md`: AnyVersion update/insert split, explicit `event_count` parameter, one-event scalar `VALUES` statement. — 2026-05-18.
 - [x] Backfill ledger entries for the experiments in `docs/plans/22-optimize-singleton-append-sql-path.md`: scalar singleton append CTE, plus the two informal trials documented in plan 22's Surprises & Discoveries — `stream_events_notify` trigger disabling and `streams.category` generated-column removal. — 2026-05-18.
-- [ ] Backfill ledger entries for the experiments in `docs/plans/23-restructure-append-into-a-two-round-trip-path.md`: two-round-trip implicit transactions, two-round-trip with explicit `BEGIN/COMMIT`.
-- [ ] Backfill ledger entries for the experiments in `docs/plans/24-localize-the-hasql-round-trip-overhead.md`: `Hasql.Pool` overhead probe, bare `SELECT 1` round-trip probe, marginal second round-trip probe.
-- [ ] Write `docs/PERF-METHODOLOGY.md` stating the four-step discipline (profile, ledger-check, expected-impact hypothesis, re-profile-after). Cross-reference EP-1 and EP-2 harness commands and the existing `docs/BENCH-*.md` docs.
-- [ ] Cross-reference the new ledger from each of `docs/BENCH-REGRESSION.md`, `docs/BENCH-GATE3.md`, `docs/BENCH-HASKELL-APPEND.md`, and `docs/BENCH-SQL-BASELINE.md` by adding a one-line pointer at the top of each ("Append-performance experiment history: see `docs/perf-experiment-log.md`").
-- [ ] Verify the acceptance criteria in Validation and Acceptance below: the ledger has at least eight rows, the methodology README exists, the cross-references exist, and nothing under `kiroku-store/src/` or `kiroku-store/sql/` was touched.
+- [x] Backfill ledger entries for the experiments in `docs/plans/23-restructure-append-into-a-two-round-trip-path.md`: two-round-trip implicit transactions, two-round-trip with explicit `BEGIN/COMMIT`. — 2026-05-18.
+- [x] Backfill ledger entries for the experiments in `docs/plans/24-localize-the-hasql-round-trip-overhead.md`: `Hasql.Pool` overhead probe, bare `SELECT 1` round-trip probe, marginal second round-trip probe. — 2026-05-18.
+- [x] Write `docs/PERF-METHODOLOGY.md` stating the four-step discipline (profile, ledger-check, expected-impact hypothesis, re-profile-after). Cross-reference EP-1 and EP-2 harness commands and the existing `docs/BENCH-*.md` docs. — 2026-05-18.
+- [x] Cross-reference the new ledger from each of `docs/BENCH-REGRESSION.md`, `docs/BENCH-GATE3.md`, `docs/BENCH-HASKELL-APPEND.md`, and `docs/BENCH-SQL-BASELINE.md` by adding a one-line pointer at the top of each ("Append-performance experiment history: see `docs/perf-experiment-log.md`"). — 2026-05-18, used a Markdown blockquote pointing at both `perf-experiment-log.md` and `PERF-METHODOLOGY.md` per Concrete Steps.
+- [x] Verify the acceptance criteria in Validation and Acceptance below: the ledger has at least eight rows, the methodology README exists, the cross-references exist, and nothing under `kiroku-store/src/` or `kiroku-store/sql/` was touched. — 2026-05-18, ledger has 11 rows (`grep -c '^|'` = 13 with header+separator); both new files exist; all four bench docs reference the ledger; this plan's commits touch nothing under `kiroku-store/`.
 
 
 ## Surprises & Discoveries
@@ -74,7 +74,56 @@ The following granular steps track the work. Each step must be checked only afte
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+Both milestones landed on 2026-05-18. `docs/perf-experiment-log.md` exists with
+11 experiment rows (6 from M1, 5 from M2): plan 21's three reverted experiments
+(AnyVersion split, event_count parameter, one-event scalar VALUES), plan 22's
+scalar singleton CTE plus the two informal trials (`stream_events_notify`
+disabling and `streams.category` removal — first-class rows per the Decision
+Log), plan 23's two two-round-trip benchmark-only proofs, and plan 24's three
+hasql-overhead probes. Bench figures are quoted verbatim from each source
+plan's Surprises & Discoveries; the two informal trials and the two
+benchmark-only proofs are marked accordingly so future readers can see at a
+glance which rows are quantitative and which are not.
+
+`docs/PERF-METHODOLOGY.md` exists with the four-step discipline (profile first,
+check the ledger, state an expected-impact hypothesis grounded in the profile,
+re-profile after). It cross-references EP-1 (`docs/plans/25-…`) and EP-2
+(`docs/plans/26-…`) for the harness commands, and the four existing
+`docs/BENCH-*.md` docs for the regression workflow and historical baselines.
+Each of `docs/BENCH-REGRESSION.md`, `docs/BENCH-GATE3.md`,
+`docs/BENCH-HASKELL-APPEND.md`, and `docs/BENCH-SQL-BASELINE.md` now opens
+with a one-blockquote pointer at the new ledger and methodology README.
+
+Acceptance gate verification on 2026-05-18: `grep -c '^|'
+docs/perf-experiment-log.md` reports 13 (1 header + 1 separator + 11
+experiment rows; gate was ≥ 10). `grep -E '^\\s*[0-9]\\.\\s\\*\\*(Profile
+first|Check the ledger|State an expected-impact hypothesis|Re-profile after)'
+docs/PERF-METHODOLOGY.md` matches all four lines. `grep -l
+'perf-experiment-log\\.md' docs/BENCH-*.md` lists all four bench docs. No
+files under `kiroku-store/src/`, `kiroku-store/sql/`, `kiroku-store/bench/`,
+or `kiroku-store/test/` were touched by this plan's commits (modifications
+present in the working tree under `kiroku-store/bench/Main.hs` and
+`kiroku-store/kiroku-store.cabal` predate this plan's session and are
+unrelated work).
+
+Gap noted: the methodology README cites the EP-1 and EP-2 harness commands
+through their ExecPlan files (`docs/plans/25-…` and `docs/plans/26-…`)
+rather than embedding the literal `cabal bench …` invocations. The MasterPlan
+already flagged this as the expected shape during the soft-dependency
+window — once EP-1 and EP-2 land, a small follow-up edit to
+`docs/PERF-METHODOLOGY.md` can replace the "see the plan for the exact
+command" wording with the actual command. That edit is captured by the
+MasterPlan's integration discipline rather than as a new task on this plan.
+
+Lessons. The format-design decision (Markdown table) held up well at 11 rows;
+no horizontal scrolling required in a 100-column editor view. Marking
+qualitative trials with `(qualitative, no CSV)` rather than fabricating
+numbers preserved the ledger's calibration — a reader can immediately tell
+which rows are convertible to numeric findings under EP-1/EP-2 and which are
+already numeric. The decision to record plan 22's two informal trials as
+first-class rows rather than sub-bullets of the scalar-singleton row was
+validated when writing them: the lessons differ from the singleton row's
+lesson and would have been lost as bullets.
 
 
 ## Context and Orientation

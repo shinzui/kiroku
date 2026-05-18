@@ -1,5 +1,10 @@
 # Track 1: SQL Benchmark Baseline
 
+> See [`docs/perf-experiment-log.md`](perf-experiment-log.md) for the history
+> of append-performance experiments and
+> [`docs/PERF-METHODOLOGY.md`](PERF-METHODOLOGY.md) for the discipline future
+> optimization plans must follow.
+
 > Results from pgbench benchmarks against PostgreSQL 18 on local SSD (macOS, unix socket).
 > Run date: 2026-03-20. Schema: Strategy E (atomic row-level counter on `$all`).
 
