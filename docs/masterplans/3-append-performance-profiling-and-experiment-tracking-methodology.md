@@ -193,4 +193,99 @@ interactions between child plans. Provide concise evidence.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original vision.
 
-(To be filled during and after implementation.)
+### Delivered
+
+All three child plans complete in a single day (2026-05-18). The
+initiative produced the three durable artefacts promised in
+Vision & Scope:
+
+1. **Haskell-side profiling harness** — `ghc-prof-options: -fprof-auto`
+   on the existing `kiroku-store-bench` cabal stanza plus the
+   reference profile at
+   `docs/bench/append-hot-path/single-event-anyversion.prof` and the
+   reproduction command embedded in `docs/PERF-METHODOLOGY.md`.
+
+2. **PostgreSQL-side profiling harness** — the new
+   `kiroku-store-bench-explain` cabal benchmark whose `Explain.hs`
+   produces three artefacts under
+   `kiroku-store/bench/explain-results/`: `anyversion-singleton.txt`
+   (EXPLAIN ANALYZE in TEXT form), `anyversion-singleton.json` (same in
+   JSON), and `auto-explain.csv` (auto_explain capture of a small
+   workload). README documents reproduction.
+
+3. **Experiment ledger + methodology README** —
+   `docs/perf-experiment-log.md` (11 backfilled rows) and
+   `docs/PERF-METHODOLOGY.md` (four-step discipline), both cross-linked
+   to the four pre-existing `docs/BENCH-*.md` process docs.
+
+### Quantitative findings the next optimization plan should start from
+
+The two profiling harnesses converged on the same picture from
+opposite ends of the wire:
+
+- **EP-1 (Haskell side):** cost centres for `appendToStream`,
+  `prepareEvents`, `buildAppendParams`, and the Effectful interpreter
+  combined are sub-0.1% of total wall time; STM pool-wait + libpq
+  round-trip dominate the flat table at ~75%.
+
+- **EP-2 (PostgreSQL side):** the production `AnyVersion` CTE's
+  `Execution Time` of ~2.36 ms is 51% triggers
+  (`stream_events_notify` 29% + `stream_events_event_id_fkey` FK
+  trigger 19% + a small FK trigger), <30% CTE-node work.
+
+Implication: any optimization plan that wants to move append
+latency meaningfully must target *either* the per-row triggers on
+`stream_events` and the `pg_notify` trigger on `streams` (a schema
+change, not a CTE-shape change), *or* round-trip count / pool
+contention (a connection-management or batching change). Pure CTE
+reshaping or pure Haskell-side encoder work, even taken to its
+maximum, recovers less than half of execution time.
+
+Plans 22 and 24 each independently proposed `stream_events_notify`
+disabling and `streams.category` removal as candidates, both
+qualitatively recorded as "did not move the needle". EP-2 now
+quantifies why: removing one trigger recovers some — but not most —
+of the cost. The methodology discipline (`docs/PERF-METHODOLOGY.md`)
+exists precisely so the next plan doesn't have to re-derive this.
+
+### Gaps and follow-ups (recorded in child plans' Surprises)
+
+- **EP-1:** the bench's pre-`defaultMain` setup (100K pre-population +
+  B9 pool saturation) dominates the Haskell profile, diluting the
+  single-event AnyVersion cell. An additive `profile-only` bgroup or
+  env-gated short-circuit is a candidate follow-up; out of scope for
+  this initiative.
+
+- **EP-1:** `appendParamsEncoder` does not appear as a named cost
+  centre (it's a CAF). Per-array JSONB attribution would require
+  `{-# SCC #-}` pragmas; gated by a future plan that has already
+  identified JSONB encoding as the hotspot it wants to attack.
+
+- **EP-2:** `ephemeral-pg` discards postgres's stderr unconditionally
+  (`EphemeralPg/Process/Postgres.hs:78`), forcing the harness to use
+  PostgreSQL's `logging_collector` rather than the documented
+  `Config.stderr` override. An upstream patch is a candidate.
+
+- **EP-2:** `log_min_messages = 'log'` is empirically required for
+  auto_explain output to reach the csvlog on PG 18.3. Cross-platform
+  verification (especially Linux) is a candidate cross-check.
+
+### Comparison against the original Vision & Scope
+
+The initiative's Vision said the project would have, after this work,
+"three durable artefacts that prevent further circling": the Haskell
+profile harness, the PostgreSQL profile harness, and the experiment
+ledger + methodology. All three landed; the methodology README's
+"profile first → check the ledger → state an expected-impact
+hypothesis → re-profile after" discipline now has concrete commands
+to invoke for steps 1 and 4. The next append-perf plan that arrives
+under this MasterPlan's gate has the data it needs to either justify
+or reject the candidates that plans 22-24 kept re-proposing without
+evidence.
+
+The MasterPlan's Decision Log entry "Do not produce a faster append as
+part of this initiative" held: no `kiroku-store/src/Kiroku/Store/*`
+file changed, no `kiroku-store/sql/schema.sql` change, no
+optimization plan was bundled. The next append-perf optimization is a
+separately scoped follow-up plan, gated by the methodology
+established here.
