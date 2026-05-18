@@ -43,7 +43,7 @@ Alternatives considered. **A single-plan implementation** was rejected because t
 
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
-| EP-1 | Haskell-side append profiling with GHC -prof | docs/plans/25-haskell-side-append-profiling-with-ghc-prof.md | None | None | Not Started |
+| EP-1 | Haskell-side append profiling with GHC -prof | docs/plans/25-haskell-side-append-profiling-with-ghc-prof.md | None | None | Complete |
 | EP-2 | PostgreSQL-side append profiling with EXPLAIN ANALYZE and auto_explain | docs/plans/26-postgresql-side-append-profiling-with-explain-analyze-and-auto-explain.md | None | None | Not Started |
 | EP-3 | Append performance experiment ledger and methodology README | docs/plans/27-append-performance-experiment-ledger-and-methodology-readme.md | None | EP-1, EP-2 | Complete |
 
@@ -73,9 +73,9 @@ Existing benchmark infrastructure that all three plans should leave alone but ma
 
 ## Progress
 
-- [ ] EP-1: Profiled bench target builds and runs against ephemeral PostgreSQL.
-- [ ] EP-1: Single-event AnyVersion append profile (`.prof`) checked in to `docs/bench/append-hot-path/` or referenced with a documented reproduction command.
-- [ ] EP-1: Short doc explains how to read the cost-centre output and what to look for.
+- [x] EP-1: Profiled bench target builds and runs against ephemeral PostgreSQL. — 2026-05-18, `ghc-prof-options: -fprof-auto` added to `kiroku-store/kiroku-store.cabal`; `cabal build --enable-profiling kiroku-store:kiroku-store-bench` succeeds.
+- [x] EP-1: Single-event AnyVersion append profile (`.prof`) checked in to `docs/bench/append-hot-path/` or referenced with a documented reproduction command. — 2026-05-18, `docs/bench/append-hot-path/single-event-anyversion.prof` (3.8 MB).
+- [x] EP-1: Short doc explains how to read the cost-centre output and what to look for. — 2026-05-18, `docs/plans/25-…` Outcomes & Retrospective contains the top-five cost-centre table and a one-paragraph reading; cross-referenced from `docs/PERF-METHODOLOGY.md` "Where the harnesses live" with the now-final cabal command.
 - [ ] EP-2: Harness runs the production append CTE under `EXPLAIN (ANALYZE, BUFFERS, TIMING)` and produces per-CTE-node timings.
 - [ ] EP-2: `auto_explain` configuration applied to a bench run; output captured.
 - [ ] EP-2: Short doc explains how to interpret the per-node timings.
@@ -99,6 +99,33 @@ interactions between child plans. Provide concise evidence.
   cross-plan rework needed. Evidence: see `docs/PERF-METHODOLOGY.md` "Where the
   harnesses live" section and the Outcomes & Retrospective in
   `docs/plans/27-append-performance-experiment-ledger-and-methodology-readme.md`.
+
+- 2026-05-18: EP-1 surfaced a finding that materially changes the strategic
+  reading the methodology should support: the Haskell-side cost of the
+  production append path is sub-0.1% of total wall time in the captured
+  `.prof`, while STM pool-wait + libpq round-trip together account for ~75%.
+  Implication for future plans gated by `docs/PERF-METHODOLOGY.md`: a profile
+  showing a Haskell-side cost centre at single-digit `%time` is *already*
+  unusual relative to this baseline, and a "let's optimise `prepareEvents` /
+  `buildAppendParams`" plan that does not first explain why the cost-centre
+  picture differs from EP-1's baseline should be redirected toward
+  round-trip-count or pool-contention work instead. Evidence:
+  `docs/bench/append-hot-path/single-event-anyversion.prof` flat table (top
+  five cost centres) and the EP-1 Outcomes & Retrospective section's
+  one-paragraph reading.
+
+- 2026-05-18: EP-1 also surfaced a bench-shape finding that affects EP-2 and
+  any future profiling work. `kiroku-store/bench/Main.hs` performs ~10 s of
+  unconditional setup (pre-population + B9 pool saturation) before
+  `defaultMain` parses its arguments, so `--pattern` constraints do not
+  isolate a single bench cell's profile. EP-2's `EXPLAIN ANALYZE` harness
+  side-steps this by targeting a single SQL statement against a fresh
+  PostgreSQL rather than reusing the bench binary, so it does not inherit
+  the dilution. A follow-up that wants pure single-event Haskell profiling
+  would need either an additive `profile-only` bgroup or an env-gated
+  short-circuit of the heavy setup — out of scope for both EP-1 and EP-2,
+  noted here so the methodology README's authors can decide whether to
+  spawn a follow-up plan.
 
 
 ## Decision Log

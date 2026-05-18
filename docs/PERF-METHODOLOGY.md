@@ -71,14 +71,37 @@ process for its own sake.
 
 ## Where the harnesses live
 
-- Haskell-side profiling (GHC `-prof`, `.prof` cost-centre breakdown):
+- **Haskell-side profiling (GHC `-prof`, `.prof` cost-centre breakdown).**
+  Detailed plan and findings:
   [`docs/plans/25-haskell-side-append-profiling-with-ghc-prof.md`](plans/25-haskell-side-append-profiling-with-ghc-prof.md).
-- PostgreSQL-side profiling (`EXPLAIN (ANALYZE, BUFFERS, TIMING)` and
-  `auto_explain`):
+  Reference profile checked in at
+  [`docs/bench/append-hot-path/single-event-anyversion.prof`](bench/append-hot-path/single-event-anyversion.prof).
+  Reproduction:
+
+  ```bash
+  cd <repo-root>
+  cabal build --enable-profiling kiroku-store:kiroku-store-bench
+  BENCH=$(cabal list-bin --enable-profiling kiroku-store:kiroku-store-bench)
+  rm -f kiroku-store-bench.prof
+  "$BENCH" +RTS -p -RTS \
+    --pattern '$0 == "All.append.single-event.AnyVersion (new stream)"' \
+    --stdev 100
+  ```
+
+  Note: there is no `--` between `-RTS` and the bench's own arguments, and
+  the pattern includes the implicit `All.` prefix that `tasty-bench`'s
+  `defaultMain` adds to the test tree. The first profiled build rebuilds
+  ~50 transitive dependencies in the profiling way; subsequent builds are
+  fast. The bench's unconditional pre-`defaultMain` setup (100K category
+  events, B9 pool saturation) accounts for ~10 s of wall time per run; this
+  is documented in the EP-1 plan's Surprises & Discoveries.
+
+- **PostgreSQL-side profiling (`EXPLAIN (ANALYZE, BUFFERS, TIMING)` and
+  `auto_explain`).** Detailed plan:
   [`docs/plans/26-postgresql-side-append-profiling-with-explain-analyze-and-auto-explain.md`](plans/26-postgresql-side-append-profiling-with-explain-analyze-and-auto-explain.md).
 
-Until those plans have landed, the harness commands they document are still
-authoritative — read the plan files for the exact `cabal bench …` invocations.
+Until EP-2 has landed, the harness command it documents is still
+authoritative — read the plan file for the exact invocation.
 
 
 ## Where the existing process docs live
