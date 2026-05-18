@@ -1,0 +1,28 @@
+Build profile: -w ghc-9.12.2 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.1.0.0 (bench:kiroku-store-bench) (first run)
+Preprocessing benchmark 'kiroku-store-bench' for kiroku-store-0.1.0.0...
+Building benchmark 'kiroku-store-bench' for kiroku-store-0.1.0.0...
+Running 1 benchmarks...
+Benchmark kiroku-store-bench: RUNNING...
+
+--- Pre-populating category data (100 cats × 10 streams × 100 events) ---
+  Setup time: 5.603859s (100K events)
+
+--- B9: Pool saturation (64 writers × 100 appends, pool size 10) ---
+  Total appends: 6400
+  Elapsed: 3.934246s
+  Throughput: 1627 ops/s
+  Avg latency: 0.6147259374999999 ms
+---
+All
+  append
+    single-event
+      AnyVersion (new stream):                 OK
+        187  μs ±  19 μs, 13% more than baseline
+  reliability-audit
+    hot invoice-payment 10 AnyVersion appends: OK
+      2.07 ms ±  30 μs, 30% more than baseline
+
+All 2 tests passed (20.64s)
+Benchmark kiroku-store-bench: FINISH

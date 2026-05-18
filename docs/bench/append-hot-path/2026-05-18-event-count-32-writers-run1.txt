@@ -1,0 +1,26 @@
+Build profile: -w ghc-9.12.2 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.1.0.0 (bench:kiroku-store-bench) (file /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.2/kiroku-store-0.1.0.0/cache/build changed)
+Preprocessing benchmark 'kiroku-store-bench' for kiroku-store-0.1.0.0...
+Building benchmark 'kiroku-store-bench' for kiroku-store-0.1.0.0...
+[1 of 1] Compiling Main             ( bench/Main.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.2/kiroku-store-0.1.0.0/b/kiroku-store-bench/build/kiroku-store-bench/kiroku-store-bench-tmp/Main.o ) [Kiroku.Store.Effect changed]
+[2 of 2] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.2/kiroku-store-0.1.0.0/b/kiroku-store-bench/build/kiroku-store-bench/kiroku-store-bench [Objects changed]
+Running 1 benchmarks...
+Benchmark kiroku-store-bench: RUNNING...
+
+--- Pre-populating category data (100 cats × 10 streams × 100 events) ---
+  Setup time: 7.080602s (100K events)
+
+--- B9: Pool saturation (64 writers × 100 appends, pool size 10) ---
+  Total appends: 6400
+  Elapsed: 5.52553s
+  Throughput: 1158 ops/s
+  Avg latency: 0.8633640625 ms
+---
+All
+  concurrent
+    32 writers x 10 appends: OK
+      1.262 s ±  15 ms, 95% more than baseline
+
+All 1 tests passed (9.91s)
+Benchmark kiroku-store-bench: FINISH

@@ -1,0 +1,72 @@
+Build profile: -w ghc-9.12.2 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.1.0.0 (bench:kiroku-store-bench) (file /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.2/kiroku-store-0.1.0.0/cache/build changed)
+Preprocessing benchmark 'kiroku-store-bench' for kiroku-store-0.1.0.0...
+Building benchmark 'kiroku-store-bench' for kiroku-store-0.1.0.0...
+[1 of 1] Compiling Main             ( bench/Main.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.2/kiroku-store-0.1.0.0/b/kiroku-store-bench/build/kiroku-store-bench/kiroku-store-bench-tmp/Main.o ) [Kiroku.Store.Effect changed]
+[2 of 2] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.2/kiroku-store-0.1.0.0/b/kiroku-store-bench/build/kiroku-store-bench/kiroku-store-bench [Objects changed]
+Running 1 benchmarks...
+Benchmark kiroku-store-bench: RUNNING...
+
+--- Pre-populating category data (100 cats × 10 streams × 100 events) ---
+  Setup time: 6.253046s (100K events)
+
+--- B9: Pool saturation (64 writers × 100 appends, pool size 10) ---
+  Total appends: 6400
+  Elapsed: 4.447208s
+  Throughput: 1439 ops/s
+  Avg latency: 0.69487625 ms
+---
+All
+  append
+    single-event
+      NoStream (new stream):                   FAIL
+        233  μs ±  16 μs, 45% more than baseline
+        Use -p '/NoStream (new stream)/' to rerun this test only.
+      AnyVersion (new stream):                 FAIL
+        238  μs ±  21 μs, 44% more than baseline
+        Use -p '/AnyVersion (new stream)/' to rerun this test only.
+    batch-10
+      NoStream:                                FAIL
+        495  μs ±  10 μs, 23% more than baseline
+        Use -p '/batch-10.NoStream/' to rerun this test only.
+    batch-100
+      NoStream:                                FAIL
+        2.90 ms ± 265 μs, 12% more than baseline
+        Use -p '/batch-100.NoStream/' to rerun this test only.
+    sequential
+      10 appends to same stream:               OK
+        1.91 ms ± 146 μs,       same as baseline
+  read
+    stream forward (100-event page):           OK
+      1.07 ms ±  45 μs,  6% more than baseline
+    $all forward (100-event page):             OK
+      1.06 ms ±  54 μs,       same as baseline
+  category
+    category forward (100-event page):         OK
+      1.09 ms ±  98 μs,       same as baseline
+    exhausted-category:                        FAIL
+      25.5 μs ± 2.3 μs, 18% more than baseline
+      Use -p '/exhausted-category/' to rerun this test only.
+    $all forward (100-event page, baseline):   OK
+      1.06 ms ±  38 μs,       same as baseline
+  concurrent
+    8 writers x 10 appends:                    FAIL
+      16.5 ms ± 859 μs, 13% more than baseline
+      Use -p '/8 writers x 10 appends/' to rerun this test only.
+    32 writers x 10 appends:                   FAIL
+      808  ms ±  76 ms, 25% more than baseline
+      Use -p '/32 writers x 10 appends/' to rerun this test only.
+  reliability-audit
+    hot invoice-payment 10 AnyVersion appends: FAIL
+      1.78 ms ± 134 μs, 12% more than baseline
+      Use -p '/hot invoice-payment 10 AnyVersion appends/' to rerun this test only.
+    appendMultiStream 3 existing streams:      FAIL
+      429  μs ±  43 μs, 11% more than baseline
+      Use -p '/appendMultiStream 3 existing streams/' to rerun this test only.
+    subscription category catch-up 100 events: FAIL
+      4.41 ms ± 132 μs, 11% more than baseline
+      Use -p '/subscription category catch-up 100 events/' to rerun this test only.
+
+10 out of 15 tests failed (127.56s)
+Benchmark kiroku-store-bench: ERROR

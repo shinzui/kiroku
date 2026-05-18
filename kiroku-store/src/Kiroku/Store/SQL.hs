@@ -6,6 +6,7 @@ module Kiroku.Store.SQL (
     appendExpectedVersion,
     appendStreamExists,
     appendNoStream,
+    appendAnyVersionUpdateInsert,
     appendAnyVersion,
 
     -- * Link statements
@@ -129,6 +130,17 @@ appendNoStream =
         appendParamsEncoder
         appendResultDecoder
 
+{- | Append to a stream at any version using plain UPDATE or INSERT.
+Returns Nothing if a concurrent insert raced this statement or the stream is
+soft-deleted; callers can fall back to 'appendAnyVersion' for the race case.
+-}
+appendAnyVersionUpdateInsert :: Statement AppendParams (Maybe AppendResult)
+appendAnyVersionUpdateInsert =
+    preparable
+        appendAnyVersionUpdateInsertSQL
+        appendParamsEncoder
+        appendResultDecoder
+
 {- | Append to a stream, creating it if it doesn't exist.
 Should always return Just (unless duplicate event ID constraint violation).
 -}
@@ -195,7 +207,7 @@ appendExpectedVersionSQL =
     CROSS JOIN all_update au
     """
 
--- | CTE without version check: UPDATE streams WHERE stream_name = $8 (no $9).
+-- | CTE without version check: UPDATE streams WHERE stream_name = $8 (no expected version).
 appendStreamExistsSQL :: Text
 appendStreamExistsSQL =
     """
@@ -293,6 +305,72 @@ appendNoStreamSQL =
            si.initial_version + (SELECT count(*) FROM new_events),
            au.initial_global_version + (SELECT count(*) FROM new_events)
     FROM stream_insert si
+    CROSS JOIN all_update au
+    """
+
+{- | CTE for create-or-append using separate UPDATE and INSERT branches.
+This avoids the generic @ON CONFLICT DO UPDATE@ path when there is no
+concurrent stream-creation race.
+-}
+appendAnyVersionUpdateInsertSQL :: Text
+appendAnyVersionUpdateInsertSQL =
+    """
+    WITH
+      new_events AS (
+        SELECT *
+        FROM unnest($1::uuid[], $2::text[], $3::uuid[], $4::uuid[], $5::jsonb[], $6::jsonb[], $7::timestamptz[])
+        WITH ORDINALITY AS t(event_id, event_type, causation_id, correlation_id, data, metadata, created_at, idx)
+      ),
+      stream_update AS (
+        UPDATE streams
+        SET stream_version = stream_version + (SELECT count(*) FROM new_events)
+        WHERE stream_name = $8
+          AND deleted_at IS NULL
+        RETURNING stream_id, stream_version - (SELECT count(*) FROM new_events) AS initial_version
+      ),
+      stream_insert AS (
+        INSERT INTO streams (stream_name, stream_version)
+        SELECT $8, (SELECT count(*) FROM new_events)
+        WHERE NOT EXISTS (SELECT 1 FROM stream_update)
+        ON CONFLICT (stream_name) DO NOTHING
+        RETURNING stream_id, 0::bigint AS initial_version
+      ),
+      stream_target AS (
+        SELECT stream_id, initial_version FROM stream_update
+        UNION ALL
+        SELECT stream_id, initial_version FROM stream_insert
+      ),
+      inserted_events AS (
+        INSERT INTO events (event_id, event_type, causation_id, correlation_id, data, metadata, created_at)
+        SELECT event_id, event_type, causation_id, correlation_id, data, metadata, created_at
+        FROM new_events
+        WHERE EXISTS (SELECT 1 FROM stream_target)
+        ORDER BY idx
+      ),
+      source_links AS (
+        INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
+        SELECT ne.event_id, st.stream_id, st.initial_version + ne.idx, st.stream_id, st.initial_version + ne.idx
+        FROM new_events ne
+        CROSS JOIN stream_target st
+      ),
+      all_update AS (
+        UPDATE streams
+        SET stream_version = stream_version + (SELECT count(*) FROM new_events)
+        WHERE stream_id = 0
+          AND EXISTS (SELECT 1 FROM stream_target)
+        RETURNING stream_version - (SELECT count(*) FROM new_events) AS initial_global_version
+      ),
+      all_links AS (
+        INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
+        SELECT ne.event_id, 0, au.initial_global_version + ne.idx, st.stream_id, st.initial_version + ne.idx
+        FROM new_events ne
+        CROSS JOIN all_update au
+        CROSS JOIN stream_target st
+      )
+    SELECT st.stream_id,
+           st.initial_version + (SELECT count(*) FROM new_events),
+           au.initial_global_version + (SELECT count(*) FROM new_events)
+    FROM stream_target st
     CROSS JOIN all_update au
     """
 
