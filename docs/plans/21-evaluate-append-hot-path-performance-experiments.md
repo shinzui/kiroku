@@ -26,7 +26,7 @@ After this plan is complete, a contributor can point to a benchmark report that 
 - [x] Milestone 2: Prototyped replacing repeated SQL `count(*)` reads with an explicit event-count parameter, measured it, and discarded it because the primary benchmark got worse.
 - [x] Milestone 3: Prototyped a specialized `AnyVersion` update/insert path that avoids upsert in the normal case and keeps the original upsert as fallback.
 - [x] Milestone 4: Prototyped a `VALUES`-based one-event append statement, measured it, and discarded it because it did not improve the primary benchmark.
-- [x] Milestone 5: Compared results, kept only the `AnyVersion` update/insert split, and recorded the final recommendation on 2026-05-18.
+- [x] Milestone 5: Compared results, reverted the experimental source changes, and recorded the final recommendation on 2026-05-18.
 
 
 ## Surprises & Discoveries
@@ -39,6 +39,7 @@ After this plan is complete, a contributor can point to a benchmark report that 
 - The one-event scalar `VALUES` experiment passed `cabal test kiroku-store:kiroku-store-test` with 129 examples and 0 failures, but `32 writers x 10 appends` measured 1.140s and `AnyVersion (new stream)` measured 200us. The experiment was discarded because it added complexity without improving the primary target.
 - The full `just bench-regression` run with the kept `AnyVersion` split still failed 10 of 15 benchmarks. The primary `32 writers x 10 appends` benchmark measured 808ms, 25 percent more than baseline. The `hot invoice-payment 10 AnyVersion appends` benchmark measured 1.78ms, 12 percent more than baseline, which is much better than the initial focused 2.99ms result but still just over the 10 percent gate in the full suite.
 - `cabal test all` did not pass as a whole because `hasql-notifications-test` failed before Kiroku code was involved with `Could not open database connection`. In the same command, `kiroku-store-test` passed with 129 examples and 0 failures, `kiroku-otel-test` passed with 6 examples and 0 failures, and `shibuya-kiroku-adapter-test` passed with 7 examples and 0 failures.
+- After reviewing the complexity and the full-suite benchmark result, the source-code experiment was reverted. The focused invoice-payment numbers showed a possible improvement, but the full-suite invoice-payment result was effectively flat versus the earlier full-suite failure, and the primary `32 writers x 10 appends` regression did not improve.
 
 
 ## Decision Log
@@ -55,21 +56,24 @@ After this plan is complete, a contributor can point to a benchmark report that 
 - Decision: Discard the explicit event-count parameter experiment.
   Rationale: It preserved correctness but made the primary `32 writers x 10 appends` focused run slower, moving from 1.055s before edits to 1.262s with the patch.
   Date: 2026-05-18
-- Decision: Keep the `AnyVersion` update/insert split for final validation.
-  Rationale: It preserves the original upsert as fallback, keeps correctness tests green, and improved the hot existing-stream benchmark from 2.99ms before edits to 2.26ms and 2.07ms in focused runs, even though it did not improve the fresh-stream 32-writer benchmark.
+- Decision: Validate the `AnyVersion` update/insert split but do not keep it.
+  Rationale: It preserved the original upsert as fallback and improved the hot existing-stream benchmark from 2.99ms before edits to 2.26ms and 2.07ms in focused runs, but the full-suite result was 1.78ms versus an earlier full-suite 1.76ms, and it did not improve the fresh-stream 32-writer benchmark.
   Date: 2026-05-18
 - Decision: Discard the scalar one-event `VALUES` path.
   Rationale: It did not improve `32 writers x 10 appends` and made the single-event `AnyVersion` new-stream focused run worse than the split-path-only measurement.
+  Date: 2026-05-18
+- Decision: Revert all source-code experiments and keep only documentation plus benchmark evidence.
+  Rationale: The added append SQL path increased maintenance complexity without a reliable full-suite improvement. The evidence is still useful for future work, so the ExecPlan and benchmark transcripts remain.
   Date: 2026-05-18
 
 
 ## Outcomes & Retrospective
 
-The implementation kept one source change: `AnyVersion` appends now first try a split update/insert statement that avoids `ON CONFLICT DO UPDATE` in the normal case, then fall back to the original upsert statement if the split path returns no row. This preserves the race-safe behavior of concurrent stream creation while improving the hot existing-stream workload in focused measurements.
+No source-code change is kept. The work produced benchmark evidence showing that the tested EventStore-inspired SQL-shape changes do not justify extra append-path complexity in Kiroku at this time. The most promising experiment, an `AnyVersion` split update/insert path, improved focused hot-stream runs but did not improve the full-suite result enough to clear the gate or justify another large append CTE.
 
-The work did not fix the full benchmark regression gate. The `32 writers x 10 appends` workload primarily creates fresh unique streams and still contends on the `$all` stream row; neither the event-count parameter experiment nor the scalar one-event `VALUES` experiment produced a stable improvement there. The next meaningful performance plan should either stabilize the benchmark gate for noisy local environments or investigate a larger design that reduces lock hold time around `$all` more substantially than these SQL-shape changes.
+The work did not fix the full benchmark regression gate. The `32 writers x 10 appends` workload primarily creates fresh unique streams and still contends on the `$all` stream row; none of the event-count parameter, `AnyVersion` split-path, or scalar one-event `VALUES` experiments produced a stable improvement there. The next meaningful performance plan should either stabilize the benchmark gate for noisy local environments or investigate a larger design that reduces lock hold time around `$all` more substantially than these SQL-shape changes.
 
-Validation completed on 2026-05-18: `cabal test kiroku-store:kiroku-store-test` passed after the kept patch with 129 examples and 0 failures. `just bench-regression` still failed, with output recorded in `docs/bench/append-hot-path/2026-05-18-anyversion-split-full-bench-regression.txt`. `cabal test all` was attempted and failed only because `hasql-notifications-test` could not open a database connection; Kiroku package tests that completed passed.
+Validation completed on 2026-05-18 during the experiment: `cabal test kiroku-store:kiroku-store-test` passed with 129 examples and 0 failures for each source experiment. `just bench-regression` still failed with the best source experiment, with output recorded in `docs/bench/append-hot-path/2026-05-18-anyversion-split-full-bench-regression.txt`. `cabal test all` was attempted and failed only because `hasql-notifications-test` could not open a database connection; Kiroku package tests that completed passed. After the final revert, the source tree returned to the pre-experiment append implementation.
 
 
 ## Context and Orientation
@@ -264,3 +268,5 @@ At the end of Milestone 4, if the one-event statement is kept, it must be isolat
 2026-05-17: Initial plan created to evaluate EventStore-inspired append hot-path experiments against Kiroku's benchmark regression gate.
 
 2026-05-18: Implemented and measured the event-count, AnyVersion split-path, and one-event VALUES experiments. Kept only the AnyVersion split-path change because it improved hot existing-stream writes while preserving correctness; recorded that the full benchmark gate still fails.
+
+2026-05-18: Reverted the AnyVersion split-path source change after reviewing complexity versus measured benefit. The plan and benchmark transcripts remain as documentation.

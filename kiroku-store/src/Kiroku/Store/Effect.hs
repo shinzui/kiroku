@@ -127,11 +127,8 @@ runStorePool store = interpret_ $ \case
                 Session.statement params SQL.appendStreamExists
             NoStream ->
                 Session.statement params SQL.appendNoStream
-            AnyVersion -> do
-                splitResult <- Session.statement params SQL.appendAnyVersionUpdateInsert
-                case splitResult of
-                    Just r -> pure (Just r)
-                    Nothing -> Session.statement params SQL.appendAnyVersion
+            AnyVersion ->
+                Session.statement params SQL.appendAnyVersion
         case result of
             Left usageErr ->
                 throwError (mapUsageError name expected usageErr)
