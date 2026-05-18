@@ -1,6 +1,6 @@
 module Main where
 
-import Codd (CoddSettings (..), VerifySchemas (LaxCheck))
+import Codd (ApplyResult (SchemasNotVerified), CoddSettings (..))
 import Codd.Parsing (connStringParser)
 import Codd.Representations.Types (DbRep (..))
 import Codd.Types (ConnectionString, SchemaAlgo (..), SchemaSelection (..), SqlSchema (..), TxnIsolationLvl (..), singleTryPolicy)
@@ -23,7 +23,7 @@ import Hasql.Pool.Config qualified as Pool.Config
 import Hasql.Session qualified as Session
 import Hasql.Statement (Statement, preparable)
 import Kiroku.Store
-import Kiroku.Store.Migrations (runKirokuMigrations)
+import Kiroku.Store.Migrations (runKirokuMigrationsNoCheck)
 import Test.Hspec
 
 main :: IO ()
@@ -35,7 +35,8 @@ main =
                     let connStr = Pg.connectionString db
                         coddSettings = testCoddSettings connStr
 
-                    _ <- runKirokuMigrations coddSettings (secondsToDiffTime 5) LaxCheck
+                    firstMigration <- runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5)
+                    firstMigration `shouldBeSchemasNotVerified` "first migration run"
                     assertBootstrapApplied connStr
                     assertDefaultUuidV7 connStr
 
@@ -56,7 +57,8 @@ main =
                                 Left err -> expectationFailure ("readStreamForward failed: " <> show err)
                                 Right events -> Vector.length events `shouldBe` 1
 
-                    _ <- runKirokuMigrations coddSettings (secondsToDiffTime 5) LaxCheck
+                    secondMigration <- runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5)
+                    secondMigration `shouldBeSchemasNotVerified` "second migration run"
                     assertBootstrapApplied connStr
                     assertDefaultUuidV7 connStr
                 case result of
@@ -92,6 +94,10 @@ makeEvent typ payload =
         , causationId = Nothing
         , correlationId = Nothing
         }
+
+shouldBeSchemasNotVerified :: ApplyResult -> String -> Expectation
+shouldBeSchemasNotVerified SchemasNotVerified _ = pure ()
+shouldBeSchemasNotVerified _ label = expectationFailure (label <> " unexpectedly verified schemas")
 
 assertBootstrapApplied :: Text -> IO ()
 assertBootstrapApplied connStr = do

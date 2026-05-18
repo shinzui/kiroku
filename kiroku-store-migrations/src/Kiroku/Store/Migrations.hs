@@ -4,9 +4,10 @@
 module Kiroku.Store.Migrations (
     kirokuMigrations,
     runKirokuMigrations,
+    runKirokuMigrationsNoCheck,
 ) where
 
-import Codd (ApplyResult, CoddSettings, VerifySchemas, applyMigrations)
+import Codd (ApplyResult (SchemasNotVerified), CoddSettings, VerifySchemas, applyMigrations, applyMigrationsNoCheck)
 import Codd.Logging (runCoddLogger)
 import Codd.Parsing (AddedSqlMigration, EnvVars, PureStream (..), parseAddedSqlMigration)
 import Data.ByteString (ByteString)
@@ -38,6 +39,18 @@ runKirokuMigrations settings connectTimeout verifySchemas =
     runCoddLogger $ do
         migrations <- kirokuMigrations
         applyMigrations settings (Just migrations) connectTimeout verifySchemas
+
+{- | Run Kiroku's embedded migrations through codd without expected-schema
+verification.
+
+This is the right entry point until the caller owns a codd expected-schema
+snapshot. Use 'runKirokuMigrations' when schema verification is configured.
+-}
+runKirokuMigrationsNoCheck :: CoddSettings -> DiffTime -> IO ApplyResult
+runKirokuMigrationsNoCheck settings connectTimeout =
+    runCoddLogger $ do
+        migrations <- kirokuMigrations
+        applyMigrationsNoCheck settings (Just migrations) connectTimeout (const (pure SchemasNotVerified))
 
 embeddedMigrationFiles :: [(FilePath, ByteString)]
 embeddedMigrationFiles = $(embedDir "sql-migrations")

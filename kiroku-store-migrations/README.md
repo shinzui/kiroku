@@ -10,7 +10,7 @@ Run the executable with codd's standard environment variables:
 ```bash
 CODD_CONNECTION='host=/tmp port=5432 dbname=kiroku user=kiroku_admin' \
 CODD_MIGRATION_DIRS=unused-for-embedded-migrations \
-CODD_EXPECTED_SCHEMA_DIR=kiroku-store-migrations/expected-schema \
+CODD_EXPECTED_SCHEMA_DIR=unused-for-unverified-embedded-migrations \
 CODD_SCHEMAS=public \
 kiroku-store-migrate
 ```
@@ -29,7 +29,9 @@ withStore
 reverting the Haskell package does not undo the database change. Repair
 state by restoring from backup or by shipping another forward migration.
 
-This first implementation runs with lax schema checking because Kiroku
-does not yet ship a checked-in codd expected-schema snapshot. Operators
-should treat the migration table as the source of applied-version truth
-until strict snapshots are added.
+This first implementation runs without codd expected-schema verification
+because Kiroku does not yet ship a checked-in codd expected-schema
+snapshot. `CODD_EXPECTED_SCHEMA_DIR` is still required by codd's settings
+parser, but this executable does not read from it. Operators should treat
+the migration table as the source of applied-version truth until strict
+snapshots are added.

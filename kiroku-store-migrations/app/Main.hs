@@ -1,12 +1,11 @@
 module Main where
 
-import Codd (VerifySchemas (LaxCheck))
 import Codd.Environment (getCoddSettings)
 import Data.Time (secondsToDiffTime)
-import Kiroku.Store.Migrations (runKirokuMigrations)
+import Kiroku.Store.Migrations (runKirokuMigrationsNoCheck)
 
 main :: IO ()
 main = do
     settings <- getCoddSettings
-    _ <- runKirokuMigrations settings (secondsToDiffTime 5) LaxCheck
+    _ <- runKirokuMigrationsNoCheck settings (secondsToDiffTime 5)
     pure ()
