@@ -1,0 +1,100 @@
+Nested Loop  (cost=1.51..1.56 rows=1 width=24) (actual time=0.224..0.227 rows=1.00 loops=1)
+  Buffers: shared hit=26
+  CTE new_events
+    ->  Function Scan on t  (cost=0.02..0.03 rows=1 width=160) (actual time=0.020..0.021 rows=1.00 loops=1)
+  CTE stream_upsert
+    ->  Insert on streams  (cost=0.10..0.11 rows=1 width=96) (actual time=0.134..0.134 rows=1.00 loops=1)
+          Conflict Resolution: UPDATE
+          Conflict Arbiter Indexes: ix_streams_stream_name
+          Conflict Filter: (streams.deleted_at IS NULL)
+          Tuples Inserted: 1
+          Conflicting Tuples: 0
+          Buffers: shared hit=20
+          InitPlan 2
+            ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (actual time=0.072..0.072 rows=1.00 loops=1)
+                  ->  CTE Scan on new_events  (cost=0.00..0.02 rows=1 width=0) (actual time=0.021..0.022 rows=1.00 loops=1)
+                        Storage: Memory  Maximum Storage: 17kB
+          InitPlan 3
+            ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (actual time=0.001..0.001 rows=1.00 loops=1)
+                  ->  CTE Scan on new_events new_events_1  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                        Storage: Memory  Maximum Storage: 17kB
+          InitPlan 4
+            ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (never executed)
+                  ->  CTE Scan on new_events new_events_2  (cost=0.00..0.02 rows=1 width=0) (never executed)
+                        Storage: Memory  Maximum Storage: 17kB
+          ->  Result  (cost=0.00..0.01 rows=1 width=96) (actual time=0.093..0.093 rows=1.00 loops=1)
+                Buffers: shared hit=14
+  CTE inserted_events
+    ->  Insert on events  (cost=0.05..0.07 rows=0 width=0) (actual time=0.176..0.176 rows=0.00 loops=1)
+          Buffers: shared hit=50 dirtied=3 written=3
+          ->  Subquery Scan on "*SELECT*"  (cost=0.05..0.07 rows=1 width=152) (actual time=0.009..0.010 rows=1.00 loops=1)
+                ->  Sort  (cost=0.05..0.06 rows=1 width=160) (actual time=0.009..0.009 rows=1.00 loops=1)
+                      Sort Key: new_events_3.idx
+                      Sort Method: quicksort  Memory: 25kB
+                      InitPlan 6
+                        ->  CTE Scan on stream_upsert  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                              Storage: Memory  Maximum Storage: 17kB
+                      ->  Result  (cost=0.00..0.02 rows=1 width=160) (actual time=0.001..0.001 rows=1.00 loops=1)
+                            One-Time Filter: (InitPlan 6).col1
+                            ->  CTE Scan on new_events new_events_3  (cost=0.00..0.02 rows=1 width=160) (actual time=0.000..0.000 rows=1.00 loops=1)
+                                  Storage: Memory  Maximum Storage: 17kB
+  CTE source_links
+    ->  Insert on stream_events  (cost=0.00..0.06 rows=0 width=0) (actual time=0.005..0.005 rows=0.00 loops=1)
+          Buffers: shared hit=5
+          ->  Nested Loop  (cost=0.00..0.06 rows=1 width=48) (actual time=0.001..0.001 rows=1.00 loops=1)
+                ->  CTE Scan on new_events ne  (cost=0.00..0.02 rows=1 width=24) (actual time=0.000..0.000 rows=1.00 loops=1)
+                      Storage: Memory  Maximum Storage: 17kB
+                ->  CTE Scan on stream_upsert su_1  (cost=0.00..0.02 rows=1 width=16) (actual time=0.000..0.000 rows=1.00 loops=1)
+                      Storage: Memory  Maximum Storage: 17kB
+  CTE all_update
+    ->  Update on streams streams_1  (cost=0.09..1.10 rows=1 width=14) (actual time=0.087..0.088 rows=1.00 loops=1)
+          Buffers: shared hit=6
+          InitPlan 9
+            ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (actual time=0.001..0.001 rows=1.00 loops=1)
+                  ->  CTE Scan on new_events new_events_4  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                        Storage: Memory  Maximum Storage: 17kB
+          InitPlan 10
+            ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (actual time=0.001..0.001 rows=1.00 loops=1)
+                  ->  CTE Scan on new_events new_events_5  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                        Storage: Memory  Maximum Storage: 17kB
+          InitPlan 11
+            ->  CTE Scan on stream_upsert stream_upsert_1  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                  Storage: Memory  Maximum Storage: 17kB
+          ->  Result  (cost=0.00..1.01 rows=1 width=14) (actual time=0.005..0.005 rows=1.00 loops=1)
+                One-Time Filter: (InitPlan 11).col1
+                Buffers: shared hit=1
+                ->  Seq Scan on streams streams_1  (cost=0.00..1.01 rows=1 width=14) (actual time=0.003..0.003 rows=1.00 loops=1)
+                      Filter: (stream_id = 0)
+                      Buffers: shared hit=1
+  CTE all_links
+    ->  Insert on stream_events stream_events_1  (cost=0.00..0.09 rows=0 width=0) (actual time=0.255..0.255 rows=0.00 loops=1)
+          Buffers: shared hit=50 dirtied=4 written=4
+          ->  Nested Loop  (cost=0.00..0.09 rows=1 width=48) (actual time=0.002..0.002 rows=1.00 loops=1)
+                ->  Nested Loop  (cost=0.00..0.05 rows=1 width=32) (actual time=0.001..0.001 rows=1.00 loops=1)
+                      ->  CTE Scan on new_events ne_1  (cost=0.00..0.02 rows=1 width=24) (actual time=0.000..0.000 rows=1.00 loops=1)
+                            Storage: Memory  Maximum Storage: 17kB
+                      ->  CTE Scan on all_update au_1  (cost=0.00..0.02 rows=1 width=8) (actual time=0.000..0.000 rows=1.00 loops=1)
+                            Storage: Memory  Maximum Storage: 17kB
+                ->  CTE Scan on stream_upsert su_2  (cost=0.00..0.02 rows=1 width=16) (actual time=0.000..0.000 rows=1.00 loops=1)
+                      Storage: Memory  Maximum Storage: 17kB
+  InitPlan 14
+    ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (actual time=0.001..0.001 rows=1.00 loops=1)
+          ->  CTE Scan on new_events new_events_6  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                Storage: Memory  Maximum Storage: 17kB
+  InitPlan 15
+    ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (actual time=0.000..0.000 rows=1.00 loops=1)
+          ->  CTE Scan on new_events new_events_7  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                Storage: Memory  Maximum Storage: 17kB
+  ->  CTE Scan on stream_upsert su  (cost=0.00..0.02 rows=1 width=16) (actual time=0.135..0.135 rows=1.00 loops=1)
+        Storage: Memory  Maximum Storage: 17kB
+        Buffers: shared hit=20
+  ->  CTE Scan on all_update au  (cost=0.00..0.02 rows=1 width=8) (actual time=0.087..0.088 rows=1.00 loops=1)
+        Storage: Memory  Maximum Storage: 17kB
+        Buffers: shared hit=6
+Planning:
+  Buffers: shared hit=58
+Planning Time: 0.668 ms
+Trigger stream_events_notify on streams: time=0.617 calls=2
+Trigger for constraint stream_events_event_id_fkey on stream_events: time=0.345 calls=2
+Trigger for constraint stream_events_stream_id_fkey on stream_events: time=0.048 calls=2
+Execution Time: 2.329 ms

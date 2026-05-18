@@ -1,0 +1,765 @@
+2026-05-18 16:50:00.248 PDT,,,6901,,6a0ba5a8.1af5,1,,2026-05-18 16:50:00 PDT,,0,LOG,00000,"ending log output to stderr",,"Future log output will go to log destination ""csvlog"".",,,,,,,"","postmaster",,0
+2026-05-18 16:50:00.248 PDT,,,6901,,6a0ba5a8.1af5,2,,2026-05-18 16:50:00 PDT,,0,LOG,00000,"starting PostgreSQL 18.3 on aarch64-apple-darwin25.3.0, compiled by clang version 21.1.8, 64-bit",,,,,,,,,"","postmaster",,0
+2026-05-18 16:50:00.248 PDT,,,6901,,6a0ba5a8.1af5,3,,2026-05-18 16:50:00 PDT,,0,LOG,00000,"listening on IPv4 address ""127.0.0.1"", port 55212",,,,,,,,,"","postmaster",,0
+2026-05-18 16:50:00.249 PDT,,,6901,,6a0ba5a8.1af5,4,,2026-05-18 16:50:00 PDT,,0,LOG,00000,"listening on Unix socket ""/var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/pg--c037a5839642c37c/.s.PGSQL.55212""",,,,,,,,,"","postmaster",,0
+2026-05-18 16:50:00.252 PDT,,,6909,,6a0ba5a8.1afd,1,,2026-05-18 16:50:00 PDT,,0,LOG,00000,"database system was shut down at 2026-05-18 16:50:00 PDT",,,,,,,,,"","startup",,0
+2026-05-18 16:50:00.253 PDT,,,6901,,6a0ba5a8.1af5,5,,2026-05-18 16:50:00 PDT,,0,LOG,00000,"database system is ready to accept connections",,,,,,,,,"","postmaster",,0
+2026-05-18 16:50:00.356 PDT,"shinzui","kiroku",6914,"[local]",6a0ba5a8.1b02,1,"startup",2026-05-18 16:50:00 PDT,0/1,0,FATAL,3D000,"database ""kiroku"" does not exist",,,,,,,,,"","client backend",,0
+2026-05-18 16:50:00.368 PDT,"shinzui","postgres",6915,"[local]",6a0ba5a8.1b03,1,"INSERT",2026-05-18 16:50:00 PDT,1/4,752,LOG,00000,"duration: 0.260 ms  plan:
+Query Text: -- Kiroku Store Schema
+-- Supports PostgreSQL 17+.
+-- PostgreSQL 18 provides pg_catalog.uuidv7(); PostgreSQL 17 needs this
+-- public-schema fallback before events.event_id DEFAULT uuidv7() is parsed.
+DO $$
+BEGIN
+    IF to_regprocedure('pg_catalog.uuidv7()') IS NULL
+       AND to_regprocedure('uuidv7()') IS NULL THEN
+        EXECUTE $fn$
+            CREATE FUNCTION uuidv7()
+            RETURNS uuid
+            AS $body$
+            DECLARE
+                unix_ts_ms bytea;
+                uuid_bytes bytea;
+            BEGIN
+                unix_ts_ms = substring(int8send(floor(extract(epoch from clock_timestamp()) * 1000)::bigint) from 3);
+                uuid_bytes = uuid_send(gen_random_uuid());
+                uuid_bytes = overlay(uuid_bytes placing unix_ts_ms from 1 for 6);
+                uuid_bytes = set_byte(uuid_bytes, 6, (b'0111' || get_byte(uuid_bytes, 6)::bit(4))::bit(8)::int);
+                RETURN encode(uuid_bytes, 'hex')::uuid;
+            END
+            $body$
+            LANGUAGE plpgsql
+            VOLATILE
+        $fn$;
+    END IF;
+END
+$$;
+
+-- Streams (including $all as stream_id = 0)
+CREATE TABLE IF NOT EXISTS streams (
+    stream_id    BIGSERIAL    PRIMARY KEY,
+    stream_name  TEXT         NOT NULL,
+    category     TEXT         GENERATED ALWAYS AS (split_part(stream_name, '-', 1)) STORED,
+    stream_version BIGINT     NOT NULL DEFAULT 0,
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at   TIMESTAMPTZ,
+    CONSTRAINT ix_streams_stream_name UNIQUE (stream_name)
+);
+
+-- Seed the $all stream
+INSERT INTO streams (stream_id, stream_name, stream_version)
+VALUES (0, '$all', 0)
+ON CONFLICT DO NOTHING;
+
+-- Reset sequence past the reserved stream_id=0
+SELECT setval('streams_stream_id_seq', GREATEST((SELECT MAX(stream_id) FROM streams), 1));
+
+-- Events (flat table — stream membership tracked in stream_events)
+CREATE TABLE IF NOT EXISTS events (
+    event_id       UUID         PRIMARY KEY DEFAULT uuidv7(),
+    event_type     TEXT         NOT NULL,
+    causation_id   UUID,
+    correlation_id UUID,
+    data           JSONB        NOT NULL,
+    metadata       JSONB,
+    created_at     TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+-- Stream-event junction (each event gets 2+ rows: source stream + $all + any links)
+CREATE TABLE IF NOT EXISTS stream_events (
+    event_id                UUID   NOT NULL REFERENCES events(event_id),
+    stream_id               BIGINT NOT NULL REFERENCES streams(stream_id),
+    stream_version          BIGINT NOT NULL,
+    original_stream_id      BIGINT NOT NULL,
+    original_stream_version BIGINT NOT NULL,
+    PRIMARY KEY (event_id, stream_id)
+);
+
+-- Indexes
+
+-- Primary read path: fetch events from a stream in order
+CREATE INDEX IF NOT EXISTS ix_stream_events_stream_version
+    ON stream_events (stream_id, stream_version);
+
+-- Event type filtering (for server-side subscription filtering)
+CREATE INDEX IF NOT EXISTS ix_events_event_type
+    ON events (event_type);
+
+-- Correlation tracing
+CREATE INDEX IF NOT EXISTS ix_events_correlation_id
+    ON events (correlation_id) WHERE correlation_id IS NOT NULL;
+
+-- Causation tracing
+CREATE INDEX IF NOT EXISTS ix_events_causation_id
+    ON events (causation_id) WHERE causation_id IS NOT NULL;
+
+-- Category filtering (for readCategory — uses generated column, not LIKE)
+CREATE INDEX IF NOT EXISTS ix_streams_category
+    ON streams (category);
+
+-- Category read path: find $all entries by originating stream, ordered by global position
+-- Enables efficient category reads by allowing the planner to: look up category stream_ids →
+-- index scan $all for each → merge ordered by stream_version
+CREATE INDEX IF NOT EXISTS ix_stream_events_all_by_origin
+    ON stream_events (original_stream_id, stream_version)
+    WHERE stream_id = 0;
+
+-- Subscriptions (checkpoint persistence for subscription positions)
+CREATE TABLE IF NOT EXISTS subscriptions (
+    subscription_id   BIGSERIAL    PRIMARY KEY,
+    subscription_name TEXT         NOT NULL UNIQUE,
+    stream_name       TEXT         NOT NULL DEFAULT '$all',
+    last_seen         BIGINT       NOT NULL DEFAULT 0,
+    created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+-- Triggers
+
+-- NOTIFY on stream changes (fires once per append, not per event)
+CREATE OR REPLACE FUNCTION notify_events() RETURNS TRIGGER AS $$
+BEGIN
+    PERFORM pg_notify(
+        TG_TABLE_SCHEMA || '.events',
+        NEW.stream_name || ',' || NEW.stream_id || ',' || NEW.stream_version
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS stream_events_notify ON streams;
+CREATE TRIGGER stream_events_notify
+    AFTER INSERT OR UPDATE ON streams
+    FOR EACH ROW EXECUTE FUNCTION notify_events();
+
+-- Immutability: prevent event mutation
+CREATE OR REPLACE FUNCTION prevent_mutation() RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'Immutable table: % cannot be updated', TG_TABLE_NAME;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS no_update_events ON events;
+CREATE TRIGGER no_update_events
+    BEFORE UPDATE ON events
+    FOR EACH ROW EXECUTE FUNCTION prevent_mutation();
+
+DROP TRIGGER IF EXISTS no_update_stream_events ON stream_events;
+CREATE TRIGGER no_update_stream_events
+    BEFORE UPDATE ON stream_events
+    FOR EACH ROW EXECUTE FUNCTION prevent_mutation();
+
+-- Gated hard deletes (for maintenance/GDPR only)
+CREATE OR REPLACE FUNCTION protect_deletion() RETURNS TRIGGER AS $$
+BEGIN
+    IF current_setting('kiroku.enable_hard_deletes', true) = 'on' THEN
+        RETURN OLD;
+    END IF;
+    RAISE EXCEPTION 'Hard deletes require: SET LOCAL kiroku.enable_hard_deletes = ''on''';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS no_delete_events ON events;
+CREATE TRIGGER no_delete_events
+    BEFORE DELETE ON events
+    FOR EACH ROW EXECUTE FUNCTION protect_deletion();
+
+DROP TRIGGER IF EXISTS no_delete_stream_events ON stream_events;
+CREATE TRIGGER no_delete_stream_events
+    BEFORE DELETE ON stream_events
+    FOR EACH ROW EXECUTE FUNCTION protect_deletion();
+
+DROP TRIGGER IF EXISTS no_delete_streams ON streams;
+CREATE TRIGGER no_delete_streams
+    BEFORE DELETE ON streams
+    FOR EACH ROW EXECUTE FUNCTION protect_deletion();
+
+-- TRUNCATE bypasses row-level triggers, so the BEFORE DELETE triggers above
+-- do not protect against an operator running TRUNCATE on these tables. Add
+-- statement-level BEFORE TRUNCATE triggers gated by the same GUC so the
+-- protection is symmetric. See EP-1 F6.
+CREATE OR REPLACE FUNCTION protect_truncation() RETURNS TRIGGER AS $$
+BEGIN
+    IF current_setting('kiroku.enable_hard_deletes', true) = 'on' THEN
+        RETURN NULL;
+    END IF;
+    RAISE EXCEPTION 'TRUNCATE requires: SET LOCAL kiroku.enable_hard_deletes = ''on''';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS no_truncate_events ON events;
+CREATE TRIGGER no_truncate_events
+    BEFORE TRUNCATE ON events
+    FOR EACH STATEMENT EXECUTE FUNCTION protect_truncation();
+
+DROP TRIGGER IF EXISTS no_truncate_stream_events ON stream_events;
+CREATE TRIGGER no_truncate_stream_events
+    BEFORE TRUNCATE ON stream_events
+    FOR EACH STATEMENT EXECUTE FUNCTION protect_truncation();
+
+DROP TRIGGER IF EXISTS no_truncate_streams ON streams;
+CREATE TRIGGER no_truncate_streams
+    BEFORE TRUNCATE ON streams
+    FOR EACH STATEMENT EXECUTE FUNCTION protect_truncation();
+
+Insert on streams  (cost=0.00..0.01 rows=0 width=0) (actual time=0.260..0.260 rows=0.00 loops=1)
+  Conflict Resolution: NOTHING
+  Tuples Inserted: 1
+  Conflicting Tuples: 0
+  ->  Result  (cost=0.00..0.01 rows=1 width=96) (actual time=0.002..0.002 rows=1.00 loops=1)",,,,,,,,,"","client backend",,0
+2026-05-18 16:50:00.369 PDT,"shinzui","postgres",6915,"[local]",6a0ba5a8.1b03,2,"SELECT",2026-05-18 16:50:00 PDT,1/4,752,LOG,00000,"duration: 0.015 ms  plan:
+Query Text: -- Kiroku Store Schema
+-- Supports PostgreSQL 17+.
+-- PostgreSQL 18 provides pg_catalog.uuidv7(); PostgreSQL 17 needs this
+-- public-schema fallback before events.event_id DEFAULT uuidv7() is parsed.
+DO $$
+BEGIN
+    IF to_regprocedure('pg_catalog.uuidv7()') IS NULL
+       AND to_regprocedure('uuidv7()') IS NULL THEN
+        EXECUTE $fn$
+            CREATE FUNCTION uuidv7()
+            RETURNS uuid
+            AS $body$
+            DECLARE
+                unix_ts_ms bytea;
+                uuid_bytes bytea;
+            BEGIN
+                unix_ts_ms = substring(int8send(floor(extract(epoch from clock_timestamp()) * 1000)::bigint) from 3);
+                uuid_bytes = uuid_send(gen_random_uuid());
+                uuid_bytes = overlay(uuid_bytes placing unix_ts_ms from 1 for 6);
+                uuid_bytes = set_byte(uuid_bytes, 6, (b'0111' || get_byte(uuid_bytes, 6)::bit(4))::bit(8)::int);
+                RETURN encode(uuid_bytes, 'hex')::uuid;
+            END
+            $body$
+            LANGUAGE plpgsql
+            VOLATILE
+        $fn$;
+    END IF;
+END
+$$;
+
+-- Streams (including $all as stream_id = 0)
+CREATE TABLE IF NOT EXISTS streams (
+    stream_id    BIGSERIAL    PRIMARY KEY,
+    stream_name  TEXT         NOT NULL,
+    category     TEXT         GENERATED ALWAYS AS (split_part(stream_name, '-', 1)) STORED,
+    stream_version BIGINT     NOT NULL DEFAULT 0,
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at   TIMESTAMPTZ,
+    CONSTRAINT ix_streams_stream_name UNIQUE (stream_name)
+);
+
+-- Seed the $all stream
+INSERT INTO streams (stream_id, stream_name, stream_version)
+VALUES (0, '$all', 0)
+ON CONFLICT DO NOTHING;
+
+-- Reset sequence past the reserved stream_id=0
+SELECT setval('streams_stream_id_seq', GREATEST((SELECT MAX(stream_id) FROM streams), 1));
+
+-- Events (flat table — stream membership tracked in stream_events)
+CREATE TABLE IF NOT EXISTS events (
+    event_id       UUID         PRIMARY KEY DEFAULT uuidv7(),
+    event_type     TEXT         NOT NULL,
+    causation_id   UUID,
+    correlation_id UUID,
+    data           JSONB        NOT NULL,
+    metadata       JSONB,
+    created_at     TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+-- Stream-event junction (each event gets 2+ rows: source stream + $all + any links)
+CREATE TABLE IF NOT EXISTS stream_events (
+    event_id                UUID   NOT NULL REFERENCES events(event_id),
+    stream_id               BIGINT NOT NULL REFERENCES streams(stream_id),
+    stream_version          BIGINT NOT NULL,
+    original_stream_id      BIGINT NOT NULL,
+    original_stream_version BIGINT NOT NULL,
+    PRIMARY KEY (event_id, stream_id)
+);
+
+-- Indexes
+
+-- Primary read path: fetch events from a stream in order
+CREATE INDEX IF NOT EXISTS ix_stream_events_stream_version
+    ON stream_events (stream_id, stream_version);
+
+-- Event type filtering (for server-side subscription filtering)
+CREATE INDEX IF NOT EXISTS ix_events_event_type
+    ON events (event_type);
+
+-- Correlation tracing
+CREATE INDEX IF NOT EXISTS ix_events_correlation_id
+    ON events (correlation_id) WHERE correlation_id IS NOT NULL;
+
+-- Causation tracing
+CREATE INDEX IF NOT EXISTS ix_events_causation_id
+    ON events (causation_id) WHERE causation_id IS NOT NULL;
+
+-- Category filtering (for readCategory — uses generated column, not LIKE)
+CREATE INDEX IF NOT EXISTS ix_streams_category
+    ON streams (category);
+
+-- Category read path: find $all entries by originating stream, ordered by global position
+-- Enables efficient category reads by allowing the planner to: look up category stream_ids →
+-- index scan $all for each → merge ordered by stream_version
+CREATE INDEX IF NOT EXISTS ix_stream_events_all_by_origin
+    ON stream_events (original_stream_id, stream_version)
+    WHERE stream_id = 0;
+
+-- Subscriptions (checkpoint persistence for subscription positions)
+CREATE TABLE IF NOT EXISTS subscriptions (
+    subscription_id   BIGSERIAL    PRIMARY KEY,
+    subscription_name TEXT         NOT NULL UNIQUE,
+    stream_name       TEXT         NOT NULL DEFAULT '$all',
+    last_seen         BIGINT       NOT NULL DEFAULT 0,
+    created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+-- Triggers
+
+-- NOTIFY on stream changes (fires once per append, not per event)
+CREATE OR REPLACE FUNCTION notify_events() RETURNS TRIGGER AS $$
+BEGIN
+    PERFORM pg_notify(
+        TG_TABLE_SCHEMA || '.events',
+        NEW.stream_name || ',' || NEW.stream_id || ',' || NEW.stream_version
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS stream_events_notify ON streams;
+CREATE TRIGGER stream_events_notify
+    AFTER INSERT OR UPDATE ON streams
+    FOR EACH ROW EXECUTE FUNCTION notify_events();
+
+-- Immutability: prevent event mutation
+CREATE OR REPLACE FUNCTION prevent_mutation() RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'Immutable table: % cannot be updated', TG_TABLE_NAME;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS no_update_events ON events;
+CREATE TRIGGER no_update_events
+    BEFORE UPDATE ON events
+    FOR EACH ROW EXECUTE FUNCTION prevent_mutation();
+
+DROP TRIGGER IF EXISTS no_update_stream_events ON stream_events;
+CREATE TRIGGER no_update_stream_events
+    BEFORE UPDATE ON stream_events
+    FOR EACH ROW EXECUTE FUNCTION prevent_mutation();
+
+-- Gated hard deletes (for maintenance/GDPR only)
+CREATE OR REPLACE FUNCTION protect_deletion() RETURNS TRIGGER AS $$
+BEGIN
+    IF current_setting('kiroku.enable_hard_deletes', true) = 'on' THEN
+        RETURN OLD;
+    END IF;
+    RAISE EXCEPTION 'Hard deletes require: SET LOCAL kiroku.enable_hard_deletes = ''on''';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS no_delete_events ON events;
+CREATE TRIGGER no_delete_events
+    BEFORE DELETE ON events
+    FOR EACH ROW EXECUTE FUNCTION protect_deletion();
+
+DROP TRIGGER IF EXISTS no_delete_stream_events ON stream_events;
+CREATE TRIGGER no_delete_stream_events
+    BEFORE DELETE ON stream_events
+    FOR EACH ROW EXECUTE FUNCTION protect_deletion();
+
+DROP TRIGGER IF EXISTS no_delete_streams ON streams;
+CREATE TRIGGER no_delete_streams
+    BEFORE DELETE ON streams
+    FOR EACH ROW EXECUTE FUNCTION protect_deletion();
+
+-- TRUNCATE bypasses row-level triggers, so the BEFORE DELETE triggers above
+-- do not protect against an operator running TRUNCATE on these tables. Add
+-- statement-level BEFORE TRUNCATE triggers gated by the same GUC so the
+-- protection is symmetric. See EP-1 F6.
+CREATE OR REPLACE FUNCTION protect_truncation() RETURNS TRIGGER AS $$
+BEGIN
+    IF current_setting('kiroku.enable_hard_deletes', true) = 'on' THEN
+        RETURN NULL;
+    END IF;
+    RAISE EXCEPTION 'TRUNCATE requires: SET LOCAL kiroku.enable_hard_deletes = ''on''';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS no_truncate_events ON events;
+CREATE TRIGGER no_truncate_events
+    BEFORE TRUNCATE ON events
+    FOR EACH STATEMENT EXECUTE FUNCTION protect_truncation();
+
+DROP TRIGGER IF EXISTS no_truncate_stream_events ON stream_events;
+CREATE TRIGGER no_truncate_stream_events
+    BEFORE TRUNCATE ON stream_events
+    FOR EACH STATEMENT EXECUTE FUNCTION protect_truncation();
+
+DROP TRIGGER IF EXISTS no_truncate_streams ON streams;
+CREATE TRIGGER no_truncate_streams
+    BEFORE TRUNCATE ON streams
+    FOR EACH STATEMENT EXECUTE FUNCTION protect_truncation();
+
+Result  (cost=0.19..0.21 rows=1 width=8) (actual time=0.013..0.013 rows=1.00 loops=1)
+  InitPlan 2
+    ->  Result  (cost=0.18..0.19 rows=1 width=8) (actual time=0.010..0.010 rows=1.00 loops=1)
+          InitPlan 1
+            ->  Limit  (cost=0.15..0.18 rows=1 width=8) (actual time=0.009..0.010 rows=1.00 loops=1)
+                  ->  Index Only Scan Backward using streams_pkey on streams  (cost=0.15..21.90 rows=650 width=8) (actual time=0.009..0.009 rows=1.00 loops=1)
+                        Heap Fetches: 1
+                        Index Searches: 1",,,,,,,,,"","client backend",,0
+2026-05-18 16:50:00.381 PDT,"shinzui","postgres",6915,"[local]",6a0ba5a8.1b03,3,"SELECT",2026-05-18 16:50:00 PDT,1/5,753,LOG,00000,"duration: 0.905 ms  plan:
+Query Text: WITH
+  new_events AS (
+    SELECT *
+    FROM unnest($1::uuid[], $2::text[], $3::uuid[], $4::uuid[], $5::jsonb[], $6::jsonb[], $7::timestamptz[])
+    WITH ORDINALITY AS t(event_id, event_type, causation_id, correlation_id, data, metadata, created_at, idx)
+  ),
+  stream_upsert AS (
+    INSERT INTO streams (stream_name, stream_version)
+    VALUES ($8, (SELECT count(*) FROM new_events))
+    ON CONFLICT (stream_name)
+    DO UPDATE SET stream_version = streams.stream_version + (SELECT count(*) FROM new_events)
+      WHERE streams.deleted_at IS NULL
+    RETURNING stream_id, stream_version - (SELECT count(*) FROM new_events) AS initial_version
+  ),
+  inserted_events AS (
+    INSERT INTO events (event_id, event_type, causation_id, correlation_id, data, metadata, created_at)
+    SELECT event_id, event_type, causation_id, correlation_id, data, metadata, created_at
+    FROM new_events
+    WHERE EXISTS (SELECT 1 FROM stream_upsert)
+    ORDER BY idx
+  ),
+  source_links AS (
+    INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
+    SELECT ne.event_id, su.stream_id, su.initial_version + ne.idx, su.stream_id, su.initial_version + ne.idx
+    FROM new_events ne
+    CROSS JOIN stream_upsert su
+  ),
+  all_update AS (
+    UPDATE streams
+    SET stream_version = stream_version + (SELECT count(*) FROM new_events)
+    WHERE stream_id = 0
+      AND EXISTS (SELECT 1 FROM stream_upsert)
+    RETURNING stream_version - (SELECT count(*) FROM new_events) AS initial_global_version
+  ),
+  all_links AS (
+    INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
+    SELECT ne.event_id, 0, au.initial_global_version + ne.idx, su.stream_id, su.initial_version + ne.idx
+    FROM new_events ne
+    CROSS JOIN all_update au
+    CROSS JOIN stream_upsert su
+  )
+SELECT su.stream_id,
+       su.initial_version + (SELECT count(*) FROM new_events),
+       au.initial_global_version + (SELECT count(*) FROM new_events)
+FROM stream_upsert su
+CROSS JOIN all_update au
+Query Parameters: $1 = '{019e3d7f-19ba-7442-b3fe-e45c43676440}', $2 = '{Created}', $3 = '{NULL}', $4 = '{NULL}', $5 = '{""{\""t\"": \""Created\""}""}', $6 = '{NULL}', $7 = '{""2026-05-18 16:50:00.378249-07""}', $8 = 'explain-auto'
+Nested Loop  (cost=1.51..1.56 rows=1 width=24) (actual time=0.087..0.089 rows=1.00 loops=1)
+  CTE new_events
+    ->  Function Scan on t  (cost=0.02..0.03 rows=1 width=160) (actual time=0.017..0.017 rows=1.00 loops=1)
+  CTE stream_upsert
+    ->  Insert on streams  (cost=0.10..0.11 rows=1 width=96) (actual time=0.059..0.059 rows=1.00 loops=1)
+          Conflict Resolution: UPDATE
+          Conflict Arbiter Indexes: ix_streams_stream_name
+          Conflict Filter: (streams.deleted_at IS NULL)
+          Tuples Inserted: 1
+          Conflicting Tuples: 0
+          InitPlan 2
+            ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (actual time=0.020..0.020 rows=1.00 loops=1)
+                  ->  CTE Scan on new_events  (cost=0.00..0.02 rows=1 width=0) (actual time=0.017..0.018 rows=1.00 loops=1)
+                        Storage: Memory  Maximum Storage: 17kB
+          InitPlan 3
+            ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (actual time=0.001..0.001 rows=1.00 loops=1)
+                  ->  CTE Scan on new_events new_events_1  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                        Storage: Memory  Maximum Storage: 17kB
+          InitPlan 4
+            ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (never executed)
+                  ->  CTE Scan on new_events new_events_2  (cost=0.00..0.02 rows=1 width=0) (never executed)
+                        Storage: Memory  Maximum Storage: 17kB
+          ->  Result  (cost=0.00..0.01 rows=1 width=96) (actual time=0.034..0.034 rows=1.00 loops=1)
+  CTE inserted_events
+    ->  Insert on events  (cost=0.05..0.07 rows=0 width=0) (actual time=0.158..0.158 rows=0.00 loops=1)
+          ->  Subquery Scan on ""*SELECT*""  (cost=0.05..0.07 rows=1 width=152) (actual time=0.006..0.006 rows=1.00 loops=1)
+                ->  Sort  (cost=0.05..0.06 rows=1 width=160) (actual time=0.006..0.006 rows=1.00 loops=1)
+                      Sort Key: new_events_3.idx
+                      Sort Method: quicksort  Memory: 25kB
+                      InitPlan 6
+                        ->  CTE Scan on stream_upsert  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                              Storage: Memory  Maximum Storage: 17kB
+                      ->  Result  (cost=0.00..0.02 rows=1 width=160) (actual time=0.001..0.001 rows=1.00 loops=1)
+                            One-Time Filter: (InitPlan 6).col1
+                            ->  CTE Scan on new_events new_events_3  (cost=0.00..0.02 rows=1 width=160) (actual time=0.000..0.000 rows=1.00 loops=1)
+                                  Storage: Memory  Maximum Storage: 17kB
+  CTE source_links
+    ->  Insert on stream_events  (cost=0.00..0.06 rows=0 width=0) (actual time=0.005..0.005 rows=0.00 loops=1)
+          ->  Nested Loop  (cost=0.00..0.06 rows=1 width=48) (actual time=0.001..0.001 rows=1.00 loops=1)
+                ->  CTE Scan on new_events ne  (cost=0.00..0.02 rows=1 width=24) (actual time=0.000..0.000 rows=1.00 loops=1)
+                      Storage: Memory  Maximum Storage: 17kB
+                ->  CTE Scan on stream_upsert su_1  (cost=0.00..0.02 rows=1 width=16) (actual time=0.000..0.000 rows=1.00 loops=1)
+                      Storage: Memory  Maximum Storage: 17kB
+  CTE all_update
+    ->  Update on streams streams_1  (cost=0.09..1.10 rows=1 width=14) (actual time=0.025..0.026 rows=1.00 loops=1)
+          InitPlan 9
+            ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (actual time=0.000..0.000 rows=1.00 loops=1)
+                  ->  CTE Scan on new_events new_events_4  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                        Storage: Memory  Maximum Storage: 17kB
+          InitPlan 10
+            ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (actual time=0.001..0.001 rows=1.00 loops=1)
+                  ->  CTE Scan on new_events new_events_5  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                        Storage: Memory  Maximum Storage: 17kB
+          InitPlan 11
+            ->  CTE Scan on stream_upsert stream_upsert_1  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                  Storage: Memory  Maximum Storage: 17kB
+          ->  Result  (cost=0.00..1.01 rows=1 width=14) (actual time=0.004..0.004 rows=1.00 loops=1)
+                One-Time Filter: (InitPlan 11).col1
+                ->  Seq Scan on streams streams_1  (cost=0.00..1.01 rows=1 width=14) (actual time=0.002..0.003 rows=1.00 loops=1)
+                      Filter: (stream_id = 0)
+  CTE all_links
+    ->  Insert on stream_events stream_events_1  (cost=0.00..0.09 rows=0 width=0) (actual time=0.203..0.203 rows=0.00 loops=1)
+          ->  Nested Loop  (cost=0.00..0.09 rows=1 width=48) (actual time=0.001..0.002 rows=1.00 loops=1)
+                ->  Nested Loop  (cost=0.00..0.05 rows=1 width=32) (actual time=0.001..0.001 rows=1.00 loops=1)
+                      ->  CTE Scan on new_events ne_1  (cost=0.00..0.02 rows=1 width=24) (actual time=0.000..0.000 rows=1.00 loops=1)
+                            Storage: Memory  Maximum Storage: 17kB
+                      ->  CTE Scan on all_update au_1  (cost=0.00..0.02 rows=1 width=8) (actual time=0.000..0.000 rows=1.00 loops=1)
+                            Storage: Memory  Maximum Storage: 17kB
+                ->  CTE Scan on stream_upsert su_2  (cost=0.00..0.02 rows=1 width=16) (actual time=0.000..0.000 rows=1.00 loops=1)
+                      Storage: Memory  Maximum Storage: 17kB
+  InitPlan 14
+    ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (actual time=0.000..0.000 rows=1.00 loops=1)
+          ->  CTE Scan on new_events new_events_6  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                Storage: Memory  Maximum Storage: 17kB
+  InitPlan 15
+    ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (actual time=0.000..0.000 rows=1.00 loops=1)
+          ->  CTE Scan on new_events new_events_7  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                Storage: Memory  Maximum Storage: 17kB
+  ->  CTE Scan on stream_upsert su  (cost=0.00..0.02 rows=1 width=16) (actual time=0.059..0.059 rows=1.00 loops=1)
+        Storage: Memory  Maximum Storage: 17kB
+  ->  CTE Scan on all_update au  (cost=0.00..0.02 rows=1 width=8) (actual time=0.026..0.026 rows=1.00 loops=1)
+        Storage: Memory  Maximum Storage: 17kB",,,,,,,,,"","client backend",,0
+2026-05-18 16:50:00.382 PDT,"shinzui","postgres",6915,"[local]",6a0ba5a8.1b03,4,"SELECT",2026-05-18 16:50:00 PDT,1/6,754,LOG,00000,"duration: 0.194 ms  plan:
+Query Text: WITH
+  new_events AS (
+    SELECT *
+    FROM unnest($1::uuid[], $2::text[], $3::uuid[], $4::uuid[], $5::jsonb[], $6::jsonb[], $7::timestamptz[])
+    WITH ORDINALITY AS t(event_id, event_type, causation_id, correlation_id, data, metadata, created_at, idx)
+  ),
+  stream_update AS (
+    UPDATE streams
+    SET stream_version = stream_version + (SELECT count(*) FROM new_events)
+    WHERE stream_name = $8
+      AND stream_version = $9
+      AND deleted_at IS NULL
+    RETURNING stream_id, stream_version - (SELECT count(*) FROM new_events) AS initial_version
+  ),
+  inserted_events AS (
+    INSERT INTO events (event_id, event_type, causation_id, correlation_id, data, metadata, created_at)
+    SELECT event_id, event_type, causation_id, correlation_id, data, metadata, created_at
+    FROM new_events
+    WHERE EXISTS (SELECT 1 FROM stream_update)
+    ORDER BY idx
+  ),
+  source_links AS (
+    INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
+    SELECT ne.event_id, su.stream_id, su.initial_version + ne.idx, su.stream_id, su.initial_version + ne.idx
+    FROM new_events ne
+    CROSS JOIN stream_update su
+  ),
+  all_update AS (
+    UPDATE streams
+    SET stream_version = stream_version + (SELECT count(*) FROM new_events)
+    WHERE stream_id = 0
+      AND EXISTS (SELECT 1 FROM stream_update)
+    RETURNING stream_version - (SELECT count(*) FROM new_events) AS initial_global_version
+  ),
+  all_links AS (
+    INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
+    SELECT ne.event_id, 0, au.initial_global_version + ne.idx, su.stream_id, su.initial_version + ne.idx
+    FROM new_events ne
+    CROSS JOIN all_update au
+    CROSS JOIN stream_update su
+  )
+SELECT su.stream_id,
+       su.initial_version + (SELECT count(*) FROM new_events),
+       au.initial_global_version + (SELECT count(*) FROM new_events)
+FROM stream_update su
+CROSS JOIN all_update au
+Query Parameters: $1 = '{019e3d7f-19bd-761d-9c75-b49c82e8cbab}', $2 = '{Updated}', $3 = '{NULL}', $4 = '{NULL}', $5 = '{""{\""t\"": \""Updated\""}""}', $6 = '{NULL}', $7 = '{""2026-05-18 16:50:00.381414-07""}', $8 = 'explain-auto', $9 = '1'
+Nested Loop  (cost=2.48..2.54 rows=1 width=24) (actual time=0.046..0.049 rows=1.00 loops=1)
+  CTE new_events
+    ->  Function Scan on t  (cost=0.02..0.03 rows=1 width=160) (actual time=0.010..0.010 rows=1.00 loops=1)
+  CTE stream_update
+    ->  Update on streams  (cost=0.07..1.08 rows=1 width=14) (actual time=0.033..0.034 rows=1.00 loops=1)
+          InitPlan 2
+            ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (actual time=0.012..0.012 rows=1.00 loops=1)
+                  ->  CTE Scan on new_events  (cost=0.00..0.02 rows=1 width=0) (actual time=0.010..0.010 rows=1.00 loops=1)
+                        Storage: Memory  Maximum Storage: 17kB
+          InitPlan 3
+            ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (actual time=0.001..0.001 rows=1.00 loops=1)
+                  ->  CTE Scan on new_events new_events_1  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                        Storage: Memory  Maximum Storage: 17kB
+          ->  Seq Scan on streams  (cost=0.00..1.02 rows=1 width=14) (actual time=0.020..0.020 rows=1.00 loops=1)
+                Filter: ((deleted_at IS NULL) AND (stream_name = 'explain-auto'::text) AND (stream_version = '1'::bigint))
+                Rows Removed by Filter: 1
+  CTE inserted_events
+    ->  Insert on events  (cost=0.05..0.07 rows=0 width=0) (actual time=0.008..0.008 rows=0.00 loops=1)
+          ->  Subquery Scan on ""*SELECT*""  (cost=0.05..0.07 rows=1 width=152) (actual time=0.003..0.003 rows=1.00 loops=1)
+                ->  Sort  (cost=0.05..0.06 rows=1 width=160) (actual time=0.003..0.003 rows=1.00 loops=1)
+                      Sort Key: new_events_2.idx
+                      Sort Method: quicksort  Memory: 25kB
+                      InitPlan 5
+                        ->  CTE Scan on stream_update  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                              Storage: Memory  Maximum Storage: 17kB
+                      ->  Result  (cost=0.00..0.02 rows=1 width=160) (actual time=0.001..0.001 rows=1.00 loops=1)
+                            One-Time Filter: (InitPlan 5).col1
+                            ->  CTE Scan on new_events new_events_2  (cost=0.00..0.02 rows=1 width=160) (actual time=0.000..0.000 rows=1.00 loops=1)
+                                  Storage: Memory  Maximum Storage: 17kB
+  CTE source_links
+    ->  Insert on stream_events  (cost=0.00..0.06 rows=0 width=0) (actual time=0.003..0.003 rows=0.00 loops=1)
+          ->  Nested Loop  (cost=0.00..0.06 rows=1 width=48) (actual time=0.001..0.001 rows=1.00 loops=1)
+                ->  CTE Scan on new_events ne  (cost=0.00..0.02 rows=1 width=24) (actual time=0.000..0.000 rows=1.00 loops=1)
+                      Storage: Memory  Maximum Storage: 17kB
+                ->  CTE Scan on stream_update su_1  (cost=0.00..0.02 rows=1 width=16) (actual time=0.000..0.000 rows=1.00 loops=1)
+                      Storage: Memory  Maximum Storage: 17kB
+  CTE all_update
+    ->  Update on streams streams_1  (cost=0.09..1.10 rows=1 width=14) (actual time=0.010..0.011 rows=1.00 loops=1)
+          InitPlan 8
+            ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (actual time=0.000..0.001 rows=1.00 loops=1)
+                  ->  CTE Scan on new_events new_events_3  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                        Storage: Memory  Maximum Storage: 17kB
+          InitPlan 9
+            ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (actual time=0.000..0.000 rows=1.00 loops=1)
+                  ->  CTE Scan on new_events new_events_4  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                        Storage: Memory  Maximum Storage: 17kB
+          InitPlan 10
+            ->  CTE Scan on stream_update stream_update_1  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                  Storage: Memory  Maximum Storage: 17kB
+          ->  Result  (cost=0.00..1.01 rows=1 width=14) (actual time=0.005..0.005 rows=1.00 loops=1)
+                One-Time Filter: (InitPlan 10).col1
+                ->  Seq Scan on streams streams_1  (cost=0.00..1.01 rows=1 width=14) (actual time=0.004..0.004 rows=1.00 loops=1)
+                      Filter: (stream_id = 0)
+                      Rows Removed by Filter: 1
+  CTE all_links
+    ->  Insert on stream_events stream_events_1  (cost=0.00..0.09 rows=0 width=0) (actual time=0.014..0.014 rows=0.00 loops=1)
+          ->  Nested Loop  (cost=0.00..0.09 rows=1 width=48) (actual time=0.002..0.002 rows=1.00 loops=1)
+                ->  Nested Loop  (cost=0.00..0.05 rows=1 width=32) (actual time=0.001..0.001 rows=1.00 loops=1)
+                      ->  CTE Scan on new_events ne_1  (cost=0.00..0.02 rows=1 width=24) (actual time=0.000..0.000 rows=1.00 loops=1)
+                            Storage: Memory  Maximum Storage: 17kB
+                      ->  CTE Scan on all_update au_1  (cost=0.00..0.02 rows=1 width=8) (actual time=0.000..0.000 rows=1.00 loops=1)
+                            Storage: Memory  Maximum Storage: 17kB
+                ->  CTE Scan on stream_update su_2  (cost=0.00..0.02 rows=1 width=16) (actual time=0.000..0.000 rows=1.00 loops=1)
+                      Storage: Memory  Maximum Storage: 17kB
+  InitPlan 13
+    ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (actual time=0.000..0.001 rows=1.00 loops=1)
+          ->  CTE Scan on new_events new_events_5  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                Storage: Memory  Maximum Storage: 17kB
+  InitPlan 14
+    ->  Aggregate  (cost=0.02..0.03 rows=1 width=8) (actual time=0.000..0.000 rows=1.00 loops=1)
+          ->  CTE Scan on new_events new_events_6  (cost=0.00..0.02 rows=1 width=0) (actual time=0.000..0.000 rows=1.00 loops=1)
+                Storage: Memory  Maximum Storage: 17kB
+  ->  CTE Scan on stream_update su  (cost=0.00..0.02 rows=1 width=16) (actual time=0.034..0.034 rows=1.00 loops=1)
+        Storage: Memory  Maximum Storage: 17kB
+  ->  CTE Scan on all_update au  (cost=0.00..0.02 rows=1 width=8) (actual time=0.011..0.011 rows=1.00 loops=1)
+        Storage: Memory  Maximum Storage: 17kB",,,,,,,,,"","client backend",,0
+2026-05-18 16:50:00.382 PDT,"shinzui","postgres",6915,"[local]",6a0ba5a8.1b03,5,"SELECT",2026-05-18 16:50:00 PDT,1/7,0,LOG,00000,"duration: 0.013 ms  plan:
+Query Text: SELECT e.event_id, e.event_type,
+       se.stream_version, 0::bigint AS global_position,
+       se.original_stream_id, se.original_stream_version,
+       e.data, e.metadata, e.causation_id, e.correlation_id,
+       e.created_at
+FROM stream_events se
+JOIN events e ON e.event_id = se.event_id
+WHERE se.stream_id = (SELECT stream_id FROM streams WHERE stream_name = $1 AND deleted_at IS NULL)
+  AND se.stream_version > $2
+ORDER BY se.stream_version ASC
+LIMIT $3
+Query Parameters: $1 = 'explain-auto', $2 = '0', $3 = '100'
+Limit  (cost=1.31..8.54 rows=2 width=184) (actual time=0.009..0.010 rows=2.00 loops=1)
+  InitPlan 1
+    ->  Seq Scan on streams  (cost=0.00..1.01 rows=1 width=8) (actual time=0.003..0.004 rows=1.00 loops=1)
+          Filter: ((deleted_at IS NULL) AND (stream_name = 'explain-auto'::text))
+          Rows Removed by Filter: 1
+  ->  Nested Loop  (cost=0.30..7.53 rows=2 width=184) (actual time=0.008..0.009 rows=2.00 loops=1)
+        ->  Index Scan using ix_stream_events_stream_version on stream_events se  (cost=0.15..3.19 rows=2 width=40) (actual time=0.006..0.006 rows=2.00 loops=1)
+              Index Cond: ((stream_id = (InitPlan 1).col1) AND (stream_version > '0'::bigint))
+              Index Searches: 1
+        ->  Index Scan using events_pkey on events e  (cost=0.15..2.17 rows=1 width=152) (actual time=0.001..0.001 rows=1.00 loops=2)
+              Index Cond: (event_id = se.event_id)
+              Index Searches: 2",,,,,,,,,"","client backend",,0
+2026-05-18 16:50:00.383 PDT,"shinzui","postgres",6915,"[local]",6a0ba5a8.1b03,6,"SELECT",2026-05-18 16:50:00 PDT,1/8,0,LOG,00000,"duration: 0.013 ms  plan:
+Query Text: SELECT e.event_id, e.event_type,
+       se.stream_version, se.stream_version AS global_position,
+       se.original_stream_id, se.original_stream_version,
+       e.data, e.metadata, e.causation_id, e.correlation_id,
+       e.created_at
+FROM stream_events se
+JOIN events e ON e.event_id = se.event_id
+WHERE se.stream_id = 0
+  AND se.stream_version > $1
+ORDER BY se.stream_version ASC
+LIMIT $2
+Query Parameters: $1 = '0', $2 = '100'
+Limit  (cost=0.30..7.53 rows=2 width=184) (actual time=0.009..0.011 rows=2.00 loops=1)
+  ->  Nested Loop  (cost=0.30..7.53 rows=2 width=184) (actual time=0.009..0.010 rows=2.00 loops=1)
+        ->  Index Scan using ix_stream_events_stream_version on stream_events se  (cost=0.15..3.19 rows=2 width=40) (actual time=0.007..0.007 rows=2.00 loops=1)
+              Index Cond: ((stream_id = 0) AND (stream_version > '0'::bigint))
+              Index Searches: 1
+        ->  Index Scan using events_pkey on events e  (cost=0.15..2.17 rows=1 width=152) (actual time=0.001..0.001 rows=1.00 loops=2)
+              Index Cond: (event_id = se.event_id)
+              Index Searches: 2",,,,,,,,,"","client backend",,0
+2026-05-18 16:50:00.384 PDT,"shinzui","postgres",6917,"[local]",6a0ba5a8.1b05,1,"SELECT",2026-05-18 16:50:00 PDT,3/4,0,LOG,00000,"duration: 0.016 ms  plan:
+Query Text: SELECT e.event_id, e.event_type,
+       se.stream_version, se.stream_version AS global_position,
+       se.original_stream_id, se.original_stream_version,
+       e.data, e.metadata, e.causation_id, e.correlation_id,
+       e.created_at
+FROM stream_events se
+JOIN events e ON e.event_id = se.event_id
+WHERE se.stream_id = 0
+  AND se.stream_version > $1
+ORDER BY se.stream_version ASC
+LIMIT $2
+Query Parameters: $1 = '0', $2 = '1000'
+Limit  (cost=0.30..7.53 rows=2 width=184) (actual time=0.009..0.011 rows=2.00 loops=1)
+  ->  Nested Loop  (cost=0.30..7.53 rows=2 width=184) (actual time=0.009..0.010 rows=2.00 loops=1)
+        ->  Index Scan using ix_stream_events_stream_version on stream_events se  (cost=0.15..3.19 rows=2 width=40) (actual time=0.005..0.006 rows=2.00 loops=1)
+              Index Cond: ((stream_id = 0) AND (stream_version > '0'::bigint))
+              Index Searches: 1
+        ->  Index Scan using events_pkey on events e  (cost=0.15..2.17 rows=1 width=152) (actual time=0.001..0.001 rows=1.00 loops=2)
+              Index Cond: (event_id = se.event_id)
+              Index Searches: 2",,,,,,,,,"","client backend",,0
+2026-05-18 16:50:00.384 PDT,"shinzui","postgres",6915,"[local]",6a0ba5a8.1b03,7,"SELECT",2026-05-18 16:50:00 PDT,1/9,0,LOG,00000,"duration: 0.002 ms  plan:
+Query Text: SELECT e.event_id, e.event_type,
+       se.stream_version, se.stream_version AS global_position,
+       se.original_stream_id, se.original_stream_version,
+       e.data, e.metadata, e.causation_id, e.correlation_id,
+       e.created_at
+FROM stream_events se
+JOIN events e ON e.event_id = se.event_id
+WHERE se.stream_id = 0
+  AND se.stream_version > $1
+ORDER BY se.stream_version ASC
+LIMIT $2
+Query Parameters: $1 = '2', $2 = '1000'
+Limit  (cost=0.30..7.53 rows=2 width=184) (actual time=0.001..0.001 rows=0.00 loops=1)
+  ->  Nested Loop  (cost=0.30..7.53 rows=2 width=184) (actual time=0.001..0.001 rows=0.00 loops=1)
+        ->  Index Scan using ix_stream_events_stream_version on stream_events se  (cost=0.15..3.19 rows=2 width=40) (actual time=0.001..0.001 rows=0.00 loops=1)
+              Index Cond: ((stream_id = 0) AND (stream_version > '2'::bigint))
+              Index Searches: 1
+        ->  Index Scan using events_pkey on events e  (cost=0.15..2.17 rows=1 width=152) (never executed)
+              Index Cond: (event_id = se.event_id)
+              Index Searches: 0",,,,,,,,,"","client backend",,0
+2026-05-18 16:50:03.387 PDT,,,6901,,6a0ba5a8.1af5,6,,2026-05-18 16:50:00 PDT,,0,LOG,00000,"received fast shutdown request",,,,,,,,,"","postmaster",,0
+2026-05-18 16:50:03.388 PDT,,,6901,,6a0ba5a8.1af5,7,,2026-05-18 16:50:00 PDT,,0,LOG,00000,"aborting any active transactions",,,,,,,,,"","postmaster",,0
+2026-05-18 16:50:03.389 PDT,,,6901,,6a0ba5a8.1af5,8,,2026-05-18 16:50:00 PDT,,0,LOG,00000,"background worker ""logical replication launcher"" (PID 6912) exited with exit code 1",,,,,,,,,"","postmaster",,0
+2026-05-18 16:50:03.391 PDT,,,6907,,6a0ba5a8.1afb,1,,2026-05-18 16:50:00 PDT,,0,LOG,00000,"shutting down",,,,,,,,,"","checkpointer",,0
+2026-05-18 16:50:03.391 PDT,,,6907,,6a0ba5a8.1afb,2,,2026-05-18 16:50:00 PDT,,0,LOG,00000,"checkpoint starting: shutdown immediate",,,,,,,,,"","checkpointer",,0
+2026-05-18 16:50:03.394 PDT,,,6907,,6a0ba5a8.1afb,3,,2026-05-18 16:50:00 PDT,,0,LOG,00000,"checkpoint complete: wrote 106 buffers (6.9%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.001 s, total=0.004 s; sync files=0, longest=0.000 s, average=0.000 s; distance=288 kB, estimate=288 kB; lsn=0/17CD688, redo lsn=0/17CD688",,,,,,,,,"","checkpointer",,0
+2026-05-18 16:50:03.398 PDT,,,6901,,6a0ba5a8.1af5,9,,2026-05-18 16:50:00 PDT,,0,LOG,00000,"database system is shut down",,,,,,,,,"","postmaster",,0

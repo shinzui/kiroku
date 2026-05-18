@@ -97,11 +97,28 @@ process for its own sake.
   is documented in the EP-1 plan's Surprises & Discoveries.
 
 - **PostgreSQL-side profiling (`EXPLAIN (ANALYZE, BUFFERS, TIMING)` and
-  `auto_explain`).** Detailed plan:
+  `auto_explain`).** Detailed plan and findings:
   [`docs/plans/26-postgresql-side-append-profiling-with-explain-analyze-and-auto-explain.md`](plans/26-postgresql-side-append-profiling-with-explain-analyze-and-auto-explain.md).
+  Reference artefacts and per-file inventory under
+  [`kiroku-store/bench/explain-results/`](../kiroku-store/bench/explain-results/)
+  (`anyversion-singleton.txt`, `anyversion-singleton.json`,
+  `auto-explain.csv`, `auto-explain.log`).
+  Reproduction:
 
-Until EP-2 has landed, the harness command it documents is still
-authoritative — read the plan file for the exact invocation.
+  ```bash
+  cd <repo-root>
+  cabal build kiroku-store:kiroku-store-bench-explain
+  cabal bench kiroku-store-bench-explain                                       # M1: EXPLAIN ANALYZE
+  cabal bench kiroku-store-bench-explain --benchmark-options="--auto-explain"  # M2: auto_explain
+  ```
+
+  Caveats discovered while landing EP-2:
+  `ephemeral-pg` discards postgres's stderr unconditionally, so the
+  harness uses PostgreSQL's `logging_collector` + `csvlog` rather than
+  the originally documented `Config.stderr` override; and PostgreSQL
+  18.3 needs `log_min_messages = 'log'` for auto_explain output to
+  reach the csvlog. Both are baked into the harness; details and a
+  full debrief are in the EP-2 plan's Surprises & Discoveries.
 
 
 ## Where the existing process docs live

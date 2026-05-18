@@ -44,7 +44,7 @@ Alternatives considered. **A single-plan implementation** was rejected because t
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
 | EP-1 | Haskell-side append profiling with GHC -prof | docs/plans/25-haskell-side-append-profiling-with-ghc-prof.md | None | None | Complete |
-| EP-2 | PostgreSQL-side append profiling with EXPLAIN ANALYZE and auto_explain | docs/plans/26-postgresql-side-append-profiling-with-explain-analyze-and-auto-explain.md | None | None | Not Started |
+| EP-2 | PostgreSQL-side append profiling with EXPLAIN ANALYZE and auto_explain | docs/plans/26-postgresql-side-append-profiling-with-explain-analyze-and-auto-explain.md | None | None | Complete |
 | EP-3 | Append performance experiment ledger and methodology README | docs/plans/27-append-performance-experiment-ledger-and-methodology-readme.md | None | EP-1, EP-2 | Complete |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
@@ -76,9 +76,9 @@ Existing benchmark infrastructure that all three plans should leave alone but ma
 - [x] EP-1: Profiled bench target builds and runs against ephemeral PostgreSQL. — 2026-05-18, `ghc-prof-options: -fprof-auto` added to `kiroku-store/kiroku-store.cabal`; `cabal build --enable-profiling kiroku-store:kiroku-store-bench` succeeds.
 - [x] EP-1: Single-event AnyVersion append profile (`.prof`) checked in to `docs/bench/append-hot-path/` or referenced with a documented reproduction command. — 2026-05-18, `docs/bench/append-hot-path/single-event-anyversion.prof` (3.8 MB).
 - [x] EP-1: Short doc explains how to read the cost-centre output and what to look for. — 2026-05-18, `docs/plans/25-…` Outcomes & Retrospective contains the top-five cost-centre table and a one-paragraph reading; cross-referenced from `docs/PERF-METHODOLOGY.md` "Where the harnesses live" with the now-final cabal command.
-- [ ] EP-2: Harness runs the production append CTE under `EXPLAIN (ANALYZE, BUFFERS, TIMING)` and produces per-CTE-node timings.
-- [ ] EP-2: `auto_explain` configuration applied to a bench run; output captured.
-- [ ] EP-2: Short doc explains how to interpret the per-node timings.
+- [x] EP-2: Harness runs the production append CTE under `EXPLAIN (ANALYZE, BUFFERS, TIMING)` and produces per-CTE-node timings. — 2026-05-18, both TEXT (`anyversion-singleton.txt`) and JSON (`anyversion-singleton.json`) outputs archived under `kiroku-store/bench/explain-results/`.
+- [x] EP-2: `auto_explain` configuration applied to a bench run; output captured. — 2026-05-18, `auto-explain.csv` (42 KB) captured via PostgreSQL's `logging_collector` + `csvlog` because ephemeral-pg discards postgres's stderr.
+- [x] EP-2: Short doc explains how to interpret the per-node timings. — 2026-05-18, `kiroku-store/bench/explain-results/README.md` plus the EP-2 plan's Outcomes & Retrospective name the dominant cost as triggers (~51%), not CTE nodes.
 - [x] EP-3: `docs/perf-experiment-log.md` exists with a header explaining the ledger format. — 2026-05-18.
 - [x] EP-3: Ledger backfilled with the experiments documented in plans 21-24 (anyversion split, event-count, one-event VALUES, singleton SQL trial, `stream_events_notify` informal trial, `streams.category` informal trial, two-round-trip restructure, hasql-overhead probe). — 2026-05-18, 11 rows total.
 - [x] EP-3: Methodology README written stating the discipline future plans must follow and cross-referencing EP-1's and EP-2's harnesses. — 2026-05-18, `docs/PERF-METHODOLOGY.md` with the four-step discipline; cross-references to EP-1, EP-2, and the four `docs/BENCH-*.md` docs.
@@ -126,6 +126,39 @@ interactions between child plans. Provide concise evidence.
   short-circuit of the heavy setup — out of scope for both EP-1 and EP-2,
   noted here so the methodology README's authors can decide whether to
   spawn a follow-up plan.
+
+- 2026-05-18: EP-2 surfaced a quantitative result that should be the
+  starting point of the next optimization plan gated by this methodology.
+  From `kiroku-store/bench/explain-results/anyversion-singleton.txt`,
+  the single-event AnyVersion path's `Execution Time` of ~2.36 ms breaks
+  down as:
+
+    * `stream_events_notify` trigger (`pg_notify`): ~0.69 ms (29%)
+    * `stream_events_event_id_fkey` FK trigger: ~0.45 ms (19%)
+    * `stream_events_stream_id_fkey` FK trigger: ~0.05 ms (2%)
+    * All six append CTEs combined: under 1.0 ms (~30%)
+    * Planner + result handoff: ~0.18 ms (8%)
+
+  Implication: a plan targeting *CTE shape* alone (Plan 22's category
+  removal, Plan 23's two-round-trip, statement-level triggers, etc.) can
+  recover at most ~30% of execution time. The first-class candidates are
+  now the named per-row triggers on `stream_events` and the `pg_notify`
+  trigger on `streams`. Plan 22's Surprises noted `stream_events_notify`
+  disabling helped "less than was hoped"; EP-2 quantifies why — it is
+  29%, large enough to matter, but not large enough to close the gap to
+  the upstream floors on its own. The methodology README and the
+  experiment ledger should reflect this so the next plan starts here.
+
+- 2026-05-18: EP-2 also surfaced two upstream-library quirks worth
+  remembering for any future PostgreSQL-side profiling work. (a)
+  `ephemeral-pg` discards the postgres process's stderr unconditionally
+  (`EphemeralPg/Process/Postgres.hs:78`), making `Config.stderr` a
+  no-op. EP-2 routes around this via PostgreSQL's `logging_collector`;
+  a future upstream patch to ephemeral-pg would simplify. (b) PostgreSQL
+  18.3 on this build empirically needs `log_min_messages = 'log'` for
+  auto_explain output to reach the csvlog, even though the documentation
+  suggests `warning` (the default) should suffice. Re-verifying on
+  other builds and platforms is a candidate cross-check.
 
 
 ## Decision Log

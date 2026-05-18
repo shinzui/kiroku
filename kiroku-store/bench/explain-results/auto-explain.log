@@ -1,0 +1,2 @@
+2026-05-18 16:50:00 PDT [6901] LOG:  ending log output to stderr
+2026-05-18 16:50:00 PDT [6901] HINT:  Future log output will go to log destination "csvlog".
