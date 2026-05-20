@@ -38,10 +38,10 @@ specifies.
 - [x] M1 (2026-05-20): Add a "Consumer Groups" pointer to `docs/user/subscriptions.md` at the end of the "See Also" section.
 - [x] M1 (2026-05-20): Add `consumer-groups.md` to the Subscriptions section in `docs/user/README.md`.
 - [x] M1 (2026-05-20): Fix the now-stale `docs/user/shibuya-adapter.md` example (EP-3 made `consumerGroup` a required field) and add a "Consumer Groups" subsection + config-table row.
-- [ ] M2: Create `kiroku-store/example/Main.hs` — the runnable EphemeralPg example.
-- [ ] M2: Add the `executable kiroku-consumer-group-example` stanza to `kiroku-store/kiroku-store.cabal`.
-- [ ] M2: Run `cabal run kiroku-store:kiroku-consumer-group-example` and capture real output; paste transcript into this plan.
-- [ ] M2: Verify the guide's excerpt and the example's code are consistent (same snippet, same constants).
+- [x] M2 (2026-05-20): Create `kiroku-store/example/Main.hs` — the runnable EphemeralPg example (corrected: see Surprises for the category-prefix, bracket, `newIORef` annotation, unused-import, and `type:`-field fixes vs. the plan's draft source).
+- [x] M2 (2026-05-20): Add the `executable kiroku-consumer-group-example` stanza to `kiroku-store/kiroku-store.cabal` (no `type:` field — invalid for `executable`).
+- [x] M2 (2026-05-20): Ran `cabal run kiroku-store:kiroku-consumer-group-example` (exit 0); real transcript pasted into Concrete Steps. `cabal test kiroku-store` = 152 examples, 0 failures (no regression from the cabal edit).
+- [x] M2 (2026-05-20): Guide and example are consistent — both use `defaultSubscriptionConfig ... { consumerGroup = Just (ConsumerGroup { member, size = 4 }) }` on a `Category` target; the guide's "Starting A Member" snippet is the generic API form and "A Runnable Demonstration" points at the example as the runnable proof.
 
 
 ## Surprises & Discoveries
@@ -71,6 +71,35 @@ specifies.
   cancel of an *effectful* group worker hangs) verbatim from the MasterPlan
   Surprises, recommending self-terminating handlers or the plain-IO API for
   multi-member groups.
+
+- **The plan's draft example source had five defects; all fixed before it ran.**
+  The `kiroku-store/example/Main.hs` block in this plan's Plan of Work was
+  hand-written and never compiled. Building and running it surfaced:
+  1. **Category-prefix bug (the only behavioral one).** It named streams
+     `"example-cat-N"` and subscribed to `Category (CategoryName "example-cat")`.
+     But a stream's category is its name up to the *first* `-`
+     (`docs/user/reading-events.md` / `Kiroku.Store.Read` Haddock:
+     `"orders-1"` → category `"orders"`), so those streams are in category
+     `"example"`. The subscription matched zero streams and the first run
+     printed `member 0..3: 0 events`, `complete: FAIL`, `disjoint: FAIL`. Fixed
+     by using category `"example"` with streams `"example-0" .. "example-39"`.
+  2. **Bracket mismatch** in the `mapM (\m -> do … )` lambda — an extra `)`
+     after the `cfg` record update — which would not parse.
+  3. **Ambiguous `newIORef []`** (`mapM (\_ -> newIORef [])`) needs the
+     `:: [GlobalPosition]` annotation that only the comment, not the code, had.
+  4. **Unused imports** (`Control.Concurrent.Async`, `readTVar`, and
+     `lastPublished` — the last is a record field of `EventPublisher`, not a
+     value the example uses), dropped. The example uses `subscribe` directly
+     rather than `Async.async`, so `async` is also not a build dependency.
+  5. **Invalid `type:` field** on the `executable` cabal stanza (copied from the
+     `benchmark` stanzas). `cabal build` warned `Unknown field: "type"`; removed.
+
+- **`kiroku-store` has no `-Wall`/`-Werror`.** The unused imports above would
+  have compiled silently (only `-Wall` enables `-Wunused-imports`); they were
+  removed for cleanliness, not to satisfy the build. The category-prefix bug,
+  by contrast, only showed up at *runtime* — a reminder that "compiles" is not
+  "works" for this deliverable, which is exactly why EP-4 ships a runnable
+  example rather than a code listing.
 
 
 ## Decision Log
@@ -124,7 +153,38 @@ specifies.
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+Both deliverables shipped and are demonstrably correct.
+
+**Deliverable A — user guide.** `docs/user/consumer-groups.md` is a complete,
+prose-first guide covering the mental model (group / member / member index /
+size), starting a member (same-process and multi-process), the
+one-process-per-member operational invariant and the `consumerGroupGuard`
+startup probe (documented as a probe, not a lifetime lock), the stop-the-world
+resize procedure, the ordering / at-least-once / per-member-checkpoint
+guarantees, the `hashtextextended` cross-upgrade caveat, and the effectful and
+Shibuya entry points (documented concretely because EP-3 is complete, including
+the effectful-cancel limitation). It is cross-linked from `subscriptions.md` and
+`README.md`. As a bonus correctness fix, `shibuya-adapter.md`'s example was
+updated for EP-3's now-required `consumerGroup` field and given its own
+consumer-group subsection.
+
+**Deliverable B — runnable example.** `cabal run
+kiroku-store:kiroku-consumer-group-example` starts an ephemeral PostgreSQL,
+appends 120 events across 40 streams, runs a size-4 group, and prints per-member
+counts plus `complete: OK` / `disjoint: OK`. It exits 0 and requires no external
+database. The full `kiroku-store` test suite still passes (152 examples, 0
+failures), confirming the cabal `executable` stanza did not disturb the library
+or test-suite components.
+
+**What remained / lessons.** The single most valuable thing this plan did was
+*run* the example: the partition guarantee looked fine in the source but
+delivered zero events on first run because of the category-prefix naming bug
+(streams `"example-cat-N"` are in category `"example"`, not `"example-cat"`).
+A code-only deliverable would have shipped that bug. The plan's draft source
+also carried four non-behavioral defects (a bracket mismatch, an ambiguous
+`newIORef`, unused imports, and an invalid cabal `type:` field) — see Surprises.
+Nothing was left undone; dynamic rebalancing and effectful-worker cancel-safety
+remain out of scope (logged as future work in the MasterPlan).
 
 
 ## Context and Orientation
@@ -656,23 +716,29 @@ cabal run kiroku-store:kiroku-consumer-group-example
 
 Expected output (exact per-member counts vary; the OK lines do not):
 
+Real transcript captured on 2026-05-20 (`cabal run -v0
+kiroku-store:kiroku-consumer-group-example`, exit code 0):
+
 ```text
 Appended 120 events across 40 streams. Starting 4-member consumer group...
 
 === Consumer Group Partition Summary ===
-  member 0: 28 events
-  member 1: 31 events
-  member 2: 33 events
-  member 3: 28 events
+  member 0: 48 events
+  member 1: 18 events
+  member 2: 30 events
+  member 3: 24 events
   total : 120
 
 complete: OK
 disjoint: OK
 
-member 0 first 5 positions: [GlobalPosition 2,GlobalPosition 5,GlobalPosition 11,GlobalPosition 14,GlobalPosition 17]
+member 0 first 5 positions (delivery order): [GlobalPosition 4,GlobalPosition 5,GlobalPosition 6,GlobalPosition 7,GlobalPosition 8]
 ```
 
-(Paste the actual transcript here after running. The counts above are illustrative.)
+The per-member counts (48/18/30/24) are not balanced on this run because 40
+streams over a 4-way hash is a small sample; the disjoint/complete invariants
+hold regardless. Member 0's first five positions are ascending, demonstrating
+per-stream global-position ordering within a member.
 
 ### Run the existing test suite to confirm no regressions
 
