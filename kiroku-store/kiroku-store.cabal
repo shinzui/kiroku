@@ -31,6 +31,7 @@ library
     Kiroku.Store.Read
     Kiroku.Store.Schema
     Kiroku.Store.Settings
+    Kiroku.Store.SQL
     Kiroku.Store.Subscription
     Kiroku.Store.Subscription.Effect
     Kiroku.Store.Subscription.EventPublisher
@@ -40,7 +41,6 @@ library
     Kiroku.Store.Transaction
     Kiroku.Store.Types
 
-  other-modules:   Kiroku.Store.SQL
   build-depends:
     , aeson                >=2.1
     , async                >=2.2
@@ -74,6 +74,7 @@ test-suite kiroku-store-test
   other-modules:
     Test.Causation
     Test.Concurrency
+    Test.ConsumerGroupSql
     Test.FailureInjection
     Test.Helpers
     Test.InterpreterHooks

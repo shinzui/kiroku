@@ -19,6 +19,9 @@ module Kiroku.Store.SQL (
     readCategoryForwardStmt,
     getStreamStmt,
 
+    -- * Consumer-group read statements
+    readCategoryForwardConsumerGroupStmt,
+
     -- * Causation / correlation statements
     findByCorrelationStmt,
     findCausationDescendantsStmt,
@@ -743,6 +746,64 @@ readCategoryForwardSQL =
     WHERE s.category = $2
     ORDER BY se.stream_version ASC
     LIMIT $3
+    """
+
+-- ---------------------------------------------------------------------------
+-- Consumer-Group Read Statements
+-- ---------------------------------------------------------------------------
+
+{- | Partition-filtered category read for one consumer-group member.
+
+Mirrors 'readCategoryForwardStmt' but returns only events whose originating
+stream is assigned to member @$3@ of a group of size @$4@. The assignment rule
+(MasterPlan IP-1) hashes the originating stream's surrogate id and folds the
+signed result into @[0, size)@:
+
+@member_of(stream_id) = (((hashtextextended(stream_id::text, 0) % size) + size) % size)@
+
+The predicate is applied to @s.stream_id@ in the outer @WHERE@ so whole
+unassigned streams are pruned before the lateral join. Params:
+@(startPosition, category, member, size, limit)@.
+-}
+readCategoryForwardConsumerGroupStmt ::
+    Statement (Int64, Text, Int32, Int32, Int32) (Vector RecordedEvent)
+readCategoryForwardConsumerGroupStmt =
+    preparable
+        readCategoryForwardConsumerGroupSQL
+        readCategoryConsumerGroupEncoder
+        (D.rowVector recordedEventRow)
+
+readCategoryConsumerGroupEncoder :: E.Params (Int64, Text, Int32, Int32, Int32)
+readCategoryConsumerGroupEncoder =
+    ((\(a, _, _, _, _) -> a) >$< E.param (E.nonNullable E.int8))
+        <> ((\(_, b, _, _, _) -> b) >$< E.param (E.nonNullable E.text))
+        <> ((\(_, _, c, _, _) -> c) >$< E.param (E.nonNullable E.int4))
+        <> ((\(_, _, _, d, _) -> d) >$< E.param (E.nonNullable E.int4))
+        <> ((\(_, _, _, _, e) -> e) >$< E.param (E.nonNullable E.int4))
+
+readCategoryForwardConsumerGroupSQL :: Text
+readCategoryForwardConsumerGroupSQL =
+    """
+    SELECT e.event_id, e.event_type,
+           se.stream_version, se.stream_version AS global_position,
+           se.original_stream_id, se.original_stream_version,
+           e.data, e.metadata, e.causation_id, e.correlation_id,
+           e.created_at
+    FROM streams s
+    JOIN LATERAL (
+      SELECT se.*
+      FROM stream_events se
+      WHERE se.stream_id = 0
+        AND se.original_stream_id = s.stream_id
+        AND se.stream_version > $1
+      ORDER BY se.stream_version ASC
+      LIMIT $5
+    ) se ON true
+    JOIN events e ON e.event_id = se.event_id
+    WHERE s.category = $2
+      AND (((hashtextextended(s.stream_id::text, 0) % $4) + $4) % $4) = $3
+    ORDER BY se.stream_version ASC
+    LIMIT $5
     """
 
 -- ---------------------------------------------------------------------------
