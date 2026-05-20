@@ -97,9 +97,9 @@ task into "done" and "remaining" at every stopping point.
 - [x] M2 (2026-05-20): Add per-member checkpoint tests to `Test/ConsumerGroupSql.hs` and confirm
       existing subscription/checkpoint tests in `kiroku-store/test/Main.hs` still
       pass. Build green, `cabal test kiroku-store` green.
-- [ ] M3: Add `readAllForwardConsumerGroupStmt` (SQL body + 4-tuple encoder +
+- [x] M3 (2026-05-20): Add `readAllForwardConsumerGroupStmt` (SQL body + 4-tuple encoder +
       export) and the matching `$all` property tests in `Test/ConsumerGroupSql.hs`.
-      Build green, `cabal test kiroku-store` green.
+      Build green, `cabal test kiroku-store` green (14 ConsumerGroupSql examples; 143 total, 0 failures).
 
 
 ## Surprises & Discoveries
@@ -143,6 +143,29 @@ Findings from research while authoring this plan (no implementation yet):
   `initializeSchema` like everything else (`grep` for `subscriptions` and
   `CREATE TABLE` across `kiroku-store/bench/` returns no schema mirror). The bench
   files are therefore out of scope and will not break.
+
+Findings during implementation:
+
+- The repo's `treefmt` pre-commit hook (a Haskell formatter, fourmolu-family)
+  rewrites the multi-line top-level type signatures the plan's snippets used as
+  `name\n    :: Statement ...` into `name ::\n    Statement ...`, and normalizes
+  the `-- |` Haddock on `seedStreams`/`runMemberOf` in the test into `{- | ... -}`
+  block comments. These are cosmetic-only; the committed code differs from the
+  plan's verbatim snippets in layout but is byte-equivalent in meaning. A clean
+  commit needs the formatter to run first (it stages, fails on change, and you
+  re-`git add` the reformatted file), which is why each milestone took two commit
+  attempts. No functional drift from the IP-1 SQL.
+
+- `cabal test` only ever exercises the **fresh-database** path because
+  `withTestStore` provisions a brand-new ephemeral PostgreSQL per `it`. The M2
+  idempotent `ALTER`/`DROP CONSTRAINT`/`CREATE UNIQUE INDEX` convergence block is
+  therefore proven by construction (every statement guarded) plus the regression
+  that the pre-existing name-keyed `subscribe` checkpoint tests still pass against
+  the new composite `ON CONFLICT` target. The optional existing-database
+  convergence check (Concrete Steps Step 4, via `just reset-database` /
+  `just init-schema` on a local dev DB) was deliberately **not** run here to avoid
+  mutating a shared local database without operator confirmation; it remains a
+  documented manual verification.
 
 
 ## Decision Log
@@ -220,7 +243,55 @@ Record every decision made while working on the plan, with rationale and date.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+**Completed 2026-05-20.** All three milestones landed and the data-layer
+foundation EP-2 needs now exists and is proven at the SQL level.
+
+What was delivered, against the original purpose:
+
+- **Partition-filtered reads.** `readCategoryForwardConsumerGroupStmt`
+  `(startPosition, category, member, size, limit)` and
+  `readAllForwardConsumerGroupStmt` `(startPosition, member, size, limit)` are
+  exported from the now-exposed `Kiroku.Store.SQL`. Both apply the IP-1 rule
+  `(((hashtextextended(<id>::text, 0) % size) + size) % size) = member` — on
+  `s.stream_id` for the category path (pruning whole streams before the lateral
+  join) and on `se.original_stream_id` for the `$all` path. The property tests
+  prove, for `size = 4`, that the member slices are pairwise disjoint, that their
+  union equals the unpartitioned read, that each stream's events land in exactly
+  one member's slice in ascending global position, and that `size = 1` is byte-for
+  -byte the unpartitioned read. Determinism across repeated reads is proven for
+  the category path, and `runMemberOf` pins the IP-1 formula directly.
+
+- **Per-member checkpoints.** The `subscriptions` table gained
+  `consumer_group_member`/`consumer_group_size` columns and a composite unique
+  index `ix_subscriptions_name_member`, applied idempotently so fresh and existing
+  databases converge. `getCheckpointMemberStmt`/`saveCheckpointMemberStmt` read
+  and upsert per `(name, member)` with `GREATEST` monotonicity, while the existing
+  `getCheckpointStmt`/`saveCheckpointStmt` keep their signatures and now write
+  member 0 via the retargeted composite `ON CONFLICT`.
+
+- **Acceptance.** `cabal build kiroku-store` is clean and `cabal test
+  kiroku-store` is green: 143 examples, 0 failures, of which 14 are the new
+  `ConsumerGroupSql` examples (5 category, 4 checkpoint, 4 `$all`, 1 `member_of`).
+  The pre-existing 129 examples — including the `subscribe` checkpoint resume
+  tests that exercise the migrated `ON CONFLICT` target — remain green.
+
+Gaps / deferred (intentional):
+
+- The existing-database (upgrade) convergence path was verified by construction
+  and the checkpoint-regression test, not by the optional `just reset-database` /
+  `just init-schema` manual run (left to an operator to avoid touching a shared
+  local DB). See Surprises & Discoveries.
+
+- No subscription runtime, public `ConsumerGroup` type, or worker wiring — that is
+  EP-2 (`docs/plans/29-consumer-group-subscription-runtime-and-per-member-workers.md`),
+  which consumes these statements verbatim per the Cross-plan contract below.
+
+Lessons: the `treefmt` pre-commit hook reflows top-level type signatures and
+Haddock styles, so the committed source differs cosmetically from the plan's
+verbatim snippets; budget a re-`git add` per milestone. Hashing the surrogate
+`stream_id`/`original_stream_id` (no extra joins) kept the partitioned statements
+a one-line predicate addition over their unpartitioned templates, exactly as the
+Decision Log anticipated.
 
 
 ## Context and Orientation

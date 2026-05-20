@@ -102,6 +102,7 @@ spec = do
     describe "ConsumerGroupSql" $ do
         categorySpec
         checkpointSpec
+        allSpec
         memberOfSpec
 
 -- ---------------------------------------------------------------------------
@@ -205,6 +206,65 @@ checkpointSpec = around withTestStore $ do
             byMember0 <- runStmt store $ Session.statement (subName, 0 :: Int32) SQL.getCheckpointMemberStmt
             byName `shouldBe` Just 42
             byMember0 `shouldBe` Just 42
+
+-- ---------------------------------------------------------------------------
+-- M3: $all partitioning
+-- ---------------------------------------------------------------------------
+
+allSpec :: Spec
+allSpec = around withTestStore $ do
+    describe "$all consumer-group partitioning (size 4)" $ do
+        -- \$all spans several categories; partitioning is by originating stream.
+        let names =
+                concatMap
+                    (\c -> map (\i -> c <> "-" <> T.pack (show i)) [1 .. 20 :: Int])
+                    ["acct", "user", "order"]
+            size = 4 :: Int32
+
+        let readMember store m =
+                runStmt store $
+                    Session.statement (0 :: Int64, m, size, bigLimit) SQL.readAllForwardConsumerGroupStmt
+            readFull store =
+                runStmt store $
+                    Session.statement (0 :: Int64, bigLimit) SQL.readAllForwardStmt
+
+        it "splits $all into 4 pairwise-disjoint member slices" $ \store -> do
+            seedStreams store names 2
+            slices <- mapM (readMember store) [0 .. size - 1]
+            let idSets = map (Set.fromList . eventIds) slices
+                totalIds = sum (map Set.size idSets)
+                unionIds = Set.size (Set.unions idSets)
+            totalIds `shouldBe` unionIds
+
+        it "union of all member slices equals the unpartitioned $all read" $ \store -> do
+            seedStreams store names 2
+            slices <- mapM (readMember store) [0 .. size - 1]
+            full <- readFull store
+            let unionIds = Set.unions (map (Set.fromList . eventIds) slices)
+                fullIds = Set.fromList (eventIds full)
+            unionIds `shouldBe` fullIds
+
+        it "every stream's events go to exactly one member, in ascending global position" $ \store -> do
+            seedStreams store names 3
+            slices <- mapM (readMember store) [0 .. size - 1]
+            let perMemberStreams = map (Set.fromList . map fst . streamPositions) slices
+                totalStreams = sum (map Set.size perMemberStreams)
+                unionStreams = Set.size (Set.unions perMemberStreams)
+            totalStreams `shouldBe` unionStreams
+            mapM_
+                ( \slice -> do
+                    let ps = map snd (streamPositions slice)
+                    ps `shouldBe` sort ps
+                )
+                slices
+
+        it "size 1 is equivalent to an unpartitioned $all read" $ \store -> do
+            seedStreams store names 2
+            one <-
+                runStmt store $
+                    Session.statement (0 :: Int64, 0 :: Int32, 1 :: Int32, bigLimit) SQL.readAllForwardConsumerGroupStmt
+            full <- readFull store
+            eventIds one `shouldBe` eventIds full
 
 -- ---------------------------------------------------------------------------
 -- The partition rule, pinned directly.

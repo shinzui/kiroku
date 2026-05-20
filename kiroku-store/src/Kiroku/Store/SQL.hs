@@ -21,6 +21,7 @@ module Kiroku.Store.SQL (
 
     -- * Consumer-group read statements
     readCategoryForwardConsumerGroupStmt,
+    readAllForwardConsumerGroupStmt,
 
     -- * Causation / correlation statements
     findByCorrelationStmt,
@@ -806,6 +807,47 @@ readCategoryForwardConsumerGroupSQL =
       AND (((hashtextextended(s.stream_id::text, 0) % $4) + $4) % $4) = $3
     ORDER BY se.stream_version ASC
     LIMIT $5
+    """
+
+{- | Partition-filtered @$all@ read for one consumer-group member.
+
+Mirrors 'readAllForwardStmt' but returns only events whose originating stream is
+assigned to member @$2@ of a group of size @$3@, using the same MasterPlan IP-1
+rule as 'readCategoryForwardConsumerGroupStmt'. The predicate is applied to
+@se.original_stream_id@ — the real originating stream of each @$all@ junction row
+(never the reserved id 0 for normal appends). Params:
+@(startPosition, member, size, limit)@.
+-}
+readAllForwardConsumerGroupStmt ::
+    Statement (Int64, Int32, Int32, Int32) (Vector RecordedEvent)
+readAllForwardConsumerGroupStmt =
+    preparable
+        readAllForwardConsumerGroupSQL
+        readAllConsumerGroupEncoder
+        (D.rowVector recordedEventRow)
+
+readAllConsumerGroupEncoder :: E.Params (Int64, Int32, Int32, Int32)
+readAllConsumerGroupEncoder =
+    ((\(a, _, _, _) -> a) >$< E.param (E.nonNullable E.int8))
+        <> ((\(_, b, _, _) -> b) >$< E.param (E.nonNullable E.int4))
+        <> ((\(_, _, c, _) -> c) >$< E.param (E.nonNullable E.int4))
+        <> ((\(_, _, _, d) -> d) >$< E.param (E.nonNullable E.int4))
+
+readAllForwardConsumerGroupSQL :: Text
+readAllForwardConsumerGroupSQL =
+    """
+    SELECT e.event_id, e.event_type,
+           se.stream_version, se.stream_version AS global_position,
+           se.original_stream_id, se.original_stream_version,
+           e.data, e.metadata, e.causation_id, e.correlation_id,
+           e.created_at
+    FROM stream_events se
+    JOIN events e ON e.event_id = se.event_id
+    WHERE se.stream_id = 0
+      AND se.stream_version > $1
+      AND (((hashtextextended(se.original_stream_id::text, 0) % $3) + $3) % $3) = $2
+    ORDER BY se.stream_version ASC
+    LIMIT $4
     """
 
 -- ---------------------------------------------------------------------------
