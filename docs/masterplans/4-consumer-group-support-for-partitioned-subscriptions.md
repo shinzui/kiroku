@@ -144,7 +144,7 @@ future work.
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
 | 1 | Consumer-Group Partition Routing SQL and Checkpoint Schema | docs/plans/28-consumer-group-partition-routing-sql-and-checkpoint-schema.md | None | None | Complete |
-| 2 | Consumer-Group Subscription Runtime and Per-Member Workers | docs/plans/29-consumer-group-subscription-runtime-and-per-member-workers.md | EP-1 | None | In Progress |
+| 2 | Consumer-Group Subscription Runtime and Per-Member Workers | docs/plans/29-consumer-group-subscription-runtime-and-per-member-workers.md | EP-1 | None | Complete |
 | 3 | Consumer-Group Effect API and Shibuya Adapter Integration | docs/plans/30-consumer-group-effect-api-and-shibuya-adapter-integration.md | EP-2 | None | Not Started |
 | 4 | Consumer-Group User Guide and Runnable Example | docs/plans/31-consumer-group-user-guide-and-runnable-example.md | EP-2 | EP-3 | Not Started |
 
@@ -306,10 +306,10 @@ Track milestone-level progress across all child plans.
 - [x] EP-1 (2026-05-20): Partition-filtered category read statement + assignment-rule property tests
 - [x] EP-1 (2026-05-20): `subscriptions` schema extension (member/size columns, composite unique, ON CONFLICT migration) + per-member checkpoint statements
 - [x] EP-1 (2026-05-20): Partition-filtered `$all` read statement + tests
-- [ ] EP-2: `ConsumerGroup` type, `consumerGroup` config field, validity checks
-- [ ] EP-2: Worker routing through partitioned statements + per-member checkpoints (category)
-- [ ] EP-2: `$all` group routing + optional advisory-lock guardrail + observability
-- [ ] EP-2: End-to-end group test (disjoint, complete, per-stream-ordered) + Streamly bridge
+- [x] EP-2 (2026-05-20): `ConsumerGroup` type, `consumerGroup` config field, validity checks
+- [x] EP-2 (2026-05-20): Worker routing through partitioned statements + per-member checkpoints (category)
+- [x] EP-2 (2026-05-20): `$all` group routing + optional advisory-lock guardrail + observability
+- [x] EP-2 (2026-05-20): End-to-end group test (disjoint, complete, per-stream-ordered) + Streamly bridge
 - [ ] EP-3: `ConsumerGroup` surfaced through the effectful `Subscription` effect wrappers
 - [ ] EP-3: `KirokuAdapterConfig` consumer-group fields + multi-member Shibuya test
 - [ ] EP-4: `docs/user/consumer-groups.md` guide (model, invariants, resize, hash caveat)
@@ -348,6 +348,36 @@ Track milestone-level progress across all child plans.
   avoid mutating a shared local DB. Operators upgrading a pre-EP-1 database should
   run it once (documented in EP-1's Concrete Steps Step 4 and to be surfaced in
   EP-4's user guide).
+
+- **EP-2 complete (2026-05-20).** The IP-4 surface EP-3/EP-4 depend on is live and
+  re-exported from `Kiroku.Store`: `ConsumerGroup (..)` with `member`/`size`, the
+  `consumerGroup :: Maybe ConsumerGroup` and `consumerGroupGuard :: Bool` fields on
+  `SubscriptionConfigM` (defaults `Nothing`/`False`), `defaultSubscriptionConfig`
+  setting both, and the exceptions `InvalidConsumerGroup` and
+  `ConsumerGroupGuardConflict`. `subscribe` enforces `size >= 1` and
+  `0 <= member < size`. The IP-5 lifecycle events now carry
+  `SubscriptionGroupContext (NonGroup | GroupMember !Int32 !Int32)` as a trailing
+  field on the four `KirokuEventSubscription*` constructors (also re-exported from
+  `Kiroku.Store`). Final state: `cabal test kiroku-store` = 150 examples, 0 failures.
+
+- **Affects EP-3 — record-field add is breaking for explicit literals.** Adding
+  `consumerGroup`/`consumerGroupGuard` to `SubscriptionConfigM` forced updates to
+  every explicit `SubscriptionConfig { ... }` literal (26 across tests and benches).
+  EP-3's effect wrappers and `KirokuAdapterConfig` should thread the field via
+  `defaultSubscriptionConfig` + record update (not fresh literals) so they inherit
+  the defaults and stay robust to future field additions.
+
+- **Affects EP-3 — observability constructor arity changed.** The four
+  `KirokuEventSubscription*` constructors gained a trailing
+  `SubscriptionGroupContext` field. Any EP-3/EP-4 code (or docs examples) that
+  pattern-matches them must add the extra field; EP-3/EP-4 only read these events,
+  so a trailing wildcard suffices.
+
+- **Affects EP-4 — guard is a startup probe, document it as such.** The
+  `consumerGroupGuard` is an opt-in startup `pg_try_advisory_xact_lock` detection
+  probe, not a lifetime-held lock: it catches a simultaneous double-start of the
+  same `(name, member)` but not a staggered one. EP-4's user guide must state this
+  limitation and the one-process-per-member operational invariant explicitly.
 
 
 ## Decision Log
