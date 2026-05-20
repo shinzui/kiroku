@@ -146,7 +146,7 @@ future work.
 | 1 | Consumer-Group Partition Routing SQL and Checkpoint Schema | docs/plans/28-consumer-group-partition-routing-sql-and-checkpoint-schema.md | None | None | Complete |
 | 2 | Consumer-Group Subscription Runtime and Per-Member Workers | docs/plans/29-consumer-group-subscription-runtime-and-per-member-workers.md | EP-1 | None | Complete |
 | 3 | Consumer-Group Effect API and Shibuya Adapter Integration | docs/plans/30-consumer-group-effect-api-and-shibuya-adapter-integration.md | EP-2 | None | Complete |
-| 4 | Consumer-Group User Guide and Runnable Example | docs/plans/31-consumer-group-user-guide-and-runnable-example.md | EP-2 | EP-3 | In Progress |
+| 4 | Consumer-Group User Guide and Runnable Example | docs/plans/31-consumer-group-user-guide-and-runnable-example.md | EP-2 | EP-3 | Complete |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
 Hard Deps and Soft Deps reference other rows by their # prefix (e.g., EP-1, EP-3).
@@ -312,8 +312,8 @@ Track milestone-level progress across all child plans.
 - [x] EP-2 (2026-05-20): End-to-end group test (disjoint, complete, per-stream-ordered) + Streamly bridge
 - [x] EP-3 (2026-05-20): `ConsumerGroup` surfaced through the effectful `Subscription` effect wrappers
 - [x] EP-3 (2026-05-20): `KirokuAdapterConfig` consumer-group fields + multi-member Shibuya test
-- [ ] EP-4: `docs/user/consumer-groups.md` guide (model, invariants, resize, hash caveat)
-- [ ] EP-4: Runnable, tested size-N example demonstrating disjoint + ordered processing
+- [x] EP-4 (2026-05-20): `docs/user/consumer-groups.md` guide (model, invariants, resize, hash caveat) + cross-links from `subscriptions.md`/`README.md` + Shibuya-example fix
+- [x] EP-4 (2026-05-20): Runnable, tested size-N example demonstrating disjoint + ordered processing (`cabal run kiroku-store:kiroku-consumer-group-example` ⇒ `complete: OK`, `disjoint: OK`)
 
 
 ## Surprises & Discoveries
@@ -403,6 +403,27 @@ Track milestone-level progress across all child plans.
   self-terminating handlers, and must not demonstrate external cancellation of an
   effectful group worker. Making the interpreter cancel-safe is logged as possible
   future runtime work, out of scope for EP-3's pass-through.
+
+- **EP-4 complete (2026-05-20). Initiative complete.** The user guide
+  `docs/user/consumer-groups.md` and the runnable
+  `kiroku-store:kiroku-consumer-group-example` both shipped; the example prints
+  `complete: OK` / `disjoint: OK` over a size-4 group and exits 0, and
+  `cabal test kiroku-store` stays at 152 examples, 0 failures. Two cross-plan
+  facts surfaced while documenting:
+  - **EP-3 left the published Shibuya example stale.** EP-3 made `consumerGroup`
+    a *required* field on `KirokuAdapterConfig` but did not update
+    `docs/user/shibuya-adapter.md`, whose worked example still built the record
+    with the four pre-EP-3 fields — it would compile with a `-Wmissing-fields`
+    warning and bottom at runtime when `consumerGroup` is forced. EP-4 fixed the
+    example (`consumerGroup = Nothing`) and added a consumer-group subsection.
+    Lesson for future plans: a child plan that turns an optional config into a
+    required field must also fix every doc example that constructs that record.
+  - **Category is the stream name up to the first `-` (a documentation
+    gotcha).** EP-4's draft example named streams `"example-cat-N"` and
+    subscribed to category `"example-cat"`, which matched zero streams (their
+    category is `"example"`). It was caught only by *running* the example
+    (first run: 0 events, `FAIL`/`FAIL`), validating the decision to ship a
+    runnable demo rather than a code listing.
 
 
 ## Decision Log
@@ -498,4 +519,55 @@ Track milestone-level progress across all child plans.
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+**Status: complete (2026-05-20).** All four child plans landed; consumer groups
+are a usable, documented, and demonstrated feature.
+
+**What exists now that did not before.** A developer can run member `m` of a
+size-`N` group over a `Category` or the whole `$all` stream and receive only the
+events whose originating stream hashes to slot `m`, in global-position order,
+with the four members' deliveries forming a disjoint, complete partition. This
+is reachable from every subscription entry point — the `MonadIO`
+`subscribe`/`withSubscription`, the effectful `Subscription` effect, the Streamly
+`subscriptionStream` bridge, and the Shibuya adapter — via a single
+`consumerGroup :: Maybe ConsumerGroup` field that defaults to `Nothing` (so every
+pre-existing caller compiled unchanged). Per-member checkpoints live in the
+`subscriptions` table keyed by `(subscription_name, consumer_group_member)`; an
+optional `consumerGroupGuard` startup probe fails fast on a duplicate member. The
+work is proven by the test suite (`cabal test kiroku-store` = 152 examples, 0
+failures; `cabal test shibuya-kiroku-adapter` = 8, 0) and a runnable example
+(`cabal run kiroku-store:kiroku-consumer-group-example` ⇒ `complete: OK`,
+`disjoint: OK`).
+
+**How the decomposition held up.** The `EP-1 → EP-2 → {EP-3, EP-4}` chain was
+correct: each child plan delivered an independently verifiable behavior and the
+hard dependencies never had to be reordered. Consolidating all the
+migration-sensitive DDL (the two `subscriptions` columns, the composite unique,
+and the `ON CONFLICT` retarget) into EP-1 paid off — the build and the existing
+checkpoint tests stayed green after EP-1 alone, before any runtime consumed it.
+Putting `$all` partitioning as a *second milestone* inside EP-1/EP-2 (rather than
+a separate plan) let the category path ship and be verified first without
+multiplying plans.
+
+**Integration points, in hindsight.** IP-1 (the `hashtextextended` double-mod
+assignment rule) and IP-4 (the `ConsumerGroup` type + config field) were the two
+that every later plan leaned on, and both were stated precisely enough that
+EP-2/EP-3/EP-4 consumed them without renegotiation. The one integration cost not
+captured up front: adding a *required* field (`consumerGroup`) to
+`KirokuAdapterConfig` in EP-3 broke a published doc example, which EP-4 had to
+fix — a reminder that "integration point" should include user-facing examples,
+not just types and call sites.
+
+**Lessons.** (1) Run the demo. EP-4's example compiled but delivered zero events
+on first run because of the category-naming gotcha; only running it caught the
+bug. (2) A field that flips from optional-with-default to required is a
+breaking change for every record literal and every doc snippet that builds it —
+budget for the doc sweep. (3) The plans' hand-written code snippets drift from
+the formatter and the real API (bracket mismatches, unused imports, an invalid
+cabal `type:` field); treat plan code as a guide to verify, not paste.
+
+**Out of scope, logged as future work.** Dynamic rebalancing (a coordinator,
+heartbeats, partition handoff), automatic group-size resize without redeploy,
+extracting a `kiroku-migrate` package, and making the effectful subscription
+interpreter cancel-safe (so external `cancel` of an effectful group worker
+terminates cleanly) all remain deliberately undone — see the Decision Log and
+Surprises for rationale.
