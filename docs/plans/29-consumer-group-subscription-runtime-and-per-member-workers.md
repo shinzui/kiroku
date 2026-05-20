@@ -106,13 +106,17 @@ This section must always reflect the actual current state of the work.
   from its own checkpoint). Tests pass. (Proves member-keying by writing a competing
   high `(name, 0)` checkpoint and asserting member 2 ignores it, resuming from its own
   `(name, 2)` row against the EP-1 partition SQL ground truth.)
-- [ ] M4: Add the optional advisory-lock guardrail (`consumerGroupGuard :: !Bool`
-  config field, default `False`); implement the startup `pg_try_advisory_xact_lock`
-  conflict check; document the lifetime-held-lock limitation as follow-up. Build
-  green; add a guard conflict test if feasible.
-- [ ] M4: Confirm the Streamly bridge (`Kiroku.Store.Subscription.Stream.subscriptionStream`)
-  forwards the new `consumerGroup` field unchanged; add a bridge smoke test.
-  `just test` green.
+- [x] M4 (2026-05-20): Add the optional advisory-lock guardrail (`consumerGroupGuard :: !Bool`
+  config field, default `False`, added in M1); implement the startup
+  `pg_try_advisory_xact_lock` conflict check (`guardMember` in the worker, run before
+  `loadCheckpoint` when the guard is on and a group is configured); lifetime-held-lock
+  limitation documented in the Decision Log as follow-up. Build green; deterministic
+  guard conflict test added (a dedicated connection holds the session-level lock; the
+  guarded member fails with `ConsumerGroupGuardConflict`).
+- [x] M4 (2026-05-20): Confirm the Streamly bridge (`Kiroku.Store.Subscription.Stream.subscriptionStream`)
+  forwards the new `consumerGroup` field unchanged (it threads the whole config via
+  `config { handler = ... }` record update — no code change needed); bridge smoke test
+  added (member 0 of 2 pulls exactly its partition slice). `cabal test kiroku-store` green.
 
 
 ## Surprises & Discoveries
@@ -232,7 +236,64 @@ Record every decision made while working on the plan.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+**Completed 2026-05-20.** All four milestones landed. A developer can now start
+member `m` of a size-`N` group via `subscribe`/`withSubscription` (or the Streamly
+bridge) with a `ConsumerGroup` descriptor, and the members deliver a disjoint,
+complete, per-stream-ordered partition of the source.
+
+Against the original purpose:
+
+- **Public surface (M1, IP-4).** `Kiroku.Store.Subscription.Types` exports
+  `ConsumerGroup { member, size }`, the `consumerGroup :: Maybe ConsumerGroup` and
+  `consumerGroupGuard :: Bool` fields on `SubscriptionConfigM` (defaulting to
+  `Nothing`/`False`, so every existing caller compiles unchanged), and the
+  `InvalidConsumerGroup` / `ConsumerGroupGuardConflict` exceptions. `subscribe`
+  validates `size >= 1` and `0 <= member < size` and throws `InvalidConsumerGroup`
+  before spawning a thread. All re-exported through `Kiroku.Store`.
+
+- **Runtime (M2/M3).** `Worker.fetchBatch` dispatches on `(consumerGroup, target)`
+  through EP-1's four partitioned/​member-aware statements; `loadCheckpoint`/
+  `saveCheckpoint` go through one member-aware path (`configMember` = member-or-0).
+  The live phase routes any group (and non-group `Category`) through the DB-driven
+  `liveLoopDbDriven` (renamed from `liveLoopCategoryDriven`); only non-group
+  `AllStreams` keeps the broadcast queue. Lifecycle observability carries
+  `SubscriptionGroupContext` (`NonGroup | GroupMember member size`) on the four
+  `KirokuEventSubscription*` constructors (IP-5).
+
+- **Guardrail + bridge (M4).** An opt-in `consumerGroupGuard` runs a startup
+  `pg_try_advisory_xact_lock` probe (`guardMember`) keyed on a stable
+  `hashtextextended(name:member, 0)`; a concurrent holder makes it fail fast with
+  `ConsumerGroupGuardConflict`, and a DB error degrades open. The Streamly bridge
+  needed no change — it forwards the whole config via record update.
+
+- **Acceptance.** `cabal test kiroku-store` is green: 150 examples, 0 failures, of
+  which 7 are the new `Test.ConsumerGroup` cases — size-4 category partition
+  (disjoint + complete + per-stream-ordered), size-1 == plain, `$all` partition,
+  member-keyed checkpoint resume (proven against a competing high `(name, 0)`
+  checkpoint), `GroupMember 2 4` observability, the guard conflict, and the bridge
+  smoke test. The pre-existing 143 examples (M1 baseline) stayed green throughout,
+  including the checkpoint-resume and lifecycle-event tests that exercise the
+  migrated member-aware checkpoints and the new observability field.
+
+Gaps / deferred (intentional):
+
+- The advisory guard is a startup **detection probe**, not a lifetime-held lock —
+  it catches a simultaneous double-start but not a staggered one. Full mutual
+  exclusion needs a session-level lock on a dedicated per-worker connection (the
+  `Notifier` pattern); recorded as follow-up in the Decision Log.
+
+- The package-wide `SubscriptionConfig` record gained two fields, so all 26
+  explicit record literals across the test and benchmark sources had to be updated
+  (M1). A future refactor toward `defaultSubscriptionConfig`-plus-record-update at
+  call sites would make such additions non-breaking.
+
+Lessons: routing all checkpoints through the member-aware statements with member 0
+for the non-group case (one code path) avoided worker drift and was exactly
+equivalent because EP-1 guarantees legacy rows are `consumer_group_member = 0`.
+Adding the `SubscriptionGroupContext` field to existing lifecycle constructors
+(rather than new `*Group` constructors) kept the event taxonomy intact at the cost
+of a compile-time-visible field add, which the two internal matchers absorbed with
+one extra wildcard each.
 
 
 ## Context and Orientation

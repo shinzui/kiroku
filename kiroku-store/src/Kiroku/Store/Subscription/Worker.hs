@@ -7,13 +7,18 @@ import Control.Concurrent.STM (TBQueue, TVar, atomically, check, readTBQueue, re
 import Control.Exception (SomeException, fromException, throwIO, try)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Foldable (for_)
+import Data.Functor.Contravariant ((>$<))
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Int (Int32, Int64)
+import Data.Text (Text)
 import Data.Vector (Vector)
 import Data.Vector qualified as V
+import Hasql.Decoders qualified as D
+import Hasql.Encoders qualified as E
 import Hasql.Pool (Pool)
 import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
+import Hasql.Statement (Statement, preparable)
 import Kiroku.Store.Observability (
     KirokuEvent (..),
     SubscriptionDbPhase (..),
@@ -74,6 +79,11 @@ runWorker pool liveQueue statusVar pubPosVar config mHandler stSettings = liftIO
     posRef <- newIORef (GlobalPosition 0)
 
     let body = do
+            -- Optional startup guardrail: when consumerGroupGuard is on, fail fast
+            -- if another holder currently holds this (name, member)'s advisory lock.
+            case (consumerGroupGuard config, consumerGroup config) of
+                (True, Just (ConsumerGroup m _)) -> guardMember pool subName m
+                _ -> pure ()
             checkpoint <- loadCheckpoint pool config emit
             writeIORef posRef checkpoint
             emit (KirokuEventSubscriptionStarted subName checkpoint groupCtx)
@@ -114,6 +124,31 @@ runWorker pool liveQueue statusVar pubPosVar config mHandler stSettings = liftIO
 -- an ordinary subscription, @GroupMember member size@ for a group member.
 groupCtxOf :: SubscriptionConfig -> SubscriptionGroupContext
 groupCtxOf config = maybe NonGroup (\(ConsumerGroup m n) -> GroupMember m n) (consumerGroup config)
+
+{- Startup-only conflict probe for the consumer-group guardrail. Uses a
+transaction-scoped advisory lock ('pg_try_advisory_xact_lock') which auto-releases
+at transaction end, so it only detects a /concurrent/ holder at this instant. The
+key is a stable bigint hash of the @name:member@ pair computed in SQL so all
+processes agree. NOTE: this does NOT hold the lock for the worker's lifetime; full
+mutual exclusion would need a session-level lock on a dedicated connection (the
+'Kiroku.Store.Notification.Notifier' pattern), recorded as follow-up in EP-2's
+Decision Log. On a database error the probe degrades open (treats it as "no
+conflict") so a transient pool error cannot wedge startup. -}
+guardMember :: Pool -> SubscriptionName -> Int32 -> IO ()
+guardMember pool subName@(SubscriptionName n) mem = do
+    let probe :: Statement (Text, Int32) Bool
+        probe =
+            preparable
+                "SELECT pg_try_advisory_xact_lock(hashtextextended($1 || ':' || $2::text, 0))"
+                ( (fst >$< E.param (E.nonNullable E.text))
+                    <> (snd >$< E.param (E.nonNullable E.int4))
+                )
+                (D.singleRow (D.column (D.nonNullable D.bool)))
+    result <- Pool.use pool (Session.statement (n, mem) probe)
+    case result of
+        Right True -> pure () -- got the lock; no concurrent holder right now
+        Right False -> throwIO (ConsumerGroupGuardConflict subName mem)
+        Left _ -> pure () -- DB error: degrade open (do not block startup)
 
 -- Map an exception to the 'SubscriptionStopReason' the operator should see.
 classifyStopReason :: SomeException -> SubscriptionStopReason

@@ -12,6 +12,7 @@ module Test.ConsumerGroup (spec) where
 
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.STM (atomically, newTVarIO, readTVar, writeTVar)
+import Control.Exception (fromException)
 import Control.Lens ((&), (.~), (^.))
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
@@ -22,11 +23,19 @@ import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Vector qualified as V
+import EphemeralPg qualified as Pg
+import Hasql.Connection qualified as Connection
+import Hasql.Connection.Settings qualified as Conn
+import Hasql.Decoders qualified as D
+import Hasql.Encoders qualified as E
 import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
+import Hasql.Statement (Statement, preparable)
 import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
+import Kiroku.Store.Subscription.Stream (subscriptionStream)
 import Kiroku.Store.Subscription.Types (ConsumerGroup (..), SubscriptionConfigM (..))
+import Streamly.Data.Stream qualified as Stream
 import Test.Helpers (makeEvent, waitForPublisher, waitWithTimeout, withTestStore, withTestStoreSettings)
 import Test.Hspec
 
@@ -264,3 +273,62 @@ spec = describe "consumer groups" $ do
             cancel handle
             evts <- readIORef ref
             any isStartedMember2 evts `shouldBe` True
+
+    it "consumerGroupGuard fails fast when another holder holds the (name, member) lock" $ do
+        r <- Pg.withCached $ \db -> do
+            let cs = Pg.connectionString db
+            withStore (defaultConnectionSettings cs) $ \store -> do
+                -- Holder: a dedicated connection takes the SESSION-level advisory
+                -- lock for the same key the worker's guard probes, namely
+                -- hashtextextended("guard-sub:3", 0). It is held until release.
+                eConn <- Connection.acquire (Conn.connectionString cs)
+                conn <- either (\e -> error ("guard holder connect failed: " <> show e)) pure eConn
+                let holdStmt :: Statement Text ()
+                    holdStmt =
+                        preparable
+                            "SELECT pg_advisory_lock(hashtextextended($1, 0))"
+                            (E.param (E.nonNullable E.text))
+                            D.noResult
+                lockRes <- Connection.use conn (Session.statement "guard-sub:3" holdStmt)
+                either (\e -> error ("guard holder lock failed: " <> show e)) pure lockRes
+
+                let cfg =
+                        (defaultSubscriptionConfig (SubscriptionName "guard-sub") (Category (CategoryName "guardcat")) (\_ -> pure Continue))
+                            { consumerGroup = Just (ConsumerGroup{member = 3, size = 4})
+                            , consumerGroupGuard = True
+                            }
+                handle <- subscribe store cfg
+                res <- waitWithTimeout 5_000_000 handle
+                Connection.release conn
+                case res of
+                    Right (Left e)
+                        | Just (ConsumerGroupGuardConflict (SubscriptionName "guard-sub") 3) <- fromException e ->
+                            pure ()
+                    other ->
+                        expectationFailure ("expected ConsumerGroupGuardConflict, got: " <> show other)
+        either (\e -> expectationFailure ("ephemeral pg failed: " <> show e)) pure r
+
+    it "subscriptionStream forwards the consumer-group field (member 0 of 2 sees its slice)" $
+        withTestStore $ \store -> do
+            let nStreams = 20
+                perStream = 2
+                total = nStreams * perStream
+                streams = ["bridge-" <> T.pack (show i) | i <- [1 .. nStreams]]
+            seed store streams perStream
+            waitForPublisher store (GlobalPosition (fromIntegral total))
+
+            sliceV <-
+                runStmtP store $
+                    Session.statement
+                        (0 :: Int64, "bridge" :: Text, 0 :: Int32, 2 :: Int32, 100000 :: Int32)
+                        SQL.readCategoryForwardConsumerGroupStmt
+            let slicePos = sort (map (snd . pairOf) (V.toList sliceV))
+                k = length slicePos
+            -- A proper, non-trivial subset of the whole category.
+            k `shouldSatisfy` (\x -> x > 0 && x < total)
+
+            (stream, cancelStream) <-
+                subscriptionStream store (memberConfig "bridge-sub" "bridge" 0 2 (\_ -> pure Continue)) 64
+            pulled <- Stream.toList (Stream.take k stream)
+            cancelStream
+            sort (map (snd . pairOf) pulled) `shouldBe` slicePos
