@@ -78,6 +78,8 @@ runSubscriptionCatchup store runCounter = do
                 , batchSize = 100
                 , queueCapacity = 16
                 , overflowPolicy = DropSubscription
+                , consumerGroup = Nothing
+                , consumerGroupGuard = False
                 }
     handle <- subscribe store cfg
     result <- wait handle

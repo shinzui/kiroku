@@ -869,6 +869,8 @@ main = hspec $ do
                             , batchSize = 100
                             , queueCapacity = 16
                             , overflowPolicy = DropSubscription
+                            , consumerGroup = Nothing
+                            , consumerGroupGuard = False
                             }
                 handle <- subscribe store cfg
                 result <- waitWithTimeout 10_000_000 handle
@@ -900,6 +902,8 @@ main = hspec $ do
                             , batchSize = 100
                             , queueCapacity = 16
                             , overflowPolicy = DropSubscription
+                            , consumerGroup = Nothing
+                            , consumerGroupGuard = False
                             }
                 handle <- subscribe store cfg
                 -- Give subscription time to start
@@ -940,6 +944,8 @@ main = hspec $ do
                             , batchSize = 100
                             , queueCapacity = 16
                             , overflowPolicy = DropSubscription
+                            , consumerGroup = Nothing
+                            , consumerGroupGuard = False
                             }
                 h1 <- subscribe store cfg1
                 _ <- waitWithTimeout 10_000_000 h1
@@ -964,6 +970,8 @@ main = hspec $ do
                             , batchSize = 100
                             , queueCapacity = 16
                             , overflowPolicy = DropSubscription
+                            , consumerGroup = Nothing
+                            , consumerGroupGuard = False
                             }
                 h2 <- subscribe store cfg2
                 _ <- waitWithTimeout 10_000_000 h2
@@ -1004,6 +1012,8 @@ main = hspec $ do
                             , batchSize = 2
                             , queueCapacity = 32
                             , overflowPolicy = DropSubscription
+                            , consumerGroup = Nothing
+                            , consumerGroupGuard = False
                             }
                 handle <- subscribe store cfg
                 takeMVar firstSeen
@@ -1052,6 +1062,8 @@ main = hspec $ do
                             , batchSize = 100
                             , queueCapacity = 16
                             , overflowPolicy = DropSubscription
+                            , consumerGroup = Nothing
+                            , consumerGroupGuard = False
                             }
                 h1 <- subscribe store cfg1
                 takeMVar firstSeen
@@ -1070,6 +1082,8 @@ main = hspec $ do
                             , batchSize = 100
                             , queueCapacity = 16
                             , overflowPolicy = DropSubscription
+                            , consumerGroup = Nothing
+                            , consumerGroupGuard = False
                             }
                 h2 <- subscribe store cfg2
                 result <- waitWithTimeout 10_000_000 h2
@@ -1101,6 +1115,8 @@ main = hspec $ do
                             , batchSize = 100
                             , queueCapacity = 16
                             , overflowPolicy = DropSubscription
+                            , consumerGroup = Nothing
+                            , consumerGroupGuard = False
                             }
                 h1 <- subscribe store cfg1
                 _ <- waitWithTimeout 10_000_000 h1
@@ -1123,6 +1139,8 @@ main = hspec $ do
                             , batchSize = 100
                             , queueCapacity = 16
                             , overflowPolicy = DropSubscription
+                            , consumerGroup = Nothing
+                            , consumerGroupGuard = False
                             }
                 h2 <- subscribe store cfg2
                 result <- waitWithTimeout 10_000_000 h2
@@ -1171,6 +1189,8 @@ main = hspec $ do
                             , batchSize = 100
                             , queueCapacity = 16
                             , overflowPolicy = DropSubscription
+                            , consumerGroup = Nothing
+                            , consumerGroupGuard = False
                             }
                 handle <- subscribe store cfg
                 -- Block until catch-up has delivered the seed event — the
@@ -1220,6 +1240,8 @@ main = hspec $ do
                             , batchSize = 100
                             , queueCapacity = 16
                             , overflowPolicy = DropSubscription
+                            , consumerGroup = Nothing
+                            , consumerGroupGuard = False
                             }
                 handle <- subscribe store cfg
                 _ <- waitWithTimeout 10_000_000 handle
@@ -1261,6 +1283,8 @@ main = hspec $ do
                             , batchSize = 2
                             , queueCapacity = 16
                             , overflowPolicy = DropSubscription
+                            , consumerGroup = Nothing
+                            , consumerGroupGuard = False
                             }
                 handle <- subscribe store cfg
                 result <- waitWithTimeout 10_000_000 handle
@@ -1287,6 +1311,8 @@ main = hspec $ do
                             , batchSize = 100
                             , queueCapacity = 16
                             , overflowPolicy = DropSubscription
+                            , consumerGroup = Nothing
+                            , consumerGroupGuard = False
                             }
                 handle <- subscribe store cfg
                 -- Give it time to start
@@ -1312,6 +1338,8 @@ main = hspec $ do
                             , batchSize = 100
                             , queueCapacity = 16
                             , overflowPolicy = DropSubscription
+                            , consumerGroup = Nothing
+                            , consumerGroupGuard = False
                             }
                 handle <- subscribe store cfg
                 -- Give subscription time to start in live mode
@@ -1356,6 +1384,8 @@ main = hspec $ do
                               -- in the F6 overflow test below, not here.
                               queueCapacity = 64
                             , overflowPolicy = DropSubscription
+                            , consumerGroup = Nothing
+                            , consumerGroupGuard = False
                             }
                 handle <- subscribe store cfg
                 threadDelay 100_000
@@ -1406,6 +1436,8 @@ main = hspec $ do
                             , batchSize = 100
                             , queueCapacity = 1
                             , overflowPolicy = DropSubscription
+                            , consumerGroup = Nothing
+                            , consumerGroupGuard = False
                             }
                 handle <- subscribe store cfg
                 -- First append: triggers handler, which blocks on the release MVar.
@@ -1461,6 +1493,8 @@ main = hspec $ do
                             , batchSize = 100
                             , queueCapacity = 16
                             , overflowPolicy = DropSubscription
+                            , consumerGroup = Nothing
+                            , consumerGroupGuard = False
                             }
                 h2 <- subscribe store cfg2
                 replayResult <- waitWithTimeout 10_000_000 h2
@@ -1499,6 +1533,8 @@ main = hspec $ do
                                 , batchSize = 100
                                 , queueCapacity = 16
                                 , overflowPolicy = DropSubscription
+                                , consumerGroup = Nothing
+                                , consumerGroupGuard = False
                                 }
                     handle <- SubEff.subscribe cfg
                     liftIO $ do
@@ -1528,6 +1564,8 @@ main = hspec $ do
                             , batchSize = 100
                             , queueCapacity = 16
                             , overflowPolicy = DropSubscription
+                            , consumerGroup = Nothing
+                            , consumerGroupGuard = False
                             }
                 withSubscription store cfg $ \h -> do
                     writeIORef handleRef (Just h)
@@ -1550,6 +1588,8 @@ main = hspec $ do
                             , batchSize = 100
                             , queueCapacity = 16
                             , overflowPolicy = DropSubscription
+                            , consumerGroup = Nothing
+                            , consumerGroupGuard = False
                             }
                 result <-
                     Control.Exception.try @SomeException $
@@ -1698,6 +1738,8 @@ main = hspec $ do
                                 , batchSize = 100
                                 , queueCapacity = 16
                                 , overflowPolicy = DropSubscription
+                                , consumerGroup = Nothing
+                                , consumerGroupGuard = False
                                 }
                     handle <- subscribe store cfg
                     -- Give the worker a moment to enter live mode.

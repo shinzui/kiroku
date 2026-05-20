@@ -62,13 +62,18 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] M1: Add `ConsumerGroup` type and `consumerGroup :: !(Maybe ConsumerGroup)`
-  field to `Kiroku.Store.Subscription.Types`; set it to `Nothing` in
-  `defaultSubscriptionConfig`; export both. Build green; all existing tests pass.
-- [ ] M1: Add the `InvalidConsumerGroup` exception to
-  `Kiroku.Store.Subscription.Types` and enforce `size >= 1` and
+- [x] M1 (2026-05-20): Add `ConsumerGroup` type and `consumerGroup :: !(Maybe ConsumerGroup)`
+  field (plus `consumerGroupGuard :: !Bool`) to `Kiroku.Store.Subscription.Types`; set
+  them to `Nothing`/`False` in `defaultSubscriptionConfig`; export
+  `ConsumerGroup`/`InvalidConsumerGroup`/`ConsumerGroupGuardConflict`. Build green; all
+  existing tests pass (143 examples, 0 failures).
+- [x] M1 (2026-05-20): Add the `InvalidConsumerGroup` (and `ConsumerGroupGuardConflict`)
+  exceptions to `Kiroku.Store.Subscription.Types` and enforce `size >= 1` and
   `0 <= member < size` once, with `throwIO`, at the top of
-  `Kiroku.Store.Subscription.subscribe`. Build green.
+  `Kiroku.Store.Subscription.subscribe`. Build green. Updated all 26 explicit
+  `SubscriptionConfig` record literals (21 in test/Main.hs, 1 in
+  Test/FailureInjection.hs, 1 in bench/Main.hs, 3 in bench/ShibuyaOverhead.hs) to set
+  the two new fields, since a missing record field would be forced to bottom by the worker.
 - [ ] M2: Thread `consumerGroup` into `Kiroku.Store.Subscription.Worker.runWorker`
   and route `fetchBatch` / `catchUp` and the checkpoint load/save through the
   member-aware statements when in a group; keep non-group behavior identical.

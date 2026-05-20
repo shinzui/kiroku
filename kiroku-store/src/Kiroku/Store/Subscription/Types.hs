@@ -11,6 +11,11 @@ module Kiroku.Store.Subscription.Types (
     defaultSubscriptionConfig,
     SubscriptionHandleM (..),
     SubscriptionHandle,
+
+    -- * Consumer groups
+    ConsumerGroup (..),
+    InvalidConsumerGroup (..),
+    ConsumerGroupGuardConflict (..),
 ) where
 
 import Control.Exception (Exception, SomeException)
@@ -101,6 +106,21 @@ data SubscriptionConfigM m = SubscriptionConfig
     structured error rather than silently growing the publisher's
     fan-out memory or losing events.
     -}
+    , consumerGroup :: !(Maybe ConsumerGroup)
+    {- ^ 'Nothing' (the default) = ordinary single-consumer subscription.
+    'Just cg' = this worker is member 'member cg' of a group of size
+    'size cg'. The invariant @size >= 1@ and @0 <= member < size@ is
+    enforced once at 'Kiroku.Store.Subscription.subscribe' time, which
+    throws 'InvalidConsumerGroup' on violation.
+    -}
+    , consumerGroupGuard :: !Bool
+    {- ^ When 'True' (default 'False'), the worker performs a one-shot
+    PostgreSQL advisory-lock conflict check at startup so two processes
+    cannot both run the same @(name, member)@ at once. See the worker's
+    @guardMember@ for the exact semantics and its documented limitation
+    (a startup detection probe, not a lifetime-held lock). Ignored when
+    'consumerGroup' is 'Nothing'.
+    -}
     }
 
 -- | Configuration defaulting to 'IO'.
@@ -132,6 +152,8 @@ defaultSubscriptionConfig name' target' handler' =
         , batchSize = 100
         , queueCapacity = 16
         , overflowPolicy = DropSubscription
+        , consumerGroup = Nothing
+        , consumerGroupGuard = False
         }
 
 -- | Handle returned to the caller for lifecycle management, parameterized by monad.
@@ -144,3 +166,36 @@ data SubscriptionHandleM m = SubscriptionHandle
 
 -- | Handle defaulting to 'IO'.
 type SubscriptionHandle = SubscriptionHandleM IO
+
+-- | Static consumer-group membership for a subscription.
+data ConsumerGroup = ConsumerGroup
+    { member :: !Int32
+    -- ^ 0-based member index; must satisfy @0 <= member < size@.
+    , size :: !Int32
+    -- ^ total members in the group; must be @>= 1@.
+    }
+    deriving stock (Eq, Show)
+
+{- | Thrown by 'Kiroku.Store.Subscription.subscribe' when a 'ConsumerGroup'
+violates @size >= 1@ or @0 <= member < size@. Carries the offending values for
+diagnostics.
+-}
+data InvalidConsumerGroup = InvalidConsumerGroup
+    { invalidMember :: !Int32
+    , invalidSize :: !Int32
+    }
+    deriving stock (Show)
+    deriving anyclass (Exception)
+
+{- | Thrown at subscription startup when 'consumerGroupGuard' is 'True' and
+another holder currently holds the advisory lock for this @(name, member)@.
+Indicates two processes are configured as the same group member. This is a
+startup /detection/ probe, not a lifetime-held lock — see the worker's
+@guardMember@.
+-}
+data ConsumerGroupGuardConflict = ConsumerGroupGuardConflict
+    { conflictName :: !SubscriptionName
+    , conflictMember :: !Int32
+    }
+    deriving stock (Show)
+    deriving anyclass (Exception)

@@ -9,10 +9,12 @@ module Kiroku.Store.Subscription (
 
 import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.STM (atomically)
-import Control.Exception (bracket, finally)
+import Control.Exception (bracket, finally, throwIO)
 import Control.Lens ((^.))
+import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.IO.Unlift (MonadUnliftIO, withRunInIO)
+import Data.Foldable (for_)
 import Data.Generics.Labels ()
 import Kiroku.Store.Connection (KirokuStore (..))
 import Kiroku.Store.Subscription.EventPublisher qualified as Pub
@@ -89,6 +91,12 @@ returned handle resolves with one of:
 -}
 subscribe :: (MonadIO m) => KirokuStore -> SubscriptionConfig -> m SubscriptionHandle
 subscribe store config = liftIO $ do
+    -- Fail fast on a misconfigured group, before any thread is spawned. A bad
+    -- (member, size) is a programmer error; throwing here keeps subscribe's
+    -- non-Either signature intact for every existing caller (see EP-2 Decision Log).
+    for_ (consumerGroup config) $ \(ConsumerGroup m n) ->
+        when (n < 1 || m < 0 || m >= n) $
+            throwIO (InvalidConsumerGroup m n)
     (queue, statusVar, unsubscribe) <-
         atomically $
             Pub.subscribePublisher

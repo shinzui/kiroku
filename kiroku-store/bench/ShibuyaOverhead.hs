@@ -123,6 +123,8 @@ benchBareSubscribe store n nextId = do
                 , batchSize = 500
                 , queueCapacity = 16
                 , overflowPolicy = DropSubscription
+                , consumerGroup = Nothing
+                , consumerGroupGuard = False
                 }
     handle <- subscribe store cfg
     waitForCount countVar n 30_000_000
@@ -144,6 +146,8 @@ benchSubscriptionStream store n nextId = do
                 , batchSize = 500
                 , queueCapacity = 16
                 , overflowPolicy = DropSubscription
+                , consumerGroup = Nothing
+                , consumerGroupGuard = False
                 }
 
     t0 <- getCurrentTime
@@ -170,6 +174,8 @@ benchShibuyaAdapter store n nextId = do
                     , batchSize = 500
                     , queueCapacity = 16
                     , overflowPolicy = DropSubscription
+                    , consumerGroup = Nothing
+                    , consumerGroupGuard = False
                     }
 
         (ioStream, cancelAction) <- liftIO $ subscriptionStream store cfg 256
