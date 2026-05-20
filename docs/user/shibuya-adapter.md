@@ -41,6 +41,7 @@ main = withStore (defaultConnectionSettings connStr) $ \store ->
           , subscriptionTarget = AllStreams
           , batchSize = 100
           , bufferSize = 256
+          , consumerGroup = Nothing
           }
 
     let handler ingested = do
@@ -62,9 +63,35 @@ main = withStore (defaultConnectionSettings connStr) $ \store ->
 | `subscriptionTarget :: SubscriptionTarget` | `AllStreams` or `Category categoryName`. |
 | `batchSize :: Int32` | Events per database fetch during catch-up. |
 | `bufferSize :: Natural` | `TBQueue` capacity — the backpressure threshold. |
+| `consumerGroup :: Maybe ConsumerGroup` | `Nothing` = ordinary subscription. `Just (ConsumerGroup { member, size })` = this adapter is member `member` of a size-`size` consumer group (see below). |
 
-`SubscriptionName` and `SubscriptionTarget` are re-exported from the adapter
-module, so you do not need a separate `kiroku-store` import for them.
+`SubscriptionName`, `SubscriptionTarget`, and `ConsumerGroup` are re-exported
+from the adapter module, so you do not need a separate `kiroku-store` import for
+them.
+
+## Consumer Groups
+
+Set `consumerGroup` to run this adapter as one member of a hash-partitioned
+consumer group, so several Shibuya processors share one logical subscription
+while each handles a disjoint, per-stream-ordered slice. Create `N` adapters
+with the **same** `subscriptionName` and distinct `member` indices
+(`0 .. N - 1`), all with the same `size`, and register each under its own
+`ProcessorId`:
+
+```haskell
+KirokuAdapterConfig
+  { subscriptionName = SubscriptionName "my-projection"
+  , subscriptionTarget = AllStreams
+  , batchSize = 100
+  , bufferSize = 256
+  , consumerGroup = Just (ConsumerGroup { member = m, size = 4 })
+  }
+```
+
+The validity invariant (`size >= 1`, `0 <= member < size`) is enforced by the
+underlying subscription and throws `InvalidConsumerGroup` on violation. For the
+mental model, the one-process-per-member operational invariant, the resize
+procedure, and the hash caveat, see [Consumer Groups](consumer-groups.md).
 
 ## How It Works
 

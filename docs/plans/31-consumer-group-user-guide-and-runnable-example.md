@@ -34,9 +34,10 @@ specifies.
 
 ## Progress
 
-- [ ] M1: Write `docs/user/consumer-groups.md` (mental model, snippet, invariant, resize, ordering/delivery, hash caveat, effect/Shibuya pointers).
-- [ ] M1: Add a "Consumer groups" pointer to `docs/user/subscriptions.md` under a new "See Also" addition.
-- [ ] M1: Add `consumer-groups.md` to the Subscriptions section in `docs/user/README.md`.
+- [x] M1 (2026-05-20): Write `docs/user/consumer-groups.md` (mental model, snippet, invariant, resize, ordering/delivery, hash caveat, effect/Shibuya documented concretely since EP-3 is complete).
+- [x] M1 (2026-05-20): Add a "Consumer Groups" pointer to `docs/user/subscriptions.md` at the end of the "See Also" section.
+- [x] M1 (2026-05-20): Add `consumer-groups.md` to the Subscriptions section in `docs/user/README.md`.
+- [x] M1 (2026-05-20): Fix the now-stale `docs/user/shibuya-adapter.md` example (EP-3 made `consumerGroup` a required field) and add a "Consumer Groups" subsection + config-table row.
 - [ ] M2: Create `kiroku-store/example/Main.hs` — the runnable EphemeralPg example.
 - [ ] M2: Add the `executable kiroku-consumer-group-example` stanza to `kiroku-store/kiroku-store.cabal`.
 - [ ] M2: Run `cabal run kiroku-store:kiroku-consumer-group-example` and capture real output; paste transcript into this plan.
@@ -45,7 +46,31 @@ specifies.
 
 ## Surprises & Discoveries
 
-(None yet.)
+- **`docs/user/` is tracked, not untracked.** This plan's Context section
+  (written from a stale `git status`) said the user docs were untracked (`??`).
+  In fact `README.md`, `subscriptions.md`, `shibuya-adapter.md`, etc. are all
+  committed; only the new `consumer-groups.md` is a new file. The M1 acceptance
+  `git diff --stat HEAD -- docs/user/` therefore shows three *modified* tracked
+  files plus the new untracked guide — not three untracked files.
+
+- **EP-3's `consumerGroup` field broke the published Shibuya example.** EP-3 made
+  `consumerGroup` a *required* (no-default) field on `KirokuAdapterConfig`, but
+  `docs/user/shibuya-adapter.md`'s worked example still built the record with the
+  four pre-EP-3 fields only. Since `kirokuAdapter` destructures all five fields,
+  that example would compile with a `-Wmissing-fields` warning and bottom at
+  runtime when `consumerGroup` is forced. Fixed here by adding
+  `consumerGroup = Nothing` to the example and documenting the field — a docs
+  correctness fix that belongs to this plan even though it was not in the
+  original M1 checklist.
+
+- **EP-3 is complete, so the effectful + Shibuya forms are documented concretely.**
+  The plan's soft-dependency contingency ("write a *see EP-3* pointer if EP-3 is
+  unfilled") did not apply: EP-3 landed `consumerGroup` on both the effectful
+  `Subscription` effect config and `KirokuAdapterConfig`, so the guide documents
+  the real APIs. The guide also carries EP-3's discovered limitation (external
+  cancel of an *effectful* group worker hangs) verbatim from the MasterPlan
+  Surprises, recommending self-terminating handlers or the plain-IO API for
+  multi-member groups.
 
 
 ## Decision Log

@@ -187,3 +187,5 @@ the mechanism the [Shibuya Adapter](shibuya-adapter.md) builds on.
   events (`KirokuEvent`).
 - [Reading Events](reading-events.md) — one-shot reads versus continuous
   delivery.
+- [Consumer Groups](consumer-groups.md) — horizontal scaling with
+  hash-partitioned members, per-member checkpoints, and the resize procedure.

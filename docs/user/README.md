@@ -26,6 +26,9 @@ system in production. For internal design notes see `docs/DESIGN.md` and
 - [Subscriptions](subscriptions.md) — the in-process subscription system:
   delivery semantics, overflow policy, the effectful API, and the Streamly
   bridge.
+- [Consumer Groups](consumer-groups.md) — scale a single subscription
+  horizontally with hash-partitioned members while preserving per-stream
+  ordering.
 - [Shibuya Adapter](shibuya-adapter.md) — drive Kiroku subscriptions from
   the Shibuya queue-processing framework.
 
