@@ -8,7 +8,7 @@ import Control.Exception (SomeException, fromException, throwIO, try)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Foldable (for_)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
-import Data.Int (Int64)
+import Data.Int (Int32, Int64)
 import Data.Vector (Vector)
 import Data.Vector qualified as V
 import Hasql.Pool (Pool)
@@ -72,7 +72,7 @@ runWorker pool liveQueue statusVar pubPosVar config mHandler stSettings = liftIO
     posRef <- newIORef (GlobalPosition 0)
 
     let body = do
-            checkpoint <- loadCheckpoint pool subName emit
+            checkpoint <- loadCheckpoint pool config emit
             writeIORef posRef checkpoint
             emit (KirokuEventSubscriptionStarted subName checkpoint)
             -- Phase 1: catch-up (returns Nothing if handler said Stop)
@@ -111,17 +111,29 @@ classifyStopReason e
     | Just (_ :: Async.AsyncCancelled) <- fromException e = StopCancelled
     | otherwise = StopWorkerCrashed e
 
+-- The consumer-group member index for this config, or 0 for a non-group
+-- subscription. We always route checkpoints through the member-aware
+-- statements with member 0 for the non-group case, so there is a single code
+-- path: EP-1's schema guarantees pre-existing rows are consumer_group_member = 0,
+-- so a non-group worker reads and writes the same (name, 0) row it always did.
+configMember :: SubscriptionConfig -> Int32
+configMember config = maybe 0 member (consumerGroup config)
+
 -- Load the checkpoint from the database, defaulting to 0.
 -- Surfaces a database error through the event handler before falling
 -- back to the safe default; without the event the operator has no signal
 -- that a transient pool error caused a silent re-process from position 0.
+-- Keyed by (subscription_name, member) so each group member resumes from its
+-- own saved position.
 loadCheckpoint ::
     Pool ->
-    SubscriptionName ->
+    SubscriptionConfig ->
     (KirokuEvent -> IO ()) ->
     IO GlobalPosition
-loadCheckpoint pool subName@(SubscriptionName name') emit = do
-    result <- Pool.use pool (Session.statement name' SQL.getCheckpointStmt)
+loadCheckpoint pool config emit = do
+    let subName@(SubscriptionName name') = name config
+        mem = configMember config
+    result <- Pool.use pool (Session.statement (name', mem) SQL.getCheckpointMemberStmt)
     case result of
         Left err -> do
             emit (KirokuEventSubscriptionDbError subName LoadCheckpoint err)
@@ -241,12 +253,18 @@ fetchBatch ::
     StoreSettings ->
     IO (Vector RecordedEvent)
 fetchBatch pool config (GlobalPosition pos) emit stSettings =
-    case target config of
-        AllStreams -> do
+    case (consumerGroup config, target config) of
+        (Nothing, AllStreams) -> do
             result <- Pool.use pool (Session.statement (pos, batchSize config) SQL.readAllForwardStmt)
             handle result
-        Category (CategoryName cat) -> do
+        (Nothing, Category (CategoryName cat)) -> do
             result <- Pool.use pool (Session.statement (pos, cat, batchSize config) SQL.readCategoryForwardStmt)
+            handle result
+        (Just (ConsumerGroup m n), AllStreams) -> do
+            result <- Pool.use pool (Session.statement (pos, m, n, batchSize config) SQL.readAllForwardConsumerGroupStmt)
+            handle result
+        (Just (ConsumerGroup m n), Category (CategoryName cat)) -> do
+            result <- Pool.use pool (Session.statement (pos, cat, m, n, batchSize config) SQL.readCategoryForwardConsumerGroupStmt)
             handle result
   where
     handle = \case
@@ -275,7 +293,7 @@ processEvents pool config events emit posRef = go 0
             let lastEvent = V.last events
                 newPos = globalPosition lastEvent
             writeIORef posRef newPos
-            saveCheckpoint pool (name config) newPos emit
+            saveCheckpoint pool config newPos emit
             pure (Just newPos)
         | otherwise = do
             let event = events V.! i
@@ -285,21 +303,25 @@ processEvents pool config events emit posRef = go 0
             case result of
                 Stop -> do
                     -- Save checkpoint up to the event we just processed
-                    saveCheckpoint pool (name config) evtPos emit
+                    saveCheckpoint pool config evtPos emit
                     pure Nothing
                 Continue -> go (i + 1)
 
 -- Save a checkpoint to the database. Surfaces a database error through
 -- the event handler; the worker continues running but the next restart
 -- with the same name re-processes events the handler has already seen.
+-- Keyed by (subscription_name, member) so each group member persists its own
+-- position; non-group subscriptions use member 0 (see 'configMember').
 saveCheckpoint ::
     Pool ->
-    SubscriptionName ->
+    SubscriptionConfig ->
     GlobalPosition ->
     (KirokuEvent -> IO ()) ->
     IO ()
-saveCheckpoint pool subName@(SubscriptionName name') (GlobalPosition pos) emit = do
-    result <- Pool.use pool (Session.statement (name', pos) SQL.saveCheckpointStmt)
+saveCheckpoint pool config (GlobalPosition pos) emit = do
+    let subName@(SubscriptionName name') = name config
+        mem = configMember config
+    result <- Pool.use pool (Session.statement (name', mem, pos) SQL.saveCheckpointMemberStmt)
     case result of
         Left err -> emit (KirokuEventSubscriptionDbError subName SaveCheckpoint err)
         Right () -> pure ()

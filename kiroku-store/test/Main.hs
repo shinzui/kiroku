@@ -27,6 +27,7 @@ import Kiroku.Store.Subscription.EventPublisher (publisherPosition)
 import Kiroku.Store.Subscription.Types (OverflowPolicy (..), SubscriptionConfigM (..), SubscriptionOverflowed (..))
 import Test.Causation qualified as Causation
 import Test.Concurrency qualified as Concurrency
+import Test.ConsumerGroup qualified as ConsumerGroup
 import Test.ConsumerGroupSql qualified as ConsumerGroupSql
 import Test.FailureInjection qualified as FailureInjection
 import Test.Helpers
@@ -46,6 +47,7 @@ main = hspec $ do
     InterpreterHooks.spec
     Causation.spec
     ConsumerGroupSql.spec
+    ConsumerGroup.spec
     around withTestStore $ do
         describe "schema initialization" $ do
             it "provides a UUIDv7 database default for direct event inserts" $ \store -> do

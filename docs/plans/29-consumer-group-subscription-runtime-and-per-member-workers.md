@@ -74,17 +74,22 @@ This section must always reflect the actual current state of the work.
   `SubscriptionConfig` record literals (21 in test/Main.hs, 1 in
   Test/FailureInjection.hs, 1 in bench/Main.hs, 3 in bench/ShibuyaOverhead.hs) to set
   the two new fields, since a missing record field would be forced to bottom by the worker.
-- [ ] M2: Thread `consumerGroup` into `Kiroku.Store.Subscription.Worker.runWorker`
+- [x] M2 (2026-05-20): Thread `consumerGroup` into `Kiroku.Store.Subscription.Worker.runWorker`
   and route `fetchBatch` / `catchUp` and the checkpoint load/save through the
   member-aware statements when in a group; keep non-group behavior identical.
-  Build green.
-- [ ] M2: Make the live loop for a `Category` group use the DB-driven
+  Build green. (`fetchBatch` now dispatches on `(consumerGroup, target)`;
+  `loadCheckpoint`/`saveCheckpoint` take the full config and always use
+  `getCheckpointMemberStmt`/`saveCheckpointMemberStmt` with `configMember` =
+  member-or-0, one path for group and non-group.)
+- [x] M2 (2026-05-20): Make the live loop for a `Category` group use the DB-driven
   `liveLoopCategoryDriven` path with the partitioned statement; per-member
-  checkpoints persisted under `(name, member)`.
-- [ ] M2: Add `kiroku-store/test/Test/ConsumerGroup.hs`, register it in the cabal
+  checkpoints persisted under `(name, member)`. (A `Category` group already
+  selects `liveLoopCategoryDriven`, which calls the now-partitioned `fetchBatch`,
+  so no live-loop change was needed for the category path; `$all` routing is M3.)
+- [x] M2 (2026-05-20): Add `kiroku-store/test/Test/ConsumerGroup.hs`, register it in the cabal
   `other-modules`, wire it into `kiroku-store/test/Main.hs`; write the category
   group end-to-end test (disjoint + complete + per-stream-ordered) and the
-  size-1-equals-plain test. Tests pass.
+  size-1-equals-plain test. Tests pass (2 examples, 0 failures).
 - [ ] M3: Add the `$all`-group runtime: route a `Just`-group `AllStreams`
   subscription through a DB-driven live loop using `readAllForwardConsumerGroupStmt`
   (not the broadcast queue); non-group `AllStreams` keeps the broadcast queue.

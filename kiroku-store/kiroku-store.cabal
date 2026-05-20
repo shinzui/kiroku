@@ -74,6 +74,7 @@ test-suite kiroku-store-test
   other-modules:
     Test.Causation
     Test.Concurrency
+    Test.ConsumerGroup
     Test.ConsumerGroupSql
     Test.FailureInjection
     Test.Helpers
