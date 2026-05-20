@@ -38,6 +38,7 @@ module Kiroku.Store (
     KirokuEvent (..),
     SubscriptionDbPhase (..),
     SubscriptionStopReason (..),
+    SubscriptionGroupContext (..),
 
     -- * Pool observation types (re-exported from hasql-pool)
     Observation (..),
@@ -56,7 +57,7 @@ import Kiroku.Store.Error
 import Kiroku.Store.Lifecycle
 import Kiroku.Store.Link
 import Kiroku.Store.Notification (NotifierStartError (..))
-import Kiroku.Store.Observability (KirokuEvent (..), SubscriptionDbPhase (..), SubscriptionStopReason (..))
+import Kiroku.Store.Observability (KirokuEvent (..), SubscriptionDbPhase (..), SubscriptionGroupContext (..), SubscriptionStopReason (..))
 import Kiroku.Store.Read
 import Kiroku.Store.Schema (SchemaInitError (..))
 import Kiroku.Store.Settings

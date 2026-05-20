@@ -276,7 +276,7 @@ caughtUpEventHandler ::
     IO ()
 caughtUpEventHandler name barrier passthrough evt = do
     case evt of
-        KirokuEventSubscriptionCaughtUp n _
+        KirokuEventSubscriptionCaughtUp n _ _
             | n == name -> () <$ tryPutMVar barrier ()
         _ -> pure ()
     case passthrough of

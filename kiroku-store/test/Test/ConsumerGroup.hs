@@ -12,17 +12,22 @@ module Test.ConsumerGroup (spec) where
 
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.STM (atomically, newTVarIO, readTVar, writeTVar)
-import Control.Lens ((^.))
+import Control.Lens ((&), (.~), (^.))
 import Data.Aeson qualified as Aeson
+import Data.Generics.Labels ()
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.Int (Int32, Int64)
 import Data.List (sort)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Vector qualified as V
+import Hasql.Pool qualified as Pool
+import Hasql.Session qualified as Session
 import Kiroku.Store
+import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Subscription.Types (ConsumerGroup (..), SubscriptionConfigM (..))
-import Test.Helpers (makeEvent, waitForPublisher, waitWithTimeout, withTestStore)
+import Test.Helpers (makeEvent, waitForPublisher, waitWithTimeout, withTestStore, withTestStoreSettings)
 import Test.Hspec
 
 -- | Extract @(originalStreamId, globalPosition)@ as raw 'Int64's from an event.
@@ -72,6 +77,40 @@ memberConfig nm cat m n h =
     (defaultSubscriptionConfig (SubscriptionName nm) (Category (CategoryName cat)) h)
         { consumerGroup = Just (ConsumerGroup{member = m, size = n})
         }
+
+-- | A size-@n@ @$all@-group config for member @m@ with the given handler.
+memberConfigAll ::
+    Text -> Int32 -> Int32 -> EventHandler -> SubscriptionConfig
+memberConfigAll nm m n h =
+    (defaultSubscriptionConfig (SubscriptionName nm) AllStreams h)
+        { consumerGroup = Just (ConsumerGroup{member = m, size = n})
+        }
+
+{- | Run a subscription built from the given config-completer, collecting the
+global positions it delivers and stopping the handler after @k@ events. Returns
+the @k@ positions in delivery order.
+-}
+collectStopAfter :: KirokuStore -> (EventHandler -> SubscriptionConfig) -> Int -> IO [Int64]
+collectStopAfter store mkCfg k = do
+    ref <- newIORef []
+    countVar <- newTVarIO (0 :: Int)
+    let h evt = do
+            modifyIORef' ref (snd (pairOf evt) :)
+            c <- atomically $ do
+                c0 <- readTVar countVar
+                let c1 = c0 + 1
+                writeTVar countVar c1
+                pure c1
+            pure (if c >= k then Stop else Continue)
+    handle <- subscribe store (mkCfg h)
+    _ <- waitWithTimeout 15_000_000 handle
+    reverse <$> readIORef ref
+
+-- | Run a Hasql session against the store pool, failing the test on a usage error.
+runStmtP :: KirokuStore -> Session.Session a -> IO a
+runStmtP store session = do
+    r <- Pool.use (store ^. #pool) session
+    either (error . show) pure r
 
 spec :: Spec
 spec = describe "consumer groups" $ do
@@ -145,3 +184,83 @@ spec = describe "consumer groups" $ do
 
             plain `shouldBe` [1 .. fromIntegral total]
             grouped `shouldBe` plain
+
+    it "$all group partitions the whole store across members" $
+        withTestStore $ \store -> do
+            let cats = ["acct", "user", "order"]
+                perCat = 10
+                perStream = 2
+                streams = [c <> "-" <> T.pack (show i) | c <- cats, i <- [1 .. perCat]]
+                total = length streams * perStream
+            seed store streams perStream
+            waitForPublisher store (GlobalPosition (fromIntegral total))
+
+            let n = 4 :: Int32
+            refs <- mapM (const (newIORef [])) [0 .. n - 1]
+            handles <-
+                mapM
+                    ( \m -> do
+                        let ref = refs !! fromIntegral m
+                            h evt = do
+                                modifyIORef' ref (pairOf evt :)
+                                pure Continue
+                        subscribe store (memberConfigAll "cg-all" m n h)
+                    )
+                    [0 .. n - 1]
+
+            let collectedCount = sum <$> mapM (fmap length . readIORef) refs
+            waitUntil 15_000_000 (fmap (>= total) collectedCount)
+            mapM_ cancel handles
+
+            collected <- mapM readIORef refs
+            let allPositions = sort (concatMap (map snd) collected)
+            allPositions `shouldBe` [1 .. fromIntegral total]
+            mapM_ (assertPerStreamAscending . reverse) collected
+
+    it "resumes member 2 from its own (name, member) checkpoint" $
+        withTestStore $ \store -> do
+            let nStreams = 60
+                streams = ["rz-" <> T.pack (show i) | i <- [1 .. nStreams]]
+            seed store streams 1
+            waitForPublisher store (GlobalPosition (fromIntegral nStreams))
+
+            -- Member 2's slice positions, in order, straight from the EP-1 partition
+            -- SQL — the deterministic ground truth for what member 2 should receive.
+            sliceV <-
+                runStmtP store $
+                    Session.statement
+                        (0 :: Int64, "rz" :: Text, 2 :: Int32, 4 :: Int32, 100000 :: Int32)
+                        SQL.readCategoryForwardConsumerGroupStmt
+            let slice = map (snd . pairOf) (V.toList sliceV)
+            length slice `shouldSatisfy` (>= 4)
+
+            -- Run 1: member 2 stops after 2 events; checkpoint (rz-sub, 2) = slice!!1.
+            run1 <- collectStopAfter store (memberConfig "rz-sub" "rz" 2 4) 2
+            run1 `shouldBe` take 2 slice
+
+            -- A competing, much higher checkpoint for a DIFFERENT member under the
+            -- SAME name. If checkpoints were keyed by name only, member 2's restart
+            -- would resume from here and skip its events; member-keyed checkpoints
+            -- must ignore it.
+            runStmtP store $
+                Session.statement
+                    ("rz-sub" :: Text, 0 :: Int32, 10_000_000 :: Int64)
+                    SQL.saveCheckpointMemberStmt
+
+            -- Run 2: member 2 restarts and must resume from its OWN checkpoint
+            -- (slice!!1), delivering the next two member-2 events.
+            run2 <- collectStopAfter store (memberConfig "rz-sub" "rz" 2 4) 2
+            run2 `shouldBe` take 2 (drop 2 slice)
+
+    it "lifecycle events carry the consumer-group member context (GroupMember 2 4)" $ do
+        ref <- newIORef ([] :: [KirokuEvent])
+        let evtHandler e = modifyIORef' ref (e :)
+            isStartedMember2 ev = case ev of
+                KirokuEventSubscriptionStarted (SubscriptionName "obs-sub") _ (GroupMember 2 4) -> True
+                _ -> False
+        withTestStoreSettings (\s -> s & #eventHandler .~ Just evtHandler) $ \store -> do
+            handle <- subscribe store (memberConfig "obs-sub" "obs" 2 4 (\_ -> pure Continue))
+            waitUntil 5_000_000 (any isStartedMember2 <$> readIORef ref)
+            cancel handle
+            evts <- readIORef ref
+            any isStartedMember2 evts `shouldBe` True

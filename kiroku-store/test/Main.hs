@@ -1758,11 +1758,11 @@ main = hspec $ do
                 Left err -> error ("Failed to start ephemeral PostgreSQL: " <> show err)
                 Right () -> pure ()
             evts <- readIORef ref
-            let isStarted (KirokuEventSubscriptionStarted (SubscriptionName "lifecycle-test") _) = True
+            let isStarted (KirokuEventSubscriptionStarted (SubscriptionName "lifecycle-test") _ _) = True
                 isStarted _ = False
-                isCaughtUp (KirokuEventSubscriptionCaughtUp (SubscriptionName "lifecycle-test") _) = True
+                isCaughtUp (KirokuEventSubscriptionCaughtUp (SubscriptionName "lifecycle-test") _ _) = True
                 isCaughtUp _ = False
-                isStopped (KirokuEventSubscriptionStopped (SubscriptionName "lifecycle-test") _ StopHandlerRequested) = True
+                isStopped (KirokuEventSubscriptionStopped (SubscriptionName "lifecycle-test") _ StopHandlerRequested _) = True
                 isStopped _ = False
             any isStarted evts `shouldBe` True
             any isCaughtUp evts `shouldBe` True

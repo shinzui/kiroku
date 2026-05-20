@@ -34,9 +34,11 @@ module Kiroku.Store.Observability (
     KirokuEvent (..),
     SubscriptionDbPhase (..),
     SubscriptionStopReason (..),
+    SubscriptionGroupContext (..),
 ) where
 
 import Control.Exception (SomeException)
+import Data.Int (Int32)
 import Hasql.Pool (UsageError)
 import Kiroku.Store.Subscription.Types (SubscriptionName)
 import Kiroku.Store.Types (GlobalPosition, StreamId, StreamName)
@@ -72,27 +74,32 @@ data KirokuEvent
       the database phase identified by 'SubscriptionDbPhase'. The
       worker continues running with safe defaults (zero checkpoint,
       empty batch, dropped save) — the event is the operator's only
-      signal that this happened.
+      signal that this happened. The trailing 'SubscriptionGroupContext'
+      identifies which consumer-group member (if any) emitted it.
       -}
-      KirokuEventSubscriptionDbError !SubscriptionName !SubscriptionDbPhase !UsageError
+      KirokuEventSubscriptionDbError !SubscriptionName !SubscriptionDbPhase !UsageError !SubscriptionGroupContext
     | {- | A subscription's worker thread has just started; the worker
       will begin from the recorded 'GlobalPosition' (zero if no
       checkpoint exists or 'KirokuEventSubscriptionDbError' fired in
-      the @LoadCheckpoint@ phase).
+      the @LoadCheckpoint@ phase). The trailing 'SubscriptionGroupContext'
+      identifies which consumer-group member (if any) started.
       -}
-      KirokuEventSubscriptionStarted !SubscriptionName !GlobalPosition
+      KirokuEventSubscriptionStarted !SubscriptionName !GlobalPosition !SubscriptionGroupContext
     | {- | The subscription has reached the EventPublisher's
       @lastPublished@ position and is switching from catch-up to
       live mode at the indicated 'GlobalPosition'. Fires at most
-      once per worker run.
+      once per worker run. The trailing 'SubscriptionGroupContext'
+      identifies which consumer-group member (if any) caught up.
       -}
-      KirokuEventSubscriptionCaughtUp !SubscriptionName !GlobalPosition
+      KirokuEventSubscriptionCaughtUp !SubscriptionName !GlobalPosition !SubscriptionGroupContext
     | {- | The subscription's worker has stopped at the indicated
       'GlobalPosition'. The 'SubscriptionStopReason' discriminates
       normal completion (handler returned 'Stop') from cancellation,
-      overflow, and worker-thread crashes.
+      overflow, and worker-thread crashes. The trailing
+      'SubscriptionGroupContext' identifies which consumer-group member
+      (if any) stopped.
       -}
-      KirokuEventSubscriptionStopped !SubscriptionName !GlobalPosition !SubscriptionStopReason
+      KirokuEventSubscriptionStopped !SubscriptionName !GlobalPosition !SubscriptionStopReason !SubscriptionGroupContext
     | {- | A hard-delete transaction completed successfully. Operators
       relying on a fail-safe audit log can capture this event;
       compliance-grade audit should still record an application-level
@@ -150,3 +157,15 @@ data SubscriptionStopReason
       -}
       StopWorkerCrashed !SomeException
     deriving stock (Show)
+
+{- | Consumer-group context attached to subscription lifecycle events. A plain
+(non-grouped) subscription reports 'NonGroup'; a member of a group reports
+@GroupMember member size@ so operators can attribute a lifecycle event to a
+specific @(member, size)@.
+-}
+data SubscriptionGroupContext
+    = -- | Ordinary, non-grouped subscription.
+      NonGroup
+    | -- | Member of a group: @GroupMember member size@.
+      GroupMember !Int32 !Int32
+    deriving stock (Eq, Show)

@@ -17,6 +17,7 @@ import Hasql.Session qualified as Session
 import Kiroku.Store.Observability (
     KirokuEvent (..),
     SubscriptionDbPhase (..),
+    SubscriptionGroupContext (..),
     SubscriptionStopReason (..),
  )
 import Kiroku.Store.SQL qualified as SQL
@@ -69,40 +70,50 @@ runWorker ::
 runWorker pool liveQueue statusVar pubPosVar config mHandler stSettings = liftIO $ do
     let emit evt = for_ mHandler ($ evt)
         subName = name config
+        groupCtx = groupCtxOf config
     posRef <- newIORef (GlobalPosition 0)
 
     let body = do
             checkpoint <- loadCheckpoint pool config emit
             writeIORef posRef checkpoint
-            emit (KirokuEventSubscriptionStarted subName checkpoint)
+            emit (KirokuEventSubscriptionStarted subName checkpoint groupCtx)
             -- Phase 1: catch-up (returns Nothing if handler said Stop)
             result <- catchUp pool config checkpoint pubPosVar emit posRef stSettings
             case result of
                 Nothing -> pure () -- Handler said Stop during catch-up; exit
                 Just finalPos -> do
                     writeIORef posRef finalPos
-                    emit (KirokuEventSubscriptionCaughtUp subName finalPos)
-                    -- Phase 2: live. Two strategies depending on target:
-                    --   * AllStreams: read pre-broadcast events from `liveQueue`.
-                    --     The publisher delivers every appended event.
-                    --   * Category:  bypass the broadcast and re-query the database
-                    --     with `readCategoryForwardStmt` whenever `lastPublished`
-                    --     advances. The broadcast carries unfiltered $all events;
-                    --     filtering them in-process would require a stream-id ->
-                    --     category map and a cache invalidation story (EP-3 F18
-                    --     Decision Log). The DB-driven loop reuses the catch-up
-                    --     query and avoids both.
-                    case target config of
-                        AllStreams -> liveLoop pool liveQueue statusVar config emit posRef finalPos
-                        Category{} -> liveLoopCategoryDriven pool config pubPosVar emit posRef finalPos stSettings
+                    emit (KirokuEventSubscriptionCaughtUp subName finalPos groupCtx)
+                    -- Phase 2: live. The strategy depends on (group, target):
+                    --   * Non-group AllStreams: read pre-broadcast events from
+                    --     `liveQueue`; the publisher delivers every appended event.
+                    --   * Non-group Category: bypass the broadcast and re-query the
+                    --     database whenever `lastPublished` advances.
+                    --   * Any group (Category or AllStreams): the DB-driven loop.
+                    --     A partitioned member must see only the events whose
+                    --     originating stream hashes to its slot; the broadcast
+                    --     `liveQueue` carries unfiltered $all events and there is no
+                    --     in-process stream-id -> member map to filter them with
+                    --     (mirrors the EP-3 F18 rationale). The partition predicate
+                    --     lives in the SQL, so re-querying with the partitioned
+                    --     statement on each publisher tick is the correct fit.
+                    case (consumerGroup config, target config) of
+                        (Nothing, AllStreams) -> liveLoop pool liveQueue statusVar config emit posRef finalPos
+                        (Nothing, Category{}) -> liveLoopDbDriven pool config pubPosVar emit posRef finalPos stSettings
+                        (Just _, _) -> liveLoopDbDriven pool config pubPosVar emit posRef finalPos stSettings
 
     result <- try body
     pos <- readIORef posRef
     case result of
-        Right () -> emit (KirokuEventSubscriptionStopped subName pos StopHandlerRequested)
+        Right () -> emit (KirokuEventSubscriptionStopped subName pos StopHandlerRequested groupCtx)
         Left (e :: SomeException) -> do
-            emit (KirokuEventSubscriptionStopped subName pos (classifyStopReason e))
+            emit (KirokuEventSubscriptionStopped subName pos (classifyStopReason e) groupCtx)
             throwIO e
+
+-- The consumer-group context for this config's lifecycle events: 'NonGroup' for
+-- an ordinary subscription, @GroupMember member size@ for a group member.
+groupCtxOf :: SubscriptionConfig -> SubscriptionGroupContext
+groupCtxOf config = maybe NonGroup (\(ConsumerGroup m n) -> GroupMember m n) (consumerGroup config)
 
 -- Map an exception to the 'SubscriptionStopReason' the operator should see.
 classifyStopReason :: SomeException -> SubscriptionStopReason
@@ -136,7 +147,7 @@ loadCheckpoint pool config emit = do
     result <- Pool.use pool (Session.statement (name', mem) SQL.getCheckpointMemberStmt)
     case result of
         Left err -> do
-            emit (KirokuEventSubscriptionDbError subName LoadCheckpoint err)
+            emit (KirokuEventSubscriptionDbError subName LoadCheckpoint err (groupCtxOf config))
             pure (GlobalPosition 0)
         Right Nothing -> pure (GlobalPosition 0)
         Right (Just pos) -> pure (GlobalPosition pos)
@@ -209,12 +220,16 @@ liveLoop pool liveQueue statusVar config emit posRef startPos = go startPos
                 -- or move the checkpoint backward.
                 freshEvents = V.filter ((> cursor) . globalPosition) events
 
--- Phase 2: live (Category). Bypasses the broadcast and re-queries the database
--- whenever `lastPublished` advances. This guarantees correct category filtering
--- (the SQL `readCategoryForwardStmt` filters at source) at the cost of one DB
--- round-trip per publisher tick. See EP-3 F18 Decision Log for the rationale
--- versus extending RecordedEvent or maintaining an in-process category cache.
-liveLoopCategoryDriven ::
+-- Phase 2: live (DB-driven). Bypasses the broadcast and re-queries the database
+-- whenever `lastPublished` advances, letting `fetchBatch` apply the source-side
+-- filter. Serves both non-group `Category` subscriptions (filter by category) and
+-- any consumer-group member (filter by the partition predicate baked into the
+-- consumer-group SQL), at the cost of one DB round-trip per publisher tick. A
+-- partitioned member cannot read the broadcast `liveQueue` because it carries
+-- unfiltered $all events and there is no in-process stream-id -> member map to
+-- filter them with. See EP-3 F18 / EP-2 Decision Log for the rationale versus
+-- extending RecordedEvent or maintaining an in-process cache.
+liveLoopDbDriven ::
     Pool ->
     SubscriptionConfig ->
     TVar GlobalPosition ->
@@ -223,7 +238,7 @@ liveLoopCategoryDriven ::
     GlobalPosition ->
     StoreSettings ->
     IO ()
-liveLoopCategoryDriven pool config pubPosVar emit posRef startPos stSettings = go startPos
+liveLoopDbDriven pool config pubPosVar emit posRef startPos stSettings = go startPos
   where
     go cursor = do
         writeIORef posRef cursor
@@ -269,7 +284,7 @@ fetchBatch pool config (GlobalPosition pos) emit stSettings =
   where
     handle = \case
         Left err -> do
-            emit (KirokuEventSubscriptionDbError (name config) FetchBatch err)
+            emit (KirokuEventSubscriptionDbError (name config) FetchBatch err (groupCtxOf config))
             pure V.empty
         -- Apply decodeHook on the catch-up path so catch-up batches are
         -- transformed identically to live batches (which the publisher
@@ -323,5 +338,5 @@ saveCheckpoint pool config (GlobalPosition pos) emit = do
         mem = configMember config
     result <- Pool.use pool (Session.statement (name', mem, pos) SQL.saveCheckpointMemberStmt)
     case result of
-        Left err -> emit (KirokuEventSubscriptionDbError subName SaveCheckpoint err)
+        Left err -> emit (KirokuEventSubscriptionDbError subName SaveCheckpoint err (groupCtxOf config))
         Right () -> pure ()

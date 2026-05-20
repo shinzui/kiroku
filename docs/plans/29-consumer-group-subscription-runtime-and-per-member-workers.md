@@ -90,15 +90,22 @@ This section must always reflect the actual current state of the work.
   `other-modules`, wire it into `kiroku-store/test/Main.hs`; write the category
   group end-to-end test (disjoint + complete + per-stream-ordered) and the
   size-1-equals-plain test. Tests pass (2 examples, 0 failures).
-- [ ] M3: Add the `$all`-group runtime: route a `Just`-group `AllStreams`
+- [x] M3 (2026-05-20): Add the `$all`-group runtime: route a `Just`-group `AllStreams`
   subscription through a DB-driven live loop using `readAllForwardConsumerGroupStmt`
   (not the broadcast queue); non-group `AllStreams` keeps the broadcast queue.
-  Extend the test module with an `$all`-group case. Tests pass.
-- [ ] M3: Extend observability (IP-5) so subscription lifecycle events carry
+  Extend the test module with an `$all`-group case. Tests pass. (The live-phase
+  selection now matches `(consumerGroup, target)`; `liveLoopCategoryDriven` was
+  renamed `liveLoopDbDriven` since it now serves all grouped subscriptions too.)
+- [x] M3 (2026-05-20): Extend observability (IP-5) so subscription lifecycle events carry
   member/size context; update the worker emit sites; build green and existing
-  observability tests pass.
-- [ ] M3: Add the checkpoint-resume test (member 2 stops after K, restarts, resumes
-  from its own checkpoint). Tests pass.
+  observability tests pass. (Added `SubscriptionGroupContext = NonGroup | GroupMember
+  !Int32 !Int32`, a trailing field on the four `KirokuEventSubscription*` lifecycle
+  constructors, re-exported from `Kiroku.Store`; updated the worker's 7 emit sites and
+  the two test matchers in `Main.hs`/`Helpers.hs`.)
+- [x] M3 (2026-05-20): Add the checkpoint-resume test (member 2 stops after K, restarts, resumes
+  from its own checkpoint). Tests pass. (Proves member-keying by writing a competing
+  high `(name, 0)` checkpoint and asserting member 2 ignores it, resuming from its own
+  `(name, 2)` row against the EP-1 partition SQL ground truth.)
 - [ ] M4: Add the optional advisory-lock guardrail (`consumerGroupGuard :: !Bool`
   config field, default `False`); implement the startup `pg_try_advisory_xact_lock`
   conflict check; document the lifetime-held-lock limitation as follow-up. Build
