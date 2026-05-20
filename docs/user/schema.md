@@ -86,11 +86,20 @@ links.
 | Column | Type | Meaning |
 | --- | --- | --- |
 | `subscription_id` | `BIGSERIAL PRIMARY KEY` | Surrogate id for the checkpoint row. |
-| `subscription_name` | `TEXT NOT NULL UNIQUE` | Stable subscription name. This is the lookup key used by checkpoint reads and writes. |
-| `stream_name` | `TEXT NOT NULL DEFAULT '$all'` | Stored target stream name. The current checkpoint helpers write only `subscription_name` and `last_seen`, so this defaults to `$all`. |
+| `subscription_name` | `TEXT NOT NULL` | Stable subscription name. With `consumer_group_member` it forms the composite checkpoint key (see below); each consumer-group member persists its own checkpoint under one shared name. |
+| `stream_name` | `TEXT NOT NULL DEFAULT '$all'` | Stored target stream name. The checkpoint helpers write only the key columns plus `last_seen`, so this defaults to `$all`. |
 | `last_seen` | `BIGINT NOT NULL DEFAULT 0` | Last processed global position. Checkpoint updates use `GREATEST(existing, new)` so the checkpoint does not move backward. |
+| `consumer_group_member` | `INT NOT NULL DEFAULT 0` | Zero-based consumer-group member index. A non-group subscription is member `0`. Part of the composite checkpoint key, so members of a group keep independent `last_seen` values. |
+| `consumer_group_size` | `INT NOT NULL DEFAULT 1` | Total members in the consumer group (`1` for a non-group subscription). Recorded so operators can see a group's topology. |
 | `created_at` | `TIMESTAMPTZ NOT NULL DEFAULT now()` | Timestamp when the checkpoint row was first created. |
 | `updated_at` | `TIMESTAMPTZ NOT NULL DEFAULT now()` | Timestamp of the latest checkpoint write. |
+
+The checkpoint key is the composite unique index `ix_subscriptions_name_member`
+on `(subscription_name, consumer_group_member)`, so a consumer group's members
+share one `subscription_name` while each keeps its own checkpoint. Databases
+created before these columns existed converge idempotently on the next store
+open (the old single-column unique on `subscription_name` is dropped and the
+composite index created). See [Consumer Groups](consumer-groups.md).
 
 Subscriptions use `$all` global positions as their cursor, including category
 subscriptions.
@@ -106,6 +115,7 @@ subscriptions.
 | `ix_events_event_type` | `events(event_type)` | Supports event-type filtering. |
 | `ix_events_correlation_id` | `events(correlation_id) WHERE correlation_id IS NOT NULL` | Supports correlation lookups. |
 | `ix_events_causation_id` | `events(causation_id) WHERE causation_id IS NOT NULL` | Supports causation-chain lookups. |
+| `ix_subscriptions_name_member` | `subscriptions(subscription_name, consumer_group_member)` | Composite unique checkpoint key — one row per consumer-group member under a shared subscription name. |
 
 ## Triggers And Functions
 

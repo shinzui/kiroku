@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+### Added — consumer groups for partitioned subscriptions (MasterPlan 4, plans 28–31)
+
+* Static, hash-partitioned consumer groups: a named subscription can be split
+  across `N` members, each processing a disjoint, per-stream-ordered slice in
+  parallel, with per-member checkpoints. Works for `Category` and `$all`
+  targets.
+* `Kiroku.Store.Subscription.Types` (re-exported from `Kiroku.Store`):
+  * `ConsumerGroup { member :: Int32, size :: Int32 }` — static membership
+    descriptor. A stream is assigned to member
+    `(((hashtextextended(stream_id::text, 0) % size) + size) % size)`.
+  * Two new fields on `SubscriptionConfigM m`: `consumerGroup :: Maybe
+    ConsumerGroup` (default `Nothing`) and `consumerGroupGuard :: Bool`
+    (default `False`, an opt-in startup advisory-lock conflict probe).
+    `defaultSubscriptionConfig` sets both defaults, so existing callers compile
+    unchanged.
+  * Exceptions `InvalidConsumerGroup` (thrown by `subscribe` when `size < 1` or
+    `member` is out of range) and `ConsumerGroupGuardConflict` (thrown at
+    startup when the guard detects a duplicate member).
+* `subscriptions` table gains `consumer_group_member` and `consumer_group_size`
+  columns; the checkpoint key becomes the composite unique
+  `(subscription_name, consumer_group_member)` (index
+  `ix_subscriptions_name_member`). The change is applied idempotently in
+  `schema.sql`, so pre-existing databases converge on the next store open.
+* The four `KirokuEventSubscription*` observability events carry a trailing
+  `SubscriptionGroupContext` (`NonGroup` | `GroupMember member size`),
+  re-exported from `Kiroku.Store`.
+* Surfaced through every subscription entry point: the `MonadIO`
+  `subscribe`/`withSubscription`, the effectful `Subscription` effect, the
+  Streamly `subscriptionStream` bridge, and the Shibuya adapter
+  (`KirokuAdapterConfig` gains `consumerGroup :: Maybe ConsumerGroup`).
+* New user guide `docs/user/consumer-groups.md` and a runnable example,
+  `cabal run kiroku-store:kiroku-consumer-group-example`.
+
 ### Added — causation chain and correlation walkers (plan 14)
 
 * `Kiroku.Store.Causation` (new module, re-exported from `Kiroku.Store`):

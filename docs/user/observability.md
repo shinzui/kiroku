@@ -28,10 +28,10 @@ settings =
 
 logKirokuEvent :: KirokuEvent -> IO ()
 logKirokuEvent = \case
-  KirokuEventSubscriptionStarted name pos ->
-    logInfo ("subscription started" , name, pos)
-  KirokuEventSubscriptionStopped name pos reason ->
-    logInfo ("subscription stopped" , name, pos, reason)
+  KirokuEventSubscriptionStarted name pos grp ->
+    logInfo ("subscription started" , name, pos, grp)
+  KirokuEventSubscriptionStopped name pos reason grp ->
+    logInfo ("subscription stopped" , name, pos, reason, grp)
   other ->
     logInfo ("kiroku" , other)
 ```
@@ -45,10 +45,11 @@ are all re-exported from `Kiroku.Store`, so a single import suffices.
 > backend, disk — fan out asynchronously: write to a `TBQueue` and drain it
 > from a dedicated thread.
 
-The `KirokuEvent` constructor set is *additive*: new constructors are added
-rather than existing ones changed, so an incomplete pattern match surfaces as
-a `-Wincomplete-patterns` warning, never a silent regression. Keep a
-catch-all branch if you only care about specific events.
+The `KirokuEvent` constructor set evolves conservatively: every change — a new
+constructor, or a new field on an existing one (such as the trailing
+`SubscriptionGroupContext` added for consumer groups) — surfaces at compile
+time as a `-Wincomplete-patterns` warning or an arity error, never a silent
+regression. Keep a catch-all branch if you only care about specific events.
 
 ## The `KirokuEvent` Taxonomy
 
@@ -57,10 +58,10 @@ catch-all branch if you only care about specific events.
 | `KirokuEventNotifierReconnecting !Int !SomeException` | The dedicated `LISTEN` connection failed and the listener is about to reconnect. The `Int` is the consecutive failure count (drives backoff, capped at 30s). | Alert on a sustained / rising count — subscriptions are on the safety poll until reconnect. |
 | `KirokuEventNotifierReconnected` | The `LISTEN` connection was re-established; the failure counter resets. | Pairs with the reconnecting event; clear the alert. |
 | `KirokuEventPublisherPoolError !UsageError` | The publisher's read query returned a pool error; it retries on the next tick or the 30s poll. | Sustained emissions indicate pool exhaustion or a persistent server error. |
-| `KirokuEventSubscriptionDbError !SubscriptionName !SubscriptionDbPhase !UsageError` | A subscription worker hit a database error in a specific phase. The worker continues with safe defaults. | This is your only signal it happened — investigate the phase (below). |
-| `KirokuEventSubscriptionStarted !SubscriptionName !GlobalPosition` | A subscription worker started, beginning from the recorded position. | Useful as a liveness signal and to confirm the resumed checkpoint. |
-| `KirokuEventSubscriptionCaughtUp !SubscriptionName !GlobalPosition` | The subscription reached the publisher's last-published position and switched from catch-up to live. Fires at most once per run. | Track catch-up latency after a restart. |
-| `KirokuEventSubscriptionStopped !SubscriptionName !GlobalPosition !SubscriptionStopReason` | The worker stopped. | Branch on the reason (below) to distinguish normal completion from failure. |
+| `KirokuEventSubscriptionDbError !SubscriptionName !SubscriptionDbPhase !UsageError !SubscriptionGroupContext` | A subscription worker hit a database error in a specific phase. The worker continues with safe defaults. | This is your only signal it happened — investigate the phase (below). |
+| `KirokuEventSubscriptionStarted !SubscriptionName !GlobalPosition !SubscriptionGroupContext` | A subscription worker started, beginning from the recorded position. | Useful as a liveness signal and to confirm the resumed checkpoint. |
+| `KirokuEventSubscriptionCaughtUp !SubscriptionName !GlobalPosition !SubscriptionGroupContext` | The subscription reached the publisher's last-published position and switched from catch-up to live. Fires at most once per run. | Track catch-up latency after a restart. |
+| `KirokuEventSubscriptionStopped !SubscriptionName !GlobalPosition !SubscriptionStopReason !SubscriptionGroupContext` | The worker stopped. | Branch on the reason (below) to distinguish normal completion from failure. |
 | `KirokuEventHardDeleteIssued !StreamName !StreamId` | A hard-delete transaction committed. Not emitted when the stream did not exist. | A fail-safe audit signal — see [Stream Lifecycle](lifecycle.md). |
 
 ### `SubscriptionDbPhase`
@@ -87,6 +88,18 @@ Discriminates the `KirokuEventSubscriptionStopped` cause:
 - `StopOverflowed` — the publisher dropped the subscription under
   `DropSubscription` (its queue overflowed). See
   [Subscriptions](subscriptions.md).
+
+### `SubscriptionGroupContext`
+
+Every subscription lifecycle event ends with a `SubscriptionGroupContext` that
+identifies which consumer-group member emitted it:
+
+- `NonGroup` — an ordinary, non-partitioned subscription (the default).
+- `GroupMember member size` — member index `member` of a consumer group of
+  `size` members.
+
+Use it to attribute a lifecycle event to a specific member when several members
+share one `SubscriptionName`. See [Consumer Groups](consumer-groups.md).
 - `StopWorkerCrashed !SomeException` — an uncaught exception (typically from
   the handler) killed the worker. The exception carries the cause.
 
