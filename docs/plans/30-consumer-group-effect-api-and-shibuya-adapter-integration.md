@@ -43,36 +43,97 @@ disjoint, complete, per-stream-ordered delivery.
 
 ## Progress
 
-- [ ] M1: Confirm the `runSubscription` interpreter's record-update pass-through and
-  annotate the relevant lines with an explicit comment.
-- [ ] M1: Audit `Kiroku.Store.Subscription` and `Kiroku.Store` for `ConsumerGroup`
-  re-exports; add the necessary export entries so `ConsumerGroup (..)`,
-  `InvalidConsumerGroup (..)`, `ConsumerGroupGuardConflict (..)` are reachable from
-  `Kiroku.Store`.
-- [ ] M1: Build `kiroku-store` to confirm no gaps. `cabal build kiroku-store` green.
-- [ ] M1: Write the effectful end-to-end test in
-  `kiroku-store/test/Test/ConsumerGroupEffect.hs` — size-4 category group using
-  `runSubscription` / `withSubscription` (the Effect module) in an `Eff` stack,
-  asserting disjoint + complete + per-stream-ordered.
-- [ ] M1: Register `Test.ConsumerGroupEffect` in `kiroku-store/kiroku-store.cabal` and
-  wire it into `kiroku-store/test/Main.hs`. `cabal test kiroku-store` green.
-- [ ] M2: Add `consumerGroup :: !(Maybe ConsumerGroup)` field to `KirokuAdapterConfig`
-  in `shibuya-kiroku-adapter/src/Shibuya/Adapter/Kiroku.hs`.
-- [ ] M2: Thread the field through `kirokuAdapter`'s `SubscriptionConfig` construction.
-- [ ] M2: Add `ConsumerGroup (..)` to the `Shibuya.Adapter.Kiroku` module export list
-  and import list.
-- [ ] M2: Update the module Haddock example in `Shibuya.Adapter.Kiroku` to show a
-  size-N consumer group.
-- [ ] M2: `cabal build shibuya-kiroku-adapter` green.
-- [ ] M3: Write the Shibuya adapter group integration test in
-  `shibuya-kiroku-adapter/test/Main.hs` — size-4 category group, four processors,
-  assert each receives a disjoint slice.
-- [ ] M3: `cabal test shibuya-kiroku-adapter` green.
+- [x] M1 (2026-05-20): Confirmed the `runSubscription` interpreter's record-update
+  pass-through and annotated it with an explicit comment naming `consumerGroup` /
+  `consumerGroupGuard`.
+- [x] M1 (2026-05-20): Audited the `ConsumerGroup` re-export chain. **No export
+  entries were needed:** `Kiroku.Store.Subscription.Types` exports `ConsumerGroup (..)`,
+  `InvalidConsumerGroup (..)`, `ConsumerGroupGuardConflict (..)`;
+  `Kiroku.Store.Subscription` re-exports `module Kiroku.Store.Subscription.Types`;
+  `Kiroku.Store` re-exports `module Kiroku.Store.Subscription`. All three flow to
+  `Kiroku.Store` automatically.
+- [x] M1 (2026-05-20): `cabal build kiroku-store` green.
+- [x] M1 (2026-05-20): Wrote the effectful test in
+  `kiroku-store/test/Test/ConsumerGroupEffect.hs` — a size-2 category group driven
+  through `runSubscription` / `subscribe` (disjoint + complete + per-stream-ordered),
+  plus a `State`-preservation test for the `Persistent` unlift. (Redesigned from the
+  size-4 nested-`withSubscription` shape: see Decision Log / Surprises — external
+  cancel of an effectful worker hangs, so members self-exit via `Stop`.)
+- [x] M1 (2026-05-20): Registered `Test.ConsumerGroupEffect` in
+  `kiroku-store/kiroku-store.cabal` and wired it into `kiroku-store/test/Main.hs`.
+  `cabal test kiroku-store` green — 152 examples, 0 failures.
+- [x] M2 (2026-05-20): Added `consumerGroup :: !(Maybe ConsumerGroup)` field to
+  `KirokuAdapterConfig` in `shibuya-kiroku-adapter/src/Shibuya/Adapter/Kiroku.hs`.
+- [x] M2 (2026-05-20): Threaded the field through `kirokuAdapter`, building the
+  `SubscriptionConfig` from `defaultSubscriptionConfig` + record update.
+- [x] M2 (2026-05-20): Added `ConsumerGroup (..)` to the `Shibuya.Adapter.Kiroku`
+  export list and to the `Kiroku.Store.Subscription.Types` import.
+- [x] M2 (2026-05-20): Updated the module Haddock example with a size-4 consumer-group
+  section.
+- [x] M2 (2026-05-20): `cabal build shibuya-kiroku-adapter` green; eight existing
+  `KirokuAdapterConfig` literals in the test gained `consumerGroup = Nothing`.
+- [x] M3 (2026-05-20): Wrote the Shibuya adapter group integration test in
+  `shibuya-kiroku-adapter/test/Main.hs` — size-4 category group, four processors in
+  one `runApp`, asserting a disjoint + complete partition (union of global positions
+  == `[1..40]`) with no starved member.
+- [x] M3 (2026-05-20): `cabal test shibuya-kiroku-adapter` green — 8 examples, 0 failures.
 
 
 ## Surprises & Discoveries
 
-(None yet.)
+- **Cancelling an effectful (`runSubscription`) worker hangs (2026-05-20).** The plan's
+  original M1 design ran four members as nested effectful `withSubscription` brackets and
+  relied on the bracket's `cancel` (and a poll-then-cancel) to stop workers whose handler
+  always returns `Continue`. That **hangs**: the whole `kiroku-store` suite spun at ~117%
+  CPU for ~18 minutes inside the first effectful test (no result printed) until killed.
+  Evidence: every prior spec passed — including EP-2's plain-IO `consumer groups` (which
+  cancels plain workers with `mapM_ cancel handles`) — and the hang began only at
+  `consumer groups (effectful)`. Root cause: a worker started through the interpreter runs
+  its handler via the captured `localUnliftIO env (ConcUnlift Persistent (Limited 1))`
+  environment; throwing `AsyncCancelled` at a worker blocked inside that unlift does not
+  terminate cleanly. EP-2's only effectful test (`kiroku-store/test/Main.hs`, "catches up
+  with an Eff-based handler via the effectful API") sidesteps this by having the handler
+  return `Stop` so the worker self-exits — it never externally cancels an Eff-interpreted
+  worker. The fix here mirrors that: every member returns `Stop` after its expected count,
+  so workers exit on their own. **Affects EP-4:** the user guide / runnable example should
+  use the plain-IO `subscribe`/`withSubscription` for the multi-member demo (whose cancel
+  works), or have effectful handlers self-terminate; it must not show external cancellation
+  of an effectful group worker. Whether this is a latent interpreter bug worth fixing is
+  out of scope for EP-3 (a thin pass-through) and is logged for future runtime work.
+
+- **Effectful partitioning test reshaped to self-exiting sequential members
+  (2026-05-20).** Because external cancel is unavailable (above) and each member's slice
+  size is hash-dependent, the disjoint/complete proof now precomputes each member's slice
+  size from the EP-1 SQL (`SQL.readCategoryForwardConsumerGroupStmt`, as EP-2's
+  `Test.ConsumerGroup` does), then runs member 0 and member 1 of a size-2 group in
+  sequence, each `Stop`ping after exactly its slice count. Independent `(name, member)`
+  checkpoints make the sequential reuse of one subscription name safe. The union of both
+  members' delivered global positions is asserted equal to `[1..total]` (disjoint +
+  complete) with per-stream ascending order within each member.
+
+- **`Kiroku.Store` re-exports the plain `withSubscription`, so the Effect module must be
+  imported qualified (2026-05-20).** `import Kiroku.Store` plus
+  `import Kiroku.Store.Subscription.Effect (withSubscription)` is an *ambiguous occurrence*
+  — `Kiroku.Store` already re-exports `Kiroku.Store.Subscription.withSubscription`. The
+  effectful test imports the Effect module qualified (`import ... Effect qualified as
+  SubEff`), matching the convention already in `kiroku-store/test/Main.hs`.
+
+- **`treefmt` pre-commit hook reflows on commit (2026-05-20).** As the MasterPlan warned,
+  the `treefmt` pre-commit hook reformatted `Test.ConsumerGroupEffect.hs` (split the
+  `runEff $ SubEff.runSubscription store $ …` chain across indented lines) and aborted the
+  first commit; a re-`git add` + re-commit succeeded. The hook stashes unstaged changes, so
+  unrelated working-tree edits are untouched.
+
+- **Eight adapter test literals, not five (2026-05-20).** The plan estimated five
+  `KirokuAdapterConfig` literals in `shibuya-kiroku-adapter/test/Main.hs`; there are eight.
+  All gained `consumerGroup = Nothing`.
+
+- **The adapter's `ConsumerGroup` re-export is verified by the library, not the test
+  (2026-05-20).** The Shibuya test imports `Kiroku.Store` unqualified, which already brings
+  `ConsumerGroup (..)` into scope via the same chain — so importing it from
+  `Shibuya.Adapter.Kiroku` in the test is redundant (a `-Wall` warning). The adapter's own
+  re-export is instead proven by `shibuya-kiroku-adapter` compiling its export list with
+  `ConsumerGroup (..)` listed.
 
 
 ## Decision Log
@@ -127,10 +188,74 @@ disjoint, complete, per-stream-ordered delivery.
   Four OS processes would test deployment topology, not the adapter plumbing.
   Date: 2026-05-20
 
+- Decision: Effectful group members **self-exit by returning `Stop`** after their expected
+  event count, rather than being cancelled externally (the originally planned nested
+  `withSubscription` + `cancel`).
+  Rationale: Cancelling a worker started through `runSubscription` while it is blocked in
+  the captured `localUnliftIO` environment hangs (see Surprises). EP-2's working effectful
+  test uses the self-exit shape; this plan adopts it. This keeps EP-3 a thin pass-through
+  and avoids touching the interpreter.
+  Date: 2026-05-20
+
+- Decision: The effectful partitioning test uses a **size-2 group with two sequential
+  self-exiting members and SQL-precomputed slice sizes**, not a size-4 concurrent group.
+  Rationale: Self-exit needs a known per-member count, which is hash-dependent; precomputing
+  it from `SQL.readCategoryForwardConsumerGroupStmt` (the same statement the worker uses) is
+  deterministic ground truth. Running two members in sequence under independent
+  `(name, member)` checkpoints still proves disjoint + complete + per-stream-ordered through
+  the effectful API, without the concurrency/cancel hazards of the nested form.
+  Date: 2026-05-20
+
+- Decision: In the `State`-preservation test, drive the `Stop` from a **separate delivery
+  counter**, not from the `State` value under test.
+  Rationale: Decoupling self-exit from the property keeps the failure mode clean — if the
+  `Persistent` unlift were broken (state reset each call), the test fails as a bounded
+  `waitWithTimeout` timeout rather than a confounded assertion, and the positive assertion
+  (`seen == [1,2,3,4,5]`) cleanly distinguishes `Persistent` from `Ephemeral`.
+  Date: 2026-05-20
+
+- Decision: The Shibuya group test asserts disjoint + complete via **the sorted union of
+  delivered global positions equalling `[1..40]`**, rather than de-duplicating event ids.
+  Rationale: It is the same single, strong invariant EP-2's runtime test uses (no event
+  dropped, none delivered twice) and needs no extra `nub`/`Set` machinery.
+  Date: 2026-05-20
+
+- Decision: No change to the `Kiroku.Store` / `Kiroku.Store.Subscription` re-export source;
+  import the effectful module **qualified** in tests.
+  Rationale: The audit confirmed `ConsumerGroup` (and the two exceptions) already reach
+  `Kiroku.Store` through the existing `module` re-export chain, so the plan's "add export
+  entries if needed" step was a no-op. The only adjustment is qualifying the effectful
+  module import to avoid the `withSubscription` name clash.
+  Date: 2026-05-20
+
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+EP-3 is complete. All three milestones landed and both test suites are green:
+`kiroku-store` (152 examples, 0 failures) and `shibuya-kiroku-adapter` (8 examples, 0
+failures), committed as `feat(adapter): consumer groups via effectful API and Shibuya
+adapter (EP-3)`.
+
+What exists now that did not before: consumer groups are reachable from all three
+consumption styles. The effectful `Subscription` interpreter is confirmed (and annotated)
+to pass `consumerGroup`/`consumerGroupGuard` through its record-update untouched, with a
+behavioural test proving a group is correctly partitioned through `runSubscription` and
+that the `Persistent` unlift preserves `State` across handler calls. The Shibuya
+`KirokuAdapterConfig` carries a `consumerGroup :: Maybe ConsumerGroup` field (built via
+`defaultSubscriptionConfig` so future config fields are inherited), re-exports
+`ConsumerGroup (..)`, documents a size-4 group in its module Haddock, and has an
+integration test running four members as four processors in one `runApp`.
+
+Key lesson for downstream plans: external cancellation of an *effectful* subscription
+worker hangs; the supported shape is handler-driven `Stop` (self-exit). EP-4's example and
+guide should therefore demonstrate the multi-member group with the plain-IO API (whose
+cancel works) or with self-terminating handlers, and must not show external cancel of an
+effectful group worker. Whether to make the interpreter cancel-safe is logged as possible
+future runtime work, outside EP-3's pass-through scope.
+
+What remains: nothing for EP-3. EP-4 (user guide + runnable example) can proceed; it
+hard-depends on EP-2 (done) and soft-depends on EP-3 (now done), so it can additionally
+document and demonstrate the effectful and Shibuya entry points surfaced here.
 
 
 ## Context and Orientation

@@ -145,7 +145,7 @@ future work.
 |---|-------|------|-----------|-----------|--------|
 | 1 | Consumer-Group Partition Routing SQL and Checkpoint Schema | docs/plans/28-consumer-group-partition-routing-sql-and-checkpoint-schema.md | None | None | Complete |
 | 2 | Consumer-Group Subscription Runtime and Per-Member Workers | docs/plans/29-consumer-group-subscription-runtime-and-per-member-workers.md | EP-1 | None | Complete |
-| 3 | Consumer-Group Effect API and Shibuya Adapter Integration | docs/plans/30-consumer-group-effect-api-and-shibuya-adapter-integration.md | EP-2 | None | Not Started |
+| 3 | Consumer-Group Effect API and Shibuya Adapter Integration | docs/plans/30-consumer-group-effect-api-and-shibuya-adapter-integration.md | EP-2 | None | Complete |
 | 4 | Consumer-Group User Guide and Runnable Example | docs/plans/31-consumer-group-user-guide-and-runnable-example.md | EP-2 | EP-3 | Not Started |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
@@ -310,8 +310,8 @@ Track milestone-level progress across all child plans.
 - [x] EP-2 (2026-05-20): Worker routing through partitioned statements + per-member checkpoints (category)
 - [x] EP-2 (2026-05-20): `$all` group routing + optional advisory-lock guardrail + observability
 - [x] EP-2 (2026-05-20): End-to-end group test (disjoint, complete, per-stream-ordered) + Streamly bridge
-- [ ] EP-3: `ConsumerGroup` surfaced through the effectful `Subscription` effect wrappers
-- [ ] EP-3: `KirokuAdapterConfig` consumer-group fields + multi-member Shibuya test
+- [x] EP-3 (2026-05-20): `ConsumerGroup` surfaced through the effectful `Subscription` effect wrappers
+- [x] EP-3 (2026-05-20): `KirokuAdapterConfig` consumer-group fields + multi-member Shibuya test
 - [ ] EP-4: `docs/user/consumer-groups.md` guide (model, invariants, resize, hash caveat)
 - [ ] EP-4: Runnable, tested size-N example demonstrating disjoint + ordered processing
 
@@ -378,6 +378,31 @@ Track milestone-level progress across all child plans.
   probe, not a lifetime-held lock: it catches a simultaneous double-start of the
   same `(name, member)` but not a staggered one. EP-4's user guide must state this
   limitation and the one-process-per-member operational invariant explicitly.
+
+- **EP-3 complete (2026-05-20).** Consumer groups are now reachable from all three
+  consumption styles. The effectful `runSubscription` interpreter is confirmed and
+  annotated to pass `consumerGroup`/`consumerGroupGuard` through its record update
+  untouched (no change needed — the audit found the `ConsumerGroup` re-export chain
+  `Types → Subscription → Kiroku.Store` already complete). The Shibuya
+  `KirokuAdapterConfig` gained `consumerGroup :: Maybe ConsumerGroup` (built via
+  `defaultSubscriptionConfig` + record update), re-exports `ConsumerGroup (..)`, and
+  documents a size-4 group in its Haddock. Tests: a new `Test.ConsumerGroupEffect`
+  (effectful partitioning + `Persistent`-unlift `State` preservation) and a Shibuya
+  `consumer groups` integration test (size-4, four processors in one `runApp`). Final
+  state: `cabal test kiroku-store` = 152 examples, 0 failures;
+  `cabal test shibuya-kiroku-adapter` = 8 examples, 0 failures.
+
+- **Affects EP-4 — external cancel of an *effectful* group worker hangs.** A worker
+  started through `runSubscription` runs its handler via a captured
+  `localUnliftIO (ConcUnlift Persistent (Limited 1))` environment; throwing
+  `AsyncCancelled` at it while it is blocked in that unlift does not terminate cleanly
+  (it spins/hangs). The plain-IO `subscribe`/`withSubscription` cancel path is fine
+  (EP-2's `Test.ConsumerGroup` uses it). EP-3 worked around this by having effectful
+  members self-exit via handler `Stop`. EP-4's runnable example and guide should show
+  the multi-member group through the **plain-IO API** (whose cancel works) or with
+  self-terminating handlers, and must not demonstrate external cancellation of an
+  effectful group worker. Making the interpreter cancel-safe is logged as possible
+  future runtime work, out of scope for EP-3's pass-through.
 
 
 ## Decision Log
