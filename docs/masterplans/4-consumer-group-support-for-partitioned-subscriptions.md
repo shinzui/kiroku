@@ -143,7 +143,7 @@ future work.
 
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
-| 1 | Consumer-Group Partition Routing SQL and Checkpoint Schema | docs/plans/28-consumer-group-partition-routing-sql-and-checkpoint-schema.md | None | None | In Progress |
+| 1 | Consumer-Group Partition Routing SQL and Checkpoint Schema | docs/plans/28-consumer-group-partition-routing-sql-and-checkpoint-schema.md | None | None | Complete |
 | 2 | Consumer-Group Subscription Runtime and Per-Member Workers | docs/plans/29-consumer-group-subscription-runtime-and-per-member-workers.md | EP-1 | None | Not Started |
 | 3 | Consumer-Group Effect API and Shibuya Adapter Integration | docs/plans/30-consumer-group-effect-api-and-shibuya-adapter-integration.md | EP-2 | None | Not Started |
 | 4 | Consumer-Group User Guide and Runnable Example | docs/plans/31-consumer-group-user-guide-and-runnable-example.md | EP-2 | EP-3 | Not Started |
@@ -303,9 +303,9 @@ from `Kiroku.Store`. EP-3 and EP-4 only read these; they do not define new ones.
 
 Track milestone-level progress across all child plans.
 
-- [ ] EP-1: Partition-filtered category read statement + assignment-rule property tests
-- [ ] EP-1: `subscriptions` schema extension (member/size columns, composite unique, ON CONFLICT migration) + per-member checkpoint statements
-- [ ] EP-1: Partition-filtered `$all` read statement + tests
+- [x] EP-1 (2026-05-20): Partition-filtered category read statement + assignment-rule property tests
+- [x] EP-1 (2026-05-20): `subscriptions` schema extension (member/size columns, composite unique, ON CONFLICT migration) + per-member checkpoint statements
+- [x] EP-1 (2026-05-20): Partition-filtered `$all` read statement + tests
 - [ ] EP-2: `ConsumerGroup` type, `consumerGroup` config field, validity checks
 - [ ] EP-2: Worker routing through partitioned statements + per-member checkpoints (category)
 - [ ] EP-2: `$all` group routing + optional advisory-lock guardrail + observability
@@ -318,7 +318,36 @@ Track milestone-level progress across all child plans.
 
 ## Surprises & Discoveries
 
-(None yet.)
+- **EP-1 complete (2026-05-20).** The IP-2 prepared statements landed with the
+  exact signatures the contract names, so EP-2 can consume them without
+  adaptation: `readCategoryForwardConsumerGroupStmt :: Statement (Int64, Text,
+  Int32, Int32, Int32) (Vector RecordedEvent)`, `readAllForwardConsumerGroupStmt
+  :: Statement (Int64, Int32, Int32, Int32) (Vector RecordedEvent)`,
+  `getCheckpointMemberStmt :: Statement (Text, Int32) (Maybe Int64)`, and
+  `saveCheckpointMemberStmt :: Statement (Text, Int32, Int64) ()`, all exported
+  from the now-`exposed-module` `Kiroku.Store.SQL`. The IP-3 schema change (the
+  two columns, the composite unique index `ix_subscriptions_name_member`, and the
+  retargeted `ON CONFLICT (subscription_name, consumer_group_member)` on the
+  existing `saveCheckpointStmt`) is in place; the pre-existing `subscribe`
+  checkpoint-resume tests stayed green, confirming the migration. Final state:
+  `cabal test kiroku-store` = 143 examples, 0 failures.
+
+- **Affects EP-2/EP-3 — formatter normalizes signatures.** The repo's `treefmt`
+  pre-commit hook reflows the `name\n    :: Statement ...` layout used in the
+  plans' code snippets into `name ::\n    Statement ...` and converts multi-line
+  `-- |` Haddock into `{- | ... -}`. The shipped EP-1 source is therefore
+  cosmetically different from IP-2's snippets but byte-equivalent in meaning;
+  EP-2/EP-3 authors copying signatures from the IP descriptions should expect the
+  hook to reflow them and budget a re-`git add` per commit.
+
+- **Existing-database (upgrade) convergence not exercised by CI.** `cabal test`
+  always provisions a fresh ephemeral PostgreSQL, so only the fresh-schema path is
+  automated. EP-1's idempotent `ALTER`/`DROP CONSTRAINT`/`CREATE UNIQUE INDEX`
+  block is proven by construction plus the checkpoint regression; the optional
+  `just reset-database` / `just init-schema` manual upgrade check was not run to
+  avoid mutating a shared local DB. Operators upgrading a pre-EP-1 database should
+  run it once (documented in EP-1's Concrete Steps Step 4 and to be surfaced in
+  EP-4's user guide).
 
 
 ## Decision Log
