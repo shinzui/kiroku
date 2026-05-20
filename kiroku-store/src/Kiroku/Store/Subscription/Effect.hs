@@ -121,6 +121,10 @@ runSubscription ::
 runSubscription store = interpret $ \env -> \case
     Subscribe config ->
         localUnliftIO env (ConcUnlift Persistent (Limited 1)) $ \unlift -> do
+            -- Record update intentionally: every field except 'handler' is preserved,
+            -- including 'consumerGroup' and 'consumerGroupGuard' (added in EP-2). Do not
+            -- switch to a full record literal here — that would silently reset new fields
+            -- and drop a caller's consumer-group membership.
             let ioConfig = config{handler = \evt -> unlift (handler config evt)}
             Sub.subscribe store ioConfig
 

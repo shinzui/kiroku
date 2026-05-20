@@ -24,6 +24,7 @@ main = withStore settings $ \\store ->
                 , subscriptionTarget = AllStreams
                 , batchSize = 100
                 , bufferSize = 256
+                , consumerGroup = Nothing
                 }
 
         let handler ingested = do
@@ -35,6 +36,49 @@ main = withStore settings $ \\store ->
 
         waitApp appHandle
 @
+
+== Consumer-Group Example (size 4)
+
+A consumer group splits one logical subscription across @N@ members. Each
+originating stream is deterministically assigned to exactly one member (by a
+hash computed in PostgreSQL), so same-stream events stay ordered while distinct
+streams are processed in parallel. To run all four members in one process, build
+one adapter per member index and wire each into its own processor:
+
+@
+main :: IO ()
+main = withStore settings $ \\store ->
+    runEff $ runTracingNoop $ do
+        let mkMemberAdapter m =
+                kirokuAdapter store
+                    KirokuAdapterConfig
+                        { subscriptionName = SubscriptionName \"orders-projection\"
+                        , subscriptionTarget = Category (CategoryName \"orders\")
+                        , batchSize = 100
+                        , bufferSize = 256
+                        , consumerGroup = Just (ConsumerGroup { member = m, size = 4 })
+                        }
+
+        adapters <- mapM mkMemberAdapter [0, 1, 2, 3]
+
+        let processors =
+                [ (ProcessorId (\"orders-\" <> T.pack (show m)), mkProcessor (adapters !! m) handler)
+                | m <- [0 .. 3]
+                ]
+
+        Right appHandle <- runApp IgnoreFailures 100 processors
+        waitApp appHandle
+  where
+    handler ingested = do
+        -- process ingested.envelope.payload :: RecordedEvent
+        pure AckOk
+@
+
+To run members across separate processes instead, give each process one adapter
+with its own 'member' index and the same 'subscriptionName'. Kiroku's per-member
+checkpoint (keyed by @(subscriptionName, member)@) lets each process resume from
+its own position after a restart. Exactly one live process must own each member
+index at a time.
 
 == Ack Semantics
 
@@ -63,6 +107,7 @@ module Shibuya.Adapter.Kiroku (
     -- * Re-exports from kiroku-store
     SubscriptionName (..),
     SubscriptionTarget (..),
+    ConsumerGroup (..),
 ) where
 
 import Data.Int (Int32)
@@ -70,11 +115,13 @@ import Effectful (Eff, IOE, liftIO, (:>))
 import Kiroku.Store.Connection (KirokuStore)
 import Kiroku.Store.Subscription.Stream (subscriptionStream)
 import Kiroku.Store.Subscription.Types (
+    ConsumerGroup (..),
     OverflowPolicy (..),
     SubscriptionConfigM (..),
     SubscriptionName (..),
     SubscriptionResult (..),
     SubscriptionTarget (..),
+    defaultSubscriptionConfig,
  )
 import Kiroku.Store.Types (RecordedEvent)
 import Numeric.Natural (Natural)
@@ -100,6 +147,19 @@ data KirokuAdapterConfig = KirokuAdapterConfig
     -- ^ Events per database fetch during catch-up
     , bufferSize :: !Natural
     -- ^ TBQueue capacity (backpressure threshold)
+    , consumerGroup :: !(Maybe ConsumerGroup)
+    {- ^ Optional consumer-group membership for this adapter instance.
+    'Nothing' (the default) = ordinary single-consumer subscription.
+    @'Just' ('ConsumerGroup' { member = m, size = n })@ = this adapter is
+    member @m@ of a group of size @n@, receiving only the events whose
+    originating stream hashes to slot @m@ (in global-position order). To run a
+    full size-@n@ group, create @n@ adapters with the same 'subscriptionName'
+    and distinct 'member' indices, each backed by its own Shibuya processor.
+
+    The validity invariant (@size >= 1@, @0 <= member < size@) is enforced by
+    the underlying 'Kiroku.Store.Subscription.subscribe' call, which throws
+    'Kiroku.Store.Subscription.Types.InvalidConsumerGroup' on violation.
+    -}
     }
 
 {- | Create a Shibuya 'Adapter' backed by a Kiroku subscription.
@@ -124,15 +184,17 @@ kirokuAdapter ::
     KirokuStore ->
     KirokuAdapterConfig ->
     Eff es (Adapter es RecordedEvent)
-kirokuAdapter store (KirokuAdapterConfig subName subTarget bs buf) = do
+kirokuAdapter store (KirokuAdapterConfig subName subTarget bs buf cg) = do
+    -- Build from 'defaultSubscriptionConfig' and override only the non-default
+    -- fields. Using the smart constructor (rather than a full record literal)
+    -- means any future field added to 'SubscriptionConfigM' is inherited at its
+    -- default automatically — e.g. EP-2's 'consumerGroupGuard', left 'False' here.
     let subConfig =
-            SubscriptionConfig
-                { name = subName
-                , target = subTarget
-                , handler = \_ -> pure Continue
-                , batchSize = bs
+            (defaultSubscriptionConfig subName subTarget (\_ -> pure Continue))
+                { batchSize = bs
                 , queueCapacity = 16
                 , overflowPolicy = DropSubscription
+                , consumerGroup = cg
                 }
 
     (ioStream, cancelAction) <- liftIO $ subscriptionStream store subConfig buf

@@ -10,6 +10,8 @@ import Data.Aeson (Value)
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
 import Data.IORef (modifyIORef', newIORef, readIORef)
+import Data.Int (Int64)
+import Data.List (sort)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -91,6 +93,7 @@ main = hspec $ do
                                 , subscriptionTarget = AllStreams
                                 , batchSize = 100
                                 , bufferSize = 256
+                                , consumerGroup = Nothing
                                 }
 
                     let handler ingested = do
@@ -124,6 +127,7 @@ main = hspec $ do
                                 , subscriptionTarget = AllStreams
                                 , batchSize = 100
                                 , bufferSize = 256
+                                , consumerGroup = Nothing
                                 }
 
                     let handler ingested = do
@@ -173,6 +177,7 @@ main = hspec $ do
                                     , subscriptionTarget = Category (CategoryName cat)
                                     , batchSize = 100
                                     , bufferSize = 256
+                                    , consumerGroup = Nothing
                                     }
                     let mkHandler ref' cVar ingested = do
                             liftIO $ do
@@ -229,6 +234,7 @@ main = hspec $ do
                                 , subscriptionTarget = Category (CategoryName "good")
                                 , batchSize = 100
                                 , bufferSize = 256
+                                , consumerGroup = Nothing
                                 }
                     badAdapter <-
                         kirokuAdapter store $
@@ -237,6 +243,7 @@ main = hspec $ do
                                 , subscriptionTarget = Category (CategoryName "bad")
                                 , batchSize = 100
                                 , bufferSize = 256
+                                , consumerGroup = Nothing
                                 }
                     otherAdapter <-
                         kirokuAdapter store $
@@ -245,6 +252,7 @@ main = hspec $ do
                                 , subscriptionTarget = Category (CategoryName "other")
                                 , batchSize = 100
                                 , bufferSize = 256
+                                , consumerGroup = Nothing
                                 }
 
                     let goodHandler ingested = do
@@ -310,6 +318,7 @@ main = hspec $ do
                                 , subscriptionTarget = Category (CategoryName "shut")
                                 , batchSize = 100
                                 , bufferSize = 256
+                                , consumerGroup = Nothing
                                 }
                     adapterB <-
                         kirokuAdapter store $
@@ -318,6 +327,7 @@ main = hspec $ do
                                 , subscriptionTarget = Category (CategoryName "shut")
                                 , batchSize = 100
                                 , bufferSize = 256
+                                , consumerGroup = Nothing
                                 }
 
                     let handlerA _ingested = do
@@ -348,10 +358,98 @@ main = hspec $ do
                             drained <- stopAppGracefully Shibuya.defaultShutdownConfig appHandle
                             liftIO $ drained `shouldBe` True
 
+        describe "consumer groups" $ do
+            it "four-member group delivers a disjoint, complete partition of the stream" $ \store -> do
+                -- 20 streams × 2 events = 40 events, global positions 1..40, category "cg".
+                let streams = ["cg-" <> T.pack (show i) | i <- [1 .. 20 :: Int]]
+                mapM_
+                    ( \sn -> do
+                        let evs = [makeEvent ("EV" <> T.pack (show k)) (Aeson.object []) | k <- [1 .. 2 :: Int]]
+                        Right _ <- runStoreIO store $ appendToStream (StreamName sn) NoStream evs
+                        pure ()
+                    )
+                    streams
+                threadDelay 200_000
+
+                -- One IORef + one TVar counter per member.
+                refs <- mapM (const (newIORef ([] :: [RecordedEvent]))) [0 .. 3 :: Int]
+                cvars <- mapM (const (newTVarIO (0 :: Int))) [0 .. 3 :: Int]
+
+                runEff $ runTracingNoop $ do
+                    -- Build one adapter per member index; each carries the same
+                    -- subscriptionName and a distinct member of a size-4 group.
+                    adapters <-
+                        mapM
+                            ( \m ->
+                                kirokuAdapter store $
+                                    KirokuAdapterConfig
+                                        { subscriptionName = SubscriptionName "cg-shibuya-group"
+                                        , subscriptionTarget = Category (CategoryName "cg")
+                                        , batchSize = 100
+                                        , bufferSize = 256
+                                        , consumerGroup = Just (ConsumerGroup{member = m, size = 4})
+                                        }
+                            )
+                            [0, 1, 2, 3]
+
+                    let mkHandler ref' cvar ingested = do
+                            liftIO $ do
+                                modifyIORef' ref' (envelopePayload ingested :)
+                                atomically $ do
+                                    c <- readTVar cvar
+                                    writeTVar cvar (c + 1)
+                            pure AckOk
+
+                        processors =
+                            [ ( ProcessorId ("cg-member-" <> T.pack (show m))
+                              , mkProcessor (adapters !! m) (mkHandler (refs !! m) (cvars !! m))
+                              )
+                            | m <- [0 .. 3 :: Int]
+                            ]
+
+                    res <- runApp IgnoreFailures 100 processors
+                    case res of
+                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                        Right appHandle -> do
+                            liftIO $ waitForTotal cvars 40 15_000_000
+                            stopApp appHandle
+
+                collected <- mapM readIORef refs
+                -- Disjoint + complete: the union of every member's delivered global
+                -- positions is exactly [1..40] — no event dropped, none delivered twice.
+                let allPositions = sort (concatMap (map globalPos) collected)
+                allPositions `shouldBe` [1 .. 40]
+                -- No member starved: 20 streams over 4 members gives each ≥ 1 stream.
+                mapM_ (\c -> length c `shouldSatisfy` (>= 1)) collected
+
 -- Helpers
 
 envelopePayload :: Ingested es RecordedEvent -> RecordedEvent
 envelopePayload ing = let Ingested{envelope = env} = ing in env ^. #payload
+
+-- | The raw global position of a recorded event (for disjoint/complete checks).
+globalPos :: RecordedEvent -> Int64
+globalPos e = case e ^. #globalPosition of GlobalPosition p -> p
+
+-- | Wait until the sum of all TVar counts reaches the target or the timeout fires.
+waitForTotal :: [STM.TVar Int] -> Int -> Int -> IO ()
+waitForTotal vars target timeoutMicros = do
+    timeoutVar <- registerDelay timeoutMicros
+    result <-
+        atomically $
+            ( do
+                total <- sum <$> mapM readTVar vars
+                STM.check (total >= target)
+                pure True
+            )
+                `STM.orElse` ( do
+                                t <- readTVar timeoutVar
+                                STM.check t
+                                pure False
+                             )
+    unless result $ do
+        actual <- atomically $ sum <$> mapM readTVar vars
+        expectationFailure ("Timed out waiting for total " <> show target <> ", got " <> show actual)
 
 waitForCount :: STM.TVar Int -> Int -> Int -> IO ()
 waitForCount countVar target timeoutMicros = do

@@ -75,6 +75,7 @@ test-suite kiroku-store-test
     Test.Causation
     Test.Concurrency
     Test.ConsumerGroup
+    Test.ConsumerGroupEffect
     Test.ConsumerGroupSql
     Test.FailureInjection
     Test.Helpers
