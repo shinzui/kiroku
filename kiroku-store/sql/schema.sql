@@ -97,15 +97,31 @@ CREATE INDEX IF NOT EXISTS ix_stream_events_all_by_origin
     ON stream_events (original_stream_id, stream_version)
     WHERE stream_id = 0;
 
--- Subscriptions (checkpoint persistence for subscription positions)
+-- Subscriptions (checkpoint persistence for subscription positions).
+-- consumer_group_member / consumer_group_size carry static consumer-group
+-- topology (ExecPlan 28 / EP-1). Non-group subscriptions are member 0, size 1.
+-- The unique key is composite (subscription_name, consumer_group_member) so each
+-- group member persists its own checkpoint under one shared subscription name.
 CREATE TABLE IF NOT EXISTS subscriptions (
-    subscription_id   BIGSERIAL    PRIMARY KEY,
-    subscription_name TEXT         NOT NULL UNIQUE,
-    stream_name       TEXT         NOT NULL DEFAULT '$all',
-    last_seen         BIGINT       NOT NULL DEFAULT 0,
-    created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now()
+    subscription_id       BIGSERIAL    PRIMARY KEY,
+    subscription_name     TEXT         NOT NULL,
+    stream_name           TEXT         NOT NULL DEFAULT '$all',
+    last_seen             BIGINT       NOT NULL DEFAULT 0,
+    consumer_group_member INT          NOT NULL DEFAULT 0,
+    consumer_group_size   INT          NOT NULL DEFAULT 1,
+    created_at            TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at            TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
+
+-- Idempotent convergence for databases created before EP-1: add the columns if
+-- missing, drop the old auto-named single-column unique constraint if present,
+-- and install the composite unique index. All guarded so re-running schema.sql
+-- (which initializeSchema does on every store open) is a safe no-op.
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS consumer_group_member INT NOT NULL DEFAULT 0;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS consumer_group_size   INT NOT NULL DEFAULT 1;
+ALTER TABLE subscriptions DROP CONSTRAINT IF EXISTS subscriptions_subscription_name_key;
+CREATE UNIQUE INDEX IF NOT EXISTS ix_subscriptions_name_member
+    ON subscriptions (subscription_name, consumer_group_member);
 
 -- Triggers
 

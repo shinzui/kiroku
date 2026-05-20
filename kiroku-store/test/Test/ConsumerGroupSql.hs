@@ -101,6 +101,7 @@ spec :: Spec
 spec = do
     describe "ConsumerGroupSql" $ do
         categorySpec
+        checkpointSpec
         memberOfSpec
 
 -- ---------------------------------------------------------------------------
@@ -169,6 +170,41 @@ categorySpec = around withTestStore $ do
                     Session.statement (0 :: Int64, cat, 0 :: Int32, 1 :: Int32, bigLimit) SQL.readCategoryForwardConsumerGroupStmt
             full <- readFull store
             eventIds one `shouldBe` eventIds full
+
+-- ---------------------------------------------------------------------------
+-- M2: per-member checkpoints
+-- ---------------------------------------------------------------------------
+
+checkpointSpec :: Spec
+checkpointSpec = around withTestStore $ do
+    describe "per-member checkpoints" $ do
+        let subName = "proj-acct" :: Text
+
+        it "stores and reads independent checkpoints per member" $ \store -> do
+            runStmt store $ Session.statement (subName, 0 :: Int32, 7 :: Int64) SQL.saveCheckpointMemberStmt
+            runStmt store $ Session.statement (subName, 1 :: Int32, 13 :: Int64) SQL.saveCheckpointMemberStmt
+            m0 <- runStmt store $ Session.statement (subName, 0 :: Int32) SQL.getCheckpointMemberStmt
+            m1 <- runStmt store $ Session.statement (subName, 1 :: Int32) SQL.getCheckpointMemberStmt
+            m0 `shouldBe` Just 7
+            m1 `shouldBe` Just 13
+
+        it "never moves a member checkpoint backward (GREATEST monotonicity)" $ \store -> do
+            runStmt store $ Session.statement (subName, 0 :: Int32, 20 :: Int64) SQL.saveCheckpointMemberStmt
+            runStmt store $ Session.statement (subName, 0 :: Int32, 5 :: Int64) SQL.saveCheckpointMemberStmt
+            m0 <- runStmt store $ Session.statement (subName, 0 :: Int32) SQL.getCheckpointMemberStmt
+            m0 `shouldBe` Just 20
+
+        it "missing member checkpoint reads as Nothing" $ \store -> do
+            m9 <- runStmt store $ Session.statement (subName, 9 :: Int32) SQL.getCheckpointMemberStmt
+            m9 `shouldBe` Nothing
+
+        it "the existing name-keyed checkpoint statements still round-trip (as member 0)" $ \store -> do
+            runStmt store $ Session.statement (subName, 42 :: Int64) SQL.saveCheckpointStmt
+            -- name-keyed read returns the same row (member 0)
+            byName <- runStmt store $ Session.statement subName SQL.getCheckpointStmt
+            byMember0 <- runStmt store $ Session.statement (subName, 0 :: Int32) SQL.getCheckpointMemberStmt
+            byName `shouldBe` Just 42
+            byMember0 `shouldBe` Just 42
 
 -- ---------------------------------------------------------------------------
 -- The partition rule, pinned directly.

@@ -43,6 +43,8 @@ module Kiroku.Store.SQL (
     -- * Checkpoint statements
     getCheckpointStmt,
     saveCheckpointStmt,
+    getCheckpointMemberStmt,
+    saveCheckpointMemberStmt,
 ) where
 
 import Control.Lens ((^.))
@@ -984,6 +986,49 @@ saveCheckpointSQL =
     """
     INSERT INTO subscriptions (subscription_name, last_seen, updated_at)
     VALUES ($1, $2, now())
-    ON CONFLICT (subscription_name)
+    ON CONFLICT (subscription_name, consumer_group_member)
+    DO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now()
+    """
+
+-- | Read the last-seen position for one consumer-group member of a subscription.
+getCheckpointMemberStmt :: Statement (Text, Int32) (Maybe Int64)
+getCheckpointMemberStmt =
+    preparable
+        getCheckpointMemberSQL
+        ( (fst >$< E.param (E.nonNullable E.text))
+            <> (snd >$< E.param (E.nonNullable E.int4))
+        )
+        (D.rowMaybe (D.column (D.nonNullable D.int8)))
+
+{- | Upsert the last-seen position for one consumer-group member, keyed on the
+composite @(subscription_name, consumer_group_member)@ unique index. Uses the
+same @GREATEST(...)@ monotonicity as 'saveCheckpointStmt' so a save never moves
+a member's checkpoint backward.
+-}
+saveCheckpointMemberStmt :: Statement (Text, Int32, Int64) ()
+saveCheckpointMemberStmt =
+    preparable
+        saveCheckpointMemberSQL
+        ( ((\(a, _, _) -> a) >$< E.param (E.nonNullable E.text))
+            <> ((\(_, b, _) -> b) >$< E.param (E.nonNullable E.int4))
+            <> ((\(_, _, c) -> c) >$< E.param (E.nonNullable E.int8))
+        )
+        D.noResult
+
+getCheckpointMemberSQL :: Text
+getCheckpointMemberSQL =
+    """
+    SELECT last_seen
+    FROM subscriptions
+    WHERE subscription_name = $1
+      AND consumer_group_member = $2
+    """
+
+saveCheckpointMemberSQL :: Text
+saveCheckpointMemberSQL =
+    """
+    INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at)
+    VALUES ($1, $2, $3, now())
+    ON CONFLICT (subscription_name, consumer_group_member)
     DO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now()
     """

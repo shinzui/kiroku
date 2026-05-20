@@ -86,15 +86,15 @@ task into "done" and "remaining" at every stopping point.
 - [x] M1 (2026-05-20): Register `Test.ConsumerGroupSql` in the `kiroku-store-test` `other-modules`
       and wire `ConsumerGroupSql.spec` into `kiroku-store/test/Main.hs`. Build green,
       `cabal test kiroku-store` green (135 examples, 0 failures).
-- [ ] M2: Extend the `subscriptions` table in `kiroku-store/sql/schema.sql` with the
+- [x] M2 (2026-05-20): Extend the `subscriptions` table in `kiroku-store/sql/schema.sql` with the
       two columns, the dropped inline `UNIQUE`, the idempotent `ALTER`/`DROP
       CONSTRAINT`/`CREATE UNIQUE INDEX` block, and verify `initializeSchema` applies
       it as a whole script.
-- [ ] M2: Change the existing `saveCheckpointStmt` `ON CONFLICT` target in
+- [x] M2 (2026-05-20): Change the existing `saveCheckpointStmt` `ON CONFLICT` target in
       `kiroku-store/src/Kiroku/Store/SQL.hs` to the composite key, keeping its
       signature unchanged; add `getCheckpointMemberStmt` and
       `saveCheckpointMemberStmt` (with encoders + exports).
-- [ ] M2: Add per-member checkpoint tests to `Test/ConsumerGroupSql.hs` and confirm
+- [x] M2 (2026-05-20): Add per-member checkpoint tests to `Test/ConsumerGroupSql.hs` and confirm
       existing subscription/checkpoint tests in `kiroku-store/test/Main.hs` still
       pass. Build green, `cabal test kiroku-store` green.
 - [ ] M3: Add `readAllForwardConsumerGroupStmt` (SQL body + 4-tuple encoder +
