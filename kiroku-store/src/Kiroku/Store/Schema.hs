@@ -3,6 +3,7 @@
 module Kiroku.Store.Schema (
     SchemaInitError (..),
     initializeSchema,
+    quoteIdentifier,
 ) where
 
 import Control.Exception (Exception, throwIO)
@@ -10,6 +11,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.ByteString (ByteString)
 import Data.FileEmbed (embedFile)
 import Data.Text (Text)
+import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
 import Hasql.Pool (Pool, UsageError)
 import Hasql.Pool qualified as Pool
@@ -51,18 +53,43 @@ migration role, then open 'Kiroku.Store.withStore' with
 'Kiroku.Store.Connection.SkipSchemaInitialization' under the
 lower-privileged runtime role; see @docs\/PRODUCTION-DEPLOYMENT.md@.
 
-The @Text@ argument is unused. It was previously intended to be the
-target schema name, but the SQL is unqualified and resolves through
-@search_path@; see 'Kiroku.Store.Connection.ConnectionSettings.schema'.
-The argument is retained for forward compatibility with a future
-migration story; pass any value (the field's value is conventional).
+The @Text@ argument is the target schema name. @sql\/schema.sql@ contains
+a @__KIROKU_SCHEMA__@ token in its @CREATE SCHEMA@ and @SET search_path@
+statements; this function replaces every occurrence with the supplied
+name, quoted as a SQL identifier, before running the script. The result
+is that the Kiroku tables, indexes, functions, and triggers are created
+inside that schema (the @kiroku@ schema by default), and the rest of the
+unqualified DDL resolves through the @search_path@ this script sets. See
+'Kiroku.Store.Connection.ConnectionSettings.schema'.
 -}
 initializeSchema :: (MonadIO m) => Pool -> Text -> m ()
-initializeSchema pool _schema = liftIO $ do
-    result <- Pool.use pool (Session.script schemaDDL)
+initializeSchema pool schema = liftIO $ do
+    let ddl = T.replace schemaPlaceholder (quoteIdentifier schema) schemaDDL
+    result <- Pool.use pool (Session.script ddl)
     case result of
         Left err -> throwIO (SchemaInitError err)
         Right () -> pure ()
+
+{- | The token used in @sql\/schema.sql@ wherever the configured schema name
+must be interpolated (the @CREATE SCHEMA@ and @SET search_path@ statements).
+'initializeSchema' replaces it with the quoted schema identifier.
+-}
+schemaPlaceholder :: Text
+schemaPlaceholder = "__KIROKU_SCHEMA__"
+
+{- | Quote a 'Text' as a PostgreSQL identifier: wrap it in double quotes and
+double any embedded double quote. Used to interpolate the configured schema
+name into @search_path@ and @CREATE SCHEMA@ statements without risking SQL
+injection from a hostile schema setting.
+
+>>> quoteIdentifier "kiroku"
+"\"kiroku\""
+
+>>> quoteIdentifier "weird\"name"
+"\"weird\"\"name\""
+-}
+quoteIdentifier :: Text -> Text
+quoteIdentifier ident = "\"" <> T.replace "\"" "\"\"" ident <> "\""
 
 -- | Schema DDL embedded at compile time from sql/schema.sql.
 schemaDDLBytes :: ByteString

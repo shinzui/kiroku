@@ -1,7 +1,22 @@
 -- Kiroku Store Schema
 -- Supports PostgreSQL 17+.
+--
+-- All Kiroku-owned objects live in a dedicated schema (the `kiroku` schema by
+-- default), leaving `public` free for application objects. The schema name is
+-- substituted for the __KIROKU_SCHEMA__ token below before this script runs:
+-- Kiroku.Store.Schema.initializeSchema replaces it with the configured,
+-- double-quoted schema identifier, and `just init-schema` replaces it with the
+-- literal `kiroku`. Creating the schema and setting search_path first means
+-- every unqualified object name in the rest of this file resolves into the
+-- Kiroku schema.
+CREATE SCHEMA IF NOT EXISTS __KIROKU_SCHEMA__;
+SET search_path TO __KIROKU_SCHEMA__, pg_catalog;
+
 -- PostgreSQL 18 provides pg_catalog.uuidv7(); PostgreSQL 17 needs this
--- public-schema fallback before events.event_id DEFAULT uuidv7() is parsed.
+-- Kiroku-schema fallback before events.event_id DEFAULT uuidv7() is parsed.
+-- With search_path set above, the unqualified CREATE FUNCTION lands in the
+-- Kiroku schema, and to_regprocedure('uuidv7()') resolves through search_path
+-- (pg_catalog first for the built-in, then the Kiroku schema for the fallback).
 DO $$
 BEGIN
     IF to_regprocedure('pg_catalog.uuidv7()') IS NULL

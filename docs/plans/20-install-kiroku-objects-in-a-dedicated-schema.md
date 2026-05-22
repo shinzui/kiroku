@@ -24,14 +24,40 @@ The behavior is visible without reading code: after startup schema initializatio
 
 - [x] (2026-05-17 22:10Z) Researched the current schema bootstrap SQL, embedded migration package, connection settings, notification path, tests, docs, and benchmark SQL.
 - [x] (2026-05-17 22:10Z) Created this ExecPlan with `bun agents/skills/exec-plan/init-plan.ts --title "Install Kiroku objects in a dedicated schema"`.
-- [ ] Milestone 1: Make fresh schema initialization install every Kiroku-owned object under `kiroku` and make runtime sessions resolve unqualified SQL there.
+- [x] (2026-05-21) Milestone 1: Make fresh schema initialization install every Kiroku-owned object under `kiroku` and make runtime sessions resolve unqualified SQL there. Added `__KIROKU_SCHEMA__` sentinel + `CREATE SCHEMA`/`SET search_path` to `schema.sql`; `initializeSchema` now substitutes the quoted schema; `quoteIdentifier` added to `Kiroku.Store.Schema`; `defaultConnectionSettings` defaults `schema = "kiroku"`; `initScript` sets `search_path` first. `cabal test kiroku-store:kiroku-store-test` → 152 examples, 0 failures.
 - [ ] Milestone 2: Update codd migrations, migration tests, and operator docs so production-style migration installs and verifies the `kiroku` schema.
 - [ ] Milestone 3: Update direct SQL tests, benchmark scripts, and documentation to prove `public` stays clean while existing store behavior still works.
 
 
 ## Surprises & Discoveries
 
-(None yet.)
+- (2026-05-21) `kiroku-store/sql/schema.sql` and the bootstrap migration
+  `kiroku-store-migrations/sql-migrations/2026-05-16-00-00-00-kiroku-bootstrap.sql`
+  are **not** currently identical, contrary to the Context section's
+  assumption. Commit `76c6574` ("feat(store): per-member subscription
+  checkpoints + schema convergence (EP-1 M2)") added `consumer_group_member`
+  and `consumer_group_size` columns plus the convergence
+  `ALTER TABLE`/`CREATE UNIQUE INDEX` block to `schema.sql`, but the bootstrap
+  migration still has the old `subscriptions` definition
+  (`subscription_name TEXT NOT NULL UNIQUE`, no consumer-group columns). The
+  `diff` confirming this:
+
+  ```text
+  <     subscription_name     TEXT         NOT NULL,
+  <     consumer_group_member INT          NOT NULL DEFAULT 0,
+  <     consumer_group_size   INT          NOT NULL DEFAULT 1,
+  ---
+  >     subscription_name TEXT         NOT NULL UNIQUE,
+  ```
+
+  Since Milestone 2 must make the bootstrap migration "match the final
+  fresh-install behavior from `schema.sql`", syncing the schema-relocation
+  change is the moment to re-sync the consumer-group divergence too. The
+  migration is regenerated as a verbatim copy of `schema.sql` with the
+  `__KIROKU_SCHEMA__` sentinel replaced by the literal `kiroku`. The
+  convergence `ALTER`/`CREATE INDEX` statements are harmless no-ops on a fresh
+  install (the columns already exist; the old auto-named constraint never
+  existed).
 
 
 ## Decision Log
@@ -51,6 +77,51 @@ The behavior is visible without reading code: after startup schema initializatio
 - Decision: Keep PostgreSQL 18's `pg_catalog.uuidv7()` as the preferred UUID generator and create a fallback function inside `kiroku`, not `public`, on PostgreSQL 17.
   Rationale: The user asked to leave `public` clean. An unqualified `DEFAULT uuidv7()` can resolve to `pg_catalog.uuidv7()` on PostgreSQL 18 or to `kiroku.uuidv7()` on PostgreSQL 17 when sessions use the `kiroku, pg_catalog` search path.
   Date: 2026-05-17
+
+- Decision: Take the schema-configurable ("sentinel") path for `schema.sql`,
+  not the static hardcoded-`kiroku` path. `schema.sql` uses a literal
+  `__KIROKU_SCHEMA__` token in `CREATE SCHEMA` and `SET search_path`;
+  `Kiroku.Store.Schema.initializeSchema` replaces it with the configured,
+  double-quoted schema identifier before executing the script, so the
+  `ConnectionSettings.schema` field genuinely controls where objects install
+  via `withStore`. `just init-schema` substitutes the literal `kiroku` with
+  `sed` before piping to `psql`.
+  Rationale: The plan's Interfaces section names this the preferred approach and
+  it makes `initializeSchema` actually use its `Text` argument. A purely
+  hardcoded `schema.sql` combined with a configurable runtime `search_path`
+  would silently install objects in `kiroku` while runtime statements looked in
+  the configured schema — an inconsistency worse than the status quo.
+  Date: 2026-05-21
+
+- Decision: `setval('streams_stream_id_seq', ...)` and every other Kiroku
+  object reference in `schema.sql` stay unqualified after the `SET search_path`
+  line, rather than being rewritten to `kiroku.`-qualified or `::regclass`
+  forms. Because `SET search_path TO <schema>, pg_catalog` runs first in the
+  same session, unqualified text-to-`regclass` resolution already lands in the
+  Kiroku schema. This keeps the sentinel to exactly two sites and the file
+  readable.
+  Rationale: Fewer substitution sites means less chance of a half-quoted
+  identifier; the search path already guarantees correct resolution.
+  Date: 2026-05-21
+
+- Decision: The bootstrap migration is regenerated as a verbatim copy of
+  `schema.sql` with `__KIROKU_SCHEMA__` replaced by the bare identifier
+  `kiroku` (codd parses the file directly and cannot run the Haskell sentinel
+  substitution). Editing the initial migration in place is acceptable because
+  the project is explicitly experimental and unreleased (`README.md` "Status"
+  section), so no production database has applied it.
+  Rationale: Keeping the migration a literal projection of `schema.sql` keeps
+  the two in sync (also fixing the pre-existing consumer-group divergence) and
+  satisfies the "match fresh-install behavior" requirement.
+  Date: 2026-05-21
+
+- Decision: `quoteIdentifier :: Text -> Text` lives in `Kiroku.Store.Schema`
+  (exported) and is imported by `Kiroku.Store.Connection`, rather than being
+  duplicated in both modules.
+  Rationale: Both the sentinel substitution (Schema) and the runtime
+  `search_path` init (Connection) need identical identifier quoting; one source
+  of truth avoids drift.
+  Date: 2026-05-21
 
 
 ## Outcomes & Retrospective

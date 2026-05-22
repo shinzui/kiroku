@@ -23,7 +23,7 @@ import Hasql.Session qualified as Session
 import Kiroku.Store.Notification (Notifier)
 import Kiroku.Store.Notification qualified as Notifier
 import Kiroku.Store.Observability (KirokuEvent)
-import Kiroku.Store.Schema (initializeSchema)
+import Kiroku.Store.Schema (initializeSchema, quoteIdentifier)
 import Kiroku.Store.Settings (StoreSettings, defaultStoreSettings)
 import Kiroku.Store.Subscription.EventPublisher (EventPublisher)
 import Kiroku.Store.Subscription.EventPublisher qualified as Publisher
@@ -44,41 +44,33 @@ data ConnectionSettingsM m = ConnectionSettings
     , poolSize :: !Int
     -- ^ Connection pool size (default: 10)
     , schema :: !Text
-    {- ^ PostgreSQL schema name used to construct the LISTEN channel
-    name (default: @"public"@).
+    {- ^ PostgreSQL schema that owns every Kiroku object
+    (default: @"kiroku"@).
 
-    /This field controls the LISTEN channel name only./ It is
-    /not/ used to qualify table names in any SQL the store
-    issues; every prepared statement in
-    "Kiroku.Store.SQL" references @streams@, @events@, and
-    @stream_events@ unqualified. Table resolution therefore
-    follows the connection's @search_path@, not this field.
+    This field is authoritative for three things, kept in lockstep:
 
-    Concretely:
+    * __Object location.__ When 'schemaInitialization' is
+      'InitializeSchemaOnAcquire', 'Kiroku.Store.Schema.initializeSchema'
+      creates this schema and installs the @streams@, @events@,
+      @stream_events@, and @subscriptions@ tables (plus their indexes,
+      functions, and triggers) inside it.
+    * __Table resolution.__ Every pooled connection runs
+      @SET search_path TO \<schema\>, pg_catalog@ before any statement,
+      so the unqualified names in "Kiroku.Store.SQL" resolve to this
+      schema.
+    * __Notification channel.__ The
+      'Kiroku.Store.Notification.Notifier' issues
+      @LISTEN \<schema\>.events@ on its dedicated connection, and the
+      @notify_events()@ trigger in @sql\/schema.sql@ publishes to
+      @TG_TABLE_SCHEMA || \'.events\'@ — i.e., the schema in which the
+      @streams@ table actually lives. Because object location and the
+      listen channel both derive from this one field, those two channel
+      names coincide and notification-driven subscription wakeups work.
 
-    * The 'Kiroku.Store.Notification.Notifier' issues
-      @LISTEN \<schema\>.events@ on its dedicated connection.
-    * The @notify_events()@ trigger in @sql\/schema.sql@ publishes
-      to @TG_TABLE_SCHEMA || \'.events\'@ — i.e., the schema in
-      which the @streams@ table actually lives, as resolved by
-      PostgreSQL at trigger-fire time.
-
-    Those two channel names must be byte-identical for
-    notification-driven subscription wakeups to work. With the
-    defaults ('schema' = @"public"@ and PostgreSQL's default
-    @search_path = "$user", public@) they coincide. If you set a
-    non-default 'schema', you must also ensure the application
-    user's @search_path@ resolves @streams@ in that same schema —
-    otherwise the listener silently receives no notifications and
-    subscriptions fall back to the 30-second safety poll.
-
-    Genuine schema-per-tenant isolation (table-level segregation)
-    is /not/ provided by this package today. To get it, set
-    @search_path@ in the connection string and run a separate
-    'KirokuStore' per tenant; the package will treat the tenant's
-    schema as if it were @public@ and write to whatever
-    @streams@\/@events@\/@stream_events@ that @search_path@
-    resolves to.
+    To run more than one isolated 'KirokuStore' against the same database
+    (for example schema-per-tenant), give each one a distinct 'schema';
+    each gets its own set of Kiroku tables and its own notification
+    channel.
     -}
     , idleInTransactionTimeout :: !Int
     -- ^ idle_in_transaction_session_timeout in seconds (default: 30)
@@ -140,7 +132,7 @@ defaultConnectionSettings cs =
     ConnectionSettings
         { connString = cs
         , poolSize = 10
-        , schema = "public"
+        , schema = "kiroku"
         , idleInTransactionTimeout = 30
         , statementTimeout = Nothing
         , observationHandler = Nothing
@@ -208,7 +200,13 @@ withStore settings action = withRunInIO $ \runInIO ->
     initScript :: Text
     initScript =
         T.intercalate "; " $
-            ("SET idle_in_transaction_session_timeout = '" <> T.pack (show (settings ^. #idleInTransactionTimeout)) <> "s'")
+            -- Resolve unqualified Kiroku table names (see "Kiroku.Store.SQL")
+            -- to the configured schema on every pooled connection. Setting a
+            -- not-yet-created schema is harmless: PostgreSQL does not validate
+            -- search_path entries, so this is safe even before
+            -- 'initializeSchema' has run on a fresh database.
+            ("SET search_path TO " <> quoteIdentifier (settings ^. #schema) <> ", pg_catalog")
+                : ("SET idle_in_transaction_session_timeout = '" <> T.pack (show (settings ^. #idleInTransactionTimeout)) <> "s'")
                 : maybe
                     []
                     (\t -> ["SET statement_timeout = '" <> T.pack (show t) <> "s'"])
