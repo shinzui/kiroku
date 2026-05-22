@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### Changed — Kiroku objects install into a dedicated `kiroku` schema (plan 20)
+
+* A fresh installation now creates and uses a dedicated `kiroku` PostgreSQL
+  schema instead of installing into `public`. `sql/schema.sql` creates the
+  schema and sets `search_path` first (via a `__KIROKU_SCHEMA__` token that
+  `Kiroku.Store.Schema.initializeSchema` substitutes with the configured,
+  quoted identifier), and every pooled connection runs
+  `SET search_path TO "<schema>", pg_catalog` before any statement.
+* `defaultConnectionSettings` now defaults `schema = "kiroku"` (was `"public"`).
+  The `schema` field is now authoritative for object location, table
+  resolution, and the `LISTEN <schema>.events` channel — previously it only
+  named the notification channel while table resolution depended on the
+  connection-string `search_path`.
+* `Kiroku.Store.Schema` exports `quoteIdentifier`; `initializeSchema` now uses
+  its `Text` schema argument instead of ignoring it.
+* The `kiroku-store-migrations` codd bootstrap installs into `kiroku`; run it
+  with `CODD_SCHEMAS=kiroku`. The runtime role needs privileges on the
+  `kiroku` schema rather than on `public`.
+
 ### Added — consumer groups for partitioned subscriptions (MasterPlan 4, plans 28–31)
 
 * Static, hash-partitioned consumer groups: a named subscription can be split
