@@ -1,7 +1,26 @@
--- Kiroku Store Schema
+-- Kiroku Store bootstrap migration (codd)
 -- Supports PostgreSQL 17+.
+--
+-- This file is the production-migration projection of
+-- `kiroku-store/sql/schema.sql` with that file's `__KIROKU_SCHEMA__` token
+-- resolved to the literal `kiroku`. codd applies it verbatim, so unlike the
+-- development bootstrap there is no runtime sentinel substitution. Keep the two
+-- files in sync: when `schema.sql` changes, regenerate this file with
+--   sed 's/__KIROKU_SCHEMA__/kiroku/g' kiroku-store/sql/schema.sql
+-- and restore this header.
+--
+-- All Kiroku-owned objects live in the dedicated `kiroku` schema, leaving
+-- `public` free for application objects. Creating the schema and setting
+-- search_path first means every unqualified object name in the rest of this
+-- file resolves into the Kiroku schema.
+CREATE SCHEMA IF NOT EXISTS kiroku;
+SET search_path TO kiroku, pg_catalog;
+
 -- PostgreSQL 18 provides pg_catalog.uuidv7(); PostgreSQL 17 needs this
--- public-schema fallback before events.event_id DEFAULT uuidv7() is parsed.
+-- Kiroku-schema fallback before events.event_id DEFAULT uuidv7() is parsed.
+-- With search_path set above, the unqualified CREATE FUNCTION lands in the
+-- Kiroku schema, and to_regprocedure('uuidv7()') resolves through search_path
+-- (pg_catalog first for the built-in, then the Kiroku schema for the fallback).
 DO $$
 BEGIN
     IF to_regprocedure('pg_catalog.uuidv7()') IS NULL
@@ -97,15 +116,31 @@ CREATE INDEX IF NOT EXISTS ix_stream_events_all_by_origin
     ON stream_events (original_stream_id, stream_version)
     WHERE stream_id = 0;
 
--- Subscriptions (checkpoint persistence for subscription positions)
+-- Subscriptions (checkpoint persistence for subscription positions).
+-- consumer_group_member / consumer_group_size carry static consumer-group
+-- topology (ExecPlan 28 / EP-1). Non-group subscriptions are member 0, size 1.
+-- The unique key is composite (subscription_name, consumer_group_member) so each
+-- group member persists its own checkpoint under one shared subscription name.
 CREATE TABLE IF NOT EXISTS subscriptions (
-    subscription_id   BIGSERIAL    PRIMARY KEY,
-    subscription_name TEXT         NOT NULL UNIQUE,
-    stream_name       TEXT         NOT NULL DEFAULT '$all',
-    last_seen         BIGINT       NOT NULL DEFAULT 0,
-    created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now()
+    subscription_id       BIGSERIAL    PRIMARY KEY,
+    subscription_name     TEXT         NOT NULL,
+    stream_name           TEXT         NOT NULL DEFAULT '$all',
+    last_seen             BIGINT       NOT NULL DEFAULT 0,
+    consumer_group_member INT          NOT NULL DEFAULT 0,
+    consumer_group_size   INT          NOT NULL DEFAULT 1,
+    created_at            TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at            TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
+
+-- Idempotent convergence for databases created before EP-1: add the columns if
+-- missing, drop the old auto-named single-column unique constraint if present,
+-- and install the composite unique index. All guarded so re-running schema.sql
+-- (which initializeSchema does on every store open) is a safe no-op.
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS consumer_group_member INT NOT NULL DEFAULT 0;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS consumer_group_size   INT NOT NULL DEFAULT 1;
+ALTER TABLE subscriptions DROP CONSTRAINT IF EXISTS subscriptions_subscription_name_key;
+CREATE UNIQUE INDEX IF NOT EXISTS ix_subscriptions_name_member
+    ON subscriptions (subscription_name, consumer_group_member);
 
 -- Triggers
 

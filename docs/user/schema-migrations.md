@@ -40,13 +40,19 @@ configuration.
 CODD_CONNECTION='host=/tmp port=5432 dbname=kiroku user=kiroku_admin' \
 CODD_MIGRATION_DIRS=unused-for-embedded-migrations \
 CODD_EXPECTED_SCHEMA_DIR=kiroku-store-migrations/expected-schema \
-CODD_SCHEMAS=public \
+CODD_SCHEMAS=kiroku \
 kiroku-store-migrate
 ```
 
 `CODD_MIGRATION_DIRS` is still required by `codd` settings even though
 Kiroku supplies embedded migrations to the `codd` library. The value is
 not used for discovering Kiroku migrations.
+
+Kiroku installs all of its objects into a dedicated `kiroku` schema rather
+than `public`, so `CODD_SCHEMAS=kiroku` is the schema codd should track.
+Grant the runtime role privileges on the `kiroku` schema (such as `USAGE`
+and the table privileges the application uses); it does not need
+privileges on `public`.
 
 Run the command again after it succeeds. The second run should complete
 without reapplying the bootstrap migration.

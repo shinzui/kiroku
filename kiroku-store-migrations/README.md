@@ -11,9 +11,16 @@ Run the executable with codd's standard environment variables:
 CODD_CONNECTION='host=/tmp port=5432 dbname=kiroku user=kiroku_admin' \
 CODD_MIGRATION_DIRS=unused-for-embedded-migrations \
 CODD_EXPECTED_SCHEMA_DIR=unused-for-unverified-embedded-migrations \
-CODD_SCHEMAS=public \
+CODD_SCHEMAS=kiroku \
 kiroku-store-migrate
 ```
+
+The bootstrap migration creates a dedicated `kiroku` schema and installs
+every Kiroku table, index, function, and trigger inside it, leaving
+`public` free for application objects. `CODD_SCHEMAS=kiroku` tells codd to
+track that schema. The runtime role therefore needs privileges on the
+`kiroku` schema (for example `USAGE` plus the table privileges it uses),
+not on `public`.
 
 After migrations run, start the application with schema initialization
 disabled:

@@ -38,6 +38,7 @@ main =
                     firstMigration <- runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5)
                     firstMigration `shouldBeSchemasNotVerified` "first migration run"
                     assertBootstrapApplied connStr
+                    assertSchemaPlacement connStr
                     assertDefaultUuidV7 connStr
 
                     withStore
@@ -71,7 +72,7 @@ testCoddSettings connStr =
         { migsConnString = parseConnString connStr
         , sqlMigrations = []
         , onDiskReps = Right (DbRep Null Map.empty Map.empty)
-        , namespacesToCheck = IncludeSchemas [SqlSchema "public"]
+        , namespacesToCheck = IncludeSchemas [SqlSchema "kiroku"]
         , extraRolesToCheck = []
         , retryPolicy = singleTryPolicy
         , txnIsolationLvl = DbDefault
@@ -118,9 +119,51 @@ assertBootstrapApplied connStr = do
 bootstrapStmt :: Statement () Bool
 bootstrapStmt =
     preparable
-        "SELECT EXISTS (SELECT 1 FROM streams WHERE stream_id = 0 AND stream_name = '$all')"
+        "SELECT EXISTS (SELECT 1 FROM kiroku.streams WHERE stream_id = 0 AND stream_name = '$all')"
         E.noParams
         (D.singleRow (D.column (D.nonNullable D.bool)))
+
+{- | Assert that the migration installed every Kiroku table under the @kiroku@
+schema and left @public@ free of Kiroku tables. The connection uses no special
+@search_path@, so the schema-qualified @to_regclass@ checks prove placement
+directly rather than relying on name resolution.
+-}
+assertSchemaPlacement :: Text -> IO ()
+assertSchemaPlacement connStr = do
+    pool <- Pool.acquire poolConfig
+    result <- Pool.use pool (Session.statement () placementStmt)
+    Pool.release pool
+    case result of
+        Left err -> expectationFailure ("schema placement query failed: " <> show err)
+        Right (True, True) -> pure ()
+        Right (kirokuPresent, publicAbsent) ->
+            expectationFailure
+                ( "expected all Kiroku tables in 'kiroku' and none in 'public'; got kirokuPresent="
+                    <> show kirokuPresent
+                    <> ", publicAbsent="
+                    <> show publicAbsent
+                )
+  where
+    poolConfig =
+        Pool.Config.settings
+            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
+            , Pool.Config.size 1
+            ]
+
+placementStmt :: Statement () (Bool, Bool)
+placementStmt =
+    preparable
+        "SELECT \
+        \  (to_regclass('kiroku.streams') IS NOT NULL \
+        \   AND to_regclass('kiroku.events') IS NOT NULL \
+        \   AND to_regclass('kiroku.stream_events') IS NOT NULL \
+        \   AND to_regclass('kiroku.subscriptions') IS NOT NULL), \
+        \  (to_regclass('public.streams') IS NULL \
+        \   AND to_regclass('public.events') IS NULL \
+        \   AND to_regclass('public.stream_events') IS NULL \
+        \   AND to_regclass('public.subscriptions') IS NULL)"
+        E.noParams
+        (D.singleRow ((,) <$> D.column (D.nonNullable D.bool) <*> D.column (D.nonNullable D.bool)))
 
 assertDefaultUuidV7 :: Text -> IO ()
 assertDefaultUuidV7 connStr = do
@@ -150,7 +193,7 @@ assertDefaultUuidV7 connStr = do
 defaultUuidStmt :: Statement () Text
 defaultUuidStmt =
     preparable
-        "INSERT INTO events (event_type, data) VALUES ('DefaultUuidGenerated', '{}'::jsonb) RETURNING event_id::text"
+        "INSERT INTO kiroku.events (event_type, data) VALUES ('DefaultUuidGenerated', '{}'::jsonb) RETURNING event_id::text"
         E.noParams
         (D.singleRow (D.column (D.nonNullable D.text)))
 
