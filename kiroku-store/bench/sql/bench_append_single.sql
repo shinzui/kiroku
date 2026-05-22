@@ -1,7 +1,7 @@
 -- Benchmark 1: Single-stream sequential append (1 event per CTE)
 --
 -- pgbench usage:
---   pgbench -n -f bench_append_single.sql -t 10000 -c 1 kiroku
+--   PGOPTIONS="-c search_path=kiroku,pg_catalog" pgbench -n -f bench_append_single.sql -t 10000 -c 1 kiroku
 --
 -- This uses append_any_version semantics to avoid version tracking in pgbench.
 -- Each iteration creates a fresh stream to avoid version conflicts.

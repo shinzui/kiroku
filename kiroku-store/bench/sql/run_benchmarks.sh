@@ -9,6 +9,14 @@ set -euo pipefail
 #   ./run_benchmarks.sh 1 3 5        # Run specific benchmarks
 #   ./run_benchmarks.sh --help       # Show usage
 
+# Kiroku objects live in the dedicated `kiroku` schema. Resolve unqualified
+# names by setting search_path at connection startup via PGOPTIONS, which libpq
+# applies to every psql probe and pgbench connection this harness opens. Doing
+# it here (rather than a leading `SET` in each pgbench script) avoids adding a
+# protocol round-trip per transaction, which would distort the append
+# benchmarks whose round-trip count is the metric being measured.
+export PGOPTIONS="${PGOPTIONS:-} -c search_path=kiroku,pg_catalog"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DB="${KIROKU_BENCH_DB:-kiroku}"
 RESULTS_DIR="${SCRIPT_DIR}/../../bench/results"

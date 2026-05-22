@@ -30,6 +30,7 @@ module Test.Helpers (
     insertEventUsingDefaultId,
     serverVersionNum,
     truncateRejected,
+    tableExists,
 
     -- * Listener-pid helpers
     findListenerPid,
@@ -141,6 +142,25 @@ insertEventUsingDefaultId store = do
     case result of
         Left err -> error ("insertEventUsingDefaultId failed: " <> show err)
         Right eventIdText -> pure eventIdText
+
+{- | Report whether a schema-qualified relation exists, via
+@to_regclass(name) IS NOT NULL@. The name is schema-qualified
+(e.g. @"kiroku.streams"@ or @"public.streams"@), so the result does not
+depend on the connection's @search_path@. Used by the schema-placement
+tests that prove Kiroku objects install under @kiroku@ and not @public@.
+-}
+tableExists :: KirokuStore -> Text -> IO Bool
+tableExists store qualifiedName = do
+    let stmt :: Statement Text Bool
+        stmt =
+            preparable
+                "SELECT to_regclass($1) IS NOT NULL"
+                (E.param (E.nonNullable E.text))
+                (D.singleRow (D.column (D.nonNullable D.bool)))
+    result <- Pool.use (store ^. #pool) (Session.statement qualifiedName stmt)
+    case result of
+        Left err -> error ("tableExists failed: " <> show err)
+        Right exists -> pure exists
 
 -- | Return PostgreSQL's numeric server version for failure messages.
 serverVersionNum :: KirokuStore -> IO Text

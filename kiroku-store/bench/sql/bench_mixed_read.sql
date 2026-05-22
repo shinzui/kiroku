@@ -1,7 +1,7 @@
 -- Benchmark 6 — Reader component for mixed read/write benchmark
 --
 -- pgbench usage:
---   pgbench -n -f bench_mixed_read.sql -t 2000 -c 8 -j 8 kiroku
+--   PGOPTIONS="-c search_path=kiroku,pg_catalog" pgbench -n -f bench_mixed_read.sql -t 2000 -c 8 -j 8 kiroku
 
 \set start_pos random(0, 99900)
 

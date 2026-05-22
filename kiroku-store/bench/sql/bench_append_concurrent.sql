@@ -1,11 +1,11 @@
 -- Benchmark 3: Cross-stream concurrent single-event appends ($all contention)
 --
 -- pgbench usage (vary -c and -j for concurrency levels):
---   pgbench -n -f bench_append_concurrent.sql -t 1000 -c 4  -j 4  kiroku
---   pgbench -n -f bench_append_concurrent.sql -t 1000 -c 8  -j 8  kiroku
---   pgbench -n -f bench_append_concurrent.sql -t 1000 -c 16 -j 16 kiroku
---   pgbench -n -f bench_append_concurrent.sql -t 1000 -c 32 -j 32 kiroku
---   pgbench -n -f bench_append_concurrent.sql -t 1000 -c 64 -j 64 kiroku
+--   PGOPTIONS="-c search_path=kiroku,pg_catalog" pgbench -n -f bench_append_concurrent.sql -t 1000 -c 4  -j 4  kiroku
+--   PGOPTIONS="-c search_path=kiroku,pg_catalog" pgbench -n -f bench_append_concurrent.sql -t 1000 -c 8  -j 8  kiroku
+--   PGOPTIONS="-c search_path=kiroku,pg_catalog" pgbench -n -f bench_append_concurrent.sql -t 1000 -c 16 -j 16 kiroku
+--   PGOPTIONS="-c search_path=kiroku,pg_catalog" pgbench -n -f bench_append_concurrent.sql -t 1000 -c 32 -j 32 kiroku
+--   PGOPTIONS="-c search_path=kiroku,pg_catalog" pgbench -n -f bench_append_concurrent.sql -t 1000 -c 64 -j 64 kiroku
 --
 -- Each client writes to its own stream (bench-concurrent-N) to isolate
 -- source stream contention. The $all row (stream_id=0) is the shared

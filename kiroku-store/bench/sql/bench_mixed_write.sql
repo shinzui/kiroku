@@ -1,7 +1,7 @@
 -- Benchmark 6 — Writer component for mixed read/write benchmark
 --
 -- pgbench usage:
---   pgbench -n -f bench_mixed_write.sql -t 1000 -c 8 -j 8 kiroku
+--   PGOPTIONS="-c search_path=kiroku,pg_catalog" pgbench -n -f bench_mixed_write.sql -t 1000 -c 8 -j 8 kiroku
 
 WITH
   new_events AS (

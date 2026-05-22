@@ -1,10 +1,10 @@
 -- Benchmark 4: Cross-stream concurrent batched appends (10 events per CTE)
 --
 -- pgbench usage (vary -c and -j for concurrency levels):
---   pgbench -n -f bench_append_concurrent_batch.sql -t 1000 -c 4  -j 4  kiroku
---   pgbench -n -f bench_append_concurrent_batch.sql -t 1000 -c 8  -j 8  kiroku
---   pgbench -n -f bench_append_concurrent_batch.sql -t 1000 -c 16 -j 16 kiroku
---   pgbench -n -f bench_append_concurrent_batch.sql -t 1000 -c 32 -j 32 kiroku
+--   PGOPTIONS="-c search_path=kiroku,pg_catalog" pgbench -n -f bench_append_concurrent_batch.sql -t 1000 -c 4  -j 4  kiroku
+--   PGOPTIONS="-c search_path=kiroku,pg_catalog" pgbench -n -f bench_append_concurrent_batch.sql -t 1000 -c 8  -j 8  kiroku
+--   PGOPTIONS="-c search_path=kiroku,pg_catalog" pgbench -n -f bench_append_concurrent_batch.sql -t 1000 -c 16 -j 16 kiroku
+--   PGOPTIONS="-c search_path=kiroku,pg_catalog" pgbench -n -f bench_append_concurrent_batch.sql -t 1000 -c 32 -j 32 kiroku
 --
 -- Each client writes 10 events to its own stream per iteration.
 -- Target: > 30K events/s at 16 connections.

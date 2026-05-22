@@ -3,7 +3,7 @@
 -- ix_stream_events_all_by_origin per category stream, then merge+sort.
 --
 -- pgbench usage:
---   pgbench -n -f bench_read_category.sql -t 1000 -c 1 kiroku
+--   PGOPTIONS="-c search_path=kiroku,pg_catalog" pgbench -n -f bench_read_category.sql -t 1000 -c 1 kiroku
 
 \set category_num random(0, 9)
 \set start_pos random(0, 99000)

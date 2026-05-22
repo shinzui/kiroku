@@ -1,7 +1,7 @@
 -- Benchmark 2b: Batched append — 100 events per CTE
 --
 -- pgbench usage:
---   pgbench -n -f bench_append_batch_100.sql -t 100 -c 1 kiroku
+--   PGOPTIONS="-c search_path=kiroku,pg_catalog" pgbench -n -f bench_append_batch_100.sql -t 100 -c 1 kiroku
 
 WITH
   new_events AS (

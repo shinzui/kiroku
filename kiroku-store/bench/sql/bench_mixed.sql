@@ -3,10 +3,10 @@
 -- Run writers and readers as separate pgbench instances:
 --
 --   # Writers: 8 connections, 10 events/batch, continuous
---   pgbench -n -f bench_mixed_write.sql -t 1000 -c 8 -j 8 kiroku &
+--   PGOPTIONS="-c search_path=kiroku,pg_catalog" pgbench -n -f bench_mixed_write.sql -t 1000 -c 8 -j 8 kiroku &
 --
 --   # Readers: 8 connections, 100-event pages from $all, continuous
---   pgbench -n -f bench_mixed_read.sql -t 2000 -c 8 -j 8 kiroku &
+--   PGOPTIONS="-c search_path=kiroku,pg_catalog" pgbench -n -f bench_mixed_read.sql -t 2000 -c 8 -j 8 kiroku &
 --
 --   wait
 --

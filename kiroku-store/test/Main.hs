@@ -52,6 +52,16 @@ main = hspec $ do
     ConsumerGroupEffect.spec
     around withTestStore $ do
         describe "schema initialization" $ do
+            it "installs every Kiroku table under the kiroku schema" $ \store -> do
+                let tables = ["streams", "events", "stream_events", "subscriptions"]
+                results <- mapM (\t -> tableExists store ("kiroku." <> t)) tables
+                results `shouldBe` replicate (length tables) True
+
+            it "leaves the public schema free of Kiroku tables" $ \store -> do
+                let tables = ["streams", "events", "stream_events", "subscriptions"]
+                results <- mapM (\t -> tableExists store ("public." <> t)) tables
+                results `shouldBe` replicate (length tables) False
+
             it "provides a UUIDv7 database default for direct event inserts" $ \store -> do
                 eventIdText <- insertEventUsingDefaultId store
                 version <- serverVersionNum store

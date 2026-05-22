@@ -17,9 +17,9 @@ create-database:
     @psql -lqt | cut -d \| -f 1 | grep -qw kiroku || createdb kiroku
     @echo "Database 'kiroku' ready"
 
-# Initialize the schema (apply schema.sql)
+# Initialize the schema (apply schema.sql into the dedicated `kiroku` schema)
 init-schema:
-    psql -d kiroku -f kiroku-store/sql/schema.sql
+    sed 's/__KIROKU_SCHEMA__/kiroku/g' kiroku-store/sql/schema.sql | psql -d kiroku -f -
 
 # Drop and recreate the database
 reset-database:

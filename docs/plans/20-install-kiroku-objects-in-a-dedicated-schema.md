@@ -26,7 +26,7 @@ The behavior is visible without reading code: after startup schema initializatio
 - [x] (2026-05-17 22:10Z) Created this ExecPlan with `bun agents/skills/exec-plan/init-plan.ts --title "Install Kiroku objects in a dedicated schema"`.
 - [x] (2026-05-21) Milestone 1: Make fresh schema initialization install every Kiroku-owned object under `kiroku` and make runtime sessions resolve unqualified SQL there. Added `__KIROKU_SCHEMA__` sentinel + `CREATE SCHEMA`/`SET search_path` to `schema.sql`; `initializeSchema` now substitutes the quoted schema; `quoteIdentifier` added to `Kiroku.Store.Schema`; `defaultConnectionSettings` defaults `schema = "kiroku"`; `initScript` sets `search_path` first. `cabal test kiroku-store:kiroku-store-test` → 152 examples, 0 failures.
 - [x] (2026-05-21) Milestone 2: Update codd migrations, migration tests, and operator docs so production-style migration installs and verifies the `kiroku` schema. Bootstrap migration regenerated from `schema.sql` (sentinel → `kiroku`), re-syncing the consumer-group divergence. `testCoddSettings` now uses `IncludeSchemas [SqlSchema "kiroku"]`; bootstrap/UUID asserts are `kiroku.`-qualified; added `assertSchemaPlacement` (all four tables in `kiroku`, none in `public`). `CODD_SCHEMAS=kiroku` in both READMEs. `cabal test kiroku-store-migrations:kiroku-store-migrations-test` → 1 example, 0 failures.
-- [ ] Milestone 3: Update direct SQL tests, benchmark scripts, and documentation to prove `public` stays clean while existing store behavior still works.
+- [x] (2026-05-21) Milestone 3: Update direct SQL tests, benchmark scripts, and documentation to prove `public` stays clean while existing store behavior still works. Added `tableExists` helper + two schema-placement tests to `kiroku-store/test`; bench harness uses `PGOPTIONS` (no per-txn round-trip) plus `SET search_path` in the psql helper files and `PGOPTIONS` in standalone pgbench examples; `just init-schema` substitutes the sentinel via `sed`; updated `README.md`, `docs/user/schema.md`, and `docs/user/getting-started.md`. `cabal test kiroku-store:kiroku-store-test` → 154 examples, 0 failures.
 
 
 ## Surprises & Discoveries
@@ -58,6 +58,30 @@ The behavior is visible without reading code: after startup schema initializatio
   convergence `ALTER`/`CREATE INDEX` statements are harmless no-ops on a fresh
   install (the columns already exist; the old auto-named constraint never
   existed).
+
+- (2026-05-21) `cabal test all` fails one suite — `hasql-notifications-test`
+  from the external `optional-packages` dependency at
+  `/Users/shinzui/Keikaku/hub/haskell/hasql-project/hasql-notifications` — with
+  "Could not open database connection":
+
+  ```text
+  Could not open database connection
+  Failures:
+         uncaught exception: ExitCode / ExitFailure 1
+  3 examples, 1 failure
+  ```
+
+  This is pre-existing and environmental: that dependency's tests connect to a
+  default local PostgreSQL rather than spinning up `ephemeral-pg`, and no such
+  database is reachable here. It is out of scope for this plan (the dependency
+  is upstream of `kiroku-store`, so a schema-default change in `kiroku-store`
+  cannot affect it) and is not modified by this work. The two acceptance
+  suites — `kiroku-store-test` (154 examples) and
+  `kiroku-store-migrations-test` (1 example) — pass, as do `kiroku-otel-test`
+  and `shibuya-kiroku-adapter-test`. Prefer the targeted
+  `cabal test kiroku-store:kiroku-store-test` /
+  `cabal test kiroku-store-migrations:kiroku-store-migrations-test` over
+  `cabal test all` for validating this change.
 
 
 ## Decision Log
@@ -123,10 +147,80 @@ The behavior is visible without reading code: after startup schema initializatio
   of truth avoids drift.
   Date: 2026-05-21
 
+- Decision: For the SQL benchmarks, resolve the `kiroku` schema with
+  `PGOPTIONS="-c search_path=kiroku,pg_catalog"` exported in
+  `kiroku-store/bench/sql/run_benchmarks.sh`, plus a one-line
+  `SET search_path TO kiroku, pg_catalog;` at the top of the psql-driven helper
+  files (`setup.sql`, `reset.sql`, `ensure_streams.sql`). The per-iteration
+  pgbench benchmark files (`bench_*.sql`) are left without a leading `SET`; only
+  their header `pgbench` example comments gain the `PGOPTIONS` prefix.
+  Rationale: The plan suggested adding `SET search_path` to every standalone
+  pgbench file, but each pgbench statement is its own protocol round-trip, so a
+  leading `SET` would add a round-trip per transaction and distort exactly the
+  append benchmarks whose round-trip count is the metric (see the
+  `project_append_perf_constraints` memory note / Plans 21–24). `PGOPTIONS` sets
+  the search path at connection startup for every harness connection (the
+  `check_prereqs` psql probe, `reset`/`ensure`/`setup`, and pgbench) with zero
+  per-transaction overhead, and the helper-file `SET` keeps those scripts
+  correct when run directly through psql.
+  Date: 2026-05-21
+
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+Achieved (2026-05-21): A fresh Kiroku installation now creates and uses a
+dedicated `kiroku` PostgreSQL schema and leaves `public` empty of Kiroku
+objects, while the Haskell API behaves exactly as before. This is proven by
+automated tests in one ephemeral-PostgreSQL run each:
+
+- `kiroku-store:kiroku-store-test` (154 examples, 0 failures) — including two
+  new schema-placement assertions (`to_regclass('kiroku.<table>')` non-null for
+  all four tables; `to_regclass('public.<table>')` null for all four), the
+  UUIDv7 default insert, appends/reads, live `LISTEN/NOTIFY` subscription
+  wakeups, durable checkpoints, and hard-delete/TRUNCATE protections.
+- `kiroku-store-migrations:kiroku-store-migrations-test` (1 example, 0 failures)
+  — applies the embedded codd bootstrap into `kiroku`, asserts the `$all`
+  stream and UUIDv7 default against `kiroku.*`, asserts `public` is clean,
+  opens the store with `SkipSchemaInitialization`, appends/reads, and reruns
+  migrations idempotently. codd is configured with
+  `IncludeSchemas [SqlSchema "kiroku"]`.
+
+How it works: `kiroku-store/sql/schema.sql` carries a `__KIROKU_SCHEMA__`
+sentinel in its `CREATE SCHEMA` and `SET search_path` lines.
+`Kiroku.Store.Schema.initializeSchema` substitutes the configured,
+double-quoted schema before running the script (via the new exported
+`quoteIdentifier`), `just init-schema` substitutes the literal `kiroku` with
+`sed`, and the codd bootstrap migration is the same file with the sentinel
+baked to `kiroku`. `defaultConnectionSettings` defaults `schema = "kiroku"`,
+and every pooled connection runs `SET search_path TO "<schema>", pg_catalog`
+first, so the unqualified statements in `Kiroku.Store.SQL` resolve into the
+Kiroku schema. The `schema` field is now authoritative for object location,
+table resolution, and the `LISTEN <schema>.events` channel together.
+
+What also got fixed: the bootstrap migration had silently drifted from
+`schema.sql` (it lacked the consumer-group columns added in `76c6574`);
+regenerating it from `schema.sql` re-synced the two.
+
+Lessons learned:
+
+- The "two channel names must match" footgun the old `schema` field documented
+  is gone, because object location and the listen channel now derive from one
+  field instead of splitting between a connection-string `search_path` and the
+  `schema` setting.
+- Adding `SET search_path` to per-iteration pgbench scripts would have added a
+  protocol round-trip per transaction and distorted exactly the append
+  benchmarks whose round-trip count is the metric; `PGOPTIONS` on the harness
+  achieves the same correctness with zero per-transaction cost.
+- Keeping the codd bootstrap a literal `sed` projection of `schema.sql` is the
+  cheapest way to stop the two from drifting again; longer term the migration
+  story should be extracted (see the `project_schema_migration.md` memory note).
+
+Remaining / not in scope: strict codd expected-schema verification is still
+deferred (the migration test uses `runKirokuMigrationsNoCheck`); custom
+non-`kiroku` schemas are supported through `withStore` but not through the codd
+migration (its bootstrap hardcodes `kiroku`); the external
+`hasql-notifications-test` dependency suite fails for environmental reasons
+unrelated to this change (see Surprises & Discoveries).
 
 
 ## Context and Orientation

@@ -8,7 +8,7 @@
 -- since it's the most representative read path.
 --
 -- pgbench usage:
---   pgbench -n -f bench_read.sql -t 5000 -c 1 kiroku
+--   PGOPTIONS="-c search_path=kiroku,pg_catalog" pgbench -n -f bench_read.sql -t 5000 -c 1 kiroku
 
 \set start_pos random(0, 99900)
 

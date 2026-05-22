@@ -63,12 +63,17 @@ just nix-check
 
 ## Schema Management
 
+Kiroku installs all of its objects into a dedicated `kiroku` PostgreSQL schema
+by default, leaving `public` free for application objects.
+
 During development, `kiroku-store` can initialize its embedded schema when a
-store is acquired through `withStore`.
+store is acquired through `withStore`. The default `schema` setting is `kiroku`;
+it controls where Kiroku objects live, the `search_path` of every pooled
+connection, and the notification channel.
 
 For production-style usage, run the migration executable from
-`kiroku-store-migrations` first, then start the application with schema
-initialization disabled. See
+`kiroku-store-migrations` first (with `CODD_SCHEMAS=kiroku`), then start the
+application with schema initialization disabled. See
 [`kiroku-store-migrations/README.md`](kiroku-store-migrations/README.md) for
 the migration command and runtime settings.
 

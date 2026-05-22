@@ -145,7 +145,7 @@ settings =
 | --- | --- | --- |
 | `connString` | (required) | PostgreSQL connection string passed to libpq verbatim. |
 | `poolSize` | `10` | Connection pool size. See `docs/PRODUCTION-TUNING.md` for sizing. |
-| `schema` | `"public"` | **LISTEN channel name only.** It does *not* qualify table names — those follow the connection's `search_path`. See note below. |
+| `schema` | `"kiroku"` | **The dedicated schema that owns every Kiroku object.** Controls where the tables install, the `search_path` of each pooled connection, and the `LISTEN` channel. See note below. |
 | `idleInTransactionTimeout` | `30` | `idle_in_transaction_session_timeout`, in seconds, set on each pooled connection. |
 | `statementTimeout` | `Nothing` | When `Just s`, sets `statement_timeout = s` seconds. Bounds any single statement; protects pool slots from pathological queries. |
 | `observationHandler` | `Nothing` | Callback for `hasql-pool` connection-lifecycle events. See [Observability](observability.md). |
@@ -153,15 +153,15 @@ settings =
 | `storeSettings` | no-op | Append/read hooks for cross-cutting concerns such as trace context. See [OpenTelemetry](opentelemetry.md). |
 | `schemaInitialization` | `InitializeSchemaOnAcquire` | Whether `withStore` runs schema DDL on startup. Use `SkipSchemaInitialization` when migrations manage the schema. |
 
-The `schema` field controls only the `LISTEN <schema>.events` channel name.
-With the defaults (`schema = "public"` and PostgreSQL's default
-`search_path`) the listener channel and the trigger's notification channel
-coincide. If you set a non-default `schema`, you must also ensure the
-application user's `search_path` resolves `streams` in that same schema, or
-the listener silently receives no notifications and subscriptions fall back
-to the 30-second safety poll. Genuine schema-per-tenant table isolation is
-not provided by this field; run a separate `KirokuStore` per tenant with
-`search_path` set in the connection string.
+The `schema` field is authoritative for three things kept in lockstep: where
+Kiroku objects install (the `kiroku` schema by default), the `search_path`
+that every pooled connection sets (`SET search_path TO <schema>, pg_catalog`),
+and the `LISTEN <schema>.events` notification channel. Because object location
+and the listen channel both derive from this single field, the listener
+channel and the trigger's `TG_TABLE_SCHEMA || '.events'` notification channel
+always coincide. To run more than one isolated store against the same database
+(for example schema-per-tenant), give each a distinct `schema`; each gets its
+own set of Kiroku tables and its own notification channel.
 
 ## What Happens On Acquire
 

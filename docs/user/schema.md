@@ -1,13 +1,21 @@
 # Database Schema
 
-Kiroku stores events in PostgreSQL using three core tables:
+Kiroku installs all of its objects into a dedicated `kiroku` PostgreSQL schema
+by default, leaving `public` free for application objects. It stores events
+using three core tables:
 
-- `streams` stores stream identities and their current versions.
-- `events` stores immutable event payloads.
-- `stream_events` links events into streams, including the global `$all`
+- `kiroku.streams` stores stream identities and their current versions.
+- `kiroku.events` stores immutable event payloads.
+- `kiroku.stream_events` links events into streams, including the global `$all`
   stream and any link streams.
 
-The `subscriptions` table stores durable subscription checkpoints.
+The `kiroku.subscriptions` table stores durable subscription checkpoints.
+
+This page uses the short, unqualified names (`streams`, `events`,
+`stream_events`, `subscriptions`) below; they assume the session's
+`search_path` is set to `kiroku, pg_catalog`, which every Kiroku connection
+does automatically. Use the schema-qualified `kiroku.<table>` form when
+querying from a session that has not set that `search_path`.
 
 The canonical schema lives in
 `kiroku-store/sql/schema.sql`. Production deployments should normally apply it

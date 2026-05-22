@@ -1,7 +1,7 @@
 -- Benchmark 5b: $all read only (for isolated measurement)
 --
 -- pgbench usage:
---   pgbench -n -f bench_read_all.sql -t 5000 -c 1 kiroku
+--   PGOPTIONS="-c search_path=kiroku,pg_catalog" pgbench -n -f bench_read_all.sql -t 5000 -c 1 kiroku
 
 \set start_pos random(0, 99900)
 
