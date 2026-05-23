@@ -2,6 +2,10 @@
 
 Kiroku is an experimental PostgreSQL event store written in Haskell.
 
+> [!WARNING]
+> Kiroku packages are under active development. APIs, schemas, and operational
+> defaults may change in breaking ways before the project stabilizes.
+
 The name comes from the Japanese word **記録** (*kiroku*), meaning
 "record", "log", or "chronicle". That is the core idea of the project:
 preserve an ordered, durable record of domain events and make that record
@@ -91,4 +95,4 @@ the migration command and runtime settings.
 ## Status
 
 Kiroku is currently experimental. APIs, schema details, and operational
-defaults may change as the event store hardens.
+defaults may change in breaking ways as the event store hardens.
