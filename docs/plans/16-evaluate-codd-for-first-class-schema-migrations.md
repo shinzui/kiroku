@@ -29,6 +29,7 @@ The observable outcome is a small consumer-style scenario: start an empty Postgr
 - [x] Milestone 3: Adjust store startup so runtime use does not require DDL privileges by default. Completed 2026-05-16T19:12:20Z.
 - [x] Milestone 4: Add consumer integration tests and documentation for local, CI, and production use. Completed 2026-05-16T19:12:20Z.
 - [x] Follow-up: remove duplicated migration ownership from `kiroku-store` so only `kiroku-store-migrations/sql-migrations` carries schema SQL. Completed 2026-05-23.
+- [x] Follow-up: centralize migrated ephemeral PostgreSQL test setup and optimize fixture startup with one cached server plus per-example template database clones. Completed 2026-05-23T20:04:09Z.
 
 
 ## Surprises & Discoveries
@@ -84,6 +85,10 @@ Warn: Not all features of PostgreSQL version v18 may be supported by codd.
 rejecting: kiroku-store:*test (cyclic dependencies; conflict set: kiroku-store, kiroku-store-migrations)
 ```
 
+- `ephemeral-pg`'s initdb cache removes PostgreSQL cluster initialization cost, but it does not cache a post-migration schema because the cached directory is created before PostgreSQL starts. Its snapshot API can restore a data directory, but it restarts the server behind the existing handle and is a poor fit for repeated per-example fixture cleanup. The practical optimization is one cached PostgreSQL server per suite, one migrated template database, and per-example `CREATE DATABASE ... TEMPLATE ...` clones.
+
+- A standalone `kiroku-test-support` package cannot depend on `kiroku-store` without creating a Cabal package cycle: `kiroku-store` tests need the support package, while the support package would need `kiroku-store` to open `withStore`. The support package therefore owns only PostgreSQL/migration fixture setup and returns a connection string; each test suite opens its own `KirokuStore`.
+
 
 ## Decision Log
 
@@ -111,6 +116,14 @@ rejecting: kiroku-store:*test (cyclic dependencies; conflict set: kiroku-store, 
   Rationale: A direct test dependency on `kiroku-store-migrations` creates a package cycle when tests are enabled, because the migration package's integration test imports `kiroku-store`. Reading the SQL file in the core test fixture keeps one SQL source without adding a library dependency cycle.
   Date: 2026-05-23
 
+- Decision: Add a workspace-only `kiroku-test-support` package for migrated ephemeral PostgreSQL fixtures.
+  Rationale: The migration SQL application and ephemeral database setup had been duplicated in `kiroku-store` and `shibuya-kiroku-adapter` tests. A shared package removes that duplication without using `hs-source-dirs: ../...`, which Cabal warns is not suitable for source distributions. The package does not depend on `kiroku-store`; callers receive a migrated connection string and open `withStore` locally.
+  Date: 2026-05-23
+
+- Decision: Optimize migrated database fixtures with PostgreSQL template database cloning rather than `EphemeralPg.Snapshot.restoreSnapshot`.
+  Rationale: `ephemeral-pg` caches initdb output, not a migrated running database. Template database cloning keeps one cached server alive for the suite, migrates once, and gives every example an isolated database with normal PostgreSQL semantics.
+  Date: 2026-05-23
+
 - Decision: Accept `codd` for the first implementation, but ship `kiroku-store-migrate` with `LaxCheck` until Kiroku has a checked-in expected-schema snapshot for PostgreSQL 18.
   Rationale: The integration test proves embedded migrations work and are repeatable. Strict checking is the main long-term reason to use `codd`, but this repository does not yet contain a generated expected schema and upstream emits a PostgreSQL 18 support warning.
   Date: 2026-05-16
@@ -131,6 +144,8 @@ Strict schema verification remains deferred. The package currently uses `LaxChec
 Validation completed on 2026-05-16. `nix fmt` formatted the tree successfully. `cabal build kiroku-store-migrations` succeeded. The focused migration test passed with one example and zero failures. `kiroku-store:kiroku-store-test` passed 128 examples, `kiroku-store-migrations:kiroku-store-migrations-test` passed one example, and `kiroku-otel:kiroku-otel-test` passed six examples. `cabal test all` did not complete because optional dependency suites outside this plan failed: `codd-test` could not execute `hspec-discover`, `hasql-notifications-test` could not open its database, and `shibuya-kiroku-adapter` failed to build against the current local `shibuya-core` API because `Envelope` now requires an `attributes` field.
 
 Follow-up validation on 2026-05-23: `cabal build --disable-benchmarks lib:kiroku-store lib:kiroku-store-migrations` succeeded. `cabal test --disable-benchmarks kiroku-store:kiroku-store-test` passed 158 examples with zero failures. `cabal test --disable-benchmarks kiroku-store-migrations:kiroku-store-migrations-test` passed one example with zero failures.
+
+Performance follow-up validation on 2026-05-23: before the optimization, `cabal test --disable-benchmarks kiroku-store:kiroku-store-test` reported `Finished in 114.3938 seconds` and shell `real 143.02`. After the shared template-database fixture, the same suite reported `Finished in 31.1215 seconds` and shell `real 48.14`. The Shibuya adapter baseline from commit `f96ac8c` reported `Finished in 4.5370 seconds` and shell `real 39.82`; after the shared fixture, `cabal test --disable-benchmarks shibuya-kiroku-adapter:shibuya-kiroku-adapter-test` reported `Finished in 2.5434 seconds`.
 
 
 ## Context and Orientation
@@ -480,3 +495,8 @@ Even though embedded migrations bypass disk-based migration collection, `CoddSet
 ## Revision Note — 2026-05-23
 
 Reopened the completed plan because the initial implementation created `kiroku-store-migrations` but left duplicate schema SQL and schema initialization in `kiroku-store`. This revision records the follow-up correction: `kiroku-store-migrations/sql-migrations` is now the only schema SQL owner, `kiroku-store/sql/schema.sql` and `Kiroku.Store.Schema` were removed, `withStore` no longer runs DDL, tests migrate disposable databases before opening the store, and validation was rerun for both changed packages.
+
+
+## Revision Note — 2026-05-23 Performance Follow-Up
+
+Added a shared `kiroku-test-support` fixture package and recorded the before/after measurements for migrated ephemeral PostgreSQL tests. The fixture uses one cached `ephemeral-pg` server per suite, migrates a template database once, and gives each example a fresh PostgreSQL database cloned from that template.

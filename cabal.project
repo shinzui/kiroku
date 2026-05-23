@@ -1,6 +1,7 @@
 packages:
   kiroku-store
   kiroku-store-migrations
+  kiroku-test-support
   shibuya-kiroku-adapter
   kiroku-otel
 

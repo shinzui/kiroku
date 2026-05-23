@@ -101,6 +101,7 @@ test-suite kiroku-store-test
     , hspec                 >=2.10
     , hspec-hedgehog        >=0.0
     , kiroku-store
+    , kiroku-test-support
     , lens                  >=5.2
     , stm
     , streamly-core         >=0.3

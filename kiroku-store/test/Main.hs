@@ -40,7 +40,7 @@ import Test.StreamNameLookup qualified as StreamNameLookup
 import Test.Transaction qualified as Transaction
 
 main :: IO ()
-main = hspec $ do
+main = withSharedMigratedPostgres $ hspec $ do
     Properties.spec
     Concurrency.spec
     FailureInjection.spec
