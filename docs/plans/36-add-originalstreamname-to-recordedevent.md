@@ -27,7 +27,8 @@ Decision Log, and Outcomes & Retrospective must be kept up to date as work proce
 > StreamName)` (plus singular `lookupStreamName`), which resolves the surrogate
 > `originalStreamId` that fan-in reads already carry, on demand, keeping the read
 > hot path at baseline. The narrative below is preserved as the record of how we
-> got there; see the Decision Log, Surprises & Discoveries, and Outcomes.
+> got there; see the Decision Log, Surprises & Discoveries, and Outcomes. The
+> distilled decision lives in `docs/adr/0001-resolve-stream-names-via-lookup-not-recordedevent-field.md`.
 
 Kiroku is a PostgreSQL event store. When you read events, you get back a value of type
 `RecordedEvent`. Today that value tells you which *database surrogate id* the event came
