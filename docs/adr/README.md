@@ -32,3 +32,7 @@ Alternatives Considered. Copy an existing ADR as a starting template.
 
 - [ADR-0001](0001-resolve-stream-names-via-lookup-not-recordedevent-field.md) —
   Resolve stream names via an on-demand lookup API, not a `RecordedEvent` field.
+- [ADR-0002](0002-static-hash-partitioned-consumer-groups.md) —
+  Consumer groups are static, hash-partitioned competing consumers.
+- [ADR-0003](0003-dedicated-kiroku-schema.md) —
+  Install Kiroku objects in a dedicated `kiroku` schema.
