@@ -1,9 +1,11 @@
 # Reading Events
 
-Kiroku exposes four read shapes: a single stream, the global `$all` stream, a
-category (a fan-in of streams sharing a name prefix), and stream metadata.
-All event reads return `Vector RecordedEvent`; all use an **exclusive**
-cursor. This guide covers each, plus constant-memory streaming reads.
+Kiroku's event reads all return `Vector RecordedEvent`: a single stream, the
+global `$all` stream, a category (a fan-in of streams sharing a name prefix),
+and the causation/correlation queries. The first three are paged through an
+**exclusive** cursor. This guide covers them plus constant-memory streaming
+reads and stream-metadata lookups; the causal queries have their own guide,
+[Causation And Correlation](causation-correlation.md).
 
 ## `RecordedEvent`
 
@@ -149,9 +151,53 @@ that were hard-deleted or never created.
 — it decodes one column instead of five. It returns `Nothing` for never-created
 and hard-deleted streams, matching `getStream`'s soft-delete behavior.
 
+## Resolving Source Stream Names
+
+Fan-in reads — `$all`, `readCategory`, the
+[causation/correlation queries](causation-correlation.md), and subscriptions —
+return events from many streams, and each `RecordedEvent` carries only the
+surrogate `originalStreamId`, never the stream name. (Returning the name on every
+row was measured to cost ~13% on `$all` reads, so it is resolved on demand
+instead; see [ADR-0001](../adr/0001-resolve-stream-names-via-lookup-not-recordedevent-field.md).)
+When you need the human-readable name, resolve ids to names with the inverse of
+`lookupStreamId`:
+
+```haskell
+lookupStreamNames ::
+  (HasCallStack, Store :> es) =>
+  [StreamId] -> Eff es (Map StreamId StreamName)
+
+lookupStreamName ::
+  (HasCallStack, Store :> es) =>
+  StreamId -> Eff es (Maybe StreamName)
+```
+
+`lookupStreamNames` resolves a whole batch in a single round trip. Collect the
+distinct ids from a read batch and resolve them once, rather than paying a round
+trip per event:
+
+```haskell
+import Control.Lens ((^.))
+import Data.List (nub)
+import Data.Map.Strict qualified as Map
+import Data.Vector qualified as V
+
+events <- readAllForward (GlobalPosition 0) 100
+let ids = nub (V.toList (V.map (^. #originalStreamId) events))
+names <- lookupStreamNames ids
+-- Map.lookup (event ^. #originalStreamId) names :: Maybe StreamName
+```
+
+`lookupStreamName` is the singular convenience for one id. Both include live and
+soft-deleted streams and return `Nothing` (or omit the key) for hard-deleted or
+never-created ids, matching `lookupStreamId`. Passing `[]` returns an empty map
+with no database round trip.
+
 ## See Also
 
 - [Appending Events](appending-events.md) — how positions are assigned.
 - [Linking Events](linking.md) — why `streamVersion` can differ from
   `originalVersion`.
+- [Causation And Correlation](causation-correlation.md) — query events by their
+  causal links and shared workflow id.
 - [Subscriptions](subscriptions.md) — read continuously as new events arrive.

@@ -17,9 +17,13 @@ system in production. For internal design notes see `docs/DESIGN.md` and
   `ExpectedVersion`, optimistic concurrency, idempotent retries,
   multi-stream appends, and transactional appends.
 - [Reading Events](reading-events.md) — stream reads, the global `$all`
-  stream, category reads, streaming reads, and stream metadata.
+  stream, category reads, streaming reads, stream metadata, and resolving
+  source stream names from `originalStreamId`.
 - [Linking Events](linking.md) — share an existing event into another
   stream without copying it.
+- [Causation And Correlation](causation-correlation.md) — walk causation
+  chains forward and backward, and gather every event in one workflow by
+  its shared `correlationId`.
 
 ## Subscriptions
 

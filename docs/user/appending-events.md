@@ -177,5 +177,7 @@ it.
 ## See Also
 
 - [Reading Events](reading-events.md) — how appended events read back.
+- [Causation And Correlation](causation-correlation.md) — query later by the
+  `causationId` / `correlationId` you set here.
 - [Stream Lifecycle](lifecycle.md) — how deletes affect appends.
 - [Database Schema](schema.md) — the ordering model behind global positions.

@@ -88,6 +88,8 @@ Discriminates the `KirokuEventSubscriptionStopped` cause:
 - `StopOverflowed` — the publisher dropped the subscription under
   `DropSubscription` (its queue overflowed). See
   [Subscriptions](subscriptions.md).
+- `StopWorkerCrashed !SomeException` — an uncaught exception (typically from
+  the handler) killed the worker. The exception carries the cause.
 
 ### `SubscriptionGroupContext`
 
@@ -100,8 +102,6 @@ identifies which consumer-group member emitted it:
 
 Use it to attribute a lifecycle event to a specific member when several members
 share one `SubscriptionName`. See [Consumer Groups](consumer-groups.md).
-- `StopWorkerCrashed !SomeException` — an uncaught exception (typically from
-  the handler) killed the worker. The exception carries the cause.
 
 ## Connection-Pool Observations
 
