@@ -1,6 +1,8 @@
 # kiroku-otel changelog
 
-## Unreleased
+## 0.1.0.0 — 2026-05-23
+
+### New Features
 
 - Initial release. Exposes `Kiroku.Otel.TraceContext` with two helpers:
   - `injectTraceContext :: SpanContext -> EventData -> EventData` — encodes

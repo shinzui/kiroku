@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0.0 — 2026-05-23
 
 ### Changed — migrations own schema lifecycle
 

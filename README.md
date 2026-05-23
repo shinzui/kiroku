@@ -14,8 +14,12 @@ workflows.
 
 ## What It Provides
 
-- `kiroku-store`: the core event store library, built on `hasql`.
-- `kiroku-store-migrations`: forward-only database migrations for the store.
+- `kiroku-store`: the core event store library, built on `hasql`; includes
+  append, read, link, lifecycle, transaction, subscription, consumer-group, and
+  observability APIs.
+- `kiroku-store-migrations`: embedded forward-only codd migrations and the
+  `kiroku-store-migrate` executable for installing and upgrading the database
+  schema.
 - `kiroku-otel`: W3C trace-context helpers for Kiroku event metadata.
 - `shibuya-kiroku-adapter`: an adapter that exposes Kiroku subscriptions to
   the Shibuya queue processing framework.
@@ -28,7 +32,7 @@ claim gap-free global positions in the same transaction that appends events.
 ## Repository Layout
 
 ```text
-kiroku-store/              Core event store library, tests, benchmarks, SQL
+kiroku-store/              Core event store library, tests, and benchmarks
 kiroku-store-migrations/   Embedded codd migrations and migration executable
 kiroku-otel/               OpenTelemetry trace-context metadata helpers
 shibuya-kiroku-adapter/    Shibuya adapter for Kiroku subscriptions
@@ -70,14 +74,15 @@ just nix-check
 Kiroku installs all of its objects into a dedicated `kiroku` PostgreSQL schema
 by default, leaving `public` free for application objects.
 
-During development, `kiroku-store` can initialize its embedded schema when a
-store is acquired through `withStore`. The default `schema` setting is `kiroku`;
-it controls where Kiroku objects live, the `search_path` of every pooled
-connection, and the notification channel.
+`kiroku-store` does not run DDL when a store is acquired through `withStore`.
+Apply the embedded migrations from `kiroku-store-migrations` before opening the
+store. The default `schema` setting is `kiroku`; it controls the `search_path`
+of every pooled connection and the notification channel that subscriptions
+listen on.
 
-For production-style usage, run the migration executable from
-`kiroku-store-migrations` first (with `CODD_SCHEMAS=kiroku`), then start the
-application with schema initialization disabled. See
+Run the migration executable from `kiroku-store-migrations` first (with
+`CODD_SCHEMAS=kiroku`), then start the application normally with
+`withStore (defaultConnectionSettings connString)`. See
 [`kiroku-store-migrations/README.md`](kiroku-store-migrations/README.md) for
 the migration command and runtime settings.
 

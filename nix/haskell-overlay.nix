@@ -42,14 +42,28 @@ final: prev: {
     in
     dontCheck (doJailbreak (final.callCabal2nix "shibuya-core" patched { }));
 
-  kiroku-store = dontCheck (doJailbreak (final.callCabal2nix "kiroku-store" ../kiroku-store { }));
+  kiroku-test-support = dontCheck (
+    doJailbreak (final.callCabal2nix "kiroku-test-support" ../kiroku-test-support { })
+  );
+
+  kiroku-store = dontCheck (
+    doJailbreak (
+      final.callCabal2nix "kiroku-store" ../kiroku-store {
+        inherit (final) kiroku-test-support;
+      }
+    )
+  );
 
   kiroku-store-migrations = dontCheck (
     doJailbreak (final.callCabal2nix "kiroku-store-migrations" ../kiroku-store-migrations { })
   );
 
   shibuya-kiroku-adapter = dontCheck (
-    doJailbreak (final.callCabal2nix "shibuya-kiroku-adapter" ../shibuya-kiroku-adapter { })
+    doJailbreak (
+      final.callCabal2nix "shibuya-kiroku-adapter" ../shibuya-kiroku-adapter {
+        inherit (final) kiroku-test-support;
+      }
+    )
   );
 
   kiroku-otel = dontCheck (doJailbreak (final.callCabal2nix "kiroku-otel" ../kiroku-otel { }));

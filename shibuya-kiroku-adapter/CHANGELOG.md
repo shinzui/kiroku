@@ -1,6 +1,8 @@
 # Changelog
 
-## 0.1.0.0 — 2026-03-24
+## 0.1.0.0 — 2026-05-23
+
+### New Features
 
 * Initial release.
 * `kirokuAdapter` — create a Shibuya `Adapter es RecordedEvent` from a
