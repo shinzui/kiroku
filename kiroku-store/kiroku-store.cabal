@@ -29,7 +29,6 @@ library
     Kiroku.Store.Notification
     Kiroku.Store.Observability
     Kiroku.Store.Read
-    Kiroku.Store.Schema
     Kiroku.Store.Settings
     Kiroku.Store.SQL
     Kiroku.Store.Subscription
@@ -44,12 +43,10 @@ library
   build-depends:
     , aeson                 >=2.1
     , async                 >=2.2
-    , base                  >=4.18   && <5
-    , bytestring            >=0.11
+    , base                  >=4.18 && <5
     , containers            >=0.6
     , contravariant-extras  >=0.3
     , effectful-core        >=2.4
-    , file-embed            >=0.0.15
     , generic-lens          >=2.2
     , hasql                 >=1.10
     , hasql-notifications   >=0.2
@@ -93,6 +90,7 @@ test-suite kiroku-store-test
     , base                  >=4.18 && <5
     , containers            >=0.6
     , contravariant-extras  >=0.3
+    , directory
     , effectful-core        >=2.4
     , ephemeral-pg          >=0.2
     , generic-lens          >=2.2

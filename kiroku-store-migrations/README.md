@@ -22,14 +22,10 @@ track that schema. The runtime role therefore needs privileges on the
 `kiroku` schema (for example `USAGE` plus the table privileges it uses),
 not on `public`.
 
-After migrations run, start the application with schema initialization
-disabled:
+After migrations run, start the application normally:
 
 ```haskell
-withStore
-  (defaultConnectionSettings connString
-    & #schemaInitialization .~ SkipSchemaInitialization)
-  app
+withStore (defaultConnectionSettings connString) app
 ```
 
 `codd` is forward-only. Once a migration has run in production,

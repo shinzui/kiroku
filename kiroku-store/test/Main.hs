@@ -53,7 +53,7 @@ main = hspec $ do
     ConsumerGroup.spec
     ConsumerGroupEffect.spec
     around withTestStore $ do
-        describe "schema initialization" $ do
+        describe "schema migrations" $ do
             it "installs every Kiroku table under the kiroku schema" $ \store -> do
                 let tables = ["streams", "events", "stream_events", "subscriptions"]
                 results <- mapM (\t -> tableExists store ("kiroku." <> t)) tables
@@ -1680,17 +1680,11 @@ main = hspec $ do
         it "receives observations during store operations" $ \() -> do
             ref <- newIORef ([] :: [Observation])
             let handler obs = modifyIORef' ref (obs :)
-            result <- Pg.withCached $ \db -> do
-                let settings =
-                        (defaultConnectionSettings (Pg.connectionString db))
-                            { observationHandler = Just handler
-                            }
-                withStore settings $ \store -> do
+            withTestStoreSettings
+                (\settings -> settings{observationHandler = Just handler})
+                $ \store -> do
                     Right _ <- runStoreIO store $ appendToStream (StreamName "obs-test") NoStream [makeEvent "X" (Aeson.object [])]
                     pure ()
-            case result of
-                Left err -> error ("Failed to start ephemeral PostgreSQL: " <> show err)
-                Right () -> pure ()
             observations <- readIORef ref
             length observations `shouldSatisfy` (> 0)
 
@@ -1734,11 +1728,9 @@ main = hspec $ do
         it "emits subscription lifecycle events (F14)" $ \() -> do
             ref <- newIORef ([] :: [KirokuEvent])
             let evtHandler e = modifyIORef' ref (e :)
-            result <- Pg.withCached $ \db -> do
-                let settings =
-                        defaultConnectionSettings (Pg.connectionString db)
-                            & #eventHandler .~ Just evtHandler
-                withStore settings $ \store -> do
+            withTestStoreSettings
+                (& #eventHandler .~ Just evtHandler)
+                $ \store -> do
                     countRef <- newTVarIO (0 :: Int)
                     let h _ = do
                             n <- atomically $ do
@@ -1768,9 +1760,6 @@ main = hspec $ do
                             appendToStream (StreamName "lifecycle-1") (ExactVersion (StreamVersion 1)) [makeEvent "Y" (Aeson.object [])]
                     _ <- waitWithTimeout 10_000_000 handle
                     pure ()
-            case result of
-                Left err -> error ("Failed to start ephemeral PostgreSQL: " <> show err)
-                Right () -> pure ()
             evts <- readIORef ref
             let isStarted (KirokuEventSubscriptionStarted (SubscriptionName "lifecycle-test") _ _) = True
                 isStarted _ = False
@@ -1787,11 +1776,9 @@ main = hspec $ do
         it "emits a hard-delete event when the stream existed (F13)" $ \() -> do
             ref <- newIORef ([] :: [KirokuEvent])
             let evtHandler e = modifyIORef' ref (e :)
-            result <- Pg.withCached $ \db -> do
-                let settings =
-                        defaultConnectionSettings (Pg.connectionString db)
-                            & #eventHandler .~ Just evtHandler
-                withStore settings $ \store -> do
+            withTestStoreSettings
+                (& #eventHandler .~ Just evtHandler)
+                $ \store -> do
                     Right _ <-
                         runStoreIO store $
                             appendToStream (StreamName "hard-delete-evt") NoStream [makeEvent "X" (Aeson.object [])]
@@ -1800,9 +1787,6 @@ main = hspec $ do
                     -- the event — verify by issuing a second one.
                     Right _ <- runStoreIO store $ hardDeleteStream (StreamName "never-existed")
                     pure ()
-            case result of
-                Left err -> error ("Failed to start ephemeral PostgreSQL: " <> show err)
-                Right () -> pure ()
             evts <- readIORef ref
             let hardDeletes =
                     [ name'

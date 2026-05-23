@@ -14,17 +14,15 @@ its library API.
 
 ## Why Migrations Are Separate
 
-`kiroku-store` still initializes the schema automatically by default so
-existing local development and tests keep working. That startup path runs
-DDL, which is database-definition work such as `CREATE TABLE`,
-`CREATE INDEX`, `CREATE FUNCTION`, and `CREATE TRIGGER`.
+`kiroku-store` no longer embeds schema DDL or runs schema creation on
+startup. All schema creation and upgrades live in this package.
 
 Production deployments should split schema changes from normal runtime
 traffic:
 
 1. Run migrations with a privileged migration role.
 2. Run the application with a lower-privilege runtime role.
-3. Open the store with startup schema initialization disabled.
+3. Open the store with the runtime role after migrations have succeeded.
 
 This lets the application user avoid `CREATE` and `TRIGGER` privileges
 during normal startup.
@@ -84,27 +82,17 @@ from a filesystem directory.
 
 ## Opening The Store After Migration
 
-After migrations have run, disable startup DDL in the application:
+After migrations have run, open the store normally:
 
 ```haskell
-{-# LANGUAGE OverloadedLabels #-}
-{-# LANGUAGE OverloadedStrings #-}
-
-import Control.Lens ((&), (.~))
 import Kiroku.Store
 
 main :: IO ()
-main =
-  withStore
-    ( defaultConnectionSettings connString
-        & #schemaInitialization .~ SkipSchemaInitialization
-    )
-    app
+main = withStore (defaultConnectionSettings connString) app
 ```
 
-`InitializeSchemaOnAcquire` remains the default for compatibility. Use
-`SkipSchemaInitialization` when the database is managed by
-`kiroku-store-migrations`.
+`withStore` assumes the configured schema already exists and contains the
+Kiroku tables, functions, triggers, and indexes.
 
 
 ## Forward-Only Model

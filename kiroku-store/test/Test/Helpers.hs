@@ -55,19 +55,22 @@ import Data.Aeson (Value)
 import Data.Generics.Labels ()
 import Data.Int (Int32, Int64)
 import Data.Text (Text)
+import Data.Text.IO qualified as TIO
 import EphemeralPg qualified as Pg
 import Hasql.Connection qualified as Connection
 import Hasql.Connection.Settings qualified as Conn
 import Hasql.Decoders qualified as D
 import Hasql.Encoders qualified as E
 import Hasql.Pool qualified as Pool
+import Hasql.Pool.Config qualified as Pool.Config
 import Hasql.Session qualified as Session
 import Hasql.Statement (Statement, preparable, unpreparable)
 import Kiroku.Store
 import Kiroku.Store.Subscription.EventPublisher (publisherPosition)
+import System.Directory (doesFileExist)
 
-{- | Bracket that creates an ephemeral PostgreSQL database and provides a
-'KirokuStore' handle. Uses 'withStore' which auto-initializes the schema.
+{- | Bracket that creates an ephemeral PostgreSQL database, applies the
+Kiroku migrations, and provides a 'KirokuStore' handle.
 -}
 withTestStore :: (KirokuStore -> IO ()) -> IO ()
 withTestStore = withTestStoreSettings Prelude.id
@@ -79,11 +82,42 @@ install an 'eventHandler' or other observation hook.
 withTestStoreSettings :: (ConnectionSettings -> ConnectionSettings) -> (KirokuStore -> IO ()) -> IO ()
 withTestStoreSettings tweak action = do
     result <- Pg.withCached $ \db -> do
+        migrateTestDatabase (Pg.connectionString db)
         let settings = tweak (defaultConnectionSettings (Pg.connectionString db))
         withStore settings action
     case result of
         Left err -> error ("Failed to start ephemeral PostgreSQL: " <> show err)
         Right () -> pure ()
+
+migrateTestDatabase :: Text -> IO ()
+migrateTestDatabase connStr = do
+    migrationPath <- findMigrationSql
+    migrationSql <- TIO.readFile migrationPath
+    pool <- Pool.acquire poolConfig
+    result <- Pool.use pool (Session.script migrationSql)
+    Pool.release pool
+    case result of
+        Left err -> error ("Failed to apply Kiroku migration SQL for test database: " <> show err)
+        Right () -> pure ()
+  where
+    poolConfig =
+        Pool.Config.settings
+            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
+            , Pool.Config.size 1
+            ]
+
+findMigrationSql :: IO FilePath
+findMigrationSql = go candidates
+  where
+    candidates =
+        [ "kiroku-store-migrations/sql-migrations/2026-05-16-00-00-00-kiroku-bootstrap.sql"
+        , "../kiroku-store-migrations/sql-migrations/2026-05-16-00-00-00-kiroku-bootstrap.sql"
+        ]
+
+    go [] = error "Could not locate kiroku-store-migrations bootstrap SQL from test working directory"
+    go (path : rest) = do
+        exists <- doesFileExist path
+        if exists then pure path else go rest
 
 -- | Create a simple 'EventData' with an auto-generated id.
 makeEvent :: Text -> Value -> EventData

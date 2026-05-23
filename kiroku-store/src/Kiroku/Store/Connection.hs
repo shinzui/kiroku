@@ -1,6 +1,5 @@
 module Kiroku.Store.Connection (
     KirokuStore (..),
-    SchemaInitialization (..),
     ConnectionSettingsM (..),
     ConnectionSettings,
     defaultConnectionSettings,
@@ -23,16 +22,9 @@ import Hasql.Session qualified as Session
 import Kiroku.Store.Notification (Notifier)
 import Kiroku.Store.Notification qualified as Notifier
 import Kiroku.Store.Observability (KirokuEvent)
-import Kiroku.Store.Schema (initializeSchema, quoteIdentifier)
 import Kiroku.Store.Settings (StoreSettings, defaultStoreSettings)
 import Kiroku.Store.Subscription.EventPublisher (EventPublisher)
 import Kiroku.Store.Subscription.EventPublisher qualified as Publisher
-
--- | Controls whether 'withStore' runs schema DDL during acquisition.
-data SchemaInitialization
-    = InitializeSchemaOnAcquire
-    | SkipSchemaInitialization
-    deriving stock (Eq, Show)
 
 -- | Connection settings for the store, parameterized by monad.
 data ConnectionSettingsM m = ConnectionSettings
@@ -47,30 +39,22 @@ data ConnectionSettingsM m = ConnectionSettings
     {- ^ PostgreSQL schema that owns every Kiroku object
     (default: @"kiroku"@).
 
-    This field is authoritative for three things, kept in lockstep:
+    This field is authoritative for two things, kept in lockstep:
 
-    * __Object location.__ When 'schemaInitialization' is
-      'InitializeSchemaOnAcquire', 'Kiroku.Store.Schema.initializeSchema'
-      creates this schema and installs the @streams@, @events@,
-      @stream_events@, and @subscriptions@ tables (plus their indexes,
-      functions, and triggers) inside it.
     * __Table resolution.__ Every pooled connection runs
       @SET search_path TO \<schema\>, pg_catalog@ before any statement,
       so the unqualified names in "Kiroku.Store.SQL" resolve to this
       schema.
     * __Notification channel.__ The
       'Kiroku.Store.Notification.Notifier' issues
-      @LISTEN \<schema\>.events@ on its dedicated connection, and the
-      @notify_events()@ trigger in @sql\/schema.sql@ publishes to
-      @TG_TABLE_SCHEMA || \'.events\'@ — i.e., the schema in which the
-      @streams@ table actually lives. Because object location and the
-      listen channel both derive from this one field, those two channel
-      names coincide and notification-driven subscription wakeups work.
+      @LISTEN \<schema\>.events@ on its dedicated connection, matching the
+      channel published by the migration-created @notify_events()@
+      trigger.
 
     To run more than one isolated 'KirokuStore' against the same database
-    (for example schema-per-tenant), give each one a distinct 'schema';
-    each gets its own set of Kiroku tables and its own notification
-    channel.
+    (for example schema-per-tenant), migrate each schema and give each
+    store a distinct 'schema'; each gets its own set of Kiroku tables and
+    its own notification channel.
     -}
     , idleInTransactionTimeout :: !Int
     -- ^ idle_in_transaction_session_timeout in seconds (default: 30)
@@ -113,13 +97,6 @@ data ConnectionSettingsM m = ConnectionSettings
     See "Kiroku.Store.Settings" for the hook semantics and the
     OpenTelemetry trace-context use case that motivates this seam.
     -}
-    , schemaInitialization :: !SchemaInitialization
-    {- ^ Startup schema behavior. The default is
-    'InitializeSchemaOnAcquire' for compatibility with existing tests and
-    local development. Production deployments can run
-    @kiroku-store-migrate@ first under a migration role and then use
-    'SkipSchemaInitialization' for lower-privilege runtime users.
-    -}
     }
     deriving stock (Generic)
 
@@ -138,7 +115,6 @@ defaultConnectionSettings cs =
         , observationHandler = Nothing
         , eventHandler = Nothing
         , storeSettings = defaultStoreSettings
-        , schemaInitialization = InitializeSchemaOnAcquire
         }
 
 -- | The store handle. Holds a connection pool, schema name, and subscription infrastructure.
@@ -170,14 +146,9 @@ Acquire phase, in order:
 
 1. Acquire the connection pool from @hasql-pool@ with the configured
    size and the @idle_in_transaction_session_timeout@ init session.
-2. Run the embedded schema DDL (@kiroku-store/sql/schema.sql@) when
-   'schemaInitialization' is 'InitializeSchemaOnAcquire'. Idempotent under
-   repeat starts. Failures throw 'Kiroku.Store.Schema.SchemaInitError'
-   (re-exported from 'Kiroku.Store'). When 'schemaInitialization' is
-   'SkipSchemaInitialization', acquisition assumes migrations already ran.
-3. Start the 'Kiroku.Store.Notification.Notifier' on a dedicated
+2. Start the 'Kiroku.Store.Notification.Notifier' on a dedicated
    connection: @LISTEN \<schema\>.events@.
-4. Start the 'Kiroku.Store.Subscription.EventPublisher' which consumes
+3. Start the 'Kiroku.Store.Subscription.EventPublisher' which consumes
    notifier ticks and broadcasts new events to subscribers.
 
 Release phase, in reverse order:
@@ -203,8 +174,8 @@ withStore settings action = withRunInIO $ \runInIO ->
             -- Resolve unqualified Kiroku table names (see "Kiroku.Store.SQL")
             -- to the configured schema on every pooled connection. Setting a
             -- not-yet-created schema is harmless: PostgreSQL does not validate
-            -- search_path entries, so this is safe even before
-            -- 'initializeSchema' has run on a fresh database.
+            -- search_path entries. Runtime queries still require migrations to
+            -- have created the schema before the store is opened.
             ("SET search_path TO " <> quoteIdentifier (settings ^. #schema) <> ", pg_catalog")
                 : ("SET idle_in_transaction_session_timeout = '" <> T.pack (show (settings ^. #idleInTransactionTimeout)) <> "s'")
                 : maybe
@@ -227,9 +198,6 @@ withStore settings action = withRunInIO $ \runInIO ->
             cs = settings ^. #connString
             evtHandler = settings ^. #eventHandler
             stSettings = settings ^. #storeSettings
-        case settings ^. #schemaInitialization of
-            InitializeSchemaOnAcquire -> initializeSchema p s
-            SkipSchemaInitialization -> pure ()
         -- Start Notifier (dedicated LISTEN connection)
         n <- Notifier.startNotifier cs s evtHandler
         -- Start EventPublisher (depends on Notifier's TChan)
@@ -249,3 +217,10 @@ withStore settings action = withRunInIO $ \runInIO ->
         Publisher.stopPublisher (store ^. #publisher)
         Notifier.stopNotifier (store ^. #notifier)
         Pool.release (store ^. #pool)
+
+{- | Quote a 'Text' as a PostgreSQL identifier: wrap it in double quotes and
+double any embedded double quote. Used to set the configured schema in
+@search_path@ without risking SQL injection from a hostile schema setting.
+-}
+quoteIdentifier :: Text -> Text
+quoteIdentifier ident = "\"" <> T.replace "\"" "\"\"" ident <> "\""

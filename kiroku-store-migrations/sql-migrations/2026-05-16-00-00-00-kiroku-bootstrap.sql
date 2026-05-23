@@ -1,13 +1,10 @@
 -- Kiroku Store bootstrap migration (codd)
 -- Supports PostgreSQL 17+.
 --
--- This file is the production-migration projection of
--- `kiroku-store/sql/schema.sql` with that file's `__KIROKU_SCHEMA__` token
--- resolved to the literal `kiroku`. codd applies it verbatim, so unlike the
--- development bootstrap there is no runtime sentinel substitution. Keep the two
--- files in sync: when `schema.sql` changes, regenerate this file with
---   sed 's/__KIROKU_SCHEMA__/kiroku/g' kiroku-store/sql/schema.sql
--- and restore this header.
+-- kiroku-store-migrations is the schema owner. codd applies this file
+-- verbatim, records that the timestamped migration ran, and skips it on later
+-- runs. Future schema changes add new timestamped SQL files in this directory
+-- instead of changing kiroku-store.
 --
 -- All Kiroku-owned objects live in the dedicated `kiroku` schema, leaving
 -- `public` free for application objects. Creating the schema and setting
@@ -134,8 +131,9 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 
 -- Idempotent convergence for databases created before EP-1: add the columns if
 -- missing, drop the old auto-named single-column unique constraint if present,
--- and install the composite unique index. All guarded so re-running schema.sql
--- (which initializeSchema does on every store open) is a safe no-op.
+-- and install the composite unique index. All guarded so the bootstrap body is
+-- still safe in disposable local databases; codd records the timestamped
+-- migration and does not reapply it after a successful run.
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS consumer_group_member INT NOT NULL DEFAULT 0;
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS consumer_group_size   INT NOT NULL DEFAULT 1;
 ALTER TABLE subscriptions DROP CONSTRAINT IF EXISTS subscriptions_subscription_name_key;

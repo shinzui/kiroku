@@ -113,7 +113,7 @@ The constraint-name matching depends on the literal strings @events_pkey@
 and @ix_streams_stream_name@. If a future schema migration renames a
 constraint, the @23505@ branch falls through to the generic
 'WrongExpectedVersion' mapping; keep the names stable in
-@kiroku-store/sql/schema.sql@.
+@kiroku-store-migrations/sql-migrations@.
 -}
 mapUsageError :: Text -> ExpectedVersion -> UsageError -> StoreError
 mapUsageError streamName expected = \case

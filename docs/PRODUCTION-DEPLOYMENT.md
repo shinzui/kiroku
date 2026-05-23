@@ -2,8 +2,8 @@
 
 This document covers operational concerns that fall outside the package's
 public Haddock surface. Read alongside `docs/DESIGN.md` (architectural
-decisions), the in-source Haddocks for `Kiroku.Store.Connection`,
-`Kiroku.Store.Schema`, and `Kiroku.Store.Lifecycle`, and the auto-memory
+decisions), the in-source Haddocks for `Kiroku.Store.Connection` and
+`Kiroku.Store.Lifecycle`, and the auto-memory
 notes `project_schema_migration.md` and `project_partition_plan_parked.md`.
 
 The audience is the operator wiring `kiroku-store` into a real service
@@ -13,22 +13,19 @@ function in the package enforces these recommendations.
 
 ## Database privilege separation
 
-`withStore` runs `Kiroku.Store.Schema.initializeSchema` every time it
-acquires the pool by default. The DDL it executes
-(`kiroku-store/sql/schema.sql`) needs higher privileges than the runtime
-queries do. Production deployments should split the two by running
-`kiroku-store-migrate` or `Kiroku.Store.Migrations.runKirokuMigrations`
-under a migration role, then starting the application with
-`SkipSchemaInitialization`.
+`kiroku-store` no longer embeds schema DDL or creates tables during
+`withStore`. Run `kiroku-store-migrate` or
+`Kiroku.Store.Migrations.runKirokuMigrations` under a migration role
+before starting the application.
 
-Privileges required to run `initializeSchema`:
+Privileges required to run migrations:
 
 - `CREATE` on the target schema (for `CREATE TABLE`, `CREATE INDEX`,
   `CREATE FUNCTION`).
 - `TRIGGER` on `events`, `stream_events`, `streams` (for the
   `prevent_mutation`, `protect_deletion`, `protect_truncation` triggers).
 - `INSERT, UPDATE, SELECT` on `streams` (for the seed `$all` row at
-  `schema.sql:16-18` and the `setval` at `schema.sql:21`).
+  the seed row and sequence repair in the bootstrap migration).
 
 Privileges required at runtime by the application user:
 
@@ -55,7 +52,7 @@ Recommended pattern:
    `codd` to record which migrations have already run.
 2. Provision a `kiroku_app` role with `INSERT, UPDATE, SELECT` on the
    data tables. The application connects as `kiroku_app` and uses
-   `defaultConnectionSettings connString & #schemaInitialization .~ SkipSchemaInitialization`.
+   `defaultConnectionSettings connString`.
 3. If hard-delete is required, either grant `DELETE` to `kiroku_app`
    (in which case the GUC-gating in `protect_deletion` is the only
    line of defence — see "Hard-delete authorization" below), or
@@ -63,8 +60,9 @@ Recommended pattern:
    hard-deletes through a different `withStore` instance gated by
    your application's authorization layer.
 
-The package itself does not detect or warn on insufficient privilege.
-A `SchemaInitError` raised at startup is the operator's signal.
+If migrations have not run, runtime queries fail with ordinary database
+errors such as missing relations. Treat migration completion as a deploy
+precondition.
 
 
 ## Hard-delete authorization
@@ -99,35 +97,16 @@ forward connection-level events to your operational logging.
 
 ## Schema migration
 
-`schema.sql` is embedded into the binary at compile time and is run
-verbatim by `initializeSchema` on every startup. The DDL is idempotent
-under additive changes only:
+Schema SQL lives in `kiroku-store-migrations/sql-migrations`.
+`kiroku-store-migrations` embeds those timestamped files and passes them
+to `codd`, which records which migrations have already run. Do not edit a
+released migration file; add a new timestamped migration for every schema
+change.
 
-- Safe: adding a column with `IF NOT EXISTS`-equivalent semantics,
-  adding a non-unique index, redefining a function with `CREATE OR
-  REPLACE`, adding a trigger.
-- Unsafe: renaming a column or table, changing a column type, removing
-  a column, adding a constraint without `IF NOT EXISTS`. Two
-  simultaneous deploys would race; the second sees a half-applied
-  state.
-
-Once a non-trivial DDL change is required, do not evolve `schema.sql`
-in place. Extract a dedicated migration tool — the
-`project_schema_migration.md` memory note records this trigger, and
-the parked partition plan (`docs/plans/partition-ready-schema.md`)
-describes the most likely first migration target.
-
-Until the migration tool exists, two operational practices reduce
-risk:
-
-1. Serialise deploys when changing `schema.sql`. Two simultaneous
-   `initializeSchema` calls against the same database are usually safe
-   for additive DDL (PostgreSQL serialises catalog updates) but a
-   transient `DROP TRIGGER IF EXISTS` followed by `CREATE TRIGGER` can
-   in principle race. A staggered rollout avoids the window.
-2. Treat any `schema.sql` diff in code review as a migration event
-   subject to the same scrutiny as a column drop in a relational ORM
-   migration.
+`codd` is forward-only. Reverting the Haskell package after a migration
+has run does not undo the database change. Recovery from a bad migration
+means restoring from backup or shipping another forward migration that
+repairs state.
 
 
 ## Connection-string handling
@@ -138,13 +117,10 @@ is no Haskell-level parsing or substitution. Implications:
 
 - The string may contain a password. The package does not redact it
   in any error path, but no error path explicitly logs the connection
-  string either; an operator catching `SchemaInitError` should not
-  expect to see a password leak through it (the underlying hasql
-  `ConnectionError`'s `Show` instance does not include the URI).
-  Application-level error handling that pretty-prints
-  `ConnectionSettings` records would leak the password — the
-  `ConnectionSettingsM` type does not derive `Show` for this reason;
-  do not add such an instance.
+  string either. Application-level error handling that pretty-prints
+  `ConnectionSettings` records would leak the password; the
+  `ConnectionSettingsM` type does not derive `Show` for this reason.
+  Do not add such an instance.
 - Standard libpq connection-string features apply: include
   `application_name`, `connect_timeout`, `sslmode`, etc., as needed.
   The package sets `application_name = 'kiroku-listener'` on the
@@ -172,23 +148,18 @@ be able to read the data).
 
 ## Multi-tenant deployments
 
-`ConnectionSettings.schema` controls only the LISTEN channel name; it
-does not prefix tables in any SQL the package issues. Genuine
-schema-per-tenant table isolation is not provided today (see the
-`schema` field's Haddock for the full contract).
+`ConnectionSettings.schema` controls both runtime table resolution and
+the LISTEN channel name. It does not create tenant schemas; each schema
+must be migrated before a store opens against it.
 
 If you need to run `kiroku-store` against multiple tenants in the same
 PostgreSQL instance, the supported pattern is:
 
 1. Create a separate PostgreSQL schema per tenant (e.g., `tenant_a`,
    `tenant_b`).
-2. Per-tenant, set the application user's default `search_path` (via
-   `ALTER ROLE ... SET search_path = ...`) or include
-   `options=-c search_path=...` in that tenant's
-   `ConnectionSettings.connString`.
-3. Run `initializeSchema` once per tenant (the embedded DDL will
-   create `streams`, `events`, etc. in whichever schema `search_path`
-   resolves to first).
+2. Run the Kiroku migrations once per tenant schema under a migration
+   role.
+3. Give the application role privileges on that tenant schema.
 4. Run a separate `withStore` instance per tenant in the application,
    each with its own pool and its own listener.
 

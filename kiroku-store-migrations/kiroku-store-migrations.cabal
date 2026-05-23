@@ -53,13 +53,11 @@ test-suite kiroku-store-migrations-test
     , codd
     , containers
     , ephemeral-pg             >=0.2
-    , generic-lens             >=2.2
     , hasql                    >=1.10
     , hasql-pool               >=1.2
     , hspec                    >=2.10
     , kiroku-store
     , kiroku-store-migrations
-    , lens                     >=5.2
     , text                     >=2.0
     , time                     >=1.12
     , vector                   >=0.13

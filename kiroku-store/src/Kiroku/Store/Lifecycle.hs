@@ -46,7 +46,7 @@ Hard delete is gated by a session-local PostgreSQL GUC
 transaction. Direct @DELETE@ or @TRUNCATE@ against the underlying
 tables without setting that GUC raises an exception via the
 @protect_deletion@ and @protect_truncation@ triggers in
-@kiroku-store/sql/schema.sql@.
+@kiroku-store-migrations/sql-migrations@.
 
 /The GUC is an advisory protection, not a security boundary./ Any
 PostgreSQL session with @DELETE@ privilege on @events@,

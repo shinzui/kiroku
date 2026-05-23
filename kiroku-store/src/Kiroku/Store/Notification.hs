@@ -53,8 +53,7 @@ connection cannot be acquired. Carries @hasql@'s underlying
 authentication error) for diagnostics.
 
 Replaces the prior @IOException@-via-@fail@ shape so callers can pattern
-match on a typed exception alongside
-'Kiroku.Store.Schema.SchemaInitError'.
+match on a typed startup exception.
 -}
 newtype NotifierStartError = NotifierStartError ConnectionError
     deriving stock (Show)
@@ -206,8 +205,8 @@ data ListenerWaitReturned = ListenerWaitReturned
 
 -- Internal: acquire a connection, set its application_name, or throw on failure.
 -- Throws 'NotifierStartError' (which derives 'Exception') instead of the
--- prior @fail@-based 'IOException', so callers can match on a typed
--- exception alongside 'Kiroku.Store.Schema.SchemaInitError'.
+-- prior @fail@-based 'IOException', so callers can match on a typed startup
+-- exception.
 acquireOrThrow :: Text -> IO Connection
 acquireOrThrow connStr = do
     result <- Connection.acquire (Conn.connectionString connStr)

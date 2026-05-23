@@ -4,11 +4,9 @@ import Codd (ApplyResult (SchemasNotVerified), CoddSettings (..))
 import Codd.Parsing (connStringParser)
 import Codd.Representations.Types (DbRep (..))
 import Codd.Types (ConnectionString, SchemaAlgo (..), SchemaSelection (..), SqlSchema (..), TxnIsolationLvl (..), singleTryPolicy)
-import Control.Lens ((&), (.~))
 import Data.Aeson (Value (Null))
 import Data.Aeson qualified as Aeson
 import Data.Attoparsec.Text (endOfInput, parseOnly)
-import Data.Generics.Labels ()
 import Data.Map qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -42,9 +40,7 @@ main =
                     assertDefaultUuidV7 connStr
 
                     withStore
-                        ( defaultConnectionSettings connStr
-                            & #schemaInitialization .~ SkipSchemaInitialization
-                        )
+                        (defaultConnectionSettings connStr)
                         $ \store -> do
                             let stream = StreamName "migration-consumer"
                                 event = makeEvent "MigrationConsumerChecked" (Aeson.object [("ok", Aeson.Bool True)])

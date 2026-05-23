@@ -20,21 +20,18 @@ notification channel, while *table* resolution depended on the connection-string
 Install **all** Kiroku-owned objects into a **dedicated schema (default
 `kiroku`)**, leaving `public` free for the application.
 
-- `ConnectionSettings.schema` is **authoritative** for object location, table
-  resolution, and the `LISTEN <schema>.events` channel — a single setting.
-  `defaultConnectionSettings` defaults it to `"kiroku"` (was effectively
-  `public`).
+- `ConnectionSettings.schema` is **authoritative** for runtime table
+  resolution and the `LISTEN <schema>.events` channel. The migration package
+  installs the default schema as `kiroku`; services that use another schema
+  must migrate that schema before opening the store.
 - The prepared statements in `Kiroku.Store.SQL` stay **unqualified**; every
   pooled connection runs `SET search_path TO "<schema>", pg_catalog` before any
   statement, so unqualified names (and text→`regclass` resolution) land in the
   Kiroku schema. `pg_catalog` stays on the path so built-ins resolve and nothing
   falls back to `public`.
-- `kiroku-store/sql/schema.sql` uses a literal `__KIROKU_SCHEMA__` token in its
-  `CREATE SCHEMA` and `SET search_path`; `Kiroku.Store.Schema.initializeSchema`
-  substitutes the configured, double-quoted identifier at runtime (so the field
-  genuinely controls placement). The codd bootstrap migration is the same file
-  with the token resolved to the literal `kiroku`. `quoteIdentifier` lives once
-  in `Kiroku.Store.Schema` and is shared with `Connection`.
+- `kiroku-store-migrations/sql-migrations` owns schema SQL. The bootstrap
+  migration creates the `kiroku` schema and sets `search_path` before creating
+  unqualified objects, so all Kiroku-owned objects land in that schema.
 - The PostgreSQL 17 `uuidv7()` fallback function is created inside `kiroku`, not
   `public` (PG 18's `pg_catalog.uuidv7()` is preferred when present).
 
@@ -57,8 +54,9 @@ Install **all** Kiroku-owned objects into a **dedicated schema (default
   not per-statement, so it does not add a round trip to the append/read hot paths
   (the SQL-track benches deliberately use `PGOPTIONS` instead of a per-transaction
   `SET` to avoid distorting round-trip-sensitive measurements).
-- `schema.sql` and the codd bootstrap must stay in sync (the bootstrap is the
-  token-resolved projection of `schema.sql`).
+- Schema changes now belong in timestamped files under
+  `kiroku-store-migrations/sql-migrations`; `kiroku-store` does not carry a
+  duplicate schema script.
 
 ## Alternatives Considered
 
@@ -69,8 +67,6 @@ Install **all** Kiroku-owned objects into a **dedicated schema (default
   references across `SQL.hs`, a large diff, and it would bake the schema name into
   statement text, losing configurability. Setting `search_path` per connection
   achieves the same placement while preserving the existing SQL.
-- **Hardcode `kiroku` literally in `schema.sql` (no token).** Rejected: combined
-  with a configurable runtime `search_path`, a hardcoded install schema would
-  silently install objects in `kiroku` while runtime statements looked in the
-  configured schema — an inconsistency worse than the status quo. The
-  `__KIROKU_SCHEMA__` sentinel keeps install-time and runtime placement in lockstep.
+- **Keep a second runtime bootstrap in `kiroku-store`.** Rejected after the
+  migration package landed: it duplicates schema ownership and lets runtime DDL
+  drift from the timestamped migration history.

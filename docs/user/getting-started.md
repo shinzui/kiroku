@@ -138,7 +138,6 @@ settings =
   defaultConnectionSettings "host=/tmp port=5432 dbname=kiroku"
     & #poolSize .~ 20
     & #statementTimeout .~ Just 30
-    & #schemaInitialization .~ SkipSchemaInitialization
 ```
 
 | Field | Default | Meaning |
@@ -151,17 +150,13 @@ settings =
 | `observationHandler` | `Nothing` | Callback for `hasql-pool` connection-lifecycle events. See [Observability](observability.md). |
 | `eventHandler` | `Nothing` | Callback for store-emitted operational events (`KirokuEvent`). See [Observability](observability.md). |
 | `storeSettings` | no-op | Append/read hooks for cross-cutting concerns such as trace context. See [OpenTelemetry](opentelemetry.md). |
-| `schemaInitialization` | `InitializeSchemaOnAcquire` | Whether `withStore` runs schema DDL on startup. Use `SkipSchemaInitialization` when migrations manage the schema. |
 
-The `schema` field is authoritative for three things kept in lockstep: where
-Kiroku objects install (the `kiroku` schema by default), the `search_path`
-that every pooled connection sets (`SET search_path TO <schema>, pg_catalog`),
-and the `LISTEN <schema>.events` notification channel. Because object location
-and the listen channel both derive from this single field, the listener
-channel and the trigger's `TG_TABLE_SCHEMA || '.events'` notification channel
-always coincide. To run more than one isolated store against the same database
-(for example schema-per-tenant), give each a distinct `schema`; each gets its
-own set of Kiroku tables and its own notification channel.
+The `schema` field is authoritative for two runtime settings kept in lockstep:
+the `search_path` that every pooled connection sets
+(`SET search_path TO <schema>, pg_catalog`) and the
+`LISTEN <schema>.events` notification channel. Migrations install objects in
+the `kiroku` schema by default. To run more than one isolated store against the
+same database, migrate each schema and give each store a distinct `schema`.
 
 ## What Happens On Acquire
 
@@ -169,10 +164,8 @@ own set of Kiroku tables and its own notification channel.
 
 1. Acquire the `hasql-pool` connection pool with the configured size and the
    idle/statement timeout init session.
-2. If `schemaInitialization` is `InitializeSchemaOnAcquire`, run the embedded
-   schema DDL (idempotent). On failure it throws a `SchemaInitError`.
-3. Start the notifier on a dedicated connection: `LISTEN <schema>.events`.
-4. Start the event publisher that consumes notifier ticks and broadcasts new
+2. Start the notifier on a dedicated connection: `LISTEN <schema>.events`.
+3. Start the event publisher that consumes notifier ticks and broadcasts new
    events to subscribers.
 
 Release cancels the publisher, stops the notifier, and releases the pool.

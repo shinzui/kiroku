@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Changed — migrations own schema lifecycle
+
+* `kiroku-store` no longer embeds schema SQL or runs DDL during `withStore`.
+  Apply `kiroku-store-migrations` before opening the store. This removes the
+  duplicated bootstrap path between the runtime package and the migration
+  package.
+* Removed `Kiroku.Store.Schema`, `SchemaInitialization`,
+  `InitializeSchemaOnAcquire`, `SkipSchemaInitialization`, and
+  `ConnectionSettingsM.schemaInitialization`.
+
 ### Added — `lookupStreamNames` / `lookupStreamName` (plan 36)
 
 * `Kiroku.Store.Read.lookupStreamNames :: [StreamId] -> Eff es (Map StreamId
@@ -21,18 +31,15 @@
   distinct ids). See `docs/plans/36-add-originalstreamname-to-recordedevent.md`.
 
 * A fresh installation now creates and uses a dedicated `kiroku` PostgreSQL
-  schema instead of installing into `public`. `sql/schema.sql` creates the
-  schema and sets `search_path` first (via a `__KIROKU_SCHEMA__` token that
-  `Kiroku.Store.Schema.initializeSchema` substitutes with the configured,
-  quoted identifier), and every pooled connection runs
+  schema instead of installing into `public`. The
+  `kiroku-store-migrations` bootstrap creates the schema and sets
+  `search_path` first, and every pooled connection runs
   `SET search_path TO "<schema>", pg_catalog` before any statement.
 * `defaultConnectionSettings` now defaults `schema = "kiroku"` (was `"public"`).
   The `schema` field is now authoritative for object location, table
   resolution, and the `LISTEN <schema>.events` channel — previously it only
   named the notification channel while table resolution depended on the
   connection-string `search_path`.
-* `Kiroku.Store.Schema` exports `quoteIdentifier`; `initializeSchema` now uses
-  its `Text` schema argument instead of ignoring it.
 * The `kiroku-store-migrations` codd bootstrap installs into `kiroku`; run it
   with `CODD_SCHEMAS=kiroku`. The runtime role needs privileges on the
   `kiroku` schema rather than on `public`.
@@ -58,8 +65,8 @@
 * `subscriptions` table gains `consumer_group_member` and `consumer_group_size`
   columns; the checkpoint key becomes the composite unique
   `(subscription_name, consumer_group_member)` (index
-  `ix_subscriptions_name_member`). The change is applied idempotently in
-  `schema.sql`, so pre-existing databases converge on the next store open.
+  `ix_subscriptions_name_member`). The change is applied by the migration
+  package.
 * The four `KirokuEventSubscription*` observability events carry a trailing
   `SubscriptionGroupContext` (`NonGroup` | `GroupMember member size`),
   re-exported from `Kiroku.Store`.

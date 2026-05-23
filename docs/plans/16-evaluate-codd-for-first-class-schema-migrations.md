@@ -15,11 +15,11 @@ Decision Log, and Outcomes & Retrospective must be kept up to date as work proce
 
 ## Purpose / Big Picture
 
-Kiroku currently creates its PostgreSQL schema by running one embedded `kiroku-store/sql/schema.sql` file during every `withStore` startup. That is convenient for a brand-new database, but it is not a real migration story: it cannot safely rename columns, change constraints, split tables, or evolve production databases as the library gains new schema versions.
+Before this plan, Kiroku created its PostgreSQL schema by running one embedded `kiroku-store/sql/schema.sql` file during every `withStore` startup. That was convenient for a brand-new database, but it was not a real migration story: it could not safely rename columns, change constraints, split tables, or evolve production databases as the library gained new schema versions.
 
-This plan evaluates whether `codd` should become the migration engine behind a first-class Kiroku migration package. A first-class migration package means a consumer can depend on a Kiroku-provided Cabal package, call a documented function or executable before opening `withStore`, and get the correct schema version plus future Kiroku migrations without copying SQL files by hand. If the evaluation passes, the implementation leaves consumers with a migration API they can run in deploy jobs, tests, and local development. If the evaluation fails, the plan records a no-go decision with evidence and names the next migration-tool candidate to evaluate.
+This plan evaluated whether `codd` should become the migration engine behind a first-class Kiroku migration package. A first-class migration package means a consumer can depend on a Kiroku-provided Cabal package, call a documented function or executable before opening `withStore`, and get the correct schema version plus future Kiroku migrations without copying SQL files by hand. The follow-up correction on 2026-05-23 made `kiroku-store-migrations` the only owner of schema SQL by deleting `kiroku-store/sql/schema.sql` and `Kiroku.Store.Schema`; `kiroku-store` now assumes migrations have already run.
 
-The observable outcome is a small consumer-style scenario: start an empty PostgreSQL database, run the Kiroku migration package against it, then open `withStore` with schema auto-initialization disabled or made harmless and append/read an event. A second run of the same migration command reports no pending migrations, proving the path is repeatable.
+The observable outcome is a small consumer-style scenario: start an empty PostgreSQL database, run the Kiroku migration package against it, then open `withStore` and append/read an event. A second run of the same migration command reports no pending migrations, proving the path is repeatable. The core `kiroku-store` package no longer contains migration SQL or a runtime DDL initializer.
 
 
 ## Progress
@@ -28,6 +28,7 @@ The observable outcome is a small consumer-style scenario: start an empty Postgr
 - [x] Milestone 2: Build a first-class Kiroku migration package API and a consumer-facing executable. Completed 2026-05-16T19:12:20Z.
 - [x] Milestone 3: Adjust store startup so runtime use does not require DDL privileges by default. Completed 2026-05-16T19:12:20Z.
 - [x] Milestone 4: Add consumer integration tests and documentation for local, CI, and production use. Completed 2026-05-16T19:12:20Z.
+- [x] Follow-up: remove duplicated migration ownership from `kiroku-store` so only `kiroku-store-migrations/sql-migrations` carries schema SQL. Completed 2026-05-23.
 
 
 ## Surprises & Discoveries
@@ -61,7 +62,7 @@ Could not resolve dependencies:
 haxl => time>=1.4 && <1.13
 ```
 
-- `codd` can parse and apply Kiroku's current PostgreSQL 18 schema without weakening the SQL. The migration test applies the embedded bootstrap SQL, verifies the `$all` stream, opens `withStore` with `SkipSchemaInitialization`, appends and reads one event, and runs migrations again successfully. Evidence:
+- `codd` can parse and apply Kiroku's current schema without weakening the SQL. The migration test applies the embedded bootstrap SQL, verifies the `$all` stream, opens `withStore`, appends and reads one event, and runs migrations again successfully. Evidence:
 
 ```text
 codd migration spike
@@ -75,6 +76,12 @@ Finished in 0.7740 seconds
 
 ```text
 Warn: Not all features of PostgreSQL version v18 may be supported by codd.
+```
+
+- The initial implementation left a duplicate schema owner in `kiroku-store`: `Kiroku.Store.Schema` embedded `kiroku-store/sql/schema.sql`, while `kiroku-store-migrations` embedded a timestamped bootstrap copy. Removing the duplication required changing `kiroku-store` tests to apply the migration SQL before opening `withStore`; making the test suite depend on the migration library caused a Cabal component cycle because `kiroku-store-migrations` tests already depend on `kiroku-store`. Evidence:
+
+```text
+rejecting: kiroku-store:*test (cyclic dependencies; conflict set: kiroku-store, kiroku-store-migrations)
 ```
 
 
@@ -96,6 +103,14 @@ Warn: Not all features of PostgreSQL version v18 may be supported by codd.
   Rationale: Existing tests and development workflows rely on auto-initialization. Production consumers need to run migrations under an elevated role and run the application under a lower-privilege role, so startup must not require `CREATE` and `TRIGGER` forever.
   Date: 2026-05-16
 
+- Decision: Reopen the completed plan and remove `Kiroku.Store.Schema`, `ConnectionSettingsM.schemaInitialization`, `SchemaInitialization`, and `kiroku-store/sql/schema.sql` instead of preserving a compatibility initializer.
+  Rationale: Keeping a runtime DDL bootstrap in `kiroku-store` after creating `kiroku-store-migrations` duplicated schema ownership and invited drift. The migration package is now the only source of schema SQL, while `kiroku-store` only sets `search_path` and starts runtime components.
+  Date: 2026-05-23
+
+- Decision: Let `kiroku-store` tests apply the bootstrap SQL file from `kiroku-store-migrations/sql-migrations` directly instead of depending on `kiroku-store-migrations`.
+  Rationale: A direct test dependency on `kiroku-store-migrations` creates a package cycle when tests are enabled, because the migration package's integration test imports `kiroku-store`. Reading the SQL file in the core test fixture keeps one SQL source without adding a library dependency cycle.
+  Date: 2026-05-23
+
 - Decision: Accept `codd` for the first implementation, but ship `kiroku-store-migrate` with `LaxCheck` until Kiroku has a checked-in expected-schema snapshot for PostgreSQL 18.
   Rationale: The integration test proves embedded migrations work and are repeatable. Strict checking is the main long-term reason to use `codd`, but this repository does not yet contain a generated expected schema and upstream emits a PostgreSQL 18 support warning.
   Date: 2026-05-16
@@ -107,30 +122,24 @@ Warn: Not all features of PostgreSQL version v18 may be supported by codd.
 
 ## Outcomes & Retrospective
 
-Implemented a new `kiroku-store-migrations` Cabal package with embedded timestamped SQL migrations, a `Kiroku.Store.Migrations` API, and a `kiroku-store-migrate` executable. `kiroku-store` now has `SchemaInitialization` with `InitializeSchemaOnAcquire` as the compatibility default and `SkipSchemaInitialization` for migration-first production startup.
+Implemented a new `kiroku-store-migrations` Cabal package with embedded timestamped SQL migrations, a `Kiroku.Store.Migrations` API, and a `kiroku-store-migrate` executable. The 2026-05-23 follow-up removed the duplicate runtime schema initializer from `kiroku-store`; `withStore` now assumes the configured schema has already been migrated and no longer exposes `SchemaInitialization`.
 
-The consumer-style migration test proves the important behavior: an empty ephemeral PostgreSQL 18 database can be migrated by `codd`, opened through `withStore` without startup DDL, used to append and read an event, and migrated again without duplicate DDL failure. Documentation now describes the forward-only model and the production privilege split.
+The consumer-style migration test proves the important behavior: an empty ephemeral PostgreSQL database can be migrated by `codd`, opened through `withStore`, used to append and read an event, and migrated again without duplicate DDL failure. Documentation now describes the forward-only model and the production privilege split.
 
 Strict schema verification remains deferred. The package currently uses `LaxCheck` because there is no checked-in expected-schema snapshot yet, and `codd` warns that PostgreSQL 18 support may be incomplete.
 
 Validation completed on 2026-05-16. `nix fmt` formatted the tree successfully. `cabal build kiroku-store-migrations` succeeded. The focused migration test passed with one example and zero failures. `kiroku-store:kiroku-store-test` passed 128 examples, `kiroku-store-migrations:kiroku-store-migrations-test` passed one example, and `kiroku-otel:kiroku-otel-test` passed six examples. `cabal test all` did not complete because optional dependency suites outside this plan failed: `codd-test` could not execute `hspec-discover`, `hasql-notifications-test` could not open its database, and `shibuya-kiroku-adapter` failed to build against the current local `shibuya-core` API because `Envelope` now requires an `attributes` field.
 
+Follow-up validation on 2026-05-23: `cabal build --disable-benchmarks lib:kiroku-store lib:kiroku-store-migrations` succeeded. `cabal test --disable-benchmarks kiroku-store:kiroku-store-test` passed 158 examples with zero failures. `cabal test --disable-benchmarks kiroku-store-migrations:kiroku-store-migrations-test` passed one example with zero failures.
+
 
 ## Context and Orientation
 
-Kiroku is a Haskell PostgreSQL event-store library. The main package is `kiroku-store`, defined in `kiroku-store/kiroku-store.cabal`. Its current schema lives in `kiroku-store/sql/schema.sql`. That SQL file creates four tables: `streams`, `events`, `stream_events`, and `subscriptions`. It also creates indexes and PostgreSQL trigger functions for notifications, immutability, hard-delete protection, and truncate protection.
+Kiroku is a Haskell PostgreSQL event-store library. The main runtime package is `kiroku-store`, defined in `kiroku-store/kiroku-store.cabal`. Its current schema lives in the separate `kiroku-store-migrations` package under `kiroku-store-migrations/sql-migrations`. The bootstrap migration creates four tables: `streams`, `events`, `stream_events`, and `subscriptions`. It also creates indexes and PostgreSQL trigger functions for notifications, immutability, hard-delete protection, and truncate protection.
 
-`Kiroku.Store.Schema` in `kiroku-store/src/Kiroku/Store/Schema.hs` embeds `kiroku-store/sql/schema.sql` at compile time with `file-embed` and exposes:
+`Kiroku.Store.Connection.withStore` in `kiroku-store/src/Kiroku/Store/Connection.hs` no longer runs database definition language, abbreviated DDL. DDL is database-definition work such as `CREATE TABLE` or `CREATE TRIGGER`. `withStore` only acquires the connection pool, sets `search_path` for pooled connections, starts the notifier, and starts the event publisher. Operators must run the migration package before opening the store.
 
-```haskell
-initializeSchema :: (MonadIO m) => Pool -> Text -> m ()
-```
-
-`initializeSchema` runs the whole SQL script with `Hasql.Session.script`. The `Text` argument is currently unused. It was intended to represent the target schema, but all table names in `schema.sql` are unqualified and resolve through PostgreSQL's `search_path`.
-
-`Kiroku.Store.Connection.withStore` in `kiroku-store/src/Kiroku/Store/Connection.hs` always calls `initializeSchema` during acquisition. This means every normal application startup attempts DDL, which is database definition work such as `CREATE TABLE` or `CREATE TRIGGER`. Production guidance in `docs/PRODUCTION-DEPLOYMENT.md` already says this should be split: run schema setup once under an elevated role, then run the application under a lower-privilege role.
-
-The repository already records this migration gap in checked-in plans. `docs/plans/4-multi-tenancy-security-and-schema-lifecycle-audit.md` describes the problem as F7: `initializeSchema` is idempotent only for additive DDL. `docs/plans/partition-ready-schema.md` is parked, but it names the likely first non-trivial schema change: preparing `events` and `stream_events` for future time-based partitioning. That parked plan explicitly says the work should decide whether to extract schema management before modifying the schema.
+The repository recorded the original migration gap in checked-in plans. `docs/plans/4-multi-tenancy-security-and-schema-lifecycle-audit.md` described the problem as F7: the old `initializeSchema` path was idempotent only for additive DDL. `docs/plans/partition-ready-schema.md` is parked, but it names the likely first non-trivial schema change: preparing `events` and `stream_events` for future time-based partitioning. That parked plan explicitly said the work should decide whether to extract schema management before modifying the schema; this plan did that extraction and the 2026-05-23 follow-up removed the old runtime copy.
 
 `codd` is a Haskell PostgreSQL migration tool. In this plan, a migration is one named SQL file whose filename begins with a UTC timestamp such as `2026-05-16-19-10-00-kiroku-bootstrap.sql`. `codd` records which migrations have already run in its own internal PostgreSQL schema, applies pending migrations in order, and can compare the actual database schema to an expected schema snapshot checked into version control. A snapshot is a directory of files that represent database objects; `codd` uses it to detect schema drift.
 
@@ -160,7 +169,7 @@ This work proceeds through four milestones. Milestone 1 is a spike with a hard g
 
 ### Milestone 1 — Prove the `codd` fit
 
-Create a temporary proof of concept inside the repository that converts the current `kiroku-store/sql/schema.sql` into a timestamped migration and runs it through `codd` against an ephemeral PostgreSQL database. The goal is not to settle public API names yet; the goal is to prove `codd` accepts the current SQL, creates its internal tracking schema, records the migration, and can run a second time with no duplicate DDL failure.
+Create a temporary proof of concept inside the repository that converts the then-current runtime schema SQL into a timestamped migration and runs it through `codd` against an ephemeral PostgreSQL database. The goal is not to settle public API names yet; the goal is to prove `codd` accepts the current SQL, creates its internal tracking schema, records the migration, and can run a second time with no duplicate DDL failure.
 
 Add `codd` to the local development plan in the least invasive way. If `codd` is not available from the package index configured for this project, add the local registered path from `mori registry show mzabani/codd --full` to `cabal.project` as an `optional-packages` entry:
 
@@ -175,13 +184,13 @@ Create a temporary or test-only module under `kiroku-store/test/Test/CoddSpike.h
 
 Acceptance for this milestone is behavioral: one test starts an empty PostgreSQL database, applies the embedded migration with `Codd.applyMigrations`, asserts the `streams` table exists and contains the `$all` row, applies the same migration again, and observes no duplicate-object failure.
 
-If the spike fails because `schema.sql` uses syntax `codd` cannot parse, first inspect whether the issue is caused by comments, PL/pgSQL dollar quoting, trigger statements, or `uuidv7()`. If the SQL can be mechanically split into several valid migrations without changing database behavior, proceed. If it requires weakening Kiroku's schema or bypassing `codd` parsing entirely, record a no-go decision.
+If the spike fails because the schema SQL uses syntax `codd` cannot parse, first inspect whether the issue is caused by comments, PL/pgSQL dollar quoting, trigger statements, or `uuidv7()`. If the SQL can be mechanically split into several valid migrations without changing database behavior, proceed. If it requires weakening Kiroku's schema or bypassing `codd` parsing entirely, record a no-go decision.
 
 ### Milestone 2 — Build `kiroku-store-migrations`
 
 Add a new Cabal package at `kiroku-store-migrations/kiroku-store-migrations.cabal`. This package owns schema evolution for `kiroku-store`. It should expose `Kiroku.Store.Migrations` and, if practical, an executable named `kiroku-store-migrate`.
 
-Create `kiroku-store-migrations/sql-migrations/2026-05-16-00-00-00-kiroku-bootstrap.sql` by copying the current contents of `kiroku-store/sql/schema.sql`. This first migration is the baseline schema for new consumers. Future schema changes will add new timestamped SQL files in the same directory instead of editing the bootstrap migration after release.
+Create `kiroku-store-migrations/sql-migrations/2026-05-16-00-00-00-kiroku-bootstrap.sql` as the baseline schema for new consumers. Future schema changes add new timestamped SQL files in the same directory instead of editing the bootstrap migration after release.
 
 Create `kiroku-store-migrations/src/Kiroku/Store/Migrations.hs` with a small public API. The exact type may be refined during implementation, but it must provide these capabilities:
 
@@ -218,22 +227,14 @@ Acceptance for this milestone is that `cabal build kiroku-store-migrations` succ
 
 ### Milestone 3 — Separate runtime startup from schema creation
 
-Modify `kiroku-store/src/Kiroku/Store/Connection.hs` so consumers can open a store without running DDL at startup. Add a field to `ConnectionSettingsM m` named `schemaInitialization` or similar. Use a simple sum type in the same module:
+The first implementation introduced an opt-out startup DDL switch. The 2026-05-23 follow-up finished the separation by removing the switch and the old initializer entirely. `kiroku-store/src/Kiroku/Store/Connection.hs` now assumes migrations already ran, sets each pooled connection's `search_path`, starts the notifier, and starts the event publisher. It no longer imports `Kiroku.Store.Schema`, and `kiroku-store/kiroku-store.cabal` no longer exposes that module or depends on `file-embed` for schema SQL.
 
-```haskell
-data SchemaInitialization
-    = InitializeSchemaOnAcquire
-    | SkipSchemaInitialization
-```
-
-Set `defaultConnectionSettings` to `InitializeSchemaOnAcquire` during the compatibility phase. Then update the `withStore` acquisition logic to call `initializeSchema p s` only when the setting is `InitializeSchemaOnAcquire`. This preserves existing development behavior while giving production consumers a clear way to require migration-before-start.
-
-Update `Kiroku.Store` re-exports if needed so consumers can select `SkipSchemaInitialization` without importing internal modules. Update Haddocks in `Connection.hs`, `Schema.hs`, and `docs/PRODUCTION-DEPLOYMENT.md` to say that the preferred production path is:
+The preferred production path is:
 
 1. Run `kiroku-store-migrate` or `Kiroku.Store.Migrations.runKirokuMigrations` under a migration role.
-2. Start the application with `SkipSchemaInitialization` under the lower-privilege runtime role.
+2. Start the application under the lower-privilege runtime role with `defaultConnectionSettings connString`.
 
-Acceptance for this milestone is that existing tests still pass with default settings, and a new test proves a low-privilege or pre-created-schema connection can open `withStore` with `SkipSchemaInitialization` after migrations have run.
+Acceptance for this milestone is that existing tests pass after migrating their disposable databases, and the migration package integration test proves a database migrated by `kiroku-store-migrations` can be opened through `withStore`.
 
 ### Milestone 4 — Consumer tests and documentation
 
@@ -283,13 +284,13 @@ Package: codd
 Docs: adoption-haskell-services
 ```
 
-Before changing code, inspect the current schema and startup path:
+Before changing code, inspect the current migration schema and startup path:
 
 ```bash
-sed -n '1,220p' kiroku-store/sql/schema.sql
-sed -n '1,140p' kiroku-store/src/Kiroku/Store/Schema.hs
+sed -n '1,220p' kiroku-store-migrations/sql-migrations/2026-05-16-00-00-00-kiroku-bootstrap.sql
 sed -n '1,260p' kiroku-store/src/Kiroku/Store/Connection.hs
 sed -n '1,220p' kiroku-store/kiroku-store.cabal
+sed -n '1,120p' kiroku-store-migrations/kiroku-store-migrations.cabal
 ```
 
 Inspect the relevant `codd` API on disk:
@@ -383,7 +384,7 @@ then the database contains streams, events, stream_events, and subscriptions,
 and streams contains stream_id = 0 with stream_name = '$all'.
 
 Given the migrated database,
-when a service opens Kiroku.Store.withStore with SkipSchemaInitialization,
+when a service opens Kiroku.Store.withStore,
 then startup succeeds without running schema DDL,
 and appendToStream followed by readStreamForward returns the appended event.
 
@@ -403,20 +404,18 @@ Do not run a new migration package against a shared development or production da
 
 The bootstrap migration file must not be edited after it has been released to consumers. If the baseline schema needs to change after release, add a new timestamped migration. Editing an already-released migration creates a mismatch between new databases and databases that already ran the original SQL.
 
-If the implementation changes `ConnectionSettings` and tests fail widely, recover by keeping `InitializeSchemaOnAcquire` as the default and adding `SkipSchemaInitialization` as an opt-in only. Do not remove `initializeSchema` or the current default auto-init behavior in this plan unless a later Decision Log entry explicitly records a breaking-change decision.
+If `ConnectionSettings` changes and tests fail widely, verify first that the test fixture migrates its disposable database before opening `withStore`. Do not reintroduce runtime DDL in `kiroku-store`; the 2026-05-23 Decision Log records the breaking-change decision to remove the compatibility initializer.
 
-If `codd` strict schema snapshots produce noisy diffs because of PostgreSQL version differences, first constrain validation to the PostgreSQL major version Kiroku already requires. `docs/PRODUCTION-DEPLOYMENT.md` says Kiroku requires PostgreSQL 18 or newer because `schema.sql` uses `uuidv7()`. If noise remains under the same PostgreSQL major version, log the issue in Surprises & Discoveries and decide whether `codd` remains suitable.
+If `codd` strict schema snapshots produce noisy diffs because of PostgreSQL version differences, first constrain validation to the PostgreSQL major version Kiroku already requires. If noise remains under the same PostgreSQL major version, log the issue in Surprises & Discoveries and decide whether `codd` remains suitable.
 
 
 ## Interfaces and Dependencies
 
 Repository interfaces:
 
-`kiroku-store/src/Kiroku/Store/Schema.hs` currently owns `initializeSchema :: (MonadIO m) => Pool -> Text -> m ()`. Keep it available for compatibility and tests.
+`kiroku-store/src/Kiroku/Store/Connection.hs` owns `ConnectionSettingsM m`, `ConnectionSettings`, `defaultConnectionSettings`, and `withStore`. It no longer owns schema creation. `withStore` sets `search_path` to the configured schema and assumes the objects were created by migrations.
 
-`kiroku-store/src/Kiroku/Store/Connection.hs` owns `ConnectionSettingsM m`, `ConnectionSettings`, `defaultConnectionSettings`, and `withStore`. Add the startup schema-initialization switch here.
-
-`kiroku-store/sql/schema.sql` is the source for the bootstrap migration. After `kiroku-store-migrations` exists, treat future schema changes as migrations first. If `schema.sql` remains for compatibility, keep it generated from or manually synchronized with the latest migration state until it is retired.
+`kiroku-store-migrations/sql-migrations` is the source for schema SQL. Treat future schema changes as migrations first. Do not add a second schema script under `kiroku-store`.
 
 New package interfaces:
 
@@ -472,7 +471,12 @@ Operational environment variables for the executable follow `codd` conventions:
 CODD_CONNECTION=postgres://postgres@127.0.0.1:5432/kiroku
 CODD_MIGRATION_DIRS=unused-when-using-embedded-migrations
 CODD_EXPECTED_SCHEMA_DIR=kiroku-store-migrations/expected-schema
-CODD_SCHEMAS=public
+CODD_SCHEMAS=kiroku
 ```
 
 Even though embedded migrations bypass disk-based migration collection, `CoddSettings` still contains `sqlMigrations` and `onDiskReps`, so the executable should either require valid `codd` environment variables or construct `CoddSettings` explicitly from a smaller Kiroku-specific configuration. Prefer starting with standard `codd` environment variables because they are documented by upstream and reduce custom surface area.
+
+
+## Revision Note — 2026-05-23
+
+Reopened the completed plan because the initial implementation created `kiroku-store-migrations` but left duplicate schema SQL and schema initialization in `kiroku-store`. This revision records the follow-up correction: `kiroku-store-migrations/sql-migrations` is now the only schema SQL owner, `kiroku-store/sql/schema.sql` and `Kiroku.Store.Schema` were removed, `withStore` no longer runs DDL, tests migrate disposable databases before opening the store, and validation was rerun for both changed packages.
