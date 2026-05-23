@@ -7,11 +7,15 @@ module Kiroku.Store.Read (
     readCategory,
     getStream,
     lookupStreamId,
+    lookupStreamName,
+    lookupStreamNames,
 ) where
 
 import Control.Lens ((^.))
 import Data.Generics.Labels ()
 import Data.Int (Int32)
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
 import Data.Vector (Vector)
 import Data.Vector qualified as V
 import Effectful (Eff, (:>))
@@ -165,3 +169,41 @@ lookupStreamId ::
     StreamName ->
     Eff es (Maybe StreamId)
 lookupStreamId name = send (LookupStreamId name)
+
+{- | Resolve a batch of surrogate 'StreamId's to their 'StreamName's in a single
+round trip, returning a 'Map' that omits any id which does not name an existing
+stream (hard-deleted or never created). Live and soft-deleted streams are
+included, mirroring 'lookupStreamId'.
+
+This is the inverse of 'lookupStreamId' and the supported way to recover the
+human-readable source stream for events obtained from /fan-in/ reads — the
+global @$all@ stream, 'readCategory', the "Kiroku.Store.Causation" queries, and
+subscriptions — where each 'RecordedEvent' carries only its surrogate
+@originalStreamId@. Collect the distinct ids from a batch and resolve them once,
+rather than paying a round trip per event:
+
+@
+let ids = 'Data.List.nub' (map (^. #originalStreamId) events)
+names <- 'lookupStreamNames' ids
+-- names '!?' (event '^.' #originalStreamId) :: Maybe StreamName
+@
+
+Passing @[]@ returns an empty map without a database round trip's worth of work
+(an empty @ANY(ARRAY[])@ matches nothing).
+-}
+lookupStreamNames ::
+    (HasCallStack, Store :> es) =>
+    [StreamId] ->
+    Eff es (Map StreamId StreamName)
+lookupStreamNames sids = send (LookupStreamNames sids)
+
+{- | Resolve a single surrogate 'StreamId' to its 'StreamName', or 'Nothing' if
+no such stream exists. A convenience wrapper over 'lookupStreamNames'; prefer
+the batch form when resolving the ids of a whole read batch, to avoid one round
+trip per id.
+-}
+lookupStreamName ::
+    (HasCallStack, Store :> es) =>
+    StreamId ->
+    Eff es (Maybe StreamName)
+lookupStreamName sid = Map.lookup sid <$> lookupStreamNames [sid]

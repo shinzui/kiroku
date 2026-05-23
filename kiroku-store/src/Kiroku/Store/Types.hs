@@ -195,13 +195,6 @@ of the link in the target stream) while @originalVersion@ is the
 source's version (where the event lived when first appended) and
 @originalStreamId@ is the source's id. Subscriptions and category reads
 return events at their source positions.
-
-@originalStreamName@ is the human-readable name of that source stream (the
-one @originalStreamId@ identifies), so for a linked-target read it still
-names where the event originated, not the target you read. It lets consumers
-of fan-in reads — @$all@, categories, causation\/correlation queries, and
-subscriptions — recover the originating stream without a separate
-id-to-name lookup.
 -}
 data RecordedEvent = RecordedEvent
     { eventId :: !EventId
@@ -218,15 +211,11 @@ data RecordedEvent = RecordedEvent
     Stable across links; used as the subscription cursor.
     -}
     , originalStreamId :: !StreamId
-    -- ^ The stream the event was first appended to.
-    , originalStreamName :: !StreamName
-    {- ^ The human-readable name of the stream the event was first appended
-    to (the stream identified by @originalStreamId@). For events read from
-    their source stream this is the stream you read; for events read from a
-    /linked/ target stream it is the /source/ stream's name, not the target's.
-    Accompanies @originalStreamId@ so consumers of fan-in reads (@$all@,
-    categories, causation\/correlation queries, subscriptions) can recover the
-    originating stream without a separate id-to-name lookup.
+    {- ^ The surrogate id of the stream the event was first appended to. For
+    fan-in reads (@$all@, categories, causation\/correlation queries,
+    subscriptions) this is the only stream identifier on the event; resolve a
+    batch of these to human-readable 'StreamName's with
+    'Kiroku.Store.Read.lookupStreamNames'.
     -}
     , originalVersion :: !StreamVersion
     -- ^ The position the event was assigned in its source stream.

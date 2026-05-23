@@ -16,6 +16,19 @@ Decision Log, and Outcomes & Retrospective must be kept up to date as work proce
 
 ## Purpose / Big Picture
 
+> **Outcome note (2026-05-23):** the title goal — adding an `originalStreamName`
+> field to `RecordedEvent` — was implemented (Milestones 1–2), then **abandoned
+> after benchmarking** in favour of a lookup API (Milestone 4). Returning the
+> name on every read row was measured to cost ~13% on the `$all` subscription
+> hot path, irrespective of whether the name came from a join (Milestone 1) or a
+> denormalized column (Milestone 3); the cost is decoding/transferring the extra
+> column itself. The shipped solution is instead
+> `Kiroku.Store.Read.lookupStreamNames :: [StreamId] -> Eff es (Map StreamId
+> StreamName)` (plus singular `lookupStreamName`), which resolves the surrogate
+> `originalStreamId` that fan-in reads already carry, on demand, keeping the read
+> hot path at baseline. The narrative below is preserved as the record of how we
+> got there; see the Decision Log, Surprises & Discoveries, and Outcomes.
+
 Kiroku is a PostgreSQL event store. When you read events, you get back a value of type
 `RecordedEvent`. Today that value tells you which *database surrogate id* the event came
 from (a meaningless `Int64` called `originalStreamId`) but **not** the human-readable
@@ -72,6 +85,33 @@ Milestone 2 — behavioral proof and documentation: **DONE 2026-05-23.**
 - [x] Add a CHANGELOG entry under `## Unreleased` in `kiroku-store/CHANGELOG.md`. (2026-05-23)
 - [x] Full store suite green with the new tests: `cabal test kiroku-store` → 157 examples, 0 failures (was 154). (2026-05-23)
 
+Milestone 3 — denormalize the column to remove the read regression: **IMPLEMENTED THEN ABANDONED 2026-05-23.** All M3 edits were made and verified green, but the re-benchmark showed denormalization did *not* reduce the read cost (the cost is the returned column, not the join — see Surprises & Discoveries). M3 was reverted; nothing from M3 is committed. Items kept for the record:
+
+- [x] (done, then reverted) `schema.sql` column + convergence block.
+- [x] (done, then reverted) codd migration `2026-05-23-...-add-original-stream-name.sql`.
+- [x] (done, then reverted) append/link writes and direct-column reads in `SQL.hs`; bench raw shapes.
+- [x] (done) Re-benchmark — the decisive measurement that abandoned both the join and the column. Append path confirmed flat; reads confirmed ~13% over no-field regardless of approach.
+
+Milestone 4 — revert the field entirely; ship an on-demand lookup API: **DONE 2026-05-23.**
+
+- [x] Revert all of Milestones 1–3 to the pre-field state (`37e1aaa`): `RecordedEvent` loses `originalStreamName`; read/append SQL, decoder, schema, stubs, CHANGELOG, and the `Test.OriginalStreamName` module are removed. Verified `git diff 37e1aaa` is empty for all code dirs. (2026-05-23)
+- [x] Add `LookupStreamNames :: [StreamId] -> Store m (Map StreamId StreamName)` to the `Store` effect (`Effect.hs`) + interpreter clause; `lookupStreamNamesStmt` in `SQL.hs` (`SELECT stream_id, stream_name FROM streams WHERE stream_id = ANY($1)`). (2026-05-23)
+- [x] Surface `lookupStreamNames` and singular `lookupStreamName :: StreamId -> Eff es (Maybe StreamName)` from `Kiroku.Store.Read`, with Haddock and a discoverability pointer on `RecordedEvent.originalStreamId`. (2026-05-23)
+- [x] New test module `Test.StreamNameLookup` (4 cases: `$all` round-trip, unknown id omitted, empty list, singular + unknown). Wired into `Main.hs` + cabal. (2026-05-23)
+- [x] CHANGELOG entry describing the lookup API and why the field was rejected. (2026-05-23)
+- [x] All suites green: `kiroku-store` 158/0 (154 base + 4 lookup), `kiroku-otel` 6/0, `shibuya-kiroku-adapter` 8/0, `kiroku-store-migrations` PASS. Read SQL byte-identical to pre-field, so the read hot path is at baseline by construction. (2026-05-23)
+
+Milestone 3 detail (retained for the record):
+
+- [x] `kiroku-store/sql/schema.sql`: add `original_stream_name TEXT NOT NULL` inline to the `stream_events` `CREATE TABLE`, plus a guarded idempotent convergence `DO` block (ADD COLUMN / disable trigger / backfill from `streams` / SET NOT NULL) that no-ops once converged.
+- [ ] New codd migration `kiroku-store-migrations/sql-migrations/2026-05-23-00-00-00-add-original-stream-name.sql`: ADD COLUMN, disable `no_update_stream_events`, backfill from `streams`, re-enable, SET NOT NULL. Update the bootstrap header note to point at additive migrations.
+- [ ] `kiroku-store/src/Kiroku/Store/SQL.hs` append/link writes: add `original_stream_name` to all 9 `stream_events` INSERT column lists; source/`$all` link SELECTs supply `$8` (the stream-name param); the link insert supplies `orig.original_stream_name` (and its lateral selects `se.original_stream_name`).
+- [ ] `kiroku-store/src/Kiroku/Store/SQL.hs` reads: remove the 8 `JOIN streams os …` lines added in M1 and read `se.original_stream_name` directly; the 2 category templates keep their existing `streams` join and `s.stream_name` (no regression there). The decoder is unchanged (still a 12-column row).
+- [ ] `kiroku-store/bench/Main.hs` (and `bench/Explain.hs`) raw append shapes: supply `original_stream_name` so the experimental harness still inserts validly.
+- [ ] Update the CHANGELOG entry to describe denormalized storage + the migration.
+- [ ] Rebuild; `cabal test kiroku-store` and `cabal test kiroku-store-migrations` green (migration applies, backfills, is repeatable).
+- [ ] Re-benchmark: confirm `$all`/`stream` reads return to baseline AND the `append` group shows no regression vs a fresh pre-M3 baseline. Record numbers in Surprises & Discoveries.
+
 
 ## Surprises & Discoveries
 
@@ -99,7 +139,60 @@ implementation. Provide concise evidence.
   `stream_events.original_stream_id` is `BIGINT NOT NULL` with **no** foreign key,
   meaning the database does not enforce this for us; the cascade does.
 
-(Add further discoveries here as implementation proceeds.)
+- The added `streams` join measurably regresses the read paths that gained it,
+  contradicting the Decision Log's pre-implementation assumption that a PK join
+  would "sit in the noise." Same-machine A/B with `tasty-bench` (pre-JOIN source
+  checked out vs. post-JOIN HEAD, `kiroku-store/bench/Main.hs`, 100-event pages
+  over the 100K-event fixture), five measurements per path:
+
+  ```text
+  $all forward    : +11% +13% +14% +15% +11%  → ~+12% (exceeds 10% gate)
+  stream forward  : +9%  +9%  +11% +9%        → ~+9-10% (at gate)
+  category forward: same as baseline (already joined streams)
+  exhausted-category: same as baseline
+  ```
+
+  Absolute: ~988 µs → ~1.12 ms per 100-event `$all` page (≈+130 µs, ≈1.3 µs per
+  event). The `category` path is the control: it already joined `streams` for
+  the category filter, so adding the column changed nothing — proving the delta
+  is the join, not noise. The earlier append-perf lesson ("round-trip count
+  dominates, SQL shape does not") held for the single-round-trip append path; it
+  does not transfer to reads, where adding a per-row PK lookup over a 100-row
+  page is real server-side work. The `$all` path is the subscription hot path,
+  so this regression matters. Decision on how to proceed is pending (see
+  Decision Log).
+
+- DECISIVE (Milestone 3 re-benchmark): the read regression is the *column
+  itself*, not the join. A fresh same-machine A/B of pre-Milestone-1 (no field,
+  11-column rows) vs Milestone 3 (denormalized column, no join, 12-column rows),
+  run back-to-back on the read group, still shows ~+13% on `$all`:
+
+  ```text
+  $all forward (100-event page):
+    no field (pre-M1):        955-988 µs   (11-column result)
+    field via join (M1/M2):   1.08-1.14 ms (12-column result + streams join)
+    field denormalized (M3):  1.09-1.12 ms (12-column result, no join)
+  ```
+
+  The join and denormalized variants are statistically identical, both ~13%
+  above the no-field baseline. The machine was stable-to-faster during the M3
+  runs (B9 saturation latency 0.371 ms vs 0.45 ms in the pre-M1 run), so this is
+  not drift. Conclusion: the cost is returning the extra `stream_name` column in
+  every read row — Hasql decoding ~100 extra `text` values per page plus wider
+  `stream_events` heap tuples — and the `streams` join was never the dominant
+  term. Therefore **denormalization does not restore reads to the no-field
+  baseline**; it removes only the minor join cost while adding a migration, a
+  little write cost, and storage. (Caveat: the join does O(rows) extra random
+  index lookups, so it may degrade worse than a stored column at much larger
+  pages or cold cache; this microbench used 100-event warm-cache pages.) This
+  refutes the Milestone-3 premise and reopens the keep-vs-revert decision.
+
+- Append path is unaffected by the denormalized write. Milestone-3 vs
+  Milestone-2 append (same machine): `batch-10` 352 vs 384 µs, `batch-100` 2.40
+  vs 2.43 ms, `single-event NoStream` 155 vs 146 µs — all "same as baseline".
+  The sub-200 µs `single-event AnyVersion` bench was noisy (167 vs 128 µs) but
+  the representative batch benches are flat: writing a value already held as the
+  `$8` parameter adds no measurable write cost.
 
 
 ## Decision Log
@@ -136,6 +229,72 @@ Record every decision made while working on the plan.
   that would otherwise be returned. An inner join is also the cheapest form and lets the
   planner use the `streams` primary key.
   Date: 2026-05-23
+  SUPERSEDED 2026-05-23 by the denormalization decision below — the join was measured to
+  cost ~12% on the `$all` hot path (see Surprises & Discoveries). The join is removed in
+  Milestone 3.
+
+- Decision: Replace the read-time `streams` join with a denormalized
+  `original_stream_name` column physically stored on `stream_events`, written at
+  append/link time and read directly (no join). The public `RecordedEvent.originalStreamName`
+  field and its semantics are unchanged — this is purely an internal storage/perf change.
+  Rationale: The Milestone-1 read-time join regressed `$all` reads ~12% and `stream` reads
+  ~9% (five-sample same-machine A/B; category reads flat as the control), exceeding the
+  repo's 10% regression gate on the subscription hot path. Denormalizing moves the cost to
+  write time, where it is structurally near-zero: the source stream name is already an
+  append parameter (`$8`), so the source/`$all` junction inserts write a value they already
+  hold — no extra lookup, just a wider row. For links the name comes from the source row via
+  the existing `orig` lateral. Reads then select `se.original_stream_name` with no join,
+  returning to baseline. The user chose this option explicitly over (a) shipping the ~12%
+  regression and (b) reverting to a batch id→name lookup API.
+  Trade-offs accepted: a schema column + one additive codd migration with a backfill, a
+  little more storage (one short text per junction row, ~2× events), and the obligation to
+  re-benchmark the append path to confirm the write cost is in fact negligible.
+  Date: 2026-05-23
+
+- Decision: Ship the column as one additive codd migration; leave the already-applied
+  bootstrap migration (`kiroku-store-migrations/sql-migrations/2026-05-16-00-00-00-kiroku-bootstrap.sql`)
+  immutable. Add the column inline to `kiroku-store/sql/schema.sql`'s `CREATE TABLE`
+  (fresh dev/test installs) plus a guarded idempotent convergence block for in-place dev
+  upgrades.
+  Rationale: codd here runs via `applyMigrationsNoCheck` (no checksum/expected-schema
+  verification — see `kiroku-store-migrations/src/Kiroku/Store/Migrations.hs` and the test),
+  and migrations are meant to be immutable and additive. Editing the bootstrap to "keep it
+  in sync" with `schema.sql` (as its header historically suggested) would mutate an applied
+  migration; instead the follow-on migration reconciles existing databases, and `schema.sql`
+  remains the consolidated current-schema view for fresh installs. The bootstrap header note
+  is updated to say schema changes after it are shipped as additive migrations.
+  Date: 2026-05-23
+
+- Decision: The backfill UPDATE disables the `no_update_stream_events` trigger for its
+  duration (in both the migration and the `schema.sql` convergence block), and the
+  convergence is guarded so the common path (fresh/already-converged DB) does no table scan.
+  Rationale: `stream_events` carries a `prevent_mutation` BEFORE UPDATE trigger
+  (`no_update_stream_events`) that unconditionally raises, so a plain backfill UPDATE would
+  abort. Disabling it inside the migration transaction is the least invasive fix. The
+  `schema.sql` block is gated on `pg_attribute.attnotnull` so that once the column exists and
+  is NOT NULL, re-running `schema.sql` (which `initializeSchema` does on every store open)
+  skips the `ADD`/backfill/`SET NOT NULL` entirely — avoiding a full-table `SET NOT NULL`
+  validation scan on every open.
+  Date: 2026-05-23
+
+- Decision: Abandon the `RecordedEvent.originalStreamName` field entirely (revert
+  Milestones 1–3) and ship an on-demand lookup API instead:
+  `lookupStreamNames :: [StreamId] -> Eff es (Map StreamId StreamName)` and the
+  singular `lookupStreamName`.
+  Rationale: The Milestone-3 re-benchmark refuted the premise that denormalizing
+  would restore read latency. A back-to-back same-machine A/B (no field vs.
+  denormalized, see Surprises & Discoveries) showed ~+13% on `$all` 100-event
+  reads for *both* the join (M1) and denormalized (M3) variants — the cost is
+  decoding/transferring the extra `text` column on every read row, not the join.
+  So no field-on-every-read design can avoid it. Because the cost lands on the
+  subscription hot path and exceeds the repo's 10% regression gate, and the
+  field is a convenience rather than a necessity, the field was rejected. The
+  lookup API resolves the surrogate `originalStreamId` that fan-in reads already
+  carry, in one round trip per batch, so consumers pay only when and as much as
+  they need names — and the read hot path is byte-identical to pre-change (the
+  ~13% is gone by construction, not by re-measurement). The user chose this
+  option over shipping the regression (join or denormalized).
+  Date: 2026-05-23
 
 - Decision: Place the new field/column immediately after `originalStreamId`
   (record position 6, SQL column 6), shifting `originalVersion` to position 7.
@@ -157,37 +316,45 @@ Record every decision made while working on the plan.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-Completed 2026-05-23, both milestones. `RecordedEvent` now carries
-`originalStreamName :: StreamName`, fulfilling the purpose: a consumer of any
-fan-in read can call `event ^. #originalStreamName` and get the originating
-stream name with no extra round-trip and no internal SQL. The behavior is
-proven by `kiroku-store/test/Test/OriginalStreamName.hs` across `$all`,
-category, and linked-event reads; the linked-event case asserts the *source*
-name (`orders-1`), which can only hold because the SQL joins on
-`original_stream_id` rather than the read's stream name — that case is the
-effectiveness guard.
+Completed 2026-05-23. The shipped result is **not** the title's field but an
+on-demand lookup API — `Kiroku.Store.Read.lookupStreamNames :: [StreamId] ->
+Eff es (Map StreamId StreamName)` and singular `lookupStreamName` — reached after
+implementing and benchmarking the field three different ways.
 
-Result vs. plan: implementation matched the plan with no course changes. The
-column/field landed in the planned position (origin triple kept adjacent),
-eight statements gained the `JOIN streams os ON os.stream_id =
-se.original_stream_id`, and the two category statements only needed the
-`s.stream_name` column. The whole workspace builds and all suites pass:
-`kiroku-store` 157 examples / 0 failures (was 154), `kiroku-otel` 6/0,
-`shibuya-kiroku-adapter` 8/0. Subscriptions inherit the field transitively
-(the worker reuses the four read statements) — no worker change was needed,
-as predicted.
+The journey, and why it matters:
 
-What remains / not done (deliberately out of scope): no performance
-measurement of the `$all`-forward subscription hot path was taken; the plan
-flagged it as worth measuring but the change adds an indexed PK join, not a
-round-trip, so it is expected to be negligible. `AppendResult` and
-`StreamInfo` were intentionally left unchanged. No schema migration was
-needed — the name is computed at read time from the existing `streams` table.
+- Milestones 1–2 added `RecordedEvent.originalStreamName`, sourced via a
+  read-time `JOIN streams`, with behavioral tests. Green, but a same-machine
+  A/B benchmark found ~+12% on `$all` and ~+9% on `stream` 100-event reads
+  (category flat — the control), exceeding the repo's 10% regression gate on the
+  subscription hot path.
+- Milestone 3 denormalized the name onto `stream_events` (written at append/link
+  time, read with no join), on the hypothesis that the join was the cost. It
+  was not: a back-to-back no-field-vs-denormalized A/B still showed ~+13% on
+  `$all`. The cost is decoding/transferring the extra `text` column on every
+  read row — unavoidable for any field-on-every-read design. The append path
+  was confirmed flat (denormalized write is free; the name is already a
+  parameter).
+- Milestone 4 reverted the field entirely and shipped the lookup API. Reads are
+  byte-identical to pre-change (the regression is gone by construction), and
+  consumers resolve the surrogate `originalStreamId` that fan-in reads already
+  carry, one round trip per batch, only when they need names.
 
-Lessons: the one subtle requirement (source vs. read-target name for linked
-events) is fully captured by a single assertion, which is the cheapest way to
-lock in the behavior against a future "simplification" that keys the join off
-the read's `$1` stream name.
+Result vs. original purpose: the user-facing need — "recover the source stream
+name for fan-in/subscription events without hand-rolled SQL" — is met, but
+pay-per-use rather than baked into every read. Final state: `kiroku-store`
+158/0 (154 base + 4 `Test.StreamNameLookup`), `kiroku-otel` 6/0,
+`shibuya-kiroku-adapter` 8/0, `kiroku-store-migrations` PASS.
+
+Lessons:
+- "A PK join sits in the noise" held for the single-round-trip append path but
+  not for reads; per-row server work and extra result columns over a 100-row
+  page are measurable (~13%). Benchmark the actual hot path before assuming.
+- The decisive experiment was the *control*: comparing no-field vs. denormalized
+  (not just join vs. denormalized) isolated the cost to the column, which
+  inverted the design and saved shipping a migration for no read benefit.
+- Returning more data by default is not free even when it looks "already there";
+  an on-demand resolver keeps the common path cheap.
 
 
 ## Context and Orientation
@@ -480,6 +647,30 @@ record literal must supply the new field. Code reading fields via `generic-lens`
 labels or record-wildcard patterns is unaffected.
 ```
 
+### Milestone 3 — Denormalize to remove the read regression
+
+Scope: replace the Milestone-1 read-time `streams` join with a stored
+`stream_events.original_stream_name` column, populated at write time and read
+directly. The public `RecordedEvent` field and all Milestone-2 tests are
+unchanged; this milestone is an internal storage/perf change driven by the
+benchmark in Surprises & Discoveries. At the end, `$all`/`stream` reads return
+to their pre-Milestone-1 latency, the `append` path shows no regression, and a
+codd migration upgrades existing databases in place.
+
+The edits, all detailed in the Progress checklist above: (1) `schema.sql` gets
+the column inline plus a guarded convergence block; (2) a new additive codd
+migration adds + backfills + constrains the column for existing databases,
+disabling the `no_update_stream_events` trigger around the backfill; (3) the
+nine `INSERT INTO stream_events` statements in `SQL.hs` write the column
+(`$8` for appends, `orig.original_stream_name` for links); (4) the eight
+non-category read templates drop the join and select `se.original_stream_name`;
+(5) the bench raw shapes are updated so the harness still inserts validly.
+
+Acceptance: `cabal test kiroku-store` and `cabal test kiroku-store-migrations`
+both report `0 failures`; a fresh same-machine A/B (pre-Milestone-3 vs
+post-Milestone-3) shows `$all forward` back within noise of baseline and the
+`append.single-event`/`batch` benches within the 10% gate.
+
 
 ## Concrete Steps
 
@@ -633,3 +824,36 @@ exports `spec :: Spec`; `withTestStore` comes from `Test.Helpers` and hands each
 `kiroku-store/test/Main.hs` by adding `import Test.OriginalStreamName qualified as
 OriginalStreamName` and an `OriginalStreamName.spec` line in `main`. Plus the CHANGELOG
 entry and the expanded `RecordedEvent` Haddock.
+
+
+## Revision Notes
+
+- 2026-05-23 — Added Milestone 3 (denormalize `original_stream_name` onto
+  `stream_events`). After Milestones 1–2 shipped the field via a read-time
+  `streams` join, a same-machine A/B benchmark showed the join costs ~12% on
+  the `$all` subscription hot path and ~9% on single-stream reads (category
+  reads flat — the control), exceeding the repo's 10% regression gate. Rather
+  than ship that regression or revert to a lookup API, the field is now backed
+  by a stored column written at append/link time (near-zero write cost, since
+  the source name is already an append parameter) and read with no join. The
+  public `RecordedEvent.originalStreamName` API and the Milestone-2 behavioral
+  tests are unchanged; only storage and SQL change. Decision Log entries and
+  the Surprises & Discoveries benchmark evidence were added; the Milestone-1
+  inner-join decision is marked superseded. Why: the change must respect the
+  established performance gate on the subscription read path, and denormalizing
+  is the only option that keeps the ergonomic field while restoring read
+  latency to baseline.
+
+- 2026-05-23 — Added Milestone 4 and abandoned the field. The Milestone-3
+  re-benchmark refuted Milestone 3's own premise: denormalizing did not reduce
+  the read cost because the cost is the returned column, not the join (a
+  back-to-back no-field-vs-denormalized A/B showed ~+13% on `$all` for both the
+  join and the denormalized variants). Since no field-on-every-read design can
+  avoid that, and it breaches the 10% gate on the subscription hot path, the
+  field (Milestones 1–3) was reverted in full and replaced with an on-demand
+  `lookupStreamNames`/`lookupStreamName` API that resolves the surrogate
+  `originalStreamId` fan-in reads already carry. Purpose, Progress, Decision
+  Log, Surprises & Discoveries, and Outcomes were all updated to reflect the
+  reversal; the field-era narrative is retained as the record of the
+  exploration. Why: the change must respect the established read-path
+  performance gate, and the benchmark proved the ergonomic field could not do so.

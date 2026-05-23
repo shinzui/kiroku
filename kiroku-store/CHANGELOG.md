@@ -2,25 +2,23 @@
 
 ## Unreleased
 
-### Added — `RecordedEvent.originalStreamName` (plan 36)
+### Added — `lookupStreamNames` / `lookupStreamName` (plan 36)
 
-* `RecordedEvent` now carries `originalStreamName :: StreamName`, the
-  human-readable name of the stream an event was first appended to. This
-  removes the need to resolve `originalStreamId` (a surrogate id) back to a
-  name when consuming fan-in reads — `$all`, categories, causation/correlation
-  queries, and subscriptions — which previously had no public id→name lookup.
-  For linked events the field reports the source stream, matching
-  `originalStreamId`/`originalVersion`.
-* Read statements that did not already join `streams` now add an indexed
-  primary-key join on `original_stream_id`; no extra round-trips. The two
-  category read statements already joined `streams` and only select the new
-  column.
-
-  BREAKING: any code constructing `RecordedEvent` positionally or with a
-  complete record literal must supply the new field. Code reading fields via
-  `generic-lens` labels or record-wildcard patterns is unaffected.
-
-### Changed — Kiroku objects install into a dedicated `kiroku` schema (plan 20)
+* `Kiroku.Store.Read.lookupStreamNames :: [StreamId] -> Eff es (Map StreamId
+  StreamName)` resolves a batch of surrogate stream ids to their names in a
+  single round trip (and `lookupStreamName :: StreamId -> Eff es (Maybe
+  StreamName)` for one). This is the inverse of `lookupStreamId` and the
+  supported way to recover the source stream name from a `RecordedEvent`'s
+  `originalStreamId` on fan-in reads — `$all`, categories,
+  causation/correlation queries, and subscriptions — which carry only the
+  surrogate id.
+* Chosen over carrying a `originalStreamName` field on every `RecordedEvent`:
+  benchmarking showed returning the name on every read row costs ~13% on
+  `$all` 100-event pages (decoding ~100 extra `text` values per page), whether
+  the name came from a join or a denormalized column. The lookup API keeps the
+  read hot path at its prior latency and makes consumers pay only when, and
+  only as much as, they actually need names (one round trip per batch for the
+  distinct ids). See `docs/plans/36-add-originalstreamname-to-recordedevent.md`.
 
 * A fresh installation now creates and uses a dedicated `kiroku` PostgreSQL
   schema instead of installing into `public`. `sql/schema.sql` creates the

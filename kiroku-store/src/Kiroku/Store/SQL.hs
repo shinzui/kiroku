@@ -18,6 +18,7 @@ module Kiroku.Store.SQL (
     readAllBackwardStmt,
     readCategoryForwardStmt,
     getStreamStmt,
+    lookupStreamNamesStmt,
 
     -- * Consumer-group read statements
     readCategoryForwardConsumerGroupStmt,
@@ -362,7 +363,7 @@ appendAnyVersionSQL =
 -- Read Statements
 -- ---------------------------------------------------------------------------
 
--- | Shared decoder for a RecordedEvent row (12 columns).
+-- | Shared decoder for a RecordedEvent row (11 columns).
 recordedEventRow :: D.Row RecordedEvent
 recordedEventRow =
     RecordedEvent
@@ -371,7 +372,6 @@ recordedEventRow =
         <*> (StreamVersion <$> D.column (D.nonNullable D.int8))
         <*> (GlobalPosition <$> D.column (D.nonNullable D.int8))
         <*> (StreamId <$> D.column (D.nonNullable D.int8))
-        <*> (StreamName <$> D.column (D.nonNullable D.text))
         <*> (StreamVersion <$> D.column (D.nonNullable D.int8))
         <*> D.column (D.nonNullable D.jsonb)
         <*> D.column (D.nullable D.jsonb)
@@ -456,13 +456,11 @@ readStreamForwardSQL =
     """
     SELECT e.event_id, e.event_type,
            se.stream_version, 0::bigint AS global_position,
-           se.original_stream_id, os.stream_name AS original_stream_name,
-           se.original_stream_version,
+           se.original_stream_id, se.original_stream_version,
            e.data, e.metadata, e.causation_id, e.correlation_id,
            e.created_at
     FROM stream_events se
     JOIN events e ON e.event_id = se.event_id
-    JOIN streams os ON os.stream_id = se.original_stream_id
     WHERE se.stream_id = (SELECT stream_id FROM streams WHERE stream_name = $1 AND deleted_at IS NULL)
       AND se.stream_version > $2
     ORDER BY se.stream_version ASC
@@ -475,13 +473,11 @@ readStreamBackwardSQL =
     """
     SELECT e.event_id, e.event_type,
            se.stream_version, 0::bigint AS global_position,
-           se.original_stream_id, os.stream_name AS original_stream_name,
-           se.original_stream_version,
+           se.original_stream_id, se.original_stream_version,
            e.data, e.metadata, e.causation_id, e.correlation_id,
            e.created_at
     FROM stream_events se
     JOIN events e ON e.event_id = se.event_id
-    JOIN streams os ON os.stream_id = se.original_stream_id
     WHERE se.stream_id = (SELECT stream_id FROM streams WHERE stream_name = $1 AND deleted_at IS NULL)
       AND se.stream_version > $2
     ORDER BY se.stream_version DESC
@@ -496,13 +492,11 @@ readAllForwardSQL =
     """
     SELECT e.event_id, e.event_type,
            se.stream_version, se.stream_version AS global_position,
-           se.original_stream_id, os.stream_name AS original_stream_name,
-           se.original_stream_version,
+           se.original_stream_id, se.original_stream_version,
            e.data, e.metadata, e.causation_id, e.correlation_id,
            e.created_at
     FROM stream_events se
     JOIN events e ON e.event_id = se.event_id
-    JOIN streams os ON os.stream_id = se.original_stream_id
     WHERE se.stream_id = 0
       AND se.stream_version > $1
     ORDER BY se.stream_version ASC
@@ -515,13 +509,11 @@ readAllBackwardSQL =
     """
     SELECT e.event_id, e.event_type,
            se.stream_version, se.stream_version AS global_position,
-           se.original_stream_id, os.stream_name AS original_stream_name,
-           se.original_stream_version,
+           se.original_stream_id, se.original_stream_version,
            e.data, e.metadata, e.causation_id, e.correlation_id,
            e.created_at
     FROM stream_events se
     JOIN events e ON e.event_id = se.event_id
-    JOIN streams os ON os.stream_id = se.original_stream_id
     WHERE se.stream_id = 0
       AND se.stream_version > $1
     ORDER BY se.stream_version DESC
@@ -560,14 +552,12 @@ findByCorrelationSQL =
     """
     SELECT e.event_id, e.event_type,
            se.stream_version, se.stream_version AS global_position,
-           se.original_stream_id, os.stream_name AS original_stream_name,
-           se.original_stream_version,
+           se.original_stream_id, se.original_stream_version,
            e.data, e.metadata, e.causation_id, e.correlation_id,
            e.created_at
     FROM events e
     JOIN stream_events se
       ON se.event_id = e.event_id AND se.stream_id = 0
-    JOIN streams os ON os.stream_id = se.original_stream_id
     WHERE e.correlation_id = $1
     ORDER BY se.stream_version ASC
     """
@@ -601,15 +591,13 @@ findCausationDescendantsSQL =
     )
     SELECT e.event_id, e.event_type,
            se.stream_version, se.stream_version AS global_position,
-           se.original_stream_id, os.stream_name AS original_stream_name,
-           se.original_stream_version,
+           se.original_stream_id, se.original_stream_version,
            e.data, e.metadata, e.causation_id, e.correlation_id,
            e.created_at
     FROM chain c
     JOIN events e ON e.event_id = c.event_id
     JOIN stream_events se
       ON se.event_id = e.event_id AND se.stream_id = 0
-    JOIN streams os ON os.stream_id = se.original_stream_id
     ORDER BY se.stream_version ASC
     """
 
@@ -644,15 +632,13 @@ findCausationAncestorsSQL =
     )
     SELECT e.event_id, e.event_type,
            se.stream_version, se.stream_version AS global_position,
-           se.original_stream_id, os.stream_name AS original_stream_name,
-           se.original_stream_version,
+           se.original_stream_id, se.original_stream_version,
            e.data, e.metadata, e.causation_id, e.correlation_id,
            e.created_at
     FROM chain c
     JOIN events e ON e.event_id = c.event_id
     JOIN stream_events se
       ON se.event_id = e.event_id AND se.stream_id = 0
-    JOIN streams os ON os.stream_id = se.original_stream_id
     ORDER BY c.depth ASC
     """
 
@@ -747,8 +733,7 @@ readCategoryForwardSQL =
     """
     SELECT e.event_id, e.event_type,
            se.stream_version, se.stream_version AS global_position,
-           se.original_stream_id, s.stream_name AS original_stream_name,
-           se.original_stream_version,
+           se.original_stream_id, se.original_stream_version,
            e.data, e.metadata, e.causation_id, e.correlation_id,
            e.created_at
     FROM streams s
@@ -805,8 +790,7 @@ readCategoryForwardConsumerGroupSQL =
     """
     SELECT e.event_id, e.event_type,
            se.stream_version, se.stream_version AS global_position,
-           se.original_stream_id, s.stream_name AS original_stream_name,
-           se.original_stream_version,
+           se.original_stream_id, se.original_stream_version,
            e.data, e.metadata, e.causation_id, e.correlation_id,
            e.created_at
     FROM streams s
@@ -855,13 +839,11 @@ readAllForwardConsumerGroupSQL =
     """
     SELECT e.event_id, e.event_type,
            se.stream_version, se.stream_version AS global_position,
-           se.original_stream_id, os.stream_name AS original_stream_name,
-           se.original_stream_version,
+           se.original_stream_id, se.original_stream_version,
            e.data, e.metadata, e.causation_id, e.correlation_id,
            e.created_at
     FROM stream_events se
     JOIN events e ON e.event_id = se.event_id
-    JOIN streams os ON os.stream_id = se.original_stream_id
     WHERE se.stream_id = 0
       AND se.stream_version > $1
       AND (((hashtextextended(se.original_stream_id::text, 0) % $3) + $3) % $3) = $2
@@ -899,6 +881,23 @@ findStreamIdStmt =
         "SELECT stream_id FROM streams WHERE stream_name = $1"
         (E.param (E.nonNullable E.text))
         (D.rowMaybe (D.column (D.nonNullable D.int8)))
+
+{- | Resolve a batch of surrogate stream ids to their (id, name) pairs in one
+round trip. Ids that do not name an existing stream simply produce no row, so
+the caller's 'Data.Map.Strict.Map' omits them. Surfaced as
+'Kiroku.Store.Read.lookupStreamNames'.
+-}
+lookupStreamNamesStmt :: Statement [Int64] (Vector (Int64, Text))
+lookupStreamNamesStmt =
+    preparable
+        "SELECT stream_id, stream_name FROM streams WHERE stream_id = ANY($1::bigint[])"
+        (E.param (E.nonNullable (E.foldableArray (E.nonNullable E.int8))))
+        ( D.rowVector
+            ( (,)
+                <$> D.column (D.nonNullable D.int8)
+                <*> D.column (D.nonNullable D.text)
+            )
+        )
 
 {- | Delete every junction row that references the given stream — both rows whose
 @stream_id@ is the target (the stream's own and any links from elsewhere) and

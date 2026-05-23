@@ -13,7 +13,6 @@ import Kiroku.Store.Types (
     GlobalPosition (..),
     RecordedEvent (..),
     StreamId (..),
-    StreamName (..),
     StreamVersion (..),
  )
 import OpenTelemetry.Trace.Core (
@@ -120,7 +119,6 @@ mkStubRecorded meta =
         , streamVersion = StreamVersion 1
         , globalPosition = GlobalPosition 1
         , originalStreamId = StreamId 1
-        , originalStreamName = StreamName (T.pack "X")
         , originalVersion = StreamVersion 1
         , payload = Aeson.Null
         , metadata = meta

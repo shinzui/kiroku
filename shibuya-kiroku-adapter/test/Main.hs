@@ -489,7 +489,6 @@ makeRecordedEvent meta =
         , streamVersion = StreamVersion 1
         , globalPosition = GlobalPosition 1
         , originalStreamId = StreamId 1
-        , originalStreamName = StreamName "trace-1"
         , originalVersion = StreamVersion 1
         , payload = Aeson.object []
         , metadata = meta

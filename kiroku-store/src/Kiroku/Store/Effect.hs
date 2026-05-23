@@ -26,6 +26,8 @@ import Data.Foldable (for_)
 import Data.Generics.Labels ()
 import Data.Int (Int32, Int64)
 import Data.List (find)
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
 import Data.Maybe (isNothing)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -72,6 +74,19 @@ data Store :: Effect where
     Surfaced as 'Kiroku.Store.Read.lookupStreamId'.
     -}
     LookupStreamId :: StreamName -> Store m (Maybe StreamId)
+    {- | Resolve a batch of surrogate 'StreamId's to their 'StreamName's in a
+    single round trip. The result 'Map' contains an entry only for ids that
+    name an existing stream (live or soft-deleted); hard-deleted or unknown ids
+    are absent.
+
+    The primary use is recovering source stream names from the
+    'RecordedEvent.originalStreamId' of events obtained via fan-in reads
+    (@$all@, categories, causation/correlation queries, subscriptions): collect
+    the distinct ids from a batch and resolve them once, rather than per event.
+    Surfaced as 'Kiroku.Store.Read.lookupStreamNames' (and the singular
+    'Kiroku.Store.Read.lookupStreamName').
+    -}
+    LookupStreamNames :: [StreamId] -> Store m (Map StreamId StreamName)
     LinkToStream :: StreamName -> [EventId] -> Store m LinkResult
     ReadCategoryForward :: CategoryName -> GlobalPosition -> Int32 -> Store m (Vector RecordedEvent)
     AppendMultiStream :: [(StreamName, ExpectedVersion, [EventData])] -> Store m [AppendResult]
@@ -163,6 +178,12 @@ runStorePool store = interpret_ $ \case
         fmap (fmap StreamId) $
             usePool (store ^. #pool) $
                 Session.statement name SQL.findStreamIdStmt
+    LookupStreamNames sids ->
+        fmap
+            (Map.fromList . map (\(s, nm) -> (StreamId s, StreamName nm)) . V.toList)
+            ( usePool (store ^. #pool) $
+                Session.statement [s | StreamId s <- sids] SQL.lookupStreamNamesStmt
+            )
     LinkToStream (StreamName name) eventIds -> do
         rejectReservedApplicationStream name
         let uuids = V.fromList [uid | EventId uid <- eventIds]
