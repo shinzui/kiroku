@@ -49,6 +49,7 @@ module Kiroku.Store.SQL (
     saveCheckpointMemberStmt,
 ) where
 
+import Contravariant.Extras (contrazip2, contrazip3, contrazip4, contrazip5)
 import Control.Lens ((^.))
 import Data.Aeson (Value)
 import Data.Functor.Contravariant ((>$<))
@@ -92,8 +93,7 @@ appendParamsEncoder =
 -- | Encoder for append_expected_version: base params + expected version (Int64).
 appendExpectedEncoder :: E.Params (AppendParams, Int64)
 appendExpectedEncoder =
-    (fst >$< appendParamsEncoder)
-        <> (snd >$< E.param (E.nonNullable E.int8))
+    contrazip2 appendParamsEncoder (E.param (E.nonNullable E.int8))
 
 {- | Decoder for append results: stream_id, stream_version, global_position.
 Returns Nothing if the CTE produced 0 rows (version conflict / stream not found).
@@ -392,15 +392,17 @@ streamInfoRow =
 -- | Encoder for stream read params: (stream_name, start_version, limit).
 readStreamEncoder :: E.Params (Text, Int64, Int32)
 readStreamEncoder =
-    ((\(a, _, _) -> a) >$< E.param (E.nonNullable E.text))
-        <> ((\(_, b, _) -> b) >$< E.param (E.nonNullable E.int8))
-        <> ((\(_, _, c) -> c) >$< E.param (E.nonNullable E.int4))
+    contrazip3
+        (E.param (E.nonNullable E.text))
+        (E.param (E.nonNullable E.int8))
+        (E.param (E.nonNullable E.int4))
 
 -- | Encoder for $all read params: (start_position, limit).
 readAllEncoder :: E.Params (Int64, Int32)
 readAllEncoder =
-    (fst >$< E.param (E.nonNullable E.int8))
-        <> (snd >$< E.param (E.nonNullable E.int4))
+    contrazip2
+        (E.param (E.nonNullable E.int8))
+        (E.param (E.nonNullable E.int4))
 
 -- | Read events from a named stream in forward order.
 readStreamForwardStmt :: Statement (Text, Int64, Int32) (Vector RecordedEvent)
@@ -662,8 +664,9 @@ linkToStreamStmt =
 
 linkEncoder :: E.Params (Vector UUID, Text)
 linkEncoder =
-    (fst >$< E.param (E.nonNullable (E.foldableArray (E.nonNullable E.uuid))))
-        <> (snd >$< E.param (E.nonNullable E.text))
+    contrazip2
+        (E.param (E.nonNullable (E.foldableArray (E.nonNullable E.uuid))))
+        (E.param (E.nonNullable E.text))
 
 linkResultDecoder :: D.Result (Maybe LinkResult)
 linkResultDecoder =
@@ -724,9 +727,10 @@ readCategoryForwardStmt =
 
 readCategoryEncoder :: E.Params (Int64, Text, Int32)
 readCategoryEncoder =
-    ((\(a, _, _) -> a) >$< E.param (E.nonNullable E.int8))
-        <> ((\(_, b, _) -> b) >$< E.param (E.nonNullable E.text))
-        <> ((\(_, _, c) -> c) >$< E.param (E.nonNullable E.int4))
+    contrazip3
+        (E.param (E.nonNullable E.int8))
+        (E.param (E.nonNullable E.text))
+        (E.param (E.nonNullable E.int4))
 
 readCategoryForwardSQL :: Text
 readCategoryForwardSQL =
@@ -779,11 +783,12 @@ readCategoryForwardConsumerGroupStmt =
 
 readCategoryConsumerGroupEncoder :: E.Params (Int64, Text, Int32, Int32, Int32)
 readCategoryConsumerGroupEncoder =
-    ((\(a, _, _, _, _) -> a) >$< E.param (E.nonNullable E.int8))
-        <> ((\(_, b, _, _, _) -> b) >$< E.param (E.nonNullable E.text))
-        <> ((\(_, _, c, _, _) -> c) >$< E.param (E.nonNullable E.int4))
-        <> ((\(_, _, _, d, _) -> d) >$< E.param (E.nonNullable E.int4))
-        <> ((\(_, _, _, _, e) -> e) >$< E.param (E.nonNullable E.int4))
+    contrazip5
+        (E.param (E.nonNullable E.int8))
+        (E.param (E.nonNullable E.text))
+        (E.param (E.nonNullable E.int4))
+        (E.param (E.nonNullable E.int4))
+        (E.param (E.nonNullable E.int4))
 
 readCategoryForwardConsumerGroupSQL :: Text
 readCategoryForwardConsumerGroupSQL =
@@ -829,10 +834,11 @@ readAllForwardConsumerGroupStmt =
 
 readAllConsumerGroupEncoder :: E.Params (Int64, Int32, Int32, Int32)
 readAllConsumerGroupEncoder =
-    ((\(a, _, _, _) -> a) >$< E.param (E.nonNullable E.int8))
-        <> ((\(_, b, _, _) -> b) >$< E.param (E.nonNullable E.int4))
-        <> ((\(_, _, c, _) -> c) >$< E.param (E.nonNullable E.int4))
-        <> ((\(_, _, _, d) -> d) >$< E.param (E.nonNullable E.int4))
+    contrazip4
+        (E.param (E.nonNullable E.int8))
+        (E.param (E.nonNullable E.int4))
+        (E.param (E.nonNullable E.int4))
+        (E.param (E.nonNullable E.int4))
 
 readAllForwardConsumerGroupSQL :: Text
 readAllForwardConsumerGroupSQL =
@@ -1028,8 +1034,9 @@ saveCheckpointStmt :: Statement (Text, Int64) ()
 saveCheckpointStmt =
     preparable
         saveCheckpointSQL
-        ( (fst >$< E.param (E.nonNullable E.text))
-            <> (snd >$< E.param (E.nonNullable E.int8))
+        ( contrazip2
+            (E.param (E.nonNullable E.text))
+            (E.param (E.nonNullable E.int8))
         )
         D.noResult
 
@@ -1055,8 +1062,9 @@ getCheckpointMemberStmt :: Statement (Text, Int32) (Maybe Int64)
 getCheckpointMemberStmt =
     preparable
         getCheckpointMemberSQL
-        ( (fst >$< E.param (E.nonNullable E.text))
-            <> (snd >$< E.param (E.nonNullable E.int4))
+        ( contrazip2
+            (E.param (E.nonNullable E.text))
+            (E.param (E.nonNullable E.int4))
         )
         (D.rowMaybe (D.column (D.nonNullable D.int8)))
 
@@ -1069,9 +1077,10 @@ saveCheckpointMemberStmt :: Statement (Text, Int32, Int64) ()
 saveCheckpointMemberStmt =
     preparable
         saveCheckpointMemberSQL
-        ( ((\(a, _, _) -> a) >$< E.param (E.nonNullable E.text))
-            <> ((\(_, b, _) -> b) >$< E.param (E.nonNullable E.int4))
-            <> ((\(_, _, c) -> c) >$< E.param (E.nonNullable E.int8))
+        ( contrazip3
+            (E.param (E.nonNullable E.text))
+            (E.param (E.nonNullable E.int4))
+            (E.param (E.nonNullable E.int8))
         )
         D.noResult
 

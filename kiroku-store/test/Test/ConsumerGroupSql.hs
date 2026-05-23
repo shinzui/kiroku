@@ -12,9 +12,9 @@ determinism, and size-1 equivalence — are the contract EP-2's runtime depends 
 -}
 module Test.ConsumerGroupSql (spec) where
 
+import Contravariant.Extras (contrazip2)
 import Control.Lens ((^.))
 import Data.Aeson qualified as Aeson
-import Data.Functor.Contravariant ((>$<))
 import Data.Generics.Labels ()
 import Data.Int (Int32, Int64)
 import Data.List (sort)
@@ -88,8 +88,9 @@ runMemberOf store streamId size = runStmt store (Session.statement (streamId, si
     stmt =
         preparable
             "SELECT (((hashtextextended($1::text, 0) % $2) + $2) % $2)::int4"
-            ( (fst >$< E.param (E.nonNullable E.int8))
-                <> (snd >$< E.param (E.nonNullable E.int4))
+            ( contrazip2
+                (E.param (E.nonNullable E.int8))
+                (E.param (E.nonNullable E.int4))
             )
             (D.singleRow (D.column (D.nonNullable D.int4)))
 

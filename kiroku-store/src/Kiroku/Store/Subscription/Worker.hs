@@ -2,12 +2,12 @@ module Kiroku.Store.Subscription.Worker (
     runWorker,
 ) where
 
+import Contravariant.Extras (contrazip2)
 import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.STM (TBQueue, TVar, atomically, check, readTBQueue, readTVar)
 import Control.Exception (SomeException, fromException, throwIO, try)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Foldable (for_)
-import Data.Functor.Contravariant ((>$<))
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Int (Int32, Int64)
 import Data.Text (Text)
@@ -140,8 +140,9 @@ guardMember pool subName@(SubscriptionName n) mem = do
         probe =
             preparable
                 "SELECT pg_try_advisory_xact_lock(hashtextextended($1 || ':' || $2::text, 0))"
-                ( (fst >$< E.param (E.nonNullable E.text))
-                    <> (snd >$< E.param (E.nonNullable E.int4))
+                ( contrazip2
+                    (E.param (E.nonNullable E.text))
+                    (E.param (E.nonNullable E.int4))
                 )
                 (D.singleRow (D.column (D.nonNullable D.bool)))
     result <- Pool.use pool (Session.statement (n, mem) probe)

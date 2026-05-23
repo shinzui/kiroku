@@ -5,9 +5,9 @@ transaction.
 -}
 module Test.Transaction (spec) where
 
+import Contravariant.Extras (contrazip2)
 import Control.Lens ((^.))
 import Data.Aeson qualified as Aeson
-import Data.Functor.Contravariant ((>$<))
 import Data.Generics.Labels ()
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.Int (Int64)
@@ -256,8 +256,9 @@ insertSideRowStmt :: Statement (Int64, Text) ()
 insertSideRowStmt =
     preparable
         "INSERT INTO test_side_table (id, payload) VALUES ($1, $2)"
-        ( (fst >$< E.param (E.nonNullable E.int8))
-            <> (snd >$< E.param (E.nonNullable E.text))
+        ( contrazip2
+            (E.param (E.nonNullable E.int8))
+            (E.param (E.nonNullable E.text))
         )
         D.noResult
 
