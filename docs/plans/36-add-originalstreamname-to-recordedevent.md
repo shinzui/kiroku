@@ -65,11 +65,12 @@ Milestone 1 — field plumbing (type, decoder, all read SQL, test stubs); projec
 - [x] Fix the two test stubs that build a `RecordedEvent` by hand (`kiroku-otel/test/Main.hs` — also added `StreamName (..)` to its import list — and `shibuya-kiroku-adapter/test/Main.hs`). (2026-05-23)
 - [x] Confirm the whole workspace compiles and the existing suites pass with no behavioral change to existing tests. `cabal build all` clean; `kiroku-store` 154 examples / 0 failures; `kiroku-otel` 6/0; `shibuya-kiroku-adapter` 8/0. (2026-05-23)
 
-Milestone 2 — behavioral proof and documentation:
+Milestone 2 — behavioral proof and documentation: **DONE 2026-05-23.**
 
-- [ ] Add a focused test asserting `originalStreamName` for `$all` reads, category reads, and a *linked* event (source-stream semantics).
-- [ ] Update the `RecordedEvent` Haddock prose in `Types.hs` to describe the new field's source-stream semantics under linking.
-- [ ] Add a CHANGELOG entry under `## Unreleased` in `kiroku-store/CHANGELOG.md`.
+- [x] Add a focused test asserting `originalStreamName` for `$all` reads, category reads, and a *linked* event (source-stream semantics). New module `kiroku-store/test/Test/OriginalStreamName.hs`, wired into `kiroku-store/test/Main.hs` and the cabal `other-modules`. 3 examples, 0 failures. (2026-05-23)
+- [x] Update the `RecordedEvent` Haddock prose in `Types.hs` to describe the new field's source-stream semantics under linking. (2026-05-23)
+- [x] Add a CHANGELOG entry under `## Unreleased` in `kiroku-store/CHANGELOG.md`. (2026-05-23)
+- [x] Full store suite green with the new tests: `cabal test kiroku-store` → 157 examples, 0 failures (was 154). (2026-05-23)
 
 
 ## Surprises & Discoveries
@@ -156,7 +157,37 @@ Record every decision made while working on the plan.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+Completed 2026-05-23, both milestones. `RecordedEvent` now carries
+`originalStreamName :: StreamName`, fulfilling the purpose: a consumer of any
+fan-in read can call `event ^. #originalStreamName` and get the originating
+stream name with no extra round-trip and no internal SQL. The behavior is
+proven by `kiroku-store/test/Test/OriginalStreamName.hs` across `$all`,
+category, and linked-event reads; the linked-event case asserts the *source*
+name (`orders-1`), which can only hold because the SQL joins on
+`original_stream_id` rather than the read's stream name — that case is the
+effectiveness guard.
+
+Result vs. plan: implementation matched the plan with no course changes. The
+column/field landed in the planned position (origin triple kept adjacent),
+eight statements gained the `JOIN streams os ON os.stream_id =
+se.original_stream_id`, and the two category statements only needed the
+`s.stream_name` column. The whole workspace builds and all suites pass:
+`kiroku-store` 157 examples / 0 failures (was 154), `kiroku-otel` 6/0,
+`shibuya-kiroku-adapter` 8/0. Subscriptions inherit the field transitively
+(the worker reuses the four read statements) — no worker change was needed,
+as predicted.
+
+What remains / not done (deliberately out of scope): no performance
+measurement of the `$all`-forward subscription hot path was taken; the plan
+flagged it as worth measuring but the change adds an indexed PK join, not a
+round-trip, so it is expected to be negligible. `AppendResult` and
+`StreamInfo` were intentionally left unchanged. No schema migration was
+needed — the name is computed at read time from the existing `streams` table.
+
+Lessons: the one subtle requirement (source vs. read-target name for linked
+events) is fully captured by a single assertion, which is the cheapest way to
+lock in the behavior against a future "simplification" that keys the join off
+the read's `$1` stream name.
 
 
 ## Context and Orientation

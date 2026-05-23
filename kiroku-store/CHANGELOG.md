@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+### Added — `RecordedEvent.originalStreamName` (plan 36)
+
+* `RecordedEvent` now carries `originalStreamName :: StreamName`, the
+  human-readable name of the stream an event was first appended to. This
+  removes the need to resolve `originalStreamId` (a surrogate id) back to a
+  name when consuming fan-in reads — `$all`, categories, causation/correlation
+  queries, and subscriptions — which previously had no public id→name lookup.
+  For linked events the field reports the source stream, matching
+  `originalStreamId`/`originalVersion`.
+* Read statements that did not already join `streams` now add an indexed
+  primary-key join on `original_stream_id`; no extra round-trips. The two
+  category read statements already joined `streams` and only select the new
+  column.
+
+  BREAKING: any code constructing `RecordedEvent` positionally or with a
+  complete record literal must supply the new field. Code reading fields via
+  `generic-lens` labels or record-wildcard patterns is unaffected.
+
 ### Changed — Kiroku objects install into a dedicated `kiroku` schema (plan 20)
 
 * A fresh installation now creates and uses a dedicated `kiroku` PostgreSQL

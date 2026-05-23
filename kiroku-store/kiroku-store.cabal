@@ -80,6 +80,7 @@ test-suite kiroku-store-test
     Test.FailureInjection
     Test.Helpers
     Test.InterpreterHooks
+    Test.OriginalStreamName
     Test.Properties
     Test.ReadStream
     Test.Transaction
