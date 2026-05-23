@@ -15,10 +15,15 @@ import Data.List (sort)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Text.IO qualified as TIO
 import Data.Time (UTCTime (..), fromGregorian)
 import Data.UUID qualified as UUID
 import Effectful (runEff)
 import EphemeralPg qualified as Pg
+import Hasql.Connection.Settings qualified as Conn
+import Hasql.Pool qualified as Pool
+import Hasql.Pool.Config qualified as Pool.Config
+import Hasql.Session qualified as Session
 import Kiroku.Store
 import Shibuya.Adapter.Kiroku (KirokuAdapterConfig (..), kirokuAdapter)
 import Shibuya.Adapter.Kiroku.Convert (toEnvelope)
@@ -37,6 +42,7 @@ import Shibuya.Core.Ingested (Ingested (..))
 import Shibuya.Core.Types (Envelope (..))
 import Shibuya.Runner.Metrics (ProcessorState (..))
 import Shibuya.Telemetry.Effect (runTracingNoop)
+import System.Directory (doesFileExist)
 import Test.Hspec
 
 main :: IO ()
@@ -500,8 +506,39 @@ makeRecordedEvent meta =
 withTestStore :: (KirokuStore -> IO ()) -> IO ()
 withTestStore action = do
     result <- Pg.withCached $ \db -> do
+        migrateTestDatabase (Pg.connectionString db)
         let settings = defaultConnectionSettings (Pg.connectionString db)
         withStore settings action
     case result of
         Left err -> error ("Failed to start ephemeral PostgreSQL: " <> show err)
         Right () -> pure ()
+
+migrateTestDatabase :: Text -> IO ()
+migrateTestDatabase connStr = do
+    migrationPath <- findMigrationSql
+    migrationSql <- TIO.readFile migrationPath
+    pool <- Pool.acquire poolConfig
+    result <- Pool.use pool (Session.script migrationSql)
+    Pool.release pool
+    case result of
+        Left err -> error ("Failed to apply Kiroku migration SQL for test database: " <> show err)
+        Right () -> pure ()
+  where
+    poolConfig =
+        Pool.Config.settings
+            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
+            , Pool.Config.size 1
+            ]
+
+findMigrationSql :: IO FilePath
+findMigrationSql = go candidates
+  where
+    candidates =
+        [ "kiroku-store-migrations/sql-migrations/2026-05-16-00-00-00-kiroku-bootstrap.sql"
+        , "../kiroku-store-migrations/sql-migrations/2026-05-16-00-00-00-kiroku-bootstrap.sql"
+        ]
+
+    go [] = error "Could not locate kiroku-store-migrations bootstrap SQL from test working directory"
+    go (path : rest) = do
+        exists <- doesFileExist path
+        if exists then pure path else go rest
