@@ -212,6 +212,15 @@ data RecordedEvent = RecordedEvent
     -}
     , originalStreamId :: !StreamId
     -- ^ The stream the event was first appended to.
+    , originalStreamName :: !StreamName
+    {- ^ The human-readable name of the stream the event was first appended
+    to (the stream identified by @originalStreamId@). For events read from
+    their source stream this is the stream you read; for events read from a
+    /linked/ target stream it is the /source/ stream's name, not the target's.
+    Accompanies @originalStreamId@ so consumers of fan-in reads (@$all@,
+    categories, causation\/correlation queries, subscriptions) can recover the
+    originating stream without a separate id-to-name lookup.
+    -}
     , originalVersion :: !StreamVersion
     -- ^ The position the event was assigned in its source stream.
     , payload :: !Value
