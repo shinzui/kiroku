@@ -56,6 +56,19 @@ data ConnectionSettingsM m = ConnectionSettings
     store a distinct 'schema'; each gets its own set of Kiroku tables and
     its own notification channel.
     -}
+    , extraSearchPath :: ![Text]
+    {- ^ Additional schemas appended to every pooled connection's
+    @search_path@, after 'schema' and before @pg_catalog@ (default: @[]@).
+
+    The store's own unqualified names always resolve to 'schema' first.
+    This is for consumers whose /application/ objects — typically inline
+    projections' read-model tables, queried on the same pool as the event
+    store — live in another schema (commonly @public@). Without it those
+    unqualified application tables are unreachable on the store pool, since
+    'schema' replaces the default @search_path@. Entries are quoted as
+    identifiers; like 'schema' they are not validated at connection time
+    (PostgreSQL does not validate @search_path@ entries).
+    -}
     , idleInTransactionTimeout :: !Int
     -- ^ idle_in_transaction_session_timeout in seconds (default: 30)
     , statementTimeout :: !(Maybe Int)
@@ -110,6 +123,7 @@ defaultConnectionSettings cs =
         { connString = cs
         , poolSize = 10
         , schema = "kiroku"
+        , extraSearchPath = []
         , idleInTransactionTimeout = 30
         , statementTimeout = Nothing
         , observationHandler = Nothing
@@ -172,11 +186,18 @@ withStore settings action = withRunInIO $ \runInIO ->
     initScript =
         T.intercalate "; " $
             -- Resolve unqualified Kiroku table names (see "Kiroku.Store.SQL")
-            -- to the configured schema on every pooled connection. Setting a
-            -- not-yet-created schema is harmless: PostgreSQL does not validate
-            -- search_path entries. Runtime queries still require migrations to
-            -- have created the schema before the store is opened.
-            ("SET search_path TO " <> quoteIdentifier (settings ^. #schema) <> ", pg_catalog")
+            -- to the configured schema on every pooled connection, followed by
+            -- any 'extraSearchPath' schemas (for application objects such as
+            -- inline-projection read-model tables queried on the same pool).
+            -- Setting a not-yet-created schema is harmless: PostgreSQL does not
+            -- validate search_path entries. Runtime queries still require
+            -- migrations to have created the schemas before the store is opened.
+            ( "SET search_path TO "
+                <> T.intercalate
+                    ", "
+                    (quoteIdentifier (settings ^. #schema) : map quoteIdentifier (settings ^. #extraSearchPath))
+                <> ", pg_catalog"
+            )
                 : ("SET idle_in_transaction_session_timeout = '" <> T.pack (show (settings ^. #idleInTransactionTimeout)) <> "s'")
                 : maybe
                     []
