@@ -1,0 +1,43 @@
+cabal-version: 3.0
+name:          kiroku-jitsurei
+version:       0.1.0.0
+synopsis:      Worked examples (実例) for kiroku-store
+description:
+  Runnable demonstrations of the kiroku-store event store. These examples live
+  in their own package so that consumers of the kiroku-store library never build
+  the demos or their heavyweight, example-only dependencies (e.g. ephemeral-pg).
+
+homepage:      https://github.com/shinzui/kiroku
+bug-reports:   https://github.com/shinzui/kiroku/issues
+author:        Nadeem Bitar
+maintainer:    nadeem@gmail.com
+license:       BSD-3-Clause
+build-type:    Simple
+category:      Database, Eventing
+
+source-repository head
+  type:     git
+  location: https://github.com/shinzui/kiroku.git
+
+common common
+  default-language:   GHC2024
+  default-extensions:
+    DeriveAnyClass
+    DuplicateRecordFields
+    OverloadedLabels
+    OverloadedStrings
+
+executable kiroku-consumer-group-example
+  import:         common
+  main-is:        Main.hs
+  hs-source-dirs: app
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+    , aeson         >=2.1  && <2.3
+    , base          >=4.18 && <5
+    , ephemeral-pg  >=0.2  && <0.3
+    , generic-lens  >=2.2  && <2.4
+    , kiroku-store
+    , lens          >=5.2  && <5.4
+    , stm           >=2.5  && <2.6
+    , text          >=2.0  && <2.2

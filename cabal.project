@@ -4,6 +4,7 @@ packages:
   kiroku-test-support
   shibuya-kiroku-adapter
   kiroku-otel
+  kiroku-jitsurei
 
 with-compiler: ghc-9.12.2
 
