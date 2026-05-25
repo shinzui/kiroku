@@ -25,6 +25,7 @@ import Kiroku.Store.Error (extractStreamNameFromDetail)
 import Kiroku.Store.Subscription.Effect qualified as SubEff
 import Kiroku.Store.Subscription.EventPublisher (publisherPosition)
 import Kiroku.Store.Subscription.Types (OverflowPolicy (..), SubscriptionConfigM (..), SubscriptionOverflowed (..))
+import Test.CategoryIdleNoSpin qualified as CategoryIdleNoSpin
 import Test.Causation qualified as Causation
 import Test.Concurrency qualified as Concurrency
 import Test.ConsumerGroup qualified as ConsumerGroup
@@ -52,6 +53,7 @@ main = withSharedMigratedPostgres $ hspec $ do
     ConsumerGroupSql.spec
     ConsumerGroup.spec
     ConsumerGroupEffect.spec
+    CategoryIdleNoSpin.spec
     around withTestStore $ do
         describe "schema migrations" $ do
             it "installs every Kiroku table under the kiroku schema" $ \store -> do

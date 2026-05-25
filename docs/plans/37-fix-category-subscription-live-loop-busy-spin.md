@@ -181,14 +181,29 @@ Milestone 2 — new Category loop + corrected group loop + wiring: **DONE 2026-0
 - [x] `cabal build all` clean — all 14 components linked; no `-Werror` fallout from
       the new `runWorker` arity or the new live loop. (2026-05-25)
 
-Milestone 3 — regression tests: **NOT STARTED.**
+Milestone 3 — regression tests: **DONE 2026-05-25.**
 
-- [ ] Spec: an idle `Category` subscriber does **zero** category reads while a
-      different category is active, and a later same-category append is delivered.
-- [ ] Spec: an idle consumer-group partition does not spin while other partitions
-      advance the global position (covers the corrected `liveLoopDbDriven`).
-- [ ] New spec module(s) registered in `kiroku-store.cabal` `other-modules` + wired
-      into `Main.hs`. `cabal test kiroku-store` green (existing + new specs).
+- [x] Added `kiroku-store/test/Test/CategoryIdleNoSpin.hs` with two specs. Spec A:
+      an idle `Category "alpha"` subscriber does **zero** fetches (delta `== 0`,
+      snapshotted after the initial post-catch-up drain) while a 20-stream `beta`
+      burst advances the global tail, delivers nothing during the idle window, and
+      is delivered exactly one event after a real `alpha-1` append (liveness).
+      (2026-05-25)
+- [x] Spec B: an idle size-3 consumer-group member on category `grp` (which gets
+      no events) stays bounded (`< 50` fetches) while a 20-stream `flood` burst in
+      a *different* category advances the global position — covers the corrected
+      `liveLoopDbDriven`. (2026-05-25)
+- [x] Registered `Test.CategoryIdleNoSpin` in `kiroku-store.cabal` `other-modules`
+      and wired `CategoryIdleNoSpin.spec` into `Main.hs`. (2026-05-25)
+- [x] `cabal test kiroku-store` green: **160 examples, 0 failures** (was 158;
+      +2 new). `cabal test shibuya-kiroku-adapter` green: **8 examples, 0
+      failures** (no collateral change to the consumer-group / `Category` live
+      paths). (2026-05-25)
+- [x] Proved the specs pin the regression: temporarily restored the cursor-gated
+      `liveLoopDbDriven` body and routed `(Nothing, Category{})` back through it —
+      both specs failed to pass (the worker busy-spun and livelocked the run,
+      pegging ~50 % CPU per process and never completing; killed via SIGTERM).
+      Restored the fix via `git checkout`; suite green again. (2026-05-25)
 
 Milestone 4 — changelog + downstream re-enable: **NOT STARTED.**
 
@@ -310,6 +325,43 @@ implementation. Provide concise evidence.
 ## Decision Log
 
 Record every decision made while working on the plan.
+
+- Decision (Milestone 3, 2026-05-25): **Spec B floods a *different category*
+  rather than other partitions of the member's own category.** The plan suggested
+  using `readCategoryForwardConsumerGroupStmt` to pick streams that hash to other
+  members; in practice the partition predicate hashes `stream_id` (a server-side
+  TypeID assigned at creation), which the test cannot predict from a stream name,
+  so isolating "streams that hash to non-member-0" is fiddly. The corrected
+  `liveLoopDbDriven` gate keys on `pubPos`-vs-`waitFrom`, not on category — so a
+  member of a group on category `grp` (which receives **no** events) while a
+  different category `flood` is hammered exercises the identical gate logic, and
+  the member receives a deterministic **zero** events (no hash dependency). This
+  is strictly simpler and at least as strong a test of the spin. Recorded so the
+  divergence from the plan's suggested mechanism is explicit.
+  Date: 2026-05-25
+
+- Decision/finding (Milestone 3, 2026-05-25): **the two live loops drain at
+  different points, which the specs must account for.** `liveLoopCategoryNotify`
+  drains *before* gating, so after catch-up an idle category emits exactly one
+  empty `KirokuEventSubscriptionFetched` then blocks — Spec A snapshots its
+  baseline *after* waiting for that first fetch (`fetchVar >= 1`) and asserts the
+  post-burst delta is `0`. The corrected `liveLoopDbDriven` gates *before*
+  draining, so on an empty store an idle member emits **zero** fetches until the
+  global position first advances — Spec B needs no baseline and asserts the raw
+  count stays `< 50`. Documented because it is the non-obvious reason the two
+  specs are shaped differently.
+  Date: 2026-05-25
+
+- Finding (validation, 2026-05-25): **the busy-spin reproduces as a livelock, not
+  a clean assertion failure.** With the cursor-gated body restored and `Category`
+  routed back to it, the spinning worker pegged a core and starved the connection
+  pool / scheduler so the spec body never reached its assertion (two test
+  processes ran 9:58 and 4:30 of CPU time without completing; terminated by
+  SIGTERM, exit 144). This is a *stronger* demonstration of the production
+  symptom (581 % CPU, identical SELECTs) than a numeric count would have been: the
+  spec does not pass against the bug, which is exactly what the validation step
+  requires. The fixed code runs the same two specs in ~1.3 s.
+  Date: 2026-05-25
 
 - Implementation note (Milestone 1, 2026-05-25): `bytestring` was not a direct
   `build-depends` of the `kiroku-store` library (only transitive), so the payload
