@@ -166,16 +166,20 @@ Milestone 1 — per-category wake signal in the Notifier: **DONE 2026-05-25.**
 - [x] `cabal build all` clean — the additive `KirokuEvent` constructor broke no
       exhaustive matches (no `-Werror` fallout). (2026-05-25)
 
-Milestone 2 — new Category loop + corrected group loop + wiring: **NOT STARTED.**
+Milestone 2 — new Category loop + corrected group loop + wiring: **DONE 2026-05-25.**
 
-- [ ] `Worker.hs`: add `liveLoopCategoryNotify` (drain-first, then block on the
-      category generation OR a safety timeout); correct `liveLoopDbDriven`'s gate
-      to the last observed global position; emit `KirokuEventSubscriptionFetched`
-      from both; dispatch `(Nothing, Category{})` → new loop, `(Just _, _)` → the
-      corrected group loop; add `catGenVar` to `runWorker`.
-- [ ] `Subscription.hs`: pass `Notifier.categoryGenerations (store ^. #notifier)`
-      to `runWorker`.
-- [ ] `cabal build all` clean.
+- [x] `Worker.hs`: added `liveLoopCategoryNotify` (drain-first, then block on the
+      category generation OR a safety timeout); corrected `liveLoopDbDriven`'s gate
+      to the last observed global position (now consumer-group-only); both emit
+      `KirokuEventSubscriptionFetched` per live fetch; dispatch
+      `(Nothing, Category{})` → new loop, `(Just _, _)` → corrected group loop;
+      added `catGenVar :: TVar (Map Text Word64)` to `runWorker` (after
+      `pubPosVar`); added `categorySafetyPollMicros = 30_000_000`
+      (`NumericUnderscores` is on via GHC2024). (2026-05-25)
+- [x] `Subscription.hs`: passes `Notifier.categoryGenerations (store ^. #notifier)`
+      to `runWorker` (new qualified `Kiroku.Store.Notification` import). (2026-05-25)
+- [x] `cabal build all` clean — all 14 components linked; no `-Werror` fallout from
+      the new `runWorker` arity or the new live loop. (2026-05-25)
 
 Milestone 3 — regression tests: **NOT STARTED.**
 

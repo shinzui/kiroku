@@ -17,6 +17,7 @@ import Control.Monad.IO.Unlift (MonadUnliftIO, withRunInIO)
 import Data.Foldable (for_)
 import Data.Generics.Labels ()
 import Kiroku.Store.Connection (KirokuStore (..))
+import Kiroku.Store.Notification qualified as Notifier
 import Kiroku.Store.Subscription.EventPublisher qualified as Pub
 import Kiroku.Store.Subscription.Types
 import Kiroku.Store.Subscription.Worker (runWorker)
@@ -104,6 +105,7 @@ subscribe store config = liftIO $ do
                 (queueCapacity config)
                 (overflowPolicy config)
     let pubPosVar = Pub.lastPublished (store ^. #publisher)
+        catGenVar = Notifier.categoryGenerations (store ^. #notifier)
     -- `finally unsubscribe` removes this subscription from the publisher's
     -- registry whenever the worker exits — gracefully on Stop, by
     -- cancellation, or on any exception (including SubscriptionOverflowed).
@@ -112,7 +114,7 @@ subscribe store config = liftIO $ do
     -- policy on the next batch.
     thread <-
         Async.async
-            ( runWorker (store ^. #pool) queue statusVar pubPosVar config (store ^. #eventHandler) (store ^. #storeSettings)
+            ( runWorker (store ^. #pool) queue statusVar pubPosVar catGenVar config (store ^. #eventHandler) (store ^. #storeSettings)
                 `finally` unsubscribe
             )
     pure
