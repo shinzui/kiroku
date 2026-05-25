@@ -205,14 +205,19 @@ Milestone 3 — regression tests: **DONE 2026-05-25.**
       pegging ~50 % CPU per process and never completing; killed via SIGTERM).
       Restored the fix via `git checkout`; suite green again. (2026-05-25)
 
-Milestone 4 — changelog + downstream re-enable: **NOT STARTED.**
+Milestone 4 — changelog + downstream re-enable: **CHANGELOG DONE 2026-05-25;
+downstream tracked out-of-repo.**
 
-- [ ] CHANGELOG entry under `## Unreleased` in `kiroku-store/CHANGELOG.md`.
+- [x] Added a new `## Unreleased` section to `kiroku-store/CHANGELOG.md` with the
+      Fixed (busy-spin) and Added (`KirokuEventSubscriptionFetched`) entries.
+      (2026-05-25)
 - [ ] Downstream `rei`: rebuild `rei-cli` against the fixed pin, redeploy the
       `com.shinzui.rei-worker-kiroku` agent, and re-enable it + the
       `com.shinzui.rei-watchdog` agent (both were `launchctl disable`/`bootout`
       as the 2026-05-25 mitigation). Confirm worker CPU is near-idle even under
-      cross-context flow. (Tracked downstream, not in this repo.)
+      cross-context flow. **Deferred — belongs to the downstream `rei` repo and
+      its deployment; the kiroku-repo work (Milestones 1–4 source + tests +
+      changelog) is complete and ready to pin.**
 
 
 ## Surprises & Discoveries
@@ -516,16 +521,61 @@ Record every decision made while working on the plan.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-Pending — fix not yet applied. To be filled in at completion with: the final
-diffs for `Notification.hs`, `Connection.hs`, `Subscription.hs`, and `Worker.hs`
-(new `liveLoopCategoryNotify` + corrected `liveLoopDbDriven`); `cabal test
-kiroku-store` result; the regression specs' before/after fetch counts (idle
-Category count should be `0` after the fix); and confirmation that the downstream
-`rei` worker idles near 0 % CPU after redeploy + re-enable, including under
-cross-context flow (the case Option A would only have bounded, not eliminated).
-The investigation outcome (root cause + load-test-gap analysis + the
-discarded-payload architecture discovery) is recorded above and is the "keep the
-history" deliverable this plan was created for.
+**Completed in this repo 2026-05-25 (Milestones 1–4 source/tests/changelog).**
+The downstream `rei` redeploy + re-enable is the only remaining item and lives
+out-of-repo.
+
+What shipped, against the original purpose (kill the `liveLoopDbDriven`
+busy-spin that pegged 581 % CPU on the downstream `rei worker kiroku`):
+
+- **`Notification.hs`** — `Notifier` gained `categoryGenerations :: TVar (Map
+  Text Word64)`, created in `startNotifier`; the `waitForNotifications` callback
+  now parses the discarded payload (`handleNotification` / `categoryFromPayload`)
+  and bumps the originating stream's category generation while still writing the
+  same `()` tick. `Connection.hs` was **not** touched (the registry is reachable
+  via the already-exported `Notifier(..)`), so the plan's anticipated
+  `Connection.hs` edit proved unnecessary.
+- **`Observability.hs`** — additive `KirokuEventSubscriptionFetched
+  !SubscriptionName !Int !SubscriptionGroupContext`, emitted once per live
+  DB-driven fetch (both live loops, not the catch-up path).
+- **`Worker.hs`** — new `liveLoopCategoryNotify` (drain-first, then block on the
+  category generation OR a 30 s safety timer) for non-group `Category`; corrected
+  `liveLoopDbDriven` (gate on the last observed global position, then drain to
+  empty) for consumer-group members; `runWorker` gained `catGenVar`. The
+  publisher, `catchUp`, and the AllStreams `liveLoop` are byte-identical.
+- **`Subscription.hs`** — threads `Notifier.categoryGenerations` into `runWorker`.
+- **Tests** — `Test/CategoryIdleNoSpin.hs`: idle Category fetch delta `== 0`
+  (strong Option-H assertion) + liveness; idle group member bounded `< 50`.
+  `cabal test kiroku-store` → **160 examples, 0 failures**;
+  `cabal test shibuya-kiroku-adapter` → **8 examples, 0 failures**.
+
+Before/after evidence (the deliverable this plan was created to capture):
+
+- **Idle Category fetch count.** After fix: `0` in the idle window (the worker
+  blocks on its own category generation; foreign-category traffic never wakes it).
+  Before fix (cursor-gated body restored for validation): unbounded — the worker
+  busy-spun and *livelocked* the test run, pegging ~50 % CPU per process and never
+  completing (had to SIGTERM it). That livelock is the in-the-small reproduction
+  of the production 581 % CPU symptom.
+- **Idle consumer-group member fetch count.** After fix: bounded by the number of
+  observed global advances (≤ the flood size), `< 50` in the spec. Before fix:
+  unbounded (same spin).
+
+Gaps / deltas from the plan as written:
+
+- The plan suggested Spec B pick streams by partition hash via
+  `readCategoryForwardConsumerGroupStmt`; the implementation instead floods a
+  *different category* (deterministic, no hash dependency) since the corrected
+  gate keys on the global position, not the category (see Decision Log).
+- `pg_stat_statements` was confirmed unavailable and unused; the additive
+  observability counter was the discriminator, as planned.
+
+Remaining (out-of-repo): bump the `rei` kiroku pin to this fixed SHA, rebuild
+`rei-cli`, redeploy `com.shinzui.rei-worker-kiroku`, and re-enable it plus
+`com.shinzui.rei-watchdog`; confirm the worker idles near 0 % CPU under
+cross-context flow. The investigation outcome (root cause + load-test-gap
+analysis + the discarded-payload architecture discovery) is recorded above and is
+the "keep the history" deliverable.
 
 
 ## Context and Orientation

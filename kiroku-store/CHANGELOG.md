@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Fixed — Category/consumer-group live subscriptions busy-spinning (plan 37)
+
+* Live `Category` subscriptions and consumer-group members no longer busy-spin
+  when idle while other categories/partitions advance the global `$all`
+  position. `Category` subscriptions now wake from a per-category NOTIFY signal
+  (the Notifier previously discarded the notification payload), so an idle
+  category does zero DB work; consumer-group members now gate on the last
+  observed global position instead of the per-category cursor. Delivery and
+  checkpoint semantics are unchanged. See
+  `docs/plans/37-fix-category-subscription-live-loop-busy-spin.md`.
+
+### Added
+
+* `KirokuEventSubscriptionFetched` observability event (per live DB-driven
+  fetch), exposing per-subscription live-fetch activity.
+
 ## 0.1.0.0 — 2026-05-23
 
 ### Changed — migrations own schema lifecycle
