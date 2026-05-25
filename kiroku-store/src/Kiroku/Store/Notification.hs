@@ -8,12 +8,18 @@ module Kiroku.Store.Notification (
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (Async)
 import Control.Concurrent.Async qualified as Async
-import Control.Concurrent.STM (TChan, TVar, atomically, newBroadcastTChanIO, newTVarIO, readTVarIO, writeTChan, writeTVar)
+import Control.Concurrent.STM (TChan, TVar, atomically, modifyTVar', newBroadcastTChanIO, newTVarIO, readTVarIO, writeTChan, writeTVar)
 import Control.Exception (Exception, SomeException, asyncExceptionFromException, bracketOnError, catch, throwIO, toException)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Data.ByteString (ByteString)
+import Data.ByteString.Char8 qualified as BC
 import Data.Foldable (for_)
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
 import Data.Text (Text)
+import Data.Text.Encoding (decodeUtf8Lenient)
+import Data.Word (Word64)
 import Hasql.Connection (Connection)
 import Hasql.Connection qualified as Connection
 import Hasql.Connection.Settings qualified as Conn
@@ -44,6 +50,14 @@ data Notifier = Notifier
     {- ^ The /current/ dedicated listener connection. Updated by the loop on
     each successful reconnection so 'stopNotifier' always releases the
     live socket.
+    -}
+    , categoryGenerations :: !(TVar (Map Text Word64))
+    {- ^ Per-category wake counter. The listener callback increments a
+    category's entry on every NOTIFY for a stream in that category. A
+    'Kiroku.Store.Subscription.Types.Category' subscription worker blocks until
+    its category's counter advances, so an idle category does zero database work
+    while other categories receive traffic. Notifications lost across a listener
+    reconnect are reconciled by the worker's safety-poll timeout.
     -}
     }
 
@@ -107,16 +121,18 @@ startNotifier ::
     m Notifier
 startNotifier connString schema mHandler = liftIO $ do
     chan <- newBroadcastTChanIO
+    catGenVar <- newTVarIO Map.empty
     conn <- acquireOrThrow connString
     let channel = toPgIdentifier (schema <> ".events")
     Notifications.listen conn channel
     connRef <- newTVarIO conn
-    thread <- Async.async (listenerLoop chan connRef channel connString mHandler)
+    thread <- Async.async (listenerLoop chan catGenVar connRef channel connString mHandler)
     pure
         Notifier
             { tickChan = chan
             , listenerThread = thread
             , listenerConnRef = connRef
+            , categoryGenerations = catGenVar
             }
 
 {- | Stop the Notifier. Cancels the listener thread, waits for it to
@@ -142,17 +158,18 @@ stopNotifier notifier = liftIO $ do
 -- exception path uses a synthetic message.
 listenerLoop ::
     TChan () ->
+    TVar (Map Text Word64) ->
     TVar Connection ->
     PgIdentifier ->
     Text ->
     Maybe (KirokuEvent -> IO ()) ->
     IO ()
-listenerLoop chan connRef channel connStr mHandler = go
+listenerLoop chan catGenVar connRef channel connStr mHandler = go
   where
     go =
         ( do
             currentConn <- readTVarIO connRef
-            waitForNotifications (\_ _ -> atomically (writeTChan chan ())) currentConn
+            waitForNotifications (handleNotification chan catGenVar) currentConn
             -- waitForNotifications returns only if the underlying connection
             -- went bad and Hasql converted the error into a Left result; in
             -- that case we must reconnect rather than spin re-invoking the
@@ -194,6 +211,31 @@ listenerLoop chan connRef channel connStr mHandler = go
                 go
 
     emit evt = for_ mHandler ($ evt)
+
+-- The 'waitForNotifications' callback. Wakes the publisher (the bare @()@ tick,
+-- preserving the existing AllStreams broadcast path) AND bumps the originating
+-- stream's category generation so a 'Kiroku.Store.Subscription.Types.Category'
+-- worker blocked on that category unblocks. Both updates happen in one STM
+-- transaction. The two callback arguments are the channel and the payload; we
+-- ignore the channel (we only LISTEN on one) and parse the payload.
+handleNotification :: TChan () -> TVar (Map Text Word64) -> ByteString -> ByteString -> IO ()
+handleNotification chan catGenVar _channel payload =
+    atomically $ do
+        writeTChan chan ()
+        modifyTVar' catGenVar (Map.insertWith (+) (categoryFromPayload payload) 1)
+
+-- Recover the originating stream's category from a @notify_events@ payload. The
+-- payload is @stream_name,stream_id,stream_version@; @stream_id@ and
+-- @stream_version@ are comma-free integers, so the @stream_name@ is everything
+-- except the last two comma-separated fields (rejoined, since a stream name may
+-- itself contain commas). The category is then the prefix before the first @-@,
+-- matching the @streams.category GENERATED ALWAYS AS split_part(stream_name,'-',1)@
+-- column. A category never contains @-@, so @takeWhile (/= '-')@ is exact.
+categoryFromPayload :: ByteString -> Text
+categoryFromPayload payload =
+    let fields = BC.split ',' payload
+        streamName = BC.intercalate "," (take (max 0 (length fields - 2)) fields)
+     in decodeUtf8Lenient (BC.takeWhile (/= '-') streamName)
 
 -- A synthetic exception used when 'waitForNotifications' returns without
 -- raising (hasql-notifications turned a connection error into a Left

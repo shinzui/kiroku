@@ -13,6 +13,7 @@ package emits itself:
 * Per-subscription database errors (checkpoint load, batch fetch,
   checkpoint save).
 * Subscription lifecycle (started, caught-up, stopped).
+* Subscription live fetches (one per DB-driven live-mode fetch).
 * Hard-delete issuance (a fail-safe audit signal — see
   @docs\/PRODUCTION-DEPLOYMENT.md@ for the recommended in-band audit
   pattern).
@@ -100,6 +101,16 @@ data KirokuEvent
       (if any) stopped.
       -}
       KirokuEventSubscriptionStopped !SubscriptionName !GlobalPosition !SubscriptionStopReason !SubscriptionGroupContext
+    | {- | A live DB-driven subscription loop
+      ('Kiroku.Store.Subscription.Worker') issued one category/partition fetch
+      in live mode, returning the given row count ('Int'). Emitted by the
+      @Category@ NOTIFY-driven loop and the consumer-group loop on every live
+      fetch (not on the catch-up path). Lets operators observe the
+      per-subscription live-fetch rate and lets tests assert that an idle
+      category does no work. The trailing 'SubscriptionGroupContext' identifies
+      the consumer-group member (if any).
+      -}
+      KirokuEventSubscriptionFetched !SubscriptionName !Int !SubscriptionGroupContext
     | {- | A hard-delete transaction completed successfully. Operators
       relying on a fail-safe audit log can capture this event;
       compliance-grade audit should still record an application-level
