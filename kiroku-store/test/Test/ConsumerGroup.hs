@@ -23,7 +23,6 @@ import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Vector qualified as V
-import EphemeralPg qualified as Pg
 import Hasql.Connection qualified as Connection
 import Hasql.Connection.Settings qualified as Conn
 import Hasql.Decoders qualified as D
@@ -35,6 +34,7 @@ import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Subscription.Stream (subscriptionStream)
 import Kiroku.Store.Subscription.Types (ConsumerGroup (..), SubscriptionConfigM (..))
+import Kiroku.Test.Postgres (withMigratedTestDatabase)
 import Streamly.Data.Stream qualified as Stream
 import Test.Helpers (makeEvent, waitForPublisher, waitWithTimeout, withTestStore, withTestStoreSettings)
 import Test.Hspec
@@ -275,8 +275,7 @@ spec = describe "consumer groups" $ do
             any isStartedMember2 evts `shouldBe` True
 
     it "consumerGroupGuard fails fast when another holder holds the (name, member) lock" $ do
-        r <- Pg.withCached $ \db -> do
-            let cs = Pg.connectionString db
+        withMigratedTestDatabase $ \cs -> do
             withStore (defaultConnectionSettings cs) $ \store -> do
                 -- Holder: a dedicated connection takes the SESSION-level advisory
                 -- lock for the same key the worker's guard probes, namely
@@ -306,7 +305,6 @@ spec = describe "consumer groups" $ do
                             pure ()
                     other ->
                         expectationFailure ("expected ConsumerGroupGuardConflict, got: " <> show other)
-        either (\e -> expectationFailure ("ephemeral pg failed: " <> show e)) pure r
 
     it "subscriptionStream forwards the consumer-group field (member 0 of 2 sees its slice)" $
         withTestStore $ \store -> do

@@ -95,6 +95,7 @@ test-suite kiroku-store-test
     Test.Helpers
     Test.InterpreterHooks
     Test.Properties
+    Test.PublisherRestartNoRebroadcast
     Test.ReadStream
     Test.StreamNameLookup
     Test.Transaction

@@ -19,6 +19,7 @@ module Kiroku.Store.SQL (
     readCategoryForwardStmt,
     getStreamStmt,
     lookupStreamNamesStmt,
+    currentGlobalPositionStmt,
 
     -- * Consumer-group read statements
     readCategoryForwardConsumerGroupStmt,
@@ -435,6 +436,14 @@ readAllBackwardStmt =
         readAllBackwardSQL
         readAllEncoder
         (D.rowVector recordedEventRow)
+
+-- | Read the current tail of the global $all stream.
+currentGlobalPositionStmt :: Statement () Int64
+currentGlobalPositionStmt =
+    preparable
+        "SELECT stream_version FROM streams WHERE stream_id = 0"
+        E.noParams
+        (D.singleRow (D.column (D.nonNullable D.int8)))
 
 -- | Get stream metadata by name.
 getStreamStmt :: Statement Text (Maybe StreamInfo)

@@ -32,6 +32,7 @@ import Control.Concurrent.STM (
     writeTVar,
  )
 import Control.Concurrent.STM qualified as STM
+import Control.Exception (throwIO)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Foldable (for_)
 import Data.Int (Int32, Int64)
@@ -121,7 +122,9 @@ startPublisher ::
 startPublisher pool notifierChan mHandler stSettings = liftIO $ do
     subsVar <- newTVarIO IntMap.empty
     nextIdVar <- newTVarIO 0
-    pos <- newTVarIO (GlobalPosition 0)
+    tailResult <- Pool.use pool (Session.statement () SQL.currentGlobalPositionStmt)
+    tailPos <- either throwIO pure tailResult
+    pos <- newTVarIO (GlobalPosition tailPos)
     -- Get a personal copy of the notifier's broadcast channel
     tickChan <- atomically (dupTChan notifierChan)
     thread <- Async.async (publisherLoop pool tickChan subsVar pos mHandler stSettings)

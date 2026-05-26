@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Fixed — publisher restart history rebroadcast
+
+* `EventPublisher` now initializes its in-memory cursor from the current `$all`
+  stream tail at startup instead of `GlobalPosition 0`. Restarting a store no
+  longer re-reads and re-broadcasts the full event history into live subscriber
+  queues, avoiding spurious `DropSubscription` overflows for healthy
+  `AllStreams` subscribers while they are still catching up. See
+  `docs/plans/38-publisher-tail-init-to-avoid-restart-rebroadcast-and-allstreams-overflow.md`.
+
 ### Fixed — Category/consumer-group live subscriptions busy-spinning (plan 37)
 
 * Live `Category` subscriptions and consumer-group members no longer busy-spin

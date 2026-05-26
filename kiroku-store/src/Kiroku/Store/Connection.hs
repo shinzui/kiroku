@@ -6,7 +6,7 @@ module Kiroku.Store.Connection (
     withStore,
 ) where
 
-import Control.Exception (bracket)
+import Control.Exception (bracket, onException)
 import Control.Lens ((^.))
 import Control.Monad.IO.Unlift (MonadUnliftIO, withRunInIO)
 import Data.Generics.Labels ()
@@ -215,23 +215,25 @@ withStore settings action = withRunInIO $ \runInIO ->
 
     acquire = do
         p <- Pool.acquire poolConfig
-        let s = settings ^. #schema
-            cs = settings ^. #connString
-            evtHandler = settings ^. #eventHandler
-            stSettings = settings ^. #storeSettings
-        -- Start Notifier (dedicated LISTEN connection)
-        n <- Notifier.startNotifier cs s evtHandler
-        -- Start EventPublisher (depends on Notifier's TChan)
-        pub <- Publisher.startPublisher p (Notifier.tickChan n) evtHandler stSettings
-        pure
-            KirokuStore
-                { pool = p
-                , schema = s
-                , notifier = n
-                , publisher = pub
-                , eventHandler = evtHandler
-                , storeSettings = stSettings
-                }
+        flip onException (Pool.release p) $ do
+            let s = settings ^. #schema
+                cs = settings ^. #connString
+                evtHandler = settings ^. #eventHandler
+                stSettings = settings ^. #storeSettings
+            -- Start Notifier (dedicated LISTEN connection)
+            n <- Notifier.startNotifier cs s evtHandler
+            flip onException (Notifier.stopNotifier n) $ do
+                -- Start EventPublisher (depends on Notifier's TChan)
+                pub <- Publisher.startPublisher p (Notifier.tickChan n) evtHandler stSettings
+                pure
+                    KirokuStore
+                        { pool = p
+                        , schema = s
+                        , notifier = n
+                        , publisher = pub
+                        , eventHandler = evtHandler
+                        , storeSettings = stSettings
+                        }
 
     release store = do
         -- Stop in reverse order: Publisher first, then Notifier, then pool

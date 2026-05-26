@@ -19,12 +19,12 @@ import Data.UUID qualified as UUID
 import Data.Vector qualified as V
 import Effectful (Eff, IOE, runEff, (:>))
 import Effectful.Error.Static (runErrorNoCallStack)
-import EphemeralPg qualified as Pg
 import Kiroku.Store
 import Kiroku.Store.Error (extractStreamNameFromDetail)
 import Kiroku.Store.Subscription.Effect qualified as SubEff
 import Kiroku.Store.Subscription.EventPublisher (publisherPosition)
 import Kiroku.Store.Subscription.Types (OverflowPolicy (..), SubscriptionConfigM (..), SubscriptionOverflowed (..))
+import Kiroku.Test.Postgres (withMigratedTestDatabase)
 import Test.CategoryIdleNoSpin qualified as CategoryIdleNoSpin
 import Test.Causation qualified as Causation
 import Test.Concurrency qualified as Concurrency
@@ -36,6 +36,7 @@ import Test.Helpers
 import Test.Hspec
 import Test.InterpreterHooks qualified as InterpreterHooks
 import Test.Properties qualified as Properties
+import Test.PublisherRestartNoRebroadcast qualified as PublisherRestartNoRebroadcast
 import Test.ReadStream qualified as ReadStream
 import Test.StreamNameLookup qualified as StreamNameLookup
 import Test.Transaction qualified as Transaction
@@ -54,6 +55,7 @@ main = withSharedMigratedPostgres $ hspec $ do
     ConsumerGroup.spec
     ConsumerGroupEffect.spec
     CategoryIdleNoSpin.spec
+    PublisherRestartNoRebroadcast.spec
     around withTestStore $ do
         describe "schema migrations" $ do
             it "installs every Kiroku table under the kiroku schema" $ \store -> do
@@ -1661,9 +1663,8 @@ main = withSharedMigratedPostgres $ hspec $ do
         -- past `withStore` exit. We assert no kiroku-listener backend remains
         -- in pg_stat_activity after the store shuts down.
         it "releases the reconnected listener connection on shutdown" $ \() -> do
-            result <- Pg.withCached $ \db -> do
-                let connStr = Pg.connectionString db
-                    settings = defaultConnectionSettings connStr
+            n <- withMigratedTestDatabase $ \connStr -> do
+                let settings = defaultConnectionSettings connStr
                 withStore settings $ \store -> do
                     pid1 <- waitForListenerPid (store ^. #pool) 5_000_000
                     terminateBackend (store ^. #pool) pid1
@@ -1671,9 +1672,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                     pid2 `shouldNotBe` pid1
                 -- After withStore exits, no kiroku-listener connection remains.
                 listenerCount connStr
-            case result of
-                Left err -> error ("Failed to start ephemeral PostgreSQL: " <> show err)
-                Right n -> n `shouldBe` (0 :: Int64)
+            n `shouldBe` (0 :: Int64)
 
     -- =================================================================
     -- Health monitoring tests (M6.8)
@@ -1700,18 +1699,15 @@ main = withSharedMigratedPostgres $ hspec $ do
         it "emits notifier reconnect events on backend termination (F1)" $ \() -> do
             ref <- newIORef ([] :: [KirokuEvent])
             let evtHandler e = modifyIORef' ref (e :)
-            result <- Pg.withCached $ \db -> do
+            withMigratedTestDatabase $ \connStr -> do
                 let settings =
-                        defaultConnectionSettings (Pg.connectionString db)
+                        defaultConnectionSettings connStr
                             & #eventHandler .~ Just evtHandler
                 withStore settings $ \store -> do
                     pid1 <- waitForListenerPid (store ^. #pool) 5_000_000
                     terminateBackend (store ^. #pool) pid1
                     _ <- waitForListenerPidNotEqual (store ^. #pool) pid1 15_000_000
                     pure ()
-            case result of
-                Left err -> error ("Failed to start ephemeral PostgreSQL: " <> show err)
-                Right () -> pure ()
             evts <- readIORef ref
             let isReconnecting (KirokuEventNotifierReconnecting _ _) = True
                 isReconnecting _ = False
