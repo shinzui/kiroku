@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed — subscription catch-up DB errors
+
+* Subscription catch-up now retries transient `FetchBatch` database errors at the
+  same cursor with capped backoff instead of treating the error as an empty
+  batch. This prevents `$all` subscribers from switching to live mode at a stale
+  cursor and missing pre-live events. See
+  `docs/plans/39-catchup-must-not-treat-db-errors-as-caught-up.md`.
+
 ### Fixed — publisher restart history rebroadcast
 
 * `EventPublisher` now initializes its in-memory cursor from the current `$all`

@@ -73,10 +73,11 @@ data KirokuEvent
       KirokuEventPublisherPoolError !UsageError
     | {- | A subscription's worker thread encountered a 'UsageError' in
       the database phase identified by 'SubscriptionDbPhase'. The
-      worker continues running with safe defaults (zero checkpoint,
-      empty batch, dropped save) — the event is the operator's only
-      signal that this happened. The trailing 'SubscriptionGroupContext'
-      identifies which consumer-group member (if any) emitted it.
+      worker may continue with a documented fallback for checkpoint
+      load/save phases, while fetch-batch errors are retried at the same
+      cursor. The event is the operator's structured signal that this
+      happened. The trailing 'SubscriptionGroupContext' identifies which
+      consumer-group member (if any) emitted it.
       -}
       KirokuEventSubscriptionDbError !SubscriptionName !SubscriptionDbPhase !UsageError !SubscriptionGroupContext
     | {- | A subscription's worker thread has just started; the worker
@@ -132,9 +133,8 @@ data SubscriptionDbPhase
       -}
       LoadCheckpoint
     | {- | The worker's catch-up or category-live database fetch
-      returned an error. The worker substitutes an empty batch; the
-      catch-up loop interprets this as \"no more events\" and may
-      prematurely switch to live mode at a stale cursor.
+      returned an error. The worker retries the same cursor with capped
+      backoff instead of treating the error as an empty result.
       -}
       FetchBatch
     | {- | The worker's @saveCheckpoint@ statement failed. The

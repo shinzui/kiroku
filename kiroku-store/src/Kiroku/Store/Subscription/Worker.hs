@@ -1,11 +1,13 @@
 module Kiroku.Store.Subscription.Worker (
     runWorker,
+    withFetchBatchHookForTest,
 ) where
 
 import Contravariant.Extras (contrazip2)
+import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.STM (TBQueue, TVar, atomically, check, orElse, readTBQueue, readTVar, registerDelay)
-import Control.Exception (SomeException, fromException, throwIO, try)
+import Control.Exception (SomeException, bracket, fromException, throwIO, try)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Foldable (for_)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
@@ -33,6 +35,7 @@ import Kiroku.Store.Settings (StoreSettings, decodeEvents)
 import Kiroku.Store.Subscription.EventPublisher (SubscriberStatus (..))
 import Kiroku.Store.Subscription.Types
 import Kiroku.Store.Types (CategoryName (..), GlobalPosition (..), RecordedEvent (..))
+import System.IO.Unsafe (unsafePerformIO)
 
 -- Mirror 'Kiroku.Store.Subscription.EventPublisher.safetyPollMicros': an idle
 -- category re-checks at most this often, reconciling NOTIFYs lost while the
@@ -40,6 +43,33 @@ import Kiroku.Store.Types (CategoryName (..), GlobalPosition (..), RecordedEvent
 -- one empty fetch per safety interval, not per global publisher tick.
 categorySafetyPollMicros :: Int
 categorySafetyPollMicros = 30_000_000
+
+type FetchBatchHook =
+    SubscriptionConfig ->
+    GlobalPosition ->
+    IO (Maybe (Either Pool.UsageError (Vector RecordedEvent)))
+
+{-# NOINLINE fetchBatchHookRef #-}
+fetchBatchHookRef :: IORef (Maybe FetchBatchHook)
+fetchBatchHookRef = unsafePerformIO (newIORef Nothing)
+
+{- | Install a process-local fetch hook for tests that need deterministic
+subscription-worker fault injection. Production code leaves the hook unset.
+-}
+withFetchBatchHookForTest :: FetchBatchHook -> IO a -> IO a
+withFetchBatchHookForTest hook action =
+    bracket
+        ( do
+            previous <- readIORef fetchBatchHookRef
+            writeIORef fetchBatchHookRef (Just hook)
+            pure previous
+        )
+        (writeIORef fetchBatchHookRef)
+        (const action)
+
+fetchRetryDelayMicros :: Int -> Int
+fetchRetryDelayMicros attempt =
+    min categorySafetyPollMicros (100_000 * (2 ^ min attempt 9 :: Int))
 
 {- | Run the subscription worker loop. Two phases:
 
@@ -60,9 +90,9 @@ If an 'eventHandler' callback is supplied, the worker emits:
 * 'Kiroku.Store.Observability.KirokuEventSubscriptionCaughtUp' when
   catch-up completes and the worker switches to live mode.
 * 'Kiroku.Store.Observability.KirokuEventSubscriptionDbError' in the
-  three database-error swallowing sites: 'loadCheckpoint', 'fetchBatch',
-  and 'saveCheckpoint'. The worker still degrades safely; the event is
-  the operator's structured signal.
+  subscription database phases: 'loadCheckpoint', 'fetchBatch', and
+  'saveCheckpoint'. 'fetchBatch' errors are retried at the same cursor;
+  the event is the operator's structured signal.
 * 'Kiroku.Store.Observability.KirokuEventSubscriptionStopped' when the
   worker exits, with a reason discriminating handler-stop, cancel,
   overflow, and worker-crash.
@@ -222,22 +252,26 @@ catchUp ::
     IORef GlobalPosition ->
     StoreSettings ->
     IO (Maybe GlobalPosition)
-catchUp pool config startPos pubPosVar emit posRef stSettings = go startPos
+catchUp pool config startPos pubPosVar emit posRef stSettings = go startPos 0
   where
-    go cursor = do
+    go cursor attempt = do
         writeIORef posRef cursor
         pubPos <- atomically (readTVar pubPosVar)
         if cursor >= pubPos
             then pure (Just cursor)
             else do
-                events <- fetchBatch pool config cursor emit stSettings
-                if V.null events
-                    then pure (Just cursor)
-                    else do
-                        result <- processEvents pool config events emit posRef
-                        case result of
-                            Nothing -> pure Nothing -- handler said Stop
-                            Just newPos -> go newPos
+                fetchResult <- fetchBatch pool config cursor emit stSettings
+                case fetchResult of
+                    Left _ -> do
+                        threadDelay (fetchRetryDelayMicros attempt)
+                        go cursor (attempt + 1)
+                    Right events
+                        | V.null events -> pure (Just cursor)
+                        | otherwise -> do
+                            result <- processEvents pool config events emit posRef
+                            case result of
+                                Nothing -> pure Nothing -- handler said Stop
+                                Just newPos -> go newPos 0
 
 -- Phase 2: live (AllStreams). Reads from the bounded TBQueue the publisher
 -- delivers to. Atomically observes the subscriber's status and surfaces
@@ -322,16 +356,22 @@ liveLoopCategoryNotify pool config catGenVar cat emit posRef startPos stSettings
                         `orElse` (readTVar timer >>= check)
                 go c
       where
-        drainTo c = do
-            events <- fetchBatch pool config c emit stSettings
-            emit (KirokuEventSubscriptionFetched (name config) (V.length events) (groupCtxOf config))
-            if V.null events
-                then pure (Just c)
-                else do
-                    result <- processEvents pool config events emit posRef
-                    case result of
-                        Nothing -> pure Nothing -- handler said Stop
-                        Just newPos -> drainTo newPos
+        drainTo c = goDrain c 0
+        goDrain c attempt = do
+            fetchResult <- fetchBatch pool config c emit stSettings
+            case fetchResult of
+                Left _ -> do
+                    threadDelay (fetchRetryDelayMicros attempt)
+                    goDrain c (attempt + 1)
+                Right events -> do
+                    emit (KirokuEventSubscriptionFetched (name config) (V.length events) (groupCtxOf config))
+                    if V.null events
+                        then pure (Just c)
+                        else do
+                            result <- processEvents pool config events emit posRef
+                            case result of
+                                Nothing -> pure Nothing -- handler said Stop
+                                Just newPos -> goDrain newPos 0
 
 -- Phase 2: live (DB-driven, consumer-group members only). Bypasses the broadcast
 -- and re-queries the database when the publisher's GLOBAL position advances,
@@ -368,56 +408,65 @@ liveLoopDbDriven pool config pubPosVar emit posRef startPos stSettings =
             p <- readTVar pubPosVar
             check (p > waitFrom)
             pure p
-        let drainTo c = do
-                events <- fetchBatch pool config c emit stSettings
-                emit (KirokuEventSubscriptionFetched (name config) (V.length events) (groupCtxOf config))
-                if V.null events
-                    then pure (Just c)
-                    else do
-                        result <- processEvents pool config events emit posRef
-                        case result of
-                            Nothing -> pure Nothing -- handler said Stop
-                            Just newPos -> drainTo newPos
+        let drainTo c = goDrain c 0
+            goDrain c attempt = do
+                fetchResult <- fetchBatch pool config c emit stSettings
+                case fetchResult of
+                    Left _ -> do
+                        threadDelay (fetchRetryDelayMicros attempt)
+                        goDrain c (attempt + 1)
+                    Right events -> do
+                        emit (KirokuEventSubscriptionFetched (name config) (V.length events) (groupCtxOf config))
+                        if V.null events
+                            then pure (Just c)
+                            else do
+                                result <- processEvents pool config events emit posRef
+                                case result of
+                                    Nothing -> pure Nothing -- handler said Stop
+                                    Just newPos -> goDrain newPos 0
         drainResult <- drainTo cursor
         case drainResult of
             Nothing -> pure ()
             Just c -> go c pubPos
 
 -- Fetch a batch of events from the database based on subscription target.
--- Surfaces a database error through the event handler before falling back
--- to an empty vector; without the event the catch-up loop sees the empty
--- vector as "no more events" and silently switches to live mode at a stale
--- cursor.
+-- Surfaces a database error through the event handler and returns the error to
+-- the caller so catch-up and DB-driven live loops can retry the same cursor.
 fetchBatch ::
     Pool ->
     SubscriptionConfig ->
     GlobalPosition ->
     (KirokuEvent -> IO ()) ->
     StoreSettings ->
-    IO (Vector RecordedEvent)
-fetchBatch pool config (GlobalPosition pos) emit stSettings =
-    case (consumerGroup config, target config) of
-        (Nothing, AllStreams) -> do
-            result <- Pool.use pool (Session.statement (pos, batchSize config) SQL.readAllForwardStmt)
-            handle result
-        (Nothing, Category (CategoryName cat)) -> do
-            result <- Pool.use pool (Session.statement (pos, cat, batchSize config) SQL.readCategoryForwardStmt)
-            handle result
-        (Just (ConsumerGroup m n), AllStreams) -> do
-            result <- Pool.use pool (Session.statement (pos, m, n, batchSize config) SQL.readAllForwardConsumerGroupStmt)
-            handle result
-        (Just (ConsumerGroup m n), Category (CategoryName cat)) -> do
-            result <- Pool.use pool (Session.statement (pos, cat, m, n, batchSize config) SQL.readCategoryForwardConsumerGroupStmt)
-            handle result
+    IO (Either Pool.UsageError (Vector RecordedEvent))
+fetchBatch pool config cursor@(GlobalPosition pos) emit stSettings = do
+    mHook <- readIORef fetchBatchHookRef
+    injected <- maybe (pure Nothing) (\hook -> hook config cursor) mHook
+    case injected of
+        Just result -> handle result
+        Nothing ->
+            case (consumerGroup config, target config) of
+                (Nothing, AllStreams) -> do
+                    result <- Pool.use pool (Session.statement (pos, batchSize config) SQL.readAllForwardStmt)
+                    handle result
+                (Nothing, Category (CategoryName cat)) -> do
+                    result <- Pool.use pool (Session.statement (pos, cat, batchSize config) SQL.readCategoryForwardStmt)
+                    handle result
+                (Just (ConsumerGroup m n), AllStreams) -> do
+                    result <- Pool.use pool (Session.statement (pos, m, n, batchSize config) SQL.readAllForwardConsumerGroupStmt)
+                    handle result
+                (Just (ConsumerGroup m n), Category (CategoryName cat)) -> do
+                    result <- Pool.use pool (Session.statement (pos, cat, m, n, batchSize config) SQL.readCategoryForwardConsumerGroupStmt)
+                    handle result
   where
     handle = \case
         Left err -> do
             emit (KirokuEventSubscriptionDbError (name config) FetchBatch err (groupCtxOf config))
-            pure V.empty
+            pure (Left err)
         -- Apply decodeHook on the catch-up path so catch-up batches are
         -- transformed identically to live batches (which the publisher
         -- transforms once before fan-out).
-        Right events -> decodeEvents stSettings events
+        Right events -> Right <$> decodeEvents stSettings events
 
 -- Process a batch of events through the handler. Returns the new cursor
 -- position if all events were processed (handler returned Continue for all),

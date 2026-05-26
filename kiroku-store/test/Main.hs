@@ -25,6 +25,7 @@ import Kiroku.Store.Subscription.Effect qualified as SubEff
 import Kiroku.Store.Subscription.EventPublisher (publisherPosition)
 import Kiroku.Store.Subscription.Types (OverflowPolicy (..), SubscriptionConfigM (..), SubscriptionOverflowed (..))
 import Kiroku.Test.Postgres (withMigratedTestDatabase)
+import Test.CatchupDbErrorNoPrematureSwitch qualified as CatchupDbErrorNoPrematureSwitch
 import Test.CategoryIdleNoSpin qualified as CategoryIdleNoSpin
 import Test.Causation qualified as Causation
 import Test.Concurrency qualified as Concurrency
@@ -56,6 +57,7 @@ main = withSharedMigratedPostgres $ hspec $ do
     ConsumerGroupEffect.spec
     CategoryIdleNoSpin.spec
     PublisherRestartNoRebroadcast.spec
+    CatchupDbErrorNoPrematureSwitch.spec
     around withTestStore $ do
         describe "schema migrations" $ do
             it "installs every Kiroku table under the kiroku schema" $ \store -> do
