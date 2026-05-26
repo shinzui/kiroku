@@ -58,7 +58,7 @@ regression. Keep a catch-all branch if you only care about specific events.
 | `KirokuEventNotifierReconnecting !Int !SomeException` | The dedicated `LISTEN` connection failed and the listener is about to reconnect. The `Int` is the consecutive failure count (drives backoff, capped at 30s). | Alert on a sustained / rising count — subscriptions are on the safety poll until reconnect. |
 | `KirokuEventNotifierReconnected` | The `LISTEN` connection was re-established; the failure counter resets. | Pairs with the reconnecting event; clear the alert. |
 | `KirokuEventPublisherPoolError !UsageError` | The publisher's read query returned a pool error; it retries on the next tick or the 30s poll. | Sustained emissions indicate pool exhaustion or a persistent server error. |
-| `KirokuEventSubscriptionDbError !SubscriptionName !SubscriptionDbPhase !UsageError !SubscriptionGroupContext` | A subscription worker hit a database error in a specific phase. The worker continues with safe defaults. | This is your only signal it happened — investigate the phase (below). |
+| `KirokuEventSubscriptionDbError !SubscriptionName !SubscriptionDbPhase !UsageError !SubscriptionGroupContext` | A subscription worker hit a database error in a specific phase. Checkpoint load/save phases continue with their documented fallback behavior; fetch-batch errors retry at the same cursor with capped backoff. | Investigate the phase (below), especially if emissions are sustained. |
 | `KirokuEventSubscriptionStarted !SubscriptionName !GlobalPosition !SubscriptionGroupContext` | A subscription worker started, beginning from the recorded position. | Useful as a liveness signal and to confirm the resumed checkpoint. |
 | `KirokuEventSubscriptionCaughtUp !SubscriptionName !GlobalPosition !SubscriptionGroupContext` | The subscription reached the publisher's last-published position and switched from catch-up to live. Fires at most once per run. | Track catch-up latency after a restart. |
 | `KirokuEventSubscriptionStopped !SubscriptionName !GlobalPosition !SubscriptionStopReason !SubscriptionGroupContext` | The worker stopped. | Branch on the reason (below) to distinguish normal completion from failure. |
@@ -71,9 +71,10 @@ Identifies which database phase a `KirokuEventSubscriptionDbError` came from:
 - `LoadCheckpoint` — failed to read the saved checkpoint at startup. The
   worker continues at position 0; correct for a fresh subscription, but
   silently re-processes for an existing one.
-- `FetchBatch` — a catch-up or category-live fetch errored. The worker
-  substitutes an empty batch and may prematurely switch to live mode at a
-  stale cursor.
+- `FetchBatch` — a catch-up or DB-driven live fetch errored. The worker retries
+  the same cursor with capped backoff instead of treating the error as an empty
+  result. Sustained emissions mean the subscription is not making progress until
+  the database read succeeds.
 - `SaveCheckpoint` — the checkpoint write failed. The subscription keeps
   running, but the next restart with the same name re-processes events.
 

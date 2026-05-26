@@ -238,7 +238,7 @@ table:
 | `KirokuEventNotifierReconnecting` rate | `eventHandler` | > 1/min sustained → listener cannot stay connected; check LISTEN channel name vs trigger schema. |
 | `KirokuEventNotifierReconnecting` consecutive count | `eventHandler` | The `Int` field. Above 5 means exponential backoff has reached 16 s; sustained outage. Page operator. |
 | `KirokuEventPublisherPoolError` rate | `eventHandler` | > 0 sustained → publisher cannot read; subscriptions are running on the 30 s safety poll only. Investigate pool exhaustion or server errors. |
-| `KirokuEventSubscriptionDbError` rate per phase | `eventHandler` | Any rate sustained → subscription is silently degrading. `LoadCheckpoint` errors mean re-processing; `FetchBatch` means catch-up may be at a stale cursor; `SaveCheckpoint` means restart will re-process. |
+| `KirokuEventSubscriptionDbError` rate per phase | `eventHandler` | Any rate sustained → investigate database health. `LoadCheckpoint` errors mean startup re-processing from 0; `FetchBatch` means the worker is retrying the same cursor and not making progress until the fetch succeeds; `SaveCheckpoint` means restart will re-process. |
 | `KirokuEventSubscriptionStopped` with `StopOverflowed` | `eventHandler` | Any → subscriber is too slow for `DropSubscription`; investigate handler latency or raise `queueCapacity`. |
 | `KirokuEventSubscriptionStopped` with `StopWorkerCrashed` | `eventHandler` | Any → uncaught exception in handler. Log the wrapped `SomeException` and triage. |
 | Catch-up duration | derived: time between `KirokuEventSubscriptionStarted` and `KirokuEventSubscriptionCaughtUp` | Used to size `batchSize`; an outlier (> historical p99) on subscription startup against a known-static stream is a sign of database slowness. |

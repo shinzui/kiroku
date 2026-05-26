@@ -85,13 +85,18 @@ The worker thread:
 2. **Catches up** by querying the database directly in `batchSize` pages
    until it reaches the publisher's last-published cursor.
 3. Switches to **live** mode. For `AllStreams` it reads pre-broadcast events
-   from the publisher's bounded per-subscriber queue. For `Category` it
-   bypasses the broadcast and re-queries the database with the category
-   filter whenever the publisher advances.
+   from the publisher's bounded per-subscriber queue. For ordinary `Category`
+   subscriptions it bypasses the broadcast and re-queries the database when
+   that category receives a `NOTIFY` signal, with a 30-second safety poll for
+   missed notifications. Consumer-group members use a DB-driven live loop gated
+   by the publisher's global cursor because their partition predicate is computed
+   in SQL.
 
 Live wake-ups are driven by PostgreSQL `LISTEN`/`NOTIFY`; a 30-second safety
-poll covers any missed notification. The checkpoint advances per batch (see
-below).
+poll covers any missed notification. Transient database errors during catch-up
+or DB-driven live fetches are surfaced through `KirokuEventSubscriptionDbError`
+and retried at the same cursor with capped backoff. The checkpoint advances per
+batch (see below).
 
 ## Delivery Semantics
 
