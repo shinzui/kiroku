@@ -8,7 +8,7 @@ module Kiroku.Store.Subscription (
 ) where
 
 import Control.Concurrent.Async qualified as Async
-import Control.Concurrent.STM (atomically)
+import Control.Concurrent.STM (atomically, newTVarIO, readTVarIO)
 import Control.Exception (bracket, finally, throwIO)
 import Control.Lens ((^.))
 import Control.Monad (when)
@@ -19,8 +19,10 @@ import Data.Generics.Labels ()
 import Kiroku.Store.Connection (KirokuStore (..))
 import Kiroku.Store.Notification qualified as Notifier
 import Kiroku.Store.Subscription.EventPublisher qualified as Pub
+import Kiroku.Store.Subscription.Fsm (SubscriptionState (..))
 import Kiroku.Store.Subscription.Types
 import Kiroku.Store.Subscription.Worker (runWorker)
+import Kiroku.Store.Types (GlobalPosition (..))
 
 {- | Start a subscription. Returns a handle for cancellation and waiting.
 
@@ -104,6 +106,10 @@ subscribe store config = liftIO $ do
                 (store ^. #publisher)
                 (queueCapacity config)
                 (overflowPolicy config)
+    -- The worker writes its current FSM state here on every transition; the
+    -- handle's 'currentState' reads it. Seeded with the catch-up entry state so
+    -- a read before the worker's first transition is sensible.
+    stateVar <- newTVarIO (CatchingUp (GlobalPosition 0) 0)
     let pubPosVar = Pub.lastPublished (store ^. #publisher)
         catGenVar = Notifier.categoryGenerations (store ^. #notifier)
     -- `finally unsubscribe` removes this subscription from the publisher's
@@ -114,13 +120,14 @@ subscribe store config = liftIO $ do
     -- policy on the next batch.
     thread <-
         Async.async
-            ( runWorker (store ^. #pool) queue statusVar pubPosVar catGenVar config (store ^. #eventHandler) (store ^. #storeSettings)
+            ( runWorker (store ^. #pool) queue statusVar stateVar pubPosVar catGenVar config (store ^. #eventHandler) (store ^. #storeSettings)
                 `finally` unsubscribe
             )
     pure
         SubscriptionHandle
             { cancel = Async.cancel thread
             , wait = Async.waitCatch thread
+            , currentState = readTVarIO stateVar
             }
 
 {- | Bracket-style subscription lifecycle.

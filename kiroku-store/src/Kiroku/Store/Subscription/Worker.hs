@@ -110,6 +110,10 @@ runWorker ::
     Pool ->
     TBQueue (Vector RecordedEvent) ->
     TVar SubscriberStatus ->
+    {- | the worker's current FSM state, written on every transition so callers
+    can read it through 'Kiroku.Store.Subscription.Types.currentState'.
+    -}
+    TVar SubscriptionState ->
     TVar GlobalPosition ->
     {- | per-category wake counter from the Notifier; the @Category@ live loop
     blocks on this category's entry rather than busy-polling the global position.
@@ -124,7 +128,7 @@ runWorker ::
     -}
     StoreSettings ->
     m ()
-runWorker pool liveQueue statusVar pubPosVar catGenVar config mHandler stSettings = liftIO $ do
+runWorker pool liveQueue statusVar stateVar pubPosVar catGenVar config mHandler stSettings = liftIO $ do
     let emit evt = for_ mHandler ($ evt)
         subName = name config
         groupCtx = groupCtxOf config
@@ -147,11 +151,15 @@ runWorker pool liveQueue statusVar pubPosVar catGenVar config mHandler stSetting
             -- batch within the 'Live' state; the FSM governs the lifecycle.
             loop (CatchingUp checkpoint 0)
 
-        -- One driver iteration: discover the next 'Input' by performing the
-        -- current state's natural (possibly blocking) action, then hand it to
-        -- 'feed'.
+        -- One driver iteration: publish the current state for observability
+        -- ('currentState'), discover the next 'Input' by performing the state's
+        -- natural (possibly blocking) action, then hand it to 'feed'. Recording
+        -- the state at loop entry means the value read while the worker blocks in
+        -- 'nextInput' (e.g. waiting on the live queue) is the state it is blocked in.
         loop :: SubscriptionState -> IO ()
-        loop st = nextInput st >>= feed st
+        loop st = do
+            atomically (writeTVar stateVar st)
+            nextInput st >>= feed st
 
         -- Apply 'step' to the (state, input) pair, interpret the resulting
         -- effects, and continue. An effect (delivery, a gate) may itself produce

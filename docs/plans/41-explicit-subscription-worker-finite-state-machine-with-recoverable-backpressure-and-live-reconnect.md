@@ -124,9 +124,20 @@ Those siblings are referenced only by file path; nothing here depends on them.
   to the new `KirokuEventSubscriptionReconnecting` event. New spec
   `test/Test/SubscriptionReconnect.hs` (Category subscription) passes; full suite
   `167 examples, 0 failures`; `cabal build all` clean.
-- [ ] M4 — observability + regression tests: expose the current state; add regression
+- [x] M4 — observability + regression tests: expose the current state; add regression
   specs for no-missed-events across catch-up→live, monotonic checkpoints, pause/resume,
   reconnect, and idle-category no-busy-poll (the EP-37 invariant).
+  Done 2026-05-29: added `currentState :: m SubscriptionState` to `SubscriptionHandleM`
+  (backed by a `TVar SubscriptionState` `subscribe` creates and `runWorker` writes on
+  every transition); updated the `Observability` module Haddock and
+  `docs/architecture/subscriptions.md` (Worker Lifecycle → FSM, overflow-policy table,
+  observability table, failure modes) and `kiroku-store/CHANGELOG.md`. New spec
+  `test/Test/SubscriptionState.hs`: asserts `currentState` is `CatchingUp` while blocked
+  in catch-up and `Live` once caught up, and that every event is delivered exactly once
+  in increasing position across the catch-up→live boundary with the checkpoint advanced
+  (no-missed + monotonic). Pause/resume (M2) and reconnect (M3) specs and the existing
+  `CategoryIdleNoSpin` no-busy-poll spec all stay green. Full suite
+  `169 examples, 0 failures`; `cabal build all` clean.
 
 
 ## Surprises & Discoveries
@@ -396,7 +407,55 @@ implementation. Provide concise evidence.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+**Completed 2026-05-29.** All four milestones shipped; full suite
+`169 examples, 0 failures`; `cabal build all` clean (kiroku-store, kiroku-otel,
+shibuya-kiroku-adapter, kiroku-jitsurei).
+
+Final `SubscriptionState` enumeration and transition table
+(`kiroku-store/src/Kiroku/Store/Subscription/Fsm.hs`):
+
+- States: `CatchingUp {cursor, attempt}`, `Live {cursor}`,
+  `Paused {cursor, resumeWhen}`, `Reconnecting {cursor, attempt}`,
+  `Stopped {reason}`.
+- `step :: SubscriptionState -> Input -> (SubscriptionState, [Effect])`, exhaustive
+  on `Input` within the driving states and compiled `-Werror=incomplete-patterns`,
+  is the extension seam for the retry/dead-letter sibling plan.
+- Key transitions: `CatchingUp BatchFetched → CatchingUp (deliver)`;
+  `CatchingUp FetchFailed → CatchingUp (n+1, backoff)`;
+  `CatchingUp {CaughtUp,FetchEmpty} → Live (emit CaughtUp)`;
+  `Live BatchFetched → Live (deliver)`; `Live QueueOverflowed → Stopped Overflowed`;
+  `Live QueueBackpressured → Paused`; `Paused QueueDrained → CatchingUp (re-catch-up)`;
+  `Live/Reconnecting ConnectionLost|FetchFailed → Reconnecting (n+1, emit, backoff)`;
+  `Reconnecting BatchFetched → CatchingUp`; `Reconnecting FetchEmpty → Live`;
+  `* HandlerStopped → Stopped HandlerRequested`.
+
+Pause/resume as shipped: publisher sets `SubscriberStatus = Paused` (skips the
+write, never drops) on a full queue under `PauseAndResume` (now the default); the
+worker drains the stale queue, clears the flag, and re-catches-up from its
+checkpoint — lossless and monotonic. Reconnect as shipped: Category /
+consumer-group live loops bubble a fetch error to the driver (`LiveExit`), which
+enters `Reconnecting` and re-catches-up; AllStreams live is publisher-fed and has
+no worker fetch.
+
+Observability: `KirokuEventSubscriptionPaused`/`Resumed`/`Reconnecting` events
+plus the `currentState` handle accessor (a `TVar`-backed point-in-time read).
+
+Lessons / deviations (all in the Decision Log): `CatchingUp` carries an `attempt`
+counter to keep the escalating backoff inside the FSM; `SubscriptionStopReason`
+was relocated to `Fsm` (re-exported from `Observability`) in M1 to keep the module
+graph acyclic when the handle gained a `SubscriptionState` field; the `SaveCheckpoint`
+effect is named `Checkpoint` and the publisher status `Paused` is imported qualified
+in `Worker.hs` to dodge constructor clashes; a distinct `QueueBackpressured` input
+keeps `step` pure without threading the policy through; `Halt` controls only the
+driver's exit while the pre-existing outer `try`/emit keeps the event sequence
+byte-for-byte identical; the new `KirokuEvent` constructors were added in the
+milestone whose test asserts them (Paused/Resumed in M2, Reconnecting in M3) rather
+than all in M4.
+
+Gaps / out of scope (unchanged from Vision): no per-event retry/dead-letter (sibling
+plan `docs/plans/40-...`), no partitioning/adapter changes (`docs/plans/42-...`), no
+event-type filtering (`docs/plans/43-...`), no OTel metric emission for the new
+states.
 
 
 ## Context and Orientation

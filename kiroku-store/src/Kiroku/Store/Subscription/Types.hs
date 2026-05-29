@@ -21,6 +21,7 @@ module Kiroku.Store.Subscription.Types (
 import Control.Exception (Exception, SomeException)
 import Data.Int (Int32)
 import Data.Text (Text)
+import Kiroku.Store.Subscription.Fsm (SubscriptionState)
 import Kiroku.Store.Types (CategoryName, RecordedEvent)
 import Numeric.Natural (Natural)
 
@@ -172,6 +173,14 @@ data SubscriptionHandleM m = SubscriptionHandle
     -- ^ Cancel the subscription gracefully
     , wait :: !(m (Either SomeException ()))
     -- ^ Block until the subscription completes or fails
+    , currentState :: !(m SubscriptionState)
+    {- ^ Read the worker's current FSM state
+    ('Kiroku.Store.Subscription.Fsm.SubscriptionState') as of this instant:
+    @CatchingUp@, @Live@, @Paused@ (recoverable backpressure), @Reconnecting@,
+    or @Stopped@. A point-in-time observability read backed by a @TVar@ the
+    worker writes on every transition; for the stream of past transitions use
+    the @KirokuEvent@ lifecycle events instead.
+    -}
     }
 
 -- | Handle defaulting to 'IO'.

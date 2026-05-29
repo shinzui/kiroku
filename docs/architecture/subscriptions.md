@@ -115,15 +115,37 @@ order, but this SQL invariant is the final guardrail.
 2. Register a bounded `TBQueue (Vector RecordedEvent)` with the
    `EventPublisher`, receiving the queue, a status `TVar`, and an
    `unsubscribe` action.
-3. Start `runWorker` in an async thread.
-4. Return `SubscriptionHandle { cancel, wait }`.
+3. Create a `TVar SubscriptionState` (seeded `CatchingUp`) and start `runWorker`
+   in an async thread.
+4. Return `SubscriptionHandle { cancel, wait, currentState }`, where
+   `currentState` reads the live state `TVar`.
 
-The worker itself has two phases:
+The worker is driven by an **explicit finite state machine** (a value always in
+exactly one named state) defined in
+`kiroku-store/src/Kiroku/Store/Subscription/Fsm.hs`. The state type
+`SubscriptionState` and a single, exhaustively pattern-matched transition
+function `step :: SubscriptionState -> Input -> (SubscriptionState, [Effect])`
+are pure; `runWorker` is the impure driver that supplies the inputs (what just
+happened) and interprets the effects (deliver a batch, emit an event, back off,
+halt). The named states are:
 
-1. Catch-up: load checkpoint and query PostgreSQL directly until the cursor
-   reaches the publisher's `lastPublished` position.
-2. Live: wait for new work using the strategy appropriate for the target and
-   consumer-group mode.
+- `CatchingUp` — load checkpoint and query PostgreSQL directly until the cursor
+  reaches the publisher's `lastPublished` position (`attempt` counts consecutive
+  failed fetches for the capped backoff).
+- `Live` — caught up; wait for new work using the strategy appropriate for the
+  target and consumer-group mode.
+- `Paused` — recoverable backpressure: the bounded queue filled under the
+  `PauseAndResume` policy, so the worker drains the stale queue and re-catches-up
+  from its checkpoint rather than being killed.
+- `Reconnecting` — a Category / consumer-group worker lost its database
+  connection on a live fetch; it backs off and re-catches-up from its checkpoint
+  instead of dying.
+- `Stopped` — terminal (handler `Stop`, cancellation, overflow, or crash).
+
+`step` is the documented extension seam: it is compiled with
+`-Werror=incomplete-patterns`, so adding a `SubscriptionResult` (and matching
+`Input`) constructor — as the per-event retry / dead-letter plan does — fails to
+compile until every relevant clause handles it, rather than falling through.
 
 The worker always invokes the configured handler sequentially. There is no
 parallel handler execution inside a single subscription. After a full batch
@@ -151,7 +173,8 @@ falls behind, the publisher applies that subscriber's `OverflowPolicy`:
 
 | Policy | Behavior | When to use |
 | --- | --- | --- |
-| `DropSubscription` | Mark the subscriber status as `Overflowed`. The worker observes this and throws `SubscriptionOverflowed`, which surfaces through `wait`. | Default for correctness-preserving projections. |
+| `PauseAndResume` | Mark the subscriber status `Paused` and stop pushing (do not drop). The worker enters the `Paused` FSM state, drains the stale queue, clears the flag, and re-catches-up from its checkpoint, so every skipped event is re-read from the database. Lossless; monotonic checkpoint; no worker death. | **Default.** Correctness-preserving projections that must not lose events or die under a transient slowdown. |
+| `DropSubscription` | Mark the subscriber status as `Overflowed`. The worker observes this and throws `SubscriptionOverflowed`, which surfaces through `wait`. | When a slow handler should be a hard, fail-fast error. |
 | `DropOldest` | Remove the oldest queued batch and enqueue the new batch. The subscription keeps running but loses events. | Only for telemetry or best-effort consumers that can tolerate loss. |
 
 All-stream live workers read these publisher queues. Category live workers do
@@ -463,7 +486,10 @@ handler hook is configured on the store:
 | publisher pool error | `EventPublisher` | Publisher could not read `$all`; it will retry on later wake/safety poll. |
 | subscription started | `Worker` | Checkpoint was loaded and the worker is beginning catch-up. |
 | subscription caught up | `Worker` | Catch-up completed and live mode is starting. |
-| subscription DB error | `Worker` | Checkpoint load, fetch, or save failed. Fetches retry at same cursor; save failures mean replay on restart. |
+| subscription paused | `Worker` | Bounded queue filled under `PauseAndResume`; worker paused delivery (pairs with resumed). |
+| subscription resumed | `Worker` | Worker drained the stale queue and re-catches-up from its checkpoint after a pause. |
+| subscription reconnecting | `Worker` | Category/consumer-group worker lost the DB connection on a live fetch; backing off and re-catching-up. Carries the attempt count. |
+| subscription DB error | `Worker` | Checkpoint load, fetch, or save failed. Catch-up fetches retry at same cursor; live fetches drive reconnect; save failures mean replay on restart. |
 | subscription fetched | `Worker` | DB-driven live loops fetched a batch. |
 | subscription stopped | `Worker` | Worker exited due to handler stop, cancellation, overflow, or crash. |
 
@@ -473,12 +499,15 @@ Operator-visible failure modes:
   delay after recovery.
 - Publisher database error: publisher logs an event and retries later without
   advancing `lastPublished`.
-- Worker fetch error: worker logs an event and retries the same cursor with
-  backoff.
+- Worker catch-up fetch error: worker logs an event and retries the same cursor
+  with backoff (`CatchingUp` stays put).
+- Worker live fetch error (Category / consumer-group): worker enters
+  `Reconnecting`, emits the reconnecting event, backs off, and re-catches-up from
+  its checkpoint; it does not die.
 - Checkpoint save error: worker logs an event and continues; restart may replay
   already handled events.
-- Queue overflow with `DropSubscription`: worker fails with
-  `SubscriptionOverflowed`.
+- Queue overflow with `PauseAndResume` (default): worker pauses and recovers
+  losslessly; with `DropSubscription` it fails with `SubscriptionOverflowed`.
 - Handler exception: worker dies and `wait` returns the exception.
 
 ## Design Invariants

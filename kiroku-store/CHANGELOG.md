@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+### Changed — subscription worker driven by an explicit FSM (plan 41)
+
+* The subscription worker is now driven by an explicit finite state machine
+  (`Kiroku.Store.Subscription.Fsm`): a `SubscriptionState`
+  (`CatchingUp`/`Live`/`Paused`/`Reconnecting`/`Stopped`) plus a single,
+  exhaustively pattern-matched `step` transition function. Behavior of existing
+  catch-up/live/stopped paths is unchanged; two recoverable states are added (see
+  below). `SubscriptionStopReason` moved to the `Fsm` module and is re-exported
+  from `Kiroku.Store.Observability`, so the public `KirokuEvent` API is unchanged.
+
+* **Recoverable backpressure.** The new `PauseAndResume` `OverflowPolicy` is now
+  the `defaultSubscriptionConfig` default (previously `DropSubscription`). When a
+  bounded subscriber queue fills, the publisher pauses delivery and the worker
+  drains the stale queue and re-catches-up from its checkpoint, so no event is
+  lost and the checkpoint stays monotonic — instead of terminating the
+  subscriber. `DropSubscription` (fail-fast `SubscriptionOverflowed`) and
+  `DropOldest` (lossy) remain available.
+
+* **Worker-level live reconnect.** A `Category` or consumer-group worker that
+  hits a database error on a live-mode fetch now enters `Reconnecting` — it backs
+  off and re-catches-up from its checkpoint — instead of retrying silently
+  in place. (`AllStreams` live delivery is publisher-fed and has no worker fetch.)
+
+### Added
+
+* `KirokuEventSubscriptionPaused`, `KirokuEventSubscriptionResumed`, and
+  `KirokuEventSubscriptionReconnecting` observability events for the new states.
+* `currentState` on `SubscriptionHandleM`: a point-in-time read of the worker's
+  `SubscriptionState` for observability, backed by a `TVar` the worker writes on
+  every transition.
+
 ### Fixed — subscription catch-up DB errors
 
 * Subscription catch-up now retries transient `FetchBatch` database errors at the

@@ -12,7 +12,8 @@ package emits itself:
   will retry on the next tick or 30-second safety poll).
 * Per-subscription database errors (checkpoint load, batch fetch,
   checkpoint save).
-* Subscription lifecycle (started, caught-up, stopped).
+* Subscription lifecycle (started, caught-up, paused, resumed, reconnecting,
+  stopped).
 * Subscription live fetches (one per DB-driven live-mode fetch).
 * Hard-delete issuance (a fail-safe audit signal — see
   @docs\/PRODUCTION-DEPLOYMENT.md@ for the recommended in-band audit
