@@ -12,6 +12,15 @@ module Kiroku.Store.Subscription.Types (
     SubscriptionHandleM (..),
     SubscriptionHandle,
 
+    -- * Per-event dispositions (retry / dead-letter)
+    RetryDelay (..),
+    retryDelayMicros,
+    DeadLetterReason (..),
+    deadLetterSummary,
+    deadLetterReasonJson,
+    RetryPolicy (..),
+    defaultRetryPolicy,
+
     -- * Consumer groups
     ConsumerGroup (..),
     InvalidConsumerGroup (..),
@@ -21,7 +30,14 @@ module Kiroku.Store.Subscription.Types (
 import Control.Exception (Exception, SomeException)
 import Data.Int (Int32)
 import Data.Text (Text)
-import Kiroku.Store.Subscription.Fsm (SubscriptionState)
+import Kiroku.Store.Subscription.Fsm (
+    DeadLetterReason (..),
+    RetryDelay (..),
+    SubscriptionState,
+    deadLetterReasonJson,
+    deadLetterSummary,
+    retryDelayMicros,
+ )
 import Kiroku.Store.Types (CategoryName, RecordedEvent)
 import Numeric.Natural (Natural)
 
@@ -43,7 +59,39 @@ data SubscriptionResult
       Continue
     | -- | Stop the subscription gracefully.
       Stop
+    | {- | Redeliver /this same event/ after the given delay before the checkpoint
+      advances past it. Redelivery is bounded by the subscription's
+      'RetryPolicy' ('retryMaxAttempts'); once the bound is reached the worker
+      dead-letters the event with 'DeadLetterMaxAttempts' and advances to the
+      next event. The adapter maps Shibuya's @AckRetry@ to this.
+      -}
+      Retry !RetryDelay
+    | {- | Record this event in @kiroku.dead_letters@ with the given reason and
+      atomically advance the checkpoint past it, then continue with the next
+      event. The adapter maps Shibuya's @AckDeadLetter@ to this.
+      -}
+      DeadLetter !DeadLetterReason
     deriving stock (Eq, Show)
+
+{- | Bounds on how many times a single event is redelivered before it is
+dead-lettered. The per-redelivery delay is carried by each
+'Retry' result (mirroring Shibuya's per-decision @AckRetry RetryDelay@), so the
+policy only carries the attempt bound.
+-}
+newtype RetryPolicy = RetryPolicy
+    { retryMaxAttempts :: Int
+    {- ^ Maximum redeliveries of one event before dead-lettering it. A value
+    @<= 1@ means the first 'Retry' immediately dead-letters (no redelivery).
+    -}
+    }
+    deriving stock (Eq, Show)
+
+{- | The default 'RetryPolicy': up to five redeliveries of a single event before
+it is dead-lettered with 'DeadLetterMaxAttempts'. Handlers that never return
+'Retry' are unaffected by this default.
+-}
+defaultRetryPolicy :: RetryPolicy
+defaultRetryPolicy = RetryPolicy{retryMaxAttempts = 5}
 
 {- | What the publisher does when a subscriber's bounded queue is full.
 
@@ -132,6 +180,12 @@ data SubscriptionConfigM m = SubscriptionConfig
     (a startup detection probe, not a lifetime-held lock). Ignored when
     'consumerGroup' is 'Nothing'.
     -}
+    , retryPolicy :: !RetryPolicy
+    {- ^ Bounds redelivery of an event for which the handler returned
+    'Retry' before the worker dead-letters it. Default: 'defaultRetryPolicy'
+    (five attempts). Handlers that only return 'Continue' / 'Stop' are
+    unaffected.
+    -}
     }
 
 -- | Configuration defaulting to 'IO'.
@@ -165,6 +219,7 @@ defaultSubscriptionConfig name' target' handler' =
         , overflowPolicy = PauseAndResume
         , consumerGroup = Nothing
         , consumerGroupGuard = False
+        , retryPolicy = defaultRetryPolicy
         }
 
 -- | Handle returned to the caller for lifecycle management, parameterized by monad.

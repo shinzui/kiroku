@@ -42,7 +42,7 @@ import Kiroku.Store.Subscription.Fsm (
     step,
  )
 import Kiroku.Store.Subscription.Types
-import Kiroku.Store.Types (CategoryName (..), GlobalPosition (..), RecordedEvent (..))
+import Kiroku.Store.Types (CategoryName (..), EventId (..), GlobalPosition (..), RecordedEvent (..))
 import System.IO.Unsafe (unsafePerformIO)
 
 -- Mirror 'Kiroku.Store.Subscription.EventPublisher.safetyPollMicros': an idle
@@ -219,9 +219,9 @@ runWorker pool liveQueue statusVar stateVar pubPosVar catGenVar config mHandler 
                                 let fresh = V.filter ((> c) . globalPosition) events
                                 pure (if V.null fresh then FetchEmpty else BatchFetched fresh)
                 (Nothing, Category (CategoryName cat)) ->
-                    liveExitToInput =<< liveLoopCategoryNotify pool config catGenVar cat emit posRef c stSettings
+                    liveExitToInput =<< liveLoopCategoryNotify pool config stateVar catGenVar cat emit posRef c stSettings
                 (Just _, _) ->
-                    liveExitToInput =<< liveLoopDbDriven pool config pubPosVar emit posRef c stSettings
+                    liveExitToInput =<< liveLoopDbDriven pool config stateVar pubPosVar emit posRef c stSettings
             -- Recoverable backpressure: the publisher set 'Paused' because this
             -- subscriber's bounded queue filled. Drain the stale queue (those
             -- events are re-read from the database by the re-catch-up that
@@ -277,7 +277,7 @@ runWorker pool liveQueue statusVar stateVar pubPosVar catGenVar config mHandler 
                 FetchHistory _ -> go es
                 RunLive -> go es
                 DeliverBatch events -> do
-                    result <- processEvents pool config events emit posRef
+                    result <- processEvents pool config stateVar events emit posRef
                     case result of
                         Nothing -> pure (Just (HandlerStopped (lastPosOf events)))
                         Just _ -> go es
@@ -409,6 +409,7 @@ data LiveExit
 liveLoopCategoryNotify ::
     Pool ->
     SubscriptionConfig ->
+    TVar SubscriptionState ->
     TVar (Map Text Word64) ->
     -- | this subscription's category
     Text ->
@@ -417,7 +418,7 @@ liveLoopCategoryNotify ::
     GlobalPosition ->
     StoreSettings ->
     IO LiveExit
-liveLoopCategoryNotify pool config catGenVar cat emit posRef startPos stSettings = go startPos
+liveLoopCategoryNotify pool config stateVar catGenVar cat emit posRef startPos stSettings = go startPos
   where
     readGen = Map.findWithDefault 0 cat <$> readTVar catGenVar
     go cursor = do
@@ -449,7 +450,7 @@ liveLoopCategoryNotify pool config catGenVar cat emit posRef startPos stSettings
                     if V.null events
                         then pure (Right (Just c))
                         else do
-                            result <- processEvents pool config events emit posRef
+                            result <- processEvents pool config stateVar events emit posRef
                             case result of
                                 Nothing -> pure (Right Nothing) -- handler said Stop
                                 Just newPos -> drainTo newPos
@@ -474,13 +475,14 @@ liveLoopCategoryNotify pool config catGenVar cat emit posRef startPos stSettings
 liveLoopDbDriven ::
     Pool ->
     SubscriptionConfig ->
+    TVar SubscriptionState ->
     TVar GlobalPosition ->
     (KirokuEvent -> IO ()) ->
     IORef GlobalPosition ->
     GlobalPosition ->
     StoreSettings ->
     IO LiveExit
-liveLoopDbDriven pool config pubPosVar emit posRef startPos stSettings =
+liveLoopDbDriven pool config stateVar pubPosVar emit posRef startPos stSettings =
     go startPos (GlobalPosition 0)
   where
     go cursor waitFrom = do
@@ -500,7 +502,7 @@ liveLoopDbDriven pool config pubPosVar emit posRef startPos stSettings =
                         if V.null events
                             then pure (Right (Just c))
                             else do
-                                result <- processEvents pool config events emit posRef
+                                result <- processEvents pool config stateVar events emit posRef
                                 case result of
                                     Nothing -> pure (Right Nothing) -- handler said Stop
                                     Just newPos -> drainTo newPos
@@ -549,19 +551,43 @@ fetchBatch pool config cursor@(GlobalPosition pos) emit stSettings = do
         -- transforms once before fan-out).
         Right events -> Right <$> decodeEvents stSettings events
 
--- Process a batch of events through the handler. Returns the new cursor
--- position if all events were processed (handler returned Continue for all),
--- or Nothing if the handler returned Stop.
+-- Process a batch of events through the handler, resolving each event's
+-- disposition. Returns the new cursor position if the batch was fully consumed
+-- (every event resolved to 'Continue', 'DeadLetter', or an exhausted 'Retry'),
+-- or 'Nothing' if the handler returned 'Stop'.
+--
+-- This is the single delivery primitive shared by the FSM 'DeliverBatch' effect
+-- (catch-up for every target; AllStreams live) and the two DB-driven live loops,
+-- so the four dispositions behave identically on every path (EP-2 / MasterPlan 6
+-- Decision Log). Checkpointing keeps the existing per-batch model: 'Continue'
+-- events advance the checkpoint only at the batch tail; 'Stop' checkpoints at the
+-- stopping event; 'DeadLetter' (and exhausted 'Retry') atomically record the
+-- event and advance the checkpoint past it via
+-- 'SQL.insertDeadLetterAndCheckpointStmt'.
+--
+-- 'Retry' redelivers the same event after its 'RetryDelay', bounded by the
+-- config's 'retryMaxAttempts'; while a redelivery is pending the worker's
+-- observable state @TVar@ shows 'Retrying' (restored to the driving state — the
+-- value the driver wrote before this batch — once the event resolves).
 processEvents ::
     Pool ->
     SubscriptionConfig ->
+    TVar SubscriptionState ->
     Vector RecordedEvent ->
     (KirokuEvent -> IO ()) ->
     IORef GlobalPosition ->
     IO (Maybe GlobalPosition)
-processEvents pool config events emit posRef = go 0
+processEvents pool config stateVar events emit posRef = do
+    -- The state the driver wrote for this batch (CatchingUp / Live); restored
+    -- after each retry so the observable state does not stick on 'Retrying'.
+    driving <- atomically (readTVar stateVar)
+    go driving 0
   where
-    go i
+    subName = name config
+    groupCtx = groupCtxOf config
+    maxAttempts = retryMaxAttempts (retryPolicy config)
+
+    go driving i
         | i >= V.length events = do
             let lastEvent = V.last events
                 newPos = globalPosition lastEvent
@@ -572,13 +598,68 @@ processEvents pool config events emit posRef = go 0
             let event = events V.! i
                 evtPos = globalPosition event
             writeIORef posRef evtPos
-            result <- handler config event
-            case result of
-                Stop -> do
-                    -- Save checkpoint up to the event we just processed
-                    saveCheckpoint pool config evtPos emit
-                    pure Nothing
-                Continue -> go (i + 1)
+            deliver driving i event evtPos 1
+
+    -- Deliver one event; @attempt@ is the 1-based delivery attempt (1 = first).
+    deliver driving i event evtPos attempt = do
+        result <- handler config event
+        case result of
+            Continue -> go driving (i + 1)
+            Stop -> do
+                -- Save checkpoint up to the event we just processed
+                saveCheckpoint pool config evtPos emit
+                pure Nothing
+            DeadLetter reason -> do
+                writeDeadLetter pool config evtPos event reason attempt emit
+                go driving (i + 1)
+            Retry delay
+                -- Exhausted the retry budget: dead-letter and advance past it.
+                | attempt >= maxAttempts -> do
+                    writeDeadLetter pool config evtPos event (DeadLetterMaxAttempts attempt) attempt emit
+                    go driving (i + 1)
+                -- Redeliver the same event after the requested delay.
+                | otherwise -> do
+                    atomically (writeTVar stateVar (Retrying evtPos attempt))
+                    emit (KirokuEventSubscriptionRetrying subName evtPos attempt groupCtx)
+                    threadDelay (retryDelayMicros delay)
+                    atomically (writeTVar stateVar driving)
+                    deliver driving i event evtPos (attempt + 1)
+
+-- Atomically record an event in @kiroku.dead_letters@ and advance the
+-- subscription's checkpoint past it (one statement; the checkpoint does not
+-- advance if the insert fails). On a database error the worker surfaces a
+-- 'KirokuEventSubscriptionDbError' and rethrows, so the event is neither lost
+-- nor silently skipped — it replays from the unadvanced checkpoint on restart.
+writeDeadLetter ::
+    Pool ->
+    SubscriptionConfig ->
+    GlobalPosition ->
+    RecordedEvent ->
+    DeadLetterReason ->
+    -- | attempt count to record
+    Int ->
+    (KirokuEvent -> IO ()) ->
+    IO ()
+writeDeadLetter pool config gp@(GlobalPosition pos) event reason attempt emit = do
+    let subName@(SubscriptionName name') = name config
+        mem = configMember config
+        EventId uuid = eventId event
+        params =
+            SQL.DeadLetterParams
+                { SQL.dlSubscriptionName = name'
+                , SQL.dlMember = mem
+                , SQL.dlGlobalPosition = pos
+                , SQL.dlEventId = uuid
+                , SQL.dlReason = deadLetterReasonJson reason
+                , SQL.dlReasonSummary = deadLetterSummary reason
+                , SQL.dlAttemptCount = fromIntegral attempt
+                }
+    result <- Pool.use pool (Session.statement params SQL.insertDeadLetterAndCheckpointStmt)
+    case result of
+        Left err -> do
+            emit (KirokuEventSubscriptionDbError subName SaveCheckpoint err (groupCtxOf config))
+            throwIO err
+        Right () -> emit (KirokuEventSubscriptionDeadLettered subName gp reason (groupCtxOf config))
 
 -- Save a checkpoint to the database. Surfaces a database error through
 -- the event handler; the worker continues running but the next restart

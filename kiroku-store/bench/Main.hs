@@ -621,6 +621,7 @@ runSubscriptionCatchup store runCounter = do
                 , overflowPolicy = DropSubscription
                 , consumerGroup = Nothing
                 , consumerGroupGuard = False
+                , retryPolicy = defaultRetryPolicy
                 }
     handle <- subscribe store cfg
     result <- wait handle

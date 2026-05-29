@@ -37,12 +37,13 @@ module Kiroku.Store.Observability (
     SubscriptionDbPhase (..),
     SubscriptionStopReason (..),
     SubscriptionGroupContext (..),
+    DeadLetterReason (..),
 ) where
 
 import Control.Exception (SomeException)
 import Data.Int (Int32)
 import Hasql.Pool (UsageError)
-import Kiroku.Store.Subscription.Fsm (SubscriptionStopReason (..))
+import Kiroku.Store.Subscription.Fsm (DeadLetterReason (..), SubscriptionStopReason (..))
 import Kiroku.Store.Subscription.Types (SubscriptionName)
 import Kiroku.Store.Types (GlobalPosition, StreamId, StreamName)
 
@@ -138,6 +139,25 @@ data KirokuEvent
       the consumer-group member (if any).
       -}
       KirokuEventSubscriptionFetched !SubscriptionName !Int !SubscriptionGroupContext
+    | {- | A subscription handler returned
+      'Kiroku.Store.Subscription.Types.Retry' for the event at the indicated
+      'GlobalPosition' and the worker is about to redeliver it. The 'Int' is the
+      redelivery attempt count starting at @1@ (so @1@ is the first redelivery
+      after the initial delivery). Bounded by the subscription's
+      'Kiroku.Store.Subscription.Types.RetryPolicy'; exhaustion produces a
+      'KirokuEventSubscriptionDeadLettered' with
+      'Kiroku.Store.Subscription.Types.DeadLetterMaxAttempts'. The trailing
+      'SubscriptionGroupContext' identifies the consumer-group member (if any).
+      -}
+      KirokuEventSubscriptionRetrying !SubscriptionName !GlobalPosition !Int !SubscriptionGroupContext
+    | {- | The worker recorded the event at the indicated 'GlobalPosition' in
+      @kiroku.dead_letters@ with the given 'DeadLetterReason' and atomically
+      advanced the checkpoint past it. Emitted when a handler returns
+      'Kiroku.Store.Subscription.Types.DeadLetter' or when retry attempts are
+      exhausted. The trailing 'SubscriptionGroupContext' identifies the
+      consumer-group member (if any).
+      -}
+      KirokuEventSubscriptionDeadLettered !SubscriptionName !GlobalPosition !DeadLetterReason !SubscriptionGroupContext
     | {- | A hard-delete transaction completed successfully. Operators
       relying on a fail-safe audit log can capture this event;
       compliance-grade audit should still record an application-level

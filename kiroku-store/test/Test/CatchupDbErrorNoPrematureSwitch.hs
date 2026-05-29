@@ -49,6 +49,7 @@ spec =
                         , overflowPolicy = DropSubscription
                         , consumerGroup = Nothing
                         , consumerGroupGuard = False
+                        , retryPolicy = defaultRetryPolicy
                         }
                 observe evt = do
                     modifyIORef' eventRef (evt :)

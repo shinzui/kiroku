@@ -39,6 +39,13 @@ module Kiroku.Store.Subscription.Fsm (
     -- * Terminal reasons
     SubscriptionStopReason (..),
 
+    -- * Per-event dispositions (retry / dead-letter)
+    RetryDelay (..),
+    retryDelayMicros,
+    DeadLetterReason (..),
+    deadLetterSummary,
+    deadLetterReasonJson,
+
     -- * Driver alphabet
     Input (..),
     Effect (..),
@@ -48,6 +55,10 @@ module Kiroku.Store.Subscription.Fsm (
 ) where
 
 import Control.Exception (SomeException)
+import Data.Aeson (Value, object, (.=))
+import Data.Text (Text)
+import Data.Text qualified as T
+import Data.Time (NominalDiffTime)
 import Data.Vector (Vector)
 import Data.Vector qualified as V
 import Hasql.Pool qualified as Pool
@@ -82,6 +93,56 @@ data SubscriptionStopReason
       StopWorkerCrashed !SomeException
     deriving stock (Show)
 
+{- | How long to wait before redelivering a retried event.
+
+The handler's @Kiroku.Store.Subscription.Types.Retry@ disposition carries one of
+these; the worker sleeps for it before the next redelivery. Mirrors Shibuya's
+@Shibuya.Core.Ack.RetryDelay@ shape (a 'NominalDiffTime') so the
+@shibuya-kiroku-adapter@ can translate @AckRetry@ without loss, but is a
+Kiroku-owned type so @kiroku-store@ does not depend on @shibuya-core@.
+-}
+newtype RetryDelay = RetryDelay NominalDiffTime
+    deriving stock (Eq, Show)
+
+{- | The retry delay in microseconds, clamped at @0@, suitable for
+'Control.Concurrent.threadDelay'. Fractional seconds are rounded.
+-}
+retryDelayMicros :: RetryDelay -> Int
+retryDelayMicros (RetryDelay d) = max 0 (round (realToFrac d * 1_000_000 :: Double))
+
+{- | Why an event was dead-lettered (recorded in @kiroku.dead_letters@ while the
+subscription advances past it). Kiroku-owned so @kiroku-store@ stays independent
+of @shibuya-core@; the adapter converts Shibuya's @DeadLetterReason@ into one of
+these. 'deadLetterSummary' produces the @reason_summary@ text column and
+'deadLetterReasonJson' the structured @reason@ JSONB column.
+-}
+data DeadLetterReason
+    = -- | Permanently unprocessable; the 'Text' is operator-facing detail.
+      DeadLetterPoison !Text
+    | -- | The event payload failed validation/parsing; the 'Text' is the detail.
+      DeadLetterInvalid !Text
+    | -- | The bounded retry budget was exhausted after the given number of attempts.
+      DeadLetterMaxAttempts !Int
+    | -- | A custom reason: a summary plus structured JSON detail.
+      DeadLetterOther !Text !Value
+    deriving stock (Eq, Show)
+
+-- | The short operator-facing summary stored in @dead_letters.reason_summary@.
+deadLetterSummary :: DeadLetterReason -> Text
+deadLetterSummary = \case
+    DeadLetterPoison detail -> "poison: " <> detail
+    DeadLetterInvalid detail -> "invalid payload: " <> detail
+    DeadLetterMaxAttempts n -> "max retry attempts exceeded (" <> T.pack (show n) <> ")"
+    DeadLetterOther summary _ -> summary
+
+-- | The structured JSON detail stored in @dead_letters.reason@ (JSONB).
+deadLetterReasonJson :: DeadLetterReason -> Value
+deadLetterReasonJson = \case
+    DeadLetterPoison detail -> object ["kind" .= ("poison" :: Text), "detail" .= detail]
+    DeadLetterInvalid detail -> object ["kind" .= ("invalid_payload" :: Text), "detail" .= detail]
+    DeadLetterMaxAttempts n -> object ["kind" .= ("max_attempts_exceeded" :: Text), "attempts" .= n]
+    DeadLetterOther summary detail -> object ["kind" .= ("other" :: Text), "summary" .= summary, "detail" .= detail]
+
 {- | What unblocks a 'Paused' worker.
 
 In M1 there is one resume condition: the bounded queue has drained enough that
@@ -109,6 +170,15 @@ data ResumeCondition
   * 'Reconnecting' — recovering from a lost database connection while live;
     backs off and re-enters 'CatchingUp' from @cursor@ (added in M3; in M1
     defined but never entered).
+  * 'Retrying' — a handler returned
+    'Kiroku.Store.Subscription.Types.Retry' for the event at @cursor@; the
+    worker is redelivering it (@attempt@ counts redeliveries so far) and has not
+    advanced the checkpoint past it. Added by the sibling retry\/dead-letter plan
+    (@docs\/plans\/40-...@). It is a /surfaced observability state/: the worker's
+    delivery primitive writes it into the observable state @TVar@ while a
+    redelivery is pending and restores the prior driving state afterward, so it is
+    visible through @currentState@ but is never itself a driving state fed back to
+    'step' (the @Retrying@ clause in 'step' is therefore defensive).
   * 'Stopped' — terminal, carrying the 'SubscriptionStopReason'.
 -}
 data SubscriptionState
@@ -116,6 +186,7 @@ data SubscriptionState
     | Live {cursor :: !GlobalPosition}
     | Paused {cursor :: !GlobalPosition, resumeWhen :: !ResumeCondition}
     | Reconnecting {cursor :: !GlobalPosition, attempt :: !Int}
+    | Retrying {cursor :: !GlobalPosition, attempt :: !Int}
     | Stopped {reason :: !SubscriptionStopReason}
     deriving stock (Show)
 
@@ -128,6 +199,7 @@ stateCursor = \case
     Live c -> c
     Paused c _ -> c
     Reconnecting c _ -> c
+    Retrying c _ -> c
     Stopped _ -> GlobalPosition 0
 
 {- | A thing that just happened, fed to 'step' to compute the next state.
@@ -258,4 +330,14 @@ step st input = case st of
         QueueOverflowed -> (Reconnecting c n, [])
         QueueBackpressured -> (Reconnecting c n, [])
         QueueDrained -> (Reconnecting c n, [])
+    -- 'Retrying' is a surfaced observability state managed inside the worker's
+    -- delivery primitive (it sets the observable @TVar@ to 'Retrying' while a
+    -- redelivery is pending and restores the prior driving state afterward); it
+    -- is never a driving state fed back to 'step'. This clause is therefore
+    -- defensive — only cancellation / a handler stop could plausibly race in, and
+    -- both terminate; anything else returns to 'Live' at the same cursor.
+    Retrying c _ -> case input of
+        Cancelled -> (Stopped StopCancelled, [Halt StopCancelled])
+        HandlerStopped _ -> (Stopped StopHandlerRequested, [Halt StopHandlerRequested])
+        _ -> (Live c, [])
     Stopped r -> (Stopped r, [])

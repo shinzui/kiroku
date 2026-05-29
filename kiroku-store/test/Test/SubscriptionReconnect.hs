@@ -98,6 +98,7 @@ spec = describe "subscription FSM — worker-level live reconnect (EP-41 M3)" $ 
                     , overflowPolicy = PauseAndResume
                     , consumerGroup = Nothing
                     , consumerGroupGuard = False
+                    , retryPolicy = defaultRetryPolicy
                     }
 
         withTestStoreSettings (& #eventHandler .~ Just observe) $ \store -> do

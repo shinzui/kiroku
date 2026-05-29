@@ -55,6 +55,7 @@ spec =
                             , overflowPolicy = DropSubscription
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
+                            , retryPolicy = defaultRetryPolicy
                             }
                     liveSettings =
                         settings
@@ -114,6 +115,7 @@ spec =
                             , overflowPolicy = DropSubscription
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
+                            , retryPolicy = defaultRetryPolicy
                             }
                     liveSettings =
                         settings
@@ -190,6 +192,7 @@ runUntil store subName targetCount = do
                 , overflowPolicy = DropSubscription
                 , consumerGroup = Nothing
                 , consumerGroupGuard = False
+                , retryPolicy = defaultRetryPolicy
                 }
     handle <- subscribe store cfg
     result <- waitWithTimeout 10_000_000 handle

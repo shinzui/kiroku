@@ -48,6 +48,12 @@ module Kiroku.Store.SQL (
     saveCheckpointStmt,
     getCheckpointMemberStmt,
     saveCheckpointMemberStmt,
+
+    -- * Dead-letter statements
+    DeadLetterParams (..),
+    DeadLetterRecord (..),
+    insertDeadLetterAndCheckpointStmt,
+    readDeadLettersStmt,
 ) where
 
 import Contravariant.Extras (contrazip2, contrazip3, contrazip4, contrazip5)
@@ -1109,4 +1115,107 @@ saveCheckpointMemberSQL =
     VALUES ($1, $2, $3, now())
     ON CONFLICT (subscription_name, consumer_group_member)
     DO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now()
+    """
+
+-- ---------------------------------------------------------------------------
+-- Dead-letter Statements
+-- ---------------------------------------------------------------------------
+
+-- | Parameters for 'insertDeadLetterAndCheckpointStmt'.
+data DeadLetterParams = DeadLetterParams
+    { dlSubscriptionName :: !Text
+    , dlMember :: !Int32
+    , dlGlobalPosition :: !Int64
+    , dlEventId :: !UUID
+    , dlReason :: !Value
+    -- ^ structured JSONB reason (@reason@ column)
+    , dlReasonSummary :: !Text
+    -- ^ operator-facing summary (@reason_summary@ column)
+    , dlAttemptCount :: !Int32
+    }
+    deriving stock (Show, Generic)
+
+-- | A row of @kiroku.dead_letters@, returned by 'readDeadLettersStmt'.
+data DeadLetterRecord = DeadLetterRecord
+    { deadLetterGlobalPosition :: !Int64
+    , deadLetterEventId :: !UUID
+    , deadLetterReason :: !Value
+    , deadLetterReasonSummary :: !Text
+    , deadLetterAttemptCount :: !Int32
+    , deadLetterCreatedAt :: !UTCTime
+    }
+    deriving stock (Show, Generic)
+
+deadLetterParamsEncoder :: E.Params DeadLetterParams
+deadLetterParamsEncoder =
+    ((^. #dlSubscriptionName) >$< E.param (E.nonNullable E.text))
+        <> ((^. #dlMember) >$< E.param (E.nonNullable E.int4))
+        <> ((^. #dlGlobalPosition) >$< E.param (E.nonNullable E.int8))
+        <> ((^. #dlEventId) >$< E.param (E.nonNullable E.uuid))
+        <> ((^. #dlReason) >$< E.param (E.nonNullable E.jsonb))
+        <> ((^. #dlReasonSummary) >$< E.param (E.nonNullable E.text))
+        <> ((^. #dlAttemptCount) >$< E.param (E.nonNullable E.int4))
+
+{- | Atomically record an event in @kiroku.dead_letters@ and advance the
+subscription's checkpoint past it, in a single statement.
+
+The dead-letter insert and the checkpoint upsert run in one round trip: a
+data-modifying CTE performs the insert (idempotent via @ON CONFLICT DO NOTHING@
+on the natural key), and the final statement upserts the checkpoint with the
+same @GREATEST(...)@ monotonicity as 'saveCheckpointMemberStmt'. If the insert
+fails the whole statement aborts and the checkpoint does not advance, satisfying
+the dead-letter atomicity criterion. The checkpoint reuses @$1@/@$2@/@$3@
+(name / member / global_position) from the dead-letter params.
+-}
+insertDeadLetterAndCheckpointStmt :: Statement DeadLetterParams ()
+insertDeadLetterAndCheckpointStmt =
+    preparable
+        insertDeadLetterAndCheckpointSQL
+        deadLetterParamsEncoder
+        D.noResult
+
+insertDeadLetterAndCheckpointSQL :: Text
+insertDeadLetterAndCheckpointSQL =
+    """
+    WITH dl AS (
+      INSERT INTO dead_letters
+        (subscription_name, consumer_group_member, global_position, event_id, reason, reason_summary, attempt_count)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ON CONFLICT (subscription_name, consumer_group_member, global_position, event_id) DO NOTHING
+    )
+    INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at)
+    VALUES ($1, $2, $3, now())
+    ON CONFLICT (subscription_name, consumer_group_member)
+    DO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now()
+    """
+
+-- | Read the dead letters recorded for one subscription member, newest first.
+readDeadLettersStmt :: Statement (Text, Int32) (Vector DeadLetterRecord)
+readDeadLettersStmt =
+    preparable
+        readDeadLettersSQL
+        ( contrazip2
+            (E.param (E.nonNullable E.text))
+            (E.param (E.nonNullable E.int4))
+        )
+        (D.rowVector deadLetterRecordRow)
+
+deadLetterRecordRow :: D.Row DeadLetterRecord
+deadLetterRecordRow =
+    DeadLetterRecord
+        <$> D.column (D.nonNullable D.int8)
+        <*> D.column (D.nonNullable D.uuid)
+        <*> D.column (D.nonNullable D.jsonb)
+        <*> D.column (D.nonNullable D.text)
+        <*> D.column (D.nonNullable D.int4)
+        <*> D.column (D.nonNullable D.timestamptz)
+
+readDeadLettersSQL :: Text
+readDeadLettersSQL =
+    """
+    SELECT global_position, event_id, reason, reason_summary, attempt_count, created_at
+    FROM dead_letters
+    WHERE subscription_name = $1
+      AND consumer_group_member = $2
+    ORDER BY global_position DESC, dead_letter_id DESC
     """

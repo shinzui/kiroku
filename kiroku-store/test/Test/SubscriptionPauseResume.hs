@@ -87,6 +87,7 @@ spec = describe "subscription FSM — recoverable backpressure (EP-41 M2)" $ do
                         , overflowPolicy = PauseAndResume
                         , consumerGroup = Nothing
                         , consumerGroupGuard = False
+                        , retryPolicy = defaultRetryPolicy
                         }
             handle <- subscribe store cfg
             -- First append: the worker reads it from the queue and the handler
@@ -148,6 +149,7 @@ spec = describe "subscription FSM — recoverable backpressure (EP-41 M2)" $ do
                         , overflowPolicy = DropSubscription
                         , consumerGroup = Nothing
                         , consumerGroupGuard = False
+                        , retryPolicy = defaultRetryPolicy
                         }
             handle <- subscribe store cfg
             Right _ <- runStoreIO store $ appendToStream (StreamName "ds-1") NoStream [makeEvent "E1" (Aeson.object [])]
