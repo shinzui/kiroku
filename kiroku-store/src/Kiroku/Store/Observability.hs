@@ -41,6 +41,7 @@ module Kiroku.Store.Observability (
 import Control.Exception (SomeException)
 import Data.Int (Int32)
 import Hasql.Pool (UsageError)
+import Kiroku.Store.Subscription.Fsm (SubscriptionStopReason (..))
 import Kiroku.Store.Subscription.Types (SubscriptionName)
 import Kiroku.Store.Types (GlobalPosition, StreamId, StreamName)
 
@@ -143,31 +144,6 @@ data SubscriptionDbPhase
       -}
       SaveCheckpoint
     deriving stock (Eq, Show)
-
--- | Why a subscription's worker thread stopped.
-data SubscriptionStopReason
-    = {- | The handler returned 'Kiroku.Store.Subscription.Types.Stop'
-      for some event. This is the normal completion path. The
-      checkpoint is saved at the event the handler returned 'Stop'
-      for.
-      -}
-      StopHandlerRequested
-    | {- | The caller invoked 'Kiroku.Store.Subscription.Types.cancel'.
-      No checkpoint advance is guaranteed; events in flight at
-      cancellation time will replay on the next restart.
-      -}
-      StopCancelled
-    | {- | The publisher marked the subscription overflowed under
-      'Kiroku.Store.Subscription.Types.DropSubscription' and the
-      worker surfaced
-      'Kiroku.Store.Subscription.Types.SubscriptionOverflowed'.
-      -}
-      StopOverflowed
-    | {- | The worker thread died from an uncaught exception (typically
-      a handler exception). The 'SomeException' carries the cause.
-      -}
-      StopWorkerCrashed !SomeException
-    deriving stock (Show)
 
 {- | Consumer-group context attached to subscription lifecycle events. A plain
 (non-grouped) subscription reports 'NonGroup'; a member of a group reports

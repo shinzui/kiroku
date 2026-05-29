@@ -58,7 +58,7 @@ Alternatives considered and rejected: (a) a single mega-ExecPlan — rejected be
 
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
-| 1 | Explicit subscription-worker finite state machine with recoverable backpressure and live reconnect | docs/plans/41-explicit-subscription-worker-finite-state-machine-with-recoverable-backpressure-and-live-reconnect.md | None | None | Not Started |
+| 1 | Explicit subscription-worker finite state machine with recoverable backpressure and live reconnect | docs/plans/41-explicit-subscription-worker-finite-state-machine-with-recoverable-backpressure-and-live-reconnect.md | None | None | In Progress |
 | 2 | Per-event retry / dead-letter for kiroku subscriptions and the shibuya-kiroku-adapter | docs/plans/40-per-event-retry-and-dead-letter-for-kiroku-subscriptions-and-the-shibuya-adapter.md | EP-1 | EP-3 | Not Started |
 | 3 | Wire kiroku consumer groups into the Shibuya partitioned-ordering policy model | docs/plans/42-wire-kiroku-consumer-groups-into-the-shibuya-partitioned-ordering-policy-model.md | None | EP-1 | Not Started |
 | 4 | Per-subscription event-type filtering through the worker, Streamly bridge, and Shibuya adapter | docs/plans/43-per-subscription-event-type-filtering-through-the-worker-streamly-bridge-and-shibuya-adapter.md | None | EP-1 | Not Started |
@@ -100,7 +100,7 @@ Recommended order is 1 → (2, 3, and 4 in parallel), with a single reconciliati
 Track milestone-level progress across all child plans. Each entry names the child plan
 and the milestone. This section provides an at-a-glance view of the entire initiative.
 
-- [ ] EP-1 (FSM): M1 — define `SubscriptionState` and an exhaustive transition function; re-express today's catch-up/live/stopped phases as named states with no behavior change.
+- [x] EP-1 (FSM): M1 — define `SubscriptionState` and an exhaustive transition function; re-express today's catch-up/live/stopped phases as named states with no behavior change. (Done 2026-05-29: `Fsm.hs` + driver refactor of `Worker.runWorker`; `164 examples, 0 failures`; all downstream packages link.)
 - [ ] EP-1 (FSM): M2 — recoverable backpressure: replace terminal `Overflowed` with a `Paused` state that resumes when the consumer drains (configurable).
 - [ ] EP-1 (FSM): M3 — worker-level `Reconnecting` state: a live worker that loses its pool re-enters catch-up from its checkpoint instead of dying.
 - [ ] EP-1 (FSM): M4 — observability + tests: expose current state; regression tests for no-missed-events, monotonic checkpoints, pause/resume, reconnect.

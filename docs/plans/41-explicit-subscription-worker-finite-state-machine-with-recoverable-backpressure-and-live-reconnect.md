@@ -89,9 +89,17 @@ Those siblings are referenced only by file path; nothing here depends on them.
   `lib/event_store/subscriptions/subscription_fsm.ex`; and the test harness
   (`test/Main.hs`, `test/Test/Helpers.hs`, `test/Test/FailureInjection.hs`,
   `test/Test/CategoryIdleNoSpin.hs`, the cabal suite `kiroku-store-test`).
-- [ ] M1 — define `SubscriptionState` and an exhaustive `step` transition function;
+- [x] M1 — define `SubscriptionState` and an exhaustive `step` transition function;
   re-express today's catch-up/live/stopped phases as named states driven by a
   `runWorker` loop, with no behavior change. Existing subscription tests stay green.
+  Done 2026-05-29: created `kiroku-store/src/Kiroku/Store/Subscription/Fsm.hs`
+  (`{-# OPTIONS_GHC -Werror=incomplete-patterns #-}`, exhaustive `step`); refactored
+  `Worker.runWorker` into a `loop`/`feed`/`nextInput`/`runEffects` driver around
+  `step`; removed the old `catchUp`/`liveLoop` (their logic moved into the driver);
+  kept `liveLoopCategoryNotify`/`liveLoopDbDriven` as run-to-completion live handlers.
+  `cabal build all` clean; `cabal test kiroku-store:kiroku-store-test` →
+  `164 examples, 0 failures`; `kiroku-otel`, `shibuya-kiroku-adapter`,
+  `kiroku-jitsurei` all still link.
 - [ ] M2 — recoverable backpressure: replace the terminal `Overflowed`→throw path
   with a `Paused` state that resumes when the consumer drains the queue, configurable
   via a new `overflowPolicy` value; keep fail-fast available; add a pause/resume test.
@@ -156,6 +164,73 @@ implementation. Provide concise evidence.
 
 
 ## Decision Log
+
+- Decision (M1 implementation): `CatchingUp` carries an `attempt :: !Int` field
+  (`CatchingUp { cursor, attempt }`), not just `cursor` as the original sketch showed.
+  Rationale: catch-up's escalating capped backoff (`fetchRetryDelayMicros attempt`,
+  reset to 0 on any successful fetch) is part of the behavior M1 must preserve.
+  Modelling the attempt counter as FSM context keeps `step` pure and total: a
+  `FetchFailed` during catch-up transitions `CatchingUp c n -> (CatchingUp c (n+1),
+  [Backoff n])`, exactly reproducing the old `go cursor (attempt+1)` with
+  `threadDelay (fetchRetryDelayMicros attempt)` before the retry. `Reconnecting`
+  already carries an `attempt`; this makes the two recovery counters symmetric.
+  Date: 2026-05-29.
+
+- Decision (M1 implementation): moved `SubscriptionStopReason` out of
+  `Kiroku.Store.Observability` and into `Kiroku.Store.Subscription.Fsm`, re-exporting
+  it from `Observability` (so the public `KirokuEvent` API is byte-for-byte unchanged
+  — `Kiroku.Store` and downstream `kiroku-otel` still import it transitively).
+  Rationale: M4 adds a `currentState :: m SubscriptionState` accessor to
+  `SubscriptionHandleM` in `Subscription.Types`, which would close the cycle
+  `Subscription.Types -> Fsm -> Observability -> Subscription.Types` if `Fsm` imported
+  `Observability` for the stop reason. Defining the reason in `Fsm` (a near-leaf
+  depending only on `Kiroku.Store.Types` + `hasql-pool`) keeps the graph acyclic. Done
+  in M1 rather than M4 to avoid authoring `Fsm` against `Observability` and flipping it
+  later. Verified: `cabal build all` clean, all three downstream packages link.
+  Date: 2026-05-29.
+
+- Decision (M1 implementation): the FSM `Effect` constructor for persisting a
+  checkpoint is named `Checkpoint`, not `SaveCheckpoint`.
+  Rationale: `Kiroku.Store.Observability.SubscriptionDbPhase` already has a
+  `SaveCheckpoint` constructor; `Worker.hs` imports both `Observability` and `Fsm`
+  unqualified, so reusing the name produced an ambiguous-occurrence error. The effect
+  is internal to the driver, so renaming is harmless.
+  Date: 2026-05-29.
+
+- Decision (M1 implementation): `Halt` drives only the driver's *exit* (return
+  cleanly vs rethrow), and does **not** itself emit `KirokuEventSubscriptionStopped`.
+  The existing top-level `try body` plus its `Right ()` / `Left e` emission is kept
+  verbatim. `Halt StopHandlerRequested` returns `Nothing` (the driver unwinds and the
+  outer `Right ()` arm emits `StopHandlerRequested`); `Halt StopOverflowed` rethrows
+  `SubscriptionOverflowed`, and an uncaught exception still flows through
+  `classifyStopReason`. This keeps the emitted event sequence byte-for-byte identical
+  to the pre-FSM worker (the M1 acceptance), at the cost of `Halt` not being the single
+  emission site the sketch envisioned. Recorded so M2/M4 add the new
+  Paused/Resumed/Reconnecting emissions through the `Emit*` effects rather than `Halt`.
+  Date: 2026-05-29.
+
+- Decision (M1 implementation): the `Live`/`CatchingUp` clauses for `ConnectionLost`
+  and live `FetchFailed` were authored with their M3 *recoverable* target
+  (`-> Reconnecting c 1`) already in place, as dead code: the M1 driver never produces
+  `ConnectionLost`, and live `FetchFailed` only arises for the category/consumer-group
+  loops which retain their own internal retry. This avoids writing a throwaway terminal
+  clause (and an exception wrapper to fit `Pool.UsageError` into `StopWorkerCrashed`)
+  in M1 only to delete it in M3. The genuinely reachable terminal path in M1 is
+  `Live QueueOverflowed -> Stopped StopOverflowed` (preserving the F6 fail-fast test);
+  M2 replaces that clause with the `Paused` transition. M3's remaining work is purely
+  driver-side: detect a live-phase `Pool.UsageError` and feed `ConnectionLost`.
+  Date: 2026-05-29.
+
+- Decision (M1 implementation): the AllStreams live path is driven *per batch* through
+  `step` (so M2's `Paused` slots in there), while the `Category` and consumer-group
+  live phases are delegated to the existing `liveLoopCategoryNotify` /
+  `liveLoopDbDriven` as a single run-to-completion step (`nextInput (Live c)` runs the
+  loop, then reports `HandlerStopped` on its normal return). This matches the standing
+  decision to keep the three loops as effect handlers and not collapse their distinct
+  wake-up strategies (publisher queue / per-category NOTIFY generation / global-position
+  gate), which the EP-37 no-busy-poll invariant depends on. The FSM governs the
+  lifecycle (entering/leaving `Live`); the loops remain the within-`Live` mechanism.
+  Date: 2026-05-29.
 
 - Decision: Implement a *faithful EventStore-style FSM that adds the two missing
   recoverable states* (paused backpressure and worker-level reconnect), not merely a

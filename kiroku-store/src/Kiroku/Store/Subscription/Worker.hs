@@ -33,6 +33,13 @@ import Kiroku.Store.Observability (
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Settings (StoreSettings, decodeEvents)
 import Kiroku.Store.Subscription.EventPublisher (SubscriberStatus (..))
+import Kiroku.Store.Subscription.Fsm (
+    Effect (..),
+    Input (..),
+    SubscriptionState (..),
+    stateCursor,
+    step,
+ )
 import Kiroku.Store.Subscription.Types
 import Kiroku.Store.Types (CategoryName (..), GlobalPosition (..), RecordedEvent (..))
 import System.IO.Unsafe (unsafePerformIO)
@@ -131,38 +138,124 @@ runWorker pool liveQueue statusVar pubPosVar catGenVar config mHandler stSetting
             checkpoint <- loadCheckpoint pool config emit
             writeIORef posRef checkpoint
             emit (KirokuEventSubscriptionStarted subName checkpoint groupCtx)
-            -- Phase 1: catch-up (returns Nothing if handler said Stop)
-            result <- catchUp pool config checkpoint pubPosVar emit posRef stSettings
-            case result of
-                Nothing -> pure () -- Handler said Stop during catch-up; exit
-                Just finalPos -> do
-                    writeIORef posRef finalPos
-                    emit (KirokuEventSubscriptionCaughtUp subName finalPos groupCtx)
-                    -- Phase 2: live. The strategy depends on (group, target):
-                    --   * Non-group AllStreams: read pre-broadcast events from
-                    --     `liveQueue`; the publisher delivers every appended event.
-                    --   * Non-group Category: block on this category's NOTIFY-driven
-                    --     generation counter and re-query only when *this* category
-                    --     changes, so an idle category does zero DB work while other
-                    --     categories receive traffic (see liveLoopCategoryNotify).
-                    --   * Any group (Category or AllStreams): the DB-driven loop,
-                    --     gated on the last observed global position. A partitioned
-                    --     member must see only the events whose originating stream
-                    --     hashes to its slot; the broadcast `liveQueue` carries
-                    --     unfiltered $all events and there is no in-process
-                    --     stream-id -> member map to filter them with (mirrors the
-                    --     EP-3 F18 rationale), and the member's partition is a
-                    --     Postgres hash the worker cannot derive from the NOTIFY
-                    --     payload. The partition predicate lives in the SQL, so
-                    --     re-querying with the partitioned statement when the global
-                    --     position advances is the correct fit.
-                    case (consumerGroup config, target config) of
-                        (Nothing, AllStreams) ->
-                            liveLoop pool liveQueue statusVar config emit posRef finalPos
-                        (Nothing, Category (CategoryName cat)) ->
-                            liveLoopCategoryNotify pool config catGenVar cat emit posRef finalPos stSettings
-                        (Just _, _) ->
-                            liveLoopDbDriven pool config pubPosVar emit posRef finalPos stSettings
+            -- Drive the explicit FSM from the catch-up state. The pure 'step'
+            -- (Kiroku.Store.Subscription.Fsm) decides every lifecycle transition;
+            -- this driver supplies the inputs (what just happened) and interprets
+            -- the effects (deliver a batch, emit an event, back off, halt). The
+            -- three live strategies remain the *mechanism* for obtaining the next
+            -- batch within the 'Live' state; the FSM governs the lifecycle.
+            loop (CatchingUp checkpoint 0)
+
+        -- One driver iteration: discover the next 'Input' by performing the
+        -- current state's natural (possibly blocking) action, then hand it to
+        -- 'feed'.
+        loop :: SubscriptionState -> IO ()
+        loop st = nextInput st >>= feed st
+
+        -- Apply 'step' to the (state, input) pair, interpret the resulting
+        -- effects, and continue. An effect (delivery, a gate) may itself produce
+        -- a follow-up 'Input' (e.g. the handler returned 'Stop'); that is fed back
+        -- to 'step' immediately. Otherwise: stop when the new state is terminal,
+        -- else loop on the new state.
+        feed :: SubscriptionState -> Input -> IO ()
+        feed st inp = do
+            let (st', effs) = step st inp
+            follow <- runEffects st' effs
+            case follow of
+                Just fInp -> feed st' fInp
+                Nothing -> case st' of
+                    Stopped _ -> pure ()
+                    _ -> loop st'
+
+        -- Produce the next 'Input' for a state by performing its blocking action.
+        --   * CatchingUp: if caught up, 'CaughtUp'; else fetch one history batch,
+        --     mapping the result to 'BatchFetched' / 'FetchEmpty' (caught up) /
+        --     'FetchFailed' (the catch-up retry, escalated by the state's attempt).
+        --   * Live (AllStreams, non-group): read the publisher's bounded queue;
+        --     'QueueOverflowed' when the publisher signalled overflow, else the
+        --     stale-filtered batch ('FetchEmpty' if all stale).
+        --   * Live (Category / consumer-group): run the existing live loop to its
+        --     natural termination (handler 'Stop'), then report 'HandlerStopped'.
+        --     These loops retain their own NOTIFY-generation / global-position
+        --     gates and per-fetch retry, exactly as before.
+        nextInput :: SubscriptionState -> IO Input
+        nextInput = \case
+            CatchingUp c _ -> do
+                writeIORef posRef c
+                pubPos <- atomically (readTVar pubPosVar)
+                if c >= pubPos
+                    then pure CaughtUp
+                    else do
+                        fetchResult <- fetchBatch pool config c emit stSettings
+                        case fetchResult of
+                            Left err -> pure (FetchFailed err)
+                            Right events
+                                | V.null events -> pure CaughtUp
+                                | otherwise -> pure (BatchFetched events)
+            Live c -> case (consumerGroup config, target config) of
+                (Nothing, AllStreams) -> do
+                    writeIORef posRef c
+                    atomically $ do
+                        status <- readTVar statusVar
+                        case status of
+                            Overflowed -> pure QueueOverflowed
+                            Active -> do
+                                -- A subscription registers its live queue before
+                                -- catch-up begins, so events appended during
+                                -- catch-up may be both fetched from SQL and waiting
+                                -- in the queue. Drop those stale entries so live
+                                -- mode cannot replay them or rewind the checkpoint.
+                                events <- readTBQueue liveQueue
+                                let fresh = V.filter ((> c) . globalPosition) events
+                                pure (if V.null fresh then FetchEmpty else BatchFetched fresh)
+                (Nothing, Category (CategoryName cat)) -> do
+                    liveLoopCategoryNotify pool config catGenVar cat emit posRef c stSettings
+                    p <- readIORef posRef
+                    pure (HandlerStopped p)
+                (Just _, _) -> do
+                    liveLoopDbDriven pool config pubPosVar emit posRef c stSettings
+                    p <- readIORef posRef
+                    pure (HandlerStopped p)
+            -- 'Paused' and 'Reconnecting' are never entered in M1 (M2 and M3 add
+            -- the driver wiring); these defensive clauses keep 'nextInput' total.
+            Paused{} -> pure QueueDrained
+            Reconnecting{} -> pure CaughtUp
+            Stopped{} -> pure Cancelled
+
+        -- Interpret a transition's effects against the *new* state. Returns a
+        -- follow-up 'Input' when an effect produces one (only 'DeliverBatch', when
+        -- the handler returns 'Stop'); 'Nothing' otherwise. 'Halt' terminates the
+        -- driver: a handler-requested stop returns cleanly (the outer handler
+        -- emits the Stopped event), overflow/crash rethrow so the outer 'try'
+        -- classifies and re-emits — preserving today's exact event sequence.
+        runEffects :: SubscriptionState -> [Effect] -> IO (Maybe Input)
+        runEffects st' = go
+          where
+            go [] = pure Nothing
+            go (e : es) = case e of
+                EmitCaughtUp -> do
+                    emit (KirokuEventSubscriptionCaughtUp subName (stateCursor st') groupCtx)
+                    go es
+                EmitPaused -> go es
+                EmitResumed -> go es
+                EmitReconnecting _ -> go es
+                Backoff n -> threadDelay (fetchRetryDelayMicros n) >> go es
+                WaitForDrain -> go es
+                Checkpoint p -> saveCheckpoint pool config p emit >> go es
+                FetchHistory _ -> go es
+                RunLive -> go es
+                DeliverBatch events -> do
+                    result <- processEvents pool config events emit posRef
+                    case result of
+                        Nothing -> pure (Just (HandlerStopped (lastPosOf events)))
+                        Just _ -> go es
+                Halt reason -> case reason of
+                    StopHandlerRequested -> pure Nothing
+                    StopOverflowed -> throwIO (SubscriptionOverflowed subName)
+                    StopCancelled -> throwIO Async.AsyncCancelled
+                    StopWorkerCrashed ex -> throwIO ex
+
+        lastPosOf events = globalPosition (V.last events)
 
     result <- try body
     pos <- readIORef posRef
@@ -239,78 +332,6 @@ loadCheckpoint pool config emit = do
             pure (GlobalPosition 0)
         Right Nothing -> pure (GlobalPosition 0)
         Right (Just pos) -> pure (GlobalPosition pos)
-
--- Phase 1: catch-up. Queries the database directly in batches until we
--- reach the EventPublisher's current position. Returns Nothing if the
--- handler said Stop, or Just position if catch-up completed normally.
-catchUp ::
-    Pool ->
-    SubscriptionConfig ->
-    GlobalPosition ->
-    TVar GlobalPosition ->
-    (KirokuEvent -> IO ()) ->
-    IORef GlobalPosition ->
-    StoreSettings ->
-    IO (Maybe GlobalPosition)
-catchUp pool config startPos pubPosVar emit posRef stSettings = go startPos 0
-  where
-    go cursor attempt = do
-        writeIORef posRef cursor
-        pubPos <- atomically (readTVar pubPosVar)
-        if cursor >= pubPos
-            then pure (Just cursor)
-            else do
-                fetchResult <- fetchBatch pool config cursor emit stSettings
-                case fetchResult of
-                    Left _ -> do
-                        threadDelay (fetchRetryDelayMicros attempt)
-                        go cursor (attempt + 1)
-                    Right events
-                        | V.null events -> pure (Just cursor)
-                        | otherwise -> do
-                            result <- processEvents pool config events emit posRef
-                            case result of
-                                Nothing -> pure Nothing -- handler said Stop
-                                Just newPos -> go newPos 0
-
--- Phase 2: live (AllStreams). Reads from the bounded TBQueue the publisher
--- delivers to. Atomically observes the subscriber's status and surfaces
--- 'SubscriptionOverflowed' if the publisher signalled overflow under
--- 'DropSubscription'.
-liveLoop ::
-    Pool ->
-    TBQueue (Vector RecordedEvent) ->
-    TVar SubscriberStatus ->
-    SubscriptionConfig ->
-    (KirokuEvent -> IO ()) ->
-    IORef GlobalPosition ->
-    GlobalPosition ->
-    IO ()
-liveLoop pool liveQueue statusVar config emit posRef startPos = go startPos
-  where
-    go cursor = do
-        writeIORef posRef cursor
-        next <- atomically $ do
-            status <- readTVar statusVar
-            case status of
-                Overflowed -> pure (Left ())
-                Active -> Right <$> readTBQueue liveQueue
-        case next of
-            Left () -> throwIO (SubscriptionOverflowed (name config))
-            Right events
-                | V.null freshEvents -> go cursor
-                | otherwise -> do
-                    result <- processEvents pool config freshEvents emit posRef
-                    case result of
-                        Nothing -> pure () -- handler said Stop
-                        Just newPos -> go newPos
-              where
-                -- A subscription registers its live queue before catch-up begins.
-                -- Events appended during catch-up may therefore be both fetched
-                -- from SQL by catch-up and already waiting in the live queue.
-                -- Drop those stale queue entries so live mode cannot replay them
-                -- or move the checkpoint backward.
-                freshEvents = V.filter ((> cursor) . globalPosition) events
 
 -- Phase 2: live (Category, NOTIFY-driven). Blocks on this category's generation
 -- counter, which the Notifier bumps on every NOTIFY for a stream in the category,

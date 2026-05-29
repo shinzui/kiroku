@@ -48,6 +48,7 @@ library
     Kiroku.Store.Subscription
     Kiroku.Store.Subscription.Effect
     Kiroku.Store.Subscription.EventPublisher
+    Kiroku.Store.Subscription.Fsm
     Kiroku.Store.Subscription.Stream
     Kiroku.Store.Subscription.Types
     Kiroku.Store.Subscription.Worker
