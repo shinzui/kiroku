@@ -82,20 +82,33 @@ index at a time.
 
 == Ack Semantics
 
-Kiroku subscriptions are fundamentally different from message queues:
-events are immutable and persistent, and checkpoint advancement is managed
-internally by the subscription worker.
+The adapter bridges through @kiroku-store@'s __ack-coupled__ stream
+('subscriptionAckStream'): for each event the Kiroku worker blocks until the
+Shibuya handler's 'AckDecision' is finalized, then acts on it. The handler's
+decision therefore drives Kiroku checkpointing per event:
 
-* 'AckOk' — no-op (the normal case; checkpoint advances automatically).
-* 'AckRetry' — no-op (events cannot be redelivered; they are always available).
-* 'AckDeadLetter' — no-op (there is no dead-letter concept for an event log).
-* 'AckHalt' — cancels the underlying Kiroku subscription.
+* 'AckOk' — the worker checkpoints past the event (the normal case).
+* 'AckRetry' @delay@ — the worker redelivers the /same/ event after @delay@,
+  bounded by the subscription's retry policy
+  ('Kiroku.Store.Subscription.Types.RetryPolicy', default five attempts); on
+  exhaustion the event is dead-lettered with
+  'Kiroku.Store.Subscription.Types.DeadLetterMaxAttempts'.
+* 'AckDeadLetter' @reason@ — the worker records the event in
+  @kiroku.dead_letters@ (with the reason translated to a Kiroku-native
+  'Kiroku.Store.Subscription.Types.DeadLetterReason') and atomically advances
+  the checkpoint past it.
+* 'AckHalt' — cancels the underlying Kiroku subscription (no checkpoint advance,
+  so the halting event replays on restart).
+
+The envelope's @attempt@ reports the zero-based redelivery count, so a handler
+can observe how many times Kiroku has redelivered an event.
 
 == Backpressure
 
 The @bufferSize@ field in 'KirokuAdapterConfig' controls the 'TBQueue'
-capacity. When the queue is full, the Kiroku subscription worker blocks
-until the Shibuya handler drains events, providing natural backpressure.
+capacity. Because delivery is ack-coupled, the Kiroku subscription worker blocks
+on each event until the Shibuya handler finalizes its decision, providing natural
+backpressure.
 -}
 module Shibuya.Adapter.Kiroku (
     -- * Adapter
@@ -113,7 +126,7 @@ module Shibuya.Adapter.Kiroku (
 import Data.Int (Int32)
 import Effectful (Eff, IOE, liftIO, (:>))
 import Kiroku.Store.Connection (KirokuStore)
-import Kiroku.Store.Subscription.Stream (subscriptionStream)
+import Kiroku.Store.Subscription.Stream (subscriptionAckStream)
 import Kiroku.Store.Subscription.Types (
     ConsumerGroup (..),
     OverflowPolicy (..),
@@ -126,7 +139,7 @@ import Kiroku.Store.Subscription.Types (
 import Kiroku.Store.Types (RecordedEvent)
 import Numeric.Natural (Natural)
 import Shibuya.Adapter (Adapter (..))
-import Shibuya.Adapter.Kiroku.Convert (toIngested)
+import Shibuya.Adapter.Kiroku.Convert (toIngestedAck)
 import Streamly.Data.Stream qualified as Stream
 
 {- | Configuration for creating a Kiroku adapter.
@@ -197,9 +210,9 @@ kirokuAdapter store (KirokuAdapterConfig subName subTarget bs buf cg) = do
                 , consumerGroup = cg
                 }
 
-    (ioStream, cancelAction) <- liftIO $ subscriptionStream store subConfig buf
+    (ioStream, cancelAction) <- liftIO $ subscriptionAckStream store subConfig buf
 
-    let ingestedStream = fmap (toIngested cancelAction) (Stream.morphInner liftIO ioStream)
+    let ingestedStream = fmap (toIngestedAck cancelAction) (Stream.morphInner liftIO ioStream)
 
     pure
         Adapter

@@ -52,6 +52,7 @@ library
     , effectful-core        >=2.4  && <2.7
     , kiroku-store          ^>=0.1
     , shibuya-core          >=0.5  && <0.6
+    , stm                   >=2.5  && <2.6
     , streamly-core         >=0.3  && <0.4
     , text                  >=2.0  && <2.2
     , unordered-containers  >=0.2  && <0.3

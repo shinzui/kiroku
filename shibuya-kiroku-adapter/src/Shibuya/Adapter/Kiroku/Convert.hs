@@ -20,10 +20,16 @@ included when present.
 -}
 module Shibuya.Adapter.Kiroku.Convert (
     -- * Conversion
-    toIngested,
+    toIngestedAck,
     toEnvelope,
+
+    -- * Ack-decision translation
+    toKirokuResult,
+    toKirokuDeadLetterReason,
 ) where
 
+import Control.Concurrent.STM (atomically, tryPutTMVar)
+import Control.Monad (void)
 import Data.Aeson (Value (..))
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
@@ -32,38 +38,81 @@ import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
 import Data.UUID qualified as UUID
 import Effectful (IOE, liftIO, (:>))
+import Kiroku.Store.Subscription.Stream (AckItem (..))
+import Kiroku.Store.Subscription.Types (
+    DeadLetterReason (..),
+    RetryDelay (..),
+    SubscriptionResult (..),
+ )
 import Kiroku.Store.Types (
     EventId (..),
     GlobalPosition (..),
     RecordedEvent (..),
  )
 import Shibuya.Core.Ack (AckDecision (..))
+import Shibuya.Core.Ack qualified as Ack
 import Shibuya.Core.AckHandle (AckHandle (..))
 import Shibuya.Core.Ingested (Ingested (..))
-import Shibuya.Core.Types (Cursor (..), Envelope (..), MessageId (..), TraceHeaders)
+import Shibuya.Core.Types (Attempt (..), Cursor (..), Envelope (..), MessageId (..), TraceHeaders)
 
-{- | Wrap a 'RecordedEvent' into an 'Ingested' value suitable for Shibuya
-handlers.
+{- | Wrap an ack-coupled 'AckItem' (from @kiroku-store@'s 'subscriptionAckStream')
+into an 'Ingested' value suitable for Shibuya handlers.
 
-The 'AckHandle' semantics:
+The underlying Kiroku worker is blocked waiting for this item's reply, so the
+'AckHandle.finalize' translates the Shibuya 'AckDecision' into a Kiroku
+'SubscriptionResult' and writes it back — driving the worker's checkpointing:
 
-* 'AckOk', 'AckRetry', 'AckDeadLetter' — no-op (checkpoint is managed by
-  the Kiroku subscription worker, not by the handler).
-* 'AckHalt' — invokes the provided cancel action, stopping the underlying
-  Kiroku subscription.
+* 'AckOk' — reply 'Continue'; the worker checkpoints past the event.
+* 'AckRetry' @delay@ — reply 'Retry'; the worker redelivers the same event after
+  @delay@, bounded by the subscription's retry policy, then dead-letters it.
+* 'AckDeadLetter' @reason@ — reply 'DeadLetter'; the worker records the event in
+  @kiroku.dead_letters@ and advances past it.
+* 'AckHalt' — cancels the underlying Kiroku subscription (no checkpoint advance,
+  so the halting event replays on restart), preserving the prior adapter
+  behavior; the blocked worker is interrupted by the cancellation.
+
+'finalize' is idempotent: the reply is written with 'tryPutTMVar' so a second
+call is a no-op.
+
+The envelope's @attempt@ is set from the item's redelivery counter so a Shibuya
+handler can observe how many times Kiroku has redelivered the event.
 -}
-toIngested :: (IOE :> es) => IO () -> RecordedEvent -> Ingested es RecordedEvent
-toIngested cancelAction event =
+toIngestedAck :: (IOE :> es) => IO () -> AckItem -> Ingested es RecordedEvent
+toIngestedAck cancelAction (AckItem event attempt reply) =
     Ingested
-        { envelope = toEnvelope event
+        { envelope = (toEnvelope event){attempt = Just (Attempt attempt)}
         , ack =
             AckHandle
                 { finalize = \case
                     AckHalt _ -> liftIO cancelAction
-                    _ -> pure ()
+                    decision ->
+                        liftIO $
+                            atomically $
+                                void $
+                                    tryPutTMVar reply (toKirokuResult attempt decision)
                 }
         , lease = Nothing
         }
+
+{- | Translate a non-halt Shibuya 'AckDecision' into a Kiroku
+'SubscriptionResult'. 'AckHalt' is handled separately (it cancels the
+subscription) and maps to 'Continue' here only defensively. The 'Word' is the
+event's current redelivery attempt, used to annotate a 'MaxRetriesExceeded'
+reason.
+-}
+toKirokuResult :: Word -> AckDecision -> SubscriptionResult
+toKirokuResult attempt = \case
+    AckOk -> Continue
+    AckRetry (Ack.RetryDelay d) -> Retry (RetryDelay d)
+    AckDeadLetter reason -> DeadLetter (toKirokuDeadLetterReason attempt reason)
+    AckHalt _ -> Continue
+
+-- | Translate a Shibuya 'Ack.DeadLetterReason' into a Kiroku 'DeadLetterReason'.
+toKirokuDeadLetterReason :: Word -> Ack.DeadLetterReason -> DeadLetterReason
+toKirokuDeadLetterReason attempt = \case
+    Ack.PoisonPill detail -> DeadLetterPoison detail
+    Ack.InvalidPayload detail -> DeadLetterInvalid detail
+    Ack.MaxRetriesExceeded -> DeadLetterMaxAttempts (fromIntegral attempt)
 
 {- | Convert a 'RecordedEvent' to a Shibuya 'Envelope'.
 
