@@ -101,7 +101,7 @@ Track milestone-level progress across all child plans. Each entry names the chil
 and the milestone. This section provides an at-a-glance view of the entire initiative.
 
 - [x] EP-1 (FSM): M1 — define `SubscriptionState` and an exhaustive transition function; re-express today's catch-up/live/stopped phases as named states with no behavior change. (Done 2026-05-29: `Fsm.hs` + driver refactor of `Worker.runWorker`; `164 examples, 0 failures`; all downstream packages link.)
-- [ ] EP-1 (FSM): M2 — recoverable backpressure: replace terminal `Overflowed` with a `Paused` state that resumes when the consumer drains (configurable).
+- [x] EP-1 (FSM): M2 — recoverable backpressure: replace terminal `Overflowed` with a `Paused` state that resumes when the consumer drains (configurable). (Done 2026-05-29: `PauseAndResume` policy + default, publisher `Paused` status, `Paused`→re-catch-up recovery, `Paused`/`Resumed` events; `166 examples, 0 failures`.)
 - [ ] EP-1 (FSM): M3 — worker-level `Reconnecting` state: a live worker that loses its pool re-enters catch-up from its checkpoint instead of dying.
 - [ ] EP-1 (FSM): M4 — observability + tests: expose current state; regression tests for no-missed-events, monotonic checkpoints, pause/resume, reconnect.
 - [ ] EP-2 (retry/DL): M0 — finalize Kiroku-native disposition API, retry policy, dead-letter reason, attempt reporting (rebased onto the FSM).

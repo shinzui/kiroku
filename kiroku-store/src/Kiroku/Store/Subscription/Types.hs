@@ -46,16 +46,25 @@ data SubscriptionResult
 
 {- | What the publisher does when a subscriber's bounded queue is full.
 
-The default 'DropSubscription' chooses production safety over best-effort
-delivery: the slow subscriber is shut down and the consumer learns
-explicitly via a 'SubscriptionOverflowed' exception on
-'Kiroku.Store.Subscription.Types.SubscriptionHandleM' wait. The
-alternative ('DropOldest') quietly trades correctness for liveness and
-should only be chosen for telemetry-style subscriptions where missing
-events is acceptable.
+The default 'PauseAndResume' is recoverable and lossless: the publisher
+stops pushing to the full subscriber (and signals it), and the worker —
+once its slow handler catches up — drains the stale queue and re-reads the
+events it missed directly from the database from its checkpoint, so no
+event is lost and the checkpoint still advances monotonically. The
+fail-fast 'DropSubscription' (terminate with 'SubscriptionOverflowed') and
+the lossy 'DropOldest' remain available for consumers that prefer a hard
+error or best-effort delivery respectively.
 -}
 data OverflowPolicy
-    = {- | Mark the subscription as overflowed; the worker observes this on
+    = {- | Recoverable backpressure (the default). When the queue is full the
+      publisher marks the subscriber 'Kiroku.Store.Subscription.EventPublisher.Paused'
+      and stops pushing (it does not drop). The worker observes the pause,
+      drains the stale queue, clears the flag, and re-catches-up from its
+      checkpoint so every skipped event is delivered. No loss; monotonic
+      checkpoint; other subscribers unaffected.
+      -}
+      PauseAndResume
+    | {- | Mark the subscription as overflowed; the worker observes this on
       its next iteration and surfaces 'SubscriptionOverflowed' through
       'wait'. The slow subscriber is terminated; other subscribers are
       unaffected.
@@ -102,9 +111,10 @@ data SubscriptionConfigM m = SubscriptionConfig
     -}
     , overflowPolicy :: !OverflowPolicy
     {- ^ What the publisher does when this subscriber's queue is full.
-    Default: 'DropSubscription' — slow subscribers are terminated with a
-    structured error rather than silently growing the publisher's
-    fan-out memory or losing events.
+    Default: 'PauseAndResume' — a slow subscriber is paused and then
+    recovers losslessly (re-reading missed events from its checkpoint)
+    rather than being terminated or silently growing the publisher's
+    fan-out memory.
     -}
     , consumerGroup :: !(Maybe ConsumerGroup)
     {- ^ 'Nothing' (the default) = ordinary single-consumer subscription.
@@ -151,7 +161,7 @@ defaultSubscriptionConfig name' target' handler' =
         , handler = handler'
         , batchSize = 100
         , queueCapacity = 16
-        , overflowPolicy = DropSubscription
+        , overflowPolicy = PauseAndResume
         , consumerGroup = Nothing
         , consumerGroupGuard = False
         }

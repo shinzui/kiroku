@@ -103,6 +103,20 @@ data KirokuEvent
       (if any) stopped.
       -}
       KirokuEventSubscriptionStopped !SubscriptionName !GlobalPosition !SubscriptionStopReason !SubscriptionGroupContext
+    | {- | A subscription's worker hit recoverable backpressure: its bounded
+      queue filled under the 'Kiroku.Store.Subscription.Types.PauseAndResume'
+      overflow policy, so the worker paused delivery at the indicated
+      'GlobalPosition'. Pairs with a subsequent
+      'KirokuEventSubscriptionResumed'. The trailing 'SubscriptionGroupContext'
+      identifies which consumer-group member (if any) paused.
+      -}
+      KirokuEventSubscriptionPaused !SubscriptionName !GlobalPosition !SubscriptionGroupContext
+    | {- | A subscription's worker resumed after a pause: it drained the stale
+      queue and re-catches-up from its checkpoint (the indicated
+      'GlobalPosition') so every event skipped while paused is re-read from the
+      database. Pairs with a preceding 'KirokuEventSubscriptionPaused'.
+      -}
+      KirokuEventSubscriptionResumed !SubscriptionName !GlobalPosition !SubscriptionGroupContext
     | {- | A live DB-driven subscription loop
       ('Kiroku.Store.Subscription.Worker') issued one category/partition fetch
       in live mode, returning the given row count ('Int'). Emitted by the

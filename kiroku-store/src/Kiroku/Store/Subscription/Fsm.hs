@@ -147,9 +147,15 @@ data Input
       CaughtUp
     | -- | The handler returned 'Stop' at this position.
       HandlerStopped !GlobalPosition
-    | -- | The bounded queue filled (AllStreams).
+    | {- | The bounded queue filled under the fail-fast 'DropSubscription' policy
+      (terminal).
+      -}
       QueueOverflowed
-    | -- | The consumer drained enough of the queue to resume.
+    | {- | The bounded queue filled under the recoverable 'PauseAndResume' policy:
+      pause rather than terminate.
+      -}
+      QueueBackpressured
+    | -- | The worker drained the stale queue and is ready to recover (re-catch-up).
       QueueDrained
     | -- | The worker lost its database pool while live.
       ConnectionLost !Pool.UsageError
@@ -217,6 +223,7 @@ step st input = case st of
         CaughtUp -> (Live c, [EmitCaughtUp])
         HandlerStopped _ -> (Stopped StopHandlerRequested, [Halt StopHandlerRequested])
         QueueOverflowed -> (Stopped StopOverflowed, [Halt StopOverflowed])
+        QueueBackpressured -> (CatchingUp c n, []) -- defensive: catch-up reads the DB, not the queue
         QueueDrained -> (CatchingUp c n, [])
         ConnectionLost _ -> (Reconnecting c 1, [EmitReconnecting 1, Backoff 1])
         Cancelled -> (Stopped StopCancelled, [Halt StopCancelled])
@@ -227,11 +234,16 @@ step st input = case st of
         CaughtUp -> (Live c, [])
         HandlerStopped _ -> (Stopped StopHandlerRequested, [Halt StopHandlerRequested])
         QueueOverflowed -> (Stopped StopOverflowed, [Halt StopOverflowed])
+        QueueBackpressured -> (Paused c ResumeOnDrain, [EmitPaused])
         QueueDrained -> (Live c, [RunLive])
         ConnectionLost _ -> (Reconnecting c 1, [EmitReconnecting 1, Backoff 1])
         Cancelled -> (Stopped StopCancelled, [Halt StopCancelled])
     Paused c rc -> case input of
-        QueueDrained -> (Live c, [EmitResumed, RunLive])
+        -- The worker drained the stale queue and cleared the pause flag; recover
+        -- by re-catching-up from the checkpoint so any events the publisher
+        -- skipped while full are re-read from the database. No loss; the live
+        -- queue's stale filter drops the now-superseded queued entries on return.
+        QueueDrained -> (CatchingUp c 0, [EmitResumed])
         Cancelled -> (Stopped StopCancelled, [Halt StopCancelled])
         HandlerStopped _ -> (Stopped StopHandlerRequested, [Halt StopHandlerRequested])
         _ -> (Paused c rc, [])
@@ -244,5 +256,6 @@ step st input = case st of
         HandlerStopped _ -> (Stopped StopHandlerRequested, [Halt StopHandlerRequested])
         Cancelled -> (Stopped StopCancelled, [Halt StopCancelled])
         QueueOverflowed -> (Reconnecting c n, [])
+        QueueBackpressured -> (Reconnecting c n, [])
         QueueDrained -> (Reconnecting c n, [])
     Stopped r -> (Stopped r, [])

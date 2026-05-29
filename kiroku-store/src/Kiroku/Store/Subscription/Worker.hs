@@ -6,7 +6,7 @@ module Kiroku.Store.Subscription.Worker (
 import Contravariant.Extras (contrazip2)
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async qualified as Async
-import Control.Concurrent.STM (TBQueue, TVar, atomically, check, orElse, readTBQueue, readTVar, registerDelay)
+import Control.Concurrent.STM (TBQueue, TVar, atomically, check, orElse, readTBQueue, readTVar, registerDelay, tryReadTBQueue, writeTVar)
 import Control.Exception (SomeException, bracket, fromException, throwIO, try)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Foldable (for_)
@@ -32,7 +32,8 @@ import Kiroku.Store.Observability (
  )
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Settings (StoreSettings, decodeEvents)
-import Kiroku.Store.Subscription.EventPublisher (SubscriberStatus (..))
+import Kiroku.Store.Subscription.EventPublisher (SubscriberStatus)
+import Kiroku.Store.Subscription.EventPublisher qualified as Pub
 import Kiroku.Store.Subscription.Fsm (
     Effect (..),
     Input (..),
@@ -198,8 +199,9 @@ runWorker pool liveQueue statusVar pubPosVar catGenVar config mHandler stSetting
                     atomically $ do
                         status <- readTVar statusVar
                         case status of
-                            Overflowed -> pure QueueOverflowed
-                            Active -> do
+                            Pub.Overflowed -> pure QueueOverflowed
+                            Pub.Paused -> pure QueueBackpressured
+                            Pub.Active -> do
                                 -- A subscription registers its live queue before
                                 -- catch-up begins, so events appended during
                                 -- catch-up may be both fetched from SQL and waiting
@@ -216,9 +218,20 @@ runWorker pool liveQueue statusVar pubPosVar catGenVar config mHandler stSetting
                     liveLoopDbDriven pool config pubPosVar emit posRef c stSettings
                     p <- readIORef posRef
                     pure (HandlerStopped p)
-            -- 'Paused' and 'Reconnecting' are never entered in M1 (M2 and M3 add
-            -- the driver wiring); these defensive clauses keep 'nextInput' total.
-            Paused{} -> pure QueueDrained
+            -- Recoverable backpressure: the publisher set 'Paused' because this
+            -- subscriber's bounded queue filled. Drain the stale queue (those
+            -- events are re-read from the database by the re-catch-up that
+            -- 'QueueDrained' triggers) and clear the flag back to 'Active' so the
+            -- publisher resumes pushing and the worker is not left waiting. The
+            -- AllStreams live path's @> cursor@ filter drops any superseded queued
+            -- entries once the worker is live again.
+            Paused{} -> do
+                atomically $ do
+                    drainQueue liveQueue
+                    writeTVar statusVar Pub.Active
+                pure QueueDrained
+            -- 'Reconnecting' is never entered in M1/M2 (M3 adds the driver
+            -- wiring); this defensive clause keeps 'nextInput' total.
             Reconnecting{} -> pure CaughtUp
             Stopped{} -> pure Cancelled
 
@@ -236,8 +249,12 @@ runWorker pool liveQueue statusVar pubPosVar catGenVar config mHandler stSetting
                 EmitCaughtUp -> do
                     emit (KirokuEventSubscriptionCaughtUp subName (stateCursor st') groupCtx)
                     go es
-                EmitPaused -> go es
-                EmitResumed -> go es
+                EmitPaused -> do
+                    emit (KirokuEventSubscriptionPaused subName (stateCursor st') groupCtx)
+                    go es
+                EmitResumed -> do
+                    emit (KirokuEventSubscriptionResumed subName (stateCursor st') groupCtx)
+                    go es
                 EmitReconnecting _ -> go es
                 Backoff n -> threadDelay (fetchRetryDelayMicros n) >> go es
                 WaitForDrain -> go es
@@ -256,6 +273,15 @@ runWorker pool liveQueue statusVar pubPosVar catGenVar config mHandler stSetting
                     StopWorkerCrashed ex -> throwIO ex
 
         lastPosOf events = globalPosition (V.last events)
+
+        -- Read and discard every batch currently in the live queue (non-blocking).
+        -- Used when resuming from 'Paused': the discarded events are re-read from
+        -- the database by the subsequent re-catch-up, so nothing is lost.
+        drainQueue q = do
+            m <- tryReadTBQueue q
+            case m of
+                Nothing -> pure ()
+                Just _ -> drainQueue q
 
     result <- try body
     pos <- readIORef posRef

@@ -100,9 +100,18 @@ Those siblings are referenced only by file path; nothing here depends on them.
   `cabal build all` clean; `cabal test kiroku-store:kiroku-store-test` →
   `164 examples, 0 failures`; `kiroku-otel`, `shibuya-kiroku-adapter`,
   `kiroku-jitsurei` all still link.
-- [ ] M2 — recoverable backpressure: replace the terminal `Overflowed`→throw path
+- [x] M2 — recoverable backpressure: replace the terminal `Overflowed`→throw path
   with a `Paused` state that resumes when the consumer drains the queue, configurable
   via a new `overflowPolicy` value; keep fail-fast available; add a pause/resume test.
+  Done 2026-05-29: added `PauseAndResume` to `OverflowPolicy` (now the
+  `defaultSubscriptionConfig` default), `Paused` to `EventPublisher.SubscriberStatus`,
+  publisher pauses (sets `Paused`, skips the write, never drops) on a full queue and
+  clears `Paused`→`Active` when space returns; added the `QueueBackpressured` FSM input,
+  `Live QueueBackpressured -> Paused` and `Paused QueueDrained -> CatchingUp` (re-catch-up
+  from checkpoint); the driver's `Paused` action drains the stale queue, clears its own
+  status to `Active`, and recovers; added `KirokuEventSubscriptionPaused`/`Resumed`.
+  New spec `test/Test/SubscriptionPauseResume.hs` (2 examples) passes; full suite
+  `166 examples, 0 failures`; `cabal build all` clean.
 - [ ] M3 — worker-level `Reconnecting`: a live worker that loses its pool re-enters
   `CatchingUp` from its checkpoint; add a fault-injection test using
   `withFetchBatchHookForTest`.
@@ -230,6 +239,52 @@ implementation. Provide concise evidence.
   wake-up strategies (publisher queue / per-category NOTIFY generation / global-position
   gate), which the EP-37 no-busy-poll invariant depends on. The FSM governs the
   lifecycle (entering/leaving `Live`); the loops remain the within-`Live` mechanism.
+  Date: 2026-05-29.
+
+- Decision (M2 implementation): recoverable backpressure recovers by **re-catch-up
+  from the checkpoint**, not by resuming the queue in place. Transitions:
+  `Live QueueBackpressured -> (Paused c ResumeOnDrain, [EmitPaused])`, then
+  `Paused c _ QueueDrained -> (CatchingUp c 0, [EmitResumed])`. The publisher, under
+  `PauseAndResume`, when the queue is full **skips the write and sets `SubscriberStatus
+  = Paused`** (it does not drop and does not block — a blocking STM write would stall
+  the shared publisher loop for *all* subscribers, since `deliverBatch` runs
+  per-subscriber but sequentially in one thread). Because the skipped events are never
+  enqueued, the only lossless recovery is to re-read them from the database: the worker,
+  on observing `Paused`, drains the now-stale queue (discarding — those positions are
+  re-fetched), clears its own status to `Active`, and re-enters `CatchingUp` from its
+  cursor. The AllStreams live `> cursor` filter then drops any superseded queued entries
+  once live again. This guarantees no missed events with a monotonic checkpoint
+  (at-least-once permits a duplicate around the boundary).
+  Rationale: the sketch's `Paused QueueDrained -> (Live c, [...])` would only resume
+  reading the queue and would miss the events the publisher skipped while full. The
+  worker clearing its own status (rather than waiting for the publisher to clear it)
+  avoids an idle busy-loop when no further appends arrive to trigger the publisher.
+  Date: 2026-05-29.
+
+- Decision (M2 implementation): a distinct `QueueBackpressured` `Input` was added
+  alongside `QueueOverflowed`, rather than making `step`'s single `QueueOverflowed`
+  clause branch on the overflow policy.
+  Rationale: the publisher already encodes the policy decision in the *status* it sets
+  (`Overflowed` under `DropSubscription`, `Paused` under `PauseAndResume`), so the
+  worker observes two distinct signals and feeds two distinct inputs. This keeps `step`
+  pure and total without threading the `OverflowPolicy` into every state (and `Fsm`
+  cannot import `OverflowPolicy` from `Subscription.Types` without reintroducing the
+  cycle the M1 `SubscriptionStopReason` move removed). `QueueOverflowed -> Stopped
+  StopOverflowed` is therefore unchanged from M1, preserving the F6 fail-fast test
+  verbatim.
+  Date: 2026-05-29.
+
+- Decision (M2 implementation): the `KirokuEventSubscriptionPaused`/`Resumed`
+  constructors were added in M2 (the milestone whose acceptance test asserts they
+  fire), not deferred to M4 as the original milestone split implied. M4 still adds
+  `KirokuEventSubscriptionReconnecting` (M3 needs it too), the `currentState` accessor,
+  and the docs/regression battery. `EventPublisher.SubscriberStatus.Paused` clashes
+  with `Fsm.SubscriptionState.Paused` when both are imported unqualified into
+  `Worker.hs`, so the publisher status constructors are imported qualified as `Pub`
+  there.
+  Rationale: each milestone's acceptance is self-proving; adding the event it asserts
+  in the same milestone keeps the test honest and the milestone independently
+  verifiable.
   Date: 2026-05-29.
 
 - Decision: Implement a *faithful EventStore-style FSM that adds the two missing

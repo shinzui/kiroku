@@ -81,7 +81,15 @@ data Subscriber = Subscriber
 data SubscriberStatus
     = -- | Healthy; worker reads from the queue normally.
       Active
-    | -- | Publisher signalled overflow; worker should surface a structured error.
+    | {- | Recoverable backpressure under 'PauseAndResume': the queue was full
+      so the publisher stopped pushing and set this flag. The worker observes
+      it, drains the stale queue, clears the flag back to 'Active', and
+      re-catches-up from its checkpoint to recover any skipped events.
+      -}
+      Paused
+    | {- | Publisher signalled overflow under 'DropSubscription'; worker should
+      surface a structured error.
+      -}
       Overflowed
     deriving stock (Eq, Show)
 
@@ -228,8 +236,20 @@ publisherLoop pool tickChan subsVar posVar mHandler stSettings = loop
     deliverBatch events sub = atomically $ do
         full <- isFullTBQueue (subQueue sub)
         if not full
-            then writeTBQueue (subQueue sub) events
+            then do
+                -- There is space again: clear a prior 'PauseAndResume' pause so
+                -- the worker (which also clears it on resume) is not left waiting.
+                -- Never clear a terminal 'DropSubscription' overflow.
+                status <- readTVar (subStatus sub)
+                case status of
+                    Paused -> writeTVar (subStatus sub) Active
+                    Active -> pure ()
+                    Overflowed -> pure ()
+                writeTBQueue (subQueue sub) events
             else case subPolicy sub of
+                -- Recoverable: signal the pause and stop pushing. Do not drop;
+                -- the worker re-reads the skipped events from its checkpoint.
+                PauseAndResume -> writeTVar (subStatus sub) Paused
                 DropSubscription -> writeTVar (subStatus sub) Overflowed
                 DropOldest -> do
                     _ <- tryReadTBQueue (subQueue sub)
