@@ -41,6 +41,7 @@ import Test.PublisherRestartNoRebroadcast qualified as PublisherRestartNoRebroad
 import Test.ReadStream qualified as ReadStream
 import Test.StreamNameLookup qualified as StreamNameLookup
 import Test.SubscriptionPauseResume qualified as SubscriptionPauseResume
+import Test.SubscriptionReconnect qualified as SubscriptionReconnect
 import Test.Transaction qualified as Transaction
 
 main :: IO ()
@@ -60,6 +61,7 @@ main = withSharedMigratedPostgres $ hspec $ do
     PublisherRestartNoRebroadcast.spec
     CatchupDbErrorNoPrematureSwitch.spec
     SubscriptionPauseResume.spec
+    SubscriptionReconnect.spec
     around withTestStore $ do
         describe "schema migrations" $ do
             it "installs every Kiroku table under the kiroku schema" $ \store -> do

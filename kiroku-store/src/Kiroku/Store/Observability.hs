@@ -117,6 +117,16 @@ data KirokuEvent
       database. Pairs with a preceding 'KirokuEventSubscriptionPaused'.
       -}
       KirokuEventSubscriptionResumed !SubscriptionName !GlobalPosition !SubscriptionGroupContext
+    | {- | A subscription's worker lost its database connection while live (a
+      'UsageError' on a live-mode fetch) and is reconnecting: it backs off and
+      re-catches-up from its checkpoint rather than dying. The 'Int' is the
+      consecutive reconnect-attempt count starting at @1@; it drives the
+      capped backoff and is a useful sustained-outage metric label. Emitted by
+      Category and consumer-group subscriptions (AllStreams live delivery is fed
+      by the publisher, which owns its own reconnect). The trailing
+      'SubscriptionGroupContext' identifies the consumer-group member (if any).
+      -}
+      KirokuEventSubscriptionReconnecting !SubscriptionName !Int !SubscriptionGroupContext
     | {- | A live DB-driven subscription loop
       ('Kiroku.Store.Subscription.Worker') issued one category/partition fetch
       in live mode, returning the given row count ('Int'). Emitted by the

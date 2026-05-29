@@ -102,7 +102,7 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 
 - [x] EP-1 (FSM): M1 — define `SubscriptionState` and an exhaustive transition function; re-express today's catch-up/live/stopped phases as named states with no behavior change. (Done 2026-05-29: `Fsm.hs` + driver refactor of `Worker.runWorker`; `164 examples, 0 failures`; all downstream packages link.)
 - [x] EP-1 (FSM): M2 — recoverable backpressure: replace terminal `Overflowed` with a `Paused` state that resumes when the consumer drains (configurable). (Done 2026-05-29: `PauseAndResume` policy + default, publisher `Paused` status, `Paused`→re-catch-up recovery, `Paused`/`Resumed` events; `166 examples, 0 failures`.)
-- [ ] EP-1 (FSM): M3 — worker-level `Reconnecting` state: a live worker that loses its pool re-enters catch-up from its checkpoint instead of dying.
+- [x] EP-1 (FSM): M3 — worker-level `Reconnecting` state: a live worker that loses its pool re-enters catch-up from its checkpoint instead of dying. (Done 2026-05-29: Category/consumer-group live loops bubble fetch errors → `Reconnecting` → re-catch-up; `KirokuEventSubscriptionReconnecting`; Category-subscription reconnect test; `167 examples, 0 failures`. AllStreams live is publisher-fed and has no worker fetch — see EP-41 Decision Log.)
 - [ ] EP-1 (FSM): M4 — observability + tests: expose current state; regression tests for no-missed-events, monotonic checkpoints, pause/resume, reconnect.
 - [ ] EP-2 (retry/DL): M0 — finalize Kiroku-native disposition API, retry policy, dead-letter reason, attempt reporting (rebased onto the FSM).
 - [ ] EP-2 (retry/DL): M1 — add retry/dead-letter dispositions as FSM states/transitions in `kiroku-store`.

@@ -210,14 +210,10 @@ runWorker pool liveQueue statusVar pubPosVar catGenVar config mHandler stSetting
                                 events <- readTBQueue liveQueue
                                 let fresh = V.filter ((> c) . globalPosition) events
                                 pure (if V.null fresh then FetchEmpty else BatchFetched fresh)
-                (Nothing, Category (CategoryName cat)) -> do
-                    liveLoopCategoryNotify pool config catGenVar cat emit posRef c stSettings
-                    p <- readIORef posRef
-                    pure (HandlerStopped p)
-                (Just _, _) -> do
-                    liveLoopDbDriven pool config pubPosVar emit posRef c stSettings
-                    p <- readIORef posRef
-                    pure (HandlerStopped p)
+                (Nothing, Category (CategoryName cat)) ->
+                    liveExitToInput =<< liveLoopCategoryNotify pool config catGenVar cat emit posRef c stSettings
+                (Just _, _) ->
+                    liveExitToInput =<< liveLoopDbDriven pool config pubPosVar emit posRef c stSettings
             -- Recoverable backpressure: the publisher set 'Paused' because this
             -- subscriber's bounded queue filled. Drain the stale queue (those
             -- events are re-read from the database by the re-catch-up that
@@ -230,9 +226,18 @@ runWorker pool liveQueue statusVar pubPosVar catGenVar config mHandler stSetting
                     drainQueue liveQueue
                     writeTVar statusVar Pub.Active
                 pure QueueDrained
-            -- 'Reconnecting' is never entered in M1/M2 (M3 adds the driver
-            -- wiring); this defensive clause keeps 'nextInput' total.
-            Reconnecting{} -> pure CaughtUp
+            -- Reconnecting: re-probe the database from the checkpoint. A success
+            -- re-enters catch-up (delivering everything after the cursor); a
+            -- failure stays in 'Reconnecting' for another backed-off attempt; an
+            -- empty result means there is nothing new, so return to live.
+            Reconnecting c _ -> do
+                writeIORef posRef c
+                fetchResult <- fetchBatch pool config c emit stSettings
+                case fetchResult of
+                    Left err -> pure (FetchFailed err)
+                    Right events
+                        | V.null events -> pure FetchEmpty
+                        | otherwise -> pure (BatchFetched events)
             Stopped{} -> pure Cancelled
 
         -- Interpret a transition's effects against the *new* state. Returns a
@@ -255,7 +260,9 @@ runWorker pool liveQueue statusVar pubPosVar catGenVar config mHandler stSetting
                 EmitResumed -> do
                     emit (KirokuEventSubscriptionResumed subName (stateCursor st') groupCtx)
                     go es
-                EmitReconnecting _ -> go es
+                EmitReconnecting n -> do
+                    emit (KirokuEventSubscriptionReconnecting subName n groupCtx)
+                    go es
                 Backoff n -> threadDelay (fetchRetryDelayMicros n) >> go es
                 WaitForDrain -> go es
                 Checkpoint p -> saveCheckpoint pool config p emit >> go es
@@ -273,6 +280,13 @@ runWorker pool liveQueue statusVar pubPosVar catGenVar config mHandler stSetting
                     StopWorkerCrashed ex -> throwIO ex
 
         lastPosOf events = globalPosition (V.last events)
+
+        -- Map a DB-driven live loop's exit onto the next FSM input: a clean stop
+        -- becomes 'HandlerStopped' (at the last processed position); a fetch error
+        -- becomes 'ConnectionLost', driving the FSM into 'Reconnecting'.
+        liveExitToInput = \case
+            LiveHandlerStopped -> HandlerStopped <$> readIORef posRef
+            LiveFetchError err -> pure (ConnectionLost err)
 
         -- Read and discard every batch currently in the live queue (non-blocking).
         -- Used when resuming from 'Paused': the discarded events are re-read from
@@ -359,6 +373,18 @@ loadCheckpoint pool config emit = do
         Right Nothing -> pure (GlobalPosition 0)
         Right (Just pos) -> pure (GlobalPosition pos)
 
+-- How a DB-driven live loop ('liveLoopCategoryNotify' / 'liveLoopDbDriven')
+-- exited. The driver maps these onto FSM inputs: a clean handler stop becomes
+-- 'HandlerStopped'; a fetch error becomes 'ConnectionLost', which drives the FSM
+-- into 'Reconnecting' (backoff + re-catch-up from the checkpoint) rather than the
+-- old in-loop retry. AllStreams live has no entry here because it reads the
+-- publisher's queue and never fetches — its reconnect is the publisher's concern.
+data LiveExit
+    = -- | The handler returned 'Stop'; the loop exited cleanly.
+      LiveHandlerStopped
+    | -- | A live-mode database fetch failed; the worker should reconnect.
+      LiveFetchError !Pool.UsageError
+
 -- Phase 2: live (Category, NOTIFY-driven). Blocks on this category's generation
 -- counter, which the Notifier bumps on every NOTIFY for a stream in the category,
 -- so an idle category does ZERO DB work while other categories receive traffic.
@@ -382,7 +408,7 @@ liveLoopCategoryNotify ::
     IORef GlobalPosition ->
     GlobalPosition ->
     StoreSettings ->
-    IO ()
+    IO LiveExit
 liveLoopCategoryNotify pool config catGenVar cat emit posRef startPos stSettings = go startPos
   where
     readGen = Map.findWithDefault 0 cat <$> readTVar catGenVar
@@ -393,8 +419,9 @@ liveLoopCategoryNotify pool config catGenVar cat emit posRef startPos stSettings
         gen0 <- atomically readGen
         drainResult <- drainTo cursor
         case drainResult of
-            Nothing -> pure () -- handler said Stop
-            Just c -> do
+            Left err -> pure (LiveFetchError err) -- reconnect: driver re-catches-up
+            Right Nothing -> pure LiveHandlerStopped -- handler said Stop
+            Right (Just c) -> do
                 -- Block until this category is notified again OR the safety timer
                 -- fires (reconciling NOTIFYs lost across a listener reconnect).
                 timer <- registerDelay categorySafetyPollMicros
@@ -403,22 +430,21 @@ liveLoopCategoryNotify pool config catGenVar cat emit posRef startPos stSettings
                         `orElse` (readTVar timer >>= check)
                 go c
       where
-        drainTo c = goDrain c 0
-        goDrain c attempt = do
+        -- A fetch error bubbles out (no in-loop retry); the FSM's 'Reconnecting'
+        -- state owns the backoff and re-catch-up. On success drain to empty.
+        drainTo c = do
             fetchResult <- fetchBatch pool config c emit stSettings
             case fetchResult of
-                Left _ -> do
-                    threadDelay (fetchRetryDelayMicros attempt)
-                    goDrain c (attempt + 1)
+                Left err -> pure (Left err)
                 Right events -> do
                     emit (KirokuEventSubscriptionFetched (name config) (V.length events) (groupCtxOf config))
                     if V.null events
-                        then pure (Just c)
+                        then pure (Right (Just c))
                         else do
                             result <- processEvents pool config events emit posRef
                             case result of
-                                Nothing -> pure Nothing -- handler said Stop
-                                Just newPos -> goDrain newPos 0
+                                Nothing -> pure (Right Nothing) -- handler said Stop
+                                Just newPos -> drainTo newPos
 
 -- Phase 2: live (DB-driven, consumer-group members only). Bypasses the broadcast
 -- and re-queries the database when the publisher's GLOBAL position advances,
@@ -445,7 +471,7 @@ liveLoopDbDriven ::
     IORef GlobalPosition ->
     GlobalPosition ->
     StoreSettings ->
-    IO ()
+    IO LiveExit
 liveLoopDbDriven pool config pubPosVar emit posRef startPos stSettings =
     go startPos (GlobalPosition 0)
   where
@@ -455,26 +481,26 @@ liveLoopDbDriven pool config pubPosVar emit posRef startPos stSettings =
             p <- readTVar pubPosVar
             check (p > waitFrom)
             pure p
-        let drainTo c = goDrain c 0
-            goDrain c attempt = do
+        -- A fetch error bubbles out (no in-loop retry); the FSM's 'Reconnecting'
+        -- state owns the backoff and re-catch-up. On success drain to empty.
+        let drainTo c = do
                 fetchResult <- fetchBatch pool config c emit stSettings
                 case fetchResult of
-                    Left _ -> do
-                        threadDelay (fetchRetryDelayMicros attempt)
-                        goDrain c (attempt + 1)
+                    Left err -> pure (Left err)
                     Right events -> do
                         emit (KirokuEventSubscriptionFetched (name config) (V.length events) (groupCtxOf config))
                         if V.null events
-                            then pure (Just c)
+                            then pure (Right (Just c))
                             else do
                                 result <- processEvents pool config events emit posRef
                                 case result of
-                                    Nothing -> pure Nothing -- handler said Stop
-                                    Just newPos -> goDrain newPos 0
+                                    Nothing -> pure (Right Nothing) -- handler said Stop
+                                    Just newPos -> drainTo newPos
         drainResult <- drainTo cursor
         case drainResult of
-            Nothing -> pure ()
-            Just c -> go c pubPos
+            Left err -> pure (LiveFetchError err)
+            Right Nothing -> pure LiveHandlerStopped
+            Right (Just c) -> go c pubPos
 
 -- Fetch a batch of events from the database based on subscription target.
 -- Surfaces a database error through the event handler and returns the error to

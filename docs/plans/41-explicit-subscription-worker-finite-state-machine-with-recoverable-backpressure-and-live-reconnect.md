@@ -112,9 +112,18 @@ Those siblings are referenced only by file path; nothing here depends on them.
   status to `Active`, and recovers; added `KirokuEventSubscriptionPaused`/`Resumed`.
   New spec `test/Test/SubscriptionPauseResume.hs` (2 examples) passes; full suite
   `166 examples, 0 failures`; `cabal build all` clean.
-- [ ] M3 — worker-level `Reconnecting`: a live worker that loses its pool re-enters
+- [x] M3 — worker-level `Reconnecting`: a live worker that loses its pool re-enters
   `CatchingUp` from its checkpoint; add a fault-injection test using
   `withFetchBatchHookForTest`.
+  Done 2026-05-29: changed `liveLoopCategoryNotify`/`liveLoopDbDriven` to **bubble** a
+  live-mode fetch error (new `LiveExit = LiveHandlerStopped | LiveFetchError` return)
+  instead of retrying in place; the driver maps `LiveFetchError -> ConnectionLost`,
+  which `step` turns into `Reconnecting`; `nextInput (Reconnecting c _)` re-probes the
+  DB from the checkpoint (`BatchFetched`→re-catch-up / `FetchEmpty`→`Live` /
+  `FetchFailed`→another backed-off `Reconnecting`); wired the `EmitReconnecting` effect
+  to the new `KirokuEventSubscriptionReconnecting` event. New spec
+  `test/Test/SubscriptionReconnect.hs` (Category subscription) passes; full suite
+  `167 examples, 0 failures`; `cabal build all` clean.
 - [ ] M4 — observability + regression tests: expose the current state; add regression
   specs for no-missed-events across catch-up→live, monotonic checkpoints, pause/resume,
   reconnect, and idle-category no-busy-poll (the EP-37 invariant).
@@ -285,6 +294,35 @@ implementation. Provide concise evidence.
   Rationale: each milestone's acceptance is self-proving; adding the event it asserts
   in the same milestone keeps the test honest and the milestone independently
   verifiable.
+  Date: 2026-05-29.
+
+- Decision (M3 implementation): worker-level reconnect applies to **Category and
+  consumer-group** subscriptions, not AllStreams. AllStreams live delivery is fed by
+  the shared `EventPublisher` (a separate thread that owns its own pool-error retry on
+  the 30s safety poll); the AllStreams worker performs **no** live-mode database fetch
+  — it reads the publisher's in-memory queue — so it has nothing to reconnect. Only the
+  Category (`liveLoopCategoryNotify`) and consumer-group (`liveLoopDbDriven`) workers
+  fetch in live mode, so those are where a live `Pool.UsageError` can occur and where
+  `Reconnecting` is meaningful. The M3 acceptance test therefore drives a **Category**
+  subscription (the plan's sketch said AllStreams); `withFetchBatchHookForTest` can only
+  inject into `fetchBatch`, which AllStreams live never calls.
+  Rationale: routing AllStreams live through a synthetic fetch purely to demonstrate
+  reconnect would contradict the publisher-fed design. The worker-level reconnect is
+  exactly the recovery for workers that fetch.
+  Date: 2026-05-29.
+
+- Decision (M3 implementation): the two DB-driven live loops no longer retry a fetch
+  error in place (the old `threadDelay (fetchRetryDelayMicros attempt); goDrain (attempt+1)`).
+  They now **return** a `LiveFetchError` outcome; the driver feeds `ConnectionLost` to
+  `step`, entering `Reconnecting`, which owns the backoff (`Backoff n`) and the
+  re-catch-up. Recovery is equivalent (back off, re-read from the same cursor) but is
+  now a single, observable mechanism (`KirokuEventSubscriptionReconnecting`) shared by
+  both loops, rather than a silent per-loop retry. The `KirokuEventSubscriptionReconnecting`
+  constructor was added in M3 (its acceptance asserts it), alongside M2's Paused/Resumed.
+  Rationale: unifies recovery on the FSM, makes a sustained outage observable and
+  metric-friendly, and removes the duplicated in-loop retry. `fetchBatch` still emits
+  `KirokuEventSubscriptionDbError` on each failed fetch, so the existing DB-error signal
+  is unchanged.
   Date: 2026-05-29.
 
 - Decision: Implement a *faithful EventStore-style FSM that adds the two missing
