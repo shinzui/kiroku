@@ -47,8 +47,8 @@ This plan also has a **soft / integration dependency** on child plan 3, `docs/pl
 - [x] Problem analysis and layer attribution validated against current source. 2026-05-25.
 - [x] Critical review found stale schema paths and an invalid adapter-only-finalize assumption; plan revised to require an ack-coupled stream bridge. 2026-05-26.
 - [x] Adopted as child plan 2 of MasterPlan 6; rebased onto the subscription-worker FSM (child plan 1, `docs/plans/41-...`), which is now a hard dependency. 2026-05-29.
-- [ ] Blocked until child plan 1 (FSM) is Complete — verify `kiroku-store/src/Kiroku/Store/Subscription/Fsm.hs` exists with `SubscriptionState` and an exhaustive `step` before starting M0.
-- [ ] M0: finalize the Kiroku-native API shape for per-event disposition, retry policy, dead-letter reason representation, and attempt reporting.
+- [x] Unblocked: child plan 1 (FSM) is Complete — `kiroku-store/src/Kiroku/Store/Subscription/Fsm.hs` exists with `SubscriptionState` (CatchingUp/Live/Paused/Reconnecting/Stopped) and an exhaustive `step :: SubscriptionState -> Input -> (SubscriptionState, [Effect])` compiled `-Werror=incomplete-patterns`. 2026-05-29.
+- [x] M0: finalized the Kiroku-native API shape — see the four RESOLVED M0 decisions in the Decision Log (disposition constructors + types, in-memory retry policy, single-delivery-primitive mechanics with `Retrying` observability state, `AckHalt`→cancel). 2026-05-29.
 - [ ] M1: add Kiroku subscription dispositions, bounded retry, and atomic dead-letter-plus-checkpoint behavior in `kiroku-store`.
 - [ ] M2: add the dead-letter schema through a new forward codd migration and update schema docs.
 - [ ] M3: redesign `shibuya-kiroku-adapter` so Shibuya ack decisions drive the Kiroku handler result before checkpoint advancement.
@@ -90,6 +90,61 @@ This plan also has a **soft / integration dependency** on child plan 3, `docs/pl
 
 - Decision: This plan owns the ack-coupled Streamly bridge item type; child plan 3 (`docs/plans/42-...`) does not extend it with member identity.
   Rationale: Child plan 3's research found that Shibuya's runner does not route by an envelope partition key (`Envelope.partition` is only an OpenTelemetry attribute and `Concurrency Async n` is unkeyed fan-out); it therefore runs one Shibuya processor per kiroku consumer-group member, so member identity rides the `ProcessorId`, not the stream item. The bridge item is thus `{ event, attempt, reply }` (final names per M0), defined here and consumed unchanged by child plan 3.
+  Date: 2026-05-29.
+
+- Decision (M0, RESOLVED): Kiroku-native handler result shape and supporting types.
+  `SubscriptionResult` gains two constructors: `Retry !RetryDelay` (redeliver the same
+  event after a delay) and `DeadLetter !DeadLetterReason` (record the event and advance
+  past it). `RetryDelay` is a `newtype RetryDelay = RetryDelay NominalDiffTime` with a
+  `retryDelayMicros :: RetryDelay -> Int` helper for `threadDelay`. `DeadLetterReason` is a
+  Kiroku-owned sum: `DeadLetterPoison !Text | DeadLetterInvalid !Text |
+  DeadLetterMaxAttempts !Int | DeadLetterOther !Text !Value`, with `deadLetterSummary ::
+  DeadLetterReason -> Text` (the `reason_summary` column) and `deadLetterReasonJson ::
+  DeadLetterReason -> Value` (the `reason` JSONB column). Both `RetryDelay` and
+  `DeadLetterReason` are defined in `Kiroku.Store.Subscription.Fsm` (the dependency-graph
+  leaf), re-exported from `Kiroku.Store.Subscription.Types` for the public API and from
+  `Kiroku.Store.Observability` for the new lifecycle event. This mirrors how EP-1 placed
+  `SubscriptionStopReason` in `Fsm` to keep the module graph acyclic (`Subscription.Types`
+  imports `Fsm`, so the disposition types cannot live in `Subscription.Types`).
+  Date: 2026-05-29.
+
+- Decision (M0, RESOLVED): Retry bounds and attempt reporting are in-memory.
+  Add `retryPolicy :: !RetryPolicy` to `SubscriptionConfigM` where `data RetryPolicy =
+  RetryPolicy { retryMaxAttempts :: !Int }`, default `defaultRetryPolicy = RetryPolicy 5`.
+  Attempts are tracked in-memory by the worker's delivery primitive for the current event;
+  on process restart a redelivered-but-uncheckpointed event simply starts again from
+  attempt 0 (acceptable under at-least-once). The delay per redelivery comes from the
+  handler's `Retry RetryDelay` (mirroring Shibuya's per-decision `AckRetry RetryDelay`),
+  so `RetryPolicy` only carries the bound. On exhaustion the event is dead-lettered with
+  `DeadLetterMaxAttempts n`. The ack-coupled bridge reports the attempt to the Shibuya
+  envelope (`attempt :: Maybe Attempt`) by tracking consecutive redeliveries of the same
+  `event_id` in the bridge.
+  Date: 2026-05-29.
+
+- Decision (M0, RESOLVED): Disposition mechanics live in the worker's single delivery
+  primitive (`processEvents`), with `Retrying` added to the FSM `SubscriptionState` for
+  observability — rather than threading whole-batch vectors through new FSM `Input`
+  constructors. EP-1's `step` is exhaustive on `SubscriptionState`, so adding the
+  `Retrying` constructor forces a compile error in `step` and `stateCursor` (the safety the
+  MasterPlan valued), and adding the `SubscriptionResult` constructors forces a compile
+  error at every `case`-on-`SubscriptionResult` site (`processEvents`, the bridge, the
+  adapter, the tests). `processEvents` is the one delivery primitive shared by all three
+  delivery paths (the FSM `DeliverBatch` effect for catch-up/AllStreams-live, and the
+  Category / consumer-group live loops); implementing dispositions there once avoids
+  duplicating bounded-retry logic across the FSM path and the imperative live loops. The
+  worker writes `Retrying` into the observable state `TVar` and emits
+  `KirokuEventSubscriptionRetrying` while a redelivery is pending, restoring the prior
+  driving state afterward. This deviates from the MasterPlan Integration Point that
+  envisioned new FSM `Input` constructors driving `step`; the deviation is recorded in the
+  MasterPlan Surprises & Discoveries. The atomic "insert dead-letter + advance checkpoint"
+  is a single CTE statement.
+  Date: 2026-05-29.
+
+- Decision (M0, RESOLVED): `AckHalt` keeps the current adapter behavior — it cancels the
+  underlying Kiroku subscription (no checkpoint advance, so the halting event replays on
+  restart) rather than mapping to Kiroku `Stop` (which would checkpoint at and advance past
+  the halting event). Halting semantically means "stop without acknowledging this event,"
+  which cancellation models faithfully and which preserves the existing adapter contract.
   Date: 2026-05-29.
 
 

@@ -59,7 +59,7 @@ Alternatives considered and rejected: (a) a single mega-ExecPlan — rejected be
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
 | 1 | Explicit subscription-worker finite state machine with recoverable backpressure and live reconnect | docs/plans/41-explicit-subscription-worker-finite-state-machine-with-recoverable-backpressure-and-live-reconnect.md | None | None | Complete |
-| 2 | Per-event retry / dead-letter for kiroku subscriptions and the shibuya-kiroku-adapter | docs/plans/40-per-event-retry-and-dead-letter-for-kiroku-subscriptions-and-the-shibuya-adapter.md | EP-1 | EP-3 | Not Started |
+| 2 | Per-event retry / dead-letter for kiroku subscriptions and the shibuya-kiroku-adapter | docs/plans/40-per-event-retry-and-dead-letter-for-kiroku-subscriptions-and-the-shibuya-adapter.md | EP-1 | EP-3 | In Progress |
 | 3 | Wire kiroku consumer groups into the Shibuya partitioned-ordering policy model | docs/plans/42-wire-kiroku-consumer-groups-into-the-shibuya-partitioned-ordering-policy-model.md | None | EP-1 | Not Started |
 | 4 | Per-subscription event-type filtering through the worker, Streamly bridge, and Shibuya adapter | docs/plans/43-per-subscription-event-type-filtering-through-the-worker-streamly-bridge-and-shibuya-adapter.md | None | EP-1 | Not Started |
 
