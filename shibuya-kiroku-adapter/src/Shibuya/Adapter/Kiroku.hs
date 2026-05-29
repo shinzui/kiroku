@@ -117,6 +117,12 @@ module Shibuya.Adapter.Kiroku (
     -- * Configuration
     KirokuAdapterConfig (..),
 
+    -- * Consumer-group helpers
+    KirokuConsumerGroupConfig (..),
+    defaultConsumerGroupConfig,
+    consumerGroupPolicy,
+    kirokuConsumerGroupProcessors,
+
     -- * Re-exports from kiroku-store
     SubscriptionName (..),
     SubscriptionTarget (..),
@@ -124,6 +130,7 @@ module Shibuya.Adapter.Kiroku (
 ) where
 
 import Data.Int (Int32)
+import Data.Text qualified as T
 import Effectful (Eff, IOE, liftIO, (:>))
 import Kiroku.Store.Connection (KirokuStore)
 import Kiroku.Store.Subscription.Stream (subscriptionAckStream)
@@ -140,7 +147,12 @@ import Kiroku.Store.Types (RecordedEvent)
 import Numeric.Natural (Natural)
 import Shibuya.Adapter (Adapter (..))
 import Shibuya.Adapter.Kiroku.Convert (toIngestedAck)
+import Shibuya.App (ProcessorId (..), QueueProcessor (..))
+import Shibuya.Core.Error (PolicyError (..))
+import Shibuya.Handler (Handler)
+import Shibuya.Policy (Concurrency (..), Ordering (..), validatePolicy)
 import Streamly.Data.Stream qualified as Stream
+import Prelude hiding (Ordering)
 
 {- | Configuration for creating a Kiroku adapter.
 
@@ -220,3 +232,135 @@ kirokuAdapter store (KirokuAdapterConfig subName subTarget bs buf cg) = do
             , source = ingestedStream
             , shutdown = liftIO cancelAction
             }
+
+{- | Configuration for a whole kiroku consumer group presented as a single
+Shibuya partitioned-ordering unit.
+
+Unlike 'KirokuAdapterConfig' (which describes one member), this describes the
+__entire__ group: 'groupSize' members of one subscription, each receiving the
+streams whose originating-stream hash maps to its slot. Hand to
+'kirokuConsumerGroupProcessors' to obtain @groupSize@ ready-to-run Shibuya
+processors with no manual @[0..N-1]@ wiring.
+
+@memberConcurrency@ is the per-member concurrency. Because kiroku delivers each
+member a single strictly global-position-ordered stream, only 'Serial' honestly
+preserves per-stream ordering; any 'Ahead'/'Async' is rejected by
+'consumerGroupPolicy' before any subscription opens. The /group/ as a whole is
+'PartitionedInOrder' (ordered within each member's partition, parallel across
+members).
+-}
+data KirokuConsumerGroupConfig = KirokuConsumerGroupConfig
+    { subscriptionName :: !SubscriptionName
+    {- ^ Shared subscription identifier; each member checkpoints under
+    @(subscriptionName, member)@.
+    -}
+    , subscriptionTarget :: !SubscriptionTarget
+    {- ^ 'AllStreams' or @'Category' categoryName@ — the same source for every
+    member; kiroku partitions it across members in SQL.
+    -}
+    , groupSize :: !Int32
+    {- ^ @N@ members; must be @>= 1@ (enforced by the underlying
+    'Kiroku.Store.Subscription.subscribe', which throws
+    'Kiroku.Store.Subscription.Types.InvalidConsumerGroup' otherwise).
+    -}
+    , batchSize :: !Int32
+    -- ^ Events per database fetch during catch-up (per member).
+    , bufferSize :: !Natural
+    -- ^ Per-member 'TBQueue' capacity (backpressure threshold).
+    , memberConcurrency :: !Concurrency
+    -- ^ Per-member concurrency; must be 'Serial' (validated).
+    }
+
+{- | A 'KirokuConsumerGroupConfig' with sensible defaults: @memberConcurrency =
+'Serial'@ (the only legal per-member concurrency), @batchSize = 100@,
+@bufferSize = 256@. Supply the subscription name, target, and group size.
+-}
+defaultConsumerGroupConfig ::
+    SubscriptionName -> SubscriptionTarget -> Int32 -> KirokuConsumerGroupConfig
+defaultConsumerGroupConfig name target n =
+    KirokuConsumerGroupConfig
+        { subscriptionName = name
+        , subscriptionTarget = target
+        , groupSize = n
+        , batchSize = 100
+        , bufferSize = 256
+        , memberConcurrency = Serial
+        }
+
+{- | Map a requested per-member concurrency onto the group's validated Shibuya
+@('Ordering', 'Concurrency')@.
+
+The group's ordering contract is always 'PartitionedInOrder'; a member's own
+ordered stream must be processed serially. This reuses Shibuya's own
+'validatePolicy' rule (@'StrictInOrder' => 'Serial'@) so the adapter never
+invents its own legality check: 'Ahead'/'Async' yield
+@'Left' ('InvalidPolicyCombo' ...)@ and 'Serial' yields
+@'Right' ('PartitionedInOrder', 'Serial')@. The returned
+@('PartitionedInOrder', 'Serial')@ also passes 'validatePolicy', so 'runApp'
+will not reject it later.
+-}
+consumerGroupPolicy :: Concurrency -> Either PolicyError (Ordering, Concurrency)
+consumerGroupPolicy conc = do
+    -- A member delivers one strictly-ordered stream; only Serial is honest.
+    validatePolicy StrictInOrder conc -- rejects Ahead/Async with PolicyError
+    pure (PartitionedInOrder, conc)
+
+{- | Present a whole kiroku consumer group as a single 'PartitionedInOrder' unit:
+one call yields @groupSize@ named 'QueueProcessor's, each backed by its own
+member adapter and each pinned to @('PartitionedInOrder', 'Serial')@.
+
+This replaces the manual @mapM mkMemberAdapter [0 .. N-1]@ boilerplate. The
+member→policy mapping is validated once up front via 'consumerGroupPolicy'; if
+the caller requests a 'memberConcurrency' kiroku cannot honor per member
+('Ahead'/'Async'), the result is @'Left' ('InvalidPolicyCombo' ...)@ and __no
+kiroku subscription is opened__.
+
+Each processor's 'ProcessorId' is
+@\"\<subscriptionName\>-member-\<m\>\"@ so member identity is readable off the id
+and two members never collide. The group-validity invariant (@groupSize >= 1@,
+@0 <= member < groupSize@) is enforced downstream by
+'Kiroku.Store.Subscription.subscribe' (throwing
+'Kiroku.Store.Subscription.Types.InvalidConsumerGroup'); 'groupSize >= 1' is a
+documented precondition of this helper.
+-}
+kirokuConsumerGroupProcessors ::
+    (IOE :> es) =>
+    KirokuStore ->
+    KirokuConsumerGroupConfig ->
+    Handler es RecordedEvent ->
+    Eff es (Either PolicyError [(ProcessorId, QueueProcessor es)])
+kirokuConsumerGroupProcessors
+    store
+    KirokuConsumerGroupConfig
+        { subscriptionName = subName
+        , subscriptionTarget = subTarget
+        , groupSize = n
+        , batchSize = bs
+        , bufferSize = buf
+        , memberConcurrency = mc
+        }
+    handler =
+        case consumerGroupPolicy mc of
+            Left e -> pure (Left e)
+            Right (ordering, conc) -> do
+                let SubscriptionName name = subName
+                processors <-
+                    mapM
+                        ( \m -> do
+                            adapter <-
+                                kirokuAdapter
+                                    store
+                                    KirokuAdapterConfig
+                                        { subscriptionName = subName
+                                        , subscriptionTarget = subTarget
+                                        , batchSize = bs
+                                        , bufferSize = buf
+                                        , consumerGroup = Just (ConsumerGroup{member = m, size = n})
+                                        }
+                            let pid = ProcessorId (name <> "-member-" <> T.pack (show m))
+                            -- Built directly (not via 'mkProcessor', which hardcodes
+                            -- Unordered/Serial) so the group policy is pinned.
+                            pure (pid, QueueProcessor adapter handler ordering conc)
+                        )
+                        [0 .. n - 1]
+                pure (Right processors)
