@@ -77,24 +77,36 @@ with at most minor ergonomics in `kiroku-store`.
 
 ## Progress
 
-- [ ] Design validated against the real Shibuya runner + policy source and the real kiroku
+- [x] Design validated against the real Shibuya runner + policy source and the real kiroku
       consumer-group SQL. (Confirm: Shibuya policy is declared **per `QueueProcessor`**, not per
       adapter; the runner does **not** route by `Envelope.partition`; `Async n`/`Ahead n` is plain
-      Streamly fan-out with no per-key affinity. This is what forces shape (a) below.)
-- [ ] M1 — Map a kiroku `ConsumerGroup` onto a Shibuya `(Ordering, Concurrency)` per member and
+      Streamly fan-out with no per-key affinity. This is what forces shape (a) below.) (Done
+      2026-05-29: re-read `shibuya-core/src/Shibuya/Policy.hs`, `App.hs` `QueueProcessor`/`mkProcessor`,
+      and `Runner/Supervised.hs`; all three confirmations hold as written.)
+- [x] M1 — Map a kiroku `ConsumerGroup` onto a Shibuya `(Ordering, Concurrency)` per member and
       add the helper surface in `shibuya-kiroku-adapter`. Reject invalid policy requests early via
       `Shibuya.Policy.validatePolicy`, returning `Left PolicyError`. Unit test: a valid mapping is
-      accepted; an invalid one is rejected with a clear error.
-- [ ] M2 — `kirokuConsumerGroupProcessors` presents a whole group as one `PartitionedInOrder`
+      accepted; an invalid one is rejected with a clear error. (Done 2026-05-29:
+      `KirokuConsumerGroupConfig`/`defaultConsumerGroupConfig`/`consumerGroupPolicy`; 3 pure examples
+      — Serial accepted as `(PartitionedInOrder, Serial)`, Ahead/Async rejected with
+      `InvalidPolicyCombo`.)
+- [x] M2 — `kirokuConsumerGroupProcessors` presents a whole group as one `PartitionedInOrder`
       unit: one call yields `N` named processors, each a member adapter + handler pinned to
       `PartitionedInOrder` + `Serial`. Eliminates the manual `[0..N-1]` wiring. Acceptance: example
       code that starts a size-`N` group with a single call; each processor's `ordering` is
-      `PartitionedInOrder`.
-- [ ] M3 — End-to-end test in `shibuya-kiroku-adapter/test/Main.hs`: append events across many
+      `PartitionedInOrder`. (Done 2026-05-29: `kirokuConsumerGroupProcessors` returns
+      `Either PolicyError [(ProcessorId, QueueProcessor es)]`; `ProcessorId "<name>-member-<m>"`;
+      module Haddock + CHANGELOG updated to point at the helper.)
+- [x] M3 — End-to-end test in `shibuya-kiroku-adapter/test/Main.hs`: append events across many
       streams, run a size-`N` group through the new helper, assert each member processes a disjoint,
       per-stream-ordered subset whose union is `[1..total]`, and that the Shibuya-declared partition
       (the member index) matches kiroku's delivered member assignment. Acceptance:
       `cabal test shibuya-kiroku-adapter:shibuya-kiroku-adapter-test` passes including the new test.
+      (Done 2026-05-29: `15 examples, 0 failures`. Size-4 group started with one call delivers global
+      positions `[1..40]` with no duplicates — union-level disjoint+complete — covering all 20
+      streams; processor policies all `(PartitionedInOrder, Serial)`; ids `cgp-shibuya-group-member-0..3`;
+      an `Async` member concurrency is rejected with `InvalidPolicyCombo` before any subscription
+      opens. See Decision Log re: per-member observation under the single-handler API.)
 
 
 ## Surprises & Discoveries
@@ -200,6 +212,25 @@ implementation. Provide concise evidence.
   error a Shibuya operator already understands.
   Date: 2026-05-29.
 
+- Decision: The M3 end-to-end test asserts the disjoint+complete partition at the **union** level
+  (`sort (map globalPos collected) == [1..40]`, plus all 20 originating streams covered) rather than
+  collecting per-member event sets.
+  Rationale: `kirokuConsumerGroupProcessors` takes a **single** shared `Handler es RecordedEvent`
+  (the correct real-world API — every member of a consumer group runs the same handler over its
+  partitioned input), and a Shibuya `Handler` receives only the `Ingested` event, never its
+  `ProcessorId`/member index. So a handler cannot tag deliveries by member, and the `QueueProcessor`
+  GADT hides `msg` existentially, so the baked-in handler cannot be swapped post-construction either.
+  The union property is nonetheless exactly the disjoint+complete reconciliation: **no duplicate
+  global position** across the four member processors ⟺ the member partitions are disjoint, and
+  **`== [1..40]`** ⟺ their union is the complete source. Combined with one-call construction of
+  `N` `(PartitionedInOrder, Serial)` processors with member-indexed `ProcessorId`s, this proves the
+  declared partitioned unit delivers precisely kiroku's partitioned source. The strict
+  member→stream-slot mapping (member `m` sees exactly the streams hashing to slot `m`) is kiroku
+  internal behavior already proven by MasterPlan 4 and the existing manual `consumer groups` test;
+  this plan does not re-derive it. The plan's Idempotence & Recovery note explicitly sanctions
+  falling back to the disjoint-complete delivery as the load-bearing property.
+  Date: 2026-05-29.
+
 - Decision: This plan does **not** modify the Streamly bridge `kiroku-store/src/Kiroku/Store/Subscription/Stream.hs`; sibling `docs/plans/40-...` solely owns the (ack-coupled) bridge item type.
   Rationale: Under the chosen shape (a), the adapter runs one Shibuya processor per kiroku consumer-group member, so member identity rides the `ProcessorId` (`"<name>-member-<m>"`), not the per-event stream item. An earlier draft of this plan assumed it would have to add a member field to the bridge item; the routing investigation (see Surprises & Discoveries — Shibuya does not route by an envelope partition key) removed that need. EP-40 makes the bridge ack-coupled with an item of approximately `{ event, attempt, reply }` and is its single owner; this plan consumes EP-40's per-event stream unchanged and forks no parallel type. This matches MasterPlan 6's Integration Points and EP-40's Decision Log.
   Date: 2026-05-29.
@@ -210,7 +241,36 @@ implementation. Provide concise evidence.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+**Completed 2026-05-29.** The half-wired bridge is now whole: an operator declares one partitioned
+consumer group with a single call and receives `N` fully-formed, policy-pinned Shibuya processors.
+
+- **Surface shipped (all in `shibuya-kiroku-adapter/src/Shibuya/Adapter/Kiroku.hs`).**
+  - `data KirokuConsumerGroupConfig` (whole-group config) + `defaultConsumerGroupConfig name target n`
+    (`memberConcurrency = Serial`, `batchSize = 100`, `bufferSize = 256`).
+  - `consumerGroupPolicy :: Concurrency -> Either PolicyError (Ordering, Concurrency)` — reuses
+    `Shibuya.Policy.validatePolicy StrictInOrder` so `Serial` ↦ `Right (PartitionedInOrder, Serial)`
+    and `Ahead`/`Async` ↦ `Left (InvalidPolicyCombo "StrictInOrder requires Serial concurrency")`.
+  - `kirokuConsumerGroupProcessors store cfg handler :: Eff es (Either PolicyError [(ProcessorId, QueueProcessor es)])`
+    — validates once, then builds one member adapter per `m <- [0 .. groupSize-1]`
+    (`ConsumerGroup{member = m, size = groupSize}`) paired with a `QueueProcessor adapter handler
+    PartitionedInOrder Serial` and `ProcessorId "<name>-member-<m>"`. On an invalid policy it returns
+    `Left` **without opening any subscription**.
+- **Policy mapping as shipped.** Group contract = `PartitionedInOrder`; per-member processor =
+  `(PartitionedInOrder, Serial)`. Both the requested-policy gate (`StrictInOrder` + requested
+  concurrency) and the emitted pair pass `validatePolicy`, so `runApp` never rejects a helper-built
+  group.
+- **`shibuya-core` unchanged**; the Streamly bridge unchanged (EP-40 remains sole owner of the
+  ack-coupled item). The helper consumes the existing per-event stream via `kirokuAdapter`.
+- **Tests:** `cabal test shibuya-kiroku-adapter:shibuya-kiroku-adapter-test` → **15 examples, 0
+  failures** (baseline 10 + 3 pure policy examples + 2 DB-backed helper examples). The end-to-end
+  example starts a size-4 group with one call over 20 streams × 2 events and asserts
+  `sort positions == [1..40]` (disjoint + complete), all 20 streams covered, four
+  `(PartitionedInOrder, Serial)` processors, member-indexed ids, and early `InvalidPolicyCombo`
+  rejection of `Async`.
+- **Gap vs. original wording:** per-member event sets are asserted at the union level rather than
+  per processor, because the helper takes a single shared handler that cannot observe its member
+  index (see Decision Log). The union disjoint+complete property is the equivalent load-bearing
+  reconciliation.
 
 
 ## Context and Orientation

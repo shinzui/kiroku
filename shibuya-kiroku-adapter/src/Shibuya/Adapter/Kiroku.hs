@@ -42,30 +42,21 @@ main = withStore settings $ \\store ->
 A consumer group splits one logical subscription across @N@ members. Each
 originating stream is deterministically assigned to exactly one member (by a
 hash computed in PostgreSQL), so same-stream events stay ordered while distinct
-streams are processed in parallel. To run all four members in one process, build
-one adapter per member index and wire each into its own processor:
+streams are processed in parallel. To run a whole group in one process, use
+'kirokuConsumerGroupProcessors': one call yields @N@ named processors, each a
+member adapter pinned to the group-level @('PartitionedInOrder', 'Serial')@
+policy — no manual @[0..N-1]@ wiring.
 
 @
 main :: IO ()
 main = withStore settings $ \\store ->
     runEff $ runTracingNoop $ do
-        let mkMemberAdapter m =
-                kirokuAdapter store
-                    KirokuAdapterConfig
-                        { subscriptionName = SubscriptionName \"orders-projection\"
-                        , subscriptionTarget = Category (CategoryName \"orders\")
-                        , batchSize = 100
-                        , bufferSize = 256
-                        , consumerGroup = Just (ConsumerGroup { member = m, size = 4 })
-                        }
+        let cfg = defaultConsumerGroupConfig
+                (SubscriptionName \"orders-projection\")
+                (Category (CategoryName \"orders\"))
+                4   -- group size
 
-        adapters <- mapM mkMemberAdapter [0, 1, 2, 3]
-
-        let processors =
-                [ (ProcessorId (\"orders-\" <> T.pack (show m)), mkProcessor (adapters !! m) handler)
-                | m <- [0 .. 3]
-                ]
-
+        Right processors <- kirokuConsumerGroupProcessors store cfg handler
         Right appHandle <- runApp IgnoreFailures 100 processors
         waitApp appHandle
   where
@@ -74,11 +65,11 @@ main = withStore settings $ \\store ->
         pure AckOk
 @
 
-To run members across separate processes instead, give each process one adapter
-with its own 'member' index and the same 'subscriptionName'. Kiroku's per-member
-checkpoint (keyed by @(subscriptionName, member)@) lets each process resume from
-its own position after a restart. Exactly one live process must own each member
-index at a time.
+To run members across separate processes instead, give each process one
+'kirokuAdapter' with its own 'member' index and the same 'subscriptionName'.
+Kiroku's per-member checkpoint (keyed by @(subscriptionName, member)@) lets each
+process resume from its own position after a restart. Exactly one live process
+must own each member index at a time.
 
 == Ack Semantics
 

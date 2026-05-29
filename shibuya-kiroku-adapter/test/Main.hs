@@ -12,7 +12,7 @@ import Data.Foldable (toList)
 import Data.Generics.Labels ()
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.Int (Int32, Int64)
-import Data.List (sort)
+import Data.List (nub, sort)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -24,10 +24,18 @@ import Hasql.Session qualified as Session
 import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Test.Postgres (withMigratedTestDatabase, withSharedMigratedPostgres)
-import Shibuya.Adapter.Kiroku (KirokuAdapterConfig (..), kirokuAdapter)
+import Shibuya.Adapter.Kiroku (
+    KirokuAdapterConfig (..),
+    KirokuConsumerGroupConfig (..),
+    consumerGroupPolicy,
+    defaultConsumerGroupConfig,
+    kirokuAdapter,
+    kirokuConsumerGroupProcessors,
+ )
 import Shibuya.Adapter.Kiroku.Convert (toEnvelope)
 import Shibuya.App (
     ProcessorId (..),
+    QueueProcessor (..),
     SupervisionStrategy (..),
     getAppMetrics,
     mkProcessor,
@@ -38,8 +46,10 @@ import Shibuya.App (
 import Shibuya.App qualified as Shibuya
 import Shibuya.Core.Ack (AckDecision (..), DeadLetterReason (..))
 import Shibuya.Core.Ack qualified as Ack
+import Shibuya.Core.Error (PolicyError (..))
 import Shibuya.Core.Ingested (Ingested (..))
 import Shibuya.Core.Types (Envelope (..))
+import Shibuya.Policy (Concurrency (..), Ordering (..))
 import Shibuya.Runner.Metrics (ProcessorState (..))
 import Shibuya.Telemetry.Effect (runTracingNoop)
 import Test.Hspec
@@ -78,6 +88,18 @@ main = withSharedMigratedPostgres $ hspec $ do
 
             missingTraceparent `shouldBe` Nothing
             nonStringTraceparent `shouldBe` Nothing
+
+    describe "consumer group policy" $ do
+        it "accepts Serial member concurrency as (PartitionedInOrder, Serial)" $
+            consumerGroupPolicy Serial `shouldBe` Right (PartitionedInOrder, Serial)
+
+        it "rejects Ahead member concurrency with a PolicyError" $
+            consumerGroupPolicy (Ahead 4)
+                `shouldBe` Left (InvalidPolicyCombo "StrictInOrder requires Serial concurrency")
+
+        it "rejects Async member concurrency with a PolicyError" $
+            consumerGroupPolicy (Async 4)
+                `shouldBe` Left (InvalidPolicyCombo "StrictInOrder requires Serial concurrency")
 
     around withTestStore $ do
         describe "kirokuAdapter" $ do
@@ -517,6 +539,92 @@ main = withSharedMigratedPostgres $ hspec $ do
                 -- No member starved: 20 streams over 4 members gives each ≥ 1 stream.
                 mapM_ (\c -> length c `shouldSatisfy` (>= 1)) collected
 
+        describe "consumer group policy" $ do
+            it "rejects an invalid member concurrency before opening any subscription" $ \store -> do
+                -- A request the helper cannot honor per member returns Left without
+                -- starting any worker. The (unused) store proves no subscription opens.
+                result <-
+                    runEff $
+                        runTracingNoop $
+                            kirokuConsumerGroupProcessors
+                                store
+                                (defaultConsumerGroupConfig (SubscriptionName "cgp-reject") (Category (CategoryName "cgp-reject")) 4)
+                                    { memberConcurrency = Async 4
+                                    }
+                                ( \ingested -> do
+                                    let _ = envelopePayload ingested
+                                    pure AckOk
+                                )
+                case result of
+                    Left err -> err `shouldBe` InvalidPolicyCombo "StrictInOrder requires Serial concurrency"
+                    Right _ -> expectationFailure "expected Left PolicyError for Async member concurrency"
+
+            it "one call yields N PartitionedInOrder processors; members partition the stream disjointly" $ \store -> do
+                -- 20 streams × 2 events = 40 events, global positions 1..40, category "cgp".
+                let streams = ["cgp-" <> T.pack (show i) | i <- [1 .. 20 :: Int]]
+                mapM_
+                    ( \sn -> do
+                        let evs = [makeEvent ("EV" <> T.pack (show k)) (Aeson.object []) | k <- [1 .. 2 :: Int]]
+                        Right _ <- runStoreIO store $ appendToStream (StreamName sn) NoStream evs
+                        pure ()
+                    )
+                    streams
+                threadDelay 200_000
+
+                -- A single shared handler records every delivery (consumer-group
+                -- members all run the same handler). One counter for the whole group.
+                ref <- newIORef ([] :: [RecordedEvent])
+                countVar <- newTVarIO (0 :: Int)
+
+                let cfg =
+                        defaultConsumerGroupConfig
+                            (SubscriptionName "cgp-shibuya-group")
+                            (Category (CategoryName "cgp"))
+                            4
+
+                runEff $ runTracingNoop $ do
+                    let handler ingested = do
+                            liftIO $ do
+                                modifyIORef' ref (envelopePayload ingested :)
+                                atomically $ do
+                                    c <- readTVar countVar
+                                    writeTVar countVar (c + 1)
+                            pure AckOk
+
+                    -- One call replaces the manual `mapM mkMemberAdapter [0..3]` wiring.
+                    res <- kirokuConsumerGroupProcessors store cfg handler
+                    case res of
+                        Left err -> liftIO $ expectationFailure ("kirokuConsumerGroupProcessors failed: " <> show err)
+                        Right processors -> do
+                            -- The group is presented as N processors, each pinned to the
+                            -- group-level PartitionedInOrder contract + per-member Serial.
+                            liftIO $ length processors `shouldBe` 4
+                            let policies = map (\(_, QueueProcessor _ _ ord conc) -> (ord, conc)) processors
+                            liftIO $ policies `shouldBe` replicate 4 (PartitionedInOrder, Serial)
+                            -- The member index is readable off the ProcessorId.
+                            let pids = map (\(ProcessorId p, _) -> p) processors
+                            liftIO $
+                                pids
+                                    `shouldBe` ["cgp-shibuya-group-member-" <> T.pack (show m) | m <- [0 .. 3 :: Int]]
+
+                            appRes <- runApp IgnoreFailures 100 processors
+                            case appRes of
+                                Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                                Right appHandle -> do
+                                    liftIO $ waitForCount countVar 40 15_000_000
+                                    stopApp appHandle
+
+                collected <- readIORef ref
+                -- Disjoint + complete through the helper: the union of every member's
+                -- delivered global positions is exactly [1..40] — no event dropped, none
+                -- delivered twice. No duplicates ⇒ the member partitions are disjoint;
+                -- ==[1..40] ⇒ the union is the complete source. This is the same
+                -- disjoint-complete property MasterPlan 4 used, now asserted through the
+                -- single-call helper and the Shibuya pipeline.
+                sort (map globalPos collected) `shouldBe` [1 .. 40]
+                -- Every one of the 20 originating streams was covered.
+                length (nub (map origStreamId collected)) `shouldBe` 20
+
 -- Helpers
 
 envelopePayload :: Ingested es RecordedEvent -> RecordedEvent
@@ -533,6 +641,10 @@ readDeadLetters store subName = do
 -- | The raw global position of a recorded event (for disjoint/complete checks).
 globalPos :: RecordedEvent -> Int64
 globalPos e = case e ^. #globalPosition of GlobalPosition p -> p
+
+-- | The originating stream's surrogate id (for stream-coverage checks).
+origStreamId :: RecordedEvent -> Int64
+origStreamId e = case e ^. #originalStreamId of StreamId p -> p
 
 -- | Wait until the sum of all TVar counts reaches the target or the timeout fires.
 waitForTotal :: [STM.TVar Int] -> Int -> Int -> IO ()

@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Added — consumer groups as a single partitioned subscription (plan 42)
+
+* `kirokuConsumerGroupProcessors` — present a whole kiroku consumer group as one
+  `PartitionedInOrder` unit: a single call yields `N` named `QueueProcessor`s
+  (one member adapter each, `ProcessorId "<name>-member-<m>"`), each pinned to
+  `(PartitionedInOrder, Serial)`. Replaces the manual `mapM mkMemberAdapter
+  [0..N-1]` wiring.
+* `KirokuConsumerGroupConfig` + `defaultConsumerGroupConfig` — describe a whole
+  group (subscription name, target, group size, batch size, buffer size, and a
+  per-member `Concurrency` that must be `Serial`).
+* `consumerGroupPolicy` — map a requested per-member `Concurrency` onto the
+  validated group policy `(PartitionedInOrder, Serial)`, reusing Shibuya's own
+  `validatePolicy` so `Ahead`/`Async` are rejected early with
+  `InvalidPolicyCombo` before any subscription opens.
+* No `shibuya-core` changes: the helper only consumes existing exports.
+
 ### Changed — ack decisions now drive Kiroku checkpointing (plan 40)
 
 * The adapter bridges through `kiroku-store`'s ack-coupled
