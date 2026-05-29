@@ -2,12 +2,13 @@ module Kiroku.Test.Postgres (
     withSharedMigratedPostgres,
     withMigratedTestDatabase,
     migrateTestDatabase,
-    findMigrationSql,
+    findMigrationDir,
 ) where
 
 import Control.Concurrent.STM (TVar, atomically, newTVarIO, stateTVar)
 import Control.Exception (bracket, bracket_, onException)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import Data.List (isSuffixOf, sort)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
@@ -16,7 +17,7 @@ import Hasql.Connection.Settings qualified as Conn
 import Hasql.Pool qualified as Pool
 import Hasql.Pool.Config qualified as Pool.Config
 import Hasql.Session qualified as Session
-import System.Directory (doesFileExist)
+import System.Directory (doesDirectoryExist, listDirectory)
 import System.IO.Unsafe (unsafePerformIO)
 
 data SharedPostgres = SharedPostgres
@@ -114,10 +115,18 @@ connectionStringFor db dbName =
 quoteIdentifier :: Text -> Text
 quoteIdentifier ident = "\"" <> T.replace "\"" "\"\"" ident <> "\""
 
+{- | Apply every Kiroku migration SQL file (the bootstrap plus each forward
+migration) in timestamped filename order. The files are concatenated into a
+single script so the @SET search_path@ the bootstrap establishes carries into
+the later migrations, then run once. Forward migrations added under
+@kiroku-store-migrations/sql-migrations@ are picked up automatically.
+-}
 migrateTestDatabase :: Text -> IO ()
 migrateTestDatabase connStr = do
-    migrationPath <- findMigrationSql
-    migrationSql <- TIO.readFile migrationPath
+    migrationDir <- findMigrationDir
+    files <- sort . filter (".sql" `isSuffixOf`) <$> listDirectory migrationDir
+    sqls <- mapM (\f -> TIO.readFile (migrationDir <> "/" <> f)) files
+    let migrationSql = T.intercalate "\n" sqls
     pool <- Pool.acquire (poolConfig connStr)
     result <- Pool.use pool (Session.script migrationSql)
     Pool.release pool
@@ -131,15 +140,19 @@ poolConfig connStr =
         , Pool.Config.size 1
         ]
 
-findMigrationSql :: IO FilePath
-findMigrationSql = go candidates
+{- | Locate the @kiroku-store-migrations/sql-migrations@ directory relative to a
+test's working directory (which is the package dir or the repo root depending
+on how the suite is invoked).
+-}
+findMigrationDir :: IO FilePath
+findMigrationDir = go candidates
   where
     candidates =
-        [ "kiroku-store-migrations/sql-migrations/2026-05-16-00-00-00-kiroku-bootstrap.sql"
-        , "../kiroku-store-migrations/sql-migrations/2026-05-16-00-00-00-kiroku-bootstrap.sql"
+        [ "kiroku-store-migrations/sql-migrations"
+        , "../kiroku-store-migrations/sql-migrations"
         ]
 
-    go [] = error "Could not locate kiroku-store-migrations bootstrap SQL from test working directory"
+    go [] = error "Could not locate kiroku-store-migrations/sql-migrations from test working directory"
     go (path : rest) = do
-        exists <- doesFileExist path
+        exists <- doesDirectoryExist path
         if exists then pure path else go rest

@@ -49,10 +49,11 @@ This plan also has a **soft / integration dependency** on child plan 3, `docs/pl
 - [x] Adopted as child plan 2 of MasterPlan 6; rebased onto the subscription-worker FSM (child plan 1, `docs/plans/41-...`), which is now a hard dependency. 2026-05-29.
 - [x] Unblocked: child plan 1 (FSM) is Complete — `kiroku-store/src/Kiroku/Store/Subscription/Fsm.hs` exists with `SubscriptionState` (CatchingUp/Live/Paused/Reconnecting/Stopped) and an exhaustive `step :: SubscriptionState -> Input -> (SubscriptionState, [Effect])` compiled `-Werror=incomplete-patterns`. 2026-05-29.
 - [x] M0: finalized the Kiroku-native API shape — see the four RESOLVED M0 decisions in the Decision Log (disposition constructors + types, in-memory retry policy, single-delivery-primitive mechanics with `Retrying` observability state, `AckHalt`→cancel). 2026-05-29.
-- [ ] M1: add Kiroku subscription dispositions, bounded retry, and atomic dead-letter-plus-checkpoint behavior in `kiroku-store`.
-- [ ] M2: add the dead-letter schema through a new forward codd migration and update schema docs.
-- [ ] M3: redesign `shibuya-kiroku-adapter` so Shibuya ack decisions drive the Kiroku handler result before checkpoint advancement.
-- [ ] M4: add focused tests and changelog entries for `kiroku-store`, `kiroku-store-migrations`, and `shibuya-kiroku-adapter`.
+- [x] M1: added `Retry`/`DeadLetter` to `SubscriptionResult`, `RetryDelay`/`DeadLetterReason` in `Fsm`, `RetryPolicy` on the config, a surfaced `Retrying` `SubscriptionState`, and bounded-retry + atomic dead-letter-plus-checkpoint in the single delivery primitive `processEvents`. New lifecycle events. `kiroku-store` 172 examples, 0 failures. 2026-05-29.
+- [x] M2: added the forward migration `2026-05-26-00-00-00-add-subscription-dead-letters.sql` (`kiroku.dead_letters`), the atomic `insertDeadLetterAndCheckpointStmt`, and `readDeadLettersStmt`; updated `docs/user/schema.md`. 2026-05-29.
+- [x] M3: made the Streamly bridge ack-coupled (`subscriptionAckStream`/`AckItem`) and redesigned the adapter so `AckOk`/`AckRetry`/`AckDeadLetter`/`AckHalt` drive Kiroku dispositions via `AckHandle.finalize` before checkpoint advancement. 2026-05-29.
+- [x] M4: added `Test.SubscriptionRetryDeadLetter` (3 specs), adapter ack-disposition specs (2), and a `dead_letters` assertion to the migration test; changelog entries across all three packages. All suites pass (kiroku-store 172, adapter 10, migrations 1). 2026-05-29.
+- [x] Test-harness fix: `Kiroku.Test.Postgres.migrateTestDatabase` now applies *all* SQL files under `kiroku-store-migrations/sql-migrations` in filename order (was bootstrap-only), so `kiroku-store` and adapter tests see forward migrations like `dead_letters`. 2026-05-29.
 
 
 ## Surprises & Discoveries
@@ -62,6 +63,12 @@ This plan also has a **soft / integration dependency** on child plan 3, `docs/pl
 - The original plan's adapter milestone was incomplete. `toIngested` in `shibuya-kiroku-adapter/src/Shibuya/Adapter/Kiroku/Convert.hs` can see `AckRetry` and `AckDeadLetter`, but by then `subscriptionStream` has already returned `Continue` for the event. The bridge in `kiroku-store/src/Kiroku/Store/Subscription/Stream.hs` must become ack-coupled or be replaced by an adapter-local bridge with the same property.
 - Shibuya itself does not need a core change. `shibuya-core/src/Shibuya/Core/Ack.hs` defines all four ack decisions, and `shibuya-core/src/Shibuya/Runner/Processor.hs` calls `ingested.ack.finalize decision` after every handler result. The queue-specific mechanics belong in adapters.
 - The `shibuya-pgmq-adapter` precedent is useful for semantics but not directly reusable code. Its `mkAckHandle` deletes on `AckOk`, changes visibility timeout on `AckRetry`, writes to a DLQ and deletes on `AckDeadLetter`, and changes visibility timeout on `AckHalt`. Kiroku is not a queue, so its equivalent mechanics are checkpoint, delay-and-redeliver-before-checkpoint, insert dead-letter plus checkpoint, and stop/cancel.
+
+- The shared test harness applied only the bootstrap migration. `Kiroku.Test.Postgres.migrateTestDatabase` read a single hard-coded bootstrap SQL path, so `kiroku-store` and `shibuya-kiroku-adapter` test databases were built from the bootstrap only — any forward migration (like `dead_letters`) was invisible to them, even though the dedicated `kiroku-store-migrations` codd test applies the full set. Fixed by making the harness list and concatenate every `*.sql` under `kiroku-store-migrations/sql-migrations` in filename order (the bootstrap's `SET search_path` carries into later files; the new migration is `kiroku.`-qualified anyway). This is a general improvement that benefits every future forward migration.
+
+- `embedDir` (file-embed, used by `kiroku-store-migrations`) does not trigger recompilation when a *new* file is added to the embedded directory — GHC's recompilation checker only tracks files that existed at the previous compile. The migration test failed spuriously until the `Kiroku.Store.Migrations` library object was rebuilt from clean. Real builds from clean are unaffected; this is only an incremental-build gotcha to note for the next person who adds a migration.
+
+- Both `kiroku-store` (via re-export) and `shibuya-core` export a type named `RetryDelay` and a type named `DeadLetterReason`. In the adapter and its tests, `shibuya-core`'s `RetryDelay` must be qualified (e.g. `Ack.RetryDelay`) to disambiguate from the Kiroku one. The dead-letter constructor names do not collide (`PoisonPill`/`InvalidPayload`/`MaxRetriesExceeded` vs `DeadLetterPoison`/`DeadLetterInvalid`/`DeadLetterMaxAttempts`/`DeadLetterOther`).
 
 
 ## Decision Log
@@ -150,7 +157,15 @@ This plan also has a **soft / integration dependency** on child plan 3, `docs/pl
 
 ## Outcomes & Retrospective
 
-Pending. At completion, summarize the final handler result constructors, retry policy defaults, dead-letter table schema, adapter bridge design, migration behavior, and exact test results.
+Shipped 2026-05-29.
+
+- **Handler result constructors.** `SubscriptionResult = Continue | Stop | Retry !RetryDelay | DeadLetter !DeadLetterReason`. `newtype RetryDelay = RetryDelay NominalDiffTime` (with `retryDelayMicros`). `DeadLetterReason = DeadLetterPoison !Text | DeadLetterInvalid !Text | DeadLetterMaxAttempts !Int | DeadLetterOther !Text !Value`, with `deadLetterSummary` (→ `reason_summary`) and `deadLetterReasonJson` (→ `reason` JSONB). All defined in `Kiroku.Store.Subscription.Fsm`, re-exported from `Subscription.Types` and `Observability`.
+- **Retry policy.** `newtype RetryPolicy = RetryPolicy { retryMaxAttempts :: Int }`, `defaultRetryPolicy = RetryPolicy 5`, added to `SubscriptionConfigM` (default inherited via `defaultSubscriptionConfig`). Attempts are in-memory and 1-based; the per-redelivery delay comes from each `Retry RetryDelay`. On exhaustion the worker dead-letters with `DeadLetterMaxAttempts`.
+- **FSM.** Added a surfaced `Retrying { cursor, attempt }` `SubscriptionState` (visible via `currentState`; `step`/`stateCursor` handle it exhaustively). Disposition mechanics live in the single delivery primitive `processEvents` (used by the FSM `DeliverBatch` effect and both live loops), not in new FSM `Input` constructors — see the M0 decision and the MasterPlan Surprises for the deviation rationale.
+- **Dead-letter schema.** `kiroku.dead_letters` (forward migration `2026-05-26-00-00-00-add-subscription-dead-letters.sql`), per consumer-group member, FK to `kiroku.events`. The atomic "insert dead-letter + advance checkpoint" is the single-statement CTE `SQL.insertDeadLetterAndCheckpointStmt`; if the insert fails the checkpoint does not advance.
+- **Adapter / bridge.** New ack-coupled `subscriptionAckStream` emits `AckItem { ackEvent, ackAttempt, ackReply }`; the worker blocks until the reply is filled. The adapter's `AckHandle.finalize` maps `AckOk→Continue`, `AckRetry delay→Retry`, `AckDeadLetter reason→DeadLetter` (reason translated to Kiroku-native), `AckHalt→cancel` (unchanged). `subscriptionStream` is reimplemented on the primitive (always replies `Continue`); its behavior is unchanged.
+- **Migration behavior.** codd applies the new forward migration after the bootstrap and is idempotent on re-run. The shared test harness (`Kiroku.Test.Postgres`) was updated to apply all migration files in order so non-codd test databases also get `dead_letters`.
+- **Test results.** `kiroku-store`: 172 examples, 0 failures (incl. dead-letter-advances-and-continues, retry-until-success, retry-exhaustion-dead-letters). `shibuya-kiroku-adapter`: 10 examples, 0 failures (incl. AckRetry-then-AckOk delivers twice; AckDeadLetter records and continues). `kiroku-store-migrations`: 1 example, 0 failures (asserts `kiroku.dead_letters` exists).
 
 
 ## Context and Orientation

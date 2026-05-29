@@ -37,6 +37,7 @@ main =
                     firstMigration `shouldBeSchemasNotVerified` "first migration run"
                     assertBootstrapApplied connStr
                     assertSchemaPlacement connStr
+                    assertDeadLettersTable connStr
                     assertDefaultUuidV7 connStr
 
                     withStore
@@ -160,6 +161,33 @@ placementStmt =
         \   AND to_regclass('public.subscriptions') IS NULL)"
         E.noParams
         (D.singleRow ((,) <$> D.column (D.nonNullable D.bool) <*> D.column (D.nonNullable D.bool)))
+
+{- | Assert that the forward migration installed the @kiroku.dead_letters@ table
+(MasterPlan 6 / EP-40) — proving codd applied the timestamped migration after the
+bootstrap, not only the bootstrap itself.
+-}
+assertDeadLettersTable :: Text -> IO ()
+assertDeadLettersTable connStr = do
+    pool <- Pool.acquire poolConfig
+    result <- Pool.use pool (Session.statement () deadLettersStmt)
+    Pool.release pool
+    case result of
+        Left err -> expectationFailure ("dead_letters verification query failed: " <> show err)
+        Right True -> pure ()
+        Right False -> expectationFailure "Kiroku migration did not create the kiroku.dead_letters table"
+  where
+    poolConfig =
+        Pool.Config.settings
+            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
+            , Pool.Config.size 1
+            ]
+
+deadLettersStmt :: Statement () Bool
+deadLettersStmt =
+    preparable
+        "SELECT to_regclass('kiroku.dead_letters') IS NOT NULL"
+        E.noParams
+        (D.singleRow (D.column (D.nonNullable D.bool)))
 
 assertDefaultUuidV7 :: Text -> IO ()
 assertDefaultUuidV7 connStr = do

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+* Forward migration `2026-05-26-00-00-00-add-subscription-dead-letters.sql`:
+  creates the `kiroku.dead_letters` table (per consumer-group member, with a
+  foreign key to `kiroku.events`) and its recency index, supporting per-event
+  dead-letter recording for subscriptions (MasterPlan 6 / plan 40).
+
 ## 0.1.0.0 — 2026-05-23
 
 ### New Features

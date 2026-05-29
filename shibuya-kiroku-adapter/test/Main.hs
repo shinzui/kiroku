@@ -8,9 +8,10 @@ import Control.Monad (unless)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (Value)
 import Data.Aeson qualified as Aeson
+import Data.Foldable (toList)
 import Data.Generics.Labels ()
 import Data.IORef (modifyIORef', newIORef, readIORef)
-import Data.Int (Int64)
+import Data.Int (Int32, Int64)
 import Data.List (sort)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
@@ -18,7 +19,10 @@ import Data.Text qualified as T
 import Data.Time (UTCTime (..), fromGregorian)
 import Data.UUID qualified as UUID
 import Effectful (runEff)
+import Hasql.Pool qualified as Pool
+import Hasql.Session qualified as Session
 import Kiroku.Store
+import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Test.Postgres (withMigratedTestDatabase, withSharedMigratedPostgres)
 import Shibuya.Adapter.Kiroku (KirokuAdapterConfig (..), kirokuAdapter)
 import Shibuya.Adapter.Kiroku.Convert (toEnvelope)
@@ -32,7 +36,8 @@ import Shibuya.App (
     stopAppGracefully,
  )
 import Shibuya.App qualified as Shibuya
-import Shibuya.Core.Ack (AckDecision (..))
+import Shibuya.Core.Ack (AckDecision (..), DeadLetterReason (..))
+import Shibuya.Core.Ack qualified as Ack
 import Shibuya.Core.Ingested (Ingested (..))
 import Shibuya.Core.Types (Envelope (..))
 import Shibuya.Runner.Metrics (ProcessorState (..))
@@ -358,6 +363,96 @@ main = withSharedMigratedPostgres $ hspec $ do
                             drained <- stopAppGracefully Shibuya.defaultShutdownConfig appHandle
                             liftIO $ drained `shouldBe` True
 
+        describe "ack dispositions" $ do
+            it "AckRetry redelivers the same event, then AckOk advances (EP-40 M3)" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "ackretry-1") NoStream [makeEvent "R1" (Aeson.object [])]
+                threadDelay 200_000
+
+                deliveries <- newIORef (0 :: Int)
+                countVar <- newTVarIO (0 :: Int)
+
+                runEff $ runTracingNoop $ do
+                    adapter <-
+                        kirokuAdapter
+                            store
+                            KirokuAdapterConfig
+                                { subscriptionName = SubscriptionName "ackretry-proj"
+                                , subscriptionTarget = AllStreams
+                                , batchSize = 100
+                                , bufferSize = 256
+                                , consumerGroup = Nothing
+                                }
+
+                    let handler _ingested = do
+                            n <- liftIO $ do
+                                modifyIORef' deliveries (+ 1)
+                                atomically $ do
+                                    c <- readTVar countVar
+                                    writeTVar countVar (c + 1)
+                                    pure (c + 1)
+                            -- Retry the first delivery, accept the second.
+                            pure (if n == 1 then AckRetry (Ack.RetryDelay 0) else AckOk)
+
+                    res <- runApp IgnoreFailures 100 [(ProcessorId "ackretry", mkProcessor adapter handler)]
+                    case res of
+                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                        Right appHandle -> do
+                            liftIO $ waitForCount countVar 2 10_000_000
+                            stopApp appHandle
+
+                -- The one event was delivered twice (initial + one retry).
+                n <- readIORef deliveries
+                n `shouldBe` 2
+                -- It was not dead-lettered (the retry succeeded).
+                dls <- readDeadLetters store "ackretry-proj"
+                length dls `shouldBe` 0
+
+            it "AckDeadLetter records the event and the next event continues (EP-40 M3)" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "ackdl-1") NoStream [makeEvent "D1" (Aeson.object [])]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "ackdl-2") NoStream [makeEvent "D2" (Aeson.object [])]
+                threadDelay 200_000
+
+                okPayloads <- newIORef ([] :: [RecordedEvent])
+                countVar <- newTVarIO (0 :: Int)
+
+                runEff $ runTracingNoop $ do
+                    adapter <-
+                        kirokuAdapter
+                            store
+                            KirokuAdapterConfig
+                                { subscriptionName = SubscriptionName "ackdl-proj"
+                                , subscriptionTarget = AllStreams
+                                , batchSize = 100
+                                , bufferSize = 256
+                                , consumerGroup = Nothing
+                                }
+
+                    let handler ingested = do
+                            n <- liftIO $ atomically $ do
+                                c <- readTVar countVar
+                                writeTVar countVar (c + 1)
+                                pure (c + 1)
+                            -- Dead-letter the first event; accept the second.
+                            if n == 1
+                                then pure (AckDeadLetter (PoisonPill "poison"))
+                                else do
+                                    liftIO $ modifyIORef' okPayloads (envelopePayload ingested :)
+                                    pure AckOk
+
+                    res <- runApp IgnoreFailures 100 [(ProcessorId "ackdl", mkProcessor adapter handler)]
+                    case res of
+                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                        Right appHandle -> do
+                            liftIO $ waitForCount countVar 2 10_000_000
+                            stopApp appHandle
+
+                -- The first event (global position 1) is recorded as dead-letter.
+                dls <- readDeadLetters store "ackdl-proj"
+                map SQL.deadLetterGlobalPosition dls `shouldBe` [1]
+                -- The second event was delivered and accepted.
+                oks <- readIORef okPayloads
+                map globalPos oks `shouldBe` [2]
+
         describe "consumer groups" $ do
             it "four-member group delivers a disjoint, complete partition of the stream" $ \store -> do
                 -- 20 streams × 2 events = 40 events, global positions 1..40, category "cg".
@@ -426,6 +521,14 @@ main = withSharedMigratedPostgres $ hspec $ do
 
 envelopePayload :: Ingested es RecordedEvent -> RecordedEvent
 envelopePayload ing = let Ingested{envelope = env} = ing in env ^. #payload
+
+-- | Read the dead letters recorded for a non-group subscription (member 0).
+readDeadLetters :: KirokuStore -> Text -> IO [SQL.DeadLetterRecord]
+readDeadLetters store subName = do
+    result <- Pool.use (store ^. #pool) (Session.statement (subName, 0 :: Int32) SQL.readDeadLettersStmt)
+    case result of
+        Left err -> error ("readDeadLetters failed: " <> show err)
+        Right v -> pure (toList v)
 
 -- | The raw global position of a recorded event (for disjoint/complete checks).
 globalPos :: RecordedEvent -> Int64

@@ -112,6 +112,31 @@ composite index created). See [Consumer Groups](consumer-groups.md).
 Subscriptions use `$all` global positions as their cursor, including category
 subscriptions.
 
+## `dead_letters`
+
+`dead_letters` records events that a subscription handler asked to dead-letter —
+either by returning a dead-letter disposition, or by exhausting its bounded retry
+budget. The event itself stays immutable in `kiroku.events`; a dead-letter row
+references it by `event_id` and `global_position` rather than copying the
+payload. When the worker records a dead letter it advances the subscription's
+checkpoint past the event in the same atomic statement, so the subscription never
+stalls on a poison event.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `dead_letter_id` | `BIGSERIAL PRIMARY KEY` | Surrogate id for the dead-letter row. |
+| `subscription_name` | `TEXT NOT NULL` | Subscription that dead-lettered the event. With `consumer_group_member` it attributes the row to the producing member. |
+| `consumer_group_member` | `INT NOT NULL DEFAULT 0` | Zero-based consumer-group member index (`0` for a non-group subscription), so a group's dead letters are per-member. |
+| `global_position` | `BIGINT NOT NULL` | `$all` global position of the dead-lettered event (the position the checkpoint advanced to). |
+| `event_id` | `UUID NOT NULL REFERENCES kiroku.events(event_id)` | The dead-lettered event. |
+| `reason` | `JSONB NOT NULL` | Structured reason (e.g. `{"kind":"poison","detail":"…"}`, `{"kind":"max_attempts_exceeded","attempts":n}`). |
+| `reason_summary` | `TEXT NOT NULL` | Short operator-facing summary of `reason`. |
+| `attempt_count` | `INT NOT NULL` | Number of delivery attempts made before dead-lettering. |
+| `created_at` | `TIMESTAMPTZ NOT NULL DEFAULT now()` | When the row was recorded. |
+
+The natural key `(subscription_name, consumer_group_member, global_position,
+event_id)` is unique, so re-recording the same dead letter is idempotent.
+
 ## Indexes
 
 | Index | Table | Purpose |
@@ -124,6 +149,7 @@ subscriptions.
 | `ix_events_correlation_id` | `events(correlation_id) WHERE correlation_id IS NOT NULL` | Supports correlation lookups. |
 | `ix_events_causation_id` | `events(causation_id) WHERE causation_id IS NOT NULL` | Supports causation-chain lookups. |
 | `ix_subscriptions_name_member` | `subscriptions(subscription_name, consumer_group_member)` | Composite unique checkpoint key — one row per consumer-group member under a shared subscription name. |
+| `ix_dead_letters_subscription_created_at` | `dead_letters(subscription_name, consumer_group_member, created_at)` | Operator read path: list a subscription member's dead letters by recency. |
 
 ## Triggers And Functions
 

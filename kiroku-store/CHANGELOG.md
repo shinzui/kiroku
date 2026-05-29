@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+### Added — per-event retry / dead-letter dispositions (plan 40)
+
+* `SubscriptionResult` gains two Kiroku-native dispositions:
+  `Retry RetryDelay` (redeliver the same event after a delay, bounded by the new
+  `SubscriptionConfig.retryPolicy`; default five attempts) and
+  `DeadLetter DeadLetterReason` (record the event in `kiroku.dead_letters` and
+  atomically advance the checkpoint past it). `RetryDelay`, `DeadLetterReason`,
+  `RetryPolicy`, and `defaultRetryPolicy` are exported from
+  `Kiroku.Store.Subscription.Types`; `RetryDelay` / `DeadLetterReason` live in
+  `Kiroku.Store.Subscription.Fsm` and are also re-exported from
+  `Kiroku.Store.Observability`.
+
+* `SubscriptionState` gains a surfaced `Retrying` observability state, visible
+  through the `currentState` handle accessor while a redelivery is pending. New
+  lifecycle events `KirokuEventSubscriptionRetrying` and
+  `KirokuEventSubscriptionDeadLettered`.
+
+* New ack-coupled Streamly bridge `subscriptionAckStream` (emitting `AckItem`
+  `{ event, attempt, reply }`); the consumer fills the reply to drive the
+  worker's per-event disposition. `subscriptionStream` is unchanged in behavior
+  (reimplemented on top of it, always replying `Continue`).
+
+* New `kiroku.dead_letters` schema (shipped by `kiroku-store-migrations`) and the
+  `SQL.insertDeadLetterAndCheckpointStmt` / `SQL.readDeadLettersStmt` statements;
+  the dead-letter insert and checkpoint advance run in one atomic statement.
+
 ### Changed — subscription worker driven by an explicit FSM (plan 41)
 
 * The subscription worker is now driven by an explicit finite state machine
