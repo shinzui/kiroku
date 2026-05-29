@@ -60,7 +60,7 @@ Alternatives considered and rejected: (a) a single mega-ExecPlan — rejected be
 |---|-------|------|-----------|-----------|--------|
 | 1 | Explicit subscription-worker finite state machine with recoverable backpressure and live reconnect | docs/plans/41-explicit-subscription-worker-finite-state-machine-with-recoverable-backpressure-and-live-reconnect.md | None | None | Complete |
 | 2 | Per-event retry / dead-letter for kiroku subscriptions and the shibuya-kiroku-adapter | docs/plans/40-per-event-retry-and-dead-letter-for-kiroku-subscriptions-and-the-shibuya-adapter.md | EP-1 | EP-3 | Complete |
-| 3 | Wire kiroku consumer groups into the Shibuya partitioned-ordering policy model | docs/plans/42-wire-kiroku-consumer-groups-into-the-shibuya-partitioned-ordering-policy-model.md | None | EP-1 | In Progress |
+| 3 | Wire kiroku consumer groups into the Shibuya partitioned-ordering policy model | docs/plans/42-wire-kiroku-consumer-groups-into-the-shibuya-partitioned-ordering-policy-model.md | None | EP-1 | Complete |
 | 4 | Per-subscription event-type filtering through the worker, Streamly bridge, and Shibuya adapter | docs/plans/43-per-subscription-event-type-filtering-through-the-worker-streamly-bridge-and-shibuya-adapter.md | None | EP-1 | Not Started |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
@@ -109,9 +109,9 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 - [x] EP-2 (retry/DL): M2 — `kiroku.dead_letters` forward migration + atomic insert-and-checkpoint / read SQL statements; `docs/user/schema.md` updated. (Done 2026-05-29.)
 - [x] EP-2 (retry/DL): M3 — ack-coupled Streamly bridge (`subscriptionAckStream`/`AckItem`) + Shibuya adapter `AckOk`/`AckRetry`/`AckDeadLetter`/`AckHalt` mapping via `AckHandle.finalize`. (Done 2026-05-29.)
 - [x] EP-2 (retry/DL): M4 — tests, docs, changelogs across the three packages; test-harness fix to apply all forward migrations. (Done 2026-05-29: kiroku-store 172, adapter 10, migrations 1 — all 0 failures.)
-- [ ] EP-3 (partitioning): M1 — map a kiroku `ConsumerGroup` onto Shibuya `Ordering`/`Concurrency`; reject invalid combinations early.
-- [ ] EP-3 (partitioning): M2 — adapter presents a whole group as one `PartitionedInOrder` source (member-aware bridge), no manual N-adapter wiring.
-- [ ] EP-3 (partitioning): M3 — end-to-end test: a size-N group through the adapter delivers a disjoint, per-stream-ordered partition per member whose union is complete.
+- [x] EP-3 (partitioning): M1 — map a kiroku `ConsumerGroup` onto Shibuya `Ordering`/`Concurrency`; reject invalid combinations early. (Done 2026-05-29: `consumerGroupPolicy` reuses `validatePolicy StrictInOrder`; `Serial` → `(PartitionedInOrder, Serial)`, `Ahead`/`Async` → `InvalidPolicyCombo`. `KirokuConsumerGroupConfig`/`defaultConsumerGroupConfig` added.)
+- [x] EP-3 (partitioning): M2 — adapter presents a whole group as one `PartitionedInOrder` source, no manual N-adapter wiring. (Done 2026-05-29: `kirokuConsumerGroupProcessors` yields `N` policy-pinned `QueueProcessor`s with `ProcessorId "<name>-member-<m>"`; one Shibuya processor **per member** — not a member-aware bridge — per the routing finding. No `shibuya-core` changes; bridge unchanged.)
+- [x] EP-3 (partitioning): M3 — end-to-end test: a size-N group through the adapter delivers a disjoint, complete partition whose union is `[1..total]`. (Done 2026-05-29: `15 examples, 0 failures`; size-4 group, one call, 20 streams × 2 events → `sort positions == [1..40]` with no duplicates, all 20 streams covered, `Async` rejected before any subscription opens. Per-member sets asserted at the union level — see EP-42 Decision Log.)
 - [ ] EP-4 (filtering): M1 — add an event-type-filter field to `SubscriptionConfigM` (default: all types) and apply it in the FSM delivery transition; filtered-out events advance the checkpoint without delivery.
 - [ ] EP-4 (filtering): M2 — surface the filter through the Streamly bridge and the Shibuya adapter config (forwarded; no bridge/element-type change).
 - [ ] EP-4 (filtering): M3 — tests: a selective subscription delivers only matching types, never stalls on a long run of non-matching events (checkpoint advances), and a filtered-out event is not dead-lettered even when the handler would.
@@ -133,6 +133,23 @@ interactions between child plans. Provide concise evidence.
 - EP-2 (retry/dead-letter) shipped (2026-05-29). It deviates from one Integration Point and surfaces two cross-plan findings:
   - **Disposition mechanics live in the driver's delivery primitive, not in new FSM `Input` constructors.** The Integration Point envisioned EP-2 adding retry/dead-letter `Input` constructors that drive `step`. Instead, EP-2 added the `Retry`/`DeadLetter` `SubscriptionResult` constructors and a surfaced `Retrying` `SubscriptionState`, and implemented the bounded-retry + atomic-dead-letter mechanics inside the single delivery primitive `processEvents` (shared by the FSM `DeliverBatch` effect and the Category / consumer-group live loops). Rationale: a fully `step`-driven design would have to thread whole-batch vectors through the FSM alphabet and would split disposition handling across the FSM path (AllStreams) and the imperative live loops (Category / consumer-group), duplicating it; one primitive keeps behavior identical on every path. The compile-time safety the MasterPlan valued is preserved differently but fully: adding the `SubscriptionResult` constructors forces a compile error at every `case`-on-`SubscriptionResult` site, and adding the `Retrying` state forces one in `step`/`stateCursor` (both `-Werror=incomplete-patterns`). **Impact on EP-4:** the filter-before-delivery ordering still holds trivially — the filter must be applied inside `processEvents` *before* the `handler config event` call, which is the one place delivery happens; a filtered-out event never reaches the disposition logic. EP-4 should place its filter at the top of `processEvents`'s per-event loop (before `handler`), advancing the cursor without delivering.
   - **The shared test harness only applied the bootstrap migration.** `kiroku-test-support`'s `Kiroku.Test.Postgres.migrateTestDatabase` was bootstrap-only, so `kiroku-store` / adapter test databases did not get forward migrations. EP-2 changed it to apply every `sql-migrations/*.sql` in filename order. **Impact on EP-4:** if EP-4 adds a migration (it should not need to — its filter is in-memory, worker-side), the harness now picks it up automatically; either way EP-4 inherits a harness that reflects the full schema.
+
+- EP-3 (partitioning) shipped (2026-05-29). Adapter-only, exactly as scoped; one finding for EP-4:
+  - **A new whole-group config record exists that EP-4 must also extend.** EP-3 added
+    `KirokuConsumerGroupConfig` (and `defaultConsumerGroupConfig`) in
+    `shibuya-kiroku-adapter/src/Shibuya/Adapter/Kiroku.hs`, distinct from `KirokuAdapterConfig`. Per
+    this MasterPlan's Integration Points, EP-4 adds an event-type-filter field to *both* the adapter
+    config and "the consumer-group config that child plan 3 introduces" — that record is now
+    `KirokuConsumerGroupConfig`. EP-4 must add its filter field there too and have
+    `kirokuConsumerGroupProcessors` forward it into each per-member `KirokuAdapterConfig` (the helper
+    builds one per member), so a filtered partitioned group behaves like a filtered single
+    subscription. The fields are duplicated across the two records under `DuplicateRecordFields`;
+    EP-4's additions are purely additive.
+  - **The helper takes a single shared `Handler es RecordedEvent`** and a Shibuya handler never sees
+    its `ProcessorId`/member; this is why EP-3's e2e test asserts the disjoint+complete partition at
+    the union level (no duplicate global position ⇔ disjoint; `== [1..40]` ⇔ complete) rather than
+    per member. Not a constraint on EP-4 (its filter is worker-side, upstream of the handler), but
+    noted for anyone extending the e2e tests.
 
 - Shibuya does not route by partition key, which forces the adapter shape and removes a presumed bridge dependency. Child plan 3's research read `shibuya-core/src/Shibuya/Runner/Supervised.hs` and found that the runner collapses `Concurrency` to a single integer and runs `parMapM` over one inbox: `Async n` is **unkeyed** fan-out with no per-partition affinity, and `Envelope.partition` is used only as an OpenTelemetry attribute. Consequently a single Shibuya processor cannot honor kiroku's per-stream ordering, and the adapter must run **one Shibuya processor per kiroku member** (each member's own processor is `StrictInOrder` + `Serial`; the group is labelled `PartitionedInOrder`). This is why child plan 3 needs no change to the Streamly bridge and why child plan 2 solely owns the ack-coupled bridge item (`{ event, attempt, reply }`). Evidence: `validatePolicy StrictInOrder (Async _)` returns `Left (InvalidPolicyCombo ...)` in `shibuya-core/src/Shibuya/Policy.hs`, and `processUntilDrained`'s `maxConc` handling in `Runner/Supervised.hs`.
 
