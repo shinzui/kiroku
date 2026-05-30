@@ -218,11 +218,21 @@ acknowledged so the checkpoint advances past them.
   **both** (new `shouldDeliver` helper, logical AND); a selector-rejected event
   obeys the same no-stall / checkpoint-advances invariant and, being applied in
   `processEvents` before the handler, is never retried or dead-lettered.
-  `selector` is intentionally not forwarded through the Shibuya adapter (it is a
-  native-subscription escape hatch); that forwarding stays trivially additive.
   Tests: two new cases in `Test.EventTypeFilter` (selector no-stall over a payload
   tag; AND composition with `eventTypeFilter`). `kiroku-store-test` 178 examples,
   0 failures.
+  Date: 2026-05-30.
+
+- Decision (follow-up): Forward `selector` through the Shibuya adapter
+  (`KirokuAdapterConfig` and `KirokuConsumerGroupConfig`), alongside the
+  already-forwarded `eventTypeFilter`, in a separate commit.
+  Rationale: User direction — the adapter is the path most users take, so the
+  escape hatch should be reachable there. Threaded into each per-member
+  `KirokuAdapterConfig` for groups (same predicate on every member). No
+  `shibuya-core` changes; `Convert.hs`/`AckHandle` untouched (filtering stays
+  worker-side). Test: a single-adapter selector delivery case (all type `A`,
+  payload-tagged keep/skip → only the keeps delivered).
+  `shibuya-kiroku-adapter-test` 18 examples, 0 failures.
   Date: 2026-05-30.
 
 - Decision: The plan carries a **soft dependency on EP-41** (the subscription FSM,

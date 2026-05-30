@@ -18,6 +18,22 @@
   `InvalidPolicyCombo` before any subscription opens.
 * No `shibuya-core` changes: the helper only consumes existing exports.
 
+### Added — event-type filter and selector forwarding (plan 43)
+
+* `KirokuAdapterConfig` and `KirokuConsumerGroupConfig` gain an `eventTypeFilter`
+  field (`AllEventTypes` / `OnlyEventTypes (Set EventType)`, default
+  `AllEventTypes`), forwarded into the underlying subscription so the adapter
+  delivers only the chosen event types. Filtering is worker-side, ahead of the
+  ack-coupled bridge, so a filtered-out event never reaches the Shibuya handler,
+  is never retried or dead-lettered, and the checkpoint still advances past it.
+  `EventTypeFilter (..)` is re-exported.
+* Both config records also gain an optional `selector :: Maybe (RecordedEvent ->
+  Bool)` field (default `Nothing`) — the opaque escape hatch for filtering on a
+  property the type set cannot express (payload, metadata, correlation ids). It
+  composes with `eventTypeFilter` as a logical AND and is applied worker-side
+  with the same no-stall / checkpoint-advances guarantee. For a consumer group
+  the same predicate is applied to every member.
+
 ### Changed — ack decisions now drive Kiroku checkpointing (plan 40)
 
 * The adapter bridges through `kiroku-store`'s ack-coupled

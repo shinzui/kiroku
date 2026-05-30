@@ -188,6 +188,18 @@ data KirokuAdapterConfig = KirokuAdapterConfig
     advances past it. 'Shibuya.Adapter.Kiroku.Convert' and the 'AckHandle' are
     unaffected.
     -}
+    , selector :: !(Maybe (RecordedEvent -> Bool))
+    {- ^ Optional opaque per-event predicate, the escape hatch for filtering this
+    adapter's stream on a property 'eventTypeFilter' cannot express (e.g.
+    payload, metadata, or correlation\/causation ids). Default 'Nothing' (no
+    extra filtering). Forwarded into the underlying subscription and composed
+    with 'eventTypeFilter' as a logical AND: an event reaches the Shibuya handler
+    only when it passes both. Like 'eventTypeFilter' it is applied worker-side
+    before the ack-coupled bridge, so a rejected event is never retried or
+    dead-lettered and the checkpoint still advances past it. See
+    'Kiroku.Store.Subscription.Types.selector' for when to prefer it over the
+    introspectable 'eventTypeFilter'.
+    -}
     }
 
 {- | Create a Shibuya 'Adapter' backed by a Kiroku subscription.
@@ -212,7 +224,7 @@ kirokuAdapter ::
     KirokuStore ->
     KirokuAdapterConfig ->
     Eff es (Adapter es RecordedEvent)
-kirokuAdapter store (KirokuAdapterConfig subName subTarget bs buf cg etf) = do
+kirokuAdapter store (KirokuAdapterConfig subName subTarget bs buf cg etf sel) = do
     -- Build from 'defaultSubscriptionConfig' and override only the non-default
     -- fields. Using the smart constructor (rather than a full record literal)
     -- means any future field added to 'SubscriptionConfigM' is inherited at its
@@ -224,6 +236,7 @@ kirokuAdapter store (KirokuAdapterConfig subName subTarget bs buf cg etf) = do
                 , overflowPolicy = DropSubscription
                 , consumerGroup = cg
                 , eventTypeFilter = etf
+                , selector = sel
                 }
 
     (ioStream, cancelAction) <- liftIO $ subscriptionAckStream store subConfig buf
@@ -282,12 +295,23 @@ data KirokuConsumerGroupConfig = KirokuConsumerGroupConfig
     filtered events, and the partition's completeness is preserved over the
     delivered types.
     -}
+    , selector :: !(Maybe (RecordedEvent -> Bool))
+    {- ^ Optional opaque per-event predicate applied to /every/ member (the same
+    predicate on each), the escape hatch for filtering a property
+    'eventTypeFilter' cannot express. Default 'Nothing'. Forwarded into each
+    per-member 'KirokuAdapterConfig' and composed with 'eventTypeFilter' as a
+    logical AND, so a selector-filtered partitioned group behaves like a
+    selector-filtered single subscription (worker-side, per member, checkpoint
+    still advances past rejected events). See
+    'Kiroku.Store.Subscription.Types.selector'.
+    -}
     }
 
 {- | A 'KirokuConsumerGroupConfig' with sensible defaults: @memberConcurrency =
 'Serial'@ (the only legal per-member concurrency), @batchSize = 100@,
-@bufferSize = 256@, @eventTypeFilter = 'AllEventTypes'@ (deliver every type).
-Supply the subscription name, target, and group size.
+@bufferSize = 256@, @eventTypeFilter = 'AllEventTypes'@ (deliver every type),
+@selector = 'Nothing'@ (no extra predicate filtering). Supply the subscription
+name, target, and group size.
 -}
 defaultConsumerGroupConfig ::
     SubscriptionName -> SubscriptionTarget -> Int32 -> KirokuConsumerGroupConfig
@@ -300,6 +324,7 @@ defaultConsumerGroupConfig name target n =
         , bufferSize = 256
         , memberConcurrency = Serial
         , eventTypeFilter = AllEventTypes
+        , selector = Nothing
         }
 
 {- | Map a requested per-member concurrency onto the group's validated Shibuya
@@ -354,6 +379,7 @@ kirokuConsumerGroupProcessors
         , bufferSize = buf
         , memberConcurrency = mc
         , eventTypeFilter = etf
+        , selector = sel
         }
     handler =
         case consumerGroupPolicy mc of
@@ -373,6 +399,7 @@ kirokuConsumerGroupProcessors
                                         , bufferSize = buf
                                         , consumerGroup = Just (ConsumerGroup{member = m, size = n})
                                         , eventTypeFilter = etf
+                                        , selector = sel
                                         }
                             let pid = ProcessorId (name <> "-member-" <> T.pack (show m))
                             -- Built directly (not via 'mkProcessor', which hardcodes

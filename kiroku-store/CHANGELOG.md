@@ -47,7 +47,9 @@
   the closed sum stays introspectable, `Eq`/`Show`-able, and SQL-pushdown-able,
   while the selector covers arbitrary predicates. The two compose as a logical
   AND via the new `shouldDeliver` helper (an event is delivered only when it
-  passes both), with the same no-stall / checkpoint-advances guarantee.
+  passes both), with the same no-stall / checkpoint-advances guarantee. Both
+  `eventTypeFilter` and `selector` are forwarded through the Shibuya adapter
+  (`KirokuAdapterConfig` / `KirokuConsumerGroupConfig`).
 
 ### Changed — subscription worker driven by an explicit FSM (plan 41)
 

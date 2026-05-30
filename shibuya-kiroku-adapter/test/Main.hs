@@ -127,6 +127,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , bufferSize = 256
                                 , consumerGroup = Nothing
                                 , eventTypeFilter = OnlyEventTypes (Set.fromList [EventType "A"])
+                                , selector = Nothing
                                 }
                     let handler ingested = do
                             liftIO $ do
@@ -173,6 +174,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , bufferSize = 256
                                 , memberConcurrency = Serial
                                 , eventTypeFilter = OnlyEventTypes (Set.fromList [EventType "A"])
+                                , selector = Nothing
                                 }
                         handler ingested = do
                             liftIO $ do
@@ -199,6 +201,53 @@ main = withSharedMigratedPostgres $ hspec $ do
                 -- positions [1,3,..,39] — no A dropped, none delivered twice.
                 sort (map globalPos collected) `shouldBe` [1, 3 .. 39]
 
+            it "delivers only events matching an opaque selector (EP-43 follow-up)" $ \store -> do
+                -- All one type "A" (so eventTypeFilter cannot distinguish them);
+                -- only the payload tag {keep} differs. keep, skip, keep, skip, keep
+                -- at positions 1..5. The selector admits only keep=True.
+                let keepObj = Aeson.object [("keep", Aeson.Bool True)]
+                    skipObj = Aeson.object [("keep", Aeson.Bool False)]
+                    events =
+                        [ makeEvent "A" keepObj
+                        , makeEvent "A" skipObj
+                        , makeEvent "A" keepObj
+                        , makeEvent "A" skipObj
+                        , makeEvent "A" keepObj
+                        ]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "sel-adapter-1") NoStream events
+                ref <- newIORef ([] :: [RecordedEvent])
+                countVar <- newTVarIO (0 :: Int)
+                runEff $ runTracingNoop $ do
+                    adapter <-
+                        kirokuAdapter store $
+                            KirokuAdapterConfig
+                                { subscriptionName = SubscriptionName "sel-adapter"
+                                , subscriptionTarget = AllStreams
+                                , batchSize = 100
+                                , bufferSize = 256
+                                , consumerGroup = Nothing
+                                , eventTypeFilter = AllEventTypes
+                                , selector = Just (\e -> (e ^. #payload) == keepObj)
+                                }
+                    let handler ingested = do
+                            liftIO $ do
+                                modifyIORef' ref (envelopePayload ingested :)
+                                atomically $ do
+                                    c <- readTVar countVar
+                                    writeTVar countVar (c + 1)
+                            pure AckOk
+                    res <- runApp IgnoreFailures 100 [(ProcessorId "sel", mkProcessor adapter handler)]
+                    case res of
+                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                        Right appHandle -> do
+                            liftIO $ waitForCount countVar 3 10_000_000
+                            stopApp appHandle
+
+                collected <- readIORef ref
+                -- Only the three keep events reached the handler (positions 1,3,5);
+                -- the two skip events were filtered worker-side and never delivered.
+                map globalPos (reverse collected) `shouldBe` [1, 3, 5]
+
             it "delivers catch-up events through Shibuya pipeline" $ \store -> do
                 let events = map (\i -> makeEvent ("CU" <> T.pack (show i)) (Aeson.object [])) [1 .. 10 :: Int]
                 Right _ <- runStoreIO store $ appendToStream (StreamName "shibuya-catchup-1") NoStream events
@@ -218,6 +267,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , bufferSize = 256
                                 , consumerGroup = Nothing
                                 , eventTypeFilter = AllEventTypes
+                                , selector = Nothing
                                 }
 
                     let handler ingested = do
@@ -253,6 +303,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , bufferSize = 256
                                 , consumerGroup = Nothing
                                 , eventTypeFilter = AllEventTypes
+                                , selector = Nothing
                                 }
 
                     let handler ingested = do
@@ -304,6 +355,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                     , bufferSize = 256
                                     , consumerGroup = Nothing
                                     , eventTypeFilter = AllEventTypes
+                                    , selector = Nothing
                                     }
                     let mkHandler ref' cVar ingested = do
                             liftIO $ do
@@ -362,6 +414,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , bufferSize = 256
                                 , consumerGroup = Nothing
                                 , eventTypeFilter = AllEventTypes
+                                , selector = Nothing
                                 }
                     badAdapter <-
                         kirokuAdapter store $
@@ -372,6 +425,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , bufferSize = 256
                                 , consumerGroup = Nothing
                                 , eventTypeFilter = AllEventTypes
+                                , selector = Nothing
                                 }
                     otherAdapter <-
                         kirokuAdapter store $
@@ -382,6 +436,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , bufferSize = 256
                                 , consumerGroup = Nothing
                                 , eventTypeFilter = AllEventTypes
+                                , selector = Nothing
                                 }
 
                     let goodHandler ingested = do
@@ -449,6 +504,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , bufferSize = 256
                                 , consumerGroup = Nothing
                                 , eventTypeFilter = AllEventTypes
+                                , selector = Nothing
                                 }
                     adapterB <-
                         kirokuAdapter store $
@@ -459,6 +515,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , bufferSize = 256
                                 , consumerGroup = Nothing
                                 , eventTypeFilter = AllEventTypes
+                                , selector = Nothing
                                 }
 
                     let handlerA _ingested = do
@@ -508,6 +565,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , bufferSize = 256
                                 , consumerGroup = Nothing
                                 , eventTypeFilter = AllEventTypes
+                                , selector = Nothing
                                 }
 
                     let handler _ingested = do
@@ -553,6 +611,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , bufferSize = 256
                                 , consumerGroup = Nothing
                                 , eventTypeFilter = AllEventTypes
+                                , selector = Nothing
                                 }
 
                     let handler ingested = do
@@ -612,6 +671,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                         , bufferSize = 256
                                         , consumerGroup = Just (ConsumerGroup{member = m, size = 4})
                                         , eventTypeFilter = AllEventTypes
+                                        , selector = Nothing
                                         }
                             )
                             [0, 1, 2, 3]
