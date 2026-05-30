@@ -23,6 +23,9 @@ module Shibuya.Adapter.Kiroku.Convert (
     toIngestedAck,
     toEnvelope,
 
+    -- * Envelope attribute source
+    KirokuEnvelopeAttrs (..),
+
     -- * Ack-decision translation
     toKirokuResult,
     toKirokuDeadLetterReason,
@@ -33,7 +36,10 @@ import Control.Monad (void)
 import Data.Aeson (Value (..))
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
+import Data.HashMap.Strict (HashMap)
 import Data.HashMap.Strict qualified as HashMap
+import Data.Int (Int64)
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
 import Data.UUID qualified as UUID
@@ -46,14 +52,33 @@ import Kiroku.Store.Subscription.Types (
  )
 import Kiroku.Store.Types (
     EventId (..),
+    EventType (..),
     GlobalPosition (..),
     RecordedEvent (..),
  )
+import OpenTelemetry.Attributes (Attribute, toAttribute)
 import Shibuya.Core.Ack (AckDecision (..))
 import Shibuya.Core.Ack qualified as Ack
 import Shibuya.Core.AckHandle (AckHandle (..))
 import Shibuya.Core.Ingested (Ingested (..))
 import Shibuya.Core.Types (Attempt (..), Cursor (..), Envelope (..), MessageId (..), TraceHeaders)
+
+{- | The kiroku identity to stamp onto each Shibuya 'Envelope' as OpenTelemetry
+attributes, so the kiroku subscription is visible on Shibuya's per-message span.
+
+The subscription name and consumer-group member are not carried on a
+'RecordedEvent'; they are known only at the adapter-config level, so the adapter
+threads them in through this value. The event type and global position come from
+the 'RecordedEvent' itself.
+-}
+data KirokuEnvelopeAttrs = KirokuEnvelopeAttrs
+    { subscriptionName :: !Text
+    -- ^ The subscription's name (@kiroku.subscription.name@).
+    , member :: !(Maybe Int)
+    {- ^ The consumer-group member index (@kiroku.consumer_group.member@), or
+    'Nothing' for a non-grouped subscription.
+    -}
+    }
 
 {- | Wrap an ack-coupled 'AckItem' (from @kiroku-store@'s 'subscriptionAckStream')
 into an 'Ingested' value suitable for Shibuya handlers.
@@ -77,10 +102,10 @@ call is a no-op.
 The envelope's @attempt@ is set from the item's redelivery counter so a Shibuya
 handler can observe how many times Kiroku has redelivered the event.
 -}
-toIngestedAck :: (IOE :> es) => IO () -> AckItem -> Ingested es RecordedEvent
-toIngestedAck cancelAction (AckItem event attempt reply) =
+toIngestedAck :: (IOE :> es) => KirokuEnvelopeAttrs -> IO () -> AckItem -> Ingested es RecordedEvent
+toIngestedAck attrs cancelAction (AckItem event attempt reply) =
     Ingested
-        { envelope = (toEnvelope event){attempt = Just (Attempt attempt)}
+        { envelope = (toEnvelope attrs event){attempt = Just (Attempt attempt)}
         , ack =
             AckHandle
                 { finalize = \case
@@ -117,11 +142,14 @@ toKirokuDeadLetterReason attempt = \case
 {- | Convert a 'RecordedEvent' to a Shibuya 'Envelope'.
 
 The event's UUID is formatted as text for the 'MessageId', and the
-global position is used as an integer 'Cursor' for ordering.
+global position is used as an integer 'Cursor' for ordering. The 'Envelope's
+@attributes@ are populated with the kiroku identity (subscription name,
+consumer-group member, event type, global position) from 'KirokuEnvelopeAttrs'
+and the event, so Shibuya's per-message span carries the kiroku context.
 -}
-toEnvelope :: RecordedEvent -> Envelope RecordedEvent
-toEnvelope event =
-    let RecordedEvent{eventId = EventId uuid, globalPosition = GlobalPosition pos, createdAt = ts, metadata = meta} = event
+toEnvelope :: KirokuEnvelopeAttrs -> RecordedEvent -> Envelope RecordedEvent
+toEnvelope attrs event =
+    let RecordedEvent{eventId = EventId uuid, eventType = EventType etype, globalPosition = GlobalPosition pos, createdAt = ts, metadata = meta} = event
      in Envelope
             { messageId = MessageId (T.pack (UUID.toString uuid))
             , cursor = Just (CursorInt (fromIntegral pos))
@@ -129,9 +157,27 @@ toEnvelope event =
             , enqueuedAt = Just ts
             , traceContext = metadataTraceContext meta
             , attempt = Nothing
-            , attributes = HashMap.empty
+            , attributes = kirokuEnvelopeAttributes attrs etype pos
             , payload = event
             }
+
+{- | Build the @kiroku.*@ OpenTelemetry attribute map stamped onto a Shibuya
+'Envelope'. Keys mirror the native-span attribute keys in
+@Kiroku.Otel.Subscription@ so a trace reads consistently across the kiroku and
+Shibuya sides. The consumer-group member is included only for a grouped
+subscription.
+-}
+kirokuEnvelopeAttributes :: KirokuEnvelopeAttrs -> Text -> Int64 -> HashMap Text Attribute
+kirokuEnvelopeAttributes KirokuEnvelopeAttrs{subscriptionName, member} etype pos =
+    HashMap.fromList $
+        [ ("kiroku.subscription.name", toAttribute subscriptionName)
+        , ("kiroku.event.type", toAttribute etype)
+        , ("kiroku.event.global_position", toAttribute pos)
+        ]
+            ++ maybe
+                []
+                (\m -> [("kiroku.consumer_group.member", toAttribute (fromIntegral m :: Int64))])
+                member
 
 metadataTraceContext :: Maybe Value -> Maybe TraceHeaders
 metadataTraceContext (Just (Object metadata)) = do

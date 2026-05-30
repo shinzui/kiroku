@@ -10,6 +10,7 @@ import Data.Aeson (Value)
 import Data.Aeson qualified as Aeson
 import Data.Foldable (toList)
 import Data.Generics.Labels ()
+import Data.HashMap.Strict qualified as HashMap
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.Int (Int32, Int64)
 import Data.List (nub, sort)
@@ -25,6 +26,7 @@ import Hasql.Session qualified as Session
 import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Test.Postgres (withMigratedTestDatabase, withSharedMigratedPostgres)
+import OpenTelemetry.Attributes (toAttribute)
 import Shibuya.Adapter.Kiroku (
     consumerGroupPolicy,
     defaultConsumerGroupConfig,
@@ -32,7 +34,7 @@ import Shibuya.Adapter.Kiroku (
     kirokuAdapter,
     kirokuConsumerGroupProcessors,
  )
-import Shibuya.Adapter.Kiroku.Convert (toEnvelope)
+import Shibuya.Adapter.Kiroku.Convert (KirokuEnvelopeAttrs (..), toEnvelope)
 import Shibuya.App (
     ProcessorId (..),
     QueueProcessor (..),
@@ -64,6 +66,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                 tracestate = "rojo=00f067aa0ba902b7"
                 Envelope{traceContext} =
                     toEnvelope
+                        sampleEnvelopeAttrs
                         ( makeRecordedEvent
                             ( Just $
                                 Aeson.object
@@ -82,12 +85,33 @@ main = withSharedMigratedPostgres $ hspec $ do
 
         it "omits trace headers when traceparent is absent or not a string" $ do
             let Envelope{traceContext = missingTraceparent} =
-                    toEnvelope (makeRecordedEvent (Just (Aeson.object ["tracestate" Aeson..= ("state" :: Text)])))
+                    toEnvelope sampleEnvelopeAttrs (makeRecordedEvent (Just (Aeson.object ["tracestate" Aeson..= ("state" :: Text)])))
                 Envelope{traceContext = nonStringTraceparent} =
-                    toEnvelope (makeRecordedEvent (Just (Aeson.object ["traceparent" Aeson..= Aeson.Number 1])))
+                    toEnvelope sampleEnvelopeAttrs (makeRecordedEvent (Just (Aeson.object ["traceparent" Aeson..= Aeson.Number 1])))
 
             missingTraceparent `shouldBe` Nothing
             nonStringTraceparent `shouldBe` Nothing
+
+        it "stamps kiroku identity attributes for a non-grouped subscription (EP-5 M2)" $ do
+            let attrs = KirokuEnvelopeAttrs{subscriptionName = "orders-proj", member = Nothing}
+                Envelope{attributes} = toEnvelope attrs (makeRecordedEvent Nothing)
+            -- makeRecordedEvent: eventType "TraceEvent", globalPosition 1.
+            HashMap.lookup "kiroku.subscription.name" attributes
+                `shouldBe` Just (toAttribute ("orders-proj" :: Text))
+            HashMap.lookup "kiroku.event.type" attributes
+                `shouldBe` Just (toAttribute ("TraceEvent" :: Text))
+            HashMap.lookup "kiroku.event.global_position" attributes
+                `shouldBe` Just (toAttribute (1 :: Int64))
+            -- No member key for a non-grouped subscription.
+            HashMap.lookup "kiroku.consumer_group.member" attributes `shouldBe` Nothing
+
+        it "stamps the consumer-group member attribute for a grouped subscription (EP-5 M2)" $ do
+            let attrs = KirokuEnvelopeAttrs{subscriptionName = "orders-proj", member = Just 2}
+                Envelope{attributes} = toEnvelope attrs (makeRecordedEvent Nothing)
+            HashMap.lookup "kiroku.subscription.name" attributes
+                `shouldBe` Just (toAttribute ("orders-proj" :: Text))
+            HashMap.lookup "kiroku.consumer_group.member" attributes
+                `shouldBe` Just (toAttribute (2 :: Int64))
 
     describe "consumer group policy" $ do
         it "accepts Serial member concurrency as (PartitionedInOrder, Serial)" $
@@ -747,6 +771,12 @@ makeEvent typ p =
         , causationId = Nothing
         , correlationId = Nothing
         }
+
+{- | A throwaway attribute source for the trace-header tests, whose assertions
+do not depend on the kiroku identity attributes.
+-}
+sampleEnvelopeAttrs :: KirokuEnvelopeAttrs
+sampleEnvelopeAttrs = KirokuEnvelopeAttrs{subscriptionName = "test-sub", member = Nothing}
 
 makeRecordedEvent :: Maybe Value -> RecordedEvent
 makeRecordedEvent meta =

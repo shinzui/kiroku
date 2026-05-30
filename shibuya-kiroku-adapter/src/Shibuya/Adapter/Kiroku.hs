@@ -142,7 +142,7 @@ import Kiroku.Store.Subscription.Types (
 import Kiroku.Store.Types (RecordedEvent)
 import Numeric.Natural (Natural)
 import Shibuya.Adapter (Adapter (..))
-import Shibuya.Adapter.Kiroku.Convert (toIngestedAck)
+import Shibuya.Adapter.Kiroku.Convert (KirokuEnvelopeAttrs (..), toIngestedAck)
 import Shibuya.App (ProcessorId (..), QueueProcessor (..))
 import Shibuya.Core.Error (PolicyError (..))
 import Shibuya.Handler (Handler)
@@ -273,7 +273,16 @@ kirokuAdapter store (KirokuAdapterConfig subName subTarget bs buf cg etf sel) = 
 
     (ioStream, cancelAction) <- liftIO $ subscriptionAckStream store subConfig buf
 
-    let ingestedStream = fmap (toIngestedAck cancelAction) (Stream.morphInner liftIO ioStream)
+    -- The subscription name and consumer-group member are known only here (not on
+    -- the RecordedEvent), so thread them into the conversion as OTel attributes
+    -- that ride onto Shibuya's per-message span (EP-5 M2).
+    let SubscriptionName subNameText = subName
+        envAttrs =
+            KirokuEnvelopeAttrs
+                { subscriptionName = subNameText
+                , member = fmap (\ConsumerGroup{member = m} -> fromIntegral m) cg
+                }
+        ingestedStream = fmap (toIngestedAck envAttrs cancelAction) (Stream.morphInner liftIO ioStream)
 
     pure
         Adapter
