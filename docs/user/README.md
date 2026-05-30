@@ -2,9 +2,12 @@
 
 These guides cover Kiroku from an application author's point of view: how to
 open a store, write and read events, run subscriptions, and operate the
-system in production. For internal design notes see `docs/DESIGN.md` and
-`docs/IMPLEMENTATION.md`; for deployment and tuning see
-`docs/PRODUCTION-DEPLOYMENT.md` and `docs/PRODUCTION-TUNING.md`.
+system in production. They are **reference** docs, organized one topic per
+page. For **end-to-end, task-oriented walkthroughs** that compose these
+primitives into a working pattern — building a projection, coordinating a
+workflow — see [`docs/guides/`](../guides/README.md). For internal design
+notes see `docs/DESIGN.md` and `docs/IMPLEMENTATION.md`; for deployment and
+tuning see `docs/PRODUCTION-DEPLOYMENT.md` and `docs/PRODUCTION-TUNING.md`.
 
 ## Getting Started
 
