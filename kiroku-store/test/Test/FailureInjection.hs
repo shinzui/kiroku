@@ -79,6 +79,17 @@ spec = describe "kiroku-store failure injection" $ do
                 if c >= 1 then pure () else retry
             -- Find listener pid, terminate it. The listener loop
             -- will reconnect with a fresh pid.
+            --
+            -- NOTE: pg_terminate_backend is the "administrator command"
+            -- that makes PostgreSQL report
+            --   FATAL: terminating connection due to administrator command
+            -- on the targeted backend. The kiroku-listener's libpq socket
+            -- (inside hasql-notifications' waitForNotifications) receives
+            -- that as it dies, so that FATAL line on stderr during this
+            -- test is EXPECTED — it is the fault we are injecting, not a
+            -- connection leak or a teardown-ordering bug. (log_min_messages
+            -- is already PANIC, so this is the client seeing a server-
+            -- initiated termination, not server-side logging.)
             pid1 <- waitForListenerPid (store ^. #pool) 5_000_000
             terminateBackend (store ^. #pool) pid1
             -- Append the during-down-window event. No NOTIFY reaches
