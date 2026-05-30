@@ -163,12 +163,21 @@ Each `RecordedEvent` becomes a Shibuya `Envelope`:
 | `metadata.traceparent` (+ `tracestate`) | `traceContext` |
 | the event itself | `payload` |
 | redelivery counter | `attempt = Just (Attempt n)` (zero-based; how many times Kiroku has redelivered this event) |
+| the kiroku identity | `attributes` (`kiroku.subscription.name`, `kiroku.event.type`, `kiroku.event.global_position`, and `kiroku.consumer_group.member` for a group) |
 | — | `partition = Nothing` |
 
 The adapter preserves W3C trace context when `metadata` is a JSON object with
 a string `traceparent` key (and optional `tracestate`), so traces propagate
 from append into Shibuya processing. See [OpenTelemetry](opentelemetry.md)
 for how to populate that metadata on the append side.
+
+The `attributes` map carries the kiroku identity onto the per-message span that
+Shibuya opens (Shibuya merges `Envelope.attributes` into that span). Combined
+with the native subscription spans from `Kiroku.Otel.Subscription`, a single
+trace is followable from a kiroku subscription into Shibuya's processing —
+see [OpenTelemetry → Tracing Subscription State](opentelemetry.md#tracing-subscription-state).
+The keys match the native spans' keys, so both sides of the trace read
+consistently.
 
 ## Dependencies
 

@@ -125,6 +125,11 @@ Use it for a liveness/health probe (e.g. report a subscription as degraded
 while it sits in `Paused` or `Reconnecting`). See
 [Subscriptions](subscriptions.md#worker-states) for the state meanings.
 
+To turn this same transition stream into OpenTelemetry spans (catch-up, pause,
+reconnect, retry, dead-letter), install the ready-made handler from
+`Kiroku.Otel.Subscription` as your `eventHandler` — see
+[OpenTelemetry → Tracing Subscription State](opentelemetry.md#tracing-subscription-state).
+
 ## Connection-Pool Observations
 
 `observationHandler` forwards `hasql-pool`'s `Observation` values —
@@ -159,5 +164,6 @@ A practical pattern:
 ## See Also
 
 - [Subscriptions](subscriptions.md) — the lifecycle these events report on.
-- [OpenTelemetry](opentelemetry.md) — per-event trace context.
+- [OpenTelemetry](opentelemetry.md) — per-event trace context, and turning the
+  subscription FSM into spans via `Kiroku.Otel.Subscription`.
 - [Stream Lifecycle](lifecycle.md) — the hard-delete audit pattern.

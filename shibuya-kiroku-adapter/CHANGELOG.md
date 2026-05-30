@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Added — kiroku identity on envelope attributes for end-to-end tracing (MasterPlan 6 EP-5)
+
+* `Envelope.attributes` (previously always empty) is now populated with the
+  kiroku identity so it appears on Shibuya's per-message span:
+  `kiroku.subscription.name`, `kiroku.event.type`, `kiroku.event.global_position`,
+  and — for a consumer-group member — `kiroku.consumer_group.member`. Combined
+  with `kiroku-otel`'s native subscription spans, a single trace is followable
+  from a kiroku subscription into Shibuya's processing; the keys match on both
+  sides.
+* `Shibuya.Adapter.Kiroku.Convert` exposes `KirokuEnvelopeAttrs`; `toEnvelope`
+  and `toIngestedAck` take it. `kirokuAdapter` derives the subscription name and
+  member from its config, so the single-adapter and consumer-group paths are both
+  covered. No `shibuya-core` change; the ack-handle logic and trace-context
+  propagation are unchanged.
+
 ### Added — `defaultKirokuAdapterConfig` smart constructor
 
 * `defaultKirokuAdapterConfig name target` builds a `KirokuAdapterConfig` with

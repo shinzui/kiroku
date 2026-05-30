@@ -33,7 +33,7 @@ This section must always reflect the actual current state of the work.
 
 - [x] M1 — `kiroku-otel`: new `Kiroku.Otel.Subscription` module turning `KirokuEvent` into spans (episode + per-batch model, attribute set); unit tests against the in-memory exporter. Add `hs-opentelemetry-sdk` + in-memory exporter as **test** dependencies. (Done 2026-05-30: `subscriptionTraceHandler :: Tracer -> IO (KirokuEvent -> IO ())` with an `MVar`-keyed open-span model; `kiroku-otel-test` **13 examples, 0 failures** — catchup/fetch, pause/resume, reconnect-with-attempt-event, retry→dead-letter, immediate dead-letter, consumer-group isolation, no-leak-on-stop. SDK + in-memory exporter pinned from the same git tag as the api — see Surprises.)
 - [x] M2 — `shibuya-kiroku-adapter`: populate `Envelope.attributes` with kiroku identity (subscription name, consumer-group member, event type, global position), threaded from the adapter config; adapter test asserts the attributes are present. (Done 2026-05-30: added `KirokuEnvelopeAttrs {subscriptionName, member}` in `Convert.hs`; `toEnvelope`/`toIngestedAck` take it and build a `kiroku.*` attribute map; `kirokuAdapter` derives the name + member from `subName`/`cg` so both the single and consumer-group paths are covered automatically. `hs-opentelemetry-api` added to the adapter library + test. `shibuya-kiroku-adapter-test` **20 examples, 0 failures** incl. two new attribute assertions — non-grouped omits the member key, grouped carries `kiroku.consumer_group.member`. No `shibuya-core` change.)
-- [ ] M3 — docs, CHANGELOGs, an end-to-end example/test, and correct MasterPlan 6's inaccurate "`kiroku-otel` already adapts `KirokuEvent`" statement.
+- [x] M3 — docs, CHANGELOGs, an end-to-end example/test, and correct MasterPlan 6's inaccurate "`kiroku-otel` already adapts `KirokuEvent`" statement. (Done 2026-05-30: module Haddock covers the span model, export-on-end limitation, and batch-processor requirement; `docs/user/opentelemetry.md` gains a "Tracing Subscription State" section with the span table, attribute keys, and the end-to-end Shibuya path; `docs/user/observability.md` and `docs/user/shibuya-adapter.md` cross-link it. CHANGELOGs updated for both packages. End-to-end demonstration is M1's synthetic in-memory-exporter coverage + M2's adapter attribute test + documented wiring rather than a DB-backed `kiroku-otel` test — see Decision Log. MasterPlan 6's Vision & Scope already quotes and refutes the inaccurate "already adapts `KirokuEvent`" claim (corrected when EP-5 was added).)
 
 
 ## Surprises & Discoveries
@@ -70,13 +70,56 @@ Record every decision made while working on the plan.
   Rationale: The user's request was specifically to "reflect the subscription state in traces and capture important attributes." Metric emission (e.g. a current-state gauge, per-state counters) stays deferred consistent with MasterPlan 5's project-wide OTel-metrics deferral.
   Date: 2026-05-30.
 
+- Decision (M3): Demonstrate the feature with M1's synthetic-`KirokuEvent` in-memory-exporter coverage plus the M2 adapter attribute test and the documented wiring snippet, rather than standing up a **DB-backed** subscription in `kiroku-otel`'s test suite.
+  Rationale: The plan's M3 explicitly permits this alternative when a DB-backed subscription in `kiroku-otel` "is too heavy." `kiroku-otel` is deliberately a light, pure package whose only library dependency is `hs-opentelemetry-api`; its test suite has no Postgres harness. A real subscription would require pulling `kiroku-test-support` + `ephemeral-pg` + `hasql` into the package just to re-prove that the worker emits the lifecycle `KirokuEvent`s — which is EP-1–EP-4's responsibility and is already covered by `kiroku-store-test`. The marginal value is low and the infra cost is high. M1 drives the handler with the exact constructors the real worker emits (the in-memory exporter only ever receives *ended* spans, so each assertion also proves the episode closed), and M2 proves the adapter attributes on a real `RecordedEvent`. The end-to-end wiring is documented in `docs/user/opentelemetry.md` (§ Tracing Subscription State) and the module Haddock.
+  Date: 2026-05-30.
+
 
 ## Outcomes & Retrospective
 
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+All three milestones are complete (2026-05-30). The feature matches the Purpose: an
+operator who opts into `kiroku-otel` can install a ready-made `KirokuEvent` handler
+that turns the subscription FSM into OpenTelemetry spans, and those identity
+attributes ride through the Shibuya adapter onto Shibuya's per-message spans.
+
+- **Native tracer (M1).** `Kiroku.Otel.Subscription.subscriptionTraceHandler ::
+  Tracer -> IO (KirokuEvent -> IO ())` builds an `eventHandler` that mirrors the FSM
+  in spans: per-episode `catchup`/`paused`/`reconnecting`/`retrying`, per-batch
+  `fetch`, standalone `dead_letter`/`db_error`, all `kiroku.*`-tagged and keyed by
+  `(subscription name, member)` in a thread-safe `MVar`. The library still depends
+  only on `hs-opentelemetry-api`; `kiroku-store` is untouched. `kiroku-otel-test`:
+  **13 examples, 0 failures** against an in-memory exporter — and because the
+  exporter only receives *ended* spans, each "span appears" assertion also proves
+  the episode closed (the property the export-on-end constraint demanded).
+- **End-to-end attributes (M2).** `shibuya-kiroku-adapter` now fills the
+  previously-empty `Envelope.attributes` with `kiroku.subscription.name`,
+  `kiroku.event.type`, `kiroku.event.global_position`, and (for groups)
+  `kiroku.consumer_group.member`, threaded from the adapter config via the new
+  `KirokuEnvelopeAttrs`. Keys match the native spans. No `shibuya-core` change.
+  `shibuya-kiroku-adapter-test`: **20 examples, 0 failures**.
+- **Docs & correction (M3).** Module Haddock + `docs/user/opentelemetry.md` (new
+  "Tracing Subscription State" section) document the span model, the export-on-end
+  limitation, the batch-processor requirement, and the end-to-end Shibuya path;
+  `observability.md` / `shibuya-adapter.md` cross-link it. CHANGELOGs updated.
+  MasterPlan 6 no longer asserts the false "`kiroku-otel` already adapts
+  `KirokuEvent`" claim.
+
+**Gaps / accepted limitations.** (1) An *in-progress* episode is not visible in the
+backend until it ends (export-on-end); real-time state is served by the
+`currentState` accessor / `KirokuEvent` log, and ultimately by a deferred
+state-gauge metric. (2) OTel *metrics* remain deferred (MasterPlan 5). (3) The
+end-to-end proof rests on synthetic-event + adapter-attribute tests plus documented
+wiring rather than a DB-backed `kiroku-otel` test, to keep that package light — see
+the Decision Log.
+
+**Lessons.** The project pins `hs-opentelemetry-api` 0.3.0.0 from git, not the 0.4
+`mori` checkout — always read the *resolved* source. `OpenTelemetry.Attributes.addAttributes`
+is a left-biased union, so attribute *updates* must go through the singular
+`addAttribute`. The SDK and in-memory exporter had to be pinned from the same git
+tag as the api for the test build to link.
 
 
 ## Context and Orientation

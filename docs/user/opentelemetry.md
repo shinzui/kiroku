@@ -111,6 +111,86 @@ The high-level `runTransactionAppending` wrapper (see
 [Appending Events](appending-events.md)) goes through the normal path, so it
 honors `enrichEvent` without extra work.
 
+## Tracing Subscription State
+
+The helpers above propagate trace context on individual *events*. A separate
+opt-in handler turns a subscription **worker's lifecycle** into spans, so the
+finite state machine described in [Subscriptions](subscriptions.md#worker-states)
+— catch up, go live, pause under backpressure, reconnect, retry, dead-letter —
+shows up on a trace timeline.
+
+`Kiroku.Otel.Subscription` exposes a factory that builds a `KirokuEvent`
+callback from an OpenTelemetry `Tracer`:
+
+```haskell
+import Kiroku.Otel.Subscription (subscriptionTraceHandler)
+import Control.Lens ((&), (.~))
+import Kiroku.Store
+
+-- tracer :: OpenTelemetry.Trace.Core.Tracer  (from your TracerProvider)
+handler <- subscriptionTraceHandler tracer
+
+settings :: ConnectionSettings
+settings =
+  defaultConnectionSettings connStr
+    & #eventHandler .~ Just handler
+```
+
+It consumes the same `KirokuEvent` stream covered in
+[Observability](observability.md); install it as the `eventHandler` and every
+subscription emits spans thereafter. (Compose it with your own logging handler
+by fanning the event out to both.)
+
+### Span model
+
+Each span is **short and ends promptly** — the SDK only exports a span when it
+*ends*, so a single span held open for the worker's lifetime would be invisible
+while the worker runs and lost on a crash. The model is therefore:
+
+| Span | Opened on | Ended on |
+|------|-----------|----------|
+| `kiroku.subscription.catchup` | `Started` | `CaughtUp` |
+| `kiroku.subscription.fetch` | each live `Fetched` | immediately (per batch) |
+| `kiroku.subscription.paused` | `Paused` | `Resumed` |
+| `kiroku.subscription.reconnecting` | first `Reconnecting` | next `CaughtUp` (later attempts add a `reconnect.attempt` span event) |
+| `kiroku.subscription.retrying` | first `Retrying` of a poison event | `DeadLettered` (status `Error`) or the worker moving on (status `Ok`) |
+| `kiroku.subscription.dead_letter` | an immediate dead-letter (no retry) | immediately |
+
+The honest limitation: an *in-progress* episode (a pause that has not resumed
+yet) does not appear in the backend until it ends. For "what state is the worker
+in right now," use the `currentState` handle accessor
+([Observability](observability.md#reading-a-subscriptions-current-state)).
+
+### Attribute keys
+
+Every span carries a `kiroku.*` attribute set (the constants are exported from
+`Kiroku.Otel.Subscription`):
+
+- `kiroku.subscription.name`
+- `kiroku.subscription.state` — `"catchup"`, `"live"`, `"paused"`, `"reconnecting"`, `"retrying"`
+- `kiroku.consumer_group.member` / `kiroku.consumer_group.size` — only for group members
+- `kiroku.checkpoint.global_position`, `kiroku.subscription.attempt`,
+  `kiroku.batch.rows`, `kiroku.event.global_position`,
+  `kiroku.dead_letter.reason`, `kiroku.subscription.stop_reason`
+
+### Use a batch span processor
+
+The `eventHandler` callback runs **synchronously on the worker loop's thread**
+(one thread per consumer-group member). Opening and ending a span is cheap and
+in-memory, but the *export* may block — so configure your `TracerProvider` with
+a **batch span processor** (the SDK default), which exports on a background
+thread. With a simple/synchronous processor a slow exporter would stall the
+worker.
+
+### End to end through Shibuya
+
+The same identity travels onto Shibuya's per-message spans. The
+[Shibuya Adapter](shibuya-adapter.md) stamps `kiroku.subscription.name`,
+`kiroku.consumer_group.member`, `kiroku.event.type`, and
+`kiroku.event.global_position` onto each `Envelope`, which Shibuya merges into
+the span it opens for the message. So a single trace is followable from a kiroku
+subscription into Shibuya's processing, tagged with the same keys on both sides.
+
 ## Package Dependencies
 
 `kiroku-otel` depends on `hs-opentelemetry-api` (`>=0.3 && <0.4`) and
