@@ -1,3 +1,20 @@
+{- | The centralized @$all@ broadcaster shared by every all-stream subscription.
+
+A single 'EventPublisher' reads new events from the global stream once and
+fans them out to each registered 'Subscriber' through that subscriber's own
+bounded 'Control.Concurrent.STM.TBQueue', rather than having every subscription
+poll the database independently. 'startPublisher' launches the broadcast loop,
+'subscribePublisher' registers a subscriber (returning its queue, a status
+'TVar', and an unsubscribe action), 'publisherPosition' reports the last
+broadcast cursor, and 'stopPublisher' tears the loop down.
+
+When a subscriber's queue fills, the publisher applies that subscriber's
+'Kiroku.Store.Subscription.Types.OverflowPolicy' by setting its
+'SubscriberStatus': under the default @PauseAndResume@ it marks the subscriber
+'Paused' and stops pushing (the worker drains and re-catches-up losslessly),
+under @DropSubscription@ it marks it 'Overflowed', and under @DropOldest@ it
+evicts the oldest batch. The publisher itself never blocks on a slow consumer.
+-}
 module Kiroku.Store.Subscription.EventPublisher (
     EventPublisher (..),
     Subscriber (..),

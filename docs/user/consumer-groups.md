@@ -232,24 +232,35 @@ groups through the plain-IO `subscribe`/`withSubscription` API, whose cancel
 path works as documented. Do not rely on external `cancel` to stop an
 effectful group member.
 
-**Shibuya adapter.** `KirokuAdapterConfig` carries a `consumerGroup` field with
-the same meaning. To run a size-`N` group under Shibuya, create `N` adapters
-with the same `subscriptionName` and distinct `member` indices, each backed by
-its own Shibuya processor:
+**Shibuya adapter.** To run a whole group under Shibuya in one process, hand a
+`KirokuConsumerGroupConfig` to `kirokuConsumerGroupProcessors`; one call yields
+`N` policy-pinned processors (one per member, `ProcessorId "<name>-member-<m>"`)
+with no manual `[0 .. N - 1]` wiring:
 
 ```haskell
-import Shibuya.Adapter.Kiroku (KirokuAdapterConfig (..), ConsumerGroup (..))
+import Shibuya.Adapter.Kiroku (defaultConsumerGroupConfig, kirokuConsumerGroupProcessors)
 
-KirokuAdapterConfig
-  { subscriptionName = SubscriptionName "order-projection"
-  , subscriptionTarget = Category (CategoryName "order")
-  , batchSize = 100
-  , bufferSize = 256
-  , consumerGroup = Just (ConsumerGroup { member = m, size = 4 })
-  }
+let cfg = defaultConsumerGroupConfig
+            (SubscriptionName "order-projection")
+            (Category (CategoryName "order"))
+            4   -- group size
+
+Right processors <- kirokuConsumerGroupProcessors store cfg handler
+Right appHandle  <- runApp IgnoreFailures 100 processors
 ```
 
+The group maps onto Shibuya's `PartitionedInOrder` ordering (each member is
+`Serial`; the group is parallel across members). To run members in **separate**
+processes instead, give each a single `kirokuAdapter` whose `consumerGroup` is
+`Just (ConsumerGroup { member = m, size = 4 })` with the same `subscriptionName`.
 See [Shibuya Adapter](shibuya-adapter.md) for the full adapter setup.
+
+If a member loses its database connection while live, it enters the
+`Reconnecting` state and re-catches-up from its own per-member checkpoint rather
+than dying (observable via `currentState` and the
+`KirokuEventSubscriptionReconnecting` event). Any events a member dead-letters
+are recorded per-member in `kiroku.dead_letters` (keyed by
+`consumer_group_member`).
 
 ## A Runnable Demonstration
 

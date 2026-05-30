@@ -56,6 +56,13 @@ The handler returns `SubscriptionResult`:
 - `Continue` — process the next event.
 - `Stop` — stop the subscription gracefully; the checkpoint is saved at this
   event and `wait` resolves with `Right ()`.
+- `Retry delay` — redeliver **this same event** after `delay`, before the
+  checkpoint advances past it. Redelivery is bounded by the subscription's
+  `retryPolicy` (default five attempts); on exhaustion the worker dead-letters
+  the event and moves on. See [Per-Event Retry And Dead-Letter](#per-event-retry-and-dead-letter).
+- `DeadLetter reason` — record this event in the `kiroku.dead_letters` table
+  with `reason` and **atomically advance the checkpoint past it**, then continue
+  with the next event.
 
 ## Configuration
 
@@ -69,7 +76,11 @@ handler`):
 | `handler` | (required) | `RecordedEvent -> m SubscriptionResult`, invoked once per event in order. |
 | `batchSize :: Int32` | `100` | Events fetched per database round-trip during catch-up. |
 | `queueCapacity :: Natural` | `16` | Maximum number of *batches* the publisher may enqueue for this subscriber before applying the overflow policy. Effective event capacity is `queueCapacity * publisherBatchSize`. |
-| `overflowPolicy :: OverflowPolicy` | `DropSubscription` | What the publisher does when this subscriber's queue is full (see below). |
+| `overflowPolicy :: OverflowPolicy` | `PauseAndResume` | What the publisher does when this subscriber's queue is full (see below). |
+| `retryPolicy :: RetryPolicy` | `defaultRetryPolicy` (5 attempts) | Bounds how many times an event for which the handler returned `Retry` is redelivered before it is dead-lettered. Handlers that never return `Retry` are unaffected. |
+| `eventTypeFilter :: EventTypeFilter` | `AllEventTypes` | Restrict delivery to chosen event types. See [Event-Type Filtering](#event-type-filtering). |
+| `selector :: Maybe (RecordedEvent -> Bool)` | `Nothing` | Optional opaque per-event predicate, the escape hatch for filtering the type set cannot express (e.g. metadata). Composed with `eventTypeFilter` as a logical AND. See [Event-Type Filtering](#event-type-filtering). |
+| `consumerGroup :: Maybe ConsumerGroup` | `Nothing` | Run this worker as one member of a hash-partitioned group. See [Consumer Groups](consumer-groups.md). |
 
 `SubscriptionTarget` is `AllStreams` (every event in global position order)
 or `Category !CategoryName` (events whose source stream's name prefix matches
@@ -118,16 +129,36 @@ same `SubscriptionName`:
 wrong-on-replay result — or tolerate duplicates by a domain check (e.g. a
 unique key on the projection table).
 
+## Worker States
+
+The worker is driven by an explicit finite state machine: at any instant it is
+in exactly one named `SubscriptionState`, readable through the handle's
+`currentState :: m SubscriptionState` accessor (a point-in-time observability
+read backed by a `TVar` the worker writes on every transition):
+
+| State | Meaning |
+| --- | --- |
+| `CatchingUp` | Reading history directly from the database until the cursor reaches the publisher's last-published position. |
+| `Live` | Caught up; waiting for new events via `NOTIFY` / the publisher queue. |
+| `Paused` | Recoverable backpressure: the queue filled under `PauseAndResume`; the worker drains it and re-catches-up from its checkpoint (see [Overflow Policy](#overflow-policy)). |
+| `Reconnecting` | A `Category` / consumer-group worker lost its database connection on a live fetch; it backs off and re-catches-up from its checkpoint instead of dying. |
+| `Retrying` | Redelivering a single event for which the handler returned `Retry`, bounded by `retryPolicy`. |
+| `Stopped` | Terminal (handler `Stop`, cancellation, overflow, or crash). |
+
+For the stream of *past* transitions (rather than a single snapshot), wire the
+`KirokuEvent` lifecycle events — see [Observability](observability.md).
+
 ## Lifecycle And Failure Modes
 
-`SubscriptionHandle` carries `cancel :: m ()` and
-`wait :: m (Either SomeException ())`. `wait` resolves with one of:
+`SubscriptionHandle` carries `cancel :: m ()`,
+`wait :: m (Either SomeException ())`, and `currentState` (above). `wait`
+resolves with one of:
 
 | Result | Meaning |
 | --- | --- |
 | `Right ()` | The handler returned `Stop`; the worker exited cleanly, checkpoint saved at that event. |
 | `Left AsyncCancelled` | The caller invoked `cancel`. No checkpoint advance is guaranteed; in-flight events replay on the next start. |
-| `Left SubscriptionOverflowed` | The publisher dropped this subscriber under `DropSubscription` (its queue overflowed). |
+| `Left SubscriptionOverflowed` | The publisher dropped this subscriber under the (non-default) `DropSubscription` policy. Under the default `PauseAndResume` the worker recovers rather than failing. |
 | `Left e` (any other) | The handler threw. Exceptions are **not** caught — the worker thread dies and the exception propagates. A throwing handler signals the subscription cannot proceed safely. |
 
 ## Overflow Policy
@@ -135,14 +166,68 @@ unique key on the projection table).
 When a subscriber's bounded queue fills (the handler is slower than the
 append rate), the publisher applies the `overflowPolicy`:
 
-- `DropSubscription` (default) — mark the subscription overflowed; the worker
-  surfaces `SubscriptionOverflowed` through `wait` and terminates. Other
-  subscribers are unaffected. This chooses correctness: you learn explicitly
-  that a consumer fell behind. Investigate the slow handler, raise
-  `queueCapacity`, or switch policy.
+- `PauseAndResume` (default) — recoverable backpressure, lossless. The publisher
+  marks the subscriber `Paused` and **stops pushing** (it does not drop). The
+  worker enters the `Paused` state, drains the stale queue, and re-catches-up
+  from its checkpoint, re-reading the events it missed directly from the
+  database. No event is lost, the checkpoint stays monotonic, and other
+  subscribers are unaffected — a transient slowdown pauses and recovers instead
+  of killing the subscription.
+- `DropSubscription` — mark the subscription overflowed; the worker surfaces
+  `SubscriptionOverflowed` through `wait` and terminates. Choose this when a
+  slow consumer should be a hard, fail-fast error rather than a silent pause.
+  Investigate the slow handler, raise `queueCapacity`, or switch policy.
 - `DropOldest` — drop the oldest queued batch and enqueue the new one. The
   subscription continues but **loses events**. Choose only for
   telemetry-style consumers where at-least-once is not required.
+
+## Per-Event Retry And Dead-Letter
+
+Beyond `Continue` / `Stop`, a handler can dispose of a single problematic event
+without blocking the whole subscription:
+
+- `Retry delay` redelivers **the same event** after `delay`. The worker keeps
+  the checkpoint pinned at that event and counts attempts; once
+  `retryPolicy.retryMaxAttempts` (default `5`) is reached, the worker
+  dead-letters the event and advances. While retrying, `currentState` reports
+  `Retrying`.
+- `DeadLetter reason` records the event in the `kiroku.dead_letters` table and
+  **atomically advances the checkpoint past it** in the same statement, so the
+  subscription never stalls on a poison event. The event itself stays immutable
+  in `kiroku.events`; the dead-letter row references it by `event_id` and
+  `global_position`. See [Schema](schema.md#dead_letters) for the table.
+
+These dispositions also back the Shibuya adapter's `AckRetry` / `AckDeadLetter`
+decisions — see [Shibuya Adapter](shibuya-adapter.md#ack-semantics).
+
+## Event-Type Filtering
+
+Set `eventTypeFilter` to deliver only the event types a subscription cares
+about:
+
+```haskell
+import qualified Data.Set as Set
+import Kiroku.Store.Subscription (EventTypeFilter (..))
+
+let cfg =
+      (defaultSubscriptionConfig name AllStreams handler)
+        { eventTypeFilter = OnlyEventTypes (Set.fromList [EventType "OrderPlaced"]) }
+```
+
+`AllEventTypes` (the default) delivers everything. `OnlyEventTypes s` delivers
+only events whose type is in `s`; **filtered-out events still advance the
+checkpoint** (the worker moves its cursor past them) so a highly selective
+subscription never stalls on a long run of non-matching events. The filter is
+applied **worker-side, before the handler**, so a filtered-out event never
+reaches the handler and is never retried or dead-lettered.
+
+For filtering the type set cannot express — for example on metadata or stream
+name during a one-off catch-up reprocess — set the opaque `selector ::
+Maybe (RecordedEvent -> Bool)`. It composes with `eventTypeFilter` as a logical
+AND (an event must pass both) and obeys the same no-stall / never-retried
+guarantees. Prefer `eventTypeFilter` for the steady-state case: a closed
+`Set EventType` is introspectable, `Eq`/`Show`-able, and can be pushed into SQL,
+which an opaque closure cannot.
 
 ## The Effectful API
 
@@ -181,8 +266,16 @@ import Kiroku.Store.Subscription.Stream (subscriptionStream)
 
 It returns `(Stream IO RecordedEvent, IO ())`. The `handler` field in the
 config is ignored — the bridge installs its own. The returned cancel action
-stops the subscription and unblocks any reader waiting on the queue. This is
-the mechanism the [Shibuya Adapter](shibuya-adapter.md) builds on.
+stops the subscription and unblocks any reader waiting on the queue.
+
+`subscriptionStream` checkpoints independently of the downstream consumer (the
+bridge handler returns `Continue` as soon as it enqueues). For per-event
+acknowledgement — where the checkpoint must not advance until the consumer has
+processed the event, and the consumer can ask for `Retry` / `DeadLetter` — use
+the **ack-coupled** variant `subscriptionAckStream`, which emits `AckItem`
+values each carrying a one-shot reply variable. This is the mechanism the
+[Shibuya Adapter](shibuya-adapter.md) builds on so a Shibuya `AckRetry` /
+`AckDeadLetter` drives a real Kiroku disposition.
 
 ## See Also
 

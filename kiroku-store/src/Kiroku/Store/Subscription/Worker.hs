@@ -1,3 +1,25 @@
+{- | The subscription worker: the impure driver behind a running subscription.
+
+'runWorker' is the long-lived loop spawned by
+'Kiroku.Store.Subscription.subscribe'. It is the interpreter for the pure state
+machine in "Kiroku.Store.Subscription.Fsm": it supplies inputs (a batch was
+fetched, the queue overflowed, the pool errored, the handler returned a
+disposition) and carries out the resulting effects (deliver a batch, save the
+checkpoint, back off, emit a @KirokuEvent@, halt). The worker walks the named
+states — @CatchingUp@, @Live@, @Paused@ (recoverable backpressure),
+@Reconnecting@ (re-catch-up after a live fetch loses the pool), @Retrying@, and
+@Stopped@ — and writes each transition to the @TVar@ exposed through
+'Kiroku.Store.Subscription.Types.currentState'.
+
+Per-event delivery (including the worker-side
+'Kiroku.Store.Subscription.Types.eventTypeFilter' \/
+'Kiroku.Store.Subscription.Types.selector' check applied /before/ the handler,
+and the bounded-retry \/ dead-letter disposition mechanics) is concentrated in
+the single delivery primitive shared by every live path, so behaviour is
+identical for @AllStreams@, @Category@, and consumer-group subscriptions.
+
+'withFetchBatchHookForTest' is a test-only seam for injecting fetch failures.
+-}
 module Kiroku.Store.Subscription.Worker (
     runWorker,
     withFetchBatchHookForTest,

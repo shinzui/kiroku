@@ -1,3 +1,26 @@
+{- | Streamly bridges that turn a push-based subscription into a pull-based
+@Stream IO@, with a bounded 'Control.Concurrent.STM.TBQueue' providing
+backpressure between the Kiroku worker and a downstream stream consumer.
+
+Two bridges are provided:
+
+  * 'subscriptionStream' — the plain bridge. The bridge handler enqueues each
+    event and immediately returns 'Continue', so the worker checkpoints at the
+    batch tail independently of whether the downstream consumer has processed
+    the event. Use it when the stream is an in-process handoff and per-event
+    acknowledgement is not required.
+  * 'subscriptionAckStream' — the __ack-coupled__ bridge. Each emitted 'AckItem'
+    carries a one-shot reply variable; the bridge handler blocks until the
+    consumer replies with a 'SubscriptionResult', and only then does the worker
+    checkpoint \/ retry \/ dead-letter. This is the path the
+    @shibuya-kiroku-adapter@ builds on so a Shibuya @AckRetry@\/@AckDeadLetter@
+    drives a real Kiroku disposition before the checkpoint advances.
+
+Both honour the subscription's worker-side filters
+('Kiroku.Store.Subscription.Types.eventTypeFilter' and
+'Kiroku.Store.Subscription.Types.selector'): a filtered-out event never reaches
+either bridge.
+-}
 module Kiroku.Store.Subscription.Stream (
     -- * Plain pull stream
     subscriptionStream,

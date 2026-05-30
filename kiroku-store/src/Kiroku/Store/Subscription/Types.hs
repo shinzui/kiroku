@@ -1,3 +1,21 @@
+{- | Core configuration and result types for subscriptions.
+
+This module defines the user-facing vocabulary for starting a subscription and
+controlling it per event:
+
+  * 'SubscriptionConfigM' (built with 'defaultSubscriptionConfig') — the
+    declarative config: target, handler, batch size, overflow policy
+    ('OverflowPolicy'), consumer-group membership, retry policy, and the two
+    delivery filters ('EventTypeFilter' plus the opaque 'selector').
+  * 'SubscriptionResult' — what the handler returns per event: 'Continue',
+    'Stop', or the per-event dispositions 'Retry' and 'DeadLetter'.
+  * 'SubscriptionHandleM' — the lifecycle handle ('cancel', 'wait', and the
+    observable 'currentState').
+
+The worker's state machine lives in "Kiroku.Store.Subscription.Fsm" (from which
+'SubscriptionState', 'RetryDelay', and 'DeadLetterReason' are re-exported here);
+this module is the configuration/result surface that drives it.
+-}
 module Kiroku.Store.Subscription.Types (
     SubscriptionName (..),
     SubscriptionTarget (..),

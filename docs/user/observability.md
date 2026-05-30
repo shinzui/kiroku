@@ -61,6 +61,12 @@ regression. Keep a catch-all branch if you only care about specific events.
 | `KirokuEventSubscriptionDbError !SubscriptionName !SubscriptionDbPhase !UsageError !SubscriptionGroupContext` | A subscription worker hit a database error in a specific phase. Checkpoint load/save phases continue with their documented fallback behavior; fetch-batch errors retry at the same cursor with capped backoff. | Investigate the phase (below), especially if emissions are sustained. |
 | `KirokuEventSubscriptionStarted !SubscriptionName !GlobalPosition !SubscriptionGroupContext` | A subscription worker started, beginning from the recorded position. | Useful as a liveness signal and to confirm the resumed checkpoint. |
 | `KirokuEventSubscriptionCaughtUp !SubscriptionName !GlobalPosition !SubscriptionGroupContext` | The subscription reached the publisher's last-published position and switched from catch-up to live. Fires at most once per run. | Track catch-up latency after a restart. |
+| `KirokuEventSubscriptionPaused !SubscriptionName !GlobalPosition !SubscriptionGroupContext` | The subscriber's bounded queue filled under `PauseAndResume`; the worker paused delivery and entered the `Paused` state. Pairs with a later resumed event. | A transient slowdown signal — sustained pausing means the handler cannot keep up. |
+| `KirokuEventSubscriptionResumed !SubscriptionName !GlobalPosition !SubscriptionGroupContext` | The worker drained the stale queue and re-caught-up from its checkpoint after a pause. | Clear the pause alert; confirm recovery. |
+| `KirokuEventSubscriptionReconnecting !SubscriptionName !Int !SubscriptionGroupContext` | A `Category` / consumer-group worker lost its database connection on a live fetch; it is backing off and re-catching-up from its checkpoint. The `Int` is the consecutive attempt count. | Alert on a sustained / rising count — the worker is not making progress until the database read succeeds. |
+| `KirokuEventSubscriptionRetrying !SubscriptionName !GlobalPosition !Int !SubscriptionGroupContext` | The handler asked to retry this event; the worker is redelivering it. The `Int` is the attempt number, bounded by `retryPolicy`. | Expected for transient per-event failures; investigate if one position retries repeatedly. |
+| `KirokuEventSubscriptionDeadLettered !SubscriptionName !GlobalPosition !DeadLetterReason !SubscriptionGroupContext` | The worker recorded the event in `kiroku.dead_letters` and advanced the checkpoint past it (handler `DeadLetter`, or retry budget exhausted). | Investigate the poison event; query `dead_letters` by subscription/member. |
+| `KirokuEventSubscriptionFetched !SubscriptionName !Int !SubscriptionGroupContext` | A DB-driven live loop fetched a batch of the given size. | Trace live-loop activity for `Category` / consumer-group workers. |
 | `KirokuEventSubscriptionStopped !SubscriptionName !GlobalPosition !SubscriptionStopReason !SubscriptionGroupContext` | The worker stopped. | Branch on the reason (below) to distinguish normal completion from failure. |
 | `KirokuEventHardDeleteIssued !StreamName !StreamId` | A hard-delete transaction committed. Not emitted when the stream did not exist. | A fail-safe audit signal — see [Stream Lifecycle](lifecycle.md). |
 
@@ -104,6 +110,21 @@ identifies which consumer-group member emitted it:
 Use it to attribute a lifecycle event to a specific member when several members
 share one `SubscriptionName`. See [Consumer Groups](consumer-groups.md).
 
+## Reading A Subscription's Current State
+
+The `KirokuEvent` callbacks above report the *stream of transitions*. For a
+*point-in-time* read of which state a worker is in right now, use the handle's
+`currentState :: m SubscriptionState` accessor (backed by a `TVar` the worker
+writes on every transition):
+
+```haskell
+st <- currentState handle   -- CatchingUp | Live | Paused | Reconnecting | Retrying | Stopped
+```
+
+Use it for a liveness/health probe (e.g. report a subscription as degraded
+while it sits in `Paused` or `Reconnecting`). See
+[Subscriptions](subscriptions.md#worker-states) for the state meanings.
+
 ## Connection-Pool Observations
 
 `observationHandler` forwards `hasql-pool`'s `Observation` values —
@@ -124,9 +145,10 @@ A practical pattern:
 
 1. In `eventHandler`, increment counters keyed by constructor (and for
    subscriptions, by `SubscriptionName`) and emit a structured log line.
-2. Alert on `KirokuEventNotifierReconnecting` with a high failure count,
-   sustained `KirokuEventPublisherPoolError`, any
-   `KirokuEventSubscriptionDbError`, and `StopWorkerCrashed` /
+2. Alert on `KirokuEventNotifierReconnecting` or
+   `KirokuEventSubscriptionReconnecting` with a high attempt count, sustained
+   `KirokuEventPublisherPoolError`, any `KirokuEventSubscriptionDbError`, a
+   rising `KirokuEventSubscriptionDeadLettered` rate, and `StopWorkerCrashed` /
    `StopOverflowed` stop reasons.
 3. Treat `KirokuEventHardDeleteIssued` as an audit event. Because it is
    fail-safe rather than compliance-grade, also record an application-level

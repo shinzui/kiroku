@@ -201,7 +201,12 @@ consumers that treat the stream as an in-process handoff, but it is not the same
 end-to-end durability boundary as a native subscription whose handler performs
 the projection work directly.
 
-The Shibuya adapter builds on this second queue, not directly on the
+`subscriptionAckStream` is the **ack-coupled** companion to
+`subscriptionStream`: the bridge queue carries `AckItem` values (`event`,
+`attempt`, and a one-shot reply variable) and the bridge handler blocks until
+the consumer replies with a `SubscriptionResult`, so the worker checkpoints,
+retries, or dead-letters per event only after the downstream decision. The
+Shibuya adapter builds on this ack-coupled second queue, not directly on the
 publisher's queue.
 
 ## `LISTEN`/`NOTIFY`
@@ -383,11 +388,16 @@ The adapter:
 
 1. Builds a `SubscriptionConfig` from `defaultSubscriptionConfig`.
 2. Overrides `batchSize`, `queueCapacity = 16`, `overflowPolicy =
-   DropSubscription`, and `consumerGroup`.
-3. Calls `subscriptionStream store subConfig bufferSize`.
-4. Lifts `Stream IO RecordedEvent` into `Stream (Eff es) RecordedEvent` with
-   `Stream.morphInner liftIO`.
-5. Converts each `RecordedEvent` into Shibuya `Ingested`.
+   DropSubscription`, `consumerGroup`, and the delivery filters
+   (`eventTypeFilter`, `selector`).
+3. Calls the **ack-coupled** bridge `subscriptionAckStream store subConfig
+   bufferSize`, yielding a `Stream IO AckItem` where each item carries a
+   one-shot reply variable.
+4. Lifts the stream into `Stream (Eff es) AckItem` with `Stream.morphInner
+   liftIO`.
+5. Converts each `AckItem` into Shibuya `Ingested`, wiring the item's reply
+   variable into the `AckHandle.finalize` so the handler's `AckDecision` drives
+   the Kiroku disposition before the checkpoint advances.
 
 There are therefore three buffering layers in a Shibuya-backed subscription:
 
@@ -396,14 +406,20 @@ EventPublisher TBQueue
   - batches for Kiroku all-stream live mode
   - governed by queueCapacity and OverflowPolicy
 
-subscriptionStream TBQueue
-  - individual RecordedEvent values for Streamly/Shibuya
+subscriptionAckStream TBQueue
+  - individual AckItem values (event + attempt + reply) for Streamly/Shibuya
   - governed by KirokuAdapterConfig.bufferSize
 
 Shibuya bounded inbox
   - Ingested messages between Shibuya ingester and processor
   - governed by runApp inboxSize
 ```
+
+To present a whole consumer group as one `PartitionedInOrder` unit, the adapter
+also exposes `kirokuConsumerGroupProcessors`, which builds one member adapter per
+slot (each `StrictInOrder` + `Serial`) labelled `ProcessorId "<name>-member-<m>"`
+— Shibuya does not route by partition key, so member identity rides the
+`ProcessorId`, not a bridge item.
 
 For category and consumer-group subscriptions, the first queue is still
 registered today by `subscribe`, but those live loops bypass it after catch-up.
@@ -421,34 +437,26 @@ The Shibuya adapter maps Kiroku events into Shibuya's generic processing model:
 | `metadata.traceparent` and optional `tracestate` | `Envelope.traceContext` |
 | full `RecordedEvent` | `Envelope.payload` |
 | no Kiroku partition value | `Envelope.partition = Nothing` |
-| no Kiroku retry counter | `Envelope.attempt = Nothing` |
+| redelivery counter | `Envelope.attempt = Just (Attempt n)` (zero-based) |
 
-Kiroku is an event log, not a message queue. The event is already durable, and
-the Kiroku worker owns checkpoint advancement. Shibuya acknowledgements are
-therefore mostly semantic at this adapter boundary:
+The adapter bridges through the **ack-coupled** stream
+(`subscriptionAckStream`): for each event the Kiroku worker blocks until the
+Shibuya handler's `AckDecision` is finalized, then acts on it. The decision
+therefore drives Kiroku checkpointing per event:
 
 | Shibuya `AckDecision` | Adapter effect |
 | --- | --- |
-| `AckOk` | No-op. Kiroku checkpointing has already happened at the Kiroku worker/bridge boundary. |
-| `AckRetry` | No-op. There is no per-message redelivery request in the current adapter. |
-| `AckDeadLetter` | No-op. Kiroku does not currently have a dead-letter table in the implemented adapter path. |
-| `AckHalt` | Calls the subscription cancel action. |
+| `AckOk` | The worker checkpoints past the event (the normal case). |
+| `AckRetry delay` | The worker redelivers the same event after `delay`, bounded by the subscription's `RetryPolicy` (default five attempts); on exhaustion the event is dead-lettered with `DeadLetterMaxAttempts`. |
+| `AckDeadLetter reason` | The worker records the event in `kiroku.dead_letters` (reason translated to a Kiroku-native `DeadLetterReason`) and atomically advances the checkpoint past it. |
+| `AckHalt` | Cancels the underlying subscription **without** advancing the checkpoint, so the halting event replays on restart. |
 
-This has two important consequences:
-
-- A Shibuya handler returning `AckRetry` does not cause Kiroku to replay that
-  event immediately.
-- The durable Kiroku checkpoint can advance after the event has been written to
-  the in-memory `subscriptionStream` queue, before the Shibuya handler has
-  completed. If the process crashes in that window, restart resumes after the
-  saved checkpoint and the queued-but-unprocessed event can be skipped by the
-  Shibuya handler.
-
-In other words, the current Shibuya adapter is supervised and backpressured,
-but its checkpoint boundary is the Kiroku-to-Streamly handoff, not Shibuya
-`AckOk`. If a Shibuya-backed projection needs end-to-end at-least-once
-semantics, the architecture needs an ack-aware Kiroku worker/adapter path where
-checkpoint advancement happens after the Shibuya decision.
+Because delivery is ack-coupled, the durable checkpoint boundary is the Shibuya
+handler's acknowledgement, not the Kiroku-to-Streamly queue handoff: the
+checkpoint does not advance until the handler has finalized its decision for the
+event. A Shibuya-backed projection therefore gets the same at-least-once
+guarantee as a native subscription whose handler performs the projection
+directly.
 
 ## Delivery Guarantees
 
@@ -471,9 +479,10 @@ What callers must assume:
   checkpoint save failure, or catch-up/live race boundaries.
 - Handlers must be idempotent or protected by domain-level uniqueness.
 - `DropOldest` explicitly gives up at-least-once delivery for that subscriber.
-- `AckRetry` in the Shibuya adapter does not currently perform a Kiroku retry.
-- The Shibuya adapter's current checkpoint boundary is enqueue into an
-  in-memory bridge queue, not downstream Shibuya handler acknowledgement.
+- The Shibuya adapter's checkpoint boundary is the Shibuya handler's
+  acknowledgement (`subscriptionAckStream` is ack-coupled): `AckRetry` redelivers
+  the event and `AckDeadLetter` records it in `kiroku.dead_letters` before the
+  checkpoint advances.
 
 ## Observability And Failure Modes
 
@@ -546,10 +555,6 @@ old decisions:
 - Make `consumerGroupGuard` a lifetime-held session-level guard if the runtime
   should enforce one live owner per member rather than only detecting startup
   overlap.
-- Add an ack-aware Shibuya adapter path if Shibuya-backed projections need
-  end-to-end at-least-once semantics. That likely means moving checkpoint
-  advancement after `AckOk`, and making `AckRetry`/`AckDeadLetter` first-class
-  Kiroku worker outcomes.
 - Revisit publisher batching and queue sizing with production metrics. The
   current publisher batch size is fixed at `1000`, while subscription catch-up
   batch size is configurable.
