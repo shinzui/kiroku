@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Added — `defaultKirokuAdapterConfig` smart constructor
+
+* `defaultKirokuAdapterConfig name target` builds a `KirokuAdapterConfig` with
+  recommended defaults (batch size 100, buffer 256, no consumer group,
+  `AllEventTypes`, no selector); override individual fields with record-update or
+  a generic-lens label (`& #eventTypeFilter .~ …`). Prefer it over a full record
+  literal so a future field is inherited at its default automatically — mirrors
+  `defaultConsumerGroupConfig` and `kiroku-store`'s `defaultSubscriptionConfig`.
+* `KirokuAdapterConfig` and `KirokuConsumerGroupConfig` now derive `Generic`,
+  enabling generic-lens label access/update of their fields.
+
 ### Added — consumer groups as a single partitioned subscription (plan 42)
 
 * `kirokuConsumerGroupProcessors` — present a whole kiroku consumer group as one

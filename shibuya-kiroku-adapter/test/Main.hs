@@ -3,7 +3,7 @@ module Main where
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.STM (atomically, newTVarIO, readTVar, registerDelay, writeTVar)
 import Control.Concurrent.STM qualified as STM
-import Control.Lens ((^.))
+import Control.Lens ((&), (.~), (^.))
 import Control.Monad (unless)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (Value)
@@ -26,10 +26,9 @@ import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Test.Postgres (withMigratedTestDatabase, withSharedMigratedPostgres)
 import Shibuya.Adapter.Kiroku (
-    KirokuAdapterConfig (..),
-    KirokuConsumerGroupConfig (..),
     consumerGroupPolicy,
     defaultConsumerGroupConfig,
+    defaultKirokuAdapterConfig,
     kirokuAdapter,
     kirokuConsumerGroupProcessors,
  )
@@ -120,15 +119,8 @@ main = withSharedMigratedPostgres $ hspec $ do
                 runEff $ runTracingNoop $ do
                     adapter <-
                         kirokuAdapter store $
-                            KirokuAdapterConfig
-                                { subscriptionName = SubscriptionName "etf-adapter"
-                                , subscriptionTarget = AllStreams
-                                , batchSize = 100
-                                , bufferSize = 256
-                                , consumerGroup = Nothing
-                                , eventTypeFilter = OnlyEventTypes (Set.fromList [EventType "A"])
-                                , selector = Nothing
-                                }
+                            defaultKirokuAdapterConfig (SubscriptionName "etf-adapter") AllStreams
+                                & #eventTypeFilter .~ OnlyEventTypes (Set.fromList [EventType "A"])
                     let handler ingested = do
                             liftIO $ do
                                 modifyIORef' ref (envelopePayload ingested :)
@@ -166,16 +158,8 @@ main = withSharedMigratedPostgres $ hspec $ do
                 countVar <- newTVarIO (0 :: Int)
                 runEff $ runTracingNoop $ do
                     let cfg =
-                            KirokuConsumerGroupConfig
-                                { subscriptionName = SubscriptionName "etfg"
-                                , subscriptionTarget = Category (CategoryName "etfg")
-                                , groupSize = 4
-                                , batchSize = 100
-                                , bufferSize = 256
-                                , memberConcurrency = Serial
-                                , eventTypeFilter = OnlyEventTypes (Set.fromList [EventType "A"])
-                                , selector = Nothing
-                                }
+                            defaultConsumerGroupConfig (SubscriptionName "etfg") (Category (CategoryName "etfg")) 4
+                                & #eventTypeFilter .~ OnlyEventTypes (Set.fromList [EventType "A"])
                         handler ingested = do
                             liftIO $ do
                                 modifyIORef' ref (envelopePayload ingested :)
@@ -220,15 +204,8 @@ main = withSharedMigratedPostgres $ hspec $ do
                 runEff $ runTracingNoop $ do
                     adapter <-
                         kirokuAdapter store $
-                            KirokuAdapterConfig
-                                { subscriptionName = SubscriptionName "sel-adapter"
-                                , subscriptionTarget = AllStreams
-                                , batchSize = 100
-                                , bufferSize = 256
-                                , consumerGroup = Nothing
-                                , eventTypeFilter = AllEventTypes
-                                , selector = Just (\e -> (e ^. #payload) == keepObj)
-                                }
+                            defaultKirokuAdapterConfig (SubscriptionName "sel-adapter") AllStreams
+                                & #selector .~ Just (\e -> (e ^. #payload) == keepObj)
                     let handler ingested = do
                             liftIO $ do
                                 modifyIORef' ref (envelopePayload ingested :)
@@ -258,17 +235,8 @@ main = withSharedMigratedPostgres $ hspec $ do
 
                 runEff $ runTracingNoop $ do
                     adapter <-
-                        kirokuAdapter
-                            store
-                            KirokuAdapterConfig
-                                { subscriptionName = SubscriptionName "shibuya-catchup-test"
-                                , subscriptionTarget = AllStreams
-                                , batchSize = 100
-                                , bufferSize = 256
-                                , consumerGroup = Nothing
-                                , eventTypeFilter = AllEventTypes
-                                , selector = Nothing
-                                }
+                        kirokuAdapter store $
+                            defaultKirokuAdapterConfig (SubscriptionName "shibuya-catchup-test") AllStreams
 
                     let handler ingested = do
                             liftIO $ do
@@ -294,17 +262,8 @@ main = withSharedMigratedPostgres $ hspec $ do
 
                 runEff $ runTracingNoop $ do
                     adapter <-
-                        kirokuAdapter
-                            store
-                            KirokuAdapterConfig
-                                { subscriptionName = SubscriptionName "shibuya-live-test"
-                                , subscriptionTarget = AllStreams
-                                , batchSize = 100
-                                , bufferSize = 256
-                                , consumerGroup = Nothing
-                                , eventTypeFilter = AllEventTypes
-                                , selector = Nothing
-                                }
+                        kirokuAdapter store $
+                            defaultKirokuAdapterConfig (SubscriptionName "shibuya-live-test") AllStreams
 
                     let handler ingested = do
                             liftIO $ do
@@ -346,17 +305,8 @@ main = withSharedMigratedPostgres $ hspec $ do
 
                 runEff $ runTracingNoop $ do
                     let mkCatAdapter nm cat =
-                            kirokuAdapter
-                                store
-                                KirokuAdapterConfig
-                                    { subscriptionName = SubscriptionName nm
-                                    , subscriptionTarget = Category (CategoryName cat)
-                                    , batchSize = 100
-                                    , bufferSize = 256
-                                    , consumerGroup = Nothing
-                                    , eventTypeFilter = AllEventTypes
-                                    , selector = Nothing
-                                    }
+                            kirokuAdapter store $
+                                defaultKirokuAdapterConfig (SubscriptionName nm) (Category (CategoryName cat))
                     let mkHandler ref' cVar ingested = do
                             liftIO $ do
                                 modifyIORef' ref' (envelopePayload ingested :)
@@ -407,37 +357,13 @@ main = withSharedMigratedPostgres $ hspec $ do
                 runEff $ runTracingNoop $ do
                     goodAdapter <-
                         kirokuAdapter store $
-                            KirokuAdapterConfig
-                                { subscriptionName = SubscriptionName "good-proj"
-                                , subscriptionTarget = Category (CategoryName "good")
-                                , batchSize = 100
-                                , bufferSize = 256
-                                , consumerGroup = Nothing
-                                , eventTypeFilter = AllEventTypes
-                                , selector = Nothing
-                                }
+                            defaultKirokuAdapterConfig (SubscriptionName "good-proj") (Category (CategoryName "good"))
                     badAdapter <-
                         kirokuAdapter store $
-                            KirokuAdapterConfig
-                                { subscriptionName = SubscriptionName "bad-proj"
-                                , subscriptionTarget = Category (CategoryName "bad")
-                                , batchSize = 100
-                                , bufferSize = 256
-                                , consumerGroup = Nothing
-                                , eventTypeFilter = AllEventTypes
-                                , selector = Nothing
-                                }
+                            defaultKirokuAdapterConfig (SubscriptionName "bad-proj") (Category (CategoryName "bad"))
                     otherAdapter <-
                         kirokuAdapter store $
-                            KirokuAdapterConfig
-                                { subscriptionName = SubscriptionName "other-proj"
-                                , subscriptionTarget = Category (CategoryName "other")
-                                , batchSize = 100
-                                , bufferSize = 256
-                                , consumerGroup = Nothing
-                                , eventTypeFilter = AllEventTypes
-                                , selector = Nothing
-                                }
+                            defaultKirokuAdapterConfig (SubscriptionName "other-proj") (Category (CategoryName "other"))
 
                     let goodHandler ingested = do
                             liftIO $ do
@@ -497,26 +423,10 @@ main = withSharedMigratedPostgres $ hspec $ do
                 runEff $ runTracingNoop $ do
                     adapterA <-
                         kirokuAdapter store $
-                            KirokuAdapterConfig
-                                { subscriptionName = SubscriptionName "shut-a-proj"
-                                , subscriptionTarget = Category (CategoryName "shut")
-                                , batchSize = 100
-                                , bufferSize = 256
-                                , consumerGroup = Nothing
-                                , eventTypeFilter = AllEventTypes
-                                , selector = Nothing
-                                }
+                            defaultKirokuAdapterConfig (SubscriptionName "shut-a-proj") (Category (CategoryName "shut"))
                     adapterB <-
                         kirokuAdapter store $
-                            KirokuAdapterConfig
-                                { subscriptionName = SubscriptionName "shut-b-proj"
-                                , subscriptionTarget = Category (CategoryName "shut")
-                                , batchSize = 100
-                                , bufferSize = 256
-                                , consumerGroup = Nothing
-                                , eventTypeFilter = AllEventTypes
-                                , selector = Nothing
-                                }
+                            defaultKirokuAdapterConfig (SubscriptionName "shut-b-proj") (Category (CategoryName "shut"))
 
                     let handlerA _ingested = do
                             liftIO $ atomically $ do
@@ -556,17 +466,8 @@ main = withSharedMigratedPostgres $ hspec $ do
 
                 runEff $ runTracingNoop $ do
                     adapter <-
-                        kirokuAdapter
-                            store
-                            KirokuAdapterConfig
-                                { subscriptionName = SubscriptionName "ackretry-proj"
-                                , subscriptionTarget = AllStreams
-                                , batchSize = 100
-                                , bufferSize = 256
-                                , consumerGroup = Nothing
-                                , eventTypeFilter = AllEventTypes
-                                , selector = Nothing
-                                }
+                        kirokuAdapter store $
+                            defaultKirokuAdapterConfig (SubscriptionName "ackretry-proj") AllStreams
 
                     let handler _ingested = do
                             n <- liftIO $ do
@@ -602,17 +503,8 @@ main = withSharedMigratedPostgres $ hspec $ do
 
                 runEff $ runTracingNoop $ do
                     adapter <-
-                        kirokuAdapter
-                            store
-                            KirokuAdapterConfig
-                                { subscriptionName = SubscriptionName "ackdl-proj"
-                                , subscriptionTarget = AllStreams
-                                , batchSize = 100
-                                , bufferSize = 256
-                                , consumerGroup = Nothing
-                                , eventTypeFilter = AllEventTypes
-                                , selector = Nothing
-                                }
+                        kirokuAdapter store $
+                            defaultKirokuAdapterConfig (SubscriptionName "ackdl-proj") AllStreams
 
                     let handler ingested = do
                             n <- liftIO $ atomically $ do
@@ -664,15 +556,8 @@ main = withSharedMigratedPostgres $ hspec $ do
                         mapM
                             ( \m ->
                                 kirokuAdapter store $
-                                    KirokuAdapterConfig
-                                        { subscriptionName = SubscriptionName "cg-shibuya-group"
-                                        , subscriptionTarget = Category (CategoryName "cg")
-                                        , batchSize = 100
-                                        , bufferSize = 256
-                                        , consumerGroup = Just (ConsumerGroup{member = m, size = 4})
-                                        , eventTypeFilter = AllEventTypes
-                                        , selector = Nothing
-                                        }
+                                    defaultKirokuAdapterConfig (SubscriptionName "cg-shibuya-group") (Category (CategoryName "cg"))
+                                        & #consumerGroup .~ Just (ConsumerGroup{member = m, size = 4})
                             )
                             [0, 1, 2, 3]
 
@@ -715,9 +600,9 @@ main = withSharedMigratedPostgres $ hspec $ do
                         runTracingNoop $
                             kirokuConsumerGroupProcessors
                                 store
-                                (defaultConsumerGroupConfig (SubscriptionName "cgp-reject") (Category (CategoryName "cgp-reject")) 4)
-                                    { memberConcurrency = Async 4
-                                    }
+                                ( defaultConsumerGroupConfig (SubscriptionName "cgp-reject") (Category (CategoryName "cgp-reject")) 4
+                                    & #memberConcurrency .~ Async 4
+                                )
                                 ( \ingested -> do
                                     let _ = envelopePayload ingested
                                     pure AckOk

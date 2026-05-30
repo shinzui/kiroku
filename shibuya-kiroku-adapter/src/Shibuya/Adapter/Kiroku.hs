@@ -108,6 +108,7 @@ module Shibuya.Adapter.Kiroku (
 
     -- * Configuration
     KirokuAdapterConfig (..),
+    defaultKirokuAdapterConfig,
 
     -- * Consumer-group helpers
     KirokuConsumerGroupConfig (..),
@@ -125,6 +126,7 @@ module Shibuya.Adapter.Kiroku (
 import Data.Int (Int32)
 import Data.Text qualified as T
 import Effectful (Eff, IOE, liftIO, (:>))
+import GHC.Generics (Generic)
 import Kiroku.Store.Connection (KirokuStore)
 import Kiroku.Store.Subscription.Stream (subscriptionAckStream)
 import Kiroku.Store.Subscription.Types (
@@ -201,6 +203,36 @@ data KirokuAdapterConfig = KirokuAdapterConfig
     introspectable 'eventTypeFilter'.
     -}
     }
+    deriving stock (Generic)
+
+{- | A 'KirokuAdapterConfig' with sensible defaults: @batchSize = 100@,
+@bufferSize = 256@, @consumerGroup = 'Nothing'@ (ordinary single-consumer
+subscription), @eventTypeFilter = 'AllEventTypes'@ (deliver every type), and
+@selector = 'Nothing'@ (no extra predicate filtering). Supply the subscription
+name and target; override individual fields with record-update syntax.
+
+Prefer this over a full record literal so that any field added to
+'KirokuAdapterConfig' later is inherited at its default automatically:
+
+@
+let cfg =
+        (defaultKirokuAdapterConfig "my-projection" 'AllStreams')
+            { eventTypeFilter = 'OnlyEventTypes' (Set.fromList [EventType "OrderPlaced"]) }
+adapter <- kirokuAdapter store cfg
+@
+-}
+defaultKirokuAdapterConfig ::
+    SubscriptionName -> SubscriptionTarget -> KirokuAdapterConfig
+defaultKirokuAdapterConfig name target =
+    KirokuAdapterConfig
+        { subscriptionName = name
+        , subscriptionTarget = target
+        , batchSize = 100
+        , bufferSize = 256
+        , consumerGroup = Nothing
+        , eventTypeFilter = AllEventTypes
+        , selector = Nothing
+        }
 
 {- | Create a Shibuya 'Adapter' backed by a Kiroku subscription.
 
@@ -306,6 +338,7 @@ data KirokuConsumerGroupConfig = KirokuConsumerGroupConfig
     'Kiroku.Store.Subscription.Types.selector'.
     -}
     }
+    deriving stock (Generic)
 
 {- | A 'KirokuConsumerGroupConfig' with sensible defaults: @memberConcurrency =
 'Serial'@ (the only legal per-member concurrency), @batchSize = 100@,
