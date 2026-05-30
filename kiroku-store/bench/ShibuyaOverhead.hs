@@ -126,6 +126,7 @@ benchBareSubscribe store n nextId = do
                 , consumerGroup = Nothing
                 , consumerGroupGuard = False
                 , retryPolicy = defaultRetryPolicy
+                , eventTypeFilter = AllEventTypes
                 }
     handle <- subscribe store cfg
     waitForCount countVar n 30_000_000
@@ -150,6 +151,7 @@ benchSubscriptionStream store n nextId = do
                 , consumerGroup = Nothing
                 , consumerGroupGuard = False
                 , retryPolicy = defaultRetryPolicy
+                , eventTypeFilter = AllEventTypes
                 }
 
     t0 <- getCurrentTime
@@ -179,6 +181,7 @@ benchShibuyaAdapter store n nextId = do
                     , consumerGroup = Nothing
                     , consumerGroupGuard = False
                     , retryPolicy = defaultRetryPolicy
+                    , eventTypeFilter = AllEventTypes
                     }
 
         (ioStream, cancelAction) <- liftIO $ subscriptionStream store cfg 256

@@ -63,26 +63,44 @@ acknowledged so the checkpoint advances past them.
 
 ## Progress
 
-- [ ] Design validated against source. Confirm, by reading the files named in
-      Context and Orientation, that: (a) `RecordedEvent` carries
-      `eventType :: EventType` and `EventType` is `newtype EventType Text`;
-      (b) the existing `EventFilter` type in `Kiroku.Store.Types` is for
-      correlation/causation queries only and must not be reused; (c)
-      `processEvents` in `Worker.hs` checkpoints at the batch tail regardless of
-      which handlers ran; (d) the Streamly bridge in `Stream.hs` installs a
-      handler that enqueues every event and returns `Continue`; (e) the adapter
-      builds its `SubscriptionConfigM` from `defaultSubscriptionConfig`.
-- [ ] M1 — define the filter type, add the `eventTypeFilter` field to
-      `SubscriptionConfigM` (default `AllEventTypes`), and apply it worker-side
-      so non-matching events are not delivered while the checkpoint advances.
-      Acceptance test in `kiroku-store-test`.
-- [ ] M2 — surface the filter through the Streamly bridge (no element-type
-      change) and forward it through `shibuya-kiroku-adapter`'s
-      `KirokuAdapterConfig`. Acceptance test in `shibuya-kiroku-adapter-test`.
-- [ ] M3 — tests: the no-stall property over a long run of non-matching events;
-      the filter-before-dead-letter property (filtered types are never
-      dead-lettered); and, if EP-42 has landed, a consumer-group-plus-filter
-      case (otherwise recorded here as a follow-up assertion).
+- [x] Design validated against source. Confirmed against the post-EP-40/41/42
+      tree: (a) `RecordedEvent` carries `eventType :: EventType`, `EventType` is
+      `newtype EventType Text` deriving `Ord`; (b) the existing `EventFilter` in
+      `Kiroku.Store.Types` is correlation/causation-query only — a distinctly
+      named `EventTypeFilter` was introduced instead; (c) `processEvents` in
+      `Worker.hs` checkpoints at the batch tail (`globalPosition (V.last events)`)
+      regardless of which handlers ran — so the no-stall property is free; (d) the
+      Streamly bridge copies the caller's `config` and overrides only `handler`,
+      so the filter flows through unchanged; (e) the adapter builds its
+      `SubscriptionConfigM` from `defaultSubscriptionConfig`. (Done 2026-05-29.)
+- [x] M1 — defined `EventTypeFilter (AllEventTypes | OnlyEventTypes !(Set
+      EventType))` + `eventTypeMatches` in `Subscription/Types.hs`, added the
+      `eventTypeFilter` field to `SubscriptionConfigM` (default `AllEventTypes`)
+      and `defaultSubscriptionConfig`, and applied the predicate in
+      `processEvents`'s per-event branch (filtered events skip the handler and
+      fall through to `go (i+1)` so the batch-tail checkpoint advances past them).
+      Acceptance test in `kiroku-store-test` (`Test.EventTypeFilter`). (Done
+      2026-05-29: `kiroku-store-test` 0 failures.)
+- [x] M2 — surfaced the filter through the Streamly bridge (Haddock note;
+      no element-type change — `subscriptionStream` already forwards every config
+      field but `handler`) and forwarded it through `shibuya-kiroku-adapter`'s
+      `KirokuAdapterConfig` (and EP-42's `KirokuConsumerGroupConfig`, threaded
+      into each per-member adapter), re-exporting `EventTypeFilter (..)`. Adapter
+      acceptance test added: a `kirokuAdapter` configured with
+      `OnlyEventTypes {A}` over a mixed A/B stream delivers only the As to the
+      Shibuya handler (positions 1, 3, 5). (Done 2026-05-29:
+      `shibuya-kiroku-adapter-test` 17 examples, 0 failures.)
+- [x] M3 — tests prove the headline properties: selective delivery +
+      checkpoint-past-trailing-filtered; **no-stall** over 1 A / 1000 B / 1 A
+      (`last_seen` reaches 1002 with only 2 As delivered); and
+      **filter-before-dead-letter** (a handler that dead-letters everything is
+      never invoked behind a filter that admits nothing in the stream — zero
+      dead-letter rows, checkpoint still advances) — all in `kiroku-store-test`.
+      The **consumer-group-plus-filter** case is proven in the adapter suite: a
+      size-4 group filtered to `OnlyEventTypes {A}` over 20 streams of `[A, B]`
+      delivers exactly the 20 As (`sort` of delivered global positions ==
+      `[1,3..39]`, disjoint and complete). (Done 2026-05-29: kiroku-store and
+      adapter suites, 0 failures.)
 
 
 ## Surprises & Discoveries
@@ -106,7 +124,45 @@ acknowledged so the checkpoint advances past them.
   different features. This plan introduces a distinctly named type
   (`EventTypeFilter`) so the two cannot be confused.
 
-- (Add new discoveries here as implementation proceeds.)
+- The no-stall property held exactly as predicted: applying the filter in
+  `processEvents`'s per-event branch (skip the `handler` call, fall through to
+  `go (i+1)`) while leaving the batch-tail `saveCheckpoint` untouched advances the
+  cursor past filtered events with no extra bookkeeping. The 1-A/1000-B/1-A test
+  reaches `last_seen = 1002` having delivered only the 2 As, and completes in well
+  under the timeout.
+
+- EP-40 ordering verified in `kiroku-store` directly (not only at the adapter):
+  the filter runs inside `processEvents` *before* the `handler config event` call,
+  which is also where EP-40's `Retry`/`DeadLetter` dispositions are resolved. The
+  M3 "does not dead-letter a filtered-out type" test pins this — a handler that
+  returns `DeadLetter` for every event it sees writes zero dead-letter rows when
+  the filter admits nothing in the stream, because the handler is never reached.
+
+- Touching the shared `SubscriptionConfigM` forced an `eventTypeFilter =
+  AllEventTypes` line onto every **full record literal** of `SubscriptionConfig`
+  across the test/bench suites (those not built via `defaultSubscriptionConfig`):
+  21 in `kiroku-store/test/Main.hs`, plus `Test.ConsumerGroup`,
+  `Test.PublisherRestartNoRebroadcast` (×3), `Test.CatchupDbErrorNoPrematureSwitch`,
+  `Test.SubscriptionPauseResume` (×2), `Test.FailureInjection`,
+  `Test.SubscriptionState` (×2), `Test.SubscriptionReconnect`, and the two
+  benchmarks (`bench/ShibuyaOverhead.hs` ×3, `bench/Main.hs`). `AllEventTypes`
+  reaches all of them for free because the umbrella `Kiroku.Store` re-exports
+  `Kiroku.Store.Subscription.Types` (via `Kiroku.Store.Subscription`).
+  `Test.SubscriptionRetryDeadLetter` uses `defaultSubscriptionConfig` and needed
+  no change.
+
+- **Adapter delivery-path tests landed.** Two tests were added to
+  `shibuya-kiroku-adapter/test/Main.hs` (`describe "kirokuAdapter"`): (1) a single
+  `kirokuAdapter` filtered to `OnlyEventTypes {A}` over a mixed A/B stream delivers
+  only the As to the Shibuya handler (collected `eventType`s all `A`, global
+  positions `[1,3,5]`); (2) a size-4 consumer group built with
+  `kirokuConsumerGroupProcessors` and the same filter on every member, over 20
+  streams of `[A, B]`, delivers exactly the 20 As — `sort` of delivered global
+  positions `== [1,3..39]`, proving the filter is honored per member and the union
+  is disjoint + complete. (These were briefly deferred mid-session during an editor
+  file-read display outage that made it unsafe to author against the Shibuya
+  `runApp`/drain harness; once readable, they were written and pass — adapter suite
+  17 examples, 0 failures.)
 
 
 ## Decision Log
@@ -177,13 +233,39 @@ acknowledged so the checkpoint advances past them.
 
 ## Outcomes & Retrospective
 
-Pending. At completion summarize: the final `EventTypeFilter` shape as shipped;
-the exact site in the worker (or FSM delivery transition) where the predicate is
-applied; the `kiroku-store-test` and `shibuya-kiroku-adapter-test` results
-(including the no-stall and filter-before-dead-letter assertions); and whether the
-consumer-group-plus-filter case was proven here or deferred to EP-42's landing.
-Compare against the Purpose: a caller can declare an event-type filter and observe
-only matching deliveries with a checkpoint that advances past everything else.
+Shipped 2026-05-29.
+
+- **`EventTypeFilter` as shipped:** a closed sum
+  `data EventTypeFilter = AllEventTypes | OnlyEventTypes !(Set EventType)`
+  (`Eq`, `Show`) in `kiroku-store/src/Kiroku/Store/Subscription/Types.hs`, with
+  `eventTypeMatches :: EventTypeFilter -> RecordedEvent -> Bool`
+  (`AllEventTypes` matches all; `OnlyEventTypes s` matches `eventType ev ∈ s`).
+  No `ExceptEventTypes` (intentional — allow-list only, additive later).
+- **Where the predicate is applied:** in the single delivery primitive
+  `processEvents` (`Worker.hs`), in the per-event branch, *before* `handler config
+  event`. A non-matching event skips the handler and falls through to `go (i+1)`;
+  the batch-tail `saveCheckpoint` (unchanged) advances the cursor past it. This is
+  upstream of EP-40's disposition logic and EP-40's ack-coupled bridge, so a
+  filtered-out event is never delivered, retried, or dead-lettered.
+- **Config surface:** `eventTypeFilter :: !EventTypeFilter` added to
+  `SubscriptionConfigM` (default `AllEventTypes` in `defaultSubscriptionConfig`);
+  forwarded through the Streamly bridge unchanged (element type stays
+  `RecordedEvent`); added to `shibuya-kiroku-adapter`'s `KirokuAdapterConfig` and
+  EP-42's `KirokuConsumerGroupConfig` (threaded into every per-member adapter),
+  with `EventTypeFilter (..)` re-exported from the adapter module.
+- **Test results:** `kiroku-store-test` — **0 failures**, including the new
+  `Test.EventTypeFilter` (selective delivery; checkpoint past a trailing filtered
+  event; no-stall over 1 A / 1000 B / 1 A → `last_seen = 1002`, 2 deliveries;
+  filter-before-dead-letter → 0 dead-letter rows, checkpoint advanced).
+  `shibuya-kiroku-adapter-test` — **17 examples, 0 failures**, including the new
+  single-adapter filter test (delivers only As, positions `[1,3,5]`) and the
+  consumer-group+filter test (size-4 group, 20 streams of `[A,B]` → delivered A
+  positions `sort == [1,3..39]`, disjoint + complete).
+- **Against the Purpose:** a caller can declare `eventTypeFilter = OnlyEventTypes
+  {…}` on a native subscription (and, by forwarding, on a Streamly stream or
+  Shibuya adapter) and observe only matching deliveries while the checkpoint
+  advances past everything else — proven end-to-end at the worker, which is where
+  the filter lives.
 
 
 ## Context and Orientation
@@ -956,3 +1038,10 @@ Dependencies and agreements with sibling plans:
   filtering-only, closed declarative type, soft-dep on EP-41, filter-before-bridge
   ordering). Reason: turn the coordinated MasterPlan 6 child-plan-4 design into a
   self-contained, executable plan.
+- 2026-05-29 — Implemented. M1 (type + config field + worker predicate), the
+  Streamly/adapter forwarding (M2), and the test coverage (M3) all landed.
+  `kiroku-store-test` grew `Test.EventTypeFilter` (selective delivery,
+  checkpoint-past-trailing-filtered, no-stall, filter-before-dead-letter), 0
+  failures; `shibuya-kiroku-adapter-test` grew a single-adapter filter test and a
+  consumer-group+filter test → 17 examples, 0 failures. All milestones done; no
+  deferrals.

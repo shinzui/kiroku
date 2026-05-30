@@ -14,6 +14,7 @@ import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.Int (Int32, Int64)
 import Data.List (nub, sort)
 import Data.Map.Strict qualified as Map
+import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time (UTCTime (..), fromGregorian)
@@ -103,6 +104,101 @@ main = withSharedMigratedPostgres $ hspec $ do
 
     around withTestStore $ do
         describe "kirokuAdapter" $ do
+            it "delivers only matching event types when an eventTypeFilter is set (EP-43)" $ \store -> do
+                -- A, B, A, B, A on one stream (global positions 1..5). The adapter
+                -- is filtered to type A; the Shibuya handler must see only the As.
+                let events =
+                        [ makeEvent "A" (Aeson.object [])
+                        , makeEvent "B" (Aeson.object [])
+                        , makeEvent "A" (Aeson.object [])
+                        , makeEvent "B" (Aeson.object [])
+                        , makeEvent "A" (Aeson.object [])
+                        ]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "etf-adapter-1") NoStream events
+                ref <- newIORef ([] :: [RecordedEvent])
+                countVar <- newTVarIO (0 :: Int)
+                runEff $ runTracingNoop $ do
+                    adapter <-
+                        kirokuAdapter store $
+                            KirokuAdapterConfig
+                                { subscriptionName = SubscriptionName "etf-adapter"
+                                , subscriptionTarget = AllStreams
+                                , batchSize = 100
+                                , bufferSize = 256
+                                , consumerGroup = Nothing
+                                , eventTypeFilter = OnlyEventTypes (Set.fromList [EventType "A"])
+                                }
+                    let handler ingested = do
+                            liftIO $ do
+                                modifyIORef' ref (envelopePayload ingested :)
+                                atomically $ do
+                                    c <- readTVar countVar
+                                    writeTVar countVar (c + 1)
+                            pure AckOk
+                    res <- runApp IgnoreFailures 100 [(ProcessorId "etf", mkProcessor adapter handler)]
+                    case res of
+                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                        Right appHandle -> do
+                            liftIO $ waitForCount countVar 3 10_000_000
+                            stopApp appHandle
+
+                collected <- readIORef ref
+                -- Only the three A events reached the handler; no Bs.
+                map (^. #eventType) collected `shouldBe` replicate 3 (EventType "A")
+                map globalPos (reverse collected) `shouldBe` [1, 3, 5]
+
+            it "delivers only matching types across a filtered consumer group (EP-43)" $ \store -> do
+                -- 20 streams in category "etfg", each [A, B]; A at odd global
+                -- positions 1,3,..,39. A size-4 group filtered to type A must
+                -- deliver exactly the 20 As, disjoint and complete.
+                let streams = [0 .. 19 :: Int]
+                mapM_
+                    ( \i -> do
+                        let sn = StreamName ("etfg-" <> T.pack (show i))
+                        Right _ <-
+                            runStoreIO store $
+                                appendToStream sn NoStream [makeEvent "A" (Aeson.object []), makeEvent "B" (Aeson.object [])]
+                        pure ()
+                    )
+                    streams
+                ref <- newIORef ([] :: [RecordedEvent])
+                countVar <- newTVarIO (0 :: Int)
+                runEff $ runTracingNoop $ do
+                    let cfg =
+                            KirokuConsumerGroupConfig
+                                { subscriptionName = SubscriptionName "etfg"
+                                , subscriptionTarget = Category (CategoryName "etfg")
+                                , groupSize = 4
+                                , batchSize = 100
+                                , bufferSize = 256
+                                , memberConcurrency = Serial
+                                , eventTypeFilter = OnlyEventTypes (Set.fromList [EventType "A"])
+                                }
+                        handler ingested = do
+                            liftIO $ do
+                                modifyIORef' ref (envelopePayload ingested :)
+                                atomically $ do
+                                    c <- readTVar countVar
+                                    writeTVar countVar (c + 1)
+                            pure AckOk
+                    res <- kirokuConsumerGroupProcessors store cfg handler
+                    case res of
+                        Left err -> liftIO $ expectationFailure ("kirokuConsumerGroupProcessors failed: " <> show err)
+                        Right processors -> do
+                            appRes <- runApp IgnoreFailures 100 processors
+                            case appRes of
+                                Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                                Right appHandle -> do
+                                    liftIO $ waitForCount countVar 20 15_000_000
+                                    stopApp appHandle
+
+                collected <- readIORef ref
+                -- Every delivered event is an A (filter honored per member)...
+                map (^. #eventType) collected `shouldBe` replicate 20 (EventType "A")
+                -- ...and the union over members is the complete, disjoint set of A
+                -- positions [1,3,..,39] — no A dropped, none delivered twice.
+                sort (map globalPos collected) `shouldBe` [1, 3 .. 39]
+
             it "delivers catch-up events through Shibuya pipeline" $ \store -> do
                 let events = map (\i -> makeEvent ("CU" <> T.pack (show i)) (Aeson.object [])) [1 .. 10 :: Int]
                 Right _ <- runStoreIO store $ appendToStream (StreamName "shibuya-catchup-1") NoStream events
@@ -121,6 +217,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , batchSize = 100
                                 , bufferSize = 256
                                 , consumerGroup = Nothing
+                                , eventTypeFilter = AllEventTypes
                                 }
 
                     let handler ingested = do
@@ -155,6 +252,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , batchSize = 100
                                 , bufferSize = 256
                                 , consumerGroup = Nothing
+                                , eventTypeFilter = AllEventTypes
                                 }
 
                     let handler ingested = do
@@ -205,6 +303,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                     , batchSize = 100
                                     , bufferSize = 256
                                     , consumerGroup = Nothing
+                                    , eventTypeFilter = AllEventTypes
                                     }
                     let mkHandler ref' cVar ingested = do
                             liftIO $ do
@@ -262,6 +361,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , batchSize = 100
                                 , bufferSize = 256
                                 , consumerGroup = Nothing
+                                , eventTypeFilter = AllEventTypes
                                 }
                     badAdapter <-
                         kirokuAdapter store $
@@ -271,6 +371,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , batchSize = 100
                                 , bufferSize = 256
                                 , consumerGroup = Nothing
+                                , eventTypeFilter = AllEventTypes
                                 }
                     otherAdapter <-
                         kirokuAdapter store $
@@ -280,6 +381,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , batchSize = 100
                                 , bufferSize = 256
                                 , consumerGroup = Nothing
+                                , eventTypeFilter = AllEventTypes
                                 }
 
                     let goodHandler ingested = do
@@ -346,6 +448,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , batchSize = 100
                                 , bufferSize = 256
                                 , consumerGroup = Nothing
+                                , eventTypeFilter = AllEventTypes
                                 }
                     adapterB <-
                         kirokuAdapter store $
@@ -355,6 +458,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , batchSize = 100
                                 , bufferSize = 256
                                 , consumerGroup = Nothing
+                                , eventTypeFilter = AllEventTypes
                                 }
 
                     let handlerA _ingested = do
@@ -403,6 +507,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , batchSize = 100
                                 , bufferSize = 256
                                 , consumerGroup = Nothing
+                                , eventTypeFilter = AllEventTypes
                                 }
 
                     let handler _ingested = do
@@ -447,6 +552,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , batchSize = 100
                                 , bufferSize = 256
                                 , consumerGroup = Nothing
+                                , eventTypeFilter = AllEventTypes
                                 }
 
                     let handler ingested = do
@@ -505,6 +611,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                         , batchSize = 100
                                         , bufferSize = 256
                                         , consumerGroup = Just (ConsumerGroup{member = m, size = 4})
+                                        , eventTypeFilter = AllEventTypes
                                         }
                             )
                             [0, 1, 2, 3]

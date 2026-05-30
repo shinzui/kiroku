@@ -50,6 +50,7 @@ spec =
                         , consumerGroup = Nothing
                         , consumerGroupGuard = False
                         , retryPolicy = defaultRetryPolicy
+                        , eventTypeFilter = AllEventTypes
                         }
                 observe evt = do
                     modifyIORef' eventRef (evt :)

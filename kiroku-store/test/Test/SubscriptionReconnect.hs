@@ -99,6 +99,7 @@ spec = describe "subscription FSM — worker-level live reconnect (EP-41 M3)" $ 
                     , consumerGroup = Nothing
                     , consumerGroupGuard = False
                     , retryPolicy = defaultRetryPolicy
+                    , eventTypeFilter = AllEventTypes
                     }
 
         withTestStoreSettings (& #eventHandler .~ Just observe) $ \store -> do

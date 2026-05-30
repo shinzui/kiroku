@@ -25,6 +25,7 @@ main = withStore settings $ \\store ->
                 , batchSize = 100
                 , bufferSize = 256
                 , consumerGroup = Nothing
+                , eventTypeFilter = AllEventTypes
                 }
 
         let handler ingested = do
@@ -118,6 +119,7 @@ module Shibuya.Adapter.Kiroku (
     SubscriptionName (..),
     SubscriptionTarget (..),
     ConsumerGroup (..),
+    EventTypeFilter (..),
 ) where
 
 import Data.Int (Int32)
@@ -127,6 +129,7 @@ import Kiroku.Store.Connection (KirokuStore)
 import Kiroku.Store.Subscription.Stream (subscriptionAckStream)
 import Kiroku.Store.Subscription.Types (
     ConsumerGroup (..),
+    EventTypeFilter (..),
     OverflowPolicy (..),
     SubscriptionConfigM (..),
     SubscriptionName (..),
@@ -176,6 +179,15 @@ data KirokuAdapterConfig = KirokuAdapterConfig
     the underlying 'Kiroku.Store.Subscription.subscribe' call, which throws
     'Kiroku.Store.Subscription.Types.InvalidConsumerGroup' on violation.
     -}
+    , eventTypeFilter :: !EventTypeFilter
+    {- ^ Which event types this adapter delivers. Pass 'AllEventTypes' (deliver
+    everything) or @'OnlyEventTypes' s@ to receive only events whose type is in
+    @s@. Forwarded into the underlying subscription; filtering is worker-side
+    (before the ack-coupled bridge), so a filtered-out event never reaches the
+    Shibuya handler, is never retried or dead-lettered, and the checkpoint still
+    advances past it. 'Shibuya.Adapter.Kiroku.Convert' and the 'AckHandle' are
+    unaffected.
+    -}
     }
 
 {- | Create a Shibuya 'Adapter' backed by a Kiroku subscription.
@@ -200,7 +212,7 @@ kirokuAdapter ::
     KirokuStore ->
     KirokuAdapterConfig ->
     Eff es (Adapter es RecordedEvent)
-kirokuAdapter store (KirokuAdapterConfig subName subTarget bs buf cg) = do
+kirokuAdapter store (KirokuAdapterConfig subName subTarget bs buf cg etf) = do
     -- Build from 'defaultSubscriptionConfig' and override only the non-default
     -- fields. Using the smart constructor (rather than a full record literal)
     -- means any future field added to 'SubscriptionConfigM' is inherited at its
@@ -211,6 +223,7 @@ kirokuAdapter store (KirokuAdapterConfig subName subTarget bs buf cg) = do
                 , queueCapacity = 16
                 , overflowPolicy = DropSubscription
                 , consumerGroup = cg
+                , eventTypeFilter = etf
                 }
 
     (ioStream, cancelAction) <- liftIO $ subscriptionAckStream store subConfig buf
@@ -260,11 +273,21 @@ data KirokuConsumerGroupConfig = KirokuConsumerGroupConfig
     -- ^ Per-member 'TBQueue' capacity (backpressure threshold).
     , memberConcurrency :: !Concurrency
     -- ^ Per-member concurrency; must be 'Serial' (validated).
+    , eventTypeFilter :: !EventTypeFilter
+    {- ^ Event-type filter applied to /every/ member (the same filter on each).
+    'AllEventTypes' delivers everything; @'OnlyEventTypes' s@ delivers only the
+    named types. Forwarded into each per-member 'KirokuAdapterConfig', so a
+    filtered partitioned group behaves like a filtered single subscription:
+    filtering is worker-side and per member, the checkpoint still advances past
+    filtered events, and the partition's completeness is preserved over the
+    delivered types.
+    -}
     }
 
 {- | A 'KirokuConsumerGroupConfig' with sensible defaults: @memberConcurrency =
 'Serial'@ (the only legal per-member concurrency), @batchSize = 100@,
-@bufferSize = 256@. Supply the subscription name, target, and group size.
+@bufferSize = 256@, @eventTypeFilter = 'AllEventTypes'@ (deliver every type).
+Supply the subscription name, target, and group size.
 -}
 defaultConsumerGroupConfig ::
     SubscriptionName -> SubscriptionTarget -> Int32 -> KirokuConsumerGroupConfig
@@ -276,6 +299,7 @@ defaultConsumerGroupConfig name target n =
         , batchSize = 100
         , bufferSize = 256
         , memberConcurrency = Serial
+        , eventTypeFilter = AllEventTypes
         }
 
 {- | Map a requested per-member concurrency onto the group's validated Shibuya
@@ -329,6 +353,7 @@ kirokuConsumerGroupProcessors
         , batchSize = bs
         , bufferSize = buf
         , memberConcurrency = mc
+        , eventTypeFilter = etf
         }
     handler =
         case consumerGroupPolicy mc of
@@ -347,6 +372,7 @@ kirokuConsumerGroupProcessors
                                         , batchSize = bs
                                         , bufferSize = buf
                                         , consumerGroup = Just (ConsumerGroup{member = m, size = n})
+                                        , eventTypeFilter = etf
                                         }
                             let pid = ProcessorId (name <> "-member-" <> T.pack (show m))
                             -- Built directly (not via 'mkProcessor', which hardcodes

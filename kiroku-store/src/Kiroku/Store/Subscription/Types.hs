@@ -12,6 +12,10 @@ module Kiroku.Store.Subscription.Types (
     SubscriptionHandleM (..),
     SubscriptionHandle,
 
+    -- * Event-type filtering
+    EventTypeFilter (..),
+    eventTypeMatches,
+
     -- * Per-event dispositions (retry / dead-letter)
     RetryDelay (..),
     retryDelayMicros,
@@ -29,6 +33,8 @@ module Kiroku.Store.Subscription.Types (
 
 import Control.Exception (Exception, SomeException)
 import Data.Int (Int32)
+import Data.Set (Set)
+import Data.Set qualified as Set
 import Data.Text (Text)
 import Kiroku.Store.Subscription.Fsm (
     DeadLetterReason (..),
@@ -38,8 +44,38 @@ import Kiroku.Store.Subscription.Fsm (
     deadLetterSummary,
     retryDelayMicros,
  )
-import Kiroku.Store.Types (CategoryName, RecordedEvent)
+import Kiroku.Store.Types (CategoryName, EventType, RecordedEvent (..))
 import Numeric.Natural (Natural)
+
+{- | A declarative, closed filter over event types for a subscription.
+
+'AllEventTypes' (the default) delivers every event. @'OnlyEventTypes' s@
+delivers only events whose 'eventType' is in @s@; all other events are
+skipped (the handler is not called) but the subscription checkpoint still
+advances past them, so a highly selective subscription never stalls on a long
+run of filtered-out events.
+
+This is intentionally a closed sum, not an opaque @RecordedEvent -> Bool@, so
+it stays introspectable (and a future SQL pushdown can read the set out of it)
+and is 'Eq'\/'Show'-able for tests and diagnostics. It is unrelated to
+'Kiroku.Store.Types.EventFilter', which filters correlation\/causation
+/queries/.
+-}
+data EventTypeFilter
+    = -- | Deliver every event (the no-op default).
+      AllEventTypes
+    | -- | Deliver only events whose 'eventType' is in this set.
+      OnlyEventTypes !(Set EventType)
+    deriving stock (Eq, Show)
+
+{- | 'True' when an event should be delivered to the handler under the filter.
+The worker applies this /before/ calling the handler, so a non-matching event
+never reaches the handler (or the ack-coupled bridge) and is never retried or
+dead-lettered.
+-}
+eventTypeMatches :: EventTypeFilter -> RecordedEvent -> Bool
+eventTypeMatches AllEventTypes _ = True
+eventTypeMatches (OnlyEventTypes s) RecordedEvent{eventType = t} = Set.member t s
 
 -- | Unique name for a subscription (e.g., @"inventory-projection"@).
 newtype SubscriptionName = SubscriptionName Text
@@ -186,6 +222,14 @@ data SubscriptionConfigM m = SubscriptionConfig
     (five attempts). Handlers that only return 'Continue' / 'Stop' are
     unaffected.
     -}
+    , eventTypeFilter :: !EventTypeFilter
+    {- ^ Which event types this subscription delivers. Default
+    'AllEventTypes' (deliver everything). When 'OnlyEventTypes', the worker
+    skips the handler for non-matching events but still advances the
+    checkpoint past them, so the subscription never stalls on a long run of
+    filtered-out events. Applied worker-side before the handler/bridge, so a
+    filtered-out event is never retried or dead-lettered.
+    -}
     }
 
 -- | Configuration defaulting to 'IO'.
@@ -220,6 +264,7 @@ defaultSubscriptionConfig name' target' handler' =
         , consumerGroup = Nothing
         , consumerGroupGuard = False
         , retryPolicy = defaultRetryPolicy
+        , eventTypeFilter = AllEventTypes
         }
 
 -- | Handle returned to the caller for lifecycle management, parameterized by monad.

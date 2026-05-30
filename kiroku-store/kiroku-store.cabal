@@ -93,6 +93,7 @@ test-suite kiroku-store-test
     Test.ConsumerGroup
     Test.ConsumerGroupEffect
     Test.ConsumerGroupSql
+    Test.EventTypeFilter
     Test.FailureInjection
     Test.Helpers
     Test.InterpreterHooks

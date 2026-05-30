@@ -32,6 +32,7 @@ import Test.Concurrency qualified as Concurrency
 import Test.ConsumerGroup qualified as ConsumerGroup
 import Test.ConsumerGroupEffect qualified as ConsumerGroupEffect
 import Test.ConsumerGroupSql qualified as ConsumerGroupSql
+import Test.EventTypeFilter qualified as EventTypeFilter
 import Test.FailureInjection qualified as FailureInjection
 import Test.Helpers
 import Test.Hspec
@@ -66,6 +67,7 @@ main = withSharedMigratedPostgres $ hspec $ do
     SubscriptionReconnect.spec
     SubscriptionState.spec
     SubscriptionRetryDeadLetter.spec
+    EventTypeFilter.spec
     around withTestStore $ do
         describe "schema migrations" $ do
             it "installs every Kiroku table under the kiroku schema" $ \store -> do
@@ -902,6 +904,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                 handle <- subscribe store cfg
                 result <- waitWithTimeout 10_000_000 handle
@@ -936,6 +939,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                 handle <- subscribe store cfg
                 -- Give subscription time to start
@@ -979,6 +983,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                 h1 <- subscribe store cfg1
                 _ <- waitWithTimeout 10_000_000 h1
@@ -1006,6 +1011,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                 h2 <- subscribe store cfg2
                 _ <- waitWithTimeout 10_000_000 h2
@@ -1049,6 +1055,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                 handle <- subscribe store cfg
                 takeMVar firstSeen
@@ -1100,6 +1107,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                 h1 <- subscribe store cfg1
                 takeMVar firstSeen
@@ -1121,6 +1129,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                 h2 <- subscribe store cfg2
                 result <- waitWithTimeout 10_000_000 h2
@@ -1155,6 +1164,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                 h1 <- subscribe store cfg1
                 _ <- waitWithTimeout 10_000_000 h1
@@ -1180,6 +1190,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                 h2 <- subscribe store cfg2
                 result <- waitWithTimeout 10_000_000 h2
@@ -1231,6 +1242,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                 handle <- subscribe store cfg
                 -- Block until catch-up has delivered the seed event — the
@@ -1283,6 +1295,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                 handle <- subscribe store cfg
                 _ <- waitWithTimeout 10_000_000 handle
@@ -1327,6 +1340,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                 handle <- subscribe store cfg
                 result <- waitWithTimeout 10_000_000 handle
@@ -1356,6 +1370,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                 handle <- subscribe store cfg
                 -- Give it time to start
@@ -1384,6 +1399,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                 handle <- subscribe store cfg
                 -- Give subscription time to start in live mode
@@ -1431,6 +1447,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                 handle <- subscribe store cfg
                 threadDelay 100_000
@@ -1484,6 +1501,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                 handle <- subscribe store cfg
                 -- First append: triggers handler, which blocks on the release MVar.
@@ -1542,6 +1560,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                 h2 <- subscribe store cfg2
                 replayResult <- waitWithTimeout 10_000_000 h2
@@ -1583,6 +1602,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , consumerGroup = Nothing
                                 , consumerGroupGuard = False
                                 , retryPolicy = defaultRetryPolicy
+                                , eventTypeFilter = AllEventTypes
                                 }
                     handle <- SubEff.subscribe cfg
                     liftIO $ do
@@ -1615,6 +1635,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                 withSubscription store cfg $ \h -> do
                     writeIORef handleRef (Just h)
@@ -1640,6 +1661,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                 result <-
                     Control.Exception.try @SomeException $
@@ -1777,6 +1799,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 , consumerGroup = Nothing
                                 , consumerGroupGuard = False
                                 , retryPolicy = defaultRetryPolicy
+                                , eventTypeFilter = AllEventTypes
                                 }
                     handle <- subscribe store cfg
                     -- Give the worker a moment to enter live mode.

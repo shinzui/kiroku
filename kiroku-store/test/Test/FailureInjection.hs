@@ -66,6 +66,7 @@ spec = describe "kiroku-store failure injection" $ do
                     , consumerGroup = Nothing
                     , consumerGroupGuard = False
                     , retryPolicy = defaultRetryPolicy
+                    , eventTypeFilter = AllEventTypes
                     }
         withTestStoreSettings (& #eventHandler .~ Nothing) $ \store -> do
             handle <- subscribe store cfg

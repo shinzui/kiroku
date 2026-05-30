@@ -598,7 +598,14 @@ processEvents pool config stateVar events emit posRef = do
             let event = events V.! i
                 evtPos = globalPosition event
             writeIORef posRef evtPos
-            deliver driving i event evtPos 1
+            if eventTypeMatches (eventTypeFilter config) event
+                then deliver driving i event evtPos 1
+                else -- Filtered out: skip the handler entirely (so a non-matching
+                -- event never reaches the bridge and is never retried or
+                -- dead-lettered), but keep walking the batch so the batch-tail
+                -- checkpoint advances the cursor past it. The subscription never
+                -- stalls on a long run of filtered-out events.
+                    go driving (i + 1)
 
     -- Deliver one event; @attempt@ is the 1-based delivery attempt (1 = first).
     deliver driving i event evtPos attempt = do

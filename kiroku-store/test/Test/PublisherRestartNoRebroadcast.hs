@@ -56,6 +56,7 @@ spec =
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                     liveSettings =
                         settings
@@ -116,6 +117,7 @@ spec =
                             , consumerGroup = Nothing
                             , consumerGroupGuard = False
                             , retryPolicy = defaultRetryPolicy
+                            , eventTypeFilter = AllEventTypes
                             }
                     liveSettings =
                         settings
@@ -193,6 +195,7 @@ runUntil store subName targetCount = do
                 , consumerGroup = Nothing
                 , consumerGroupGuard = False
                 , retryPolicy = defaultRetryPolicy
+                , eventTypeFilter = AllEventTypes
                 }
     handle <- subscribe store cfg
     result <- waitWithTimeout 10_000_000 handle

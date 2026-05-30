@@ -68,6 +68,13 @@ as soon as the consumer pulls it, preserving the original semantics. It is
 implemented in terms of 'subscriptionAckStream'; consumers that need to drive
 retry\/dead-letter dispositions should use 'subscriptionAckStream' directly.
 
+The config's
+'Kiroku.Store.Subscription.Types.eventTypeFilter' is honored: the worker
+applies it before the bridge handler runs, so the stream yields only matching
+events while the checkpoint still advances past filtered-out ones. The stream's
+element type is unchanged ('RecordedEvent') — filtering only removes elements,
+it does not reshape them.
+
 The returned cancel action cancels the underlying subscription and
 writes the sentinel so any blocked reader wakes up and terminates.
 -}
