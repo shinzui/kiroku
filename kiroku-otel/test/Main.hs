@@ -1,11 +1,45 @@
+-- 'head' is used in the tracing tests immediately after asserting the list has
+-- exactly one element, so the partiality is guarded by the preceding assertion.
+{-# OPTIONS_GHC -Wno-x-partial #-}
+
 module Main where
 
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
+import Data.Foldable (toList)
+import Data.HashMap.Strict qualified as HashMap
+import Data.IORef (readIORef)
+import Data.Int (Int64)
+import Data.List (sort)
+import Data.Maybe (mapMaybe)
+import Data.Text (Text)
 import Data.Text qualified as T
 import Data.UUID qualified as UUID
+import Kiroku.Otel.Subscription (
+    attrAttempt,
+    attrBatchRows,
+    attrCheckpoint,
+    attrDeadLetterReason,
+    attrEventPos,
+    attrGroupMember,
+    attrSubName,
+    spanCatchup,
+    spanDeadLetter,
+    spanFetch,
+    spanPaused,
+    spanReconnecting,
+    spanRetrying,
+    subscriptionTraceHandler,
+ )
 import Kiroku.Otel.TraceContext (extractTraceContext, injectTraceContext)
+import Kiroku.Store.Observability (
+    DeadLetterReason (..),
+    KirokuEvent (..),
+    SubscriptionGroupContext (..),
+    SubscriptionStopReason (..),
+ )
+import Kiroku.Store.Subscription.Types (SubscriptionName (..))
 import Kiroku.Store.Types (
     EventData (..),
     EventId (..),
@@ -15,9 +49,18 @@ import Kiroku.Store.Types (
     StreamId (..),
     StreamVersion (..),
  )
+import OpenTelemetry.Attributes (Attribute, getAttributeMap, toAttribute)
+import OpenTelemetry.Exporter.InMemory.Span (inMemoryListExporter)
 import OpenTelemetry.Trace.Core (
+    Event (..),
+    ImmutableSpan (..),
     SpanContext (..),
+    createTracerProvider,
+    emptyTracerProviderOptions,
+    forceFlushTracerProvider,
+    makeTracer,
     traceFlagsFromWord8,
+    tracerOptions,
  )
 import OpenTelemetry.Trace.Id (
     Base (..),
@@ -25,6 +68,7 @@ import OpenTelemetry.Trace.Id (
     baseEncodedToTraceId,
  )
 import OpenTelemetry.Trace.TraceState qualified as TS
+import OpenTelemetry.Util (appendOnlyBoundedCollectionValues)
 import Test.Hspec
 
 main :: IO ()
@@ -94,6 +138,90 @@ main = hspec $ do
                         `shouldNotBe` Just (Aeson.String (T.pack "00-aaaa-bbbb-00"))
                 _ -> expectationFailure "metadata is not a JSON object"
 
+    describe "subscriptionTraceHandler" $ do
+        it "catch-up then live yields an ended catchup span and a fetch span" $ do
+            spans <-
+                runEvents
+                    [ KirokuEventSubscriptionStarted subName (GlobalPosition 0) NonGroup
+                    , KirokuEventSubscriptionCaughtUp subName (GlobalPosition 10) NonGroup
+                    , KirokuEventSubscriptionFetched subName 3 NonGroup
+                    ]
+            let catchups = spansNamed spanCatchup spans
+                fetches = spansNamed spanFetch spans
+            length catchups `shouldBe` 1
+            length fetches `shouldBe` 1
+            -- the catch-up span carries the subscription name and its caught-up checkpoint
+            attrOf attrSubName (head catchups) `shouldBe` Just (toAttribute ("orders" :: Text))
+            attrOf attrCheckpoint (head catchups) `shouldBe` Just (i64 10)
+            -- the live fetch span carries the batch row count
+            attrOf attrBatchRows (head fetches) `shouldBe` Just (i64 3)
+
+        it "pause then resume yields an ended paused span" $ do
+            spans <-
+                runEvents
+                    [ KirokuEventSubscriptionPaused subName (GlobalPosition 5) NonGroup
+                    , KirokuEventSubscriptionResumed subName (GlobalPosition 5) NonGroup
+                    ]
+            -- present in the exported set ⇒ the episode closed and is observable
+            length (spansNamed spanPaused spans) `shouldBe` 1
+
+        it "reconnect yields one span with a reconnect.attempt event and attempt=2" $ do
+            spans <-
+                runEvents
+                    [ KirokuEventSubscriptionReconnecting subName 1 NonGroup
+                    , KirokuEventSubscriptionReconnecting subName 2 NonGroup
+                    , KirokuEventSubscriptionCaughtUp subName (GlobalPosition 7) NonGroup
+                    ]
+            let reconnects = spansNamed spanReconnecting spans
+            length reconnects `shouldBe` 1
+            eventNamesOf (head reconnects) `shouldContain` ["reconnect.attempt"]
+            attrOf attrAttempt (head reconnects) `shouldBe` Just (i64 2)
+
+        it "retry then dead-letter yields one retrying span with position and reason" $ do
+            let reason = DeadLetterPoison "bad event"
+            spans <-
+                runEvents
+                    [ KirokuEventSubscriptionRetrying subName (GlobalPosition 42) 1 NonGroup
+                    , KirokuEventSubscriptionRetrying subName (GlobalPosition 42) 2 NonGroup
+                    , KirokuEventSubscriptionDeadLettered subName (GlobalPosition 42) reason NonGroup
+                    ]
+            let retries = spansNamed spanRetrying spans
+            length retries `shouldBe` 1
+            attrOf attrEventPos (head retries) `shouldBe` Just (i64 42)
+            attrOf attrDeadLetterReason (head retries)
+                `shouldBe` Just (toAttribute (T.pack (show reason)))
+            -- the dead-letter closed the open retry span; no standalone span
+            length (spansNamed spanDeadLetter spans) `shouldBe` 0
+
+        it "an immediate dead-letter (no retry) yields a standalone dead_letter span" $ do
+            spans <-
+                runEvents
+                    [KirokuEventSubscriptionDeadLettered subName (GlobalPosition 9) (DeadLetterPoison "x") NonGroup]
+            let dls = spansNamed spanDeadLetter spans
+            length dls `shouldBe` 1
+            attrOf attrEventPos (head dls) `shouldBe` Just (i64 9)
+
+        it "consumer-group members produce separate, correctly tagged spans" $ do
+            spans <-
+                runEvents
+                    [ KirokuEventSubscriptionStarted subName (GlobalPosition 0) (GroupMember 0 2)
+                    , KirokuEventSubscriptionStarted subName (GlobalPosition 0) (GroupMember 1 2)
+                    , KirokuEventSubscriptionCaughtUp subName (GlobalPosition 4) (GroupMember 0 2)
+                    , KirokuEventSubscriptionCaughtUp subName (GlobalPosition 6) (GroupMember 1 2)
+                    ]
+            let catchups = spansNamed spanCatchup spans
+            length catchups `shouldBe` 2
+            sort (mapMaybe (attrOf attrGroupMember) catchups)
+                `shouldBe` sort [i64 0, i64 1]
+
+        it "stop ends an open pause span so no span leaks" $ do
+            spans <-
+                runEvents
+                    [ KirokuEventSubscriptionPaused subName (GlobalPosition 5) NonGroup
+                    , KirokuEventSubscriptionStopped subName (GlobalPosition 5) StopCancelled NonGroup
+                    ]
+            length (spansNamed spanPaused spans) `shouldBe` 1
+
 mkEmptyEventData :: EventData
 mkEmptyEventData = mkEmptyEventDataWithMeta Nothing
 
@@ -138,3 +266,40 @@ mkTestSpanContext =
             either error id (baseEncodedToSpanId Base16 "00f067aa0ba902b7")
         , traceState = TS.empty
         }
+
+-- Subscription-tracing helpers ------------------------------------------------
+
+-- | A fixed subscription name used across the tracing tests.
+subName :: SubscriptionName
+subName = SubscriptionName "orders"
+
+{- | Drive a synthetic 'KirokuEvent' sequence through a fresh
+'subscriptionTraceHandler' wired to an in-memory span exporter, and return the
+exported (ended) spans. Because the in-memory exporter only ever receives ended
+spans, a span appearing in the result is proof its episode closed.
+-}
+runEvents :: [KirokuEvent] -> IO [ImmutableSpan]
+runEvents evs = do
+    (processor, ref) <- inMemoryListExporter
+    tp <- createTracerProvider [processor] emptyTracerProviderOptions
+    let tracer = makeTracer tp "kiroku-otel-test" tracerOptions
+    handler <- subscriptionTraceHandler tracer
+    mapM_ handler evs
+    _ <- forceFlushTracerProvider tp Nothing
+    readIORef ref
+
+-- | The spans with the given name.
+spansNamed :: Text -> [ImmutableSpan] -> [ImmutableSpan]
+spansNamed n = filter ((== n) . spanName)
+
+-- | Look up an attribute on a span.
+attrOf :: Text -> ImmutableSpan -> Maybe Attribute
+attrOf k s = HashMap.lookup k (getAttributeMap (spanAttributes s))
+
+-- | The names of the span events recorded on a span.
+eventNamesOf :: ImmutableSpan -> [Text]
+eventNamesOf s = map eventName (toList (appendOnlyBoundedCollectionValues (spanEvents s)))
+
+-- | An 'Int64'-valued attribute (the encoding the tracer uses for counts/positions).
+i64 :: Int64 -> Attribute
+i64 = toAttribute
