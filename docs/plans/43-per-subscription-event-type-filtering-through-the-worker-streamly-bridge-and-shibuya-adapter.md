@@ -201,6 +201,30 @@ acknowledged so the checkpoint advances past them.
   omission is intentional, not an oversight.
   Date: 2026-05-29.
 
+- Decision (follow-up): Keep the closed `EventTypeFilter` sum **and** add a
+  separate optional `selector :: Maybe (RecordedEvent -> Bool)` field to
+  `SubscriptionConfigM` (default `Nothing`), rather than replacing the sum with a
+  bare function.
+  Rationale: A pre-release review asked whether `EventTypeFilter` should instead
+  be `RecordedEvent -> Bool` for flexibility. Replacing the sum would forfeit the
+  three properties the prior decision relies on — SQL pushdown on fetching
+  subscriptions, `Eq`/`Show` for tests/diagnostics, and introspectability — to
+  serve predicates the type set cannot express (metadata, stream name,
+  correlation ids). The escape hatch is therefore added *alongside* the sum, not
+  in place of it: `eventTypeFilter` stays the introspectable steady-state type
+  filter; `selector` is the opaque predicate for ad-hoc/operational filtering
+  (typically a one-off catch-up reprocess narrowing by metadata while
+  investigating a problem). The worker delivers an event only when it passes
+  **both** (new `shouldDeliver` helper, logical AND); a selector-rejected event
+  obeys the same no-stall / checkpoint-advances invariant and, being applied in
+  `processEvents` before the handler, is never retried or dead-lettered.
+  `selector` is intentionally not forwarded through the Shibuya adapter (it is a
+  native-subscription escape hatch); that forwarding stays trivially additive.
+  Tests: two new cases in `Test.EventTypeFilter` (selector no-stall over a payload
+  tag; AND composition with `eventTypeFilter`). `kiroku-store-test` 178 examples,
+  0 failures.
+  Date: 2026-05-30.
+
 - Decision: The plan carries a **soft dependency on EP-41** (the subscription FSM,
   `docs/plans/41-...`) and should prefer to land after it, but does not hard-block
   on it.

@@ -15,6 +15,7 @@ module Kiroku.Store.Subscription.Types (
     -- * Event-type filtering
     EventTypeFilter (..),
     eventTypeMatches,
+    shouldDeliver,
 
     -- * Per-event dispositions (retry / dead-letter)
     RetryDelay (..),
@@ -55,11 +56,30 @@ skipped (the handler is not called) but the subscription checkpoint still
 advances past them, so a highly selective subscription never stalls on a long
 run of filtered-out events.
 
-This is intentionally a closed sum, not an opaque @RecordedEvent -> Bool@, so
-it stays introspectable (and a future SQL pushdown can read the set out of it)
-and is 'Eq'\/'Show'-able for tests and diagnostics. It is unrelated to
-'Kiroku.Store.Types.EventFilter', which filters correlation\/causation
-/queries/.
+=== Why this is a closed sum and not @RecordedEvent -> Bool@
+
+EventStore's subscription @selector@ is an opaque @RecordedEvent -> Bool@.
+Kiroku deliberately models the /common/ case — \"deliver only these event
+types\" — as a closed, first-order value instead, and keeps the opaque
+predicate as a separate, optional escape hatch ('selector' on
+'SubscriptionConfigM'). The closed sum is preferred for the steady-state filter
+because it:
+
+  * stays __introspectable__ — an operator or a metrics endpoint can read which
+    types a subscription delivers (you cannot inspect a closure);
+  * is __'Eq'\/'Show'-able__ for tests and diagnostics; and
+  * leaves the door open to __SQL pushdown__ on fetching subscriptions
+    (@Category@ / consumer-group), where @event_type = ANY(...)@ can be lowered
+    into the catch-up read so the worker stops fetching-and-discarding. A
+    @RecordedEvent -> Bool@ can never be pushed down.
+
+Reach for 'selector' only when you need a predicate the type set cannot express
+(e.g. filtering on metadata during a one-off catch-up reprocess while
+investigating a problem). The two compose: an event is delivered only when it
+passes /both/ (see 'shouldDeliver').
+
+This is unrelated to 'Kiroku.Store.Types.EventFilter', which filters
+correlation\/causation /queries/.
 -}
 data EventTypeFilter
     = -- | Deliver every event (the no-op default).
@@ -68,7 +88,7 @@ data EventTypeFilter
       OnlyEventTypes !(Set EventType)
     deriving stock (Eq, Show)
 
-{- | 'True' when an event should be delivered to the handler under the filter.
+{- | 'True' when an event passes the declarative type filter.
 The worker applies this /before/ calling the handler, so a non-matching event
 never reaches the handler (or the ack-coupled bridge) and is never retried or
 dead-lettered.
@@ -76,6 +96,23 @@ dead-lettered.
 eventTypeMatches :: EventTypeFilter -> RecordedEvent -> Bool
 eventTypeMatches AllEventTypes _ = True
 eventTypeMatches (OnlyEventTypes s) RecordedEvent{eventType = t} = Set.member t s
+
+{- | The complete per-event delivery predicate for a subscription: an event is
+delivered to the handler only when it passes __both__ the declarative
+'eventTypeFilter' and the optional opaque 'selector' (an absent selector always
+passes). The two compose as a logical AND — the type filter narrows by
+'eventType', the selector narrows further by any predicate over the whole
+'RecordedEvent'.
+
+The worker applies this /before/ calling the handler, so an event rejected by
+either filter never reaches the handler or the ack-coupled bridge (it is never
+retried or dead-lettered), yet the checkpoint still advances past it — the
+no-stall invariant holds for the selector exactly as it does for the type
+filter.
+-}
+shouldDeliver :: EventTypeFilter -> Maybe (RecordedEvent -> Bool) -> RecordedEvent -> Bool
+shouldDeliver etf sel event =
+    eventTypeMatches etf event && maybe True ($ event) sel
 
 -- | Unique name for a subscription (e.g., @"inventory-projection"@).
 newtype SubscriptionName = SubscriptionName Text
@@ -228,7 +265,26 @@ data SubscriptionConfigM m = SubscriptionConfig
     skips the handler for non-matching events but still advances the
     checkpoint past them, so the subscription never stalls on a long run of
     filtered-out events. Applied worker-side before the handler/bridge, so a
-    filtered-out event is never retried or dead-lettered.
+    filtered-out event is never retried or dead-lettered. Composed with
+    'selector' (an event must pass both — see 'shouldDeliver').
+    -}
+    , selector :: !(Maybe (RecordedEvent -> Bool))
+    {- ^ Optional opaque per-event predicate, the escape hatch for filtering
+    that 'eventTypeFilter' cannot express (e.g. on metadata, stream name, or
+    correlation\/causation ids). Default 'Nothing' (no extra filtering).
+
+    This is EventStore's @RecordedEvent -> Bool@ @selector@. It is intentionally
+    /separate/ from 'eventTypeFilter' rather than replacing it: because a
+    closure is not introspectable, not 'Eq'\/'Show'-able, and not SQL-pushable,
+    'eventTypeFilter' remains the preferred steady-state type filter (see its
+    note), and 'selector' is reserved for ad-hoc\/operational filtering — most
+    often a one-off catch-up reprocess that narrows by metadata while
+    investigating a problem.
+
+    Composes with 'eventTypeFilter' as a logical AND ('shouldDeliver'): an event
+    is delivered only when it passes both. Applied worker-side before the
+    handler\/bridge, so a rejected event is never retried or dead-lettered, yet
+    the checkpoint still advances past it (no stall).
     -}
     }
 
@@ -265,6 +321,7 @@ defaultSubscriptionConfig name' target' handler' =
         , consumerGroupGuard = False
         , retryPolicy = defaultRetryPolicy
         , eventTypeFilter = AllEventTypes
+        , selector = Nothing
         }
 
 -- | Handle returned to the caller for lifecycle management, parameterized by monad.

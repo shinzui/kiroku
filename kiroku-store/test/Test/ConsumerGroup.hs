@@ -297,6 +297,7 @@ spec = describe "consumer groups" $ do
                             , consumerGroupGuard = True
                             , retryPolicy = defaultRetryPolicy
                             , eventTypeFilter = AllEventTypes
+                            , selector = Nothing
                             }
                 handle <- subscribe store cfg
                 res <- waitWithTimeout 5_000_000 handle

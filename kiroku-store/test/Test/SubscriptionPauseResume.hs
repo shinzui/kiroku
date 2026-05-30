@@ -89,6 +89,7 @@ spec = describe "subscription FSM — recoverable backpressure (EP-41 M2)" $ do
                         , consumerGroupGuard = False
                         , retryPolicy = defaultRetryPolicy
                         , eventTypeFilter = AllEventTypes
+                        , selector = Nothing
                         }
             handle <- subscribe store cfg
             -- First append: the worker reads it from the queue and the handler
@@ -152,6 +153,7 @@ spec = describe "subscription FSM — recoverable backpressure (EP-41 M2)" $ do
                         , consumerGroupGuard = False
                         , retryPolicy = defaultRetryPolicy
                         , eventTypeFilter = AllEventTypes
+                        , selector = Nothing
                         }
             handle <- subscribe store cfg
             Right _ <- runStoreIO store $ appendToStream (StreamName "ds-1") NoStream [makeEvent "E1" (Aeson.object [])]

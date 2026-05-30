@@ -623,6 +623,7 @@ runSubscriptionCatchup store runCounter = do
                 , consumerGroupGuard = False
                 , retryPolicy = defaultRetryPolicy
                 , eventTypeFilter = AllEventTypes
+                , selector = Nothing
                 }
     handle <- subscribe store cfg
     result <- wait handle

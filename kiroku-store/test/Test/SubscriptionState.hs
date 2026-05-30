@@ -90,6 +90,7 @@ spec = describe "subscription FSM — observable state (EP-41 M4)" $ do
                     , consumerGroupGuard = False
                     , retryPolicy = defaultRetryPolicy
                     , eventTypeFilter = AllEventTypes
+                    , selector = Nothing
                     }
         withTestStoreSettings (& #eventHandler .~ Just observe) $ \store -> do
             Right _ <- runStoreIO store $ appendToStream (StreamName "st-1") NoStream [makeEvent "A" (Aeson.object [])]
@@ -131,6 +132,7 @@ spec = describe "subscription FSM — observable state (EP-41 M4)" $ do
                     , consumerGroupGuard = False
                     , retryPolicy = defaultRetryPolicy
                     , eventTypeFilter = AllEventTypes
+                    , selector = Nothing
                     }
         withTestStoreSettings Prelude.id $ \store -> do
             -- Five events before subscribing (delivered during catch-up).

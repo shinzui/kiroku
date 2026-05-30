@@ -28,6 +28,27 @@
   `SQL.insertDeadLetterAndCheckpointStmt` / `SQL.readDeadLettersStmt` statements;
   the dead-letter insert and checkpoint advance run in one atomic statement.
 
+### Added — per-subscription event-type filtering and selector (plan 43)
+
+* `SubscriptionConfig.eventTypeFilter :: EventTypeFilter` — a declarative,
+  closed filter (`AllEventTypes | OnlyEventTypes (Set EventType)`, default
+  `AllEventTypes`) applied worker-side in `processEvents` before the handler:
+  non-matching events skip delivery (never reaching the ack-coupled bridge, so
+  they are never retried or dead-lettered) while the batch-tail checkpoint
+  advances past them, so a highly selective subscription never stalls. Exported
+  with `eventTypeMatches` from `Kiroku.Store.Subscription.Types` and forwarded
+  through the Streamly bridge and the Shibuya adapter.
+
+* `SubscriptionConfig.selector :: Maybe (RecordedEvent -> Bool)` — an optional
+  opaque per-event predicate (default `Nothing`), the escape hatch for filtering
+  that `eventTypeFilter` cannot express (e.g. on payload, metadata, or
+  correlation/causation ids — typically a one-off catch-up reprocess). It is
+  deliberately kept *separate* from `eventTypeFilter` rather than replacing it:
+  the closed sum stays introspectable, `Eq`/`Show`-able, and SQL-pushdown-able,
+  while the selector covers arbitrary predicates. The two compose as a logical
+  AND via the new `shouldDeliver` helper (an event is delivered only when it
+  passes both), with the same no-stall / checkpoint-advances guarantee.
+
 ### Changed — subscription worker driven by an explicit FSM (plan 41)
 
 * The subscription worker is now driven by an explicit finite state machine

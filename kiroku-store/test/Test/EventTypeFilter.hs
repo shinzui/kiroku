@@ -20,6 +20,14 @@ These pin the behavioral acceptance criteria from the ExecPlan:
     sees, behind a filter that admits no events in the stream, is never invoked,
     writes no dead-letter rows, and still advances the checkpoint.
 
+They also cover the opaque 'selector' escape hatch (a @RecordedEvent -> Bool@
+predicate the type set cannot express, e.g. on payload\/metadata):
+
+  * __selector no-stall__: a selector over a payload tag delivers only matching
+    events and advances the checkpoint past a long run of rejected ones;
+  * __AND composition__: 'selector' and 'eventTypeFilter' compose as a logical
+    AND — an event is delivered only when it passes both.
+
 All use an 'AllStreams' subscription (the FSM 'DeliverBatch' delivery path).
 Events are appended and the publisher is awaited before subscribing, so delivery
 happens during catch-up; the worker applies the filter in 'processEvents' before
@@ -29,6 +37,7 @@ module Test.EventTypeFilter (spec) where
 
 import Control.Concurrent (threadDelay)
 import Control.Lens ((^.))
+import Data.Aeson ((.=))
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
 import Data.IORef (modifyIORef', newIORef, readIORef)
@@ -77,6 +86,19 @@ waitForCheckpoint store subName target = go (0 :: Int)
 
 mkE :: Text -> EventData
 mkE typ = makeEvent typ (Aeson.object [])
+
+-- An event tagged @{ "keep": True\/False }@ in its payload — a property the
+-- 'eventTypeFilter' type set cannot express, used to exercise the opaque
+-- 'selector' escape hatch.
+mkTagged :: Text -> Bool -> EventData
+mkTagged typ keep = makeEvent typ (Aeson.object ["keep" .= keep])
+
+-- The opaque selector: deliver only events whose payload says @keep = True@.
+keepOnly :: RecordedEvent -> Bool
+keepOnly ev = (ev ^. #payload) == Aeson.object ["keep" .= True]
+
+posOf :: RecordedEvent -> Int64
+posOf ev = case ev ^. #globalPosition of GlobalPosition p -> p
 
 spec :: Spec
 spec = describe "event-type filter" $ do
@@ -205,4 +227,80 @@ spec = describe "event-type filter" $ do
             -- checkpoint still advanced past them.
             dls <- readDeadLetters store subT
             length dls `shouldBe` 0
+            readCheckpoint store subT `shouldReturn` Just 5
+
+    -- The opaque 'selector' escape hatch: a predicate over the whole
+    -- 'RecordedEvent' (here, its payload) that the 'eventTypeFilter' type set
+    -- cannot express. Same no-stall / checkpoint-advances guarantees apply.
+    it "delivers only events matching an opaque selector and advances past the rest (no stall)" $ do
+        withTestStore $ \store -> do
+            let subT = "sel-nostall" :: Text
+                subName = SubscriptionName subT
+                -- All one type "A" (so eventTypeFilter cannot distinguish them);
+                -- only the payload tag differs. keep, 1000 skips, keep.
+                events =
+                    [mkTagged "A" True]
+                        <> replicate 1000 (mkTagged "A" False)
+                        <> [mkTagged "A" True]
+            Right _ <-
+                runStoreIO store $
+                    appendToStream (StreamName "sel-nostall-stream") NoStream events
+            waitForPublisher store (GlobalPosition 1002)
+
+            deliveredRef <- newIORef ([] :: [Int64])
+            let handler' ev = do
+                    modifyIORef' deliveredRef (<> [posOf ev])
+                    pure Continue
+                cfg =
+                    (defaultSubscriptionConfig subName AllStreams handler')
+                        { selector = Just keepOnly
+                        , batchSize = 2000
+                        }
+            handle <- subscribe store cfg
+            reached <- waitForCheckpoint store subT 1002
+            cancel handle
+
+            reached `shouldBe` True
+            delivered <- readIORef deliveredRef
+            -- Only the two keep events (positions 1 and 1002); the 1000 skips
+            -- advanced the cursor without delivery.
+            delivered `shouldBe` [1, 1002]
+            readCheckpoint store subT `shouldReturn` Just 1002
+
+    it "composes the selector with eventTypeFilter as a logical AND" $ do
+        withTestStore $ \store -> do
+            let subT = "sel-and-type" :: Text
+                subName = SubscriptionName subT
+                -- A/keep, A/skip, B/keep, B/skip, A/keep -> positions 1..5.
+                -- Only events that are type A AND keep survive: positions 1, 5.
+                events =
+                    [ mkTagged "A" True
+                    , mkTagged "A" False
+                    , mkTagged "B" True
+                    , mkTagged "B" False
+                    , mkTagged "A" True
+                    ]
+            Right _ <-
+                runStoreIO store $
+                    appendToStream (StreamName "sel-and-type-stream") NoStream events
+            waitForPublisher store (GlobalPosition 5)
+
+            deliveredRef <- newIORef ([] :: [Int64])
+            let handler' ev = do
+                    modifyIORef' deliveredRef (<> [posOf ev])
+                    pure Continue
+                cfg =
+                    (defaultSubscriptionConfig subName AllStreams handler')
+                        { eventTypeFilter = OnlyEventTypes (Set.fromList [EventType "A"])
+                        , selector = Just keepOnly
+                        }
+            handle <- subscribe store cfg
+            reached <- waitForCheckpoint store subT 5
+            cancel handle
+
+            reached `shouldBe` True
+            delivered <- readIORef deliveredRef
+            -- B/keep (pos 3) is rejected by the type filter; A/skip (pos 2) by the
+            -- selector. Only A-and-keep at 1 and 5 are delivered.
+            delivered `shouldBe` [1, 5]
             readCheckpoint store subT `shouldReturn` Just 5
