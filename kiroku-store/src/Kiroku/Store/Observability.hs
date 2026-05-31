@@ -14,6 +14,8 @@ package emits itself:
   checkpoint save).
 * Subscription lifecycle (started, caught-up, paused, resumed, reconnecting,
   stopped).
+* Subscription batch delivery (one per non-empty batch handed to the
+  handler, on every target and in both catch-up and live phases).
 * Subscription live fetches (one per DB-driven live-mode fetch).
 * Hard-delete issuance (a fail-safe audit signal — see
   @docs\/PRODUCTION-DEPLOYMENT.md@ for the recommended in-band audit
@@ -35,6 +37,7 @@ as silent regressions.
 module Kiroku.Store.Observability (
     KirokuEvent (..),
     SubscriptionDbPhase (..),
+    SubscriptionDeliveryPhase (..),
     SubscriptionStopReason (..),
     SubscriptionGroupContext (..),
     DeadLetterReason (..),
@@ -139,6 +142,23 @@ data KirokuEvent
       the consumer-group member (if any).
       -}
       KirokuEventSubscriptionFetched !SubscriptionName !Int !SubscriptionGroupContext
+    | {- | A subscription's worker delivered one non-empty batch of events to
+      the handler through the single delivery primitive
+      'Kiroku.Store.Subscription.Worker.processEvents'. Emitted once per batch on
+      __every__ delivery path — catch-up for every target, @AllStreams@ live, and
+      the @Category@\/consumer-group DB-driven live loops — so it is a uniform
+      per-batch delivery signal. The 'Int' is the batch row count (always @>= 1@).
+      The 'SubscriptionDeliveryPhase' says whether the worker was catching up or
+      live when it delivered. The trailing 'SubscriptionGroupContext' identifies
+      the consumer-group member (if any).
+
+      This is distinct from 'KirokuEventSubscriptionFetched', which only the
+      DB-driven live loops emit (per /fetch/, including empty fetches) and which
+      this constructor does /not/ replace. A DB-driven live batch therefore emits
+      both 'KirokuEventSubscriptionFetched' (the fetch) and
+      'KirokuEventSubscriptionDelivered' (the delivery).
+      -}
+      KirokuEventSubscriptionDelivered !SubscriptionName !Int !SubscriptionDeliveryPhase !SubscriptionGroupContext
     | {- | A subscription handler returned
       'Kiroku.Store.Subscription.Types.Retry' for the event at the indicated
       'GlobalPosition' and the worker is about to redeliver it. The 'Int' is the
@@ -188,6 +208,18 @@ data SubscriptionDbPhase
       same name re-processes events the handler has already seen.
       -}
       SaveCheckpoint
+    deriving stock (Eq, Show)
+
+{- | Which FSM phase a 'KirokuEventSubscriptionDelivered' batch was delivered in:
+the worker was either still catching up from history ('DeliveredCatchUp') or
+already live ('DeliveredLive'). Derived from the driving 'SubscriptionState' the
+worker wrote before the batch (see 'Kiroku.Store.Subscription.Worker.processEvents').
+-}
+data SubscriptionDeliveryPhase
+    = -- | The batch was delivered while the worker was in 'CatchingUp'.
+      DeliveredCatchUp
+    | -- | The batch was delivered while the worker was 'Live'.
+      DeliveredLive
     deriving stock (Eq, Show)
 
 {- | Consumer-group context attached to subscription lifecycle events. A plain

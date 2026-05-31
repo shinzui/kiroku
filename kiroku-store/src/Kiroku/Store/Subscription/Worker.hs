@@ -50,6 +50,7 @@ import Hasql.Statement (Statement, preparable)
 import Kiroku.Store.Observability (
     KirokuEvent (..),
     SubscriptionDbPhase (..),
+    SubscriptionDeliveryPhase (..),
     SubscriptionGroupContext (..),
     SubscriptionStopReason (..),
  )
@@ -604,6 +605,14 @@ processEvents pool config stateVar events emit posRef = do
     -- The state the driver wrote for this batch (CatchingUp / Live); restored
     -- after each retry so the observable state does not stick on 'Retrying'.
     driving <- atomically (readTVar stateVar)
+    -- Emit one centralized per-batch delivery event for *every* target and both
+    -- phases. This is the single delivery primitive, so this one emit uniformly
+    -- covers catch-up for every target, AllStreams live, and the DB-driven live
+    -- loops (which still also emit KirokuEventSubscriptionFetched per fetch).
+    let phase = case driving of
+            CatchingUp{} -> DeliveredCatchUp
+            _ -> DeliveredLive
+    emit (KirokuEventSubscriptionDelivered subName (V.length events) phase groupCtx)
     go driving 0
   where
     subName = name config

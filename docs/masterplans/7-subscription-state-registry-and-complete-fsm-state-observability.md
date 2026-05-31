@@ -53,7 +53,7 @@ Alternatives considered and rejected: (a) **One combined plan** — rejected bec
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
 | 1 | Central subscription-state registry on the store handle for cheap observability | docs/plans/45-central-subscription-state-registry-on-the-store-handle-for-cheap-observability.md | None | None | Complete |
-| 2 | Complete OpenTelemetry span coverage of every subscription FSM state | docs/plans/46-complete-opentelemetry-span-coverage-of-every-subscription-fsm-state.md | None | None | Not Started |
+| 2 | Complete OpenTelemetry span coverage of every subscription FSM state | docs/plans/46-complete-opentelemetry-span-coverage-of-every-subscription-fsm-state.md | None | None | In Progress |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
 Hard Deps and Soft Deps reference other rows by their # prefix (e.g., EP-1, EP-3).
