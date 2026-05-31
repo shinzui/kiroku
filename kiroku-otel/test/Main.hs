@@ -4,10 +4,15 @@
 
 module Main where
 
+import Control.Concurrent.STM (TVar, atomically, newTVarIO, readTVar, registerDelay, writeTVar)
+import Control.Concurrent.STM qualified as STM
+import Control.Lens ((&), (.~))
+import Control.Monad (unless)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
 import Data.Foldable (toList)
+import Data.Generics.Labels ()
 import Data.HashMap.Strict qualified as HashMap
 import Data.IORef (readIORef)
 import Data.Int (Int64)
@@ -36,6 +41,21 @@ import Kiroku.Otel.Subscription (
     subscriptionTraceHandler,
  )
 import Kiroku.Otel.TraceContext (extractTraceContext, injectTraceContext)
+import Kiroku.Store (
+    ExpectedVersion (..),
+    KirokuStore,
+    StreamName (..),
+    SubscriptionResult (..),
+    SubscriptionTarget (..),
+    appendToStream,
+    cancel,
+    defaultConnectionSettings,
+    defaultSubscriptionConfig,
+    runStoreIO,
+    subscribe,
+    wait,
+    withStore,
+ )
 import Kiroku.Store.Observability (
     DeadLetterReason (..),
     KirokuEvent (..),
@@ -53,6 +73,7 @@ import Kiroku.Store.Types (
     StreamId (..),
     StreamVersion (..),
  )
+import Kiroku.Test.Postgres (withMigratedTestDatabase, withSharedMigratedPostgres)
 import OpenTelemetry.Attributes (Attribute, getAttributeMap, toAttribute)
 import OpenTelemetry.Exporter.InMemory.Span (inMemoryListExporter)
 import OpenTelemetry.Trace.Core (
@@ -76,7 +97,7 @@ import OpenTelemetry.Util (appendOnlyBoundedCollectionValues)
 import Test.Hspec
 
 main :: IO ()
-main = hspec $ do
+main = withSharedMigratedPostgres $ hspec $ do
     describe "TraceContext round-trip" $ do
         it "encodes and decodes a SpanContext through metadata" $ do
             let sc = mkTestSpanContext
@@ -252,6 +273,53 @@ main = hspec $ do
                     ]
             length (spansNamed spanPaused spans) `shouldBe` 1
 
+    describe "subscriptionTraceHandler end-to-end (real $all worker)" $ do
+        it "a real AllStreams worker emits catchup, a live deliver span, and a stopped span" $
+            withMigratedTestDatabase $ \connStr -> do
+                -- 1. In-memory exporter + provider + tracer + the trace handler.
+                (processor, spansRef) <- inMemoryListExporter
+                tp <- createTracerProvider [processor] emptyTracerProviderOptions
+                let tracer = makeTracer tp "kiroku-otel-e2e" tracerOptions
+                handler <- subscriptionTraceHandler tracer
+                -- 2. A store whose eventHandler IS the tracer.
+                let settings = defaultConnectionSettings connStr & #eventHandler .~ Just handler
+                withStore settings $ \store -> do
+                    -- 3. Seed some history so the worker has a real catch-up phase.
+                    appendStoreEvents store "e2e-catchup" 5
+                    -- 4. A Continue handler that counts deliveries, so we can wait
+                    --    for the worker to actually go live and deliver live events.
+                    delivered <- newTVarIO (0 :: Int)
+                    let cfg =
+                            defaultSubscriptionConfig (SubscriptionName "otel-e2e") AllStreams $ \_event -> do
+                                atomically (modifyTVarCount delivered)
+                                pure Continue
+                    handle <- subscribe store cfg
+                    -- 5. Wait for catch-up to drain the 5 seeded events.
+                    waitForCount delivered 5 10_000_000
+                    -- 6. Append MORE events now that the worker is live; these flow
+                    --    through the publisher's bounded queue into the (Nothing,
+                    --    AllStreams) Live branch -> DeliverBatch -> processEvents ->
+                    --    KirokuEventSubscriptionDelivered DeliveredLive.
+                    appendStoreEvents store "e2e-live" 3
+                    waitForCount delivered 8 10_000_000
+                    -- 7. Stop the worker (cancel) and wait for the Stopped event.
+                    cancel handle
+                    _ <- wait handle
+                    -- 8. Flush the exporter and read the collected, ended spans.
+                    _ <- forceFlushTracerProvider tp Nothing
+                    spans <- readIORef spansRef
+                    -- 9. Assertions: the two gaps are closed.
+                    let catchups = spansNamed spanCatchup spans
+                        delivers = spansNamed spanDeliver spans
+                        liveDelivers =
+                            filter ((== Just (toAttribute ("live" :: Text))) . attrOf attrState) delivers
+                        stops = spansNamed spanStopped spans
+                    length catchups `shouldSatisfy` (>= 1)
+                    -- The gap-1 proof: at least one LIVE deliver span exists.
+                    length liveDelivers `shouldSatisfy` (>= 1)
+                    -- The gap-2 proof: a terminal stopped span exists.
+                    length stops `shouldBe` 1
+
 mkEmptyEventData :: EventData
 mkEmptyEventData = mkEmptyEventDataWithMeta Nothing
 
@@ -333,3 +401,43 @@ eventNamesOf s = map eventName (toList (appendOnlyBoundedCollectionValues (spanE
 -- | An 'Int64'-valued attribute (the encoding the tracer uses for counts/positions).
 i64 :: Int64 -> Attribute
 i64 = toAttribute
+
+-- End-to-end (real worker) helpers --------------------------------------------
+
+-- | Increment a 'TVar' 'Int' counter by one within STM.
+modifyTVarCount :: TVar Int -> STM.STM ()
+modifyTVarCount v = readTVar v >>= \c -> writeTVar v (c + 1)
+
+{- | Append @n@ trivial events to a fresh stream via the native in-IO store
+interpreter ('runStoreIO' + 'appendToStream'), mirroring @kiroku-store@'s own
+tests. Each event is a minimal 'EventData' with a unique type tag.
+-}
+appendStoreEvents :: KirokuStore -> Text -> Int -> IO ()
+appendStoreEvents store streamPrefix n = do
+    let events =
+            [ EventData
+                { eventId = Nothing
+                , eventType = EventType ("E" <> T.pack (show i))
+                , payload = Aeson.Null
+                , metadata = Nothing
+                , causationId = Nothing
+                , correlationId = Nothing
+                }
+            | i <- [1 .. n]
+            ]
+    result <- runStoreIO store (appendToStream (StreamName streamPrefix) NoStream events)
+    case result of
+        Right _ -> pure ()
+        Left err -> expectationFailure ("appendStoreEvents failed: " <> show err)
+
+-- | Wait until the 'TVar' reaches @target@ or the timeout (micros) fires; fail on timeout.
+waitForCount :: TVar Int -> Int -> Int -> IO ()
+waitForCount countVar target timeoutMicros = do
+    timeoutVar <- registerDelay timeoutMicros
+    ok <-
+        atomically $
+            (do c <- readTVar countVar; STM.check (c >= target); pure True)
+                `STM.orElse` (do t <- readTVar timeoutVar; STM.check t; pure False)
+    unless ok $ do
+        actual <- atomically (readTVar countVar)
+        expectationFailure ("Timed out waiting for " <> show target <> ", got " <> show actual)

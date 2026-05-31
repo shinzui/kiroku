@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+### Changed — complete FSM-state span coverage (`Kiroku.Otel.Subscription`, MasterPlan 7 EP-2)
+
+- The per-batch span is now keyed on the new `KirokuEventSubscriptionDelivered`
+  event and named `kiroku.subscription.deliver` (replacing the `spanFetch` /
+  `kiroku.subscription.fetch` span). It is emitted **once per delivered batch on
+  every target** (`$all`, category, consumer group) and in **both** phases,
+  carrying `kiroku.batch.rows` and a `kiroku.subscription.state` of `"catchup"`
+  or `"live"`. This closes the gap where an `$all` subscription's live phase
+  produced no per-batch span. `KirokuEventSubscriptionFetched` is now ignored by
+  the tracer (matched for exhaustiveness) so the DB-driven live path does not emit
+  two spans per batch.
+- `kiroku.subscription.stopped` is **always** emitted on `Stopped` (carrying
+  `kiroku.subscription.stop_reason` and `kiroku.checkpoint.global_position`), so
+  the terminal state appears in the trace even for a healthy worker that stops
+  from `Live` with no open episode span.
+- Internal: the per-key span state is striped from one shared `MVar` into a
+  lock-free `IORef (Map SpanKey (IORef OpenState))` (each key single-writer; the
+  outer registry mutated only on `Started`/`Stopped`), so the now-per-batch span
+  work never serializes workers on a shared lock. `base`-only, no public API
+  change, behavior-identical.
+- New exported span-name constants `spanDeliver` / `spanStopped` (replacing
+  `spanFetch`). A database-backed end-to-end test now runs a real `$all` worker
+  with the tracer installed and asserts the catch-up, live `deliver`, and
+  `stopped` spans all appear.
+
 ### Added — subscription-state tracing (`Kiroku.Otel.Subscription`, MasterPlan 6 EP-5)
 
 - `subscriptionTraceHandler :: Tracer -> IO (KirokuEvent -> IO ())` — a ready-made

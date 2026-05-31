@@ -150,16 +150,33 @@ while the worker runs and lost on a crash. The model is therefore:
 | Span | Opened on | Ended on |
 |------|-----------|----------|
 | `kiroku.subscription.catchup` | `Started` | `CaughtUp` |
-| `kiroku.subscription.fetch` | each live `Fetched` | immediately (per batch) |
+| `kiroku.subscription.deliver` | each delivered batch (every target, both phases) | immediately (per batch) |
 | `kiroku.subscription.paused` | `Paused` | `Resumed` |
 | `kiroku.subscription.reconnecting` | first `Reconnecting` | next `CaughtUp` (later attempts add a `reconnect.attempt` span event) |
 | `kiroku.subscription.retrying` | first `Retrying` of a poison event | `DeadLettered` (status `Error`) or the worker moving on (status `Ok`) |
 | `kiroku.subscription.dead_letter` | an immediate dead-letter (no retry) | immediately |
+| `kiroku.subscription.stopped` | `Stopped` (**always**) | immediately |
+
+`kiroku.subscription.deliver` is emitted **once per non-empty batch** handed to
+the handler, on **every** target (`$all`, category, consumer group) and in
+**both** phases — it carries `kiroku.batch.rows` and a `kiroku.subscription.state`
+of `"catchup"` or `"live"`. This closes the previous blind spot where an `$all`
+subscription's live phase emitted no per-batch span and so went dark on the
+timeline once it caught up. (The worker still emits `KirokuEventSubscriptionFetched`
+for the DB-driven live-fetch-rate signal, but the tracer intentionally does **not**
+trace it — the deliver span subsumes it, so the category/consumer-group live path
+does not produce two spans per batch.)
+
+`kiroku.subscription.stopped` is **always** emitted when the worker stops,
+carrying `kiroku.subscription.stop_reason` and `kiroku.checkpoint.global_position`,
+so the terminal state is present in the trace even for a healthy worker that
+catches up, runs live, and stops with no open episode span.
 
 The honest limitation: an *in-progress* episode (a pause that has not resumed
 yet) does not appear in the backend until it ends. For "what state is the worker
 in right now," use the `currentState` handle accessor
-([Observability](observability.md#reading-a-subscriptions-current-state)).
+([Observability](observability.md#reading-a-subscriptions-current-state)) or the
+store's subscription-state registry snapshot.
 
 ### Attribute keys
 

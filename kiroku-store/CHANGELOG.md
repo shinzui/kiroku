@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Added — per-batch delivery event (plan 46)
+
+* New additive `KirokuEvent` constructor
+  `KirokuEventSubscriptionDelivered !SubscriptionName !Int !SubscriptionDeliveryPhase !SubscriptionGroupContext`,
+  emitted **once per non-empty batch** from the single delivery primitive
+  `processEvents` — on **every** target (`$all`, category, consumer group) and in
+  **both** the catch-up and live phases. The `Int` is the batch row count
+  (always `>= 1`); the new `SubscriptionDeliveryPhase` (`DeliveredCatchUp` /
+  `DeliveredLive`, also exported) is derived from the worker's driving FSM state.
+  This makes an `$all` subscription's live deliveries observable, closing the gap
+  where the `(Nothing, AllStreams)` live path emitted no per-batch event.
+* `KirokuEventSubscriptionFetched` is **unchanged** and still emitted by the
+  DB-driven live loops per fetch (the live-fetch-rate signal); a DB-driven live
+  batch therefore emits both `Fetched` (the fetch) and `Delivered` (the delivery).
+
 ### Added — central subscription-state registry (plan 45)
 
 * `KirokuStore` gains a `subscriptionRegistry` field: a central, in-memory map
