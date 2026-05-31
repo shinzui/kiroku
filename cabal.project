@@ -5,6 +5,7 @@ packages:
   shibuya-kiroku-adapter
   kiroku-otel
   kiroku-jitsurei
+  kiroku-cli
 
 with-compiler: ghc-9.12.2
 
