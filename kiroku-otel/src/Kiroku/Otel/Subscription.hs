@@ -110,6 +110,7 @@ import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
+import GHC.Generics (Generic)
 import Kiroku.Store.Observability (
     KirokuEvent (..),
     SubscriptionGroupContext (..),
@@ -157,15 +158,16 @@ type SpanKey = (Text, Maybe Int32)
 
 -- | The spans currently open for a single 'SpanKey'.
 data OpenState = OpenState
-    { osCatchup :: !(Maybe Span)
+    { catchup :: !(Maybe Span)
     -- ^ Initial catch-up episode (opened on @Started@).
-    , osReconnect :: !(Maybe Span)
+    , reconnect :: !(Maybe Span)
     -- ^ Reconnect episode (opened on the first @Reconnecting@).
-    , osPause :: !(Maybe Span)
+    , pause :: !(Maybe Span)
     -- ^ Backpressure pause episode (opened on @Paused@).
-    , osRetries :: !(Map Int64 Span)
+    , retries :: !(Map Int64 Span)
     -- ^ Per-poison-event retry episodes, keyed by global position.
     }
+    deriving stock (Generic)
 
 emptyOpenState :: OpenState
 emptyOpenState = OpenState Nothing Nothing Nothing Map.empty
@@ -175,28 +177,28 @@ in-flight reconnect, then catch-up, then pause. Used to attach DB-error span
 events and the stop reason.
 -}
 primaryEpisode :: OpenState -> Maybe Span
-primaryEpisode st = osReconnect st <|> osCatchup st <|> osPause st
+primaryEpisode st = reconnect st <|> catchup st <|> pause st
 
 onEvent :: Tracer -> MVar (Map SpanKey OpenState) -> KirokuEvent -> IO ()
 onEvent tracer cell = \case
     KirokuEventSubscriptionStarted name pos grp ->
         withKey cell (keyOf name grp) $ \st -> do
             -- Defensively close a catch-up span left open by a prior episode.
-            mapM_ closeSpan (osCatchup st)
+            mapM_ closeSpan (catchup st)
             sp <-
                 openSpan tracer spanCatchup $
                     baseAttrs name grp
                         ++ [(attrState, toAttribute ("catchup" :: Text)), (attrCheckpoint, posAttr pos)]
-            pure st{osCatchup = Just sp}
+            pure st{catchup = Just sp}
     KirokuEventSubscriptionCaughtUp name pos grp ->
         withKey cell (keyOf name grp) $ \st -> do
             let endAttrs = [(attrCheckpoint, posAttr pos)]
             -- A CaughtUp closes whichever of catch-up / reconnect is open.
-            mapM_ (`closeSpanWith` endAttrs) (osCatchup st)
-            mapM_ (\sp -> setStatus sp Ok >> closeSpanWith sp endAttrs) (osReconnect st)
+            mapM_ (`closeSpanWith` endAttrs) (catchup st)
+            mapM_ (\sp -> setStatus sp Ok >> closeSpanWith sp endAttrs) (reconnect st)
             -- The worker has moved on, so any open retry succeeded.
-            mapM_ (\sp -> setStatus sp Ok >> closeSpan sp) (Map.elems (osRetries st))
-            pure st{osCatchup = Nothing, osReconnect = Nothing, osRetries = Map.empty}
+            mapM_ (\sp -> setStatus sp Ok >> closeSpan sp) (Map.elems (retries st))
+            pure st{catchup = Nothing, reconnect = Nothing, retries = Map.empty}
     KirokuEventSubscriptionFetched name rows grp ->
         withKey cell (keyOf name grp) $ \st -> do
             sp <-
@@ -205,30 +207,30 @@ onEvent tracer cell = \case
                         ++ [(attrState, toAttribute ("live" :: Text)), (attrBatchRows, intAttr rows)]
             closeSpan sp
             -- A live fetch means the worker advanced past any retried event.
-            mapM_ (\rsp -> setStatus rsp Ok >> closeSpan rsp) (Map.elems (osRetries st))
-            pure st{osRetries = Map.empty}
+            mapM_ (\rsp -> setStatus rsp Ok >> closeSpan rsp) (Map.elems (retries st))
+            pure st{retries = Map.empty}
     KirokuEventSubscriptionPaused name pos grp ->
         withKey cell (keyOf name grp) $ \st -> do
-            mapM_ closeSpan (osPause st) -- defensive
+            mapM_ closeSpan (pause st) -- defensive
             sp <-
                 openSpan tracer spanPaused $
                     baseAttrs name grp
                         ++ [(attrState, toAttribute ("paused" :: Text)), (attrCheckpoint, posAttr pos)]
-            pure st{osPause = Just sp}
+            pure st{pause = Just sp}
     KirokuEventSubscriptionResumed name pos grp ->
         withKey cell (keyOf name grp) $ \st -> do
             -- Ignore a resume with no matching open pause span.
-            mapM_ (`closeSpanWith` [(attrCheckpoint, posAttr pos)]) (osPause st)
-            pure st{osPause = Nothing}
+            mapM_ (`closeSpanWith` [(attrCheckpoint, posAttr pos)]) (pause st)
+            pure st{pause = Nothing}
     KirokuEventSubscriptionReconnecting name attempt grp ->
         withKey cell (keyOf name grp) $ \st ->
-            case osReconnect st of
+            case reconnect st of
                 Nothing -> do
                     sp <-
                         openSpan tracer spanReconnecting $
                             baseAttrs name grp
                                 ++ [(attrState, toAttribute ("reconnecting" :: Text)), (attrAttempt, intAttr attempt)]
-                    pure st{osReconnect = Just sp}
+                    pure st{reconnect = Just sp}
                 Just sp -> do
                     spanEvent sp "reconnect.attempt" [(attrAttempt, intAttr attempt)]
                     setAttrs sp [(attrAttempt, intAttr attempt)]
@@ -236,7 +238,7 @@ onEvent tracer cell = \case
     KirokuEventSubscriptionRetrying name pos attempt grp ->
         withKey cell (keyOf name grp) $ \st -> do
             let GlobalPosition p = pos
-            case Map.lookup p (osRetries st) of
+            case Map.lookup p (retries st) of
                 Nothing -> do
                     sp <-
                         openSpan tracer spanRetrying $
@@ -245,7 +247,7 @@ onEvent tracer cell = \case
                                    , (attrEventPos, toAttribute p)
                                    , (attrAttempt, intAttr attempt)
                                    ]
-                    pure st{osRetries = Map.insert p sp (osRetries st)}
+                    pure st{retries = Map.insert p sp (retries st)}
                 Just sp -> do
                     spanEvent sp "retry.attempt" [(attrAttempt, intAttr attempt)]
                     setAttrs sp [(attrAttempt, intAttr attempt)]
@@ -254,14 +256,14 @@ onEvent tracer cell = \case
         withKey cell (keyOf name grp) $ \st -> do
             let GlobalPosition p = pos
                 dlAttrs = [(attrDeadLetterReason, toAttribute (T.pack (show reason)))]
-            case Map.lookup p (osRetries st) of
+            case Map.lookup p (retries st) of
                 Just sp -> do
                     -- A retry that exhausted: close the open retry span as dead-lettered.
                     setAttrs sp dlAttrs
                     spanEvent sp "dead_letter" dlAttrs
                     setStatus sp (Error "dead-lettered")
                     closeSpan sp
-                    pure st{osRetries = Map.delete p (osRetries st)}
+                    pure st{retries = Map.delete p (retries st)}
                 Nothing -> do
                     -- An immediate dead-letter (no retry): a short standalone span.
                     sp <-
@@ -290,10 +292,10 @@ onEvent tracer cell = \case
             -- Record the stop reason on the most relevant open episode, then
             -- end every span so none leaks when the worker stops.
             mapM_ (`setAttrs` stopAttrs) (primaryEpisode st)
-            mapM_ closeSpan (osCatchup st)
-            mapM_ closeSpan (osReconnect st)
-            mapM_ closeSpan (osPause st)
-            mapM_ closeSpan (Map.elems (osRetries st))
+            mapM_ closeSpan (catchup st)
+            mapM_ closeSpan (reconnect st)
+            mapM_ closeSpan (pause st)
+            mapM_ closeSpan (Map.elems (retries st))
     -- Non-subscription operational events are not traced here.
     KirokuEventNotifierReconnecting{} -> pure ()
     KirokuEventNotifierReconnected -> pure ()

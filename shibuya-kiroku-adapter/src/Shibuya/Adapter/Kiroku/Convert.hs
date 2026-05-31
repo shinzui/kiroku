@@ -44,6 +44,7 @@ import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
 import Data.UUID qualified as UUID
 import Effectful (IOE, liftIO, (:>))
+import GHC.Generics (Generic)
 import Kiroku.Store.Subscription.Stream (AckItem (..))
 import Kiroku.Store.Subscription.Types (
     DeadLetterReason (..),
@@ -79,6 +80,7 @@ data KirokuEnvelopeAttrs = KirokuEnvelopeAttrs
     'Nothing' for a non-grouped subscription.
     -}
     }
+    deriving stock (Generic, Eq, Show)
 
 {- | Wrap an ack-coupled 'AckItem' (from @kiroku-store@'s 'subscriptionAckStream')
 into an 'Ingested' value suitable for Shibuya handlers.
