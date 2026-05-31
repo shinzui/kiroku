@@ -43,9 +43,9 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] M1 — `Observability.hs`: add `SubscriptionDeliveryPhase` and the additive `KirokuEventSubscriptionDelivered` constructor; export the phase; update the module Haddock. `Worker.hs`: emit `KirokuEventSubscriptionDelivered` once per batch from `processEvents`, derived from the driving state.
-- [ ] M2 — `kiroku-otel/src/Kiroku/Otel/Subscription.hs`: handle `Delivered` by opening/closing a `kiroku.subscription.deliver` span tagged with the phase and row count, and move the "live batch ⇒ clear open retries as Ok" logic here; make `Fetched` a no-op; always emit a standalone `kiroku.subscription.stopped` span in the `Stopped` handler (in addition to closing open episodes); stripe the per-key span state into a lock-free `IORef (Map SpanKey (IORef OpenState))` (C2) so the per-batch span work never serializes workers on one MVar — `withKey`/`dropKey` keep their call shape so the nine `onEvent` arms are unchanged. Update `kiroku-otel/test/Main.hs` synthetic unit tests: switch the live-span assertions from `Fetched` to `Delivered`, add a `DeliveredCatchUp` case, and add a `Stopped`-produces-a-span assertion.
-- [ ] M3 — database-backed end-to-end test in `kiroku-otel/test/Main.hs`: run a real `$all` worker with the tracer + in-memory exporter through catch-up → live → stop; assert the catch-up span, a `deliver` span with `state="live"`, and a `stopped` span all appear. Add the test-only cabal dependencies. Update docs and CHANGELOG.
+- [x] M1 (2026-05-31) — `Observability.hs`: added `SubscriptionDeliveryPhase` and the additive `KirokuEventSubscriptionDelivered` constructor; exported the phase; updated the module Haddock. `Worker.hs`: emits `KirokuEventSubscriptionDelivered` once per batch from `processEvents`, derived from the driving state. `cabal build kiroku-store` clean; `cabal test kiroku-store` green (183 examples, 0 failures).
+- [x] M2 (2026-05-31) — `kiroku-otel/src/Kiroku/Otel/Subscription.hs`: handles `Delivered` by opening/closing a `kiroku.subscription.deliver` span tagged with the phase and row count, with the "live batch ⇒ clear open retries as Ok" logic moved here; `Fetched` is a no-op; the `Stopped` handler always emits a standalone `kiroku.subscription.stopped` span (in addition to closing open episodes); per-key span state striped into a lock-free `IORef (Map SpanKey (IORef OpenState))` (C2) with `withKey`/`dropKey` keeping their call shape (nine `onEvent` arms unchanged). Synthetic tests updated: live-span assertion switched from `Fetched` to `Delivered`, plus a `DeliveredCatchUp` case and a `Stopped`-produces-a-span case. Tracer compiles with **no** `-Wincomplete-patterns` warning; `cabal test kiroku-otel` green (15 examples, 0 failures).
+- [x] M3 (2026-05-31) — database-backed end-to-end test added in `kiroku-otel/test/Main.hs`: runs a real `$all` worker with the tracer + in-memory exporter through catch-up → live → stop and asserts the catch-up span, a `deliver` span with `state="live"`, and a `stopped` span all appear. Test-only cabal deps added (`kiroku-test-support`, `ephemeral-pg`, `stm`, plus `lens`/`generic-lens` for the label-based settings update). Docs (`docs/user/opentelemetry.md`) and both CHANGELOGs updated. `cabal test kiroku-otel` green (16 examples, 0 failures); `cabal build all` green.
 
 
 ## Surprises & Discoveries
@@ -53,7 +53,38 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet. To be filled during implementation.)
+**2026-05-31 — Live deliver span confirmed end-to-end against a real `$all`
+worker.** The DB-backed test (`kiroku-otel/test/Main.hs`,
+`subscriptionTraceHandler end-to-end`) seeds 5 events, waits for catch-up to
+drain them, appends 3 more while live, waits for the count to reach 8, then
+cancels. The exported spans include ≥1 `kiroku.subscription.deliver` span with
+`state="live"` and exactly one `kiroku.subscription.stopped` span — proving both
+gaps closed on a real worker, not synthetic events. The whole otel suite is
+green (16 examples, 0 failures).
+
+**2026-05-31 — `eventHandler` record-update is ambiguous under
+`DuplicateRecordFields`; a source-type annotation does not resolve it.** The plan
+sketch's `(defaultConnectionSettings connStr){ eventHandler = Just handler }`
+failed with `GHC-99339 Ambiguous record update with field 'eventHandler'`
+because the field name exists on both `ConnectionSettingsM` and `KirokuStore`.
+Annotating the source record (`... :: ConnectionSettings`) did **not** help
+(GHC2024 record-update disambiguation does not use the source type here). The fix
+matches the rest of the codebase: the generic-lens label update
+`defaultConnectionSettings connStr & #eventHandler .~ Just handler`, which pulled
+`lens` + `generic-lens` into the test stanza (recorded in the Decision Log).
+
+**2026-05-31 — `AllStreams`/`NoStream` must be imported via their types.** The
+plan sketch imported `AllStreams` and `NoStream (..)` as bare names from
+`Kiroku.Store`; GHC rejected them (`GHC-35373`) because they are constructors of
+`SubscriptionTarget` and `ExpectedVersion`. Imported as
+`SubscriptionTarget (..)` / `ExpectedVersion (..)` instead.
+
+**2026-05-31 — The native in-IO append path is `runStoreIO store $ appendToStream
+(StreamName ...) NoStream events`.** Confirmed against `kiroku-store`'s own
+`Test/SubscriptionPauseResume.hs` and `Test/Causation.hs`; this is the lighter
+path the plan preferred over the adapter's Shibuya-tracing wrapper. The e2e test
+builds minimal `EventData` records (unique type tag, `Aeson.Null` payload, no
+metadata) — recorded in the Decision Log.
 
 
 ## Decision Log
@@ -96,6 +127,14 @@ Record every decision made while working on the plan.
   Rationale: Before C2 the tracer used a single `MVar (Map SpanKey OpenState)` with non-nested `withMVar`/`modifyMVar_` and all span IO *outside* the lock, under a single-writer-per-`SpanKey` invariant (each `(name, member)` is emitted by one worker thread) — no lock-ordering inversion. After C2 (M2 Edit 7) the tracer has **no locks at all**: the outer registry is an `IORef` mutated only via non-blocking `atomicModifyIORef'` on `Started`/`Stopped`, and each key's `IORef OpenState` is single-writer, so the per-batch path does no blocking synchronization. Either way `emit` is never called inside an STM transaction on the worker side (`processEvents` reads `driving` in one `atomically`, then emits outside it — `Worker.hs:602-606`). Nothing can deadlock. Recorded so EP-2's core additions can be committed.
   Date: 2026-05-31.
 
+- Decision (impl, 2026-05-31): The e2e test's store-settings update uses the generic-lens label `defaultConnectionSettings connStr & #eventHandler .~ Just handler`, adding `lens` and `generic-lens` to the test stanza.
+  Rationale: Plain record-update on `eventHandler` is ambiguous under `DuplicateRecordFields` (the field exists on both `ConnectionSettingsM` and `KirokuStore`) and a source-type annotation does not disambiguate it under GHC2024. The label-based update is how the rest of the codebase mutates these settings (`kiroku-store/test/Test/Helpers.hs`, `shibuya-kiroku-adapter/test/Main.hs`), so it is the consistent fix; it costs two test-only deps already used elsewhere in the repo.
+  Date: 2026-05-31.
+
+- Decision (impl, 2026-05-31): The e2e test appends via `runStoreIO store $ appendToStream (StreamName prefix) NoStream events` with minimal hand-built `EventData` (unique type tag, `Aeson.Null` payload, no metadata).
+  Rationale: This is the native in-IO append path `kiroku-store`'s own tests use (`Test/SubscriptionPauseResume.hs`, `Test/Causation.hs`), lighter than the adapter's `runEff $ runTracingNoop` wrapper — exactly the path the plan said to prefer. `AllStreams`/`NoStream` are imported through their types (`SubscriptionTarget (..)` / `ExpectedVersion (..)`) because they are constructors, not top-level names.
+  Date: 2026-05-31.
+
 - Decision: Place the database-backed end-to-end test in `kiroku-otel`'s test suite (not `kiroku-store`'s), accepting new test-only dependencies on `kiroku-store`, `kiroku-test-support`, and the OTel SDK/in-memory exporter.
   Rationale: The proof must run a *real* subscription (`kiroku-store`) *and* install the tracer (`kiroku-otel`) and read its spans (the in-memory exporter). Only `kiroku-otel`'s test suite can depend on both. The prior tracer plan deliberately avoided a DB-backed test to keep `kiroku-otel` light; this plan reverses that *for the test stanza only* (the library still depends only on `hs-opentelemetry-api` + `kiroku-store`) because the whole point of EP-2 is to prove, against a real worker, that the two gaps are closed — which a synthetic test cannot do.
   Date: 2026-05-31.
@@ -106,7 +145,32 @@ Record every decision made while working on the plan.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+**2026-05-31 — Complete and accepted.** All three milestones landed exactly as
+designed; no design change was needed (only the three small mechanical
+import/record-update adjustments recorded in Surprises & Discoveries). Against the
+original purpose:
+
+- **Gap 1 (`$all` Live emits no per-batch span) — closed.** The centralized
+  `KirokuEventSubscriptionDelivered` from `processEvents` makes every target's
+  live deliveries produce a `kiroku.subscription.deliver` span tagged
+  `state="live"`; the DB-backed e2e test proves it on a real `$all` worker.
+- **Gap 2 (clean `Stopped` after live produces no span) — closed.** The tracer
+  always emits a standalone `kiroku.subscription.stopped` span carrying the stop
+  reason and checkpoint; proven both synthetically and end-to-end.
+- **C2 folded in.** The per-key span state is now lock-free
+  (`IORef (Map SpanKey (IORef OpenState))`), removing both the new catch-up
+  contention and the pre-existing DB-driven-live-loop contention, with
+  byte-identical behavior (the unchanged synthetic tests are the equivalence
+  proof).
+- **The committed core primitive shipped.** `KirokuEventSubscriptionDelivered` +
+  `SubscriptionDeliveryPhase` are permanent additions to the `KirokuEvent` API;
+  `KirokuEventSubscriptionFetched` is retained (now a tracer no-op) so its
+  live-fetch-rate signal is undisturbed.
+
+Verification: `cabal test kiroku-store` (183, 0 failures), `cabal test
+kiroku-otel` (16, 0 failures incl. the DB-backed e2e test), `cabal build all`
+green. No `-Wincomplete-patterns` warning, confirming the additive contract held
+at compile time. No gaps outstanding.
 
 
 ## Context and Orientation

@@ -53,7 +53,7 @@ Alternatives considered and rejected: (a) **One combined plan** — rejected bec
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
 | 1 | Central subscription-state registry on the store handle for cheap observability | docs/plans/45-central-subscription-state-registry-on-the-store-handle-for-cheap-observability.md | None | None | Complete |
-| 2 | Complete OpenTelemetry span coverage of every subscription FSM state | docs/plans/46-complete-opentelemetry-span-coverage-of-every-subscription-fsm-state.md | None | None | In Progress |
+| 2 | Complete OpenTelemetry span coverage of every subscription FSM state | docs/plans/46-complete-opentelemetry-span-coverage-of-every-subscription-fsm-state.md | None | None | Complete |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
 Hard Deps and Soft Deps reference other rows by their # prefix (e.g., EP-1, EP-3).
@@ -91,9 +91,9 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 - [x] EP-1 (registry): M1 (2026-05-31) — added the registry `TVar (Map (SubscriptionName, member) (Unique, TVar SubscriptionState))` to the `KirokuStore` handle; register on `subscribe` with a fresh token and deregister conditionally in the existing `finally` lifecycle only when the token still matches (covering stop, cancel, crash, and stale duplicate-key cleanup).
 - [x] EP-1 (registry): M2 (2026-05-31) — public snapshot accessor returning a near-instant view (name, member, state, FSM cursor position) by snapshotting the outer map and reading each cell with `readTVarIO` (no large STM read set; per the audit); reshaped `currentState` to `Maybe SubscriptionState` resolved via the registry by key and token (`Nothing` ⟺ not live or superseded); `SubscriptionStateView` derives `Generic` for `^. #field` access.
 - [x] EP-1 (registry): M3 (2026-05-31) — tests: started several subscriptions incl. consumer-group members, asserted the snapshot reflects their states/positions, and asserted entries are removed on stop / cancel / crash plus stale duplicate-key cleanup safety; docs + CHANGELOG. Full suite green (183 examples, 0 failures); `cabal build all` clean.
-- [ ] EP-2 (span coverage): M1 — add the additive per-batch delivery `KirokuEvent` (with a catch-up/live phase) and emit it once per batch from the single delivery primitive `processEvents`, for every target.
-- [ ] EP-2 (span coverage): M2 — tracer: open/close a per-batch `deliver` span tagged with the driving state (replacing the `Fetched`-keyed span to avoid double-emit), and emit a terminal `stopped` span on `KirokuEventSubscriptionStopped` even when no episode is open.
-- [ ] EP-2 (span coverage): M3 — database-backed end-to-end test: run a real `$all` worker with the tracer + in-memory exporter through catch-up → live → stop and assert each FSM state's span appears; update synthetic tests, docs, CHANGELOG.
+- [x] EP-2 (span coverage): M1 (2026-05-31) — added the additive per-batch delivery `KirokuEvent` (`KirokuEventSubscriptionDelivered` with `SubscriptionDeliveryPhase`) and emit it once per batch from the single delivery primitive `processEvents`, for every target. `kiroku-store` green (183 examples).
+- [x] EP-2 (span coverage): M2 (2026-05-31) — tracer opens/closes a per-batch `kiroku.subscription.deliver` span tagged with the driving state (replacing the `Fetched`-keyed span; `Fetched` is now a no-op to avoid double-emit), and emits a terminal `kiroku.subscription.stopped` span on `KirokuEventSubscriptionStopped` even when no episode is open; C2 striping folded in (lock-free per-key `IORef`). Compiles with no `-Wincomplete-patterns` warning; synthetic tests green.
+- [x] EP-2 (span coverage): M3 (2026-05-31) — database-backed end-to-end test runs a real `$all` worker with the tracer + in-memory exporter through catch-up → live → stop and asserts the catch-up, live `deliver` (`state="live"`), and `stopped` spans all appear; synthetic tests, docs (`docs/user/opentelemetry.md`), and both CHANGELOGs updated. `cabal test kiroku-otel` green (16 examples, 0 failures); `cabal build all` green.
 
 
 ## Surprises & Discoveries
@@ -129,6 +129,22 @@ worker's `finally` on any exit); the latency is in `Async.cancel` delivery to a
 mid-catch-up worker. Any future test (including EP-2's) that asserts on
 deregistration/stop *timing* should drive the worker to `Live` before
 stopping/cancelling it.
+
+**2026-05-31 — EP-2 implemented and complete; the no-code-dependency split held
+exactly as designed.** Implementing EP-2 (`docs/plans/46-...`) confirmed the
+Integration Point: EP-2 only *read* the per-worker `stateVar` inside
+`processEvents` to label the new delivery event's phase and *added* the
+`KirokuEventSubscriptionDelivered` constructor — it did not touch the registry,
+`currentState`, or the store handle, so EP-1's reshape of `currentState` to
+`m (Maybe SubscriptionState)` was irrelevant to it (the e2e test drives
+`subscribe`/`cancel`/`wait` and reads spans, never `currentState`). The additive
+`KirokuEvent` constructor surfaced at the tracer's exhaustive match as the
+predicted `-Wincomplete-patterns` warning until handled, never a silent miss.
+C2 (the lock-free striping) shipped green against the unchanged synthetic tests,
+confirming behavior-identity. The only friction was three mechanical
+import/record-update adjustments in the e2e test (recorded in EP-2's Surprises),
+none of which changed the design. The MasterPlan's "either plan first, or both
+in parallel" stance was correct: no ordering coupling materialized.
 
 **2026-05-31 — Pre-commitment API/perf/deadlock audit (before committing the core primitives).**
 Audited both child plans against the live code. No deadlock found; several API and
@@ -354,7 +370,40 @@ plan.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original vision.
 
-(To be filled during and after implementation.)
+**2026-05-31 — Initiative complete; both observability surfaces closed.** Both
+child plans are Complete and the full repository builds and tests green
+(`cabal build all` green; `kiroku-store` 183 examples / 0 failures; `kiroku-otel`
+16 examples / 0 failures including the new DB-backed e2e test). Measured against
+the original vision:
+
+- **Aggregate state snapshot (EP-1) — delivered.** The `KirokuStore` handle now
+  carries a token-guarded `subscriptionRegistry`; `subscriptionStates` returns a
+  near-instant `Map (SubscriptionName, Int32) SubscriptionStateView` snapshot read
+  with `readTVarIO` per cell (no reader retry cost), and `currentState` is
+  reshaped to `m (Maybe SubscriptionState)` resolved through the registry by key
+  and token. This is the committed substrate the named-but-out-of-scope Prometheus
+  exporter and admin tool will read.
+- **Complete FSM-state span coverage (EP-2) — delivered.** Both original gaps are
+  closed and proven by a database-backed end-to-end test against a real `$all`
+  worker: live `$all` deliveries now emit `kiroku.subscription.deliver` spans
+  (`state="live"`), and every stop emits a terminal `kiroku.subscription.stopped`
+  span. The C2 striping made the now-per-batch tracer path lock-free.
+- **The complementary split is real.** The registry is the cheap, always-available
+  live-state layer (zero per-event cost, read on the consumer's cadence); the
+  spans are the event-driven timeline layer. Neither plan changed how the worker
+  *writes* `stateVar`, exactly as the Integration Points required.
+
+**Lessons.** The pre-commitment and final audits paid off: every corrective
+decision they produced (the `readTVarIO` snapshot, the `Maybe currentState`, the
+`Unique` token, the `cursor` rename, C2) landed without rework, and no new
+deadlock or perf surprise emerged in implementation. The only implementation
+friction was mechanical (GHC `DuplicateRecordFields` record-update ambiguity and
+constructor-import forms in EP-2's test), none of which touched either design.
+
+**Out of scope, as planned.** The Prometheus exporter and admin tool were not
+built; they remain named future child plans gated on EP-1's registry. The
+hs-opentelemetry `0.3 → 1.0.0.0` upgrade remains a follow-on, confirmed not to
+affect this work.
 
 
 ## Revision Notes
