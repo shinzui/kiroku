@@ -24,7 +24,8 @@ module Shibuya.Adapter.Kiroku.Convert (
     toEnvelope,
 
     -- * Envelope attribute source
-    KirokuEnvelopeAttrs (..),
+    KirokuEnvelopeAttrs,
+    kirokuEnvelopeAttrs,
 
     -- * Ack-decision translation
     toKirokuResult,
@@ -44,7 +45,6 @@ import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
 import Data.UUID qualified as UUID
 import Effectful (IOE, liftIO, (:>))
-import GHC.Generics (Generic)
 import Kiroku.Store.Subscription.Stream (AckItem (..))
 import Kiroku.Store.Subscription.Types (
     DeadLetterReason (..),
@@ -64,23 +64,38 @@ import Shibuya.Core.AckHandle (AckHandle (..))
 import Shibuya.Core.Ingested (Ingested (..))
 import Shibuya.Core.Types (Attempt (..), Cursor (..), Envelope (..), MessageId (..), TraceHeaders)
 
-{- | The kiroku identity to stamp onto each Shibuya 'Envelope' as OpenTelemetry
+{- | The kiroku identity stamped onto each Shibuya 'Envelope' as OpenTelemetry
 attributes, so the kiroku subscription is visible on Shibuya's per-message span.
 
-The subscription name and consumer-group member are not carried on a
-'RecordedEvent'; they are known only at the adapter-config level, so the adapter
-threads them in through this value. The event type and global position come from
-the 'RecordedEvent' itself.
+Construct it once per adapter with 'kirokuEnvelopeAttrs'. It holds the
+/constant/ per-subscription attributes — the subscription name and, for a
+grouped subscription, the consumer-group member — already built into an
+attribute map, so the per-event conversion path only inserts this event's type
+and global position rather than rebuilding the whole map for every event. The
+subscription name and member are not carried on a 'RecordedEvent' (they are
+known only at the adapter-config level), so the adapter threads them in through
+this value; the event type and global position come from the 'RecordedEvent'
+itself.
 -}
-data KirokuEnvelopeAttrs = KirokuEnvelopeAttrs
-    { subscriptionName :: !Text
-    -- ^ The subscription's name (@kiroku.subscription.name@).
-    , member :: !(Maybe Int)
-    {- ^ The consumer-group member index (@kiroku.consumer_group.member@), or
-    'Nothing' for a non-grouped subscription.
-    -}
+newtype KirokuEnvelopeAttrs = KirokuEnvelopeAttrs
+    { baseAttributes :: HashMap Text Attribute
+    -- ^ The constant per-subscription attributes, precomputed once.
     }
-    deriving stock (Generic, Eq, Show)
+
+{- | Build a 'KirokuEnvelopeAttrs' from a subscription name and an optional
+consumer-group member index (@'Nothing'@ for a non-grouped subscription),
+precomputing the constant @kiroku.*@ attribute map once. The member attribute is
+included only when a member index is given.
+-}
+kirokuEnvelopeAttrs :: Text -> Maybe Int -> KirokuEnvelopeAttrs
+kirokuEnvelopeAttrs subscriptionName member =
+    KirokuEnvelopeAttrs $
+        HashMap.fromList $
+            ("kiroku.subscription.name", toAttribute subscriptionName)
+                : maybe
+                    []
+                    (\m -> [("kiroku.consumer_group.member", toAttribute (fromIntegral m :: Int64))])
+                    member
 
 {- | Wrap an ack-coupled 'AckItem' (from @kiroku-store@'s 'subscriptionAckStream')
 into an 'Ingested' value suitable for Shibuya handlers.
@@ -159,27 +174,21 @@ toEnvelope attrs event =
             , enqueuedAt = Just ts
             , traceContext = metadataTraceContext meta
             , attempt = Nothing
-            , attributes = kirokuEnvelopeAttributes attrs etype pos
+            , attributes = eventAttributes attrs etype pos
             , payload = event
             }
 
-{- | Build the @kiroku.*@ OpenTelemetry attribute map stamped onto a Shibuya
-'Envelope'. Keys mirror the native-span attribute keys in
+{- | The per-event @kiroku.*@ attribute map: the precomputed constant attributes
+('baseAttributes') plus this event's type and global position. Only the two
+per-event keys are inserted, so the constant attributes are not rebuilt for
+every event. Keys mirror the native-span attribute keys in
 @Kiroku.Otel.Subscription@ so a trace reads consistently across the kiroku and
-Shibuya sides. The consumer-group member is included only for a grouped
-subscription.
+Shibuya sides.
 -}
-kirokuEnvelopeAttributes :: KirokuEnvelopeAttrs -> Text -> Int64 -> HashMap Text Attribute
-kirokuEnvelopeAttributes KirokuEnvelopeAttrs{subscriptionName, member} etype pos =
-    HashMap.fromList $
-        [ ("kiroku.subscription.name", toAttribute subscriptionName)
-        , ("kiroku.event.type", toAttribute etype)
-        , ("kiroku.event.global_position", toAttribute pos)
-        ]
-            ++ maybe
-                []
-                (\m -> [("kiroku.consumer_group.member", toAttribute (fromIntegral m :: Int64))])
-                member
+eventAttributes :: KirokuEnvelopeAttrs -> Text -> Int64 -> HashMap Text Attribute
+eventAttributes attrs etype pos =
+    HashMap.insert "kiroku.event.type" (toAttribute etype) $
+        HashMap.insert "kiroku.event.global_position" (toAttribute pos) (baseAttributes attrs)
 
 metadataTraceContext :: Maybe Value -> Maybe TraceHeaders
 metadataTraceContext (Just (Object metadata)) = do

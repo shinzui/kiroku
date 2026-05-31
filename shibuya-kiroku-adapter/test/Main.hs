@@ -34,7 +34,7 @@ import Shibuya.Adapter.Kiroku (
     kirokuAdapter,
     kirokuConsumerGroupProcessors,
  )
-import Shibuya.Adapter.Kiroku.Convert (KirokuEnvelopeAttrs (..), toEnvelope)
+import Shibuya.Adapter.Kiroku.Convert (KirokuEnvelopeAttrs, kirokuEnvelopeAttrs, toEnvelope)
 import Shibuya.App (
     ProcessorId (..),
     QueueProcessor (..),
@@ -93,7 +93,7 @@ main = withSharedMigratedPostgres $ hspec $ do
             nonStringTraceparent `shouldBe` Nothing
 
         it "stamps kiroku identity attributes for a non-grouped subscription (EP-5 M2)" $ do
-            let attrs = KirokuEnvelopeAttrs{subscriptionName = "orders-proj", member = Nothing}
+            let attrs = kirokuEnvelopeAttrs "orders-proj" Nothing
                 Envelope{attributes} = toEnvelope attrs (makeRecordedEvent Nothing)
             -- makeRecordedEvent: eventType "TraceEvent", globalPosition 1.
             HashMap.lookup "kiroku.subscription.name" attributes
@@ -106,7 +106,7 @@ main = withSharedMigratedPostgres $ hspec $ do
             HashMap.lookup "kiroku.consumer_group.member" attributes `shouldBe` Nothing
 
         it "stamps the consumer-group member attribute for a grouped subscription (EP-5 M2)" $ do
-            let attrs = KirokuEnvelopeAttrs{subscriptionName = "orders-proj", member = Just 2}
+            let attrs = kirokuEnvelopeAttrs "orders-proj" (Just 2)
                 Envelope{attributes} = toEnvelope attrs (makeRecordedEvent Nothing)
             HashMap.lookup "kiroku.subscription.name" attributes
                 `shouldBe` Just (toAttribute ("orders-proj" :: Text))
@@ -776,7 +776,7 @@ makeEvent typ p =
 do not depend on the kiroku identity attributes.
 -}
 sampleEnvelopeAttrs :: KirokuEnvelopeAttrs
-sampleEnvelopeAttrs = KirokuEnvelopeAttrs{subscriptionName = "test-sub", member = Nothing}
+sampleEnvelopeAttrs = kirokuEnvelopeAttrs "test-sub" Nothing
 
 makeRecordedEvent :: Maybe Value -> RecordedEvent
 makeRecordedEvent meta =
