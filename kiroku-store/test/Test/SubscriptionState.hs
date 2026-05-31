@@ -44,12 +44,14 @@ isLive Live{} = True
 isLive _ = False
 
 -- Poll an FSM-state read until the predicate holds or the budget runs out.
-waitUntilState :: Int -> IO SubscriptionState -> (SubscriptionState -> Bool) -> IO Bool
+-- The read is the handle's 'currentState', which is @Maybe SubscriptionState@:
+-- @Nothing@ (not currently live) is treated as "not yet in the wanted state".
+waitUntilState :: Int -> IO (Maybe SubscriptionState) -> (SubscriptionState -> Bool) -> IO Bool
 waitUntilState budget readSt p
     | budget <= 0 = pure False
     | otherwise = do
         s <- readSt
-        if p s
+        if maybe False p s
             then pure True
             else threadDelay 20_000 >> waitUntilState (budget - 20_000) readSt p
 
@@ -100,7 +102,7 @@ spec = describe "subscription FSM — observable state (EP-41 M4)" $ do
             handle <- subscribe store cfg
             -- Worker is now blocked inside the handler on the first catch-up event.
             takeMVar firstSeen
-            st <- currentState handle
+            Just st <- currentState handle
             st `shouldSatisfy` isCatchingUp
             -- Release: catch-up completes, the worker goes live.
             putMVar release ()

@@ -6,12 +6,17 @@ module Kiroku.Store.Connection (
     withStore,
 ) where
 
+import Control.Concurrent.STM (TVar, newTVarIO)
 import Control.Exception (bracket, onException)
 import Control.Lens ((^.))
 import Control.Monad.IO.Unlift (MonadUnliftIO, withRunInIO)
 import Data.Generics.Labels ()
+import Data.Int (Int32)
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Unique (Unique)
 import GHC.Generics (Generic)
 import Hasql.Connection.Settings qualified as Conn
 import Hasql.Pool (Pool)
@@ -25,6 +30,8 @@ import Kiroku.Store.Observability (KirokuEvent)
 import Kiroku.Store.Settings (StoreSettings, defaultStoreSettings)
 import Kiroku.Store.Subscription.EventPublisher (EventPublisher)
 import Kiroku.Store.Subscription.EventPublisher qualified as Publisher
+import Kiroku.Store.Subscription.Fsm (SubscriptionState)
+import Kiroku.Store.Subscription.Types (SubscriptionName)
 
 -- | Connection settings for the store, parameterized by monad.
 data ConnectionSettingsM m = ConnectionSettings
@@ -151,6 +158,24 @@ data KirokuStore = KirokuStore
     the store. Reached by 'Kiroku.Store.Effect.runStorePool' and the
     subscription publisher\/worker for every event flowing through.
     -}
+    , subscriptionRegistry :: !(TVar (Map (SubscriptionName, Int32) (Unique, TVar SubscriptionState)))
+    {- ^ Central registry of every live subscription worker's FSM-state cell,
+    keyed by (subscription name, consumer-group member; 0 for non-group).
+    Each entry also carries the worker's registry token, so cleanup from an
+    older worker cannot delete a newer worker's replacement entry for the same
+    key.
+    Each 'Kiroku.Store.Subscription.subscribe' call registers its worker's
+    'stateVar' here on start and removes it on any exit (stop, cancel, crash)
+    via the worker's @finally@ cleanup. The cell is the same 'TVar' the worker
+    writes on every transition and 'currentState' reads — it is registered, not
+    copied — so the registry observes the live value with no extra write path.
+    A subscription is represented in the snapshot by /presence/ while live and
+    by /absence/ once it has stopped, been cancelled, or crashed; the FSM never
+    writes 'Kiroku.Store.Subscription.Fsm.Stopped' into the cell, so a not-live
+    subscription is never represented by a @"stopped"@ phase.
+    Read a consistent snapshot with
+    'Kiroku.Store.Subscription.subscriptionStates'.
+    -}
     }
     deriving stock (Generic)
 
@@ -225,6 +250,10 @@ withStore settings action = withRunInIO $ \runInIO ->
             flip onException (Notifier.stopNotifier n) $ do
                 -- Start EventPublisher (depends on Notifier's TChan)
                 pub <- Publisher.startPublisher p (Notifier.tickChan n) evtHandler stSettings
+                -- Central, in-memory subscription-state registry: starts empty
+                -- and is populated/cleaned by each `subscribe` call's worker
+                -- lifecycle. Purely in-memory; discarded when the store closes.
+                reg <- newTVarIO Map.empty
                 pure
                     KirokuStore
                         { pool = p
@@ -233,6 +262,7 @@ withStore settings action = withRunInIO $ \runInIO ->
                         , publisher = pub
                         , eventHandler = evtHandler
                         , storeSettings = stSettings
+                        , subscriptionRegistry = reg
                         }
 
     release store = do

@@ -35,6 +35,7 @@ module Kiroku.Store.Subscription.Fsm (
     SubscriptionState (..),
     ResumeCondition (..),
     stateCursor,
+    stateName,
 
     -- * Terminal reasons
     SubscriptionStopReason (..),
@@ -201,6 +202,20 @@ stateCursor = \case
     Reconnecting c _ -> c
     Retrying c _ -> c
     Stopped _ -> GlobalPosition 0
+
+{- | A stable, low-cardinality label for the state's /name/, independent of its
+payload (cursor, attempt, reason). Suitable as a metric label value or an admin
+column. The strings are fixed identifiers, not the derived 'Show' output, so
+they will not drift if a constructor's fields change.
+-}
+stateName :: SubscriptionState -> Text
+stateName = \case
+    CatchingUp{} -> "catching_up"
+    Live{} -> "live"
+    Paused{} -> "paused"
+    Reconnecting{} -> "reconnecting"
+    Retrying{} -> "retrying"
+    Stopped{} -> "stopped"
 
 {- | A thing that just happened, fed to 'step' to compute the next state.
 

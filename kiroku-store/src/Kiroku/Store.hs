@@ -36,6 +36,10 @@ module Kiroku.Store (
     SubscriptionStopReason (..),
     SubscriptionGroupContext (..),
 
+    -- * Subscription FSM state helpers
+    stateName,
+    stateCursor,
+
     -- * Pool observation types (re-exported from hasql-pool)
     Observation (..),
     ConnectionStatus (..),
@@ -58,5 +62,6 @@ import Kiroku.Store.Read
 import Kiroku.Store.Settings
 import Kiroku.Store.Subscription
 import Kiroku.Store.Subscription.Effect (Subscription, runSubscription, runSubscriptionResource)
+import Kiroku.Store.Subscription.Fsm (stateCursor, stateName)
 import Kiroku.Store.Transaction
 import Kiroku.Store.Types

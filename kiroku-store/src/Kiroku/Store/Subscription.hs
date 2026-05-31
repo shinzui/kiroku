@@ -3,12 +3,16 @@ module Kiroku.Store.Subscription (
     subscribe,
     withSubscription,
 
+    -- * Observability
+    subscriptionStates,
+    SubscriptionStateView (..),
+
     -- * Types
     module Kiroku.Store.Subscription.Types,
 ) where
 
 import Control.Concurrent.Async qualified as Async
-import Control.Concurrent.STM (atomically, newTVarIO, readTVarIO)
+import Control.Concurrent.STM (atomically, modifyTVar', newTVarIO, readTVarIO)
 import Control.Exception (bracket, finally, throwIO)
 import Control.Lens ((^.))
 import Control.Monad (when)
@@ -16,12 +20,18 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.IO.Unlift (MonadUnliftIO, withRunInIO)
 import Data.Foldable (for_)
 import Data.Generics.Labels ()
+import Data.Int (Int32)
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
+import Data.Text (Text)
+import Data.Unique (newUnique)
+import GHC.Generics (Generic)
 import Kiroku.Store.Connection (KirokuStore (..))
 import Kiroku.Store.Notification qualified as Notifier
 import Kiroku.Store.Subscription.EventPublisher qualified as Pub
-import Kiroku.Store.Subscription.Fsm (SubscriptionState (..))
+import Kiroku.Store.Subscription.Fsm (SubscriptionState (..), stateCursor, stateName)
 import Kiroku.Store.Subscription.Types
-import Kiroku.Store.Subscription.Worker (runWorker)
+import Kiroku.Store.Subscription.Worker (configMember, runWorker)
 import Kiroku.Store.Types (GlobalPosition (..))
 
 {- | Start a subscription. Returns a handle for cancellation and waiting.
@@ -112,22 +122,52 @@ subscribe store config = liftIO $ do
     stateVar <- newTVarIO (CatchingUp (GlobalPosition 0) 0)
     let pubPosVar = Pub.lastPublished (store ^. #publisher)
         catGenVar = Notifier.categoryGenerations (store ^. #notifier)
-    -- `finally unsubscribe` removes this subscription from the publisher's
-    -- registry whenever the worker exits — gracefully on Stop, by
-    -- cancellation, or on any exception (including SubscriptionOverflowed).
-    -- Forgetting to unsubscribe would leave a registry entry with no reader,
-    -- and the publisher would needlessly trigger this subscriber's overflow
-    -- policy on the next batch.
+    -- Register this worker's state cell into the store's central registry under
+    -- (name, member). A fresh token identifies *this* worker so that an older
+    -- worker's cleanup cannot delete a newer worker's replacement entry under
+    -- the same key, and a held handle reads only the cell it registered.
+    token <- newUnique
+    let reg = store ^. #subscriptionRegistry
+        key = (name config, configMember config)
+        -- `finally unsubscribe` removes this subscription from the publisher's
+        -- registry whenever the worker exits — gracefully on Stop, by
+        -- cancellation, or on any exception (including SubscriptionOverflowed).
+        -- Forgetting to unsubscribe would leave a registry entry with no
+        -- reader, and the publisher would needlessly trigger this subscriber's
+        -- overflow policy on the next batch. We extend the same `finally` to
+        -- also deregister from the subscription-state registry on ANY exit, so
+        -- the registry never leaks a stale entry. The delete is
+        -- token-conditional so stale cleanup from an older duplicate-key worker
+        -- cannot remove a newer worker's live entry.
+        cleanup =
+            unsubscribe
+                >> atomically
+                    ( modifyTVar' reg $
+                        Map.update
+                            ( \(tok', cell) ->
+                                if tok' == token
+                                    then Nothing
+                                    else Just (tok', cell)
+                            )
+                            key
+                    )
+    -- Insert before forking so a caller that reads a snapshot immediately after
+    -- `subscribe` returns already sees this subscription.
+    atomically $ modifyTVar' reg (Map.insert key (token, stateVar))
     thread <-
         Async.async
             ( runWorker (store ^. #pool) queue statusVar stateVar pubPosVar catGenVar config (store ^. #eventHandler) (store ^. #storeSettings)
-                `finally` unsubscribe
+                `finally` cleanup
             )
     pure
         SubscriptionHandle
             { cancel = Async.cancel thread
             , wait = Async.waitCatch thread
-            , currentState = readTVarIO stateVar
+            , currentState = do
+                m <- readTVarIO reg
+                case Map.lookup key m of
+                    Just (tok, cell) | tok == token -> Just <$> readTVarIO cell
+                    _ -> pure Nothing
             }
 
 {- | Bracket-style subscription lifecycle.
@@ -153,3 +193,66 @@ withSubscription ::
     m a
 withSubscription store config action = withRunInIO $ \runInIO ->
     bracket (subscribe store config) cancel (runInIO . action)
+
+{- | A public, point-in-time view of one live subscription's state, as returned
+by 'subscriptionStates'. This is the committed observability surface external
+consumers (a future Prometheus exporter, an admin tool) read directly; it is
+intentionally a flat view, not the internal 'SubscriptionState' cell type.
+
+* 'subscriptionName' / 'member' identify the subscription (member 0 for a
+  non-group subscription), matching the registry/checkpoint key.
+* 'state' is the live 'SubscriptionState' read from the worker's registered cell.
+* 'statePhase' is a stable, low-cardinality label (via
+  'Kiroku.Store.Subscription.Fsm.stateName') suitable as a metric label value or
+  admin column; it does not drift if a constructor's fields change.
+* 'cursor' is the worker FSM cursor (via 'Kiroku.Store.Subscription.Fsm.stateCursor').
+  It is the cheap live progress signal for observability, not a guaranteed
+  durable checkpoint row.
+
+Read fields via the codebase's @generic-lens@ convention, e.g. @view ^. #state@.
+-}
+data SubscriptionStateView = SubscriptionStateView
+    { subscriptionName :: !SubscriptionName
+    , member :: !Int32
+    , state :: !SubscriptionState
+    , statePhase :: !Text
+    , cursor :: !GlobalPosition
+    }
+    deriving stock (Show, Generic)
+
+{- | A near-instant snapshot of every live subscription as a public
+'SubscriptionStateView', keyed by (subscription name, consumer-group member;
+0 for non-group).
+
+Snapshots the registry's outer map with 'readTVarIO', then reads each registered
+state cell with 'readTVarIO' __outside__ STM. This is deliberately not one STM
+transaction over all cells: a single transaction would put every subscription's
+state cell in the reader's STM read set, and since each worker writes its cell
+~once per batch, any such write would force the whole scan to re-run — a
+reader-side cost that scales with subscription count. The named consumers (a
+Prometheus scrape, an admin listing) read independent values and do not need a
+globally atomic snapshot, so each entry is read as its own freshest value.
+
+A subscription appears here from the moment 'subscribe' returns its handle until
+its worker exits (stop, cancel, or crash), at which point its key is removed; a
+stopped/cancelled/crashed subscription is represented by __absence__, never by a
+@"stopped"@ phase (the FSM never writes 'Stopped' into the cell). This map of
+view records is the committed surface the future Prometheus exporter and admin
+tool consume.
+-}
+subscriptionStates :: KirokuStore -> IO (Map (SubscriptionName, Int32) SubscriptionStateView)
+subscriptionStates store = do
+    cells <- readTVarIO (store ^. #subscriptionRegistry)
+    Map.traverseWithKey
+        ( \(nm, mbr) (_tok, cell) -> do
+            st <- readTVarIO cell
+            pure
+                SubscriptionStateView
+                    { subscriptionName = nm
+                    , member = mbr
+                    , state = st
+                    , statePhase = stateName st
+                    , cursor = stateCursor st
+                    }
+        )
+        cells

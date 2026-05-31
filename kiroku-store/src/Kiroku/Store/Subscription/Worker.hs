@@ -22,6 +22,7 @@ identical for @AllStreams@, @Category@, and consumer-group subscriptions.
 -}
 module Kiroku.Store.Subscription.Worker (
     runWorker,
+    configMember,
     withFetchBatchHookForTest,
 ) where
 

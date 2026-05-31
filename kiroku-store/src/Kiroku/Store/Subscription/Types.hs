@@ -348,13 +348,26 @@ data SubscriptionHandleM m = SubscriptionHandle
     -- ^ Cancel the subscription gracefully
     , wait :: !(m (Either SomeException ()))
     -- ^ Block until the subscription completes or fails
-    , currentState :: !(m SubscriptionState)
+    , currentState :: !(m (Maybe SubscriptionState))
     {- ^ Read the worker's current FSM state
-    ('Kiroku.Store.Subscription.Fsm.SubscriptionState') as of this instant:
-    @CatchingUp@, @Live@, @Paused@ (recoverable backpressure), @Reconnecting@,
-    or @Stopped@. A point-in-time observability read backed by a @TVar@ the
-    worker writes on every transition; for the stream of past transitions use
-    the @KirokuEvent@ lifecycle events instead.
+    ('Kiroku.Store.Subscription.Fsm.SubscriptionState') as of this instant,
+    resolved through the store's central subscription-state registry.
+
+    @Just s@ means the worker is live and still owns its registry entry, in state
+    @s@ — one of @CatchingUp@, @Live@, @Paused@ (recoverable backpressure),
+    @Reconnecting@, or @Retrying@. @Nothing@ means the subscription is __not
+    currently live__: it has stopped, been cancelled, crashed (its registry key
+    was removed in the worker's @finally@ cleanup), was never started, or has
+    been superseded by a newer worker registered under the same @(name, member)@
+    key.
+
+    Note the invariant that a @Stopped@ state never appears here: the FSM never
+    writes @Stopped@ into the cell, so a not-live subscription is represented by
+    @Nothing@ — never by a @Just (Stopped …)@. This unifies one rule, "stopped =
+    absent", across 'currentState' and
+    'Kiroku.Store.Subscription.subscriptionStates'. For the stream of past
+    transitions (including the terminal stop reason) use the @KirokuEvent@
+    lifecycle events instead.
     -}
     }
 
