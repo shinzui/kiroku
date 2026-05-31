@@ -39,8 +39,9 @@ If the input @metadata@ is 'Nothing', or is a non-object JSON value,
 the helper starts from an empty object before merging.
 
 This function is pure: it uses 'unsafePerformIO' to call
-'encodeSpanContext', which is observably pure on the frozen span
-returned by 'wrapSpanContext' (no shared mutable state, no exceptions).
+'encodeSpanContext' (OpenTelemetry 1.0 type:
+@Span -> IO (ByteString, ByteString)@), which is observably pure on the
+frozen span returned by 'wrapSpanContext' (no shared mutable state, no exceptions).
 The \"unsafe\" annotation is mandatory to bridge the propagator's
 @IO@-typed encoder to the pure interface this module exposes.
 -}

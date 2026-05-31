@@ -26,14 +26,64 @@ final: prev: {
     )
   );
 
+  hs-opentelemetry-api-types = dontCheck (
+    doJailbreak (
+      final.callHackageDirect {
+        pkg = "hs-opentelemetry-api-types";
+        ver = "1.0.0.0";
+        sha256 = "sha256-9ByP41wlV45TMCqbyyVpwejQDi5fsG0+j8bMk8ORLw8=";
+      } { }
+    )
+  );
+
+  thread-utils-context = dontCheck (
+    doJailbreak (
+      final.callHackageDirect {
+        pkg = "thread-utils-context";
+        ver = "0.4.1.0";
+        sha256 = "sha256-etbB97HVjo0TL8s09wsgxFoKa8DnNbam0ToPl61jsiw=";
+      } { }
+    )
+  );
+
+  hs-opentelemetry-semantic-conventions = dontCheck (
+    doJailbreak (
+      final.callHackageDirect {
+        pkg = "hs-opentelemetry-semantic-conventions";
+        ver = "1.40.0.0";
+        sha256 = "sha256-7cIC9dTrd5bJjAsiEyyupi1xSZyc17FpjbACnm0p5ik=";
+      } { }
+    )
+  );
+
+  hs-opentelemetry-api = dontCheck (
+    doJailbreak (
+      final.callHackageDirect {
+        pkg = "hs-opentelemetry-api";
+        ver = "1.0.0.0";
+        sha256 = "sha256-COhj9Ms1eu1Gt9wTC21oQ37k6vJ9mxlJvYpHtvXff6A=";
+      } { }
+    )
+  );
+
+  hs-opentelemetry-propagator-w3c = dontCheck (
+    doJailbreak (
+      final.callHackageDirect {
+        pkg = "hs-opentelemetry-propagator-w3c";
+        ver = "1.0.0.0";
+        sha256 = "sha256-p8d2Tx8bCVRk6hps8k0qAg/L2gdBVoYuLYJbTzTbI3s=";
+      } { }
+    )
+  );
+
   shibuya-core =
     let
       src = pkgs.fetchurl {
-        url = "https://hackage.haskell.org/package/shibuya-core-0.5.0.0/shibuya-core-0.5.0.0.tar.gz";
-        hash = "sha256-24Af101mkjH+7uuRUw/cQMCz3kJzeUZ/DpcNNpbtI6k=";
+        url = "https://hackage.haskell.org/package/shibuya-core-0.6.0.0/shibuya-core-0.6.0.0.tar.gz";
+        hash = "sha256-346GI1UfFdvVZ8jAiThfosn4u1aZiPcWw5N1EXlvJGI=";
       };
 
-      patched = pkgs.runCommand "shibuya-core-0.5.0.0-patched" { } ''
+      patched = pkgs.runCommand "shibuya-core-0.6.0.0-patched" { } ''
         mkdir -p $out
         tar -xzf ${src} --strip-components=1 -C $out
         chmod -R u+w $out

@@ -159,8 +159,9 @@ while the worker runs and lost on a crash. The model is therefore:
 
 `kiroku.subscription.deliver` is emitted **once per non-empty batch** handed to
 the handler, on **every** target (`$all`, category, consumer group) and in
-**both** phases — it carries `kiroku.batch.rows` and a `kiroku.subscription.state`
-of `"catchup"` or `"live"`. This closes the previous blind spot where an `$all`
+**both** phases — it carries `kiroku.batch.rows`,
+`messaging.batch.message_count`, `messaging.operation.type = "process"`, and a
+`kiroku.subscription.state` of `"catchup"` or `"live"`. This closes the previous blind spot where an `$all`
 subscription's live phase emitted no per-batch span and so went dark on the
 timeline once it caught up. (The worker still emits `KirokuEventSubscriptionFetched`
 for the DB-driven live-fetch-rate signal, but the tracer intentionally does **not**
@@ -180,8 +181,8 @@ store's subscription-state registry snapshot.
 
 ### Attribute keys
 
-Every span carries a `kiroku.*` attribute set (the constants are exported from
-`Kiroku.Otel.Subscription`):
+Every span carries a Kiroku-specific `kiroku.*` attribute set (the constants are
+exported from `Kiroku.Otel.Subscription`):
 
 - `kiroku.subscription.name`
 - `kiroku.subscription.state` — `"catchup"`, `"live"`, `"paused"`, `"reconnecting"`, `"retrying"`
@@ -189,6 +190,13 @@ Every span carries a `kiroku.*` attribute set (the constants are exported from
 - `kiroku.checkpoint.global_position`, `kiroku.subscription.attempt`,
   `kiroku.batch.rows`, `kiroku.event.global_position`,
   `kiroku.dead_letter.reason`, `kiroku.subscription.stop_reason`
+
+Where a current OpenTelemetry semantic-convention key exists, the tracer emits
+that standard key as well. Subscription spans include `messaging.system =
+"kiroku"` and `messaging.destination.name`; delivery spans add
+`messaging.operation.type = "process"` and `messaging.batch.message_count`.
+Database-error spans add `db.system.name = "postgresql"` and
+`db.operation.name`.
 
 ### Use a batch span processor
 
@@ -204,14 +212,17 @@ worker.
 The same identity travels onto Shibuya's per-message spans. The
 [Shibuya Adapter](shibuya-adapter.md) stamps `kiroku.subscription.name`,
 `kiroku.consumer_group.member`, `kiroku.event.type`, and
-`kiroku.event.global_position` onto each `Envelope`, which Shibuya merges into
-the span it opens for the message. So a single trace is followable from a kiroku
-subscription into Shibuya's processing, tagged with the same keys on both sides.
+`kiroku.event.global_position` onto each `Envelope`. It also stamps
+`messaging.system = "kiroku"` and `messaging.destination.name` with the
+subscription name, which Shibuya merges into the span it opens for the message.
+So a single trace is followable from a kiroku subscription into Shibuya's
+processing, tagged with the same keys on both sides.
 
 ## Package Dependencies
 
-`kiroku-otel` depends on `hs-opentelemetry-api` (`>=0.3 && <0.4`) and
-`hs-opentelemetry-propagator-w3c` (`>=0.1 && <0.2`). `SpanContext`,
+`kiroku-otel` depends on `hs-opentelemetry-api` (`^>=1.0`),
+`hs-opentelemetry-propagator-w3c` (`^>=1.0`), and
+`hs-opentelemetry-semantic-conventions` (`^>=1.40`). `SpanContext`,
 `wrapSpanContext`, and the W3C propagator come from those packages; capturing
 the current span context is the responsibility of your application's
 OpenTelemetry tracer setup.

@@ -57,7 +57,8 @@ import Kiroku.Store.Types (
     GlobalPosition (..),
     RecordedEvent (..),
  )
-import OpenTelemetry.Attributes (Attribute, toAttribute)
+import OpenTelemetry.Attributes (Attribute, AttributeKey (..), toAttribute)
+import OpenTelemetry.SemanticConventions qualified as Sem
 import Shibuya.Core.Ack (AckDecision (..))
 import Shibuya.Core.Ack qualified as Ack
 import Shibuya.Core.AckHandle (AckHandle (..))
@@ -91,10 +92,12 @@ kirokuEnvelopeAttrs :: Text -> Maybe Int -> KirokuEnvelopeAttrs
 kirokuEnvelopeAttrs subscriptionName member =
     KirokuEnvelopeAttrs $
         HashMap.fromList $
-            ("kiroku.subscription.name", toAttribute subscriptionName)
+            (attrKirokuSubscriptionName, toAttribute subscriptionName)
+                : (attrMessagingSystem, toAttribute ("kiroku" :: Text))
+                : (attrMessagingDestinationName, toAttribute subscriptionName)
                 : maybe
                     []
-                    (\m -> [("kiroku.consumer_group.member", toAttribute (fromIntegral m :: Int64))])
+                    (\m -> [(attrKirokuConsumerGroupMember, toAttribute (fromIntegral m :: Int64))])
                     member
 
 {- | Wrap an ack-coupled 'AckItem' (from @kiroku-store@'s 'subscriptionAckStream')
@@ -187,8 +190,26 @@ Shibuya sides.
 -}
 eventAttributes :: KirokuEnvelopeAttrs -> Text -> Int64 -> HashMap Text Attribute
 eventAttributes attrs etype pos =
-    HashMap.insert "kiroku.event.type" (toAttribute etype) $
-        HashMap.insert "kiroku.event.global_position" (toAttribute pos) (baseAttributes attrs)
+    HashMap.insert attrKirokuEventType (toAttribute etype) $
+        HashMap.insert attrKirokuEventGlobalPosition (toAttribute pos) (baseAttributes attrs)
+
+attrMessagingSystem :: Text
+attrMessagingSystem = unkey Sem.messaging_system
+
+attrMessagingDestinationName :: Text
+attrMessagingDestinationName = unkey Sem.messaging_destination_name
+
+attrKirokuSubscriptionName :: Text
+attrKirokuSubscriptionName = "kiroku.subscription.name"
+
+attrKirokuConsumerGroupMember :: Text
+attrKirokuConsumerGroupMember = "kiroku.consumer_group.member"
+
+attrKirokuEventType :: Text
+attrKirokuEventType = "kiroku.event.type"
+
+attrKirokuEventGlobalPosition :: Text
+attrKirokuEventGlobalPosition = "kiroku.event.global_position"
 
 metadataTraceContext :: Maybe Value -> Maybe TraceHeaders
 metadataTraceContext (Just (Object metadata)) = do

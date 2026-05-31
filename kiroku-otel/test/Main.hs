@@ -21,17 +21,25 @@ import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.UUID qualified as UUID
+import Hasql.Pool (UsageError (..))
 import Kiroku.Otel.Subscription (
     attrAttempt,
     attrBatchRows,
     attrCheckpoint,
+    attrDbOperationName,
+    attrDbSystemName,
     attrDeadLetterReason,
     attrEventPos,
     attrGroupMember,
+    attrMessagingBatchMessageCount,
+    attrMessagingDestinationName,
+    attrMessagingOperationType,
+    attrMessagingSystem,
     attrState,
     attrStopReason,
     attrSubName,
     spanCatchup,
+    spanDbError,
     spanDeadLetter,
     spanDeliver,
     spanPaused,
@@ -59,6 +67,7 @@ import Kiroku.Store (
 import Kiroku.Store.Observability (
     DeadLetterReason (..),
     KirokuEvent (..),
+    SubscriptionDbPhase (..),
     SubscriptionDeliveryPhase (..),
     SubscriptionGroupContext (..),
     SubscriptionStopReason (..),
@@ -80,6 +89,7 @@ import OpenTelemetry.Trace.Core (
     Event (..),
     ImmutableSpan (..),
     SpanContext (..),
+    SpanHot (..),
     createTracerProvider,
     emptyTracerProviderOptions,
     forceFlushTracerProvider,
@@ -181,6 +191,11 @@ main = withSharedMigratedPostgres $ hspec $ do
             -- the live deliver span carries the batch row count and state="live"
             attrOf attrBatchRows (head delivers) `shouldBe` Just (i64 3)
             attrOf attrState (head delivers) `shouldBe` Just (toAttribute ("live" :: Text))
+            -- standard OpenTelemetry messaging semantic-convention keys are emitted too
+            attrOf attrMessagingSystem (head delivers) `shouldBe` Just (toAttribute ("kiroku" :: Text))
+            attrOf attrMessagingDestinationName (head delivers) `shouldBe` Just (toAttribute ("orders" :: Text))
+            attrOf attrMessagingOperationType (head delivers) `shouldBe` Just (toAttribute ("process" :: Text))
+            attrOf attrMessagingBatchMessageCount (head delivers) `shouldBe` Just (i64 3)
 
         it "a catch-up delivery yields a deliver span tagged state=catchup" $ do
             spans <-
@@ -273,6 +288,15 @@ main = withSharedMigratedPostgres $ hspec $ do
                     ]
             length (spansNamed spanPaused spans) `shouldBe` 1
 
+        it "a standalone database error span uses stable database semantic-convention keys" $ do
+            spans <-
+                runEvents
+                    [KirokuEventSubscriptionDbError subName FetchBatch AcquisitionTimeoutUsageError NonGroup]
+            let dbErrors = spansNamed spanDbError spans
+            length dbErrors `shouldBe` 1
+            attrOf attrDbSystemName (head dbErrors) `shouldBe` Just (toAttribute ("postgresql" :: Text))
+            attrOf attrDbOperationName (head dbErrors) `shouldBe` Just (toAttribute ("fetch_batch" :: Text))
+
     describe "subscriptionTraceHandler end-to-end (real $all worker)" $ do
         it "a real AllStreams worker emits catchup, a live deliver span, and a stopped span" $
             withMigratedTestDatabase $ \connStr -> do
@@ -280,7 +304,13 @@ main = withSharedMigratedPostgres $ hspec $ do
                 (processor, spansRef) <- inMemoryListExporter
                 tp <- createTracerProvider [processor] emptyTracerProviderOptions
                 let tracer = makeTracer tp "kiroku-otel-e2e" tracerOptions
-                handler <- subscriptionTraceHandler tracer
+                traceHandler <- subscriptionTraceHandler tracer
+                caughtUp <- newTVarIO False
+                let handler event = do
+                        traceHandler event
+                        case event of
+                            KirokuEventSubscriptionCaughtUp{} -> atomically (writeTVar caughtUp True)
+                            _ -> pure ()
                 -- 2. A store whose eventHandler IS the tracer.
                 let settings = defaultConnectionSettings connStr & #eventHandler .~ Just handler
                 withStore settings $ \store -> do
@@ -296,6 +326,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                     handle <- subscribe store cfg
                     -- 5. Wait for catch-up to drain the 5 seeded events.
                     waitForCount delivered 5 10_000_000
+                    waitForFlag caughtUp 10_000_000
                     -- 6. Append MORE events now that the worker is live; these flow
                     --    through the publisher's bounded queue into the (Nothing,
                     --    AllStreams) Live branch -> DeliverBatch -> processEvents ->
@@ -307,7 +338,8 @@ main = withSharedMigratedPostgres $ hspec $ do
                     _ <- wait handle
                     -- 8. Flush the exporter and read the collected, ended spans.
                     _ <- forceFlushTracerProvider tp Nothing
-                    spans <- readIORef spansRef
+                    rawSpans <- readIORef spansRef
+                    spans <- mapM captureSpan rawSpans
                     -- 9. Assertions: the two gaps are closed.
                     let catchups = spansNamed spanCatchup spans
                         delivers = spansNamed spanDeliver spans
@@ -376,7 +408,7 @@ subName = SubscriptionName "orders"
 exported (ended) spans. Because the in-memory exporter only ever receives ended
 spans, a span appearing in the result is proof its episode closed.
 -}
-runEvents :: [KirokuEvent] -> IO [ImmutableSpan]
+runEvents :: [KirokuEvent] -> IO [CapturedSpan]
 runEvents evs = do
     (processor, ref) <- inMemoryListExporter
     tp <- createTracerProvider [processor] emptyTracerProviderOptions
@@ -384,19 +416,37 @@ runEvents evs = do
     handler <- subscriptionTraceHandler tracer
     mapM_ handler evs
     _ <- forceFlushTracerProvider tp Nothing
-    readIORef ref
+    readIORef ref >>= mapM captureSpan
+
+data CapturedSpan = CapturedSpan
+    { capturedName :: !Text
+    , capturedAttributes :: !AttributeMap
+    , capturedEvents :: ![Text]
+    }
+
+type AttributeMap = HashMap.HashMap Text Attribute
+
+captureSpan :: ImmutableSpan -> IO CapturedSpan
+captureSpan s = do
+    hot <- readIORef (spanHot s)
+    pure
+        CapturedSpan
+            { capturedName = hotName hot
+            , capturedAttributes = getAttributeMap (hotAttributes hot)
+            , capturedEvents = map eventName (toList (appendOnlyBoundedCollectionValues (hotEvents hot)))
+            }
 
 -- | The spans with the given name.
-spansNamed :: Text -> [ImmutableSpan] -> [ImmutableSpan]
-spansNamed n = filter ((== n) . spanName)
+spansNamed :: Text -> [CapturedSpan] -> [CapturedSpan]
+spansNamed n = filter ((== n) . capturedName)
 
 -- | Look up an attribute on a span.
-attrOf :: Text -> ImmutableSpan -> Maybe Attribute
-attrOf k s = HashMap.lookup k (getAttributeMap (spanAttributes s))
+attrOf :: Text -> CapturedSpan -> Maybe Attribute
+attrOf k s = HashMap.lookup k (capturedAttributes s)
 
 -- | The names of the span events recorded on a span.
-eventNamesOf :: ImmutableSpan -> [Text]
-eventNamesOf s = map eventName (toList (appendOnlyBoundedCollectionValues (spanEvents s)))
+eventNamesOf :: CapturedSpan -> [Text]
+eventNamesOf = capturedEvents
 
 -- | An 'Int64'-valued attribute (the encoding the tracer uses for counts/positions).
 i64 :: Int64 -> Attribute
@@ -441,3 +491,13 @@ waitForCount countVar target timeoutMicros = do
     unless ok $ do
         actual <- atomically (readTVar countVar)
         expectationFailure ("Timed out waiting for " <> show target <> ", got " <> show actual)
+
+-- | Wait until the 'TVar' flag is true or the timeout (micros) fires; fail on timeout.
+waitForFlag :: TVar Bool -> Int -> IO ()
+waitForFlag flagVar timeoutMicros = do
+    timeoutVar <- registerDelay timeoutMicros
+    ok <-
+        atomically $
+            (do flag <- readTVar flagVar; STM.check flag; pure True)
+                `STM.orElse` (do t <- readTVar timeoutVar; STM.check t; pure False)
+    unless ok $ expectationFailure "Timed out waiting for subscription to catch up"

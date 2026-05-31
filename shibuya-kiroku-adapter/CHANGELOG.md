@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Changed — Shibuya 0.6 and OpenTelemetry 1.0 semantics
+
+* The adapter now targets `shibuya-core >=0.6 && <0.7` and
+  `hs-opentelemetry-api ^>=1.0`.
+* `Envelope.attributes` now also carries current OpenTelemetry messaging
+  semantic-convention attributes for the Kiroku source:
+  `messaging.system = "kiroku"` and `messaging.destination.name` set to the
+  subscription name. These override Shibuya's framework defaults on the
+  per-message process span while preserving the existing `kiroku.*` attributes.
+
 ### Added — kiroku identity on envelope attributes for end-to-end tracing (MasterPlan 6 EP-5)
 
 * `Envelope.attributes` (previously always empty) is now populated with the

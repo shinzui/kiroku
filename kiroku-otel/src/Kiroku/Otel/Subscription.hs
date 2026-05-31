@@ -115,6 +115,12 @@ module Kiroku.Otel.Subscription (
     attrDeadLetterReason,
     attrStopReason,
     attrDbPhase,
+    attrMessagingSystem,
+    attrMessagingDestinationName,
+    attrMessagingOperationType,
+    attrMessagingBatchMessageCount,
+    attrDbSystemName,
+    attrDbOperationName,
 ) where
 
 import Control.Applicative ((<|>))
@@ -128,13 +134,15 @@ import Data.Text qualified as T
 import GHC.Generics (Generic)
 import Kiroku.Store.Observability (
     KirokuEvent (..),
+    SubscriptionDbPhase (..),
     SubscriptionDeliveryPhase (..),
     SubscriptionGroupContext (..),
  )
 import Kiroku.Store.Subscription.Types (SubscriptionName (..))
 import Kiroku.Store.Types (GlobalPosition (..))
-import OpenTelemetry.Attributes (Attribute, ToAttribute (toAttribute))
+import OpenTelemetry.Attributes (Attribute, AttributeKey (..), ToAttribute (toAttribute))
 import OpenTelemetry.Context qualified as Context
+import OpenTelemetry.SemanticConventions qualified as Sem
 import OpenTelemetry.Trace.Core (
     NewEvent (..),
     Span,
@@ -234,7 +242,11 @@ onEvent tracer cell = \case
             sp <-
                 openSpan tracer spanDeliver $
                     baseAttrs name grp
-                        ++ [(attrState, toAttribute stateText), (attrBatchRows, intAttr count)]
+                        ++ [ (attrState, toAttribute stateText)
+                           , (attrBatchRows, intAttr count)
+                           , (attrMessagingOperationType, toAttribute ("process" :: Text))
+                           , (attrMessagingBatchMessageCount, intAttr count)
+                           ]
             closeSpan sp
             case phase of
                 -- A live batch means the worker advanced past any retried event,
@@ -307,7 +319,11 @@ onEvent tracer cell = \case
                     pure st
     KirokuEventSubscriptionDbError name phase _err grp ->
         withKey cell (keyOf name grp) $ \st -> do
-            let phaseAttrs = [(attrDbPhase, toAttribute (T.pack (show phase)))]
+            let phaseAttrs =
+                    [ (attrDbPhase, toAttribute (T.pack (show phase)))
+                    , (attrDbSystemName, toAttribute ("postgresql" :: Text))
+                    , (attrDbOperationName, toAttribute (dbOperationName phase))
+                    ]
             case primaryEpisode st of
                 Just sp -> do
                     -- Annotate the open episode rather than spawn a competing span.
@@ -442,9 +458,18 @@ for a group member, its index and the group size.
 baseAttrs :: SubscriptionName -> SubscriptionGroupContext -> [(Text, Attribute)]
 baseAttrs (SubscriptionName nm) grp =
     (attrSubName, toAttribute nm)
+        : (attrMessagingSystem, toAttribute ("kiroku" :: Text))
+        : (attrMessagingDestinationName, toAttribute nm)
         : case grp of
             NonGroup -> []
             GroupMember m sz -> [(attrGroupMember, intAttr m), (attrGroupSize, intAttr sz)]
+
+-- | A low-cardinality operation name for database-error telemetry.
+dbOperationName :: SubscriptionDbPhase -> Text
+dbOperationName = \case
+    LoadCheckpoint -> "load_checkpoint"
+    FetchBatch -> "fetch_batch"
+    SaveCheckpoint -> "save_checkpoint"
 
 -- | A 'GlobalPosition' as an 'Int64' attribute.
 posAttr :: GlobalPosition -> Attribute
@@ -471,6 +496,8 @@ spanStopped = "kiroku.subscription.stopped"
 attrSubName, attrState, attrAttempt, attrCheckpoint :: Text
 attrGroupMember, attrGroupSize, attrBatchRows, attrEventPos :: Text
 attrDeadLetterReason, attrStopReason, attrDbPhase :: Text
+attrMessagingSystem, attrMessagingDestinationName, attrMessagingOperationType, attrMessagingBatchMessageCount :: Text
+attrDbSystemName, attrDbOperationName :: Text
 attrSubName = "kiroku.subscription.name"
 attrState = "kiroku.subscription.state"
 attrAttempt = "kiroku.subscription.attempt"
@@ -482,3 +509,9 @@ attrEventPos = "kiroku.event.global_position"
 attrDeadLetterReason = "kiroku.dead_letter.reason"
 attrStopReason = "kiroku.subscription.stop_reason"
 attrDbPhase = "kiroku.db.phase"
+attrMessagingSystem = unkey Sem.messaging_system
+attrMessagingDestinationName = unkey Sem.messaging_destination_name
+attrMessagingOperationType = unkey Sem.messaging_operation_type
+attrMessagingBatchMessageCount = unkey Sem.messaging_batch_messageCount
+attrDbSystemName = unkey Sem.db_system_name
+attrDbOperationName = unkey Sem.db_operation_name

@@ -98,6 +98,10 @@ main = withSharedMigratedPostgres $ hspec $ do
             -- makeRecordedEvent: eventType "TraceEvent", globalPosition 1.
             HashMap.lookup "kiroku.subscription.name" attributes
                 `shouldBe` Just (toAttribute ("orders-proj" :: Text))
+            HashMap.lookup "messaging.system" attributes
+                `shouldBe` Just (toAttribute ("kiroku" :: Text))
+            HashMap.lookup "messaging.destination.name" attributes
+                `shouldBe` Just (toAttribute ("orders-proj" :: Text))
             HashMap.lookup "kiroku.event.type" attributes
                 `shouldBe` Just (toAttribute ("TraceEvent" :: Text))
             HashMap.lookup "kiroku.event.global_position" attributes

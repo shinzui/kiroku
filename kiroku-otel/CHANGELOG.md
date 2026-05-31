@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Changed — OpenTelemetry 1.0 and current semantic-convention keys
+
+- `kiroku-otel` now depends on the OpenTelemetry 1.0 package family:
+  `hs-opentelemetry-api ^>=1.0`, `hs-opentelemetry-propagator-w3c ^>=1.0`,
+  and `hs-opentelemetry-semantic-conventions ^>=1.40`.
+- Subscription spans now emit generated OpenTelemetry semantic-convention
+  attribute keys alongside the existing `kiroku.*` keys. Delivery spans include
+  `messaging.system = "kiroku"`, `messaging.destination.name`,
+  `messaging.operation.type = "process"`, and
+  `messaging.batch.message_count`; database-error spans include
+  `db.system.name = "postgresql"` and `db.operation.name`.
+
 ### Changed — complete FSM-state span coverage (`Kiroku.Otel.Subscription`, MasterPlan 7 EP-2)
 
 - The per-batch span is now keyed on the new `KirokuEventSubscriptionDelivered`
@@ -40,8 +52,8 @@
   `kiroku.*` attribute set (subscription name, state, consumer-group member/size,
   checkpoint position, attempt, batch rows, event position, dead-letter/stop
   reason); the span-name and attribute-key constants are exported.
-- The library still depends only on `hs-opentelemetry-api`; `kiroku-store` gains
-  no OpenTelemetry dependency. The handler keeps its open spans in a thread-safe
+- The library remains separate from `kiroku-store`, so `kiroku-store` gains no
+  OpenTelemetry dependency. The handler keeps its open spans in a thread-safe
   `MVar` keyed by `(subscription name, member)`. Requires a **batch span
   processor** so the synchronous callback never blocks the worker on export.
 

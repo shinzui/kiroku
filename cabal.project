@@ -32,31 +32,3 @@ source-repository-package
   location: https://github.com/shinzui/hasql-project.git
   tag: 2bc7ace5db942d87962990bba0b2323ec4c67770
   subdir: hasql-notifications
-
--- hs-opentelemetry (GHC 9.12 support, needed by shibuya-core)
-source-repository-package
-  type: git
-  location: https://github.com/iand675/hs-opentelemetry
-  tag: adc464b0a45e56a983fa1441be6e432b50c29e0e
-  subdir: api
-
-source-repository-package
-  type: git
-  location: https://github.com/iand675/hs-opentelemetry
-  tag: adc464b0a45e56a983fa1441be6e432b50c29e0e
-  subdir: propagators/w3c
-
--- SDK and in-memory span exporter, pinned from the same tag as the api above so
--- the kiroku-otel test suite can build a TracerProvider over an in-memory span
--- exporter against the matching 0.3.0.0 internal API. Test-only dependency.
-source-repository-package
-  type: git
-  location: https://github.com/iand675/hs-opentelemetry
-  tag: adc464b0a45e56a983fa1441be6e432b50c29e0e
-  subdir: sdk
-
-source-repository-package
-  type: git
-  location: https://github.com/iand675/hs-opentelemetry
-  tag: adc464b0a45e56a983fa1441be6e432b50c29e0e
-  subdir: exporters/in-memory
