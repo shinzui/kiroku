@@ -15,11 +15,13 @@ module Kiroku.Otel.TraceContext (
     extractTraceContext,
 ) where
 
+import Control.Lens ((&), (?~))
 import Data.Aeson (Value (..))
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap (KeyMap)
 import Data.Aeson.KeyMap qualified as KM
 import Data.ByteString (ByteString)
+import Data.Generics.Labels ()
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
 import GHC.IO (unsafePerformIO)
@@ -44,10 +46,8 @@ The \"unsafe\" annotation is mandatory to bridge the propagator's
 -}
 {-# NOINLINE injectTraceContext #-}
 injectTraceContext :: SpanContext -> EventData -> EventData
-injectTraceContext sc ed =
-    case ed of
-        EventData{metadata = oldMeta} ->
-            ed{metadata = Just (Object (mergeTraceContext sc oldMeta))} :: EventData
+injectTraceContext sc ed@EventData{metadata = oldMeta} =
+    ed & (#metadata ?~ Object (mergeTraceContext sc oldMeta))
 
 {- | Pull a 'SpanContext' back out of a 'RecordedEvent'\'s @metadata@.
 Returns 'Nothing' when @metadata@ is absent, is not a JSON object,
