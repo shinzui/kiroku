@@ -103,7 +103,7 @@ module Kiroku.Otel.Subscription (
 ) where
 
 import Control.Applicative ((<|>))
-import Control.Concurrent.MVar (MVar, modifyMVar_, newMVar)
+import Control.Concurrent.MVar (MVar, modifyMVar, modifyMVar_, newMVar, withMVar)
 import Data.HashMap.Strict qualified as HashMap
 import Data.Int (Int32, Int64)
 import Data.Map.Strict (Map)
@@ -304,20 +304,36 @@ onEvent tracer cell = \case
 
 -- Span / state-cell helpers ---------------------------------------------------
 
-{- | Run a state-update action against the 'OpenState' for a key, inserting the
-result back. Serialized through the 'MVar'; span operations are cheap and
-in-memory.
+{- | Run a state-update action against the 'OpenState' for a key. The span IO in
+@f@ (opening and ending spans) runs __outside__ the lock: the key's state is
+read under one short lock, @f@ runs unlocked, then its result is committed under
+a second short lock. Each critical section is a pure @O(log n)@ map operation
+with no IO, so workers no longer serialize on span syscalls.
+
+This is safe because each 'SpanKey' is __single-writer__: every
+@(subscription name, member)@ is emitted by exactly one worker thread, and the
+@eventHandler@ callback is synchronous on that thread, so a key's 'OpenState'
+cannot change between the read and the commit. The shared 'Map' is the only
+cross-thread structure, and the commit inserts this key into whatever the
+current map is, preserving concurrent updates to /other/ keys.
 -}
 withKey :: MVar (Map SpanKey OpenState) -> SpanKey -> (OpenState -> IO OpenState) -> IO ()
-withKey cell key f = modifyMVar_ cell $ \m -> do
-    st' <- f (Map.findWithDefault emptyOpenState key m)
-    pure $! Map.insert key st' m
+withKey cell key f = do
+    st <- withMVar cell (pure . Map.findWithDefault emptyOpenState key)
+    st' <- f st
+    modifyMVar_ cell (\m -> pure $! Map.insert key st' m)
 
--- | Run a finalizing action against a key's 'OpenState', then drop the key.
+{- | Run a finalizing action against a key's 'OpenState', then drop the key. The
+key is read and removed under one short lock; the finalizer (ending spans) runs
+outside it. Safe for the same single-writer reason as 'withKey', and @Stopped@
+is a key's last event, so nothing else touches it afterward.
+-}
 dropKey :: MVar (Map SpanKey OpenState) -> SpanKey -> (OpenState -> IO ()) -> IO ()
-dropKey cell key f = modifyMVar_ cell $ \m -> do
-    f (Map.findWithDefault emptyOpenState key m)
-    pure $! Map.delete key m
+dropKey cell key f = do
+    st <- modifyMVar cell $ \m ->
+        let m' = Map.delete key m
+         in m' `seq` pure (m', Map.findWithDefault emptyOpenState key m)
+    f st
 
 -- | Open a root span with the given name and initial attributes.
 openSpan :: Tracer -> Text -> [(Text, Attribute)] -> IO Span
