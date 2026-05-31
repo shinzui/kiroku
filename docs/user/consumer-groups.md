@@ -257,8 +257,11 @@ See [Shibuya Adapter](shibuya-adapter.md) for the full adapter setup.
 
 If a member loses its database connection while live, it enters the
 `Reconnecting` state and re-catches-up from its own per-member checkpoint rather
-than dying (observable via `currentState` and the
-`KirokuEventSubscriptionReconnecting` event). Any events a member dead-letters
+than dying (observable via `currentState`, which returns `Just Reconnecting`,
+and the `KirokuEventSubscriptionReconnecting` event). Each member is a distinct
+worker with its own registry entry, keyed by `(subscriptionName, member)`, so
+`subscriptionStates store` lists every member of a group separately with its own
+state and `cursor`. Any events a member dead-letters
 are recorded per-member in `kiroku.dead_letters` (keyed by
 `consumer_group_member`).
 

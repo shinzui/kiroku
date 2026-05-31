@@ -194,7 +194,8 @@ On first start with a fresh `SubscriptionName`, the worker is in `CatchingUp`:
 it reads history from `globalPosition` 0 in `batchSize` pages and applies every
 matching event. When it reaches the publisher's live cursor it transitions to
 `Live` and follows new appends via `NOTIFY`. Read the current phase at any time
-with `h ^. #currentState` (see
+with `h ^. #currentState :: m (Maybe SubscriptionState)` — `Just s` while live,
+`Nothing` once not live (see
 [Worker States](../user/subscriptions.md#worker-states)); wire the `KirokuEvent`
 lifecycle stream for the history of transitions (see
 [Observability](../user/observability.md)).
@@ -229,8 +230,9 @@ a rebuild is a config change, not a code change.
 
 **Blue/green rebuild with zero read downtime.** Build the new read model into a
 *new* table under a new subscription name while the old projection keeps serving
-queries. When the new subscription reaches `Live` (observe `currentState`), flip
-your application's reads to the new table and retire the old subscription. This
+queries. When the new subscription reaches `Live` (observe `currentState`
+returning `Just Live`), flip your application's reads to the new table and retire
+the old subscription. This
 is the standard way to ship a breaking read-model change without a maintenance
 window.
 

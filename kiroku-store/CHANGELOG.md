@@ -2,6 +2,46 @@
 
 ## Unreleased
 
+### Added — central subscription-state registry (plan 45)
+
+* `KirokuStore` gains a `subscriptionRegistry` field: a central, in-memory map
+  keyed by `(SubscriptionName, member)` holding every live subscription worker's
+  FSM-state cell, each guarded by a per-worker `Data.Unique.Unique` token. Each
+  `subscribe` registers its worker's existing state `TVar` on start and removes
+  it on any exit (stop, cancel, crash) via the worker's `finally` cleanup; the
+  delete is token-conditional, so an older duplicate-key worker cannot delete a
+  newer worker's replacement entry. The worker's writes are unchanged.
+* New public view type `SubscriptionStateView { subscriptionName, member, state,
+  statePhase, cursor }` (`deriving stock (Show, Generic)`) — the committed
+  observability surface external consumers read via `^. #field`. New accessor
+  `subscriptionStates :: KirokuStore -> IO (Map (SubscriptionName, Int32)
+  SubscriptionStateView)` returns a near-instant snapshot of every live
+  subscription as view records: it snapshots the outer map and reads each cell
+  with `readTVarIO` (no large STM read set, so the reader never retries). Both
+  re-exported from `Kiroku.Store`. This map of view records is the foundation
+  for a future Prometheus exporter and admin tool (named future consumers, not
+  built here), and the performant live-state layer that closes the OpenTelemetry
+  export-on-end blind spot at zero per-event cost. The `cursor` field is the
+  worker FSM cursor, not a guaranteed durable checkpoint row. A
+  stopped/cancelled/crashed subscription is represented by absence, never a
+  `"stopped"` phase.
+* New `stateName :: SubscriptionState -> Text` (a stable low-cardinality state
+  label) in `Kiroku.Store.Subscription.Fsm`; `stateName` and `stateCursor` are
+  re-exported from `Kiroku.Store`.
+
+### Changed (pre-1.0, breaking) — plan 45
+
+* `currentState` changed type from `m SubscriptionState` to
+  `m (Maybe SubscriptionState)` and is now resolved through the central registry
+  by `(name, member)` and this handle's token: `Just s` while the worker is live
+  and still owns the entry, `Nothing` once it has stopped/cancelled/crashed (its
+  registry key is removed), before it starts, or after a newer worker supersedes
+  the same key. This makes the registry genuinely the single source of truth for
+  live state and unifies the "stopped = absent" rule across `currentState` and
+  the snapshot. (The worker still solely writes its `stateVar`; only the handle's
+  read path moved to a registry lookup of that same cell.) A deliberate pre-1.0
+  breaking change.
+
 ### Added — per-event retry / dead-letter dispositions (plan 40)
 
 * `SubscriptionResult` gains two Kiroku-native dispositions:

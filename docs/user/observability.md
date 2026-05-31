@@ -114,16 +114,45 @@ share one `SubscriptionName`. See [Consumer Groups](consumer-groups.md).
 
 The `KirokuEvent` callbacks above report the *stream of transitions*. For a
 *point-in-time* read of which state a worker is in right now, use the handle's
-`currentState :: m SubscriptionState` accessor (backed by a `TVar` the worker
-writes on every transition):
+`currentState :: m (Maybe SubscriptionState)` accessor (resolved through the
+store's central subscription-state registry):
 
 ```haskell
-st <- currentState handle   -- CatchingUp | Live | Paused | Reconnecting | Retrying | Stopped
+mst <- currentState handle
+-- Just CatchingUp | Just Live | Just Paused | Just Reconnecting | Just Retrying
+-- Nothing  -- not currently live: stopped, cancelled, crashed, not started, or superseded
 ```
 
-Use it for a liveness/health probe (e.g. report a subscription as degraded
-while it sits in `Paused` or `Reconnecting`). See
-[Subscriptions](subscriptions.md#worker-states) for the state meanings.
+`Just s` means the worker is live and still owns its registry entry; `Nothing`
+means the subscription is not currently live. `Stopped` is never observed here —
+a not-live subscription is represented by `Nothing` ("stopped = absent"). Use it
+for a liveness/health probe (e.g. report a subscription as degraded while it
+sits in `Just Paused` or `Just Reconnecting`, and as down when it is `Nothing`).
+See [Subscriptions](subscriptions.md#worker-states) for the state meanings.
+
+### Snapshotting Every Live Subscription
+
+To answer *"what is every subscription doing right now?"* without holding each
+individual handle, read the store's central registry:
+
+```haskell
+snap <- subscriptionStates store
+-- Map (SubscriptionName, Int32) SubscriptionStateView
+```
+
+Each `SubscriptionStateView` carries the `subscriptionName`, the consumer-group
+`member` (0 for a non-group subscription), the live `state`, a stable
+low-cardinality `statePhase` label (`"catching_up"`, `"live"`, `"paused"`,
+`"reconnecting"`, `"retrying"`), and the FSM `cursor` position. Read its fields
+with the usual `view ^. #field` accessor. A subscription appears in the map
+while live and disappears once it stops, is cancelled, or crashes — so a
+stopped subscription is represented by **absence**, never a `"stopped"` phase.
+The `cursor` is the worker's FSM cursor (a cheap live-progress signal), not a
+guaranteed durable checkpoint row. This is the cheap, always-available live-state
+signal that complements the export-on-end span timeline (an in-progress
+`Reconnecting`/`Paused` worker is invisible in traces until its span closes, but
+shows instantly here). It is also the substrate a future Prometheus exporter or
+admin tool reads.
 
 To turn this same transition stream into OpenTelemetry spans (catch-up, pause,
 reconnect, retry, dead-letter), install the ready-made handler from

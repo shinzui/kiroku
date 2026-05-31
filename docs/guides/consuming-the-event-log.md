@@ -60,12 +60,18 @@ these states is the key to operating subscriptions:
 | `Stopped` | Terminal: handler `Stop`, cancellation, overflow under `DropSubscription`, or a crash. |
 
 Read the current state at any instant through the handle:
-`h ^. #currentState :: m SubscriptionState` (a point-in-time `TVar` read). For the
-*history* of transitions — and the errors behind them — wire the `KirokuEvent`
-lifecycle stream (see [Observability](#observability) below). The critical
-takeaway: a healthy subscription spends almost all its time in `Live`, dipping
-to `CatchingUp` only at startup; sustained `Paused` or `Reconnecting` is a signal
-to investigate (slow handler, flaky connection).
+`h ^. #currentState :: m (Maybe SubscriptionState)` (a point-in-time read resolved
+through the store's central registry). It returns `Just s` while the worker is
+live, and `Nothing` once the subscription is not currently live (stopped,
+cancelled, crashed, not started, or superseded) — so a not-live subscription is
+"stopped = absent", never a `Just (Stopped …)`. To read **every** live
+subscription's state at once without holding each handle, call
+`subscriptionStates store`. For the *history* of transitions — and the errors
+behind them — wire the `KirokuEvent` lifecycle stream (see
+[Observability](#observability) below). The critical takeaway: a healthy
+subscription spends almost all its time in `Live`, dipping to `CatchingUp` only
+at startup; sustained `Paused` or `Reconnecting` is a signal to investigate
+(slow handler, flaky connection).
 
 ## Building A Native Subscriber
 
@@ -427,9 +433,14 @@ ordinary subscription.
 
 Operating subscriptions in production rests on two complementary signals:
 
-- **Point-in-time state** — `h ^. #currentState` returns the worker's current
-  `SubscriptionState` (the FSM above). Good for health checks and dashboards
-  ("is this subscriber `Live`?").
+- **Point-in-time state** — `h ^. #currentState` returns `Maybe SubscriptionState`
+  (the FSM above): `Just s` while live, `Nothing` once not live. Good for health
+  checks and dashboards ("is this subscriber `Just Live`?"). For the aggregate
+  view of every live subscription at once, `subscriptionStates store` returns a
+  snapshot map of `SubscriptionStateView` records (name, member, state,
+  `statePhase` label, `cursor`) without needing each handle — the cheap
+  always-available live-state signal, and the substrate for a future Prometheus
+  exporter / admin tool.
 - **Lifecycle event stream** — the `KirokuEvent` handler (wired via
   `ConnectionSettings.eventHandler`) emits every transition and error:
   `KirokuEventSubscriptionDbError`, `KirokuEventSubscriptionReconnecting`,

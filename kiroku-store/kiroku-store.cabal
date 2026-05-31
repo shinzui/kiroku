@@ -103,6 +103,7 @@ test-suite kiroku-store-test
     Test.StreamNameLookup
     Test.SubscriptionPauseResume
     Test.SubscriptionReconnect
+    Test.SubscriptionRegistry
     Test.SubscriptionRetryDeadLetter
     Test.SubscriptionState
     Test.Transaction

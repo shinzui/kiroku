@@ -133,8 +133,9 @@ unique key on the projection table).
 
 The worker is driven by an explicit finite state machine: at any instant it is
 in exactly one named `SubscriptionState`, readable through the handle's
-`currentState :: m SubscriptionState` accessor (a point-in-time observability
-read backed by a `TVar` the worker writes on every transition):
+`currentState :: m (Maybe SubscriptionState)` accessor (a point-in-time
+observability read resolved through the store's central subscription-state
+registry):
 
 | State | Meaning |
 | --- | --- |
@@ -145,8 +146,19 @@ read backed by a `TVar` the worker writes on every transition):
 | `Retrying` | Redelivering a single event for which the handler returned `Retry`, bounded by `retryPolicy`. |
 | `Stopped` | Terminal (handler `Stop`, cancellation, overflow, or crash). |
 
-For the stream of *past* transitions (rather than a single snapshot), wire the
-`KirokuEvent` lifecycle events — see [Observability](observability.md).
+`currentState` returns `Just s` while the worker is live and still owns its
+registry entry, and `Nothing` once the subscription is **not currently live** —
+it has stopped, been cancelled, crashed, was never started, or has been
+superseded by a newer worker registered under the same `(name, member)` key.
+Note that `Stopped` is never observed through `currentState`: a not-live
+subscription is represented by `Nothing` ("stopped = absent"), the same rule the
+registry snapshot follows. For the **aggregate** state of every live
+subscription at once — without holding individual handles — read
+`subscriptionStates store`, which returns a snapshot map of `SubscriptionStateView`
+records (name, member, live state, a stable `statePhase` label, and the FSM
+`cursor` position); see [Observability](observability.md). For the stream of
+*past* transitions (including the terminal stop reason), wire the `KirokuEvent`
+lifecycle events instead.
 
 ## Lifecycle And Failure Modes
 

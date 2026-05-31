@@ -115,10 +115,21 @@ order, but this SQL invariant is the final guardrail.
 2. Register a bounded `TBQueue (Vector RecordedEvent)` with the
    `EventPublisher`, receiving the queue, a status `TVar`, and an
    `unsubscribe` action.
-3. Create a `TVar SubscriptionState` (seeded `CatchingUp`) and start `runWorker`
-   in an async thread.
+3. Create a `TVar SubscriptionState` (seeded `CatchingUp`), register it (guarded
+   by a fresh `Data.Unique.Unique` token) into the store's central
+   `subscriptionRegistry` under `(name, member)`, and start `runWorker` in an
+   async thread. The worker's `finally` cleanup deregisters the entry
+   token-conditionally on any exit (stop, cancel, crash), mirroring the existing
+   `finally unsubscribe`.
 4. Return `SubscriptionHandle { cancel, wait, currentState }`, where
-   `currentState` reads the live state `TVar`.
+   `currentState :: m (Maybe SubscriptionState)` resolves the worker's cell
+   *through the registry* by key and this handle's token — `Just s` while the
+   worker is live and still owns the entry, `Nothing` once it has exited or been
+   superseded. The worker remains the sole writer of the cell; the registry holds
+   that same cell, so `currentState` and the `subscriptionStates` snapshot read
+   one coherent value. Because a not-live subscription's key is removed, "stopped
+   = absent" is one rule across both reads (the FSM never writes `Stopped` into
+   the cell).
 
 The worker is driven by an **explicit finite state machine** (a value always in
 exactly one named state) defined in

@@ -43,6 +43,7 @@ import Test.ReadStream qualified as ReadStream
 import Test.StreamNameLookup qualified as StreamNameLookup
 import Test.SubscriptionPauseResume qualified as SubscriptionPauseResume
 import Test.SubscriptionReconnect qualified as SubscriptionReconnect
+import Test.SubscriptionRegistry qualified as SubscriptionRegistry
 import Test.SubscriptionRetryDeadLetter qualified as SubscriptionRetryDeadLetter
 import Test.SubscriptionState qualified as SubscriptionState
 import Test.Transaction qualified as Transaction
@@ -66,6 +67,7 @@ main = withSharedMigratedPostgres $ hspec $ do
     SubscriptionPauseResume.spec
     SubscriptionReconnect.spec
     SubscriptionState.spec
+    SubscriptionRegistry.spec
     SubscriptionRetryDeadLetter.spec
     EventTypeFilter.spec
     around withTestStore $ do
