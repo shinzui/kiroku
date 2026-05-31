@@ -40,18 +40,29 @@ So this module uses __short, promptly-ending spans__, never one lifetime span:
     * @kiroku.subscription.retrying@ — keyed per poison event by its global
       position; opened on the first @Retrying@ for that position, ended either
       when a @DeadLettered@ for the same position arrives (status @Error@) or
-      when the worker moves on (a @Fetched@/@CaughtUp@, status @Ok@).
+      when the worker moves on (a live @Delivered@/@CaughtUp@, status @Ok@).
 
-* __Per-batch work spans__ open and end immediately during @Live@:
+* __Per-batch work spans__ open and end immediately on every delivered batch:
 
-    * @kiroku.subscription.fetch@ — one per live fetch, carrying
-      @kiroku.batch.rows@. These export continuously, giving live visibility
-      without a long-lived @Live@ span.
+    * @kiroku.subscription.deliver@ — one per non-empty batch handed to the
+      handler, on __every__ target (@$all@, category, consumer group) and in
+      __both__ phases. It carries @kiroku.batch.rows@ and a
+      @kiroku.subscription.state@ of @"catchup"@ or @"live"@, so an @$all@
+      subscription's live phase is now traced (previously it emitted no
+      per-batch event and so went dark while live). These export continuously,
+      giving live visibility without a long-lived @Live@ span.
+      (@KirokuEventSubscriptionFetched@ — the DB-driven live-fetch-rate signal —
+      is intentionally __not__ traced; the deliver span subsumes it, so the
+      category\/consumer-group live path does not emit two spans per batch.)
 
 * __Standalone spans__ for point events with no open episode:
-  @kiroku.subscription.dead_letter@ (an immediate dead-letter, no retry) and
+  @kiroku.subscription.dead_letter@ (an immediate dead-letter, no retry),
   @kiroku.subscription.db_error@ (a DB error with no episode span open; when one
-  /is/ open the error is recorded as a @kiroku.db_error@ span event on it).
+  /is/ open the error is recorded as a @kiroku.db_error@ span event on it), and
+  @kiroku.subscription.stopped@ — __always__ emitted on @Stopped@, carrying the
+  @kiroku.subscription.stop_reason@ and the @kiroku.checkpoint.global_position@,
+  so the terminal state is present in the trace even for a healthy worker that
+  stops from @Live@ with no open episode span.
 
 The honest limitation: an /in-progress/ (unresolved) episode does not appear in
 the backend until it ends. Real-time "what state is this worker in right now" is
@@ -62,12 +73,15 @@ served instead by the @currentState@ subscription-handle accessor and the
 
 The @eventHandler@ callback runs __synchronously on the worker's emit-site
 thread__, and a consumer group runs one worker per member on separate threads.
-The open-span bookkeeping is therefore held in a thread-safe 'MVar' keyed by
-@(subscription name, member)@ so two members never collide. Opening and ending a
-span is cheap and in-memory; it is the /export/ that may block. Configure the
-'Tracer''s 'TracerProvider' with a __batch span processor__ (the SDK default)
-so export happens on a background thread and the synchronous callback never
-stalls the worker loop.
+The open-span bookkeeping is therefore held in a striped, lock-free registry
+keyed by @(subscription name, member)@ so two members never collide: each key
+has its own single-writer 'IORef' 'OpenState' and the outer registry is mutated
+only when a key is first seen or removed, so the per-batch deliver-span work
+never serializes workers on a shared lock. Opening and ending a span is cheap
+and in-memory; it is the /export/ that may block. Configure the 'Tracer''s
+'TracerProvider' with a __batch span processor__ (the SDK default) so export
+happens on a background thread and the synchronous callback never stalls the
+worker loop.
 
 This module is a pure read-side consumer of the 'KirokuEvent' surface: it adds
 no behavior to the worker, changes no core type, and adds no @hs-opentelemetry@
@@ -81,12 +95,13 @@ module Kiroku.Otel.Subscription (
 
     -- * Span names
     spanCatchup,
-    spanFetch,
+    spanDeliver,
     spanPaused,
     spanReconnecting,
     spanRetrying,
     spanDeadLetter,
     spanDbError,
+    spanStopped,
 
     -- * Attribute keys
     attrSubName,
@@ -103,8 +118,8 @@ module Kiroku.Otel.Subscription (
 ) where
 
 import Control.Applicative ((<|>))
-import Control.Concurrent.MVar (MVar, modifyMVar, modifyMVar_, newMVar, withMVar)
 import Data.HashMap.Strict qualified as HashMap
+import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef, writeIORef)
 import Data.Int (Int32, Int64)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
@@ -113,6 +128,7 @@ import Data.Text qualified as T
 import GHC.Generics (Generic)
 import Kiroku.Store.Observability (
     KirokuEvent (..),
+    SubscriptionDeliveryPhase (..),
     SubscriptionGroupContext (..),
  )
 import Kiroku.Store.Subscription.Types (SubscriptionName (..))
@@ -144,14 +160,25 @@ handler <- subscriptionTraceHandler tracer
 @
 
 The returned handler is thread-safe (a consumer group drives it from one thread
-per member) and keeps its open-span state in an internal 'MVar' keyed by
-@(subscription name, member)@. See the module documentation for the span model
-and the batch-span-processor requirement.
+per member) and keeps its open-span state in a striped, lock-free per-key
+registry keyed by @(subscription name, member)@: each key has its own
+single-writer 'IORef' 'OpenState', and the outer registry is mutated only when a
+key is first seen or removed. See the module documentation for the span model and
+the batch-span-processor requirement.
 -}
 subscriptionTraceHandler :: Tracer -> IO (KirokuEvent -> IO ())
 subscriptionTraceHandler tracer = do
-    cell <- newMVar Map.empty
-    pure (onEvent tracer cell)
+    cells <- newIORef Map.empty
+    pure (onEvent tracer cells)
+
+{- | A per-key span-state registry. The outer 'IORef' is read-mostly — mutated
+only when a key is first seen (@Started@) or removed (@Stopped@), via
+'atomicModifyIORef''. Each key's inner 'IORef' 'OpenState' is single-writer (one
+worker thread emits that key's events), so the per-batch hot path reads the outer
+map lock-free and mutates only the key's own cell — no shared lock, no
+cross-worker contention.
+-}
+type SpanCells = IORef (Map SpanKey (IORef OpenState))
 
 -- | Identifies one worker: subscription name plus consumer-group member (if any).
 type SpanKey = (Text, Maybe Int32)
@@ -179,7 +206,7 @@ events and the stop reason.
 primaryEpisode :: OpenState -> Maybe Span
 primaryEpisode st = reconnect st <|> catchup st <|> pause st
 
-onEvent :: Tracer -> MVar (Map SpanKey OpenState) -> KirokuEvent -> IO ()
+onEvent :: Tracer -> SpanCells -> KirokuEvent -> IO ()
 onEvent tracer cell = \case
     KirokuEventSubscriptionStarted name pos grp ->
         withKey cell (keyOf name grp) $ \st -> do
@@ -199,16 +226,23 @@ onEvent tracer cell = \case
             -- The worker has moved on, so any open retry succeeded.
             mapM_ (\sp -> setStatus sp Ok >> closeSpan sp) (Map.elems (retries st))
             pure st{catchup = Nothing, reconnect = Nothing, retries = Map.empty}
-    KirokuEventSubscriptionFetched name rows grp ->
+    KirokuEventSubscriptionDelivered name count phase grp ->
         withKey cell (keyOf name grp) $ \st -> do
+            let stateText = case phase of
+                    DeliveredCatchUp -> "catchup" :: Text
+                    DeliveredLive -> "live"
             sp <-
-                openSpan tracer spanFetch $
+                openSpan tracer spanDeliver $
                     baseAttrs name grp
-                        ++ [(attrState, toAttribute ("live" :: Text)), (attrBatchRows, intAttr rows)]
+                        ++ [(attrState, toAttribute stateText), (attrBatchRows, intAttr count)]
             closeSpan sp
-            -- A live fetch means the worker advanced past any retried event.
-            mapM_ (\rsp -> setStatus rsp Ok >> closeSpan rsp) (Map.elems (retries st))
-            pure st{retries = Map.empty}
+            case phase of
+                -- A live batch means the worker advanced past any retried event,
+                -- so any still-open retry span succeeded: close them as Ok.
+                DeliveredLive -> do
+                    mapM_ (\rsp -> setStatus rsp Ok >> closeSpan rsp) (Map.elems (retries st))
+                    pure st{retries = Map.empty}
+                DeliveredCatchUp -> pure st
     KirokuEventSubscriptionPaused name pos grp ->
         withKey cell (keyOf name grp) $ \st -> do
             mapM_ closeSpan (pause st) -- defensive
@@ -289,13 +323,22 @@ onEvent tracer cell = \case
                     [ (attrStopReason, toAttribute (T.pack (show reason)))
                     , (attrCheckpoint, posAttr pos)
                     ]
-            -- Record the stop reason on the most relevant open episode, then
-            -- end every span so none leaks when the worker stops.
+            -- Always emit a short standalone terminal span so the Stopped state is
+            -- present in the trace even for a healthy worker that stops from Live
+            -- with no open episode span.
+            term <- openSpan tracer spanStopped (baseAttrs name grp ++ stopAttrs)
+            closeSpan term
+            -- Also record the stop reason on the most relevant open episode (if any),
+            -- then end every open span so none leaks when the worker stops.
             mapM_ (`setAttrs` stopAttrs) (primaryEpisode st)
             mapM_ closeSpan (catchup st)
             mapM_ closeSpan (reconnect st)
             mapM_ closeSpan (pause st)
             mapM_ closeSpan (Map.elems (retries st))
+    -- Fetched is now a no-op: the DB-driven live loops emit both Fetched and
+    -- Delivered per batch, and the deliver span (above) is keyed on Delivered so
+    -- the live path does not produce two spans per batch. Matched for exhaustiveness.
+    KirokuEventSubscriptionFetched{} -> pure ()
     -- Non-subscription operational events are not traced here.
     KirokuEventNotifierReconnecting{} -> pure ()
     KirokuEventNotifierReconnected -> pure ()
@@ -304,35 +347,48 @@ onEvent tracer cell = \case
 
 -- Span / state-cell helpers ---------------------------------------------------
 
-{- | Run a state-update action against the 'OpenState' for a key. The span IO in
-@f@ (opening and ending spans) runs __outside__ the lock: the key's state is
-read under one short lock, @f@ runs unlocked, then its result is committed under
-a second short lock. Each critical section is a pure @O(log n)@ map operation
-with no IO, so workers no longer serialize on span syscalls.
+{- | The 'IORef' holding a key's 'OpenState', creating an empty cell on the key's
+first touch (its @Started@ event). The outer registry is read lock-free on the hot
+path; it is written (via 'atomicModifyIORef'') only to insert a new key's cell. The
+inner cell is single-writer, so reads/writes of it need no lock.
+-}
+cellFor :: SpanCells -> SpanKey -> IO (IORef OpenState)
+cellFor cells key = do
+    m <- readIORef cells
+    case Map.lookup key m of
+        Just ref -> pure ref
+        Nothing -> do
+            fresh <- newIORef emptyOpenState
+            atomicModifyIORef' cells $ \m' ->
+                case Map.lookup key m' of
+                    Just ref -> (m', ref) -- another key inserted meanwhile; reuse
+                    Nothing -> (Map.insert key fresh m', fresh)
+
+{- | Run a state-update against a key's own cell. The span IO in @f@ runs on the
+key's single-writer 'IORef' with no shared lock held, so workers never serialize
+on span work.
 
 This is safe because each 'SpanKey' is __single-writer__: every
 @(subscription name, member)@ is emitted by exactly one worker thread, and the
 @eventHandler@ callback is synchronous on that thread, so a key's 'OpenState'
-cannot change between the read and the commit. The shared 'Map' is the only
-cross-thread structure, and the commit inserts this key into whatever the
-current map is, preserving concurrent updates to /other/ keys.
+cannot change between the read and the write of its cell. The only cross-thread
+structure is the outer registry, read lock-free on the hot path and mutated only
+on the rare @Started@\/@Stopped@.
 -}
-withKey :: MVar (Map SpanKey OpenState) -> SpanKey -> (OpenState -> IO OpenState) -> IO ()
-withKey cell key f = do
-    st <- withMVar cell (pure . Map.findWithDefault emptyOpenState key)
+withKey :: SpanCells -> SpanKey -> (OpenState -> IO OpenState) -> IO ()
+withKey cells key f = do
+    ref <- cellFor cells key
+    st <- readIORef ref
     st' <- f st
-    modifyMVar_ cell (\m -> pure $! Map.insert key st' m)
+    writeIORef ref st'
 
-{- | Run a finalizing action against a key's 'OpenState', then drop the key. The
-key is read and removed under one short lock; the finalizer (ending spans) runs
-outside it. Safe for the same single-writer reason as 'withKey', and @Stopped@
-is a key's last event, so nothing else touches it afterward.
+{- | Run a finalizer against a key's 'OpenState', then drop the key from the outer
+registry. @Stopped@ is a key's last event, so nothing touches the cell afterward.
 -}
-dropKey :: MVar (Map SpanKey OpenState) -> SpanKey -> (OpenState -> IO ()) -> IO ()
-dropKey cell key f = do
-    st <- modifyMVar cell $ \m ->
-        let m' = Map.delete key m
-         in m' `seq` pure (m', Map.findWithDefault emptyOpenState key m)
+dropKey :: SpanCells -> SpanKey -> (OpenState -> IO ()) -> IO ()
+dropKey cells key f = do
+    mref <- atomicModifyIORef' cells $ \m -> (Map.delete key m, Map.lookup key m)
+    st <- maybe (pure emptyOpenState) readIORef mref
     f st
 
 -- | Open a root span with the given name and initial attributes.
@@ -400,14 +456,15 @@ intAttr n = toAttribute (fromIntegral n :: Int64)
 
 -- Span name constants ---------------------------------------------------------
 
-spanCatchup, spanFetch, spanPaused, spanReconnecting, spanRetrying, spanDeadLetter, spanDbError :: Text
+spanCatchup, spanDeliver, spanPaused, spanReconnecting, spanRetrying, spanDeadLetter, spanDbError, spanStopped :: Text
 spanCatchup = "kiroku.subscription.catchup"
-spanFetch = "kiroku.subscription.fetch"
+spanDeliver = "kiroku.subscription.deliver"
 spanPaused = "kiroku.subscription.paused"
 spanReconnecting = "kiroku.subscription.reconnecting"
 spanRetrying = "kiroku.subscription.retrying"
 spanDeadLetter = "kiroku.subscription.dead_letter"
 spanDbError = "kiroku.subscription.db_error"
+spanStopped = "kiroku.subscription.stopped"
 
 -- Attribute key constants -----------------------------------------------------
 

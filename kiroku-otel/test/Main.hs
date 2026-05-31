@@ -23,19 +23,23 @@ import Kiroku.Otel.Subscription (
     attrDeadLetterReason,
     attrEventPos,
     attrGroupMember,
+    attrState,
+    attrStopReason,
     attrSubName,
     spanCatchup,
     spanDeadLetter,
-    spanFetch,
+    spanDeliver,
     spanPaused,
     spanReconnecting,
     spanRetrying,
+    spanStopped,
     subscriptionTraceHandler,
  )
 import Kiroku.Otel.TraceContext (extractTraceContext, injectTraceContext)
 import Kiroku.Store.Observability (
     DeadLetterReason (..),
     KirokuEvent (..),
+    SubscriptionDeliveryPhase (..),
     SubscriptionGroupContext (..),
     SubscriptionStopReason (..),
  )
@@ -139,22 +143,48 @@ main = hspec $ do
                 _ -> expectationFailure "metadata is not a JSON object"
 
     describe "subscriptionTraceHandler" $ do
-        it "catch-up then live yields an ended catchup span and a fetch span" $ do
+        it "catch-up then live yields an ended catchup span and a live deliver span" $ do
             spans <-
                 runEvents
                     [ KirokuEventSubscriptionStarted subName (GlobalPosition 0) NonGroup
                     , KirokuEventSubscriptionCaughtUp subName (GlobalPosition 10) NonGroup
-                    , KirokuEventSubscriptionFetched subName 3 NonGroup
+                    , KirokuEventSubscriptionDelivered subName 3 DeliveredLive NonGroup
                     ]
             let catchups = spansNamed spanCatchup spans
-                fetches = spansNamed spanFetch spans
+                delivers = spansNamed spanDeliver spans
             length catchups `shouldBe` 1
-            length fetches `shouldBe` 1
+            length delivers `shouldBe` 1
             -- the catch-up span carries the subscription name and its caught-up checkpoint
             attrOf attrSubName (head catchups) `shouldBe` Just (toAttribute ("orders" :: Text))
             attrOf attrCheckpoint (head catchups) `shouldBe` Just (i64 10)
-            -- the live fetch span carries the batch row count
-            attrOf attrBatchRows (head fetches) `shouldBe` Just (i64 3)
+            -- the live deliver span carries the batch row count and state="live"
+            attrOf attrBatchRows (head delivers) `shouldBe` Just (i64 3)
+            attrOf attrState (head delivers) `shouldBe` Just (toAttribute ("live" :: Text))
+
+        it "a catch-up delivery yields a deliver span tagged state=catchup" $ do
+            spans <-
+                runEvents
+                    [ KirokuEventSubscriptionStarted subName (GlobalPosition 0) NonGroup
+                    , KirokuEventSubscriptionDelivered subName 5 DeliveredCatchUp NonGroup
+                    ]
+            let delivers = spansNamed spanDeliver spans
+            length delivers `shouldBe` 1
+            attrOf attrBatchRows (head delivers) `shouldBe` Just (i64 5)
+            attrOf attrState (head delivers) `shouldBe` Just (toAttribute ("catchup" :: Text))
+
+        it "a clean stop from live always yields a standalone stopped span" $ do
+            spans <-
+                runEvents
+                    [ KirokuEventSubscriptionStarted subName (GlobalPosition 0) NonGroup
+                    , KirokuEventSubscriptionCaughtUp subName (GlobalPosition 10) NonGroup
+                    , KirokuEventSubscriptionDelivered subName 2 DeliveredLive NonGroup
+                    , KirokuEventSubscriptionStopped subName (GlobalPosition 12) StopHandlerRequested NonGroup
+                    ]
+            let stops = spansNamed spanStopped spans
+            length stops `shouldBe` 1
+            attrOf attrStopReason (head stops)
+                `shouldBe` Just (toAttribute (T.pack (show StopHandlerRequested)))
+            attrOf attrCheckpoint (head stops) `shouldBe` Just (i64 12)
 
         it "pause then resume yields an ended paused span" $ do
             spans <-
