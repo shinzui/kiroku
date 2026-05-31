@@ -45,7 +45,7 @@ Alternatives considered and rejected: putting the executable into `kiroku-store`
 |---|-------|------|-----------|-----------|--------|
 | 1 | Bootstrap embeddable kiroku-cli package and command API | docs/plans/47-bootstrap-embeddable-kiroku-cli-package-and-command-api.md | None | None | Complete |
 | 2 | Render subscription registry status in the operator CLI | docs/plans/48-render-subscription-registry-status-in-the-operator-cli.md | EP-1 | None | Complete |
-| 3 | Wire standalone kiroku executable to store connection settings | docs/plans/49-wire-standalone-kiroku-executable-to-store-connection-settings.md | EP-1, EP-2 | None | Not Started |
+| 3 | Wire standalone kiroku executable to store connection settings | docs/plans/49-wire-standalone-kiroku-executable-to-store-connection-settings.md | EP-1, EP-2 | None | Complete |
 | 4 | Document and demonstrate embedded Kiroku CLI usage | docs/plans/50-document-and-demonstrate-embedded-kiroku-cli-usage.md | EP-1, EP-2 | EP-3 | Not Started |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
@@ -78,8 +78,8 @@ There is no parallel implementation before EP-1 completes. After EP-1, EP-2 can 
 - [x] EP-1: add parser-level tests proving the Kiroku parser can be used both as a top-level parser and as a nested subcommand.
 - [x] EP-2: implement subscription status rows from `subscriptionStates`, including state phase and global cursor.
 - [x] EP-2: implement table and JSON output plus renderer tests.
-- [ ] EP-3: implement the standalone `kiroku` executable with connection settings, help text, and process-local status semantics.
-- [ ] EP-3: validate `cabal run kiroku -- subscriptions status --help` and the empty-registry runtime path.
+- [x] EP-3: implement the standalone `kiroku` executable with connection settings, help text, and process-local status semantics.
+- [x] EP-3: validate `cabal run kiroku -- subscriptions status --help` and the empty-registry runtime path.
 - [ ] EP-4: document standalone and embedded usage, including the in-memory registry limitation.
 - [ ] EP-4: add a compile-tested embedding example for host CLIs such as Keiro.
 
@@ -95,6 +95,8 @@ There is no parallel implementation before EP-1 completes. After EP-1, EP-2 can 
 **2026-05-31 — EP-1 settled the subparser helper as wrapper-aware.** The implemented `kirokuSubparser :: (KirokuCommand -> command) -> Mod CommandFields command` is more directly embeddable than a bare `Mod CommandFields KirokuCommand` because host CLIs usually parse into their own command type. `kiroku-cli-test` proves `subparser (hostCommand <> kirokuSubparser HostKiroku)` works.
 
 **2026-05-31 — EP-2 can integration-test live status without copying store test internals.** `kiroku-test-support` exposes `withMigratedTestDatabase`, which is sufficient for `kiroku-cli-test` to open a real store, start a subscription, wait for `"live"` in the registry, and render status through the embeddable runner.
+
+**2026-05-31 — EP-3 keeps standalone setup testable below `main`.** `Kiroku.Cli.Standalone` owns process flags, environment fallback, `ConnectionSettings` construction, and `withStore` delegation. `app/Main.hs` only handles `execParser`, environment lookup, exception reporting, and process exit.
 
 
 ## Decision Log
@@ -123,6 +125,10 @@ There is no parallel implementation before EP-1 completes. After EP-1, EP-2 can 
   Rationale: A named format option makes the output contract explicit and leaves room for future operator commands to share the same option vocabulary.
   Date: 2026-05-31
 
+- Decision: Use `KIROKU_DATABASE_URL` as the standalone connection-string environment fallback.
+  Rationale: The flag remains explicit for operator invocations while the environment variable supports service wrappers and local smoke tests without making database configuration part of the embedded parser.
+  Date: 2026-05-31
+
 
 ## Outcomes & Retrospective
 
@@ -134,3 +140,5 @@ There is no parallel implementation before EP-1 completes. After EP-1, EP-2 can 
 2026-05-31: Marked EP-1 complete, recorded its wrapper-aware parser helper decision, and propagated that API shape to the EP-4 embedding-example guidance.
 
 2026-05-31: Marked EP-2 complete after adding `subscriptions status`, table and JSON renderers, an embeddable store-backed runner, parser/renderer tests, and a live-registry integration test.
+
+2026-05-31: Marked EP-3 complete after wiring standalone database options, `KIROKU_DATABASE_URL` fallback, `withStore` delegation, process-boundary error handling, empty-registry messaging, and executable/runtime validation.

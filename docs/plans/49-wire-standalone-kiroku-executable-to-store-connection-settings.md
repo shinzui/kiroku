@@ -23,13 +23,13 @@ The live subscription registry is process-local. Therefore the standalone execut
 
 ## Progress
 
-- [ ] Add standalone process options for database connection, schema, pool size, and output behavior.
-- [ ] Parse process options together with the shared `KirokuCommand`.
-- [ ] Build `ConnectionSettings` from flags and environment defaults.
-- [ ] Open `withStore` and delegate to the library status runner.
-- [ ] Return meaningful exit codes for parse errors, connection failures, and successful empty status.
-- [ ] Add tests for option parsing and empty-registry standalone behavior.
-- [ ] Validate `cabal run kiroku -- subscriptions status --help` and a runtime invocation against a migrated test database.
+- [x] Add standalone process options for database connection, schema, pool size, and output behavior. Completed 2026-05-31 with `--database-url`, `--schema`, `--pool-size`, and the existing `subscriptions status --format table|json` option.
+- [x] Parse process options together with the shared `KirokuCommand`. Completed 2026-05-31 in `Kiroku.Cli.Standalone.standaloneOptionsParser`.
+- [x] Build `ConnectionSettings` from flags and environment defaults. Completed 2026-05-31 with `resolveStandaloneOptions`, including `KIROKU_DATABASE_URL` fallback and flag precedence.
+- [x] Open `withStore` and delegate to the library status runner. Completed 2026-05-31 in `runStandaloneCommand`; the executable only resolves process setup, catches boundary exceptions, and prints output.
+- [x] Return meaningful exit codes for parse errors, connection failures, and successful empty status. Completed 2026-05-31: optparse handles parse failures, missing database settings and store exceptions exit non-zero, and empty status exits success with explanatory table-mode text.
+- [x] Add tests for option parsing and empty-registry standalone behavior. Completed 2026-05-31 with `standaloneParserInfo`, `resolveStandaloneOptions`, and migrated-store `runStandaloneCommand` tests in `kiroku-cli/test/Main.hs`.
+- [x] Validate `cabal run kiroku -- subscriptions status --help` and a runtime invocation against a migrated test database. Completed 2026-05-31; the runtime path is covered by the migrated-store standalone test, and manual executable help/missing-configuration checks passed.
 
 
 ## Surprises & Discoveries
@@ -37,6 +37,8 @@ The live subscription registry is process-local. Therefore the standalone execut
 **2026-05-31 — Existing migration executable uses Codd settings, but store acquisition does not run migrations.** `kiroku-store-migrations/app/Main.hs` calls `getCoddSettings` and `runKirokuMigrationsNoCheck`; `kiroku-store/src/Kiroku/Store/Connection.hs` documents that `withStore` assumes migrations already exist. The standalone status command should not silently run migrations.
 
 **2026-05-31 — Store connection settings already cover the required runtime knobs.** `Kiroku.Store.Connection.defaultConnectionSettings` takes a PostgreSQL connection string and provides `schema`, `poolSize`, `extraSearchPath`, `idleInTransactionTimeout`, `statementTimeout`, `observationHandler`, `eventHandler`, and `storeSettings`. The CLI only needs a small subset for status.
+
+**2026-05-31 — The standalone runtime can be tested below `main` without process spawning.** `Kiroku.Cli.Standalone.runStandaloneCommand` accepts resolved settings, opens `withStore`, and returns `Text`, so the test suite can exercise the same runtime path against `kiroku-test-support`'s migrated PostgreSQL fixture without shelling out to `cabal run`.
 
 
 ## Decision Log
@@ -53,10 +55,34 @@ The live subscription registry is process-local. Therefore the standalone execut
   Rationale: Host CLIs such as Keiro already own their process configuration and can pass an existing `KirokuStore`. The Kiroku library parser should not force standalone-only database flags into embedded command trees.
   Date: 2026-05-31
 
+- Decision: Put standalone process setup in `Kiroku.Cli.Standalone`.
+  Rationale: Keeping option parsing, environment resolution, settings construction, and `withStore` delegation below `app/Main.hs` makes the standalone behavior directly testable while preserving `app/Main.hs` as a process-boundary wrapper.
+  Date: 2026-05-31
+
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+Completed on 2026-05-31. The `kiroku` executable now parses standalone database options, resolves `KIROKU_DATABASE_URL`, opens a `KirokuStore` with configurable schema and pool size, and delegates subscription status rendering through the same library code used by embedded callers. Table-mode empty status includes a process-local registry explanation; JSON mode remains stable JSON.
+
+Validation completed:
+
+```text
+cabal test kiroku-cli-test
+16 examples, 0 failures
+
+cabal run kiroku -- subscriptions status --help
+Usage: kiroku subscriptions status [--format table|json]
+Available options include --format table|json.
+
+cabal run kiroku -- --help
+Shows --database-url, --schema, --pool-size, and the process-local registry description.
+
+cabal run kiroku -- subscriptions status
+Exited non-zero and printed: missing database connection string; pass --database-url or set KIROKU_DATABASE_URL.
+
+cabal build all
+Build completed successfully.
+```
 
 
 ## Context and Orientation
@@ -166,3 +192,8 @@ main = do
 ```
 
 If the runner returns `ExitCode`, `main` should call `exitWith` after printing output. If the runner throws exceptions, catch only at the process boundary and leave embedded callers free to choose their own error handling.
+
+
+## Revision Notes
+
+2026-05-31: Implemented standalone process option parsing, environment resolution, settings construction, `withStore` delegation, empty-registry messaging, tests, and validation evidence because the plan is now complete.

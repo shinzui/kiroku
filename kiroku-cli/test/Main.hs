@@ -1,7 +1,9 @@
 module Main where
 
 import Control.Concurrent (threadDelay)
+import Control.Lens ((^.))
 import Data.Aeson qualified as Aeson
+import Data.Generics.Labels ()
 import Data.Int (Int32, Int64)
 import Data.List (isInfixOf)
 import Data.Map.Strict qualified as Map
@@ -9,6 +11,7 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Kiroku.Cli (KirokuCommand (..), kirokuParserInfo, kirokuSubparser, renderKirokuCommandWithStore)
 import Kiroku.Cli.Command (OutputFormat (..), StatusOptions (..), SubscriptionCommand (..))
+import Kiroku.Cli.Standalone (StandaloneOptions (..), StandaloneRuntime (..), resolveStandaloneOptions, runStandaloneCommand, standaloneParserInfo)
 import Kiroku.Cli.Subscription.Status (SubscriptionStatusRow (..), renderSubscriptionStatusRows, subscriptionStatusRows)
 import Kiroku.Store
 import Kiroku.Store.Subscription.Fsm (SubscriptionState (..))
@@ -69,6 +72,55 @@ main =
                 let result = execParserPure defaultPrefs hostParserInfo ["kiroku", "--help"]
                 renderedHelp result `shouldSatisfy` isInfixOf "Run Kiroku operator commands."
 
+        describe "standaloneParserInfo" $ do
+            it "parses process options separately from the Kiroku command" $ do
+                case execParserPure defaultPrefs standaloneParserInfo ["--database-url", "postgres://flag", "--schema", "ops", "--pool-size", "3", "subscriptions", "status", "--format", "json"] of
+                    Success parsed ->
+                        parsed
+                            `shouldBe` StandaloneOptions
+                                { databaseUrl = Just "postgres://flag"
+                                , schema = "ops"
+                                , poolSize = 3
+                                , standaloneCommand = KirokuSubscriptions (SubscriptionStatus (StatusOptions OutputJson))
+                                }
+                    other -> expectationFailure ("expected parser success, got " <> renderedHelp other)
+
+            it "resolves database URL from the environment when the flag is absent" $ do
+                case execParserPure defaultPrefs standaloneParserInfo ["subscriptions", "status"] of
+                    Success parsed ->
+                        case resolveStandaloneOptions [("KIROKU_DATABASE_URL", "postgres://env")] parsed of
+                            Right StandaloneRuntime{settings = settings, runtimeCommand = parsedCommand} -> do
+                                settings ^. #connString `shouldBe` "postgres://env"
+                                settings ^. #schema `shouldBe` "kiroku"
+                                settings ^. #poolSize `shouldBe` 2
+                                parsedCommand `shouldBe` KirokuSubscriptions (SubscriptionStatus (StatusOptions OutputTable))
+                            Left err -> expectationFailure ("expected resolved runtime, got " <> show err)
+                    other -> expectationFailure ("expected parser success, got " <> renderedHelp other)
+
+            it "lets --database-url override the environment and rejects invalid pool sizes" $ do
+                let opts =
+                        StandaloneOptions
+                            { databaseUrl = Just "postgres://flag"
+                            , schema = "ops"
+                            , poolSize = 0
+                            , standaloneCommand = KirokuNoCommand
+                            }
+                case resolveStandaloneOptions [("KIROKU_DATABASE_URL", "postgres://env")] opts of
+                    Left err -> err `shouldBe` "kiroku: --pool-size must be greater than zero"
+                    Right _ -> expectationFailure "expected invalid pool size to fail"
+
+            it "requires a database URL from either flag or environment" $ do
+                let opts =
+                        StandaloneOptions
+                            { databaseUrl = Nothing
+                            , schema = "kiroku"
+                            , poolSize = 2
+                            , standaloneCommand = KirokuNoCommand
+                            }
+                case resolveStandaloneOptions [] opts of
+                    Left err -> err `shouldBe` "kiroku: missing database connection string; pass --database-url or set KIROKU_DATABASE_URL"
+                    Right _ -> expectationFailure "expected missing database URL to fail"
+
         describe "subscriptionStatusRows" $ do
             it "sorts rows and extracts public scalar fields" $ do
                 subscriptionStatusRows
@@ -117,6 +169,23 @@ main =
                     output `shouldSatisfy` T.isInfixOf "live"
                     output `shouldSatisfy` T.isInfixOf "0"
                     cancel handle
+
+        describe "runStandaloneCommand" $ do
+            it "opens a migrated store and reports an empty process-local registry successfully" $
+                withMigratedTestDatabase $ \connStr -> do
+                    let opts =
+                            StandaloneOptions
+                                { databaseUrl = Just connStr
+                                , schema = "kiroku"
+                                , poolSize = 2
+                                , standaloneCommand = KirokuSubscriptions (SubscriptionStatus (StatusOptions OutputTable))
+                                }
+                    case resolveStandaloneOptions [] opts of
+                        Left err -> expectationFailure ("expected resolved runtime, got " <> show err)
+                        Right runtime -> do
+                            output <- runStandaloneCommand runtime
+                            output `shouldSatisfy` T.isInfixOf "SUBSCRIPTION"
+                            output `shouldSatisfy` T.isInfixOf "No live subscriptions in this process-local registry"
 
 hostParserInfo :: ParserInfo HostCommand
 hostParserInfo =
