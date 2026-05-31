@@ -45,6 +45,8 @@ tuning see `docs/PRODUCTION-DEPLOYMENT.md` and `docs/PRODUCTION-TUNING.md`.
   event metadata with `kiroku-otel` and the append/read hooks.
 - [Observability](observability.md) — operational events, the connection
   pool observation handler, and wiring both to logs and metrics.
+- [Operator CLI](operator-cli.md) — run the standalone `kiroku` executable
+  and embed Kiroku operator subcommands in a host CLI.
 
 ## Schema And Lifecycle
 

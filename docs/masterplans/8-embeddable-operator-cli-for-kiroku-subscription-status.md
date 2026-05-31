@@ -46,7 +46,7 @@ Alternatives considered and rejected: putting the executable into `kiroku-store`
 | 1 | Bootstrap embeddable kiroku-cli package and command API | docs/plans/47-bootstrap-embeddable-kiroku-cli-package-and-command-api.md | None | None | Complete |
 | 2 | Render subscription registry status in the operator CLI | docs/plans/48-render-subscription-registry-status-in-the-operator-cli.md | EP-1 | None | Complete |
 | 3 | Wire standalone kiroku executable to store connection settings | docs/plans/49-wire-standalone-kiroku-executable-to-store-connection-settings.md | EP-1, EP-2 | None | Complete |
-| 4 | Document and demonstrate embedded Kiroku CLI usage | docs/plans/50-document-and-demonstrate-embedded-kiroku-cli-usage.md | EP-1, EP-2 | EP-3 | Not Started |
+| 4 | Document and demonstrate embedded Kiroku CLI usage | docs/plans/50-document-and-demonstrate-embedded-kiroku-cli-usage.md | EP-1, EP-2 | EP-3 | Complete |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
 Hard Deps and Soft Deps reference other rows by their # prefix (e.g., EP-1, EP-3).
@@ -80,8 +80,8 @@ There is no parallel implementation before EP-1 completes. After EP-1, EP-2 can 
 - [x] EP-2: implement table and JSON output plus renderer tests.
 - [x] EP-3: implement the standalone `kiroku` executable with connection settings, help text, and process-local status semantics.
 - [x] EP-3: validate `cabal run kiroku -- subscriptions status --help` and the empty-registry runtime path.
-- [ ] EP-4: document standalone and embedded usage, including the in-memory registry limitation.
-- [ ] EP-4: add a compile-tested embedding example for host CLIs such as Keiro.
+- [x] EP-4: document standalone and embedded usage, including the in-memory registry limitation.
+- [x] EP-4: add a compile-tested embedding example for host CLIs such as Keiro.
 
 
 ## Surprises & Discoveries
@@ -97,6 +97,8 @@ There is no parallel implementation before EP-1 completes. After EP-1, EP-2 can 
 **2026-05-31 — EP-2 can integration-test live status without copying store test internals.** `kiroku-test-support` exposes `withMigratedTestDatabase`, which is sufficient for `kiroku-cli-test` to open a real store, start a subscription, wait for `"live"` in the registry, and render status through the embeddable runner.
 
 **2026-05-31 — EP-3 keeps standalone setup testable below `main`.** `Kiroku.Cli.Standalone` owns process flags, environment fallback, `ConnectionSettings` construction, and `withStore` delegation. `app/Main.hs` only handles `execParser`, environment lookup, exception reporting, and process exit.
+
+**2026-05-31 — EP-4 used the existing CLI test suite as the embedding example harness.** Extending `kiroku-cli-test` with a nested `kiroku subscriptions status --format json` parse and host-wrapper runner kept the example compile-tested without creating a separate example package.
 
 
 ## Decision Log
@@ -129,10 +131,24 @@ There is no parallel implementation before EP-1 completes. After EP-1, EP-2 can 
   Rationale: The flag remains explicit for operator invocations while the environment variable supports service wrappers and local smoke tests without making database configuration part of the embedded parser.
   Date: 2026-05-31
 
+- Decision: Document standalone status as useful for wiring and commands on its own store, but embedded status as authoritative for a host service.
+  Rationale: The subscription registry is process-local, so the docs must prevent operators from expecting a standalone process to inspect another service's live workers.
+  Date: 2026-05-31
+
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+Completed on 2026-05-31. The initiative delivered a new `kiroku-cli` package with a public embedding facade, a standalone `kiroku` executable, a registry-backed `subscriptions status` command, table and JSON renderers, standalone database flags, process-local empty-status messaging, user documentation, and compile-tested host embedding coverage. The key contract is now explicit: live subscription status is authoritative when Kiroku commands run inside the process that owns the live `KirokuStore`; a separate standalone process can only report on the fresh store handle it opens itself.
+
+Validation across the final child plan passed:
+
+```text
+cabal test kiroku-cli-test
+18 examples, 0 failures
+
+cabal build all
+Build completed successfully.
+```
 
 
 ## Revision Notes
@@ -142,3 +158,5 @@ There is no parallel implementation before EP-1 completes. After EP-1, EP-2 can 
 2026-05-31: Marked EP-2 complete after adding `subscriptions status`, table and JSON renderers, an embeddable store-backed runner, parser/renderer tests, and a live-registry integration test.
 
 2026-05-31: Marked EP-3 complete after wiring standalone database options, `KIROKU_DATABASE_URL` fallback, `withStore` delegation, process-boundary error handling, empty-registry messaging, and executable/runtime validation.
+
+2026-05-31: Marked EP-4 complete after adding README/user docs, `docs/user/operator-cli.md`, process-local status guidance, and compile-tested host embedding coverage.

@@ -23,12 +23,12 @@ The most important documentation outcome is clarity about live subscription stat
 
 ## Progress
 
-- [ ] Update repository/package docs to mention `kiroku-cli` and the standalone executable.
-- [ ] Add a user doc for operator CLI usage.
-- [ ] Document `subscriptions status` table and JSON output.
-- [ ] Document the process-local registry limitation prominently.
-- [ ] Add a compile-tested embedding example showing a host CLI mounting Kiroku commands.
-- [ ] Validate docs examples by building/tests.
+- [x] Update repository/package docs to mention `kiroku-cli` and the standalone executable. Completed 2026-05-31 in `README.md`.
+- [x] Add a user doc for operator CLI usage. Completed 2026-05-31 with `docs/user/operator-cli.md` linked from `docs/user/README.md`.
+- [x] Document `subscriptions status` table and JSON output. Completed 2026-05-31 with standalone command examples and representative table/JSON output.
+- [x] Document the process-local registry limitation prominently. Completed 2026-05-31 in the operator CLI guide's Process-Local Status section.
+- [x] Add a compile-tested embedding example showing a host CLI mounting Kiroku commands. Completed 2026-05-31 by extending `kiroku-cli/test/Main.hs` to parse a nested `kiroku subscriptions status --format json` command and run it through a host wrapper against a supplied store.
+- [x] Validate docs examples by building/tests. Completed 2026-05-31 with `cabal test kiroku-cli-test`, `cabal build all`, and a Markdown fence scan over the changed docs.
 
 
 ## Surprises & Discoveries
@@ -36,6 +36,8 @@ The most important documentation outcome is clarity about live subscription stat
 **2026-05-31 — There is already a user-facing observability doc to link.** `docs/user/observability.md` explains `subscriptionStates`, `SubscriptionStateView`, state phases, cursor semantics, and the fact that stopped subscriptions are absent. The CLI docs should link to it instead of duplicating the whole registry design.
 
 **2026-05-31 — README currently lists four packages and must be updated.** `README.md` lists `kiroku-store`, `kiroku-store-migrations`, `kiroku-otel`, and `shibuya-kiroku-adapter`. After EP-1 creates `kiroku-cli`, this plan should add it to the package list and repository layout.
+
+**2026-05-31 — The existing `kiroku-cli-test` host parser is the right compile-tested example.** EP-1 already introduced a fake host parser with `kirokuSubparser HostKiroku`; extending it to parse `kiroku subscriptions status --format json` and run through a host wrapper proves the embedding contract without adding a separate example package.
 
 
 ## Decision Log
@@ -52,10 +54,27 @@ The most important documentation outcome is clarity about live subscription stat
   Rationale: The Keiro repo currently has no CLI parser integration point, and this MasterPlan is for Kiroku. Kiroku should provide a stable embedding contract; Keiro can consume it in its own later work.
   Date: 2026-05-31
 
+- Decision: Use `kiroku-cli-test` as the compile-tested embedding example rather than adding another package.
+  Rationale: The test suite already imports the public `Kiroku.Cli` facade and `Options.Applicative`, so extending it keeps the example checked by ordinary CI without introducing a documentation-only Cabal target.
+  Date: 2026-05-31
+
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+Completed on 2026-05-31. The repository README now lists `kiroku-cli`, the user guide index links to a new operator CLI guide, and the new guide documents standalone flags, table output, JSON output, embedded use, and the process-local subscription registry limitation. The embedding example is compile-tested in `kiroku-cli-test`: a host command type wraps `KirokuCommand`, mounts `kirokuSubparser HostKiroku`, parses nested status commands, and runs Kiroku commands against a supplied `KirokuStore`.
+
+Validation completed:
+
+```text
+cabal test kiroku-cli-test
+18 examples, 0 failures
+
+cabal build all
+Build completed successfully.
+
+rg -n '^```$' README.md docs/user/README.md docs/user/operator-cli.md docs/plans/50-document-and-demonstrate-embedded-kiroku-cli-usage.md docs/masterplans/8-embeddable-operator-cli-for-kiroku-subscription-status.md
+Only closing fences were reported; changed snippets use language-tagged opening fences.
+```
 
 
 ## Context and Orientation
@@ -162,3 +181,5 @@ The example should show the host application passing an existing `KirokuStore` t
 ## Revision Notes
 
 2026-05-31: Updated the embedding-example guidance after EP-1 finalized `kirokuSubparser` as a wrapper-aware helper that accepts the host command constructor.
+
+2026-05-31: Implemented the operator CLI docs, README/user-index links, and compile-tested embedding example; recorded validation evidence because the plan is now complete.

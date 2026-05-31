@@ -20,6 +20,8 @@ workflows.
 - `kiroku-store-migrations`: embedded forward-only codd migrations and the
   `kiroku-store-migrate` executable for installing and upgrading the database
   schema.
+- `kiroku-cli`: an embeddable operator CLI library plus the standalone
+  `kiroku` executable for commands such as subscription status.
 - `kiroku-otel`: W3C trace-context helpers for Kiroku event metadata.
 - `shibuya-kiroku-adapter`: an adapter that exposes Kiroku subscriptions to
   the Shibuya queue processing framework.
@@ -34,6 +36,7 @@ claim gap-free global positions in the same transaction that appends events.
 ```text
 kiroku-store/              Core event store library, tests, and benchmarks
 kiroku-store-migrations/   Embedded codd migrations and migration executable
+kiroku-cli/                Embeddable operator CLI and standalone executable
 kiroku-otel/               OpenTelemetry trace-context metadata helpers
 shibuya-kiroku-adapter/    Shibuya adapter for Kiroku subscriptions
 docs/                      Design notes, production notes, audits, plans
@@ -96,6 +99,8 @@ the migration command and runtime settings.
 - [`docs/PRODUCTION-TUNING.md`](docs/PRODUCTION-TUNING.md): operational tuning.
 - [`docs/BENCH-REGRESSION.md`](docs/BENCH-REGRESSION.md): benchmark regression
   workflow.
+- [`docs/user/operator-cli.md`](docs/user/operator-cli.md): standalone and
+  embedded operator CLI usage.
 
 ## Status
 

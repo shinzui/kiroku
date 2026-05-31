@@ -68,6 +68,12 @@ main =
                     Success parsed -> parsed `shouldBe` HostKiroku KirokuNoCommand
                     other -> expectationFailure ("expected parser success, got " <> renderedHelp other)
 
+            it "parses a nested subscription status command" $ do
+                case execParserPure defaultPrefs hostParserInfo ["kiroku", "subscriptions", "status", "--format", "json"] of
+                    Success parsed ->
+                        parsed `shouldBe` HostKiroku (KirokuSubscriptions (SubscriptionStatus (StatusOptions OutputJson)))
+                    other -> expectationFailure ("expected parser success, got " <> renderedHelp other)
+
             it "renders nested help under a host command parser" $ do
                 let result = execParserPure defaultPrefs hostParserInfo ["kiroku", "--help"]
                 renderedHelp result `shouldSatisfy` isInfixOf "Run Kiroku operator commands."
@@ -170,6 +176,11 @@ main =
                     output `shouldSatisfy` T.isInfixOf "0"
                     cancel handle
 
+            it "runs nested Kiroku commands through a host command wrapper" $
+                withTestStore $ \store -> do
+                    output <- runHostCommand store (HostKiroku (KirokuSubscriptions (SubscriptionStatus (StatusOptions OutputJson))))
+                    output `shouldBe` "[]"
+
         describe "runStandaloneCommand" $ do
             it "opens a migrated store and reports an empty process-local registry successfully" $
                 withMigratedTestDatabase $ \connStr -> do
@@ -201,6 +212,12 @@ hostCommandParser =
             (info (pure HostOnly) (progDesc "Run a host-only command."))
             <> kirokuSubparser HostKiroku
         )
+
+runHostCommand :: KirokuStore -> HostCommand -> IO Text
+runHostCommand _ HostOnly =
+    pure "host command"
+runHostCommand store (HostKiroku kirokuCommand) =
+    renderKirokuCommandWithStore store kirokuCommand
 
 renderedHelp :: ParserResult a -> String
 renderedHelp (Failure failure) =
