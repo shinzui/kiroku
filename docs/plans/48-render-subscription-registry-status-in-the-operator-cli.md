@@ -23,13 +23,13 @@ The command is intentionally registry-backed. It shows what is live in the curre
 
 ## Progress
 
-- [ ] Extend the `KirokuCommand` type and parser with `subscriptions status`.
-- [ ] Add output-format options for a human table and JSON.
-- [ ] Convert `Map (SubscriptionName, Int32) SubscriptionStateView` into stable CLI row values.
-- [ ] Render the rows as a table with subscription, member, phase, and global position columns.
-- [ ] Render the same rows as JSON for scripts.
-- [ ] Add pure renderer/parser tests.
-- [ ] Add a registry-backed integration test with a live `KirokuStore` and at least one subscription.
+- [x] Extend the `KirokuCommand` type and parser with `subscriptions status`. Completed 2026-05-31 with `KirokuSubscriptions (SubscriptionStatus StatusOptions)` and parser coverage for default and JSON formats.
+- [x] Add output-format options for a human table and JSON. Completed 2026-05-31 with `--format table|json`, defaulting to table.
+- [x] Convert `Map (SubscriptionName, Int32) SubscriptionStateView` into stable CLI row values. Completed 2026-05-31 in `Kiroku.Cli.Subscription.Status.subscriptionStatusRows`, sorted by subscription name and member.
+- [x] Render the rows as a table with subscription, member, phase, and global position columns. Completed 2026-05-31 with `SUBSCRIPTION`, `MEMBER`, `PHASE`, and `GLOBAL_POSITION` headers.
+- [x] Render the same rows as JSON for scripts. Completed 2026-05-31 with an array of objects containing `subscription`, `member`, `phase`, and `global_position`.
+- [x] Add pure renderer/parser tests. Completed 2026-05-31 in `kiroku-cli/test/Main.hs`.
+- [x] Add a registry-backed integration test with a live `KirokuStore` and at least one subscription. Completed 2026-05-31 using `kiroku-test-support`'s migrated PostgreSQL fixture and the library runner against the same store.
 
 
 ## Surprises & Discoveries
@@ -37,6 +37,8 @@ The command is intentionally registry-backed. It shows what is live in the curre
 **2026-05-31 — The existing registry view already contains all requested fields.** `kiroku-store/src/Kiroku/Store/Subscription.hs` defines `SubscriptionStateView` with `subscriptionName`, `member`, `state`, `statePhase`, and `cursor`. `cursor` is a `GlobalPosition`, which satisfies the requirement to display the current global position the worker is on.
 
 **2026-05-31 — Stopped subscriptions must be represented by absence, not a row.** MasterPlan 7 and `docs/user/observability.md` state that the FSM never writes `Stopped` into the registry cell; a stopped, cancelled, crashed, or superseded subscription disappears from `subscriptionStates`. The CLI must not invent a `"stopped"` row for absent subscriptions.
+
+**2026-05-31 — The existing shared PostgreSQL test fixture is enough for the CLI integration test.** `kiroku-test-support` exposes `withMigratedTestDatabase`, so `kiroku-cli-test` can open a real `KirokuStore`, start a subscription, and run `renderKirokuCommandWithStore` without depending on `kiroku-store`'s internal test module.
 
 
 ## Decision Log
@@ -53,10 +55,28 @@ The command is intentionally registry-backed. It shows what is live in the curre
   Rationale: Embedded host CLIs must get the same behavior as the standalone `kiroku` binary. The executable should only parse process options, acquire a store, and delegate.
   Date: 2026-05-31
 
+- Decision: Use `--format table|json` instead of a single `--json` switch.
+  Rationale: The status command now has an explicit output-format vocabulary that later operator commands can reuse without introducing parallel flags.
+  Date: 2026-05-31
+
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+Completed on 2026-05-31. `kiroku-cli` now parses `subscriptions status`, renders table output by default, renders JSON via `--format json`, converts `subscriptionStates` snapshots into stable sorted rows, and exposes `renderKirokuCommandWithStore` / `runKirokuCommandWithStore` for embedded host CLIs. The standalone executable still cannot run status meaningfully until EP-3 adds connection-setting acquisition; for now it shows correct leaf help and the library runner is fully tested against a live store.
+
+Validation completed:
+
+```text
+cabal test kiroku-cli-test
+11 examples, 0 failures
+
+cabal run kiroku -- subscriptions status --help
+Usage: kiroku subscriptions status [--format table|json]
+Available options include --format table|json.
+
+cabal build all
+Build completed successfully.
+```
 
 
 ## Context and Orientation
@@ -173,3 +193,8 @@ subscriptionStatusRows :: Map (SubscriptionName, Int32) SubscriptionStateView ->
 ```
 
 The exact names may differ, but the separation must remain: snapshot-to-rows is pure, rendering is pure, and the IO runner only reads the store and writes output.
+
+
+## Revision Notes
+
+2026-05-31: Implemented the full EP-2 status command, added parser/renderer/live-registry tests, recorded the `--format` decision, and captured validation output because the plan is now complete.

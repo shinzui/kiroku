@@ -44,7 +44,7 @@ Alternatives considered and rejected: putting the executable into `kiroku-store`
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
 | 1 | Bootstrap embeddable kiroku-cli package and command API | docs/plans/47-bootstrap-embeddable-kiroku-cli-package-and-command-api.md | None | None | Complete |
-| 2 | Render subscription registry status in the operator CLI | docs/plans/48-render-subscription-registry-status-in-the-operator-cli.md | EP-1 | None | Not Started |
+| 2 | Render subscription registry status in the operator CLI | docs/plans/48-render-subscription-registry-status-in-the-operator-cli.md | EP-1 | None | Complete |
 | 3 | Wire standalone kiroku executable to store connection settings | docs/plans/49-wire-standalone-kiroku-executable-to-store-connection-settings.md | EP-1, EP-2 | None | Not Started |
 | 4 | Document and demonstrate embedded Kiroku CLI usage | docs/plans/50-document-and-demonstrate-embedded-kiroku-cli-usage.md | EP-1, EP-2 | EP-3 | Not Started |
 
@@ -76,8 +76,8 @@ There is no parallel implementation before EP-1 completes. After EP-1, EP-2 can 
 
 - [x] EP-1: create the `kiroku-cli` library/executable package, add it to `cabal.project`, and expose the command/parser/runner foundation.
 - [x] EP-1: add parser-level tests proving the Kiroku parser can be used both as a top-level parser and as a nested subcommand.
-- [ ] EP-2: implement subscription status rows from `subscriptionStates`, including state phase and global cursor.
-- [ ] EP-2: implement table and JSON output plus renderer tests.
+- [x] EP-2: implement subscription status rows from `subscriptionStates`, including state phase and global cursor.
+- [x] EP-2: implement table and JSON output plus renderer tests.
 - [ ] EP-3: implement the standalone `kiroku` executable with connection settings, help text, and process-local status semantics.
 - [ ] EP-3: validate `cabal run kiroku -- subscriptions status --help` and the empty-registry runtime path.
 - [ ] EP-4: document standalone and embedded usage, including the in-memory registry limitation.
@@ -93,6 +93,8 @@ There is no parallel implementation before EP-1 completes. After EP-1, EP-2 can 
 **2026-05-31 — Keiro currently has no CLI parser to integrate with.** `mori registry show shinzui/keiro --full` found the Keiro repository at `/Users/shinzui/Keikaku/bokuno/keiro`, and a scoped search for `Options.Applicative`/`execParser` found no existing Keiro CLI package. This MasterPlan should therefore provide a generic embedding API and a local example, not modify Keiro directly.
 
 **2026-05-31 — EP-1 settled the subparser helper as wrapper-aware.** The implemented `kirokuSubparser :: (KirokuCommand -> command) -> Mod CommandFields command` is more directly embeddable than a bare `Mod CommandFields KirokuCommand` because host CLIs usually parse into their own command type. `kiroku-cli-test` proves `subparser (hostCommand <> kirokuSubparser HostKiroku)` works.
+
+**2026-05-31 — EP-2 can integration-test live status without copying store test internals.** `kiroku-test-support` exposes `withMigratedTestDatabase`, which is sufficient for `kiroku-cli-test` to open a real store, start a subscription, wait for `"live"` in the registry, and render status through the embeddable runner.
 
 
 ## Decision Log
@@ -117,6 +119,10 @@ There is no parallel implementation before EP-1 completes. After EP-1, EP-2 can 
   Rationale: Host CLIs such as Keiro need to wrap parsed Kiroku commands into their own command data type. Accepting the wrapper function keeps the embedding helper reusable without sacrificing the standalone parser.
   Date: 2026-05-31
 
+- Decision: Use `--format table|json` for subscription status output selection.
+  Rationale: A named format option makes the output contract explicit and leaves room for future operator commands to share the same option vocabulary.
+  Date: 2026-05-31
+
 
 ## Outcomes & Retrospective
 
@@ -126,3 +132,5 @@ There is no parallel implementation before EP-1 completes. After EP-1, EP-2 can 
 ## Revision Notes
 
 2026-05-31: Marked EP-1 complete, recorded its wrapper-aware parser helper decision, and propagated that API shape to the EP-4 embedding-example guidance.
+
+2026-05-31: Marked EP-2 complete after adding `subscriptions status`, table and JSON renderers, an embeddable store-backed runner, parser/renderer tests, and a live-registry integration test.
