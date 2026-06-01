@@ -233,7 +233,7 @@ what an operator status command needs.
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
 | 1 | Kiroku-Metrics Package Foundation And In-Process Metrics Collector | docs/plans/32-kiroku-metrics-package-foundation-and-in-process-metrics-collector.md | None | None | Complete |
-| 2 | HTTP JSON, Prometheus, And Health Endpoints For Kiroku Metrics | docs/plans/33-http-json-prometheus-and-health-endpoints-for-kiroku-metrics.md | EP-1 | None | Not Started |
+| 2 | HTTP JSON, Prometheus, And Health Endpoints For Kiroku Metrics | docs/plans/33-http-json-prometheus-and-health-endpoints-for-kiroku-metrics.md | EP-1 | None | Complete |
 | 3 | WebSocket Endpoint For Live Metrics And Event Streaming Out Of The Store | docs/plans/34-websocket-endpoint-for-live-metrics-and-event-streaming-out-of-the-store.md | EP-2 | None | Not Started |
 | 4 | Kiroku Metrics And Event-Stream User Guide And Runnable Example | docs/plans/35-kiroku-metrics-and-event-stream-user-guide-and-runnable-example.md | EP-2 | EP-3, EP-5 | Not Started |
 | 5 | Remote Subscription-Status HTTP Endpoint And Kiroku-CLI Remote Client | docs/plans/52-remote-subscription-status-http-endpoint-and-kiroku-cli-remote-client.md | EP-2 | None | Not Started |
@@ -435,10 +435,10 @@ Track milestone-level progress across all child plans.
 - [x] EP-1: `kiroku-metrics` package created and wired into `cabal.project`, `flake.nix`, `nix/haskell-overlay.nix`, `mori.dhall` (builds empty under cabal; flake evaluates via `nix build --dry-run`)
 - [x] EP-1: `MetricsSnapshot` type + `KirokuMetrics` collector + callback wrappers + `snapshotMetrics`; unit test feeding scripted events (8 examples)
 - [x] EP-1: Integration test wiring the collector into a real `withMigratedTestDatabase`, running a subscription, asserting counters/positions/lag
-- [ ] EP-2: Web dependencies added; `Kiroku.Metrics.Server` Warp server with `websocketsOr` and a stubbed WebSocket seam; `MetricsServerConfig`/`MetricsServer` lifecycle
-- [ ] EP-2: JSON endpoints (`/metrics`, `/metrics/:subscription`) rendering the snapshot
-- [ ] EP-2: Prometheus text-exposition endpoint (`/metrics/prometheus`) accepted by `promtool check metrics`
-- [ ] EP-2: Health endpoints (`/health/live`, `/health/ready`, `/health`) with pluggable dependency checks (PostgreSQL ping built in)
+- [x] EP-2: Web dependencies added; `Kiroku.Metrics.Server` Warp server with `websocketsOr` and a stubbed WebSocket seam; `MetricsServerConfig`/`MetricsServer` lifecycle
+- [x] EP-2: JSON endpoints (`/metrics`, `/metrics/:subscription`) rendering the snapshot
+- [x] EP-2: Prometheus text-exposition endpoint (`/metrics/prometheus`) — `promtool` absent from the dev shell, so format validated by eye + integration-test substring assertion
+- [x] EP-2: Health endpoints (`/health/live`, `/health/ready`, `/health`) with pluggable dependency checks (PostgreSQL ping built in)
 - [ ] EP-3: WebSocket protocol types + metrics channel (snapshot on connect, periodic live updates), filling the EP-2 seam
 - [ ] EP-3: Event-stream channel — live "from-now" tail via `subscribePublisher`, optional category filter and replay-from-position via `readAllForward`; `recordedEventToJSON`
 - [ ] EP-3: End-to-end WebSocket test (append events, observe both metric updates and event messages over a real socket)

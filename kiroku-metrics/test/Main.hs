@@ -5,8 +5,10 @@ import Test.Hspec (hspec)
 import Kiroku.Test.Postgres (withSharedMigratedPostgres)
 import Test.CollectorSpec qualified as CollectorSpec
 import Test.IntegrationSpec qualified as IntegrationSpec
+import Test.ServerSpec qualified as ServerSpec
 
 main :: IO ()
 main = withSharedMigratedPostgres $ hspec $ do
     CollectorSpec.spec
     IntegrationSpec.spec
+    ServerSpec.spec

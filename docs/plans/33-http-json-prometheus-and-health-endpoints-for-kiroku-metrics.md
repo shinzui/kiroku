@@ -63,15 +63,34 @@ replaces the stub without changing the server's structure.
 
 ## Progress
 
-- [ ] M1: Web dependencies added to `kiroku-metrics.cabal`; `Kiroku.Metrics.Config` (config record + `defaultConfig`) and `Kiroku.Metrics.Server` (Warp server, `websocketsOr` with stub WS handler, `MetricsServer` handle, `start/stop/withMetricsServer`) compile; server starts and a placeholder route responds.
-- [ ] M2: `Kiroku.Metrics.JSON` — `GET /metrics` and `GET /metrics/<name>` return snapshot JSON; verified with `curl`.
-- [ ] M3: `Kiroku.Metrics.Prometheus` — `GET /metrics/prometheus` returns valid text-exposition; verified with `promtool check metrics`.
-- [ ] M4: `Kiroku.Metrics.Health` — `/health/live`, `/health/ready`, `/health` with `DependencyCheck` list and a built-in `postgresPing`; verified with `curl` and status codes; an integration test covering all endpoints passes.
+- [x] M1 (2026-06-01): Web dependencies added to `kiroku-metrics.cabal`; `Kiroku.Metrics.Config` (config record + `defaultConfig`, port 9091) and `Kiroku.Metrics.Server` (Warp server, `websocketsOr` with stub WS handler, `MetricsServer` handle, `start/stop/withMetricsServer`, `startMetricsServerWith` seam) compile; server starts (`port = 0` → OS-assigned via `openFreePort`/`runSettingsSocket`).
+- [x] M2 (2026-06-01): `Kiroku.Metrics.JSON` — `GET /metrics` and `GET /metrics/<name>` return snapshot JSON (200 / 404); covered by the integration test.
+- [x] M3 (2026-06-01): `Kiroku.Metrics.Prometheus` — `GET /metrics/prometheus` returns valid text-exposition; `promtool` unavailable in the dev shell, so validated by eye (rendered a sample snapshot; HELP/TYPE lines, `_total` counters, consistent per-name label sets, escaped labels) and the test asserts the body contains `kiroku_events_appended_total`.
+- [x] M4 (2026-06-01): `Kiroku.Metrics.Health` — `/health/live`, `/health/ready`, `/health` with `DependencyCheck` list and a built-in `postgresPing`; verified via the all-endpoints integration test (`Test/ServerSpec.hs`): JSON/Prometheus/health 200s, unknown subscription 404, `/ws` 404, a failing dependency check flips `/health/ready` to 503. `cabal test kiroku-metrics` green (10 examples).
 
 
 ## Surprises & Discoveries
 
-(None yet.)
+- 2026-06-01 (M4): `Hasql.Session` in this tree's pinned hasql does **not** export
+  `sql`; raw SQL runs through `Hasql.Session.script :: Text -> Session ()`.
+  `postgresPing` therefore uses `Pool.use store.pool (Session.script "SELECT 1")`.
+
+- 2026-06-01 (M1): The web dependencies (`warp 3.4.13`, `wai 3.2.4`,
+  `wai-websockets 3.0.1`, `websockets 0.13`, `http-types`, plus `http-client` for
+  the test) were all already resolvable in the GHC 9.12 package set — no
+  `nix/haskell-overlay.nix` additions were needed. (Nix wiring inherited from EP-1;
+  a full `nix build` was not re-run, consistent with EP-1's evaluation-only check.)
+
+- 2026-06-01 (M3): `promtool` is not installed in the dev shell, so the format was
+  validated by eye against a rendered sample (see Decision Log) and the integration
+  test asserts the body contains `kiroku_events_appended_total`, per this plan's
+  documented fallback.
+
+- 2026-06-01 (M2/M3): EP-1's snapshot JSON keys are snake_case, so the JSON
+  endpoint emits e.g. `store.global_position` (not the camelCase shown in the
+  plan's illustrative M2 transcript). The integration test reads
+  `store.global_position`. Prometheus metric names are snake_case with `_total` on
+  counters, matching convention.
 
 
 ## Decision Log
@@ -92,10 +111,83 @@ replaces the stub without changing the server's structure.
   registry. Output is validated with `promtool check metrics`.
   Date: 2026-05-19
 
+- Decision (2026-06-01, M3): Split subscription database-error metrics into two
+  distinct Prometheus metric names: `kiroku_subscription_db_errors_by_phase_total`
+  (labelled `phase="load|fetch|save"`, the global per-phase counters) and
+  `kiroku_subscription_db_errors_total` (labelled `subscription="<name>"`, the
+  per-subscription counts).
+  Rationale: A Prometheus metric name must carry a consistent label set across all
+  its samples; mixing a `phase` series and a `subscription` series under one name
+  is invalid exposition. Two names keep each label set consistent and `promtool`-clean.
+  Date: 2026-06-01
+
+- Decision (2026-06-01, M4): `postgresPing` issues `Hasql.Session.script "SELECT 1"`
+  (not `Session.sql`, which this hasql does not export). Latency is measured with
+  `GHC.Clock.getMonotonicTimeNSec` (no extra dependency).
+  Date: 2026-06-01
+
+- Decision (2026-06-01, M1): When `port == 0`, the server binds an OS-assigned free
+  port via `Warp.openFreePort` + `runSettingsSocket` and reports it in
+  `serverPort`; otherwise it uses `runSettings` on `cfg.port`.
+  Rationale: The integration test needs a collision-free ephemeral port and must
+  learn which port was bound. `openFreePort` returns a listening socket and the
+  chosen port together, so the test reads `srv.serverPort` and connects there.
+  Date: 2026-06-01
+
+- Decision (2026-06-01): Land M1–M4 as a single library-implementation commit plus
+  one test commit, rather than four milestone commits.
+  Rationale: `Kiroku.Metrics.Server` imports the JSON/Prometheus/Health modules, so
+  the router and its sub-modules form one cohesive, mutually-dependent unit; each
+  intermediate state would not build in isolation. The single feature commit always
+  builds; the milestones were each verified before committing (build green,
+  Prometheus format eyeballed, all endpoints exercised by the test).
+  Date: 2026-06-01
+
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+Completed 2026-06-01. All milestones landed and acceptance holds:
+
+- `cabal build kiroku-metrics` succeeds with the web deps; `cabal test
+  kiroku-metrics` is green (10 examples: EP-1's 9 plus the new all-endpoints
+  `Test/ServerSpec`).
+- Behavioral, proven by the integration test against a real store with appended
+  events: `GET /metrics` → 200 with `store.global_position >= 3`;
+  `GET /metrics/<known>` → 200; `GET /metrics/<unknown>` → 404;
+  `GET /metrics/prometheus` → 200 containing `kiroku_events_appended_total`;
+  `GET /health/live` → 200; `GET /health/ready` → 200 when healthy and 503 with a
+  failing dependency check; `GET /ws` and unknown paths → 404.
+- The IP-3 seam is in place: `combinedApp`/`startMetricsServerWith` take a
+  `WS.ServerApp`, `startMetricsServer` uses the rejecting `stubWebSocketApp`, and
+  `GET /ws` returns the documented 404. EP-3 replaces the stub without touching the
+  server structure. The `MetricsServerConfig` `ws*` fields exist for EP-3.
+- The IP-5 extension point is untouched and forward-compatible: `httpApp`/
+  `combinedApp` route by `pathInfo` and EP-5 can add a `/subscriptions` branch and
+  an optional provider arg without changing EP-2's signatures.
+
+**Differences from the plan.** `postgresPing` uses `Session.script` (hasql has no
+`Session.sql` here). JSON keys are snake_case (EP-1's choice), so the wire shape is
+`store.global_position` etc., not the camelCase in the plan's illustrative
+transcript. Subscription db-error metrics are split across two Prometheus names to
+keep label sets consistent. `promtool` was unavailable; the format was eyeballed
+and asserted by substring. M1–M4 shipped as one library commit + one test commit
+(the modules are mutually dependent).
+
+**Prometheus metric names shipped** (the public contract EP-4 documents):
+`kiroku_events_appended_total`, `kiroku_active_subscribers`,
+`kiroku_pool_connections{state}`, `kiroku_pool_established_total`,
+`kiroku_pool_terminated_total`, `kiroku_notifier_reconnecting_total`,
+`kiroku_notifier_reconnected_total`, `kiroku_publisher_pool_errors_total`,
+`kiroku_subscription_db_errors_by_phase_total{phase}`,
+`kiroku_subscriptions_started_total`, `kiroku_subscriptions_caught_up_total`,
+`kiroku_subscriptions_paused_total`, `kiroku_subscriptions_resumed_total`,
+`kiroku_subscriptions_reconnecting_total`, `kiroku_subscriptions_retrying_total`,
+`kiroku_subscriptions_dead_lettered_total`,
+`kiroku_subscriptions_stopped_total{reason}`, `kiroku_live_fetches_total`,
+`kiroku_batches_delivered_total`, `kiroku_events_delivered_total`,
+`kiroku_hard_deletes_total`, `kiroku_subscription_position{subscription}`,
+`kiroku_subscription_lag{subscription}`,
+`kiroku_subscription_db_errors_total{subscription}`.
 
 
 ## Context and Orientation
