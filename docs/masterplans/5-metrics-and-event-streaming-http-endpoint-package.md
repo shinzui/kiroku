@@ -66,6 +66,20 @@ After the whole initiative is complete, a developer who has a running
   position. This turns the event store into something a browser dashboard, a
   CLI tail, or a non-Haskell service can watch in real time without writing a
   Haskell subscription.
+- Point the existing **operator CLI** (`kiroku-cli`, the `kiroku` binary) at a
+  *running worker* and inspect its **live subscription registry** over the
+  network: `kiroku subscriptions status --remote-url http://worker:9091` (or
+  `KIROKU_REMOTE_URL`) issues `GET /subscriptions` to that worker's metrics server
+  and renders each subscription's name, consumer-group member, current FSM phase
+  (`catching_up`/`live`/`paused`/`reconnecting`/`retrying`), and current global
+  cursor — using the same table/JSON renderer the in-process command already uses.
+  The standalone `kiroku` binary becomes a **pure remote client**: its previous
+  local mode (open the binary's *own* store and read a registry that is always
+  empty, because the binary runs no subscriptions) is **removed**, along with the
+  `--database-url`/`--schema`/`--pool-size` options. The legitimate in-process case
+  stays in the embeddable library (`renderKirokuCommandWithStore`, handed the host
+  worker's own store). This is the operator-facing payoff of putting an HTTP
+  surface on the worker.
 - Read a self-contained user guide and run a single example program that boots
   an ephemeral store, starts the server, appends events, and prints the curl
   and `websocat` transcripts that prove every endpoint works.
@@ -82,6 +96,12 @@ After the whole initiative is complete, a developer who has a running
   checks (a PostgreSQL ping is the built-in one).
 - A WebSocket endpoint that pushes live metric updates **and** streams events
   out of the store, with a small JSON message protocol for both.
+- A `GET /subscriptions` (and `GET /subscriptions/<name>`) HTTP endpoint that
+  reports a worker's **live subscription registry** (read through the public
+  `Kiroku.Store.Subscription.subscriptionStates`), plus a `--remote-url` mode on
+  the `kiroku-cli` operator command that queries it. The endpoint lives in
+  `kiroku-metrics`; the client lives in `kiroku-cli`; the shared wire shape is the
+  CLI's existing `SubscriptionStatusRow` JSON.
 - A user guide (`docs/user/metrics.md`, linked from `docs/user/README.md` and
   cross-linked from `docs/user/observability.md`) and a runnable, tested
   example program.
@@ -165,6 +185,20 @@ short linear chain rather than a web.
    runnable, tested example so the docs are demonstrably correct rather than
    aspirational.
 
+5. **Remote subscription status for the operator CLI (EP-5).** Added after the
+   initial four-plan decomposition (see the Decision Log entry dated 2026-06-01).
+   The `kiroku-cli` operator command can list live subscriptions only from its own
+   process-local registry; it cannot inspect a running worker in another process.
+   EP-5 closes that gap with a `GET /subscriptions` endpoint on the EP-2 server
+   (reading the live registry through `subscriptionStates`) and a `--remote-url`
+   client mode on the CLI. It is a distinct functional concern — operator
+   introspection of a remote worker — that bridges two packages (`kiroku-metrics`
+   server, `kiroku-cli` client) and reuses the **live registry**, a richer,
+   more-current source than EP-1's callback-collector snapshot. It hard-depends on
+   EP-2 (server, router, config) and is independent of EP-3 and EP-4. Keeping it
+   separate from EP-2 lets the EP-2 scrape target ship and be proven first, and
+   keeps the cross-package CLI concern out of EP-2's snapshot-rendering scope.
+
 **Alternatives considered and rejected.** (a) *A single mega-plan*: rejected —
 the work spans package creation, an in-memory collector, three HTTP renderings,
 a WebSocket protocol with two distinct payload families, and docs; that is far
@@ -182,7 +216,16 @@ its design explicit and lets the HTTP scrape target ship and be proven first.
 (d) *Splitting metrics-WebSocket from event-WebSocket into two plans*: rejected —
 they share one Warp server, one `websocketsOr` upgrade, and one connection
 lifecycle; separating them would duplicate the connection-management code and
-create an artificial integration point.
+create an artificial integration point. (e) *Folding the `/subscriptions`
+endpoint + CLI remote client into EP-2*: rejected — it spans a second package
+(`kiroku-cli`), reads a different data source (the live registry, not the
+collector snapshot), and adds a cross-package dependency and an HTTP client; it is
+a separable operator-facing concern best shipped after EP-2's scrape target is
+proven. (f) *Reading subscription status from EP-1's `MetricsSnapshot.subscriptions`
+map instead of the live registry*: rejected — the snapshot observes positions only
+at lifecycle callback points and is shaped for lag/health, whereas the registry
+reports the *current* FSM phase and cursor of every running subscription, which is
+what an operator status command needs.
 
 
 ## Exec-Plan Registry
@@ -192,7 +235,8 @@ create an artificial integration point.
 | 1 | Kiroku-Metrics Package Foundation And In-Process Metrics Collector | docs/plans/32-kiroku-metrics-package-foundation-and-in-process-metrics-collector.md | None | None | Not Started |
 | 2 | HTTP JSON, Prometheus, And Health Endpoints For Kiroku Metrics | docs/plans/33-http-json-prometheus-and-health-endpoints-for-kiroku-metrics.md | EP-1 | None | Not Started |
 | 3 | WebSocket Endpoint For Live Metrics And Event Streaming Out Of The Store | docs/plans/34-websocket-endpoint-for-live-metrics-and-event-streaming-out-of-the-store.md | EP-2 | None | Not Started |
-| 4 | Kiroku Metrics And Event-Stream User Guide And Runnable Example | docs/plans/35-kiroku-metrics-and-event-stream-user-guide-and-runnable-example.md | EP-2 | EP-3 | Not Started |
+| 4 | Kiroku Metrics And Event-Stream User Guide And Runnable Example | docs/plans/35-kiroku-metrics-and-event-stream-user-guide-and-runnable-example.md | EP-2 | EP-3, EP-5 | Not Started |
+| 5 | Remote Subscription-Status HTTP Endpoint And Kiroku-CLI Remote Client | docs/plans/52-remote-subscription-status-http-endpoint-and-kiroku-cli-remote-client.md | EP-2 | None | Not Started |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
 Hard Deps and Soft Deps reference other rows by their # prefix (e.g., EP-1, EP-3).
@@ -200,7 +244,7 @@ Hard Deps and Soft Deps reference other rows by their # prefix (e.g., EP-1, EP-3
 
 ## Dependency Graph
 
-The hard dependencies form a chain `EP-1 → EP-2 → {EP-3, EP-4}`:
+The hard dependencies form a chain `EP-1 → EP-2 → {EP-3, EP-4, EP-5}`:
 
 - **EP-2 hard-depends on EP-1.** The JSON, Prometheus, and health renderers are
   pure functions of the `MetricsSnapshot` type and read it through the
@@ -221,15 +265,27 @@ The hard dependencies form a chain `EP-1 → EP-2 → {EP-3, EP-4}`:
   `publisherPosition`, `readAllForward`), so it has no extra hard dependency
   beyond the server seam.
 
-- **EP-4 hard-depends on EP-2 and soft-depends on EP-3.** The user guide and the
-  runnable example need a working HTTP server to demonstrate (EP-2). The example
-  is most compelling once the WebSocket event tail exists (EP-3), so EP-4 should
-  ideally follow EP-3; but it can start against the HTTP endpoints as soon as
-  EP-2 is complete and have its WebSocket section filled in when EP-3 lands.
+- **EP-4 hard-depends on EP-2 and soft-depends on EP-3 and EP-5.** The user guide
+  and the runnable example need a working HTTP server to demonstrate (EP-2). The
+  example is most compelling once the WebSocket event tail exists (EP-3) and the
+  guide should document the `/subscriptions` endpoint and the CLI remote command
+  (EP-5), so EP-4 should ideally follow both; but it can start against the HTTP
+  endpoints as soon as EP-2 is complete and have its WebSocket and
+  subscription-status sections filled in when EP-3 and EP-5 land.
+
+- **EP-5 hard-depends on EP-2.** The `GET /subscriptions` endpoint mounts on the
+  same Warp server and HTTP router (`Kiroku.Metrics.Server.httpApp`) and reuses
+  the `MetricsServerConfig` that EP-2 builds; it adds the route through an optional
+  subscription-status provider seam (IP-5) without changing EP-2's existing
+  signatures. EP-5 reads the live registry through the *public*
+  `Kiroku.Store.Subscription.subscriptionStates`, so it has no extra hard
+  dependency beyond the server. It is independent of EP-1's collector (it does not
+  read `MetricsSnapshot`) and of EP-3's WebSocket seam.
 
 **Parallelism:** Only EP-1 can start immediately. After EP-1 completes, EP-2 is
-the sole next step. After EP-2 completes, EP-3 and EP-4 may proceed in parallel
-(EP-4 finishing its WebSocket section after EP-3).
+the sole next step. After EP-2 completes, EP-3, EP-4, and EP-5 may proceed in
+parallel (EP-4 finishing its WebSocket section after EP-3 and its
+subscription-status section after EP-5).
 
 
 ## Integration Points
@@ -277,6 +333,14 @@ limitation (the collector observes a subscription's position only at
 store does not emit per-event progress) is owned and documented by EP-1 and
 restated by EP-2's readiness check and EP-4's guide.
 
+Note the distinction from EP-5's data source: this snapshot's `subscriptions` map
+is **callback-derived** (positions observed only at lifecycle points, plus lag and
+counters) and exists for metrics/health. EP-5's `/subscriptions` endpoint instead
+reads the **live registry** (`Kiroku.Store.Subscription.subscriptionStates`),
+which reports each subscription's *current* FSM phase and cursor from the worker's
+live state cell. The two are complementary and EP-5 does not consume this snapshot
+(see IP-5 and the Decision Log entry dated 2026-06-01).
+
 ### IP-2 — The `kiroku-metrics` package and its build wiring (owned by EP-1)
 
 EP-1 creates `kiroku-metrics/kiroku-metrics.cabal` plus the source tree, and
@@ -309,6 +373,15 @@ or the config record. The config record is the shared contract: EP-3 reads
 field (any event-stream tuning it needs gets a defaulted field so EP-2's
 `defaultConfig` and existing call sites still compile).
 
+EP-5 extends this same server with a second, independent seam: an **optional
+subscription-status provider** (`Maybe (IO [SubscriptionStatusRow])`) threaded
+through `httpApp`/`combinedApp` to serve `GET /subscriptions`. Like the WebSocket
+seam, it adds no required `MetricsServerConfig` field and leaves EP-2's existing
+starters working (the provider defaults to `Nothing`, and `/subscriptions` then
+returns a configured-404). EP-5 adds the 5-argument `startMetricsServerWith'` and
+a `withMetricsServerSubscriptions` convenience without altering EP-2's or EP-3's
+entry points. See IP-5.
+
 ### IP-4 — Event-stream WebSocket protocol + `RecordedEvent` JSON encoding (owned by EP-3)
 
 EP-3 owns the WebSocket message protocol (a tagged-JSON `ClientMessage` /
@@ -324,6 +397,35 @@ function produces. Should a `ToJSON RecordedEvent` instance later be wanted on
 the public surface, the Decision Log notes adding it to `kiroku-store` as the
 non-orphan home; EP-3 does not add it there to keep the dependency direction
 one-way (`kiroku-metrics` → `kiroku-store`).
+
+### IP-5 — Subscription-status wire JSON contract + the server provider seam (owned by EP-5)
+
+EP-5 owns the subscription-status wire shape and the way the endpoint is fed. The
+wire shape is the CLI's **existing** local-status JSON — a JSON array of objects
+`{subscription, member, phase, global_position}` — defined once by the `ToJSON`/
+`FromJSON` instances of `SubscriptionStatusRow` in
+`kiroku-cli/src/Kiroku/Cli/Subscription/Status.hs`. This is the single source of
+truth for the shape, consumed two ways:
+
+- **Server (`kiroku-metrics`):** `Kiroku.Metrics.Subscriptions.subscriptionsApp`
+  serves `GET /subscriptions` and `GET /subscriptions/<name>` by running an
+  injected `type SubscriptionStatusProvider = IO [SubscriptionStatusRow]` and
+  encoding the rows with the shared `ToJSON`. The canonical provider is
+  `storeSubscriptionStatus store = subscriptionStatusRows <$> subscriptionStates
+  store`, built by the caller who owns the `KirokuStore` (so the server stays
+  store-agnostic, per IP-3 and EP-2's design). To reuse the row type and encoder,
+  `kiroku-metrics` gains a `build-depends` on `kiroku-cli`; the direction
+  `kiroku-metrics → kiroku-cli → kiroku-store` has no cycle.
+
+- **Client (`kiroku-cli`):** `kiroku subscriptions status --remote-url URL`
+  GETs `<URL>/subscriptions`, decodes `[SubscriptionStatusRow]` with the shared
+  `FromJSON`, and renders with the existing `renderSubscriptionStatusRows`. The
+  CLI adds only `http-client`/`http-client-tls` (it does **not** depend on
+  `kiroku-metrics`); it stays web-server-free.
+
+EP-4's guide documents the on-the-wire JSON shape and the CLI remote command. A
+round-trip test (`decode . encode == id`) and a cross-package shape test keep the
+two sides byte-consistent.
 
 
 ## Progress
@@ -342,6 +444,9 @@ Track milestone-level progress across all child plans.
 - [ ] EP-3: End-to-end WebSocket test (append events, observe both metric updates and event messages over a real socket)
 - [ ] EP-4: `docs/user/metrics.md` guide (endpoints, JSON shapes, Prometheus names, WebSocket protocol, no-auth deployment assumption, lag limitation), linked from `docs/user/README.md` and `docs/user/observability.md`
 - [ ] EP-4: Runnable, tested example program (ephemeral store → server → append → curl + WebSocket transcripts)
+- [ ] EP-5: `GET /subscriptions` + `GET /subscriptions/<name>` on the EP-2 server, reading the live registry through an optional provider seam; shared `SubscriptionStatusRow` JSON codec in `kiroku-cli`
+- [ ] EP-5: `kiroku subscriptions status --remote-url URL` fetches and renders the endpoint over HTTP (reusing the existing table/JSON renderer), opening no local store in remote mode
+- [ ] EP-5: Round-trip + cross-package shape + end-to-end tests (boot store + subscription + server, assert the CLI remote command reports the live subscription)
 
 
 ## Surprises & Discoveries
@@ -365,6 +470,23 @@ interactions between child plans. Provide concise evidence.
   only *after* the commit `adc464b` (2025-12-30) currently pinned in
   `cabal.project`, and on the breaking **api 0.4** line (commit `dd7b634`),
   unreleased to Hackage. See the Decision Log entry on deferring the OTel bridge.
+
+- Discovery (2026-06-01, motivating EP-5): since the initial decomposition,
+  `kiroku-store` gained a **live subscription registry** —
+  `subscriptionRegistry :: TVar (Map (SubscriptionName, Int32) (Unique, TVar
+  SubscriptionState))` on `KirokuStore` (`Kiroku.Store.Connection`), read by the
+  public `Kiroku.Store.Subscription.subscriptionStates :: KirokuStore -> IO (Map
+  (SubscriptionName, Int32) SubscriptionStateView)`. Each entry's `TVar
+  SubscriptionState` cell is written by the worker on every FSM transition, so the
+  registry reports the *current* phase (`catching_up`/`live`/`paused`/
+  `reconnecting`/`retrying`) and cursor of every running subscription; a stopped
+  subscription is absent (its `finally` cleanup removes the token-guarded entry).
+  This is a richer, more-current subscription source than EP-1's callback-derived
+  `MetricsSnapshot.subscriptions` map, and it is exactly what an operator status
+  command needs. The `kiroku-cli` package already consumes it in-process
+  (`subscriptionStates` → `SubscriptionStatusRow`) but is limited to its own
+  process-local registry. EP-5 exposes it over HTTP so the CLI can read a remote
+  worker.
 
 
 ## Decision Log
@@ -467,9 +589,91 @@ interactions between child plans. Provide concise evidence.
   Date: 2026-05-19
 
 
+- Decision: Add a **fifth child plan (EP-5)** for a remote subscription-status
+  HTTP endpoint plus a `kiroku-cli` `--remote-url` client, after the initial
+  four-plan decomposition.
+  Rationale: The user asked for an endpoint that lets the new `kiroku-cli`
+  interrogate a *running worker* and inspect subscription status, using the live
+  registry that tracks subscriptions in a `TVar`, modelled on how `shibuya` and
+  `message-db-hs` expose what's running. This is a distinct operator-introspection
+  concern that bridges two packages and reads a different data source than EP-1's
+  collector, so it is a sibling plan hard-depending only on EP-2's server, not a
+  change to EP-1/EP-2/EP-3. Both reference projects expose running state the same
+  way — a `TVar` registry read on demand into immutable rows and served as JSON
+  over warp/wai (`message-db-hs`'s `jsonMetricsApp`/`jsonSubscriptionApp`,
+  `shibuya-metrics`'s `GET /metrics` from its processor registry) — which EP-5
+  mirrors with `GET /subscriptions`.
+  Date: 2026-06-01
+
+- Decision: EP-5 reads the **live registry** (`subscriptionStates`), not EP-1's
+  `MetricsSnapshot.subscriptions`, and serves it through an **optional provider
+  closure** rather than passing the `KirokuStore` into the server.
+  Rationale: The registry reports current phase and cursor per running
+  subscription (written on every FSM transition); the collector snapshot is
+  callback-derived and shaped for lag/health. EP-2 keeps the store out of the
+  server signature on purpose (store-specific behavior lives in caller-built
+  closures, like `postgresPing`); EP-5 follows that rule, so `/subscriptions` is
+  fed by `storeSubscriptionStatus store = subscriptionStatusRows <$>
+  subscriptionStates store` and the server stays store-agnostic. When no provider
+  is wired the endpoint returns a configured-404, so EP-2's call sites compile
+  unchanged.
+  Date: 2026-06-01
+
+- Decision: Keep one wire shape for subscription status — the CLI's existing
+  `SubscriptionStatusRow` JSON (`{subscription, member, phase, global_position}`) —
+  owned by `kiroku-cli`, with `kiroku-metrics` depending on `kiroku-cli` to reuse
+  the encoder, and the CLI remote client decoding the same shape.
+  Rationale: One codec, no drift; the local and remote CLI commands render through
+  the identical `renderSubscriptionStatusRows`. The dependency direction
+  `kiroku-metrics → kiroku-cli → kiroku-store` is acyclic (`kiroku-cli` does not
+  depend on `kiroku-metrics`), and `kiroku-cli` stays web-server-free, adding only
+  a light `http-client` for the remote call. See IP-5.
+  Date: 2026-06-01
+
+- Decision: As part of EP-5, convert the standalone `kiroku` binary into a **pure
+  remote client** and **remove** its local store-opening mode and its
+  `--database-url`/`--schema`/`--pool-size` options.
+  Rationale: The standalone binary runs no subscriptions, so its local mode read
+  an always-empty registry — it was useless (its own help text said so). Remote is
+  the only sensible standalone behavior; the legitimate in-process read stays in
+  the embeddable library API (`renderKirokuCommandWithStore`, given the host
+  worker's own store). `app/Main.hs` is untouched because the
+  `standaloneParserInfo`/`resolveStandaloneOptions`/`runStandaloneCommand`
+  signatures are preserved; the endpoint resolves from `--remote-url` or the new
+  `KIROKU_REMOTE_URL` env var. Decided with the user on 2026-06-01 (the standalone
+  local mode was called out as useless).
+  Date: 2026-06-01
+
+
 ## Outcomes & Retrospective
 
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original vision.
 
 (To be filled during and after implementation.)
+
+
+## Revision Notes
+
+- 2026-06-01 — Added **EP-5** (`docs/plans/52-remote-subscription-status-http-endpoint-and-kiroku-cli-remote-client.md`):
+  a `GET /subscriptions` / `GET /subscriptions/<name>` endpoint on the EP-2 metrics
+  server (reading the live `subscriptionStates` registry through an optional
+  provider seam) plus a `kiroku subscriptions status --remote-url URL` client mode,
+  so the `kiroku-cli` operator command can inspect a running worker's live
+  subscriptions over the network instead of only its process-local registry.
+  Updated Vision & Scope (new capability + in-scope bullet), Decomposition Strategy
+  (item 5 + rejected alternatives e/f), Exec-Plan Registry (new row 5; EP-4 soft
+  dep += EP-5), Dependency Graph (`EP-1 → EP-2 → {EP-3, EP-4, EP-5}`), Integration
+  Points (new **IP-5**; clarified IP-1's collector-vs-registry distinction;
+  extended IP-3 to note EP-5's provider seam), Progress (three EP-5 milestones),
+  Surprises & Discoveries (the live registry), and the Decision Log (three EP-5
+  decisions). Modelled on how `shibuya-metrics` and `message-db-hs` expose their
+  in-memory registries over warp/wai.
+
+- 2026-06-01 — EP-5 scope sharpened (user decision): the standalone `kiroku` binary
+  becomes a **pure remote client**. Its useless local store-opening mode and the
+  `--database-url`/`--schema`/`--pool-size` options are **removed**; the endpoint
+  resolves from `--remote-url` or `KIROKU_REMOTE_URL`. The legitimate in-process
+  read stays in the embeddable library API (`renderKirokuCommandWithStore`).
+  Reflected in EP-5 (plan 52) and in this MasterPlan's Vision & Scope and Decision
+  Log.

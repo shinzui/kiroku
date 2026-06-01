@@ -23,6 +23,15 @@ The HTTP-endpoint half can be written and demonstrated as soon as EP-2 is
 Complete; the WebSocket/event-streaming half of the guide and example should be
 filled in once EP-3 is Complete (if EP-3 lands first, do both together).
 
+It also **soft-depends on EP-5**
+(`docs/plans/52-remote-subscription-status-http-endpoint-and-kiroku-cli-remote-client.md`).
+Once EP-5 is Complete, the guide gains a short section documenting the
+`GET /subscriptions` / `GET /subscriptions/<name>` endpoint (the live-registry
+JSON shape `{subscription, member, phase, global_position}`) and the
+`kiroku subscriptions status --remote-url URL` operator command for inspecting a
+running worker; if EP-5 is not yet done, write everything else and add this
+section when it lands.
+
 
 ## Purpose / Big Picture
 
@@ -62,6 +71,7 @@ exit code.
 - [ ] M1: `docs/user/metrics.md` written (overview, wiring, every HTTP endpoint with transcripts, Prometheus metric reference, deployment assumption, limitations); linked from `docs/user/README.md` and cross-linked from `docs/user/observability.md`.
 - [ ] M2: WebSocket section of the guide (metrics channel + event channel protocol, `RecordedEvent` wire shape, `websocat` transcripts) — fill once EP-3 is done.
 - [ ] M3: `executable kiroku-metrics-example` added to `kiroku-metrics.cabal`: a self-verifying runnable demo; `cabal run kiroku-metrics-example` exits 0 and prints the documented transcript.
+- [ ] M4: Subscription-status section of the guide (`GET /subscriptions` JSON shape + `kiroku subscriptions status --remote-url URL` command) — fill once EP-5 is done.
 
 
 ## Surprises & Discoveries

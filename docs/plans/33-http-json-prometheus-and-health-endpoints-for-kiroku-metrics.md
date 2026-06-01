@@ -538,3 +538,16 @@ and `combinedApp ... wsApp`. EP-3 will provide a real `WS.ServerApp` (closing ov
 the `KirokuStore` and `KirokuMetrics`) and a convenience starter; it must not need
 any new *required* field on `MetricsServerConfig` (the `ws*` fields already exist).
 This plan must keep `kiroku-store` unchanged.
+
+Seam handed to EP-5
+(`docs/plans/52-remote-subscription-status-http-endpoint-and-kiroku-cli-remote-client.md`,
+IP-5): EP-5 mounts a `GET /subscriptions` route on this same server and router.
+It does so by threading an *optional* subscription-status provider
+(`Maybe (IO [SubscriptionStatusRow])`) through `httpApp`/`combinedApp` and adding a
+5-argument `startMetricsServerWith'` (plus a `withMetricsServerSubscriptions`
+convenience), leaving this plan's `startMetricsServer`/`startMetricsServerWith`
+working with the provider defaulting to `Nothing` (then `/subscriptions` returns a
+configured-404). Like the WebSocket seam, it adds no new *required*
+`MetricsServerConfig` field. Nothing in this plan needs to change for EP-5; this
+note records the forward-compatible extension point so the server structure EP-2
+ships is the one EP-5 extends.
