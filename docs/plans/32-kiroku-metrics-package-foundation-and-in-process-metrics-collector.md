@@ -67,7 +67,12 @@ exposes every seam the collector needs.
 
 - [x] M1 (2026-06-01): `kiroku-metrics` package skeleton created and wired into `cabal.project`, `flake.nix`, `nix/haskell-overlay.nix`, and `mori.dhall`; the empty library builds under `cabal build kiroku-metrics` (green) and the flake evaluates with the new attribute (`nix build .#kiroku-metrics --dry-run` resolves the `kiroku-store` + `kiroku-metrics` derivations). Full `nix build` deferred to avoid a slow from-source compile of the dependency tree.
 - [x] M2 (2026-06-01): `Kiroku.Metrics.Types` (`MetricsSnapshot` + sub-records + hand-written `ToJSON`) and `Kiroku.Metrics.Collector` (`KirokuMetrics`, `newKirokuMetrics`, `newKirokuMetricsWith`, callback wrappers, `snapshotMetrics`) implemented against the **full** current `KirokuEvent` taxonomy; pure unit test (8 examples) passes (`cabal test kiroku-metrics`).
-- [ ] M3: Integration test wiring the collector into a real `withTestStore`, appending events and running a subscription, asserts snapshot contents; `cabal test` green.
+- [x] M3 (2026-06-01): Integration test wiring the collector into a real ephemeral
+  store (`Kiroku.Test.Postgres.withMigratedTestDatabase`), appending 5 events and
+  running a live `$all` subscription, asserts `store.globalPosition >= 5`,
+  `subscriptionsStarted == 1`, `subscriptionsStoppedCancelled == 1`,
+  `eventsDelivered >= 5`, and the subscription's `lag >= 0`. `cabal test
+  kiroku-metrics` green (9 examples); `cabal build all` green.
 
 
 ## Surprises & Discoveries
@@ -181,7 +186,39 @@ exposes every seam the collector needs.
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+Completed 2026-06-01. All three milestones landed and all acceptance criteria hold:
+
+- `cabal build all` succeeds with the new `kiroku-metrics` package present.
+- The flake evaluates with the new attribute (`nix build .#kiroku-metrics
+  --dry-run` resolves the derivation); a full `nix build` was deferred to avoid a
+  from-source compile of the whole dependency tree (permitted fallback).
+- `cabal test kiroku-metrics` runs the pure unit spec (8 examples) and the
+  integration spec (1 example), all green.
+- The IP-1 public surface exists with the exact signatures EP-2 will import:
+  `data KirokuMetrics`, `newKirokuMetrics :: KirokuStore -> IO KirokuMetrics`,
+  `metricsEventHandler`, `metricsObservationHandler`, `snapshotMetrics ::
+  KirokuMetrics -> IO MetricsSnapshot`, `data MetricsSnapshot`, `instance ToJSON
+  MetricsSnapshot` — plus the documented test seam `newKirokuMetricsWith :: STM
+  GlobalPosition -> STM Int -> IO KirokuMetrics`.
+- `kiroku-store` is unchanged: the collector consumes only public callback seams
+  and read accessors.
+
+**What differed from the plan.** The `KirokuEvent` taxonomy had grown well beyond
+the plan's snippet (group context on every lifecycle event; new
+paused/resumed/reconnecting/fetched/delivered/retrying/dead-lettered
+constructors). `LifecycleCounters` was extended with additive counters to cover
+the full set — IP-1's shape that EP-2/EP-3 consume is therefore broader than the
+snippet, but the four collector functions and the snapshot/`ToJSON` contract are
+exactly as specified (see Surprises & Discoveries and the MasterPlan's matching
+discovery note). The deferred-store seam for M3 is a `TVar` (not the plan's
+`IORef`) because the snapshot readers are `STM`. The test fixture uses the repo's
+`kiroku-test-support` rather than raw `ephemeral-pg`.
+
+**Carried forward for EP-2/EP-3/EP-4.** The snapshot JSON keys are snake_case
+(documented in the Decision Log); the per-subscription map is keyed by name only
+and folds consumer-group members together (the group context is dropped in v1);
+`lastKnownPosition` is observed only at lifecycle points, so `lag` is an upper
+bound — EP-2's readiness check and EP-4's guide must restate this limitation.
 
 
 ## Context and Orientation
