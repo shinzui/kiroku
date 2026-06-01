@@ -41,7 +41,9 @@ Publish in this order — dependencies first:
    migrations + `kiroku-store-migrate` exe. Depends on `kiroku-store`.
 3. **kiroku-otel** (`kiroku-otel/`) — OpenTelemetry instrumentation (sister
    package). Depends on `kiroku-store`.
-4. **shibuya-kiroku-adapter** (`shibuya-kiroku-adapter/`) — adapter bridging
+4. **kiroku-cli** (`kiroku-cli/`) — embeddable operator CLI + `kiroku` exe.
+   Depends on `kiroku-store`.
+5. **shibuya-kiroku-adapter** (`shibuya-kiroku-adapter/`) — adapter bridging
    `kiroku-store` and `shibuya-core`. Depends on `kiroku-store` (and the
    external, already-published `shibuya-core`).
 
@@ -101,8 +103,9 @@ For each package being released:
 
 **Internal dependency bounds** — if a dependency package was bumped, update
 its bound in every publishable dependent. Dependents of `kiroku-store` are
-`kiroku-store-migrations`, `kiroku-otel`, and `shibuya-kiroku-adapter` (update
-the `kiroku-store` bound in the library *and* test-suite/executable stanzas).
+`kiroku-store-migrations`, `kiroku-otel`, `kiroku-cli`, and
+`shibuya-kiroku-adapter` (update the `kiroku-store` bound in the library *and*
+test-suite/executable stanzas).
 Use PVP-friendly bounds, e.g. `kiroku-store ^>=A.B` matching the released
 version. Leave external bounds (e.g. `shibuya-core ^>=0.5 && <0.6`) alone
 unless they genuinely changed.
@@ -110,10 +113,8 @@ unless they genuinely changed.
 **Changelog** — add a new section for the new version above prior entries,
 dated today (`YYYY-MM-DD`), moving any "Unreleased" content into it. Group
 entries under **Breaking Changes** / **New Features** / **Bug Fixes** /
-**Other Changes** (only the categories that apply). `kiroku-store`,
-`kiroku-otel`, and `shibuya-kiroku-adapter` have a `CHANGELOG.md`;
-**`kiroku-store-migrations` does not — create one** with a header and the new
-version section.
+**Other Changes** (only the categories that apply). Each publishable package has
+a `CHANGELOG.md`.
 
 **First-release packaging check** — before a package's first Hackage upload,
 make sure its `.cabal` has the fields Hackage requires: `synopsis`,
@@ -190,7 +191,7 @@ Report each GitHub release URL when done.
 - **Always ask the user to confirm** the per-package version bumps and
   changelogs before committing.
 - **Always publish in dependency order:** kiroku-store → kiroku-store-migrations
-  → kiroku-otel → shibuya-kiroku-adapter.
+  → kiroku-otel → kiroku-cli → shibuya-kiroku-adapter.
 - Never skip `cabal check`, tests, or `nix flake check`.
 - Run `nix fmt` before committing, and `git add` new files before `nix flake
   check`.

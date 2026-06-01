@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-### Added
+## 0.1.1.0 — 2026-05-31
+
+### New Features
 
 * Forward migration `2026-05-26-00-00-00-add-subscription-dead-letters.sql`:
   creates the `kiroku.dead_letters` table (per consumer-group member, with a

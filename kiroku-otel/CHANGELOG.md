@@ -2,19 +2,11 @@
 
 ## Unreleased
 
-### Changed — OpenTelemetry 1.0 and current semantic-convention keys
+## 0.2.0.0 — 2026-05-31
 
-- `kiroku-otel` now depends on the OpenTelemetry 1.0 package family:
-  `hs-opentelemetry-api ^>=1.0`, `hs-opentelemetry-propagator-w3c ^>=1.0`,
-  and `hs-opentelemetry-semantic-conventions ^>=1.40`.
-- Subscription spans now emit generated OpenTelemetry semantic-convention
-  attribute keys alongside the existing `kiroku.*` keys. Delivery spans include
-  `messaging.system = "kiroku"`, `messaging.destination.name`,
-  `messaging.operation.type = "process"`, and
-  `messaging.batch.message_count`; database-error spans include
-  `db.system.name = "postgresql"` and `db.operation.name`.
+### Breaking Changes
 
-### Changed — complete FSM-state span coverage (`Kiroku.Otel.Subscription`, MasterPlan 7 EP-2)
+#### Complete FSM-state span coverage (`Kiroku.Otel.Subscription`, MasterPlan 7 EP-2)
 
 - The per-batch span is now keyed on the new `KirokuEventSubscriptionDelivered`
   event and named `kiroku.subscription.deliver` (replacing the `spanFetch` /
@@ -39,7 +31,9 @@
   with the tracer installed and asserts the catch-up, live `deliver`, and
   `stopped` spans all appear.
 
-### Added — subscription-state tracing (`Kiroku.Otel.Subscription`, MasterPlan 6 EP-5)
+### New Features
+
+#### Subscription-state tracing (`Kiroku.Otel.Subscription`, MasterPlan 6 EP-5)
 
 - `subscriptionTraceHandler :: Tracer -> IO (KirokuEvent -> IO ())` — a ready-made
   `eventHandler` callback that turns the subscription worker's finite-state
@@ -56,6 +50,20 @@
   OpenTelemetry dependency. The handler keeps its open spans in a thread-safe
   `MVar` keyed by `(subscription name, member)`. Requires a **batch span
   processor** so the synchronous callback never blocks the worker on export.
+
+### Other Changes
+
+#### OpenTelemetry 1.0 and current semantic-convention keys
+
+- `kiroku-otel` now depends on the OpenTelemetry 1.0 package family:
+  `hs-opentelemetry-api ^>=1.0`, `hs-opentelemetry-propagator-w3c ^>=1.0`,
+  and `hs-opentelemetry-semantic-conventions ^>=1.40`.
+- Subscription spans now emit generated OpenTelemetry semantic-convention
+  attribute keys alongside the existing `kiroku.*` keys. Delivery spans include
+  `messaging.system = "kiroku"`, `messaging.destination.name`,
+  `messaging.operation.type = "process"`, and
+  `messaging.batch.message_count`; database-error spans include
+  `db.system.name = "postgresql"` and `db.operation.name`.
 
 ## 0.1.0.0 — 2026-05-23
 

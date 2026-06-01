@@ -2,7 +2,24 @@
 
 ## Unreleased
 
-### Added — per-batch delivery event (plan 46)
+## 0.2.0.0 — 2026-05-31
+
+### Breaking Changes
+
+* `currentState` changed type from `m SubscriptionState` to
+  `m (Maybe SubscriptionState)` and is now resolved through the central registry
+  by `(name, member)` and this handle's token: `Just s` while the worker is live
+  and still owns the entry, `Nothing` once it has stopped/cancelled/crashed (its
+  registry key is removed), before it starts, or after a newer worker supersedes
+  the same key. This makes the registry genuinely the single source of truth for
+  live state and unifies the "stopped = absent" rule across `currentState` and
+  the snapshot. (The worker still solely writes its `stateVar`; only the handle's
+  read path moved to a registry lookup of that same cell.) A deliberate pre-1.0
+  breaking change.
+
+### New Features
+
+#### Per-batch delivery event (plan 46)
 
 * New additive `KirokuEvent` constructor
   `KirokuEventSubscriptionDelivered !SubscriptionName !Int !SubscriptionDeliveryPhase !SubscriptionGroupContext`,
@@ -17,7 +34,7 @@
   DB-driven live loops per fetch (the live-fetch-rate signal); a DB-driven live
   batch therefore emits both `Fetched` (the fetch) and `Delivered` (the delivery).
 
-### Added — central subscription-state registry (plan 45)
+#### Central subscription-state registry (plan 45)
 
 * `KirokuStore` gains a `subscriptionRegistry` field: a central, in-memory map
   keyed by `(SubscriptionName, member)` holding every live subscription worker's
@@ -44,20 +61,7 @@
   label) in `Kiroku.Store.Subscription.Fsm`; `stateName` and `stateCursor` are
   re-exported from `Kiroku.Store`.
 
-### Changed (pre-1.0, breaking) — plan 45
-
-* `currentState` changed type from `m SubscriptionState` to
-  `m (Maybe SubscriptionState)` and is now resolved through the central registry
-  by `(name, member)` and this handle's token: `Just s` while the worker is live
-  and still owns the entry, `Nothing` once it has stopped/cancelled/crashed (its
-  registry key is removed), before it starts, or after a newer worker supersedes
-  the same key. This makes the registry genuinely the single source of truth for
-  live state and unifies the "stopped = absent" rule across `currentState` and
-  the snapshot. (The worker still solely writes its `stateVar`; only the handle's
-  read path moved to a registry lookup of that same cell.) A deliberate pre-1.0
-  breaking change.
-
-### Added — per-event retry / dead-letter dispositions (plan 40)
+#### Per-event retry / dead-letter dispositions (plan 40)
 
 * `SubscriptionResult` gains two Kiroku-native dispositions:
   `Retry RetryDelay` (redeliver the same event after a delay, bounded by the new
@@ -83,7 +87,7 @@
   `SQL.insertDeadLetterAndCheckpointStmt` / `SQL.readDeadLettersStmt` statements;
   the dead-letter insert and checkpoint advance run in one atomic statement.
 
-### Added — per-subscription event-type filtering and selector (plan 43)
+#### Per-subscription event-type filtering and selector (plan 43)
 
 * `SubscriptionConfig.eventTypeFilter :: EventTypeFilter` — a declarative,
   closed filter (`AllEventTypes | OnlyEventTypes (Set EventType)`, default
@@ -106,7 +110,7 @@
   `eventTypeFilter` and `selector` are forwarded through the Shibuya adapter
   (`KirokuAdapterConfig` / `KirokuConsumerGroupConfig`).
 
-### Changed — subscription worker driven by an explicit FSM (plan 41)
+#### Subscription worker driven by an explicit FSM (plan 41)
 
 * The subscription worker is now driven by an explicit finite state machine
   (`Kiroku.Store.Subscription.Fsm`): a `SubscriptionState`
@@ -129,7 +133,7 @@
   off and re-catches-up from its checkpoint — instead of retrying silently
   in place. (`AllStreams` live delivery is publisher-fed and has no worker fetch.)
 
-### Added
+#### Subscription observability events
 
 * `KirokuEventSubscriptionPaused`, `KirokuEventSubscriptionResumed`, and
   `KirokuEventSubscriptionReconnecting` observability events for the new states.
@@ -137,7 +141,9 @@
   `SubscriptionState` for observability, backed by a `TVar` the worker writes on
   every transition.
 
-### Fixed — subscription catch-up DB errors
+### Bug Fixes
+
+#### Subscription catch-up DB errors
 
 * Subscription catch-up now retries transient `FetchBatch` database errors at the
   same cursor with capped backoff instead of treating the error as an empty
@@ -145,7 +151,7 @@
   cursor and missing pre-live events. See
   `docs/plans/39-catchup-must-not-treat-db-errors-as-caught-up.md`.
 
-### Fixed — publisher restart history rebroadcast
+#### Publisher restart history rebroadcast
 
 * `EventPublisher` now initializes its in-memory cursor from the current `$all`
   stream tail at startup instead of `GlobalPosition 0`. Restarting a store no
@@ -154,7 +160,7 @@
   `AllStreams` subscribers while they are still catching up. See
   `docs/plans/38-publisher-tail-init-to-avoid-restart-rebroadcast-and-allstreams-overflow.md`.
 
-### Fixed — Category/consumer-group live subscriptions busy-spinning (plan 37)
+#### Category/consumer-group live subscriptions busy-spinning (plan 37)
 
 * Live `Category` subscriptions and consumer-group members no longer busy-spin
   when idle while other categories/partitions advance the global `$all`
@@ -165,7 +171,7 @@
   checkpoint semantics are unchanged. See
   `docs/plans/37-fix-category-subscription-live-loop-busy-spin.md`.
 
-### Added
+#### Live fetch observability
 
 * `KirokuEventSubscriptionFetched` observability event (per live DB-driven
   fetch), exposing per-subscription live-fetch activity.

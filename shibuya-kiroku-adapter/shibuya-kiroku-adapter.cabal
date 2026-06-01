@@ -1,6 +1,6 @@
 cabal-version:   3.0
 name:            shibuya-kiroku-adapter
-version:         0.1.0.0
+version:         0.2.0.0
 synopsis:
   Kiroku event store adapter for the Shibuya queue processing framework
 
@@ -52,7 +52,7 @@ library
     , effectful-core                         >=2.4   && <2.7
     , hs-opentelemetry-api                   ^>=1.0
     , hs-opentelemetry-semantic-conventions  ^>=1.40
-    , kiroku-store                           ^>=0.1
+    , kiroku-store                           ^>=0.2
     , shibuya-core                           >=0.6   && <0.7
     , stm                                    >=2.5   && <2.6
     , streamly-core                          >=0.3   && <0.4
@@ -80,7 +80,7 @@ test-suite shibuya-kiroku-adapter-test
     , hasql-pool              >=1.2  && <1.5
     , hs-opentelemetry-api    ^>=1.0
     , hspec                   >=2.10 && <2.12
-    , kiroku-store            ^>=0.1
+    , kiroku-store            ^>=0.2
     , kiroku-test-support
     , lens                    >=5.2  && <5.4
     , shibuya-core            >=0.6  && <0.7

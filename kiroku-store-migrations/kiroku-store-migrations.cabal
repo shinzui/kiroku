@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               kiroku-store-migrations
-version:            0.1.0.0
+version:            0.1.1.0
 synopsis:           Schema migrations for kiroku-store
 description:
   Embedded codd migrations and a migration executable for installing and
@@ -70,7 +70,7 @@ test-suite kiroku-store-migrations-test
     , hasql                    >=1.10 && <1.11
     , hasql-pool               >=1.2  && <1.5
     , hspec                    >=2.10 && <2.12
-    , kiroku-store             ^>=0.1
+    , kiroku-store             ^>=0.2
     , kiroku-store-migrations
     , text                     >=2.0  && <2.2
     , time                     >=1.12 && <1.15
