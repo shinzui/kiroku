@@ -59,12 +59,14 @@ test-suite kiroku-metrics-test
   import:         common
   type:           exitcode-stdio-1.0
   main-is:        Main.hs
+  other-modules:  Test.CollectorSpec
   hs-source-dirs: test
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N
   build-depends:
     , aeson                >=2.1  && <2.3
     , base                 >=4.18 && <5
     , containers           >=0.6  && <0.8
+    , hasql-pool           >=1.2  && <1.5
     , hspec                >=2.10 && <2.12
     , kiroku-metrics
     , kiroku-store         ^>=0.2

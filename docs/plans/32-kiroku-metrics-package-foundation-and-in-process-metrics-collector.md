@@ -66,7 +66,7 @@ exposes every seam the collector needs.
 ## Progress
 
 - [x] M1 (2026-06-01): `kiroku-metrics` package skeleton created and wired into `cabal.project`, `flake.nix`, `nix/haskell-overlay.nix`, and `mori.dhall`; the empty library builds under `cabal build kiroku-metrics` (green) and the flake evaluates with the new attribute (`nix build .#kiroku-metrics --dry-run` resolves the `kiroku-store` + `kiroku-metrics` derivations). Full `nix build` deferred to avoid a slow from-source compile of the dependency tree.
-- [ ] M2: `Kiroku.Metrics.Types` (`MetricsSnapshot` + sub-records + `ToJSON`) and `Kiroku.Metrics.Collector` (`KirokuMetrics`, `newKirokuMetrics`, callback wrappers, `snapshotMetrics`) implemented; pure unit test passes.
+- [x] M2 (2026-06-01): `Kiroku.Metrics.Types` (`MetricsSnapshot` + sub-records + hand-written `ToJSON`) and `Kiroku.Metrics.Collector` (`KirokuMetrics`, `newKirokuMetrics`, `newKirokuMetricsWith`, callback wrappers, `snapshotMetrics`) implemented against the **full** current `KirokuEvent` taxonomy; pure unit test (8 examples) passes (`cabal test kiroku-metrics`).
 - [ ] M3: Integration test wiring the collector into a real `withTestStore`, appending events and running a subscription, asserts snapshot contents; `cabal test` green.
 
 
@@ -137,6 +137,38 @@ exposes every seam the collector needs.
   and resolves to a `kiroku-metrics-0.1.0.0` derivation (cabal2nix succeeded).
   Note: flakes only see git-tracked files, so the new `kiroku-metrics/` directory
   must be `git add`-ed before the dry-run can find it.
+  Date: 2026-06-01
+
+- Decision (2026-06-01, M2): Extend `LifecycleCounters` to cover the **full**
+  current `KirokuEvent` constructor set, not just the constructors the plan's M2
+  snippet listed.
+  Rationale: The taxonomy grew (see Surprises). `-Wall`'s incomplete-pattern
+  warning plus the goal of a faithful metrics surface mean the collector handles
+  every constructor. New additive counters: `subscriptionsPaused`,
+  `subscriptionsResumed`, `subscriptionsReconnecting`, `subscriptionsRetrying`,
+  `subscriptionsDeadLettered`, `liveFetches` (from `...Fetched`), `batchesDelivered`
+  and `eventsDelivered` (from `...Delivered`). The trailing `SubscriptionGroupContext`
+  on lifecycle events is ignored for v1 (counters and the per-subscription map are
+  keyed by name only; consumer-group members fold into one entry per name). This
+  is additive to IP-1 and breaks nothing.
+  Date: 2026-06-01
+
+- Decision (2026-06-01, M2): Snapshot JSON uses **snake_case** keys
+  (`global_position`, `pool_in_use`, `last_known_position`, …) via hand-written
+  `ToJSON`.
+  Rationale: Matches the `SubscriptionStatusRow` / dead-letter JSON conventions
+  already used in the tree and is the conventional Prometheus/JSON style. Keys are
+  documented here so EP-2's renderers and EP-4's guide can rely on them.
+  Date: 2026-06-01
+
+- Decision (2026-06-01, M2): The deferred-store seam for the M3 integration test
+  is a `TVar (Maybe KirokuStore)`, **not** the `IORef (Maybe KirokuStore)` the plan
+  suggested.
+  Rationale: `newKirokuMetricsWith` takes `STM` readers (so the snapshot reads the
+  store gauges in the same transaction as the collector state), and STM cannot read
+  an `IORef`. A `TVar` lets the readers be `readTVar tv >>= maybe (pure default) …`,
+  which composes into the snapshot transaction. Recorded because EP-4's example
+  program reuses this ordering pattern.
   Date: 2026-06-01
 
 - Decision (2026-06-01, M1): Set the `kiroku-store` dependency bound to `^>=0.2`
