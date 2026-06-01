@@ -235,7 +235,7 @@ what an operator status command needs.
 | 1 | Kiroku-Metrics Package Foundation And In-Process Metrics Collector | docs/plans/32-kiroku-metrics-package-foundation-and-in-process-metrics-collector.md | None | None | Complete |
 | 2 | HTTP JSON, Prometheus, And Health Endpoints For Kiroku Metrics | docs/plans/33-http-json-prometheus-and-health-endpoints-for-kiroku-metrics.md | EP-1 | None | Complete |
 | 3 | WebSocket Endpoint For Live Metrics And Event Streaming Out Of The Store | docs/plans/34-websocket-endpoint-for-live-metrics-and-event-streaming-out-of-the-store.md | EP-2 | None | Complete |
-| 4 | Kiroku Metrics And Event-Stream User Guide And Runnable Example | docs/plans/35-kiroku-metrics-and-event-stream-user-guide-and-runnable-example.md | EP-2 | EP-3, EP-5 | Not Started |
+| 4 | Kiroku Metrics And Event-Stream User Guide And Runnable Example | docs/plans/35-kiroku-metrics-and-event-stream-user-guide-and-runnable-example.md | EP-2 | EP-3, EP-5 | Complete |
 | 5 | Remote Subscription-Status HTTP Endpoint And Kiroku-CLI Remote Client | docs/plans/52-remote-subscription-status-http-endpoint-and-kiroku-cli-remote-client.md | EP-2 | None | Complete |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
@@ -442,8 +442,8 @@ Track milestone-level progress across all child plans.
 - [x] EP-3: WebSocket protocol types + metrics channel (snapshot on connect, periodic live updates), filling the EP-2 seam (`startMetricsServerWithStore` wires the real `websocketApp`)
 - [x] EP-3: Event-stream channel — live "from-now" tail via `subscribePublisher` (`DropOldest`, `wsEventQueueCap`), optional category filter and replay-from-position via `readAllForward`/`readCategory`; `recordedEventToJSON`
 - [x] EP-3: End-to-end WebSocket test (append events, observe event messages in order + metric snapshot over a real socket) + a replay-then-live test; `nix build .#kiroku-metrics` green after a `wai-websockets` overlay fix
-- [ ] EP-4: `docs/user/metrics.md` guide (endpoints, JSON shapes, Prometheus names, WebSocket protocol, no-auth deployment assumption, lag limitation), linked from `docs/user/README.md` and `docs/user/observability.md`
-- [ ] EP-4: Runnable, tested example program (ephemeral store → server → append → curl + WebSocket transcripts)
+- [x] EP-4: `docs/user/metrics.md` guide (endpoints, JSON shapes, Prometheus reference, WebSocket protocol, `/subscriptions`, no-auth deployment assumption, lag limitation), linked from `docs/user/README.md` and `docs/user/observability.md`; `docs/user/operator-cli.md` rewritten for EP-5's remote-only binary
+- [x] EP-4: Runnable, self-verifying example program (`kiroku-metrics-example`: ephemeral store → server → append → HTTP + WebSocket checks); gated behind a default-on `example` cabal flag (off under nix); `cabal run kiroku-metrics-example` exits 0
 - [x] EP-5: `GET /subscriptions` + `GET /subscriptions/<name>` on the EP-2 server, reading the live registry through an optional provider seam (`startMetricsServerWith'`/`withMetricsServerSubscriptions`); shared `SubscriptionStatusRow` JSON codec in `kiroku-cli`
 - [x] EP-5: `kiroku subscriptions status --remote-url URL` (or `KIROKU_REMOTE_URL`) fetches and renders the endpoint over HTTP (reusing the existing renderer); standalone binary is now a pure remote client (DB options/`withStore` removed), opening no local store
 - [x] EP-5: Round-trip + exact-keys + cross-package shape + end-to-end tests (boot store + subscription + server, assert the CLI remote command reports the live subscription at phase `live`, cursor 3); `nix build .#kiroku-cli .#kiroku-metrics` green
@@ -727,7 +727,57 @@ interactions between child plans. Provide concise evidence.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original vision.
 
-(To be filled during and after implementation.)
+**Initiative complete (2026-06-01).** All five child plans are Complete; the
+`kiroku-metrics` sister package delivers everything in the original Vision & Scope.
+
+What shipped:
+
+- **EP-1** — the `kiroku-metrics` package and its build wiring, plus the in-process
+  `KirokuMetrics` collector and the immutable, JSON-encodable `MetricsSnapshot`
+  (store gauges, lifecycle counters, per-subscription lag), driven entirely by the
+  store's existing callback seams (no `kiroku-store` change).
+- **EP-2** — `GET /metrics`, `/metrics/<sub>`, `/metrics/prometheus`, and
+  `/health/{live,ready}` + `/health`, built on a Warp `websocketsOr` server with a
+  stubbed WebSocket seam and pluggable dependency checks (`postgresPing`).
+- **EP-3** — the real WebSocket: `/ws/metrics` (snapshot + periodic push) and
+  `/ws/events` (live event tail via the public `subscribePublisher` broadcast, with
+  `from_position` replay and `category` filter), owning the `ClientMessage`/
+  `ServerMessage` protocol and `recordedEventToJSON`. This is the strategic payoff —
+  events stream out of the store over a socket with no Haskell client and no
+  checkpoint pollution.
+- **EP-5** — `GET /subscriptions` (+ `/<name>`) serving the live registry through an
+  optional provider seam, and the `kiroku` CLI turned into a pure remote client
+  (`--remote-url`/`KIROKU_REMOTE_URL`) that inspects a running worker; one shared
+  `SubscriptionStatusRow` wire codec across `kiroku-cli` and `kiroku-metrics`.
+- **EP-4** — the `docs/user/metrics.md` guide (every endpoint, the Prometheus
+  reference, the WebSocket protocol, `/subscriptions`, the no-auth assumption and the
+  lag upper-bound limitation), a rewritten `operator-cli.md`, and a self-verifying
+  `kiroku-metrics-example` that proves the documented behavior.
+
+`kiroku-store` was never modified — the sister-package decomposition held exactly as
+designed. The deferred OpenTelemetry metrics bridge remains future work, with the
+collector snapshot left as its seam (Decision Log).
+
+Lessons / friction (all recorded in child-plan Surprises):
+
+- The pinned nixpkgs Haskell set ships two packages that don't build as-is in the
+  closure: `wai-app-static` (dragged in by `wai-websockets`' example exe; EP-3) and
+  `ephemeral-pg` (dragged in by the EP-4 example via `kiroku-test-support`). Both
+  were resolved in `nix/haskell-overlay.nix` with `overrideCabal` dropping the
+  offending optional/executable deps — and the EP-4 case also needed a cabal `flag`
+  so the example still builds under `cabal`. The recurring lesson: a new
+  *executable* component pulls test-only/optional transitive deps into the nix build
+  closure that the library never needed.
+- Nix flakes only see git-tracked files, so each new source file had to be
+  `git add`-ed before `nix build`.
+- Two packages (`kiroku-cli`, and the example) needed adding to the flake `packages`
+  / overlay that the initial decomposition hadn't anticipated.
+
+Result vs. vision: matches the Vision & Scope bullet-for-bullet. The one minor
+deviation is that the EP-4 example sources its ephemeral DB from
+`kiroku-test-support` rather than `ephemeral-pg` directly (and is flag-gated for
+nix); the category WebSocket path is implemented but covered by reasoning + the
+from-now/replay tests rather than a dedicated automated test (EP-3 Decision Log).
 
 
 ## Revision Notes

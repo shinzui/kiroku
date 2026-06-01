@@ -73,6 +73,42 @@ library
 
   hs-source-dirs:  src
 
+flag example
+  description:
+    Build the self-verifying example executable. On by default so
+    @cabal run kiroku-metrics-example@ works in the dev shell; turned off in the
+    Nix build because it depends on @kiroku-test-support@/@ephemeral-pg@, which
+    have no buildable source in the pinned Nix Haskell set.
+
+  default:     True
+  manual:      True
+
+executable kiroku-metrics-example
+  import:         common
+  main-is:        Main.hs
+  hs-source-dirs: example
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N
+
+  if !flag(example)
+    buildable: False
+
+  build-depends:
+    , aeson                >=2.1  && <2.3
+    , async                >=2.2  && <2.3
+    , base                 >=4.18 && <5
+    , bytestring           >=0.11 && <0.13
+    , containers           >=0.6  && <0.8
+    , http-client          >=0.7  && <0.8
+    , http-types           >=0.12 && <0.13
+    , kiroku-metrics
+    , kiroku-store         ^>=0.2
+    , kiroku-test-support
+    , lens                 >=5.2  && <5.4
+    , scientific           >=0.3  && <0.4
+    , stm                  >=2.5  && <2.6
+    , text                 >=2.0  && <2.2
+    , websockets           >=0.13 && <0.14
+
 test-suite kiroku-metrics-test
   import:         common
   type:           exitcode-stdio-1.0

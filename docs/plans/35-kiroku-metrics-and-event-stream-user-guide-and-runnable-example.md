@@ -68,15 +68,33 @@ exit code.
 
 ## Progress
 
-- [ ] M1: `docs/user/metrics.md` written (overview, wiring, every HTTP endpoint with transcripts, Prometheus metric reference, deployment assumption, limitations); linked from `docs/user/README.md` and cross-linked from `docs/user/observability.md`.
-- [ ] M2: WebSocket section of the guide (metrics channel + event channel protocol, `RecordedEvent` wire shape, `websocat` transcripts) — fill once EP-3 is done.
-- [ ] M3: `executable kiroku-metrics-example` added to `kiroku-metrics.cabal`: a self-verifying runnable demo; `cabal run kiroku-metrics-example` exits 0 and prints the documented transcript.
-- [ ] M4: Subscription-status section of the guide (`GET /subscriptions` JSON shape + `kiroku subscriptions status --remote-url URL` command) — fill once EP-5 is done.
+- [x] M1 (2026-06-01): `docs/user/metrics.md` written (overview + no-auth deployment assumption, the collector deferral-wiring pattern, every HTTP endpoint with transcripts, the full Prometheus metric reference table, the throughput interpretation and lag limitation); linked from `docs/user/README.md` and cross-linked from `docs/user/observability.md`.
+- [x] M2 (2026-06-01): WebSocket section (the two paths, the full client→server / server→client message tables, the `recordedEventToJSON` camelCase wire shape vs. the snake_case envelope, the live-from-now / `DropOldest` / `from_position` / `category` semantics, a `websocat` transcript) — cross-checked against `Kiroku.Metrics.WebSocket`.
+- [x] M3 (2026-06-01): `executable kiroku-metrics-example` added (behind a default-on `example` cabal flag); `example/Main.hs` is self-verifying (HTTP + WebSocket checks, `exitFailure` on mismatch). `cabal run kiroku-metrics-example` exits 0 and prints the documented transcript, quoted in the guide's "Try it".
+- [x] M4 (2026-06-01): Subscription-status section (`GET /subscriptions` / `/subscriptions/<name>` JSON shape, phases, configured-404, and the `kiroku subscriptions status --remote-url URL` / `KIROKU_REMOTE_URL` command); also rewrote the now-stale `docs/user/operator-cli.md` for EP-5's remote-only standalone binary.
 
 
 ## Surprises & Discoveries
 
-(None yet.)
+- Discovery (2026-06-01): the example uses `kiroku-test-support`'s
+  `withMigratedTestDatabase` (a migrated ephemeral DB) rather than wiring
+  `ephemeral-pg` + migrations by hand — simpler and guaranteed-migrated. But that
+  made the example executable depend on `kiroku-test-support` → `ephemeral-pg`,
+  which has **no buildable source in the pinned nixpkgs Haskell set** (its
+  derivation unpacks an empty directory; it is only ever needed by test suites,
+  which nix skips via `dontCheck`, so it was never in any nix build closure). The
+  example, being a non-test component, dragged it in and broke
+  `nix build .#kiroku-metrics`. Fixed by gating the executable behind a cabal
+  `flag example` (default `True`, so `cabal run kiroku-metrics-example` works in
+  the dev shell) and turning it off in `nix/haskell-overlay.nix` via
+  `overrideCabal { configureFlags = ["-f-example"]; executableHaskellDepends = []; }`
+  (same idea as the EP-3 `wai-websockets` fix: cabal2nix lists the exe's deps
+  unconditionally, so both the flag and the empty deps are needed).
+
+- Discovery (2026-06-01): `docs/user/operator-cli.md` documented the standalone
+  `kiroku` binary's old store-opening mode (`--database-url`, process-local
+  registry), which EP-5 removed. M4 rewrote that guide for the remote-only client,
+  not just `metrics.md`.
 
 
 ## Decision Log
@@ -97,10 +115,51 @@ exit code.
   fifth Cabal package for a demo.
   Date: 2026-05-19
 
+- Decision: The example gets its ephemeral DB from `kiroku-test-support`'s
+  `withMigratedTestDatabase` (which wraps `ephemeral-pg` and applies migrations),
+  and the executable is gated behind a default-on cabal `flag example` that the
+  Nix overlay disables.
+  Rationale: `withMigratedTestDatabase` gives a migrated connection string in one
+  call, so the example needs no migration plumbing. But `ephemeral-pg` does not
+  build in the pinned nixpkgs set, so the executable cannot be in the nix build
+  closure (see Surprises). The flag keeps `cabal run kiroku-metrics-example`
+  working in the dev shell while letting `nix build .#kiroku-metrics` skip the
+  example and its unbuildable transitive dep.
+  Date: 2026-06-01
+
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+EP-4 is complete — and with it the whole MasterPlan. `docs/user/metrics.md` is a
+self-contained guide covering: the sister-package framing and no-auth deployment
+assumption; the one non-obvious wiring step (the collector deferral pattern,
+callbacks before `withStore`); every HTTP endpoint with `curl` transcripts; the
+full Prometheus metric reference table; the throughput interpretation and the lag
+upper-bound limitation; the complete WebSocket protocol (both channels, message
+tables, the `recordedEventToJSON` camelCase wire shape, and the
+live/`DropOldest`/`from_position`/`category` semantics); and the EP-5
+`/subscriptions` endpoint plus the `kiroku … --remote-url` command. It is linked
+from `docs/user/README.md`, cross-linked from `docs/user/observability.md`, and
+`docs/user/operator-cli.md` was rewritten for EP-5's remote-only standalone binary.
+
+The runnable example (`kiroku-metrics/example/Main.hs`) is self-verifying: it boots
+an ephemeral migrated store, wires the collector, starts the combined
+HTTP+WebSocket server, appends events, and asserts `GET /metrics` (global position
+≥ 3), `/metrics/prometheus` (contains `kiroku_events_appended_total`),
+`/health/live`, `/health/ready`, and a `/ws/events` round-trip (an appended event
+arrives as a JSON `event` message), exiting non-zero on any failure.
+`cabal run kiroku-metrics-example` prints the transcript quoted in the guide and
+exits 0.
+
+Validation: doc links resolve; `cabal run kiroku-metrics-example` is green;
+`nix build .#kiroku-cli .#kiroku-metrics` succeed (the example is flag-gated off
+under nix). No `kiroku-store` or `kiroku-metrics` library code changed — this plan
+added only documentation, an example executable, and the cabal flag + overlay entry
+that keep both `cabal` and `nix` green.
+
+Gap vs. the plan: the example draws its ephemeral DB from `kiroku-test-support`
+rather than `ephemeral-pg` directly, and is gated behind a cabal flag so the nix
+build can skip the unbuildable `ephemeral-pg` (see Decision Log / Surprises).
 
 
 ## Context and Orientation

@@ -3,30 +3,32 @@
 The `kiroku-cli` package provides two surfaces:
 
 - an embeddable library API under `Kiroku.Cli`, intended for host services that
-  already own a live `KirokuStore`;
-- a standalone `kiroku` executable that opens its own store from command-line
-  or environment configuration and delegates to the same command runner.
+  already own a live `KirokuStore` and read its in-process registry directly;
+- a standalone `kiroku` executable that is a **pure remote client**: it opens no
+  store of its own and queries a running worker's `kiroku-metrics`
+  `/subscriptions` endpoint over HTTP.
 
 The first operator command is subscription status. It lists every live
-subscription known to the current process's `KirokuStore`, showing the
-subscription name, consumer-group member, finite-state-machine phase, and
-global cursor position.
+subscription — the subscription name, consumer-group member, finite-state-machine
+phase, and global cursor position.
 
 ## Standalone Usage
 
-Run the standalone executable with a PostgreSQL connection string from either
-`--database-url` or `KIROKU_DATABASE_URL`. The store schema defaults to
-`kiroku`, and the operator command uses a small pool by default.
+The standalone binary inspects a **running worker** over HTTP. Point it at that
+worker's `kiroku-metrics` server (see
+[Metrics And Event Streaming](metrics.md#subscription-status-over-http)) with
+`--remote-url` or the `KIROKU_REMOTE_URL` environment variable. It never opens a
+database; the `--database-url`/`--schema`/`--pool-size` options no longer exist.
 
 ```bash
-export KIROKU_DATABASE_URL='host=/tmp dbname=kiroku user=kiroku'
+export KIROKU_REMOTE_URL='http://worker-host:9091'
 kiroku subscriptions status
 ```
 
-Equivalent explicit flags:
+Equivalent explicit flag:
 
 ```bash
-kiroku --database-url 'host=/tmp dbname=kiroku user=kiroku' --schema kiroku --pool-size 2 subscriptions status
+kiroku subscriptions status --remote-url http://worker-host:9091
 ```
 
 Table output is the default:
@@ -40,7 +42,7 @@ billing-projection    1       live   1284
 For scripts, request JSON:
 
 ```bash
-kiroku subscriptions status --format json
+kiroku subscriptions status --remote-url http://worker-host:9091 --format json
 ```
 
 ```json
@@ -54,29 +56,30 @@ kiroku subscriptions status --format json
 ]
 ```
 
-If the standalone process has no live subscriptions in its own store handle,
-table mode prints the headers plus a short message explaining that the registry
-is process-local. JSON mode prints an empty array.
+With neither `--remote-url` nor `KIROKU_REMOTE_URL` set, the command exits
+non-zero with guidance (the standalone binary runs no subscriptions of its own, so
+there is nothing local to read). An unreachable endpoint prints a readable error,
+not a Haskell exception dump.
 
-## Process-Local Status
+## How Status Is Sourced
 
-`subscriptions status` reads `subscriptionStates store`, which snapshots an
-in-memory registry on the current `KirokuStore`. That registry is populated by
-`subscribe` calls made in the same process and is removed from when those
-workers stop, are cancelled, crash, or are superseded.
+The worker side serves `/subscriptions` from `subscriptionStates store`, which
+snapshots the worker's in-memory registry — populated by `subscribe` calls in that
+worker process and removed from when those workers stop, are cancelled, crash, or
+are superseded. The standalone `kiroku` client fetches and renders it.
 
-This means embedded use is the authoritative status path for a running service:
-mount the Kiroku parser inside the service's own CLI or admin command and pass
-the service's live `KirokuStore` to the runner. A separately launched
-standalone `kiroku` process opens a separate store handle with a separate empty
-registry. It cannot inspect subscriptions running inside another service
-process unless a future remote admin endpoint exposes that process's registry.
+For an **in-process** read with no HTTP hop, use the embeddable library: mount the
+Kiroku parser inside the service's own CLI and pass the service's live
+`KirokuStore` to `renderKirokuCommandWithStore`/`runKirokuCommandWithStore` (see
+below). That path also accepts an optional `--remote-url` to query a sibling worker
+instead.
 
 Stopped, cancelled, and crashed subscriptions are represented by absence; the
 CLI does not invent a `"stopped"` row. `global_position` is the worker
 finite-state-machine cursor, a cheap live-progress signal, not a durable
 checkpoint guarantee. See [Observability](observability.md#snapshotting-every-live-subscription)
-for the full registry model.
+for the full registry model and [Metrics And Event Streaming](metrics.md) for the
+HTTP endpoint that exposes it.
 
 ## Embedding In A Host CLI
 

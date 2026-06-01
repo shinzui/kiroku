@@ -190,9 +190,17 @@ A practical pattern:
    `docs/PRODUCTION-DEPLOYMENT.md`.
 4. Keep both callbacks fast; fan out blocking work asynchronously.
 
+To expose these aggregated signals as an **HTTP/JSON and Prometheus endpoint**,
+health probes, and a live event-streaming WebSocket without writing your own
+counters and server, use the `kiroku-metrics` sister package — see
+[Metrics And Event Streaming](metrics.md). Its collector consumes exactly the
+`eventHandler`/`observationHandler` callbacks described here.
+
 ## See Also
 
 - [Subscriptions](subscriptions.md) — the lifecycle these events report on.
+- [Metrics And Event Streaming](metrics.md) — turn these callbacks into HTTP,
+  Prometheus, health, and WebSocket endpoints with `kiroku-metrics`.
 - [OpenTelemetry](opentelemetry.md) — per-event trace context, and turning the
   subscription FSM into spans via `Kiroku.Otel.Subscription`.
 - [Stream Lifecycle](lifecycle.md) — the hard-delete audit pattern.
