@@ -14,10 +14,12 @@ module Kiroku.Metrics.Server (
     MetricsServer (..),
     startMetricsServer,
     startMetricsServerWith,
+    startMetricsServerWith',
     startMetricsServerWithStore,
     stopMetricsServer,
     withMetricsServer,
     withMetricsServerWithStore,
+    withMetricsServerSubscriptions,
     combinedApp,
     httpApp,
     stubWebSocketApp,
@@ -45,6 +47,7 @@ import Kiroku.Metrics.Health (
  )
 import Kiroku.Metrics.JSON (jsonApp, jsonResponse)
 import Kiroku.Metrics.Prometheus (prometheusApp)
+import Kiroku.Metrics.Subscriptions (SubscriptionStatusProvider, subscriptionsApp)
 import Kiroku.Metrics.WebSocket (newWebSocketState, websocketApp)
 import Kiroku.Store (KirokuStore)
 
@@ -58,11 +61,11 @@ data MetricsServer = MetricsServer
 real WebSocket app is wired via 'startMetricsServerWith'.
 -}
 startMetricsServer :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> IO MetricsServer
-startMetricsServer cfg m deps = startMetricsServerWith cfg m deps stubWebSocketApp
+startMetricsServer cfg m deps = startMetricsServerWith' cfg m deps Nothing stubWebSocketApp
 
-{- | Start the server with an explicit WebSocket app (the IP-3 seam). When
-@cfg.port == 0@ an OS-assigned free port is used and reported in
-'serverPort'.
+{- | Start the server with an explicit WebSocket app (the IP-3 seam) and no
+subscription-status provider. When @cfg.port == 0@ an OS-assigned free port is
+used and reported in 'serverPort'.
 -}
 startMetricsServerWith ::
     MetricsServerConfig ->
@@ -70,8 +73,22 @@ startMetricsServerWith ::
     [DependencyCheck] ->
     WS.ServerApp ->
     IO MetricsServer
-startMetricsServerWith cfg m deps wsApp = do
-    let app = combinedApp cfg m deps wsApp
+startMetricsServerWith cfg m deps = startMetricsServerWith' cfg m deps Nothing
+
+{- | Start the server with an explicit WebSocket app (the IP-3 seam) /and/ an
+optional subscription-status provider (the IP-5 seam, EP-5). The provider, when
+@Just@, serves @GET /subscriptions@; when @Nothing@, that route returns a
+configured-404. All EP-2/EP-3 starters delegate here with @Nothing@.
+-}
+startMetricsServerWith' ::
+    MetricsServerConfig ->
+    KirokuMetrics ->
+    [DependencyCheck] ->
+    Maybe SubscriptionStatusProvider ->
+    WS.ServerApp ->
+    IO MetricsServer
+startMetricsServerWith' cfg m deps mProvider wsApp = do
+    let app = combinedApp cfg m deps mProvider wsApp
     if cfg.port == 0
         then do
             (actualPort, sock) <- Warp.openFreePort
@@ -127,10 +144,32 @@ withMetricsServerWithStore ::
 withMetricsServerWithStore cfg m store deps =
     bracket (startMetricsServerWithStore cfg m store deps) stopMetricsServer
 
+{- | Run an action with a server that serves @GET /subscriptions@ from the given
+provider (EP-5), using the rejecting WebSocket stub. The common case for a worker
+that wants remote subscription introspection but not the event-streaming socket.
+-}
+withMetricsServerSubscriptions ::
+    MetricsServerConfig ->
+    KirokuMetrics ->
+    [DependencyCheck] ->
+    SubscriptionStatusProvider ->
+    (MetricsServer -> IO a) ->
+    IO a
+withMetricsServerSubscriptions cfg m deps provider =
+    bracket
+        (startMetricsServerWith' cfg m deps (Just provider) stubWebSocketApp)
+        stopMetricsServer
+
 -- | The combined WAI app: WebSocket upgrades to @wsApp@, everything else to the HTTP router.
-combinedApp :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> WS.ServerApp -> Application
-combinedApp cfg m deps wsApp =
-    WaiWS.websocketsOr WS.defaultConnectionOptions wsApp (httpApp cfg m deps)
+combinedApp ::
+    MetricsServerConfig ->
+    KirokuMetrics ->
+    [DependencyCheck] ->
+    Maybe SubscriptionStatusProvider ->
+    WS.ServerApp ->
+    Application
+combinedApp cfg m deps mProvider wsApp =
+    WaiWS.websocketsOr WS.defaultConnectionOptions wsApp (httpApp cfg m deps mProvider)
 
 {- | The EP-2 WebSocket stub: reject the upgrade with a clear message. EP-3
 replaces this with the real event-streaming app.
@@ -139,12 +178,19 @@ stubWebSocketApp :: WS.ServerApp
 stubWebSocketApp pending = WS.rejectRequest pending "WebSocket endpoint not yet implemented"
 
 -- | HTTP router. Matches @/metrics/prometheus@ before @/metrics/\<name\>@.
-httpApp :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> Application
-httpApp cfg m deps req respond =
+httpApp ::
+    MetricsServerConfig ->
+    KirokuMetrics ->
+    [DependencyCheck] ->
+    Maybe SubscriptionStatusProvider ->
+    Application
+httpApp cfg m deps mProvider req respond =
     case pathInfo req of
         ["metrics", "prometheus"] | cfg.enablePrometheus -> prometheusApp m req respond
         ["metrics"] | cfg.enableJSON -> jsonApp m req respond
         ["metrics", _] | cfg.enableJSON -> jsonApp m req respond
+        ["subscriptions"] -> subscriptionsRoute
+        ["subscriptions", _] -> subscriptionsRoute
         ["health"] | cfg.enableJSON -> do
             (readiness, snap) <- checkDetailedHealth cfg m deps
             respond $
@@ -167,3 +213,10 @@ httpApp cfg m deps req respond =
             respond (jsonResponse status404 (encode (object ["error" .= ("Not found" :: Text)])))
   where
     statusFor ok = if ok then status200 else status503
+    subscriptionsRoute = case mProvider of
+        Just provider -> subscriptionsApp provider req respond
+        Nothing ->
+            respond $
+                jsonResponse
+                    status404
+                    (encode (object ["error" .= ("subscription status not configured" :: Text)]))

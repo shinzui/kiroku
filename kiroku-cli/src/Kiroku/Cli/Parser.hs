@@ -5,6 +5,7 @@ module Kiroku.Cli.Parser (
 ) where
 
 import Control.Applicative (optional)
+import Data.Text qualified as T
 import Kiroku.Cli.Command (KirokuCommand (..))
 import Kiroku.Cli.Command qualified as Command
 import Options.Applicative (
@@ -23,6 +24,7 @@ import Options.Applicative (
     metavar,
     option,
     progDesc,
+    strOption,
     subparser,
     value,
     (<**>),
@@ -62,6 +64,16 @@ statusOptionsParser =
                 <> metavar "table|json"
                 <> value Command.OutputTable
                 <> help "Render as a human table or script-friendly JSON."
+            )
+        <*> optional
+            ( Command.RemoteEndpoint . T.pack
+                <$> strOption
+                    ( long "remote-url"
+                        <> metavar "URL"
+                        <> help
+                            "Query a running worker's kiroku-metrics /subscriptions endpoint \
+                            \(e.g. http://worker:9091) instead of this process's local registry."
+                    )
             )
 
 parseOutputFormat :: String -> Either String Command.OutputFormat

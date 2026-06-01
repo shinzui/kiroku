@@ -93,25 +93,54 @@ right now and in what state?". See the Decision Log.
 
 ## Progress
 
-- [ ] M1: `GET /subscriptions` and `GET /subscriptions/<name>` served by the
-      `kiroku-metrics` Warp server, reading the live registry through an optional
-      provider closure; verified with `curl` against a running worker.
-- [ ] M2: `kiroku subscriptions status --remote-url URL` (or `KIROKU_REMOTE_URL`)
-      fetches and renders the endpoint over HTTP, reusing the existing table/JSON
-      renderer; verified end to end against a running worker. The standalone binary
-      is converted to a pure remote client (store-opening path and
-      `--database-url`/`--schema`/`--pool-size` options removed); the embeddable
-      in-process API keeps reading the host store and gains an optional
-      `--remote-url` override.
-- [ ] M3: Round-trip + end-to-end tests — server encode ⇄ CLI decode of the wire
-      shape, and an integration test that boots a store with a subscription,
-      starts the server, and asserts the CLI remote command reports the live
-      subscription.
+- [x] M1 (2026-06-01): `GET /subscriptions` and `GET /subscriptions/<name>` served
+      by the `kiroku-metrics` Warp server (`Kiroku.Metrics.Subscriptions.subscriptionsApp`),
+      reading the live registry through an optional provider closure threaded via the
+      new `startMetricsServerWith'`/`withMetricsServerSubscriptions`. `SubscriptionStatusRow`
+      gained `ToJSON`/`FromJSON` (IP-5 codec) and `renderJson` now encodes through it.
+      EP-2/EP-3 starters unchanged (delegate with `Nothing` provider). Verified by tests
+      (raw `http-client` GETs) rather than manual `curl` (none in the dev shell).
+- [x] M2 (2026-06-01): `kiroku subscriptions status --remote-url URL` (or `KIROKU_REMOTE_URL`)
+      fetches and renders the endpoint over HTTP via `fetchRemoteSubscriptionStatusRows`
+      /`renderRemoteSubscriptionStatus`, reusing the existing renderer. The standalone
+      binary is now a pure remote client (`StandaloneOptions`/`StandaloneRuntime` carry only
+      the command; `--database-url`/`--schema`/`--pool-size` and the `withStore` path removed;
+      `app/Main.hs` untouched). The embeddable `renderKirokuCommandWithStore` keeps the
+      in-process path and gains the optional `--remote-url` override.
+- [x] M3 (2026-06-01): Round-trip codec test + exact-keys test (`kiroku-cli`), a
+      cross-package shape test and an end-to-end test (`kiroku-metrics`): boot a store with a
+      live subscription, serve `/subscriptions`, assert the real CLI client reports the
+      subscription at phase `live` with cursor 3; by-name route (known → one row, unknown → `[]`)
+      via raw GET; no-provider → configured-404. `cabal test kiroku-cli` (22) and
+      `cabal test kiroku-metrics` (15) green; `nix build .#kiroku-cli .#kiroku-metrics` succeed.
 
 
 ## Surprises & Discoveries
 
-(None yet.)
+- Discovery (2026-06-01): `kiroku-cli` was **not** a Nix flake package output nor an
+  overlay entry (only `kiroku-metrics` was added in EP-1). Since `nix build
+  .#kiroku-cli` is an acceptance step and `kiroku-metrics` now depends on `kiroku-cli`,
+  added a `kiroku-cli` `callCabal2nix` entry to `nix/haskell-overlay.nix` (inheriting
+  `kiroku-store`/`kiroku-test-support`), passed `kiroku-cli` into the `kiroku-metrics`
+  overlay entry's `inherit`, and added `kiroku-cli` to `flake.nix`'s `packages`. Both
+  `nix build .#kiroku-cli` and `.#kiroku-metrics` then succeed. `http-client` /
+  `http-client-tls` resolved from the standard nixpkgs Haskell set with no overlay
+  entry needed (`http-client` was already a `kiroku-metrics` test dep).
+
+- Discovery (2026-06-01): gutting `Kiroku.Cli.Standalone` to a pure remote client and
+  widening `StatusOptions` (new `endpoint` field) **broke the existing `kiroku-cli`
+  test suite**, which constructed the old `StandaloneOptions`
+  (`databaseUrl`/`schema`/`poolSize`) and the single-field `StatusOptions`. Rewrote
+  `kiroku-cli/test/Main.hs`: the DB-based standalone tests became endpoint-resolution
+  tests (`--remote-url`, `KIROKU_REMOTE_URL` fallback, missing-endpoint guidance error,
+  unreachable-host readable error), and added the IP-5 round-trip/exact-keys codec
+  tests. All `StatusOptions` constructions gained the `endpoint` argument.
+
+- Discovery (2026-06-01): `fetchRemoteSubscriptionStatusRows` hardcodes the
+  `/subscriptions` path (it owns the client contract), so it cannot exercise the
+  by-name route. The by-name (`/subscriptions/<name>`) and unknown-name (`→ []`) routes
+  are tested with a raw `http-client` GET decoding through the shared codec, not through
+  the CLI client.
 
 
 ## Decision Log
@@ -172,7 +201,42 @@ right now and in what state?". See the Decision Log.
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+EP-5 is complete. A running worker that wires the provider now answers
+`GET /subscriptions` and `GET /subscriptions/<name>` with its **live** subscription
+registry (name, member, phase, global position), and the standalone `kiroku` binary
+is a pure remote client: `kiroku subscriptions status --remote-url URL` (or
+`KIROKU_REMOTE_URL`) queries that endpoint and renders it with the same table/JSON
+renderer the in-process command uses.
+
+Shape of the work as built:
+
+- **Server (`kiroku-metrics`).** `Kiroku.Metrics.Subscriptions` defines
+  `type SubscriptionStatusProvider = IO [SubscriptionStatusRow]`,
+  `storeSubscriptionStatus store = subscriptionStatusRows <$> subscriptionStates store`,
+  and `subscriptionsApp`. `Kiroku.Metrics.Server` threads `Maybe
+  SubscriptionStatusProvider` through `combinedApp`/`httpApp`; the body that owns the
+  Warp logic became `startMetricsServerWith'` (5-arg, with the provider), and
+  `startMetricsServer`/`startMetricsServerWith`/`startMetricsServerWithStore` delegate
+  with `Nothing` so all EP-2/EP-3 call sites compile unchanged. Added
+  `withMetricsServerSubscriptions`. `kiroku-metrics` now `build-depends` on `kiroku-cli`
+  (acyclic).
+- **Client (`kiroku-cli`).** `SubscriptionStatusRow` gained the IP-5 `ToJSON`/`FromJSON`
+  (the single wire codec; `renderJson` now encodes through it). Added
+  `fetchRemoteSubscriptionStatusRows`/`renderRemoteSubscriptionStatus` (over
+  `http-client`/`http-client-tls`), a `--remote-url` parser option and the
+  `StatusOptions.endpoint` field, and gutted `Kiroku.Cli.Standalone` to a remote-only
+  client (no `withStore`, no DB options; endpoint from `--remote-url` or
+  `KIROKU_REMOTE_URL`, else a guidance error). `app/Main.hs` is untouched — the three
+  standalone entry-point signatures were preserved.
+
+Validation: `cabal test kiroku-cli` (22 examples) and `cabal test kiroku-metrics`
+(15 examples) are green; `nix build .#kiroku-cli .#kiroku-metrics` succeed (after adding
+`kiroku-cli` to the overlay + flake — see Surprises). The IP-5 contract is locked by a
+round-trip + exact-keys test and a cross-package encode⇄decode test.
+
+Result vs. vision: matches the plan. Unreachable/invalid endpoints return readable
+`Left` text (not exception dumps), verified by a test. The by-name route is tested via
+a raw GET rather than the CLI client (which only targets `/subscriptions`).
 
 
 ## Context and Orientation

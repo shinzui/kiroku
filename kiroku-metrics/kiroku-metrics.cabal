@@ -46,6 +46,7 @@ library
     Kiroku.Metrics.JSON
     Kiroku.Metrics.Prometheus
     Kiroku.Metrics.Server
+    Kiroku.Metrics.Subscriptions
     Kiroku.Metrics.Types
     Kiroku.Metrics.WebSocket
 
@@ -58,6 +59,7 @@ library
     , hasql           >=1.10 && <1.11
     , hasql-pool      >=1.2  && <1.5
     , http-types      >=0.12 && <0.13
+    , kiroku-cli      ^>=0.1
     , kiroku-store    ^>=0.2
     , stm             >=2.5  && <2.6
     , text            >=2.0  && <2.2
@@ -79,6 +81,7 @@ test-suite kiroku-metrics-test
     Test.CollectorSpec
     Test.IntegrationSpec
     Test.ServerSpec
+    Test.SubscriptionsSpec
     Test.WebSocketSpec
 
   hs-source-dirs: test
@@ -94,6 +97,7 @@ test-suite kiroku-metrics-test
     , hspec                >=2.10 && <2.12
     , http-client          >=0.7  && <0.8
     , http-types           >=0.12 && <0.13
+    , kiroku-cli           ^>=0.1
     , kiroku-metrics
     , kiroku-store         ^>=0.2
     , kiroku-test-support

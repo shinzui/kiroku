@@ -54,6 +54,7 @@
           kiroku-store-migrations = haskellPackages.kiroku-store-migrations;
           shibuya-kiroku-adapter = haskellPackages.shibuya-kiroku-adapter;
           kiroku-otel = haskellPackages.kiroku-otel;
+          kiroku-cli = haskellPackages.kiroku-cli;
           kiroku-metrics = haskellPackages.kiroku-metrics;
           default = haskellPackages.kiroku-store;
         };

@@ -7,7 +7,11 @@ module Kiroku.Cli.Run (
 import Data.Text (Text)
 import Data.Text.IO qualified as TIO
 import Kiroku.Cli.Command (KirokuCommand (..), StatusOptions (..), SubscriptionCommand (..))
-import Kiroku.Cli.Subscription.Status (renderSubscriptionStatusRows, subscriptionStatusRows)
+import Kiroku.Cli.Subscription.Status (
+    renderRemoteSubscriptionStatus,
+    renderSubscriptionStatusRows,
+    subscriptionStatusRows,
+ )
 import Kiroku.Store (KirokuStore)
 import Kiroku.Store.Subscription (subscriptionStates)
 
@@ -24,6 +28,11 @@ runKirokuCommandWithStore store command =
 renderKirokuCommandWithStore :: KirokuStore -> KirokuCommand -> IO Text
 renderKirokuCommandWithStore _ KirokuNoCommand =
     pure "No Kiroku operator command was selected."
-renderKirokuCommandWithStore store (KirokuSubscriptions (SubscriptionStatus (StatusOptions format))) = do
-    snapshot <- subscriptionStates store
-    pure (renderSubscriptionStatusRows format (subscriptionStatusRows snapshot))
+renderKirokuCommandWithStore store (KirokuSubscriptions (SubscriptionStatus (StatusOptions format endpoint))) =
+    case endpoint of
+        -- An optional remote override: a host can point the in-process command at
+        -- a sibling worker over HTTP instead of reading its own registry.
+        Just ep -> renderRemoteSubscriptionStatus ep format
+        Nothing -> do
+            snapshot <- subscriptionStates store
+            pure (renderSubscriptionStatusRows format (subscriptionStatusRows snapshot))

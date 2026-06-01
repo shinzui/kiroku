@@ -46,6 +46,9 @@ library
     , bytestring            >=0.11 && <0.13
     , containers            >=0.6  && <0.8
     , generic-lens          >=2.2  && <2.4
+    , http-client           >=0.7  && <0.8
+    , http-client-tls       >=0.3  && <0.4
+    , http-types            >=0.12 && <0.13
     , kiroku-store          ^>=0.2
     , lens                  >=5.2  && <5.4
     , optparse-applicative  >=0.19 && <0.20
@@ -76,6 +79,8 @@ test-suite kiroku-cli-test
     , containers
     , generic-lens          >=2.2  && <2.4
     , hspec                 >=2.10 && <2.12
+    , http-client           >=0.7  && <0.8
+    , http-client-tls       >=0.3  && <0.4
     , kiroku-cli
     , kiroku-store
     , kiroku-test-support

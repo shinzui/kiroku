@@ -7,46 +7,44 @@ module Kiroku.Cli.Standalone (
     runStandaloneCommand,
 ) where
 
-import Control.Applicative (optional, (<|>))
-import Control.Lens ((&), (.~), (^.))
+import Control.Applicative ((<|>))
 import Data.Generics.Labels ()
 import Data.Text (Text)
 import Data.Text qualified as T
 import GHC.Generics (Generic)
-import Kiroku.Cli.Command (KirokuCommand (..), OutputFormat (..), StatusOptions (..), SubscriptionCommand (..))
+import Kiroku.Cli.Command (
+    KirokuCommand (..),
+    RemoteEndpoint (..),
+    StatusOptions (..),
+    SubscriptionCommand (..),
+ )
 import Kiroku.Cli.Parser (kirokuCommandParser)
-import Kiroku.Cli.Subscription.Status (renderSubscriptionStatusRows, subscriptionStatusRows)
-import Kiroku.Store (ConnectionSettings, KirokuStore, defaultConnectionSettings, withStore)
-import Kiroku.Store.Subscription (subscriptionStates)
+import Kiroku.Cli.Subscription.Status (renderRemoteSubscriptionStatus)
 import Options.Applicative (
     Parser,
     ParserInfo,
-    auto,
     fullDesc,
     header,
-    help,
     helper,
     info,
-    long,
-    metavar,
-    option,
     progDesc,
-    strOption,
-    value,
     (<**>),
  )
 
-data StandaloneOptions = StandaloneOptions
-    { databaseUrl :: !(Maybe Text)
-    , schema :: !Text
-    , poolSize :: !Int
-    , command :: !KirokuCommand
+{- | Options for the standalone @kiroku@ binary. The binary is a pure remote
+client: it carries only the parsed command (whose @--remote-url@ lives inside
+'StatusOptions'); it never opens a store.
+-}
+newtype StandaloneOptions = StandaloneOptions
+    { command :: KirokuCommand
     }
     deriving stock (Generic, Eq, Show)
 
-data StandaloneRuntime = StandaloneRuntime
-    { settings :: !ConnectionSettings
-    , command :: !KirokuCommand
+{- | The resolved command, with any subscription-status endpoint filled in from
+@--remote-url@ or @KIROKU_REMOTE_URL@.
+-}
+newtype StandaloneRuntime = StandaloneRuntime
+    { command :: KirokuCommand
     }
     deriving stock (Generic)
 
@@ -55,66 +53,51 @@ standaloneParserInfo =
     info
         (standaloneOptionsParser <**> helper)
         ( fullDesc
-            <> progDesc "Run Kiroku operator commands against a store opened by this process. Subscription status reads this process-local live registry."
-            <> header "kiroku - operator commands for Kiroku event stores"
+            <> progDesc
+                "Inspect a running Kiroku worker over HTTP. Subscription status queries the worker's \
+                \kiroku-metrics /subscriptions endpoint (--remote-url or KIROKU_REMOTE_URL); the binary \
+                \opens no store of its own."
+            <> header "kiroku - remote operator client for Kiroku event stores"
         )
 
 standaloneOptionsParser :: Parser StandaloneOptions
 standaloneOptionsParser =
-    StandaloneOptions
-        <$> optional
-            ( strOption
-                ( long "database-url"
-                    <> metavar "URL"
-                    <> help "PostgreSQL connection string. Defaults to KIROKU_DATABASE_URL."
-                )
-            )
-        <*> strOption
-            ( long "schema"
-                <> metavar "SCHEMA"
-                <> value "kiroku"
-                <> help "PostgreSQL schema that owns Kiroku objects."
-            )
-        <*> option
-            auto
-            ( long "pool-size"
-                <> metavar "INT"
-                <> value 2
-                <> help "Connection pool size for this operator command."
-            )
-        <*> kirokuCommandParser
+    StandaloneOptions <$> kirokuCommandParser
 
+{- | Resolve the parsed options into a runnable command. For a subscription-status
+command, the endpoint is taken from @--remote-url@ or, failing that, the
+@KIROKU_REMOTE_URL@ environment variable; if neither is present, fail with
+guidance. Commands that need no endpoint pass through unchanged.
+-}
 resolveStandaloneOptions :: [(String, String)] -> StandaloneOptions -> Either Text StandaloneRuntime
-resolveStandaloneOptions env opts
-    | opts ^. #poolSize <= 0 = Left "kiroku: --pool-size must be greater than zero"
-    | otherwise = do
-        conn <- case opts ^. #databaseUrl <|> (T.pack <$> lookup "KIROKU_DATABASE_URL" env) of
-            Just connString | not (T.null connString) -> Right connString
-            _ -> Left "kiroku: missing database connection string; pass --database-url or set KIROKU_DATABASE_URL"
-        pure
-            StandaloneRuntime
-                { settings =
-                    defaultConnectionSettings conn
-                        & #schema .~ (opts ^. #schema)
-                        & #poolSize .~ (opts ^. #poolSize)
-                , command = opts ^. #command
-                }
+resolveStandaloneOptions env (StandaloneOptions cmd) =
+    case cmd of
+        KirokuNoCommand -> Right (StandaloneRuntime KirokuNoCommand)
+        KirokuSubscriptions (SubscriptionStatus (StatusOptions format mEndpoint)) ->
+            case mEndpoint <|> envEndpoint of
+                Just ep ->
+                    Right
+                        ( StandaloneRuntime
+                            (KirokuSubscriptions (SubscriptionStatus (StatusOptions format (Just ep))))
+                        )
+                Nothing -> Left noEndpointMessage
+  where
+    envEndpoint =
+        case T.pack <$> lookup "KIROKU_REMOTE_URL" env of
+            Just url | not (T.null url) -> Just (RemoteEndpoint url)
+            _ -> Nothing
+    noEndpointMessage =
+        "kiroku: no worker endpoint; pass --remote-url or set KIROKU_REMOTE_URL. \
+        \The standalone binary inspects a running worker over HTTP; it cannot see \
+        \in-process subscriptions because it runs none."
 
 runStandaloneCommand :: StandaloneRuntime -> IO Text
-runStandaloneCommand runtime =
-    withStore (runtime ^. #settings) $ \store ->
-        renderStandaloneCommand store (runtime ^. #command)
-
-renderStandaloneCommand :: KirokuStore -> KirokuCommand -> IO Text
-renderStandaloneCommand _ KirokuNoCommand =
-    pure "No Kiroku operator command was selected."
-renderStandaloneCommand store (KirokuSubscriptions (SubscriptionStatus (StatusOptions format))) = do
-    snapshot <- subscriptionStates store
-    let rows = subscriptionStatusRows snapshot
-        rendered = renderSubscriptionStatusRows format rows
-    pure $
-        case (format, rows) of
-            (OutputTable, []) ->
-                rendered
-                    <> "No live subscriptions in this process-local registry. Standalone status cannot inspect subscriptions running in another service process."
-            _ -> rendered
+runStandaloneCommand (StandaloneRuntime cmd) =
+    case cmd of
+        KirokuNoCommand -> pure "No Kiroku operator command was selected."
+        KirokuSubscriptions (SubscriptionStatus (StatusOptions format (Just ep))) ->
+            renderRemoteSubscriptionStatus ep format
+        KirokuSubscriptions (SubscriptionStatus (StatusOptions _ Nothing)) ->
+            -- Unreachable: resolveStandaloneOptions fills the endpoint or fails.
+            pure
+                "kiroku: no worker endpoint; pass --remote-url or set KIROKU_REMOTE_URL."

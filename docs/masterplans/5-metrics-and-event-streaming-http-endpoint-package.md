@@ -236,7 +236,7 @@ what an operator status command needs.
 | 2 | HTTP JSON, Prometheus, And Health Endpoints For Kiroku Metrics | docs/plans/33-http-json-prometheus-and-health-endpoints-for-kiroku-metrics.md | EP-1 | None | Complete |
 | 3 | WebSocket Endpoint For Live Metrics And Event Streaming Out Of The Store | docs/plans/34-websocket-endpoint-for-live-metrics-and-event-streaming-out-of-the-store.md | EP-2 | None | Complete |
 | 4 | Kiroku Metrics And Event-Stream User Guide And Runnable Example | docs/plans/35-kiroku-metrics-and-event-stream-user-guide-and-runnable-example.md | EP-2 | EP-3, EP-5 | Not Started |
-| 5 | Remote Subscription-Status HTTP Endpoint And Kiroku-CLI Remote Client | docs/plans/52-remote-subscription-status-http-endpoint-and-kiroku-cli-remote-client.md | EP-2 | None | Not Started |
+| 5 | Remote Subscription-Status HTTP Endpoint And Kiroku-CLI Remote Client | docs/plans/52-remote-subscription-status-http-endpoint-and-kiroku-cli-remote-client.md | EP-2 | None | Complete |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
 Hard Deps and Soft Deps reference other rows by their # prefix (e.g., EP-1, EP-3).
@@ -444,9 +444,9 @@ Track milestone-level progress across all child plans.
 - [x] EP-3: End-to-end WebSocket test (append events, observe event messages in order + metric snapshot over a real socket) + a replay-then-live test; `nix build .#kiroku-metrics` green after a `wai-websockets` overlay fix
 - [ ] EP-4: `docs/user/metrics.md` guide (endpoints, JSON shapes, Prometheus names, WebSocket protocol, no-auth deployment assumption, lag limitation), linked from `docs/user/README.md` and `docs/user/observability.md`
 - [ ] EP-4: Runnable, tested example program (ephemeral store → server → append → curl + WebSocket transcripts)
-- [ ] EP-5: `GET /subscriptions` + `GET /subscriptions/<name>` on the EP-2 server, reading the live registry through an optional provider seam; shared `SubscriptionStatusRow` JSON codec in `kiroku-cli`
-- [ ] EP-5: `kiroku subscriptions status --remote-url URL` fetches and renders the endpoint over HTTP (reusing the existing table/JSON renderer), opening no local store in remote mode
-- [ ] EP-5: Round-trip + cross-package shape + end-to-end tests (boot store + subscription + server, assert the CLI remote command reports the live subscription)
+- [x] EP-5: `GET /subscriptions` + `GET /subscriptions/<name>` on the EP-2 server, reading the live registry through an optional provider seam (`startMetricsServerWith'`/`withMetricsServerSubscriptions`); shared `SubscriptionStatusRow` JSON codec in `kiroku-cli`
+- [x] EP-5: `kiroku subscriptions status --remote-url URL` (or `KIROKU_REMOTE_URL`) fetches and renders the endpoint over HTTP (reusing the existing renderer); standalone binary is now a pure remote client (DB options/`withStore` removed), opening no local store
+- [x] EP-5: Round-trip + exact-keys + cross-package shape + end-to-end tests (boot store + subscription + server, assert the CLI remote command reports the live subscription at phase `live`, cursor 3); `nix build .#kiroku-cli .#kiroku-metrics` green
 
 
 ## Surprises & Discoveries
@@ -548,6 +548,23 @@ interactions between child plans. Provide concise evidence.
   dep). This affects any package depending on `wai-websockets`, i.e. since EP-2.
   Also: a Nix flake only sees git-tracked files, so new sources must be `git
   add`-ed before `nix build`.
+
+- Discovery (2026-06-01, EP-5 complete): **IP-5 is implemented and the provider seam
+  composes cleanly with EP-3.** `Kiroku.Metrics.Server` now threads `Maybe
+  SubscriptionStatusProvider` through `combinedApp`/`httpApp`; EP-2's Warp body became
+  `startMetricsServerWith'` (5-arg) and every prior starter
+  (`startMetricsServer`/`startMetricsServerWith`/EP-3's `startMetricsServerWithStore`)
+  delegates with a `Nothing` provider, so no EP-2/EP-3 call site changed and no required
+  `MetricsServerConfig` field was added. `kiroku-metrics` now depends on `kiroku-cli`
+  (acyclic: `kiroku-metrics → kiroku-cli → kiroku-store`). Two build-wiring facts:
+  `kiroku-cli` had to be **added to the overlay and the flake `packages`** (it was
+  neither before), and the standalone-binary rework broke the existing `kiroku-cli`
+  tests (the old `StandaloneOptions`/`StatusOptions` shapes), which were rewritten.
+  **For EP-4's guide:** document `GET /subscriptions` and `GET /subscriptions/<name>`
+  (JSON array of `{subscription, member, phase, global_position}`), the
+  `kiroku subscriptions status --remote-url URL` / `KIROKU_REMOTE_URL` command, that the
+  standalone binary is remote-only (no `--database-url`/`--schema`/`--pool-size`), and
+  that an unwired provider yields `404 {"error":"subscription status not configured"}`.
 
 ## Decision Log
 
