@@ -5,6 +5,7 @@ module Kiroku.Metrics.Config (
 ) where
 
 import Data.Int (Int64)
+import Numeric.Natural (Natural)
 
 {- | Configuration for the metrics web server. The @ws*@ fields are consumed by
 the WebSocket endpoint (EP-3); they exist here so that plan needs no config
@@ -25,6 +26,12 @@ data MetricsServerConfig = MetricsServerConfig
     -- ^ WebSocket live-push interval in microseconds (default: 1_000_000 = 1s).
     , wsMaxConnections :: !Int
     -- ^ Maximum concurrent WebSocket connections (default: 100).
+    , wsEventQueueCap :: !Natural
+    {- ^ Per-connection broadcast queue capacity, in batches, for the event
+    stream tail (default: 256). Additive field introduced by EP-3; under
+    'Kiroku.Store.Subscription.Types.DropOldest' a slow client drops the
+    oldest undelivered batches rather than stalling the publisher.
+    -}
     , readinessMaxLag :: !Int64
     -- ^ A subscription lagging beyond this fails readiness (default: 10_000).
     , livenessTimeoutUs :: !Int
@@ -42,6 +49,7 @@ defaultConfig =
         , enableWebSocket = True
         , wsPushIntervalUs = 1_000_000
         , wsMaxConnections = 100
+        , wsEventQueueCap = 256
         , readinessMaxLag = 10_000
         , livenessTimeoutUs = 1_000_000
         }

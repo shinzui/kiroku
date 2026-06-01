@@ -14,8 +14,10 @@ module Kiroku.Metrics.Server (
     MetricsServer (..),
     startMetricsServer,
     startMetricsServerWith,
+    startMetricsServerWithStore,
     stopMetricsServer,
     withMetricsServer,
+    withMetricsServerWithStore,
     combinedApp,
     httpApp,
     stubWebSocketApp,
@@ -43,6 +45,8 @@ import Kiroku.Metrics.Health (
  )
 import Kiroku.Metrics.JSON (jsonApp, jsonResponse)
 import Kiroku.Metrics.Prometheus (prometheusApp)
+import Kiroku.Metrics.WebSocket (newWebSocketState, websocketApp)
+import Kiroku.Store (KirokuStore)
 
 -- | A running metrics server: the Warp thread and the port it bound.
 data MetricsServer = MetricsServer
@@ -79,6 +83,23 @@ startMetricsServerWith cfg m deps wsApp = do
             thread <- async (Warp.runSettings settings app)
             pure (MetricsServer thread cfg.port)
 
+{- | Start the server with the real WebSocket app (EP-3), which streams live
+metrics and events out of the given 'KirokuStore'. This is the recommended entry
+point once event streaming is wanted: it allocates one shared connection-limiting
+state (bounded by @cfg.wsMaxConnections@) and wires
+'Kiroku.Metrics.WebSocket.websocketApp'. EP-2's 'startMetricsServer' (stub) is
+unchanged for callers who do not want the WebSocket.
+-}
+startMetricsServerWithStore ::
+    MetricsServerConfig ->
+    KirokuMetrics ->
+    KirokuStore ->
+    [DependencyCheck] ->
+    IO MetricsServer
+startMetricsServerWithStore cfg m store deps = do
+    wsState <- newWebSocketState cfg.wsMaxConnections
+    startMetricsServerWith cfg m deps (websocketApp cfg m store wsState)
+
 -- | Stop the server by cancelling its Warp thread.
 stopMetricsServer :: MetricsServer -> IO ()
 stopMetricsServer server = cancel server.serverThread
@@ -92,6 +113,19 @@ withMetricsServer ::
     IO a
 withMetricsServer cfg m deps =
     bracket (startMetricsServer cfg m deps) stopMetricsServer
+
+{- | Run an action with a running store-aware server (EP-3 WebSocket), tearing
+it down afterwards.
+-}
+withMetricsServerWithStore ::
+    MetricsServerConfig ->
+    KirokuMetrics ->
+    KirokuStore ->
+    [DependencyCheck] ->
+    (MetricsServer -> IO a) ->
+    IO a
+withMetricsServerWithStore cfg m store deps =
+    bracket (startMetricsServerWithStore cfg m store deps) stopMetricsServer
 
 -- | The combined WAI app: WebSocket upgrades to @wsApp@, everything else to the HTTP router.
 combinedApp :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> WS.ServerApp -> Application

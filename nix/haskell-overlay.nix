@@ -1,9 +1,20 @@
 { pkgs }:
 let
-  inherit (pkgs.haskell.lib.compose) doJailbreak dontCheck;
+  inherit (pkgs.haskell.lib.compose) doJailbreak dontCheck overrideCabal;
 in
 final: prev: {
   haxl = dontCheck (doJailbreak prev.haxl);
+
+  # wai-websockets' optional `wai-websockets-example` executable (cabal flag
+  # `example`, default off) depends on wai-app-static, which fails to build in
+  # this nixpkgs Haskell set (a memory/crypton `ByteArrayAccess (Digest MD5)`
+  # skew). cabal2nix lists those executable deps unconditionally, so nix realizes
+  # wai-app-static as a build input even though the example is never compiled.
+  # Drop the executable deps so the (fine) library builds, letting kiroku-metrics
+  # (EP-3, which depends on wai-websockets) build under nix.
+  wai-websockets = overrideCabal (_: {
+    executableHaskellDepends = [ ];
+  }) prev.wai-websockets;
 
   codd = dontCheck (
     doJailbreak (

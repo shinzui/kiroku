@@ -234,7 +234,7 @@ what an operator status command needs.
 |---|-------|------|-----------|-----------|--------|
 | 1 | Kiroku-Metrics Package Foundation And In-Process Metrics Collector | docs/plans/32-kiroku-metrics-package-foundation-and-in-process-metrics-collector.md | None | None | Complete |
 | 2 | HTTP JSON, Prometheus, And Health Endpoints For Kiroku Metrics | docs/plans/33-http-json-prometheus-and-health-endpoints-for-kiroku-metrics.md | EP-1 | None | Complete |
-| 3 | WebSocket Endpoint For Live Metrics And Event Streaming Out Of The Store | docs/plans/34-websocket-endpoint-for-live-metrics-and-event-streaming-out-of-the-store.md | EP-2 | None | Not Started |
+| 3 | WebSocket Endpoint For Live Metrics And Event Streaming Out Of The Store | docs/plans/34-websocket-endpoint-for-live-metrics-and-event-streaming-out-of-the-store.md | EP-2 | None | Complete |
 | 4 | Kiroku Metrics And Event-Stream User Guide And Runnable Example | docs/plans/35-kiroku-metrics-and-event-stream-user-guide-and-runnable-example.md | EP-2 | EP-3, EP-5 | Not Started |
 | 5 | Remote Subscription-Status HTTP Endpoint And Kiroku-CLI Remote Client | docs/plans/52-remote-subscription-status-http-endpoint-and-kiroku-cli-remote-client.md | EP-2 | None | Not Started |
 
@@ -439,9 +439,9 @@ Track milestone-level progress across all child plans.
 - [x] EP-2: JSON endpoints (`/metrics`, `/metrics/:subscription`) rendering the snapshot
 - [x] EP-2: Prometheus text-exposition endpoint (`/metrics/prometheus`) — `promtool` absent from the dev shell, so format validated by eye + integration-test substring assertion
 - [x] EP-2: Health endpoints (`/health/live`, `/health/ready`, `/health`) with pluggable dependency checks (PostgreSQL ping built in)
-- [ ] EP-3: WebSocket protocol types + metrics channel (snapshot on connect, periodic live updates), filling the EP-2 seam
-- [ ] EP-3: Event-stream channel — live "from-now" tail via `subscribePublisher`, optional category filter and replay-from-position via `readAllForward`; `recordedEventToJSON`
-- [ ] EP-3: End-to-end WebSocket test (append events, observe both metric updates and event messages over a real socket)
+- [x] EP-3: WebSocket protocol types + metrics channel (snapshot on connect, periodic live updates), filling the EP-2 seam (`startMetricsServerWithStore` wires the real `websocketApp`)
+- [x] EP-3: Event-stream channel — live "from-now" tail via `subscribePublisher` (`DropOldest`, `wsEventQueueCap`), optional category filter and replay-from-position via `readAllForward`/`readCategory`; `recordedEventToJSON`
+- [x] EP-3: End-to-end WebSocket test (append events, observe event messages in order + metric snapshot over a real socket) + a replay-then-live test; `nix build .#kiroku-metrics` green after a `wai-websockets` overlay fix
 - [ ] EP-4: `docs/user/metrics.md` guide (endpoints, JSON shapes, Prometheus names, WebSocket protocol, no-auth deployment assumption, lag limitation), linked from `docs/user/README.md` and `docs/user/observability.md`
 - [ ] EP-4: Runnable, tested example program (ephemeral store → server → append → curl + WebSocket transcripts)
 - [ ] EP-5: `GET /subscriptions` + `GET /subscriptions/<name>` on the EP-2 server, reading the live registry through an optional provider seam; shared `SubscriptionStatusRow` JSON codec in `kiroku-cli`
@@ -519,6 +519,35 @@ interactions between child plans. Provide concise evidence.
   `kiroku_subscription_db_errors_by_phase_total{phase}` and
   `kiroku_subscription_db_errors_total{subscription}` to keep Prometheus label sets
   consistent.
+
+- Discovery (2026-06-01, EP-3 complete): **IP-4 is now concrete and IP-3 is
+  filled.** `Kiroku.Metrics.WebSocket` exposes `websocketApp :: MetricsServerConfig
+  -> KirokuMetrics -> KirokuStore -> WebSocketState -> WS.ServerApp` (the
+  `WebSocketState` arg is a small refinement of the IP-3 sketch so the connection
+  limit is shared across connections), plus the recommended entry points
+  `startMetricsServerWithStore` / `withMetricsServerWithStore` on
+  `Kiroku.Metrics.Server`. EP-2's `startMetricsServer` (stub) and `defaultConfig`
+  are unchanged; the only config addition is the defaulted `wsEventQueueCap ::
+  Natural` (256). **For EP-4's guide:** the protocol envelope and metrics keys are
+  snake_case (`from_position`, `event_stream_started`, …), but the per-event
+  payload from `recordedEventToJSON` uses **camelCase** field names (`eventId`,
+  `eventType`, `streamVersion`, `globalPosition`, `originalStreamId`,
+  `originalVersion`, `payload`, `metadata`, `causationId`, `correlationId`,
+  `createdAt`) — document both. The WebSocket paths are `/ws/metrics` and
+  `/ws/events`; the event channel requires a `subscribe_events` message
+  (`{from_position?, category?}`); there is no query-string variant. The
+  **category** live path is implemented but lacks an automated test.
+
+- Discovery (2026-06-01, EP-3, build wiring): the first full `nix build
+  .#kiroku-metrics` exposed a pinned-nixpkgs breakage — `wai-websockets`'
+  `wai-websockets-example` executable depends on `wai-app-static`, which fails to
+  compile (a `crypton`/`memory` `ByteArrayAccess (Digest MD5)` skew). Fixed in
+  `nix/haskell-overlay.nix` with `overrideCabal (_: { executableHaskellDepends =
+  []; }) prev.wai-websockets` (the example exe is flag-gated off, so dropping its
+  deps is safe; `dontCheck` did not help because it is an executable, not test,
+  dep). This affects any package depending on `wai-websockets`, i.e. since EP-2.
+  Also: a Nix flake only sees git-tracked files, so new sources must be `git
+  add`-ed before `nix build`.
 
 ## Decision Log
 

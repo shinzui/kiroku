@@ -47,6 +47,7 @@ library
     Kiroku.Metrics.Prometheus
     Kiroku.Metrics.Server
     Kiroku.Metrics.Types
+    Kiroku.Metrics.WebSocket
 
   build-depends:
     , aeson           >=2.1  && <2.3
@@ -62,6 +63,7 @@ library
     , text            >=2.0  && <2.2
     , time            >=1.12 && <1.15
     , uuid            >=1.3  && <1.4
+    , vector          >=0.13 && <0.14
     , wai             >=3.2  && <3.3
     , wai-websockets  >=3.0  && <3.1
     , warp            >=3.4  && <3.5
@@ -77,11 +79,13 @@ test-suite kiroku-metrics-test
     Test.CollectorSpec
     Test.IntegrationSpec
     Test.ServerSpec
+    Test.WebSocketSpec
 
   hs-source-dirs: test
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N
   build-depends:
     , aeson                >=2.1  && <2.3
+    , async                >=2.2  && <2.3
     , base                 >=4.18 && <5
     , bytestring           >=0.11 && <0.13
     , containers           >=0.6  && <0.8
@@ -98,3 +102,4 @@ test-suite kiroku-metrics-test
     , stm                  >=2.5  && <2.6
     , text                 >=2.0  && <2.2
     , uuid                 >=1.3  && <1.4
+    , websockets           >=0.13 && <0.14

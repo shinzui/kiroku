@@ -59,14 +59,31 @@ full-store replay. See the Decision Log.
 
 ## Progress
 
-- [ ] M1: `Kiroku.Metrics.WebSocket` module: protocol types (`ClientMessage`/`ServerMessage`), path dispatch, connection limiting + ping thread, and the **metrics channel** (snapshot on connect + periodic push + ping/pong). EP-2's stub replaced; `enableWebSocket` makes `/ws/metrics` functional.
-- [ ] M2: **Event channel** on `/ws/events`: live "from-now" tail via `subscribePublisher`; `recordedEventToJSON`; client `subscribe_events`/`unsubscribe_events`; clean teardown on disconnect.
-- [ ] M3: Optional `fromPosition` replay (via `runStoreIO store . readAllForward`) and optional `category` filter (via `runStoreIO store . readCategory` driven by `publisherPosition`); end-to-end WebSocket test (append → receive events + metric updates over a real socket).
+- [x] M1 (2026-06-01): `Kiroku.Metrics.WebSocket` module: protocol types (`ClientMessage`/`ServerMessage`), path dispatch, connection limiting + ping thread, and the **metrics channel** (snapshot on connect + periodic push + ping/pong). EP-2's stub kept; `startMetricsServerWithStore`/`withMetricsServerWithStore` added and wire the real `websocketApp`. `enableWebSocket` makes `/ws/metrics` functional.
+- [x] M2 (2026-06-01): **Event channel** on `/ws/events`: live "from-now" tail via `subscribePublisher` (`DropOldest`, `wsEventQueueCap`); `recordedEventToJSON`; client `subscribe_events`/`unsubscribe_events`; clean teardown on disconnect (tail `finally`s `unsubscribe`; verified by the subscriber-count-returns-to-baseline assertion).
+- [x] M3 (2026-06-01): Optional `fromPosition` replay (via `runStoreIO store . readAllForward`, with broadcast dedup at the attach boundary) and optional `category` filter (via `runStoreIO store . readCategory` gated on `publisherPosition`, mirroring the worker's `liveLoopDbDriven` last-observed-position gate); end-to-end WebSocket test (append → 3 events in order over a real socket; metrics snapshot reflects them; plus a replay test). `cabal test` + `nix build .#kiroku-metrics` green. `websocat` is absent from the dev shell, so manual checks were replaced by the automated `websockets`-client tests; the **category** path is implemented but not yet covered by an automated test (see Decision Log).
 
 
 ## Surprises & Discoveries
 
-(None yet.)
+- Discovery (2026-06-01): the first **full `nix build .#kiroku-metrics`** (EP-1/EP-2
+  only validated nix via `--dry-run`) surfaced a pre-existing nixpkgs Haskell-set
+  breakage: `wai-websockets`'s optional `wai-websockets-example` executable
+  depends on `wai-app-static`, which fails to compile in the pinned nixpkgs (a
+  `crypton` 1.1.2 / `memory` 0.18 `ByteArrayAccess (Digest MD5)` instance skew in
+  `WaiAppStatic/Storage/Filesystem.hs`). cabal2nix lists the example's deps in
+  `executableHaskellDepends` unconditionally (the cabal `example` flag defaults
+  off, so the exe is never compiled), so nix still realized `wai-app-static` as a
+  build input. Fixed in `nix/haskell-overlay.nix` by `overrideCabal (_: {
+  executableHaskellDepends = []; }) prev.wai-websockets`. `dontCheck` alone did
+  **not** help (the dep is an executable dep, not a test dep). This affects every
+  package depending on `wai-websockets`, i.e. `kiroku-metrics` since EP-2.
+
+- Discovery (2026-06-01): a Nix **flake only includes git-tracked files** in its
+  source, so the freshly-created `Kiroku/Metrics/WebSocket.hs` and
+  `Test/WebSocketSpec.hs` had to be `git add`-ed before `nix build` could see them
+  (cabal errored with "can't find source for Kiroku/Metrics/WebSocket"). `cabal`
+  builds from the working tree and was unaffected.
 
 
 ## Decision Log
@@ -106,10 +123,101 @@ full-store replay. See the Decision Log.
   non-orphan home is `kiroku-store`'s `Kiroku.Store.Types`, decided then.
   Date: 2026-05-19
 
+- Decision: `websocketApp` takes a 4th argument, the shared `WebSocketState`
+  (`websocketApp :: MetricsServerConfig -> KirokuMetrics -> KirokuStore ->
+  WebSocketState -> WS.ServerApp`), allocated once in `startMetricsServerWithStore`
+  and captured.
+  Rationale: A `WS.ServerApp` is `PendingConnection -> IO ()`, invoked per
+  connection. The connection-limit counter must be shared across connections, so
+  it cannot be allocated inside the per-connection app. The plan's Interfaces
+  section listed `websocketApp` without the state arg *and* listed `WebSocketState`
+  + `newWebSocketState`; threading the state as an explicit argument is the
+  reconciliation that actually enforces the limit. IP-3 is unaffected: EP-2's
+  `MetricsServerConfig` gains no required field and `startMetricsServer` (stub) is
+  unchanged.
+  Date: 2026-06-01
+
+- Decision: `ClientMessage`/`ServerMessage` constructors are **field-less
+  (positional)**, not records.
+  Rationale: `SubscribeEvents` and `EventStreamStarted` would each define a
+  `fromPosition` record selector; re-exporting both `(..)` lists from the
+  `Kiroku.Metrics` umbrella then produces a conflicting-export error for
+  `fromPosition` even under `DuplicateRecordFields`. The handlers pattern-match
+  positionally, so dropping the field labels costs nothing.
+  Date: 2026-06-01
+
+- Decision: Wire keys are snake_case (`from_position`, `category`,
+  `event_stream_started`, `message`); the event channel **requires an explicit
+  `subscribe_events` message** rather than parsing `?from=/?category=` from the
+  upgrade path.
+  Rationale: snake_case matches EP-2's existing JSON wire (`global_position`,
+  etc., per the MasterPlan's EP-2 discovery). A single message-driven entry keeps
+  the protocol uniform and lets one socket re-subscribe; query-string parsing was
+  judged redundant surface and omitted. EP-4 documents the message shapes.
+  Date: 2026-06-01
+
+- Decision: Periodic metrics push is **unconditional** (a fresh `Snapshot` every
+  `wsPushIntervalUs`), not change-gated like `shibuya-metrics`.
+  Rationale: The plan explicitly permits this for v1 ("unconditional periodic push
+  is simpler and fine for v1 — record the choice"). Delta detection is a later
+  optimization.
+  Date: 2026-06-01
+
+- Decision: A normal client disconnect (`WS.ConnectionException` from the receive
+  loop) is swallowed at the connection boundary in `websocketApp`'s `guarded`
+  wrapper; `sendMsg` also swallows it so `finally` goodbyes never re-throw on a
+  dead socket.
+  Rationale: Without it, every client disconnect printed `ConnectionClosed` to the
+  server's stderr (observed in the test output). Catching at the per-connection
+  boundary scopes the suppression correctly and still runs slot-release cleanup.
+  Date: 2026-06-01
+
+- Decision: The **category** live path is implemented (mirroring the worker's
+  `liveLoopDbDriven` gate-on-last-observed-position to avoid busy-spin) but is not
+  covered by an automated test; the from-now and replay paths are.
+  Rationale: `websocat` is absent from the dev shell and a category e2e test needs
+  multi-stream setup with category-prefixed names; the two broadcast-based paths
+  exercise the shared connection/teardown machinery. Adding a category test is
+  cheap follow-up work, noted here so it is not mistaken for covered.
+  Date: 2026-06-01
+
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+EP-3 is complete. The WebSocket seam EP-2 left (IP-3) is filled by
+`Kiroku.Metrics.WebSocket.websocketApp`, dispatched by path:
+
+- `/ws/metrics` — a `MetricsSnapshot` on connect, a fresh one every
+  `wsPushIntervalUs`, and `ping`→`pong`.
+- `/ws/events` — after a `subscribe_events` message, each appended
+  `RecordedEvent` as `{"type":"event","event":{…}}` in global-position order,
+  via the public `subscribePublisher` broadcast (`DropOldest`, capacity
+  `wsEventQueueCap`). `from_position` replays history with `readAllForward` then
+  continues live (deduping at the attach boundary); `category` runs a
+  `readCategory` loop gated on `publisherPosition`. No persistent subscription is
+  created and nothing is written to the `subscriptions` table.
+
+This owns IP-4: the `ClientMessage`/`ServerMessage` protocol and
+`recordedEventToJSON :: RecordedEvent -> Value` (an explicit, orphan-free
+encoder). `kiroku-store` is unchanged. The recommended entry points are
+`startMetricsServerWithStore` / `withMetricsServerWithStore`; EP-2's
+`startMetricsServer` (stub) and `defaultConfig` still compile and behave as
+before (the only config addition is the defaulted `wsEventQueueCap`).
+
+Validation: `cabal test kiroku-metrics` is green (12 examples — the EP-1/EP-2
+specs plus two new WebSocket e2e tests: a from-now tail of three appended events
+in order with the metrics snapshot reflecting them and the broadcast subscriber
+returning to baseline after disconnect, and a `from_position=0` replay-then-live
+test proving no boundary duplication). `nix build .#kiroku-metrics` succeeds after
+the `wai-websockets` overlay fix.
+
+Gaps vs. the plan: the **category** filter path is implemented but lacks an
+automated test (see Decision Log); manual `websocat` checks were replaced by the
+`websockets`-client tests because `websocat` is absent from the dev shell. EP-4
+should document the wire shapes (the `recordedEventToJSON` keys are camelCase —
+`eventId`, `eventType`, `streamVersion`, `globalPosition`, `originalStreamId`,
+`originalVersion`, `payload`, `metadata`, `causationId`, `correlationId`,
+`createdAt` — while the protocol envelope and metrics keys are snake_case).
 
 
 ## Context and Orientation
