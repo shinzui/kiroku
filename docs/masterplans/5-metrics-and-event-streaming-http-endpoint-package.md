@@ -232,7 +232,7 @@ what an operator status command needs.
 
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
-| 1 | Kiroku-Metrics Package Foundation And In-Process Metrics Collector | docs/plans/32-kiroku-metrics-package-foundation-and-in-process-metrics-collector.md | None | None | Not Started |
+| 1 | Kiroku-Metrics Package Foundation And In-Process Metrics Collector | docs/plans/32-kiroku-metrics-package-foundation-and-in-process-metrics-collector.md | None | None | In Progress |
 | 2 | HTTP JSON, Prometheus, And Health Endpoints For Kiroku Metrics | docs/plans/33-http-json-prometheus-and-health-endpoints-for-kiroku-metrics.md | EP-1 | None | Not Started |
 | 3 | WebSocket Endpoint For Live Metrics And Event Streaming Out Of The Store | docs/plans/34-websocket-endpoint-for-live-metrics-and-event-streaming-out-of-the-store.md | EP-2 | None | Not Started |
 | 4 | Kiroku Metrics And Event-Stream User Guide And Runnable Example | docs/plans/35-kiroku-metrics-and-event-stream-user-guide-and-runnable-example.md | EP-2 | EP-3, EP-5 | Not Started |
@@ -488,6 +488,21 @@ interactions between child plans. Provide concise evidence.
   process-local registry. EP-5 exposes it over HTTP so the CLI can read a remote
   worker.
 
+
+- Discovery (2026-06-01, during EP-1/M1 implementation): The
+  `Kiroku.Store.Observability.KirokuEvent` taxonomy is **richer than the original
+  decomposition assumed**. Every subscription lifecycle constructor now carries a
+  trailing `SubscriptionGroupContext` (`NonGroup` | `GroupMember member size`),
+  `KirokuEventSubscriptionDbError` has a 4th `SubscriptionGroupContext` field, and
+  there are additional constructors: `KirokuEventSubscriptionPaused`, `...Resumed`,
+  `...Reconnecting`, `...Fetched`, `...Delivered` (with `SubscriptionDeliveryPhase`),
+  `...Retrying`, `...DeadLettered` (with `DeadLetterReason`). EP-1's `MetricsSnapshot`
+  / `LifecycleCounters` (IP-1) is therefore being implemented against this fuller
+  set — additive counters for the new events plus the original ones — so the IP-1
+  shape EP-2/EP-3 consume is broader than the snippet in IP-1. The four public
+  collector function signatures and the `MetricsSnapshot`/`ToJSON` contract are
+  unchanged; the additions are extra `counters` fields, which IP-1 already permits
+  as additive.
 
 ## Decision Log
 

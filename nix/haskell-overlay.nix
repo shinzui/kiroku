@@ -117,4 +117,12 @@ final: prev: {
   );
 
   kiroku-otel = dontCheck (doJailbreak (final.callCabal2nix "kiroku-otel" ../kiroku-otel { }));
+
+  kiroku-metrics = dontCheck (
+    doJailbreak (
+      final.callCabal2nix "kiroku-metrics" ../kiroku-metrics {
+        inherit (final) kiroku-store kiroku-test-support;
+      }
+    )
+  );
 }

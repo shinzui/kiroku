@@ -36,6 +36,12 @@ in  Schema.Project::{ project =
         , path = Some "kiroku-otel"
         , description = Some "OpenTelemetry W3C trace-context helpers for Kiroku event metadata"
         }
+      , Schema.Package::{ name = "kiroku-metrics"
+        , type = Schema.PackageType.Library
+        , language = Schema.Language.Haskell
+        , path = Some "kiroku-metrics"
+        , description = Some "Metrics, health, and event-streaming HTTP endpoints for Kiroku"
+        }
       ]
     , dependencies =
       [ "effectful/effectful"

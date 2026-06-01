@@ -6,6 +6,7 @@ packages:
   kiroku-otel
   kiroku-jitsurei
   kiroku-cli
+  kiroku-metrics
 
 with-compiler: ghc-9.12.2
 

@@ -65,14 +65,36 @@ exposes every seam the collector needs.
 
 ## Progress
 
-- [ ] M1: `kiroku-metrics` package skeleton created and wired into `cabal.project`, `flake.nix`, `nix/haskell-overlay.nix`, and `mori.dhall`; the empty library builds under `cabal build` and `nix build`.
+- [x] M1 (2026-06-01): `kiroku-metrics` package skeleton created and wired into `cabal.project`, `flake.nix`, `nix/haskell-overlay.nix`, and `mori.dhall`; the empty library builds under `cabal build kiroku-metrics` (green) and the flake evaluates with the new attribute (`nix build .#kiroku-metrics --dry-run` resolves the `kiroku-store` + `kiroku-metrics` derivations). Full `nix build` deferred to avoid a slow from-source compile of the dependency tree.
 - [ ] M2: `Kiroku.Metrics.Types` (`MetricsSnapshot` + sub-records + `ToJSON`) and `Kiroku.Metrics.Collector` (`KirokuMetrics`, `newKirokuMetrics`, callback wrappers, `snapshotMetrics`) implemented; pure unit test passes.
 - [ ] M3: Integration test wiring the collector into a real `withTestStore`, appending events and running a subscription, asserts snapshot contents; `cabal test` green.
 
 
 ## Surprises & Discoveries
 
-(None yet.)
+- 2026-06-01 (M1): The repository has evolved since this plan was written. The
+  `cabal.project` `packages:` block now lists `kiroku-store`,
+  `kiroku-store-migrations`, `kiroku-test-support`, `shibuya-kiroku-adapter`,
+  `kiroku-otel`, `kiroku-jitsurei`, and `kiroku-cli` — not the four-package set the
+  plan quoted. `kiroku-metrics` was appended after `kiroku-cli`. The `flake.nix`
+  `packages` set and `nix/haskell-overlay.nix` still only list the older subset
+  (`kiroku-store`, `kiroku-store-migrations`, `shibuya-kiroku-adapter`,
+  `kiroku-otel`); `kiroku-cli`/`kiroku-jitsurei`/`kiroku-test-support` are not in
+  the flake `packages` set. I added `kiroku-metrics` to both, mirroring `kiroku-otel`.
+
+- 2026-06-01 (M1, affects M2): The `Kiroku.Store.Observability.KirokuEvent`
+  taxonomy is substantially richer than the plan's M2 listing. Every subscription
+  lifecycle constructor now carries a trailing `SubscriptionGroupContext` (`NonGroup`
+  | `GroupMember member size`), `KirokuEventSubscriptionDbError` carries it too
+  (now 4 fields), and there are new constructors the plan did not mention:
+  `KirokuEventSubscriptionPaused`, `...Resumed`, `...Reconnecting` (with an `Int`
+  attempt count), `...Fetched` (live-fetch row count), `...Delivered` (batch row
+  count + `SubscriptionDeliveryPhase`), `...Retrying`, and `...DeadLettered`
+  (with `DeadLetterReason`). The M2 collector and `LifecycleCounters` must handle
+  the full current constructor set (see Decision Log). `SubscriptionStopReason`
+  constructors are confirmed `StopHandlerRequested`/`StopCancelled`/`StopOverflowed`/
+  `StopWorkerCrashed`. The pool `ConnectionReadyForUseReason` "established"
+  constructor is `EstablishedConnectionReadyForUseReason`.
 
 
 ## Decision Log
@@ -93,6 +115,36 @@ exposes every seam the collector needs.
   only way to compute an accurate "currently in use" gauge rather than a
   meaningless monotonic tally of transitions.
   Date: 2026-05-19
+
+- Decision (2026-06-01, M1): Use the `kiroku-test-support` package
+  (`Kiroku.Test.Postgres.withMigratedTestDatabase` / `withSharedMigratedPostgres`)
+  for the M3 integration test rather than the plan's raw `ephemeral-pg` +
+  hand-built `withTestStoreSettings` approach.
+  Rationale: The repo gained a shared test-support package since this plan was
+  written, and `kiroku-otel`'s test-suite already uses it as the canonical pattern
+  for an ephemeral, migrated PostgreSQL store. Reusing it avoids re-implementing
+  migration bootstrapping and keeps the new package's tests consistent with the
+  rest of the tree. The integration test's `kiroku-metrics.cabal` test-suite
+  therefore depends on `kiroku-test-support` (not bare `ephemeral-pg`).
+  Date: 2026-06-01
+
+- Decision (2026-06-01, M1): Verify the Nix wiring with `nix build .#kiroku-metrics
+  --dry-run` (flake evaluation + derivation resolution) rather than a full
+  `nix build`.
+  Rationale: A full Nix build compiles the entire `kiroku-store` dependency tree
+  from source, which is slow locally; the plan's Acceptance explicitly permits the
+  evaluation-only fallback. The dry-run confirms the overlay attribute evaluates
+  and resolves to a `kiroku-metrics-0.1.0.0` derivation (cabal2nix succeeded).
+  Note: flakes only see git-tracked files, so the new `kiroku-metrics/` directory
+  must be `git add`-ed before the dry-run can find it.
+  Date: 2026-06-01
+
+- Decision (2026-06-01, M1): Set the `kiroku-store` dependency bound to `^>=0.2`
+  (mirroring `kiroku-otel`) rather than the plan's `>=0.1`.
+  Rationale: `cabal.project` pins `kiroku-store` at 0.2.0.0 and `kiroku-otel`
+  already uses `^>=0.2`; matching keeps the bounds consistent across sister
+  packages. Both bounds resolve identically against the single pinned version.
+  Date: 2026-06-01
 
 
 ## Outcomes & Retrospective
