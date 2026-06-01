@@ -20,7 +20,6 @@ import Options.Applicative (
     Parser,
     ParserInfo,
     ParserResult (..),
-    command,
     defaultPrefs,
     execParserPure,
     fullDesc,
@@ -31,6 +30,7 @@ import Options.Applicative (
     subparser,
     (<**>),
  )
+import Options.Applicative qualified as Options
 import Test.Hspec
 
 data HostCommand
@@ -87,7 +87,7 @@ main =
                                 { databaseUrl = Just "postgres://flag"
                                 , schema = "ops"
                                 , poolSize = 3
-                                , standaloneCommand = KirokuSubscriptions (SubscriptionStatus (StatusOptions OutputJson))
+                                , command = KirokuSubscriptions (SubscriptionStatus (StatusOptions OutputJson))
                                 }
                     other -> expectationFailure ("expected parser success, got " <> renderedHelp other)
 
@@ -95,7 +95,7 @@ main =
                 case execParserPure defaultPrefs standaloneParserInfo ["subscriptions", "status"] of
                     Success parsed ->
                         case resolveStandaloneOptions [("KIROKU_DATABASE_URL", "postgres://env")] parsed of
-                            Right StandaloneRuntime{settings = settings, runtimeCommand = parsedCommand} -> do
+                            Right StandaloneRuntime{settings = settings, command = parsedCommand} -> do
                                 settings ^. #connString `shouldBe` "postgres://env"
                                 settings ^. #schema `shouldBe` "kiroku"
                                 settings ^. #poolSize `shouldBe` 2
@@ -109,7 +109,7 @@ main =
                             { databaseUrl = Just "postgres://flag"
                             , schema = "ops"
                             , poolSize = 0
-                            , standaloneCommand = KirokuNoCommand
+                            , command = KirokuNoCommand
                             }
                 case resolveStandaloneOptions [("KIROKU_DATABASE_URL", "postgres://env")] opts of
                     Left err -> err `shouldBe` "kiroku: --pool-size must be greater than zero"
@@ -121,7 +121,7 @@ main =
                             { databaseUrl = Nothing
                             , schema = "kiroku"
                             , poolSize = 2
-                            , standaloneCommand = KirokuNoCommand
+                            , command = KirokuNoCommand
                             }
                 case resolveStandaloneOptions [] opts of
                     Left err -> err `shouldBe` "kiroku: missing database connection string; pass --database-url or set KIROKU_DATABASE_URL"
@@ -189,7 +189,7 @@ main =
                                 { databaseUrl = Just connStr
                                 , schema = "kiroku"
                                 , poolSize = 2
-                                , standaloneCommand = KirokuSubscriptions (SubscriptionStatus (StatusOptions OutputTable))
+                                , command = KirokuSubscriptions (SubscriptionStatus (StatusOptions OutputTable))
                                 }
                     case resolveStandaloneOptions [] opts of
                         Left err -> expectationFailure ("expected resolved runtime, got " <> show err)
@@ -207,7 +207,7 @@ hostParserInfo =
 hostCommandParser :: Parser HostCommand
 hostCommandParser =
     subparser
-        ( command
+        ( Options.command
             "host"
             (info (pure HostOnly) (progDesc "Run a host-only command."))
             <> kirokuSubparser HostKiroku

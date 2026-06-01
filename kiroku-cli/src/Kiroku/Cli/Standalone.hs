@@ -8,10 +8,11 @@ module Kiroku.Cli.Standalone (
 ) where
 
 import Control.Applicative (optional, (<|>))
-import Control.Lens ((&), (.~))
+import Control.Lens ((&), (.~), (^.))
 import Data.Generics.Labels ()
 import Data.Text (Text)
 import Data.Text qualified as T
+import GHC.Generics (Generic)
 import Kiroku.Cli.Command (KirokuCommand (..), OutputFormat (..), StatusOptions (..), SubscriptionCommand (..))
 import Kiroku.Cli.Parser (kirokuCommandParser)
 import Kiroku.Cli.Subscription.Status (renderSubscriptionStatusRows, subscriptionStatusRows)
@@ -39,14 +40,15 @@ data StandaloneOptions = StandaloneOptions
     { databaseUrl :: !(Maybe Text)
     , schema :: !Text
     , poolSize :: !Int
-    , standaloneCommand :: !KirokuCommand
+    , command :: !KirokuCommand
     }
-    deriving stock (Eq, Show)
+    deriving stock (Generic, Eq, Show)
 
 data StandaloneRuntime = StandaloneRuntime
     { settings :: !ConnectionSettings
-    , runtimeCommand :: !KirokuCommand
+    , command :: !KirokuCommand
     }
+    deriving stock (Generic)
 
 standaloneParserInfo :: ParserInfo StandaloneOptions
 standaloneParserInfo =
@@ -84,24 +86,24 @@ standaloneOptionsParser =
 
 resolveStandaloneOptions :: [(String, String)] -> StandaloneOptions -> Either Text StandaloneRuntime
 resolveStandaloneOptions env opts
-    | poolSize opts <= 0 = Left "kiroku: --pool-size must be greater than zero"
+    | opts ^. #poolSize <= 0 = Left "kiroku: --pool-size must be greater than zero"
     | otherwise = do
-        conn <- case databaseUrl opts <|> (T.pack <$> lookup "KIROKU_DATABASE_URL" env) of
+        conn <- case opts ^. #databaseUrl <|> (T.pack <$> lookup "KIROKU_DATABASE_URL" env) of
             Just connString | not (T.null connString) -> Right connString
             _ -> Left "kiroku: missing database connection string; pass --database-url or set KIROKU_DATABASE_URL"
         pure
             StandaloneRuntime
                 { settings =
                     defaultConnectionSettings conn
-                        & #schema .~ schema opts
-                        & #poolSize .~ poolSize opts
-                , runtimeCommand = standaloneCommand opts
+                        & #schema .~ (opts ^. #schema)
+                        & #poolSize .~ (opts ^. #poolSize)
+                , command = opts ^. #command
                 }
 
 runStandaloneCommand :: StandaloneRuntime -> IO Text
 runStandaloneCommand runtime =
-    withStore (settings runtime) $ \store ->
-        renderStandaloneCommand store (runtimeCommand runtime)
+    withStore (runtime ^. #settings) $ \store ->
+        renderStandaloneCommand store (runtime ^. #command)
 
 renderStandaloneCommand :: KirokuStore -> KirokuCommand -> IO Text
 renderStandaloneCommand _ KirokuNoCommand =

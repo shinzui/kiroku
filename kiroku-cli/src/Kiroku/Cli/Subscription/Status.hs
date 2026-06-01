@@ -4,8 +4,10 @@ module Kiroku.Cli.Subscription.Status (
     subscriptionStatusRows,
 ) where
 
+import Control.Lens ((^.))
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as LBS
+import Data.Generics.Labels ()
 import Data.Int (Int32, Int64)
 import Data.List (sortOn)
 import Data.Map.Strict (Map)
@@ -13,22 +15,23 @@ import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
+import GHC.Generics (Generic)
 import Kiroku.Cli.Command (OutputFormat (..))
 import Kiroku.Store.Subscription (SubscriptionStateView (..))
 import Kiroku.Store.Subscription.Types (SubscriptionName (..))
 import Kiroku.Store.Types (GlobalPosition (..))
 
 data SubscriptionStatusRow = SubscriptionStatusRow
-    { rowSubscription :: !Text
-    , rowMember :: !Int32
-    , rowPhase :: !Text
-    , rowGlobalPosition :: !Int64
+    { subscription :: !Text
+    , member :: !Int32
+    , phase :: !Text
+    , globalPosition :: !Int64
     }
-    deriving stock (Eq, Show)
+    deriving stock (Generic, Eq, Show)
 
 subscriptionStatusRows :: Map (SubscriptionName, Int32) SubscriptionStateView -> [SubscriptionStatusRow]
 subscriptionStatusRows =
-    sortOn (\row -> (rowSubscription row, rowMember row))
+    sortOn (\row -> (row ^. #subscription, row ^. #member))
         . fmap toRow
         . Map.elems
   where
@@ -36,10 +39,10 @@ subscriptionStatusRows =
         let SubscriptionName name = subscriptionName view
             GlobalPosition position = cursor view
          in SubscriptionStatusRow
-                { rowSubscription = name
-                , rowMember = member view
-                , rowPhase = statePhase view
-                , rowGlobalPosition = position
+                { subscription = name
+                , member = view ^. #member
+                , phase = view ^. #statePhase
+                , globalPosition = position
                 }
 
 renderSubscriptionStatusRows :: OutputFormat -> [SubscriptionStatusRow] -> Text
@@ -57,17 +60,17 @@ renderTable rows =
             <> "  "
             <> pad phaseWidth "PHASE"
             <> "  GLOBAL_POSITION"
-    subWidth = columnWidth "SUBSCRIPTION" (fmap rowSubscription rows)
-    memberWidth = columnWidth "MEMBER" (fmap (T.pack . show . rowMember) rows)
-    phaseWidth = columnWidth "PHASE" (fmap rowPhase rows)
+    subWidth = columnWidth "SUBSCRIPTION" (fmap (^. #subscription) rows)
+    memberWidth = columnWidth "MEMBER" (fmap (T.pack . show . (^. #member)) rows)
+    phaseWidth = columnWidth "PHASE" (fmap (^. #phase) rows)
     renderRow row =
-        pad subWidth (rowSubscription row)
+        pad subWidth (row ^. #subscription)
             <> "  "
-            <> pad memberWidth (T.pack (show (rowMember row)))
+            <> pad memberWidth (T.pack (show (row ^. #member)))
             <> "  "
-            <> pad phaseWidth (rowPhase row)
+            <> pad phaseWidth (row ^. #phase)
             <> "  "
-            <> T.pack (show (rowGlobalPosition row))
+            <> T.pack (show (row ^. #globalPosition))
 
 columnWidth :: Text -> [Text] -> Int
 columnWidth label values =
@@ -86,8 +89,8 @@ renderJson =
   where
     rowJson row =
         Aeson.object
-            [ "subscription" Aeson..= rowSubscription row
-            , "member" Aeson..= rowMember row
-            , "phase" Aeson..= rowPhase row
-            , "global_position" Aeson..= rowGlobalPosition row
+            [ "subscription" Aeson..= (row ^. #subscription)
+            , "member" Aeson..= (row ^. #member)
+            , "phase" Aeson..= (row ^. #phase)
+            , "global_position" Aeson..= (row ^. #globalPosition)
             ]
