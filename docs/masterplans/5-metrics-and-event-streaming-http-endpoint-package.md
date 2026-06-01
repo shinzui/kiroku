@@ -504,6 +504,22 @@ interactions between child plans. Provide concise evidence.
   unchanged; the additions are extra `counters` fields, which IP-1 already permits
   as additive.
 
+- Discovery (2026-06-01, EP-2 complete): The **IP-3 seam is live and ready for
+  EP-3**. `Kiroku.Metrics.Server` exposes `startMetricsServerWith :: ... ->
+  WS.ServerApp -> IO MetricsServer` and `combinedApp :: ... -> WS.ServerApp ->
+  Application` built on `websocketsOr`; `startMetricsServer` wires the rejecting
+  `stubWebSocketApp`. EP-3 supplies a real `WS.ServerApp` and a convenience starter
+  without changing the server structure or adding a required `MetricsServerConfig`
+  field (the `ws*` fields exist). For **EP-4**: the JSON wire keys are snake_case
+  (`store.global_position`, `last_known_position`, …) and the shipped Prometheus
+  metric names are enumerated in EP-2's Outcomes & Retrospective — EP-4's guide
+  should document those exact names/keys. Two implementation notes that ripple
+  outward: `postgresPing` uses `Hasql.Session.script` (no `Session.sql` in this
+  hasql), and subscription db-error metrics are split into
+  `kiroku_subscription_db_errors_by_phase_total{phase}` and
+  `kiroku_subscription_db_errors_total{subscription}` to keep Prometheus label sets
+  consistent.
+
 ## Decision Log
 
 - Decision: Build the metrics/observability surface as a **new sister package**
