@@ -2,6 +2,9 @@
 result
 result-*
 
+# git-hooks.nix generated
+.pre-commit-config.yaml
+
 # Cabal
 dist-newstyle/
 cabal.project.local
