@@ -2,107 +2,45 @@
   description = "Kiroku — PostgreSQL event store in Haskell";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
-    treefmt-nix.url = "github:numtide/treefmt-nix";
+    # The shared base flake. Provides the GHC 9.12.4 / cabal / HLS toolchain via
+    # `mkDevShell`, and the single pinned nixpkgs the whole fleet follows.
+    haskell-nix-dev.url = "github:shinzui/haskell-nix-dev";
+    nixpkgs.follows = "haskell-nix-dev/nixpkgs";
+
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    flake-parts.inputs.nixpkgs-lib.follows = "nixpkgs";
+
+    treefmt-nix.follows = "haskell-nix-dev/treefmt-nix";
+
+    pre-commit-hooks.url = "github:cachix/git-hooks.nix";
+    pre-commit-hooks.inputs.nixpkgs.follows = "nixpkgs";
+
+    # ---- PROJECT-SPECIFIC INPUTS ----
+    # Shared Haskell patch management (registry overlay), grafted onto the
+    # haskell-nix-dev nixpkgs in flake.module.nix for the package build.
     haskell-nix.url = "github:shinzui/haskell-nix";
-    pre-commit-hooks = {
-      url = "github:cachix/git-hooks.nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    haskell-nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
+  nixConfig = {
+    extra-substituters = [ ];
+    extra-trusted-public-keys = [ ];
+  };
+
+  # Thin flake-parts shell. The dev toolchain comes from the haskell-nix-dev base
+  # flake (GHC 9.12.4 / cabal / HLS via mkDevShell); project wiring lives in the
+  # imported ./nix modules; the package build and any custom checks live in
+  # ./flake.module.nix.
   outputs =
-    {
-      self,
-      nixpkgs,
-      flake-utils,
-      treefmt-nix,
-      haskell-nix,
-      pre-commit-hooks,
-    }:
-    flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        pkgs = import nixpkgs { inherit system; };
+    inputs@{ flake-parts, nixpkgs, ... }:
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = nixpkgs.lib.systems.flakeExposed;
 
-        ghcVersion = "ghc9122";
-
-        haskellPackages = pkgs.haskell.packages.${ghcVersion}.override {
-          overrides =
-            pkgs.lib.composeExtensions (haskell-nix.lib.haskellExtension pkgs.haskell.lib.compose pkgs)
-              (import ./nix/haskell-overlay.nix { inherit pkgs; });
-        };
-
-        treefmtEval = treefmt-nix.lib.evalModule pkgs ./treefmt.nix;
-
-        pre-commit-check = pre-commit-hooks.lib.${system}.run {
-          src = ./.;
-          hooks = {
-            treefmt = {
-              enable = true;
-              package = treefmtEval.config.build.wrapper;
-            };
-          };
-        };
-
-        postgresql = pkgs.postgresql_18;
-      in
-      {
-        packages = {
-          kiroku-store = haskellPackages.kiroku-store;
-          kiroku-store-migrations = haskellPackages.kiroku-store-migrations;
-          shibuya-kiroku-adapter = haskellPackages.shibuya-kiroku-adapter;
-          kiroku-otel = haskellPackages.kiroku-otel;
-          kiroku-cli = haskellPackages.kiroku-cli;
-          kiroku-metrics = haskellPackages.kiroku-metrics;
-          default = haskellPackages.kiroku-store;
-        };
-
-        checks = {
-          formatting = treefmtEval.config.build.check self;
-          inherit pre-commit-check;
-        };
-
-        formatter = treefmtEval.config.build.wrapper;
-
-        devShells.default = pkgs.mkShell {
-          nativeBuildInputs = [
-            # Haskell tooling
-            (haskellPackages.ghcWithPackages (ps: [
-              ps.haskell-language-server
-            ]))
-            pkgs.cabal-install
-
-            # PostgreSQL
-            postgresql
-
-            # Native deps for hasql/libpq
-            pkgs.pkg-config
-            pkgs.zlib
-
-            # Dev tools
-            pkgs.just
-            pkgs.process-compose
-          ];
-
-          shellHook = ''
-            ${pre-commit-check.shellHook}
-
-            # Local PostgreSQL setup (unix socket only, no TCP)
-            export PGHOST="$PWD/.pg"
-            export PGDATA="$PGHOST/data"
-            export PGLOG="$PGHOST/postgres.log"
-            export PGDATABASE=kiroku
-            export PG_CONNECTION_STRING="postgresql:///kiroku?host=$PGHOST"
-
-            if [ ! -d "$PGDATA" ]; then
-              echo "Initializing PostgreSQL 18 database..."
-              mkdir -p "$PGHOST"
-              initdb --auth=trust --no-locale --encoding=UTF8 -D "$PGDATA"
-            fi
-          '';
-        };
-      }
-    );
+      imports = [
+        ./nix/haskell.nix
+        ./nix/treefmt.nix
+        ./nix/pre-commit.nix
+      ]
+      ++ nixpkgs.lib.optional (builtins.pathExists ./flake.module.nix) ./flake.module.nix;
+    };
 }
