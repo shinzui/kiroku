@@ -176,6 +176,7 @@ toEnvelope attrs event =
             , partition = Nothing
             , enqueuedAt = Just ts
             , traceContext = metadataTraceContext meta
+            , headers = Nothing
             , attempt = Nothing
             , attributes = eventAttributes attrs etype pos
             , payload = event

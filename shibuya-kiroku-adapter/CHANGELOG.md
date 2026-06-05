@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.3.0.0 — 2026-06-05
+
+### Changed
+
+- Require `shibuya-core >=0.7 && <0.8`. `Envelope` now carries a
+  `headers :: Maybe Headers` field; `toEnvelope` sets it to `Nothing`,
+  because Kiroku events carry no ordered, raw broker headers. W3C trace
+  context continues to be surfaced via `traceContext` from event metadata.
+
 ## 0.2.0.0 — 2026-05-31
 
 ### Breaking Changes

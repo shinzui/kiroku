@@ -92,6 +92,17 @@ main = withSharedMigratedPostgres $ hspec $ do
             missingTraceparent `shouldBe` Nothing
             nonStringTraceparent `shouldBe` Nothing
 
+        it "does not surface broker headers (headers is Nothing), even with trace metadata" $ do
+            let Envelope{headers = noMeta} =
+                    toEnvelope sampleEnvelopeAttrs (makeRecordedEvent Nothing)
+                Envelope{headers = withTraceMeta} =
+                    toEnvelope
+                        sampleEnvelopeAttrs
+                        (makeRecordedEvent (Just (Aeson.object ["traceparent" Aeson..= ("00-abc-def-01" :: Text)])))
+
+            noMeta `shouldBe` Nothing
+            withTraceMeta `shouldBe` Nothing
+
         it "stamps kiroku identity attributes for a non-grouped subscription (EP-5 M2)" $ do
             let attrs = kirokuEnvelopeAttrs "orders-proj" Nothing
                 Envelope{attributes} = toEnvelope attrs (makeRecordedEvent Nothing)

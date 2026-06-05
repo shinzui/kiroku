@@ -228,6 +228,7 @@ mkIngested cancelAction event =
                 , partition = Nothing
                 , enqueuedAt = Just (event ^. #createdAt)
                 , traceContext = Nothing
+                , headers = Nothing
                 , attempt = Nothing
                 , attributes = HashMap.empty
                 , payload = event
