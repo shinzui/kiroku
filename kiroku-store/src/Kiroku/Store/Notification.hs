@@ -31,6 +31,7 @@ import Hasql.Notifications qualified as Notifications
 import Hasql.Session qualified as Session
 import Hasql.Statement (Statement, unpreparable)
 import Kiroku.Store.Observability (KirokuEvent (..))
+import Kiroku.Store.Types (CategoryName (..), StreamName (..), categoryName)
 
 {- | A Notifier manages a dedicated PostgreSQL connection for LISTEN/NOTIFY.
 It writes a @()@ tick to a broadcast 'TChan' on every notification,
@@ -228,14 +229,15 @@ handleNotification chan catGenVar _channel payload =
 -- payload is @stream_name,stream_id,stream_version@; @stream_id@ and
 -- @stream_version@ are comma-free integers, so the @stream_name@ is everything
 -- except the last two comma-separated fields (rejoined, since a stream name may
--- itself contain commas). The category is then the prefix before the first @-@,
--- matching the @streams.category GENERATED ALWAYS AS split_part(stream_name,'-',1)@
--- column. A category never contains @-@, so @takeWhile (/= '-')@ is exact.
+-- itself contain commas). The category is then derived by 'categoryName' — the
+-- single Haskell definition of the "prefix before the first @-@" rule, matching
+-- the @streams.category GENERATED ALWAYS AS split_part(stream_name,'-',1)@ column.
 categoryFromPayload :: ByteString -> Text
 categoryFromPayload payload =
     let fields = BC.split ',' payload
-        streamName = BC.intercalate "," (take (max 0 (length fields - 2)) fields)
-     in decodeUtf8Lenient (BC.takeWhile (/= '-') streamName)
+        streamNameBytes = BC.intercalate "," (take (max 0 (length fields - 2)) fields)
+        CategoryName category = categoryName (StreamName (decodeUtf8Lenient streamNameBytes))
+     in category
 
 -- A synthetic exception used when 'waitForNotifications' returns without
 -- raising (hasql-notifications turned a connection error into a Left

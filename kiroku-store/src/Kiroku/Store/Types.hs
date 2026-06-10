@@ -12,12 +12,15 @@ module Kiroku.Store.Types (
     AppendResult (..),
     LinkResult (..),
     CategoryName (..),
+    categoryName,
+    streamNameInCategory,
     EventFilter (..),
 ) where
 
 import Data.Aeson (Value)
 import Data.Int (Int64)
 import Data.Text (Text)
+import Data.Text qualified as Text
 import Data.Time (UTCTime)
 import Data.UUID (UUID)
 import GHC.Generics (Generic)
@@ -266,6 +269,38 @@ many streams that share a prefix.
 -}
 newtype CategoryName = CategoryName Text
     deriving stock (Eq, Ord, Show, Generic)
+
+{- | The category of a stream name: the substring before the first @-@. This
+is the canonical Haskell mirror of the
+@streams.category GENERATED ALWAYS AS split_part(stream_name,'-',1)@ column and
+of the category rule used by 'Kiroku.Store.Read.readCategory' and
+category-targeted subscriptions. A category never contains @-@, so this is
+exact.
+
+>>> categoryName (StreamName "orders-1")
+CategoryName "orders"
+
+A name without a dash is its own category:
+
+>>> categoryName (StreamName "singleton")
+CategoryName "singleton"
+-}
+categoryName :: StreamName -> CategoryName
+categoryName (StreamName t) = CategoryName (Text.takeWhile (/= '-') t)
+
+{- | Build the stream name for a category and an id segment, i.e.
+@\<category\>-\<id\>@. The dual of 'categoryName': for any dash-free category,
+@'categoryName' ('streamNameInCategory' cat seg) == cat@.
+
+This is permissive — it does not reject a hyphenated 'CategoryName' or an empty
+segment (the store accepts such names); opinionated validation is the caller's
+concern.
+
+>>> streamNameInCategory (CategoryName "orders") "1"
+StreamName "orders-1"
+-}
+streamNameInCategory :: CategoryName -> Text -> StreamName
+streamNameInCategory (CategoryName cat) seg = StreamName (cat <> "-" <> seg)
 
 {- | Filter passed to the 'Kiroku.Store.Effect.FindEvents' constructor and the
 public smart constructors in "Kiroku.Store.Causation". Each constructor maps

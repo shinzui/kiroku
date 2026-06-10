@@ -87,6 +87,7 @@ test-suite kiroku-store-test
   hs-source-dirs: test
   other-modules:
     Test.CatchupDbErrorNoPrematureSwitch
+    Test.Category
     Test.CategoryIdleNoSpin
     Test.Causation
     Test.Concurrency

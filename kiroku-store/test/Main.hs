@@ -26,6 +26,7 @@ import Kiroku.Store.Subscription.EventPublisher (publisherPosition)
 import Kiroku.Store.Subscription.Types (OverflowPolicy (..), SubscriptionConfigM (..), SubscriptionOverflowed (..))
 import Kiroku.Test.Postgres (withMigratedTestDatabase)
 import Test.CatchupDbErrorNoPrematureSwitch qualified as CatchupDbErrorNoPrematureSwitch
+import Test.Category qualified as Category
 import Test.CategoryIdleNoSpin qualified as CategoryIdleNoSpin
 import Test.Causation qualified as Causation
 import Test.Concurrency qualified as Concurrency
@@ -50,6 +51,7 @@ import Test.Transaction qualified as Transaction
 
 main :: IO ()
 main = withSharedMigratedPostgres $ hspec $ do
+    Category.spec
     Properties.spec
     Concurrency.spec
     FailureInjection.spec
