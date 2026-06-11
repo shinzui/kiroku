@@ -119,10 +119,12 @@ documented here, even if it requires splitting a partially completed task into t
       in the single 0.5ms bucket). poolSize=36 (writers+4) confirmed. ≈3.6K
       events/s at batch=1 on default (non-durable) macOS fsync — the M3 Run A
       baseline ballpark.
-- [ ] M3: Mac falsification run A (default fsync) and run B
-      (`wal_sync_method=fsync_writethrough`); record both in
-      `docs/perf-experiment-log.md`; evaluate the M3 gate.
-- [ ] M3: Mac inverse check (`synchronous_commit=off`); record.
+- [x] M3: Mac falsification run A (default `open_datasync`) and run B
+      (`wal_sync_method=fsync_writethrough`); recorded in
+      `docs/perf-experiment-log.md`; **gate PASSED** (A/B = 21.4×, ≥3×
+      required). (2026-06-11)
+- [x] M3: Mac inverse check (`synchronous_commit=off`) = 5,086 ev/s; recorded.
+      Postgres config restored to defaults and verified. (2026-06-11)
 - [ ] M4: write `seqproto` schema setup SQL and the `kiroku-bench-seqproto`
       executable (spike arm).
 - [ ] M4: local smoke run of both arms; sanity-check invariants (positions
@@ -172,6 +174,20 @@ across stores or does `pos + 1` existence checks.
 --include='*.hs' .` (excluding `dist-newstyle`) in keiro returned zero matches
 (exit 1). The 2026-06-11 audit holds; marking the API provisional does not pull
 it out from under a live consumer.
+
+**M3 gate passed decisively — model confirmed at 21.4× (2026-06-11).** The Mac
+falsification sweep (append-only, writers=32, batch=1, payload=256, 60 s window,
+fresh `kiroku` schema per run, nix-built `kiroku-bench` against local PG 18)
+produced: Run A (default `open_datasync`, `synchronous_commit=on`) **3,702 ev/s**;
+Run B (honest `fsync_writethrough` → `F_FULLFSYNC`) **172.8 ev/s**; Run C
+(`synchronous_commit=off`) **5,086 ev/s**; all zero errors. A/B = **21.4×** vs
+the predicted ≥3×, and the ordering B (173) ≪ A (3702) ≤ C (5086) holds exactly.
+At batch=1 the honest-fsync arm is ~173 commits/s ≈ 5.8 ms per fully-serialized
+durable commit — the `$all` lock held across the WAL flush defeats group commit.
+The prediction was conservative: the real collapse is ~7× larger than the gate.
+Postgres config was restored (`ALTER SYSTEM RESET …`, restart) and verified
+(`open_datasync`/`on`). Recorded as a row in `docs/perf-experiment-log.md`.
+Gate passed → M4 proceeds.
 
 **M2 kiroku-bench build was broken before any M2 edit (2026-06-11).**
 `cabal build all` in kiroku-bench failed at
