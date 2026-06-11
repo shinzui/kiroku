@@ -147,11 +147,29 @@ documented here, even if it requires splitting a partially completed task into t
       (local), Marten's lead()-window gap-detection query from a mark 10K behind
       head: p50 2.25 ms, p95 **2.41 ms**, max 4.7 ms. PROCEED gate (p95 < 25 ms)
       **passes** with ~10× margin (Mac; GCP pd-ssd expected similar/faster).
+- [x] M4 (GCP enablement, 2026-06-11): wired the seqproto arm into
+      load-testing-infra — new `seqprotoBinary` haskell-bench option +
+      `KIROKU_BENCH_SEQPROTO=1` runner selector (mirrors the
+      `profileBinary`/`KIROKU_BENCH_PROFILE_MODE` mechanism); forwarded
+      `KIROKU_BENCH_SEQPROTO`/`_HOT` in `run-benchmark.sh`; pointed
+      `projects/kiroku` at the `kiroku-bench-seqproto` output. Pushed
+      kiroku-bench `260e93a`; bumped + re-locked the infra flake
+      (`kiroku 786282e`, `kiroku-bench 260e93a`). Committed infra `bf60458`.
+      Built + registered the x86_64-linux driver image
+      (`kiroku-driver-image-5bmh9bnx7j5d`); two prior build attempts hit
+      transient remote-builder IAP-tunnel flakiness (cold-start race; SSH
+      `Broken pipe` mid store-path copy) — the Haskell build itself
+      succeeded, confirming the wiring. See Surprises.
+- [x] M4 GCP smoke (2026-06-11): single seqproto cell (w8/b1, 40 s) on GCP
+      confirmed the new path end-to-end — journal
+      `profile_mode='none' seqproto='1' binary=…/kiroku-bench-seqproto`,
+      `seqproto schema ready`, 1,560 ev/s, exitCode 0, zero errors.
 - [ ] M4: **GCP matrix** (the pre-registered gating measurement) — both arms ×
       writers {8, 32} × batch {1, 10} × 3 trials + hot-stream cell, on
-      load-testing-infra (`tan-nb-exp`, `us-west1`). Deferred to a GCP-authorized
-      session; the local arm is built and pushed so the cloud run only needs to
-      build `.#kiroku-bench-seqproto` / `.#kiroku-bench` and run the matrix.
+      load-testing-infra (`tan-nb-exp`, `us-west1`). LAUNCHED 2026-06-11 via
+      `run-experiment-grid` (per-row pulumi up/destroy → fresh postgres VM per
+      trial; `RUN_DURATION_SECONDS=180`, `SKIP_UPLOAD=1`); 3 grid invocations
+      (stratE 15 rows; seqproto matrix 12; seqproto hot 3). Awaiting completion.
 - [ ] M5: compute gain table, apply the pre-registered decision rule, write the
       verdict into `docs/architecture/global-position-migration-path.md`, append
       ledger rows, update this plan's Outcomes & Retrospective.
@@ -316,6 +334,31 @@ the provisional marker. The membership-through-links sentence (line ~30) was
 reworded to frame links as the mechanism, not a promoted feature.
 
 
+**M4 GCP enablement: the infra had no seqproto path; build transients, not
+code, were the only friction (2026-06-11).** load-testing-infra's
+`run-experiment-grid` CSV carries only `mode/writers/payload/batch` and the
+kiroku driver image baked only `kiroku-bench`/`kiroku-bench-prof` — there was
+no way to run a *different* binary. I added a `seqprotoBinary` option to the
+`services.haskellBench` NixOS module and a `KIROKU_BENCH_SEQPROTO=1` selector in
+`haskell-bench-run.sh` (orthogonal to the profile-mode switch), forwarded the
+two new keys in `run-benchmark.sh`, and pointed `projects/kiroku` at the
+`kiroku-bench-seqproto` output — a direct parallel to the existing
+profile-binary plumbing. The x86_64-linux image build then failed twice on
+*infra* flakiness, never on the new code: (1) the remote builder VM
+(`nix-builder-x86`) was idle-shut-down, so the `nix-gcp-builder` ProxyCommand
+hit a cold-start IAP-tunnel race (`socat … [::1]:PORT Connection refused`);
+warming the VM + `SHELL=/bin/sh` (the documented macOS zsh-ProxyCommand guard)
+fixed it. (2) The next attempt built *all* Haskell packages successfully —
+kiroku-store, kiroku-bench, and the seqproto binary all compiled for Linux,
+proving the wiring — then dropped the SSH builder connection mid store-path copy
+(`client_loop: … Broken pipe`); a third attempt reused the cached builds and
+registered `kiroku-driver-image-5bmh9bnx7j5d`. The GCP smoke (seqproto w8/b1,
+40 s) then confirmed the full path live: journal
+`profile_mode='none' seqproto='1' binary=…/kiroku-bench-seqproto`,
+`seqproto schema ready`, 1,560 ev/s, 0 errors — already above Strategy E's
+GCP w32/b1 ceiling (~972 ev/s), the expected signature of removing the `$all`
+lock. Infra changes committed in load-testing-infra `bf60458`.
+
 ## Decision Log
 
 - Decision: Decision thresholds are pre-registered before any measurement, as
@@ -420,6 +463,36 @@ reworded to frame links as the mechanism, not a promoted feature.
   (the same calcification logic as the `GlobalPosition` contract change).
   Date: 2026-06-11
 
+
+- Decision: The seqproto arm runs on GCP through the *existing*
+  load-testing-infra harness, selected at run time by a new
+  `KIROKU_BENCH_SEQPROTO=1` extra-env key — mirroring the established
+  `profileBinary`/`KIROKU_BENCH_PROFILE_MODE` binary-switch mechanism — rather
+  than by adding a new project or a bespoke orchestration. A new
+  `services.haskellBench.seqprotoBinary` option materializes
+  `bench-binary-seqproto` in the kiroku driver image and the runner execs it
+  when the key is set. Rationale: maximize reuse of the trusted, validated
+  harness (same provisioning, collection, metric synthesis, archival) so the
+  numbers are directly comparable to the Strategy E arm and to prior GCP runs;
+  the seqproto binary self-bootstraps its `seqproto` schema, so it needs no
+  project `setup.sh` change. Date: 2026-06-11
+- Decision: The GCP matrix uses per-row provision/destroy (the stock
+  `run-experiment-grid` → `run-benchmark` flow) so every trial runs against a
+  fresh postgres VM + disk, matching the ceiling-lite convention the plan
+  cites. Trials use `RUN_DURATION_SECONDS=180` (exceeds the plan's ≥120 s
+  steady-state floor without the infra's 600 s GC-sampling default, which this
+  throughput-ratio question does not need) and `SKIP_UPLOAD=1` (the driver
+  image is built/registered once at session start and does not change between
+  rows). Rationale: fidelity and trust for a decision instrument; the
+  3-trial median absorbs cross-provision hardware variance, and the ratio
+  cancels any systematic per-provision bias because both arms run identically.
+  Date: 2026-06-11
+- Decision: The seqproto hot-stream cell runs as a separate grid invocation
+  with `KIROKU_BENCH_SEQPROTO_HOT=1` exported, because the grid CSV row format
+  (`name,project,mode,writers,payload,batch`) cannot carry that extra env key;
+  the seqproto matrix and hot cells therefore split into two invocations while
+  Strategy E (whose hot cell is just `mode=hot-stream-append`, a CSV-expressible
+  value) stays a single 15-row invocation. Date: 2026-06-11
 
 ## Outcomes & Retrospective
 
