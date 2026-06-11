@@ -27,9 +27,14 @@ workflows.
   the Shibuya queue processing framework.
 
 Kiroku stores immutable events in PostgreSQL, tracks stream membership through
-stream-event links, and maintains a contiguous `$all` stream for global event
-ordering. The current design uses an atomic row-level counter in PostgreSQL to
-claim gap-free global positions in the same transaction that appends events.
+stream-event links, and maintains a totally ordered `$all` stream for global
+event ordering. Global positions are strictly increasing, opaque cursors;
+consumers must not assume they are dense (`pos + 1` may not exist) or derive
+them by arithmetic. The current implementation happens to assign contiguous,
+gap-free positions via an atomic row-level counter claimed in the same
+transaction that appends events, but contiguity is an implementation detail
+rather than an API guarantee — see
+`docs/architecture/global-position-migration-path.md`.
 
 ## Repository Layout
 

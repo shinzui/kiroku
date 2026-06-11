@@ -83,21 +83,23 @@ Use a checklist to summarize granular steps. Every stopping point must be
 documented here, even if it requires splitting a partially completed task into two
 ("done" vs. "remaining").
 
-- [ ] M1: reword `GlobalPosition` haddock in `kiroku-store/src/Kiroku/Store/Types.hs`
+- [x] M1: reword `GlobalPosition` haddock in `kiroku-store/src/Kiroku/Store/Types.hs`
       (drop the gap-free promise from the public contract; state the
-      no-arithmetic rule).
-- [ ] M1: reword `README.md` lines 29–32 (contiguity demoted to implementation
-      detail).
-- [ ] M1: annotate `docs/DESIGN.md` Strategy E throughput claims (lines 17, 21,
+      no-arithmetic rule). (2026-06-11)
+- [x] M1: reword `README.md` lines 29–32 (contiguity demoted to implementation
+      detail). (2026-06-11)
+- [x] M1: annotate `docs/DESIGN.md` Strategy E throughput claims (lines 17, 21,
       661) with a pointer to `docs/architecture/global-position-migration-path.md`
-      and the Mac-artifact caveat.
-- [ ] M1: audit keiro (`/Users/shinzui/Keikaku/bokuno/keiro`) for position
+      and the Mac-artifact caveat. (2026-06-11)
+- [x] M1: audit keiro (`/Users/shinzui/Keikaku/bokuno/keiro`) for position
       arithmetic or density assumptions; record findings in Surprises &
-      Discoveries.
-- [ ] M1: mark `linkToStream` provisional in
+      Discoveries. (2026-06-11 — two density-assumption sites found; recorded.)
+- [x] M1: mark `linkToStream` provisional in
       `kiroku-store/src/Kiroku/Store/Link.hs` (and any README mention); confirm
       keiro still has zero `linkToStream` usage at implementation time.
-- [ ] M1: build haddocks, run kiroku test suite, commit.
+      (2026-06-11 — recheck returned zero usage.)
+- [x] M1: build haddocks, run kiroku test suite, commit. (2026-06-11 —
+      `cabal haddock kiroku-store` OK; 189 examples, 0 failures.)
 - [ ] M2: kiroku-bench fairness fixes — pool-size parity, monotonic clock,
       sub-millisecond histogram buckets; commit in kiroku-bench repo.
 - [ ] M3: Mac falsification run A (default fsync) and run B
@@ -122,7 +124,44 @@ documented here, even if it requires splitting a partially completed task into t
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+**M1 keiro `GlobalPosition` audit (2026-06-11).** Grepped every `GlobalPosition`
+use in `/Users/shinzui/Keikaku/bokuno/keiro` (`grep -rn "GlobalPosition"
+--include='*.hs' . | grep -v dist-newstyle`). Most uses are construction from
+`0`, persistence round-trips (`unGlobalPosition`/`GlobalPosition <$> int8`
+decoders), and header (de)serialization — all contract-safe. Two sites assume
+density and would behave incorrectly under a gappy sequence-based scheme:
+
+1. `keiro/src/Keiro/Command.hs:638-661` `reconstructRecorded` reconstructs a
+   just-appended batch's `RecordedEvent`s without reading them back, computing
+   `firstGp = lastGp - count + 1` then `globalPosition = GlobalPosition
+   (firstGp + i)` per event. This assumes the batch's events received
+   *contiguous* positions. Under Strategy E that holds (one append claims a
+   contiguous run); under a non-transactional sequence, concurrent appends can
+   interleave `nextval()` calls, so a batch's positions may not be contiguous —
+   this would assign wrong positions. **Correctness-affecting** if the migration
+   proceeds; must be fixed (read the batch back, or have the append return the
+   exact positions) as part of any PROCEED follow-up.
+2. `keiro/src/Keiro/Projection.hs:151-153` `positionGap` computes
+   `headP - checkP` as "the gap between log head and checkpoint, in events".
+   Under gappy positions this overcounts actual events. **Observability-only**:
+   it feeds `recordProjectionLag` (a metric), not a correctness path. Lower
+   priority but should be noted as approximate.
+
+Per the plan, keiro is not modified here; both are filed as PROCEED follow-up
+work (and surfaced in the M5 verdict write-up). No site compares positions
+across stores or does `pos + 1` existence checks.
+
+**M1 `linkToStream` recheck (2026-06-11).** `grep -rn "linkToStream"
+--include='*.hs' .` (excluding `dist-newstyle`) in keiro returned zero matches
+(exit 1). The 2026-06-11 audit holds; marking the API provisional does not pull
+it out from under a live consumer.
+
+**M1 README link-feature note (2026-06-11).** `README.md`'s API enumeration
+(line ~17) lists "link" among the kiroku-store APIs. Judged not worth a separate
+provisional caveat there: it is a bare enumeration item, not a feature pitch,
+and the authoritative contract surface (the `linkToStream` haddock) now carries
+the provisional marker. The membership-through-links sentence (line ~30) was
+reworded to frame links as the mechanism, not a promoted feature.
 
 
 ## Decision Log

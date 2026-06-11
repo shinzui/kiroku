@@ -10,6 +10,15 @@ import Kiroku.Store.Types
 
 {- | Link existing events into a target stream.
 
+__Provisional API.__ No known consumer uses this function (audited
+2026-06-11: zero usage in keiro, the only downstream framework). It is the
+only public feature that requires the @stream_events@ junction-table layout,
+which a future global-position migration may replace with a single-table event
+layout (global position as a column on @events@); in that case this function
+will be removed or redesigned (e.g. rehomed to a dedicated @stream_links@ side
+table). If you have a real use case, surface it before depending on this. See
+docs/architecture/global-position-migration-path.md.
+
 Creates the target stream if it does not exist; otherwise appends
 links to the existing target. Linking does not duplicate the event
 payload — the @events@ row is shared, and only a new junction row in

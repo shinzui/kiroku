@@ -14,11 +14,13 @@ Every PostgreSQL event store must solve the tension between **concurrent write t
 | Global positions | Contiguous (1,2,3…) | Non-contiguous (xid8 gaps) | Contiguous | Contiguous (after HWM) |
 | Read-your-own-writes | Immediate | Delayed (MVCC barrier) | Immediate | Delayed (polling) |
 | MVCC vulnerability | None | `pg_snapshot_xmin` stalls | None | None |
-| Write throughput ceiling | ~50K events/s (batched) | No global ceiling | ~5K events/s | High |
+| Write throughput ceiling | ~50K events/s (batched)† | No global ceiling | ~5K events/s | High |
 | Operational complexity | Low | Medium (pg_stat_activity scoping) | Low | High (gap detection) |
 | SQL complexity | Standard integers | xid8 casting | Standard | lead() window functions |
 
 **Throughput ceiling is acceptable.** At 0.2ms per lock cycle on the `$all` row, the ceiling is ~5K batches/s. With 10 events per batch, that's ~50K events/s — 4.3 billion events/day. If this ceiling is ever reached, Strategy D (Hindsight's MVCC approach with `pg_stat_activity` scoping) is the escape hatch.
+
+> **† Caveat (2026-06-11): the ~50K events/s figure was measured on macOS, where `fsync()` does not actually flush the drive cache** (Apple requires `fcntl(F_FULLFSYNC)`, which PostgreSQL only issues under `wal_sync_method = fsync_writethrough`). Because every append holds the `$all` row lock across the synchronous WAL flush, the durable-fsync ceiling is `batchSize / durable_commit_latency`, and on honest-fsync hardware (e.g. GCP persistent disk, ~1 ms commit) it is far lower than the macOS number suggests. The sequence-based (Marten "Strategy A") alternative restores PostgreSQL group commit by removing that lock. See `docs/architecture/global-position-migration-path.md`; ExecPlan `docs/plans/63-decide-the-marten-style-global-position-migration-with-durable-fsync-benchmarks-and-option-preserving-contract-changes.md` measures the gain and records a PROCEED / NOT WORTH IT verdict.
 
 ## What We Take From Each Implementation
 
@@ -658,7 +660,7 @@ Builds on kiroku-store. Adds subscriptions, projections, and higher-level APIs. 
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| Global ordering strategy | Strategy E (atomic row-level counter) | Gap-free, contiguous positions, immediate read-your-own-writes, no MVCC vulnerability, standard SQL. ~50K events/s ceiling is sufficient. |
+| Global ordering strategy | Strategy E (atomic row-level counter) | Gap-free, contiguous positions, immediate read-your-own-writes, no MVCC vulnerability, standard SQL. ~50K events/s ceiling is sufficient. [Caveat: the ~50K figure was measured on macOS where `fsync` does not flush; durable-fsync ceilings are `batchSize / commit_latency` — see `docs/architecture/global-position-migration-path.md` and ExecPlan 63.] |
 | Event payload format | `JSONB` | Queryable in-database for debugging and ad-hoc analysis, human-readable in psql, works with PostgreSQL tooling. Binary escape hatch (`raw_data BYTEA` column) can be added later as a non-breaking migration if needed. |
 | Metadata format | `JSONB` | Flexible, queryable. Causation/correlation IDs are columns for indexed access. |
 | Stream naming | Message-DB convention (`category-id`) | Enables category reads via prefix match. No separate category column needed. |

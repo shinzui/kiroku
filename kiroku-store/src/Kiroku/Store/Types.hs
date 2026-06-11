@@ -82,9 +82,16 @@ created empty stream and increments by one per appended event. After
 newtype StreamVersion = StreamVersion Int64
     deriving stock (Eq, Ord, Show, Generic)
 
-{- | Monotonic global position counter, shared across all streams.
-Strictly increasing per successful append; gap-free under all four
-'ExpectedVersion' paths (see EP-1's audit). Used by the @$all@ read
+{- | Global position of an event in the @$all@ ordering, shared across all
+streams. __Contract:__ strictly increasing per successful append, and totally
+ordered — nothing more. Treat values as opaque cursors: construct a
+'GlobalPosition' only from @0@ (the beginning of the store) or from a value
+previously returned by this store; never derive one by arithmetic, and never
+assume positions are dense (@pos + 1@ may not exist). The current
+implementation happens to assign contiguous positions (see EP-1's audit), but
+contiguity is an implementation detail, not an API guarantee, and is the part
+that would change under a sequence-based allocation scheme — see
+docs/architecture/global-position-migration-path.md. Used by the @$all@ read
 path and by subscriptions as the cursor key.
 -}
 newtype GlobalPosition = GlobalPosition Int64
