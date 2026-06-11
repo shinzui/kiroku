@@ -125,14 +125,33 @@ documented here, even if it requires splitting a partially completed task into t
       required). (2026-06-11)
 - [x] M3: Mac inverse check (`synchronous_commit=off`) = 5,086 ev/s; recorded.
       Postgres config restored to defaults and verified. (2026-06-11)
-- [ ] M4: write `seqproto` schema setup SQL and the `kiroku-bench-seqproto`
-      executable (spike arm).
-- [ ] M4: local smoke run of both arms; sanity-check invariants (positions
-      strictly increasing per stream, stream versions contiguous).
-- [ ] M4: GCP matrix — both arms × writers {8, 32} × batch {1, 10} × 3 trials,
-      plus hot-stream cell; archive results under load-testing-infra
-      `experiments/`.
-- [ ] M4: gap-scan cost measurement on the populated prototype schema.
+- [x] M4: wrote `kiroku-bench/kiroku-bench/sql/seqproto-setup.sql` and the
+      `kiroku-bench-seqproto` executable (`app/Seqproto.hs`); cabal stanza +
+      `flake.module.nix` output added; `nix build .#kiroku-bench` green.
+      (2026-06-11) Committed kiroku-bench.
+- [x] M4: local smoke + invariants. (2026-06-11) seqproto 347,007 appends, 0
+      errors; per-stream versions contiguous across all 32 streams; `$all`
+      positions strictly increasing with 0 gaps (no rollbacks). On default
+      (non-durable) macOS fsync seqproto did ~10.8K ev/s vs Strategy E ~3.7K
+      (2.9×).
+- [x] M4 (Mac honest-fsync proxy + discriminator — informational, not the
+      pre-registered gate). (2026-06-11) Under `fsync_writethrough`: seqproto vs
+      Strategy E = **1.14×** at batch=1 (183.3 vs 160.2), **1.04×** at batch=10
+      (1733 vs 1661). Discriminator: seqproto throughput is FLAT across writers
+      (1→177.7, 8→195.5, 32→182.2 ev/s) → macOS `F_FULLFSYNC` serializes durable
+      commits at the device, so group commit cannot batch concurrent flushes on
+      the Mac. The Mac structurally cannot exhibit the gain; this is why the
+      pre-registered gate is GCP-only (not a model failure — M3 confirmed the
+      lock-under-flush serialization at 21×).
+- [x] M4: gap-scan viability check. (2026-06-11) On 5M `$all` junction rows
+      (local), Marten's lead()-window gap-detection query from a mark 10K behind
+      head: p50 2.25 ms, p95 **2.41 ms**, max 4.7 ms. PROCEED gate (p95 < 25 ms)
+      **passes** with ~10× margin (Mac; GCP pd-ssd expected similar/faster).
+- [ ] M4: **GCP matrix** (the pre-registered gating measurement) — both arms ×
+      writers {8, 32} × batch {1, 10} × 3 trials + hot-stream cell, on
+      load-testing-infra (`tan-nb-exp`, `us-west1`). Deferred to a GCP-authorized
+      session; the local arm is built and pushed so the cloud run only needs to
+      build `.#kiroku-bench-seqproto` / `.#kiroku-bench` and run the matrix.
 - [ ] M5: compute gain table, apply the pre-registered decision rule, write the
       verdict into `docs/architecture/global-position-migration-path.md`, append
       ledger rows, update this plan's Outcomes & Retrospective.
@@ -174,6 +193,36 @@ across stores or does `pos + 1` existence checks.
 --include='*.hs' .` (excluding `dist-newstyle`) in keiro returned zero matches
 (exit 1). The 2026-06-11 audit holds; marking the API provisional does not pull
 it out from under a live consumer.
+
+**M4 local: the Mac cannot measure the gain — group commit is dead under
+`F_FULLFSYNC` (2026-06-11).** The seqproto arm is correct and fast: local smoke
+gave 347,007 appends, 0 errors, per-stream versions contiguous (all 32 streams),
+`$all` positions strictly increasing with 0 gaps. On *default* (non-durable)
+macOS fsync seqproto ran ~10.8K ev/s vs Strategy E ~3.7K (2.9×) — removing the
+`$all` lock helps when commits are cheap. But under *honest* fsync
+(`fsync_writethrough`) the seqproto-vs-E ratio collapsed to **1.14×** (batch=1)
+and **1.04×** (batch=10) — nowhere near the predicted 5–15×. A writer-scaling
+discriminator explains why: seqproto throughput is FLAT across writer counts
+under honest fsync (writers 1/8/32 → 177.7 / 195.5 / 182.2 ev/s). Adding writers
+does not raise throughput, which means PostgreSQL group commit is NOT batching
+concurrent durable flushes on this Mac — macOS `F_FULLFSYNC` issues a
+full-device-cache flush that the SSD serializes, so 32 concurrent durable
+commits queue at the device just like Strategy E's lock-serialized commits. The
+two designs therefore hit the *same* ~180-commit/s ceiling on the Mac, and the
+Mac is structurally unable to demonstrate the group-commit relief that removing
+the `$all` lock is supposed to unlock. This is NOT a falsification (M3 already
+confirmed the lock-under-flush serialization at 21×); it is the precise reason
+the plan pre-registered the verdict on **GCP** (Linux + pd-ssd, where
+`fdatasync` group commit batches concurrent committers). Refines
+[[strategy_e_ceiling_is_mac_artifact]]: the ceiling on the Mac is the device
+`F_FULLFSYNC` serialization, which the `$all` lock and a sequence-based arm hit
+identically — only cloud hardware separates them.
+
+**M4 gap-scan viability passes (2026-06-11).** On 5M `$all` junction rows
+(local bulk population), Marten's `lead()`-window gap-detection query, starting
+from a mark 10K behind head, ran p50 2.25 ms / p95 **2.41 ms** / max 4.7 ms over
+100 iterations — comfortably under the PROCEED gate's p95 < 25 ms (≈10× margin),
+even on the Mac. The HWM daemon's steady-state poll is not a concern.
 
 **M3 gate passed decisively — model confirmed at 21.4× (2026-06-11).** The Mac
 falsification sweep (append-only, writers=32, batch=1, payload=256, 60 s window,
