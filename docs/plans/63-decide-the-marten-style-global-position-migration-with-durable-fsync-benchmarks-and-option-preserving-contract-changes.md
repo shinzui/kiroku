@@ -111,9 +111,14 @@ documented here, even if it requires splitting a partially completed task into t
       clock (`getMonotonicTimeNSec`), sub-millisecond histogram buckets
       (50/100/250 µs); committed kiroku-bench b1f484f. (2026-06-11) Pool-parity
       confirmed live (binary reports `poolSize=36` at writers=32).
-- [ ] M2: smoke-test the sub-millisecond buckets — start the bench Postgres,
-      run `append-only` ~30 s against a nix-built binary, confirm
-      `bench_workload_op_seconds_bucket{op="append",le="0.0001"}` is nonzero.
+- [x] M2: smoke-test the sub-millisecond buckets — fresh `kiroku-store-migrate`
+      into the `kiroku` schema of the `kiroku-bench` PG-18 db, then 32 s
+      `append-only` (writers=32, batch=1) via the nix-built binary. (2026-06-11)
+      Result: 116,183 appends, **zero errors**, latency now resolved across the
+      new buckets (≤0.5ms 6,006; ≤1ms 13,625; ≤2ms 24,519; previously all piled
+      in the single 0.5ms bucket). poolSize=36 (writers+4) confirmed. ≈3.6K
+      events/s at batch=1 on default (non-durable) macOS fsync — the M3 Run A
+      baseline ballpark.
 - [ ] M3: Mac falsification run A (default fsync) and run B
       (`wal_sync_method=fsync_writethrough`); record both in
       `docs/perf-experiment-log.md`; evaluate the M3 gate.
