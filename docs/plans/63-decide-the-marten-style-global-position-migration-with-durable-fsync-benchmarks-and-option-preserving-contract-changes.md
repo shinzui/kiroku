@@ -100,8 +100,20 @@ documented here, even if it requires splitting a partially completed task into t
       (2026-06-11 — recheck returned zero usage.)
 - [x] M1: build haddocks, run kiroku test suite, commit. (2026-06-11 —
       `cabal haddock kiroku-store` OK; 189 examples, 0 failures.)
-- [ ] M2: kiroku-bench fairness fixes — pool-size parity, monotonic clock,
-      sub-millisecond histogram buckets; commit in kiroku-bench repo.
+- [x] M2 (prerequisite): migrate kiroku-bench to the fleet's current Nix infra
+      (flake-parts on haskell-nix-dev, GHC 9.12.4) via the seihou
+      `upgrade-haskell-flake-parts` blueprint; pin kiroku flake input + cabal to
+      786282e; pin haskell-nix to kiroku's rev (4747cb8b); disable the
+      shibuya exe (kiroku overlay shibuya-core 0.6/0.7 mismatch — kiroku
+      follow-up). `nix build .#kiroku-bench` green. Committed kiroku-bench
+      ba39326. (2026-06-11) See Surprises & Discoveries + UPGRADING.md.
+- [x] M2: kiroku-bench fairness fixes — pool-size parity (writers+4), monotonic
+      clock (`getMonotonicTimeNSec`), sub-millisecond histogram buckets
+      (50/100/250 µs); committed kiroku-bench b1f484f. (2026-06-11) Pool-parity
+      confirmed live (binary reports `poolSize=36` at writers=32).
+- [ ] M2: smoke-test the sub-millisecond buckets — start the bench Postgres,
+      run `append-only` ~30 s against a nix-built binary, confirm
+      `bench_workload_op_seconds_bucket{op="append",le="0.0001"}` is nonzero.
 - [ ] M3: Mac falsification run A (default fsync) and run B
       (`wal_sync_method=fsync_writethrough`); record both in
       `docs/perf-experiment-log.md`; evaluate the M3 gate.
@@ -155,6 +167,76 @@ across stores or does `pos + 1` existence checks.
 --include='*.hs' .` (excluding `dist-newstyle`) in keiro returned zero matches
 (exit 1). The 2026-06-11 audit holds; marking the API provisional does not pull
 it out from under a live consumer.
+
+**M2 kiroku-bench build was broken before any M2 edit (2026-06-11).**
+`cabal build all` in kiroku-bench failed at
+`kiroku-bench/src/Kiroku/Bench/Modes/SubscriptionLatency.hs:300` —
+`SubT.PauseAndResume` "not exported by Kiroku.Store.Subscription.Types". Root
+cause was a **corrupted `flake.lock`**: kiroku-bench's `flake.nix` pinned
+`github:shinzui/kiroku/f437ce35` (2026-05-30, which descends from b068377 that
+added `PauseAndResume`, so its source *does* export the constructor), but the
+locked `narHash` for that input resolved to a stale pre-`PauseAndResume` source
+tree, so the nix-built `kiroku-store-0.1.0.0` lacked the constructor while the
+bench HEAD code used it. Evidence: `git merge-base --is-ancestor b068377
+f437ce35` → yes; `git show f437ce35:…/Subscription/Types.hs` exports
+`OverflowPolicy (..)` incl. `PauseAndResume`; yet `direnv exec . ghc-pkg list`
+showed `kiroku-store-0.1.0.0` and the build still failed only on
+`PauseAndResume` (sibling `DropOldest`/`DropSubscription` compiled). Fix per the
+user's "always use the latest code" directive: pushed kiroku master
+(`786282e`, incl. M1) to github and bumped the kiroku-bench flake input from
+f437ce35 → 786282e, then `nix flake update kiroku`. This also means the M4
+benchmark arms measure current kiroku (commit `786282e`), satisfying the
+Decision Log requirement to record the kiroku commit hash.
+
+**M2 required migrating kiroku-bench to the latest fleet infrastructure
+(2026-06-11).** Bumping the kiroku flake pin alone did not fix the build. The
+deeper problem: kiroku-bench was still on the *old* Nix flake shape
+(hand-rolled `flake-utils` + `ghcWithPackages`, GHC 9.12.2 on
+`nixpkgs-unstable`), while kiroku itself had migrated to the thin
+flake-parts structure on the `haskell-nix-dev` base flake (GHC **9.12.4**, a
+single fleet-pinned nixpkgs). Composing kiroku's 786282e overlay (written for
+ghc9124) onto the bench's mismatched ghc9122/nixpkgs is what desynced
+kiroku-store — cabal's solve resolved a phantom `kiroku-store 0.1.0.0`
+(unit-id `krk-str-0.1.0.0-…`, built from source incl. its
+`kiroku-consumer-group-example` exe) even though `ghc-pkg`/a standalone probe
+saw the correct `kiroku-store-0.2.0.0` that exports `PauseAndResume`. Per the
+user's "always use the latest code" / "let's migrate to latest infrastructure"
+directives, I ran the seihou blueprint **`upgrade-haskell-flake-parts`**
+(extracted its prompt via `seihou agent --debug run` and executed it in-session,
+modelling the new files on kiroku's already-migrated `nix/*`): new thin
+`flake.nix`, `nix/haskell.nix` (`mkDevShell` ghc9124, preserving the bench's PG
+shellHook + `just`/`process-compose`/`jq`), `nix/treefmt.nix`,
+`nix/pre-commit.nix`, and an unmanaged `flake.module.nix` (three-overlay graft:
+haskell-nix registry + `${kiroku}/nix/haskell-overlay.nix` + local
+`callCabal2nix kiroku-bench`); deleted the top-level `treefmt.nix`. Verified:
+devShell evaluates to a drv, `checks = [pre-commit treefmt]`, `haskell-nix`
+re-locked to latest, `flake-utils` dropped.
+
+One unavoidable source-level edit fell out of "use latest": kiroku-store@786282e
+now requires `shibuya-core >=0.7`, but the bench's `kiroku-bench-shibuya` exe
+stanza pinned `shibuya-core >=0.5 && <0.6`. Cabal solves all stanzas of a
+package together, so that stale bound made the *entire* kiroku-bench package
+unbuildable (nix or cabal) against current kiroku. Bumped it to `>=0.7 && <0.8`
+in `kiroku-bench/kiroku-bench.cabal` — a version-bound alignment with the
+upgraded dependency, not a logic patch.
+
+**Latent kiroku build bug surfaced (2026-06-11): kiroku's overlay ships
+shibuya-core 0.6 while its own adapter needs 0.7.** Building `.#kiroku-bench`
+then failed compiling `shibuya-kiroku-adapter` at
+`shibuya-kiroku-adapter/src/Shibuya/Adapter/Kiroku/Convert.hs:179` (GHC-53822).
+Root cause is in **kiroku**, not the bench: `kiroku/nix/haskell-overlay.nix`
+provisions `shibuya-core-0.6.0.0` (fetchurl + jailbreak), but the adapter source
+(kiroku commit 90bd3bc "require shibuya-core 0.7 and set Envelope.headers")
+targets the 0.7 `Envelope` API (`headers`, `attributes`, `attempt` fields). So
+kiroku's *own* `nix build` of `shibuya-kiroku-adapter` is broken at HEAD.
+shibuya-core 0.7.0.0 is published on Hackage (verified HTTP 200), so the fix is
+a one-line overlay bump in kiroku (`shibuya-core 0.6.0.0 → 0.7.0.0`, with the new
+tarball hash) — filed as a kiroku follow-up, out of scope for this plan.
+ExecPlan 63 never uses the shibuya adapter, so I set the bench's
+`kiroku-bench-shibuya` exe to `buildable: False` (documented in the cabal stanza
+and UPGRADING.md) to unblock the kiroku-store-only arms the plan needs. The
+`.#kiroku-bench-shibuya` flake output still resolves (same derivation) but its
+binary is absent until the kiroku overlay is fixed and the stanza re-enabled.
 
 **M1 README link-feature note (2026-06-11).** `README.md`'s API enumeration
 (line ~17) lists "link" among the kiroku-store APIs. Judged not worth a separate
@@ -219,6 +301,36 @@ reworded to frame links as the mechanism, not a promoted feature.
   Rationale: same-stream serialization is inherent to optimistic concurrency on
   a stream in both designs; no decision hinges on it. It serves as an
   experiment-validity check (expected ratio ≈ 1×).
+  Date: 2026-06-11
+
+- Decision: kiroku-bench tracks the latest kiroku (not a frozen historical
+  pin). When M2 found kiroku-bench unbuildable against its stale flake pin, the
+  user directed "always use the latest code". We therefore push kiroku master
+  and bump kiroku-bench's `flake.nix` kiroku input to the current kiroku HEAD
+  (2026-06-11: f437ce35 → 786282e), rather than re-locking the old revision.
+  Rationale: the benchmark must measure the kiroku version we actually ship, and
+  the Decision Log already requires recording the kiroku commit hash M4 measures
+  at; pinning to HEAD makes that hash meaningful. Reproducibility is preserved
+  because the bump is to a pushed github SHA (so load-testing-infra's GCP runs
+  fetch the same source), not a local-path override.
+  Date: 2026-06-11
+
+- Decision: As part of M2, migrate kiroku-bench to the fleet's current Nix
+  infrastructure (thin flake-parts on the `haskell-nix-dev` base flake, GHC
+  9.12.4) via the seihou `upgrade-haskell-flake-parts` blueprint, rather than
+  keep patching the legacy flake. The user explicitly directed this ("let's
+  migrate to latest infrastructure", pointing at the blueprint). The bench's old
+  dev shell pre-installed kiroku-store via `ghcWithPackages`, which `mkDevShell`
+  cannot replicate. The kiroku source build path (`nix build .#kiroku-bench`,
+  used by load-testing-infra for the GCP runs) is preserved through the overlay
+  graft in `flake.module.nix`, so benches are built/run via nix-built binaries.
+  Wiring kiroku-store into the dev shell's `cabal` (the keiro
+  `source-repository-package` pattern, which cascades into provisioning
+  shibuya-core etc.) is deferred as a dev-ergonomics follow-up — the plan's
+  measurements use the nix-built binaries, so it is not a blocker. This detour
+  is recorded because M3/M4 numbers are now produced by `nix run`/built binaries
+  on the ghc9124 toolchain, a fact the verdict's environment description must
+  note.
   Date: 2026-06-11
 
 - Decision: `linkToStream` is kept but demoted to provisional status as part of
