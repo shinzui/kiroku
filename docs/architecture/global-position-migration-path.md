@@ -231,16 +231,91 @@ arms on GCP to test that second assumption. **The lock is a real serialization
 point — but the group-commit payoff Part 2 counted on does not materialize on
 durable cloud storage.**
 
+### The seqproto architecture under test
+
+The prototype implements the Marten-style ("Strategy A") global-position scheme
+— the alternative `docs/DESIGN.md` names but never benchmarked. Exactly one thing
+changes vs Strategy E: **where the `$all` global position comes from.**
+
+**Strategy E (current).** Every append's global position is minted by
+incrementing one shared counter — the `$all` row (`streams` where
+`stream_id = 0`), inside the append's single autocommit CTE:
+
+```sql
+UPDATE streams SET stream_version = stream_version + N
+WHERE stream_id = 0 AND EXISTS (SELECT 1 FROM stream_update)
+RETURNING stream_version - N AS initial_global_version
+```
+
+That `UPDATE` takes an **exclusive row lock on the one `$all` row**, and
+PostgreSQL holds row locks until the transaction ends — which, for an autocommit
+statement, is the COMMIT *including the synchronous WAL flush*. Consequence: no
+two appends anywhere in the store can be in their commit phase simultaneously.
+Positions come out **dense, gap-free, and in commit order**, but every append in
+the entire store serializes on one global durable-commit latency, and group
+commit (which amortizes one fsync across many concurrently-committing
+transactions) can never engage.
+
+**seqproto (Marten-style).** Positions come from a plain PostgreSQL **sequence**,
+and the `$all` counter row is never updated. The `all_update` CTE is deleted
+entirely; the `$all` junction insert claims its position from `nextval`:
+
+```sql
+all_links AS (
+  INSERT INTO seqproto.stream_events
+    (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
+  SELECT ne.event_id, 0, nextval('seqproto.global_position_seq'),
+         su.stream_id, su.initial_version + ne.idx
+  FROM (SELECT * FROM new_events ORDER BY idx) ne CROSS JOIN stream_upsert su
+)
+```
+
+`nextval` is **non-transactional and lock-free** — it never blocks, never waits
+on another transaction, and does not participate in the commit. So appends to
+*different* streams share no serialization point and *can* commit concurrently.
+That concurrency is the design's intended throughput source: many durable commits
+in flight at once, sharing WAL flushes via group commit.
+
+**What is identical in both arms** (so the experiment isolates exactly the
+position-allocation mechanism, nothing else): the `events` insert, *both*
+`stream_events` junction inserts (source stream + `$all`), the source-stream
+`streams` upsert — which still takes the **per-stream** row lock that keeps each
+individual stream's versions contiguous in *both* designs — and the NOTIFY
+trigger. Write amplification (3 inserts + 1 upsert per event) is unchanged.
+
+**What the sequence buys, and what it costs.** Because `nextval` is
+non-transactional, two facts follow that Strategy E never has to deal with:
+
+- **Gaps.** A rolled-back append permanently burns its sequence value. (Strategy
+  E's counter rolls back *with* the transaction, so it is always gap-free.)
+- **Out-of-order visibility.** A slow transaction can make position 100 become
+  visible *after* 101 is already readable. (Strategy E's `$all` lock forces
+  commit order to equal position order.)
+
+These two are precisely why the Marten design needs the read-side machinery Part
+2 details: a **high-water-mark (HWM) daemon** that refuses to publish a position
+until everything below it has settled — gap-detection query, a stale-gap timeout
+to distinguish a rolled-back hole from an in-flight transaction, and a safe-harbor
+buffer below the raw sequence head. That daemon, plus the re-scoping of
+read-your-own-writes on `$all` to per-stream reads, is the permanent complexity a
+PROCEED verdict would accept in exchange for the write-side throughput. The
+prototype implements only the **write path** and the gap-detection **query**
+(whose cost was measured — p95 2.41 ms on 5M rows); it does not build the daemon,
+because the verdict is about whether the write-side win is large enough to justify
+building it.
+
+The prototype was verified to faithfully implement the design: a 347K-append
+local smoke showed per-stream versions contiguous across every stream, `$all`
+positions strictly increasing, and zero gaps when no transaction rolled back.
+
 ### How it was measured
 
 - **Strategy E arm** — the production `kiroku-store` append path
   (`kiroku-bench` append-only, kiroku `786282e`).
-- **seqproto arm** — a faithful one-variable-changed prototype: kiroku's
-  `appendAnyVersionSQL` re-qualified to a throwaway `seqproto` schema, with the
-  `$all` `all_update` CTE removed and `$all` positions claimed from
-  `nextval('seqproto.global_position_seq')`. Every other write (event insert,
-  *both* junction inserts, source-stream upsert, NOTIFY trigger) is byte-for-byte
-  identical (`kiroku-bench-seqproto`, kiroku-bench `260e93a`).
+- **seqproto arm** — the sequence-based prototype described above
+  (`kiroku-bench-seqproto`, kiroku-bench `260e93a`): identical write shape, the
+  one variable changed being position allocation (`nextval` vs the `$all`
+  counter lock).
 - Cross-stream workload (each writer on its own stream), writers=32,
   payload=256 B, 180 s steady state, **fresh postgres VM + disk per trial**, 3
   trials/cell, median reported. Full durability (`synchronous_commit=on`,
