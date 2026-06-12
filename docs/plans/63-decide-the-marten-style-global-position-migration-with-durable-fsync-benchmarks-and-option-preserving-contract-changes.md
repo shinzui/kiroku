@@ -494,6 +494,23 @@ lock. Infra changes committed in load-testing-infra `bf60458`.
   Strategy E (whose hot cell is just `mode=hot-stream-append`, a CSV-expressible
   value) stays a single 15-row invocation. Date: 2026-06-11
 
+- Decision: The GCP matrix was trimmed to the gating cells after the seqproto
+  arm was measured. The pre-registered decision rule depends only on `G(32,1)`
+  and `G(32,10)`; the w8 cells (writer-scaling, informational) and the
+  hot-stream cell (explicitly non-gating, a validity check) do not enter the
+  verdict. The full seqproto arm (w8+w32, b1+b10, ×3) plus a GCP smoke ran;
+  for the Strategy E baseline only the two gating cells were re-run
+  (w32×{b1,b10}×3 = 6 runs), and the 3 seqproto hot-stream rows were skipped
+  (pre-created dirs) because without a Strategy E hot baseline they would be
+  orphaned. Rationale (recorded at the user's prompting, 2026-06-11): the early
+  seqproto numbers showed throughput flat across writers (w8≈w32≈1,500 ev/s at
+  b1), so the predicted 5–15× group-commit relief is absent and the verdict is
+  dominated by `G(32,1)`; spending ~2–3 cloud-hours on non-gating cells does
+  not change a mechanically-applied decision. The first Strategy E attempt
+  (uppercase-`E` prefix) failed all 15 rows at `run-benchmark`'s lowercase-only
+  experiment-name regex in 0 s — before any provisioning, so zero GCP cost —
+  hence the lowercase `…ep63-strate-*` re-run. Date: 2026-06-11
+
 ## Outcomes & Retrospective
 
 (To be filled during and after implementation. Must end with the verdict line:
