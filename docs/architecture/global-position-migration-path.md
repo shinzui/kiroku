@@ -222,3 +222,113 @@ provided the documented contract is weakened to "opaque, strictly increasing"
 does not reveal a broken bench; it reveals that Strategy E's headline numbers
 were measured on hardware where the one thing the strategy serializes — the
 durable commit — was free.
+
+## Part 3 — Measured GCP verdict (2026-06-11)
+
+Part 1 predicted the `$all` lock collapses durable throughput; Part 2 *assumed*
+the Marten migration recovers it via group commit. ExecPlan 63 M4 measured both
+arms on GCP to test that second assumption. **The lock is a real serialization
+point — but the group-commit payoff Part 2 counted on does not materialize on
+durable cloud storage.**
+
+### How it was measured
+
+- **Strategy E arm** — the production `kiroku-store` append path
+  (`kiroku-bench` append-only, kiroku `786282e`).
+- **seqproto arm** — a faithful one-variable-changed prototype: kiroku's
+  `appendAnyVersionSQL` re-qualified to a throwaway `seqproto` schema, with the
+  `$all` `all_update` CTE removed and `$all` positions claimed from
+  `nextval('seqproto.global_position_seq')`. Every other write (event insert,
+  *both* junction inserts, source-stream upsert, NOTIFY trigger) is byte-for-byte
+  identical (`kiroku-bench-seqproto`, kiroku-bench `260e93a`).
+- Cross-stream workload (each writer on its own stream), writers=32,
+  payload=256 B, 180 s steady state, **fresh postgres VM + disk per trial**, 3
+  trials/cell, median reported. Full durability (`synchronous_commit=on`,
+  default `wal_sync_method`), PostgreSQL 17.9, GCP `tan-nb-exp`/`us-west1`,
+  pd-ssd. load-testing-infra `bf60458`.
+
+### The numbers
+
+| cell (w32, durable, median of 3) | Strategy E | seqproto | ratio |
+|---|---|---|---|
+| **batch=1 (single-event)** | **687 ev/s** | **1,499 ev/s** | **2.18×** |
+| batch=10 | 4,364 ev/s | (not measured) | — |
+
+The ratio is not a harness artifact. In identical 180 s windows seqproto
+completed **294,549** appends vs Strategy E **122,711** (a *direct count* of work
+done, independent of any rate computation); database growth was +218 MiB vs
++117 MiB; and both arms ran at **~40–44 % postgres CPU, 100 % cache-hit, disk
+unsaturated** — i.e. both are **durable-commit-bound, not CPU/IO/lock/read-bound**
+(Grafana host + postgres panels archived per run). Strategy E p95 latency
+**165 ms** (the 32-writer `$all`-lock queue) vs seqproto **45 ms** isolates the
+lock as the difference.
+
+### The decisive finding: removing the lock does not buy *scaling*
+
+Part 2's premise was group-commit amplification (predicted 5–15× at 32 writers).
+It does not appear: **seqproto throughput is flat in writer count** —
+w8 **1,559 ev/s** → w32 **1,499 ev/s** (slightly *down*). If group commit were
+amortizing concurrent WAL flushes, 32 committers would beat 8; they don't. On
+this pd-ssd, durable commits effectively serialize *regardless of the lock*, so
+removing the `$all` lock yields a one-time **2.18×** (the lock's own overhead)
+and then hits a second wall — the durable-commit path itself — at **~1,500
+single-event commits/s**. This is the M3 Mac result (`F_FULLFSYNC` serialized
+commits, flat in writers) reproduced on the cloud hardware that was expected to
+behave differently. Part 2's sentence "appends … share group-commit WAL flushes"
+is the assumption this measurement falsifies for the unbatched single-event path.
+
+### Verdict against the target workload
+
+Pre-registered rule: `G(32,1)=2.18×` is in the **judgment zone** (`≥2.0` but
+`<3.0`; PROCEED requires `≥3.0`), to be decided against a written target. Target
+recorded 2026-06-11: **a few thousand ev/s of latency-sensitive single-event
+cross-stream appends that cannot batch.**
+
+- Strategy E single-event ceiling: **~687 ev/s**, flat in writers — short of target.
+- seqproto single-event ceiling: **~1,499 ev/s**, *also* flat in writers — **also
+  short of target.**
+- **Neither single-store design reaches "a few thousand" single-event durable
+  appends/s.** The rewrite improves it 2.18× and then stalls at ~1,500.
+- The remaining gap is closed by levers that do **not** require the core rewrite:
+  **sharding** (tenant/schema-level stores — positions were never cross-store
+  comparable) multiplies *either* ceiling linearly: ~5 Strategy-E shards
+  (5×687 ≈ 3,400 ev/s) or ~2 seqproto shards reach a few thousand; **faster
+  commit storage** lowers `commit_latency` for both; **`commit_delay` tuning** is
+  the one untested lever that *could* let group commit amortize on the sequence
+  arm — but the flat w8→w32 scaling argues it won't.
+
+> **Verdict: NOT WORTH IT.** An 8–10 ExecPlan core rewrite plus a permanent
+> high-water-mark daemon buys a flat **2.18×** that still falls short of the
+> latency-sensitive target, while **sharding the current architecture reaches
+> the target with linear, operationally-routine scaling** and no read-side
+> complexity. The rewrite would only cut shard count ~2.2× for a given target —
+> not worth the permanent complexity tax (gap timeouts, safe-horizon daemon,
+> re-scoped read-your-writes).
+
+**What would overturn this:** a cheap `commit_delay`/group-commit probe (or
+faster-fsync storage) showing the sequence arm scaling *past* ~1,500 single-event
+durable commits/s on one store while Strategy E stays lock-capped at ~687. The
+current flat writer-scaling argues against it, but it is the one unmeasured
+lever — revisit the verdict if a single such probe contradicts the flat-scaling
+evidence.
+
+### Caveats (examined; none changes the verdict)
+
+- **Eventlog asymmetry:** seqproto ran with the GHC eventlog *on* (~2 % overhead),
+  Strategy E *off*; correcting *widens* G to ~2.2× — still judgment-zone.
+  `G(32,10)` was not measured (seqproto w32/b10 was not run) because
+  `G(32,1)=2.18 < 3.0` already precludes PROCEED regardless of the b10 ratio.
+- **Harness asymmetry:** seqproto is a raw-hasql driver, Strategy E the full
+  `kiroku-store` API — but both issue one statement / one commit per append with
+  near-identical SQL, and both are DB-side commit-bound, so client-side
+  differences are negligible (the measured latency gap *is* the `$all`-lock queue,
+  not client overhead).
+- **Separate discovery (not part of this decision):** current kiroku `786282e`
+  measured ~687 ev/s at w32/b1 — ~30 % below May's `c672d58` ~972 ev/s on the
+  *same* PostgreSQL 17.9. Possible append-path regression over those two weeks,
+  worth investigating independently. The verdict is unaffected: it rests on the
+  same-environment ratio, where both arms ran on `786282e`-era infrastructure.
+- **Read side was never the blocker:** the gap-detection query (the HWM daemon's
+  steady-state poll) ran p95 2.41 ms ≪ 25 ms gate on 5M rows. The migration's
+  cost is justified by throughput, and the throughput payoff is the ~1.5× short
+  of need.

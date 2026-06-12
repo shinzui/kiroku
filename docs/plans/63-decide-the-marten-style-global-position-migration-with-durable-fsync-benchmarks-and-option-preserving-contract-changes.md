@@ -164,15 +164,21 @@ documented here, even if it requires splitting a partially completed task into t
       confirmed the new path end-to-end — journal
       `profile_mode='none' seqproto='1' binary=…/kiroku-bench-seqproto`,
       `seqproto schema ready`, 1,560 ev/s, exitCode 0, zero errors.
-- [ ] M4: **GCP matrix** (the pre-registered gating measurement) — both arms ×
-      writers {8, 32} × batch {1, 10} × 3 trials + hot-stream cell, on
-      load-testing-infra (`tan-nb-exp`, `us-west1`). LAUNCHED 2026-06-11 via
-      `run-experiment-grid` (per-row pulumi up/destroy → fresh postgres VM per
-      trial; `RUN_DURATION_SECONDS=180`, `SKIP_UPLOAD=1`); 3 grid invocations
-      (stratE 15 rows; seqproto matrix 12; seqproto hot 3). Awaiting completion.
-- [ ] M5: compute gain table, apply the pre-registered decision rule, write the
-      verdict into `docs/architecture/global-position-migration-path.md`, append
-      ledger rows, update this plan's Outcomes & Retrospective.
+- [x] M4: **GCP matrix** (the pre-registered gating measurement). (2026-06-11)
+      Ran on load-testing-infra (`tan-nb-exp`/`us-west1`, PG 17.9, pd-ssd, fresh
+      VM+disk per trial, 180 s, full durability). Trimmed to the gating cells
+      once early data showed the verdict hinged on `G(32,1)`: seqproto w8/w32 ×
+      {b1,b10} ×3 + smoke; Strategy E (current code) w32 × {b1,b10} ×3. Result:
+      **G(32,1) = 1,499 / 687 = 2.18×**; seqproto flat in writers (w8 1,559 →
+      w32 1,499). Both arms durable-commit-bound (~40 % CPU, 100 % cache). See
+      Surprises (infra transients: stale SHA, IAP-tunnel flakiness, eventlog
+      collect hang → `HASKELL_BENCH_EVENTLOG_ENABLED=false`, uppercase-`E`
+      name-regex). Gap-scan already passed locally (p95 2.41 ms).
+- [x] M5: gain table computed, pre-registered rule applied (2.18× = judgment
+      zone), verdict resolved against the target workload and written into
+      `docs/architecture/global-position-migration-path.md` Part 3; ledger row
+      appended to `docs/perf-experiment-log.md`; Outcomes & Retrospective filled.
+      **VERDICT: NOT WORTH IT.** (2026-06-11)
 
 
 ## Surprises & Discoveries
@@ -513,8 +519,69 @@ lock. Infra changes committed in load-testing-infra `bf60458`.
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation. Must end with the verdict line:
-**PROCEED NOW** or **NOT WORTH IT**, the measured gain table, and the date.)
+**Measured gain table** (GCP `tan-nb-exp`/`us-west1`, PostgreSQL 17.9, pd-ssd,
+writers=32, payload=256, 180 s, full durability, fresh VM+disk per trial, median
+of 3; Strategy E = kiroku `786282e`, seqproto = kiroku-bench `260e93a`; infra
+`bf60458`):
+
+| cell | Strategy E | seqproto | ratio |
+|---|---|---|---|
+| batch=1 (single-event) | 687 ev/s | 1,499 ev/s | **G(32,1) = 2.18×** |
+| batch=10 | 4,364 ev/s | (not run) | — |
+| writer-scaling (seqproto, b1) | — | w8 1,559 → w32 1,499 (**flat**) | — |
+
+**Prediction vs observation.** Purpose-section prediction: GCP w32/b1 sequence
+arm beats Strategy E by **5–15×** via group commit amortizing flushes across ~32
+concurrent committers. **Observed: 2.18×, and flat in writer count** — group
+commit does *not* amortize concurrent durable commits on pd-ssd; the sequence
+arm hits the durable-commit wall at ~1,500 single-event commits/s just as
+Strategy E hits it (plus lock overhead) at ~687. The M3 Mac `F_FULLFSYNC`
+serialization reproduced on cloud hardware. The 5–15× hypothesis is **falsified**
+for the unbatched single-event path. (Earlier milestones held: M1 contract
+changes shipped; M3 confirmed the lock-under-flush model at 21.4×; gap-scan p95
+2.41 ms ≪ 25 ms.)
+
+**Decision (judgment zone, resolved against target).** `G(32,1)=2.18×` ∈
+[2.0, 3.0) → judgment zone; PROCEED requires ≥3.0. Target recorded with the user
+on 2026-06-11: a few thousand ev/s of latency-sensitive, unbatchable single-event
+cross-stream appends. Neither single-store design reaches it (Strategy E ~687,
+seqproto ~1,499, both flat); **sharding the current architecture reaches it
+linearly** without the rewrite. An 8–10-plan core rewrite + permanent
+high-water-mark daemon for a flat 2.18× that still misses the target is not
+justified. Full reasoning + the one probe that would overturn it (`commit_delay`
+/ faster-fsync showing the sequence arm scaling past ~1,500/s on one store) in
+`docs/architecture/global-position-migration-path.md` Part 3.
+
+**Retrospective (process).** The decision was reached but the path was
+inefficient and I corrected course twice on user challenge: (1) I initially
+read "NOT WORTH IT, ~1.5×" off a *stale May baseline* (~972) instead of measuring
+Strategy E on current code; the same-environment baseline (687) moved the ratio
+to 2.18× — judgment zone, not an automatic no. Lesson: always measure both arms
+in the same environment before quoting a ratio. (2) I ran throughput cells
+without first establishing *what bottlenecked each arm*; the reliability question
+("is this CPU-bound or commit-bound?") was answered from resource graphs already
+collected, not from more runs. Lesson: for a perf decision, attribute the
+bottleneck (CPU/disk/lock/commit) before trusting any ratio. Infra friction
+consumed most of the wall-clock: a stale `flake.lock`/SHA, two remote-builder
+IAP-tunnel transients, an eventlog-over-IAP collect hang (fixed with
+`HASKELL_BENCH_EVENTLOG_ENABLED=false`), and an uppercase-`E` experiment-name
+that failed 15 rows at a regex. The matrix was trimmed to the gating cells once
+the early data showed the verdict hinged on `G(32,1)` alone.
+
+**Follow-ups filed (out of scope here):**
+1. keiro `reconstructRecorded` (`Keiro/Command.hs:638-661`) assumes contiguous
+   batch positions — correctness bug *if* a gappy scheme is ever adopted; moot
+   under NOT WORTH IT but recorded.
+2. keiro `positionGap` (`Keiro/Projection.hs:151-153`) overcounts under gaps —
+   observability-only.
+3. **Possible ~30 % append-path regression** in current kiroku (`786282e` ~687
+   ev/s vs May `c672d58` ~972 ev/s, same PG 17.9, w32/b1 durable) — investigate
+   independently of this decision.
+4. kiroku overlay ships shibuya-core 0.6 while the adapter needs 0.7 (kiroku's
+   own `nix build` of `shibuya-kiroku-adapter` is broken at HEAD); one-line
+   overlay bump.
+
+**VERDICT: NOT WORTH IT.** (2026-06-11)
 
 
 ## Context and Orientation
