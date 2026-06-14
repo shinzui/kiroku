@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Performance
+
+* `appendMultiStream` now pipelines its deterministic pre-lock and per-stream
+  append statements through Hasql pipeline mode, while preserving all-or-nothing
+  rollback and transient deadlock retry behavior. The local benchmark regression
+  gate measured `All.reliability-audit.appendMultiStream 3 existing streams` at
+  268 us, 29% faster than the refreshed baseline.
+
 ## 0.2.0.0 — 2026-05-31
 
 ### Breaking Changes

@@ -89,7 +89,7 @@ Haskell.
 | 4 | Fix backward read pagination and append edge-case errors | docs/plans/59-fix-backward-read-pagination-and-append-edge-case-errors.md | None | None | Complete |
 | 5 | Schema and trigger hygiene: NOTIFY guard, dead-letter FK policy, and index fixes | docs/plans/60-schema-and-trigger-hygiene-notify-guard-dead-letter-fk-policy-and-index-fixes.md | None | None | Complete |
 | 6 | Fix WebSocket event tail replay duplication and gap handling | docs/plans/61-fix-websocket-event-tail-replay-duplication-and-gap-handling.md | None | None | Complete |
-| 7 | Benchmark-gated append pipelining and raw-payload read passthrough | docs/plans/62-benchmark-gated-append-pipelining-and-raw-payload-read-passthrough.md | None | EP-4, EP-5 | In Progress |
+| 7 | Benchmark-gated append pipelining and raw-payload read passthrough | docs/plans/62-benchmark-gated-append-pipelining-and-raw-payload-read-passthrough.md | None | EP-4, EP-5 | Complete |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
 Hard Deps and Soft Deps reference other rows by their # prefix (e.g., EP-1, EP-3).
@@ -193,9 +193,9 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 - [x] EP-5: Stream-name length bound enforced (closes the NOTIFY payload abort edge)
 - [x] EP-6: WS replay neither duplicates past attach position nor falls through a gap
 - [x] EP-6: `subscriptionsApp` unknown paths return the documented 404
-- [ ] EP-7: Pipelined multi-stream append prototyped and benchmarked (promote or document rejection)
-- [ ] EP-7: Raw-bytes read variant prototyped and benchmarked (promote or document rejection)
-- [ ] EP-7: Conditional integration of passing prototypes; unconditional lock-hold documentation
+- [x] EP-7: Pipelined multi-stream append prototyped and benchmarked (promoted; source path now 29% faster in the full benchmark gate)
+- [x] EP-7: Raw-bytes read variant prototyped and benchmarked (rejected at profile-first gate; no spike built)
+- [x] EP-7: Conditional integration of passing prototypes; unconditional lock-hold documentation
 
 
 ## Surprises & Discoveries
@@ -425,8 +425,20 @@ final full-suite rerun.
 2026-06-14, after EP-6: the metrics WebSocket event tail no longer duplicates
 positions across a replay/live handoff and no longer continues live after replay
 read failure. The standalone subscriptions WAI app also now returns the documented
-404 JSON body for unknown routes. The remaining open work in this MasterPlan is EP-7's
-benchmark-gated performance exploration.
+404 JSON body for unknown routes. At this point, the only remaining open work in
+this MasterPlan was EP-7's benchmark-gated performance exploration.
+
+2026-06-14, after EP-7: the benchmark-gated performance work is resolved. Append
+pipelining was promoted and shipped for `appendMultiStream`: the benchmark-only
+spike showed 22.3% faster at four streams, 22.1% faster at eight streams, and 21.2%
+faster in the bounded contention probe; the source implementation passed
+`cabal test all` and `just bench-regression`, where
+`All.reliability-audit.appendMultiStream 3 existing streams` measured 268 us
+(29% faster than the refreshed baseline). The raw-bytes `$all` read idea was
+rejected before code because the profile showed the read statement subtree at only
+0.4% total time and JSONB decoding rounded to 0.0%. The parameter-shape micro-work
+was also rejected by profile evidence. Transaction append Haddocks now warn that
+continuation SQL after the append extends the global `$all` lock hold.
 
 
 ---
@@ -453,3 +465,8 @@ registry status is now Complete, both EP-6 master progress items are checked,
 Surprises & Discoveries records the validation and regression-bite evidence, and
 Outcomes & Retrospective summarizes the WebSocket replay/live and subscriptions 404
 fixes.
+
+*Revision note (2026-06-14).* EP-7 implementation completed under docs/plans/62:
+the registry status is now Complete, all EP-7 master progress items are checked,
+and Outcomes & Retrospective records the append-pipeline promotion, raw-read
+rejection, parameter-shape rejection, and transaction lock-hold documentation.

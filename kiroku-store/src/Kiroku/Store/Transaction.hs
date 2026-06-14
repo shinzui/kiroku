@@ -137,6 +137,15 @@ reserved-stream check — callers should validate the stream name before
 entering the transaction body, or use 'runTransactionAppending', which
 performs the rejection up front.
 
+Lock-hold note: this append statement updates Kiroku's global @$all@
+stream row and PostgreSQL holds that row lock until the surrounding
+transaction commits or rolls back. Any statements the caller runs
+after a successful 'appendToStreamTx' keep that global append lock
+held, blocking other appends store-wide. Prefer the higher-level
+'runTransactionAppending' wrappers unless you need custom transaction
+shaping; when using this function directly, run any append-independent
+work before calling it.
+
 The combinator returns 'Either' instead of throwing because
 'Tx.Transaction' has no exception channel. On 'Left' the caller decides
 whether to call 'Tx.condemn' to roll back the transaction, branch
@@ -205,6 +214,22 @@ Behavior:
   a serialization conflict; use 'runTransactionAppendingNoRetry' to
   disable retry.
 
+Lock-hold guidance:
+
+* The append updates Kiroku's global @$all@ stream row. PostgreSQL
+  holds that row lock until this transaction commits or rolls back.
+* The continuation runs /after/ the append, so every SQL statement it
+  executes extends the interval during which all other appends in the
+  store are blocked on the @$all@ row.
+* Keep the continuation minimal: pre-compute values before entering
+  the transaction, avoid unbounded loops or per-row work that could
+  have been batched, and never wait on external systems. A
+  'Tx.Transaction' cannot perform arbitrary 'IO', but it can still
+  contain many database round trips.
+* Work that does not need the new 'AppendResult' should run before the
+  append, either outside this wrapper or in a custom 'runTransaction'
+  body that calls 'appendToStreamTx' last.
+
 Connection-level failures from the @hasql-pool@ layer surface through
 the surrounding @'Effectful.Error.Static.Error' 'StoreError'@ effect
 ('Kiroku.Store.Error.ConnectionError', 'ConnectionLost', etc.), not
@@ -237,7 +262,8 @@ conflicts.
 
 Like 'runTransactionAppending', this wrapper bypasses the
 'Kiroku.Store.Settings.enrichEvent' hook; see that function's
-Haddock for guidance on hooking under different stacks.
+Haddock for guidance on hooking under different stacks and for the
+@$all@ lock-hold warning that applies equally here.
 -}
 runTransactionAppendingNoRetry ::
     (HasCallStack, IOE :> es, Store :> es) =>
@@ -260,7 +286,9 @@ conflict do not re-invoke it (the enriched events are already prepared).
 This is the recommended path for callers — most prominently the
 @keiro@ projection layer — that want trace-context or PII-injection
 hooks to fire uniformly across both direct @'appendToStream'@ calls
-and transactional append+projection sites.
+and transactional append+projection sites. The continuation still runs
+after the append; see 'runTransactionAppending' for the @$all@
+lock-hold warning and keep resource-aware continuations just as small.
 -}
 runTransactionAppendingResource ::
     (HasCallStack, IOE :> es, KirokuStoreResource :> es, Store :> es) =>
@@ -275,7 +303,9 @@ runTransactionAppendingResource sn expected events k = do
     runTransactionAppendingWith RunTransaction sn expected events' k
 
 {- | Like 'runTransactionAppendingResource' but uses
-'Hasql.Transaction.Sessions.transactionNoRetry' under the hood.
+'Hasql.Transaction.Sessions.transactionNoRetry' under the hood. The
+@$all@ lock-hold guidance from 'runTransactionAppending' applies
+unchanged.
 -}
 runTransactionAppendingResourceNoRetry ::
     (HasCallStack, IOE :> es, KirokuStoreResource :> es, Store :> es) =>

@@ -133,14 +133,22 @@ here, even if it requires splitting a partially completed task into two ("done" 
       334.8 us at N=4 (22.3 % faster), 669.7 us → 521.8 us at N=8 (22.1 %
       faster), and 40.6 ms → 32.0 ms under the bounded contention probe (21.2 %
       faster). M1 is promoted to M3 implementation.
-- [ ] M2: profile the `$all` read path with the GHC profiling harness to measure the
+- [x] M2: profile the `$all` read path with the GHC profiling harness to measure the
       Aeson decode share; record the share in Surprises & Discoveries and state the
-      refined expected-impact sentence here before building the spike.
-- [ ] M2: add the `read-raw-shape` benchmark-only spike cells (Value vs. raw-bytes,
-      100-event and 1000-event pages) to `kiroku-store/bench/Main.hs`.
-- [ ] M2: run the spike cells, capture CSV + transcripts under
+      refined expected-impact sentence here before building the spike. Completed
+      2026-06-14: the profile at
+      `docs/bench/read-hot-path/2026-06-14-read-all-forward-profile.prof` showed
+      `readAllForwardStmt` at only 0.4 % total time / 1.2 % allocation and
+      `jsonb_ast` rounded to 0.0 %. Expected impact: payload decoding is below the
+      plan's 10 % spike threshold, so raw passthrough would predict below-noise
+      improvement and should not be built.
+- [x] M2: add the `read-raw-shape` benchmark-only spike cells (Value vs. raw-bytes,
+      100-event and 1000-event pages) to `kiroku-store/bench/Main.hs`. Completed
+      2026-06-14 as rejected/not built because the profile-first gate failed.
+- [x] M2: run the spike cells, capture CSV + transcripts under
       `docs/bench/read-hot-path/` (new directory), decide promote vs. discard
-      against the ≥15 % gate; append the ledger row.
+      against the ≥15 % gate; append the ledger row. Completed 2026-06-14 as
+      rejected before measurement; only the profile artifact was captured.
 - [x] M3 (only if M1 promoted): rewrite the `AppendMultiStream` interpreter in
       `kiroku-store/src/Kiroku/Store/Effect.hs` onto the two-phase pipeline session;
       full test suite green; `just bench-regression` green; ledger row appended.
@@ -157,16 +165,21 @@ here, even if it requires splitting a partially completed task into two ("done" 
       `buildAppendParams` at 0.0 % time and 0.3 % allocation, so the
       profile-first gate did not justify adding this parameter-shape churn after
       the pipeline source change already cleared the benchmark gate.
-- [ ] M3 (only if M2 promoted): add the additive `RecordedEventRaw` /
+- [x] M3 (only if M2 promoted): add the additive `RecordedEventRaw` /
       `readAllForwardRaw` surface to `kiroku-store/src/Kiroku/Store/SQL.hs` and
       `kiroku-store/src/Kiroku/Store/Read.hs`; document the `decodeHook` bypass;
-      record the kiroku-metrics adoption note.
-- [ ] M3 (unconditional): add the loud Haddock guidance on continuation minimalism
+      record the kiroku-metrics adoption note. Completed 2026-06-14 as
+      rejected-by-condition because M2 did not promote.
+- [x] M3 (unconditional): add the loud Haddock guidance on continuation minimalism
       and `$all` lock-hold to `runTransactionAppending` and friends in
       `kiroku-store/src/Kiroku/Store/Transaction.hs`; record the decision on the
-      optional pre-append continuation affordance in the Decision Log.
-- [ ] Wrap-up: update the master plan's Exec-Plan Registry row for EP-7 and its
+      optional pre-append continuation affordance in the Decision Log. Completed
+      2026-06-14: added lock-hold guidance to `appendToStreamTx`,
+      `runTransactionAppending`, `runTransactionAppendingNoRetry`, and both
+      resource variants; optional pre-append continuation API deferred.
+- [x] Wrap-up: update the master plan's Exec-Plan Registry row for EP-7 and its
       Progress checklist; write this plan's Outcomes & Retrospective.
+      Completed 2026-06-14.
 
 
 ## Surprises & Discoveries
@@ -207,6 +220,14 @@ new path had bypassed `hasql-transaction`'s retry. The final implementation wrap
 the pipelined body in a `Session` error handler that rolls back and rethrows, and
 retries one 40001/40P01 attempt using the same idempotence argument as
 single-stream append.
+
+2026-06-14: The `$all` 100-event read profile did not support a raw-payload
+passthrough spike. Total profile time was 8.25s / 4.68 GB allocated, again
+dominated by setup/background cost centres (`$fAlternativeSTM5` 39.1 %,
+`$wreadTQueue` 28.0 %, `$wopenat_` 7.1 %). The actual
+`readAllForwardStmt` subtree was 0.4 % time / 1.2 % allocation, and
+`PostgreSQL.Binary.Decoding.jsonb_ast` rounded to 0.0 %. This is far below the
+plan's "stop if decode share <10 %" threshold.
 
 
 ## Decision Log
@@ -283,6 +304,24 @@ Record every decision made while working on the plan.
   this area can measure slower.
   Date: 2026-06-14
 
+- Decision: Reject the raw-bytes `$all` read experiment before building the spike.
+  Rationale: The profile-first gate showed JSONB/Aeson decoding below measurement
+  resolution for the existing 100-event `$all` read cell. Building a raw
+  `RecordedEventRaw`/`readAllForwardRaw` surface would add API and documentation
+  weight, plus a `decodeHook` bypass footgun, without a profile-backed path to the
+  pre-stated ≥15 % 1000-event-page win.
+  Date: 2026-06-14
+
+- Decision: Keep the transaction append affordance as documentation-only for now;
+  do not add a `runTransactionAppendingAfter`-style API in this plan.
+  Rationale: The hazard is real and now documented: continuation SQL after the
+  append extends the global `$all` lock hold. But no concrete keiro call site was
+  identified in this plan that can move useful transaction work before the append
+  while still preserving its need for the `AppendResult`. Adding an API without an
+  immediate adopter would broaden the public surface before its ergonomics are
+  proven.
+  Date: 2026-06-14
+
 - Decision: The raw-bytes prototype targets the `$all` forward read
   (`readAllForwardStmt`) only, with the kiroku-metrics WebSocket event tail named
   as the adopting consumer; per-stream and category raw variants are out of scope.
@@ -301,7 +340,43 @@ Compare the result against the original purpose. If a prototype is discarded, re
 the numbers that killed it here (and in the ledger) so it is never re-proposed
 without new evidence.
 
-(To be filled during and after implementation.)
+2026-06-14: M1 proved and M3 shipped the append pipelining idea. The benchmark-only
+spike cleared the pre-registered >=20 % gate across three focused runs:
+N=4 averaged 430.8 us -> 334.8 us (22.3 % faster), N=8 averaged 669.7 us ->
+521.8 us (22.1 % faster), and the bounded contention probe averaged 40.6 ms ->
+32.0 ms (21.2 % faster). The production implementation preserved the existing
+public API while replacing `AppendMultiStream`'s `hasql-transaction` body with a
+two-phase `Session.pipeline` shape. The full benchmark gate passed all 29 cells;
+`All.reliability-audit.appendMultiStream 3 existing streams` measured 268 us,
+29 % below the refreshed baseline. Correctness validation passed focused
+multi-stream/concurrency tests and `cabal test all`.
+
+The most important implementation lesson was on the failure path. The initial
+source port passed the happy path but left a pooled connection in a failed
+transaction after a duplicate-event SQL error, and leaked transient 40P01 as
+`UnexpectedServerError`. `hasql-transaction` had been doing that housekeeping for
+the old implementation. The final code rolls back inside the `Session` error
+handler, rethrows for the existing Kiroku error mapping, and retries one
+40001/40P01 attempt like single-stream append.
+
+2026-06-14: M2 rejected the raw-payload read idea before building a spike. The
+profile-first gate showed the existing 100-event `$all` read profile dominated by
+bench setup/background costs; the `readAllForwardStmt` subtree was only 0.4 % time
+and 1.2 % allocation, while `PostgreSQL.Binary.Decoding.jsonb_ast` rounded to
+0.0 %. That is below the plan's 10 % "build the spike" threshold and far from a
+credible route to the pre-registered >=15 % 1000-event-page win. No raw
+`RecordedEventRaw` API was added, avoiding a decodeHook-bypassing surface without
+evidence.
+
+2026-06-14: The `buildAppendParams`/scalar-`created_at` micro-work was also rejected
+by profile evidence. `buildAppendParams` registered 0.0 % time and 0.3 % allocation
+in the focused append profile, so changing the parameter shape would have added
+SQL/encoder churn without a measured target.
+
+2026-06-14: The unconditional transaction guidance landed as Haddock only. The
+optional `runTransactionAppendingAfter`-style affordance is deferred until a real
+call site proves the ergonomics; the docs now make the `$all` lock-hold cost and
+continuation-minimalism rule explicit.
 
 
 ## Context and Orientation
@@ -1002,8 +1077,7 @@ next run recreates; in M3a production code this is handled explicitly (best-effo
 
 ## Interfaces and Dependencies
 
-**Libraries (all already in `kiroku-store/kiroku-store.cabal`; no new dependencies
-are added by this plan):**
+**Libraries used by this plan:**
 
 - `hasql >=1.10 && <1.11` — provides `Hasql.Pipeline` (`Pipeline`, `statement`),
   `Hasql.Session.pipeline`, `Hasql.Decoders.jsonbBytes :: (ByteString -> Either
@@ -1014,6 +1088,8 @@ are added by this plan):**
 - `hasql-transaction` — still used by every path this plan does *not* touch; note
   again it has no pipeline support, which is why M3a leaves `Tx.Transaction`
   behind for `AppendMultiStream` only.
+- `mtl` — added explicitly so the production `Session` implementation can use
+  `catchError` to issue `ROLLBACK` on pipeline errors before rethrowing.
 - `tasty-bench`, `ephemeral-pg`, `async`, `deepseq` — the bench harness, already
   wired into the `kiroku-store-bench` stanza.
 
