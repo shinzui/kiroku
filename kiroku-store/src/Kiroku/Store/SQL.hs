@@ -484,7 +484,11 @@ readStreamForwardSQL =
     LIMIT $3
     """
 
--- | Read from a named stream in backward order.
+{- | Read from a named stream in backward order.
+The start version is an exclusive upper bound. The interpreter maps
+caller cursor 0 to 'maxBound' so "from latest" stays a Haskell API
+sentinel and the SQL keeps a plain range predicate.
+-}
 readStreamBackwardSQL :: Text
 readStreamBackwardSQL =
     """
@@ -496,7 +500,7 @@ readStreamBackwardSQL =
     FROM stream_events se
     JOIN events e ON e.event_id = se.event_id
     WHERE se.stream_id = (SELECT stream_id FROM streams WHERE stream_name = $1 AND deleted_at IS NULL)
-      AND se.stream_version > $2
+      AND se.stream_version < $2
     ORDER BY se.stream_version DESC
     LIMIT $3
     """
@@ -520,7 +524,11 @@ readAllForwardSQL =
     LIMIT $2
     """
 
--- | Read from the global $all stream in backward order.
+{- | Read from the global $all stream in backward order.
+The start position is an exclusive upper bound. The interpreter maps
+caller cursor 0 to 'maxBound' so "from latest" stays a Haskell API
+sentinel and the SQL keeps a plain range predicate.
+-}
 readAllBackwardSQL :: Text
 readAllBackwardSQL =
     """
@@ -532,7 +540,7 @@ readAllBackwardSQL =
     FROM stream_events se
     JOIN events e ON e.event_id = se.event_id
     WHERE se.stream_id = 0
-      AND se.stream_version > $1
+      AND se.stream_version < $1
     ORDER BY se.stream_version DESC
     LIMIT $2
     """

@@ -83,8 +83,9 @@ order.
 
 The cursor is exclusive: events with @streamVersion < startVer@ are
 returned (events older than the cursor). To read the entire stream from
-the latest event backward, pass @'StreamVersion' 0@ (the SQL treats it
-as \"newer than any\"). Returns an empty vector for nonexistent or
+the latest event backward, pass @'StreamVersion' 0@. The interpreter maps
+0 to the maximum cursor value, so it never collides with a real stream
+version; versions start at 1. Returns an empty vector for nonexistent or
 soft-deleted streams.
 -}
 readStreamBackward ::
@@ -116,7 +117,8 @@ readAllForward startPos limit = send (ReadAllForward startPos limit)
 ('GlobalPosition'-descending) order.
 
 Cursor exclusive. To start from the most recent event, pass
-@'GlobalPosition' 0@ (treated as \"after everything\" by the SQL).
+@'GlobalPosition' 0@. The interpreter maps 0 to the maximum cursor value,
+so it never collides with a real global position; positions start at 1.
 -}
 readAllBackward ::
     (HasCallStack, Store :> es) =>

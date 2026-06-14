@@ -321,6 +321,24 @@ main = withSharedMigratedPostgres $ hspec $ do
                 (result V.! 1 ^. #streamVersion) `shouldBe` StreamVersion 2
                 (result V.! 2 ^. #streamVersion) `shouldBe` StreamVersion 1
 
+            it "paginates backward using stream version as an exclusive cursor" $ \store -> do
+                let events = map (\i -> makeEvent ("E" <> T.pack (show i)) (Aeson.object [])) [1 .. 5 :: Int]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "read-bwd-page") NoStream events
+
+                Right page1 <- runStoreIO store $ readStreamBackward (StreamName "read-bwd-page") (StreamVersion 0) 2
+                fmap (^. #streamVersion) (V.toList page1) `shouldBe` [StreamVersion 5, StreamVersion 4]
+
+                let cursor1 = V.last page1 ^. #streamVersion
+                Right page2 <- runStoreIO store $ readStreamBackward (StreamName "read-bwd-page") cursor1 2
+                fmap (^. #streamVersion) (V.toList page2) `shouldBe` [StreamVersion 3, StreamVersion 2]
+
+                let cursor2 = V.last page2 ^. #streamVersion
+                Right page3 <- runStoreIO store $ readStreamBackward (StreamName "read-bwd-page") cursor2 2
+                fmap (^. #streamVersion) (V.toList page3) `shouldBe` [StreamVersion 1]
+
+                Right page4 <- runStoreIO store $ readStreamBackward (StreamName "read-bwd-page") (V.last page3 ^. #streamVersion) 2
+                V.length page4 `shouldBe` 0
+
         describe "cursor-based pagination" $ do
             it "paginates using stream version as cursor" $ \store -> do
                 let events = map (\i -> makeEvent ("E" <> T.pack (show i)) (Aeson.object [])) [1 .. 5 :: Int]
@@ -366,6 +384,20 @@ main = withSharedMigratedPostgres $ hspec $ do
                 V.length result `shouldBe` 2
                 (V.head result ^. #eventType) `shouldBe` EventType "Y"
                 (result V.! 1 ^. #eventType) `shouldBe` EventType "X"
+
+            it "paginates backward using global position as an exclusive cursor" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "allb-page-s1") NoStream [makeEvent "X" (Aeson.object [])]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "allb-page-s2") NoStream [makeEvent "Y" (Aeson.object [])]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "allb-page-s3") NoStream [makeEvent "Z" (Aeson.object [])]
+
+                Right page1 <- runStoreIO store $ readAllBackward (GlobalPosition 0) 2
+                fmap (^. #globalPosition) (V.toList page1) `shouldBe` [GlobalPosition 3, GlobalPosition 2]
+
+                Right page2 <- runStoreIO store $ readAllBackward (GlobalPosition 2) 2
+                fmap (^. #globalPosition) (V.toList page2) `shouldBe` [GlobalPosition 1]
+
+                Right page3 <- runStoreIO store $ readAllBackward (GlobalPosition 1) 2
+                V.length page3 `shouldBe` 0
 
         describe "read empty/nonexistent stream" $ do
             it "returns empty Vector for nonexistent stream" $ \store -> do

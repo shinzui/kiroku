@@ -4,6 +4,7 @@ slug: fix-backward-read-pagination-and-append-edge-case-errors
 title: "Fix backward read pagination and append edge-case errors"
 kind: exec-plan
 created_at: 2026-06-11T04:32:45Z
+intention: intention_01kv3qaxg9e91v0zq47stehnkz
 master_plan: "docs/masterplans/9-audit-remediation-subscription-reliability-and-store-correctness-and-performance.md"
 ---
 
@@ -63,10 +64,10 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] M1: Add failing backward-pagination tests (`readStreamBackward` nonzero cursor, `readAllBackward` nonzero cursor) to `kiroku-store/test/Main.hs` and record their failure output
-- [ ] M1: Flip the predicate in `readStreamBackwardSQL` and `readAllBackwardSQL` to `<` in `kiroku-store/src/Kiroku/Store/SQL.hs`
-- [ ] M1: Map the cursor-0 sentinel to `maxBound` in the `ReadStreamBackward` / `ReadAllBackward` interpreter branches in `kiroku-store/src/Kiroku/Store/Effect.hs`
-- [ ] M1: Align haddocks in `Read.hs` and `SQL.hs`; confirm new tests pass and full suite is green
+- [x] M1: Add failing backward-pagination tests (`readStreamBackward` nonzero cursor, `readAllBackward` nonzero cursor) to `kiroku-store/test/Main.hs` and record their failure output (2026-06-14)
+- [x] M1: Flip the predicate in `readStreamBackwardSQL` and `readAllBackwardSQL` to `<` in `kiroku-store/src/Kiroku/Store/SQL.hs` (2026-06-14)
+- [x] M1: Map the cursor-0 sentinel to `maxBound` in the `ReadStreamBackward` / `ReadAllBackward` interpreter branches in `kiroku-store/src/Kiroku/Store/Effect.hs` (2026-06-14)
+- [x] M1: Align haddocks in `Read.hs` and `SQL.hs`; confirm new tests pass and full suite is green (2026-06-14)
 - [ ] M2: Add `EmptyAppendBatch` to `StoreError` and `EmptyAppendBatchConflict` to `AppendConflict` in `kiroku-store/src/Kiroku/Store/Error.hs`
 - [ ] M2: Reject empty batches in `AppendToStream` and `AppendMultiStream` interpreter branches (`Effect.hs`), in `appendToStreamTx`, and in `runTransactionAppendingWith` (`Transaction.hs`)
 - [ ] M2: Short-circuit `AppendMultiStream []` to `pure []`
@@ -87,7 +88,32 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+2026-06-14, M1 bite-check behaved as expected. After adding only the two new
+pagination tests, `readStreamBackward` with cursor 4 returned `[StreamVersion 5]`
+instead of `[StreamVersion 3, StreamVersion 2]`, and `readAllBackward` with cursor 2
+returned `[GlobalPosition 3]` instead of `[GlobalPosition 1]`.
+
+```text
+readStreamBackward
+  paginates backward using stream version as an exclusive cursor [x]
+readAllBackward
+  paginates backward using global position as an exclusive cursor [x]
+
+Failures:
+  1) readStreamBackward paginates backward using stream version as an exclusive cursor
+       expected: [StreamVersion 3,StreamVersion 2]
+        but got: [StreamVersion 5]
+
+  2) readAllBackward paginates backward using global position as an exclusive cursor
+       expected: [GlobalPosition 1]
+        but got: [GlobalPosition 3]
+
+2 examples, 2 failures
+```
+
+After changing both backward SQL predicates to `<` and mapping cursor 0 to `maxBound`
+in the interpreter, the targeted test passed with `2 examples, 0 failures`; the full
+`kiroku-store-test` suite passed with 203 examples and 0 failures.
 
 
 ## Decision Log
@@ -184,6 +210,12 @@ Summarize outcomes, gaps, and lessons learned at major milestones or at completi
 Compare the result against the original purpose.
 
 (To be filled during and after implementation.)
+
+2026-06-14, after M1: backward stream reads and `$all` reads now paginate with
+exclusive upper-bound cursors. Cursor 0 remains the public "from latest" sentinel but is
+translated in `Effect.hs` before SQL execution, preserving simple prepared-statement
+range predicates. The new regression tests cover nonzero cursor pages for both APIs and
+the existing cursor-0 behavior remains green.
 
 
 ## Context and Orientation
@@ -868,3 +900,11 @@ new `StoreError` constructors are additive (the documented evolution policy), wi
 keiro git-pin bump recorded as a post-merge follow-up; and the two MasterPlan-level
 constraints — CTE-shaped append SQL and no stream-name field on `RecordedEvent` —
 are untouched by design.
+
+
+---
+
+*Revision note (2026-06-14).* M1 implementation update: recorded the failing
+backward-pagination bite-check, marked the M1 progress items complete, added the active
+MasterPlan intention to frontmatter, and captured the passing targeted and full
+`kiroku-store-test` validation results.

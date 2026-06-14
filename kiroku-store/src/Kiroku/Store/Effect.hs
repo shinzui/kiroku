@@ -157,9 +157,10 @@ runStorePool store = interpret_ $ \case
                 Session.statement (name, startVer, limit) SQL.readStreamForwardStmt
         liftIO $ decodeEvents (store ^. #storeSettings) evs
     ReadStreamBackward (StreamName name) (StreamVersion startVer) limit -> do
+        let cursor = if startVer == 0 then maxBound else startVer
         evs <-
             usePool (store ^. #pool) $
-                Session.statement (name, startVer, limit) SQL.readStreamBackwardStmt
+                Session.statement (name, cursor, limit) SQL.readStreamBackwardStmt
         liftIO $ decodeEvents (store ^. #storeSettings) evs
     ReadAllForward (GlobalPosition startPos) limit -> do
         evs <-
@@ -167,9 +168,10 @@ runStorePool store = interpret_ $ \case
                 Session.statement (startPos, limit) SQL.readAllForwardStmt
         liftIO $ decodeEvents (store ^. #storeSettings) evs
     ReadAllBackward (GlobalPosition startPos) limit -> do
+        let cursor = if startPos == 0 then maxBound else startPos
         evs <-
             usePool (store ^. #pool) $
-                Session.statement (startPos, limit) SQL.readAllBackwardStmt
+                Session.statement (cursor, limit) SQL.readAllBackwardStmt
         liftIO $ decodeEvents (store ^. #storeSettings) evs
     GetStream (StreamName name) ->
         usePool (store ^. #pool) $

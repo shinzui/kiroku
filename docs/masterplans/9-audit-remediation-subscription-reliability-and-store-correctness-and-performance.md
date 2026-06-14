@@ -86,7 +86,7 @@ Haskell.
 | 1 | Eliminate silent subscription stalls in worker, publisher, and stream bridge | docs/plans/56-eliminate-silent-subscription-stalls-in-worker-publisher-and-stream-bridge.md | None | None | Complete |
 | 2 | Harden shibuya adapter ack contract and overflow policy | docs/plans/57-harden-shibuya-adapter-ack-contract-and-overflow-policy.md | EP-1 | None | Complete |
 | 3 | Stop publisher fan-out work for category and consumer-group subscribers | docs/plans/58-stop-publisher-fan-out-work-for-category-and-consumer-group-subscribers.md | None | EP-1 | Complete |
-| 4 | Fix backward read pagination and append edge-case errors | docs/plans/59-fix-backward-read-pagination-and-append-edge-case-errors.md | None | None | Not Started |
+| 4 | Fix backward read pagination and append edge-case errors | docs/plans/59-fix-backward-read-pagination-and-append-edge-case-errors.md | None | None | In Progress |
 | 5 | Schema and trigger hygiene: NOTIFY guard, dead-letter FK policy, and index fixes | docs/plans/60-schema-and-trigger-hygiene-notify-guard-dead-letter-fk-policy-and-index-fixes.md | None | None | Not Started |
 | 6 | Fix WebSocket event tail replay duplication and gap handling | docs/plans/61-fix-websocket-event-tail-replay-duplication-and-gap-handling.md | None | None | Not Started |
 | 7 | Benchmark-gated append pipelining and raw-payload read passthrough | docs/plans/62-benchmark-gated-append-pipelining-and-raw-payload-read-passthrough.md | None | EP-4, EP-5 | Not Started |
@@ -183,7 +183,7 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 - [x] EP-3: Category/consumer-group subscriptions no longer register publisher queues
 - [x] EP-3: Publisher fetches full rows only when an AllStreams subscriber exists
 - [x] EP-3: Full-fetch attach race closed (late registrants receive the in-flight batch atomically with the position advance)
-- [ ] EP-4: Backward reads paginate correctly with nonzero cursors (failing test first)
+- [x] EP-4: Backward reads paginate correctly with nonzero cursors (failing test first)
 - [ ] EP-4: Empty-batch appends are rejected before touching the pool
 - [ ] EP-4: Link errors and single-stream deadlocks map to typed errors / are retried
 - [ ] EP-4: Round-trip economies (short-page stream stop; empty lookup short-circuit)
@@ -274,6 +274,12 @@ kiroku-store:kiroku-store-test` (201 examples, 0 failures).
 `kiroku-cli-test` (22 examples), and `kiroku-store-migrations-test` (1 example)
 all reported 0 failures. No cross-plan interface changes were needed beyond the
 documented EP-1 extension points.
+
+2026-06-14, EP-4 M1 completed. Backward stream reads and `$all` reads now treat
+nonzero cursors as exclusive upper bounds, while cursor 0 is mapped to `maxBound` in
+the interpreter before the SQL runs. The new bite-check tests failed before the fix
+with newer events on page 2 and passed afterward; `kiroku-store-test` now has 203
+examples and passed with 0 failures.
 
 
 ## Decision Log
