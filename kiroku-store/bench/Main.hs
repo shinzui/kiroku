@@ -26,6 +26,7 @@ import Hasql.Statement (Statement, preparable)
 import Hasql.Transaction qualified as Tx
 import Hasql.Transaction.Sessions qualified as TxSessions
 import Kiroku.Store
+import Kiroku.Test.Postgres (migrateTestDatabase)
 import Test.Tasty.Bench
 
 data RawAppendParams = RawAppendParams
@@ -657,6 +658,7 @@ main :: IO ()
 main = do
     -- Start ephemeral PostgreSQL once for all benchmarks
     result <- Pg.withCached $ \db -> do
+        migrateTestDatabase (Pg.connectionString db)
         let settings = defaultConnectionSettings (Pg.connectionString db)
         withStore settings $ \store -> do
             -- Counter for unique stream names across benchmarks

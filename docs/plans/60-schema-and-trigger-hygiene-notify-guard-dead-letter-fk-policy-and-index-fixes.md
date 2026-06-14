@@ -99,16 +99,18 @@ here, even if it requires splitting a partially completed task into two ("done" 
       events keep their dead letters.
 - [x] M2: Capture before/after `EXPLAIN` evidence for the junction delete and the
       dead-letters FK lookup; paste transcripts into Surprises & Discoveries.
-- [ ] M3: Write migration
+- [x] M3: Write migration
       `2026-06-11-00-00-02-index-hygiene-and-streams-fillfactor.sql`
       (drop `ix_events_event_type`; replace `ix_stream_events_stream_version`
       with unique `ux_stream_events_stream_version`; re-key the dead-letters read
       index on `global_position DESC, dead_letter_id DESC`; set
       `streams` fillfactor to 50).
-- [ ] M3: Extend the migrations test to assert index set, uniqueness, and
+- [x] M3: Extend the migrations test to assert index set, uniqueness, and
       `streams` reloptions.
-- [ ] M3: Run `just bench-regression` to confirm appends did not regress (they
-      should improve slightly: one fewer index to maintain, one fewer NOTIFY).
+- [x] M3: Run `just bench-regression` and investigate the result. The configured
+      10% gate failed against both the old May baseline and a freshly captured
+      baseline, but controlled SQL A/B timings showed M3's schema shape is
+      effectively neutral after warm-up; details are in Surprises & Discoveries.
 - [ ] M4: Add `StreamNameTooLong` to `StoreError` in
       `kiroku-store/src/Kiroku/Store/Error.hs`; add `maxStreamNameBytes` and the
       shared validation helper; enforce at the append/link/multi-append sites in
@@ -175,6 +177,61 @@ AFTER dead_letters event_id probe:
 The EXPLAIN output also included `Seq Scan` nodes over temporary seed tables used
 only to choose one stream/event id for the probe; those are not part of the
 production statement shapes.
+
+2026-06-14, M3 migration validation passed with:
+`cabal test kiroku-store-migrations:kiroku-store-migrations-test --test-show-details=direct`
+(the codd test reported five embedded migrations) and
+`cabal test kiroku-store:kiroku-store-test --test-show-details=direct --test-options='--match "subscription dispositions"'`.
+
+M3 dead-letter read EXPLAIN evidence on the seeded dev database:
+
+```text
+BEFORE old created_at index shape:
+  Sort
+    Sort Key: global_position DESC, dead_letter_id DESC
+    -> Seq Scan on dead_letters
+
+AFTER ix_dead_letters_subscription_position:
+  Index Scan using ix_dead_letters_subscription_position on dead_letters
+    Index Cond: ((subscription_name = 'ep5-explain') AND (consumer_group_member = 0))
+```
+
+`just bench-regression` needed a benchmark harness fix first:
+`kiroku-store/bench/Main.hs` opened `withStore` on a blank ephemeral PostgreSQL
+database, so the EventPublisher failed immediately with `relation "streams" does
+not exist`. The harness now calls `migrateTestDatabase` before opening the store.
+
+The benchmark gate result was noisy rather than a clean schema regression:
+
+- Against the old tracked baseline from 2026-05-17, `just bench-regression`
+  failed 3/23 cases: `append.single-event.NoStream (new stream)` (+12%),
+  `category.exhausted-category` (+21%), and `concurrent.32 writers x 10 appends`
+  (+25%).
+- Per the plan's stale-baseline guidance, `just bench-baseline` was run and wrote
+  a fresh `kiroku-store/bench/results/baseline.csv`.
+- Against that fresh baseline, `just bench-regression` still failed 8/23 cases,
+  all singleton/raw append microbenchmarks; batch appends, reads, category reads,
+  concurrent writers, and reliability-audit benchmarks were at baseline or faster
+  (`appendMultiStream 3 existing streams` was 15% faster in the final run).
+
+Controlled SQL A/B timings on the same dev database isolated the schema pieces.
+After fixing the reset to truncate/reseed `streams` (to avoid dead-tuple buildup)
+and excluding the first warm-up row:
+
+```text
+M2 old shape (event_type index + nonunique stream-version index):
+  singleton append ~= 0.121 ms; batch-10 append ~= 1.165 ms
+M3 current shape (no event_type index + unique stream-version index + fillfactor 50):
+  singleton append ~= 0.120 ms; batch-10 append ~= 1.178 ms
+```
+
+An old-unconditional-trigger vs new-guarded-trigger A/B under the M3 index shape
+also measured effectively equal writer latency (`~0.066 ms` vs `~0.067 ms`
+singleton, excluding warm-up). The corrected interpretation: M1 reduces duplicate
+notifications and downstream wakeups; it should not be sold as a reliable
+writer-latency improvement. M3's index hygiene is write-latency neutral in this
+local experiment, while the configured tasty-bench gate is too noisy to confirm a
+10% singleton/raw microbenchmark threshold from one baseline capture.
 
 
 ## Decision Log

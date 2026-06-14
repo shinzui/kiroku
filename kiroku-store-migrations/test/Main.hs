@@ -43,6 +43,9 @@ main =
                     assertDefaultUuidV7 connStr
                     assertStreamTriggers connStr
                     assertDeadLettersEventIdIndex connStr
+                    assertIndexHygiene connStr
+                    assertStreamVersionIndexUnique connStr
+                    assertStreamsFillfactor connStr
 
                     withStore
                         (defaultConnectionSettings connStr)
@@ -65,6 +68,9 @@ main =
                     assertDefaultUuidV7 connStr
                     assertStreamTriggers connStr
                     assertDeadLettersEventIdIndex connStr
+                    assertIndexHygiene connStr
+                    assertStreamVersionIndexUnique connStr
+                    assertStreamsFillfactor connStr
                 case result of
                     Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
                     Right () -> pure ()
@@ -289,5 +295,92 @@ deadLettersEventIdIndexStmt :: Statement () Bool
 deadLettersEventIdIndexStmt =
     preparable
         "SELECT to_regclass('kiroku.ix_dead_letters_event_id') IS NOT NULL"
+        E.noParams
+        (D.singleRow (D.column (D.nonNullable D.bool)))
+
+assertIndexHygiene :: Text -> IO ()
+assertIndexHygiene connStr = do
+    pool <- Pool.acquire poolConfig
+    result <- Pool.use pool (Session.statement () indexNamesStmt)
+    Pool.release pool
+    case result of
+        Left err -> expectationFailure ("index hygiene verification query failed: " <> show err)
+        Right indexes -> do
+            indexes `shouldSatisfy` elem "ix_dead_letters_event_id"
+            indexes `shouldSatisfy` elem "ix_dead_letters_subscription_position"
+            indexes `shouldSatisfy` elem "ux_stream_events_stream_version"
+            indexes `shouldSatisfy` notElem "ix_dead_letters_subscription_created_at"
+            indexes `shouldSatisfy` notElem "ix_events_event_type"
+            indexes `shouldSatisfy` notElem "ix_stream_events_stream_version"
+  where
+    poolConfig =
+        Pool.Config.settings
+            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
+            , Pool.Config.size 1
+            ]
+
+indexNamesStmt :: Statement () [Text]
+indexNamesStmt =
+    preparable
+        """
+        SELECT indexname::text
+        FROM pg_indexes
+        WHERE schemaname = 'kiroku'
+        ORDER BY indexname
+        """
+        E.noParams
+        (D.rowList (D.column (D.nonNullable D.text)))
+
+assertStreamVersionIndexUnique :: Text -> IO ()
+assertStreamVersionIndexUnique connStr = do
+    pool <- Pool.acquire poolConfig
+    result <- Pool.use pool (Session.statement () streamVersionIndexUniqueStmt)
+    Pool.release pool
+    case result of
+        Left err -> expectationFailure ("stream version unique-index verification query failed: " <> show err)
+        Right True -> pure ()
+        Right False -> expectationFailure "ux_stream_events_stream_version is not unique"
+  where
+    poolConfig =
+        Pool.Config.settings
+            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
+            , Pool.Config.size 1
+            ]
+
+streamVersionIndexUniqueStmt :: Statement () Bool
+streamVersionIndexUniqueStmt =
+    preparable
+        """
+        SELECT indisunique
+        FROM pg_index
+        WHERE indexrelid = 'kiroku.ux_stream_events_stream_version'::regclass
+        """
+        E.noParams
+        (D.singleRow (D.column (D.nonNullable D.bool)))
+
+assertStreamsFillfactor :: Text -> IO ()
+assertStreamsFillfactor connStr = do
+    pool <- Pool.acquire poolConfig
+    result <- Pool.use pool (Session.statement () streamsFillfactorStmt)
+    Pool.release pool
+    case result of
+        Left err -> expectationFailure ("streams fillfactor verification query failed: " <> show err)
+        Right True -> pure ()
+        Right False -> expectationFailure "kiroku.streams reloptions did not include fillfactor=50"
+  where
+    poolConfig =
+        Pool.Config.settings
+            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
+            , Pool.Config.size 1
+            ]
+
+streamsFillfactorStmt :: Statement () Bool
+streamsFillfactorStmt =
+    preparable
+        """
+        SELECT COALESCE('fillfactor=50' = ANY(reloptions), false)
+        FROM pg_class
+        WHERE oid = 'kiroku.streams'::regclass
+        """
         E.noParams
         (D.singleRow (D.column (D.nonNullable D.bool)))

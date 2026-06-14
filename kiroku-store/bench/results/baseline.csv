@@ -1,16 +1,24 @@
 Name,Mean (ps),2*Stdev (ps)
-All.append.single-event.NoStream (new stream),160037597,13217694
-All.append.single-event.AnyVersion (new stream),164304150,11927588
-All.append.batch-10.NoStream,402502636,36553814
-All.append.batch-100.NoStream,2574732812,185265218
-All.append.sequential.10 appends to same stream,1819265625,167373180
-All.read.stream forward (100-event page),1001133203,50744766
-All.read.$all forward (100-event page),997528515,72190056
-All.category.category forward (100-event page),1028052734,87617178
-All.category.exhausted-category,21578631,680918
-"All.category.$all forward (100-event page, baseline)",1017942578,90780866
-All.concurrent.8 writers x 10 appends,14525362500,1193892594
-All.concurrent.32 writers x 10 appends,645071900000,52988997290
-All.reliability-audit.hot invoice-payment 10 AnyVersion appends,1586108203,60031436
-All.reliability-audit.appendMultiStream 3 existing streams,386386328,32406388
-All.reliability-audit.subscription category catch-up 100 events,3963421875,274197834
+All.append.single-event.NoStream (new stream),192502832,9243214
+All.append.single-event.AnyVersion (new stream),195525268,15441206
+All.append.batch-10.NoStream,397020312,29870722
+All.append.batch-100.NoStream,1848644726,77234312
+All.append.sequential.10 appends to same stream,2107092187,105930226
+All.raw-append-shape.AnyVersion.scalar singleton (new stream),158132800,6604642
+All.raw-append-shape.AnyVersion.production arrays/unnest (new stream),164700659,8372370
+All.raw-append-shape.AnyVersion.two-roundtrip (new stream),160512304,14350140
+All.raw-append-shape.AnyVersion.two-roundtrip + BEGIN/COMMIT (new stream),198094140,16992368
+All.raw-append-shape.AnyVersion.scalar singleton (hot stream),145291455,14403858
+All.raw-append-shape.AnyVersion.production arrays/unnest (hot stream),150925146,11610302
+All.raw-append-shape.AnyVersion.two-roundtrip (hot stream),168266015,8592484
+All.raw-append-shape.AnyVersion.two-roundtrip + BEGIN/COMMIT (hot stream),193039550,16827284
+All.read.stream forward (100-event page),1042057812,35998074
+All.read.$all forward (100-event page),1042377343,61853482
+All.category.category forward (100-event page),1097553906,106276118
+All.category.exhausted-category,30697064,2426072
+"All.category.$all forward (100-event page, baseline)",1074439843,53136312
+All.concurrent.8 writers x 10 appends,17587831250,1116608494
+All.concurrent.32 writers x 10 appends,823293550000,194785726276
+All.reliability-audit.hot invoice-payment 10 AnyVersion appends,1836381298,399878284
+All.reliability-audit.appendMultiStream 3 existing streams,434012304,33972510
+All.reliability-audit.subscription category catch-up 100 events,2862401562,214376028

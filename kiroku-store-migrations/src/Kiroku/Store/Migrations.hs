@@ -18,6 +18,9 @@ import Streaming.Prelude qualified as Streaming
 
 {- | Kiroku's embedded SQL migrations, embedded from @sql-migrations@ and
 ordered by timestamped filename.
+
+When adding a migration file, this module must be rebuilt so Template Haskell's
+'embedDir' captures the new directory contents.
 -}
 kirokuMigrations :: (MonadFail m, EnvVars m) => m [AddedSqlMigration m]
 kirokuMigrations =
