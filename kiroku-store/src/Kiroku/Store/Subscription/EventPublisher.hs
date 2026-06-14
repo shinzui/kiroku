@@ -49,7 +49,7 @@ import Control.Concurrent.STM (
     writeTVar,
  )
 import Control.Concurrent.STM qualified as STM
-import Control.Exception (throwIO)
+import Control.Exception (SomeAsyncException, SomeException, asyncExceptionFromException, catch, throwIO)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Foldable (for_)
 import Data.Int (Int32, Int64)
@@ -60,7 +60,7 @@ import Data.Vector qualified as V
 import Hasql.Pool (Pool)
 import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
-import Kiroku.Store.Observability (KirokuEvent (..))
+import Kiroku.Store.Observability (KirokuEvent (..), emitOrDrop)
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Settings (StoreSettings, decodeEvents)
 import Kiroku.Store.Subscription.Types (OverflowPolicy (..))
@@ -147,11 +147,12 @@ startPublisher ::
 startPublisher pool notifierChan mHandler stSettings = liftIO $ do
     subsVar <- newTVarIO IntMap.empty
     nextIdVar <- newTVarIO 0
+    -- Duplicate the notifier channel before reading the tail so ticks arriving
+    -- during startup are redundant rather than lost until the safety poll.
+    tickChan <- atomically (dupTChan notifierChan)
     tailResult <- Pool.use pool (Session.statement () SQL.currentGlobalPositionStmt)
     tailPos <- either throwIO pure tailResult
     pos <- newTVarIO (GlobalPosition tailPos)
-    -- Get a personal copy of the notifier's broadcast channel
-    tickChan <- atomically (dupTChan notifierChan)
     thread <- Async.async (publisherLoop pool tickChan subsVar pos mHandler stSettings)
     pure
         EventPublisher
@@ -212,8 +213,13 @@ publisherLoop pool tickChan subsVar posVar mHandler stSettings = loop
         waitForWakeup tickChan
         -- Drain all pending ticks (debouncing)
         drainTicks tickChan
-        -- Fetch and broadcast
-        fetchAndBroadcast
+        -- Fetch and broadcast. If a synchronous callback failure occurs after
+        -- partial delivery, lastPublished is not advanced, so the next tick
+        -- re-fetches under Kiroku's at-least-once delivery contract.
+        fetchAndBroadcast `catch` \(e :: SomeException) ->
+            case asyncExceptionFromException e of
+                Just (ae :: SomeAsyncException) -> throwIO ae
+                Nothing -> emitOrDrop mHandler (KirokuEventPublisherLoopError e)
         loop
 
     fetchAndBroadcast = do
@@ -223,7 +229,7 @@ publisherLoop pool tickChan subsVar posVar mHandler stSettings = loop
             Left err -> do
                 -- Surface the pool error so operators see why broadcast
                 -- has stalled; the 30-second safety poll will retry.
-                for_ mHandler ($ KirokuEventPublisherPoolError err)
+                emitOrDrop mHandler (KirokuEventPublisherPoolError err)
             Right rawEvents
                 | V.null rawEvents -> pure ()
                 | otherwise -> do

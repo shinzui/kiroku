@@ -72,11 +72,11 @@ This section must always reflect the actual current state of the work.
 - [x] M1: Make `cancelAction` non-blocking (cancel, then first-write-wins close; no queue write). Completed 2026-06-14.
 - [x] M1: Update the Haddocks of `subscriptionStream` and `subscriptionAckStream` to state the new termination contract (this is the surface EP-2 consumes). Completed 2026-06-14.
 - [x] M1: Add `kiroku-store/test/Test/StreamBridgeTermination.hs` (worker-crash rethrow, clean-stop end, cancel-with-full-queue) and register it in `kiroku-store/test/Main.hs` and `kiroku-store/kiroku-store.cabal`; tests fail before the fix, pass after. Completed 2026-06-14; focused suite passed with 3 examples, 0 failures.
-- [ ] M2: Add `KirokuEventPublisherLoopError` to `kiroku-store/src/Kiroku/Store/Observability.hs` and an `emitOrDrop` helper that swallows synchronous handler exceptions but never asynchronous ones.
-- [ ] M2: Wrap each publisher loop iteration in a sync-exception catch that emits `KirokuEventPublisherLoopError` and continues on the next tick/safety poll (`kiroku-store/src/Kiroku/Store/Subscription/EventPublisher.hs`).
-- [ ] M2: Route all `eventHandler` invocations in the publisher, the worker (`kiroku-store/src/Kiroku/Store/Subscription/Worker.hs`), and the notifier (`kiroku-store/src/Kiroku/Store/Notification.hs`) through `emitOrDrop`.
-- [ ] M2: Reorder `startPublisher` to `dupTChan` the notifier channel **before** reading the tail position.
-- [ ] M2: Add `kiroku-store/test/Test/PublisherCallbackResilience.hs` (throwing `decodeHook` does not kill the publisher; throwing `eventHandler` kills neither publisher nor worker) and register it.
+- [x] M2: Add `KirokuEventPublisherLoopError` to `kiroku-store/src/Kiroku/Store/Observability.hs` and an `emitOrDrop` helper that swallows synchronous handler exceptions but never asynchronous ones. Completed 2026-06-14.
+- [x] M2: Wrap each publisher loop iteration in a sync-exception catch that emits `KirokuEventPublisherLoopError` and continues on the next tick/safety poll (`kiroku-store/src/Kiroku/Store/Subscription/EventPublisher.hs`). Completed 2026-06-14.
+- [x] M2: Route all `eventHandler` invocations in the publisher, the worker (`kiroku-store/src/Kiroku/Store/Subscription/Worker.hs`), and the notifier (`kiroku-store/src/Kiroku/Store/Notification.hs`) through `emitOrDrop`. Completed 2026-06-14.
+- [x] M2: Reorder `startPublisher` to `dupTChan` the notifier channel **before** reading the tail position. Completed 2026-06-14.
+- [x] M2: Add `kiroku-store/test/Test/PublisherCallbackResilience.hs` (throwing `decodeHook` does not kill the publisher; throwing `eventHandler` kills neither publisher nor worker) and register it. Completed 2026-06-14; focused suite passed with 2 examples, 0 failures.
 - [ ] M3: Restructure `subscribe` in `kiroku-store/src/Kiroku/Store/Subscription.hs` with `mask` + nested `bracketOnError` + `Async.asyncWithUnmask` so publisher registration and registry insertion are released on every exit path.
 - [ ] M3: Make `loadCheckpoint` in `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs` throw on `Left err` (fresh subscription `Right Nothing` still starts at 0); add the `withLoadCheckpointHookForTest` seam; update the affected Haddocks in `Worker.hs`, `Subscription.hs`, and `Observability.hs`.
 - [ ] M3: Bracket `startNotifier`'s acquire/listen/spawn window with `bracketOnError` and widen `NotifierStartError` to also carry LISTEN failures (`kiroku-store/src/Kiroku/Store/Notification.hs`).
@@ -235,6 +235,27 @@ The whole `kiroku-store` test suite also passed after M1:
 ```text
 cabal test kiroku-store:kiroku-store-test --test-show-details=direct
 192 examples, 0 failures
+```
+
+2026-06-14, M2 completed. `Kiroku.Store.Observability` now exports
+`KirokuEventPublisherLoopError` and `emitOrDrop`; publisher iterations catch
+synchronous callback failures, emit/drop safely, and continue without advancing
+`lastPublished` on failed ticks. Worker, notifier, and publisher observability
+callbacks all go through `emitOrDrop`, so a throwing metrics/logging callback no
+longer kills internal threads. The publisher now duplicates the notifier channel
+before reading the tail position, making startup ticks redundant instead of lossy.
+Focused validation passed:
+
+```text
+cabal test kiroku-store:kiroku-store-test --test-show-details=direct --test-options='--match "publisher callback resilience"'
+2 examples, 0 failures
+```
+
+The full store suite passed after M2:
+
+```text
+cabal test kiroku-store:kiroku-store-test --test-show-details=direct
+194 examples, 0 failures
 ```
 
 

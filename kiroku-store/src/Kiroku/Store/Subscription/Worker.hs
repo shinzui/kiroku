@@ -32,7 +32,6 @@ import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.STM (TBQueue, TVar, atomically, check, orElse, readTBQueue, readTVar, registerDelay, tryReadTBQueue, writeTVar)
 import Control.Exception (SomeException, bracket, fromException, throwIO, try)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Data.Foldable (for_)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Int (Int32, Int64)
 import Data.Map.Strict (Map)
@@ -53,6 +52,7 @@ import Kiroku.Store.Observability (
     SubscriptionDeliveryPhase (..),
     SubscriptionGroupContext (..),
     SubscriptionStopReason (..),
+    emitOrDrop,
  )
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Settings (StoreSettings, decodeEvents)
@@ -153,7 +153,7 @@ runWorker ::
     StoreSettings ->
     m ()
 runWorker pool liveQueue statusVar stateVar pubPosVar catGenVar config mHandler stSettings = liftIO $ do
-    let emit evt = for_ mHandler ($ evt)
+    let emit = emitOrDrop mHandler
         subName = name config
         groupCtx = groupCtxOf config
     posRef <- newIORef (GlobalPosition 0)

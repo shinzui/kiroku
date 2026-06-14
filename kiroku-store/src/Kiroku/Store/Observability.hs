@@ -41,9 +41,11 @@ module Kiroku.Store.Observability (
     SubscriptionStopReason (..),
     SubscriptionGroupContext (..),
     DeadLetterReason (..),
+    emitOrDrop,
 ) where
 
-import Control.Exception (SomeException)
+import Control.Exception (SomeAsyncException, SomeException, asyncExceptionFromException, catch, throwIO)
+import Data.Foldable (for_)
 import Data.Int (Int32)
 import Hasql.Pool (UsageError)
 import Kiroku.Store.Subscription.Fsm (DeadLetterReason (..), SubscriptionStopReason (..))
@@ -77,6 +79,14 @@ data KirokuEvent
       the application pool) or a persistent server error.
       -}
       KirokuEventPublisherPoolError !UsageError
+    | {- | The publisher loop's broadcast iteration threw a synchronous
+      exception that was not a 'UsageError' — typically a user-supplied
+      'Kiroku.Store.Settings.decodeHook' or observability handler throwing.
+      The publisher skipped this tick and will retry on the next notification
+      or the 30-second safety poll. Sustained emissions mean a deterministically
+      failing callback is stalling live broadcast until it is fixed.
+      -}
+      KirokuEventPublisherLoopError !SomeException
     | {- | A subscription's worker thread encountered a 'UsageError' in
       the database phase identified by 'SubscriptionDbPhase'. The
       worker may continue with a documented fallback for checkpoint
@@ -188,6 +198,20 @@ data KirokuEvent
       -}
       KirokuEventHardDeleteIssued !StreamName !StreamId
     deriving stock (Show)
+
+{- | Invoke the optional observability handler, dropping any synchronous exception
+it throws. Asynchronous exceptions, including thread cancellation, are rethrown.
+
+Store-internal threads must not die because a metrics or logging callback threw;
+the callback contract is that it should be fast and non-throwing.
+-}
+emitOrDrop :: Maybe (KirokuEvent -> IO ()) -> KirokuEvent -> IO ()
+emitOrDrop mHandler evt =
+    for_ mHandler $ \handler ->
+        handler evt `catch` \(e :: SomeException) ->
+            case asyncExceptionFromException e of
+                Just (ae :: SomeAsyncException) -> throwIO ae
+                Nothing -> pure ()
 
 -- | Which database phase a 'KirokuEventSubscriptionDbError' fired in.
 data SubscriptionDbPhase

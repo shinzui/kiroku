@@ -173,7 +173,7 @@ Track milestone-level progress across all child plans. Each entry names the chil
 and the milestone. This section provides an at-a-glance view of the entire initiative.
 
 - [x] EP-1: Bridge streams terminate with the worker's outcome (sentinel on every exit path; non-blocking cancel)
-- [ ] EP-1: Publisher loop survives user-callback exceptions and surfaces liveness
+- [x] EP-1: Publisher loop survives user-callback exceptions and surfaces liveness
 - [ ] EP-1: `subscribe` pre-fork window is async-exception safe; checkpoint-load failure no longer silently replays from 0
 - [ ] EP-1: Notifier startup releases the connection when LISTEN fails
 - [ ] EP-2: Adapter defaults to `PauseAndResume`; overflow can no longer kill the processor

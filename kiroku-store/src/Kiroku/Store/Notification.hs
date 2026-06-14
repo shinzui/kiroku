@@ -14,7 +14,6 @@ import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.ByteString (ByteString)
 import Data.ByteString.Char8 qualified as BC
-import Data.Foldable (for_)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
@@ -30,7 +29,7 @@ import Hasql.Notifications (PgIdentifier, toPgIdentifier, waitForNotifications)
 import Hasql.Notifications qualified as Notifications
 import Hasql.Session qualified as Session
 import Hasql.Statement (Statement, unpreparable)
-import Kiroku.Store.Observability (KirokuEvent (..))
+import Kiroku.Store.Observability (KirokuEvent (..), emitOrDrop)
 import Kiroku.Store.Types (CategoryName (..), StreamName (..), categoryName)
 
 {- | A Notifier manages a dedicated PostgreSQL connection for LISTEN/NOTIFY.
@@ -211,7 +210,7 @@ listenerLoop chan catGenVar connRef channel connStr mHandler = go
                 emit KirokuEventNotifierReconnected
                 go
 
-    emit evt = for_ mHandler ($ evt)
+    emit = emitOrDrop mHandler
 
 -- The 'waitForNotifications' callback. Wakes the publisher (the bare @()@ tick,
 -- preserving the existing AllStreams broadcast path) AND bumps the originating
