@@ -9,18 +9,19 @@ module Test.ReadStream (spec) where
 import Control.Lens ((^.))
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
+import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.List.NonEmpty qualified as NE
 import Data.Text qualified as T
 import Data.Vector qualified as V
 import Kiroku.Store
 import Streamly.Data.Fold qualified as Fold
 import Streamly.Data.Stream qualified as Stream
-import Test.Helpers (makeEvent, withTestStore)
+import Test.Helpers (makeEvent, waitForPublisher, withTestStore, withTestStoreSettings)
 import Test.Hspec
 
 spec :: Spec
-spec = around withTestStore $
-    describe "readStreamForwardStream" $ do
+spec = describe "readStreamForwardStream" $ do
+    around withTestStore $ do
         it "matches readStreamForward on a single-page stream" $ \store -> do
             let name = StreamName "rsfs-single-page"
                 events = [makeEvent (T.pack ("E" <> show i)) (Aeson.object []) | i <- [1 .. 5 :: Int]]
@@ -91,4 +92,25 @@ spec = around withTestStore $
                     length xs `shouldBe` 3
                     map (^. #streamVersion) xs
                         `shouldBe` [StreamVersion 3, StreamVersion 4, StreamVersion 5]
+                Left err -> expectationFailure ("Unexpected error: " <> show err)
+
+    it "uses one pool checkout per non-empty page when the final page is short" $ do
+        ref <- newIORef (0 :: Int)
+        let handler (ConnectionObservation _ InUseConnectionStatus) =
+                modifyIORef' ref (+ 1)
+            handler _ =
+                pure ()
+        withTestStoreSettings (\settings -> settings{observationHandler = Just handler}) $ \store -> do
+            let name = StreamName "rsfs-short-page-count"
+                events = [makeEvent (T.pack ("E" <> show i)) (Aeson.object []) | i <- [1 .. 5 :: Int]]
+            Right appendResult <- runStoreIO store $ appendToStream name NoStream events
+            waitForPublisher store (appendResult ^. #globalPosition)
+            before <- readIORef ref
+            streamed <- runStoreIO store $ Stream.toList (readStreamForwardStream name (StreamVersion 0) 2)
+            after <- readIORef ref
+            case streamed of
+                Right xs -> do
+                    map (^. #streamVersion) xs
+                        `shouldBe` [StreamVersion 1, StreamVersion 2, StreamVersion 3, StreamVersion 4, StreamVersion 5]
+                    after - before `shouldBe` 3
                 Left err -> expectationFailure ("Unexpected error: " <> show err)

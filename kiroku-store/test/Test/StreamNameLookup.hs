@@ -8,15 +8,16 @@ module Test.StreamNameLookup (spec) where
 import Control.Lens ((^.))
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
+import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.Map.Strict qualified as Map
 import Data.Vector qualified as V
 import Kiroku.Store
-import Test.Helpers (makeEvent, withTestStore)
+import Test.Helpers (makeEvent, waitForPublisher, withTestStore, withTestStoreSettings)
 import Test.Hspec
 
 spec :: Spec
-spec = around withTestStore $
-    describe "lookupStreamNames / lookupStreamName" $ do
+spec = describe "lookupStreamNames / lookupStreamName" $ do
+    around withTestStore $ do
         it "resolves originalStreamId back to the source stream for $all reads" $ \store -> do
             Right _ <-
                 runStoreIO store $
@@ -50,3 +51,28 @@ spec = around withTestStore $
             found `shouldBe` Just (StreamName "widgets-7")
             Right missing <- runStoreIO store $ lookupStreamName (StreamId 888888)
             missing `shouldBe` Nothing
+
+    it "short-circuits empty input without a pool checkout" $ do
+        ref <- newIORef (0 :: Int)
+        let handler (ConnectionObservation _ InUseConnectionStatus) =
+                modifyIORef' ref (+ 1)
+            handler _ =
+                pure ()
+        withTestStoreSettings (\settings -> settings{observationHandler = Just handler}) $ \store -> do
+            Right appendResult <-
+                runStoreIO store $
+                    appendToStream (StreamName "lookup-count-1") NoStream [makeEvent "LookupCounted" (Aeson.object [])]
+            waitForPublisher store (appendResult ^. #globalPosition)
+            Right (Just sid) <- runStoreIO store $ lookupStreamId (StreamName "lookup-count-1")
+
+            beforeEmpty <- readIORef ref
+            Right emptyNames <- runStoreIO store $ lookupStreamNames []
+            afterEmpty <- readIORef ref
+            emptyNames `shouldBe` Map.empty
+            afterEmpty - beforeEmpty `shouldBe` 0
+
+            beforeReal <- readIORef ref
+            Right names <- runStoreIO store $ lookupStreamNames [sid]
+            afterReal <- readIORef ref
+            names `shouldBe` Map.singleton sid (StreamName "lookup-count-1")
+            afterReal - beforeReal `shouldBe` 1

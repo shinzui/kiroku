@@ -194,6 +194,8 @@ runStorePool store = interpret_ $ \case
         fmap (fmap StreamId) $
             usePool (store ^. #pool) $
                 Session.statement name SQL.findStreamIdStmt
+    LookupStreamNames [] ->
+        pure Map.empty
     LookupStreamNames sids ->
         fmap
             (Map.fromList . map (\(s, nm) -> (StreamId s, StreamName nm)) . V.toList)

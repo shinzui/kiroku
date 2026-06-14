@@ -48,8 +48,10 @@ readStreamForward name startVer limit = send (ReadStreamForward name startVer li
 The streaming sibling of 'readStreamForward'. Identical SQL path and identical
 error semantics: this function dispatches 'readStreamForward' repeatedly with
 the supplied @pageSize@ as the per-call limit, advancing the exclusive
-'StreamVersion' cursor across pages until the next call returns an empty
-batch.
+'StreamVersion' cursor across pages until a page comes back shorter than
+@pageSize@. If the stream length is an exact multiple of @pageSize@, one
+final empty-page probe is still required because the wrapper does not know
+the total stream length up front.
 
 The exclusive-cursor convention is preserved end-to-end: passing
 @'StreamVersion' 0@ reads from the first event in the stream. Empty and
@@ -67,16 +69,22 @@ readStreamForwardStream ::
     Int32 ->
     Stream (Eff es) RecordedEvent
 readStreamForwardStream name startVer pageSize =
-    Stream.concatMap (Stream.fromList . V.toList) pages
+    Stream.concatMap fromVector pages
   where
-    pages = Stream.unfoldrM nextPage startVer
-    nextPage cursor = do
+    pages = Stream.unfoldrM nextPage (Just startVer)
+    nextPage Nothing = pure Nothing
+    nextPage (Just cursor) = do
         events <- readStreamForward name cursor pageSize
         if V.null events
             then pure Nothing
-            else
-                let lastV = V.last events ^. #streamVersion
-                 in pure (Just (events, lastV))
+            else do
+                let nextState
+                        | V.length events < fromIntegral pageSize = Nothing
+                        | otherwise = Just (V.last events ^. #streamVersion)
+                pure (Just (events, nextState))
+
+    fromVector :: Vector a -> Stream (Eff es) a
+    fromVector v = Stream.unfoldr (\i -> fmap (\x -> (x, i + 1)) (v V.!? i)) 0
 
 {- | Read events from a named stream in backward (descending version)
 order.
@@ -190,8 +198,8 @@ names <- 'lookupStreamNames' ids
 -- names '!?' (event '^.' #originalStreamId) :: Maybe StreamName
 @
 
-Passing @[]@ returns an empty map without a database round trip's worth of work
-(an empty @ANY(ARRAY[])@ matches nothing).
+Passing @[]@ returns an empty map without any database round trip because
+the interpreter short-circuits.
 -}
 lookupStreamNames ::
     (HasCallStack, Store :> es) =>

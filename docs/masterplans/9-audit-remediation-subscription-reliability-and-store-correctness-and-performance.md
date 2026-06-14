@@ -86,7 +86,7 @@ Haskell.
 | 1 | Eliminate silent subscription stalls in worker, publisher, and stream bridge | docs/plans/56-eliminate-silent-subscription-stalls-in-worker-publisher-and-stream-bridge.md | None | None | Complete |
 | 2 | Harden shibuya adapter ack contract and overflow policy | docs/plans/57-harden-shibuya-adapter-ack-contract-and-overflow-policy.md | EP-1 | None | Complete |
 | 3 | Stop publisher fan-out work for category and consumer-group subscribers | docs/plans/58-stop-publisher-fan-out-work-for-category-and-consumer-group-subscribers.md | None | EP-1 | Complete |
-| 4 | Fix backward read pagination and append edge-case errors | docs/plans/59-fix-backward-read-pagination-and-append-edge-case-errors.md | None | None | In Progress |
+| 4 | Fix backward read pagination and append edge-case errors | docs/plans/59-fix-backward-read-pagination-and-append-edge-case-errors.md | None | None | Complete |
 | 5 | Schema and trigger hygiene: NOTIFY guard, dead-letter FK policy, and index fixes | docs/plans/60-schema-and-trigger-hygiene-notify-guard-dead-letter-fk-policy-and-index-fixes.md | None | None | Not Started |
 | 6 | Fix WebSocket event tail replay duplication and gap handling | docs/plans/61-fix-websocket-event-tail-replay-duplication-and-gap-handling.md | None | None | Not Started |
 | 7 | Benchmark-gated append pipelining and raw-payload read passthrough | docs/plans/62-benchmark-gated-append-pipelining-and-raw-payload-read-passthrough.md | None | EP-4, EP-5 | Not Started |
@@ -186,7 +186,7 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 - [x] EP-4: Backward reads paginate correctly with nonzero cursors (failing test first)
 - [x] EP-4: Empty-batch appends are rejected before touching the pool
 - [x] EP-4: Link errors and single-stream deadlocks map to typed errors / are retried
-- [ ] EP-4: Round-trip economies (short-page stream stop; empty lookup short-circuit)
+- [x] EP-4: Round-trip economies (short-page stream stop; empty lookup short-circuit)
 - [ ] EP-5: NOTIFY trigger fires once per append; lifecycle updates fire nothing
 - [ ] EP-5: Dead-letter FK policy decided and enforced; `dead_letters(event_id)` indexed
 - [ ] EP-5: Junction-delete path has index support; index hygiene applied
@@ -294,6 +294,14 @@ SQLSTATEs `40001` and `40P01`. Validation passed with targeted link, pure predic
 and concurrency tests, full `kiroku-store-test` (210 examples, 0 failures), and
 `cabal build all`.
 
+2026-06-14, EP-4 completed. `readStreamForwardStream` now stops after a short final
+page and flattens vectors without an intermediate list, and `lookupStreamNames []`
+returns `Map.empty` without a pool checkout. Final validation passed with `cabal build
+all` and `cabal test all`: `kiroku-store-test` (212 examples), `shibuya-kiroku-adapter-test`
+(29 examples), `kiroku-metrics-test` (16 examples), `kiroku-otel-test` (17 examples),
+`kiroku-cli-test` (22 examples), and `kiroku-store-migrations-test` (1 example) all
+reported 0 failures.
+
 
 ## Decision Log
 
@@ -383,6 +391,13 @@ When no queue-consuming subscriber exists, the publisher now advances its
 and decoding event payloads. The full-fetch attach race is closed by delivering
 the in-flight batch to late registrants atomically with the position advance.
 
+2026-06-14, after EP-4: store read and append edge cases from the audit are remediated.
+Backward reads now paginate with exclusive upper-bound cursors; empty append batches no
+longer create phantom streams or take the `$all` lock; link failures are typed instead
+of raw `ConnectionError` blobs; single-stream appends retry one transient transaction
+abort; and two read-path round-trip leaks are closed. EP-7 can now benchmark append
+pipelining against the fixed empty-batch behavior.
+
 
 ---
 
@@ -397,3 +412,8 @@ decision; revision note there). (3) The shibuya-core ingester-async-discard disc
 from EP-2 drafting was recorded in Surprises & Discoveries. (4) The Progress checklist
 was expanded to match the milestones the child plans actually shipped with (EP-2 M3,
 EP-3 attach race, EP-4 M4, EP-5 M4, EP-6 404, EP-7 M3).
+
+*Revision note (2026-06-14).* EP-4 implementation completed under docs/plans/59: the
+registry status is now Complete, all four EP-4 progress items are checked, Surprises &
+Discoveries records milestone validation, and Outcomes & Retrospective summarizes the
+store correctness and efficiency fixes now available to downstream plans.

@@ -77,10 +77,10 @@ This section must always reflect the actual current state of the work.
 - [x] M3: Route `LinkToStream` errors through `mapLinkUsageError` in `Effect.hs`; tighten the two `Left _` link tests in `test/Main.hs` to the typed constructors (2026-06-14)
 - [x] M3: Add `isTransientSerializationError` to `Error.hs` with a pure unit test; add one-shot retry to the `AppendToStream` interpreter branch (2026-06-14)
 - [x] M3: Add best-effort deadlock stress test to `kiroku-store/test/Test/Concurrency.hs`; confirm green (2026-06-14)
-- [ ] M4: Early-terminate `readStreamForwardStream` when a page is short; replace per-page `Stream.fromList . V.toList` with an index-based `Stream.unfoldr`
-- [ ] M4: Short-circuit `LookupStreamNames []` to `pure Map.empty`; update the `lookupStreamNames` haddock in `Read.hs`
-- [ ] M4: Add round-trip-count tests (observation-handler based) for both M4 items; confirm green
-- [ ] Final: `cabal build all` and `cabal test all` green; update MasterPlan 9 Progress entries for EP-4; write Outcomes & Retrospective
+- [x] M4: Early-terminate `readStreamForwardStream` when a page is short; replace per-page `Stream.fromList . V.toList` with an index-based `Stream.unfoldr` (2026-06-14)
+- [x] M4: Short-circuit `LookupStreamNames []` to `pure Map.empty`; update the `lookupStreamNames` haddock in `Read.hs` (2026-06-14)
+- [x] M4: Add round-trip-count tests (observation-handler based) for both M4 items; confirm green (2026-06-14)
+- [x] Final: `cabal build all` and `cabal test all` green; update MasterPlan 9 Progress entries for EP-4; write Outcomes & Retrospective (2026-06-14)
 
 
 ## Surprises & Discoveries
@@ -158,6 +158,17 @@ with 8 examples and 0 failures. The pure `isTransientSerializationError` test pa
 with 1 example and 0 failures; the concurrency group passed with 10 examples and 0
 failures; the full `kiroku-store-test` suite passed with 210 examples and 0 failures;
 `cabal build all` completed successfully.
+
+2026-06-14, M4 bite-check confirmed the two round-trip leaks. Before implementation,
+the focused read-stream and lookup run reported 11 examples, 2 failures:
+`readStreamForwardStream` over 5 events at page size 2 used 4 pool checkouts instead of
+3, and `lookupStreamNames []` used 1 checkout instead of 0. After short-page
+termination and the empty-lookup interpreter branch, the same focused run passed with
+11 examples and 0 failures. The full `kiroku-store-test` suite passed with 212 examples
+and 0 failures; `cabal build all` completed successfully; final `cabal test all` passed
+for `kiroku-store-test` (212 examples), `shibuya-kiroku-adapter-test` (29 examples),
+`kiroku-metrics-test` (16 examples), `kiroku-otel-test` (17 examples),
+`kiroku-cli-test` (22 examples), and `kiroku-store-migrations-test` (1 example).
 
 
 ## Decision Log
@@ -274,6 +285,14 @@ parseable, and missing source events return `LinkSourceEventMissing target` with
 partial commits. Single-stream appends retry once when PostgreSQL aborts the transaction
 with `40001` or `40P01`, matching hasql-transaction's retryable SQLSTATE set while
 keeping retries bounded.
+
+2026-06-14, complete: EP-4 delivered all planned correctness and efficiency fixes in
+`kiroku-store`. Backward reads now page correctly with nonzero cursors; empty append
+batches are typed errors before pool or transaction work; link failures are typed;
+single-stream appends retry one transient transaction abort; `readStreamForwardStream`
+does not pay an avoidable final empty-page query for short final pages; and
+`lookupStreamNames []` does no database work. The final workspace validation passed with
+`cabal build all` and `cabal test all`.
 
 
 ## Context and Orientation
@@ -976,3 +995,8 @@ empty-batch behavior.
 source lookup, typed-link bite-check, transient SQLSTATE predicate test, concurrency
 stress validation, full store-test validation, and `cabal build all`; marked the M3
 progress items complete and summarized the typed link errors plus one-shot append retry.
+
+*Revision note (2026-06-14).* M4/final implementation update: recorded the streamly and
+observation-handler dependency lookups, the round-trip-count bite-check, focused/full
+store-test validation, `cabal build all`, and final `cabal test all`; marked M4 and the
+final checklist complete and filled the completion retrospective.
