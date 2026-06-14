@@ -4,6 +4,7 @@ slug: benchmark-gated-append-pipelining-and-raw-payload-read-passthrough
 title: "Benchmark-gated append pipelining and raw-payload read passthrough"
 kind: exec-plan
 created_at: 2026-06-11T04:32:45Z
+intention: intention_01kv3qaxg9e91v0zq47stehnkz
 master_plan: "docs/masterplans/9-audit-remediation-subscription-reliability-and-store-correctness-and-performance.md"
 ---
 
@@ -104,11 +105,17 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 here, even if it requires splitting a partially completed task into two ("done" vs.
 "remaining").
 
-- [ ] Preflight: confirm EP-4 (docs/plans/59) and EP-5 (docs/plans/60) are merged to
-      `master`; record their landing commits here.
-- [ ] Preflight: recapture the benchmark baseline post-EP-4/EP-5 with
+- [x] Preflight: confirm EP-4 (docs/plans/59) and EP-5 (docs/plans/60) are merged to
+      `master`; record their landing commits here. Completed 2026-06-14: EP-4
+      landed through `644a7c2`, `3693032`, `a949739`, `fa794fd`, and its plan
+      completion commit; EP-5 landed through `a3c1d58`, `9129c1e`, `b2c83b0`,
+      `5857eda`, and completion commit `6192063`.
+- [x] Preflight: recapture the benchmark baseline post-EP-4/EP-5 with
       `just bench-baseline`; commit the refreshed
-      `kiroku-store/bench/results/baseline.csv` and note the date here.
+      `kiroku-store/bench/results/baseline.csv` and note the date here. Completed
+      2026-06-14 on the second run: all 23 tests passed in 159.20s; the refreshed
+      `All.reliability-audit.appendMultiStream 3 existing streams` baseline is
+      377894921 ps mean with 37405224 ps 2*Stdev.
 - [ ] M1: re-run the Haskell-side append profile (methodology step 1) and check the
       ledger (step 2) for pipelining-adjacent rows; record findings in Surprises &
       Discoveries.
@@ -148,7 +155,11 @@ here, even if it requires splitting a partially completed task into two ("done" 
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+2026-06-14: The first `just bench-baseline` attempt was not acceptable because
+`All.append.batch-10.NoStream` timed out after 100 seconds and the generated
+`baseline.csv` was partial. The partial file was restored to the committed baseline
+before retrying. The second run completed all 23 cells successfully in 159.20s and
+rewrote `kiroku-store/bench/results/baseline.csv`.
 
 
 ## Decision Log
