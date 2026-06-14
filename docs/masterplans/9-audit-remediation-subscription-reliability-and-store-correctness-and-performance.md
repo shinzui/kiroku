@@ -85,7 +85,7 @@ Haskell.
 |---|-------|------|-----------|-----------|--------|
 | 1 | Eliminate silent subscription stalls in worker, publisher, and stream bridge | docs/plans/56-eliminate-silent-subscription-stalls-in-worker-publisher-and-stream-bridge.md | None | None | Complete |
 | 2 | Harden shibuya adapter ack contract and overflow policy | docs/plans/57-harden-shibuya-adapter-ack-contract-and-overflow-policy.md | EP-1 | None | Complete |
-| 3 | Stop publisher fan-out work for category and consumer-group subscribers | docs/plans/58-stop-publisher-fan-out-work-for-category-and-consumer-group-subscribers.md | None | EP-1 | In Progress |
+| 3 | Stop publisher fan-out work for category and consumer-group subscribers | docs/plans/58-stop-publisher-fan-out-work-for-category-and-consumer-group-subscribers.md | None | EP-1 | Complete |
 | 4 | Fix backward read pagination and append edge-case errors | docs/plans/59-fix-backward-read-pagination-and-append-edge-case-errors.md | None | None | Not Started |
 | 5 | Schema and trigger hygiene: NOTIFY guard, dead-letter FK policy, and index fixes | docs/plans/60-schema-and-trigger-hygiene-notify-guard-dead-letter-fk-policy-and-index-fixes.md | None | None | Not Started |
 | 6 | Fix WebSocket event tail replay duplication and gap handling | docs/plans/61-fix-websocket-event-tail-replay-duplication-and-gap-handling.md | None | None | Not Started |
@@ -268,6 +268,13 @@ rows with no subscribers and 30 rows with only a category subscriber, then passe
 after the edit. Full validation passed with `cabal test
 kiroku-store:kiroku-store-test` (201 examples, 0 failures).
 
+2026-06-14, EP-3 completed. Workspace validation passed with `just test`:
+`kiroku-store-test` (201 examples), `shibuya-kiroku-adapter-test` (29 examples),
+`kiroku-metrics-test` (16 examples), `kiroku-otel-test` (17 examples),
+`kiroku-cli-test` (22 examples), and `kiroku-store-migrations-test` (1 example)
+all reported 0 failures. No cross-plan interface changes were needed beyond the
+documented EP-1 extension points.
+
 
 ## Decision Log
 
@@ -348,6 +355,14 @@ consumer-group helper now fails loudly for invalid sizes and releases partially
 created members on construction failure. The remaining caveat is upstream:
 shibuya-core still needs to propagate supervised ingester failures and decide
 how `processOne` should finalize handler exceptions.
+
+2026-06-14, after EP-3: category and consumer-group subscriptions no longer own
+publisher queues they never read, so their configured overflow policy cannot
+silently become inert and their processes do not pin unused publisher batches.
+When no queue-consuming subscriber exists, the publisher now advances its
+`lastPublished` position with a single-row `$all` tail query instead of fetching
+and decoding event payloads. The full-fetch attach race is closed by delivering
+the in-flight batch to late registrants atomically with the position advance.
 
 
 ---

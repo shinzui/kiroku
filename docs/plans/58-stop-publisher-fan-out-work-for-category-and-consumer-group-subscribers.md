@@ -67,8 +67,8 @@ This section must always reflect the actual current state of the work.
 - [x] M2: Close the full-fetch attach race (Finding C): advance `lastPublished` and re-read the registry in one STM transaction after delivery, enqueueing the in-flight batch to late registrants; add a deterministic regression test (gate the publisher mid-broadcast via `decodeHook`, register a subscriber, assert no global position is skipped). Completed 2026-06-14: the full-fetch path now re-reads the registry and offers the in-flight batch to late registrants in the same STM transaction that advances `lastPublished`; the transition test covers no-gap delivery across the cheap-to-full boundary.
 - [x] M2: Add new test module `kiroku-store/test/Test/PublisherIdleAdvance.hs` (zero-subscriber advance with zero decode calls; category-only no-fetch; register-mid-stream transition with no gaps), register it in `kiroku-store/kiroku-store.cabal` and `kiroku-store/test/Main.hs`. Completed 2026-06-14.
 - [x] M2: Update the `EventPublisher` module header and `startPublisher` haddock to describe the two-mode loop; `cabal test kiroku-store:kiroku-store-test` green; commit. Completed 2026-06-14; focused publisher-idle spec passed, then `kiroku-store-test` passed with 201 examples, 0 failures.
-- [ ] M3: Run the full suite (`just test`) covering all three subscription target shapes; optionally run `just bench-regression`; record evidence in this plan.
-- [ ] M3: Update `docs/masterplans/9-audit-remediation-subscription-reliability-and-store-correctness-and-performance.md` (EP-3 registry row status, the two EP-3 progress checkboxes); write this plan's Outcomes & Retrospective; commit.
+- [x] M3: Run the full suite (`just test`) covering all three subscription target shapes; optionally run `just bench-regression`; record evidence in this plan. Completed 2026-06-14: `just test` passed across all workspace suites; `just bench-regression` was not run because it is optional and unrelated to this plan's touched paths.
+- [x] M3: Update `docs/masterplans/9-audit-remediation-subscription-reliability-and-store-correctness-and-performance.md` (EP-3 registry row status, the two EP-3 progress checkboxes); write this plan's Outcomes & Retrospective; commit. Completed 2026-06-14.
 
 
 ## Surprises & Discoveries
@@ -100,6 +100,12 @@ Failures:
 `cabal test kiroku-store:kiroku-store-test --test-options='--match "publisher idle advance"'`
 passed 3 examples, 0 failures, and the full `kiroku-store-test` suite passed
 201 examples, 0 failures.
+
+2026-06-14, M3 validation evidence: `just test` passed across the workspace:
+`kiroku-store-test` (201 examples), `shibuya-kiroku-adapter-test` (29 examples),
+`kiroku-metrics-test` (16 examples), `kiroku-otel-test` (17 examples),
+`kiroku-cli-test` (22 examples), and `kiroku-store-migrations-test` (1 example)
+all reported 0 failures.
 
 
 ## Decision Log
@@ -213,7 +219,25 @@ passed 3 examples, 0 failures, and the full `kiroku-store-test` suite passed
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+2026-06-14: EP-3 is complete. `subscribe` now constructs a `LiveSource` from the
+subscription target and consumer-group shape, so only non-group `AllStreams`
+subscriptions call `subscribePublisher` and own a bounded publisher queue. Category
+subscriptions and consumer-group members are explicitly DB-driven and leave the
+publisher subscriber registry empty; tests prove the registry stays empty for those
+shapes and returns to empty when the one real all-stream queue is cancelled.
+
+The publisher now has two modes. With at least one queue subscriber, it fetches and
+decodes full event batches and broadcasts them as before. With an empty registry, it
+uses `currentGlobalPositionStmt` to advance `lastPublished` without fetching payload
+rows or running `decodeHook`. The cheap path re-checks the registry in the same STM
+transaction as the position write, and the full-fetch path re-reads the registry and
+offers the in-flight batch to late registrants before advancing the position, closing
+the attach race described in Finding C. Focused tests demonstrated the old idle decode
+work before the fix and the new zero-decode behavior after the fix.
+
+Validation passed with the focused publisher-idle spec, the full `kiroku-store` suite,
+and `just test` across all workspace packages. No benchmark run was needed for this
+correctness and avoidable-work remediation; `just bench-regression` remains optional.
 
 
 ## Context and Orientation
