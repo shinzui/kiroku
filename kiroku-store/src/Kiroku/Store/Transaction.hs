@@ -147,8 +147,10 @@ The events list must be pre-prepared via 'prepareEventsIO' (which
 generates UUIDv7s) and the @createdAt@ timestamp must be captured by
 the caller prior to entering the transaction body.
 
-Empty event lists are a programming mistake — see
-'Kiroku.Store.Append.appendToStream' for the rationale.
+Empty event lists are a programming mistake. This function returns
+@'Left' ('EmptyAppendBatchConflict' …)@ without dispatching a statement;
+the high-level @runTransactionAppending*@ wrappers return
+@'Left' ('EmptyAppendBatch' …)@ before opening a transaction.
 -}
 appendToStreamTx ::
     StreamName ->
@@ -157,11 +159,15 @@ appendToStreamTx ::
     UTCTime ->
     Tx.Transaction (Either AppendConflict AppendResult)
 appendToStreamTx sn@(StreamName name) expected prepared now = do
-    let params = buildAppendParams name now prepared
-    mResult <- appendDispatchTx expected params
-    pure $ case mResult of
-        Just r -> Right r
-        Nothing -> Left (emptyResultConflict sn expected)
+    case prepared of
+        [] ->
+            pure (Left (EmptyAppendBatchConflict sn))
+        _ -> do
+            let params = buildAppendParams name now prepared
+            mResult <- appendDispatchTx expected params
+            pure $ case mResult of
+                Just r -> Right r
+                Nothing -> Left (emptyResultConflict sn expected)
 
 -- ---------------------------------------------------------------------------
 -- Convenience wrapper
@@ -179,6 +185,9 @@ Behavior:
 * If the target stream is the reserved @$all@, the call rejects with
   @'Left' ('ReservedStreamName' …)@ /before/ opening any transaction;
   the continuation is not invoked.
+* If the event list is empty, the call rejects with
+  @'Left' ('EmptyAppendBatch' …)@ /before/ opening any transaction; the
+  continuation is not invoked.
 * UUIDv7 ids are generated for events with a 'Nothing' 'eventId', and
   the current time is captured, before the transaction begins
   ('Tx.Transaction' has no 'MonadIO' so this prep cannot happen
@@ -307,6 +316,7 @@ runTransactionAppendingWith ::
     Eff es (Either StoreError a)
 runTransactionAppendingWith ctor sn@(StreamName name) expected events k
     | name == "$all" = pure (Left (ReservedStreamName sn))
+    | null events = pure (Left (EmptyAppendBatch sn))
     | otherwise = do
         prepared <- prepareEventsIO events
         now <- liftIO getCurrentTime

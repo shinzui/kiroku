@@ -122,6 +122,43 @@ main = withSharedMigratedPostgres $ hspec $ do
                         Left (StreamAlreadyExists _) -> pure ()
                         other -> expectationFailure ("Expected StreamAlreadyExists, got: " <> show other)
 
+            describe "empty event batches" $ do
+                it "rejects NoStream without creating a phantom stream or advancing $all" $ \store -> do
+                    Right beforeAll <- runStoreIO store $ readAllForward (GlobalPosition 0) 10
+                    result <- runStoreIO store $ appendToStream (StreamName "empty-nostream") NoStream []
+                    result `shouldBe` Left (EmptyAppendBatch (StreamName "empty-nostream"))
+                    runStoreIO store (getStream (StreamName "empty-nostream")) `shouldReturn` Right Nothing
+                    Right afterAll <- runStoreIO store $ readAllForward (GlobalPosition 0) 10
+                    fmap (^. #globalPosition) (V.toList afterAll) `shouldBe` fmap (^. #globalPosition) (V.toList beforeAll)
+
+                it "rejects empty batches for existing-stream expectations without changing version" $ \store -> do
+                    Right _ <- runStoreIO store $ appendToStream (StreamName "empty-existing") NoStream [makeEvent "Created" (Aeson.object [])]
+                    let assertEmptyRejected expected = do
+                            result <- runStoreIO store $ appendToStream (StreamName "empty-existing") expected []
+                            result `shouldBe` Left (EmptyAppendBatch (StreamName "empty-existing"))
+                            Right (Just info) <- runStoreIO store $ getStream (StreamName "empty-existing")
+                            (info ^. #version) `shouldBe` StreamVersion 1
+                    assertEmptyRejected (ExactVersion (StreamVersion 1))
+                    assertEmptyRejected StreamExists
+                    assertEmptyRejected AnyVersion
+
+                it "rejects an empty per-stream batch in appendMultiStream without committing any stream" $ \store -> do
+                    let ok = StreamName "empty-multi-ok"
+                        bad = StreamName "empty-multi-bad"
+                    result <-
+                        runStoreIO store $
+                            appendMultiStream
+                                [ (ok, NoStream, [makeEvent "Created" (Aeson.object [])])
+                                , (bad, NoStream, [])
+                                ]
+                    result `shouldBe` Left (EmptyAppendBatch bad)
+                    runStoreIO store (getStream ok) `shouldReturn` Right Nothing
+                    runStoreIO store (getStream bad) `shouldReturn` Right Nothing
+
+                it "treats an empty appendMultiStream operation list as a no-op" $ \store -> do
+                    result <- runStoreIO store $ appendMultiStream []
+                    result `shouldBe` Right []
+
             describe "ExactVersion" $ do
                 it "appends when version matches" $ \store -> do
                     Right r1 <- runStoreIO store $ appendToStream (StreamName "order-789") NoStream [makeEvent "OrderCreated" (Aeson.object [])]

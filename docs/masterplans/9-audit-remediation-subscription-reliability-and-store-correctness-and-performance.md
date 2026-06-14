@@ -184,7 +184,7 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 - [x] EP-3: Publisher fetches full rows only when an AllStreams subscriber exists
 - [x] EP-3: Full-fetch attach race closed (late registrants receive the in-flight batch atomically with the position advance)
 - [x] EP-4: Backward reads paginate correctly with nonzero cursors (failing test first)
-- [ ] EP-4: Empty-batch appends are rejected before touching the pool
+- [x] EP-4: Empty-batch appends are rejected before touching the pool
 - [ ] EP-4: Link errors and single-stream deadlocks map to typed errors / are retried
 - [ ] EP-4: Round-trip economies (short-page stream stop; empty lookup short-circuit)
 - [ ] EP-5: NOTIFY trigger fires once per append; lifecycle updates fire nothing
@@ -280,6 +280,12 @@ nonzero cursors as exclusive upper bounds, while cursor 0 is mapped to `maxBound
 the interpreter before the SQL runs. The new bite-check tests failed before the fix
 with newer events on page 2 and passed afterward; `kiroku-store-test` now has 203
 examples and passed with 0 failures.
+
+2026-06-14, EP-4 M2 completed. Empty per-stream append batches now fail before pool or
+transaction work with `EmptyAppendBatch` / `EmptyAppendBatchConflict`; `appendMultiStream
+[]` remains a no-op success. The bite-check reproduced the previous phantom stream and
+partial multi-stream commit behavior before guards were added. Validation passed with
+`kiroku-store-test` (208 examples, 0 failures) and `cabal build all`.
 
 
 ## Decision Log

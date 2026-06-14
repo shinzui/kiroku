@@ -226,6 +226,24 @@ spec = around withTestStore $ do
             rows <- countSideTable (store ^. #pool)
             rows `shouldBe` 0
 
+        it "rejects empty event batches before opening a transaction" $ \store -> do
+            createSideTable (store ^. #pool)
+            result <-
+                runStoreIO store $
+                    runTransactionAppending
+                        (StreamName "txn-wrapper-empty-1")
+                        NoStream
+                        []
+                        ( \ar -> do
+                            let StreamId sid = ar ^. #streamId
+                            Tx.statement (sid, "should-never-run") insertSideRowStmt
+                            pure ar
+                        )
+            result `shouldBe` Right (Left (EmptyAppendBatch (StreamName "txn-wrapper-empty-1")))
+            runStoreIO store (getStream (StreamName "txn-wrapper-empty-1")) `shouldReturn` Right Nothing
+            rows <- countSideTable (store ^. #pool)
+            rows `shouldBe` 0
+
 -- ---------------------------------------------------------------------------
 -- Local statements and pool-side helpers
 -- ---------------------------------------------------------------------------

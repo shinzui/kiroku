@@ -44,10 +44,21 @@ to libraries that expect 'SomeException').
 data StoreError
     = {- | The actual stream version did not match the caller's
       'ExactVersion' expectation. The third field is the actual
-      version (or 'StreamVersion' 0 when the version could not be
-      recovered, e.g., the row was concurrently soft-deleted).
+      version placeholder. The append statement returns zero rows on a
+      version mismatch and the store does not issue an extra read to
+      recover the live version, so this field is 'StreamVersion' 0 on
+      every empty-CTE rejection. Callers needing the live version must
+      read the stream, for example with 'Kiroku.Store.Read.getStream'.
       -}
       WrongExpectedVersion !StreamName !ExpectedVersion !StreamVersion
+    | {- | The caller supplied an empty event batch to an append surface.
+
+      Appending zero events is always a programming mistake: before this
+      guard existed, an empty batch silently took the global @$all@ row
+      lock, fired NOTIFY triggers, and under 'NoStream' even created an
+      empty stream. The interpreter rejects it before any pool work.
+      -}
+      EmptyAppendBatch !StreamName
     | -- | The named stream does not exist (or has been soft-deleted).
       StreamNotFound !StreamName
     | {- | The named stream is reserved for store internals and cannot be
@@ -192,11 +203,14 @@ see 'appendConflictToStoreError'.
 -}
 data AppendConflict
     = {- | Mirror of 'WrongExpectedVersion'. The third field is the
-      actual stream version, or @StreamVersion 0@ when it could not
-      be recovered (e.g., the CTE returned no rows because the
-      target was concurrently soft-deleted).
+      stream-version placeholder. The append statement returns zero
+      rows on a version mismatch and the store does not issue an extra
+      read to recover the live version, so this field is
+      @'StreamVersion' 0@ on every empty-CTE rejection.
       -}
       WrongExpectedVersionConflict !StreamName !ExpectedVersion !StreamVersion
+    | -- | Mirror of 'EmptyAppendBatch'.
+      EmptyAppendBatchConflict !StreamName
     | -- | Mirror of 'StreamNotFound'.
       StreamNotFoundConflict !StreamName
     | -- | Mirror of 'StreamAlreadyExists'.
@@ -210,6 +224,7 @@ when surfacing conflicts at the @Eff@ boundary.
 appendConflictToStoreError :: AppendConflict -> StoreError
 appendConflictToStoreError = \case
     WrongExpectedVersionConflict sn ev sv -> WrongExpectedVersion sn ev sv
+    EmptyAppendBatchConflict sn -> EmptyAppendBatch sn
     StreamNotFoundConflict sn -> StreamNotFound sn
     StreamAlreadyExistsConflict sn -> StreamAlreadyExists sn
 

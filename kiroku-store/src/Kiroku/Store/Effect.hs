@@ -131,6 +131,9 @@ runStorePool ::
 runStorePool store = interpret_ $ \case
     AppendToStream (StreamName name) expected events -> do
         rejectReservedApplicationStream name
+        case events of
+            [] -> throwError (EmptyAppendBatch (StreamName name))
+            _ -> pure ()
         events' <- liftIO $ enrichEvents (store ^. #storeSettings) events
         now <- liftIO getCurrentTime
         prepared <- prepareEvents events'
@@ -200,9 +203,14 @@ runStorePool store = interpret_ $ \case
             usePool (store ^. #pool) $
                 Session.statement (startPos, cat, limit) SQL.readCategoryForwardStmt
         liftIO $ decodeEvents (store ^. #storeSettings) evs
+    AppendMultiStream [] ->
+        pure []
     AppendMultiStream ops -> do
         case find (\(StreamName name, _, _) -> isReservedApplicationStream name) ops of
             Just (sn, _, _) -> throwError (ReservedStreamName sn)
+            Nothing -> pure ()
+        case find (\(_, _, evts) -> null evts) ops of
+            Just (sn, _, _) -> throwError (EmptyAppendBatch sn)
             Nothing -> pure ()
         now <- liftIO getCurrentTime
         -- Prepare all events for all streams

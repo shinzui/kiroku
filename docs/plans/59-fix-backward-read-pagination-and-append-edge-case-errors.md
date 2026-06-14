@@ -68,11 +68,11 @@ This section must always reflect the actual current state of the work.
 - [x] M1: Flip the predicate in `readStreamBackwardSQL` and `readAllBackwardSQL` to `<` in `kiroku-store/src/Kiroku/Store/SQL.hs` (2026-06-14)
 - [x] M1: Map the cursor-0 sentinel to `maxBound` in the `ReadStreamBackward` / `ReadAllBackward` interpreter branches in `kiroku-store/src/Kiroku/Store/Effect.hs` (2026-06-14)
 - [x] M1: Align haddocks in `Read.hs` and `SQL.hs`; confirm new tests pass and full suite is green (2026-06-14)
-- [ ] M2: Add `EmptyAppendBatch` to `StoreError` and `EmptyAppendBatchConflict` to `AppendConflict` in `kiroku-store/src/Kiroku/Store/Error.hs`
-- [ ] M2: Reject empty batches in `AppendToStream` and `AppendMultiStream` interpreter branches (`Effect.hs`), in `appendToStreamTx`, and in `runTransactionAppendingWith` (`Transaction.hs`)
-- [ ] M2: Short-circuit `AppendMultiStream []` to `pure []`
-- [ ] M2: Correct the empty-batch haddocks in `Append.hs` and `Transaction.hs`; fix the `WrongExpectedVersion` / `WrongExpectedVersionConflict` "actual version" haddocks in `Error.hs` (finding G)
-- [ ] M2: Add empty-batch rejection tests (single, multi, transactional) and confirm green
+- [x] M2: Add `EmptyAppendBatch` to `StoreError` and `EmptyAppendBatchConflict` to `AppendConflict` in `kiroku-store/src/Kiroku/Store/Error.hs` (2026-06-14)
+- [x] M2: Reject empty batches in `AppendToStream` and `AppendMultiStream` interpreter branches (`Effect.hs`), in `appendToStreamTx`, and in `runTransactionAppendingWith` (`Transaction.hs`) (2026-06-14)
+- [x] M2: Short-circuit `AppendMultiStream []` to `pure []` (2026-06-14)
+- [x] M2: Correct the empty-batch haddocks in `Append.hs` and `Transaction.hs`; fix the `WrongExpectedVersion` / `WrongExpectedVersionConflict` "actual version" haddocks in `Error.hs` (finding G) (2026-06-14)
+- [x] M2: Add empty-batch rejection tests (single, multi, transactional) and confirm green (2026-06-14)
 - [ ] M3: Add `EventAlreadyLinked` and `LinkSourceEventMissing` constructors plus `mapLinkUsageError` / `mapGenericUsageError` to `Error.hs`
 - [ ] M3: Route `LinkToStream` errors through `mapLinkUsageError` in `Effect.hs`; tighten the two `Left _` link tests in `test/Main.hs` to the typed constructors
 - [ ] M3: Add `isTransientSerializationError` to `Error.hs` with a pure unit test; add one-shot retry to the `AppendToStream` interpreter branch
@@ -114,6 +114,33 @@ Failures:
 After changing both backward SQL predicates to `<` and mapping cursor 0 to `maxBound`
 in the interpreter, the targeted test passed with `2 examples, 0 failures`; the full
 `kiroku-store-test` suite passed with 203 examples and 0 failures.
+
+2026-06-14, M2 bite-check confirmed empty batches could silently mutate state. After
+adding the new constructors and tests but before adding guards, `runTransactionAppending`
+and `appendToStream NoStream []` returned `Right AppendResult` with stream version 0,
+and `appendMultiStream` committed the nonempty operation while also creating the empty
+target stream. The focused run reported 5 examples, 4 failures.
+
+```text
+runTransactionAppending
+  rejects empty event batches before opening a transaction [x]
+appendToStream
+  empty event batches
+    rejects NoStream without creating a phantom stream or advancing $all [x]
+    rejects empty batches for existing-stream expectations without changing version [x]
+    rejects an empty per-stream batch in appendMultiStream without committing any stream [x]
+    treats an empty appendMultiStream operation list as a no-op [OK]
+
+5 examples, 4 failures
+```
+
+The in-repo caller audit used `rg` over `kiroku-store/src`, `kiroku-cli`,
+`kiroku-metrics`, `kiroku-jitsurei`, and `shibuya-kiroku-adapter`. It found only
+public API wrappers, examples, and tests; the one app path in `kiroku-jitsurei` appends
+events from configured demo input and no library path structurally synthesizes an empty
+batch. After the guards, the focused empty-batch run passed with 5 examples and 0
+failures; the full `kiroku-store-test` suite passed with 208 examples and 0 failures;
+`cabal build all` completed successfully.
 
 
 ## Decision Log
@@ -216,6 +243,13 @@ exclusive upper-bound cursors. Cursor 0 remains the public "from latest" sentine
 translated in `Effect.hs` before SQL execution, preserving simple prepared-statement
 range predicates. The new regression tests cover nonzero cursor pages for both APIs and
 the existing cursor-0 behavior remains green.
+
+2026-06-14, after M2: all append surfaces now reject per-stream empty event batches
+before pool or transaction work. `appendToStream`, `appendMultiStream` with an empty
+per-stream batch, `appendToStreamTx`, and `runTransactionAppending*` surface
+`EmptyAppendBatch` or `EmptyAppendBatchConflict`; `appendMultiStream []` remains a
+zero-operation success. The `WrongExpectedVersion` docs now state that the third field
+is a `StreamVersion 0` placeholder rather than a recovered actual version.
 
 
 ## Context and Orientation
@@ -908,3 +942,8 @@ are untouched by design.
 backward-pagination bite-check, marked the M1 progress items complete, added the active
 MasterPlan intention to frontmatter, and captured the passing targeted and full
 `kiroku-store-test` validation results.
+
+*Revision note (2026-06-14).* M2 implementation update: recorded the empty-batch
+bite-check, caller audit, focused/full store-test validation, and `cabal build all`
+validation; marked the M2 progress items complete and summarized the new typed
+empty-batch behavior.

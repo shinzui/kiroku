@@ -58,14 +58,13 @@ Errors (all variants of 'Kiroku.Store.Error.StoreError'):
   existing stream (including soft-deleted).
 * 'Kiroku.Store.Error.DuplicateEvent' — caller-supplied 'eventId'
   collides with an existing event.
+* 'Kiroku.Store.Error.EmptyAppendBatch' — the supplied event list is
+  empty.
 
 Empty event lists: passing @[]@ is a programming mistake. The
-underlying CTE returns 0 rows, which the interpreter maps to a
-constructor that depends on the supplied 'ExpectedVersion'
-('Kiroku.Store.Error.WrongExpectedVersion' for 'ExactVersion',
-'Kiroku.Store.Error.StreamNotFound' for 'StreamExists', and so on).
-None of these is the caller's intent; reject the call yourself before
-invoking the API.
+interpreter rejects the call with 'Kiroku.Store.Error.EmptyAppendBatch'
+before any database work. This avoids taking the global @$all@ row lock,
+firing notifications, or creating an empty stream under 'NoStream'.
 -}
 appendToStream ::
     (HasCallStack, Store :> es) =>
@@ -101,7 +100,9 @@ defensively.
 The returned list mirrors the input order. Each 'AppendResult' carries
 the corresponding stream's final state.
 
-Empty input @[]@ is a no-op programming mistake; do not call.
+Empty operation input @[]@ returns @[]@ without a database round trip.
+Any per-stream empty event list is rejected with
+'Kiroku.Store.Error.EmptyAppendBatch' before the transaction opens.
 -}
 appendMultiStream ::
     (HasCallStack, Store :> es) =>
