@@ -21,6 +21,9 @@
 * `Adapter.source` now has regression coverage for EP-1's termination contract:
   clean shutdown ends the stream normally, while a worker crash is rethrown to
   the stream consumer.
+* `kirokuConsumerGroupProcessors` now throws `InvalidConsumerGroup` for
+  non-positive group sizes before opening subscriptions, and cleans up already
+  created member adapters if a later member fails during construction.
 * The package description and Haddocks describe the ack-coupled bridge instead
   of the obsolete no-op ack behavior.
 

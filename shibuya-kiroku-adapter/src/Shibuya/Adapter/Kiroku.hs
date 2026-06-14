@@ -125,6 +125,7 @@ module Shibuya.Adapter.Kiroku (
     defaultConsumerGroupConfig,
     consumerGroupPolicy,
     kirokuConsumerGroupProcessors,
+    kirokuConsumerGroupProcessorsWith,
 
     -- * Re-exports from kiroku-store
     SubscriptionName (..),
@@ -137,13 +138,14 @@ import Control.Exception (SomeException)
 import Data.Int (Int32)
 import Data.Text qualified as T
 import Effectful (Eff, IOE, liftIO, (:>))
-import Effectful.Exception (catchSync)
+import Effectful.Exception (catchSync, onException, throwIO)
 import GHC.Generics (Generic)
 import Kiroku.Store.Connection (KirokuStore)
 import Kiroku.Store.Subscription.Stream (subscriptionAckStream)
 import Kiroku.Store.Subscription.Types (
     ConsumerGroup (..),
     EventTypeFilter (..),
+    InvalidConsumerGroup (..),
     SubscriptionConfig,
     SubscriptionName (..),
     SubscriptionResult (..),
@@ -268,8 +270,8 @@ guardKirokuHandlerWith ::
     (SomeException -> AckDecision) ->
     Handler es msg ->
     Handler es msg
-guardKirokuHandlerWith onException h ingested =
-    h ingested `catchSync` (pure . onException)
+guardKirokuHandlerWith handleException h ingested =
+    h ingested `catchSync` (pure . handleException)
 
 {- | Recommended handler guard for this adapter.
 
@@ -455,11 +457,9 @@ kiroku subscription is opened__.
 
 Each processor's 'ProcessorId' is
 @\"\<subscriptionName\>-member-\<m\>\"@ so member identity is readable off the id
-and two members never collide. The group-validity invariant (@groupSize >= 1@,
-@0 <= member < groupSize@) is enforced downstream by
-'Kiroku.Store.Subscription.subscribe' (throwing
-'Kiroku.Store.Subscription.Types.InvalidConsumerGroup'); 'groupSize >= 1' is a
-documented precondition of this helper.
+and two members never collide. @groupSize >= 1@ is validated before any
+subscription opens, throwing 'InvalidConsumerGroup' with member 0 when it is
+violated.
 -}
 kirokuConsumerGroupProcessors ::
     (IOE :> es) =>
@@ -467,44 +467,63 @@ kirokuConsumerGroupProcessors ::
     KirokuConsumerGroupConfig ->
     Handler es RecordedEvent ->
     Eff es (Either PolicyError [(ProcessorId, QueueProcessor es)])
-kirokuConsumerGroupProcessors
-    store
+kirokuConsumerGroupProcessors store cfg@KirokuConsumerGroupConfig{subscriptionName = subName, subscriptionTarget = subTarget, groupSize = n, batchSize = bs, bufferSize = buf, queueCapacity = qCap, eventTypeFilter = etf, selector = sel} handler =
+    kirokuConsumerGroupProcessorsWith mkMemberAdapter cfg handler
+  where
+    mkMemberAdapter m =
+        kirokuAdapter
+            store
+            KirokuAdapterConfig
+                { subscriptionName = subName
+                , subscriptionTarget = subTarget
+                , batchSize = bs
+                , bufferSize = buf
+                , queueCapacity = qCap
+                , consumerGroup = Just (ConsumerGroup{member = m, size = n})
+                , eventTypeFilter = etf
+                , selector = sel
+                }
+
+{- | Factory-parameterized core for 'kirokuConsumerGroupProcessors'.
+
+This is exported primarily for tests and advanced integration points. It
+validates the group configuration, creates each member adapter with the
+provided factory, and shuts down already-created adapters if a later factory
+call throws before ownership can be returned to the caller.
+-}
+kirokuConsumerGroupProcessorsWith ::
+    (IOE :> es) =>
+    (Int32 -> Eff es (Adapter es RecordedEvent)) ->
+    KirokuConsumerGroupConfig ->
+    Handler es RecordedEvent ->
+    Eff es (Either PolicyError [(ProcessorId, QueueProcessor es)])
+kirokuConsumerGroupProcessorsWith
+    mkMemberAdapter
     KirokuConsumerGroupConfig
         { subscriptionName = subName
-        , subscriptionTarget = subTarget
         , groupSize = n
-        , batchSize = bs
-        , bufferSize = buf
-        , queueCapacity = qCap
         , memberConcurrency = mc
-        , eventTypeFilter = etf
-        , selector = sel
         }
     handler =
-        case consumerGroupPolicy mc of
-            Left e -> pure (Left e)
-            Right (ordering, conc) -> do
-                let SubscriptionName name = subName
-                processors <-
-                    mapM
-                        ( \m -> do
-                            adapter <-
-                                kirokuAdapter
-                                    store
-                                    KirokuAdapterConfig
-                                        { subscriptionName = subName
-                                        , subscriptionTarget = subTarget
-                                        , batchSize = bs
-                                        , bufferSize = buf
-                                        , queueCapacity = qCap
-                                        , consumerGroup = Just (ConsumerGroup{member = m, size = n})
-                                        , eventTypeFilter = etf
-                                        , selector = sel
-                                        }
-                            let pid = ProcessorId (name <> "-member-" <> T.pack (show m))
-                            -- Built directly (not via 'mkProcessor', which hardcodes
-                            -- Unordered/Serial) so the group policy is pinned.
-                            pure (pid, QueueProcessor adapter (guardKirokuHandler handler) ordering conc)
-                        )
-                        [0 .. n - 1]
-                pure (Right processors)
+        if n < 1
+            then throwIO (InvalidConsumerGroup 0 n)
+            else case consumerGroupPolicy mc of
+                Left e -> pure (Left e)
+                Right (ordering, conc) -> do
+                    let SubscriptionName name = subName
+                    adapters <- createAdapters [] 0
+                    let processors =
+                            [ let pid = ProcessorId (name <> "-member-" <> T.pack (show m))
+                               in (pid, QueueProcessor adapter (guardKirokuHandler handler) ordering conc)
+                            | (m, adapter) <- zip [0 .. n - 1] adapters
+                            ]
+                    pure (Right processors)
+      where
+        createAdapters created m
+            | m >= n = pure (reverse created)
+            | otherwise = do
+                adapter <- mkMemberAdapter m `onException` shutdownCreated created
+                createAdapters (adapter : created) (m + 1)
+
+        shutdownCreated =
+            mapM_ $ \Adapter{shutdown = shutdownAction} -> shutdownAction

@@ -38,6 +38,7 @@ import Shibuya.Adapter.Kiroku (
     guardKirokuHandlerWith,
     kirokuAdapter,
     kirokuConsumerGroupProcessors,
+    kirokuConsumerGroupProcessorsWith,
  )
 import Shibuya.Adapter.Kiroku.Convert (KirokuEnvelopeAttrs, kirokuEnvelopeAttrs, toEnvelope)
 import Shibuya.App (
@@ -803,6 +804,71 @@ main = withSharedMigratedPostgres $ hspec $ do
                     Left err -> err `shouldBe` InvalidPolicyCombo "StrictInOrder requires Serial concurrency"
                     Right _ -> expectationFailure "expected Left PolicyError for Async member concurrency"
 
+                withResult <-
+                    runEff $
+                        runTracingNoop $
+                            kirokuConsumerGroupProcessorsWith
+                                ( \_ -> do
+                                    liftIO $ expectationFailure "factory should not be called for an invalid policy"
+                                    pure stubAdapter
+                                )
+                                ( defaultConsumerGroupConfig (SubscriptionName "cgp-reject-with") (Category (CategoryName "cgp-reject-with")) 4
+                                    & #memberConcurrency .~ Async 4
+                                )
+                                ( \ingested -> do
+                                    let _ = envelopePayload ingested
+                                    pure AckOk
+                                )
+                case withResult of
+                    Left err -> err `shouldBe` InvalidPolicyCombo "StrictInOrder requires Serial concurrency"
+                    Right _ -> expectationFailure "expected Left PolicyError for Async member concurrency"
+
+            it "throws InvalidConsumerGroup for non-positive group sizes" $ \store -> do
+                let handler ingested = do
+                        let _ = envelopePayload ingested
+                        pure AckOk
+                    throwsSize n =
+                        runEff
+                            ( runTracingNoop $
+                                kirokuConsumerGroupProcessors
+                                    store
+                                    (defaultConsumerGroupConfig (SubscriptionName ("cgp-invalid-" <> T.pack (show n))) AllStreams n)
+                                    handler
+                            )
+                            `shouldThrow` ( \InvalidConsumerGroup{invalidMember = member, invalidSize = size} ->
+                                                member == 0 && size == n
+                                          )
+                throwsSize 0
+                throwsSize (-1)
+
+            it "shuts down already-created member adapters after a later factory failure" $ \_store -> do
+                shutdowns <- newIORef ([] :: [Int32])
+                let sentinel = userError "member 2 failed"
+                    factory m
+                        | m == 2 = liftIO $ E.throwIO sentinel
+                        | otherwise =
+                            pure
+                                Adapter
+                                    { adapterName = "stub-kiroku"
+                                    , source = Stream.nil
+                                    , shutdown = liftIO $ modifyIORef' shutdowns (<> [m])
+                                    }
+                    handler ingested = do
+                        let _ = envelopePayload ingested
+                        pure AckOk
+                result <-
+                    E.try $
+                        runEff $
+                            runTracingNoop $
+                                kirokuConsumerGroupProcessorsWith
+                                    factory
+                                    (defaultConsumerGroupConfig (SubscriptionName "cgp-partial-cleanup") AllStreams 3)
+                                    handler
+                case result of
+                    Left (e :: E.SomeException) -> show e `shouldContain` "member 2 failed"
+                    Right _ -> expectationFailure "expected the member factory failure to rethrow"
+                readIORef shutdowns `shouldReturn` [1, 0]
+
             it "wraps consumer-group handlers so exceptions finalize a retry decision" $ \store -> do
                 Right _ <- runStoreIO store $ appendToStream (StreamName "cgp-guard-1") NoStream [makeEvent "CGGuard" (Aeson.object [])]
                 threadDelay 200_000
@@ -904,6 +970,14 @@ main = withSharedMigratedPostgres $ hspec $ do
 
 envelopePayload :: Ingested es RecordedEvent -> RecordedEvent
 envelopePayload ing = let Ingested{envelope = env} = ing in env ^. #payload
+
+stubAdapter :: Adapter es RecordedEvent
+stubAdapter =
+    Adapter
+        { adapterName = "stub-kiroku"
+        , source = Stream.nil
+        , shutdown = pure ()
+        }
 
 -- | Read the dead letters recorded for a non-group subscription (member 0).
 readDeadLetters :: KirokuStore -> Text -> IO [SQL.DeadLetterRecord]

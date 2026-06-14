@@ -98,8 +98,8 @@ up the fixes. Planning that bump is out of scope here.
 - [x] M2: Record the two shibuya-core upstream follow-ups (finalize-on-exception in `processOne`; ingester failure propagation in `runSupervised`) in this plan and in the adapter CHANGELOG "known limitations" note. Completed 2026-06-14.
 - [x] M3: Verify and lock EP-1's termination contract at the adapter boundary: clean shutdown ends `adapter.source` without error; a crashed worker rethrows out of `adapter.source` (test via fault injection mirroring EP-1's technique). Completed 2026-06-14; focused adapter boundary tests passed with 2 examples, 0 failures.
 - [x] M3: Fix stale adapter prose: cabal `description` still claims ack is a no-op; module Haddock "Ack Semantics"/"Backpressure" sections updated for guard wrapper, PauseAndResume, and error-carrying stream end. Completed 2026-06-14.
-- [ ] M4: `kirokuConsumerGroupProcessors` validates `groupSize >= 1` up front (throws `InvalidConsumerGroup`); creation runs through a cleanup-on-partial-failure helper.
-- [ ] M4: Tests: `groupSize = 0` and `groupSize = -1` throw `InvalidConsumerGroup` (no `Right []`); injected factory failure at member 2 of 3 shuts down members 0 and 1 exactly once.
+- [x] M4: `kirokuConsumerGroupProcessors` validates `groupSize >= 1` up front (throws `InvalidConsumerGroup`); creation runs through a cleanup-on-partial-failure helper. Completed 2026-06-14.
+- [x] M4: Tests: `groupSize = 0` and `groupSize = -1` throw `InvalidConsumerGroup` (no `Right []`); injected factory failure at member 2 of 3 shuts down members 0 and 1 exactly once. Completed 2026-06-14; focused consumer-group policy tests passed with 8 examples, 0 failures.
 - [ ] Final: full `just test` green; Outcomes & Retrospective written; master plan registry row for EP-2 flipped to Complete.
 
 
@@ -125,6 +125,13 @@ without error. A worker crash injected with
 `Kiroku.Store.Subscription.Worker.withFetchBatchHookForTest` rethrows through
 `adapter.source` as `adapter source worker boom`; this verifies the adapter
 does not swallow EP-1's terminal `TVar` outcome.
+
+2026-06-14, M4 introduced `kirokuConsumerGroupProcessorsWith` to make
+partial-creation cleanup directly testable. The cleanup test injects a factory
+failure at member 2 of 3 and observes shutdown calls `[1, 0]`, proving
+already-created adapters are released most-recent first. The invalid-policy
+test also covers the new helper and confirms the factory is not called when
+policy validation fails.
 
 
 ## Decision Log
