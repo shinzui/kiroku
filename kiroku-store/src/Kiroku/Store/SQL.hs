@@ -36,7 +36,10 @@ module Kiroku.Store.SQL (
 
     -- * Hard-delete statements (used in sequence inside one transaction)
     findStreamIdStmt,
-    deleteStreamJunctionsStmt,
+    deleteAllRowsForOriginStmt,
+    deleteJunctionsByEventIdsStmt,
+    deleteStreamOwnJunctionsStmt,
+    deleteDeadLettersForOrphanedEventsStmt,
     deleteOrphanedEventsStmt,
     deleteStreamRowStmt,
 
@@ -928,43 +931,107 @@ lookupStreamNamesStmt =
             )
         )
 
-{- | Delete every junction row that references the given stream — both rows whose
-@stream_id@ is the target (the stream's own and any links from elsewhere) and
-rows whose @original_stream_id@ is the target ($all entries plus link rows in
-other streams that referenced events originating from the deleted stream).
+{- | Delete the @$all@ junction rows for events that originated in the target
+stream, returning exactly those originated event ids.
 
-Returns the distinct set of @event_id@s that lost at least one junction row.
-The caller passes this set to @deleteOrphanedEventsStmt@ to remove event payloads
-that no longer have any surviving junctions.
+Served by @ix_stream_events_all_by_origin@, whose partial predicate is
+@stream_id = 0@. Every event that originated in a stream has one @$all@ row, so
+this indexed delete yields the complete originated-event set without scanning all
+of @stream_events@.
 
-The previous single-CTE implementation tried to inline the orphan-event delete,
-but PostgreSQL §7.8.2 specifies that data-modifying CTEs run against the same
-snapshot, so the @NOT EXISTS@ subquery on stream_events saw the pre-delete state
-and never deleted any events. Splitting into two statements within the same
-hasql-transaction lets each statement see the previous statement's effects.
+The caller then passes the returned ids to 'deleteJunctionsByEventIdsStmt' to
+remove the remaining home/link junction rows for those originated events.
 -}
-deleteStreamJunctionsStmt :: Statement Int64 (Vector UUID)
-deleteStreamJunctionsStmt =
+deleteAllRowsForOriginStmt :: Statement Int64 (Vector UUID)
+deleteAllRowsForOriginStmt =
     preparable
         """
-        WITH deleted AS (
-          DELETE FROM stream_events
-          WHERE stream_id = $1
-             OR original_stream_id = $1
-          RETURNING event_id
-        )
-        SELECT DISTINCT event_id FROM deleted
+        DELETE FROM stream_events
+        WHERE original_stream_id = $1
+          AND stream_id = 0
+        RETURNING event_id
         """
         (E.param (E.nonNullable E.int8))
         (D.rowVector (D.column (D.nonNullable D.uuid)))
+
+{- | Delete all remaining junction rows for the given event ids.
+
+Served by the @stream_events@ primary key @(event_id, stream_id)@. This removes
+the originated events' home rows and any link rows in other streams after
+'deleteAllRowsForOriginStmt' has removed their @$all@ rows.
+-}
+deleteJunctionsByEventIdsStmt :: Statement (Vector UUID) ()
+deleteJunctionsByEventIdsStmt =
+    preparable
+        """
+        DELETE FROM stream_events
+        WHERE event_id = ANY($1::uuid[])
+        """
+        (E.param (E.nonNullable (E.foldableArray (E.nonNullable E.uuid))))
+        D.noResult
+
+{- | Delete junction rows whose visible stream is the target stream, returning
+the affected event ids.
+
+Served by @ix_stream_events_stream_version@ (or the unique replacement
+@ux_stream_events_stream_version@ after EP-5 M3) on @(stream_id,
+stream_version)@. After 'deleteJunctionsByEventIdsStmt' this matches only
+events that originated elsewhere and were linked into the deleted stream. Those
+events normally survive; returning them lets the same orphan check make the
+decision instead of relying on that assumption.
+-}
+deleteStreamOwnJunctionsStmt :: Statement Int64 (Vector UUID)
+deleteStreamOwnJunctionsStmt =
+    preparable
+        """
+        DELETE FROM stream_events
+        WHERE stream_id = $1
+        RETURNING event_id
+        """
+        (E.param (E.nonNullable E.int8))
+        (D.rowVector (D.column (D.nonNullable D.uuid)))
+
+{- | Delete dead-letter rows for candidate events that have become orphaned.
+
+Served by @ix_dead_letters_event_id@. The @NOT EXISTS@ predicate mirrors
+'deleteOrphanedEventsStmt', so dead letters are purged exactly for events whose
+payload rows are about to be removed while dead letters for surviving linked-in
+events remain.
+
+Must be called after the junction deletes and before 'deleteOrphanedEventsStmt'
+within the same transaction so the @NOT EXISTS@ subquery sees the post-delete
+state of @stream_events@ and the @dead_letters.event_id@ foreign key remains
+satisfied when orphan event payloads are deleted.
+-}
+deleteDeadLettersForOrphanedEventsStmt :: Statement (Vector UUID) ()
+deleteDeadLettersForOrphanedEventsStmt =
+    preparable
+        """
+        DELETE FROM dead_letters dl
+        WHERE dl.event_id = ANY($1::uuid[])
+          AND NOT EXISTS (
+            SELECT 1 FROM stream_events se
+            WHERE se.event_id = dl.event_id
+          )
+        """
+        (E.param (E.nonNullable (E.foldableArray (E.nonNullable E.uuid))))
+        D.noResult
 
 {- | Delete event payloads from the @events@ table for the given event ids,
 but only those whose junction rows have all been removed. Events that still
 have any surviving @stream_events@ row are preserved (they remain visible from
 their other homes).
 
-Must be called after @deleteStreamJunctionsStmt@ within the same transaction
-so the @NOT EXISTS@ subquery sees the post-delete state of @stream_events@.
+The first implementation tried to inline orphan-event deletion with a
+data-modifying CTE, but PostgreSQL §7.8.2 specifies that data-modifying CTEs run
+against the same snapshot, so the @NOT EXISTS@ subquery on stream_events saw the
+pre-delete state and never deleted any events. Splitting into multiple
+statements within the same hasql-transaction lets each statement see previous
+statements' effects.
+
+Must be called after 'deleteDeadLettersForOrphanedEventsStmt' within the same
+transaction so the @NOT EXISTS@ subquery sees the post-delete state of
+@stream_events@ and the @dead_letters.event_id@ foreign key is already clear.
 -}
 deleteOrphanedEventsStmt :: Statement (Vector UUID) ()
 deleteOrphanedEventsStmt =

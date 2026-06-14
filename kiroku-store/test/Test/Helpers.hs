@@ -28,6 +28,8 @@ module Test.Helpers (
 
     -- * Raw SQL helpers
     countEvents,
+    countDeadLettersForEvents,
+    insertDeadLetterForEvent,
     insertEventUsingDefaultId,
     serverVersionNum,
     truncateRejected,
@@ -53,9 +55,11 @@ import Control.Concurrent.STM (atomically, check)
 import Control.Exception (SomeException)
 import Control.Lens ((^.))
 import Data.Aeson (Value)
+import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
 import Data.Int (Int32, Int64)
 import Data.Text (Text)
+import Data.UUID (UUID)
 import Hasql.Connection qualified as Connection
 import Hasql.Connection.Settings qualified as Conn
 import Hasql.Decoders qualified as D
@@ -64,6 +68,7 @@ import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Hasql.Statement (Statement, preparable, unpreparable)
 import Kiroku.Store
+import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Subscription.EventPublisher (publisherPosition)
 import Kiroku.Test.Postgres (withMigratedTestDatabase, withSharedMigratedPostgres)
 
@@ -121,6 +126,41 @@ countEvents store = do
     result <- Pool.use (store ^. #pool) (Session.statement () stmt)
     case result of
         Left err -> error ("countEvents failed: " <> show err)
+        Right n -> pure n
+
+-- | Insert a dead-letter row for a recorded event without running a subscription.
+insertDeadLetterForEvent :: KirokuStore -> Text -> RecordedEvent -> IO ()
+insertDeadLetterForEvent store subscriptionName event = do
+    let EventId eid = event ^. #eventId
+        GlobalPosition globalPosition = event ^. #globalPosition
+        params =
+            SQL.DeadLetterParams
+                { SQL.dlSubscriptionName = subscriptionName
+                , SQL.dlMember = 0
+                , SQL.dlGlobalPosition = globalPosition
+                , SQL.dlEventId = eid
+                , SQL.dlReason = Aeson.object [("source", Aeson.String "test")]
+                , SQL.dlReasonSummary = "test dead letter"
+                , SQL.dlAttemptCount = 1
+                }
+    result <- Pool.use (store ^. #pool) (Session.statement params SQL.insertDeadLetterAndCheckpointStmt)
+    case result of
+        Left err -> error ("insertDeadLetterForEvent failed: " <> show err)
+        Right () -> pure ()
+
+-- | Count dead-letter rows referencing any of the supplied events.
+countDeadLettersForEvents :: KirokuStore -> [EventId] -> IO Int64
+countDeadLettersForEvents store eventIds = do
+    let uuids = fmap (\(EventId eid) -> eid) eventIds
+        stmt :: Statement [UUID] Int64
+        stmt =
+            preparable
+                "SELECT COUNT(*) FROM dead_letters WHERE event_id = ANY($1::uuid[])"
+                (E.param (E.nonNullable (E.foldableArray (E.nonNullable E.uuid))))
+                (D.singleRow (D.column (D.nonNullable D.int8)))
+    result <- Pool.use (store ^. #pool) (Session.statement uuids stmt)
+    case result of
+        Left err -> error ("countDeadLettersForEvents failed: " <> show err)
         Right n -> pure n
 
 {- | Insert directly into @events@ without an @event_id@ so the database

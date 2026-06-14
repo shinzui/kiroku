@@ -296,7 +296,11 @@ runStorePool store = interpret_ $ \case
                 case mSid of
                     Nothing -> pure Nothing
                     Just sid -> do
-                        affected <- Tx.statement sid SQL.deleteStreamJunctionsStmt
+                        originated <- Tx.statement sid SQL.deleteAllRowsForOriginStmt
+                        Tx.statement originated SQL.deleteJunctionsByEventIdsStmt
+                        linkedIn <- Tx.statement sid SQL.deleteStreamOwnJunctionsStmt
+                        let affected = originated <> linkedIn
+                        Tx.statement affected SQL.deleteDeadLettersForOrphanedEventsStmt
                         Tx.statement affected SQL.deleteOrphanedEventsStmt
                         Tx.statement sid SQL.deleteStreamRowStmt
                         pure (Just (StreamId sid))

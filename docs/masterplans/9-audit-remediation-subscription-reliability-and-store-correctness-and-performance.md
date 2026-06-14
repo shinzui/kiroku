@@ -188,7 +188,7 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 - [x] EP-4: Link errors and single-stream deadlocks map to typed errors / are retried
 - [x] EP-4: Round-trip economies (short-page stream stop; empty lookup short-circuit)
 - [x] EP-5: NOTIFY trigger fires once per append; lifecycle updates fire nothing
-- [ ] EP-5: Dead-letter FK policy decided and enforced; `dead_letters(event_id)` indexed
+- [x] EP-5: Dead-letter FK policy decided and enforced; `dead_letters(event_id)` indexed
 - [ ] EP-5: Junction-delete path has index support; index hygiene applied
 - [ ] EP-5: Stream-name length bound enforced (closes the NOTIFY payload abort edge)
 - [ ] EP-6: WS replay neither duplicates past attach position nor falls through a gap

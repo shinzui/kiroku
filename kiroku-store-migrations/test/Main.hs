@@ -42,6 +42,7 @@ main =
                     assertDeadLettersTable connStr
                     assertDefaultUuidV7 connStr
                     assertStreamTriggers connStr
+                    assertDeadLettersEventIdIndex connStr
 
                     withStore
                         (defaultConnectionSettings connStr)
@@ -63,6 +64,7 @@ main =
                     assertBootstrapApplied connStr
                     assertDefaultUuidV7 connStr
                     assertStreamTriggers connStr
+                    assertDeadLettersEventIdIndex connStr
                 case result of
                     Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
                     Right () -> pure ()
@@ -266,3 +268,26 @@ streamTriggersStmt =
         """
         E.noParams
         (D.rowList (D.column (D.nonNullable D.text)))
+
+assertDeadLettersEventIdIndex :: Text -> IO ()
+assertDeadLettersEventIdIndex connStr = do
+    pool <- Pool.acquire poolConfig
+    result <- Pool.use pool (Session.statement () deadLettersEventIdIndexStmt)
+    Pool.release pool
+    case result of
+        Left err -> expectationFailure ("dead_letters event_id index verification query failed: " <> show err)
+        Right True -> pure ()
+        Right False -> expectationFailure "Kiroku migration did not create ix_dead_letters_event_id"
+  where
+    poolConfig =
+        Pool.Config.settings
+            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
+            , Pool.Config.size 1
+            ]
+
+deadLettersEventIdIndexStmt :: Statement () Bool
+deadLettersEventIdIndexStmt =
+    preparable
+        "SELECT to_regclass('kiroku.ix_dead_letters_event_id') IS NOT NULL"
+        E.noParams
+        (D.singleRow (D.column (D.nonNullable D.bool)))

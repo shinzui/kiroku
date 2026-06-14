@@ -86,18 +86,18 @@ here, even if it requires splitting a partially completed task into two ("done" 
       `build-depends`.
 - [x] M1: Extend `kiroku-store-migrations/test/Main.hs` to assert the trigger set
       on `kiroku.streams` after codd applies migrations.
-- [ ] M2: Write migration `2026-06-11-00-00-01-dead-letters-event-id-index.sql`
+- [x] M2: Write migration `2026-06-11-00-00-01-dead-letters-event-id-index.sql`
       (index on `kiroku.dead_letters (event_id)`).
-- [ ] M2: Replace `deleteStreamJunctionsStmt` in
+- [x] M2: Replace `deleteStreamJunctionsStmt` in
       `kiroku-store/src/Kiroku/Store/SQL.hs` with the three indexed delete
       statements; add `deleteDeadLettersForOrphanedEventsStmt`.
-- [ ] M2: Rewire the `HardDeleteStream` transaction in
+- [x] M2: Rewire the `HardDeleteStream` transaction in
       `kiroku-store/src/Kiroku/Store/Effect.hs` (junction deletes → dead-letter
       pre-delete → orphan-event delete → stream-row delete).
-- [ ] M2: Add the hard-delete-with-dead-letters regression test (fails before the
+- [x] M2: Add the hard-delete-with-dead-letters regression test (fails before the
       change with `ConnectionError`, passes after) and assert surviving linked
       events keep their dead letters.
-- [ ] M2: Capture before/after `EXPLAIN` evidence for the junction delete and the
+- [x] M2: Capture before/after `EXPLAIN` evidence for the junction delete and the
       dead-letters FK lookup; paste transcripts into Surprises & Discoveries.
 - [ ] M3: Write migration
       `2026-06-11-00-00-02-index-hygiene-and-streams-fillfactor.sql`
@@ -138,6 +138,43 @@ The codd test initially still saw only the two old embedded migrations until
 necessarily recompile when only a new file appears in the embedded directory.
 The migration assertion also needed `t.tgname::text` because `pg_trigger.tgname`
 has PostgreSQL type `name` (OID 19), not `text`.
+
+2026-06-14, M2 validation passed with:
+`cabal test kiroku-store:kiroku-store-test --test-show-details=direct --test-options='--match "hardDeleteStream"'`,
+`cabal test kiroku-store:kiroku-store-test --test-show-details=direct --test-options='--match "subscription dispositions"'`,
+and
+`cabal test kiroku-store-migrations:kiroku-store-migrations-test --test-show-details=direct`.
+The codd test reported four embedded migrations, including
+`2026-06-11-00-00-01-dead-letters-event-id-index.sql`.
+
+M2 EXPLAIN evidence, captured on a seeded dev database with 1,000 streams,
+20,000 events/junction pairs, and 5,000 dead letters:
+
+```text
+BEFORE old OR junction delete:
+  -> Seq Scan on stream_events
+     Filter: ((stream_id = ...) OR (original_stream_id = ...))
+
+AFTER originated $all rows delete:
+  -> Bitmap Index Scan on ix_stream_events_all_by_origin
+     Index Cond: (original_stream_id = ...)
+
+AFTER event-id junction delete:
+  -> Bitmap Index Scan on stream_events_pkey
+     Index Cond: (event_id = ANY (...))
+
+AFTER stream own junction delete:
+  -> Bitmap Index Scan on ix_stream_events_stream_version
+     Index Cond: (stream_id = ...)
+
+AFTER dead_letters event_id probe:
+  Index Only Scan using ix_dead_letters_event_id on dead_letters
+    Index Cond: (event_id = ...)
+```
+
+The EXPLAIN output also included `Seq Scan` nodes over temporary seed tables used
+only to choose one stream/event id for the probe; those are not part of the
+production statement shapes.
 
 
 ## Decision Log

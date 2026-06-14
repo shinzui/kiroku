@@ -937,6 +937,39 @@ main = withSharedMigratedPostgres $ hspec $ do
                 after <- countEvents store
                 (before - after) `shouldBe` 3
 
+            it "removes dead letters for orphaned events before deleting their payloads" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "dl-hard-source") NoStream [makeEvent "DeadLettered" (Aeson.object [])]
+                Right events <- runStoreIO store $ readStreamForward (StreamName "dl-hard-source") (StreamVersion 0) 10
+                let event = V.head events
+                    eid = event ^. #eventId
+                insertDeadLetterForEvent store "dl-hard-subscription" event
+                countDeadLettersForEvents store [eid] `shouldReturn` 1
+
+                Right mId <- runStoreIO store $ hardDeleteStream (StreamName "dl-hard-source")
+                mId `shouldSatisfy` (/= Nothing)
+                countDeadLettersForEvents store [eid] `shouldReturn` 0
+                Right remaining <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
+                V.filter (\recorded -> (recorded ^. #eventId) == eid) remaining `shouldBe` V.empty
+
+            it "keeps dead letters for linked-in events that survive a hard delete" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "dl-origin") NoStream [makeEvent "Survivor" (Aeson.object [])]
+                Right originEvents <- runStoreIO store $ readStreamForward (StreamName "dl-origin") (StreamVersion 0) 10
+                let event = V.head originEvents
+                    eid = event ^. #eventId
+                Right _ <- runStoreIO store $ linkToStream (StreamName "dl-link-target") [eid]
+                insertDeadLetterForEvent store "dl-survivor-subscription" event
+                countDeadLettersForEvents store [eid] `shouldReturn` 1
+
+                Right _ <- runStoreIO store $ hardDeleteStream (StreamName "dl-link-target")
+                countDeadLettersForEvents store [eid] `shouldReturn` 1
+                Right afterTargetDelete <- runStoreIO store $ readStreamForward (StreamName "dl-origin") (StreamVersion 0) 10
+                fmap (^. #eventId) (V.toList afterTargetDelete) `shouldBe` [eid]
+
+                Right _ <- runStoreIO store $ hardDeleteStream (StreamName "dl-origin")
+                countDeadLettersForEvents store [eid] `shouldReturn` 0
+                Right afterOriginDelete <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
+                V.filter (\recorded -> (recorded ^. #eventId) == eid) afterOriginDelete `shouldBe` V.empty
+
             -- F1 regression — events that are linked to other streams must survive
             -- hard-delete of their source stream's owner if any non-target junctions remain.
             it "preserves events still linked to non-target streams" $ \store -> do
