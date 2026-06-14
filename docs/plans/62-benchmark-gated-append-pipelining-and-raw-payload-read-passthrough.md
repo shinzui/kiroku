@@ -116,15 +116,23 @@ here, even if it requires splitting a partially completed task into two ("done" 
       2026-06-14 on the second run: all 23 tests passed in 159.20s; the refreshed
       `All.reliability-audit.appendMultiStream 3 existing streams` baseline is
       377894921 ps mean with 37405224 ps 2*Stdev.
-- [ ] M1: re-run the Haskell-side append profile (methodology step 1) and check the
+- [x] M1: re-run the Haskell-side append profile (methodology step 1) and check the
       ledger (step 2) for pipelining-adjacent rows; record findings in Surprises &
-      Discoveries.
-- [ ] M1: add the `pipelined-multi-append` benchmark-only spike cells to
+      Discoveries. Completed 2026-06-14: profiled
+      `All.reliability-audit.appendMultiStream 3 existing streams`, saved the
+      profile at
+      `docs/bench/append-hot-path/2026-06-14-append-multistream-profile.prof`,
+      and checked ledger rows for plans 23/24.
+- [x] M1: add the `pipelined-multi-append` benchmark-only spike cells to
       `kiroku-store/bench/Main.hs` (baseline N=4 cell, pipelined N=4 cell, N=8
-      pair, contention-probe pair).
-- [ ] M1: run the spike cells, capture CSV + transcripts under
+      pair, contention-probe pair). Completed 2026-06-14.
+- [x] M1: run the spike cells, capture CSV + transcripts under
       `docs/bench/append-hot-path/`, and decide promote vs. discard against the
       ≥20 % gate; append the ledger row in `docs/perf-experiment-log.md`.
+      Completed 2026-06-14: three focused runs passed; averages were 430.8 us →
+      334.8 us at N=4 (22.3 % faster), 669.7 us → 521.8 us at N=8 (22.1 %
+      faster), and 40.6 ms → 32.0 ms under the bounded contention probe (21.2 %
+      faster). M1 is promoted to M3 implementation.
 - [ ] M2: profile the `$all` read path with the GHC profiling harness to measure the
       Aeson decode share; record the share in Surprises & Discoveries and state the
       refined expected-impact sentence here before building the spike.
@@ -160,6 +168,25 @@ implementation. Provide concise evidence.
 `baseline.csv` was partial. The partial file was restored to the committed baseline
 before retrying. The second run completed all 23 cells successfully in 159.20s and
 rewrote `kiroku-store/bench/results/baseline.csv`.
+
+2026-06-14: The focused GHC profile for
+`All.reliability-audit.appendMultiStream 3 existing streams` did not isolate the
+append body well: total time was 11.13s / 4.66 GB allocated, but the top cost
+centres were setup/background machinery (`$fAlternativeSTM5` 45.8 %,
+`$wreadTQueue` 25.3 %, `$wopenat_` 5.7 %, `Hasql.Pool.use` 4.7 %).
+`buildAppendParams` registered 0.0 % time and 0.3 % allocation, so the
+profile-first evidence does not justify standalone parameter-building work.
+
+2026-06-14: Ledger check found the adjacent plan-23/24 evidence: adding extra
+round trips was slower, while a bare Hasql round trip was only about 13 us and
+the marginal second trivial round trip about 14 us. The M1 spike therefore targets
+round-trip collapse for N append statements, not SQL simplification.
+
+2026-06-14: The first contention-probe shape used forever-running background
+writers and canceled them after the measured single-stream loop. That was unsafe
+for the pipelined variant: canceling workers inside Hasql pipeline mode made the
+cell exit before producing a result. The committed spike uses bounded worker
+loops and waits for them instead.
 
 
 ## Decision Log
@@ -217,6 +244,14 @@ Record every decision made while working on the plan.
   cannot clear the methodology's profile-first bar (the checked-in profile shows
   encoding is a small share of append time).
   Date: 2026-06-10
+
+- Decision: Promote the M1 append pipelining spike to M3 implementation.
+  Rationale: Three focused runs of `pipelined-multi-append` cleared the pre-stated
+  ≥20 % gate at the primary N=4 shape and repeated the result at N=8 and in the
+  bounded contention probe. The average deltas were 22.3 %, 22.1 %, and 21.2 %
+  faster respectively, with CSVs and transcripts under
+  `docs/bench/append-hot-path/2026-06-14-pipelined-multi-append-run{1,2,3}.*`.
+  Date: 2026-06-14
 
 - Decision: The raw-bytes prototype targets the `$all` forward read
   (`readAllForwardStmt`) only, with the kiroku-metrics WebSocket event tail named

@@ -1,0 +1,7 @@
+Name,Mean (ps),2*Stdev (ps)
+All.pipelined-multi-append.current shape (4 streams),406346875,443188672
+All.pipelined-multi-append.pipelined (4 streams),328053125,425118448
+All.pipelined-multi-append.current shape (8 streams),658206250,840034836
+All.pipelined-multi-append.pipelined (8 streams),518537500,906362202
+All.pipelined-multi-append.single-stream under 4 current multi-stream writers,39063800000,27313123130
+All.pipelined-multi-append.single-stream under 4 pipelined multi-stream writers,31760800000,27125293420

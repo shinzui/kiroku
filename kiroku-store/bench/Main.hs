@@ -3,13 +3,18 @@
 
 module Main where
 
+import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (mapConcurrently_)
+import Control.Concurrent.Async qualified as Async
+import Control.Exception (finally)
 import Control.Lens ((^.))
+import Control.Monad (replicateM_)
 import Data.Aeson qualified as Aeson
 import Data.Functor.Contravariant ((>$<))
 import Data.Generics.Labels ()
 import Data.IORef
 import Data.Int (Int64)
+import Data.Maybe (isNothing)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, diffUTCTime, getCurrentTime)
@@ -20,12 +25,15 @@ import EphemeralPg qualified as Pg
 import GHC.Generics (Generic)
 import Hasql.Decoders qualified as D
 import Hasql.Encoders qualified as E
+import Hasql.Pipeline qualified as Pipeline
 import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
-import Hasql.Statement (Statement, preparable)
+import Hasql.Statement (Statement, preparable, unpreparable)
 import Hasql.Transaction qualified as Tx
 import Hasql.Transaction.Sessions qualified as TxSessions
 import Kiroku.Store
+import Kiroku.Store.Effect (buildAppendParams, prepareEvents)
+import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Test.Postgres (migrateTestDatabase)
 import Test.Tasty.Bench
 
@@ -98,6 +106,45 @@ rawProductionAppendAnyVersion =
         rawProductionAppendAnyVersionSQL
         rawProductionAppendParamsEncoder
         rawAppendResultDecoder
+
+beginStmt :: Statement () ()
+beginStmt = unpreparable "BEGIN" E.noParams D.noResult
+
+commitStmt :: Statement () ()
+commitStmt = unpreparable "COMMIT" E.noParams D.noResult
+
+rollbackStmt :: Statement () ()
+rollbackStmt = unpreparable "ROLLBACK" E.noParams D.noResult
+
+pipelinedMultiAppend4Streams :: [(StreamName, Text)]
+pipelinedMultiAppend4Streams =
+    namedBenchStreams "pipe4" 4
+
+pipelinedMultiAppend8Streams :: [(StreamName, Text)]
+pipelinedMultiAppend8Streams =
+    namedBenchStreams "pipe8" 8
+
+pipelinedContentionCurrentGroups :: [[(StreamName, Text)]]
+pipelinedContentionCurrentGroups =
+    namedBenchGroups "pipe-current-writer" 4 4
+
+pipelinedContentionPipelinedGroups :: [[(StreamName, Text)]]
+pipelinedContentionPipelinedGroups =
+    namedBenchGroups "pipe-pipelined-writer" 4 4
+
+namedBenchGroups :: Text -> Int -> Int -> [[(StreamName, Text)]]
+namedBenchGroups prefix groups streamsPerGroup =
+    [ namedBenchStreams (prefix <> "-" <> T.pack (show groupId)) streamsPerGroup
+    | groupId <- [1 .. groups]
+    ]
+
+namedBenchStreams :: Text -> Int -> [(StreamName, Text)]
+namedBenchStreams prefix count =
+    [ ( StreamName (prefix <> "-" <> T.pack (show i))
+      , prefix <> "-event-" <> T.pack (show i)
+      )
+    | i <- [1 .. count]
+    ]
 
 rawScalarAppendAnyVersionSQL :: Text
 rawScalarAppendAnyVersionSQL =
@@ -598,6 +645,58 @@ runAppendMultiStream store = do
                 ]
     forceAppendList r
 
+runCurrentMultiAppend :: KirokuStore -> [(StreamName, Text)] -> IO ()
+runCurrentMultiAppend store streams = do
+    r <-
+        runStoreIO store $
+            appendMultiStream
+                [ (sn, AnyVersion, [makeEvent typ])
+                | (sn, typ) <- streams
+                ]
+    forceAppendList r
+
+runPipelinedMultiAppend :: KirokuStore -> [(StreamName, Text)] -> IO ()
+runPipelinedMultiAppend store streams = do
+    now <- getCurrentTime
+    params <-
+        mapM
+            ( \(StreamName name, typ) -> do
+                prepared <- prepareEvents [makeEvent typ]
+                pure (buildAppendParams name now prepared)
+            )
+            streams
+    let names = V.fromList [name | (StreamName name, _) <- streams]
+    result <-
+        Pool.use (store ^. #pool) $ do
+            results <-
+                Session.pipeline $
+                    Pipeline.statement () beginStmt
+                        *> Pipeline.statement names SQL.lockStreamsForMultiStmt
+                        *> traverse (`Pipeline.statement` SQL.appendAnyVersion) params
+            Session.statement () $
+                if any isNothing results
+                    then rollbackStmt
+                    else commitStmt
+            pure results
+    forcePipelinedAppendList result
+
+runSingleAppendUnderMultiWriters ::
+    KirokuStore ->
+    IORef Int ->
+    (KirokuStore -> [(StreamName, Text)] -> IO ()) ->
+    Text ->
+    [[(StreamName, Text)]] ->
+    IO ()
+runSingleAppendUnderMultiWriters store runCounter multiAppendRunner prefix groups = do
+    runId <- atomicModifyIORef' runCounter (\m -> (m + 1, m))
+    workers <- mapM (Async.async . replicateM_ 20 . multiAppendRunner store) groups
+    let cleanup = mapM_ Async.cancel workers
+        appendMeasured i = do
+            let sn = StreamName (prefix <> "-single-" <> T.pack (show runId) <> "-" <> T.pack (show i))
+            r <- runStoreIO store $ appendToStream sn AnyVersion [makeEvent (prefix <> "-single")]
+            forceAppend r
+    (threadDelay 20_000 >> mapM_ appendMeasured [1 .. 10 :: Int] >> mapM_ Async.wait workers) `finally` cleanup
+
 -- | Exercise subscription catch-up over a compact category-local backlog.
 runSubscriptionCatchup :: KirokuStore -> IORef Int -> IO ()
 runSubscriptionCatchup store runCounter = do
@@ -641,6 +740,16 @@ forceAppend (Left e) = error ("Benchmark append failed: " <> show e)
 forceAppendList :: Either StoreError [AppendResult] -> IO ()
 forceAppendList (Right rs) = mapM_ (\r -> (r ^. #streamVersion) `seq` (r ^. #globalPosition) `seq` pure ()) rs
 forceAppendList (Left e) = error ("Benchmark appendMultiStream failed: " <> show e)
+
+forcePipelinedAppendList :: Either Pool.UsageError [Maybe AppendResult] -> IO ()
+forcePipelinedAppendList (Right rs) =
+    mapM_
+        ( \mResult -> case mResult of
+            Just r -> (r ^. #streamVersion) `seq` (r ^. #globalPosition) `seq` pure ()
+            Nothing -> error "Pipelined appendMultiStream benchmark produced no result"
+        )
+        rs
+forcePipelinedAppendList (Left e) = error ("Pipelined appendMultiStream benchmark failed: " <> show e)
 
 -- | Force evaluation of a raw append shape result or fail the benchmark.
 forceRawAppend :: Either Pool.UsageError (Maybe RawAppendResult) -> IO ()
@@ -711,7 +820,12 @@ main = do
                     r' <- runStoreIO store $ appendToStream sn NoStream [makeEvent "Init"]
                     forceAppend r'
                 )
-                [StreamName "bench-multi-a", StreamName "bench-multi-b", StreamName "bench-multi-c"]
+                ( [StreamName "bench-multi-a", StreamName "bench-multi-b", StreamName "bench-multi-c"]
+                    <> map fst pipelinedMultiAppend4Streams
+                    <> map fst pipelinedMultiAppend8Streams
+                    <> map fst (concat pipelinedContentionCurrentGroups)
+                    <> map fst (concat pipelinedContentionPipelinedGroups)
+                )
 
             -- Pre-create the hot stream targeted by the two-round-trip raw
             -- shape variant. rawAppendUpdateExisting requires the row to
@@ -759,6 +873,7 @@ main = do
             concCounter <- newIORef (0 :: Int)
             rawCounter <- newIORef (0 :: Int)
             subCounter <- newIORef (0 :: Int)
+            pipelinedContentionCounter <- newIORef (0 :: Int)
 
             defaultMain
                 [ bgroup
@@ -835,6 +950,37 @@ main = do
                             whnfIO $
                                 runRawTwoRoundtripAppendExistingHotStreamTx store
                         ]
+                    ]
+                , bgroup
+                    "pipelined-multi-append"
+                    [ bench "current shape (4 streams)" $
+                        whnfIO $
+                            runCurrentMultiAppend store pipelinedMultiAppend4Streams
+                    , bench "pipelined (4 streams)" $
+                        whnfIO $
+                            runPipelinedMultiAppend store pipelinedMultiAppend4Streams
+                    , bench "current shape (8 streams)" $
+                        whnfIO $
+                            runCurrentMultiAppend store pipelinedMultiAppend8Streams
+                    , bench "pipelined (8 streams)" $
+                        whnfIO $
+                            runPipelinedMultiAppend store pipelinedMultiAppend8Streams
+                    , bench "single-stream under 4 current multi-stream writers" $
+                        whnfIO $
+                            runSingleAppendUnderMultiWriters
+                                store
+                                pipelinedContentionCounter
+                                runCurrentMultiAppend
+                                "pipe-current"
+                                pipelinedContentionCurrentGroups
+                    , bench "single-stream under 4 pipelined multi-stream writers" $
+                        whnfIO $
+                            runSingleAppendUnderMultiWriters
+                                store
+                                pipelinedContentionCounter
+                                runPipelinedMultiAppend
+                                "pipe-pipelined"
+                                pipelinedContentionPipelinedGroups
                     ]
                 , bgroup
                     "read"
