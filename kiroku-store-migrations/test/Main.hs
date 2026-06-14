@@ -1,3 +1,5 @@
+{-# LANGUAGE MultilineStrings #-}
+
 module Main where
 
 import Codd (ApplyResult (SchemasNotVerified), CoddSettings (..))
@@ -39,6 +41,7 @@ main =
                     assertSchemaPlacement connStr
                     assertDeadLettersTable connStr
                     assertDefaultUuidV7 connStr
+                    assertStreamTriggers connStr
 
                     withStore
                         (defaultConnectionSettings connStr)
@@ -59,6 +62,7 @@ main =
                     secondMigration `shouldBeSchemasNotVerified` "second migration run"
                     assertBootstrapApplied connStr
                     assertDefaultUuidV7 connStr
+                    assertStreamTriggers connStr
                 case result of
                     Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
                     Right () -> pure ()
@@ -227,3 +231,38 @@ serverVersionStmt =
         "SELECT current_setting('server_version_num')"
         E.noParams
         (D.singleRow (D.column (D.nonNullable D.text)))
+
+assertStreamTriggers :: Text -> IO ()
+assertStreamTriggers connStr = do
+    pool <- Pool.acquire poolConfig
+    result <- Pool.use pool (Session.statement () streamTriggersStmt)
+    Pool.release pool
+    case result of
+        Left err -> expectationFailure ("stream trigger verification query failed: " <> show err)
+        Right triggers ->
+            triggers
+                `shouldBe` [ "no_delete_streams"
+                           , "no_truncate_streams"
+                           , "stream_events_notify_insert"
+                           , "stream_events_notify_update"
+                           ]
+  where
+    poolConfig =
+        Pool.Config.settings
+            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
+            , Pool.Config.size 1
+            ]
+
+streamTriggersStmt :: Statement () [Text]
+streamTriggersStmt =
+    preparable
+        """
+        SELECT t.tgname::text
+        FROM pg_trigger t
+        JOIN pg_class c ON c.oid = t.tgrelid
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'kiroku' AND c.relname = 'streams' AND NOT t.tgisinternal
+        ORDER BY t.tgname
+        """
+        E.noParams
+        (D.rowList (D.column (D.nonNullable D.text)))

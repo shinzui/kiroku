@@ -87,7 +87,7 @@ Haskell.
 | 2 | Harden shibuya adapter ack contract and overflow policy | docs/plans/57-harden-shibuya-adapter-ack-contract-and-overflow-policy.md | EP-1 | None | Complete |
 | 3 | Stop publisher fan-out work for category and consumer-group subscribers | docs/plans/58-stop-publisher-fan-out-work-for-category-and-consumer-group-subscribers.md | None | EP-1 | Complete |
 | 4 | Fix backward read pagination and append edge-case errors | docs/plans/59-fix-backward-read-pagination-and-append-edge-case-errors.md | None | None | Complete |
-| 5 | Schema and trigger hygiene: NOTIFY guard, dead-letter FK policy, and index fixes | docs/plans/60-schema-and-trigger-hygiene-notify-guard-dead-letter-fk-policy-and-index-fixes.md | None | None | Not Started |
+| 5 | Schema and trigger hygiene: NOTIFY guard, dead-letter FK policy, and index fixes | docs/plans/60-schema-and-trigger-hygiene-notify-guard-dead-letter-fk-policy-and-index-fixes.md | None | None | In Progress |
 | 6 | Fix WebSocket event tail replay duplication and gap handling | docs/plans/61-fix-websocket-event-tail-replay-duplication-and-gap-handling.md | None | None | Not Started |
 | 7 | Benchmark-gated append pipelining and raw-payload read passthrough | docs/plans/62-benchmark-gated-append-pipelining-and-raw-payload-read-passthrough.md | None | EP-4, EP-5 | Not Started |
 
@@ -187,7 +187,7 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 - [x] EP-4: Empty-batch appends are rejected before touching the pool
 - [x] EP-4: Link errors and single-stream deadlocks map to typed errors / are retried
 - [x] EP-4: Round-trip economies (short-page stream stop; empty lookup short-circuit)
-- [ ] EP-5: NOTIFY trigger fires once per append; lifecycle updates fire nothing
+- [x] EP-5: NOTIFY trigger fires once per append; lifecycle updates fire nothing
 - [ ] EP-5: Dead-letter FK policy decided and enforced; `dead_letters(event_id)` indexed
 - [ ] EP-5: Junction-delete path has index support; index hygiene applied
 - [ ] EP-5: Stream-name length bound enforced (closes the NOTIFY payload abort edge)

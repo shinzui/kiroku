@@ -16,7 +16,9 @@ import Data.Text.Encoding qualified as TE
 import Data.Time (DiffTime)
 import Streaming.Prelude qualified as Streaming
 
--- | Kiroku's embedded SQL migrations, ordered by timestamped filename.
+{- | Kiroku's embedded SQL migrations, embedded from @sql-migrations@ and
+ordered by timestamped filename.
+-}
 kirokuMigrations :: (MonadFail m, EnvVars m) => m [AddedSqlMigration m]
 kirokuMigrations =
     traverse parseEmbeddedMigration embeddedMigrationFiles

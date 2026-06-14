@@ -4,6 +4,7 @@ slug: schema-and-trigger-hygiene-notify-guard-dead-letter-fk-policy-and-index-fi
 title: "Schema and trigger hygiene: NOTIFY guard, dead-letter FK policy, and index fixes"
 kind: exec-plan
 created_at: 2026-06-11T04:32:45Z
+intention: intention_01kv3qaxg9e91v0zq47stehnkz
 master_plan: "docs/masterplans/9-audit-remediation-subscription-reliability-and-store-correctness-and-performance.md"
 ---
 
@@ -76,14 +77,14 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 here, even if it requires splitting a partially completed task into two ("done" vs.
 "remaining"). This section must always reflect the actual current state of the work.
 
-- [ ] M1: Write migration `2026-06-11-00-00-00-notify-trigger-append-guard.sql`
+- [x] M1: Write migration `2026-06-11-00-00-00-notify-trigger-append-guard.sql`
       (drop the unconditional `stream_events_notify` trigger; create guarded
       INSERT and UPDATE triggers).
-- [ ] M1: Add `Test.NotifyGuard` to the `kiroku-store` test suite (LISTEN-based
+- [x] M1: Add `Test.NotifyGuard` to the `kiroku-store` test suite (LISTEN-based
       notification counting: 1 per append, 0 for soft-delete/undelete, payload
       shape unchanged) and add `hasql-notifications` to the test-suite
       `build-depends`.
-- [ ] M1: Extend `kiroku-store-migrations/test/Main.hs` to assert the trigger set
+- [x] M1: Extend `kiroku-store-migrations/test/Main.hs` to assert the trigger set
       on `kiroku.streams` after codd applies migrations.
 - [ ] M2: Write migration `2026-06-11-00-00-01-dead-letters-event-id-index.sql`
       (index on `kiroku.dead_letters (event_id)`).
@@ -128,8 +129,15 @@ here, even if it requires splitting a partially completed task into two ("done" 
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet. The implementer should paste the before/after `EXPLAIN` transcripts for
-milestone 2 here, since they are evidence of the fix, not part of the recipe.)
+2026-06-14, M1 validation passed with:
+`cabal test kiroku-store:kiroku-store-test --test-show-details=direct --test-options='--match "NOTIFY trigger guard"'`
+and
+`cabal test kiroku-store-migrations:kiroku-store-migrations-test --test-show-details=direct`.
+The codd test initially still saw only the two old embedded migrations until
+`Kiroku.Store.Migrations` was rebuilt; the Template Haskell `embedDir` does not
+necessarily recompile when only a new file appears in the embedded directory.
+The migration assertion also needed `t.tgname::text` because `pg_trigger.tgname`
+has PostgreSQL type `name` (OID 19), not `text`.
 
 
 ## Decision Log
