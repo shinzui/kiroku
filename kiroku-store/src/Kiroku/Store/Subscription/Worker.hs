@@ -18,12 +18,14 @@ and the bounded-retry \/ dead-letter disposition mechanics) is concentrated in
 the single delivery primitive shared by every live path, so behaviour is
 identical for @AllStreams@, @Category@, and consumer-group subscriptions.
 
-'withFetchBatchHookForTest' is a test-only seam for injecting fetch failures.
+'withFetchBatchHookForTest' and 'withLoadCheckpointHookForTest' are test-only
+seams for injecting fetch and checkpoint-load failures.
 -}
 module Kiroku.Store.Subscription.Worker (
     runWorker,
     configMember,
     withFetchBatchHookForTest,
+    withLoadCheckpointHookForTest,
 ) where
 
 import Contravariant.Extras (contrazip2)
@@ -81,9 +83,17 @@ type FetchBatchHook =
     GlobalPosition ->
     IO (Maybe (Either Pool.UsageError (Vector RecordedEvent)))
 
+type LoadCheckpointHook =
+    SubscriptionConfig ->
+    IO (Maybe (Either Pool.UsageError (Maybe Int64)))
+
 {-# NOINLINE fetchBatchHookRef #-}
 fetchBatchHookRef :: IORef (Maybe FetchBatchHook)
 fetchBatchHookRef = unsafePerformIO (newIORef Nothing)
+
+{-# NOINLINE loadCheckpointHookRef #-}
+loadCheckpointHookRef :: IORef (Maybe LoadCheckpointHook)
+loadCheckpointHookRef = unsafePerformIO (newIORef Nothing)
 
 {- | Install a process-local fetch hook for tests that need deterministic
 subscription-worker fault injection. Production code leaves the hook unset.
@@ -97,6 +107,21 @@ withFetchBatchHookForTest hook action =
             pure previous
         )
         (writeIORef fetchBatchHookRef)
+        (const action)
+
+{- | Install a process-local checkpoint-load hook for tests that need
+deterministic subscription-startup fault injection. Production code leaves the
+hook unset.
+-}
+withLoadCheckpointHookForTest :: LoadCheckpointHook -> IO a -> IO a
+withLoadCheckpointHookForTest hook action =
+    bracket
+        ( do
+            previous <- readIORef loadCheckpointHookRef
+            writeIORef loadCheckpointHookRef (Just hook)
+            pure previous
+        )
+        (writeIORef loadCheckpointHookRef)
         (const action)
 
 fetchRetryDelayMicros :: Int -> Int
@@ -383,10 +408,9 @@ classifyStopReason e
 configMember :: SubscriptionConfig -> Int32
 configMember config = maybe 0 member (consumerGroup config)
 
--- Load the checkpoint from the database, defaulting to 0.
--- Surfaces a database error through the event handler before falling
--- back to the safe default; without the event the operator has no signal
--- that a transient pool error caused a silent re-process from position 0.
+-- Load the checkpoint from the database, defaulting to 0 only when no checkpoint
+-- row exists. A database error is emitted and rethrown so startup fails loudly
+-- instead of silently re-processing from position 0.
 -- Keyed by (subscription_name, member) so each group member resumes from its
 -- own saved position.
 loadCheckpoint ::
@@ -397,11 +421,15 @@ loadCheckpoint ::
 loadCheckpoint pool config emit = do
     let subName@(SubscriptionName name') = name config
         mem = configMember config
-    result <- Pool.use pool (Session.statement (name', mem) SQL.getCheckpointMemberStmt)
+    mHook <- readIORef loadCheckpointHookRef
+    injected <- maybe (pure Nothing) (\hook -> hook config) mHook
+    result <- case injected of
+        Just hooked -> pure hooked
+        Nothing -> Pool.use pool (Session.statement (name', mem) SQL.getCheckpointMemberStmt)
     case result of
         Left err -> do
             emit (KirokuEventSubscriptionDbError subName LoadCheckpoint err (groupCtxOf config))
-            pure (GlobalPosition 0)
+            throwIO err
         Right Nothing -> pure (GlobalPosition 0)
         Right (Just pos) -> pure (GlobalPosition pos)
 

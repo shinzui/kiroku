@@ -42,6 +42,7 @@ import Test.Properties qualified as Properties
 import Test.PublisherCallbackResilience qualified as PublisherCallbackResilience
 import Test.PublisherRestartNoRebroadcast qualified as PublisherRestartNoRebroadcast
 import Test.ReadStream qualified as ReadStream
+import Test.StartupFailureSurfacing qualified as StartupFailureSurfacing
 import Test.StreamBridgeTermination qualified as StreamBridgeTermination
 import Test.StreamNameLookup qualified as StreamNameLookup
 import Test.SubscriptionPauseResume qualified as SubscriptionPauseResume
@@ -72,6 +73,7 @@ main = withSharedMigratedPostgres $ hspec $ do
     CatchupDbErrorNoPrematureSwitch.spec
     SubscriptionPauseResume.spec
     SubscriptionReconnect.spec
+    StartupFailureSurfacing.spec
     SubscriptionState.spec
     SubscriptionRegistry.spec
     SubscriptionRetryDeadLetter.spec

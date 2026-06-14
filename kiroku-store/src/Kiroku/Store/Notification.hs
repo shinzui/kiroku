@@ -9,7 +9,7 @@ import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (Async)
 import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.STM (TChan, TVar, atomically, modifyTVar', newBroadcastTChanIO, newTVarIO, readTVarIO, writeTChan, writeTVar)
-import Control.Exception (Exception, SomeException, asyncExceptionFromException, bracketOnError, catch, throwIO, toException)
+import Control.Exception (Exception, SomeAsyncException, SomeException, asyncExceptionFromException, bracketOnError, catch, throwIO, toException)
 import Control.Monad (void)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.ByteString (ByteString)
@@ -61,15 +61,15 @@ data Notifier = Notifier
     -}
     }
 
-{- | Raised by 'startNotifier' when the initial dedicated @LISTEN@
-connection cannot be acquired. Carries @hasql@'s underlying
-'Connection.ConnectionError' (often a TCP-level failure or an
-authentication error) for diagnostics.
+{- | Raised by 'startNotifier' when the initial dedicated @LISTEN@ setup fails.
 
-Replaces the prior @IOException@-via-@fail@ shape so callers can pattern
-match on a typed startup exception.
+Connection-acquire failures carry @hasql@'s underlying
+'Connection.ConnectionError'. LISTEN failures carry the exception thrown after
+the connection was acquired; that connection has already been released.
 -}
-newtype NotifierStartError = NotifierStartError ConnectionError
+data NotifierStartError
+    = NotifierConnectError !ConnectionError
+    | NotifierListenError !SomeException
     deriving stock (Show)
     deriving anyclass (Exception)
 
@@ -108,7 +108,7 @@ reconnect.
 
 On 'Async.AsyncCancelled' (from cancellation), exits cleanly.
 
-Initial-acquire failure raises 'NotifierStartError'.
+Initial acquire or LISTEN failure raises 'NotifierStartError'.
 -}
 startNotifier ::
     (MonadIO m) =>
@@ -122,18 +122,22 @@ startNotifier ::
 startNotifier connString schema mHandler = liftIO $ do
     chan <- newBroadcastTChanIO
     catGenVar <- newTVarIO Map.empty
-    conn <- acquireOrThrow connString
     let channel = toPgIdentifier (schema <> ".events")
-    Notifications.listen conn channel
-    connRef <- newTVarIO conn
-    thread <- Async.async (listenerLoop chan catGenVar connRef channel connString mHandler)
-    pure
-        Notifier
-            { tickChan = chan
-            , listenerThread = thread
-            , listenerConnRef = connRef
-            , categoryGenerations = catGenVar
-            }
+    bracketOnError (acquireOrThrow connString) Connection.release $ \conn -> do
+        Notifications.listen conn channel
+            `catch` \(e :: SomeException) ->
+                case asyncExceptionFromException e of
+                    Just (ae :: SomeAsyncException) -> throwIO ae
+                    Nothing -> throwIO (NotifierListenError e)
+        connRef <- newTVarIO conn
+        thread <- Async.async (listenerLoop chan catGenVar connRef channel connString mHandler)
+        pure
+            Notifier
+                { tickChan = chan
+                , listenerThread = thread
+                , listenerConnRef = connRef
+                , categoryGenerations = catGenVar
+                }
 
 {- | Stop the Notifier. Cancels the listener thread, waits for it to
 finish, and releases whichever connection the loop is currently holding.
@@ -247,14 +251,13 @@ data ListenerWaitReturned = ListenerWaitReturned
     deriving anyclass (Exception)
 
 -- Internal: acquire a connection, set its application_name, or throw on failure.
--- Throws 'NotifierStartError' (which derives 'Exception') instead of the
--- prior @fail@-based 'IOException', so callers can match on a typed startup
--- exception.
+-- Throws 'NotifierStartError' (which derives 'Exception') for connection
+-- acquisition failures, so callers can match on a typed startup exception.
 acquireOrThrow :: Text -> IO Connection
 acquireOrThrow connStr = do
     result <- Connection.acquire (Conn.connectionString connStr)
     case result of
-        Left err -> throwIO (NotifierStartError err)
+        Left err -> throwIO (NotifierConnectError err)
         Right conn -> do
             -- Tag the connection so operators can identify the listener in
             -- pg_stat_activity. Failures here are non-fatal — fall back to the

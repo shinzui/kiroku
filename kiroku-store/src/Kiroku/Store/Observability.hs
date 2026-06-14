@@ -88,19 +88,18 @@ data KirokuEvent
       -}
       KirokuEventPublisherLoopError !SomeException
     | {- | A subscription's worker thread encountered a 'UsageError' in
-      the database phase identified by 'SubscriptionDbPhase'. The
-      worker may continue with a documented fallback for checkpoint
-      load/save phases, while fetch-batch errors are retried at the same
-      cursor. The event is the operator's structured signal that this
-      happened. The trailing 'SubscriptionGroupContext' identifies which
-      consumer-group member (if any) emitted it.
+      the database phase identified by 'SubscriptionDbPhase'. Checkpoint-load
+      errors fail startup loudly, fetch-batch errors are retried at the same
+      cursor, and checkpoint-save errors are reported while the worker continues.
+      The event is the operator's structured signal that this happened. The
+      trailing 'SubscriptionGroupContext' identifies which consumer-group member
+      (if any) emitted it.
       -}
       KirokuEventSubscriptionDbError !SubscriptionName !SubscriptionDbPhase !UsageError !SubscriptionGroupContext
     | {- | A subscription's worker thread has just started; the worker
-      will begin from the recorded 'GlobalPosition' (zero if no
-      checkpoint exists or 'KirokuEventSubscriptionDbError' fired in
-      the @LoadCheckpoint@ phase). The trailing 'SubscriptionGroupContext'
-      identifies which consumer-group member (if any) started.
+      will begin from the recorded 'GlobalPosition' (zero only when no
+      checkpoint exists). The trailing 'SubscriptionGroupContext' identifies
+      which consumer-group member (if any) started.
       -}
       KirokuEventSubscriptionStarted !SubscriptionName !GlobalPosition !SubscriptionGroupContext
     | {- | The subscription has reached the EventPublisher's
@@ -216,10 +215,9 @@ emitOrDrop mHandler evt =
 -- | Which database phase a 'KirokuEventSubscriptionDbError' fired in.
 data SubscriptionDbPhase
     = {- | 'Kiroku.Store.Subscription.Worker' failed to read the saved
-      checkpoint at subscription startup. The worker continues with
-      'Kiroku.Store.Types.GlobalPosition' @0@; on a fresh subscription
-      this is correct, on an existing subscription it silently
-      re-processes events.
+      checkpoint at subscription startup. The worker fails startup loudly
+      instead of silently re-processing from 'Kiroku.Store.Types.GlobalPosition'
+      @0@.
       -}
       LoadCheckpoint
     | {- | The worker's catch-up or category-live database fetch

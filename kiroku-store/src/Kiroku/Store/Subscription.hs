@@ -13,7 +13,7 @@ module Kiroku.Store.Subscription (
 
 import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.STM (atomically, modifyTVar', newTVarIO, readTVarIO)
-import Control.Exception (bracket, finally, throwIO)
+import Control.Exception (bracket, bracketOnError, finally, mask, throwIO)
 import Control.Lens ((^.))
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -39,7 +39,8 @@ import Kiroku.Store.Types (GlobalPosition (..))
 The subscription spawns a worker thread that:
 
 1. Reads the checkpoint from the database (or starts from global position 0
-   for a fresh subscription name).
+   for a fresh subscription name). A database error while loading the checkpoint
+   fails the worker loudly through 'wait'; it does not fall back to 0.
 2. Catches up by querying the database directly until it reaches the
    'Kiroku.Store.Subscription.EventPublisher.lastPublished' cursor.
 3. Switches to live mode. For 'Kiroku.Store.Subscription.Types.AllStreams'
@@ -97,6 +98,9 @@ returned handle resolves with one of:
   slow handler and either fix the slowness, raise 'queueCapacity', or
   switch to 'Kiroku.Store.Subscription.Types.DropOldest' if the consumer
   can tolerate event loss.
+* @Left e@ where @e@ is a 'Hasql.Pool.UsageError' from checkpoint load —
+  startup could not read the saved checkpoint. The worker stops rather than
+  silently replaying from global position 0.
 * @Left e@ for any exception thrown by the handler — handler exceptions
   are not caught; the worker thread dies and the original exception
   propagates to the consumer. This is intentional: a handler that
@@ -110,65 +114,75 @@ subscribe store config = liftIO $ do
     for_ (consumerGroup config) $ \(ConsumerGroup m n) ->
         when (n < 1 || m < 0 || m >= n) $
             throwIO (InvalidConsumerGroup m n)
-    (queue, statusVar, unsubscribe) <-
-        atomically $
-            Pub.subscribePublisher
-                (store ^. #publisher)
-                (queueCapacity config)
-                (overflowPolicy config)
-    -- The worker writes its current FSM state here on every transition; the
-    -- handle's 'currentState' reads it. Seeded with the catch-up entry state so
-    -- a read before the worker's first transition is sensible.
-    stateVar <- newTVarIO (CatchingUp (GlobalPosition 0) 0)
-    let pubPosVar = Pub.lastPublished (store ^. #publisher)
-        catGenVar = Notifier.categoryGenerations (store ^. #notifier)
-    -- Register this worker's state cell into the store's central registry under
-    -- (name, member). A fresh token identifies *this* worker so that an older
-    -- worker's cleanup cannot delete a newer worker's replacement entry under
-    -- the same key, and a held handle reads only the cell it registered.
-    token <- newUnique
-    let reg = store ^. #subscriptionRegistry
-        key = (name config, configMember config)
-        -- `finally unsubscribe` removes this subscription from the publisher's
-        -- registry whenever the worker exits — gracefully on Stop, by
-        -- cancellation, or on any exception (including SubscriptionOverflowed).
-        -- Forgetting to unsubscribe would leave a registry entry with no
-        -- reader, and the publisher would needlessly trigger this subscriber's
-        -- overflow policy on the next batch. We extend the same `finally` to
-        -- also deregister from the subscription-state registry on ANY exit, so
-        -- the registry never leaks a stale entry. The delete is
-        -- token-conditional so stale cleanup from an older duplicate-key worker
-        -- cannot remove a newer worker's live entry.
-        cleanup =
-            unsubscribe
-                >> atomically
-                    ( modifyTVar' reg $
-                        Map.update
-                            ( \(tok', cell) ->
-                                if tok' == token
-                                    then Nothing
-                                    else Just (tok', cell)
-                            )
-                            key
-                    )
-    -- Insert before forking so a caller that reads a snapshot immediately after
-    -- `subscribe` returns already sees this subscription.
-    atomically $ modifyTVar' reg (Map.insert key (token, stateVar))
-    thread <-
-        Async.async
-            ( runWorker (store ^. #pool) queue statusVar stateVar pubPosVar catGenVar config (store ^. #eventHandler) (store ^. #storeSettings)
-                `finally` cleanup
+    mask $ \_restore ->
+        bracketOnError
+            ( atomically $
+                Pub.subscribePublisher
+                    (store ^. #publisher)
+                    (queueCapacity config)
+                    (overflowPolicy config)
             )
-    pure
-        SubscriptionHandle
-            { cancel = Async.cancel thread
-            , wait = Async.waitCatch thread
-            , currentState = do
-                m <- readTVarIO reg
-                case Map.lookup key m of
-                    Just (tok, cell) | tok == token -> Just <$> readTVarIO cell
-                    _ -> pure Nothing
-            }
+            (\(_, _, unsubscribe) -> unsubscribe)
+            $ \(queue, statusVar, unsubscribe) -> do
+                -- The worker writes its current FSM state here on every transition; the
+                -- handle's 'currentState' reads it. Seeded with the catch-up entry state so
+                -- a read before the worker's first transition is sensible.
+                stateVar <- newTVarIO (CatchingUp (GlobalPosition 0) 0)
+                let pubPosVar = Pub.lastPublished (store ^. #publisher)
+                    catGenVar = Notifier.categoryGenerations (store ^. #notifier)
+                -- Register this worker's state cell into the store's central registry under
+                -- (name, member). A fresh token identifies *this* worker so that an older
+                -- worker's cleanup cannot delete a newer worker's replacement entry under
+                -- the same key, and a held handle reads only the cell it registered.
+                token <- newUnique
+                let reg = store ^. #subscriptionRegistry
+                    key = (name config, configMember config)
+                    deregister =
+                        atomically
+                            ( modifyTVar' reg $
+                                Map.update
+                                    ( \(tok', cell) ->
+                                        if tok' == token
+                                            then Nothing
+                                            else Just (tok', cell)
+                                    )
+                                    key
+                            )
+                    -- `finally cleanup` removes this subscription from the publisher's
+                    -- registry whenever the worker exits — gracefully on Stop, by
+                    -- cancellation, or on any exception (including SubscriptionOverflowed).
+                    -- Forgetting to unsubscribe would leave a registry entry with no
+                    -- reader, and the publisher would needlessly trigger this subscriber's
+                    -- overflow policy on the next batch. We extend the same `finally` to
+                    -- also deregister from the subscription-state registry on ANY exit, so
+                    -- the registry never leaks a stale entry. The delete is
+                    -- token-conditional so stale cleanup from an older duplicate-key worker
+                    -- cannot remove a newer worker's live entry.
+                    cleanup = unsubscribe >> deregister
+                -- Insert before forking so a caller that reads a snapshot immediately after
+                -- `subscribe` returns already sees this subscription.
+                bracketOnError
+                    (atomically $ modifyTVar' reg (Map.insert key (token, stateVar)))
+                    (const deregister)
+                    $ \() -> do
+                        -- Every acquisition above is paired with a release in the
+                        -- pre-fork window; once asyncWithUnmask returns, ownership of
+                        -- both releases has transferred to the worker thread's cleanup.
+                        thread <-
+                            Async.asyncWithUnmask $ \unmask ->
+                                unmask
+                                    (runWorker (store ^. #pool) queue statusVar stateVar pubPosVar catGenVar config (store ^. #eventHandler) (store ^. #storeSettings))
+                                    `finally` cleanup
+                        pure
+                            SubscriptionHandle
+                                { cancel = Async.cancel thread
+                                , wait = Async.waitCatch thread
+                                , currentState = do
+                                    m <- readTVarIO reg
+                                    case Map.lookup key m of
+                                        Just (tok, cell) | tok == token -> Just <$> readTVarIO cell
+                                        _ -> pure Nothing
+                                }
 
 {- | Bracket-style subscription lifecycle.
 

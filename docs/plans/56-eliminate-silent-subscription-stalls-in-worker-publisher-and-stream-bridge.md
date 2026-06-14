@@ -77,10 +77,10 @@ This section must always reflect the actual current state of the work.
 - [x] M2: Route all `eventHandler` invocations in the publisher, the worker (`kiroku-store/src/Kiroku/Store/Subscription/Worker.hs`), and the notifier (`kiroku-store/src/Kiroku/Store/Notification.hs`) through `emitOrDrop`. Completed 2026-06-14.
 - [x] M2: Reorder `startPublisher` to `dupTChan` the notifier channel **before** reading the tail position. Completed 2026-06-14.
 - [x] M2: Add `kiroku-store/test/Test/PublisherCallbackResilience.hs` (throwing `decodeHook` does not kill the publisher; throwing `eventHandler` kills neither publisher nor worker) and register it. Completed 2026-06-14; focused suite passed with 2 examples, 0 failures.
-- [ ] M3: Restructure `subscribe` in `kiroku-store/src/Kiroku/Store/Subscription.hs` with `mask` + nested `bracketOnError` + `Async.asyncWithUnmask` so publisher registration and registry insertion are released on every exit path.
-- [ ] M3: Make `loadCheckpoint` in `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs` throw on `Left err` (fresh subscription `Right Nothing` still starts at 0); add the `withLoadCheckpointHookForTest` seam; update the affected Haddocks in `Worker.hs`, `Subscription.hs`, and `Observability.hs`.
-- [ ] M3: Bracket `startNotifier`'s acquire/listen/spawn window with `bracketOnError` and widen `NotifierStartError` to also carry LISTEN failures (`kiroku-store/src/Kiroku/Store/Notification.hs`).
-- [ ] M3: Add M3 tests (checkpoint-load failure surfaces via `wait`; subscribe/cancel storm leaves no leaked registrations) and register them.
+- [x] M3: Restructure `subscribe` in `kiroku-store/src/Kiroku/Store/Subscription.hs` with `mask` + nested `bracketOnError` + `Async.asyncWithUnmask` so publisher registration and registry insertion are released on every exit path. Completed 2026-06-14.
+- [x] M3: Make `loadCheckpoint` in `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs` throw on `Left err` (fresh subscription `Right Nothing` still starts at 0); add the `withLoadCheckpointHookForTest` seam; update the affected Haddocks in `Worker.hs`, `Subscription.hs`, and `Observability.hs`. Completed 2026-06-14.
+- [x] M3: Bracket `startNotifier`'s acquire/listen/spawn window with `bracketOnError` and widen `NotifierStartError` to also carry LISTEN failures (`kiroku-store/src/Kiroku/Store/Notification.hs`). Completed 2026-06-14; accepted structurally and covered by existing notifier tests in full-suite validation.
+- [x] M3: Add M3 tests (checkpoint-load failure surfaces via `wait`; subscribe/cancel storm leaves no leaked registrations) and register them. Completed 2026-06-14; focused suite passed with 2 examples, 0 failures.
 - [ ] M4: Fix the retry-budget off-by-one Haddocks in `kiroku-store/src/Kiroku/Store/Subscription/Types.hs` and the `DeadLetterMaxAttempts` doc in `kiroku-store/src/Kiroku/Store/Subscription/Fsm.hs`.
 - [ ] M4: Full-suite validation (`cabal build all`, `cabal test all`), record the final bridge termination contract in Outcomes & Retrospective for EP-2, and update the MasterPlan 9 registry/progress.
 
@@ -256,6 +256,28 @@ The full store suite passed after M2:
 ```text
 cabal test kiroku-store:kiroku-store-test --test-show-details=direct
 194 examples, 0 failures
+```
+
+2026-06-14, M3 completed. `subscribe` now masks its pre-fork acquisition window and
+pairs publisher registration and subscription-registry insertion with nested
+`bracketOnError` releases; the worker thread is spawned with `Async.asyncWithUnmask`
+so ownership transfers to its `finally cleanup` only after the fork succeeds.
+`loadCheckpoint` now emits the existing `KirokuEventSubscriptionDbError` and rethrows
+the `UsageError` instead of falling back to position 0, with a
+`withLoadCheckpointHookForTest` seam for deterministic tests. `startNotifier` now
+brackets connection acquisition through LISTEN and widens `NotifierStartError` to
+distinguish connect and LISTEN failures. Focused validation passed:
+
+```text
+cabal test kiroku-store:kiroku-store-test --test-show-details=direct --test-options='--match "startup failure surfacing"'
+2 examples, 0 failures
+```
+
+The full store suite passed after M3:
+
+```text
+cabal test kiroku-store:kiroku-store-test --test-show-details=direct
+196 examples, 0 failures
 ```
 
 

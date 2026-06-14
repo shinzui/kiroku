@@ -174,8 +174,8 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 
 - [x] EP-1: Bridge streams terminate with the worker's outcome (sentinel on every exit path; non-blocking cancel)
 - [x] EP-1: Publisher loop survives user-callback exceptions and surfaces liveness
-- [ ] EP-1: `subscribe` pre-fork window is async-exception safe; checkpoint-load failure no longer silently replays from 0
-- [ ] EP-1: Notifier startup releases the connection when LISTEN fails
+- [x] EP-1: `subscribe` pre-fork window is async-exception safe; checkpoint-load failure no longer silently replays from 0
+- [x] EP-1: Notifier startup releases the connection when LISTEN fails
 - [ ] EP-2: Adapter defaults to `PauseAndResume`; overflow can no longer kill the processor
 - [ ] EP-2: Handler exceptions finalize a disposition (adapter-side defense; shibuya-core follow-ups recorded)
 - [ ] EP-2: Worker death is visible at the adapter boundary (consumes EP-1's termination contract)
