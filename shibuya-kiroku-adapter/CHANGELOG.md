@@ -14,8 +14,19 @@
 * Adapter subscriptions now rely on Kiroku's default lossless
   `PauseAndResume` overflow policy instead of pinning fail-fast
   `DropSubscription`.
+* `guardKirokuHandlerWith` and `guardKirokuHandler` convert synchronous handler
+  exceptions into finalized ack decisions so Kiroku workers are not abandoned
+  mid-ack. `kirokuConsumerGroupProcessors` applies the default guard
+  automatically.
 * The package description and Haddocks describe the ack-coupled bridge instead
   of the obsolete no-op ack behavior.
+
+### Known Limitations
+
+* `shibuya-core` still needs upstream fixes for finalize-on-exception in its
+  supervised processor and for propagating ingester stream failures from the
+  supervised runner. The adapter-side guard is defensive and remains correct
+  after those fixes land.
 
 ## 0.3.0.0 — 2026-06-05
 

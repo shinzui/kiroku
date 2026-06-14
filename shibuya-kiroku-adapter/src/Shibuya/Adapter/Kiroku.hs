@@ -102,10 +102,19 @@ publisher batches, up to 1000 events each, that can be buffered before Kiroku
 pauses this subscriber. The adapter uses Kiroku's lossless @PauseAndResume@
 overflow policy, so a paused subscriber catches up from its checkpoint instead
 of being killed.
+
+A Shibuya handler used with this adapter must not let synchronous exceptions
+escape. Shibuya's supervised runner records handler exceptions without
+finalizing the ack; with Kiroku's ack-coupled bridge, an unfinalized ack blocks
+the Kiroku worker forever. Direct 'mkProcessor' users should wrap handlers in
+'guardKirokuHandler' or handle exceptions themselves.
+'kirokuConsumerGroupProcessors' applies 'guardKirokuHandler' automatically.
 -}
 module Shibuya.Adapter.Kiroku (
     -- * Adapter
     kirokuAdapter,
+    guardKirokuHandlerWith,
+    guardKirokuHandler,
 
     -- * Configuration
     KirokuAdapterConfig (..),
@@ -124,9 +133,11 @@ module Shibuya.Adapter.Kiroku (
     EventTypeFilter (..),
 ) where
 
+import Control.Exception (SomeException)
 import Data.Int (Int32)
 import Data.Text qualified as T
 import Effectful (Eff, IOE, liftIO, (:>))
+import Effectful.Exception (catchSync)
 import GHC.Generics (Generic)
 import Kiroku.Store.Connection (KirokuStore)
 import Kiroku.Store.Subscription.Stream (subscriptionAckStream)
@@ -134,7 +145,6 @@ import Kiroku.Store.Subscription.Types (
     ConsumerGroup (..),
     EventTypeFilter (..),
     SubscriptionConfig,
-    SubscriptionConfigM (..),
     SubscriptionName (..),
     SubscriptionResult (..),
     SubscriptionTarget (..),
@@ -146,6 +156,7 @@ import Numeric.Natural (Natural)
 import Shibuya.Adapter (Adapter (..))
 import Shibuya.Adapter.Kiroku.Convert (kirokuEnvelopeAttrs, toIngestedAck)
 import Shibuya.App (ProcessorId (..), QueueProcessor (..))
+import Shibuya.Core.Ack (AckDecision (..), RetryDelay (..))
 import Shibuya.Core.Error (PolicyError (..))
 import Shibuya.Handler (Handler)
 import Shibuya.Policy (Concurrency (..), Ordering (..), validatePolicy)
@@ -246,6 +257,28 @@ defaultKirokuAdapterConfig name target =
         , eventTypeFilter = AllEventTypes
         , selector = Nothing
         }
+
+{- | Convert any synchronous exception thrown by a Shibuya handler into an
+'AckDecision'.
+
+This ensures Shibuya still finalizes the ack. Asynchronous exceptions such as
+thread cancellation are not caught.
+-}
+guardKirokuHandlerWith ::
+    (SomeException -> AckDecision) ->
+    Handler es msg ->
+    Handler es msg
+guardKirokuHandlerWith onException h ingested =
+    h ingested `catchSync` (pure . onException)
+
+{- | Recommended handler guard for this adapter.
+
+A synchronous exception becomes @'AckRetry' ('RetryDelay' 1)@. Kiroku then
+redelivers after one second and eventually dead-letters persistent failures
+according to the subscription retry policy.
+-}
+guardKirokuHandler :: Handler es msg -> Handler es msg
+guardKirokuHandler = guardKirokuHandlerWith (const (AckRetry (RetryDelay 1)))
 
 {- | Create a Shibuya 'Adapter' backed by a Kiroku subscription.
 
@@ -410,6 +443,9 @@ consumerGroupPolicy conc = do
 {- | Present a whole kiroku consumer group as a single 'PartitionedInOrder' unit:
 one call yields @groupSize@ named 'QueueProcessor's, each backed by its own
 member adapter and each pinned to @('PartitionedInOrder', 'Serial')@.
+The supplied handler is wrapped in 'guardKirokuHandler' automatically so a
+synchronous handler exception finalizes a retry disposition instead of
+abandoning Kiroku's ack reply.
 
 This replaces the manual @mapM mkMemberAdapter [0 .. N-1]@ boilerplate. The
 member→policy mapping is validated once up front via 'consumerGroupPolicy'; if
@@ -468,7 +504,7 @@ kirokuConsumerGroupProcessors
                             let pid = ProcessorId (name <> "-member-" <> T.pack (show m))
                             -- Built directly (not via 'mkProcessor', which hardcodes
                             -- Unordered/Serial) so the group policy is pinned.
-                            pure (pid, QueueProcessor adapter handler ordering conc)
+                            pure (pid, QueueProcessor adapter (guardKirokuHandler handler) ordering conc)
                         )
                         [0 .. n - 1]
                 pure (Right processors)

@@ -4,6 +4,7 @@ import Control.Concurrent (threadDelay)
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM (atomically, newTVarIO, readTVar, registerDelay, writeTVar)
 import Control.Concurrent.STM qualified as STM
+import Control.Exception qualified as E
 import Control.Lens ((&), (.~), (^.))
 import Control.Monad (unless)
 import Control.Monad.IO.Class (liftIO)
@@ -32,6 +33,7 @@ import Shibuya.Adapter.Kiroku (
     consumerGroupPolicy,
     defaultConsumerGroupConfig,
     defaultKirokuAdapterConfig,
+    guardKirokuHandlerWith,
     kirokuAdapter,
     kirokuConsumerGroupProcessors,
  )
@@ -51,7 +53,7 @@ import Shibuya.Core.Ack (AckDecision (..), DeadLetterReason (..))
 import Shibuya.Core.Ack qualified as Ack
 import Shibuya.Core.Error (PolicyError (..))
 import Shibuya.Core.Ingested (Ingested (..))
-import Shibuya.Core.Types (Envelope (..))
+import Shibuya.Core.Types (Attempt (..), Envelope (..))
 import Shibuya.Policy (Concurrency (..), Ordering (..))
 import Shibuya.Runner.Metrics (ProcessorState (..))
 import Shibuya.Telemetry.Effect (runTracingNoop)
@@ -618,6 +620,79 @@ main = withSharedMigratedPostgres $ hspec $ do
                 oks <- readIORef okPayloads
                 map globalPos oks `shouldBe` [2]
 
+            it "guardKirokuHandlerWith retries a transient handler exception and preserves attempts" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "guardretry-1") NoStream [makeEvent "GR1" (Aeson.object [])]
+                threadDelay 200_000
+
+                deliveries <- newIORef (0 :: Int)
+                attempts <- newIORef ([] :: [Maybe Attempt])
+                countVar <- newTVarIO (0 :: Int)
+
+                runEff $ runTracingNoop $ do
+                    adapter <-
+                        kirokuAdapter store $
+                            defaultKirokuAdapterConfig (SubscriptionName "guardretry-proj") AllStreams
+
+                    let throwingOnce ingested = do
+                            let Ingested{envelope = Envelope{attempt = deliveryAttempt}} = ingested
+                            n <- liftIO $ do
+                                modifyIORef' attempts (deliveryAttempt :)
+                                modifyIORef' deliveries (+ 1)
+                                atomically $ do
+                                    c <- readTVar countVar
+                                    let c' = c + 1
+                                    writeTVar countVar c'
+                                    pure c'
+                            if n == 1
+                                then liftIO $ E.throwIO (userError "transient projection failure")
+                                else pure AckOk
+                        handler = guardKirokuHandlerWith (const (AckRetry (Ack.RetryDelay 0))) throwingOnce
+
+                    res <- runApp IgnoreFailures 100 [(ProcessorId "guardretry", mkProcessor adapter handler)]
+                    case res of
+                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                        Right appHandle -> do
+                            liftIO $ waitForCount countVar 2 10_000_000
+                            stopApp appHandle
+
+                n <- readIORef deliveries
+                n `shouldBe` 2
+                reverse <$> readIORef attempts `shouldReturn` [Just (Attempt 0), Just (Attempt 1)]
+                dls <- readDeadLetters store "guardretry-proj"
+                length dls `shouldBe` 0
+
+            it "guardKirokuHandlerWith dead-letters a persistent handler exception and continues" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "guarddl-1") NoStream [makeEvent "GDL1" (Aeson.object [])]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "guarddl-2") NoStream [makeEvent "GDL2" (Aeson.object [])]
+                threadDelay 200_000
+
+                nextSeen <- newTVarIO (0 :: Int)
+
+                runEff $ runTracingNoop $ do
+                    adapter <-
+                        kirokuAdapter store $
+                            defaultKirokuAdapterConfig (SubscriptionName "guarddl-proj") AllStreams
+
+                    let alwaysThrowFirst ingested =
+                            if globalPos (envelopePayload ingested) == 1
+                                then liftIO $ E.throwIO (userError "persistent projection failure")
+                                else do
+                                    liftIO $ atomically $ do
+                                        c <- readTVar nextSeen
+                                        writeTVar nextSeen (c + 1)
+                                    pure AckOk
+                        handler = guardKirokuHandlerWith (const (AckRetry (Ack.RetryDelay 0))) alwaysThrowFirst
+
+                    res <- runApp IgnoreFailures 100 [(ProcessorId "guarddl", mkProcessor adapter handler)]
+                    case res of
+                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                        Right appHandle -> do
+                            liftIO $ waitForCount nextSeen 1 15_000_000
+                            stopApp appHandle
+
+                dls <- readDeadLetters store "guarddl-proj"
+                map SQL.deadLetterGlobalPosition dls `shouldBe` [1]
+
         describe "consumer groups" $ do
             it "four-member group delivers a disjoint, complete partition of the stream" $ \store -> do
                 -- 20 streams × 2 events = 40 events, global positions 1..40, category "cg".
@@ -696,6 +771,37 @@ main = withSharedMigratedPostgres $ hspec $ do
                 case result of
                     Left err -> err `shouldBe` InvalidPolicyCombo "StrictInOrder requires Serial concurrency"
                     Right _ -> expectationFailure "expected Left PolicyError for Async member concurrency"
+
+            it "wraps consumer-group handlers so exceptions finalize a retry decision" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "cgp-guard-1") NoStream [makeEvent "CGGuard" (Aeson.object [])]
+                threadDelay 200_000
+
+                countVar <- newTVarIO (0 :: Int)
+                runEff $
+                    runTracingNoop $ do
+                        result <-
+                            kirokuConsumerGroupProcessors
+                                store
+                                (defaultConsumerGroupConfig (SubscriptionName "cgp-guard") AllStreams 1)
+                                ( \_ -> do
+                                    n <- liftIO $ atomically $ do
+                                        c <- readTVar countVar
+                                        let c' = c + 1
+                                        writeTVar countVar c'
+                                        pure c'
+                                    if n == 1
+                                        then liftIO $ E.throwIO (userError "guard me")
+                                        else pure AckOk
+                                )
+                        case result of
+                            Left err -> liftIO $ expectationFailure ("kirokuConsumerGroupProcessors failed: " <> show err)
+                            Right processors -> do
+                                appRes <- runApp IgnoreFailures 100 processors
+                                case appRes of
+                                    Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                                    Right appHandle -> do
+                                        liftIO $ waitForCount countVar 2 15_000_000
+                                        stopApp appHandle
 
             it "one call yields N PartitionedInOrder processors; members partition the stream disjointly" $ \store -> do
                 -- 20 streams × 2 events = 40 events, global positions 1..40, category "cgp".

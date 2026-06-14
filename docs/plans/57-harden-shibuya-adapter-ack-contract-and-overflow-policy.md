@@ -92,10 +92,10 @@ up the fixes. Planning that bump is out of scope here.
 - [x] M1: Reject zero bridge capacity: `InvalidStreamBufferSize` guard in `Kiroku.Store.Subscription.Stream.subscriptionAckStream`; rewrite the misleading `bufferSize` "backpressure threshold" Haddocks in the adapter. Completed 2026-06-14.
 - [x] M1: Burst test: gated handler + `queueCapacity = 1` + multi-batch append delivers every event with no `SubscriptionOverflowed` and no processor failure. Completed 2026-06-14; focused adapter test passed with 1 example, 0 failures.
 - [x] M1: Bump `shibuya-kiroku-adapter` to 0.4.0.0; update CHANGELOG and stale Haddock/cabal examples that use full `KirokuAdapterConfig` record literals. Completed 2026-06-14.
-- [ ] M2: Implement and export `guardKirokuHandlerWith` / `guardKirokuHandler` in `Shibuya.Adapter.Kiroku` (exception → finalized disposition); raise `effectful-core` lower bound to 2.5 for `catchSync`.
-- [ ] M2: Apply the guard automatically inside `kirokuConsumerGroupProcessors`; document the "handlers must not throw" contract loudly in the module Haddock.
-- [ ] M2: Tests: transiently-throwing handler recovers via retry (attempt increments, then `AckOk` path checkpoints); persistently-throwing handler is dead-lettered (`kiroku.dead_letters` row exists) and the next event is still processed.
-- [ ] M2: Record the two shibuya-core upstream follow-ups (finalize-on-exception in `processOne`; ingester failure propagation in `runSupervised`) in this plan and in the adapter CHANGELOG "known limitations" note.
+- [x] M2: Implement and export `guardKirokuHandlerWith` / `guardKirokuHandler` in `Shibuya.Adapter.Kiroku` (exception → finalized disposition); raise `effectful-core` lower bound to 2.5 for `catchSync`. Completed 2026-06-14.
+- [x] M2: Apply the guard automatically inside `kirokuConsumerGroupProcessors`; document the "handlers must not throw" contract loudly in the module Haddock. Completed 2026-06-14.
+- [x] M2: Tests: transiently-throwing handler recovers via retry (attempt increments, then `AckOk` path checkpoints); persistently-throwing handler is dead-lettered (`kiroku.dead_letters` row exists) and the next event is still processed. Completed 2026-06-14; focused guard tests passed with 2 examples, 0 failures.
+- [x] M2: Record the two shibuya-core upstream follow-ups (finalize-on-exception in `processOne`; ingester failure propagation in `runSupervised`) in this plan and in the adapter CHANGELOG "known limitations" note. Completed 2026-06-14.
 - [ ] M3: Verify and lock EP-1's termination contract at the adapter boundary: clean shutdown ends `adapter.source` without error; a crashed worker rethrows out of `adapter.source` (test via fault injection mirroring EP-1's technique).
 - [ ] M3: Fix stale adapter prose: cabal `description` still claims ack is a no-op; module Haddock "Ack Semantics"/"Backpressure" sections updated for guard wrapper, PauseAndResume, and error-carrying stream end.
 - [ ] M4: `kirokuConsumerGroupProcessors` validates `groupSize >= 1` up front (throws `InvalidConsumerGroup`); creation runs through a cleanup-on-partial-failure helper.
@@ -110,6 +110,14 @@ up the fixes. Planning that bump is out of scope here.
 4 examples, 0 failures, including the new `InvalidStreamBufferSize 0`
 assertion. The adapter burst regression passed as a focused example with
 `queueCapacity = 1`, a gated first handler invocation, and 40 one-event appends.
+
+2026-06-14, M2 validation confirmed the defensive guard behavior without
+changing shibuya-core: `guardKirokuHandlerWith` converted a transient exception
+to an immediate retry and preserved `Attempt 0` then `Attempt 1`; a persistent
+exception retried until Kiroku's retry budget dead-lettered global position 1
+and then delivered global position 2. A separate one-member consumer-group test
+confirmed `kirokuConsumerGroupProcessors` applies the default guard
+automatically.
 
 
 ## Decision Log
