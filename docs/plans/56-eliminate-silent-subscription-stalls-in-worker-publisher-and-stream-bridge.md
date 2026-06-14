@@ -4,6 +4,7 @@ slug: eliminate-silent-subscription-stalls-in-worker-publisher-and-stream-bridge
 title: "Eliminate silent subscription stalls in worker, publisher, and stream bridge"
 kind: exec-plan
 created_at: 2026-06-11T04:32:45Z
+intention: intention_01kv3qaxg9e91v0zq47stehnkz
 master_plan: "docs/masterplans/9-audit-remediation-subscription-reliability-and-store-correctness-and-performance.md"
 ---
 
@@ -66,11 +67,11 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] M1: Replace the bridge's `Maybe` queue sentinel with a terminal `TVar` consulted via `orElse` in the reader step (`kiroku-store/src/Kiroku/Store/Subscription/Stream.hs`).
-- [ ] M1: Spawn a monitor `Async` on the worker handle's `wait` that records the worker's outcome (clean stop / cancel vs. crash) into the terminal `TVar`.
-- [ ] M1: Make `cancelAction` non-blocking (cancel, then first-write-wins close; no queue write).
-- [ ] M1: Update the Haddocks of `subscriptionStream` and `subscriptionAckStream` to state the new termination contract (this is the surface EP-2 consumes).
-- [ ] M1: Add `kiroku-store/test/Test/StreamBridgeTermination.hs` (worker-crash rethrow, clean-stop end, cancel-with-full-queue) and register it in `kiroku-store/test/Main.hs` and `kiroku-store/kiroku-store.cabal`; tests fail before the fix, pass after.
+- [x] M1: Replace the bridge's `Maybe` queue sentinel with a terminal `TVar` consulted via `orElse` in the reader step (`kiroku-store/src/Kiroku/Store/Subscription/Stream.hs`). Completed 2026-06-14.
+- [x] M1: Spawn a monitor `Async` on the worker handle's `wait` that records the worker's outcome (clean stop / cancel vs. crash) into the terminal `TVar`. Completed 2026-06-14.
+- [x] M1: Make `cancelAction` non-blocking (cancel, then first-write-wins close; no queue write). Completed 2026-06-14.
+- [x] M1: Update the Haddocks of `subscriptionStream` and `subscriptionAckStream` to state the new termination contract (this is the surface EP-2 consumes). Completed 2026-06-14.
+- [x] M1: Add `kiroku-store/test/Test/StreamBridgeTermination.hs` (worker-crash rethrow, clean-stop end, cancel-with-full-queue) and register it in `kiroku-store/test/Main.hs` and `kiroku-store/kiroku-store.cabal`; tests fail before the fix, pass after. Completed 2026-06-14; focused suite passed with 3 examples, 0 failures.
 - [ ] M2: Add `KirokuEventPublisherLoopError` to `kiroku-store/src/Kiroku/Store/Observability.hs` and an `emitOrDrop` helper that swallows synchronous handler exceptions but never asynchronous ones.
 - [ ] M2: Wrap each publisher loop iteration in a sync-exception catch that emits `KirokuEventPublisherLoopError` and continues on the next tick/safety poll (`kiroku-store/src/Kiroku/Store/Subscription/EventPublisher.hs`).
 - [ ] M2: Route all `eventHandler` invocations in the publisher, the worker (`kiroku-store/src/Kiroku/Store/Subscription/Worker.hs`), and the notifier (`kiroku-store/src/Kiroku/Store/Notification.hs`) through `emitOrDrop`.
@@ -210,11 +211,31 @@ Record every decision made while working on the plan.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation. On completing M1, record here the final
-shape of the bridge termination contract — the queue element type, the terminal
-`TVar`'s type, and the exact consumer-visible behavior on clean stop / cancel / crash —
-because EP-2, `docs/plans/57-harden-shibuya-adapter-ack-contract-and-overflow-policy.md`,
-reads this section before starting.)
+2026-06-14, M1 completed. `subscriptionAckStream` now uses `TBQueue AckItem` for data
+items only and a separate internal `TVar (Maybe BridgeTermination)` for stream
+termination, where `BridgeTermination` is `BridgeClosedCleanly` or
+`BridgeCrashed SomeException`. The stream reader first tries to drain the data queue
+and only consults the terminal `TVar` when the queue is empty, via STM `orElse`.
+`cancelAction` cancels the subscription handle and first-write-wins closes the
+terminal `TVar`; it never writes to the bounded queue. A worker that returns normally
+or exits with `AsyncCancelled` ends the stream normally. Any other worker exception is
+re-thrown from the next stream pull. The focused validation command passed:
+
+```text
+cabal test kiroku-store:kiroku-store-test --test-show-details=direct --test-options='--match "stream bridge termination"'
+3 examples, 0 failures
+```
+
+EP-2, `docs/plans/57-harden-shibuya-adapter-ack-contract-and-overflow-policy.md`, can
+consume this contract: bridge consumers see graceful end on intentional stop/cancel and
+an exception on worker crash.
+
+The whole `kiroku-store` test suite also passed after M1:
+
+```text
+cabal test kiroku-store:kiroku-store-test --test-show-details=direct
+192 examples, 0 failures
+```
 
 
 ## Context and Orientation

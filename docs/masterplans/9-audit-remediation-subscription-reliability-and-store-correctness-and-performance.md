@@ -4,6 +4,7 @@ slug: audit-remediation-subscription-reliability-and-store-correctness-and-perfo
 title: "Audit remediation: subscription reliability and store correctness and performance"
 kind: master-plan
 created_at: 2026-06-11T04:32:35Z
+intention: intention_01kv3qaxg9e91v0zq47stehnkz
 ---
 
 # Audit remediation: subscription reliability and store correctness and performance
@@ -82,7 +83,7 @@ Haskell.
 
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
-| 1 | Eliminate silent subscription stalls in worker, publisher, and stream bridge | docs/plans/56-eliminate-silent-subscription-stalls-in-worker-publisher-and-stream-bridge.md | None | None | Not Started |
+| 1 | Eliminate silent subscription stalls in worker, publisher, and stream bridge | docs/plans/56-eliminate-silent-subscription-stalls-in-worker-publisher-and-stream-bridge.md | None | None | In Progress |
 | 2 | Harden shibuya adapter ack contract and overflow policy | docs/plans/57-harden-shibuya-adapter-ack-contract-and-overflow-policy.md | EP-1 | None | Not Started |
 | 3 | Stop publisher fan-out work for category and consumer-group subscribers | docs/plans/58-stop-publisher-fan-out-work-for-category-and-consumer-group-subscribers.md | None | EP-1 | Not Started |
 | 4 | Fix backward read pagination and append edge-case errors | docs/plans/59-fix-backward-read-pagination-and-append-edge-case-errors.md | None | None | Not Started |
@@ -171,7 +172,7 @@ this initiative.
 Track milestone-level progress across all child plans. Each entry names the child plan
 and the milestone. This section provides an at-a-glance view of the entire initiative.
 
-- [ ] EP-1: Bridge streams terminate with the worker's outcome (sentinel on every exit path; non-blocking cancel)
+- [x] EP-1: Bridge streams terminate with the worker's outcome (sentinel on every exit path; non-blocking cancel)
 - [ ] EP-1: Publisher loop survives user-callback exceptions and surfaces liveness
 - [ ] EP-1: `subscribe` pre-fork window is async-exception safe; checkpoint-load failure no longer silently replays from 0
 - [ ] EP-1: Notifier startup releases the connection when LISTEN fails

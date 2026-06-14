@@ -101,6 +101,7 @@ test-suite kiroku-store-test
     Test.Properties
     Test.PublisherRestartNoRebroadcast
     Test.ReadStream
+    Test.StreamBridgeTermination
     Test.StreamNameLookup
     Test.SubscriptionPauseResume
     Test.SubscriptionReconnect

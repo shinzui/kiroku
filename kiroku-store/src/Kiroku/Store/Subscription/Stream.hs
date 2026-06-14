@@ -20,6 +20,10 @@ Both honour the subscription's worker-side filters
 ('Kiroku.Store.Subscription.Types.eventTypeFilter' and
 'Kiroku.Store.Subscription.Types.selector'): a filtered-out event never reaches
 either bridge.
+
+Both streams end normally when the subscription worker stops cleanly or is
+cancelled. If the worker dies for any other reason, the next stream pull
+rethrows the worker's exception to the stream consumer.
 -}
 module Kiroku.Store.Subscription.Stream (
     -- * Plain pull stream
@@ -31,17 +35,26 @@ module Kiroku.Store.Subscription.Stream (
 )
 where
 
+import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.STM (
+    STM,
     TBQueue,
     TMVar,
+    TVar,
     atomically,
     newEmptyTMVarIO,
     newTBQueueIO,
+    newTVarIO,
+    orElse,
     putTMVar,
     readTBQueue,
+    readTVar,
+    retry,
     takeTMVar,
     writeTBQueue,
+    writeTVar,
  )
+import Control.Exception (SomeException, fromException, throwIO)
 import Data.IORef (atomicModifyIORef', newIORef)
 import Kiroku.Store.Connection (KirokuStore)
 import Kiroku.Store.Subscription (subscribe)
@@ -77,11 +90,23 @@ data AckItem = AckItem
     -- ^ one-shot reply the consumer must fill exactly once
     }
 
+data BridgeTermination
+    = BridgeClosedCleanly
+    | BridgeCrashed !SomeException
+
+closeBridge :: TVar (Maybe BridgeTermination) -> BridgeTermination -> STM ()
+closeBridge closedVar termination =
+    readTVar closedVar >>= \case
+        Nothing -> writeTVar closedVar (Just termination)
+        Just _ -> pure ()
+
 {- | Create a pull-based 'Stream' from a kiroku subscription.
 
 A bounded 'TBQueue' sits between kiroku's push-based handler and the
-returned Streamly stream. The stream terminates when the underlying
-subscription ends or the returned cancel action runs.
+returned Streamly stream. The stream terminates normally when the underlying
+subscription stops cleanly or the returned cancel action runs. If the
+underlying worker crashes, the next stream pull rethrows the worker exception
+to the consumer.
 
 The @handler@ field in the provided 'SubscriptionConfig' is ignored —
 the bridge provides its own handler.
@@ -98,8 +123,8 @@ events while the checkpoint still advances past filtered-out ones. The stream's
 element type is unchanged ('RecordedEvent') — filtering only removes elements,
 it does not reshape them.
 
-The returned cancel action cancels the underlying subscription and
-writes the sentinel so any blocked reader wakes up and terminates.
+The returned cancel action cancels the underlying subscription and wakes any
+blocked reader without writing to the bounded queue.
 -}
 subscriptionStream ::
     KirokuStore ->
@@ -128,8 +153,11 @@ stops accordingly — so the consumer controls Kiroku checkpointing per event. T
 installs its own.
 
 The returned cancel action cancels the underlying subscription (interrupting any
-worker blocked waiting for a reply) and writes the @Nothing@ sentinel so a
-blocked reader wakes up and the stream terminates.
+worker blocked waiting for a reply) and wakes any blocked reader without
+writing to the bounded queue. A clean worker stop or cancellation ends the
+stream normally; any other worker exception is rethrown from the next stream
+pull. This includes overflow, handler exceptions, dead-letter database errors,
+and decode-hook exceptions.
 -}
 subscriptionAckStream ::
     KirokuStore ->
@@ -139,6 +167,7 @@ subscriptionAckStream ::
     IO (Stream IO AckItem, IO ())
 subscriptionAckStream store config bufferSize = do
     queue <- newTBQueueIO bufferSize
+    closedVar <- newTVarIO Nothing
     -- Tracks the previous (eventId, attempt) so a consecutive redelivery of the
     -- same event (the worker's bounded retry) is reported with an incremented
     -- attempt. The worker delivers events one at a time and blocks on the reply,
@@ -153,22 +182,33 @@ subscriptionAckStream store config bufferSize = do
                         | eid == eventId event -> (Just (eid, n + 1), n + 1)
                     _ -> (Just (eventId event, 0), 0)
             reply <- newEmptyTMVarIO
-            atomically (writeTBQueue queue (Just (AckItem event attempt reply)))
+            atomically (writeTBQueue queue (AckItem event attempt reply))
             atomically (takeTMVar reply)
 
     let bridgeConfig = config{handler = bridgeHandler}
 
     subHandle <- subscribe store bridgeConfig
+    _monitor <- Async.async $ do
+        outcome <- wait subHandle
+        atomically . closeBridge closedVar $ case outcome of
+            Right () -> BridgeClosedCleanly
+            Left e
+                | Just Async.AsyncCancelled <- fromException e -> BridgeClosedCleanly
+                | otherwise -> BridgeCrashed e
 
     let cancelAction = do
             cancel subHandle
-            atomically (writeTBQueue queue Nothing)
+            atomically (closeBridge closedVar BridgeClosedCleanly)
 
     let step :: () -> IO (Maybe (AckItem, ()))
         step () = do
-            mItem <- atomically (readTBQueue queue)
-            case mItem of
-                Just item -> pure (Just (item, ()))
-                Nothing -> pure Nothing
+            next <-
+                atomically $
+                    (Right <$> readTBQueue queue)
+                        `orElse` (readTVar closedVar >>= maybe retry (pure . Left))
+            case next of
+                Right item -> pure (Just (item, ()))
+                Left BridgeClosedCleanly -> pure Nothing
+                Left (BridgeCrashed e) -> throwIO e
 
     pure (Stream.unfoldrM step (), cancelAction)

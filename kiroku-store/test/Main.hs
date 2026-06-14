@@ -41,6 +41,7 @@ import Test.InterpreterHooks qualified as InterpreterHooks
 import Test.Properties qualified as Properties
 import Test.PublisherRestartNoRebroadcast qualified as PublisherRestartNoRebroadcast
 import Test.ReadStream qualified as ReadStream
+import Test.StreamBridgeTermination qualified as StreamBridgeTermination
 import Test.StreamNameLookup qualified as StreamNameLookup
 import Test.SubscriptionPauseResume qualified as SubscriptionPauseResume
 import Test.SubscriptionReconnect qualified as SubscriptionReconnect
@@ -58,6 +59,7 @@ main = withSharedMigratedPostgres $ hspec $ do
     Transaction.spec
     ReadStream.spec
     StreamNameLookup.spec
+    StreamBridgeTermination.spec
     InterpreterHooks.spec
     Causation.spec
     ConsumerGroupSql.spec
