@@ -21,16 +21,19 @@ PostgreSQL database:
 module Test.SubscriptionRegistry (spec) where
 
 import Control.Concurrent (threadDelay)
+import Control.Concurrent.STM (readTVarIO)
 import Control.Exception (throwIO)
 import Control.Lens ((^.))
 import Data.Aeson qualified as Aeson
 import Data.Foldable (for_)
 import Data.Generics.Labels ()
 import Data.Int (Int32)
+import Data.IntMap.Strict qualified as IntMap
 import Data.Map.Strict qualified as Map
 import Data.Maybe (isJust, isNothing)
 import Data.Text (Text)
 import Kiroku.Store
+import Kiroku.Store.Subscription.EventPublisher qualified as Pub
 import Kiroku.Store.Subscription.Types (SubscriptionConfigM (..))
 import Test.Helpers (makeEvent, waitForPublisher, withTestStore)
 import Test.Hspec
@@ -45,6 +48,17 @@ groupCont nm cat m n =
     (defaultSubscriptionConfig (SubscriptionName nm) (Category (CategoryName cat)) (\_ -> pure Continue))
         { consumerGroup = Just (ConsumerGroup{member = m, size = n})
         }
+
+-- | A size-@n@ @$all@ group config for member @m@ whose handler never stops.
+groupAllCont :: Text -> Int32 -> Int32 -> SubscriptionConfig
+groupAllCont nm m n =
+    (defaultSubscriptionConfig (SubscriptionName nm) AllStreams (\_ -> pure Continue))
+        { consumerGroup = Just (ConsumerGroup{member = m, size = n})
+        }
+
+publisherSubscriberCount :: KirokuStore -> IO Int
+publisherSubscriberCount store =
+    IntMap.size <$> readTVarIO (Pub.subscribers (store ^. #publisher))
 
 -- | Poll the snapshot until the keyed entry reaches the given 'statePhase' label.
 waitUntilPhase :: Int -> KirokuStore -> (SubscriptionName, Int32) -> Text -> IO Bool
@@ -168,3 +182,37 @@ spec = describe "subscription registry (EP-1 / plan 45)" $ do
             cs2 <- currentState h2
             cs2 `shouldSatisfy` isJust
             cancel h2
+
+    describe "publisher queue registration" $ do
+        it "registers publisher queues only for non-group AllStreams subscriptions" $
+            withTestStore $ \store -> do
+                initial <- publisherSubscriberCount store
+                initial `shouldBe` 0
+
+                hCategory <- subscribe store (defaultSubscriptionConfig (SubscriptionName "reg-cat-no-queue") (Category (CategoryName "regcat")) (\_ -> pure Continue))
+                publisherSubscriberCount store `shouldReturn` 0
+
+                hGroupCategory <- subscribe store (groupCont "reg-group-cat-no-queue" "regcat" 0 2)
+                publisherSubscriberCount store `shouldReturn` 0
+
+                hGroupAll <- subscribe store (groupAllCont "reg-group-all-no-queue" 0 2)
+                publisherSubscriberCount store `shouldReturn` 0
+
+                hAll <- subscribe store (plainCont "reg-all-has-queue")
+                publisherSubscriberCount store `shouldReturn` 1
+
+                cancel hAll
+                _ <- wait hAll
+                publisherSubscriberCount store `shouldReturn` 0
+
+                cancel hCategory
+                _ <- wait hCategory
+                publisherSubscriberCount store `shouldReturn` 0
+
+                cancel hGroupCategory
+                _ <- wait hGroupCategory
+                publisherSubscriberCount store `shouldReturn` 0
+
+                cancel hGroupAll
+                _ <- wait hGroupAll
+                publisherSubscriberCount store `shouldReturn` 0

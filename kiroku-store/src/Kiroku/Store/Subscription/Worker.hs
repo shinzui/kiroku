@@ -22,6 +22,7 @@ identical for @AllStreams@, @Category@, and consumer-group subscriptions.
 seams for injecting fetch and checkpoint-load failures.
 -}
 module Kiroku.Store.Subscription.Worker (
+    LiveSource (..),
     runWorker,
     configMember,
     withFetchBatchHookForTest,
@@ -128,12 +129,32 @@ fetchRetryDelayMicros :: Int -> Int
 fetchRetryDelayMicros attempt =
     min categorySafetyPollMicros (100_000 * (2 ^ min attempt 9 :: Int))
 
+{- | How a worker obtains live-mode batches, fixed at 'subscribe' time from the
+config's (consumerGroup, target) shape.
+
+Only 'LiveFromPublisherQueue' owns a registration with the EventPublisher. The
+other shapes are DB-driven and the publisher must do no fan-out work for them.
+-}
+data LiveSource
+    = {- | Non-group AllStreams: read the publisher's bounded queue; the status
+      TVar carries Paused/Overflowed backpressure signals.
+      -}
+      LiveFromPublisherQueue !(TBQueue (Vector RecordedEvent)) !(TVar SubscriberStatus)
+    | {- | Non-group Category: wake on the named category's NOTIFY generation
+      counter and re-query the database.
+      -}
+      LiveFromCategoryNotify !Text
+    | {- | Consumer-group member, for either target: wake when the global
+      position advances and re-query with the partition predicate.
+      -}
+      LiveFromGroupPolling
+
 {- | Run the subscription worker loop. Two phases:
 
 Phase 1 (catch-up): queries database directly until reaching publisherPosition.
-Phase 2 (live): for AllStreams, reads from the bounded TBQueue the publisher
-delivers to; for Category, re-queries the database whenever the publisher
-advances (the broadcast TBQueue is unused for category subscriptions).
+Phase 2 (live): for 'LiveFromPublisherQueue', reads from the bounded TBQueue
+the publisher delivers to; for 'LiveFromCategoryNotify' and
+'LiveFromGroupPolling', re-queries the database, and no publisher queue exists.
 
 Runs until the handler returns 'Stop', the thread is cancelled, or the
 publisher signals overflow on the subscriber's status TVar (in which
@@ -157,8 +178,7 @@ If an 'eventHandler' callback is supplied, the worker emits:
 runWorker ::
     (MonadIO m) =>
     Pool ->
-    TBQueue (Vector RecordedEvent) ->
-    TVar SubscriberStatus ->
+    LiveSource ->
     {- | the worker's current FSM state, written on every transition so callers
     can read it through 'Kiroku.Store.Subscription.Types.currentState'.
     -}
@@ -177,7 +197,7 @@ runWorker ::
     -}
     StoreSettings ->
     m ()
-runWorker pool liveQueue statusVar stateVar pubPosVar catGenVar config mHandler stSettings = liftIO $ do
+runWorker pool liveSource stateVar pubPosVar catGenVar config mHandler stSettings = liftIO $ do
     let emit = emitOrDrop mHandler
         subName = name config
         groupCtx = groupCtxOf config
@@ -250,8 +270,8 @@ runWorker pool liveQueue statusVar stateVar pubPosVar catGenVar config mHandler 
                             Right events
                                 | V.null events -> pure CaughtUp
                                 | otherwise -> pure (BatchFetched events)
-            Live c -> case (consumerGroup config, target config) of
-                (Nothing, AllStreams) -> do
+            Live c -> case liveSource of
+                LiveFromPublisherQueue liveQueue statusVar -> do
                     writeIORef posRef c
                     atomically $ do
                         status <- readTVar statusVar
@@ -267,9 +287,9 @@ runWorker pool liveQueue statusVar stateVar pubPosVar catGenVar config mHandler 
                                 events <- readTBQueue liveQueue
                                 let fresh = V.filter ((> c) . globalPosition) events
                                 pure (if V.null fresh then FetchEmpty else BatchFetched fresh)
-                (Nothing, Category (CategoryName cat)) ->
+                LiveFromCategoryNotify cat ->
                     liveExitToInput =<< liveLoopCategoryNotify pool config stateVar catGenVar cat emit posRef c stSettings
-                (Just _, _) ->
+                LiveFromGroupPolling ->
                     liveExitToInput =<< liveLoopDbDriven pool config stateVar pubPosVar emit posRef c stSettings
             -- Recoverable backpressure: the publisher set 'Paused' because this
             -- subscriber's bounded queue filled. Drain the stale queue (those
@@ -279,10 +299,17 @@ runWorker pool liveQueue statusVar stateVar pubPosVar catGenVar config mHandler 
             -- AllStreams live path's @> cursor@ filter drops any superseded queued
             -- entries once the worker is live again.
             Paused{} -> do
-                atomically $ do
-                    drainQueue liveQueue
-                    writeTVar statusVar Pub.Active
-                pure QueueDrained
+                case liveSource of
+                    LiveFromPublisherQueue liveQueue statusVar -> do
+                        atomically $ do
+                            drainQueue liveQueue
+                            writeTVar statusVar Pub.Active
+                        pure QueueDrained
+                    -- Defensive totality: only the queue branch can produce
+                    -- QueueBackpressured, so DB-driven sources should never
+                    -- enter Paused.
+                    LiveFromCategoryNotify{} -> pure QueueDrained
+                    LiveFromGroupPolling -> pure QueueDrained
             -- Reconnecting: re-probe the database from the checkpoint. A success
             -- re-enters catch-up (delivering everything after the cursor); a
             -- failure stays in 'Reconnecting' for another backed-off attempt; an

@@ -85,7 +85,7 @@ Haskell.
 |---|-------|------|-----------|-----------|--------|
 | 1 | Eliminate silent subscription stalls in worker, publisher, and stream bridge | docs/plans/56-eliminate-silent-subscription-stalls-in-worker-publisher-and-stream-bridge.md | None | None | Complete |
 | 2 | Harden shibuya adapter ack contract and overflow policy | docs/plans/57-harden-shibuya-adapter-ack-contract-and-overflow-policy.md | EP-1 | None | Complete |
-| 3 | Stop publisher fan-out work for category and consumer-group subscribers | docs/plans/58-stop-publisher-fan-out-work-for-category-and-consumer-group-subscribers.md | None | EP-1 | Not Started |
+| 3 | Stop publisher fan-out work for category and consumer-group subscribers | docs/plans/58-stop-publisher-fan-out-work-for-category-and-consumer-group-subscribers.md | None | EP-1 | In Progress |
 | 4 | Fix backward read pagination and append edge-case errors | docs/plans/59-fix-backward-read-pagination-and-append-edge-case-errors.md | None | None | Not Started |
 | 5 | Schema and trigger hygiene: NOTIFY guard, dead-letter FK policy, and index fixes | docs/plans/60-schema-and-trigger-hygiene-notify-guard-dead-letter-fk-policy-and-index-fixes.md | None | None | Not Started |
 | 6 | Fix WebSocket event tail replay duplication and gap handling | docs/plans/61-fix-websocket-event-tail-replay-duplication-and-gap-handling.md | None | None | Not Started |
@@ -180,7 +180,7 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 - [x] EP-2: Handler exceptions finalize a disposition (adapter-side defense; shibuya-core follow-ups recorded)
 - [x] EP-2: Worker death is visible at the adapter boundary (consumes EP-1's termination contract)
 - [x] EP-2: `kirokuConsumerGroupProcessors` validates group size and cleans up on partial failure
-- [ ] EP-3: Category/consumer-group subscriptions no longer register publisher queues
+- [x] EP-3: Category/consumer-group subscriptions no longer register publisher queues
 - [ ] EP-3: Publisher fetches full rows only when an AllStreams subscriber exists
 - [ ] EP-3: Full-fetch attach race closed (late registrants receive the in-flight batch atomically with the position advance)
 - [ ] EP-4: Backward reads paginate correctly with nonzero cursors (failing test first)
@@ -249,6 +249,15 @@ finalized retry dispositions, verifies EP-1's worker-crash rethrow at
 `Adapter.source`, and validates/cleans up consumer-group construction.
 Validation passed with `just build` and `just test`; `shibuya-kiroku-adapter-test`
 now has 29 examples and `kiroku-store-test` now has 197 examples.
+
+2026-06-14, EP-3 M1 completed. EP-1's exception-safe `subscribe` bracket was
+already present, so conditional publisher registration was slotted into the
+existing acquisition path. Category subscriptions and consumer-group members now
+construct DB-driven `LiveSource` values without calling `subscribePublisher`; the
+new registry assertions prove these subscriptions leave the publisher subscriber
+map empty while non-group `AllStreams` still registers and unregisters exactly
+one queue. Validation passed with `just build` and
+`cabal test kiroku-store:kiroku-store-test` (198 examples, 0 failures).
 
 
 ## Decision Log

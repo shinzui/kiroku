@@ -31,8 +31,8 @@ import Kiroku.Store.Notification qualified as Notifier
 import Kiroku.Store.Subscription.EventPublisher qualified as Pub
 import Kiroku.Store.Subscription.Fsm (SubscriptionState (..), stateCursor, stateName)
 import Kiroku.Store.Subscription.Types
-import Kiroku.Store.Subscription.Worker (configMember, runWorker)
-import Kiroku.Store.Types (GlobalPosition (..))
+import Kiroku.Store.Subscription.Worker (LiveSource (..), configMember, runWorker)
+import Kiroku.Store.Types (CategoryName (..), GlobalPosition (..))
 
 {- | Start a subscription. Returns a handle for cancellation and waiting.
 
@@ -44,11 +44,11 @@ The subscription spawns a worker thread that:
 2. Catches up by querying the database directly until it reaches the
    'Kiroku.Store.Subscription.EventPublisher.lastPublished' cursor.
 3. Switches to live mode. For 'Kiroku.Store.Subscription.Types.AllStreams'
-   subscriptions, the worker reads pre-broadcast events from the
-   publisher's bounded per-subscriber queue. For
-   'Kiroku.Store.Subscription.Types.Category' subscriptions, the worker
-   bypasses the broadcast entirely and re-queries the database with the
-   SQL category filter whenever 'lastPublished' advances.
+   subscriptions outside a consumer group, the worker reads pre-broadcast
+   events from the publisher's bounded per-subscriber queue. For
+   'Kiroku.Store.Subscription.Types.Category' subscriptions and all
+   consumer-group subscriptions, no publisher queue is created; the worker
+   re-queries the database in live mode.
 
 The returned 'SubscriptionHandle' carries an implicit lifecycle contract:
 the worker thread runs until 'cancel' is called or the handler returns 'Stop'.
@@ -93,11 +93,14 @@ returned handle resolves with one of:
   in flight at cancellation time will replay.
 * @Left e@ where @e@ is
   'Kiroku.Store.Subscription.Types.SubscriptionOverflowed' — the publisher
-  marked this subscription overflowed under
-  'Kiroku.Store.Subscription.Types.DropSubscription'. Investigate the
-  slow handler and either fix the slowness, raise 'queueCapacity', or
-  switch to 'Kiroku.Store.Subscription.Types.DropOldest' if the consumer
-  can tolerate event loss.
+  marked this non-group 'Kiroku.Store.Subscription.Types.AllStreams'
+  subscription overflowed under
+  'Kiroku.Store.Subscription.Types.DropSubscription'. Category and
+  consumer-group subscriptions do not own publisher queues, so
+  'queueCapacity' and 'overflowPolicy' have no effect for them.
+  Investigate the slow handler and either fix the slowness, raise
+  'queueCapacity', or switch to 'Kiroku.Store.Subscription.Types.DropOldest'
+  if the consumer can tolerate event loss.
 * @Left e@ where @e@ is a 'Hasql.Pool.UsageError' from checkpoint load —
   startup could not read the saved checkpoint. The worker stops rather than
   silently replaying from global position 0.
@@ -116,14 +119,22 @@ subscribe store config = liftIO $ do
             throwIO (InvalidConsumerGroup m n)
     mask $ \_restore ->
         bracketOnError
-            ( atomically $
-                Pub.subscribePublisher
-                    (store ^. #publisher)
-                    (queueCapacity config)
-                    (overflowPolicy config)
+            ( case (consumerGroup config, target config) of
+                (Nothing, AllStreams) -> do
+                    (queue, statusVar, unsubscribe) <-
+                        atomically $
+                            Pub.subscribePublisher
+                                (store ^. #publisher)
+                                (queueCapacity config)
+                                (overflowPolicy config)
+                    pure (LiveFromPublisherQueue queue statusVar, unsubscribe)
+                (Nothing, Category (CategoryName cat)) ->
+                    pure (LiveFromCategoryNotify cat, pure ())
+                (Just _, _) ->
+                    pure (LiveFromGroupPolling, pure ())
             )
-            (\(_, _, unsubscribe) -> unsubscribe)
-            $ \(queue, statusVar, unsubscribe) -> do
+            (\(_, unsubscribe) -> unsubscribe)
+            $ \(liveSource, unsubscribe) -> do
                 -- The worker writes its current FSM state here on every transition; the
                 -- handle's 'currentState' reads it. Seeded with the catch-up entry state so
                 -- a read before the worker's first transition is sensible.
@@ -171,7 +182,7 @@ subscribe store config = liftIO $ do
                         thread <-
                             Async.asyncWithUnmask $ \unmask ->
                                 unmask
-                                    (runWorker (store ^. #pool) queue statusVar stateVar pubPosVar catGenVar config (store ^. #eventHandler) (store ^. #storeSettings))
+                                    (runWorker (store ^. #pool) liveSource stateVar pubPosVar catGenVar config (store ^. #eventHandler) (store ^. #storeSettings))
                                     `finally` cleanup
                         pure
                             SubscriptionHandle

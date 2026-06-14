@@ -57,12 +57,12 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] M1: Check the implementation state of EP-1 (docs/plans/56) and record in this plan's Decision Log whether its `subscribe` bracketing has landed (it changes where the conditional registration slots in).
-- [ ] M1: Define the `LiveSource` type in `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs` and thread it through `runWorker` in place of the unconditional `TBQueue`/`TVar SubscriberStatus` parameters.
-- [ ] M1: Make `subscribe` in `kiroku-store/src/Kiroku/Store/Subscription.hs` call `Pub.subscribePublisher` only for non-group `AllStreams` subscriptions; no-op unsubscribe otherwise; preserve the cleanup/bracket structure.
-- [ ] M1: Update the haddocks on `subscribe`, `runWorker`, and `SubscriptionConfigM` (`queueCapacity`/`overflowPolicy` apply only to non-group `AllStreams`).
-- [ ] M1: Add registry-emptiness assertions (category-only, group-only, mixed, and unsubscribe-on-cancel) to `kiroku-store/test/Test/SubscriptionRegistry.hs`.
-- [ ] M1: `just build` and `cabal test kiroku-store:kiroku-store-test` green; commit.
+- [x] M1: Check the implementation state of EP-1 (docs/plans/56) and record in this plan's Decision Log whether its `subscribe` bracketing has landed (it changes where the conditional registration slots in). Completed 2026-06-14: EP-1's `mask` + nested `bracketOnError` shape is present in `Kiroku.Store.Subscription.subscribe`, and the EP-3 conditional acquisition is being slotted into that acquire step.
+- [x] M1: Define the `LiveSource` type in `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs` and thread it through `runWorker` in place of the unconditional `TBQueue`/`TVar SubscriberStatus` parameters. Completed 2026-06-14.
+- [x] M1: Make `subscribe` in `kiroku-store/src/Kiroku/Store/Subscription.hs` call `Pub.subscribePublisher` only for non-group `AllStreams` subscriptions; no-op unsubscribe otherwise; preserve the cleanup/bracket structure. Completed 2026-06-14.
+- [x] M1: Update the haddocks on `subscribe`, `runWorker`, and `SubscriptionConfigM` (`queueCapacity`/`overflowPolicy` apply only to non-group `AllStreams`). Completed 2026-06-14.
+- [x] M1: Add registry-emptiness assertions (category-only, group-only, mixed, and unsubscribe-on-cancel) to `kiroku-store/test/Test/SubscriptionRegistry.hs`. Completed 2026-06-14.
+- [x] M1: `just build` and `cabal test kiroku-store:kiroku-store-test` green; commit. Completed 2026-06-14; `kiroku-store-test` passed with 198 examples, 0 failures.
 - [ ] M2: Restructure `fetchAndBroadcast` in `kiroku-store/src/Kiroku/Store/Subscription/EventPublisher.hs` to snapshot the registry first and take a cheap-advance path (single-row `currentGlobalPositionStmt` + STM re-check) when the registry is empty.
 - [ ] M2: Close the full-fetch attach race (Finding C): advance `lastPublished` and re-read the registry in one STM transaction after delivery, enqueueing the in-flight batch to late registrants; add a deterministic regression test (gate the publisher mid-broadcast via `decodeHook`, register a subscriber, assert no global position is skipped).
 - [ ] M2: Add new test module `kiroku-store/test/Test/PublisherIdleAdvance.hs` (zero-subscriber advance with zero decode calls; category-only no-fetch; register-mid-stream transition with no gaps), register it in `kiroku-store/kiroku-store.cabal` and `kiroku-store/test/Main.hs`.
@@ -173,6 +173,16 @@ implementation. Provide concise evidence.
   LOW/INFO findings"): the map is bounded by category cardinality in practice; deferred
   without a child plan.
   Date: 2026-06-11
+
+- Decision: EP-1's exception-safe `subscribe` bracketing has landed before EP-3
+  implementation began, so conditional publisher registration is implemented inside
+  that existing `bracketOnError` acquisition rather than by adding a second lifecycle
+  bracket.
+  Rationale: the current `subscribe` code already uses `mask`, `bracketOnError` for
+  publisher acquisition, and a second `bracketOnError` for state-registry insertion.
+  Keeping EP-3's conditional queue acquisition in the first acquisition preserves
+  EP-1's async-exception safety and avoids competing cleanup paths.
+  Date: 2026-06-14
 
 
 ## Outcomes & Retrospective

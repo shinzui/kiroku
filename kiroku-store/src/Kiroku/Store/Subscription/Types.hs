@@ -247,17 +247,21 @@ data SubscriptionConfigM m = SubscriptionConfig
     -- ^ Number of events to fetch per batch during catch-up (default: 100)
     , queueCapacity :: !Natural
     {- ^ Maximum number of /batches/ the publisher may enqueue for this
-    subscriber before applying 'overflowPolicy'. Each batch is up to
+    subscriber before applying 'overflowPolicy'. Applies only to non-group
+    'AllStreams' subscriptions, because Category and consumer-group
+    subscriptions do not create publisher queues. Each batch is up to
     'EventPublisher.publisherBatchSize' events, so the effective event
-    capacity is @queueCapacity * publisherBatchSize@. Default: 16
-    batches (~16,000 events at the default publisher batch size).
+    capacity is @queueCapacity * publisherBatchSize@. Default: 16 batches
+    (~16,000 events at the default publisher batch size).
     -}
     , overflowPolicy :: !OverflowPolicy
     {- ^ What the publisher does when this subscriber's queue is full.
-    Default: 'PauseAndResume' — a slow subscriber is paused and then
-    recovers losslessly (re-reading missed events from its checkpoint)
-    rather than being terminated or silently growing the publisher's
-    fan-out memory.
+    Applies only to non-group 'AllStreams' subscriptions, because Category
+    and consumer-group subscriptions are DB-driven and have no publisher
+    queue. Default: 'PauseAndResume' — a slow subscriber is paused and
+    then recovers losslessly (re-reading missed events from its checkpoint)
+    rather than being terminated or silently growing the publisher's fan-out
+    memory.
     -}
     , consumerGroup :: !(Maybe ConsumerGroup)
     {- ^ 'Nothing' (the default) = ordinary single-consumer subscription.
