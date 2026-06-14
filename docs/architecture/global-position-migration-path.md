@@ -398,11 +398,24 @@ evidence.
   near-identical SQL, and both are DB-side commit-bound, so client-side
   differences are negligible (the measured latency gap *is* the `$all`-lock queue,
   not client overhead).
-- **Separate discovery (not part of this decision):** current kiroku `786282e`
-  measured ~687 ev/s at w32/b1 — ~30 % below May's `c672d58` ~972 ev/s on the
-  *same* PostgreSQL 17.9. Possible append-path regression over those two weeks,
-  worth investigating independently. The verdict is unaffected: it rests on the
-  same-environment ratio, where both arms ran on `786282e`-era infrastructure.
+- **The "30 % regression" was investigated and is *not* a code regression — it
+  is the benchmark pool size.** Current kiroku `786282e` measured ~687 ev/s at
+  w32/b1 vs May `c672d58` ~972 ev/s, but the append CTE SQL, hot-table schema,
+  and `Effect.hs` append dispatch are functionally **unchanged** between those
+  commits (the diff is all read/subscription/consumer-group/dead-letter work + a
+  `contrazip2` encoder refactor). The cause is the M2 pool-parity fix:
+  kiroku-bench's default pool went **10 → writers+4 = 36**. The May
+  `followup-pool*` sweep at w32 shows throughput peaks at low pool (pool 8/13 →
+  917/953 ev/s) and falls at high pool (pool 20/36 → 696/729 ev/s) — May's own
+  pool=36 (729) matches June's pool=36 (687), and May's default pool=10 (972)
+  matches the low-pool peak. **Over-subscribing the single `$all` row lock with
+  36 backends adds lock contention/handoff overhead in the serialized-commit
+  regime** (a lock-free design is immune — further evidence the `$all` lock is
+  the serialization point). Consequence for the verdict: the pre-registered
+  pool-parity choice (writers+4) *disadvantaged* the lock-bound Strategy E arm;
+  at each arm's best pool the comparison is ~950 (Strategy E, pool≈13) vs ~1,499
+  (seqproto) ≈ **1.6×** — even further below the 3× bar. NOT WORTH IT holds more
+  firmly, not less.
 - **Read side was never the blocker:** the gap-detection query (the HWM daemon's
   steady-state poll) ran p95 2.41 ms ≪ 25 ms gate on 5M rows. The migration's
   cost is justified by throughput, and the throughput payoff is the ~1.5× short

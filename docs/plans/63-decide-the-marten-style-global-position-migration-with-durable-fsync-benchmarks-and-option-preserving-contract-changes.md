@@ -574,9 +574,17 @@ the early data showed the verdict hinged on `G(32,1)` alone.
    under NOT WORTH IT but recorded.
 2. keiro `positionGap` (`Keiro/Projection.hs:151-153`) overcounts under gaps —
    observability-only.
-3. **Possible ~30 % append-path regression** in current kiroku (`786282e` ~687
-   ev/s vs May `c672d58` ~972 ev/s, same PG 17.9, w32/b1 durable) — investigate
-   independently of this decision.
+3. **~30 % "append regression" investigated → NOT a code regression (resolved
+   2026-06-14).** `786282e` ~687 vs May `c672d58` ~972 (w32/b1) is the
+   benchmark **pool-size** change, not code: the append CTE, hot-table schema,
+   and `Effect.hs` dispatch are functionally unchanged between the commits; the
+   M2 pool-parity fix moved the default 10 → writers+4 = 36, and the May
+   `followup-pool*` sweep shows w32 peaks at pool 8/13 (917/953) and falls at
+   pool 20/36 (696/729) — May pool=36 (729) ≈ June pool=36 (687); May default
+   pool=10 (972) ≈ the low-pool peak. Over-subscribing the single `$all` row
+   lock adds contention in the serialized-commit regime. Side effect: the
+   parity-pool choice understated Strategy E; best-pool-vs-best is ~950 vs
+   ~1,499 ≈ 1.6×, strengthening NOT WORTH IT. No re-run needed.
 4. kiroku overlay ships shibuya-core 0.6 while the adapter needs 0.7 (kiroku's
    own `nix build` of `shibuya-kiroku-adapter` is broken at HEAD); one-line
    overlay bump.
