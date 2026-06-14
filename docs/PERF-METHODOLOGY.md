@@ -69,6 +69,35 @@ process for its own sake.
    earlier date.
 
 
+## Hard constraint: connection-pool size for the `$all`-lock-bound append arm
+
+The kiroku-store append path (Strategy E) serializes every append store-wide on
+the single `$all` row lock, held across the WAL flush. Its throughput-optimal
+connection pool is therefore **~10–13 regardless of writer count** — extra
+connections do not add useful concurrency, they just pile up as waiters on that
+one hot lock and *degrade* throughput. Measured: the
+`load-testing-infra/experiments/2026-05-18-followup-pool*` sweep at w32 gave
+917/953 ev/s at pool 8/13 but 696/729 at pool 20/36; EP-63 measured ~972 at
+pool=10 vs 687 at pool=36 — a ~25–30 % loss purely from over-subscribing the
+lock.
+
+Rules:
+
+1. **Do not size the kiroku-store append arm's pool to `writers + 4`.** That
+   heuristic is correct only for *lock-free* arms (rawpg, seqproto), whose
+   throughput is not gated by a shared lock. Set `KIROKU_BENCH_POOL_SIZE≈10–13`
+   explicitly when benchmarking the kiroku-store arm for absolute throughput.
+2. **Never compare a lock-bound arm to a lock-free arm at a shared "parity"
+   pool.** The two architectures have *different* optimal pools, so any single
+   shared value mis-tunes one of them. Compare **best-pool vs best-pool**, and
+   report the pool each arm used. (EP-63's pre-registered pool-parity at
+   writers+4 violated this and biased the headline ratio against Strategy E:
+   2.18× at parity-36 vs ~1.6× at best-vs-best — see
+   `docs/architecture/global-position-migration-path.md` Part 3.)
+3. The kiroku-bench `KIROKU_BENCH_POOL_SIZE` default (`writers+4`) carries an
+   in-code warning to this effect; honor it.
+
+
 ## Where the harnesses live
 
 - **Haskell-side profiling (GHC `-prof`, `.prof` cost-centre breakdown).**

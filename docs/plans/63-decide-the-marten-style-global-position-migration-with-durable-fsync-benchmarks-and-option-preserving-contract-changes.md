@@ -517,6 +517,25 @@ lock. Infra changes committed in load-testing-infra `bf60458`.
   experiment-name regex in 0 s — before any provisioning, so zero GCP cost —
   hence the lowercase `…ep63-strate-*` re-run. Date: 2026-06-11
 
+- Decision (correction, 2026-06-14): **the M2 pool-parity choice (writers+4) was
+  the wrong methodology and the headline ratio was measured at a biased pool.**
+  An earlier finding (the May `followup-pool*` sweep) had already established
+  that the `$all`-lock-bound kiroku-store append arm is throughput-optimal at
+  pool ≈ 10–13 and degrades when over-subscribed; M2 nonetheless changed the
+  bench default 10 → writers+4 to "match the lock-free rawpg baseline", citing
+  that sweep as a confound yet correcting in the wrong direction. The two
+  architectures have *different* optimal pools, so pool-parity necessarily
+  mis-tunes the lock-bound arm — pool=36 cost Strategy E ~25–30 % (≈687 vs ≈950
+  at pool≈13), inflating `G(32,1)` to 2.18× when the fair best-pool-vs-best-pool
+  figure is ≈ 1.6×. The user chose to fix the record rather than re-measure
+  (the verdict is identical across 1.6–2.18×). Durable guards added so this is
+  not re-violated: a hard rule in `docs/PERF-METHODOLOGY.md` ("never pool-parity
+  a lock-bound arm against a lock-free arm; pin the kiroku-store append arm to
+  pool ≈ 10–13; compare best-vs-best") and an in-code warning at the
+  `KIROKU_BENCH_POOL_SIZE` default in kiroku-bench `app/Main.hs`. This is the
+  same finding that resolves follow-up #3 (the apparent "~30 % regression" is
+  the pool change, not code). Date: 2026-06-14
+
 ## Outcomes & Retrospective
 
 **Measured gain table** (GCP `tan-nb-exp`/`us-west1`, PostgreSQL 17.9, pd-ssd,
@@ -526,16 +545,28 @@ of 3; Strategy E = kiroku `786282e`, seqproto = kiroku-bench `260e93a`; infra
 
 | cell | Strategy E | seqproto | ratio |
 |---|---|---|---|
-| batch=1 (single-event) | 687 ev/s | 1,499 ev/s | **G(32,1) = 2.18×** |
-| batch=10 | 4,364 ev/s | (not run) | — |
+| batch=1, **best-pool vs best-pool (fair)** | ~950 (pool ≈ 13) | ~1,499 | **≈ 1.6× (indicative)** |
+| batch=1, pool-parity at 36 (as-measured, biased) | 687 ev/s | 1,499 ev/s | 2.18× |
+| batch=10, pool-parity at 36 | 4,364 ev/s | (not run) | — |
 | writer-scaling (seqproto, b1) | — | w8 1,559 → w32 1,499 (**flat**) | — |
+
+**Pool-size correction (2026-06-14).** The pre-registered pool-parity choice
+(writers+4=36 for both arms) was the *wrong* methodology: the `$all`-lock-bound
+Strategy E arm is optimal at pool ≈ 10–13 and degrades when over-subscribed,
+while the lock-free seqproto arm is pool-insensitive — so parity handicaps
+Strategy E and inflates the ratio to 2.18×. The fair best-pool-vs-best-pool
+figure is ≈ 1.6× (≤ the 2.0 NOT-WORTH-IT line). This also fully explains the
+apparent "~30 % regression vs May": no code changed on the append path; the
+bench pool default moved 10 → 36. See the new hard rule in
+`docs/PERF-METHODOLOGY.md` and `global-position-migration-path.md` Part 3.
 
 **Prediction vs observation.** Purpose-section prediction: GCP w32/b1 sequence
 arm beats Strategy E by **5–15×** via group commit amortizing flushes across ~32
-concurrent committers. **Observed: 2.18×, and flat in writer count** — group
-commit does *not* amortize concurrent durable commits on pd-ssd; the sequence
-arm hits the durable-commit wall at ~1,500 single-event commits/s just as
-Strategy E hits it (plus lock overhead) at ~687. The M3 Mac `F_FULLFSYNC`
+concurrent committers. **Observed: ~1.6× (best-pool-vs-best-pool; 2.18× at the
+biased pool-parity setting), and flat in writer count** — group commit does
+*not* amortize concurrent durable commits on pd-ssd; the sequence arm hits the
+durable-commit wall at ~1,500 single-event commits/s just as Strategy E hits it
+(plus lock overhead) at ~950 (best pool) / ~687 (pool=36). The M3 Mac `F_FULLFSYNC`
 serialization reproduced on cloud hardware. The 5–15× hypothesis is **falsified**
 for the unbatched single-event path. (Earlier milestones held: M1 contract
 changes shipped; M3 confirmed the lock-under-flush model at 21.4×; gap-scan p95

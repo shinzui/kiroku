@@ -324,19 +324,38 @@ positions strictly increasing, and zero gaps when no transaction rolled back.
 
 ### The numbers
 
+> **Pool-size correction (read first).** The figures below were measured at
+> **pool-parity (writers+4 = 36 connections for both arms)**, a pre-registered
+> choice that turned out to be the **wrong methodology** for this comparison.
+> Pool parity necessarily mis-tunes one arm because the two architectures have
+> *different* optimal pools: the lock-free seqproto arm is pool-insensitive,
+> but the `$all`-lock-bound Strategy E arm **peaks at pool ≈ 10–13 and degrades
+> as connections grow** (more backends queue on the single hot lock). The May
+> `followup-pool*` sweep had already established this (917/953 ev/s at pool 8/13;
+> 696/729 at pool 20/36) — it was not honored when the bench pool default was
+> changed to writers+4. So pool=36 **handicaps Strategy E specifically**, and the
+> 2.18× headline is biased *against* the status quo. The methodologically fair
+> figure is **best-pool-vs-best-pool ≈ 1.6×** (Strategy E ~950 ev/s at pool ≈ 13,
+> per the sweep, vs seqproto ~1,499). That figure is *indicative* — it pairs the
+> May sweep's Strategy-E peak against the current seqproto run rather than a
+> clean same-run re-measurement (we chose not to spend more GCP cycles, since the
+> verdict is identical across the whole 1.6–2.18× range). Both numbers are
+> reported below for honesty.
+
 | cell (w32, durable, median of 3) | Strategy E | seqproto | ratio |
 |---|---|---|---|
-| **batch=1 (single-event)** | **687 ev/s** | **1,499 ev/s** | **2.18×** |
-| batch=10 | 4,364 ev/s | (not measured) | — |
+| **batch=1, best-pool vs best-pool (fair)** | ~950 (pool ≈ 13) | ~1,499 | **≈ 1.6× (indicative)** |
+| batch=1, pool-parity at 36 (as-measured, biased) | 687 | 1,499 | 2.18× |
+| batch=10, pool-parity at 36 | 4,364 | (not measured) | — |
 
-The ratio is not a harness artifact. In identical 180 s windows seqproto
-completed **294,549** appends vs Strategy E **122,711** (a *direct count* of work
-done, independent of any rate computation); database growth was +218 MiB vs
-+117 MiB; and both arms ran at **~40–44 % postgres CPU, 100 % cache-hit, disk
-unsaturated** — i.e. both are **durable-commit-bound, not CPU/IO/lock/read-bound**
-(Grafana host + postgres panels archived per run). Strategy E p95 latency
-**165 ms** (the 32-writer `$all`-lock queue) vs seqproto **45 ms** isolates the
-lock as the difference.
+The as-measured ratio is not a *harness* artifact (it is real work, measured
+correctly *for pool=36*): in identical 180 s windows seqproto completed
+**294,549** appends vs Strategy E **122,711** (a direct count); database growth
++218 MiB vs +117 MiB; both arms ran at **~40–44 % postgres CPU, 100 % cache-hit,
+disk unsaturated** — both **durable-commit-bound, not CPU/IO/read-bound**. The
+only artifact is the **pool choice**, which inflates the gain by handicapping the
+lock-bound arm; correcting it *lowers* the gain to ~1.6×, which only strengthens
+the verdict.
 
 ### The decisive finding: removing the lock does not buy *scaling*
 
@@ -345,40 +364,49 @@ It does not appear: **seqproto throughput is flat in writer count** —
 w8 **1,559 ev/s** → w32 **1,499 ev/s** (slightly *down*). If group commit were
 amortizing concurrent WAL flushes, 32 committers would beat 8; they don't. On
 this pd-ssd, durable commits effectively serialize *regardless of the lock*, so
-removing the `$all` lock yields a one-time **2.18×** (the lock's own overhead)
-and then hits a second wall — the durable-commit path itself — at **~1,500
-single-event commits/s**. This is the M3 Mac result (`F_FULLFSYNC` serialized
+removing the `$all` lock yields a one-time gain (**≈1.6×** at each arm's best
+pool; 2.18× at the biased pool-parity setting — see the pool-size correction
+above) and then hits a second wall — the durable-commit path itself — at
+**~1,500 single-event commits/s**. This writer-scaling finding is *independent of
+the pool issue*: seqproto ran at writers+4 (its appropriate pool) at both w8 and
+w32, so its flatness is real. This is the M3 Mac result (`F_FULLFSYNC` serialized
 commits, flat in writers) reproduced on the cloud hardware that was expected to
 behave differently. Part 2's sentence "appends … share group-commit WAL flushes"
 is the assumption this measurement falsifies for the unbatched single-event path.
 
 ### Verdict against the target workload
 
-Pre-registered rule: `G(32,1)=2.18×` is in the **judgment zone** (`≥2.0` but
-`<3.0`; PROCEED requires `≥3.0`), to be decided against a written target. Target
-recorded 2026-06-11: **a few thousand ev/s of latency-sensitive single-event
-cross-stream appends that cannot batch.**
+Pre-registered rule (at the pre-registered pool-parity methodology):
+`G(32,1)=2.18×` is in the **judgment zone** (`≥2.0` but `<3.0`; PROCEED requires
+`≥3.0`), to be decided against a written target. **At the methodologically
+correct best-pool comparison (~1.6×) it trips the automatic NOT-WORTH-IT
+threshold (`<2.0`) directly** — so both readings agree; the judgment-zone
+analysis below is the more conservative path to the same verdict. Target recorded
+2026-06-11: **a few thousand ev/s of latency-sensitive single-event cross-stream
+appends that cannot batch.**
 
-- Strategy E single-event ceiling: **~687 ev/s**, flat in writers — short of target.
+- Strategy E single-event ceiling: **~950 ev/s** (best pool ≈ 13; ~687 at the
+  biased pool=36), flat in writers — short of target.
 - seqproto single-event ceiling: **~1,499 ev/s**, *also* flat in writers — **also
   short of target.**
 - **Neither single-store design reaches "a few thousand" single-event durable
-  appends/s.** The rewrite improves it 2.18× and then stalls at ~1,500.
+  appends/s.** The rewrite improves it ~1.6× and then stalls at ~1,500.
 - The remaining gap is closed by levers that do **not** require the core rewrite:
   **sharding** (tenant/schema-level stores — positions were never cross-store
-  comparable) multiplies *either* ceiling linearly: ~5 Strategy-E shards
-  (5×687 ≈ 3,400 ev/s) or ~2 seqproto shards reach a few thousand; **faster
+  comparable) multiplies *either* ceiling linearly: ~4 Strategy-E shards
+  (4×950 ≈ 3,800 ev/s) or ~2 seqproto shards reach a few thousand; **faster
   commit storage** lowers `commit_latency` for both; **`commit_delay` tuning** is
   the one untested lever that *could* let group commit amortize on the sequence
   arm — but the flat w8→w32 scaling argues it won't.
 
 > **Verdict: NOT WORTH IT.** An 8–10 ExecPlan core rewrite plus a permanent
-> high-water-mark daemon buys a flat **2.18×** that still falls short of the
-> latency-sensitive target, while **sharding the current architecture reaches
-> the target with linear, operationally-routine scaling** and no read-side
-> complexity. The rewrite would only cut shard count ~2.2× for a given target —
-> not worth the permanent complexity tax (gap timeouts, safe-horizon daemon,
-> re-scoped read-your-writes).
+> high-water-mark daemon buys a flat **~1.6×** (≤2.18× even at the pool setting
+> that handicaps the status quo) that still falls short of the latency-sensitive
+> target, while **sharding the current architecture reaches the target with
+> linear, operationally-routine scaling** and no read-side complexity. The
+> rewrite would only cut shard count ~1.6× for a given target — not worth the
+> permanent complexity tax (gap timeouts, safe-horizon daemon, re-scoped
+> read-your-writes).
 
 **What would overturn this:** a cheap `commit_delay`/group-commit probe (or
 faster-fsync storage) showing the sequence arm scaling *past* ~1,500 single-event
