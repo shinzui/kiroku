@@ -100,7 +100,7 @@ up the fixes. Planning that bump is out of scope here.
 - [x] M3: Fix stale adapter prose: cabal `description` still claims ack is a no-op; module Haddock "Ack Semantics"/"Backpressure" sections updated for guard wrapper, PauseAndResume, and error-carrying stream end. Completed 2026-06-14.
 - [x] M4: `kirokuConsumerGroupProcessors` validates `groupSize >= 1` up front (throws `InvalidConsumerGroup`); creation runs through a cleanup-on-partial-failure helper. Completed 2026-06-14.
 - [x] M4: Tests: `groupSize = 0` and `groupSize = -1` throw `InvalidConsumerGroup` (no `Right []`); injected factory failure at member 2 of 3 shuts down members 0 and 1 exactly once. Completed 2026-06-14; focused consumer-group policy tests passed with 8 examples, 0 failures.
-- [ ] Final: full `just test` green; Outcomes & Retrospective written; master plan registry row for EP-2 flipped to Complete.
+- [x] Final: full `just test` green; Outcomes & Retrospective written; master plan registry row for EP-2 flipped to Complete. Completed 2026-06-14.
 
 
 ## Surprises & Discoveries
@@ -278,7 +278,50 @@ policy validation fails.
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+2026-06-14, EP-2 completed. The adapter now exposes `queueCapacity` and relies
+on Kiroku's default `PauseAndResume` policy, so a burst while the handler is
+paused no longer kills the subscription. `subscriptionAckStream` rejects
+`bufferSize = 0` with `InvalidStreamBufferSize 0` before it can deadlock the
+bridge. `guardKirokuHandlerWith` and `guardKirokuHandler` convert synchronous
+handler exceptions into finalized ack decisions, and
+`kirokuConsumerGroupProcessors` applies the default retry guard automatically.
+Adapter-level stream tests now lock EP-1's contract: `shutdown` ends
+`Adapter.source` cleanly, while an injected worker crash rethrows through the
+stream consumer. Consumer-group construction validates `groupSize >= 1` before
+opening subscriptions and releases already-created members on partial failure.
+
+Validation passed:
+
+```text
+cabal test shibuya-kiroku-adapter-test --test-show-details=direct
+29 examples, 0 failures
+```
+
+```text
+cabal test kiroku-store:kiroku-store-test --test-show-details=direct
+197 examples, 0 failures
+```
+
+```text
+just test
+cabal test all
+kiroku-cli-test: 22 examples, 0 failures
+kiroku-otel-test: 17 examples, 0 failures
+kiroku-store-migrations-test: 1 example, 0 failures
+kiroku-metrics-test: 16 examples, 0 failures
+shibuya-kiroku-adapter-test: 29 examples, 0 failures
+kiroku-store-test: 197 examples, 0 failures
+```
+
+```text
+just build
+cabal build all
+```
+
+The only known remaining gaps are deliberately outside this repository:
+shibuya-core should finalize or expose a policy hook for handler exceptions in
+its supervised processor, and it should propagate ingester stream failures from
+the supervised runner instead of discarding the ingester async handle.
 
 
 ## Context and Orientation

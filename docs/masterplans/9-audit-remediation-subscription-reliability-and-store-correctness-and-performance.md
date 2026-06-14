@@ -84,7 +84,7 @@ Haskell.
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
 | 1 | Eliminate silent subscription stalls in worker, publisher, and stream bridge | docs/plans/56-eliminate-silent-subscription-stalls-in-worker-publisher-and-stream-bridge.md | None | None | Complete |
-| 2 | Harden shibuya adapter ack contract and overflow policy | docs/plans/57-harden-shibuya-adapter-ack-contract-and-overflow-policy.md | EP-1 | None | In Progress |
+| 2 | Harden shibuya adapter ack contract and overflow policy | docs/plans/57-harden-shibuya-adapter-ack-contract-and-overflow-policy.md | EP-1 | None | Complete |
 | 3 | Stop publisher fan-out work for category and consumer-group subscribers | docs/plans/58-stop-publisher-fan-out-work-for-category-and-consumer-group-subscribers.md | None | EP-1 | Not Started |
 | 4 | Fix backward read pagination and append edge-case errors | docs/plans/59-fix-backward-read-pagination-and-append-edge-case-errors.md | None | None | Not Started |
 | 5 | Schema and trigger hygiene: NOTIFY guard, dead-letter FK policy, and index fixes | docs/plans/60-schema-and-trigger-hygiene-notify-guard-dead-letter-fk-policy-and-index-fixes.md | None | None | Not Started |
@@ -176,10 +176,10 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 - [x] EP-1: Publisher loop survives user-callback exceptions and surfaces liveness
 - [x] EP-1: `subscribe` pre-fork window is async-exception safe; checkpoint-load failure no longer silently replays from 0
 - [x] EP-1: Notifier startup releases the connection when LISTEN fails
-- [ ] EP-2: Adapter defaults to `PauseAndResume`; overflow can no longer kill the processor
-- [ ] EP-2: Handler exceptions finalize a disposition (adapter-side defense; shibuya-core follow-ups recorded)
-- [ ] EP-2: Worker death is visible at the adapter boundary (consumes EP-1's termination contract)
-- [ ] EP-2: `kirokuConsumerGroupProcessors` validates group size and cleans up on partial failure
+- [x] EP-2: Adapter defaults to `PauseAndResume`; overflow can no longer kill the processor
+- [x] EP-2: Handler exceptions finalize a disposition (adapter-side defense; shibuya-core follow-ups recorded)
+- [x] EP-2: Worker death is visible at the adapter boundary (consumes EP-1's termination contract)
+- [x] EP-2: `kirokuConsumerGroupProcessors` validates group size and cleans up on partial failure
 - [ ] EP-3: Category/consumer-group subscriptions no longer register publisher queues
 - [ ] EP-3: Publisher fetches full rows only when an AllStreams subscriber exists
 - [ ] EP-3: Full-fetch attach race closed (late registrants receive the in-flight batch atomically with the position advance)
@@ -241,6 +241,14 @@ all workspace suites passed, including `kiroku-store-test` (196 examples),
 `shibuya-kiroku-adapter-test` (21 examples), `kiroku-metrics-test` (16 examples),
 `kiroku-otel-test` (17 examples), `kiroku-cli-test` (22 examples), and
 `kiroku-store-migrations-test` (1 example).
+
+2026-06-14, EP-2 completed. `shibuya-kiroku-adapter` now uses Kiroku's
+lossless `PauseAndResume` overflow behavior, exposes `queueCapacity`, rejects
+zero bridge buffers at `subscriptionAckStream`, guards throwing handlers into
+finalized retry dispositions, verifies EP-1's worker-crash rethrow at
+`Adapter.source`, and validates/cleans up consumer-group construction.
+Validation passed with `just build` and `just test`; `shibuya-kiroku-adapter-test`
+now has 29 examples and `kiroku-store-test` now has 197 examples.
 
 
 ## Decision Log
@@ -313,7 +321,15 @@ all workspace suites passed, including `kiroku-store-test` (196 examples),
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original vision.
 
-(To be filled during and after implementation.)
+2026-06-14, after EP-2: the Shibuya adapter no longer has the silent-stall
+paths identified for this package. A slow adapter-backed subscription no longer
+dies on publisher queue overflow, a synchronous handler exception is turned into
+a real Kiroku disposition instead of abandoning the ack reply, EP-1's worker
+death signal is observable at the adapter stream boundary, and the
+consumer-group helper now fails loudly for invalid sizes and releases partially
+created members on construction failure. The remaining caveat is upstream:
+shibuya-core still needs to propagate supervised ingester failures and decide
+how `processOne` should finalize handler exceptions.
 
 
 ---
