@@ -83,7 +83,7 @@ Haskell.
 
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
-| 1 | Eliminate silent subscription stalls in worker, publisher, and stream bridge | docs/plans/56-eliminate-silent-subscription-stalls-in-worker-publisher-and-stream-bridge.md | None | None | In Progress |
+| 1 | Eliminate silent subscription stalls in worker, publisher, and stream bridge | docs/plans/56-eliminate-silent-subscription-stalls-in-worker-publisher-and-stream-bridge.md | None | None | Complete |
 | 2 | Harden shibuya adapter ack contract and overflow policy | docs/plans/57-harden-shibuya-adapter-ack-contract-and-overflow-policy.md | EP-1 | None | Not Started |
 | 3 | Stop publisher fan-out work for category and consumer-group subscribers | docs/plans/58-stop-publisher-fan-out-work-for-category-and-consumer-group-subscribers.md | None | EP-1 | Not Started |
 | 4 | Fix backward read pagination and append edge-case errors | docs/plans/59-fix-backward-read-pagination-and-append-edge-case-errors.md | None | None | Not Started |
@@ -229,6 +229,18 @@ follow-up alongside finalize-on-exception.
 provisional "terminal queue element" sketched here to a terminal `TVar` consulted via
 `orElse` (a queue write can block on a full queue — the defect being fixed). Integration
 Points and EP-2's dependency callout were aligned accordingly.
+
+2026-06-14, discovered while completing EP-1: the new
+`KirokuEventPublisherLoopError` event also had to be consumed by in-repo
+observability packages. `kiroku-otel` now ignores it explicitly because it is not
+subscription-scoped, and `kiroku-metrics` now exposes a distinct publisher loop error
+counter so callback/decode failures are visible separately from publisher pool errors.
+
+2026-06-14, EP-1 completed. Final validation passed with `just build` and `just test`;
+all workspace suites passed, including `kiroku-store-test` (196 examples),
+`shibuya-kiroku-adapter-test` (21 examples), `kiroku-metrics-test` (16 examples),
+`kiroku-otel-test` (17 examples), `kiroku-cli-test` (22 examples), and
+`kiroku-store-migrations-test` (1 example).
 
 
 ## Decision Log

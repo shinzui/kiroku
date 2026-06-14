@@ -81,8 +81,8 @@ This section must always reflect the actual current state of the work.
 - [x] M3: Make `loadCheckpoint` in `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs` throw on `Left err` (fresh subscription `Right Nothing` still starts at 0); add the `withLoadCheckpointHookForTest` seam; update the affected Haddocks in `Worker.hs`, `Subscription.hs`, and `Observability.hs`. Completed 2026-06-14.
 - [x] M3: Bracket `startNotifier`'s acquire/listen/spawn window with `bracketOnError` and widen `NotifierStartError` to also carry LISTEN failures (`kiroku-store/src/Kiroku/Store/Notification.hs`). Completed 2026-06-14; accepted structurally and covered by existing notifier tests in full-suite validation.
 - [x] M3: Add M3 tests (checkpoint-load failure surfaces via `wait`; subscribe/cancel storm leaves no leaked registrations) and register them. Completed 2026-06-14; focused suite passed with 2 examples, 0 failures.
-- [ ] M4: Fix the retry-budget off-by-one Haddocks in `kiroku-store/src/Kiroku/Store/Subscription/Types.hs` and the `DeadLetterMaxAttempts` doc in `kiroku-store/src/Kiroku/Store/Subscription/Fsm.hs`.
-- [ ] M4: Full-suite validation (`cabal build all`, `cabal test all`), record the final bridge termination contract in Outcomes & Retrospective for EP-2, and update the MasterPlan 9 registry/progress.
+- [x] M4: Fix the retry-budget off-by-one Haddocks in `kiroku-store/src/Kiroku/Store/Subscription/Types.hs` and the `DeadLetterMaxAttempts` doc in `kiroku-store/src/Kiroku/Store/Subscription/Fsm.hs`. Completed 2026-06-14.
+- [x] M4: Full-suite validation (`cabal build all`, `cabal test all`), record the final bridge termination contract in Outcomes & Retrospective for EP-2, and update the MasterPlan 9 registry/progress. Completed 2026-06-14 with `just build` and `just test`.
 
 
 ## Surprises & Discoveries
@@ -90,7 +90,13 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+2026-06-14, during final `just build`: adding `KirokuEventPublisherLoopError` to the
+public event sum left in-repo consumers with warning-only incomplete pattern matches
+in `kiroku-otel/src/Kiroku/Otel/Subscription.hs` and
+`kiroku-metrics/src/Kiroku/Metrics/Collector.hs`. This was not just cosmetic: a
+metrics `eventHandler` would have thrown on the new event and then been dropped by
+`emitOrDrop`, losing the signal. The fix was to ignore the event explicitly in OTel
+and add a distinct `publisherLoopErrors` metrics counter in `kiroku-metrics`.
 
 
 ## Decision Log
@@ -205,6 +211,15 @@ Record every decision made while working on the plan.
   the worker thread permanently masked (uncancellable).
   Date: 2026-06-11
 
+- Decision: The in-repo metrics package gets a dedicated `publisherLoopErrors`
+  counter for `KirokuEventPublisherLoopError`, while the OTel subscription tracer
+  ignores it explicitly.
+  Rationale: The new event is publisher-wide, not subscription-scoped, so it does not
+  belong in the OTel subscription span model. Metrics should retain it as an
+  operator-visible liveness signal distinct from database pool failures, matching the
+  purpose of the new constructor.
+  Date: 2026-06-14
+
 
 ## Outcomes & Retrospective
 
@@ -278,6 +293,28 @@ The full store suite passed after M3:
 ```text
 cabal test kiroku-store:kiroku-store-test --test-show-details=direct
 196 examples, 0 failures
+```
+
+2026-06-14, M4 and EP-1 completed. Retry-budget documentation now consistently says
+`retryMaxAttempts = 5` means five total deliveries, not five redeliveries. The new
+`KirokuEventPublisherLoopError` is handled exhaustively by in-repo OTel and metrics
+consumers; metrics exposes a distinct publisher loop error counter. Final validation
+passed:
+
+```text
+just build
+cabal build all
+```
+
+```text
+just test
+cabal test all
+kiroku-cli-test: 22 examples, 0 failures
+kiroku-otel-test: 17 examples, 0 failures
+kiroku-store-migrations-test: 1 example, 0 failures
+kiroku-metrics-test: 16 examples, 0 failures
+shibuya-kiroku-adapter-test: 21 examples, 0 failures
+kiroku-store-test: 196 examples, 0 failures
 ```
 
 

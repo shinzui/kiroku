@@ -359,6 +359,7 @@ onEvent tracer cell = \case
     KirokuEventNotifierReconnecting{} -> pure ()
     KirokuEventNotifierReconnected -> pure ()
     KirokuEventPublisherPoolError{} -> pure ()
+    KirokuEventPublisherLoopError{} -> pure ()
     KirokuEventHardDeleteIssued{} -> pure ()
 
 -- Span / state-cell helpers ---------------------------------------------------

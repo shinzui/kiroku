@@ -122,7 +122,7 @@ data DeadLetterReason
       DeadLetterPoison !Text
     | -- | The event payload failed validation/parsing; the 'Text' is the detail.
       DeadLetterInvalid !Text
-    | -- | The bounded retry budget was exhausted after the given number of attempts.
+    | -- | The bounded retry budget was exhausted after the given number of total deliveries.
       DeadLetterMaxAttempts !Int
     | -- | A custom reason: a summary plus structured JSON detail.
       DeadLetterOther !Text !Value

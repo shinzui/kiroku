@@ -64,6 +64,7 @@ counterSection c =
         [ metric "kiroku_notifier_reconnecting_total" "counter" "Notifier reconnection attempts started." c.notifierReconnecting
         , metric "kiroku_notifier_reconnected_total" "counter" "Notifier reconnections completed." c.notifierReconnected
         , metric "kiroku_publisher_pool_errors_total" "counter" "EventPublisher read-query pool errors." c.publisherPoolErrors
+        , metric "kiroku_publisher_loop_errors_total" "counter" "EventPublisher callback or broadcast loop errors." c.publisherLoopErrors
         , help "kiroku_subscription_db_errors_by_phase_total" "Subscription database errors by phase."
         , typ "kiroku_subscription_db_errors_by_phase_total" "counter"
         , labelled "kiroku_subscription_db_errors_by_phase_total" "phase" "load" c.subscriptionDbErrorsLoad

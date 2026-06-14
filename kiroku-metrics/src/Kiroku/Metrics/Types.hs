@@ -59,12 +59,13 @@ The constructor set the store emits is richer than counters here name one-to-one
 subscription lifecycle events ('Started', 'CaughtUp', 'Paused', 'Resumed',
 'Reconnecting', 'Retrying', 'DeadLettered', 'Stopped' by reason), per-batch
 delivery, live fetches, per-phase database errors, notifier reconnects,
-publisher pool errors, and hard deletes.
+publisher pool and loop errors, and hard deletes.
 -}
 data LifecycleCounters = LifecycleCounters
     { notifierReconnecting :: !Int64
     , notifierReconnected :: !Int64
     , publisherPoolErrors :: !Int64
+    , publisherLoopErrors :: !Int64
     , subscriptionDbErrorsLoad :: !Int64
     , subscriptionDbErrorsFetch :: !Int64
     , subscriptionDbErrorsSave :: !Int64
@@ -127,6 +128,7 @@ instance ToJSON LifecycleCounters where
             [ "notifier_reconnecting" .= c.notifierReconnecting
             , "notifier_reconnected" .= c.notifierReconnected
             , "publisher_pool_errors" .= c.publisherPoolErrors
+            , "publisher_loop_errors" .= c.publisherLoopErrors
             , "subscription_db_errors_load" .= c.subscriptionDbErrorsLoad
             , "subscription_db_errors_fetch" .= c.subscriptionDbErrorsFetch
             , "subscription_db_errors_save" .= c.subscriptionDbErrorsSave

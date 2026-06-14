@@ -81,6 +81,19 @@ spec = describe "Kiroku.Metrics.Collector" $ do
         snap.counters.notifierReconnecting `shouldBe` 2
         snap.counters.notifierReconnected `shouldBe` 1
 
+    it "counts publisher pool and loop errors separately" $ do
+        snap <-
+            runScript
+                (pure (GlobalPosition 0))
+                (pure 0)
+                [ KirokuEventPublisherPoolError dbErr
+                , KirokuEventPublisherLoopError someExc
+                , KirokuEventPublisherLoopError someExc
+                ]
+                []
+        snap.counters.publisherPoolErrors `shouldBe` 1
+        snap.counters.publisherLoopErrors `shouldBe` 2
+
     it "records subscription position and derives lag from the global position" $ do
         snap <-
             runScript

@@ -152,9 +152,10 @@ data SubscriptionResult
       Stop
     | {- | Redeliver /this same event/ after the given delay before the checkpoint
       advances past it. Redelivery is bounded by the subscription's
-      'RetryPolicy' ('retryMaxAttempts'); once the bound is reached the worker
-      dead-letters the event with 'DeadLetterMaxAttempts' and advances to the
-      next event. The adapter maps Shibuya's @AckRetry@ to this.
+      'RetryPolicy' ('retryMaxAttempts'), which counts total deliveries, not
+      redeliveries; once the bound is reached the worker dead-letters the event
+      with 'DeadLetterMaxAttempts' and advances to the next event. The adapter
+      maps Shibuya's @AckRetry@ to this.
       -}
       Retry !RetryDelay
     | {- | Record this event in @kiroku.dead_letters@ with the given reason and
@@ -164,22 +165,24 @@ data SubscriptionResult
       DeadLetter !DeadLetterReason
     deriving stock (Eq, Show)
 
-{- | Bounds on how many times a single event is redelivered before it is
+{- | Bounds how many total deliveries a single event gets before it is
 dead-lettered. The per-redelivery delay is carried by each
 'Retry' result (mirroring Shibuya's per-decision @AckRetry RetryDelay@), so the
 policy only carries the attempt bound.
 -}
 newtype RetryPolicy = RetryPolicy
     { retryMaxAttempts :: Int
-    {- ^ Maximum redeliveries of one event before dead-lettering it. A value
-    @<= 1@ means the first 'Retry' immediately dead-letters (no redelivery).
+    {- ^ Maximum total deliveries of one event before dead-lettering it. The
+    first delivery counts as attempt 1. A value @<= 1@ means the first 'Retry'
+    immediately dead-letters (no redelivery).
     -}
     }
     deriving stock (Eq, Show)
 
-{- | The default 'RetryPolicy': up to five redeliveries of a single event before
-it is dead-lettered with 'DeadLetterMaxAttempts'. Handlers that never return
-'Retry' are unaffected by this default.
+{- | The default 'RetryPolicy': up to five total deliveries of a single event —
+the first delivery plus four redeliveries — before it is dead-lettered with
+'DeadLetterMaxAttempts'. Handlers that never return 'Retry' are unaffected by
+this default.
 -}
 defaultRetryPolicy :: RetryPolicy
 defaultRetryPolicy = RetryPolicy{retryMaxAttempts = 5}

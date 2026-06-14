@@ -84,6 +84,7 @@ emptyCounters =
         { notifierReconnecting = 0
         , notifierReconnected = 0
         , publisherPoolErrors = 0
+        , publisherLoopErrors = 0
         , subscriptionDbErrorsLoad = 0
         , subscriptionDbErrorsFetch = 0
         , subscriptionDbErrorsSave = 0
@@ -162,6 +163,8 @@ applyEvent km = \case
         bumpCounters km (\c -> c{notifierReconnected = c.notifierReconnected + 1})
     KirokuEventPublisherPoolError _ ->
         bumpCounters km (\c -> c{publisherPoolErrors = c.publisherPoolErrors + 1})
+    KirokuEventPublisherLoopError _ ->
+        bumpCounters km (\c -> c{publisherLoopErrors = c.publisherLoopErrors + 1})
     KirokuEventSubscriptionDbError name phase _ _ -> do
         bumpCounters km (bumpDbPhase phase)
         touchSub km name (\s -> s{smDbErrorCount = s.smDbErrorCount + 1})
