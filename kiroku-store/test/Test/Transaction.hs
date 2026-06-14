@@ -14,6 +14,7 @@ import Data.Int (Int64)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
+import Data.UUID.V7 qualified as V7
 import Hasql.Decoders qualified as D
 import Hasql.Encoders qualified as E
 import Hasql.Pool (Pool)
@@ -109,6 +110,23 @@ spec = around withTestStore $ do
                         ("Expected Right (Left WrongExpectedVersionConflict), got: " <> show other)
             rows <- countSideTable (store ^. #pool)
             rows `shouldBe` 0
+
+        it "surfaces duplicate caller-supplied event ids as DuplicateEvent" $ \store -> do
+            eid <- EventId <$> V7.genUUID
+            let evt = eventWithId eid
+            prepared <- prepareEventsIO [evt]
+            now <- getCurrentTime
+            first <-
+                runStoreIO store $
+                    runTransaction $
+                        appendToStreamTx (StreamName "txn-duplicate-source-1") NoStream prepared now
+            first `shouldSatisfy` either (const False) isRight
+
+            duplicate <-
+                runStoreIO store $
+                    runTransaction $
+                        appendToStreamTx (StreamName "txn-duplicate-target-1") NoStream prepared now
+            duplicate `shouldSatisfy` isDuplicateEvent
 
     describe "runTransactionAppending" $ do
         it "commits 3 events and a side-table row in one ACID transaction" $ \store -> do
@@ -264,6 +282,27 @@ spec = around withTestStore $ do
             rows <- countSideTable (store ^. #pool)
             rows `shouldBe` 0
 
+        it "surfaces duplicate caller-supplied event ids as DuplicateEvent" $ \store -> do
+            eid <- EventId <$> V7.genUUID
+            let evt = eventWithId eid
+            first <-
+                runStoreIO store $
+                    runTransactionAppending
+                        (StreamName "txn-wrapper-duplicate-source-1")
+                        NoStream
+                        [evt]
+                        pure
+            first `shouldSatisfy` either (const False) isRight
+
+            duplicate <-
+                runStoreIO store $
+                    runTransactionAppending
+                        (StreamName "txn-wrapper-duplicate-target-1")
+                        NoStream
+                        [evt]
+                        pure
+            duplicate `shouldSatisfy` isDuplicateEvent
+
 -- ---------------------------------------------------------------------------
 -- Local statements and pool-side helpers
 -- ---------------------------------------------------------------------------
@@ -321,3 +360,24 @@ countSideTable pool = do
     case r of
         Left err -> error ("countSideTable failed: " <> show err)
         Right n -> pure n
+
+isRight :: Either a b -> Bool
+isRight = \case
+    Right _ -> True
+    Left _ -> False
+
+isDuplicateEvent :: Either StoreError a -> Bool
+isDuplicateEvent = \case
+    Left (DuplicateEvent _) -> True
+    _ -> False
+
+eventWithId :: EventId -> EventData
+eventWithId eid =
+    EventData
+        { eventId = Just eid
+        , eventType = EventType "Created"
+        , payload = Aeson.object []
+        , metadata = Nothing
+        , causationId = Nothing
+        , correlationId = Nothing
+        }

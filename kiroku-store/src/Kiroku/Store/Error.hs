@@ -10,6 +10,7 @@ module Kiroku.Store.Error (
     -- Internal helpers used by Effect module
     mapGenericUsageError,
     mapLinkUsageError,
+    mapTransactionUsageError,
     mapUsageError,
     emptyResultError,
     attributeMultiStreamError,
@@ -178,6 +179,26 @@ mapUsageError streamName expected = \case
         ConnectionLost (T.pack (show connErr))
     AcquisitionTimeoutUsageError ->
         PoolAcquisitionTimeout
+
+{- | Map a hasql 'UsageError' raised inside an opaque transaction body.
+
+The body has no stream context, so append duplicate violations are mapped
+directly to 'DuplicateEvent' and all other failures fall back to the standard
+append-shaped mapper with sentinel stream context.
+-}
+mapTransactionUsageError :: UsageError -> StoreError
+mapTransactionUsageError usageErr =
+    case extractServerError usageErr of
+        Just (Errors.ServerError "23505" message detail _ _)
+            | containsConstraint "events_pkey" message detail ->
+                DuplicateEvent (EventId <$> (detail >>= extractUuidFromDetail))
+            | containsConstraint "stream_events_pkey" message detail ->
+                DuplicateEvent (EventId <$> (detail >>= extractFirstUuidFromCompositeDetail))
+        _ ->
+            mapUsageError "<transaction>" AnyVersion usageErr
+  where
+    containsConstraint name message detail =
+        name `T.isInfixOf` message || maybe False (T.isInfixOf name) detail
 
 -- | Generic, non-append-shaped mapping for hasql pool usage errors.
 mapGenericUsageError :: UsageError -> StoreError

@@ -47,7 +47,7 @@ import Hasql.Transaction qualified as Tx
 import Hasql.Transaction.Sessions qualified as TxSessions
 import Kiroku.Store.Connection (KirokuStore (..))
 import Kiroku.Store.Effect.Resource (KirokuStoreResource, getKirokuStore)
-import Kiroku.Store.Error (StoreError (..), attributeMultiStreamError, emptyResultError, isTransientSerializationError, mapLinkUsageError, mapUsageError, validateStreamName)
+import Kiroku.Store.Error (StoreError (..), attributeMultiStreamError, emptyResultError, isTransientSerializationError, mapLinkUsageError, mapTransactionUsageError, mapUsageError, validateStreamName)
 import Kiroku.Store.Observability (KirokuEvent (..))
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Settings (decodeEvents, enrichEvents)
@@ -373,7 +373,7 @@ runTxOnPool pool entry tx = do
             Pool.use pool $
                 entry TxSessions.ReadCommitted TxSessions.Write tx
     case result of
-        Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
+        Left usageErr -> throwError (mapTransactionUsageError usageErr)
         Right a -> pure a
 
 rejectInvalidApplicationStream ::

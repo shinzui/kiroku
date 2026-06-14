@@ -136,6 +136,7 @@ test-suite kiroku-store-test
     , kiroku-store
     , kiroku-test-support
     , lens                  >=5.2  && <5.4
+    , mmzk-typeid           >=0.6  && <0.8
     , stm                   >=2.5  && <2.6
     , streamly-core         >=0.3  && <0.4
     , text                  >=2.0  && <2.2
