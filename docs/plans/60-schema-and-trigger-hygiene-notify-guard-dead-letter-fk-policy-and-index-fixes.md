@@ -121,7 +121,7 @@ here, even if it requires splitting a partially completed task into two ("done" 
       (CHECK constraint, defense in depth) and extend the migrations test.
 - [x] M4: Add oversized-name tests (513-byte name rejected with
       `StreamNameTooLong`; 512-byte name appends and notifies normally).
-- [ ] Final: run `just build` and `just test` clean; update the master plan's
+- [x] Final: run `just build` and `just test` clean; update the master plan's
       Exec-Plan Registry row for EP-5 and its Progress checkboxes; write the
       Outcomes & Retrospective entry.
 
@@ -242,6 +242,13 @@ local experiment, while the configured tasty-bench gate is too noisy to confirm 
 The first attempt to run NotifyGuard and runTransactionAppending in parallel hit a
 Cabal build-directory race (`package.conf.inplace already exists`); rerunning the
 transaction test serially passed.
+
+2026-06-14, final validation passed with `just build` and `just test`.
+An earlier full `just test` run failed one Shibuya adapter consumer-group example
+(`delivers only matching types across a filtered consumer group (EP-43)`) by receiving
+19 matching events instead of 20 under seed `521722692`; the exact seeded example then
+passed, the full `shibuya-kiroku-adapter-test` suite passed, and the final full
+`just test` rerun passed all suites.
 
 
 ## Decision Log
@@ -390,7 +397,28 @@ Record every decision made while working on the plan.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+2026-06-14, completed. EP-5 shipped four production changes:
+
+- The append notification trigger is guarded so lifecycle updates and `$all` row
+  updates no longer emit duplicate append notifications, while the wire payload remains
+  unchanged.
+- Hard delete now removes dead letters for events that become orphaned before deleting
+  the event payloads, and leaves dead letters alone when the event survives through
+  another linked stream.
+- Index hygiene is applied: dead-letter FK/delete and read paths are indexed, the
+  stream-version junction index is unique, the unused event-type index is removed, and
+  `streams` uses fillfactor 50 for the hot `$all` row.
+- Stream names are bounded at 512 UTF-8 bytes in both the Haskell API and the database,
+  closing the NOTIFY payload abort edge for appends, links, multi-stream appends, and
+  transactional appends.
+
+The important correction is performance-related. The original expectation that the
+trigger guard would make appends faster was too broad. Local A/B measurements showed
+writer latency was effectively unchanged after warm-up; the real win is fewer duplicate
+notifications and less downstream subscription wakeup work. `just bench-regression`
+remained too noisy for singleton/raw append microbenchmarks even after refreshing the
+baseline, so EP-7 should use controlled before/after captures for performance promotion
+decisions instead of treating one tasty-bench gate run as sufficient evidence.
 
 
 ## Context and Orientation

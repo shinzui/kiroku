@@ -87,7 +87,7 @@ Haskell.
 | 2 | Harden shibuya adapter ack contract and overflow policy | docs/plans/57-harden-shibuya-adapter-ack-contract-and-overflow-policy.md | EP-1 | None | Complete |
 | 3 | Stop publisher fan-out work for category and consumer-group subscribers | docs/plans/58-stop-publisher-fan-out-work-for-category-and-consumer-group-subscribers.md | None | EP-1 | Complete |
 | 4 | Fix backward read pagination and append edge-case errors | docs/plans/59-fix-backward-read-pagination-and-append-edge-case-errors.md | None | None | Complete |
-| 5 | Schema and trigger hygiene: NOTIFY guard, dead-letter FK policy, and index fixes | docs/plans/60-schema-and-trigger-hygiene-notify-guard-dead-letter-fk-policy-and-index-fixes.md | None | None | In Progress |
+| 5 | Schema and trigger hygiene: NOTIFY guard, dead-letter FK policy, and index fixes | docs/plans/60-schema-and-trigger-hygiene-notify-guard-dead-letter-fk-policy-and-index-fixes.md | None | None | Complete |
 | 6 | Fix WebSocket event tail replay duplication and gap handling | docs/plans/61-fix-websocket-event-tail-replay-duplication-and-gap-handling.md | None | None | Not Started |
 | 7 | Benchmark-gated append pipelining and raw-payload read passthrough | docs/plans/62-benchmark-gated-append-pipelining-and-raw-payload-read-passthrough.md | None | EP-4, EP-5 | Not Started |
 
@@ -397,6 +397,18 @@ longer create phantom streams or take the `$all` lock; link failures are typed i
 of raw `ConnectionError` blobs; single-stream appends retry one transient transaction
 abort; and two read-path round-trip leaks are closed. EP-7 can now benchmark append
 pipelining against the fixed empty-batch behavior.
+
+2026-06-14, after EP-5: schema and trigger hygiene issues from the audit are remediated.
+The append NOTIFY trigger now fires only for real application appends, hard delete
+purges dead letters before deleting orphaned events, the relevant FK and junction-delete
+paths have index support, and stream names are bounded at 512 UTF-8 bytes before they
+can exceed PostgreSQL's NOTIFY payload limit. Benchmark work corrected the initial
+performance expectation: the trigger guard reduces duplicate notifications and
+downstream wakeups, but local controlled SQL timings showed writer latency to be
+effectively neutral rather than reliably faster. Final validation passed with
+`just build` and `just test`; one earlier full `just test` run had an intermittent
+Shibuya adapter miss that passed on exact seeded rerun, full adapter rerun, and the
+final full-suite rerun.
 
 
 ---
