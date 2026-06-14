@@ -70,7 +70,7 @@ import Hasql.Transaction qualified as Tx
 import Kiroku.Store.Connection (KirokuStore)
 import Kiroku.Store.Effect (PreparedEvent, Store (..), appendDispatchTx, buildAppendParams, prepareEvents)
 import Kiroku.Store.Effect.Resource (KirokuStoreResource, getKirokuStore)
-import Kiroku.Store.Error (AppendConflict (..), StoreError (..), appendConflictToStoreError, emptyResultConflict)
+import Kiroku.Store.Error (AppendConflict (..), StoreError (..), appendConflictToStoreError, emptyResultConflict, validateStreamName)
 import Kiroku.Store.Settings qualified as Settings
 import Kiroku.Store.Types
 
@@ -182,9 +182,10 @@ that must land iff the append commits).
 
 Behavior:
 
-* If the target stream is the reserved @$all@, the call rejects with
-  @'Left' ('ReservedStreamName' …)@ /before/ opening any transaction;
-  the continuation is not invoked.
+* If the target stream name is invalid (reserved @$all@ or longer than
+  'Kiroku.Store.Error.maxStreamNameBytes'), the call rejects with
+  @'Left'@ /before/ opening any transaction; the continuation is not
+  invoked.
 * If the event list is empty, the call rejects with
   @'Left' ('EmptyAppendBatch' …)@ /before/ opening any transaction; the
   continuation is not invoked.
@@ -315,7 +316,7 @@ runTransactionAppendingWith ::
     (AppendResult -> Tx.Transaction a) ->
     Eff es (Either StoreError a)
 runTransactionAppendingWith ctor sn@(StreamName name) expected events k
-    | name == "$all" = pure (Left (ReservedStreamName sn))
+    | Left err <- validateStreamName sn = pure (Left err)
     | null events = pure (Left (EmptyAppendBatch sn))
     | otherwise = do
         prepared <- prepareEventsIO events

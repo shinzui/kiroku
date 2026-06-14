@@ -47,7 +47,7 @@ import Hasql.Transaction qualified as Tx
 import Hasql.Transaction.Sessions qualified as TxSessions
 import Kiroku.Store.Connection (KirokuStore (..))
 import Kiroku.Store.Effect.Resource (KirokuStoreResource, getKirokuStore)
-import Kiroku.Store.Error (StoreError (..), attributeMultiStreamError, emptyResultError, isTransientSerializationError, mapLinkUsageError, mapUsageError)
+import Kiroku.Store.Error (StoreError (..), attributeMultiStreamError, emptyResultError, isTransientSerializationError, mapLinkUsageError, mapUsageError, validateStreamName)
 import Kiroku.Store.Observability (KirokuEvent (..))
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Settings (decodeEvents, enrichEvents)
@@ -130,7 +130,7 @@ runStorePool ::
     Eff es a
 runStorePool store = interpret_ $ \case
     AppendToStream (StreamName name) expected events -> do
-        rejectReservedApplicationStream name
+        rejectInvalidApplicationStream name
         case events of
             [] -> throwError (EmptyAppendBatch (StreamName name))
             _ -> pure ()
@@ -203,7 +203,7 @@ runStorePool store = interpret_ $ \case
                 Session.statement [s | StreamId s <- sids] SQL.lookupStreamNamesStmt
             )
     LinkToStream (StreamName name) eventIds -> do
-        rejectReservedApplicationStream name
+        rejectInvalidApplicationStream name
         let uuids = V.fromList [uid | EventId uid <- eventIds]
         result <-
             liftIO $
@@ -221,8 +221,8 @@ runStorePool store = interpret_ $ \case
     AppendMultiStream [] ->
         pure []
     AppendMultiStream ops -> do
-        case find (\(StreamName name, _, _) -> isReservedApplicationStream name) ops of
-            Just (sn, _, _) -> throwError (ReservedStreamName sn)
+        case firstStreamNameError ops of
+            Just err -> throwError err
             Nothing -> pure ()
         case find (\(_, _, evts) -> null evts) ops of
             Just (sn, _, _) -> throwError (EmptyAppendBatch sn)
@@ -285,11 +285,11 @@ runStorePool store = interpret_ $ \case
                     Session.statement eid SQL.findCausationAncestorsStmt
         liftIO $ decodeEvents (store ^. #storeSettings) evs
     SoftDeleteStream (StreamName name) -> do
-        rejectReservedApplicationStream name
+        rejectInvalidApplicationStream name
         usePool (store ^. #pool) $
             Session.statement name SQL.softDeleteStreamStmt
     HardDeleteStream (StreamName name) -> do
-        rejectReservedApplicationStream name
+        rejectInvalidApplicationStream name
         let txn = do
                 Tx.sql "SET LOCAL kiroku.enable_hard_deletes = 'on'"
                 mSid <- Tx.statement name SQL.findStreamIdStmt
@@ -316,7 +316,7 @@ runStorePool store = interpret_ $ \case
             Nothing -> pure ()
         pure result
     UndeleteStream (StreamName name) -> do
-        rejectReservedApplicationStream name
+        rejectInvalidApplicationStream name
         usePool (store ^. #pool) $
             Session.statement name SQL.undeleteStreamStmt
     RunTransaction tx ->
@@ -376,17 +376,21 @@ runTxOnPool pool entry tx = do
         Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
         Right a -> pure a
 
--- | The seeded $all row is the global read stream, not an application stream.
-isReservedApplicationStream :: Text -> Bool
-isReservedApplicationStream = (== "$all")
-
-rejectReservedApplicationStream ::
+rejectInvalidApplicationStream ::
     (Error StoreError :> es) =>
     Text ->
     Eff es ()
-rejectReservedApplicationStream name
-    | isReservedApplicationStream name = throwError (ReservedStreamName (StreamName name))
-    | otherwise = pure ()
+rejectInvalidApplicationStream name =
+    either throwError pure (validateStreamName (StreamName name))
+
+firstStreamNameError :: [(StreamName, ExpectedVersion, [EventData])] -> Maybe StoreError
+firstStreamNameError ops =
+    case find (isLeft . validateStreamName . streamNameOf) ops of
+        Just (sn, _, _) -> either Just (const Nothing) (validateStreamName sn)
+        Nothing -> Nothing
+  where
+    streamNameOf (sn, _, _) = sn
+    isLeft = either (const True) (const False)
 
 -- ---------------------------------------------------------------------------
 -- Internal helpers (moved from Append)

@@ -111,15 +111,15 @@ here, even if it requires splitting a partially completed task into two ("done" 
       10% gate failed against both the old May baseline and a freshly captured
       baseline, but controlled SQL A/B timings showed M3's schema shape is
       effectively neutral after warm-up; details are in Surprises & Discoveries.
-- [ ] M4: Add `StreamNameTooLong` to `StoreError` in
+- [x] M4: Add `StreamNameTooLong` to `StoreError` in
       `kiroku-store/src/Kiroku/Store/Error.hs`; add `maxStreamNameBytes` and the
       shared validation helper; enforce at the append/link/multi-append sites in
       `kiroku-store/src/Kiroku/Store/Effect.hs` and in
       `runTransactionAppendingWith` in
       `kiroku-store/src/Kiroku/Store/Transaction.hs`.
-- [ ] M4: Write migration `2026-06-11-00-00-03-stream-name-length-check.sql`
+- [x] M4: Write migration `2026-06-11-00-00-03-stream-name-length-check.sql`
       (CHECK constraint, defense in depth) and extend the migrations test.
-- [ ] M4: Add oversized-name tests (513-byte name rejected with
+- [x] M4: Add oversized-name tests (513-byte name rejected with
       `StreamNameTooLong`; 512-byte name appends and notifies normally).
 - [ ] Final: run `just build` and `just test` clean; update the master plan's
       Exec-Plan Registry row for EP-5 and its Progress checkboxes; write the
@@ -232,6 +232,16 @@ notifications and downstream wakeups; it should not be sold as a reliable
 writer-latency improvement. M3's index hygiene is write-latency neutral in this
 local experiment, while the configured tasty-bench gate is too noisy to confirm a
 10% singleton/raw microbenchmark threshold from one baseline capture.
+
+2026-06-14, M4 validation passed with:
+`cabal test kiroku-store:kiroku-store-test --test-show-details=direct --test-options='--match "stream-name contract"'`,
+`cabal test kiroku-store:kiroku-store-test --test-show-details=direct --test-options='--match "NOTIFY trigger guard"'`,
+`cabal test kiroku-store:kiroku-store-test --test-show-details=direct --test-options='--match "runTransactionAppending"'`,
+`cabal test kiroku-store-migrations:kiroku-store-migrations-test --test-show-details=direct`
+(six embedded migrations), and `cabal build all`.
+The first attempt to run NotifyGuard and runTransactionAppending in parallel hit a
+Cabal build-directory race (`package.conf.inplace already exists`); rerunning the
+transaction test serially passed.
 
 
 ## Decision Log

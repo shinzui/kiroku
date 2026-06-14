@@ -1,5 +1,7 @@
 module Kiroku.Store.Error (
     StoreError (..),
+    maxStreamNameBytes,
+    validateStreamName,
 
     -- * Append-precondition conflicts (Tx-flavored)
     AppendConflict (..),
@@ -17,8 +19,10 @@ module Kiroku.Store.Error (
 ) where
 
 import Control.Exception (Exception)
+import Data.ByteString qualified as BS
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Text.Encoding qualified as TE
 import Data.UUID (UUID)
 import Data.UUID qualified as UUID
 import GHC.Generics (Generic)
@@ -70,6 +74,16 @@ data StoreError
       @streams.stream_id = 0@ row.
       -}
       ReservedStreamName !StreamName
+    | {- | The stream name exceeds 'maxStreamNameBytes' bytes of UTF-8.
+
+      The append notification payload embeds the stream name, and
+      PostgreSQL rejects @pg_notify@ payloads of 8,000 bytes or more.
+      Enforcing a much smaller byte bound before any database work
+      prevents an oversized stream name from failing late as an opaque
+      trigger/server error. The second field is the offending UTF-8
+      byte length.
+      -}
+      StreamNameTooLong !StreamName !Int
     | {- | The named stream already exists. Returned for 'NoStream'
       expectations against an existing stream and for 'linkToStream'
       targets that already exist with conflicting state.
@@ -124,6 +138,19 @@ data StoreError
       ConnectionError !Text
     deriving stock (Eq, Show, Generic)
     deriving anyclass (Exception)
+
+-- | Maximum stream-name length in UTF-8 bytes.
+maxStreamNameBytes :: Int
+maxStreamNameBytes = 512
+
+-- | Validate application stream names before any database work.
+validateStreamName :: StreamName -> Either StoreError ()
+validateStreamName sn@(StreamName name)
+    | name == "$all" = Left (ReservedStreamName sn)
+    | byteLength > maxStreamNameBytes = Left (StreamNameTooLong sn byteLength)
+    | otherwise = Right ()
+  where
+    byteLength = BS.length (TE.encodeUtf8 name)
 
 {- | Map a hasql 'UsageError' to a 'StoreError'.
 

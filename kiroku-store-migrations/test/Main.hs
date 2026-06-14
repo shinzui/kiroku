@@ -46,6 +46,8 @@ main =
                     assertIndexHygiene connStr
                     assertStreamVersionIndexUnique connStr
                     assertStreamsFillfactor connStr
+                    assertStreamNameLengthConstraint connStr
+                    assertOversizedStreamNameRejected connStr
 
                     withStore
                         (defaultConnectionSettings connStr)
@@ -71,6 +73,8 @@ main =
                     assertIndexHygiene connStr
                     assertStreamVersionIndexUnique connStr
                     assertStreamsFillfactor connStr
+                    assertStreamNameLengthConstraint connStr
+                    assertOversizedStreamNameRejected connStr
                 case result of
                     Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
                     Right () -> pure ()
@@ -384,3 +388,55 @@ streamsFillfactorStmt =
         """
         E.noParams
         (D.singleRow (D.column (D.nonNullable D.bool)))
+
+assertStreamNameLengthConstraint :: Text -> IO ()
+assertStreamNameLengthConstraint connStr = do
+    pool <- Pool.acquire poolConfig
+    result <- Pool.use pool (Session.statement () streamNameLengthConstraintStmt)
+    Pool.release pool
+    case result of
+        Left err -> expectationFailure ("stream-name length constraint verification query failed: " <> show err)
+        Right True -> pure ()
+        Right False -> expectationFailure "Kiroku migration did not create chk_streams_stream_name_length"
+  where
+    poolConfig =
+        Pool.Config.settings
+            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
+            , Pool.Config.size 1
+            ]
+
+streamNameLengthConstraintStmt :: Statement () Bool
+streamNameLengthConstraintStmt =
+    preparable
+        """
+        SELECT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'chk_streams_stream_name_length'
+            AND conrelid = 'kiroku.streams'::regclass
+        )
+        """
+        E.noParams
+        (D.singleRow (D.column (D.nonNullable D.bool)))
+
+assertOversizedStreamNameRejected :: Text -> IO ()
+assertOversizedStreamNameRejected connStr = do
+    pool <- Pool.acquire poolConfig
+    result <- Pool.use pool (Session.statement () oversizedStreamNameInsertStmt)
+    Pool.release pool
+    case result of
+        Left _ -> pure ()
+        Right () -> expectationFailure "direct insert of over-limit stream_name unexpectedly succeeded"
+  where
+    poolConfig =
+        Pool.Config.settings
+            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
+            , Pool.Config.size 1
+            ]
+
+oversizedStreamNameInsertStmt :: Statement () ()
+oversizedStreamNameInsertStmt =
+    preparable
+        "INSERT INTO kiroku.streams (stream_name) VALUES (repeat('a', 513))"
+        E.noParams
+        D.noResult

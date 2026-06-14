@@ -12,6 +12,7 @@ import Data.Generics.Labels ()
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.Int (Int64)
 import Data.Text (Text)
+import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import Hasql.Decoders qualified as D
 import Hasql.Encoders qualified as E
@@ -223,6 +224,25 @@ spec = around withTestStore $ do
                 other ->
                     expectationFailure
                         ("Expected Right (Left (ReservedStreamName \"$all\")), got: " <> show other)
+            rows <- countSideTable (store ^. #pool)
+            rows `shouldBe` 0
+
+        it "rejects oversized stream names before opening any transaction" $ \store -> do
+            createSideTable (store ^. #pool)
+            let over = StreamName (T.replicate 513 "t")
+            result <-
+                runStoreIO store $
+                    runTransactionAppending
+                        over
+                        AnyVersion
+                        [makeEvent "Should" (Aeson.object [])]
+                        ( \ar -> do
+                            let StreamId sid = ar ^. #streamId
+                            Tx.statement (sid, "should-never-run") insertSideRowStmt
+                            pure ar
+                        )
+            result `shouldBe` Right (Left (StreamNameTooLong over 513))
+            runStoreIO store (getStream over) `shouldReturn` Right Nothing
             rows <- countSideTable (store ^. #pool)
             rows `shouldBe` 0
 

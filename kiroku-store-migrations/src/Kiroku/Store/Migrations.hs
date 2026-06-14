@@ -20,7 +20,7 @@ import Streaming.Prelude qualified as Streaming
 ordered by timestamped filename.
 
 When adding a migration file, this module must be rebuilt so Template Haskell's
-'embedDir' captures the new directory contents.
+'embedDir' captures the new directory contents during local validation.
 -}
 kirokuMigrations :: (MonadFail m, EnvVars m) => m [AddedSqlMigration m]
 kirokuMigrations =

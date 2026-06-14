@@ -23,7 +23,7 @@ import Test.Hspec
 spec :: Spec
 spec =
     describe "NOTIFY trigger guard" $
-        around withNotifyStore $
+        around withNotifyStore $ do
             it "emits one unchanged append payload and no lifecycle or $all payloads" $ \(store, listenerConn) -> do
                 payloads <- newTVarIO []
 
@@ -54,6 +54,25 @@ spec =
                                        ]
                         map payloadFieldCount actual `shouldBe` [3, 3]
                         actual `shouldSatisfy` all (not . BS.isPrefixOf "$all,")
+
+            it "emits the unchanged payload for a 512-byte stream name" $ \(store, listenerConn) -> do
+                payloads <- newTVarIO []
+
+                Notifications.listen listenerConn (Notifications.toPgIdentifier "kiroku.events")
+                Async.withAsync
+                    (Notifications.waitForNotifications (\_ payload -> atomically (modifyTVar' payloads (<> [payload]))) listenerConn)
+                    $ \_listener -> do
+                        let stream = StreamName (T.replicate 512 "n")
+
+                        Right result <-
+                            runStoreIO store $
+                                appendToStream stream NoStream [makeEvent "NotifyGuardMaxName" (Aeson.object [])]
+                        let expected = expectedPayload stream result
+                        waitForPayload payloads expected
+
+                        actual <- atomically (readTVar payloads)
+                        actual `shouldBe` [expected]
+                        payloadFieldCount expected `shouldBe` 3
 
 withNotifyStore :: ((KirokuStore, Connection.Connection) -> IO ()) -> IO ()
 withNotifyStore action =

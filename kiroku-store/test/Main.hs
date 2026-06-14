@@ -328,6 +328,45 @@ main = withSharedMigratedPostgres $ hspec $ do
                         Just si -> (si ^. #deletedAt) `shouldBe` Nothing
                         Nothing -> expectationFailure "Expected reserved $all stream row to remain present"
 
+                it "rejects stream names longer than 512 UTF-8 bytes before creating streams" $ \store -> do
+                    let overAscii = StreamName (T.replicate 513 "a")
+                        overUtf8 = StreamName (T.replicate 171 (T.singleton '\12354'))
+                        assertTooLong sn = do
+                            result <- runStoreIO store $ appendToStream sn NoStream [makeEvent "TooLong" (Aeson.object [])]
+                            result `shouldBe` Left (StreamNameTooLong sn 513)
+                            runStoreIO store (getStream sn) `shouldReturn` Right Nothing
+                    assertTooLong overAscii
+                    assertTooLong overUtf8
+
+                it "rejects oversized link targets without creating the target stream" $ \store -> do
+                    let over = StreamName (T.replicate 513 "l")
+                    Right _ <- runStoreIO store $ appendToStream (StreamName "length-link-source") NoStream [makeEvent "Source" (Aeson.object [])]
+                    Right events <- runStoreIO store $ readStreamForward (StreamName "length-link-source") (StreamVersion 0) 10
+                    let eid = V.head events ^. #eventId
+                    result <- runStoreIO store $ linkToStream over [eid]
+                    result `shouldBe` Left (StreamNameTooLong over 513)
+                    runStoreIO store (getStream over) `shouldReturn` Right Nothing
+
+                it "rejects oversized multi-stream targets without partial commit" $ \store -> do
+                    let ok = StreamName "length-multi-ok"
+                        over = StreamName (T.replicate 513 "m")
+                    result <-
+                        runStoreIO store $
+                            appendMultiStream
+                                [ (ok, NoStream, [makeEvent "ShouldRollback" (Aeson.object [])])
+                                , (over, NoStream, [makeEvent "TooLong" (Aeson.object [])])
+                                ]
+                    result `shouldBe` Left (StreamNameTooLong over 513)
+                    runStoreIO store (getStream ok) `shouldReturn` Right Nothing
+                    runStoreIO store (getStream over) `shouldReturn` Right Nothing
+
+                it "accepts a 512-byte stream name" $ \store -> do
+                    let exact = StreamName (T.replicate 512 "e")
+                    result <- runStoreIO store $ appendToStream exact NoStream [makeEvent "ExactLength" (Aeson.object [])]
+                    case result of
+                        Right r -> (r ^. #streamVersion) `shouldBe` StreamVersion 1
+                        Left err -> expectationFailure ("Expected 512-byte stream name to append, got: " <> show err)
+
         describe "readStreamForward" $ do
             it "reads events in forward order (read-your-own-writes)" $ \store -> do
                 let events =
