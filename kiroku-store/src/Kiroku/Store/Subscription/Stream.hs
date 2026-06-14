@@ -31,6 +31,7 @@ module Kiroku.Store.Subscription.Stream (
 
     -- * Ack-coupled pull stream
     AckItem (..),
+    InvalidStreamBufferSize (..),
     subscriptionAckStream,
 )
 where
@@ -54,7 +55,8 @@ import Control.Concurrent.STM (
     writeTBQueue,
     writeTVar,
  )
-import Control.Exception (SomeException, fromException, throwIO)
+import Control.Exception (Exception, SomeException, fromException, throwIO)
+import Control.Monad (when)
 import Data.IORef (atomicModifyIORef', newIORef)
 import Kiroku.Store.Connection (KirokuStore)
 import Kiroku.Store.Subscription (subscribe)
@@ -89,6 +91,16 @@ data AckItem = AckItem
     , ackReply :: !(TMVar SubscriptionResult)
     -- ^ one-shot reply the consumer must fill exactly once
     }
+
+{- | Thrown by 'subscriptionAckStream' when the requested bridge queue capacity
+is zero.
+
+A zero-capacity 'TBQueue' would make the bridge handler block forever on its
+first delivery, before a stream consumer can ever see the event or reply to it.
+-}
+newtype InvalidStreamBufferSize = InvalidStreamBufferSize Natural
+    deriving stock (Eq, Show)
+    deriving anyclass (Exception)
 
 data BridgeTermination
     = BridgeClosedCleanly
@@ -129,7 +141,7 @@ blocked reader without writing to the bounded queue.
 subscriptionStream ::
     KirokuStore ->
     SubscriptionConfig ->
-    -- | TBQueue capacity (buffer size for backpressure)
+    -- | TBQueue capacity for the bridge; must be at least 1.
     Natural ->
     IO (Stream IO RecordedEvent, IO ())
 subscriptionStream store config bufferSize = do
@@ -162,10 +174,12 @@ and decode-hook exceptions.
 subscriptionAckStream ::
     KirokuStore ->
     SubscriptionConfig ->
-    -- | TBQueue capacity (buffer size for backpressure)
+    -- | TBQueue capacity for the bridge; must be at least 1.
     Natural ->
     IO (Stream IO AckItem, IO ())
 subscriptionAckStream store config bufferSize = do
+    when (bufferSize < 1) $
+        throwIO (InvalidStreamBufferSize bufferSize)
     queue <- newTBQueueIO bufferSize
     closedVar <- newTVarIO Nothing
     -- Tracks the previous (eventId, attempt) so a consecutive redelivery of the

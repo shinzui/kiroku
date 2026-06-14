@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 0.4.0.0 — 2026-06-14
+
+### Breaking Changes
+
+* `KirokuAdapterConfig` and `KirokuConsumerGroupConfig` gain a
+  `queueCapacity` field, defaulting to 16 in the smart constructors.
+
+### Fixed
+
+* Adapter subscriptions now rely on Kiroku's default lossless
+  `PauseAndResume` overflow policy instead of pinning fail-fast
+  `DropSubscription`.
+* The package description and Haddocks describe the ack-coupled bridge instead
+  of the obsolete no-op ack behavior.
+
 ## 0.3.0.0 — 2026-06-05
 
 ### Changed

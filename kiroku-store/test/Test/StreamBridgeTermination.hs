@@ -14,7 +14,7 @@ import Data.Data (Typeable)
 import Data.Generics.Labels ()
 import Hasql.Pool qualified as Pool
 import Kiroku.Store
-import Kiroku.Store.Subscription.Stream (AckItem (..), subscriptionAckStream)
+import Kiroku.Store.Subscription.Stream (AckItem (..), InvalidStreamBufferSize (..), subscriptionAckStream)
 import Kiroku.Store.Subscription.Worker (withFetchBatchHookForTest)
 import Streamly.Data.Stream qualified as Stream
 import Test.Helpers (makeEvent, waitForPublisher, withTestStore)
@@ -41,6 +41,16 @@ appendOne store streamName (EventType eventType') = do
 
 spec :: Spec
 spec = describe "stream bridge termination" $ do
+    it "rejects a zero-sized bridge buffer" $
+        withTestStore $ \store -> do
+            let cfg = defaultSubscriptionConfig (SubscriptionName "bridge-zero-buffer-sub") AllStreams (\_ -> pure Continue)
+            subscriptionAckStream store cfg 0
+                `shouldThrow` ( \e ->
+                                    case e of
+                                        InvalidStreamBufferSize 0 -> True
+                                        _ -> False
+                              )
+
     it "rethrows the worker exception to the consumer when the worker dies" $
         withTestStore $ \store -> do
             pos <- appendOne store (StreamName "bridge-crash") (EventType "BridgeCrash")

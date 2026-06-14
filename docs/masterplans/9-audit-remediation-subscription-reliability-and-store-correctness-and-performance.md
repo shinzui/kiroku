@@ -84,7 +84,7 @@ Haskell.
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
 | 1 | Eliminate silent subscription stalls in worker, publisher, and stream bridge | docs/plans/56-eliminate-silent-subscription-stalls-in-worker-publisher-and-stream-bridge.md | None | None | Complete |
-| 2 | Harden shibuya adapter ack contract and overflow policy | docs/plans/57-harden-shibuya-adapter-ack-contract-and-overflow-policy.md | EP-1 | None | Not Started |
+| 2 | Harden shibuya adapter ack contract and overflow policy | docs/plans/57-harden-shibuya-adapter-ack-contract-and-overflow-policy.md | EP-1 | None | In Progress |
 | 3 | Stop publisher fan-out work for category and consumer-group subscribers | docs/plans/58-stop-publisher-fan-out-work-for-category-and-consumer-group-subscribers.md | None | EP-1 | Not Started |
 | 4 | Fix backward read pagination and append edge-case errors | docs/plans/59-fix-backward-read-pagination-and-append-edge-case-errors.md | None | None | Not Started |
 | 5 | Schema and trigger hygiene: NOTIFY guard, dead-letter FK policy, and index fixes | docs/plans/60-schema-and-trigger-hygiene-notify-guard-dead-letter-fk-policy-and-index-fixes.md | None | None | Not Started |

@@ -18,15 +18,8 @@ import Shibuya.Telemetry.Effect (runTracingNoop)
 main :: IO ()
 main = withStore settings $ \\store ->
     runEff $ runTracingNoop $ do
-        adapter <- kirokuAdapter store
-            KirokuAdapterConfig
-                { subscriptionName = SubscriptionName \"my-projection\"
-                , subscriptionTarget = AllStreams
-                , batchSize = 100
-                , bufferSize = 256
-                , consumerGroup = Nothing
-                , eventTypeFilter = AllEventTypes
-                }
+        let cfg = defaultKirokuAdapterConfig (SubscriptionName \"my-projection\") AllStreams
+        adapter <- kirokuAdapter store cfg
 
         let handler ingested = do
                 -- process ingested.envelope.payload :: RecordedEvent
@@ -95,12 +88,20 @@ decision therefore drives Kiroku checkpointing per event:
 The envelope's @attempt@ reports the zero-based redelivery count, so a handler
 can observe how many times Kiroku has redelivered an event.
 
-== Backpressure
+== Backpressure and Handler Exceptions
 
-The @bufferSize@ field in 'KirokuAdapterConfig' controls the 'TBQueue'
-capacity. Because delivery is ack-coupled, the Kiroku subscription worker blocks
-on each event until the Shibuya handler finalizes its decision, providing natural
-backpressure.
+Because delivery is ack-coupled, the Kiroku subscription worker blocks on each
+event until the Shibuya handler finalizes its decision, providing natural
+backpressure. The @bufferSize@ field is only the capacity of the bridge queue
+between the worker and the Shibuya stream consumer; for this adapter the
+effective depth is at most one event because the worker waits for an ack before
+delivering the next event, and @bufferSize@ must be at least 1.
+
+The @queueCapacity@ field is the publisher-side burst knob: it is the number of
+publisher batches, up to 1000 events each, that can be buffered before Kiroku
+pauses this subscriber. The adapter uses Kiroku's lossless @PauseAndResume@
+overflow policy, so a paused subscriber catches up from its checkpoint instead
+of being killed.
 -}
 module Shibuya.Adapter.Kiroku (
     -- * Adapter
@@ -132,13 +133,14 @@ import Kiroku.Store.Subscription.Stream (subscriptionAckStream)
 import Kiroku.Store.Subscription.Types (
     ConsumerGroup (..),
     EventTypeFilter (..),
-    OverflowPolicy (..),
+    SubscriptionConfig,
     SubscriptionConfigM (..),
     SubscriptionName (..),
     SubscriptionResult (..),
     SubscriptionTarget (..),
     defaultSubscriptionConfig,
  )
+import Kiroku.Store.Subscription.Types qualified as Sub
 import Kiroku.Store.Types (RecordedEvent)
 import Numeric.Natural (Natural)
 import Shibuya.Adapter (Adapter (..))
@@ -155,9 +157,13 @@ import Prelude hiding (Ordering)
 @subscriptionName@ must be unique across all active subscriptions — it
 identifies the checkpoint row in the @subscriptions@ table.
 
-@bufferSize@ controls backpressure: the Kiroku worker blocks when the
-internal queue is full, throttling database polling to match the handler's
-consumption rate.
+@bufferSize@ is the bridge queue capacity and must be at least 1. With this
+ack-coupled adapter the effective depth is at most one event, because the
+worker blocks until the handler's decision is finalized.
+
+@queueCapacity@ is the publisher-side burst capacity in batches. When a burst
+exceeds it, the adapter relies on Kiroku's default @PauseAndResume@ policy:
+Kiroku pauses the subscriber and later resumes losslessly from its checkpoint.
 -}
 data KirokuAdapterConfig = KirokuAdapterConfig
     { subscriptionName :: !SubscriptionName
@@ -167,7 +173,12 @@ data KirokuAdapterConfig = KirokuAdapterConfig
     , batchSize :: !Int32
     -- ^ Events per database fetch during catch-up
     , bufferSize :: !Natural
-    -- ^ TBQueue capacity (backpressure threshold)
+    -- ^ Bridge 'TBQueue' capacity; must be at least 1.
+    , queueCapacity :: !Natural
+    {- ^ Publisher-side capacity in batches, where each batch contains up to
+    Kiroku's publisher batch size (currently 1000 events). When this fills,
+    Kiroku pauses and later resumes the subscriber losslessly.
+    -}
     , consumerGroup :: !(Maybe ConsumerGroup)
     {- ^ Optional consumer-group membership for this adapter instance.
     'Nothing' (the default) = ordinary single-consumer subscription.
@@ -206,10 +217,11 @@ data KirokuAdapterConfig = KirokuAdapterConfig
     deriving stock (Generic)
 
 {- | A 'KirokuAdapterConfig' with sensible defaults: @batchSize = 100@,
-@bufferSize = 256@, @consumerGroup = 'Nothing'@ (ordinary single-consumer
-subscription), @eventTypeFilter = 'AllEventTypes'@ (deliver every type), and
-@selector = 'Nothing'@ (no extra predicate filtering). Supply the subscription
-name and target; override individual fields with record-update syntax.
+@bufferSize = 256@, @queueCapacity = 16@, @consumerGroup = 'Nothing'@
+(ordinary single-consumer subscription), @eventTypeFilter = 'AllEventTypes'@
+(deliver every type), and @selector = 'Nothing'@ (no extra predicate
+filtering). Supply the subscription name and target; override individual fields
+with record-update syntax.
 
 Prefer this over a full record literal so that any field added to
 'KirokuAdapterConfig' later is inherited at its default automatically:
@@ -229,6 +241,7 @@ defaultKirokuAdapterConfig name target =
         , subscriptionTarget = target
         , batchSize = 100
         , bufferSize = 256
+        , queueCapacity = 16
         , consumerGroup = Nothing
         , eventTypeFilter = AllEventTypes
         , selector = Nothing
@@ -239,36 +252,36 @@ defaultKirokuAdapterConfig name target =
 The adapter:
 
 1. Calls 'subscriptionStream' to start a Kiroku subscription with a
-   bounded 'TBQueue' bridge.
+   ack-coupled bounded bridge.
 2. Lifts the @Stream IO RecordedEvent@ to @Stream (Eff es)@ via
    @Stream.morphInner liftIO@.
 3. Wraps each 'RecordedEvent' into an 'Ingested' value with an
    'Envelope' (mapping event ID → message ID, global position → cursor)
-   and a no-op 'AckHandle' (except 'AckHalt' which cancels the
-   subscription).
+   and an 'AckHandle' whose finalized decision drives Kiroku checkpointing,
+   retries, dead-lettering, or halt.
 
 The returned adapter's @shutdown@ action cancels the underlying
-subscription and flushes the sentinel through the queue so any
-blocked stream reader terminates.
+subscription and wakes any blocked stream reader. If the subscription worker
+dies with an exception, @source@ terminates with that exception.
 -}
 kirokuAdapter ::
     (IOE :> es) =>
     KirokuStore ->
     KirokuAdapterConfig ->
     Eff es (Adapter es RecordedEvent)
-kirokuAdapter store (KirokuAdapterConfig subName subTarget bs buf cg etf sel) = do
+kirokuAdapter store KirokuAdapterConfig{subscriptionName = subName, subscriptionTarget = subTarget, batchSize = bs, bufferSize = buf, queueCapacity = qCap, consumerGroup = cg, eventTypeFilter = etf, selector = sel} = do
     -- Build from 'defaultSubscriptionConfig' and override only the non-default
     -- fields. Using the smart constructor (rather than a full record literal)
     -- means any future field added to 'SubscriptionConfigM' is inherited at its
     -- default automatically — e.g. EP-2's 'consumerGroupGuard', left 'False' here.
-    let subConfig =
+    let subConfig :: SubscriptionConfig
+        subConfig =
             (defaultSubscriptionConfig subName subTarget (\_ -> pure Continue))
-                { batchSize = bs
-                , queueCapacity = 16
-                , overflowPolicy = DropSubscription
-                , consumerGroup = cg
-                , eventTypeFilter = etf
-                , selector = sel
+                { Sub.batchSize = bs
+                , Sub.queueCapacity = qCap
+                , Sub.consumerGroup = cg
+                , Sub.eventTypeFilter = etf
+                , Sub.selector = sel
                 }
 
     (ioStream, cancelAction) <- liftIO $ subscriptionAckStream store subConfig buf
@@ -326,7 +339,11 @@ data KirokuConsumerGroupConfig = KirokuConsumerGroupConfig
     , batchSize :: !Int32
     -- ^ Events per database fetch during catch-up (per member).
     , bufferSize :: !Natural
-    -- ^ Per-member 'TBQueue' capacity (backpressure threshold).
+    -- ^ Per-member bridge 'TBQueue' capacity; must be at least 1.
+    , queueCapacity :: !Natural
+    {- ^ Per-member publisher-side capacity in batches. When this fills, Kiroku
+    pauses and later resumes the member losslessly.
+    -}
     , memberConcurrency :: !Concurrency
     -- ^ Per-member concurrency; must be 'Serial' (validated).
     , eventTypeFilter :: !EventTypeFilter
@@ -353,9 +370,9 @@ data KirokuConsumerGroupConfig = KirokuConsumerGroupConfig
 
 {- | A 'KirokuConsumerGroupConfig' with sensible defaults: @memberConcurrency =
 'Serial'@ (the only legal per-member concurrency), @batchSize = 100@,
-@bufferSize = 256@, @eventTypeFilter = 'AllEventTypes'@ (deliver every type),
-@selector = 'Nothing'@ (no extra predicate filtering). Supply the subscription
-name, target, and group size.
+@bufferSize = 256@, @queueCapacity = 16@, @eventTypeFilter = 'AllEventTypes'@
+(deliver every type), @selector = 'Nothing'@ (no extra predicate filtering).
+Supply the subscription name, target, and group size.
 -}
 defaultConsumerGroupConfig ::
     SubscriptionName -> SubscriptionTarget -> Int32 -> KirokuConsumerGroupConfig
@@ -366,6 +383,7 @@ defaultConsumerGroupConfig name target n =
         , groupSize = n
         , batchSize = 100
         , bufferSize = 256
+        , queueCapacity = 16
         , memberConcurrency = Serial
         , eventTypeFilter = AllEventTypes
         , selector = Nothing
@@ -421,6 +439,7 @@ kirokuConsumerGroupProcessors
         , groupSize = n
         , batchSize = bs
         , bufferSize = buf
+        , queueCapacity = qCap
         , memberConcurrency = mc
         , eventTypeFilter = etf
         , selector = sel
@@ -441,6 +460,7 @@ kirokuConsumerGroupProcessors
                                         , subscriptionTarget = subTarget
                                         , batchSize = bs
                                         , bufferSize = buf
+                                        , queueCapacity = qCap
                                         , consumerGroup = Just (ConsumerGroup{member = m, size = n})
                                         , eventTypeFilter = etf
                                         , selector = sel

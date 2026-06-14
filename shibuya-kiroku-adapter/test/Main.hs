@@ -1,6 +1,7 @@
 module Main where
 
 import Control.Concurrent (threadDelay)
+import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM (atomically, newTVarIO, readTVar, registerDelay, writeTVar)
 import Control.Concurrent.STM qualified as STM
 import Control.Lens ((&), (.~), (^.))
@@ -326,6 +327,52 @@ main = withSharedMigratedPostgres $ hspec $ do
 
                 collected <- readIORef ref
                 length collected `shouldBe` 5
+
+            it "survives an append burst while the handler is paused" $ \store -> do
+                firstSeen <- newEmptyMVar
+                release <- newEmptyMVar
+                countVar <- newTVarIO (0 :: Int)
+                seenRef <- newIORef ([] :: [RecordedEvent])
+
+                runEff $ runTracingNoop $ do
+                    adapter <-
+                        kirokuAdapter store $
+                            defaultKirokuAdapterConfig (SubscriptionName "burst-pause-resume") AllStreams
+                                & #queueCapacity .~ 1
+
+                    let handler ingested = do
+                            n <- liftIO $ do
+                                modifyIORef' seenRef (envelopePayload ingested :)
+                                atomically $ do
+                                    c <- readTVar countVar
+                                    let c' = c + 1
+                                    writeTVar countVar c'
+                                    pure c'
+                            if n == 1
+                                then liftIO $ putMVar firstSeen () >> takeMVar release
+                                else pure ()
+                            pure AckOk
+
+                    res <- runApp IgnoreFailures 100 [(ProcessorId "burst", mkProcessor adapter handler)]
+                    case res of
+                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                        Right appHandle -> do
+                            liftIO $ do
+                                let appendOne i =
+                                        runStoreIO store $
+                                            appendToStream
+                                                (StreamName ("burst-" <> T.pack (show (i :: Int))))
+                                                NoStream
+                                                [makeEvent ("Burst" <> T.pack (show i)) (Aeson.object [])]
+                                Right _ <- appendOne 1
+                                takeMVar firstSeen
+                                mapM_ (\i -> appendOne i >>= (`shouldSatisfy` either (const False) (const True))) [2 .. 40 :: Int]
+                                putMVar release ()
+                                waitForCount countVar 40 15_000_000
+                            stopApp appHandle
+
+                seen <- readIORef seenRef
+                sort (map globalPos seen) `shouldBe` [1 .. 40]
 
             it "runs multiple category subscriptions concurrently" $ \store -> do
                 Right _ <- runStoreIO store $ appendToStream (StreamName "orders-s1") NoStream [makeEvent "OrderCreated" (Aeson.object [])]

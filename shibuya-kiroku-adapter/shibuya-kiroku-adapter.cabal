@@ -1,6 +1,6 @@
 cabal-version:   3.0
 name:            shibuya-kiroku-adapter
-version:         0.3.0.0
+version:         0.4.0.0
 synopsis:
   Kiroku event store adapter for the Shibuya queue processing framework
 
@@ -10,12 +10,10 @@ description:
   interface, enabling supervised multi-subscription processing with failure
   isolation, per-subscription metrics, and coordinated graceful shutdown.
   .
-  Events flow through a bounded TBQueue bridge (provided by
-  @kiroku-store@'s @subscriptionStream@) and are lifted into Shibuya's
-  effect stack via @Stream.morphInner@. Checkpoint management is handled
-  internally by Kiroku's subscription worker — the adapter's ack semantics
-  are no-op for AckOk\/AckRetry\/AckDeadLetter and trigger subscription
-  cancellation for AckHalt.
+  Events flow through @kiroku-store@'s ack-coupled @subscriptionAckStream@
+  bridge and are lifted into Shibuya's effect stack via @Stream.morphInner@.
+  Each finalized Shibuya @AckDecision@ drives Kiroku checkpointing, retry,
+  dead-lettering, or halt before the worker moves to the next event.
 
 author:          Nadeem Bitar
 maintainer:      nadeem@gmail.com
@@ -49,7 +47,7 @@ library
   build-depends:
     , aeson                                  >=2.1   && <2.3
     , base                                   >=4.18  && <5
-    , effectful-core                         >=2.4   && <2.7
+    , effectful-core                         >=2.5   && <2.7
     , hs-opentelemetry-api                   ^>=1.0
     , hs-opentelemetry-semantic-conventions  ^>=1.40
     , kiroku-store                           ^>=0.2

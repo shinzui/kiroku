@@ -4,6 +4,7 @@ slug: harden-shibuya-adapter-ack-contract-and-overflow-policy
 title: "Harden shibuya adapter ack contract and overflow policy"
 kind: exec-plan
 created_at: 2026-06-11T04:32:45Z
+intention: intention_01kv3qaxg9e91v0zq47stehnkz
 master_plan: "docs/masterplans/9-audit-remediation-subscription-reliability-and-store-correctness-and-performance.md"
 ---
 
@@ -87,10 +88,10 @@ up the fixes. Planning that bump is out of scope here.
 
 ## Progress
 
-- [ ] M1: Add `queueCapacity` field to `KirokuAdapterConfig` and `KirokuConsumerGroupConfig` (default 16) and stop pinning `overflowPolicy = DropSubscription` in `kirokuAdapter` (inherit `PauseAndResume`).
-- [ ] M1: Reject zero bridge capacity: `InvalidStreamBufferSize` guard in `Kiroku.Store.Subscription.Stream.subscriptionAckStream`; rewrite the misleading `bufferSize` "backpressure threshold" Haddocks in the adapter.
-- [ ] M1: Burst test: gated handler + `queueCapacity = 1` + multi-batch append delivers every event with no `SubscriptionOverflowed` and no processor failure.
-- [ ] M1: Bump `shibuya-kiroku-adapter` to 0.4.0.0; update CHANGELOG and stale Haddock/cabal examples that use full `KirokuAdapterConfig` record literals.
+- [x] M1: Add `queueCapacity` field to `KirokuAdapterConfig` and `KirokuConsumerGroupConfig` (default 16) and stop pinning `overflowPolicy = DropSubscription` in `kirokuAdapter` (inherit `PauseAndResume`). Completed 2026-06-14.
+- [x] M1: Reject zero bridge capacity: `InvalidStreamBufferSize` guard in `Kiroku.Store.Subscription.Stream.subscriptionAckStream`; rewrite the misleading `bufferSize` "backpressure threshold" Haddocks in the adapter. Completed 2026-06-14.
+- [x] M1: Burst test: gated handler + `queueCapacity = 1` + multi-batch append delivers every event with no `SubscriptionOverflowed` and no processor failure. Completed 2026-06-14; focused adapter test passed with 1 example, 0 failures.
+- [x] M1: Bump `shibuya-kiroku-adapter` to 0.4.0.0; update CHANGELOG and stale Haddock/cabal examples that use full `KirokuAdapterConfig` record literals. Completed 2026-06-14.
 - [ ] M2: Implement and export `guardKirokuHandlerWith` / `guardKirokuHandler` in `Shibuya.Adapter.Kiroku` (exception → finalized disposition); raise `effectful-core` lower bound to 2.5 for `catchSync`.
 - [ ] M2: Apply the guard automatically inside `kirokuConsumerGroupProcessors`; document the "handlers must not throw" contract loudly in the module Haddock.
 - [ ] M2: Tests: transiently-throwing handler recovers via retry (attempt increments, then `AckOk` path checkpoints); persistently-throwing handler is dead-lettered (`kiroku.dead_letters` row exists) and the next event is still processed.
@@ -104,7 +105,11 @@ up the fixes. Planning that bump is out of scope here.
 
 ## Surprises & Discoveries
 
-(None yet.)
+2026-06-14, M1 validation added the zero-capacity guard to the existing
+`stream bridge termination` focused group. The focused store command passed with
+4 examples, 0 failures, including the new `InvalidStreamBufferSize 0`
+assertion. The adapter burst regression passed as a focused example with
+`queueCapacity = 1`, a gated first handler invocation, and 40 one-event appends.
 
 
 ## Decision Log
