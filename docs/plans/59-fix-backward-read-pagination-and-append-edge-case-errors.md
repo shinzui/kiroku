@@ -73,10 +73,10 @@ This section must always reflect the actual current state of the work.
 - [x] M2: Short-circuit `AppendMultiStream []` to `pure []` (2026-06-14)
 - [x] M2: Correct the empty-batch haddocks in `Append.hs` and `Transaction.hs`; fix the `WrongExpectedVersion` / `WrongExpectedVersionConflict` "actual version" haddocks in `Error.hs` (finding G) (2026-06-14)
 - [x] M2: Add empty-batch rejection tests (single, multi, transactional) and confirm green (2026-06-14)
-- [ ] M3: Add `EventAlreadyLinked` and `LinkSourceEventMissing` constructors plus `mapLinkUsageError` / `mapGenericUsageError` to `Error.hs`
-- [ ] M3: Route `LinkToStream` errors through `mapLinkUsageError` in `Effect.hs`; tighten the two `Left _` link tests in `test/Main.hs` to the typed constructors
-- [ ] M3: Add `isTransientSerializationError` to `Error.hs` with a pure unit test; add one-shot retry to the `AppendToStream` interpreter branch
-- [ ] M3: Add best-effort deadlock stress test to `kiroku-store/test/Test/Concurrency.hs`; confirm green
+- [x] M3: Add `EventAlreadyLinked` and `LinkSourceEventMissing` constructors plus `mapLinkUsageError` / `mapGenericUsageError` to `Error.hs` (2026-06-14)
+- [x] M3: Route `LinkToStream` errors through `mapLinkUsageError` in `Effect.hs`; tighten the two `Left _` link tests in `test/Main.hs` to the typed constructors (2026-06-14)
+- [x] M3: Add `isTransientSerializationError` to `Error.hs` with a pure unit test; add one-shot retry to the `AppendToStream` interpreter branch (2026-06-14)
+- [x] M3: Add best-effort deadlock stress test to `kiroku-store/test/Test/Concurrency.hs`; confirm green (2026-06-14)
 - [ ] M4: Early-terminate `readStreamForwardStream` when a page is short; replace per-page `Stream.fromList . V.toList` with an index-based `Stream.unfoldr`
 - [ ] M4: Short-circuit `LookupStreamNames []` to `pure Map.empty`; update the `lookupStreamNames` haddock in `Read.hs`
 - [ ] M4: Add round-trip-count tests (observation-handler based) for both M4 items; confirm green
@@ -140,6 +140,23 @@ public API wrappers, examples, and tests; the one app path in `kiroku-jitsurei` 
 events from configured demo input and no library path structurally synthesizes an empty
 batch. After the guards, the focused empty-batch run passed with 5 examples and 0
 failures; the full `kiroku-store-test` suite passed with 208 examples and 0 failures;
+`cabal build all` completed successfully.
+
+2026-06-14, M3 dependency lookup confirmed the retry predicate should match exactly
+`40001` and `40P01`. `mori registry show hasql/hasql --full` located the hasql family
+at `/Users/shinzui/Keikaku/hub/haskell/hasql-project`; the source in
+`hasql-transaction/src/library/Hasql/Transaction/Private/Sessions.hs` retries
+`ServerError` codes `40001` and `40P01`, and `hasql-pool/src/library/exposed/Hasql/Pool.hs`
+exports `UsageError` constructors `ConnectionUsageError`, `SessionUsageError`, and
+`AcquisitionTimeoutUsageError`.
+
+2026-06-14, M3 link bite-check failed as expected before routing the mapper. Tightened
+`linkToStream` tests reported 8 examples, 3 failures: duplicate links and missing-source
+links still surfaced `ConnectionError` containing raw `23505` / `23502` server errors.
+After routing `LinkToStream` through `mapLinkUsageError`, the `linkToStream` group passed
+with 8 examples and 0 failures. The pure `isTransientSerializationError` test passed
+with 1 example and 0 failures; the concurrency group passed with 10 examples and 0
+failures; the full `kiroku-store-test` suite passed with 210 examples and 0 failures;
 `cabal build all` completed successfully.
 
 
@@ -250,6 +267,13 @@ per-stream batch, `appendToStreamTx`, and `runTransactionAppending*` surface
 `EmptyAppendBatch` or `EmptyAppendBatchConflict`; `appendMultiStream []` remains a
 zero-operation success. The `WrongExpectedVersion` docs now state that the third field
 is a `StreamVersion 0` placeholder rather than a recovered actual version.
+
+2026-06-14, after M3: link failures are now typed. Duplicate links return
+`EventAlreadyLinked target (Just eventId)` when PostgreSQL's composite-key detail is
+parseable, and missing source events return `LinkSourceEventMissing target` without
+partial commits. Single-stream appends retry once when PostgreSQL aborts the transaction
+with `40001` or `40P01`, matching hasql-transaction's retryable SQLSTATE set while
+keeping retries bounded.
 
 
 ## Context and Orientation
@@ -947,3 +971,8 @@ MasterPlan intention to frontmatter, and captured the passing targeted and full
 bite-check, caller audit, focused/full store-test validation, and `cabal build all`
 validation; marked the M2 progress items complete and summarized the new typed
 empty-batch behavior.
+
+*Revision note (2026-06-14).* M3 implementation update: recorded the hasql dependency
+source lookup, typed-link bite-check, transient SQLSTATE predicate test, concurrency
+stress validation, full store-test validation, and `cabal build all`; marked the M3
+progress items complete and summarized the typed link errors plus one-shot append retry.

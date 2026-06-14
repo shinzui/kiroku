@@ -32,7 +32,8 @@ Preconditions:
 * Every supplied 'Kiroku.Store.Types.EventId' must reference an event
   that currently exists. Linking an unknown id (a typo, or an id that
   was hard-deleted) rejects the entire batch atomically — the target
-  stream is left in its pre-call state. (See EP-1 F3.)
+  stream is left in its pre-call state — with
+  'Kiroku.Store.Error.LinkSourceEventMissing'. (See EP-1 F3.)
 * The target must not be soft-deleted. Linking to a soft-deleted target
   fails with 'Kiroku.Store.Error.StreamNotFound'. (See EP-1 F5.)
 * The target must not be @$all@. @$all@ is the global read stream, and
@@ -40,8 +41,7 @@ Preconditions:
   the interpreter rejects this with
   'Kiroku.Store.Error.ReservedStreamName'.
 * Linking the same event into the same target stream twice fails with
-  a primary-key violation on the junction's @(stream_id, event_id)@
-  uniqueness.
+  'Kiroku.Store.Error.EventAlreadyLinked'.
 
 Returns the target's 'Kiroku.Store.Types.LinkResult' — its id and the
 position of the /last/ linked event in the target.

@@ -19,6 +19,8 @@ import Data.UUID qualified as UUID
 import Data.Vector qualified as V
 import Effectful (Eff, IOE, runEff, (:>))
 import Effectful.Error.Static (runErrorNoCallStack)
+import Hasql.Errors qualified as Errors
+import Hasql.Pool (UsageError (..))
 import Kiroku.Store
 import Kiroku.Store.Error (extractStreamNameFromDetail)
 import Kiroku.Store.Subscription.Effect qualified as SubEff
@@ -611,7 +613,9 @@ main = withSharedMigratedPostgres $ hspec $ do
                 Right _ <- runStoreIO store $ linkToStream (StreamName "linked-dup") [eid]
                 result <- runStoreIO store $ linkToStream (StreamName "linked-dup") [eid]
                 case result of
-                    Left _ -> pure () -- Expected: some error (PK violation)
+                    Left (EventAlreadyLinked (StreamName "linked-dup") mEid) ->
+                        mEid `shouldBe` Just eid
+                    Left err -> expectationFailure ("Expected EventAlreadyLinked, got: " <> show err)
                     Right _ -> expectationFailure "Expected error for duplicate link"
 
             -- F3 regression — silent version gap when source events do not exist.
@@ -623,7 +627,8 @@ main = withSharedMigratedPostgres $ hspec $ do
                 let bogus = EventId (case UUID.fromString "11111111-1111-7111-8111-111111111111" of Just u -> u; Nothing -> error "bad uuid")
                 result <- runStoreIO store $ linkToStream (StreamName "f3-bogus") [bogus]
                 case result of
-                    Left _ -> pure ()
+                    Left (LinkSourceEventMissing (StreamName "f3-bogus")) -> pure ()
+                    Left err -> expectationFailure ("Expected LinkSourceEventMissing, got: " <> show err)
                     Right r -> expectationFailure ("Expected error for missing event, got: " <> show r)
                 -- Target stream must not have been left in a half-created state.
                 Right info <- runStoreIO store $ getStream (StreamName "f3-bogus")
@@ -636,7 +641,8 @@ main = withSharedMigratedPostgres $ hspec $ do
                 let bogus = EventId (case UUID.fromString "22222222-2222-7222-8222-222222222222" of Just u -> u; Nothing -> error "bad uuid")
                 result <- runStoreIO store $ linkToStream (StreamName "f3-mixed-tgt") [realId, bogus]
                 case result of
-                    Left _ -> pure ()
+                    Left (LinkSourceEventMissing (StreamName "f3-mixed-tgt")) -> pure ()
+                    Left err -> expectationFailure ("Expected LinkSourceEventMissing, got: " <> show err)
                     Right r -> expectationFailure ("Expected error for partial-missing batch, got: " <> show r)
                 Right info <- runStoreIO store $ getStream (StreamName "f3-mixed-tgt")
                 info `shouldBe` Nothing
@@ -1804,6 +1810,24 @@ main = withSharedMigratedPostgres $ hspec $ do
         it "returns Nothing for an empty parenthesised value" $ do
             extractStreamNameFromDetail "Key (stream_name)=() already exists."
                 `shouldBe` Nothing
+
+    describe "isTransientSerializationError" $ do
+        let serverUsage code =
+                SessionUsageError $
+                    Errors.StatementSessionError
+                        1
+                        0
+                        ""
+                        []
+                        True
+                        ( Errors.ServerStatementError $
+                            Errors.ServerError code "server error" Nothing Nothing Nothing
+                        )
+        it "recognizes only serialization and deadlock SQLSTATEs" $ do
+            isTransientSerializationError (serverUsage "40P01") `shouldBe` True
+            isTransientSerializationError (serverUsage "40001") `shouldBe` True
+            isTransientSerializationError (serverUsage "23505") `shouldBe` False
+            isTransientSerializationError AcquisitionTimeoutUsageError `shouldBe` False
 
     -- =================================================================
     -- Notifier reconnection tests (EP-3 F1)

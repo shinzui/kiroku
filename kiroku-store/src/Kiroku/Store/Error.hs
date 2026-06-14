@@ -6,9 +6,12 @@ module Kiroku.Store.Error (
     appendConflictToStoreError,
     emptyResultConflict,
     -- Internal helpers used by Effect module
+    mapGenericUsageError,
+    mapLinkUsageError,
     mapUsageError,
     emptyResultError,
     attributeMultiStreamError,
+    isTransientSerializationError,
     -- Internal pure helper exposed for unit testing
     extractStreamNameFromDetail,
 ) where
@@ -81,6 +84,20 @@ data StoreError
       offending id to the user should match on 'Just'.
       -}
       DuplicateEvent !(Maybe EventId)
+    | {- | A 'Kiroku.Store.Link.linkToStream' call tried to link an
+      event into a target stream that already contains it.
+
+      Maps the @23505@ unique violation on @stream_events_pkey@, whose
+      key is @(event_id, stream_id)@. Carries 'Just' the offending event
+      id when PostgreSQL's detail string is parseable.
+      -}
+      EventAlreadyLinked !StreamName !(Maybe EventId)
+    | {- | A 'Kiroku.Store.Link.linkToStream' call referenced an event id
+      that does not exist. The link CTE surfaces this as a @23502@
+      not-null violation on @stream_events.original_stream_id@ and the
+      whole batch rolls back.
+      -}
+      LinkSourceEventMissing !StreamName
     | {- | The connection pool timed out acquiring a connection. Almost
       always retryable after a small backoff; sustained timeouts
       indicate that the pool is undersized for the offered load or
@@ -134,6 +151,38 @@ mapUsageError streamName expected = \case
         ConnectionLost (T.pack (show connErr))
     AcquisitionTimeoutUsageError ->
         PoolAcquisitionTimeout
+
+-- | Generic, non-append-shaped mapping for hasql pool usage errors.
+mapGenericUsageError :: UsageError -> StoreError
+mapGenericUsageError = \case
+    ConnectionUsageError connErr ->
+        ConnectionLost (T.pack (show connErr))
+    AcquisitionTimeoutUsageError ->
+        PoolAcquisitionTimeout
+    SessionUsageError sessionErr ->
+        case extractServerError (SessionUsageError sessionErr) of
+            Just (Errors.ServerError code message _ _ _) ->
+                UnexpectedServerError code message
+            Nothing ->
+                ConnectionError ("Session error: " <> T.pack (show sessionErr))
+
+-- | Map link-specific hasql failures to typed link errors.
+mapLinkUsageError :: StreamName -> UsageError -> StoreError
+mapLinkUsageError target usageErr =
+    case extractServerError usageErr of
+        Just (Errors.ServerError "23505" message detail _ _)
+            | containsConstraint "stream_events_pkey" message detail ->
+                EventAlreadyLinked target (extractCompositeEventId detail)
+        Just (Errors.ServerError "23502" _ _ _ _) ->
+            LinkSourceEventMissing target
+        _ ->
+            mapGenericUsageError usageErr
+  where
+    containsConstraint name message detail =
+        name `T.isInfixOf` message || maybe False (T.isInfixOf name) detail
+
+    extractCompositeEventId (Just d) = EventId <$> extractFirstUuidFromCompositeDetail d
+    extractCompositeEventId Nothing = Nothing
 
 mapSessionError :: Text -> ExpectedVersion -> Errors.SessionError -> StoreError
 mapSessionError streamName expected = \case
@@ -283,6 +332,19 @@ extractUuidFromDetail detail =
                  in UUID.fromText uuidText
         _ -> Nothing
 
+{- | Extract the first UUID from a PostgreSQL composite-key detail string like:
+"Key (event_id, stream_id)=(01234567-89ab-7def-8012-34567890abcd, 42) already exists."
+-}
+extractFirstUuidFromCompositeDetail :: Text -> Maybe UUID
+extractFirstUuidFromCompositeDetail detail =
+    case T.breakOn "=(" detail of
+        (_, rest)
+            | not (T.null rest) ->
+                let afterParen = T.drop 2 rest -- skip "=("
+                    uuidText = T.strip (T.takeWhile (\c -> c /= ',' && c /= ')') afterParen)
+                 in UUID.fromText uuidText
+        _ -> Nothing
+
 {- | Extract a stream name from a PostgreSQL unique-violation detail string
 like @"Key (stream_name)=(orders-1) already exists."@.
 
@@ -360,3 +422,12 @@ extractServerError = \case
             Errors.ServerStatementError serverErr -> Just serverErr
             _ -> Nothing
     _ -> Nothing
+
+-- | True for PostgreSQL transient transaction aborts retried by hasql-transaction.
+isTransientSerializationError :: UsageError -> Bool
+isTransientSerializationError usageErr =
+    case extractServerError usageErr of
+        Just (Errors.ServerError code _ _ _ _) ->
+            code == "40001" || code == "40P01"
+        Nothing ->
+            False

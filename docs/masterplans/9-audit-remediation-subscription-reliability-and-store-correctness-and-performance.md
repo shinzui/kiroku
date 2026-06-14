@@ -185,7 +185,7 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 - [x] EP-3: Full-fetch attach race closed (late registrants receive the in-flight batch atomically with the position advance)
 - [x] EP-4: Backward reads paginate correctly with nonzero cursors (failing test first)
 - [x] EP-4: Empty-batch appends are rejected before touching the pool
-- [ ] EP-4: Link errors and single-stream deadlocks map to typed errors / are retried
+- [x] EP-4: Link errors and single-stream deadlocks map to typed errors / are retried
 - [ ] EP-4: Round-trip economies (short-page stream stop; empty lookup short-circuit)
 - [ ] EP-5: NOTIFY trigger fires once per append; lifecycle updates fire nothing
 - [ ] EP-5: Dead-letter FK policy decided and enforced; `dead_letters(event_id)` indexed
@@ -286,6 +286,13 @@ transaction work with `EmptyAppendBatch` / `EmptyAppendBatchConflict`; `appendMu
 []` remains a no-op success. The bite-check reproduced the previous phantom stream and
 partial multi-stream commit behavior before guards were added. Validation passed with
 `kiroku-store-test` (208 examples, 0 failures) and `cabal build all`.
+
+2026-06-14, EP-4 M3 completed. `linkToStream` now maps duplicate links to
+`EventAlreadyLinked` and missing source events to `LinkSourceEventMissing`, and the
+single-stream append interpreter retries once on PostgreSQL transient transaction
+SQLSTATEs `40001` and `40P01`. Validation passed with targeted link, pure predicate,
+and concurrency tests, full `kiroku-store-test` (210 examples, 0 failures), and
+`cabal build all`.
 
 
 ## Decision Log

@@ -47,7 +47,7 @@ import Hasql.Transaction qualified as Tx
 import Hasql.Transaction.Sessions qualified as TxSessions
 import Kiroku.Store.Connection (KirokuStore (..))
 import Kiroku.Store.Effect.Resource (KirokuStoreResource, getKirokuStore)
-import Kiroku.Store.Error (StoreError (..), attributeMultiStreamError, emptyResultError, mapUsageError)
+import Kiroku.Store.Error (StoreError (..), attributeMultiStreamError, emptyResultError, isTransientSerializationError, mapLinkUsageError, mapUsageError)
 import Kiroku.Store.Observability (KirokuEvent (..))
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Settings (decodeEvents, enrichEvents)
@@ -138,15 +138,26 @@ runStorePool store = interpret_ $ \case
         now <- liftIO getCurrentTime
         prepared <- prepareEvents events'
         let params = buildAppendParams name now prepared
-        result <- liftIO $ Pool.use (store ^. #pool) $ case expected of
-            ExactVersion (StreamVersion v) ->
-                Session.statement (params, v) SQL.appendExpectedVersion
-            StreamExists ->
-                Session.statement params SQL.appendStreamExists
-            NoStream ->
-                Session.statement params SQL.appendNoStream
-            AnyVersion ->
-                Session.statement params SQL.appendAnyVersion
+        let runOnce =
+                Pool.use (store ^. #pool) $ case expected of
+                    ExactVersion (StreamVersion v) ->
+                        Session.statement (params, v) SQL.appendExpectedVersion
+                    StreamExists ->
+                        Session.statement params SQL.appendStreamExists
+                    NoStream ->
+                        Session.statement params SQL.appendNoStream
+                    AnyVersion ->
+                        Session.statement params SQL.appendAnyVersion
+        firstAttempt <- liftIO runOnce
+        result <- case firstAttempt of
+            -- Match hasql-transaction's retryable SQLSTATE set, but only once:
+            -- PostgreSQL rolls back the victim transaction and event ids were
+            -- prepared before the first attempt, so this retry is idempotent.
+            Left usageErr
+                | isTransientSerializationError usageErr ->
+                    liftIO runOnce
+            _ ->
+                pure firstAttempt
         case result of
             Left usageErr ->
                 throwError (mapUsageError name expected usageErr)
@@ -193,11 +204,13 @@ runStorePool store = interpret_ $ \case
         rejectReservedApplicationStream name
         let uuids = V.fromList [uid | EventId uid <- eventIds]
         result <-
-            usePool (store ^. #pool) $
-                Session.statement (uuids, name) SQL.linkToStreamStmt
+            liftIO $
+                Pool.use (store ^. #pool) $
+                    Session.statement (uuids, name) SQL.linkToStreamStmt
         case result of
-            Nothing -> throwError (StreamNotFound (StreamName name))
-            Just r -> pure r
+            Left usageErr -> throwError (mapLinkUsageError (StreamName name) usageErr)
+            Right Nothing -> throwError (StreamNotFound (StreamName name))
+            Right (Just r) -> pure r
     ReadCategoryForward (CategoryName cat) (GlobalPosition startPos) limit -> do
         evs <-
             usePool (store ^. #pool) $

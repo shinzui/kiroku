@@ -249,6 +249,29 @@ spec = describe "kiroku-store concurrency (deterministic)" $ do
                         (V.toList allEvts)
             sort positions `shouldBe` [1, 2, 3, 4, 5, 6]
 
+    -- EP-4 M3 — Best-effort regression for the single-stream append retry.
+    -- The race can pass vacuously on fast machines, but it must never surface
+    -- PostgreSQL's transient transaction SQLSTATEs (40001/40P01) to callers as
+    -- UnexpectedServerError.
+    it "single-stream append retry does not leak transient SQLSTATEs" $
+        withTestStore $ \store -> do
+            forM_ [1 .. 25 :: Int] $ \i -> do
+                let a = StreamName ("retry-a-" <> T.pack (show i))
+                    b = StreamName ("retry-b-" <> T.pack (show i))
+                    multi =
+                        appendMultiStream
+                            [ (a, NoStream, [makeEvent "A" (Aeson.object [])])
+                            , (b, AnyVersion, [makeEvent "B-multi" (Aeson.object [])])
+                            ]
+                    single =
+                        appendToStream b NoStream [makeEvent "B-single" (Aeson.object [])]
+                (multiResult, singleResult) <-
+                    Async.concurrently
+                        (runStoreIO store multi)
+                        (runStoreIO store single)
+                assertNoTransientLeak ("multi round " <> show i) multiResult
+                assertNoTransientLeak ("single round " <> show i) singleResult
+
 assertRightAppend :: Either StoreError AppendResult -> IO ()
 assertRightAppend = \case
     Right _ -> pure ()
@@ -258,6 +281,14 @@ assertRightMulti :: Either StoreError [AppendResult] -> IO ()
 assertRightMulti = \case
     Right _ -> pure ()
     Left err -> expectationFailure ("appendMultiStream should succeed, got: " <> show err)
+
+assertNoTransientLeak :: String -> Either StoreError a -> IO ()
+assertNoTransientLeak label = \case
+    Left (UnexpectedServerError code _)
+        | code == "40P01" || code == "40001" ->
+            expectationFailure (label <> ": transient SQLSTATE leaked as UnexpectedServerError " <> show code)
+    _ ->
+        pure ()
 
 streamVersions :: V.Vector RecordedEvent -> [Int64]
 streamVersions =
