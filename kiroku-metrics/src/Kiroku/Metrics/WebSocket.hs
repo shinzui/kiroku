@@ -340,8 +340,10 @@ eventReadLimit = 500
 {- | Stream events to the client. Dispatches on the request shape:
 
   * no @from@, no @category@: live "from-now" tail via the broadcast.
-  * @from@, no @category@: replay history @(from, attach]@ then live, dropping
-    broadcast events already covered by the replay.
+  * @from@, no @category@: replay history from @from@, tracking the highest
+    delivered position, then live with the broadcast filtered to positions above
+    that covered boundary. A replay read error sends an @error@ frame and ends
+    the tail instead of entering live mode with a gap.
   * any @category@: a DB-driven loop over 'readCategory' gated on the publisher
     position (the broadcast carries no stream names, so it cannot be filtered by
     category in-process — see the plan).
@@ -365,34 +367,41 @@ eventTail cfg store conn mFrom mCategory =
             (queue, statusVar, unsubscribe) <-
                 atomically (subscribePublisher store.publisher cfg.wsEventQueueCap DropOldest)
             attachPos <- unGP <$> atomically (publisherPosition store.publisher)
-            flip finally unsubscribe $ do
+            flip finally unsubscribe $
                 case mFrom of
-                    Nothing -> sendMsg conn (EventStreamStarted attachPos)
+                    Nothing -> do
+                        sendMsg conn (EventStreamStarted attachPos)
+                        broadcastLoop conn queue statusVar (const True)
                     Just p -> do
                         sendMsg conn (EventStreamStarted p)
-                        replayHistory store conn p attachPos
-                -- Drain the broadcast; under @from@ replay, drop events already
-                -- delivered by the catch-up (globalPosition <= attachPos).
-                let keep = case mFrom of
-                        Nothing -> const True
-                        Just _ -> \e -> unGP e.globalPosition > attachPos
-                broadcastLoop conn queue statusVar keep
+                        mCovered <- replayHistory store conn p attachPos
+                        for_ mCovered $ \covered ->
+                            broadcastLoop conn queue statusVar (\e -> unGP e.globalPosition > covered)
 
--- | Page history from @cursor@ up to @attachPos@ with 'readAllForward'.
-replayHistory :: KirokuStore -> WS.Connection -> Int64 -> Int64 -> IO ()
-replayHistory store conn = go
+{- | Page history from the requested position up to @attachPos@ with
+'readAllForward'. Returns @Just covered@, the highest global position the
+client is now guaranteed to have received (at least @attachPos@; more when the
+final page read past it), or @Nothing@ after a read error, which has already
+been surfaced to the client as an 'ErrorMsg'. The caller must terminate the
+tail on @Nothing@ rather than continue live with a gap.
+-}
+replayHistory :: KirokuStore -> WS.Connection -> Int64 -> Int64 -> IO (Maybe Int64)
+replayHistory store conn from attachPos = go from attachPos
   where
-    go cursor attachPos
-        | cursor >= attachPos = pure ()
+    go cursor covered
+        | cursor >= attachPos = pure (Just covered)
         | otherwise = do
             res <- runStoreIO store (readAllForward (GlobalPosition cursor) (fromIntegral eventReadLimit))
             case res of
-                Left err -> sendMsg conn (ErrorMsg (T.pack ("replay error: " <> show err)))
+                Left err -> do
+                    sendMsg conn (ErrorMsg (T.pack ("replay error: " <> show err)))
+                    pure Nothing
                 Right evs
-                    | V.null evs -> pure ()
+                    | V.null evs -> pure (Just covered)
                     | otherwise -> do
                         sendEvents conn evs
-                        go (unGP (V.last evs).globalPosition) attachPos
+                        let lastPos = unGP (V.last evs).globalPosition
+                        go lastPos (max covered lastPos)
 
 {- | Drain the broadcast queue forever, sending each kept event. Defensively
 surfaces an @Overflowed@ status (not set under 'DropOldest', but handled).

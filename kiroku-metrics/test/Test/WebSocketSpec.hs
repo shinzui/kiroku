@@ -15,8 +15,8 @@ drive both channels over a real socket with the @websockets@ client.
 -}
 module Test.WebSocketSpec (spec) where
 
-import Control.Concurrent (threadDelay)
-import Control.Concurrent.Async (async, wait)
+import Control.Concurrent (myThreadId, threadDelay)
+import Control.Concurrent.Async (async, asyncThreadId, wait)
 import Control.Concurrent.STM (
     STM,
     TVar,
@@ -25,19 +25,24 @@ import Control.Concurrent.STM (
     newTVarIO,
     orElse,
     readTVar,
+    readTVarIO,
     registerDelay,
     writeTVar,
  )
+import Control.Exception (finally)
 import Control.Lens ((&), (.~))
-import Control.Monad (replicateM, unless)
+import Control.Monad (replicateM, unless, when)
 import Data.Aeson (Value (..), decode, encode, object, (.=))
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
 import Data.ByteString.Lazy qualified as LBS
+import Data.Foldable (for_)
 import Data.IntMap.Strict qualified as IntMap
 import Data.Scientific (toRealFloat)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Hasql.Pool qualified as Pool
+import Hasql.Session qualified as Session
 import Network.WebSockets qualified as WS
 import System.Timeout (timeout)
 import Test.Hspec
@@ -63,7 +68,8 @@ import Kiroku.Store (
     runStoreIO,
     withStore,
  )
-import Kiroku.Store.Subscription.EventPublisher (EventPublisher (..), publisherPosition)
+import Kiroku.Store.Subscription.EventPublisher (EventPublisher (..), publisherPosition, subscribePublisher)
+import Kiroku.Store.Subscription.Types (OverflowPolicy (..))
 import Kiroku.Store.Types (GlobalPosition (..))
 import Kiroku.Test.Postgres (withMigratedTestDatabase)
 
@@ -152,6 +158,92 @@ spec = describe "Kiroku.Metrics.WebSocket (endpoints)" $ do
 
                 stopMetricsServer srv
 
+    it "delivers each global position exactly once when the replay overlaps live appends" $
+        withMigratedTestDatabase $ \connStr -> do
+            gateVar <- newTVarIO True
+            storeVar <- newTVarIO Nothing
+            let publisherGate e = do
+                    mStore <- readTVarIO storeVar
+                    for_ mStore $ \s -> do
+                        tid <- myThreadId
+                        when (tid == asyncThreadId (publisherThread s.publisher)) $
+                            atomically (readTVar gateVar >>= check)
+                    pure e
+                settings =
+                    defaultConnectionSettings connStr
+                        & #storeSettings . #decodeHook .~ Just publisherGate
+            km <- newKirokuMetricsWith (readPosition storeVar) (readSubscribers storeVar)
+            withStore settings $ \store -> do
+                atomically (writeTVar storeVar (Just store))
+                let serverCfg = defaultConfig{port = 0}
+                srv <- startMetricsServerWithStore serverCfg km store []
+                threadDelay 300_000
+                let port = srv.serverPort
+
+                appendStoreEvents store (StreamName "ws-race-a") 2
+                waitForPublisherPosition store 2 5_000_000
+
+                (_, _, unsubscribeDummy) <- atomically (subscribePublisher store.publisher 16 DropOldest)
+                received <-
+                    flip finally unsubscribeDummy $
+                        do
+                            atomically (writeTVar gateVar False)
+                            appendStoreEvents store (StreamName "ws-race-b") 3
+
+                            requireJust "ws/events exactly-once client timed out" $
+                                timeout 15_000_000 $
+                                    WS.runClient "127.0.0.1" port "/ws/events" $ \conn -> do
+                                        sendJSON
+                                            conn
+                                            (object ["type" .= ("subscribe_events" :: Text), "from_position" .= (0 :: Int)])
+                                        _ <- waitForType conn "event_stream_started"
+                                        replayed <- replicateM 5 (readEventPosition conn)
+
+                                        atomically (writeTVar gateVar True)
+                                        appendStoreEvents store (StreamName "ws-race-c") 1
+                                        live <- readEventPosition conn
+                                        quiet <- timeout 500_000 (WS.receiveData conn :: IO LBS.ByteString)
+                                        quiet `shouldBe` Nothing
+                                        pure (replayed <> [live])
+                received `shouldBe` [1, 2, 3, 4, 5, 6]
+
+                stopMetricsServer srv
+
+    it "terminates the tail after a replay error instead of streaming with a gap" $
+        withMigratedTestDatabase $ \connStr -> do
+            storeVar <- newTVarIO Nothing
+            km <- newKirokuMetricsWith (readPosition storeVar) (readSubscribers storeVar)
+            let settings =
+                    defaultConnectionSettings connStr
+                        & #eventHandler .~ Just (metricsEventHandler km Nothing)
+                        & #observationHandler .~ Just (metricsObservationHandler km Nothing)
+            withStore settings $ \store -> do
+                atomically (writeTVar storeVar (Just store))
+                let serverCfg = defaultConfig{port = 0}
+                srv <- startMetricsServerWithStore serverCfg km store []
+                threadDelay 300_000
+                let port = srv.serverPort
+
+                appendStoreEvents store (StreamName "ws-err-a") 2
+                waitForPublisherPosition store 2 5_000_000
+                renamed <- Pool.use store.pool (Session.script "ALTER TABLE events RENAME TO events_hidden")
+                renamed `shouldBe` Right ()
+
+                requireJust "ws/events replay-error client timed out" $
+                    timeout 15_000_000 $
+                        WS.runClient "127.0.0.1" port "/ws/events" $ \conn -> do
+                            sendJSON
+                                conn
+                                (object ["type" .= ("subscribe_events" :: Text), "from_position" .= (0 :: Int)])
+                            _ <- waitForType conn "event_stream_started"
+                            err <- waitForType conn "error"
+                            case look ["message"] err of
+                                Just (String msg) -> msg `shouldSatisfy` T.isInfixOf "replay error"
+                                other -> expectationFailure ("error without message: " <> show other)
+                            waitForSubscriberCount store 0 5_000_000
+
+                stopMetricsServer srv
+
 -- | Fail the example with a message if the timed action returned 'Nothing'.
 requireJust :: String -> IO (Maybe a) -> IO a
 requireJust msg act = act >>= maybe (expectationFailure msg >> error msg) pure
@@ -181,6 +273,14 @@ readEventType conn = do
     case look ["event", "eventType"] v of
         Just (String t) -> pure t
         other -> expectationFailure ("event without eventType: " <> show other) >> error "no eventType"
+
+-- | Read until an @event@ message, returning its @event.globalPosition@.
+readEventPosition :: WS.Connection -> IO Int
+readEventPosition conn = do
+    v <- waitForType conn "event"
+    case look ["event", "globalPosition"] v of
+        Just (Number n) -> pure (truncate (toRealFloat n :: Double))
+        other -> expectationFailure ("event without globalPosition: " <> show other) >> error "no position"
 
 -- | Navigate nested object keys.
 look :: [Text] -> Value -> Maybe Value
@@ -220,6 +320,23 @@ waitForSubscriberCount store target timeoutMicros = do
         actual <- atomically (IntMap.size <$> readTVar (subscribers store.publisher))
         expectationFailure
             ("subscriber count did not reach " <> show target <> "; still " <> show actual)
+
+-- | Block until the publisher cursor reaches @target@ or time out.
+waitForPublisherPosition :: KirokuStore -> Int -> Int -> IO ()
+waitForPublisherPosition store target timeoutMicros = do
+    timeoutVar <- registerDelay timeoutMicros
+    ok <-
+        atomically $
+            ( do
+                GlobalPosition p <- publisherPosition store.publisher
+                check (p >= fromIntegral target)
+                pure True
+            )
+                `orElse` (readTVar timeoutVar >>= \t -> check t >> pure False)
+    unless ok $ do
+        GlobalPosition actual <- atomically (publisherPosition store.publisher)
+        expectationFailure
+            ("publisher position did not reach " <> show target <> "; still " <> show actual)
 
 appendStoreEvents :: KirokuStore -> StreamName -> Int -> IO ()
 appendStoreEvents store stream n = do

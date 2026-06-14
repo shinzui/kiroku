@@ -24,7 +24,10 @@ import Network.HTTP.Client (
     newManager,
     parseRequest,
     responseBody,
+    responseStatus,
  )
+import Network.HTTP.Types.Status (statusCode)
+import Network.Wai.Handler.Warp qualified as Warp
 import Test.Hspec
 
 import Kiroku.Cli.Command (RemoteEndpoint (..))
@@ -40,6 +43,7 @@ import Kiroku.Metrics (
     startMetricsServer,
     stopMetricsServer,
     storeSubscriptionStatus,
+    subscriptionsApp,
     withMetricsServerSubscriptions,
  )
 import Kiroku.Metrics.Config (MetricsServerConfig (..))
@@ -124,6 +128,15 @@ spec = describe "Kiroku.Metrics.Subscriptions (/subscriptions)" $ do
                 case result of
                     Left err -> err `shouldSatisfy` T.isInfixOf "404"
                     Right rows -> expectationFailure ("expected a 404 error, got rows: " <> show rows)
+
+    it "returns the documented 404 JSON body for unknown paths when mounted standalone" $
+        Warp.testWithApplication (pure (subscriptionsApp (pure []))) $ \port -> do
+            mgr <- newManager defaultManagerSettings
+            req <- parseRequest ("http://127.0.0.1:" <> show port <> "/definitely/not/a/route")
+            resp <- httpLbs req mgr
+            statusCode (responseStatus resp) `shouldBe` 404
+            Aeson.decode (responseBody resp)
+                `shouldBe` Just (Aeson.object ["error" Aeson..= ("Not found" :: Text)])
 
 -- | GET a URL and decode the body as @[SubscriptionStatusRow]@ (via the shared codec).
 getRows :: String -> IO [SubscriptionStatusRow]

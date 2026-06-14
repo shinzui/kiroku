@@ -18,8 +18,9 @@ module Kiroku.Metrics.Subscriptions (
     subscriptionsApp,
 ) where
 
-import Data.Aeson (encode)
-import Network.HTTP.Types (status200)
+import Data.Aeson (encode, object, (.=))
+import Data.Text (Text)
+import Network.HTTP.Types (status200, status404)
 import Network.Wai (Application, pathInfo)
 
 import Kiroku.Cli.Subscription.Status (SubscriptionStatusRow (..), subscriptionStatusRows)
@@ -44,7 +45,7 @@ storeSubscriptionStatus store = subscriptionStatusRows <$> subscriptionStates st
   * @GET /subscriptions/\<name\>@ — 200, JSON array of rows for that name
     (possibly empty).
 
-Any other path returns a 404 JSON body. This app is mounted by
+Any other path returns a 404 with body @{"error":"Not found"}@. This app is mounted by
 'Kiroku.Metrics.Server.httpApp' only when a provider is configured.
 -}
 subscriptionsApp :: SubscriptionStatusProvider -> Application
@@ -57,4 +58,4 @@ subscriptionsApp provider req respond =
             rows <- provider
             let filtered = filter (\row -> row.subscription == name) rows
             respond (jsonResponse status200 (encode filtered))
-        _ -> respond (jsonResponse status200 (encode ([] :: [SubscriptionStatusRow])))
+        _ -> respond (jsonResponse status404 (encode (object ["error" .= ("Not found" :: Text)])))

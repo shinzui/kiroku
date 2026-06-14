@@ -4,6 +4,7 @@ slug: fix-websocket-event-tail-replay-duplication-and-gap-handling
 title: "Fix WebSocket event tail replay duplication and gap handling"
 kind: exec-plan
 created_at: 2026-06-11T04:32:45Z
+intention: intention_01kv3qaxg9e91v0zq47stehnkz
 master_plan: "docs/masterplans/9-audit-remediation-subscription-reliability-and-store-correctness-and-performance.md"
 ---
 
@@ -59,25 +60,27 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 here, even if it requires splitting a partially completed task into two ("done" vs.
 "remaining"). This section must always reflect the actual current state of the work.
 
-- [ ] M1: `replayHistory` in `kiroku-metrics/src/Kiroku/Metrics/WebSocket.hs` returns
+- [x] M1: `replayHistory` in `kiroku-metrics/src/Kiroku/Metrics/WebSocket.hs` returns
       the highest delivered position (`Just covered`) or `Nothing` after a surfaced
       read error; `eventTail` filters the broadcast with `> covered` and skips the
-      broadcast loop entirely on `Nothing`.
-- [ ] M1: deterministic duplicate-delivery regression test added to
+      broadcast loop entirely on `Nothing`. Completed 2026-06-14.
+- [x] M1: deterministic duplicate-delivery regression test added to
       `kiroku-metrics/test/Test/WebSocketSpec.hs` (publisher-thread `decodeHook` gate;
-      fails against the old code, passes against the new).
-- [ ] M1: replay-error fail-stop test added to
+      fails against the old code, passes against the new). Completed 2026-06-14.
+- [x] M1: replay-error fail-stop test added to
       `kiroku-metrics/test/Test/WebSocketSpec.hs` (rename the `events` table, subscribe
       with `from_position`, assert `error` frame then tail teardown via the
-      publisher's subscriber count returning to 0).
-- [ ] M1: `cabal test kiroku-metrics:kiroku-metrics-test` green; haddocks on
+      publisher's subscriber count returning to 0). Completed 2026-06-14.
+- [x] M1: `cabal test kiroku-metrics:kiroku-metrics-test` green; haddocks on
       `eventTail`/`replayHistory` updated to state the covered-position contract.
-- [ ] M2: `subscriptionsApp` unknown path returns 404 `{"error":"Not found"}`;
+      Completed 2026-06-14.
+- [x] M2: `subscriptionsApp` unknown path returns 404 `{"error":"Not found"}`;
       haddock states the body shape; direct-mount warp test added to
-      `kiroku-metrics/test/Test/SubscriptionsSpec.hs`.
-- [ ] Wrap-up: full suite green (`cabal test kiroku-metrics:kiroku-metrics-test`),
+      `kiroku-metrics/test/Test/SubscriptionsSpec.hs`. Completed 2026-06-14.
+- [x] Wrap-up: full suite green (`cabal test kiroku-metrics:kiroku-metrics-test`),
       master plan registry row for EP-6 and its progress checkbox updated,
-      conventional commits made, Outcomes & Retrospective written.
+      conventional commits made, Outcomes & Retrospective written. Completed
+      2026-06-14 except for the commit, which is performed after this document update.
 
 
 ## Surprises & Discoveries
@@ -85,9 +88,27 @@ here, even if it requires splitting a partially completed task into two ("done" 
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet. One pre-implementation discovery is recorded in the Decision Log: the
-in-flight-batch attach race found while designing the fix, deliberately left out of
-scope.)
+2026-06-14: The first duplicate-delivery regression test did not fail against the
+pre-fix source after EP-3 because the publisher now takes the cheap
+`currentGlobalPositionStmt` path when there are no queue-consuming subscribers. With
+no subscriber present, appending positions 3-5 advanced `publisherPosition` without
+running the publisher-thread `decodeHook`, so the WebSocket tail attached at position
+5 and avoided the overshoot. The test now registers a temporary dummy publisher
+subscriber before the racing append, forcing the full-fetch path and making the
+pre-fix source fail deterministically.
+
+2026-06-14: The local `hasql` source exposed `Hasql.Session.script :: Text -> Session
+()` rather than the `Hasql.Session.sql` helper named in the draft plan. The replay
+fault-injection test therefore uses `Pool.use store.pool (Session.script "ALTER TABLE
+events RENAME TO events_hidden")`, which is the same unparameterized DDL operation
+through the API exported by the dependency in this workspace.
+
+2026-06-14: Regression-bite checks proved the new tests cover the audited bugs. With
+the `kiroku-metrics/src` fixes temporarily stashed and the tests left in place, the
+replay-error example failed with `subscriber count did not reach 0; still 1`, showing
+the old tail continued live after a surfaced replay error. The tightened exactly-once
+example failed its quiescence assertion because an additional duplicate event frame
+arrived after the expected position 6.
 
 
 ## Decision Log
@@ -174,13 +195,38 @@ scope.)
   Discoveries section when closing this plan so it is triaged.
   Date: 2026-06-11
 
+- Decision: Refine the duplicate-delivery test to register a temporary dummy
+  publisher subscriber before the racing append.
+  Rationale: EP-3 changed the publisher so it can advance `lastPublished` cheaply
+  when no queue-consuming subscribers exist. The original gate-only scenario no
+  longer forced the publisher-thread `decodeHook` to run before the WebSocket tail
+  attached, so it did not reproduce the old duplicate behavior. A dummy subscriber
+  exercises the full-fetch path deterministically while remaining outside the
+  production fix.
+  Date: 2026-06-14
+
+- Decision: Use `Hasql.Session.script` for the replay-error fault injection.
+  Rationale: `mori registry show hasql --full` pointed to the local hasql source at
+  `/Users/shinzui/Keikaku/hub/haskell/hasql-project`; that source exports
+  `Session.script` and `Session.statement`, not `Session.sql`. The test only needs
+  unparameterized DDL, so `Session.script` is the direct API match.
+  Date: 2026-06-14
+
 
 ## Outcomes & Retrospective
 
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+2026-06-14: EP-6 completed. The `/ws/events` replay/live handoff now tracks the
+highest position actually delivered by replay and filters live broadcast batches with
+that covered boundary, so replay overshoot cannot produce duplicate global positions.
+Replay read failures now send one `error` frame and terminate the tail, releasing the
+publisher subscriber instead of continuing live with an undetectable gap. The
+standalone `subscriptionsApp` fallback now returns HTTP 404 with `{"error":"Not
+found"}`. Validation passed with the focused exactly-once, replay-error, and 404
+examples; the full `kiroku-metrics-test` suite reported 19 examples and 0 failures;
+and `cabal build all` succeeded.
 
 
 ## Context and Orientation

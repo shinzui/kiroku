@@ -88,7 +88,7 @@ Haskell.
 | 3 | Stop publisher fan-out work for category and consumer-group subscribers | docs/plans/58-stop-publisher-fan-out-work-for-category-and-consumer-group-subscribers.md | None | EP-1 | Complete |
 | 4 | Fix backward read pagination and append edge-case errors | docs/plans/59-fix-backward-read-pagination-and-append-edge-case-errors.md | None | None | Complete |
 | 5 | Schema and trigger hygiene: NOTIFY guard, dead-letter FK policy, and index fixes | docs/plans/60-schema-and-trigger-hygiene-notify-guard-dead-letter-fk-policy-and-index-fixes.md | None | None | Complete |
-| 6 | Fix WebSocket event tail replay duplication and gap handling | docs/plans/61-fix-websocket-event-tail-replay-duplication-and-gap-handling.md | None | None | Not Started |
+| 6 | Fix WebSocket event tail replay duplication and gap handling | docs/plans/61-fix-websocket-event-tail-replay-duplication-and-gap-handling.md | None | None | Complete |
 | 7 | Benchmark-gated append pipelining and raw-payload read passthrough | docs/plans/62-benchmark-gated-append-pipelining-and-raw-payload-read-passthrough.md | None | EP-4, EP-5 | Not Started |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
@@ -191,8 +191,8 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 - [x] EP-5: Dead-letter FK policy decided and enforced; `dead_letters(event_id)` indexed
 - [x] EP-5: Junction-delete path has index support; index hygiene applied
 - [x] EP-5: Stream-name length bound enforced (closes the NOTIFY payload abort edge)
-- [ ] EP-6: WS replay neither duplicates past attach position nor falls through a gap
-- [ ] EP-6: `subscriptionsApp` unknown paths return the documented 404
+- [x] EP-6: WS replay neither duplicates past attach position nor falls through a gap
+- [x] EP-6: `subscriptionsApp` unknown paths return the documented 404
 - [ ] EP-7: Pipelined multi-stream append prototyped and benchmarked (promote or document rejection)
 - [ ] EP-7: Raw-bytes read variant prototyped and benchmarked (promote or document rejection)
 - [ ] EP-7: Conditional integration of passing prototypes; unconditional lock-hold documentation
@@ -302,6 +302,18 @@ all` and `cabal test all`: `kiroku-store-test` (212 examples), `shibuya-kiroku-a
 `kiroku-cli-test` (22 examples), and `kiroku-store-migrations-test` (1 example) all
 reported 0 failures.
 
+2026-06-14, EP-6 completed. `/ws/events` now carries replay's covered-position
+boundary into the live broadcast filter, so a replay page that reads past the attach
+position cannot be delivered again when the publisher broadcasts the same rows. A
+replay database error now sends an `error` frame and terminates the tail, proved by
+the publisher subscriber count returning to 0 while the client remains connected.
+`subscriptionsApp` now returns HTTP 404 with `{"error":"Not found"}` for unknown
+standalone-mounted paths. Regression-bite checks showed the old replay-error source
+kept one subscriber registered (`subscriber count did not reach 0; still 1`) and the
+old duplicate source emitted an extra event frame after the expected position 6.
+Final validation passed with `kiroku-metrics-test` (19 examples, 0 failures) and
+`cabal build all`.
+
 
 ## Decision Log
 
@@ -410,6 +422,12 @@ effectively neutral rather than reliably faster. Final validation passed with
 Shibuya adapter miss that passed on exact seeded rerun, full adapter rerun, and the
 final full-suite rerun.
 
+2026-06-14, after EP-6: the metrics WebSocket event tail no longer duplicates
+positions across a replay/live handoff and no longer continues live after replay
+read failure. The standalone subscriptions WAI app also now returns the documented
+404 JSON body for unknown routes. The remaining open work in this MasterPlan is EP-7's
+benchmark-gated performance exploration.
+
 
 ---
 
@@ -429,3 +447,9 @@ EP-3 attach race, EP-4 M4, EP-5 M4, EP-6 404, EP-7 M3).
 registry status is now Complete, all four EP-4 progress items are checked, Surprises &
 Discoveries records milestone validation, and Outcomes & Retrospective summarizes the
 store correctness and efficiency fixes now available to downstream plans.
+
+*Revision note (2026-06-14).* EP-6 implementation completed under docs/plans/61: the
+registry status is now Complete, both EP-6 master progress items are checked,
+Surprises & Discoveries records the validation and regression-bite evidence, and
+Outcomes & Retrospective summarizes the WebSocket replay/live and subscriptions 404
+fixes.
