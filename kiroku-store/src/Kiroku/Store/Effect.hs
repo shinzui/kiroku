@@ -20,6 +20,7 @@ module Kiroku.Store.Effect (
 ) where
 
 import Control.Lens ((^.))
+import Control.Monad.Except qualified as Except
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Aeson (Value)
 import Data.Foldable (for_)
@@ -40,9 +41,13 @@ import Effectful (Dispatch (..), DispatchOf, Eff, Effect, IOE, runEff, (:>))
 import Effectful.Dispatch.Dynamic (interpret_)
 import Effectful.Error.Static (Error, runErrorNoCallStack, throwError)
 import GHC.Generics (Generic)
+import Hasql.Decoders qualified as D
+import Hasql.Encoders qualified as E
+import Hasql.Pipeline qualified as Pipeline
 import Hasql.Pool (Pool)
 import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
+import Hasql.Statement (Statement, unpreparable)
 import Hasql.Transaction qualified as Tx
 import Hasql.Transaction.Sessions qualified as TxSessions
 import Kiroku.Store.Connection (KirokuStore (..))
@@ -238,27 +243,20 @@ runStorePool store = interpret_ $ \case
                 )
                 ops
         let names = V.fromList [n | (StreamName n, _, _) <- ops]
-        let txn = do
-                -- Pre-lock the user-named streams in deterministic (stream_id)
-                -- order to avoid row-lock deadlocks between concurrent
-                -- multi-stream txns touching overlapping streams in different
-                -- user orders. See EP-1 F4.
-                Tx.statement names SQL.lockStreamsForMultiStmt
-                results <-
-                    mapM
-                        ( \(StreamName name, expected, prepared) -> do
-                            let params = buildAppendParams name now prepared
-                            appendDispatchTx expected params
-                        )
-                        preparedOps
-                -- If any result is Nothing (version conflict), condemn the transaction
-                case any isNothing results of
-                    True -> Tx.condemn >> pure results
-                    False -> pure results
-        result <-
-            liftIO $
+        let runOnce =
                 Pool.use (store ^. #pool) $
-                    TxSessions.transaction TxSessions.ReadCommitted TxSessions.Write txn
+                    runAppendMultiStreamPipeline names now preparedOps
+        firstAttempt <- liftIO runOnce
+        result <- case firstAttempt of
+            -- Match the single-stream append retry and hasql-transaction's
+            -- retryable SQLSTATE set. The failed transaction has rolled back,
+            -- and event ids were prepared before the first attempt, so retrying
+            -- once is idempotent.
+            Left usageErr
+                | isTransientSerializationError usageErr ->
+                    liftIO runOnce
+            _ ->
+                pure firstAttempt
         case result of
             Left usageErr ->
                 throwError (attributeMultiStreamError [(sn, ev) | (sn, ev, _) <- ops] usageErr)
@@ -445,6 +443,55 @@ buildAppendParams name now prepared =
         , createdAts = V.fromList (replicate (length prepared) now)
         , streamName = name
         }
+
+multiAppendBeginStmt :: Statement () ()
+multiAppendBeginStmt = unpreparable "BEGIN" E.noParams D.noResult
+
+multiAppendCommitStmt :: Statement () ()
+multiAppendCommitStmt = unpreparable "COMMIT" E.noParams D.noResult
+
+multiAppendRollbackStmt :: Statement () ()
+multiAppendRollbackStmt = unpreparable "ROLLBACK" E.noParams D.noResult
+
+runAppendMultiStreamPipeline ::
+    Vector Text ->
+    UTCTime ->
+    [(StreamName, ExpectedVersion, [PreparedEvent])] ->
+    Session.Session [Maybe AppendResult]
+runAppendMultiStreamPipeline names now preparedOps =
+    Except.catchError body $ \err -> do
+        Session.statement () multiAppendRollbackStmt
+        Except.throwError err
+  where
+    body = do
+        results <-
+            Session.pipeline $
+                Pipeline.statement () multiAppendBeginStmt
+                    -- Pre-lock the user-named streams in deterministic (stream_id)
+                    -- order to avoid row-lock deadlocks between concurrent
+                    -- multi-stream txns touching overlapping streams in different
+                    -- user orders. See EP-1 F4.
+                    *> Pipeline.statement names SQL.lockStreamsForMultiStmt
+                    *> traverse appendPrepared preparedOps
+        Session.statement () $
+            if any isNothing results
+                then multiAppendRollbackStmt
+                else multiAppendCommitStmt
+        pure results
+
+    appendPrepared (StreamName name, expected, prepared) =
+        appendDispatchPipeline expected (buildAppendParams name now prepared)
+
+appendDispatchPipeline :: ExpectedVersion -> SQL.AppendParams -> Pipeline.Pipeline (Maybe AppendResult)
+appendDispatchPipeline expected params = case expected of
+    ExactVersion (StreamVersion v) ->
+        Pipeline.statement (params, v) SQL.appendExpectedVersion
+    StreamExists ->
+        Pipeline.statement params SQL.appendStreamExists
+    NoStream ->
+        Pipeline.statement params SQL.appendNoStream
+    AnyVersion ->
+        Pipeline.statement params SQL.appendAnyVersion
 
 {- | Dispatch the four 'SQL.append*' statements through 'Tx.statement',
 selecting the right one based on the supplied 'ExpectedVersion'.

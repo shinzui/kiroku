@@ -141,11 +141,22 @@ here, even if it requires splitting a partially completed task into two ("done" 
 - [ ] M2: run the spike cells, capture CSV + transcripts under
       `docs/bench/read-hot-path/` (new directory), decide promote vs. discard
       against the ≥15 % gate; append the ledger row.
-- [ ] M3 (only if M1 promoted): rewrite the `AppendMultiStream` interpreter in
+- [x] M3 (only if M1 promoted): rewrite the `AppendMultiStream` interpreter in
       `kiroku-store/src/Kiroku/Store/Effect.hs` onto the two-phase pipeline session;
       full test suite green; `just bench-regression` green; ledger row appended.
-- [ ] M3 (only if M1 promoted): fold in the `buildAppendParams` single-pass rewrite
+      Completed 2026-06-14: source path now uses `Session.pipeline` for
+      `BEGIN` + pre-lock + N appends, rolls back on pipeline errors, keeps
+      commit/rollback as a second phase, and retries one transient
+      40001/40P01 failure. Focused multi-stream and concurrency tests passed,
+      `cabal test all` passed, and `just bench-regression` passed all 29 cells
+      with `All.reliability-audit.appendMultiStream 3 existing streams` at
+      268 us (29 % less than baseline).
+- [x] M3 (only if M1 promoted): fold in the `buildAppendParams` single-pass rewrite
       and the scalar `created_at` parameter, each gated by `just bench-regression`.
+      Completed 2026-06-14 as rejected/not implemented: the focused profile showed
+      `buildAppendParams` at 0.0 % time and 0.3 % allocation, so the
+      profile-first gate did not justify adding this parameter-shape churn after
+      the pipeline source change already cleared the benchmark gate.
 - [ ] M3 (only if M2 promoted): add the additive `RecordedEventRaw` /
       `readAllForwardRaw` surface to `kiroku-store/src/Kiroku/Store/SQL.hs` and
       `kiroku-store/src/Kiroku/Store/Read.hs`; document the `decodeHook` bypass;
@@ -187,6 +198,15 @@ writers and canceled them after the measured single-stream loop. That was unsafe
 for the pipelined variant: canceling workers inside Hasql pipeline mode made the
 cell exit before producing a result. The committed spike uses bounded worker
 loops and waits for them instead.
+
+2026-06-14: Moving the pipeline shape into the source path initially regressed two
+concurrency tests. A duplicate-event SQL error inside the pipeline left the pooled
+connection in a failed transaction because the session returned before issuing
+`ROLLBACK`; a deadlock SQLSTATE also leaked as `UnexpectedServerError` because the
+new path had bypassed `hasql-transaction`'s retry. The final implementation wraps
+the pipelined body in a `Session` error handler that rolls back and rethrows, and
+retries one 40001/40P01 attempt using the same idempotence argument as
+single-stream append.
 
 
 ## Decision Log
@@ -251,6 +271,16 @@ Record every decision made while working on the plan.
   bounded contention probe. The average deltas were 22.3 %, 22.1 %, and 21.2 %
   faster respectively, with CSVs and transcripts under
   `docs/bench/append-hot-path/2026-06-14-pipelined-multi-append-run{1,2,3}.*`.
+  Date: 2026-06-14
+
+- Decision: Do not implement the `buildAppendParams` single-pass/scalar
+  `created_at` micro-change in this plan.
+  Rationale: The M1 focused profile attributed 0.0 % time and 0.3 % allocation to
+  `buildAppendParams`, while the source-level pipeline implementation already
+  cleared `just bench-regression`. Changing the append parameter shape would add
+  cross-statement churn without a profile-backed target, and plan-21's
+  event-count-parameter row is a direct warning that parameter micro-changes in
+  this area can measure slower.
   Date: 2026-06-14
 
 - Decision: The raw-bytes prototype targets the `$all` forward read
