@@ -84,6 +84,7 @@ test-suite shibuya-kiroku-adapter-test
     , shibuya-core            >=0.7  && <0.8
     , shibuya-kiroku-adapter
     , stm                     >=2.5  && <2.6
+    , streamly-core           >=0.3  && <0.4
     , text                    >=2.0  && <2.2
     , time                    >=1.12 && <1.15
     , unordered-containers    >=0.2  && <0.3

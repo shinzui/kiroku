@@ -27,8 +27,10 @@ import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
+import Kiroku.Store.Subscription.Worker (withFetchBatchHookForTest)
 import Kiroku.Test.Postgres (withMigratedTestDatabase, withSharedMigratedPostgres)
 import OpenTelemetry.Attributes (toAttribute)
+import Shibuya.Adapter (Adapter (..))
 import Shibuya.Adapter.Kiroku (
     consumerGroupPolicy,
     defaultConsumerGroupConfig,
@@ -57,6 +59,9 @@ import Shibuya.Core.Types (Attempt (..), Envelope (..))
 import Shibuya.Policy (Concurrency (..), Ordering (..))
 import Shibuya.Runner.Metrics (ProcessorState (..))
 import Shibuya.Telemetry.Effect (runTracingNoop)
+import Streamly.Data.Fold qualified as Fold
+import Streamly.Data.Stream qualified as Stream
+import System.Timeout (timeout)
 import Test.Hspec
 
 main :: IO ()
@@ -375,6 +380,32 @@ main = withSharedMigratedPostgres $ hspec $ do
 
                 seen <- readIORef seenRef
                 sort (map globalPos seen) `shouldBe` [1 .. 40]
+
+            it "ends adapter.source cleanly after shutdown" $ \store -> do
+                within "adapter source clean shutdown" $
+                    runEff $
+                        runTracingNoop $ do
+                            adapter <- kirokuAdapter store $ defaultKirokuAdapterConfig (SubscriptionName "source-clean-end") AllStreams
+                            let Adapter{source = sourceStream, shutdown = shutdownAction} = adapter
+                            shutdownAction
+                            Stream.fold Fold.drain sourceStream
+
+            it "rethrows worker crashes through adapter.source" $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "source-crash-1") NoStream [makeEvent "SourceCrash" (Aeson.object [])]
+                threadDelay 200_000
+                let injectBoom _ _ = E.throwIO (userError "adapter source worker boom")
+                result <-
+                    withFetchBatchHookForTest injectBoom $
+                        E.try $
+                            within "adapter source worker crash" $
+                                runEff $
+                                    runTracingNoop $ do
+                                        adapter <- kirokuAdapter store $ defaultKirokuAdapterConfig (SubscriptionName "source-crash") AllStreams
+                                        let Adapter{source = sourceStream} = adapter
+                                        Stream.fold Fold.drain sourceStream
+                case result of
+                    Left (e :: E.SomeException) -> show e `shouldContain` "adapter source worker boom"
+                    Right _ -> expectationFailure "expected adapter.source to rethrow the worker exception"
 
             it "runs multiple category subscriptions concurrently" $ \store -> do
                 Right _ <- runStoreIO store $ appendToStream (StreamName "orders-s1") NoStream [makeEvent "OrderCreated" (Aeson.object [])]
@@ -928,6 +959,13 @@ waitForCount countVar target timeoutMicros = do
     unless result $ do
         actual <- atomically $ readTVar countVar
         expectationFailure ("Timed out waiting for count " <> show target <> ", got " <> show actual)
+
+within :: String -> IO a -> IO a
+within label action = do
+    result <- timeout 10_000_000 action
+    case result of
+        Nothing -> fail ("Timed out waiting for " <> label)
+        Just a -> pure a
 
 makeEvent :: Text -> Value -> EventData
 makeEvent typ p =
