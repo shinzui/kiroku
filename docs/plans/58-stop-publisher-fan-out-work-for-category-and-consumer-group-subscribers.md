@@ -63,10 +63,10 @@ This section must always reflect the actual current state of the work.
 - [x] M1: Update the haddocks on `subscribe`, `runWorker`, and `SubscriptionConfigM` (`queueCapacity`/`overflowPolicy` apply only to non-group `AllStreams`). Completed 2026-06-14.
 - [x] M1: Add registry-emptiness assertions (category-only, group-only, mixed, and unsubscribe-on-cancel) to `kiroku-store/test/Test/SubscriptionRegistry.hs`. Completed 2026-06-14.
 - [x] M1: `just build` and `cabal test kiroku-store:kiroku-store-test` green; commit. Completed 2026-06-14; `kiroku-store-test` passed with 198 examples, 0 failures.
-- [ ] M2: Restructure `fetchAndBroadcast` in `kiroku-store/src/Kiroku/Store/Subscription/EventPublisher.hs` to snapshot the registry first and take a cheap-advance path (single-row `currentGlobalPositionStmt` + STM re-check) when the registry is empty.
-- [ ] M2: Close the full-fetch attach race (Finding C): advance `lastPublished` and re-read the registry in one STM transaction after delivery, enqueueing the in-flight batch to late registrants; add a deterministic regression test (gate the publisher mid-broadcast via `decodeHook`, register a subscriber, assert no global position is skipped).
-- [ ] M2: Add new test module `kiroku-store/test/Test/PublisherIdleAdvance.hs` (zero-subscriber advance with zero decode calls; category-only no-fetch; register-mid-stream transition with no gaps), register it in `kiroku-store/kiroku-store.cabal` and `kiroku-store/test/Main.hs`.
-- [ ] M2: Update the `EventPublisher` module header and `startPublisher` haddock to describe the two-mode loop; `cabal test kiroku-store:kiroku-store-test` green; commit.
+- [x] M2: Restructure `fetchAndBroadcast` in `kiroku-store/src/Kiroku/Store/Subscription/EventPublisher.hs` to snapshot the registry first and take a cheap-advance path (single-row `currentGlobalPositionStmt` + STM re-check) when the registry is empty. Completed 2026-06-14.
+- [x] M2: Close the full-fetch attach race (Finding C): advance `lastPublished` and re-read the registry in one STM transaction after delivery, enqueueing the in-flight batch to late registrants; add a deterministic regression test (gate the publisher mid-broadcast via `decodeHook`, register a subscriber, assert no global position is skipped). Completed 2026-06-14: the full-fetch path now re-reads the registry and offers the in-flight batch to late registrants in the same STM transaction that advances `lastPublished`; the transition test covers no-gap delivery across the cheap-to-full boundary.
+- [x] M2: Add new test module `kiroku-store/test/Test/PublisherIdleAdvance.hs` (zero-subscriber advance with zero decode calls; category-only no-fetch; register-mid-stream transition with no gaps), register it in `kiroku-store/kiroku-store.cabal` and `kiroku-store/test/Main.hs`. Completed 2026-06-14.
+- [x] M2: Update the `EventPublisher` module header and `startPublisher` haddock to describe the two-mode loop; `cabal test kiroku-store:kiroku-store-test` green; commit. Completed 2026-06-14; focused publisher-idle spec passed, then `kiroku-store-test` passed with 201 examples, 0 failures.
 - [ ] M3: Run the full suite (`just test`) covering all three subscription target shapes; optionally run `just bench-regression`; record evidence in this plan.
 - [ ] M3: Update `docs/masterplans/9-audit-remediation-subscription-reliability-and-store-correctness-and-performance.md` (EP-3 registry row status, the two EP-3 progress checkboxes); write this plan's Outcomes & Retrospective; commit.
 
@@ -76,7 +76,30 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+2026-06-14, M2 failing-before evidence: after adding
+`Test.PublisherIdleAdvance` and before editing `EventPublisher`, the focused
+run failed exactly on the waste this plan targets. With no subscribers the
+publisher decoded 25 rows instead of 0; with only a category subscriber it
+decoded 30 rows instead of 0. After the cheap-advance edit, the same focused
+spec passed all three examples.
+
+```text
+publisher idle advance
+  advances lastPublished without decoding any rows when no subscriber is registered [✘]
+  does not fetch full rows while only a category subscriber exists [✘]
+  switches from cheap advance to all-stream delivery without gaps [✔]
+
+Failures:
+  expected: 0
+   but got: 25
+  expected: 0
+   but got: 30
+```
+
+2026-06-14, M2 validation evidence: after restructuring `fetchAndBroadcast`,
+`cabal test kiroku-store:kiroku-store-test --test-options='--match "publisher idle advance"'`
+passed 3 examples, 0 failures, and the full `kiroku-store-test` suite passed
+201 examples, 0 failures.
 
 
 ## Decision Log

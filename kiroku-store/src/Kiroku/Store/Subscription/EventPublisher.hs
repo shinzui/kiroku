@@ -1,12 +1,14 @@
-{- | The centralized @$all@ broadcaster shared by every all-stream subscription.
+{- | The centralized @$all@ broadcaster shared by queue-consuming live clients.
 
-A single 'EventPublisher' reads new events from the global stream once and
-fans them out to each registered 'Subscriber' through that subscriber's own
-bounded 'Control.Concurrent.STM.TBQueue', rather than having every subscription
-poll the database independently. 'startPublisher' launches the broadcast loop,
+A single 'EventPublisher' reads new events from the global stream once when at
+least one 'Subscriber' is registered and fans them out through each
+subscriber's bounded 'Control.Concurrent.STM.TBQueue'. When the registry is
+empty, it does not fetch full event rows; it advances 'lastPublished' from the
+@$all@ tail with a single-row query so DB-driven subscriptions can still use the
+position as their live gate. 'startPublisher' launches the loop,
 'subscribePublisher' registers a subscriber (returning its queue, a status
 'TVar', and an unsubscribe action), 'publisherPosition' reports the last
-broadcast cursor, and 'stopPublisher' tears the loop down.
+published cursor, and 'stopPublisher' tears the loop down.
 
 When a subscriber's queue fills, the publisher applies that subscriber's
 'Kiroku.Store.Subscription.Types.OverflowPolicy' by setting its
@@ -50,6 +52,7 @@ import Control.Concurrent.STM (
  )
 import Control.Concurrent.STM qualified as STM
 import Control.Exception (SomeAsyncException, SomeException, asyncExceptionFromException, catch, throwIO)
+import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Foldable (for_)
 import Data.Int (Int32, Int64)
@@ -67,11 +70,10 @@ import Kiroku.Store.Subscription.Types (OverflowPolicy (..))
 import Kiroku.Store.Types (GlobalPosition (..), RecordedEvent (..))
 import Numeric.Natural (Natural)
 
-{- | The centralized EventPublisher. Reads events from the database once per
-notification and fans them out to a registry of bounded per-subscriber
-queues. The registry replaces the prior unbounded broadcast 'TChan' so
-that one slow subscriber cannot grow the publisher's fan-out memory
-without limit (EP-3 F6).
+{- | The centralized EventPublisher. With registered subscribers, reads events
+from the database once per notification and fans them out to a registry of
+bounded per-subscriber queues. With an empty registry, fetches only the current
+@$all@ tail to keep 'lastPublished' moving without decoding event rows.
 -}
 data EventPublisher = EventPublisher
     { subscribers :: !(TVar (IntMap Subscriber))
@@ -121,10 +123,11 @@ safetyPollMicros :: Int
 safetyPollMicros = 30_000_000
 
 {- | Start the EventPublisher. Spawns a thread that waits for ticks from the
-Notifier (or a 30-second safety poll timeout), queries the database for
-new events, and delivers them to every active subscriber. Per-subscriber
-overflow handling is determined by each subscription's
-'OverflowPolicy'.
+Notifier (or a 30-second safety poll timeout). With at least one registered
+subscriber, the thread queries full event rows and delivers them to every active
+subscriber; with an empty registry, it advances 'lastPublished' from the @$all@
+tail using a single-row query and fetches no payload rows. Per-subscriber
+overflow handling is determined by each subscription's 'OverflowPolicy'.
 
 If an 'eventHandler' callback is supplied, the publisher emits
 'Kiroku.Store.Observability.KirokuEventPublisherPoolError' when its read
@@ -223,6 +226,34 @@ publisherLoop pool tickChan subsVar posVar mHandler stSettings = loop
         loop
 
     fetchAndBroadcast = do
+        subs <- readTVarIO subsVar
+        if IntMap.null subs
+            then cheapAdvance
+            else fullFetch
+
+    cheapAdvance = do
+        result <- Pool.use pool (Session.statement () SQL.currentGlobalPositionStmt)
+        case result of
+            Left err -> do
+                -- Surface the pool error so operators see why the publisher
+                -- position has stalled; the 30-second safety poll will retry.
+                emitOrDrop mHandler (KirokuEventPublisherPoolError err)
+            Right tailPos -> do
+                -- Re-check registry emptiness in the same STM transaction as
+                -- the position write. If a queue subscriber registered after
+                -- our snapshot, fall through to a full fetch so no event skips
+                -- a queue that now exists.
+                raced <- atomically $ do
+                    subs' <- readTVar subsVar
+                    if IntMap.null subs'
+                        then do
+                            GlobalPosition cur <- readTVar posVar
+                            writeTVar posVar (GlobalPosition (max cur tailPos))
+                            pure False
+                        else pure True
+                when raced fullFetch
+
+    fullFetch = do
         GlobalPosition pos <- readTVarIO posVar
         result <- Pool.use pool (Session.statement (pos, publisherBatchSize) SQL.readAllForwardStmt)
         case result of
@@ -245,18 +276,26 @@ publisherLoop pool tickChan subsVar posVar mHandler stSettings = loop
                     -- cannot rollback another's enqueue.
                     subs <- readTVarIO subsVar
                     for_ (IntMap.elems subs) (deliverBatch events)
-                    -- Advance posVar after attempting delivery to all subscribers.
-                    -- Subscribers under DropSubscription have already been marked
-                    -- Overflowed; their workers will observe and exit. Subscribers
-                    -- under DropOldest have lost the oldest batch but their queues
-                    -- are not full anymore.
-                    atomically (writeTVar posVar newPos)
+                    -- Advance posVar only after attempting delivery to the
+                    -- snapshot cohort. In the same transaction, re-read the
+                    -- registry and offer the in-flight batch to subscribers that
+                    -- registered after the snapshot. This closes the attach race:
+                    -- every subscriber either received the batch before the
+                    -- advance or registered after the advanced position was
+                    -- visible and will cover the range through SQL catch-up.
+                    atomically $ do
+                        subs' <- readTVar subsVar
+                        for_ (IntMap.elems (subs' `IntMap.difference` subs)) (deliverBatchSTM events)
+                        writeTVar posVar newPos
                     -- If we got a full batch, there may be more — loop immediately
                     if V.length events >= fromIntegral publisherBatchSize
-                        then fetchAndBroadcast
+                        then fullFetch
                         else pure ()
 
     deliverBatch events sub = atomically $ do
+        deliverBatchSTM events sub
+
+    deliverBatchSTM events sub = do
         full <- isFullTBQueue (subQueue sub)
         if not full
             then do

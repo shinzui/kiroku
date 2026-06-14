@@ -40,6 +40,7 @@ import Test.Hspec
 import Test.InterpreterHooks qualified as InterpreterHooks
 import Test.Properties qualified as Properties
 import Test.PublisherCallbackResilience qualified as PublisherCallbackResilience
+import Test.PublisherIdleAdvance qualified as PublisherIdleAdvance
 import Test.PublisherRestartNoRebroadcast qualified as PublisherRestartNoRebroadcast
 import Test.ReadStream qualified as ReadStream
 import Test.StartupFailureSurfacing qualified as StartupFailureSurfacing
@@ -69,6 +70,7 @@ main = withSharedMigratedPostgres $ hspec $ do
     ConsumerGroupEffect.spec
     CategoryIdleNoSpin.spec
     PublisherCallbackResilience.spec
+    PublisherIdleAdvance.spec
     PublisherRestartNoRebroadcast.spec
     CatchupDbErrorNoPrematureSwitch.spec
     SubscriptionPauseResume.spec

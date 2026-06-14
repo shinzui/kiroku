@@ -181,8 +181,8 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 - [x] EP-2: Worker death is visible at the adapter boundary (consumes EP-1's termination contract)
 - [x] EP-2: `kirokuConsumerGroupProcessors` validates group size and cleans up on partial failure
 - [x] EP-3: Category/consumer-group subscriptions no longer register publisher queues
-- [ ] EP-3: Publisher fetches full rows only when an AllStreams subscriber exists
-- [ ] EP-3: Full-fetch attach race closed (late registrants receive the in-flight batch atomically with the position advance)
+- [x] EP-3: Publisher fetches full rows only when an AllStreams subscriber exists
+- [x] EP-3: Full-fetch attach race closed (late registrants receive the in-flight batch atomically with the position advance)
 - [ ] EP-4: Backward reads paginate correctly with nonzero cursors (failing test first)
 - [ ] EP-4: Empty-batch appends are rejected before touching the pool
 - [ ] EP-4: Link errors and single-stream deadlocks map to typed errors / are retried
@@ -258,6 +258,15 @@ new registry assertions prove these subscriptions leave the publisher subscriber
 map empty while non-group `AllStreams` still registers and unregisters exactly
 one queue. Validation passed with `just build` and
 `cabal test kiroku-store:kiroku-store-test` (198 examples, 0 failures).
+
+2026-06-14, EP-3 M2 completed. The publisher now takes a single-row
+`currentGlobalPositionStmt` path when no queue subscriber is registered, with an
+STM registry re-check before advancing `lastPublished`; the full-fetch path now
+offers the in-flight batch to late registrants in the same STM transaction that
+advances the position. Focused tests showed the pre-fix publisher decoded 25
+rows with no subscribers and 30 rows with only a category subscriber, then passed
+after the edit. Full validation passed with `cabal test
+kiroku-store:kiroku-store-test` (201 examples, 0 failures).
 
 
 ## Decision Log
