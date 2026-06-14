@@ -222,6 +222,11 @@ publisher's queue.
 
 ## `LISTEN`/`NOTIFY`
 
+> The notification / wake-up layer has a dedicated deep-dive in
+> [`notifier.md`](notifier.md), including how it maps to the Brandur "Notifier"
+> pattern, the at-most-once semantics, reconnect, and why consumer groups bypass
+> the channel. This section is the summary.
+
 The schema installs `notify_events()` and `stream_events_notify` on the
 `streams` table. The trigger publishes to `TG_TABLE_SCHEMA || '.events'` with a
 payload containing stream name, stream id, and stream version.
