@@ -79,6 +79,13 @@ data Store :: Effect where
     Surfaced as 'Kiroku.Store.Read.lookupStreamId'.
     -}
     LookupStreamId :: StreamName -> Store m (Maybe StreamId)
+    {- | Check whether an event id exists in a live stream without materializing
+    stream events. Soft-deleted streams behave as nonexistent, mirroring
+    'Kiroku.Store.Read.readStreamForward'.
+
+    Surfaced as 'Kiroku.Store.Read.eventExistsInStream'.
+    -}
+    EventExistsInStream :: StreamName -> EventId -> Store m Bool
     {- | Resolve a batch of surrogate 'StreamId's to their 'StreamName's in a
     single round trip. The result 'Map' contains an entry only for ids that
     name an existing stream (live or soft-deleted); hard-deleted or unknown ids
@@ -199,6 +206,9 @@ runStorePool store = interpret_ $ \case
         fmap (fmap StreamId) $
             usePool (store ^. #pool) $
                 Session.statement name SQL.findStreamIdStmt
+    EventExistsInStream (StreamName name) (EventId eid) ->
+        usePool (store ^. #pool) $
+            Session.statement (name, eid) SQL.eventExistsInStreamStmt
     LookupStreamNames [] ->
         pure Map.empty
     LookupStreamNames sids ->

@@ -18,6 +18,7 @@ module Kiroku.Store.SQL (
     readAllBackwardStmt,
     readCategoryForwardStmt,
     getStreamStmt,
+    eventExistsInStreamStmt,
     lookupStreamNamesStmt,
     currentGlobalPositionStmt,
 
@@ -461,6 +462,26 @@ getStreamStmt =
         getStreamSQL
         (E.param (E.nonNullable E.text))
         (D.rowMaybe streamInfoRow)
+
+-- | Point probe for whether an event exists in a live stream.
+eventExistsInStreamStmt :: Statement (Text, UUID) Bool
+eventExistsInStreamStmt =
+    preparable
+        """
+        SELECT EXISTS (
+          SELECT 1
+          FROM stream_events se
+          WHERE se.event_id = $2
+            AND se.stream_id = (
+              SELECT stream_id
+              FROM streams
+              WHERE stream_name = $1
+                AND deleted_at IS NULL
+            )
+        )
+        """
+        (contrazip2 (E.param (E.nonNullable E.text)) (E.param (E.nonNullable E.uuid)))
+        (D.singleRow (D.column (D.nonNullable D.bool)))
 
 -- ---------------------------------------------------------------------------
 -- Read SQL Templates

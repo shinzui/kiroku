@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### New Features
+
+* `Kiroku.Store.Read.eventExistsInStream` adds an indexed point lookup for
+  idempotency checks that need to know whether a specific event id is present in
+  a live stream without scanning that stream. Soft-deleted streams report
+  `False`, matching `readStreamForward` visibility.
+
 ### Performance
 
 * `appendMultiStream` now pipelines its deterministic pre-lock and per-stream

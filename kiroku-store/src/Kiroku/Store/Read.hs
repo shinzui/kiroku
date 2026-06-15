@@ -7,6 +7,7 @@ module Kiroku.Store.Read (
     readCategory,
     getStream,
     lookupStreamId,
+    eventExistsInStream,
     lookupStreamName,
     lookupStreamNames,
 ) where
@@ -179,6 +180,20 @@ lookupStreamId ::
     StreamName ->
     Eff es (Maybe StreamId)
 lookupStreamId name = send (LookupStreamId name)
+
+{- | Return 'True' when the supplied event id is linked into the supplied live
+stream, and 'False' when the event id is absent, belongs only to another stream,
+or the stream is nonexistent or soft-deleted.
+
+This is a point lookup for idempotency checks. Prefer it over scanning a stream
+when the caller already has the event id it is looking for.
+-}
+eventExistsInStream ::
+    (HasCallStack, Store :> es) =>
+    StreamName ->
+    EventId ->
+    Eff es Bool
+eventExistsInStream name eid = send (EventExistsInStream name eid)
 
 {- | Resolve a batch of surrogate 'StreamId's to their 'StreamName's in a single
 round trip, returning a 'Map' that omits any id which does not name an existing
