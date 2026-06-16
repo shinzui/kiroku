@@ -43,7 +43,10 @@ Publish in this order — dependencies first:
    package). Depends on `kiroku-store`.
 4. **kiroku-cli** (`kiroku-cli/`) — embeddable operator CLI + `kiroku` exe.
    Depends on `kiroku-store`.
-5. **shibuya-kiroku-adapter** (`shibuya-kiroku-adapter/`) — adapter bridging
+5. **kiroku-metrics** (`kiroku-metrics/`) — metrics/observability sister
+   package for the store. Depends on `kiroku-store` **and** `kiroku-cli`, so it
+   must publish after both.
+6. **shibuya-kiroku-adapter** (`shibuya-kiroku-adapter/`) — adapter bridging
    `kiroku-store` and `shibuya-core`. Depends on `kiroku-store` (and the
    external, already-published `shibuya-core`).
 
@@ -51,7 +54,7 @@ Publish in this order — dependencies first:
 - **kiroku-test-support** — shared test fixtures; consumed only by other
   packages' test-suites. Internal.
 - Example executables and benchmark components (e.g.
-  `kiroku-consumer-group-example`, `kiroku-store-bench`,
+  `kiroku-consumer-group-example`, `kiroku-metrics-example`, `kiroku-store-bench`,
   `kiroku-shibuya-overhead`, `kiroku-store-bench-explain`) — these ship as
   components inside their package's sdist; they are not separate Hackage
   packages.
@@ -103,9 +106,10 @@ For each package being released:
 
 **Internal dependency bounds** — if a dependency package was bumped, update
 its bound in every publishable dependent. Dependents of `kiroku-store` are
-`kiroku-store-migrations`, `kiroku-otel`, `kiroku-cli`, and
-`shibuya-kiroku-adapter` (update the `kiroku-store` bound in the library *and*
-test-suite/executable stanzas).
+`kiroku-store-migrations`, `kiroku-otel`, `kiroku-cli`, `kiroku-metrics`, and
+`shibuya-kiroku-adapter`. `kiroku-cli` additionally has one dependent:
+`kiroku-metrics` (update its `kiroku-cli` bound too). In each case update the
+bound in the library *and* test-suite/executable stanzas.
 Use PVP-friendly bounds, e.g. `kiroku-store ^>=A.B` matching the released
 version. Leave external bounds (e.g. `shibuya-core ^>=0.5 && <0.6`) alone
 unless they genuinely changed.
@@ -191,7 +195,7 @@ Report each GitHub release URL when done.
 - **Always ask the user to confirm** the per-package version bumps and
   changelogs before committing.
 - **Always publish in dependency order:** kiroku-store → kiroku-store-migrations
-  → kiroku-otel → kiroku-cli → shibuya-kiroku-adapter.
+  → kiroku-otel → kiroku-cli → kiroku-metrics → shibuya-kiroku-adapter.
 - Never skip `cabal check`, tests, or `nix flake check`.
 - Run `nix fmt` before committing, and `git add` new files before `nix flake
   check`.
