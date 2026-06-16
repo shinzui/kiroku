@@ -75,12 +75,13 @@ library
 
 flag example
   description:
-    Build the self-verifying example executable. On by default so
-    @cabal run kiroku-metrics-example@ works in the dev shell; turned off in the
-    Nix build because it depends on @kiroku-test-support@/@ephemeral-pg@, which
-    have no buildable source in the pinned Nix Haskell set.
+    Build the self-verifying example executable. Off by default because it
+    depends on @kiroku-test-support@/@ephemeral-pg@, which are not published to
+    Hackage (so a default build of the released package would fail to resolve
+    them) and have no buildable source in the pinned Nix Haskell set. Enable
+    with @-fexample@ to run @cabal run kiroku-metrics-example@ in the dev shell.
 
-  default:     True
+  default:     False
   manual:      True
 
 executable kiroku-metrics-example
