@@ -34,6 +34,7 @@ module Kiroku.Store.SQL (
     -- * Lifecycle statements
     softDeleteStreamStmt,
     undeleteStreamStmt,
+    setStreamTruncateBeforeStmt,
 
     -- * Hard-delete statements (used in sequence inside one transaction)
     findStreamIdStmt,
@@ -390,7 +391,7 @@ recordedEventRow =
         <*> D.column (D.nullable D.uuid)
         <*> D.column (D.nonNullable D.timestamptz)
 
--- | Shared decoder for a StreamInfo row (5 columns).
+-- | Shared decoder for a StreamInfo row (6 columns).
 streamInfoRow :: D.Row StreamInfo
 streamInfoRow =
     StreamInfo
@@ -399,6 +400,7 @@ streamInfoRow =
         <*> (StreamVersion <$> D.column (D.nonNullable D.int8))
         <*> D.column (D.nonNullable D.timestamptz)
         <*> D.column (D.nullable D.timestamptz)
+        <*> (StreamVersion <$> D.column (D.nonNullable D.int8)) -- truncate_before
 
 -- | Encoder for stream read params: (stream_name, start_version, limit).
 readStreamEncoder :: E.Params (Text, Int64, Int32)
@@ -488,8 +490,9 @@ eventExistsInStreamStmt =
 -- ---------------------------------------------------------------------------
 
 {- | Read from a named stream in forward order.
-Resolves stream name to ID via subquery, joins stream_events with events,
-filters on stream_version > start_version, orders ascending, limits.
+Joins stream_events with events and streams, filters on stream_version >
+start_version, hides the logically-truncated prefix (stream_version >=
+streams.truncate_before), orders ascending, limits.
 For stream reads, global_position is set to 0 (not available without $all join).
 -}
 readStreamForwardSQL :: Text
@@ -501,9 +504,12 @@ readStreamForwardSQL =
            e.data, e.metadata, e.causation_id, e.correlation_id,
            e.created_at
     FROM stream_events se
-    JOIN events e ON e.event_id = se.event_id
-    WHERE se.stream_id = (SELECT stream_id FROM streams WHERE stream_name = $1 AND deleted_at IS NULL)
+    JOIN events e  ON e.event_id  = se.event_id
+    JOIN streams s ON s.stream_id = se.stream_id
+    WHERE s.stream_name = $1
+      AND s.deleted_at IS NULL
       AND se.stream_version > $2
+      AND se.stream_version >= s.truncate_before
     ORDER BY se.stream_version ASC
     LIMIT $3
     """
@@ -522,15 +528,21 @@ readStreamBackwardSQL =
            e.data, e.metadata, e.causation_id, e.correlation_id,
            e.created_at
     FROM stream_events se
-    JOIN events e ON e.event_id = se.event_id
-    WHERE se.stream_id = (SELECT stream_id FROM streams WHERE stream_name = $1 AND deleted_at IS NULL)
+    JOIN events e  ON e.event_id  = se.event_id
+    JOIN streams s ON s.stream_id = se.stream_id
+    WHERE s.stream_name = $1
+      AND s.deleted_at IS NULL
       AND se.stream_version < $2
+      AND se.stream_version >= s.truncate_before
     ORDER BY se.stream_version DESC
     LIMIT $3
     """
 
 {- | Read from the global $all stream in forward order.
 stream_id = 0 is the $all stream. stream_version on $all is the global position.
+The global log deliberately ignores the per-stream @truncate_before@ marker:
+logical truncation only hides events from ordered per-stream reads, never from
+the @$all@ backbone that subscriptions and projections consume.
 -}
 readAllForwardSQL :: Text
 readAllForwardSQL =
@@ -573,7 +585,7 @@ readAllBackwardSQL =
 getStreamSQL :: Text
 getStreamSQL =
     """
-    SELECT stream_id, stream_name, stream_version, created_at, deleted_at
+    SELECT stream_id, stream_name, stream_version, created_at, deleted_at, truncate_before
     FROM streams
     WHERE stream_name = $1
     """
@@ -924,6 +936,16 @@ undeleteStreamStmt =
         (E.param (E.nonNullable E.text))
         (D.rowMaybe (StreamId <$> D.column (D.nonNullable D.int8)))
 
+{- | Set a stream's logical truncate-before marker. Returns Nothing if the
+stream does not exist or is soft-deleted.
+-}
+setStreamTruncateBeforeStmt :: Statement (Text, Int64) (Maybe StreamId)
+setStreamTruncateBeforeStmt =
+    preparable
+        setStreamTruncateBeforeSQL
+        (contrazip2 (E.param (E.nonNullable E.text)) (E.param (E.nonNullable E.int8)))
+        (D.rowMaybe (StreamId <$> D.column (D.nonNullable D.int8)))
+
 {- | Look up a stream's id by name. Returns Nothing if the stream does not exist.
 Used as the first step in hard-delete; subsequent steps key off the id rather
 than the name so a single resolution is reused.
@@ -1125,6 +1147,20 @@ undeleteStreamSQL =
     SET deleted_at = NULL
     WHERE stream_name = $1
       AND deleted_at IS NOT NULL
+    RETURNING stream_id
+    """
+
+{- | Set the logical truncate-before marker on a live stream. Soft-deleted
+streams (deleted_at IS NOT NULL) match no row and return Nothing, matching
+the other lifecycle statements.
+-}
+setStreamTruncateBeforeSQL :: Text
+setStreamTruncateBeforeSQL =
+    """
+    UPDATE streams
+    SET truncate_before = $2
+    WHERE stream_name = $1
+      AND deleted_at IS NULL
     RETURNING stream_id
     """
 

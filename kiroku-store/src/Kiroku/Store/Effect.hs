@@ -115,6 +115,14 @@ data Store :: Effect where
     SoftDeleteStream :: StreamName -> Store m (Maybe StreamId)
     HardDeleteStream :: StreamName -> Store m (Maybe StreamId)
     UndeleteStream :: StreamName -> Store m (Maybe StreamId)
+    {- | Set a stream's logical truncate-before marker. Per-stream ordered
+    reads then return only events whose version is >= the marker; the @$all@
+    global log, category reads, and subscriptions are unaffected. Reversible.
+
+    Surfaced as 'Kiroku.Store.Lifecycle.setStreamTruncateBefore' /
+    'Kiroku.Store.Lifecycle.clearStreamTruncateBefore'.
+    -}
+    SetStreamTruncateBefore :: StreamName -> StreamVersion -> Store m (Maybe StreamId)
     {- | Run an arbitrary @hasql-transaction@ value in a 'BEGIN'/'COMMIT'
     block on a single pool connection. Escape hatch from the abstract
     'Store' effect into the underlying SQL world; mock interpreters are
@@ -327,6 +335,10 @@ runStorePool store = interpret_ $ \case
         rejectInvalidApplicationStream name
         usePool (store ^. #pool) $
             Session.statement name SQL.undeleteStreamStmt
+    SetStreamTruncateBefore (StreamName name) (StreamVersion v) -> do
+        rejectInvalidApplicationStream name
+        usePool (store ^. #pool) $
+            Session.statement (name, v) SQL.setStreamTruncateBeforeStmt
     RunTransaction tx ->
         runTxOnPool (store ^. #pool) TxSessions.transaction tx
     RunTransactionNoRetry tx ->

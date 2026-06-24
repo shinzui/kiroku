@@ -2,6 +2,8 @@ module Kiroku.Store.Lifecycle (
     softDeleteStream,
     hardDeleteStream,
     undeleteStream,
+    setStreamTruncateBefore,
+    clearStreamTruncateBefore,
 ) where
 
 import Effectful (Eff, (:>))
@@ -108,3 +110,42 @@ undeleteStream ::
     StreamName ->
     Eff es (Maybe StreamId)
 undeleteStream name = send (UndeleteStream name)
+
+{- | Set the logical truncate-before marker for a stream. After this call,
+'Kiroku.Store.Read.readStreamForward' and 'readStreamBackward' return only the
+events whose per-stream version is >= @before@; earlier events are hidden from
+ordered stream reads but are NOT deleted.
+
+This is the close-the-book / snapshot-and-compact primitive: append a snapshot
+event (it lands at version @V@), then call @setStreamTruncateBefore name V@ so
+rehydration starts from the snapshot.
+
+The marker does NOT affect the @$all@ global log, 'Kiroku.Store.Read.readCategory',
+subscriptions, or existence probes — the global history stays complete, so
+projections (including ones not yet written) can still be built from it. The
+operation is fully reversible: lower the marker or call
+'clearStreamTruncateBefore' to re-expose hidden events.
+
+Returns @Just streamId@ on success, @Nothing@ if the stream does not exist or is
+soft-deleted. The reserved stream @$all@ is rejected with
+'Kiroku.Store.Error.ReservedStreamName'. Per-stream versions are 1-based, so a
+@before@ of 0 or 1 keeps the whole stream. Idempotent: setting the same value
+again returns the same result and changes nothing.
+-}
+setStreamTruncateBefore ::
+    (HasCallStack, Store :> es) =>
+    StreamName ->
+    StreamVersion ->
+    Eff es (Maybe StreamId)
+setStreamTruncateBefore name before = send (SetStreamTruncateBefore name before)
+
+{- | Clear a stream's truncate-before marker, re-exposing the full history to
+ordered stream reads. Equivalent to @setStreamTruncateBefore name 0@. Returns
+@Just streamId@ on success, @Nothing@ for a missing or soft-deleted stream.
+Rejects @$all@ with 'Kiroku.Store.Error.ReservedStreamName'.
+-}
+clearStreamTruncateBefore ::
+    (HasCallStack, Store :> es) =>
+    StreamName ->
+    Eff es (Maybe StreamId)
+clearStreamTruncateBefore name = setStreamTruncateBefore name (StreamVersion 0)

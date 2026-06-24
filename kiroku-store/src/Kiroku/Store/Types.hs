@@ -192,6 +192,13 @@ data StreamInfo = StreamInfo
     soft-deleted, 'Nothing' otherwise. Hard-deleted streams do not
     appear in 'getStream' at all.
     -}
+    , truncateBefore :: !StreamVersion
+    {- ^ The logical truncate-before marker. Ordered per-stream reads
+    ('Kiroku.Store.Read.readStreamForward' / 'readStreamBackward') return only
+    events whose per-stream version is >= this value. 0 (the default) keeps the
+    whole stream. Does not affect the @$all@ global log, category reads, or
+    subscriptions. Set with 'Kiroku.Store.Lifecycle.setStreamTruncateBefore'.
+    -}
     }
     deriving stock (Eq, Show, Generic)
 
