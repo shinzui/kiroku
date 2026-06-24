@@ -109,6 +109,66 @@ trail should capture it in one of two ways:
   calling `hardDeleteStream`, so the intent is durably logged even if the
   process dies mid-operation. See `docs/PRODUCTION-DEPLOYMENT.md`.
 
+## Close-the-Book Compaction
+
+Over a long life a single stream can accumulate hundreds of events, and
+*rehydrating* the aggregate — replaying every event to compute current state —
+gets slower the longer the history. The **close-the-book** pattern (also called
+snapshot-and-compact) bounds that cost: periodically append one *snapshot*
+event capturing current state, then make future rehydration start from the
+snapshot instead of from the beginning.
+
+Kiroku implements this as a **logical truncate-before marker** — a per-stream
+cursor that *hides* a prefix from ordered stream reads. No events are deleted.
+
+```haskell
+setStreamTruncateBefore ::
+  (HasCallStack, Store :> es) => StreamName -> StreamVersion -> Eff es (Maybe StreamId)
+
+clearStreamTruncateBefore ::
+  (HasCallStack, Store :> es) => StreamName -> Eff es (Maybe StreamId)
+```
+
+The three-step usage:
+
+1. Append a snapshot event to the stream. Note the version `V` it lands at.
+2. Call `setStreamTruncateBefore name V`.
+3. From then on, `readStreamForward name` / `readStreamBackward name` (and the
+   paged `readStreamForwardStream`) return only events whose per-stream version
+   is `>= V` — the snapshot and everything after it. Rehydration is bounded.
+
+Per-stream versions are 1-based, so a marker of `0` (the default) or `1` keeps
+the whole stream.
+
+### It is logical and reversible
+
+Crucially, **nothing is deleted** — the marker only hides the prefix from
+ordered per-stream reads:
+
+- The global `$all` log, `readCategory`, and subscriptions still see the
+  complete history. Projections (including ones you have not written yet) can
+  still be built from full history, and audit is unaffected. This is the whole
+  reason the marker is logical rather than a physical delete.
+- The operation is fully **reversible**: lower the marker, or call
+  `clearStreamTruncateBefore name` (equivalent to setting it back to `0`), to
+  re-expose the hidden prefix instantly.
+- It is **idempotent**: the value is absolute, so re-issuing the same
+  `setStreamTruncateBefore` call is a no-op. This makes the close-the-book
+  sequence (append snapshot, then set marker) safe to retry after a crash
+  between the two steps.
+
+`getStream name` reports the current marker in the `truncateBefore` field.
+Like the other lifecycle operations, `setStreamTruncateBefore` returns
+`Just streamId` on success, `Nothing` for a missing or soft-deleted stream, and
+rejects the reserved name `$all` with `ReservedStreamName`.
+
+Physical storage reclamation (actually shrinking the `events` table by removing
+the hidden prefix, the equivalent of a database "scavenge") is a separate,
+more dangerous concern and is **not** provided here — it would mutate the
+append-only `$all` log. Use the logical marker for bounded rehydration; if a
+real disk-pressure need ever arises, physical reclamation would be a distinct,
+separately-guarded operation.
+
 ## Choosing Soft vs. Hard
 
 | | Soft delete | Hard delete |

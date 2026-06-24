@@ -114,6 +114,7 @@ test-suite kiroku-store-test
     Test.SubscriptionRetryDeadLetter
     Test.SubscriptionState
     Test.Transaction
+    Test.TruncateBefore
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N
   build-depends:

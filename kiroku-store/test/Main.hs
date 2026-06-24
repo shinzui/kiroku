@@ -55,6 +55,7 @@ import Test.SubscriptionRegistry qualified as SubscriptionRegistry
 import Test.SubscriptionRetryDeadLetter qualified as SubscriptionRetryDeadLetter
 import Test.SubscriptionState qualified as SubscriptionState
 import Test.Transaction qualified as Transaction
+import Test.TruncateBefore qualified as TruncateBefore
 
 main :: IO ()
 main = withSharedMigratedPostgres $ hspec $ do
@@ -63,6 +64,7 @@ main = withSharedMigratedPostgres $ hspec $ do
     Concurrency.spec
     FailureInjection.spec
     Transaction.spec
+    TruncateBefore.spec
     ReadStream.spec
     StreamNameLookup.spec
     StreamBridgeTermination.spec

@@ -92,10 +92,10 @@ This section must always reflect the actual current state of the work.
 - [x] M3: Read-path enforcement — `readStreamForwardSQL` and `readStreamBackwardSQL` filter on `stream_version >= truncate_before`. (2026-06-24)
 - [x] M3: Confirm paged read (`readStreamForwardStream`) is built on `ReadStreamForward` (Read.hs:78) so it inherits the filter; `$all`/category/`eventExistsInStream` left untouched per the decisions below. (2026-06-24)
 - [x] M1–M3 build: `cabal build kiroku-store kiroku-store-migrations` green (incl. all test suites). (2026-06-24)
-- [ ] M4: New test module `kiroku-store/test/Test/TruncateBefore.hs`, registered in `kiroku-store/test/Main.hs`.
-- [ ] M4: Update user docs and annotate the source feature request with the chosen design.
-- [ ] M3/M4: `EXPLAIN (ANALYZE, BUFFERS)` the rewritten per-stream read on a seeded table; confirm an index-bound nested-loop generic plan (see Performance Considerations). Record the plan in Surprises & Discoveries.
-- [ ] Full validation: `just migrate` then `cabal test all` (or the project's nix test path) green.
+- [x] M4: New test module `kiroku-store/test/Test/TruncateBefore.hs` (8 examples), registered in `kiroku-store/test/Main.hs` and `kiroku-store.cabal` other-modules. (2026-06-24)
+- [x] M4: Update user docs and annotate the source feature request with the chosen design. Updated `docs/user/lifecycle.md` (new "Close-the-Book Compaction" section), `docs/user/schema.md` (truncate_before column), `docs/SCALING-ANALYSIS.md` and `docs/DESIGN.md` (cross-references), and `docs/feature-requests/0001-...` (resolution note). (2026-06-24)
+- [x] M3/M4: `EXPLAIN (ANALYZE, BUFFERS)` the rewritten per-stream read on a seeded table; confirmed the index-bound nested-loop generic plan (both `> $2` and `>= truncate_before` pushed as Index Cond). Plan recorded in Surprises & Discoveries. (2026-06-24)
+- [x] Full validation: `cabal test all` green (kiroku-store-test 234/234, kiroku-store-migrations-test 1/1). Embedded migration applies cleanly and repeatably via the ephemeral-pg test path (`just migrate` against the dev cluster was not run — its port 5432 is held by another local service — but migration application is fully exercised by every test's `withTestStore`). (2026-06-24)
 
 
 ## Surprises & Discoveries
@@ -103,7 +103,37 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+- The generic prepared-statement plan for the rewritten `readStreamForwardSQL` is the
+  index-bound nested loop the Performance Considerations section predicted — no fallback to
+  the scalar-subquery form is needed. Verified on a seeded scratch table (2000 streams ×
+  200 events = 400k `stream_events` rows, mirroring the real schema and the
+  `ix_stream_events_stream_version` index), with `truncate_before = 180` on the target
+  stream and `SET plan_cache_mode = force_generic_plan`:
+
+  ```text
+  Limit
+    ->  Sort  (Sort Key: se.stream_version)
+      ->  Nested Loop
+        ->  Nested Loop
+          ->  Index Scan using ix_streams_stream_name on streams s
+                Index Cond: (stream_name = $1)
+                Filter: (deleted_at IS NULL)
+          ->  Index Scan using ix_stream_events_stream_version on stream_events se
+                Index Cond: ((stream_id = s.stream_id)
+                             AND (stream_version >= s.truncate_before)
+                             AND (stream_version > $2))
+        ->  Index Scan using events_pkey on events e
+              Index Cond: (event_id = se.event_id)
+  Execution Time: 0.047 ms
+  ```
+
+  Both `stream_version >= s.truncate_before` and `stream_version > $2` are pushed into the
+  inner **Index Cond** (index lower bounds), not demoted to a post-scan `Filter`. The outer
+  `streams` row (reached by the unique `ix_streams_stream_name`) binds `s.stream_id` and
+  `s.truncate_before` before the inner scan, so a set marker makes the read *seek past* the
+  hidden prefix: the scan touched 21 rows (versions 180–200), not all 200. The number of
+  `streams` accesses is one, unchanged from the pre-rewrite scalar-subquery form.
+  Date: 2026-06-24
 
 
 ## Decision Log
@@ -152,7 +182,32 @@ Record every decision made while working on the plan.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+**Completed 2026-06-24.** All four milestones landed as designed; the result matches the
+original purpose exactly. A kiroku consumer can now append a snapshot event, call
+`setStreamTruncateBefore name V`, and have `readStreamForward` / `readStreamBackward` /
+`readStreamForwardStream` return only the kept suffix, while `readAllForward`,
+`readCategory`, subscriptions, and `countEvents` are provably unchanged — the
+single most important acceptance property (the global log stays complete and nothing is
+deleted) is asserted directly in `Test/TruncateBefore.hs`. The operation is reversible
+(`clearStreamTruncateBefore`) and idempotent.
+
+What went to plan: the soft-delete template transferred cleanly to every layer (migration,
+`StreamInfo`, effect constructor + interpreter arm, SQL statement, lifecycle wrappers). The
+`Kiroku.Store` umbrella re-exports `module Kiroku.Store.Lifecycle`, so the two new functions
+became visible to consumers with no umbrella edit.
+
+The one thing worth verifying — the prepared-statement read-path plan — came out
+*better than neutral*: under `force_generic_plan` the planner pushes both the cursor bound
+and the `truncate_before` bound into the `ix_stream_events_stream_version` Index Cond, so a
+set marker makes the read seek past the hidden prefix (21 rows scanned for versions 180–200,
+not 200). The scalar-subquery fallback documented in Performance Considerations was not
+needed. Evidence in Surprises & Discoveries.
+
+Gaps / deferred (unchanged from plan): physical reclamation of the hidden prefix
+("scavenge") remains out of scope for a possible Phase 2. `just migrate` against the
+developer's local cluster was not run because port 5432 was held by another service; the
+embedded migration is instead validated by the ephemeral-pg test path, which applies all
+migrations (idempotently and repeatably) before every test.
 
 
 ## Context and Orientation
@@ -627,7 +682,20 @@ unless noted.
    dependency note in repo memory about `ephemeral-pg`/`wai-app-static` and the cabal flag),
    use that instead; the test expectations are identical.
 
-(Update this section with the exact commands and any real transcripts as you execute them.)
+Real execution notes (2026-06-24):
+
+- `cabal build kiroku-store kiroku-store-migrations` — green (library + migrations + all
+  test suites compiled and linked).
+- `cabal test kiroku-store-test --test-options='--match "/TruncateBefore/"'` — 8 examples,
+  0 failures.
+- `cabal test all` — `kiroku-store-test` 234/234 and `kiroku-store-migrations-test` 1/1
+  passed.
+- `just migrate` was **not** run: the developer cluster's port 5432 is held by another local
+  service, and the project-local `.pg` cluster cannot bind it. The migration is instead
+  validated by the test path (ephemeral-pg applies every embedded migration before each
+  test, idempotently and repeatably). The generic-plan `EXPLAIN` check was run against a
+  throwaway ephemeral PostgreSQL seeded to mirror the real schema (see Surprises &
+  Discoveries).
 
 
 ## Validation and Acceptance

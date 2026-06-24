@@ -651,7 +651,11 @@ Builds on kiroku-store. Adds subscriptions, projections, and higher-level APIs. 
 - [ ] Competing consumers with partition-aware distribution (`partition_by` function)
 - [ ] Advisory lock lifecycle: two-part lock key, lock-loss detection, re-acquisition
 - [ ] Subscriber death recovery: re-queue in-flight events
-- [ ] Snapshotting for long-lived aggregates
+- [x] Snapshotting for long-lived aggregates — logical close-the-book compaction via the
+      per-stream `truncate_before` marker (`setStreamTruncateBefore` /
+      `clearStreamTruncateBefore`); see [Stream Lifecycle](user/lifecycle.md#close-the-book-compaction)
+      and `docs/plans/65-logical-truncate-before-for-close-the-book-compaction.md`. Physical
+      reclamation of the hidden prefix remains deferred.
 - [ ] Schema migration framework (versioned migrations)
 
 ---

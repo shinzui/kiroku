@@ -51,6 +51,7 @@ source version in `original_stream_id` and `original_stream_version`.
 | `stream_version` | `BIGINT NOT NULL DEFAULT 0` | Current event count for the stream. After `N` appended or linked events, the version is `N`; the first event has version `1`. On `$all`, this is the latest global position. |
 | `created_at` | `TIMESTAMPTZ NOT NULL DEFAULT now()` | Timestamp when the stream row was created. |
 | `deleted_at` | `TIMESTAMPTZ` | `NULL` for live streams. Set by soft delete. Soft-deleted streams are hidden from direct stream reads and appends, but their events remain visible in `$all` and category reads. |
+| `truncate_before` | `BIGINT NOT NULL DEFAULT 0` | Logical close-the-book marker. Ordered per-stream reads return only events whose `stream_version >= truncate_before`; `0` (the default) keeps the whole stream. Hidden events are not deleted and remain visible in `$all` and category reads. Set via `setStreamTruncateBefore`. See [Stream Lifecycle → Close-the-Book Compaction](lifecycle.md#close-the-book-compaction). |
 
 ## `events`
 

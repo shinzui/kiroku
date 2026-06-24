@@ -1,6 +1,19 @@
 # Feature Request 0001: Version-bounded prefix-truncate for a single stream
 
-- **Status:** Proposed — 2026-06-24
+> **Resolution (2026-06-24):** Implemented as a **logical** truncate-before marker by
+> ExecPlan `docs/plans/65-logical-truncate-before-for-close-the-book-compaction.md`, **not**
+> the physical prefix hard-delete proposed below. The close-the-book use case is satisfied by
+> `setStreamTruncateBefore` / `clearStreamTruncateBefore` in `Kiroku.Store.Lifecycle`: a
+> per-stream cursor (`streams.truncate_before`) hides the prefix from ordered per-stream reads
+> while keeping the `$all` global log, category reads, and subscriptions complete, and is fully
+> reversible. The physical reclamation requested here (actually deleting prefix rows from
+> `events`/`stream_events`) was rejected for correctness — it mutates the append-only `$all`
+> log that future projections depend on, and is irreversible — and is **deferred to a possible
+> Phase 2** as a separately-planned, frontier-guarded operation. See the ExecPlan's Decision
+> Log and "Why logical truncation rather than physical delete" for the full rationale.
+
+- **Status:** Resolved (logical marker; physical delete deferred) — 2026-06-24
+- **Originally:** Proposed — 2026-06-24
 - **Requested by:** notification-hub (Nadeem)
 - **Driving use case:** notification-hub "close-the-book" preference compaction —
   `docs/plans/24-true-preference-compaction-via-kiroku-prefix-truncate.md` and

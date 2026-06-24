@@ -140,6 +140,16 @@ For aggregates with long event histories, Marten can replace old events with a s
 
 On replay, the aggregator sees the `Compacted<T>` event and applies the snapshot state directly, skipping all compacted events. This reduces total row count without partitioning.
 
+> **Kiroku's take:** kiroku implements the same close-the-book pattern but
+> **logically** rather than by deleting events (Marten's step 4). A per-stream
+> `truncate_before` marker hides the compacted prefix from ordered stream reads
+> while keeping the `$all` global log complete, so projections and audit are
+> unaffected and the operation is reversible. It bounds rehydration cost (the
+> motivation) without reducing physical row count; physical reclamation is a
+> separately-guarded concern deferred to a possible future pass. See
+> [Stream Lifecycle → Close-the-Book Compaction](user/lifecycle.md#close-the-book-compaction)
+> and `docs/plans/65-logical-truncate-before-for-close-the-book-compaction.md`.
+
 ### Tenant-Based Partitioning
 
 **Source:** `src/Marten/Events/Schema/EventsTable.cs`
