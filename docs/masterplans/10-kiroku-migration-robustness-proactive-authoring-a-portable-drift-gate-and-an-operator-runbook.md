@@ -178,7 +178,7 @@ code-focused plans.
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
 | 1 | Add a kiroku migration scaffolder that stamps real UTC timestamps | docs/plans/66-add-a-kiroku-migration-scaffolder-that-stamps-real-utc-timestamps.md | None | None | Complete |
-| 2 | Add a portable strict codd expected-schema drift gate for kiroku migrations | docs/plans/67-add-a-portable-strict-codd-expected-schema-drift-gate-for-kiroku-migrations.md | None | None | Not Started |
+| 2 | Add a portable strict codd expected-schema drift gate for kiroku migrations | docs/plans/67-add-a-portable-strict-codd-expected-schema-drift-gate-for-kiroku-migrations.md | None | None | Complete |
 | 3 | Document kiroku migration authoring, verification, and forward-only recovery | docs/plans/68-document-kiroku-migration-authoring-verification-and-forward-only-recovery.md | None | EP-1, EP-2 | Not Started |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
@@ -310,10 +310,10 @@ each child plan's own Progress section as they are authored and refined.
 - [x] EP-1: `Kiroku.Store.Migrations.New` module added, stamping real UTC timestamps and a qualified idempotent skeleton
 - [x] EP-1: `kiroku-store-migrate new "<description>"` subcommand wired into `app/Main.hs`; apply path preserved
 - [x] EP-1: Round-trip test proves scaffolder output passes `migrationFileNameSpec`; suite green
-- [ ] EP-2: `kiroku-write-expected-schema` executable added, gated behind cabal `flag expected-schema-tool`
-- [ ] EP-2: ephemeral-pg superuser pinned to a fixed `kiroku` identity; portable snapshot generated under `expected-schema/v18/`
-- [ ] EP-2: `runKirokuMigrations` wired to `onDiskReps = Left <dir>`; `StrictCheck` test example added; negative test proves the gate is meaningful
-- [ ] EP-2: `nix/haskell-overlay.nix` gates the write executable off (`-f-expected-schema-tool` + emptied `executableHaskellDepends`); `nix build .#kiroku-store-migrations` green
+- [x] EP-2: `kiroku-write-expected-schema` executable added, gated behind cabal `flag expected-schema-tool`
+- [x] EP-2: ephemeral-pg superuser pinned to a fixed `kiroku` identity; portable snapshot generated under `expected-schema/v18/`
+- [x] EP-2: `runKirokuMigrations` wired to `onDiskReps = Left <dir>`; `StrictCheck` test example added; negative test proves the gate is meaningful
+- [x] EP-2: `nix/haskell-overlay.nix` gates the write executable off (`-f-expected-schema-tool` + emptied `executableHaskellDepends`); `nix build .#kiroku-store-migrations` green
 - [ ] EP-3: README "no snapshot yet" disclaimer replaced with the authoring + drift-gate verification guide
 - [ ] EP-3: `ledger-fixups/` discipline and forward-only recovery runbook documented; CHANGELOG updated
 
@@ -347,6 +347,22 @@ interactions between child plans. Provide concise evidence.
   `ephemeral-pg`, so it must adopt the identical cabal-flag + overrideCabal gating. Recorded
   as a hard constraint in Integration Points. Source: memory
   `project_nix_executable_test_dep_closure`, confirmed against current `nix/haskell-overlay.nix`.
+- 2026-07-05 (EP-1/EP-2 landed): The observable surfaces EP-3 must document are now
+  **confirmed against delivered behavior**, resolving the "confirm against EP-1/EP-2" flags in
+  plan 68: (a) `kiroku-store-migrate new "<desc>"` prints `Created <path>` followed by
+  `Next: touch the embed comment in src/Kiroku/Store/Migrations.hs so embedDir picks it up (or
+  run \`cabal clean\`).` and writes into `KIROKU_MIGRATIONS_DIR` (default `sql-migrations/`);
+  (b) the snapshot directory segment is **`v18`** (this machine runs PostgreSQL 18.4);
+  (c) the generator is `cabal run kiroku-write-expected-schema` (writes to
+  `kiroku-store-migrations/expected-schema` by default); (d) the apply executable's behavior is
+  kept verbatim as `runKirokuMigrationsNoCheck` (the drift gate is a **test-time** check via
+  `onDiskReps = Left <dir>`, not an apply-time check, and the apply path does not consult
+  `CODD_EXPECTED_SCHEMA_DIR`); (e) the strict example is named
+  "matches the checked-in expected schema (StrictCheck)".
+- 2026-07-05 (EP-1 implementation): the scaffolder template originally specified in plan 66
+  contained the literal token `search_path` in an instructional comment, which its own
+  round-trip test forbids in the generated body. Reworded to "Do NOT pin the schema search
+  path…" — no behavior change. Recorded in plan 66's Surprises. No cross-plan impact.
 - 2026-07-05: The recent git history (commits `6bf77ba`, `dac1a0b`, `e1f6c02`, plus the
   `ledger-fixups/2026-07-05-realign-kiroku-migration-timestamps.sql` artifact and the
   `migrationFileNameSpec` guard) is entirely the *symptom* of the missing scaffolder (gap 1).

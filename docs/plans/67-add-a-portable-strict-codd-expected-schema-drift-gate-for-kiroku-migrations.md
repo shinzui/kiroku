@@ -57,23 +57,25 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] M1: Add `kiroku-store-migrations/app/WriteExpectedSchema.hs` and the
+- [x] M1: Add `kiroku-store-migrations/app/WriteExpectedSchema.hs` and the
       `flag expected-schema-tool` + `executable kiroku-write-expected-schema` stanza to the
       cabal file; `cabal build kiroku-write-expected-schema` succeeds (flag default `True`).
-- [ ] M2: Pin the ephemeral-pg superuser to `kiroku` in the generator; run
-      `cabal run kiroku-write-expected-schema`; observe the actual `vNN` directory written;
-      `git add` the tree; grep proves no OS-username leak.
-- [ ] M3: Change `testCoddSettings`'s `onDiskReps` to `Left <dir>`; add `kirokuPgConfig` +
+- [x] M2: Pin the ephemeral-pg superuser to `kiroku` in the generator; run
+      `cabal run kiroku-write-expected-schema`; observed `v18` directory written (PostgreSQL
+      18.4); `git add`ed the tree (118 files); `grep -R "$(whoami)"` finds nothing (exit=1),
+      `db-settings` owner and `roles/` are the literal `kiroku`.
+- [x] M3: Change `testCoddSettings`'s `onDiskReps` to `Left <dir>`; add `kirokuPgConfig` +
       `withKirokuPg` helpers and a `findExpectedSchemaDir` helper; add the `StrictCheck`
       example calling `runKirokuMigrations ... StrictCheck` and expecting `SchemasMatch`;
-      `cabal test kiroku-store-migrations-test` is green including the strict example.
-- [ ] M4: Negative test — perturb one column objrep in the snapshot, confirm the strict
-      example FAILS with a different-schemas diff, restore, confirm it passes again. The break
-      is never committed.
-- [ ] M5: Wrap the `kiroku-store-migrations` derivation in `nix/haskell-overlay.nix` in
+      `cabal test kiroku-store-migrations-test` green (6 examples, 0 failures) including the
+      strict example.
+- [x] M4: Negative test — perturbed `streams.stream_name`'s `notnull` in the snapshot; the
+      strict example FAILED with a `different-schemas` diff naming that column; restored from
+      backup; suite green again (empty `git diff`). The break was never committed.
+- [x] M5: Wrapped the `kiroku-store-migrations` derivation in `nix/haskell-overlay.nix` in
       `overrideCabal` with `configureFlags = [ "-f-expected-schema-tool" ]` and
-      `executableHaskellDepends = [ ]`; `git add` the new files and the whole
-      `expected-schema/` tree; `nix build .#kiroku-store-migrations` succeeds.
+      `executableHaskellDepends = [ ]`; `git add`ed the new files and the whole
+      `expected-schema/` tree; `nix build .#kiroku-store-migrations` succeeds (exit=0).
 
 
 ## Surprises & Discoveries
@@ -113,6 +115,16 @@ implementation. Provide concise evidence.
   run a *cached* server with a pinned user you must call `startCached config cacheConfig` and
   manage teardown yourself with `finally`/`bracket` + `Pg.stop`; you cannot pass a user to
   `Pg.withCached`. This shapes both the generator and the test helper.
+- 2026-07-05 (implementation): the observed snapshot directory is **`v18`** (the dev machine
+  runs PostgreSQL 18.4). codd emits `Warn: Not all features of PostgreSQL version v18 may be
+  supported by codd` but generates a complete snapshot regardless. The captured tree contains
+  `schemas/kiroku/tables/{streams,events,stream_events,subscriptions,dead_letters}`,
+  `schemas/kiroku/routines/{notify_events,prevent_mutation,protect_deletion,protect_truncation}`,
+  `schemas/kiroku/sequences`, `roles/kiroku`, and `db-settings` (owner `kiroku`) — 118 files.
+- 2026-07-05 (implementation): `Pg.defaultConfig{Pg.user = "kiroku"}` triggers a benign
+  `-Wambiguous-fields` warning under `DuplicateRecordFields` (GHC's type-directed record-update
+  disambiguation), in both the generator and the test helper. It compiles and runs correctly;
+  left as-is to match the plan's specified code and keiro's precedent.
 
 
 ## Decision Log
@@ -168,7 +180,19 @@ Record every decision made while working on the plan.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+- 2026-07-05: EP-2 delivered exactly as designed and portable from the first commit. The new
+  `kiroku-write-expected-schema` executable spins up ephemeral PostgreSQL under a pinned
+  `kiroku` superuser and writes a deterministic snapshot to `expected-schema/v18/` (no
+  OS-username anywhere). `runKirokuMigrations ... StrictCheck` is now wired to
+  `onDiskReps = Left <dir>` in the test suite, giving a broad drift gate the narrow `assert*`
+  probes never provided; the negative test confirmed it catches a single-field change. The
+  generator is gated behind `flag expected-schema-tool` (default `True`) and disabled under nix
+  via `overrideCabal` (`-f-expected-schema-tool` + emptied `executableHaskellDepends`), so
+  `nix build .#kiroku-store-migrations` stays green and `ephemeral-pg` never enters the closure.
+  `namespacesToCheck` remained `IncludeSchemas [SqlSchema "kiroku"]` — no re-scoping, unlike
+  keiro plan 87.
+- No deviations from the written plan; all five milestones met their acceptance criteria on the
+  first pass (the only test failure encountered was the intentional M4 perturbation).
 
 
 ## Context and Orientation

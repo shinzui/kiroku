@@ -1,0 +1,31 @@
+{
+    "accessmethod": "heap",
+    "amoptions": null,
+    "columns_in_order": [
+        "event_id",
+        "event_type",
+        "causation_id",
+        "correlation_id",
+        "data",
+        "metadata",
+        "created_at"
+    ],
+    "compositetype": null,
+    "forcerowsecurity": false,
+    "kind": "r",
+    "owner": "kiroku",
+    "partition": false,
+    "persistence": "p",
+    "privileges": {
+        "kiroku": [
+            [
+                "damxrtDw",
+                "kiroku"
+            ]
+        ]
+    },
+    "replident": "d",
+    "rowsecurity": false,
+    "rowtype": "events",
+    "shared": false
+}

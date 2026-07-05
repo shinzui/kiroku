@@ -2,17 +2,16 @@
 
 module Main where
 
-import Codd (ApplyResult (SchemasNotVerified), CoddSettings (..))
+import Codd (ApplyResult (SchemasDiffer, SchemasMatch, SchemasNotVerified), CoddSettings (..), VerifySchemas (StrictCheck))
 import Codd.Parsing (connStringParser)
-import Codd.Representations.Types (DbRep (..))
 import Codd.Types (ConnectionString, SchemaAlgo (..), SchemaSelection (..), SqlSchema (..), TxnIsolationLvl (..), singleTryPolicy)
+import Control.Exception (finally)
 import Control.Monad (filterM)
-import Data.Aeson (Value (Null))
+import Data.Aeson (Value)
 import Data.Aeson qualified as Aeson
 import Data.Attoparsec.Text (endOfInput, parseOnly)
 import Data.Char (isDigit)
 import Data.List (isSuffixOf, nub, sort)
-import Data.Map qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time (UTCTime (..), fromGregorian, secondsToDiffTime)
@@ -26,7 +25,7 @@ import Hasql.Pool.Config qualified as Pool.Config
 import Hasql.Session qualified as Session
 import Hasql.Statement (Statement, preparable)
 import Kiroku.Store
-import Kiroku.Store.Migrations (runKirokuMigrationsNoCheck)
+import Kiroku.Store.Migrations (runKirokuMigrations, runKirokuMigrationsNoCheck)
 import Kiroku.Store.Migrations.New (migrationFileName, migrationSlug, newMigrationFile)
 import System.Directory (doesDirectoryExist, listDirectory)
 import System.FilePath (takeFileName)
@@ -38,11 +37,11 @@ main =
     hspec $ do
         migrationFileNameSpec
         scaffolderSpec
-        describe "codd migration spike" $
+        describe "codd migration spike" $ do
             it "applies Kiroku migrations, opens the store without startup DDL, and is repeatable" $ do
-                result <- Pg.withCached $ \db -> do
+                result <- withKirokuPg $ \db -> do
                     let connStr = Pg.connectionString db
-                        coddSettings = testCoddSettings connStr
+                        coddSettings = testCoddSettings connStr "kiroku-store-migrations/expected-schema"
 
                     firstMigration <- runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5)
                     firstMigration `shouldBeSchemasNotVerified` "first migration run"
@@ -87,6 +86,17 @@ main =
                 case result of
                     Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
                     Right () -> pure ()
+
+            it "matches the checked-in expected schema (StrictCheck)" $ do
+                expectedSchemaDir <- findExpectedSchemaDir
+                result <- withKirokuPg $ \db -> do
+                    let coddSettings = testCoddSettings (Pg.connectionString db) expectedSchemaDir
+                    runKirokuMigrations coddSettings (secondsToDiffTime 5) StrictCheck
+                case result of
+                    Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
+                    Right (SchemasMatch _) -> pure ()
+                    Right SchemasNotVerified -> expectationFailure "StrictCheck did not verify schemas"
+                    Right (SchemasDiffer _) -> expectationFailure "StrictCheck returned a schema mismatch without throwing"
 
 {- | Guard against the recurring mistake of hand-assigning rounded, sentinel
 migration timestamps (e.g. @2026-05-16-00-00-00-…@, @…-00-00-01-…@). Migrations
@@ -168,6 +178,34 @@ findMigrationsDir = do
             expectationFailure "Could not find kiroku-store-migrations/sql-migrations"
                 >> pure "kiroku-store-migrations/sql-migrations"
 
+{- | Pin the throwaway PostgreSQL superuser to the fixed name "kiroku" so the
+captured snapshot identity (roles, owners, db-settings) is deterministic on
+every machine and in CI. Mirrors 'Pg.withCached' but pins the user;
+'Pg.withCachedConfig' is not exported, so we use 'Pg.startCached' + 'finally'.
+-}
+kirokuPgConfig :: Pg.Config
+kirokuPgConfig = Pg.defaultConfig{Pg.user = "kiroku"}
+
+withKirokuPg :: (Pg.Database -> IO a) -> IO (Either Pg.StartError a)
+withKirokuPg action = do
+    started <- Pg.startCached kirokuPgConfig Pg.defaultCacheConfig
+    case started of
+        Left err -> pure (Left err)
+        Right db -> Right <$> (action db `finally` Pg.stop db)
+
+{- | Locate the checked-in expected-schema directory whether the suite runs from
+the repository root or from the kiroku-store-migrations package directory.
+-}
+findExpectedSchemaDir :: IO FilePath
+findExpectedSchemaDir = do
+    let candidates = ["kiroku-store-migrations/expected-schema", "expected-schema"]
+    existing <- filterM doesDirectoryExist candidates
+    case existing of
+        dir : _ -> pure dir
+        [] ->
+            expectationFailure "Could not find kiroku-store-migrations/expected-schema"
+                >> pure "kiroku-store-migrations/expected-schema"
+
 -- | Width of the @YYYY-MM-DD-HH-MM-SS@ timestamp prefix on a migration filename.
 timestampWidth :: Int
 timestampWidth = 19
@@ -199,12 +237,12 @@ isTimestampShaped s =
     matches 'd' c = isDigit c
     matches _ c = c == '-'
 
-testCoddSettings :: Text -> CoddSettings
-testCoddSettings connStr =
+testCoddSettings :: Text -> FilePath -> CoddSettings
+testCoddSettings connStr expectedSchemaDir =
     CoddSettings
         { migsConnString = parseConnString connStr
         , sqlMigrations = []
-        , onDiskReps = Right (DbRep Null Map.empty Map.empty)
+        , onDiskReps = Left expectedSchemaDir
         , namespacesToCheck = IncludeSchemas [SqlSchema "kiroku"]
         , extraRolesToCheck = []
         , retryPolicy = singleTryPolicy

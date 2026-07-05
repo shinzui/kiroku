@@ -1,0 +1,33 @@
+{
+    "accessmethod": "heap",
+    "amoptions": [
+        "fillfactor=50"
+    ],
+    "columns_in_order": [
+        "stream_id",
+        "stream_name",
+        "category",
+        "stream_version",
+        "created_at",
+        "deleted_at",
+        "truncate_before"
+    ],
+    "compositetype": null,
+    "forcerowsecurity": false,
+    "kind": "r",
+    "owner": "kiroku",
+    "partition": false,
+    "persistence": "p",
+    "privileges": {
+        "kiroku": [
+            [
+                "damxrtDw",
+                "kiroku"
+            ]
+        ]
+    },
+    "replident": "d",
+    "rowsecurity": false,
+    "rowtype": "streams",
+    "shared": false
+}

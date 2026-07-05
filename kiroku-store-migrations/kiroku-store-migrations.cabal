@@ -22,6 +22,17 @@ source-repository head
   type:     git
   location: https://github.com/shinzui/kiroku.git
 
+flag expected-schema-tool
+  description:
+    Build the kiroku-write-expected-schema executable, which regenerates the
+    checked-in codd expected-schema snapshot. On by default so
+    `cabal run kiroku-write-expected-schema` works in the dev shell. It depends
+    on ephemeral-pg, which has no buildable source in the pinned Nix Haskell
+    set, so nix turns it off with `-f-expected-schema-tool`.
+
+  default:     True
+  manual:      False
+
 common common
   default-language:   GHC2024
   default-extensions:
@@ -57,6 +68,24 @@ executable kiroku-store-migrate
     , base
     , codd
     , kiroku-store-migrations
+    , time                     >=1.12 && <1.15
+
+executable kiroku-write-expected-schema
+  import:         common
+  main-is:        WriteExpectedSchema.hs
+  hs-source-dirs: app
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N
+
+  if !flag(expected-schema-tool)
+    buildable: False
+
+  build-depends:
+    , attoparsec
+    , base                     >=4.18 && <5
+    , codd
+    , ephemeral-pg             >=0.2  && <0.3
+    , kiroku-store-migrations
+    , text                     >=2.0  && <2.2
     , time                     >=1.12 && <1.15
 
 test-suite kiroku-store-migrations-test

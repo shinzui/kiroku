@@ -116,7 +116,20 @@ final: prev: {
   );
 
   kiroku-store-migrations = dontCheck (
-    doJailbreak (final.callCabal2nix "kiroku-store-migrations" ../kiroku-store-migrations { })
+    doJailbreak (
+      overrideCabal (_: {
+        # The kiroku-write-expected-schema executable (cabal flag
+        # `expected-schema-tool`, on by default so
+        # `cabal run kiroku-write-expected-schema` works in the dev shell)
+        # depends on ephemeral-pg, which has no buildable source in this
+        # nixpkgs Haskell set. Turn the flag off and drop the executable
+        # deps so the library and the kiroku-store-migrate executable still
+        # build under nix. cabal2nix lists exe deps regardless of flags, so
+        # both the flag-off and the emptied deps are required.
+        configureFlags = [ "-f-expected-schema-tool" ];
+        executableHaskellDepends = [ ];
+      }) (final.callCabal2nix "kiroku-store-migrations" ../kiroku-store-migrations { })
+    )
   );
 
   shibuya-kiroku-adapter = dontCheck (
