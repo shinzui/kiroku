@@ -179,7 +179,7 @@ code-focused plans.
 |---|-------|------|-----------|-----------|--------|
 | 1 | Add a kiroku migration scaffolder that stamps real UTC timestamps | docs/plans/66-add-a-kiroku-migration-scaffolder-that-stamps-real-utc-timestamps.md | None | None | Complete |
 | 2 | Add a portable strict codd expected-schema drift gate for kiroku migrations | docs/plans/67-add-a-portable-strict-codd-expected-schema-drift-gate-for-kiroku-migrations.md | None | None | Complete |
-| 3 | Document kiroku migration authoring, verification, and forward-only recovery | docs/plans/68-document-kiroku-migration-authoring-verification-and-forward-only-recovery.md | None | EP-1, EP-2 | Not Started |
+| 3 | Document kiroku migration authoring, verification, and forward-only recovery | docs/plans/68-document-kiroku-migration-authoring-verification-and-forward-only-recovery.md | None | EP-1, EP-2 | Complete |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
 Hard Deps and Soft Deps reference other rows by their # prefix (e.g., EP-1, EP-3).
@@ -314,8 +314,8 @@ each child plan's own Progress section as they are authored and refined.
 - [x] EP-2: ephemeral-pg superuser pinned to a fixed `kiroku` identity; portable snapshot generated under `expected-schema/v18/`
 - [x] EP-2: `runKirokuMigrations` wired to `onDiskReps = Left <dir>`; `StrictCheck` test example added; negative test proves the gate is meaningful
 - [x] EP-2: `nix/haskell-overlay.nix` gates the write executable off (`-f-expected-schema-tool` + emptied `executableHaskellDepends`); `nix build .#kiroku-store-migrations` green
-- [ ] EP-3: README "no snapshot yet" disclaimer replaced with the authoring + drift-gate verification guide
-- [ ] EP-3: `ledger-fixups/` discipline and forward-only recovery runbook documented; CHANGELOG updated
+- [x] EP-3: README "no snapshot yet" disclaimer replaced with the authoring + drift-gate verification guide
+- [x] EP-3: `ledger-fixups/` discipline and forward-only recovery runbook documented; CHANGELOG updated
 
 
 ## Surprises & Discoveries
@@ -425,4 +425,34 @@ plan.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original vision.
 
-(To be filled during and after implementation.)
+- 2026-07-05: **All three child plans complete; the initiative matches its Vision on every
+  axis.** Authoring is now proactive: `kiroku-store-migrate new "<desc>"` stamps a real UTC
+  timestamp (observed `2026-07-05-20-56-59-add-widget-index.sql` — non-sentinel, passes
+  `migrationFileNameSpec`) and a `kiroku.`-qualified idempotent skeleton, with a round-trip test
+  proving producer/guard agreement. Drift is caught mechanically and portably: a checked-in
+  `expected-schema/v18/` snapshot (pinned `kiroku` identity, zero OS-username leak) is enforced
+  by a `StrictCheck` test example; a negative test (perturbing `streams.stream_name.notnull`)
+  confirmed the gate is meaningful; and the generator is flag-gated off under nix so
+  `nix build .#kiroku-store-migrations` stays green (exit 0) with `ephemeral-pg` out of the
+  closure. Operators have a complete runbook: the README's false "no snapshot yet" disclaimer is
+  replaced by an apply → author → verify → rename (`ledger-fixups/`) → forward-only-recovery
+  guide, and the CHANGELOG records both capabilities.
+- **Verification summary:** `cabal test kiroku-store-migrations-test` → 6 examples, 0 failures
+  (the two `migration file names` guards, the two `migration scaffolder` round-trips, the
+  `codd migration spike`, and the new `matches the checked-in expected schema (StrictCheck)`).
+  `nix build .#kiroku-store-migrations` green. The `sql-migrations/` schema bodies were never
+  touched (scope honored: no DDL changes).
+- **Decomposition held up.** The functional-concern split (scaffolder ∥ drift gate, docs last)
+  produced three independently verifiable streams with no hard dependencies; EP-1 and EP-2 edited
+  the two shared files (`test/Main.hs`, `.cabal`) in disjoint functions/stanzas exactly as the
+  Integration Points predicted, so landing them in sequence needed no conflict resolution.
+- **Lessons / surprises worth carrying forward:** (1) the scaffolder template as originally
+  specified embedded the literal token `search_path` in a comment that its own test forbids in
+  the generated body — caught immediately by the round-trip test and reworded (EP-1 Surprises).
+  (2) A repo-wide `treefmt` pre-commit hook reformats Haskell/cabal/nix on commit and fails the
+  commit on first pass; committing is a two-step dance (let it reformat, re-stage, re-commit) —
+  benign but worth knowing. (3) codd emits a "PostgreSQL v18 may be unsupported" warning yet
+  produces a complete, correct snapshot on PG18.
+- **Scoped-out items remain deferred (unchanged):** apply-time hardening of the migration runner
+  (advisory-lock tuning, retry policy, statement timeouts) was intentionally excluded; see the
+  Decision Log. No operational evidence emerged during implementation to pull it forward.

@@ -70,11 +70,11 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] Milestone 1: README "no snapshot yet" disclaimer replaced by the drift-gate / verification workflow; the false `CODD_EXPECTED_SCHEMA_DIR`-is-unused text corrected.
-- [ ] Milestone 2: README authoring guide added — `kiroku-store-migrate new`, the filename rules enforced by `migrationFileNameSpec` and *why*, and the `embedDir` recompile caveat.
-- [ ] Milestone 3: README `ledger-fixups/` discipline section and forward-only recovery runbook added.
-- [ ] Milestone 4: `CHANGELOG.md` `## Unreleased` entries added for the scaffolder and the drift gate.
-- [ ] Finalization: every documented command executed against the delivered EP-1/EP-2 tooling and its real transcript reconciled into the README; no invented output remains.
+- [x] Milestone 1: README "no snapshot yet" disclaimer replaced by the drift-gate / verification workflow; the false `CODD_EXPECTED_SCHEMA_DIR`-is-unused text corrected.
+- [x] Milestone 2: README authoring guide added — `kiroku-store-migrate new`, the filename rules enforced by `migrationFileNameSpec` and *why*, and the `embedDir` recompile caveat.
+- [x] Milestone 3: README `ledger-fixups/` discipline section and forward-only recovery runbook added.
+- [x] Milestone 4: `CHANGELOG.md` `## Unreleased` entries added for the scaffolder and the drift gate.
+- [x] Finalization: every documented command executed against the delivered EP-1/EP-2 tooling and its real transcript reconciled into the README; no invented output remains. Confirmed: `cabal run kiroku-store-migrate -- new "…"` prints `Created sql-migrations/2026-07-05-21-11-13-doc-verification-scratch-migration.sql` + the embed reminder (default-dir form pasted into the README); snapshot dir is `expected-schema/v18/`; the apply path is verbatim `runKirokuMigrationsNoCheck` and does not read `CODD_EXPECTED_SCHEMA_DIR`; `cabal test kiroku-store-migrations-test` → 6 examples, 0 failures including the StrictCheck drift example. The scratch migration was removed and the tree left clean.
 
 
 ## Surprises & Discoveries
@@ -167,7 +167,20 @@ Record every decision made while working on the plan.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-(To be filled during and after implementation.)
+- 2026-07-05: EP-3 delivered as a documentation-only change to `README.md` and `CHANGELOG.md`,
+  reconciled against the *delivered* EP-1/EP-2 behavior rather than the plans' intended surface.
+  The README now walks a contributor end to end: apply → author (`new`, the filename rules and
+  why, the `embedDir` recompile caveat) → verify (the `expected-schema/v18/` drift gate, how to
+  regenerate, portability, the flag-gate/nix note, and the corrected `CODD_*` semantics) →
+  rename (`ledger-fixups/` discipline) → forward-only recovery. The false "does not yet ship a
+  snapshot" / "does not read from it" disclaimer is gone (`grep` returns nothing). The
+  CHANGELOG's `## Unreleased` names both the scaffolder and the drift gate. Every documented
+  command was executed and its real output pasted in — no aspirational transcripts remain.
+- All the "confirm against EP-1/EP-2" flags from the authoring-time draft were resolved: the
+  apply executable stays `runKirokuMigrationsNoCheck` and does not consult
+  `CODD_EXPECTED_SCHEMA_DIR` (so the README frames the drift gate strictly as a test/CI check),
+  and the snapshot segment is `v18` (PostgreSQL 18.4 on the dev machine). No `.cabal` `version:`
+  bump was made — that is a separate release action.
 
 
 ## Context and Orientation
