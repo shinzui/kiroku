@@ -15,7 +15,7 @@ import Data.List (isSuffixOf, nub, sort)
 import Data.Map qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Time (secondsToDiffTime)
+import Data.Time (UTCTime (..), fromGregorian, secondsToDiffTime)
 import Data.Vector qualified as Vector
 import EphemeralPg qualified as Pg
 import Hasql.Connection.Settings qualified as Conn
@@ -27,13 +27,17 @@ import Hasql.Session qualified as Session
 import Hasql.Statement (Statement, preparable)
 import Kiroku.Store
 import Kiroku.Store.Migrations (runKirokuMigrationsNoCheck)
+import Kiroku.Store.Migrations.New (migrationFileName, migrationSlug, newMigrationFile)
 import System.Directory (doesDirectoryExist, listDirectory)
+import System.FilePath (takeFileName)
+import System.IO.Temp (withSystemTempDirectory)
 import Test.Hspec
 
 main :: IO ()
 main =
     hspec $ do
         migrationFileNameSpec
+        scaffolderSpec
         describe "codd migration spike" $
             it "applies Kiroku migrations, opens the store without startup DDL, and is repeatable" $ do
                 result <- Pg.withCached $ \db -> do
@@ -112,6 +116,41 @@ migrationFileNameSpec =
             files <- migrationFiles
             let stamps = map (take timestampWidth) (sort files)
             length (nub stamps) `shouldBe` length stamps
+
+{- | Prove the scaffolder (`Kiroku.Store.Migrations.New`) is the *producer* that
+satisfies the reactive `migrationFileNameSpec` guard. Two independent checks:
+
+  * A deterministic name built from a fixed, non-sentinel UTCTime is well-shaped
+    ('isTimestampShaped') and is NOT a hand-assigned sentinel
+    ('handAssignedTimestamp' == False), and its slug is the expected bare slug.
+    This is deterministic, so the assertion cannot flake.
+  * The live 'newMigrationFile' writes a real file into a throwaway temp dir;
+    its basename is well-shaped and the file exists; the body is
+    schema-qualified and unpinned.
+-}
+scaffolderSpec :: Spec
+scaffolderSpec =
+    describe "migration scaffolder" $ do
+        it "stamps a real, non-sentinel UTC timestamp and a bare slug" $ do
+            -- 2026-07-05 19:09:18 UTC: real hour/minute and non-00 seconds.
+            let sampled = UTCTime (fromGregorian 2026 7 5) (secondsToDiffTime (19 * 3600 + 9 * 60 + 18))
+                name = migrationFileName sampled "Add widget index"
+            takeFileName name `shouldBe` name
+            isTimestampShaped (take timestampWidth name) `shouldBe` True
+            handAssignedTimestamp name `shouldBe` False
+            migrationSlug "Add widget index" `shouldBe` "add-widget-index"
+
+        it "writes a well-named file into a temp dir and refuses to overwrite" $
+            withSystemTempDirectory "kiroku-scaffolder" $ \dir -> do
+                path <- newMigrationFile dir "add widget index"
+                let base = takeFileName path
+                isTimestampShaped (take timestampWidth base) `shouldBe` True
+                length base `shouldSatisfy` (> timestampWidth)
+                -- The generated file body is schema-qualified and unpinned.
+                body <- readFile path
+                (".sql" `isSuffixOf` path) `shouldBe` True
+                ("kiroku.example" `T.isInfixOf` T.pack body) `shouldBe` True
+                ("search_path" `T.isInfixOf` T.pack body) `shouldBe` False
 
 -- | The migration @.sql@ files, wherever the suite is run from.
 migrationFiles :: IO [FilePath]

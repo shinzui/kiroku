@@ -32,13 +32,17 @@ common common
 
 library
   import:          common
-  exposed-modules: Kiroku.Store.Migrations
+  exposed-modules:
+    Kiroku.Store.Migrations
+    Kiroku.Store.Migrations.New
   hs-source-dirs:  src
   build-depends:
     , base        >=4.18   && <5
     , bytestring  >=0.11   && <0.13
     , codd        >=0.1.8  && <0.2
+    , directory   >=1.3    && <1.4
     , file-embed  >=0.0.15 && <0.0.17
+    , filepath    >=1.4    && <1.6
     , streaming   >=0.2    && <0.3
     , text        >=2.0    && <2.2
     , time        >=1.12   && <1.15
@@ -68,11 +72,13 @@ test-suite kiroku-store-migrations-test
     , containers               >=0.6  && <0.8
     , directory                >=1.3
     , ephemeral-pg             >=0.2  && <0.3
+    , filepath                 >=1.4  && <1.6
     , hasql                    >=1.10 && <1.11
     , hasql-pool               >=1.2  && <1.5
     , hspec                    >=2.10 && <2.12
     , kiroku-store             ^>=0.2
     , kiroku-store-migrations
+    , temporary                >=1.3  && <1.4
     , text                     >=2.0  && <2.2
     , time                     >=1.12 && <1.15
     , vector                   >=0.13 && <0.14
