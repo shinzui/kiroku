@@ -35,6 +35,7 @@ library
   exposed-modules:
     Kiroku.Store.Migrations
     Kiroku.Store.Migrations.New
+
   hs-source-dirs:  src
   build-depends:
     , base        >=4.18   && <5

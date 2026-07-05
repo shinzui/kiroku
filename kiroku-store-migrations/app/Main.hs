@@ -14,17 +14,19 @@ main = do
         ("new" : rest) -> generate (unwords rest)
         _ -> migrate
 
--- | The existing apply behavior, preserved verbatim from before the `new`
--- subcommand was added: read codd settings from the environment and apply the
--- embedded migrations without expected-schema verification.
+{- | The existing apply behavior, preserved verbatim from before the `new`
+subcommand was added: read codd settings from the environment and apply the
+embedded migrations without expected-schema verification.
+-}
 migrate :: IO ()
 migrate = do
     settings <- getCoddSettings
     _ <- runKirokuMigrationsNoCheck settings (secondsToDiffTime 5)
     pure ()
 
--- | Scaffold a new migration from a free-text description. Writes into
--- @KIROKU_MIGRATIONS_DIR@ if set, else 'defaultMigrationsDir'.
+{- | Scaffold a new migration from a free-text description. Writes into
+@KIROKU_MIGRATIONS_DIR@ if set, else 'defaultMigrationsDir'.
+-}
 generate :: String -> IO ()
 generate description
     | all (== ' ') description =
