@@ -32,10 +32,10 @@ import Kiroku.Store.Subscription (subscribe)
 import Kiroku.Store.Subscription.Stream (subscriptionStream)
 import Kiroku.Store.Subscription.Types (OverflowPolicy (..), SubscriptionConfigM (..), SubscriptionHandleM (..))
 import Shibuya.Adapter (Adapter (..))
-import Shibuya.App (ProcessorId (..), SupervisionStrategy (..), mkProcessor, runApp, stopApp)
+import Shibuya.App (ProcessorId (..), defaultAppConfig, mkProcessor, runApp, stopApp)
 import Shibuya.Core.Ack (AckDecision (..))
 import Shibuya.Core.AckHandle (AckHandle (..))
-import Shibuya.Core.Ingested (Ingested (..))
+import Shibuya.Core.Ingested (Ingested (..), Message)
 import Shibuya.Core.Types (Cursor (..), Envelope (..), MessageId (..))
 import Shibuya.Telemetry.Effect (runTracingNoop)
 import Streamly.Data.Fold qualified as Fold
@@ -199,14 +199,14 @@ benchShibuyaAdapter store n nextId = do
                     , shutdown = liftIO cancelAction
                     }
 
-        let handler :: (IOE :> es) => Ingested es RecordedEvent -> Eff es AckDecision
+        let handler :: (IOE :> es) => Message es RecordedEvent -> Eff es AckDecision
             handler _ingested = do
                 liftIO $ atomically $ do
                     c <- readTVar countVar
                     writeTVar countVar (c + 1)
                 pure AckOk
 
-        res <- runApp IgnoreFailures 100 [(ProcessorId "bench", mkProcessor adapter handler)]
+        res <- runApp defaultAppConfig [(ProcessorId "bench", mkProcessor adapter handler)]
         case res of
             Left err -> liftIO $ error ("runApp failed: " <> show err)
             Right appHandle -> do

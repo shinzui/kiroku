@@ -44,7 +44,7 @@ import Shibuya.Adapter.Kiroku.Convert (KirokuEnvelopeAttrs, kirokuEnvelopeAttrs,
 import Shibuya.App (
     ProcessorId (..),
     QueueProcessor (..),
-    SupervisionStrategy (..),
+    defaultAppConfig,
     getAppMetrics,
     mkProcessor,
     runApp,
@@ -55,10 +55,10 @@ import Shibuya.App qualified as Shibuya
 import Shibuya.Core.Ack (AckDecision (..), DeadLetterReason (..))
 import Shibuya.Core.Ack qualified as Ack
 import Shibuya.Core.Error (PolicyError (..))
-import Shibuya.Core.Ingested (Ingested (..))
+import Shibuya.Core.Ingested (Message (..))
+import Shibuya.Core.Metrics (ProcessorState (..))
 import Shibuya.Core.Types (Attempt (..), Envelope (..))
-import Shibuya.Policy (Concurrency (..), Ordering (..))
-import Shibuya.Runner.Metrics (ProcessorState (..))
+import Shibuya.Policy (Concurrency (..), OrderingPolicy (..))
 import Shibuya.Telemetry.Effect (runTracingNoop)
 import Streamly.Data.Fold qualified as Fold
 import Streamly.Data.Stream qualified as Stream
@@ -176,7 +176,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                     c <- readTVar countVar
                                     writeTVar countVar (c + 1)
                             pure AckOk
-                    res <- runApp IgnoreFailures 100 [(ProcessorId "etf", mkProcessor adapter handler)]
+                    res <- runApp defaultAppConfig [(ProcessorId "etf", mkProcessor adapter handler)]
                     case res of
                         Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
                         Right appHandle -> do
@@ -219,7 +219,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                     case res of
                         Left err -> liftIO $ expectationFailure ("kirokuConsumerGroupProcessors failed: " <> show err)
                         Right processors -> do
-                            appRes <- runApp IgnoreFailures 100 processors
+                            appRes <- runApp defaultAppConfig processors
                             case appRes of
                                 Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
                                 Right appHandle -> do
@@ -261,7 +261,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                     c <- readTVar countVar
                                     writeTVar countVar (c + 1)
                             pure AckOk
-                    res <- runApp IgnoreFailures 100 [(ProcessorId "sel", mkProcessor adapter handler)]
+                    res <- runApp defaultAppConfig [(ProcessorId "sel", mkProcessor adapter handler)]
                     case res of
                         Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
                         Right appHandle -> do
@@ -294,7 +294,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                     writeTVar countVar (c + 1)
                             pure AckOk
 
-                    res <- runApp IgnoreFailures 100 [(ProcessorId "catchup", mkProcessor adapter handler)]
+                    res <- runApp defaultAppConfig [(ProcessorId "catchup", mkProcessor adapter handler)]
                     case res of
                         Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
                         Right appHandle -> do
@@ -321,7 +321,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                     writeTVar countVar (c + 1)
                             pure AckOk
 
-                    res <- runApp IgnoreFailures 100 [(ProcessorId "live", mkProcessor adapter handler)]
+                    res <- runApp defaultAppConfig [(ProcessorId "live", mkProcessor adapter handler)]
                     case res of
                         Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
                         Right appHandle -> do
@@ -361,7 +361,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 else pure ()
                             pure AckOk
 
-                    res <- runApp IgnoreFailures 100 [(ProcessorId "burst", mkProcessor adapter handler)]
+                    res <- runApp defaultAppConfig [(ProcessorId "burst", mkProcessor adapter handler)]
                     case res of
                         Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
                         Right appHandle -> do
@@ -441,8 +441,7 @@ main = withSharedMigratedPostgres $ hspec $ do
 
                     res <-
                         runApp
-                            IgnoreFailures
-                            100
+                            defaultAppConfig
                             [ (ProcessorId "orders", mkProcessor ordersAdapter (mkHandler ordersRef ordersCount))
                             , (ProcessorId "payments", mkProcessor paymentsAdapter (mkHandler paymentsRef paymentsCount))
                             , (ProcessorId "inventory", mkProcessor inventoryAdapter (mkHandler inventoryRef inventoryCount))
@@ -506,8 +505,7 @@ main = withSharedMigratedPostgres $ hspec $ do
 
                     res <-
                         runApp
-                            IgnoreFailures
-                            100
+                            defaultAppConfig
                             [ (ProcessorId "good", mkProcessor goodAdapter goodHandler)
                             , (ProcessorId "bad", mkProcessor badAdapter badHandler)
                             , (ProcessorId "other", mkProcessor otherAdapter otherHandler)
@@ -562,8 +560,7 @@ main = withSharedMigratedPostgres $ hspec $ do
 
                     res <-
                         runApp
-                            IgnoreFailures
-                            100
+                            defaultAppConfig
                             [ (ProcessorId "a", mkProcessor adapterA handlerA)
                             , (ProcessorId "b", mkProcessor adapterB handlerB)
                             ]
@@ -599,7 +596,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             -- Retry the first delivery, accept the second.
                             pure (if n == 1 then AckRetry (Ack.RetryDelay 0) else AckOk)
 
-                    res <- runApp IgnoreFailures 100 [(ProcessorId "ackretry", mkProcessor adapter handler)]
+                    res <- runApp defaultAppConfig [(ProcessorId "ackretry", mkProcessor adapter handler)]
                     case res of
                         Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
                         Right appHandle -> do
@@ -638,7 +635,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                     liftIO $ modifyIORef' okPayloads (envelopePayload ingested :)
                                     pure AckOk
 
-                    res <- runApp IgnoreFailures 100 [(ProcessorId "ackdl", mkProcessor adapter handler)]
+                    res <- runApp defaultAppConfig [(ProcessorId "ackdl", mkProcessor adapter handler)]
                     case res of
                         Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
                         Right appHandle -> do
@@ -666,7 +663,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             defaultKirokuAdapterConfig (SubscriptionName "guardretry-proj") AllStreams
 
                     let throwingOnce ingested = do
-                            let Ingested{envelope = Envelope{attempt = deliveryAttempt}} = ingested
+                            let Message{envelope = Envelope{attempt = deliveryAttempt}} = ingested
                             n <- liftIO $ do
                                 modifyIORef' attempts (deliveryAttempt :)
                                 modifyIORef' deliveries (+ 1)
@@ -680,7 +677,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 else pure AckOk
                         handler = guardKirokuHandlerWith (const (AckRetry (Ack.RetryDelay 0))) throwingOnce
 
-                    res <- runApp IgnoreFailures 100 [(ProcessorId "guardretry", mkProcessor adapter handler)]
+                    res <- runApp defaultAppConfig [(ProcessorId "guardretry", mkProcessor adapter handler)]
                     case res of
                         Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
                         Right appHandle -> do
@@ -715,7 +712,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                     pure AckOk
                         handler = guardKirokuHandlerWith (const (AckRetry (Ack.RetryDelay 0))) alwaysThrowFirst
 
-                    res <- runApp IgnoreFailures 100 [(ProcessorId "guarddl", mkProcessor adapter handler)]
+                    res <- runApp defaultAppConfig [(ProcessorId "guarddl", mkProcessor adapter handler)]
                     case res of
                         Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
                         Right appHandle -> do
@@ -769,7 +766,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             | m <- [0 .. 3 :: Int]
                             ]
 
-                    res <- runApp IgnoreFailures 100 processors
+                    res <- runApp defaultAppConfig processors
                     case res of
                         Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
                         Right appHandle -> do
@@ -893,7 +890,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                         case result of
                             Left err -> liftIO $ expectationFailure ("kirokuConsumerGroupProcessors failed: " <> show err)
                             Right processors -> do
-                                appRes <- runApp IgnoreFailures 100 processors
+                                appRes <- runApp defaultAppConfig processors
                                 case appRes of
                                     Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
                                     Right appHandle -> do
@@ -948,7 +945,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 pids
                                     `shouldBe` ["cgp-shibuya-group-member-" <> T.pack (show m) | m <- [0 .. 3 :: Int]]
 
-                            appRes <- runApp IgnoreFailures 100 processors
+                            appRes <- runApp defaultAppConfig processors
                             case appRes of
                                 Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
                                 Right appHandle -> do
@@ -968,8 +965,8 @@ main = withSharedMigratedPostgres $ hspec $ do
 
 -- Helpers
 
-envelopePayload :: Ingested es RecordedEvent -> RecordedEvent
-envelopePayload ing = let Ingested{envelope = env} = ing in env ^. #payload
+envelopePayload :: Message es RecordedEvent -> RecordedEvent
+envelopePayload ing = let Message{envelope = env} = ing in env ^. #payload
 
 stubAdapter :: Adapter es RecordedEvent
 stubAdapter =

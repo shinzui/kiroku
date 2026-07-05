@@ -90,15 +90,15 @@ final: prev: {
   shibuya-core =
     let
       src = pkgs.fetchurl {
-        url = "https://hackage.haskell.org/package/shibuya-core-0.6.0.0/shibuya-core-0.6.0.0.tar.gz";
-        hash = "sha256-346GI1UfFdvVZ8jAiThfosn4u1aZiPcWw5N1EXlvJGI=";
+        url = "https://hackage.haskell.org/package/shibuya-core-0.8.0.1/shibuya-core-0.8.0.1.tar.gz";
+        hash = "sha256-Sx9Kn9AUjzMjKzJ5osbzlwhdhv6pT0hRW2kxNzuk7WQ=";
       };
 
-      patched = pkgs.runCommand "shibuya-core-0.6.0.0-patched" { } ''
+      patched = pkgs.runCommand "shibuya-core-0.8.0.1-patched" { } ''
         mkdir -p $out
         tar -xzf ${src} --strip-components=1 -C $out
         chmod -R u+w $out
-        ${pkgs.gnused}/bin/sed -i 's/^cabal-version: *3\.14/cabal-version: 3.4/' $out/shibuya-core.cabal
+        ${pkgs.gnused}/bin/sed -i 's/^cabal-version: *3\.1[24]/cabal-version: 3.4/' $out/shibuya-core.cabal
       '';
     in
     dontCheck (doJailbreak (final.callCabal2nix "shibuya-core" patched { }));

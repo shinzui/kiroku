@@ -25,7 +25,7 @@ main = withStore settings $ \\store ->
                 -- process ingested.envelope.payload :: RecordedEvent
                 pure AckOk
 
-        Right appHandle <- runApp IgnoreFailures 100
+        Right appHandle <- runApp defaultAppConfig
             [(ProcessorId \"my-projection\", mkProcessor adapter handler)]
 
         waitApp appHandle
@@ -51,7 +51,7 @@ main = withStore settings $ \\store ->
                 4   -- group size
 
         Right processors <- kirokuConsumerGroupProcessors store cfg handler
-        Right appHandle <- runApp IgnoreFailures 100 processors
+        Right appHandle <- runApp defaultAppConfig processors
         waitApp appHandle
   where
     handler ingested = do
@@ -161,9 +161,8 @@ import Shibuya.App (ProcessorId (..), QueueProcessor (..))
 import Shibuya.Core.Ack (AckDecision (..), RetryDelay (..))
 import Shibuya.Core.Error (PolicyError (..))
 import Shibuya.Handler (Handler)
-import Shibuya.Policy (Concurrency (..), Ordering (..), validatePolicy)
+import Shibuya.Policy (Concurrency (..), OrderingPolicy (..), validatePolicy)
 import Streamly.Data.Stream qualified as Stream
-import Prelude hiding (Ordering)
 
 {- | Configuration for creating a Kiroku adapter.
 
@@ -425,7 +424,7 @@ defaultConsumerGroupConfig name target n =
         }
 
 {- | Map a requested per-member concurrency onto the group's validated Shibuya
-@('Ordering', 'Concurrency')@.
+@('OrderingPolicy', 'Concurrency')@.
 
 The group's ordering contract is always 'PartitionedInOrder'; a member's own
 ordered stream must be processed serially. This reuses Shibuya's own
@@ -436,7 +435,7 @@ invents its own legality check: 'Ahead'/'Async' yield
 @('PartitionedInOrder', 'Serial')@ also passes 'validatePolicy', so 'runApp'
 will not reject it later.
 -}
-consumerGroupPolicy :: Concurrency -> Either PolicyError (Ordering, Concurrency)
+consumerGroupPolicy :: Concurrency -> Either PolicyError (OrderingPolicy, Concurrency)
 consumerGroupPolicy conc = do
     -- A member delivers one strictly-ordered stream; only Serial is honest.
     validatePolicy StrictInOrder conc -- rejects Ahead/Async with PolicyError

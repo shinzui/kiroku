@@ -51,7 +51,7 @@ library
     , hs-opentelemetry-api                   ^>=1.0
     , hs-opentelemetry-semantic-conventions  ^>=1.40
     , kiroku-store                           ^>=0.2
-    , shibuya-core                           >=0.7   && <0.8
+    , shibuya-core                           >=0.8   && <0.9
     , stm                                    >=2.5   && <2.6
     , streamly-core                          >=0.3   && <0.4
     , text                                   >=2.0   && <2.2
@@ -81,7 +81,7 @@ test-suite shibuya-kiroku-adapter-test
     , kiroku-store            ^>=0.2
     , kiroku-test-support
     , lens                    >=5.2  && <5.4
-    , shibuya-core            >=0.7  && <0.8
+    , shibuya-core            >=0.8  && <0.9
     , shibuya-kiroku-adapter
     , stm                     >=2.5  && <2.6
     , streamly-core           >=0.3  && <0.4
