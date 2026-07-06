@@ -27,6 +27,10 @@
 * The historical ledger-fixup script is now dual-schema aware: it targets
   `codd.sql_migrations` for codd 0.1.8+ ledgers and falls back to
   `codd_schema.sql_migrations` for pre-upgrade databases.
+* Hardened the apply path: unknown `kiroku-store-migrate` arguments now exit 2
+  with usage, bare invocation and `up` are the only apply commands, embedded
+  migrations force codd's single-try retry policy, and concurrent applies are
+  serialized with a shared PostgreSQL advisory lock.
 
 ## 0.1.1.0 — 2026-05-31
 

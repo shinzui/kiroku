@@ -5,6 +5,7 @@ module Main where
 import Codd (ApplyResult (SchemasDiffer, SchemasMatch, SchemasNotVerified), CoddSettings (..), VerifySchemas (StrictCheck))
 import Codd.Parsing (connStringParser)
 import Codd.Types (ConnectionString, SchemaAlgo (..), SchemaSelection (..), SqlSchema (..), TxnIsolationLvl (..), singleTryPolicy)
+import Control.Concurrent.Async (concurrently)
 import Control.Exception (finally)
 import Control.Monad (filterM)
 import Data.Aeson (Value)
@@ -157,6 +158,25 @@ migrationIntegritySpec =
                 schema `shouldBe` "codd"
                 names <- ledgerNames connStr schema
                 names `shouldBe` map T.pack embeddedMigrationNames
+            case result of
+                Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
+                Right () -> pure ()
+
+        it "serializes concurrent applies with the shared advisory lock" $ do
+            result <- withKirokuPg $ \db -> do
+                let connStr = Pg.connectionString db
+                    coddSettings = testCoddSettings connStr "kiroku-store-migrations/expected-schema"
+                (firstMigration, secondMigration) <-
+                    concurrently
+                        (runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5))
+                        (runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5))
+                firstMigration `shouldBeSchemasNotVerified` "first concurrent migration run"
+                secondMigration `shouldBeSchemasNotVerified` "second concurrent migration run"
+                schema <- detectLedgerSchema connStr
+                names <- ledgerNames connStr schema
+                names `shouldBe` map T.pack embeddedMigrationNames
+                count <- ledgerRowCount connStr schema
+                count `shouldBe` fromIntegral (length embeddedMigrationNames)
             case result of
                 Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
                 Right () -> pure ()

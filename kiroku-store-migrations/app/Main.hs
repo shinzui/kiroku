@@ -11,14 +11,18 @@ import Kiroku.Store.Migrations.Guards (renderChecksumManifest)
 import Kiroku.Store.Migrations.New (defaultMigrationsDir, newMigrationFile)
 import System.Directory (listDirectory)
 import System.Environment (getArgs, lookupEnv)
+import System.Exit (ExitCode (ExitFailure), exitWith)
+import System.IO (hPutStrLn, stderr)
 
 main :: IO ()
 main = do
     args <- getArgs
     case args of
+        [] -> migrate
+        ["up"] -> migrate
         ("new" : rest) -> generate (unwords rest)
         ("lock" : _) -> writeLock
-        _ -> migrate
+        other -> usage other
 
 {- | The existing apply behavior, preserved verbatim from before the `new`
 subcommand was added: read codd settings from the environment and apply the
@@ -51,3 +55,9 @@ writeLock = do
     sources <- traverse (\name -> (\bytes -> (name, bytes)) <$> BS.readFile (dir <> "/" <> name)) (sort names)
     TIO.writeFile "migrations.lock" (renderChecksumManifest sources)
     putStrLn ("Wrote migrations.lock (" <> show (length sources) <> " migrations)")
+
+usage :: [String] -> IO ()
+usage args = do
+    hPutStrLn stderr ("unknown kiroku-store-migrate arguments: " <> unwords args)
+    hPutStrLn stderr "usage: kiroku-store-migrate [up | new <description> | lock]"
+    exitWith (ExitFailure 2)

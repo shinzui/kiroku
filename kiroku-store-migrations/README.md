@@ -36,6 +36,26 @@ at test/CI time). `CODD_EXPECTED_SCHEMA_DIR` is still required by codd's
 settings parser, but this executable does not read from it. Treat the ledger
 table as the source of applied-version truth.
 
+`kiroku-store-migrate` accepts bare invocation and `up` as apply commands.
+Unknown arguments fail with usage and exit code 2 before reading
+`CODD_CONNECTION`, so a typo cannot accidentally apply migrations.
+
+### Concurrent applies and retries
+
+The executable serializes migration applies with a PostgreSQL session-level
+advisory lock on the target database. This protects multi-replica deploys where
+two processes start migration at the same time: the second process waits for
+the first to finish, then observes zero pending migrations. The lock is released
+when the migration process closes its dedicated lock connection, including on
+exceptions or process exit. One migrator per deploy is still the clearest
+operational pattern; the lock is a safety net.
+
+The embedded runner also forces codd's retry policy to a single try, ignoring
+`CODD_RETRY_POLICY` for this executable. codd 0.1.8 cannot re-read in-memory
+embedded migrations during a retry (`Re-reading in-memory streams is not yet
+implemented`), so retrying masks the original database error with an unrelated
+crash. A single attempt preserves the real failure.
+
 After migrations run, start the application normally:
 
 ```haskell
