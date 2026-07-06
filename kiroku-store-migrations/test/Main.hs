@@ -27,7 +27,17 @@ import Hasql.Pool.Config qualified as Pool.Config
 import Hasql.Session qualified as Session
 import Hasql.Statement (Statement, preparable)
 import Kiroku.Store
-import Kiroku.Store.Migrations (embeddedMigrationNames, embeddedMigrationSources, runKirokuMigrations, runKirokuMigrationsNoCheck)
+import Kiroku.Store.Migrations (
+    MigrationStatus (..),
+    VerifyOutcome (..),
+    embeddedMigrationNames,
+    embeddedMigrationSources,
+    migrationStatus,
+    missingMigrations,
+    runKirokuMigrations,
+    runKirokuMigrationsNoCheck,
+    verifySchema,
+ )
 import Kiroku.Store.Migrations.Guards
 import Kiroku.Store.Migrations.New (migrationFileName, migrationSlug, newMigrationFile)
 import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
@@ -177,6 +187,49 @@ migrationIntegritySpec =
                 names `shouldBe` map T.pack embeddedMigrationNames
                 count <- ledgerRowCount connStr schema
                 count `shouldBe` fromIntegral (length embeddedMigrationNames)
+            case result of
+                Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
+                Right () -> pure ()
+
+        it "reports every embedded migration as pending on an empty database" $ do
+            result <- withKirokuPg $ \db -> do
+                let connStr = Pg.connectionString db
+                    coddSettings = testCoddSettings connStr "kiroku-store-migrations/expected-schema"
+                verifySchema coddSettings (secondsToDiffTime 5) `shouldReturn` VerifyPending embeddedMigrationNames
+                status <- migrationStatus (migsConnString coddSettings) (secondsToDiffTime 5)
+                statusApplied status `shouldBe` []
+                statusPending status `shouldBe` embeddedMigrationNames
+                missingMigrations (migsConnString coddSettings) (secondsToDiffTime 5) `shouldReturn` embeddedMigrationNames
+            case result of
+                Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
+                Right () -> pure ()
+
+        it "verifies the embedded expected schema and reports no missing migrations after apply" $ do
+            result <- withKirokuPg $ \db -> do
+                let connStr = Pg.connectionString db
+                    coddSettings = testCoddSettings connStr "kiroku-store-migrations/expected-schema"
+                firstMigration <- runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5)
+                firstMigration `shouldBeSchemasNotVerified` "verify tool migration run"
+                verifySchema coddSettings (secondsToDiffTime 5) `shouldReturn` VerifySucceeded
+                status <- migrationStatus (migsConnString coddSettings) (secondsToDiffTime 5)
+                map fst (statusApplied status) `shouldBe` embeddedMigrationNames
+                statusPending status `shouldBe` []
+                missingMigrations (migsConnString coddSettings) (secondsToDiffTime 5) `shouldReturn` []
+            case result of
+                Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
+                Right () -> pure ()
+
+        it "reports schema drift without applying migrations" $ do
+            result <- withKirokuPg $ \db -> do
+                let connStr = Pg.connectionString db
+                    coddSettings = testCoddSettings connStr "kiroku-store-migrations/expected-schema"
+                firstMigration <- runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5)
+                firstMigration `shouldBeSchemasNotVerified` "verify drift migration run"
+                beforeCount <- ledgerRowCount connStr "codd"
+                runDb connStr "verify drift mutation" (Session.script "CREATE TABLE kiroku.verify_drift (id int);")
+                verifySchema coddSettings (secondsToDiffTime 5) `shouldReturn` VerifyFailed
+                afterCount <- ledgerRowCount connStr "codd"
+                afterCount `shouldBe` beforeCount
             case result of
                 Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
                 Right () -> pure ()

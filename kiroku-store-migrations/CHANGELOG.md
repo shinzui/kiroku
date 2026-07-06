@@ -31,6 +31,11 @@
   with usage, bare invocation and `up` are the only apply commands, embedded
   migrations force codd's single-try retry policy, and concurrent applies are
   serialized with a shared PostgreSQL advisory lock.
+* Added operator tooling: `kiroku-store-migrate verify` strict-checks a live
+  database against the expected-schema snapshot embedded in the binary,
+  `kiroku-store-migrate status` reports applied and pending ledger entries, and
+  `Kiroku.Store.Migrations.missingMigrations` lets applications fail fast at
+  startup when framework migrations have not been applied.
 
 ## 0.1.1.0 — 2026-05-31
 

@@ -37,8 +37,9 @@ settings parser, but this executable does not read from it. Treat the ledger
 table as the source of applied-version truth.
 
 `kiroku-store-migrate` accepts bare invocation and `up` as apply commands.
-Unknown arguments fail with usage and exit code 2 before reading
-`CODD_CONNECTION`, so a typo cannot accidentally apply migrations.
+It also accepts `verify`, `status`, `new`, and `lock`. Unknown arguments fail
+with usage and exit code 2 before reading `CODD_CONNECTION`, so a typo cannot
+accidentally apply migrations.
 
 ### Concurrent applies and retries
 
@@ -60,6 +61,43 @@ After migrations run, start the application normally:
 
 ```haskell
 withStore (defaultConnectionSettings connString) app
+```
+
+### Verifying and inspecting a database
+
+`kiroku-store-migrate verify` is read-only. It first compares the embedded
+migration names with codd's ledger. If migrations are pending, it prints them
+and exits 2 without reading or writing schema objects. If no migrations are
+pending, it materializes the expected-schema snapshot embedded in the binary,
+strict-compares the live `kiroku` schema with codd, exits 0 on a match, and
+exits 1 with codd's differing objects on drift.
+
+`kiroku-store-migrate status` is also read-only. It prints the ledger table in
+use (`codd.sql_migrations`, or `codd_schema.sql_migrations` on older
+databases), the applied migration names and timestamps, the pending embedded
+migration names, and a summary line. Pending migrations do not make `status`
+fail; use `verify` as the gate.
+
+Applications that start with schema initialization disabled can fail fast with
+the same pending-migration handshake:
+
+```haskell
+missing <- missingMigrations connString (secondsToDiffTime 5)
+unless (null missing) $
+  fail ("Run kiroku-store-migrate before starting; pending migrations: " <> show missing)
+```
+
+### Runtime role privileges
+
+Run migrations with an owner/admin role, then grant the application runtime role
+only the privileges it needs on framework-owned objects:
+
+```sql
+GRANT USAGE ON SCHEMA kiroku TO your_app_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA kiroku TO your_app_role;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA kiroku TO your_app_role;
+-- Re-run after any framework upgrade whose migrations add tables or sequences:
+-- new objects are NOT covered by past GRANT ... ON ALL TABLES statements.
 ```
 
 ## Authoring a new migration
@@ -196,15 +234,14 @@ kiroku-write-expected-schema` works in the dev shell; `nix build` does not
 compile the tool. The library and the `kiroku-store-migrate` executable still
 build under nix.
 
-The **drift gate is a developer/CI check**, enforced by `cabal test
-kiroku-store-migrations-test` against the in-repo `expected-schema/v18/`
-snapshot. It is wired in the test (and in the checked runner
-`runKirokuMigrations`, via `onDiskReps = Left <dir>`) directly to the
-snapshot directory, not through `CODD_EXPECTED_SCHEMA_DIR`. The **apply
-path** — the `kiroku-store-migrate` executable you run in production — is
-deliberately kept as an unchecked run (`runKirokuMigrationsNoCheck`) and does
-not consult `CODD_EXPECTED_SCHEMA_DIR`; the snapshot exists to catch drift in
-development and CI, not to gate a production apply.
+The **drift gate is enforced in two places**: `cabal test
+kiroku-store-migrations-test` checks the in-repo `expected-schema/v18/`
+snapshot during development/CI, and `kiroku-store-migrate verify` embeds that
+snapshot into the shipped executable so operators can check a live database
+without a repository checkout. The **apply path** — bare
+`kiroku-store-migrate` or `kiroku-store-migrate up` — remains an unchecked
+run (`runKirokuMigrationsNoCheck`) and does not consult
+`CODD_EXPECTED_SCHEMA_DIR`; verification is an explicit read-only command.
 
 ## Renaming a migration: the `ledger-fixups/` discipline
 
