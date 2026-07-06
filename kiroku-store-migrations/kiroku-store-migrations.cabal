@@ -15,6 +15,7 @@ build-type:         Simple
 category:           Database, Eventing
 extra-doc-files:    CHANGELOG.md
 extra-source-files:
+  expected-schema/v18/**/*
   migrations.lock
   README.md
   sql-migrations/*.sql
