@@ -10,10 +10,11 @@ import Control.Monad (filterM)
 import Data.Aeson (Value)
 import Data.Aeson qualified as Aeson
 import Data.Attoparsec.Text (endOfInput, parseOnly)
-import Data.Char (isDigit)
-import Data.List (isSuffixOf, nub, sort)
+import Data.Int (Int32)
+import Data.List (isSuffixOf, sort)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Text.IO qualified as TIO
 import Data.Time (UTCTime (..), fromGregorian, secondsToDiffTime)
 import Data.Vector qualified as Vector
 import EphemeralPg qualified as Pg
@@ -25,9 +26,10 @@ import Hasql.Pool.Config qualified as Pool.Config
 import Hasql.Session qualified as Session
 import Hasql.Statement (Statement, preparable)
 import Kiroku.Store
-import Kiroku.Store.Migrations (runKirokuMigrations, runKirokuMigrationsNoCheck)
+import Kiroku.Store.Migrations (embeddedMigrationNames, embeddedMigrationSources, runKirokuMigrations, runKirokuMigrationsNoCheck)
+import Kiroku.Store.Migrations.Guards
 import Kiroku.Store.Migrations.New (migrationFileName, migrationSlug, newMigrationFile)
-import System.Directory (doesDirectoryExist, listDirectory)
+import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
 import System.FilePath (takeFileName)
 import System.IO.Temp (withSystemTempDirectory)
 import Test.Hspec
@@ -36,6 +38,7 @@ main :: IO ()
 main =
     hspec $ do
         migrationFileNameSpec
+        migrationIntegritySpec
         scaffolderSpec
         describe "codd migration spike" $ do
             it "applies Kiroku migrations, opens the store without startup DDL, and is repeatable" $ do
@@ -113,19 +116,74 @@ migrationFileNameSpec =
         it "carry real UTC authoring timestamps, not hand-assigned sentinels" $ do
             files <- migrationFiles
             files `shouldNotBe` []
-            case filter handAssignedTimestamp files of
-                [] -> pure ()
-                offenders ->
-                    expectationFailure
-                        ( "these migrations have hand-assigned sentinel timestamps; "
-                            <> "name migrations with the real UTC authoring time to the second: "
-                            <> show offenders
-                        )
+            sentinelViolations files `shouldHaveNoViolations` "sentinel timestamp violations"
 
         it "have unique, strictly increasing timestamps" $ do
             files <- migrationFiles
-            let stamps = map (take timestampWidth) (sort files)
-            length (nub stamps) `shouldBe` length stamps
+            duplicateTimestampViolations files `shouldHaveNoViolations` "duplicate timestamp violations"
+
+migrationIntegritySpec :: Spec
+migrationIntegritySpec =
+    describe "migration integrity guards" $ do
+        it "embeds exactly the checked-in sql-migrations directory" $ do
+            diskNames <- sort <$> migrationFiles
+            embeddedMigrationNames `shouldBe` diskNames
+
+        it "matches the checked-in SHA-256 manifest" $ do
+            manifestPath <- findLockfile
+            parsed <- parseChecksumManifest <$> TIO.readFile manifestPath
+            case parsed of
+                Left err -> expectationFailure (T.unpack err)
+                Right manifest ->
+                    checksumViolations manifest embeddedMigrationSources
+                        `shouldHaveNoViolations` "checksum manifest violations"
+
+        it "keeps future migration bodies schema-qualified and codd-safe" $ do
+            lintViolations
+                LintConfig
+                    { requiredQualifier = "kiroku."
+                    , exemptFiles = ["2026-05-16-12-17-14-kiroku-bootstrap.sql"]
+                    }
+                embeddedMigrationSources
+                `shouldHaveNoViolations` "migration body lint violations"
+
+        it "records every embedded migration in the codd v5 ledger" $ do
+            result <- withKirokuPg $ \db -> do
+                let connStr = Pg.connectionString db
+                    coddSettings = testCoddSettings connStr "kiroku-store-migrations/expected-schema"
+                firstMigration <- runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5)
+                firstMigration `shouldBeSchemasNotVerified` "ledger canary migration run"
+                schema <- detectLedgerSchema connStr
+                schema `shouldBe` "codd"
+                names <- ledgerNames connStr schema
+                names `shouldBe` map T.pack embeddedMigrationNames
+            case result of
+                Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
+                Right () -> pure ()
+
+        it "realigns historical sentinel ledger rows before a repeat migrate" $ do
+            fixupPath <- findLedgerFixup
+            fixupScript <- TIO.readFile fixupPath
+            result <- withKirokuPg $ \db -> do
+                let connStr = Pg.connectionString db
+                    coddSettings = testCoddSettings connStr "kiroku-store-migrations/expected-schema"
+                firstMigration <- runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5)
+                firstMigration `shouldBeSchemasNotVerified` "fixup regression first migration run"
+                schema <- detectLedgerSchema connStr
+                rewindLedgerToSentinelNames connStr schema
+                sentinelNames <- ledgerNames connStr schema
+                sentinelNames `shouldSatisfy` any (T.isInfixOf "-00-00-00-")
+                runDb connStr "ledger fixup script" (Session.script fixupScript)
+                fixedNames <- ledgerNames connStr schema
+                fixedNames `shouldBe` map T.pack embeddedMigrationNames
+                beforeCount <- ledgerRowCount connStr schema
+                secondMigration <- runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5)
+                secondMigration `shouldBeSchemasNotVerified` "fixup regression repeat migration run"
+                afterCount <- ledgerRowCount connStr schema
+                afterCount `shouldBe` beforeCount
+            case result of
+                Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
+                Right () -> pure ()
 
 {- | Prove the scaffolder (`Kiroku.Store.Migrations.New`) is the *producer* that
 satisfies the reactive `migrationFileNameSpec` guard. Two independent checks:
@@ -178,6 +236,28 @@ findMigrationsDir = do
             expectationFailure "Could not find kiroku-store-migrations/sql-migrations"
                 >> pure "kiroku-store-migrations/sql-migrations"
 
+findLockfile :: IO FilePath
+findLockfile = findExistingFile ["kiroku-store-migrations/migrations.lock", "migrations.lock"]
+
+findLedgerFixup :: IO FilePath
+findLedgerFixup =
+    findExistingFile
+        [ "kiroku-store-migrations/ledger-fixups/2026-07-05-realign-kiroku-migration-timestamps.sql"
+        , "ledger-fixups/2026-07-05-realign-kiroku-migration-timestamps.sql"
+        ]
+
+findExistingFile :: [FilePath] -> IO FilePath
+findExistingFile candidates = do
+    existing <- filterM doesFileExist candidates
+    case existing of
+        path : _ -> pure path
+        [] -> expectationFailure ("Could not find any of: " <> show candidates) >> pure fallback
+  where
+    fallback =
+        case candidates of
+            path : _ -> path
+            [] -> "."
+
 {- | Pin the throwaway PostgreSQL superuser to the fixed name "kiroku" so the
 captured snapshot identity (roles, owners, db-settings) is deterministic on
 every machine and in CI. Mirrors 'Pg.withCached' but pins the user;
@@ -205,37 +285,6 @@ findExpectedSchemaDir = do
         [] ->
             expectationFailure "Could not find kiroku-store-migrations/expected-schema"
                 >> pure "kiroku-store-migrations/expected-schema"
-
--- | Width of the @YYYY-MM-DD-HH-MM-SS@ timestamp prefix on a migration filename.
-timestampWidth :: Int
-timestampWidth = 19
-
-{- | True when a filename's timestamp looks hand-assigned rather than sampled
-from the wall clock: a malformed prefix, a @00@ seconds field, or exactly UTC
-midnight (@HH-MM == 00-00@). See 'migrationFileNameSpec'.
--}
-handAssignedTimestamp :: FilePath -> Bool
-handAssignedTimestamp name =
-    case timestampFields name of
-        Nothing -> True
-        Just (hh, mm, ss) -> ss == "00" || (hh == "00" && mm == "00")
-
--- | Extract @(HH, MM, SS)@ from a well-formed @YYYY-MM-DD-HH-MM-SS-…@ filename.
-timestampFields :: FilePath -> Maybe (String, String, String)
-timestampFields name
-    | isTimestampShaped stamp =
-        Just (take 2 (drop 11 stamp), take 2 (drop 14 stamp), take 2 (drop 17 stamp))
-    | otherwise = Nothing
-  where
-    stamp = take timestampWidth name
-
--- | Does the string match the fixed-width @dddd-dd-dd-dd-dd-dd@ shape?
-isTimestampShaped :: String -> Bool
-isTimestampShaped s =
-    length s == timestampWidth && and (zipWith matches "dddd-dd-dd-dd-dd-dd" s)
-  where
-    matches 'd' c = isDigit c
-    matches _ c = c == '-'
 
 testCoddSettings :: Text -> FilePath -> CoddSettings
 testCoddSettings connStr expectedSchemaDir =
@@ -270,6 +319,101 @@ makeEvent typ payload =
 shouldBeSchemasNotVerified :: ApplyResult -> String -> Expectation
 shouldBeSchemasNotVerified SchemasNotVerified _ = pure ()
 shouldBeSchemasNotVerified _ label = expectationFailure (label <> " unexpectedly verified schemas")
+
+shouldHaveNoViolations :: [Text] -> String -> Expectation
+shouldHaveNoViolations [] _ = pure ()
+shouldHaveNoViolations violations label =
+    expectationFailure (label <> ":\n" <> T.unpack (T.unlines violations))
+
+runDb :: Text -> String -> Session.Session a -> IO a
+runDb connStr label session = do
+    pool <- Pool.acquire poolConfig
+    result <- Pool.use pool session
+    Pool.release pool
+    case result of
+        Left err -> expectationFailure (label <> " failed: " <> show err) >> fail label
+        Right value -> pure value
+  where
+    poolConfig =
+        Pool.Config.settings
+            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
+            , Pool.Config.size 1
+            ]
+
+detectLedgerSchema :: Text -> IO Text
+detectLedgerSchema connStr = do
+    (hasCodd, hasCoddSchema) <- runDb connStr "ledger schema detection" (Session.statement () ledgerSchemaStmt)
+    case (hasCodd, hasCoddSchema) of
+        (True, False) -> pure "codd"
+        (False, True) -> pure "codd_schema"
+        (False, False) -> expectationFailure "codd ledger table was not found" >> pure "codd"
+        (True, True) -> expectationFailure "both codd and codd_schema ledger tables exist" >> pure "codd"
+
+ledgerSchemaStmt :: Statement () (Bool, Bool)
+ledgerSchemaStmt =
+    preparable
+        "SELECT to_regclass('codd.sql_migrations') IS NOT NULL, to_regclass('codd_schema.sql_migrations') IS NOT NULL"
+        E.noParams
+        (D.singleRow ((,) <$> D.column (D.nonNullable D.bool) <*> D.column (D.nonNullable D.bool)))
+
+ledgerNames :: Text -> Text -> IO [Text]
+ledgerNames connStr "codd" = runDb connStr "codd ledger names" (Session.statement () ledgerNamesCoddStmt)
+ledgerNames connStr "codd_schema" = runDb connStr "codd_schema ledger names" (Session.statement () ledgerNamesCoddSchemaStmt)
+ledgerNames _ schema = expectationFailure ("unknown ledger schema " <> T.unpack schema) >> pure []
+
+ledgerNamesCoddStmt :: Statement () [Text]
+ledgerNamesCoddStmt =
+    preparable
+        "SELECT name::text FROM codd.sql_migrations ORDER BY name"
+        E.noParams
+        (D.rowList (D.column (D.nonNullable D.text)))
+
+ledgerNamesCoddSchemaStmt :: Statement () [Text]
+ledgerNamesCoddSchemaStmt =
+    preparable
+        "SELECT name::text FROM codd_schema.sql_migrations ORDER BY name"
+        E.noParams
+        (D.rowList (D.column (D.nonNullable D.text)))
+
+ledgerRowCount :: Text -> Text -> IO Int32
+ledgerRowCount connStr "codd" = runDb connStr "codd ledger row count" (Session.statement () ledgerCountCoddStmt)
+ledgerRowCount connStr "codd_schema" = runDb connStr "codd_schema ledger row count" (Session.statement () ledgerCountCoddSchemaStmt)
+ledgerRowCount _ schema = expectationFailure ("unknown ledger schema " <> T.unpack schema) >> pure 0
+
+ledgerCountCoddStmt :: Statement () Int32
+ledgerCountCoddStmt =
+    preparable
+        "SELECT count(*)::int FROM codd.sql_migrations"
+        E.noParams
+        (D.singleRow (D.column (D.nonNullable D.int4)))
+
+ledgerCountCoddSchemaStmt :: Statement () Int32
+ledgerCountCoddSchemaStmt =
+    preparable
+        "SELECT count(*)::int FROM codd_schema.sql_migrations"
+        E.noParams
+        (D.singleRow (D.column (D.nonNullable D.int4)))
+
+rewindLedgerToSentinelNames :: Text -> Text -> IO ()
+rewindLedgerToSentinelNames connStr schema =
+    runDb connStr "ledger rewind to sentinel names" (Session.script script)
+  where
+    qname = schema <> ".sql_migrations"
+    -- Kept in sync with ledger-fixups/2026-07-05-realign-kiroku-migration-timestamps.sql.
+    pairs =
+        [ ("2026-05-16-12-17-14-kiroku-bootstrap.sql", "2026-05-16-00-00-00-kiroku-bootstrap.sql", "2026-05-16 00:00:00+00")
+        , ("2026-05-29-15-26-04-add-subscription-dead-letters.sql", "2026-05-26-00-00-00-add-subscription-dead-letters.sql", "2026-05-26 00:00:00+00")
+        , ("2026-06-14-13-17-09-notify-trigger-append-guard.sql", "2026-06-11-00-00-00-notify-trigger-append-guard.sql", "2026-06-11 00:00:00+00")
+        , ("2026-06-14-13-25-40-dead-letters-event-id-index.sql", "2026-06-11-00-00-01-dead-letters-event-id-index.sql", "2026-06-11 00:00:01+00")
+        , ("2026-06-14-13-54-48-index-hygiene-and-streams-fillfactor.sql", "2026-06-11-00-00-02-index-hygiene-and-streams-fillfactor.sql", "2026-06-11 00:00:02+00")
+        , ("2026-06-14-14-01-17-stream-name-length-check.sql", "2026-06-11-00-00-03-stream-name-length-check.sql", "2026-06-11 00:00:03+00")
+        , ("2026-06-24-09-42-22-stream-truncate-before.sql", "2026-06-24-00-00-00-stream-truncate-before.sql", "2026-06-24 00:00:00+00")
+        ]
+    script =
+        T.unlines
+            [ "UPDATE " <> qname <> " SET name = '" <> oldName <> "', migration_timestamp = '" <> oldTimestamp <> "' WHERE name = '" <> newName <> "';"
+            | (newName, oldName, oldTimestamp) <- pairs
+            ]
 
 assertBootstrapApplied :: Text -> IO ()
 assertBootstrapApplied connStr = do

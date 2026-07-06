@@ -17,6 +17,16 @@
   passes on any machine, and the write tool is cabal-flag-gated
   (`expected-schema-tool`) off under nix so it never enters the `nix build`
   closure.
+* `Kiroku.Store.Migrations.Guards` exposes reusable pure migration validators
+  for timestamp sentinels, duplicate timestamps, body linting, and SHA-256
+  lockfile manifests. `kiroku-store-migrations-test` now enforces embed parity,
+  body lint, the checked-in `migrations.lock`, and a codd ledger canary.
+* `kiroku-store-migrate lock` regenerates `migrations.lock` from
+  `sql-migrations/`, making shipped migration body edits visible in review and
+  CI.
+* The historical ledger-fixup script is now dual-schema aware: it targets
+  `codd.sql_migrations` for codd 0.1.8+ ledgers and falls back to
+  `codd_schema.sql_migrations` for pre-upgrade databases.
 
 ## 0.1.1.0 — 2026-05-31
 

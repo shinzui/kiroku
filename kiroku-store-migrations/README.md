@@ -25,11 +25,16 @@ track that schema. The runtime role therefore needs privileges on the
 not on `public`.
 
 The apply path applies the embedded migrations and records each one in
-codd's ledger table `codd_schema.sql_migrations`; it does **not** verify the
-result against the expected-schema snapshot (see "Verifying the schema"
-below — that check runs at test/CI time). `CODD_EXPECTED_SCHEMA_DIR` is
-still required by codd's settings parser, but this executable does not read
-from it. Treat the ledger table as the source of applied-version truth.
+codd's ledger table. With codd 0.1.8 and newer, fresh databases use
+`codd.sql_migrations`; older databases that still have
+`codd_schema.sql_migrations` are renamed to `codd` on first contact. When
+writing operator SQL, check `to_regclass('codd.sql_migrations')` first and
+fall back to `to_regclass('codd_schema.sql_migrations')` only for pre-upgrade
+databases. The apply path does **not** verify the result against the
+expected-schema snapshot (see "Verifying the schema" below — that check runs
+at test/CI time). `CODD_EXPECTED_SCHEMA_DIR` is still required by codd's
+settings parser, but this executable does not read from it. Treat the ledger
+table as the source of applied-version truth.
 
 After migrations run, start the application normally:
 
@@ -68,9 +73,9 @@ schema-qualified index and a `-- TODO` — replace it with your real DDL.
 ### Why the filename must be a real UTC timestamp
 
 codd orders migrations by filename and decides whether a migration has
-already been applied by looking its *name* up in the ledger table
-`codd_schema.sql_migrations` — it does **not** hash the file body. So
-filenames must sort in true authoring order and must be unique. The
+already been applied by looking its *name* up in the codd ledger — it does
+**not** hash the file body. So filenames must sort in true authoring order
+and must be unique. The
 `YYYY-MM-DD-HH-MM-SS-<slug>.sql` format sorts lexicographically ==
 chronologically because every field is fixed-width and zero-padded.
 
@@ -101,6 +106,32 @@ file does **not** by itself cause a recompile, so a stale build can run the
 module to rebuild — touch the embed comment in `Migrations.hs`, run `cabal
 clean`, or edit that module — before running the tests or the executable, so
 `embedDir` re-captures the directory.
+
+### Lockfile and integrity gates
+
+`migrations.lock` records a SHA-256 checksum for every embedded migration
+body. Regenerate it only for a deliberate, reviewed change to the migration
+set:
+
+```bash
+cd kiroku-store-migrations
+cabal run kiroku-store-migrate -- lock
+```
+
+The command reads `sql-migrations/` (or `KIROKU_MIGRATIONS_DIR` when set),
+writes `migrations.lock`, and prints the number of migrations written. In
+normal development the lockfile changes when you add a new migration. Editing
+a shipped migration body without regenerating the lockfile is a test failure
+that names the file.
+
+`cabal test kiroku-store-migrations-test` also enforces two authoring gates.
+The embed-parity test compares the compiled-in migration names with the
+on-disk `sql-migrations/` listing, so adding a `.sql` file without rebuilding
+`Kiroku.Store.Migrations` fails instead of shipping a stale executable. The
+body lint rejects future migrations that mention `search_path`, create or
+alter unqualified objects, or use `CREATE INDEX CONCURRENTLY` without codd's
+`-- codd: no-txn` directive. The bootstrap migration is grandfathered because
+it intentionally sets `search_path` once for historical schema creation.
 
 ## Verifying the schema: the drift gate
 
@@ -170,8 +201,8 @@ non-idempotent migration corrupts the database, and even for an idempotent
 one leaves a bogus duplicate ledger row. To rename safely you must, in the
 same change, ship a one-time **ledger-fixup**: a transactional, idempotent
 SQL script that `UPDATE`s the `name` (and `migration_timestamp`) columns of
-`codd_schema.sql_migrations` from the old identity to the new one, so codd
-sees the renamed migrations as already applied and skips them.
+the codd ledger from the old identity to the new one, so codd sees the
+renamed migrations as already applied and skips them.
 
 The repository already contains the template:
 `ledger-fixups/2026-07-05-realign-kiroku-migration-timestamps.sql`. It was
@@ -202,10 +233,9 @@ psql "host=/tmp port=5432 dbname=kiroku user=kiroku_admin" \
   --file=kiroku-store-migrations/ledger-fixups/2026-07-05-realign-kiroku-migration-timestamps.sql
 ```
 
-Note: this codd builds its ledger as `codd_schema.sql_migrations`. If a
-future codd version uses the `codd` schema instead, replace the schema
-qualifier throughout (`codd.sql_migrations`) — the existing fixup's header
-says the same.
+The checked-in fixup detects `codd.sql_migrations` first and falls back to
+`codd_schema.sql_migrations` for databases that have not yet been touched by
+codd 0.1.8. Keep future fixups dual-schema aware the same way.
 
 ## Forward-only recovery
 
@@ -233,9 +263,12 @@ already run in production:
 
 ```sql
 SELECT name, migration_timestamp
-FROM codd_schema.sql_migrations
+FROM codd.sql_migrations
 ORDER BY migration_timestamp;
 ```
+
+For old databases that have not yet run codd 0.1.8, use
+`codd_schema.sql_migrations` until the first upgraded apply renames it.
 
 To detect *drift* — a database whose schema no longer matches the migrations
 — run the strict gate against a fresh throwaway database (`cabal test

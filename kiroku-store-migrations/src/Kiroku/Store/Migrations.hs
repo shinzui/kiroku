@@ -2,6 +2,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Kiroku.Store.Migrations (
+    embeddedMigrationNames,
+    embeddedMigrationSources,
     kirokuMigrations,
     runKirokuMigrations,
     runKirokuMigrationsNoCheck,
@@ -12,6 +14,7 @@ import Codd.Logging (runCoddLogger)
 import Codd.Parsing (AddedSqlMigration, EnvVars, PureStream (..), parseAddedSqlMigration)
 import Data.ByteString (ByteString)
 import Data.FileEmbed (embedDir)
+import Data.List (sort)
 import Data.Text.Encoding qualified as TE
 import Data.Time (DiffTime)
 import Streaming.Prelude qualified as Streaming
@@ -20,7 +23,8 @@ import Streaming.Prelude qualified as Streaming
 ordered by timestamped filename.
 
 When adding a migration file, this module must be rebuilt so Template Haskell's
-'embedDir' captures the new directory contents during local validation.
+'embedDir' captures the new directory contents during local validation. Touch:
+2026-07-06 integrity guard embed refresh.
 -}
 kirokuMigrations :: (MonadFail m, EnvVars m) => m [AddedSqlMigration m]
 kirokuMigrations =
@@ -59,3 +63,9 @@ runKirokuMigrationsNoCheck settings connectTimeout =
 
 embeddedMigrationFiles :: [(FilePath, ByteString)]
 embeddedMigrationFiles = $(embedDir "sql-migrations")
+
+embeddedMigrationSources :: [(FilePath, ByteString)]
+embeddedMigrationSources = embeddedMigrationFiles
+
+embeddedMigrationNames :: [FilePath]
+embeddedMigrationNames = sort (map fst embeddedMigrationFiles)

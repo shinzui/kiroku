@@ -1,10 +1,15 @@
 module Main where
 
 import Codd.Environment (getCoddSettings)
+import Data.ByteString qualified as BS
+import Data.List (isSuffixOf, sort)
 import Data.Maybe (fromMaybe)
+import Data.Text.IO qualified as TIO
 import Data.Time (secondsToDiffTime)
 import Kiroku.Store.Migrations (runKirokuMigrationsNoCheck)
+import Kiroku.Store.Migrations.Guards (renderChecksumManifest)
 import Kiroku.Store.Migrations.New (defaultMigrationsDir, newMigrationFile)
+import System.Directory (listDirectory)
 import System.Environment (getArgs, lookupEnv)
 
 main :: IO ()
@@ -12,6 +17,7 @@ main = do
     args <- getArgs
     case args of
         ("new" : rest) -> generate (unwords rest)
+        ("lock" : _) -> writeLock
         _ -> migrate
 
 {- | The existing apply behavior, preserved verbatim from before the `new`
@@ -37,3 +43,11 @@ generate description
         putStrLn ("Created " <> path)
         putStrLn
             "Next: touch the embed comment in src/Kiroku/Store/Migrations.hs so embedDir picks it up (or run `cabal clean`)."
+
+writeLock :: IO ()
+writeLock = do
+    dir <- fromMaybe defaultMigrationsDir <$> lookupEnv "KIROKU_MIGRATIONS_DIR"
+    names <- filter (".sql" `isSuffixOf`) <$> listDirectory dir
+    sources <- traverse (\name -> (\bytes -> (name, bytes)) <$> BS.readFile (dir <> "/" <> name)) (sort names)
+    TIO.writeFile "migrations.lock" (renderChecksumManifest sources)
+    putStrLn ("Wrote migrations.lock (" <> show (length sources) <> " migrations)")
