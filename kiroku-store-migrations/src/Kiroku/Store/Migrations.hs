@@ -89,6 +89,8 @@ withMigrationLock connString _connectTimeout action =
 
 forceSingleTryPolicy :: CoddSettings -> CoddSettings
 forceSingleTryPolicy settings =
+    -- codd v0.1.8 retries re-read migration streams, but embedded in-memory
+    -- streams fail with "Re-reading in-memory streams is not yet implemented".
     settings{retryPolicy = singleTryPolicy}
 
 warnRetryPolicyOverride :: CoddSettings -> IO ()
