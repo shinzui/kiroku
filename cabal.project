@@ -1,4 +1,5 @@
 packages:
+  codd-extras
   kiroku-store
   kiroku-store-migrations
   kiroku-test-support
