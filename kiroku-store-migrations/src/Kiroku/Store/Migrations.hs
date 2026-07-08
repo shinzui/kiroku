@@ -10,6 +10,7 @@ module Kiroku.Store.Migrations (
     embeddedMigrationNames,
     embeddedMigrationSources,
     kirokuMigrations,
+    kirokuMigrationSet,
     migrationStatus,
     migrationStatusFor,
     missingMigrations,
@@ -21,12 +22,10 @@ module Kiroku.Store.Migrations (
 ) where
 
 import Codd (ApplyResult, CoddSettings, VerifySchemas)
-import Codd.Extras.Apply (applyEmbeddedMigrations, applyEmbeddedMigrationsNoCheck)
-import Codd.Extras.Embedded qualified as Embedded
 import Codd.Extras.Ledger (LedgerSchema (..), MigrationStatus (..), VerifyOutcome (..), appliedLedgerMigrations, detectMigrationLedger, migrationStatusFor, migrationStatusForConnection)
-import Codd.Extras.Ledger qualified as Ledger
 import Codd.Extras.Lock (migrationAdvisoryLockKey, withMigrationLock)
-import Codd.Extras.Verify (verifySchemaWith)
+import Codd.Extras.MigrationSet (MigrationSet)
+import Codd.Extras.MigrationSet qualified as MigrationSet
 import Codd.Parsing (AddedSqlMigration, EnvVars)
 import Codd.Types (ConnectionString)
 import Data.ByteString (ByteString)
@@ -43,12 +42,12 @@ When adding a migration file, this module must be rebuilt so Template Haskell's
 -}
 kirokuMigrations :: (MonadFail m, EnvVars m) => m [AddedSqlMigration m]
 kirokuMigrations =
-    Embedded.parseEmbeddedMigrations "Kiroku" embeddedMigrationFiles
+    MigrationSet.parseMigrationSet kirokuMigrationSet
 
 -- | Run Kiroku's embedded migrations through codd.
 runKirokuMigrations :: CoddSettings -> DiffTime -> VerifySchemas -> IO ApplyResult
 runKirokuMigrations settings connectTimeout verifySchemas =
-    applyEmbeddedMigrations settings connectTimeout verifySchemas [("Kiroku", embeddedMigrationFiles)]
+    MigrationSet.applyMigrationSet settings connectTimeout verifySchemas kirokuMigrationSet
 
 {- | Run Kiroku's embedded migrations through codd without expected-schema
 verification.
@@ -58,24 +57,38 @@ snapshot. Use 'runKirokuMigrations' when schema verification is configured.
 -}
 runKirokuMigrationsNoCheck :: CoddSettings -> DiffTime -> IO ApplyResult
 runKirokuMigrationsNoCheck settings connectTimeout =
-    applyEmbeddedMigrationsNoCheck settings connectTimeout [("Kiroku", embeddedMigrationFiles)]
+    MigrationSet.applyMigrationSetNoCheck settings connectTimeout kirokuMigrationSet
 
 verifySchema :: CoddSettings -> DiffTime -> IO VerifyOutcome
 verifySchema =
-    verifySchemaWith embeddedMigrationNames expectedSchemaFiles "kiroku-expected-schema"
+    MigrationSet.verifyExpectedSchema
+        embeddedMigrationNames
+        MigrationSet.ExpectedSchema
+            { MigrationSet.label = "kiroku-expected-schema"
+            , MigrationSet.files = expectedSchemaFiles
+            }
 
 missingMigrations :: ConnectionString -> DiffTime -> IO [FilePath]
-missingMigrations connString connectTimeout =
-    Ledger.missingMigrations embeddedMigrationNames connString connectTimeout
+missingMigrations =
+    MigrationSet.missingMigrationsForSet kirokuMigrationSet
 
 migrationStatus :: ConnectionString -> DiffTime -> IO MigrationStatus
-migrationStatus = migrationStatusFor embeddedMigrationNames
+migrationStatus =
+    MigrationSet.migrationStatusForSet kirokuMigrationSet
 
 embeddedMigrationFiles :: [(FilePath, ByteString)]
 embeddedMigrationFiles = $(embedDir "sql-migrations")
+
+kirokuMigrationSet :: MigrationSet
+kirokuMigrationSet =
+    MigrationSet.MigrationSet
+        { MigrationSet.label = "Kiroku"
+        , MigrationSet.files = embeddedMigrationFiles
+        }
 
 embeddedMigrationSources :: [(FilePath, ByteString)]
 embeddedMigrationSources = embeddedMigrationFiles
 
 embeddedMigrationNames :: [FilePath]
-embeddedMigrationNames = Embedded.embeddedMigrationNames embeddedMigrationFiles
+embeddedMigrationNames =
+    MigrationSet.migrationNames kirokuMigrationSet
