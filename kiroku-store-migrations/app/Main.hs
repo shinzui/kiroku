@@ -3,31 +3,27 @@ module Main where
 import Codd (ApplyResult, CoddSettings (..))
 import Codd.Extras.Cli (CheckMode, MigrationCliConfig (..), migrationCliMain)
 import Data.Time (DiffTime, secondsToDiffTime)
-import Kiroku.Store.Migrations (
-    migrationStatus,
-    runKirokuMigrationsNoCheck,
-    verifySchema,
- )
-import Kiroku.Store.Migrations.New (defaultMigrationsDir, newMigrationFile)
+import Kiroku.Store.Migrations qualified as Migrations
+import Kiroku.Store.Migrations.New qualified as New
 
 main :: IO ()
 main =
     migrationCliMain
         MigrationCliConfig
-            { cliProgramName = "kiroku-store-migrate"
-            , cliMigrationsDirEnv = "KIROKU_MIGRATIONS_DIR"
-            , cliDefaultMigrationsDir = defaultMigrationsDir
-            , cliNewMigrationFile = newMigrationFile
-            , cliRunUp = runUp
-            , cliVerifySchema = verifySchema
-            , cliMigrationStatus = \settings connectTimeout ->
-                migrationStatus (migsConnString settings) connectTimeout
-            , cliConnectTimeout = secondsToDiffTime 5
-            , cliNoCheckEnv = Nothing
-            , cliEmbedRefreshHint =
+            { programName = "kiroku-store-migrate"
+            , migrationsDirEnv = "KIROKU_MIGRATIONS_DIR"
+            , defaultMigrationsDir = New.defaultMigrationsDir
+            , newMigrationFile = New.newMigrationFile
+            , runUp = runUpMigrations
+            , verifySchema = Migrations.verifySchema
+            , migrationStatus = \settings timeout ->
+                Migrations.migrationStatus (migsConnString settings) timeout
+            , connectTimeout = secondsToDiffTime 5
+            , noCheckEnv = Nothing
+            , embedRefreshHint =
                 "Next: touch the embed comment in src/Kiroku/Store/Migrations.hs so embedDir picks it up (or run `cabal clean`)."
             }
 
-runUp :: CheckMode -> CoddSettings -> DiffTime -> IO ApplyResult
-runUp _ settings connectTimeout =
-    runKirokuMigrationsNoCheck settings connectTimeout
+runUpMigrations :: CheckMode -> CoddSettings -> DiffTime -> IO ApplyResult
+runUpMigrations _ settings timeout =
+    Migrations.runKirokuMigrationsNoCheck settings timeout
