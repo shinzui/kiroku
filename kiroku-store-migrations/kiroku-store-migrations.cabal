@@ -174,7 +174,6 @@ library
     , bytestring         >=0.11   && <0.13
     , codd               >=0.1.8  && <0.2
     , codd-extras
-    , crypton
     , directory          >=1.3    && <1.4
     , file-embed         >=0.0.15 && <0.0.17
     , filepath           >=1.4    && <1.6
