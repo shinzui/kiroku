@@ -192,6 +192,7 @@ executable kiroku-store-migrate
     , base
     , bytestring
     , codd
+    , codd-extras
     , directory
     , kiroku-store-migrations
     , text
