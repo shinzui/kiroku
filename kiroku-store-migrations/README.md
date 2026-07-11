@@ -105,20 +105,6 @@ source-ledger preservation. `cabal test kiroku-store:kiroku-store-test` consumes
 the same native plan through `kiroku-test-support` and proves the complete store
 behavior, including append and read scenarios.
 
-## Transitional expected-schema tool
-
-The old Codd-generated PostgreSQL 18 snapshot remains available only through a
-flagged legacy executable. It is not part of the normal library or migration
-executable dependency closure:
-
-```bash
-cabal run kiroku-write-expected-schema -fexpected-schema-tool
-```
-
-Normal builds disable it with `-f-expected-schema-tool`. The snapshot is a
-supplementary drift aid; the supported runtime contract is the native manifest
-and `pg-migrate` ledger verification.
-
 ## Recovery
 
 Migrations are forward-only. Before a persistent upgrade, take a backup. If an

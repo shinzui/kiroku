@@ -15,124 +15,6 @@ build-type:         Simple
 category:           Database, Eventing
 extra-doc-files:    CHANGELOG.md
 extra-source-files:
-  expected-schema/v18/db-settings
-  expected-schema/v18/roles/kiroku
-  expected-schema/v18/schemas/kiroku/objrep
-  expected-schema/v18/schemas/kiroku/routines/notify_events;
-  expected-schema/v18/schemas/kiroku/routines/prevent_mutation;
-  expected-schema/v18/schemas/kiroku/routines/protect_deletion;
-  expected-schema/v18/schemas/kiroku/routines/protect_truncation;
-  expected-schema/v18/schemas/kiroku/sequences/dead_letters_dead_letter_id_seq
-  expected-schema/v18/schemas/kiroku/sequences/streams_stream_id_seq
-  expected-schema/v18/schemas/kiroku/sequences/subscriptions_subscription_id_seq
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/cols/attempt_count
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/cols/consumer_group_member
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/cols/created_at
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/cols/dead_letter_id
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/cols/event_id
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/cols/global_position
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/cols/reason
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/cols/reason_summary
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/cols/subscription_name
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/constraints/dead_letters_attempt_count_not_null
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/constraints/dead_letters_consumer_group_member_not_null
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/constraints/dead_letters_created_at_not_null
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/constraints/dead_letters_dead_letter_id_not_null
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/constraints/dead_letters_event_id_fkey
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/constraints/dead_letters_event_id_not_null
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/constraints/dead_letters_global_position_not_null
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/constraints/dead_letters_pkey
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/constraints/dead_letters_reason_not_null
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/constraints/dead_letters_reason_summary_not_null
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/constraints/dead_letters_subscription_name_consumer_group_member_global_key
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/constraints/dead_letters_subscription_name_not_null
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/indexes/dead_letters_pkey
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/indexes/dead_letters_subscription_name_consumer_group_member_global_key
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/indexes/ix_dead_letters_event_id
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/indexes/ix_dead_letters_subscription_position
-  expected-schema/v18/schemas/kiroku/tables/dead_letters/objrep
-  expected-schema/v18/schemas/kiroku/tables/events/cols/causation_id
-  expected-schema/v18/schemas/kiroku/tables/events/cols/correlation_id
-  expected-schema/v18/schemas/kiroku/tables/events/cols/created_at
-  expected-schema/v18/schemas/kiroku/tables/events/cols/data
-  expected-schema/v18/schemas/kiroku/tables/events/cols/event_id
-  expected-schema/v18/schemas/kiroku/tables/events/cols/event_type
-  expected-schema/v18/schemas/kiroku/tables/events/cols/metadata
-  expected-schema/v18/schemas/kiroku/tables/events/constraints/events_created_at_not_null
-  expected-schema/v18/schemas/kiroku/tables/events/constraints/events_data_not_null
-  expected-schema/v18/schemas/kiroku/tables/events/constraints/events_event_id_not_null
-  expected-schema/v18/schemas/kiroku/tables/events/constraints/events_event_type_not_null
-  expected-schema/v18/schemas/kiroku/tables/events/constraints/events_pkey
-  expected-schema/v18/schemas/kiroku/tables/events/indexes/events_pkey
-  expected-schema/v18/schemas/kiroku/tables/events/indexes/ix_events_causation_id
-  expected-schema/v18/schemas/kiroku/tables/events/indexes/ix_events_correlation_id
-  expected-schema/v18/schemas/kiroku/tables/events/objrep
-  expected-schema/v18/schemas/kiroku/tables/events/triggers/no_delete_events
-  expected-schema/v18/schemas/kiroku/tables/events/triggers/no_truncate_events
-  expected-schema/v18/schemas/kiroku/tables/events/triggers/no_update_events
-  expected-schema/v18/schemas/kiroku/tables/stream_events/cols/event_id
-  expected-schema/v18/schemas/kiroku/tables/stream_events/cols/original_stream_id
-  expected-schema/v18/schemas/kiroku/tables/stream_events/cols/original_stream_version
-  expected-schema/v18/schemas/kiroku/tables/stream_events/cols/stream_id
-  expected-schema/v18/schemas/kiroku/tables/stream_events/cols/stream_version
-  expected-schema/v18/schemas/kiroku/tables/stream_events/constraints/stream_events_event_id_fkey
-  expected-schema/v18/schemas/kiroku/tables/stream_events/constraints/stream_events_event_id_not_null
-  expected-schema/v18/schemas/kiroku/tables/stream_events/constraints/stream_events_original_stream_id_not_null
-  expected-schema/v18/schemas/kiroku/tables/stream_events/constraints/stream_events_original_stream_version_not_null
-  expected-schema/v18/schemas/kiroku/tables/stream_events/constraints/stream_events_pkey
-  expected-schema/v18/schemas/kiroku/tables/stream_events/constraints/stream_events_stream_id_fkey
-  expected-schema/v18/schemas/kiroku/tables/stream_events/constraints/stream_events_stream_id_not_null
-  expected-schema/v18/schemas/kiroku/tables/stream_events/constraints/stream_events_stream_version_not_null
-  expected-schema/v18/schemas/kiroku/tables/stream_events/indexes/ix_stream_events_all_by_origin
-  expected-schema/v18/schemas/kiroku/tables/stream_events/indexes/stream_events_pkey
-  expected-schema/v18/schemas/kiroku/tables/stream_events/indexes/ux_stream_events_stream_version
-  expected-schema/v18/schemas/kiroku/tables/stream_events/objrep
-  expected-schema/v18/schemas/kiroku/tables/stream_events/triggers/no_delete_stream_events
-  expected-schema/v18/schemas/kiroku/tables/stream_events/triggers/no_truncate_stream_events
-  expected-schema/v18/schemas/kiroku/tables/stream_events/triggers/no_update_stream_events
-  expected-schema/v18/schemas/kiroku/tables/streams/cols/category
-  expected-schema/v18/schemas/kiroku/tables/streams/cols/created_at
-  expected-schema/v18/schemas/kiroku/tables/streams/cols/deleted_at
-  expected-schema/v18/schemas/kiroku/tables/streams/cols/stream_id
-  expected-schema/v18/schemas/kiroku/tables/streams/cols/stream_name
-  expected-schema/v18/schemas/kiroku/tables/streams/cols/stream_version
-  expected-schema/v18/schemas/kiroku/tables/streams/cols/truncate_before
-  expected-schema/v18/schemas/kiroku/tables/streams/constraints/chk_streams_stream_name_length
-  expected-schema/v18/schemas/kiroku/tables/streams/constraints/ix_streams_stream_name
-  expected-schema/v18/schemas/kiroku/tables/streams/constraints/streams_created_at_not_null
-  expected-schema/v18/schemas/kiroku/tables/streams/constraints/streams_pkey
-  expected-schema/v18/schemas/kiroku/tables/streams/constraints/streams_stream_id_not_null
-  expected-schema/v18/schemas/kiroku/tables/streams/constraints/streams_stream_name_not_null
-  expected-schema/v18/schemas/kiroku/tables/streams/constraints/streams_stream_version_not_null
-  expected-schema/v18/schemas/kiroku/tables/streams/constraints/streams_truncate_before_not_null
-  expected-schema/v18/schemas/kiroku/tables/streams/indexes/ix_streams_category
-  expected-schema/v18/schemas/kiroku/tables/streams/indexes/ix_streams_stream_name
-  expected-schema/v18/schemas/kiroku/tables/streams/indexes/streams_pkey
-  expected-schema/v18/schemas/kiroku/tables/streams/objrep
-  expected-schema/v18/schemas/kiroku/tables/streams/triggers/no_delete_streams
-  expected-schema/v18/schemas/kiroku/tables/streams/triggers/no_truncate_streams
-  expected-schema/v18/schemas/kiroku/tables/streams/triggers/stream_events_notify_insert
-  expected-schema/v18/schemas/kiroku/tables/streams/triggers/stream_events_notify_update
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/cols/consumer_group_member
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/cols/consumer_group_size
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/cols/created_at
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/cols/last_seen
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/cols/stream_name
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/cols/subscription_id
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/cols/subscription_name
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/cols/updated_at
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/constraints/subscriptions_consumer_group_member_not_null
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/constraints/subscriptions_consumer_group_size_not_null
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/constraints/subscriptions_created_at_not_null
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/constraints/subscriptions_last_seen_not_null
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/constraints/subscriptions_pkey
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/constraints/subscriptions_stream_name_not_null
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/constraints/subscriptions_subscription_id_not_null
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/constraints/subscriptions_subscription_name_not_null
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/constraints/subscriptions_updated_at_not_null
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/indexes/ix_subscriptions_name_member
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/indexes/subscriptions_pkey
-  expected-schema/v18/schemas/kiroku/tables/subscriptions/objrep
   migrations/*.sql
   migrations/manifest
   migrations.lock
@@ -141,14 +23,6 @@ extra-source-files:
 source-repository head
   type:     git
   location: https://github.com/shinzui/kiroku.git
-
-flag expected-schema-tool
-  description:
-    Build the legacy Codd-backed expected-schema snapshot writer. This
-    transitional tool is excluded from the normal pg-migrate closure.
-
-  default:     False
-  manual:      True
 
 common common
   default-language:   GHC2024
@@ -196,29 +70,6 @@ executable kiroku-store-migrate
     , pg-migrate               ^>=1.0.0.0
     , pg-migrate-cli           ^>=1.0.0.0
     , text                     >=2.0      && <2.2
-
-executable kiroku-write-expected-schema
-  import:         common
-  main-is:        WriteExpectedSchema.hs
-  hs-source-dirs: app
-  other-modules:  Kiroku.Store.Migrations.LegacyCodd
-  ghc-options:    -threaded -rtsopts -with-rtsopts=-N
-
-  if !flag(expected-schema-tool)
-    buildable: False
-
-  build-depends:
-    , attoparsec               >=0.14   && <0.15
-    , base                     >=4.18   && <5
-    , codd                     >=0.1.8  && <0.2
-    , codd-extras              >=0.1    && <0.2
-    , codd-extras:ephemeral
-    , ephemeral-pg             >=0.2    && <0.3
-    , file-embed               >=0.0.15 && <0.0.17
-    , filepath                 >=1.4    && <1.6
-    , kiroku-store-migrations
-    , text                     >=2.0    && <2.2
-    , time                     >=1.12   && <1.15
 
 test-suite kiroku-store-migrations-test
   import:         common

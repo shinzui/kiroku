@@ -6,6 +6,9 @@
   native-runner canary. Fresh and imported-prefix tests prove it applies once,
   verifies strictly, and reruns as `AlreadyApplied` without changing historical
   payloads or Codd mappings.
+* Removed the orphaned Codd expected-schema snapshot, writer executable, Cabal
+  flag, and Nix closure workaround. Codd ledger history import remains supported
+  independently through `pg-migrate-import-codd`.
 
 ## 0.2.0.0 — 2026-07-10
 

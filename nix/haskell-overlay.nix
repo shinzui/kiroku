@@ -140,16 +140,7 @@ final: prev: {
   );
 
   kiroku-store-migrations = dontCheck (
-    doJailbreak (
-      overrideCabal (_: {
-        # The disabled-by-default legacy expected-schema writer retains Codd
-        # and ephemeral-pg only for explicit snapshot maintenance. Keep it out
-        # of the normal Nix closure; cabal2nix lists executable dependencies
-        # even for a disabled flag, so both settings remain necessary.
-        configureFlags = [ "-f-expected-schema-tool" ];
-        executableHaskellDepends = [ ];
-      }) (final.callCabal2nix "kiroku-store-migrations" ../kiroku-store-migrations { })
-    )
+    doJailbreak (final.callCabal2nix "kiroku-store-migrations" ../kiroku-store-migrations { })
   );
 
   shibuya-kiroku-adapter = dontCheck (
