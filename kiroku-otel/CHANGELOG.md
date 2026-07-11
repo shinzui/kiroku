@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.2.0.1 — 2026-07-11
+
+### Other Changes
+
+* Requires `kiroku-store ^>=0.3`. The tracer matches exhaustively on
+  `KirokuEvent`, so it now handles that release's new
+  `KirokuEventPublisherLoopError` constructor; the event is ignored rather than
+  turned into a span, since the publisher loop is not a per-subscription unit of
+  work. No change to `kiroku-otel`'s own API.
+
 ## 0.2.0.0 — 2026-05-31
 
 ### Breaking Changes

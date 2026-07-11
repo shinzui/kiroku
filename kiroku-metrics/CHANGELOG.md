@@ -1,5 +1,12 @@
 # Revision history for kiroku-metrics
 
+## 0.1.0.1 -- 2026-07-11
+
+### Other Changes
+
+* Relaxed dependency bounds to `kiroku-store ^>=0.3` and `kiroku-cli ^>=0.2`. No
+  change to `kiroku-metrics`' own API or behavior.
+
 ## 0.1.0.0 -- 2026-06-15
 
 First release. A sister package to `kiroku-store` that exposes operational

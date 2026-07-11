@@ -2,15 +2,7 @@
 
 ## Unreleased
 
-* Appended `0008-schema-management-comment`, a non-destructive observable
-  native-runner canary. Fresh and imported-prefix tests prove it applies once,
-  verifies strictly, and reruns as `AlreadyApplied` without changing historical
-  payloads or Codd mappings.
-* Removed the orphaned Codd expected-schema snapshot, writer executable, Cabal
-  flag, and Nix closure workaround. Codd ledger history import remains supported
-  independently through `pg-migrate-import-codd`.
-
-## 0.2.0.0 — 2026-07-10
+## 0.2.0.0 — 2026-07-11
 
 ### Breaking Changes
 
@@ -38,6 +30,10 @@
   import, partial-row rejection, audit, and source-preservation coverage. The
   full Kiroku store suite now consumes the same native plan through
   `kiroku-test-support`.
+* Appended `0008-schema-management-comment`, a non-destructive observable
+  native-runner canary. Fresh and imported-prefix tests prove it applies once,
+  verifies strictly, and reruns as `AlreadyApplied` without changing historical
+  payloads or Codd mappings.
 
 ### Changed
 
@@ -45,9 +41,11 @@
   authoritative ordering to `migrations/manifest`; `migrations.lock` remains
   the source evidence used during Codd history import.
 * Removed Codd, `codd-extras`, `file-embed`, and `postgresql-simple` from the
-  normal library and executable dependency closure. The legacy Codd
-  expected-schema writer remained isolated behind a disabled-by-default flag
-  for transitional snapshot maintenance.
+  normal library and executable dependency closure.
+* Removed the orphaned Codd expected-schema snapshot, its writer executable, the
+  Cabal flag that gated it, and the accompanying Nix closure workaround. Codd
+  ledger history import remains supported independently through
+  `pg-migrate-import-codd`.
 
 ## 0.1.1.0 — 2026-05-31
 

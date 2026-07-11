@@ -1,6 +1,6 @@
 cabal-version:   3.0
 name:            kiroku-cli
-version:         0.1.0.0
+version:         0.2.0.0
 synopsis:        Embeddable operator CLI for Kiroku
 description:
   Parser, runner, and executable entry points for Kiroku operator commands.
@@ -49,7 +49,7 @@ library
     , http-client           >=0.7  && <0.8
     , http-client-tls       >=0.3  && <0.4
     , http-types            >=0.12 && <0.13
-    , kiroku-store          ^>=0.2
+    , kiroku-store          ^>=0.3
     , lens                  >=5.2  && <5.4
     , optparse-applicative  >=0.19 && <0.20
     , text                  >=2.0  && <2.2

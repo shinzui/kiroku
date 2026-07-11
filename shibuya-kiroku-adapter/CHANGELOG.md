@@ -2,12 +2,13 @@
 
 ## Unreleased
 
-## 0.4.0.0 — 2026-06-14
+## 0.4.0.0 — 2026-07-11
 
 ### Breaking Changes
 
 * `KirokuAdapterConfig` and `KirokuConsumerGroupConfig` gain a
   `queueCapacity` field, defaulting to 16 in the smart constructors.
+* Requires `shibuya-core >=0.8 && <0.9` (was `>=0.7`) and `kiroku-store ^>=0.3`.
 
 ### Fixed
 

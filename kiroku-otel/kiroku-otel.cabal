@@ -1,6 +1,6 @@
 cabal-version:   3.0
 name:            kiroku-otel
-version:         0.2.0.0
+version:         0.2.0.1
 synopsis:
   OpenTelemetry W3C trace-context helpers for Kiroku event metadata
 
@@ -50,7 +50,7 @@ library
     , hs-opentelemetry-api                   ^>=1.0
     , hs-opentelemetry-propagator-w3c        ^>=1.0
     , hs-opentelemetry-semantic-conventions  ^>=1.40
-    , kiroku-store                           ^>=0.2
+    , kiroku-store                           ^>=0.3
     , lens                                   >=5.2   && <5.4
     , text                                   >=2.0   && <2.2
     , unordered-containers                   >=0.2   && <0.3
@@ -76,7 +76,7 @@ test-suite kiroku-otel-test
     , hs-opentelemetry-sdk                 ^>=1.0
     , hspec                                >=2.10 && <2.12
     , kiroku-otel
-    , kiroku-store                         ^>=0.2
+    , kiroku-store                         ^>=0.3
     , kiroku-test-support
     , lens                                 >=5.2  && <5.4
     , stm                                  >=2.5  && <2.6
