@@ -5,3 +5,4 @@
 0005-index-hygiene-and-streams-fillfactor.sql
 0006-stream-name-length-check.sql
 0007-stream-truncate-before.sql
+0008-schema-management-comment.sql

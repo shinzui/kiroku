@@ -39,7 +39,7 @@ import Test.Hspec
 main :: IO ()
 main = hspec $ do
     describe "native Kiroku migration definition" $ do
-        it "tracks the seven native files in manifest order" $ do
+        it "tracks the eight native files in manifest order" $ do
             directory <- findMigrationsDirectory
             manifest <- Text.lines <$> Text.IO.readFile (directory </> "manifest")
             manifest `shouldBe` Text.pack <$> nativeMigrationFiles
@@ -52,7 +52,7 @@ main = hspec $ do
                 bytes <- ByteString.readFile (directory </> nativeName)
                 lookup legacyName lockEntries `shouldBe` Just (checksumText bytes)
 
-        it "builds component kiroku and a seven-migration plan" $ do
+        it "builds component kiroku and an eight-migration plan" $ do
             component <- requireRight kirokuMigrations
             component `seq` pure ()
             plan <- requirePlan
@@ -62,7 +62,7 @@ main = hspec $ do
                     ]
             validateHistoryMappingTargets plan kirokuCoddHistoryMappings
                 `shouldBe` Right ()
-            length targetIds `shouldBe` 7
+            length targetIds `shouldBe` 8
 
     describe "native migration authoring" $ do
         it "creates the next numeric file and atomically appends the manifest" $
@@ -88,18 +88,18 @@ main = hspec $ do
                     `shouldReturn` "0007-existing.sql\n"
 
     describe "fresh native databases" $ do
-        it "applies all seven, verifies strictly, and reports AlreadyApplied on rerun" $ do
+        it "applies all eight, verifies strictly, and reports AlreadyApplied on rerun" $ do
             plan <- requirePlan
             result <- withMigratedDatabase plan $ \connection -> do
                 assertSchema connection
                 let provider = providerFor connection
                 rerun <- runMigrationPlanWith defaultRunOptions provider plan >>= requireMigration
-                reportOutcomes rerun `shouldBe` replicate 7 AlreadyApplied
+                reportOutcomes rerun `shouldBe` replicate 8 AlreadyApplied
                 verified <- verifyMigrationPlanWith defaultRunOptions provider plan >>= requireMigration
                 case verified of
                     VerificationReport verificationIssues applied _ _ -> do
                         verificationIssues `shouldBe` []
-                        length applied `shouldBe` 7
+                        length applied `shouldBe` 8
             either (expectationFailure . show) pure result
 
         it "serializes concurrent applies through the pg-migrate advisory lock" $ do
@@ -111,7 +111,7 @@ main = hspec $ do
                         (runMigrationPlan defaultRunOptions settings plan >>= requireMigration)
                         (runMigrationPlan defaultRunOptions settings plan >>= requireMigration)
                 sort [reportOutcomes first, reportOutcomes second]
-                    `shouldBe` sort [replicate 7 AppliedNow, replicate 7 AlreadyApplied]
+                    `shouldBe` sort [replicate 8 AppliedNow, replicate 8 AlreadyApplied]
 
     describe "Codd history import" $ do
         it "imports a current codd V5 ledger, verifies, and never replays SQL" $
@@ -155,12 +155,20 @@ importFixture sourceSchema = do
             importCoddHistory defaultImportOptions config provider plan kirokuCoddHistoryMappings
                 >>= requireRight
         importOutcomes first `shouldBe` replicate 7 Imported
-        verified <- verifyMigrationPlan defaultRunOptions settings plan >>= requireMigration
-        case verified of
+        canaryId <- requireRight (migrationId "kiroku" "0008-schema-management-comment")
+        verifiedBeforeCanary <- verifyMigrationPlan defaultRunOptions settings plan >>= requireMigration
+        case verifiedBeforeCanary of
+            VerificationReport verificationIssues _ _ _ ->
+                verificationIssues
+                    `shouldBe` [PendingMigration canaryId]
+        up <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
+        reportOutcomes up `shouldBe` replicate 7 AlreadyApplied <> [AppliedNow]
+        verifiedAfterCanary <- verifyMigrationPlan defaultRunOptions settings plan >>= requireMigration
+        case verifiedAfterCanary of
             VerificationReport verificationIssues _ _ _ ->
                 verificationIssues `shouldBe` []
-        up <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
-        reportOutcomes up `shouldBe` replicate 7 AlreadyApplied
+        rerun <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
+        reportOutcomes rerun `shouldBe` replicate 8 AlreadyApplied
         second <-
             importCoddHistory defaultImportOptions config provider plan kirokuCoddHistoryMappings
                 >>= requireRight
@@ -170,7 +178,7 @@ importFixture sourceSchema = do
             sourceRows <- useSession connection (Session.statement () (sourceRowCountStatement sourceSchema))
             sourceRows `shouldBe` 7
             facts <- useSession connection (Session.statement () importFactsStatement)
-            facts `shouldBe` (7, 7, True)
+            facts `shouldBe` (8, 7, True)
 
 nativeMigrationFiles :: [FilePath]
 nativeMigrationFiles =
@@ -181,6 +189,7 @@ nativeMigrationFiles =
     , "0005-index-hygiene-and-streams-fillfactor.sql"
     , "0006-stream-name-length-check.sql"
     , "0007-stream-truncate-before.sql"
+    , "0008-schema-management-comment.sql"
     ]
 
 findMigrationsDirectory :: IO FilePath
@@ -297,7 +306,8 @@ schemaFactsStatement =
           (EXISTS (SELECT 1 FROM pg_catalog.pg_trigger WHERE tgname = 'stream_events_notify_insert' AND NOT tgisinternal)),
           (EXISTS (SELECT 1 FROM pg_catalog.pg_indexes WHERE schemaname = 'kiroku' AND indexname = 'ix_dead_letters_event_id')),
           (EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'chk_streams_stream_name_length')),
-          (EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a JOIN pg_catalog.pg_class c ON c.oid = a.attrelid JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'kiroku' AND c.relname = 'streams' AND a.attname = 'truncate_before' AND NOT a.attisdropped))
+          (EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a JOIN pg_catalog.pg_class c ON c.oid = a.attrelid JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'kiroku' AND c.relname = 'streams' AND a.attname = 'truncate_before' AND NOT a.attisdropped)),
+          (obj_description(to_regnamespace('kiroku'), 'pg_namespace') = 'Managed by pg-migrate component kiroku through 0008-schema-management-comment')
         ) AS checks(ok)
         """
         Encoders.noParams
@@ -312,7 +322,7 @@ oversizedStreamStatement =
 
 applyNativeSqlFromDisk :: Connection.Connection -> FilePath -> IO ()
 applyNativeSqlFromDisk connection directory =
-    forM_ nativeMigrationFiles $ \file -> do
+    forM_ (take 7 nativeMigrationFiles) $ \file -> do
         sql <- Text.IO.readFile (directory </> file)
         useSession connection (Session.script sql)
 
