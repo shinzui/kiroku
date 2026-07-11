@@ -42,6 +42,12 @@ in  Schema.Project::{ project =
         , path = Some "kiroku-metrics"
         , description = Some "Metrics, health, and event-streaming HTTP endpoints for Kiroku"
         }
+      , Schema.Package::{ name = "kiroku-store-migrations"
+        , type = Schema.PackageType.Library
+        , language = Schema.Language.Haskell
+        , path = Some "kiroku-store-migrations"
+        , description = Some "Native pg-migrate component and checked-in Codd history mapping for Kiroku"
+        }
       ]
     , dependencies =
       [ "effectful/effectful"
@@ -52,6 +58,7 @@ in  Schema.Project::{ project =
       , "iand675/hs-opentelemetry"
       , "MMZK1526/mmzk-typeid"
       , "shinzui/ephemeral-pg"
+      , "shinzui/pg-migrate"
       , "shinzui/shibuya"
       ]
     }

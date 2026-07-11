@@ -1,120 +1,78 @@
 # Schema Migrations
 
-Kiroku ships schema migrations in the `kiroku-store-migrations` package.
-Use this package to create or upgrade the PostgreSQL schema before an
-application opens `kiroku-store`.
+Kiroku ships one native `pg-migrate` component in
+`kiroku-store-migrations`. Apply it before an application opens `kiroku-store`;
+the event-store library itself never runs schema DDL.
 
-The package embeds its SQL migrations into the Haskell library and the
-`kiroku-store-migrate` executable at build time. A deployed service does
-not need to locate Kiroku migration `.sql` files on disk. The SQL files
-are part of the source package, compiled into the executable with
-`file-embed`, parsed as `codd` migrations, and passed to `codd` through
-its library API.
+The component is named `kiroku`, has no component dependencies, and currently
+contains seven ordered migrations. Its checked-in
+`kiroku-store-migrations/migrations/manifest` is authoritative. SQL bytes are
+embedded at compile time and deployed services do not discover migration files
+at runtime.
 
-
-## Why Migrations Are Separate
-
-`kiroku-store` no longer embeds schema DDL or runs schema creation on
-startup. All schema creation and upgrades live in this package.
-
-Production deployments should split schema changes from normal runtime
-traffic:
-
-1. Run migrations with a privileged migration role.
-2. Run the application with a lower-privilege runtime role.
-3. Open the store with the runtime role after migrations have succeeded.
-
-This lets the application user avoid `CREATE` and `TRIGGER` privileges
-during normal startup.
-
-
-## Running The Executable
-
-The executable is named `kiroku-store-migrate`. It reads standard `codd`
-environment variables for the migration connection and schema checking
-configuration.
+## Running the executable
 
 ```bash
-CODD_CONNECTION='host=/tmp port=5432 dbname=kiroku user=kiroku_admin' \
-CODD_MIGRATION_DIRS=unused-for-embedded-migrations \
-CODD_EXPECTED_SCHEMA_DIR=kiroku-store-migrations/expected-schema \
-CODD_SCHEMAS=kiroku \
-kiroku-store-migrate
+kiroku-store-migrate plan
+kiroku-store-migrate up --database-url "$DATABASE_URL"
+kiroku-store-migrate verify --database-url "$DATABASE_URL"
 ```
 
-`CODD_MIGRATION_DIRS` is still required by `codd` settings even though
-Kiroku supplies embedded migrations to the `codd` library. The value is
-not used for discovering Kiroku migrations.
+The executable also accepts `DATABASE_URL` as the application-owned default.
+No `CODD_*` environment variable is required. `verify` strictly compares the
+declared plan with the versioned `pgmigrate` ledger. A clean report proves that
+all declared payload identities and checksums are present in order; it does not
+claim that every live schema object matches a snapshot.
 
-Kiroku installs all of its objects into a dedicated `kiroku` schema rather
-than `public`, so `CODD_SCHEMAS=kiroku` is the schema codd should track.
-Grant the runtime role privileges on the `kiroku` schema (such as `USAGE`
-and the table privileges the application uses); it does not need
-privileges on `public`.
-
-Run the command again after it succeeds. The second run should complete
-without reapplying the bootstrap migration.
-
-
-## Running From Haskell
-
-Services that prefer a deploy helper executable can call the library API
-directly:
+Run migrations with a privileged role, then open the store with a lower
+privilege role:
 
 ```haskell
-import Codd (VerifySchemas (LaxCheck))
-import Codd.Environment (getCoddSettings)
-import Data.Time (secondsToDiffTime)
-import Kiroku.Store.Migrations (runKirokuMigrations)
+import Database.PostgreSQL.Migrate
+import Hasql.Connection.Settings qualified as Settings
+import Kiroku.Store
+import Kiroku.Store.Migrations
 
 main :: IO ()
 main = do
-  settings <- getCoddSettings
-  _ <- runKirokuMigrations settings (secondsToDiffTime 5) LaxCheck
-  pure ()
+  plan <- either (fail . show) pure kirokuMigrationPlan
+  migrated <- runMigrationPlan defaultRunOptions (Settings.connectionString connString) plan
+  either (fail . show) (const (withStore (defaultConnectionSettings connString) app)) migrated
 ```
 
-`runKirokuMigrations` uses `codd` as a library. It builds Kiroku's
-embedded SQL files as `AddedSqlMigration` values and calls `codd` with
-those in-memory migrations instead of asking `codd` to read Kiroku SQL
-from a filesystem directory.
+Applications composing Kiroku with other libraries should use
+`kirokuMigrations` and pass all components to `migrationPlan` in explicit
+dependency order.
 
+## Existing Codd databases
 
-## Opening The Store After Migration
+Do not run the native plan directly against a database whose seven Kiroku
+migrations already appear in `codd.sql_migrations` or
+`codd_schema.sql_migrations`. First import that history with
+`kirokuCoddSourceConfig`, `kirokuCoddHistoryMappings`, and
+`importCoddHistory`. The importer:
 
-After migrations have run, open the store normally:
+1. reads the supported Codd ledger under its cooperating advisory lock;
+2. requires all seven complete rows and rejects partial or duplicate history;
+3. verifies each historical payload through the checked-in SHA-256 lock file;
+4. writes equivalent applied rows and audit evidence to `pgmigrate`; and
+5. leaves the Codd source objects unchanged.
 
-```haskell
-import Kiroku.Store
+After import, run strict `verify`, then `up`. `up` must report
+`AlreadyApplied` for all seven Kiroku migrations. A missing row, checksum
+mismatch, or partial nontransactional row is a cutover blocker.
 
-main :: IO ()
-main = withStore (defaultConnectionSettings connString) app
+## Authoring and recovery
+
+Create new migrations with the standard authoring command:
+
+```bash
+kiroku-store-migrate new \
+  --manifest kiroku-store-migrations/migrations/manifest \
+  --description "describe the forward schema change"
 ```
 
-`withStore` assumes the configured schema already exists and contains the
-Kiroku tables, functions, triggers, and indexes.
-
-
-## Forward-Only Model
-
-`codd` is forward-only. Once a migration has run in production,
-reverting the Haskell package does not undo the database change. Recovery
-from a bad migration means restoring from backup or shipping another
-forward migration that repairs the state.
-
-Do not edit a migration file after it has been released to users. Add a
-new timestamped migration for every schema change.
-
-
-## Current Schema Checking Status
-
-The first migration package runs with `LaxCheck`. This applies and
-records migrations, but it does not fail the command when the live
-database differs from a checked-in expected-schema snapshot.
-
-Strict `codd` schema verification is intentionally deferred until Kiroku
-ships an expected-schema snapshot for the PostgreSQL version it supports.
-Kiroku supports PostgreSQL 17 or newer. PostgreSQL 18 provides the
-built-in `pg_catalog.uuidv7()` function, while PostgreSQL 17 receives a
-Kiroku-managed PL/pgSQL `uuidv7()` fallback from the bootstrap schema
-before `events.event_id DEFAULT uuidv7()` is parsed.
+Review both the new SQL file and appended manifest line. Keep Kiroku objects
+schema-qualified and never edit a released payload. Migrations are
+forward-only: recover by restoring a pre-migration backup or appending a new
+corrective migration.

@@ -26,7 +26,7 @@ The main implementation is split across these modules:
 | Streamly bridge | `kiroku-store/src/Kiroku/Store/Subscription/Stream.hs` | Converts the push handler API into a pull-based `Stream IO RecordedEvent`. |
 | Effectful API | `kiroku-store/src/Kiroku/Store/Subscription/Effect.hs` | `Subscription` effect and interpreter for handlers that run in `Eff`. |
 | SQL | `kiroku-store/src/Kiroku/Store/SQL.hs` | `$all`, category, consumer-group, and checkpoint statements. |
-| Schema | `kiroku-store-migrations/sql-migrations/2026-05-16-00-00-00-kiroku-bootstrap.sql` | `subscriptions` table and `notify_events()` trigger. |
+| Schema | `kiroku-store-migrations/migrations/0001-kiroku-bootstrap.sql` | `subscriptions` table and `notify_events()` trigger. |
 | Shibuya adapter | `shibuya-kiroku-adapter/src/Shibuya/Adapter/Kiroku.hs` | Shibuya `Adapter` backed by `subscriptionStream`. |
 | Shibuya conversion | `shibuya-kiroku-adapter/src/Shibuya/Adapter/Kiroku/Convert.hs` | `RecordedEvent` to Shibuya `Ingested`/`Envelope` mapping. |
 

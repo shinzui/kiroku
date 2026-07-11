@@ -44,7 +44,7 @@ A row-level trigger on the `streams` table fires once per append (per stream
 row touched), not once per event. It publishes a comma-delimited payload to a
 schema-scoped channel.
 
-`kiroku-store-migrations/sql-migrations/2026-05-16-00-00-00-kiroku-bootstrap.sql:146-159`
+`kiroku-store-migrations/migrations/0001-kiroku-bootstrap.sql`
 
 ```sql
 CREATE OR REPLACE FUNCTION notify_events() RETURNS TRIGGER AS $$

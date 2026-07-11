@@ -1,29 +1,45 @@
-module Main where
+module Main (main) where
 
-import Codd (ApplyResult, CoddSettings (..))
-import Codd.Extras.Cli (CheckMode, MigrationCliConfig (..), migrationCliMain)
-import Data.Time (DiffTime, secondsToDiffTime)
-import Kiroku.Store.Migrations qualified as Migrations
-import Kiroku.Store.Migrations.New qualified as New
+import Data.Aeson qualified as Aeson
+import Data.ByteString.Lazy.Char8 qualified as LazyByteString
+import Data.Text qualified as Text
+import Data.Text.IO qualified as Text.IO
+import Database.PostgreSQL.Migrate (defaultRunOptions)
+import Database.PostgreSQL.Migrate.CLI
+import Hasql.Connection.Settings qualified as Settings
+import Kiroku.Store.Migrations (kirokuMigrationPlan)
+import Options.Applicative
+import System.Environment (lookupEnv)
+import System.Exit qualified as Exit
 
 main :: IO ()
-main =
-    migrationCliMain
-        MigrationCliConfig
-            { programName = "kiroku-store-migrate"
-            , migrationsDirEnv = "KIROKU_MIGRATIONS_DIR"
-            , defaultMigrationsDir = New.defaultMigrationsDir
-            , newMigrationFile = New.newMigrationFile
-            , runUp = runUpMigrations
-            , verifySchema = Migrations.verifySchema
-            , migrationStatus = \settings timeout ->
-                Migrations.migrationStatus (migsConnString settings) timeout
-            , connectTimeout = secondsToDiffTime 5
-            , noCheckEnv = Nothing
-            , embedRefreshHint =
-                "Next: touch the embed comment in src/Kiroku/Store/Migrations.hs so embedDir picks it up (or run `cabal clean`)."
-            }
+main = do
+    plan <- either (fail . show) pure kirokuMigrationPlan
+    command <-
+        execParser
+            ( info
+                (migrationCommandParser plan <**> helper)
+                (fullDesc <> progDesc "Manage the Kiroku migration component")
+            )
+    defaultDatabaseUrl <- lookupEnv "DATABASE_URL"
+    let defaultSettings =
+            Settings.connectionString (Text.pack (maybe "" id defaultDatabaseUrl))
+        environment = cliEnvironment defaultSettings plan defaultRunOptions
+    outcome <- runMigrationCommand environment command
+    case commandOutputFormat command of
+        TextOutput -> Text.IO.putStrLn (renderMigrationCommandText outcome)
+        JsonOutput -> LazyByteString.putStrLn (Aeson.encode (renderMigrationCommandJson outcome))
+    Exit.exitWith
+        (case exitClass outcome of ExitSuccess -> Exit.ExitSuccess; _ -> Exit.ExitFailure 1)
 
-runUpMigrations :: CheckMode -> CoddSettings -> DiffTime -> IO ApplyResult
-runUpMigrations _ settings timeout =
-    Migrations.runKirokuMigrationsNoCheck settings timeout
+commandOutputFormat :: MigrationCommand -> OutputFormat
+commandOutputFormat command =
+    case command of
+        Plan PlanOptions{output = OutputOptions format} -> format
+        List ListOptions{output = OutputOptions format} -> format
+        Check CheckOptions{output = OutputOptions format} -> format
+        Status StatusOptions{output = OutputOptions format} -> format
+        Verify VerifyOptions{output = OutputOptions format} -> format
+        Up UpOptions{output = OutputOptions format} -> format
+        Repair RepairOptions{output = OutputOptions format} -> format
+        New NewOptions{output = OutputOptions format} -> format

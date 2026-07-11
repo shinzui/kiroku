@@ -18,7 +18,7 @@ does automatically. Use the schema-qualified `kiroku.<table>` form when
 querying from a session that has not set that `search_path`.
 
 The canonical schema lives in
-`kiroku-store-migrations/sql-migrations`. Apply it through the
+`kiroku-store-migrations/migrations`. Apply it through the
 `kiroku-store-migrations` package before opening the store; see
 [Schema Migrations](schema-migrations.md).
 

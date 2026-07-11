@@ -29,7 +29,7 @@ Install **all** Kiroku-owned objects into a **dedicated schema (default
   statement, so unqualified names (and text→`regclass` resolution) land in the
   Kiroku schema. `pg_catalog` stays on the path so built-ins resolve and nothing
   falls back to `public`.
-- `kiroku-store-migrations/sql-migrations` owns schema SQL. The bootstrap
+- `kiroku-store-migrations/migrations` owns schema SQL. The bootstrap
   migration creates the `kiroku` schema and sets `search_path` before creating
   unqualified objects, so all Kiroku-owned objects land in that schema.
 - The PostgreSQL 17 `uuidv7()` fallback function is created inside `kiroku`, not
@@ -55,7 +55,7 @@ Install **all** Kiroku-owned objects into a **dedicated schema (default
   (the SQL-track benches deliberately use `PGOPTIONS` instead of a per-transaction
   `SET` to avoid distorting round-trip-sensitive measurements).
 - Schema changes now belong in timestamped files under
-  `kiroku-store-migrations/sql-migrations`; `kiroku-store` does not carry a
+  `kiroku-store-migrations/migrations`; `kiroku-store` does not carry a
   duplicate schema script.
 
 ## Alternatives Considered

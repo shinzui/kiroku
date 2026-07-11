@@ -1,10 +1,10 @@
 cabal-version:      3.0
 name:               kiroku-store-migrations
-version:            0.1.1.0
+version:            0.2.0.0
 synopsis:           Schema migrations for kiroku-store
 description:
-  Embedded codd migrations and a migration executable for installing and
-  upgrading the PostgreSQL schema used by @kiroku-store@.
+  Native pg-migrate component, Codd history mapping, and migration executable
+  for installing and upgrading the PostgreSQL schema used by @kiroku-store@.
 
 homepage:           https://github.com/shinzui/kiroku
 bug-reports:        https://github.com/shinzui/kiroku/issues
@@ -133,9 +133,10 @@ extra-source-files:
   expected-schema/v18/schemas/kiroku/tables/subscriptions/indexes/ix_subscriptions_name_member
   expected-schema/v18/schemas/kiroku/tables/subscriptions/indexes/subscriptions_pkey
   expected-schema/v18/schemas/kiroku/tables/subscriptions/objrep
+  migrations/*.sql
+  migrations/manifest
   migrations.lock
   README.md
-  sql-migrations/*.sql
 
 source-repository head
   type:     git
@@ -143,14 +144,11 @@ source-repository head
 
 flag expected-schema-tool
   description:
-    Build the kiroku-write-expected-schema executable, which regenerates the
-    checked-in codd expected-schema snapshot. On by default so
-    `cabal run kiroku-write-expected-schema` works in the dev shell. It depends
-    on ephemeral-pg, which has no buildable source in the pinned Nix Haskell
-    set, so nix turns it off with `-f-expected-schema-tool`.
+    Build the legacy Codd-backed expected-schema snapshot writer. This
+    transitional tool is excluded from the normal pg-migrate closure.
 
-  default:     True
-  manual:      False
+  default:     False
+  manual:      True
 
 common common
   default-language:   GHC2024
@@ -164,24 +162,24 @@ library
   import:          common
   exposed-modules:
     Kiroku.Store.Migrations
-    Kiroku.Store.Migrations.ExpectedSchema
-    Kiroku.Store.Migrations.Guards
+    Kiroku.Store.Migrations.History.Codd
     Kiroku.Store.Migrations.New
+
+  other-modules:
+    Kiroku.Store.Migrations.Internal.Definition
+    Kiroku.Store.Migrations.Internal.EmbedFile
 
   hs-source-dirs:  src
   build-depends:
-    , base               >=4.18   && <5
-    , bytestring         >=0.11   && <0.13
-    , codd               >=0.1.8  && <0.2
-    , codd-extras
-    , directory          >=1.3    && <1.4
-    , file-embed         >=0.0.15 && <0.0.17
-    , filepath           >=1.4    && <1.6
-    , postgresql-simple
-    , streaming          >=0.2    && <0.3
-    , temporary          >=1.3    && <1.4
-    , text               >=2.0    && <2.2
-    , time               >=1.12   && <1.15
+    , base                    >=4.18     && <5
+    , bytestring              >=0.11     && <0.13
+    , containers              >=0.6      && <0.8
+    , filepath                >=1.4      && <1.6
+    , pg-migrate              ^>=1.0.0.0
+    , pg-migrate-embed        ^>=1.0.0.0
+    , pg-migrate-import-codd  ^>=1.0.0.0
+    , template-haskell        >=2.20     && <2.24
+    , text                    >=2.0      && <2.2
 
 executable kiroku-store-migrate
   import:         common
@@ -189,33 +187,38 @@ executable kiroku-store-migrate
   hs-source-dirs: app
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-    , base
-    , bytestring
-    , codd
-    , codd-extras
-    , directory
+    , aeson                    >=2.1      && <2.3
+    , base                     >=4.18     && <5
+    , bytestring               >=0.11     && <0.13
+    , hasql                    >=1.10     && <1.11
     , kiroku-store-migrations
-    , text
-    , time                     >=1.12 && <1.15
+    , optparse-applicative     >=0.17     && <0.20
+    , pg-migrate               ^>=1.0.0.0
+    , pg-migrate-cli           ^>=1.0.0.0
+    , text                     >=2.0      && <2.2
 
 executable kiroku-write-expected-schema
   import:         common
   main-is:        WriteExpectedSchema.hs
   hs-source-dirs: app
+  other-modules:  Kiroku.Store.Migrations.LegacyCodd
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N
 
   if !flag(expected-schema-tool)
     buildable: False
 
   build-depends:
-    , attoparsec
-    , base                     >=4.18 && <5
-    , codd
+    , attoparsec               >=0.14   && <0.15
+    , base                     >=4.18   && <5
+    , codd                     >=0.1.8  && <0.2
+    , codd-extras              >=0.1    && <0.2
     , codd-extras:ephemeral
-    , ephemeral-pg             >=0.2  && <0.3
+    , ephemeral-pg             >=0.2    && <0.3
+    , file-embed               >=0.0.15 && <0.0.17
+    , filepath                 >=1.4    && <1.6
     , kiroku-store-migrations
-    , text                     >=2.0  && <2.2
-    , time                     >=1.12 && <1.15
+    , text                     >=2.0    && <2.2
+    , time                     >=1.12   && <1.15
 
 test-suite kiroku-store-migrations-test
   import:         common
@@ -224,21 +227,17 @@ test-suite kiroku-store-migrations-test
   hs-source-dirs: test
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-    , aeson                    >=2.1  && <2.3
     , async
-    , attoparsec
-    , base                     >=4.18 && <5
-    , codd
-    , containers               >=0.6  && <0.8
+    , base                     >=4.18     && <5
+    , bytestring               >=0.11     && <0.13
     , directory                >=1.3
-    , ephemeral-pg             >=0.2  && <0.3
-    , filepath                 >=1.4  && <1.6
-    , hasql                    >=1.10 && <1.11
-    , hasql-pool               >=1.2  && <1.5
-    , hspec                    >=2.10 && <2.12
-    , kiroku-store             ^>=0.2
+    , ephemeral-pg             >=0.2      && <0.3
+    , filepath                 >=1.4      && <1.6
+    , hasql                    >=1.10     && <1.11
+    , hspec                    >=2.10     && <2.12
     , kiroku-store-migrations
-    , temporary                >=1.3  && <1.4
-    , text                     >=2.0  && <2.2
-    , time                     >=1.12 && <1.15
-    , vector                   >=0.13 && <0.14
+    , pg-migrate               ^>=1.0.0.0
+    , pg-migrate-import-codd   ^>=1.0.0.0
+    , pg-migrate-test-support  ^>=1.0.0.0
+    , temporary                >=1.3      && <1.4
+    , text                     >=2.0      && <2.2

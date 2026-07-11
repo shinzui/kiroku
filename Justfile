@@ -27,11 +27,7 @@ create-database:
 # Initialize the schema with the embedded migration package
 [group('database')]
 init-schema:
-    CODD_CONNECTION='dbname=kiroku' \
-    CODD_MIGRATION_DIRS=unused-for-embedded-migrations \
-    CODD_EXPECTED_SCHEMA_DIR=unused-for-unverified-embedded-migrations \
-    CODD_SCHEMAS=kiroku \
-    cabal run kiroku-store-migrate
+    DATABASE_URL='dbname=kiroku' cabal run kiroku-store-migrate -- up
 
 # Drop and recreate the database
 [group('database')]

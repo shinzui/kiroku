@@ -1,0 +1,7 @@
+0001-kiroku-bootstrap.sql
+0002-add-subscription-dead-letters.sql
+0003-notify-trigger-append-guard.sql
+0004-dead-letters-event-id-index.sql
+0005-index-hygiene-and-streams-fillfactor.sql
+0006-stream-name-length-check.sql
+0007-stream-truncate-before.sql

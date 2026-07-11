@@ -1,817 +1,386 @@
 {-# LANGUAGE MultilineStrings #-}
 
-module Main where
+module Main (main) where
 
-import Codd (ApplyResult (SchemasDiffer, SchemasMatch, SchemasNotVerified), CoddSettings (..), VerifySchemas (StrictCheck))
-import Codd.Parsing (connStringParser)
-import Codd.Types (ConnectionString, SchemaAlgo (..), SchemaSelection (..), SqlSchema (..), TxnIsolationLvl (..), singleTryPolicy)
 import Control.Concurrent.Async (concurrently)
 import Control.Exception (finally)
-import Control.Monad (filterM)
-import Data.Aeson (Value)
-import Data.Aeson qualified as Aeson
-import Data.Attoparsec.Text (endOfInput, parseOnly)
-import Data.Int (Int32)
-import Data.List (isSuffixOf, sort)
+import Control.Monad (forM_)
+import Data.ByteString (ByteString)
+import Data.ByteString qualified as ByteString
+import Data.Either (isLeft)
+import Data.Foldable (toList)
+import Data.Int (Int64)
+import Data.List (sort)
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.Text (Text)
-import Data.Text qualified as T
-import Data.Text.IO qualified as TIO
-import Data.Time (UTCTime (..), fromGregorian, secondsToDiffTime)
-import Data.Vector qualified as Vector
+import Data.Text qualified as Text
+import Data.Text.IO qualified as Text.IO
+import Database.PostgreSQL.Migrate
+import Database.PostgreSQL.Migrate.History.Codd
+import Database.PostgreSQL.Migrate.Internal (migrationChecksumBytes)
+import Database.PostgreSQL.Migrate.Test (withMigratedDatabase)
 import EphemeralPg qualified as Pg
-import Hasql.Connection.Settings qualified as Conn
-import Hasql.Decoders qualified as D
-import Hasql.Encoders qualified as E
-import Hasql.Pool qualified as Pool
-import Hasql.Pool.Config qualified as Pool.Config
+import Hasql.Connection qualified as Connection
+import Hasql.Connection.Settings qualified as Settings
+import Hasql.Decoders qualified as Decoders
+import Hasql.Encoders qualified as Encoders
 import Hasql.Session qualified as Session
-import Hasql.Statement (Statement, preparable)
-import Kiroku.Store
-import Kiroku.Store.Migrations (
-    MigrationStatus (..),
-    VerifyOutcome (..),
-    embeddedMigrationNames,
-    embeddedMigrationSources,
-    migrationStatus,
-    missingMigrations,
-    runKirokuMigrations,
-    runKirokuMigrationsNoCheck,
-    verifySchema,
- )
-import Kiroku.Store.Migrations.Guards
-import Kiroku.Store.Migrations.New (migrationFileName, migrationSlug, newMigrationFile)
-import System.Directory (doesDirectoryExist, doesFileExist, listDirectory)
-import System.FilePath (takeFileName)
+import Hasql.Statement (Statement)
+import Hasql.Statement qualified as Statement
+import Kiroku.Store.Migrations
+import Kiroku.Store.Migrations.History.Codd
+import Kiroku.Store.Migrations.New
+import Numeric qualified
+import System.Directory (doesDirectoryExist, doesFileExist)
+import System.FilePath ((</>))
 import System.IO.Temp (withSystemTempDirectory)
 import Test.Hspec
 
 main :: IO ()
-main =
-    hspec $ do
-        migrationFileNameSpec
-        migrationIntegritySpec
-        scaffolderSpec
-        describe "codd migration spike" $ do
-            it "applies Kiroku migrations, opens the store without startup DDL, and is repeatable" $ do
-                result <- withKirokuPg $ \db -> do
-                    let connStr = Pg.connectionString db
-                        coddSettings = testCoddSettings connStr "kiroku-store-migrations/expected-schema"
+main = hspec $ do
+    describe "native Kiroku migration definition" $ do
+        it "tracks the seven native files in manifest order" $ do
+            directory <- findMigrationsDirectory
+            manifest <- Text.lines <$> Text.IO.readFile (directory </> "manifest")
+            manifest `shouldBe` Text.pack <$> nativeMigrationFiles
 
-                    firstMigration <- runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5)
-                    firstMigration `shouldBeSchemasNotVerified` "first migration run"
-                    assertBootstrapApplied connStr
-                    assertSchemaPlacement connStr
-                    assertDeadLettersTable connStr
-                    assertDefaultUuidV7 connStr
-                    assertStreamTriggers connStr
-                    assertDeadLettersEventIdIndex connStr
-                    assertIndexHygiene connStr
-                    assertStreamVersionIndexUnique connStr
-                    assertStreamsFillfactor connStr
-                    assertStreamNameLengthConstraint connStr
-                    assertOversizedStreamNameRejected connStr
+        it "preserves every legacy payload byte recorded by migrations.lock" $ do
+            directory <- findMigrationsDirectory
+            lockPath <- findLockfile
+            lockEntries <- parseLockfile <$> Text.IO.readFile lockPath
+            forM_ (zip (toList kirokuLegacyMigrationNames) nativeMigrationFiles) $ \(legacyName, nativeName) -> do
+                bytes <- ByteString.readFile (directory </> nativeName)
+                lookup legacyName lockEntries `shouldBe` Just (checksumText bytes)
 
-                    withStore
-                        (defaultConnectionSettings connStr)
-                        $ \store -> do
-                            let stream = StreamName "migration-consumer"
-                                event = makeEvent "MigrationConsumerChecked" (Aeson.object [("ok", Aeson.Bool True)])
-                            appendResult <- runStoreIO store $ appendToStream stream NoStream [event]
-                            case appendResult of
-                                Left err -> expectationFailure ("appendToStream failed: " <> show err)
-                                Right _ -> pure ()
+        it "builds component kiroku and a seven-migration plan" $ do
+            component <- requireRight kirokuMigrations
+            component `seq` pure ()
+            plan <- requirePlan
+            let targetIds =
+                    [ requireRight (migrationId "kiroku" (Text.pack (dropSqlSuffix file)))
+                    | file <- nativeMigrationFiles
+                    ]
+            validateHistoryMappingTargets plan kirokuCoddHistoryMappings
+                `shouldBe` Right ()
+            length targetIds `shouldBe` 7
 
-                            readResult <- runStoreIO store $ readStreamForward stream (StreamVersion 0) 10
-                            case readResult of
-                                Left err -> expectationFailure ("readStreamForward failed: " <> show err)
-                                Right events -> Vector.length events `shouldBe` 1
+    describe "native migration authoring" $ do
+        it "creates the next numeric file and atomically appends the manifest" $
+            withSystemTempDirectory "kiroku-native-authoring" $ \directory -> do
+                ByteString.writeFile (directory </> "0007-existing.sql") "SELECT 7;\n"
+                ByteString.writeFile (directory </> "manifest") "0007-existing.sql\n"
+                created <- newMigrationFile directory "add widget index"
+                path <- requireRight created
+                path `shouldBe` directory </> "0008.sql"
+                body <- ByteString.readFile path
+                body `shouldSatisfy` ByteString.isInfixOf "forward-only"
+                Text.lines <$> Text.IO.readFile (directory </> "manifest")
+                    `shouldReturn` ["0007-existing.sql", "0008.sql"]
 
-                    secondMigration <- runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5)
-                    secondMigration `shouldBeSchemasNotVerified` "second migration run"
-                    assertBootstrapApplied connStr
-                    assertDefaultUuidV7 connStr
-                    assertStreamTriggers connStr
-                    assertDeadLettersEventIdIndex connStr
-                    assertIndexHygiene connStr
-                    assertStreamVersionIndexUnique connStr
-                    assertStreamsFillfactor connStr
-                    assertStreamNameLengthConstraint connStr
-                    assertOversizedStreamNameRejected connStr
-                case result of
-                    Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
-                    Right () -> pure ()
+        it "refuses to overwrite a pre-existing inferred migration" $
+            withSystemTempDirectory "kiroku-native-exclusive" $ \directory -> do
+                ByteString.writeFile (directory </> "manifest") "0007-existing.sql\n"
+                ByteString.writeFile (directory </> "0007-existing.sql") "SELECT 7;\n"
+                ByteString.writeFile (directory </> "0008.sql") "SELECT 8;\n"
+                created <- newMigrationFile directory "must not overwrite"
+                created `shouldSatisfy` isLeft
+                Text.IO.readFile (directory </> "manifest")
+                    `shouldReturn` "0007-existing.sql\n"
 
-            it "matches the checked-in expected schema (StrictCheck)" $ do
-                expectedSchemaDir <- findExpectedSchemaDir
-                result <- withKirokuPg $ \db -> do
-                    let coddSettings = testCoddSettings (Pg.connectionString db) expectedSchemaDir
-                    runKirokuMigrations coddSettings (secondsToDiffTime 5) StrictCheck
-                case result of
-                    Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
-                    Right (SchemasMatch _) -> pure ()
-                    Right SchemasNotVerified -> expectationFailure "StrictCheck did not verify schemas"
-                    Right (SchemasDiffer _) -> expectationFailure "StrictCheck returned a schema mismatch without throwing"
+    describe "fresh native databases" $ do
+        it "applies all seven, verifies strictly, and reports AlreadyApplied on rerun" $ do
+            plan <- requirePlan
+            result <- withMigratedDatabase plan $ \connection -> do
+                assertSchema connection
+                let provider = providerFor connection
+                rerun <- runMigrationPlanWith defaultRunOptions provider plan >>= requireMigration
+                reportOutcomes rerun `shouldBe` replicate 7 AlreadyApplied
+                verified <- verifyMigrationPlanWith defaultRunOptions provider plan >>= requireMigration
+                case verified of
+                    VerificationReport verificationIssues applied _ _ -> do
+                        verificationIssues `shouldBe` []
+                        length applied `shouldBe` 7
+            either (expectationFailure . show) pure result
 
-{- | Guard against the recurring mistake of hand-assigning rounded, sentinel
-migration timestamps (e.g. @2026-05-16-00-00-00-…@, @…-00-00-01-…@). Migrations
-must be named with their real UTC authoring time to the second, so filenames
-sort in true authoring order and never collide in codd's timestamp-keyed
-ledger. A migration whose seconds field is @00@, or which is stamped at exactly
-UTC midnight, is almost certainly a hand-assigned slot rather than a wall-clock
-reading and is rejected here. (If you legitimately authored one on such a
-boundary, nudge the seconds by one.)
--}
-migrationFileNameSpec :: Spec
-migrationFileNameSpec =
-    describe "migration file names" $ do
-        it "carry real UTC authoring timestamps, not hand-assigned sentinels" $ do
-            files <- migrationFiles
-            files `shouldNotBe` []
-            sentinelViolations files `shouldHaveNoViolations` "sentinel timestamp violations"
-
-        it "have unique, strictly increasing timestamps" $ do
-            files <- migrationFiles
-            duplicateTimestampViolations files `shouldHaveNoViolations` "duplicate timestamp violations"
-
-migrationIntegritySpec :: Spec
-migrationIntegritySpec =
-    describe "migration integrity guards" $ do
-        it "embeds exactly the checked-in sql-migrations directory" $ do
-            diskNames <- sort <$> migrationFiles
-            embeddedMigrationNames `shouldBe` diskNames
-
-        it "matches the checked-in SHA-256 manifest" $ do
-            manifestPath <- findLockfile
-            parsed <- parseChecksumManifest <$> TIO.readFile manifestPath
-            case parsed of
-                Left err -> expectationFailure (T.unpack err)
-                Right manifest ->
-                    checksumViolations manifest embeddedMigrationSources
-                        `shouldHaveNoViolations` "checksum manifest violations"
-
-        it "keeps future migration bodies schema-qualified and codd-safe" $ do
-            lintViolations
-                LintConfig
-                    { requiredQualifier = "kiroku."
-                    , exemptFiles = ["2026-05-16-12-17-14-kiroku-bootstrap.sql"]
-                    }
-                embeddedMigrationSources
-                `shouldHaveNoViolations` "migration body lint violations"
-
-        it "records every embedded migration in the codd v5 ledger" $ do
-            result <- withKirokuPg $ \db -> do
-                let connStr = Pg.connectionString db
-                    coddSettings = testCoddSettings connStr "kiroku-store-migrations/expected-schema"
-                firstMigration <- runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5)
-                firstMigration `shouldBeSchemasNotVerified` "ledger canary migration run"
-                schema <- detectLedgerSchema connStr
-                schema `shouldBe` "codd"
-                names <- ledgerNames connStr schema
-                names `shouldBe` map T.pack embeddedMigrationNames
-            case result of
-                Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
-                Right () -> pure ()
-
-        it "serializes concurrent applies with the shared advisory lock" $ do
-            result <- withKirokuPg $ \db -> do
-                let connStr = Pg.connectionString db
-                    coddSettings = testCoddSettings connStr "kiroku-store-migrations/expected-schema"
-                (firstMigration, secondMigration) <-
+        it "serializes concurrent applies through the pg-migrate advisory lock" $ do
+            plan <- requirePlan
+            withKirokuPg $ \database -> do
+                let settings = Pg.connectionSettings database
+                (first, second) <-
                     concurrently
-                        (runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5))
-                        (runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5))
-                firstMigration `shouldBeSchemasNotVerified` "first concurrent migration run"
-                secondMigration `shouldBeSchemasNotVerified` "second concurrent migration run"
-                schema <- detectLedgerSchema connStr
-                names <- ledgerNames connStr schema
-                names `shouldBe` map T.pack embeddedMigrationNames
-                count <- ledgerRowCount connStr schema
-                count `shouldBe` fromIntegral (length embeddedMigrationNames)
-            case result of
-                Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
-                Right () -> pure ()
+                        (runMigrationPlan defaultRunOptions settings plan >>= requireMigration)
+                        (runMigrationPlan defaultRunOptions settings plan >>= requireMigration)
+                sort [reportOutcomes first, reportOutcomes second]
+                    `shouldBe` sort [replicate 7 AppliedNow, replicate 7 AlreadyApplied]
 
-        it "reports every embedded migration as pending on an empty database" $ do
-            result <- withKirokuPg $ \db -> do
-                let connStr = Pg.connectionString db
-                    coddSettings = testCoddSettings connStr "kiroku-store-migrations/expected-schema"
-                verifySchema coddSettings (secondsToDiffTime 5) `shouldReturn` VerifyPending embeddedMigrationNames
-                status <- migrationStatus (migsConnString coddSettings) (secondsToDiffTime 5)
-                statusApplied status `shouldBe` []
-                statusPending status `shouldBe` embeddedMigrationNames
-                missingMigrations (migsConnString coddSettings) (secondsToDiffTime 5) `shouldReturn` embeddedMigrationNames
-            case result of
-                Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
-                Right () -> pure ()
+    describe "Codd history import" $ do
+        it "imports a current codd V5 ledger, verifies, and never replays SQL" $
+            importFixture "codd"
 
-        it "verifies the embedded expected schema and reports no missing migrations after apply" $ do
-            result <- withKirokuPg $ \db -> do
-                let connStr = Pg.connectionString db
-                    coddSettings = testCoddSettings connStr "kiroku-store-migrations/expected-schema"
-                firstMigration <- runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5)
-                firstMigration `shouldBeSchemasNotVerified` "verify tool migration run"
-                verifySchema coddSettings (secondsToDiffTime 5) `shouldReturn` VerifySucceeded
-                status <- migrationStatus (migsConnString coddSettings) (secondsToDiffTime 5)
-                map fst (statusApplied status) `shouldBe` embeddedMigrationNames
-                statusPending status `shouldBe` []
-                missingMigrations (migsConnString coddSettings) (secondsToDiffTime 5) `shouldReturn` []
-            case result of
-                Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
-                Right () -> pure ()
+        it "imports the legacy codd_schema ledger shape" $
+            importFixture "codd_schema"
 
-        it "reports schema drift without applying migrations" $ do
-            result <- withKirokuPg $ \db -> do
-                let connStr = Pg.connectionString db
-                    coddSettings = testCoddSettings connStr "kiroku-store-migrations/expected-schema"
-                firstMigration <- runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5)
-                firstMigration `shouldBeSchemasNotVerified` "verify drift migration run"
-                beforeCount <- ledgerRowCount connStr "codd"
-                runDb connStr "verify drift mutation" (Session.script "CREATE TABLE kiroku.verify_drift (id int);")
-                verifySchema coddSettings (secondsToDiffTime 5) `shouldReturn` VerifyFailed
-                afterCount <- ledgerRowCount connStr "codd"
-                afterCount `shouldBe` beforeCount
-            case result of
-                Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
-                Right () -> pure ()
+        it "rejects a partial legacy row before creating the target ledger" $ do
+            plan <- requirePlan
+            withKirokuPg $ \database -> do
+                let settings = Pg.connectionSettings database
+                    provider = connectionProviderFromSettings settings
+                withConnection settings $ \connection -> installCoddLedger connection "codd" True
+                config <-
+                    requireRight
+                        (kirokuCoddSourceConfig provider True "partial fixture must fail" Confirmed)
+                imported <-
+                    importCoddHistory defaultImportOptions config provider plan kirokuCoddHistoryMappings
+                imported `shouldSatisfy` \case
+                    Left CoddPartialMigration{} -> True
+                    _ -> False
+                withConnection settings $ \connection -> do
+                    targetExists <- useSession connection (Session.statement "pgmigrate" schemaExistsStatement)
+                    targetExists `shouldBe` False
 
-        it "realigns historical sentinel ledger rows before a repeat migrate" $ do
-            fixupPath <- findLedgerFixup
-            fixupScript <- TIO.readFile fixupPath
-            result <- withKirokuPg $ \db -> do
-                let connStr = Pg.connectionString db
-                    coddSettings = testCoddSettings connStr "kiroku-store-migrations/expected-schema"
-                firstMigration <- runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5)
-                firstMigration `shouldBeSchemasNotVerified` "fixup regression first migration run"
-                schema <- detectLedgerSchema connStr
-                rewindLedgerToSentinelNames connStr schema
-                sentinelNames <- ledgerNames connStr schema
-                sentinelNames `shouldSatisfy` any (T.isInfixOf "-00-00-00-")
-                runDb connStr "ledger fixup script" (Session.script fixupScript)
-                fixedNames <- ledgerNames connStr schema
-                fixedNames `shouldBe` map T.pack embeddedMigrationNames
-                beforeCount <- ledgerRowCount connStr schema
-                secondMigration <- runKirokuMigrationsNoCheck coddSettings (secondsToDiffTime 5)
-                secondMigration `shouldBeSchemasNotVerified` "fixup regression repeat migration run"
-                afterCount <- ledgerRowCount connStr schema
-                afterCount `shouldBe` beforeCount
-            case result of
-                Left err -> expectationFailure ("Failed to start ephemeral PostgreSQL: " <> show err)
-                Right () -> pure ()
+importFixture :: Text -> Expectation
+importFixture sourceSchema = do
+    plan <- requirePlan
+    directory <- findMigrationsDirectory
+    withKirokuPg $ \database -> do
+        let settings = Pg.connectionSettings database
+            provider = connectionProviderFromSettings settings
+        withConnection settings $ \connection -> do
+            applyNativeSqlFromDisk connection directory
+            installCoddLedger connection sourceSchema False
+        config <-
+            requireRight
+                (kirokuCoddSourceConfig provider True "verified Kiroku Codd cutover" Confirmed)
+        first <-
+            importCoddHistory defaultImportOptions config provider plan kirokuCoddHistoryMappings
+                >>= requireRight
+        importOutcomes first `shouldBe` replicate 7 Imported
+        verified <- verifyMigrationPlan defaultRunOptions settings plan >>= requireMigration
+        case verified of
+            VerificationReport verificationIssues _ _ _ ->
+                verificationIssues `shouldBe` []
+        up <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
+        reportOutcomes up `shouldBe` replicate 7 AlreadyApplied
+        second <-
+            importCoddHistory defaultImportOptions config provider plan kirokuCoddHistoryMappings
+                >>= requireRight
+        importOutcomes second `shouldBe` replicate 7 AlreadyImported
+        withConnection settings $ \connection -> do
+            assertSchema connection
+            sourceRows <- useSession connection (Session.statement () (sourceRowCountStatement sourceSchema))
+            sourceRows `shouldBe` 7
+            facts <- useSession connection (Session.statement () importFactsStatement)
+            facts `shouldBe` (7, 7, True)
 
-{- | Prove the scaffolder (`Kiroku.Store.Migrations.New`) is the *producer* that
-satisfies the reactive `migrationFileNameSpec` guard. Two independent checks:
+nativeMigrationFiles :: [FilePath]
+nativeMigrationFiles =
+    [ "0001-kiroku-bootstrap.sql"
+    , "0002-add-subscription-dead-letters.sql"
+    , "0003-notify-trigger-append-guard.sql"
+    , "0004-dead-letters-event-id-index.sql"
+    , "0005-index-hygiene-and-streams-fillfactor.sql"
+    , "0006-stream-name-length-check.sql"
+    , "0007-stream-truncate-before.sql"
+    ]
 
-  * A deterministic name built from a fixed, non-sentinel UTCTime is well-shaped
-    ('isTimestampShaped') and is NOT a hand-assigned sentinel
-    ('handAssignedTimestamp' == False), and its slug is the expected bare slug.
-    This is deterministic, so the assertion cannot flake.
-  * The live 'newMigrationFile' writes a real file into a throwaway temp dir;
-    its basename is well-shaped and the file exists; the body is
-    schema-qualified and unpinned.
--}
-scaffolderSpec :: Spec
-scaffolderSpec =
-    describe "migration scaffolder" $ do
-        it "stamps a real, non-sentinel UTC timestamp and a bare slug" $ do
-            -- 2026-07-05 19:09:18 UTC: real hour/minute and non-00 seconds.
-            let sampled = UTCTime (fromGregorian 2026 7 5) (secondsToDiffTime (19 * 3600 + 9 * 60 + 18))
-                name = migrationFileName sampled "Add widget index"
-            takeFileName name `shouldBe` name
-            isTimestampShaped (take timestampWidth name) `shouldBe` True
-            handAssignedTimestamp name `shouldBe` False
-            migrationSlug "Add widget index" `shouldBe` "add-widget-index"
-
-        it "writes a well-named file into a temp dir and refuses to overwrite" $
-            withSystemTempDirectory "kiroku-scaffolder" $ \dir -> do
-                path <- newMigrationFile dir "add widget index"
-                let base = takeFileName path
-                isTimestampShaped (take timestampWidth base) `shouldBe` True
-                length base `shouldSatisfy` (> timestampWidth)
-                -- The generated file body is schema-qualified and unpinned.
-                body <- readFile path
-                (".sql" `isSuffixOf` path) `shouldBe` True
-                ("kiroku.example" `T.isInfixOf` T.pack body) `shouldBe` True
-                ("search_path" `T.isInfixOf` T.pack body) `shouldBe` False
-
--- | The migration @.sql@ files, wherever the suite is run from.
-migrationFiles :: IO [FilePath]
-migrationFiles = do
-    dir <- findMigrationsDir
-    filter (".sql" `isSuffixOf`) <$> listDirectory dir
-
-findMigrationsDir :: IO FilePath
-findMigrationsDir = do
-    let candidates = ["kiroku-store-migrations/sql-migrations", "sql-migrations"]
-    existing <- filterM doesDirectoryExist candidates
-    case existing of
-        dir : _ -> pure dir
-        [] ->
-            expectationFailure "Could not find kiroku-store-migrations/sql-migrations"
-                >> pure "kiroku-store-migrations/sql-migrations"
+findMigrationsDirectory :: IO FilePath
+findMigrationsDirectory =
+    findDirectory ["kiroku-store-migrations/migrations", "migrations"]
 
 findLockfile :: IO FilePath
-findLockfile = findExistingFile ["kiroku-store-migrations/migrations.lock", "migrations.lock"]
+findLockfile =
+    findFile ["kiroku-store-migrations/migrations.lock", "migrations.lock"]
 
-findLedgerFixup :: IO FilePath
-findLedgerFixup =
-    findExistingFile
-        [ "kiroku-store-migrations/ledger-fixups/2026-07-05-realign-kiroku-migration-timestamps.sql"
-        , "ledger-fixups/2026-07-05-realign-kiroku-migration-timestamps.sql"
-        ]
+findDirectory :: [FilePath] -> IO FilePath
+findDirectory candidates = do
+    existing <- filterM doesDirectoryExist candidates
+    case existing of
+        directory : _ -> pure directory
+        [] -> expectationFailure ("could not find directory: " <> show candidates) >> pure "."
 
-findExistingFile :: [FilePath] -> IO FilePath
-findExistingFile candidates = do
+findFile :: [FilePath] -> IO FilePath
+findFile candidates = do
     existing <- filterM doesFileExist candidates
     case existing of
         path : _ -> pure path
-        [] -> expectationFailure ("Could not find any of: " <> show candidates) >> pure fallback
-  where
-    fallback =
-        case candidates of
-            path : _ -> path
-            [] -> "."
+        [] -> expectationFailure ("could not find file: " <> show candidates) >> pure "."
 
-{- | Pin the throwaway PostgreSQL superuser to the fixed name "kiroku" so the
-captured snapshot identity (roles, owners, db-settings) is deterministic on
-every machine and in CI. Mirrors 'Pg.withCached' but pins the user;
-'Pg.withCachedConfig' is not exported, so we use 'Pg.startCached' + 'finally'.
--}
+filterM :: (value -> IO Bool) -> [value] -> IO [value]
+filterM predicate = foldr step (pure [])
+  where
+    step value remaining = do
+        matches <- predicate value
+        values <- remaining
+        pure (if matches then value : values else values)
+
+parseLockfile :: Text -> [(FilePath, Text)]
+parseLockfile contents =
+    [ (Text.unpack filename, checksum)
+    | line <- Text.lines contents
+    , [checksum, filename] <- [Text.words line]
+    ]
+
+checksumText :: ByteString -> Text
+checksumText =
+    Text.pack
+        . concatMap renderByte
+        . ByteString.unpack
+        . migrationChecksumBytes
+        . migrationFingerprint
+  where
+    renderByte byte =
+        case Numeric.showHex byte "" of
+            [digit] -> ['0', digit]
+            digits -> digits
+
+dropSqlSuffix :: FilePath -> String
+dropSqlSuffix = reverse . drop 4 . reverse
+
+requirePlan :: IO MigrationPlan
+requirePlan = requireRight kirokuMigrationPlan
+
+requireRight :: (Show error) => Either error value -> IO value
+requireRight = either (failure . show) pure
+
+requireMigration :: (Show error) => Either error value -> IO value
+requireMigration = requireRight
+
+failure :: String -> IO value
+failure message = expectationFailure message >> fail message
+
+providerFor :: Connection.Connection -> ConnectionProvider
+providerFor connection = connectionProvider (\action -> Right <$> action connection)
+
+reportOutcomes :: MigrationReport -> [MigrationOutcome]
+reportOutcomes MigrationReport{results} = outcome <$> toList results
+
+importOutcomes :: HistoryImportReport -> [HistoryImportOutcome]
+importOutcomes HistoryImportReport{importResults} = importOutcome <$> toList importResults
+
 kirokuPgConfig :: Pg.Config
 kirokuPgConfig = Pg.defaultConfig{Pg.user = "kiroku"}
 
-withKirokuPg :: (Pg.Database -> IO a) -> IO (Either Pg.StartError a)
+withKirokuPg :: (Pg.Database -> IO ()) -> IO ()
 withKirokuPg action = do
     started <- Pg.startCached kirokuPgConfig Pg.defaultCacheConfig
     case started of
-        Left err -> pure (Left err)
-        Right db -> Right <$> (action db `finally` Pg.stop db)
+        Left startError -> expectationFailure (show startError)
+        Right database -> action database `finally` Pg.stop database
 
-{- | Locate the checked-in expected-schema directory whether the suite runs from
-the repository root or from the kiroku-store-migrations package directory.
--}
-findExpectedSchemaDir :: IO FilePath
-findExpectedSchemaDir = do
-    let candidates = ["kiroku-store-migrations/expected-schema", "expected-schema"]
-    existing <- filterM doesDirectoryExist candidates
-    case existing of
-        dir : _ -> pure dir
-        [] ->
-            expectationFailure "Could not find kiroku-store-migrations/expected-schema"
-                >> pure "kiroku-store-migrations/expected-schema"
+withConnection :: Settings.Settings -> (Connection.Connection -> IO value) -> IO value
+withConnection settings action = do
+    acquired <- Connection.acquire settings
+    connection <- requireRight acquired
+    action connection `finally` Connection.release connection
 
-testCoddSettings :: Text -> FilePath -> CoddSettings
-testCoddSettings connStr expectedSchemaDir =
-    CoddSettings
-        { migsConnString = parseConnString connStr
-        , sqlMigrations = []
-        , onDiskReps = Left expectedSchemaDir
-        , namespacesToCheck = IncludeSchemas [SqlSchema "kiroku"]
-        , extraRolesToCheck = []
-        , retryPolicy = singleTryPolicy
-        , txnIsolationLvl = DbDefault
-        , schemaAlgoOpts = SchemaAlgo False False False
-        }
+useSession :: Connection.Connection -> Session.Session value -> IO value
+useSession connection session =
+    Connection.use connection session >>= requireRight
 
-parseConnString :: Text -> ConnectionString
-parseConnString connStr =
-    case parseOnly (connStringParser <* endOfInput) connStr of
-        Left err -> error ("Could not parse ephemeral PostgreSQL connection string for codd: " <> err)
-        Right parsed -> parsed
+assertSchema :: Connection.Connection -> Expectation
+assertSchema connection = do
+    healthy <- useSession connection (Session.statement () schemaFactsStatement)
+    healthy `shouldBe` True
+    oversized <- Connection.use connection (Session.statement (Text.replicate 513 "x") oversizedStreamStatement)
+    oversized `shouldSatisfy` isLeft
 
-makeEvent :: Text -> Value -> EventData
-makeEvent typ payload =
-    EventData
-        { eventId = Nothing
-        , eventType = EventType typ
-        , payload = payload
-        , metadata = Nothing
-        , causationId = Nothing
-        , correlationId = Nothing
-        }
+schemaFactsStatement :: Statement () Bool
+schemaFactsStatement =
+    Statement.preparable
+        """
+        SELECT bool_and(ok)
+        FROM (VALUES
+          (to_regnamespace('kiroku') IS NOT NULL),
+          (to_regclass('kiroku.events') IS NOT NULL),
+          (to_regclass('kiroku.streams') IS NOT NULL),
+          (to_regclass('kiroku.dead_letters') IS NOT NULL),
+          (EXISTS (SELECT 1 FROM pg_catalog.pg_trigger WHERE tgname = 'stream_events_notify_insert' AND NOT tgisinternal)),
+          (EXISTS (SELECT 1 FROM pg_catalog.pg_indexes WHERE schemaname = 'kiroku' AND indexname = 'ix_dead_letters_event_id')),
+          (EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'chk_streams_stream_name_length')),
+          (EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a JOIN pg_catalog.pg_class c ON c.oid = a.attrelid JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'kiroku' AND c.relname = 'streams' AND a.attname = 'truncate_before' AND NOT a.attisdropped))
+        ) AS checks(ok)
+        """
+        Encoders.noParams
+        (Decoders.singleRow (Decoders.column (Decoders.nonNullable Decoders.bool)))
 
-shouldBeSchemasNotVerified :: ApplyResult -> String -> Expectation
-shouldBeSchemasNotVerified SchemasNotVerified _ = pure ()
-shouldBeSchemasNotVerified _ label = expectationFailure (label <> " unexpectedly verified schemas")
+oversizedStreamStatement :: Statement Text ()
+oversizedStreamStatement =
+    Statement.preparable
+        "INSERT INTO kiroku.streams (stream_name, stream_version) VALUES ($1, 0)"
+        (Encoders.param (Encoders.nonNullable Encoders.text))
+        Decoders.noResult
 
-shouldHaveNoViolations :: [Text] -> String -> Expectation
-shouldHaveNoViolations [] _ = pure ()
-shouldHaveNoViolations violations label =
-    expectationFailure (label <> ":\n" <> T.unpack (T.unlines violations))
+applyNativeSqlFromDisk :: Connection.Connection -> FilePath -> IO ()
+applyNativeSqlFromDisk connection directory =
+    forM_ nativeMigrationFiles $ \file -> do
+        sql <- Text.IO.readFile (directory </> file)
+        useSession connection (Session.script sql)
 
-runDb :: Text -> String -> Session.Session a -> IO a
-runDb connStr label session = do
-    pool <- Pool.acquire poolConfig
-    result <- Pool.use pool session
-    Pool.release pool
-    case result of
-        Left err -> expectationFailure (label <> " failed: " <> show err) >> fail label
-        Right value -> pure value
-  where
-    poolConfig =
-        Pool.Config.settings
-            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
-            , Pool.Config.size 1
-            ]
+installCoddLedger :: Connection.Connection -> Text -> Bool -> IO ()
+installCoddLedger connection sourceSchema partial =
+    useSession connection (Session.script (coddFixtureSql sourceSchema partial))
 
-detectLedgerSchema :: Text -> IO Text
-detectLedgerSchema connStr = do
-    (hasCodd, hasCoddSchema) <- runDb connStr "ledger schema detection" (Session.statement () ledgerSchemaStmt)
-    case (hasCodd, hasCoddSchema) of
-        (True, False) -> pure "codd"
-        (False, True) -> pure "codd_schema"
-        (False, False) -> expectationFailure "codd ledger table was not found" >> pure "codd"
-        (True, True) -> expectationFailure "both codd and codd_schema ledger tables exist" >> pure "codd"
-
-ledgerSchemaStmt :: Statement () (Bool, Bool)
-ledgerSchemaStmt =
-    preparable
-        "SELECT to_regclass('codd.sql_migrations') IS NOT NULL, to_regclass('codd_schema.sql_migrations') IS NOT NULL"
-        E.noParams
-        (D.singleRow ((,) <$> D.column (D.nonNullable D.bool) <*> D.column (D.nonNullable D.bool)))
-
-ledgerNames :: Text -> Text -> IO [Text]
-ledgerNames connStr "codd" = runDb connStr "codd ledger names" (Session.statement () ledgerNamesCoddStmt)
-ledgerNames connStr "codd_schema" = runDb connStr "codd_schema ledger names" (Session.statement () ledgerNamesCoddSchemaStmt)
-ledgerNames _ schema = expectationFailure ("unknown ledger schema " <> T.unpack schema) >> pure []
-
-ledgerNamesCoddStmt :: Statement () [Text]
-ledgerNamesCoddStmt =
-    preparable
-        "SELECT name::text FROM codd.sql_migrations ORDER BY name"
-        E.noParams
-        (D.rowList (D.column (D.nonNullable D.text)))
-
-ledgerNamesCoddSchemaStmt :: Statement () [Text]
-ledgerNamesCoddSchemaStmt =
-    preparable
-        "SELECT name::text FROM codd_schema.sql_migrations ORDER BY name"
-        E.noParams
-        (D.rowList (D.column (D.nonNullable D.text)))
-
-ledgerRowCount :: Text -> Text -> IO Int32
-ledgerRowCount connStr "codd" = runDb connStr "codd ledger row count" (Session.statement () ledgerCountCoddStmt)
-ledgerRowCount connStr "codd_schema" = runDb connStr "codd_schema ledger row count" (Session.statement () ledgerCountCoddSchemaStmt)
-ledgerRowCount _ schema = expectationFailure ("unknown ledger schema " <> T.unpack schema) >> pure 0
-
-ledgerCountCoddStmt :: Statement () Int32
-ledgerCountCoddStmt =
-    preparable
-        "SELECT count(*)::int FROM codd.sql_migrations"
-        E.noParams
-        (D.singleRow (D.column (D.nonNullable D.int4)))
-
-ledgerCountCoddSchemaStmt :: Statement () Int32
-ledgerCountCoddSchemaStmt =
-    preparable
-        "SELECT count(*)::int FROM codd_schema.sql_migrations"
-        E.noParams
-        (D.singleRow (D.column (D.nonNullable D.int4)))
-
-rewindLedgerToSentinelNames :: Text -> Text -> IO ()
-rewindLedgerToSentinelNames connStr schema =
-    runDb connStr "ledger rewind to sentinel names" (Session.script script)
-  where
-    qname = schema <> ".sql_migrations"
-    -- Kept in sync with ledger-fixups/2026-07-05-realign-kiroku-migration-timestamps.sql.
-    pairs =
-        [ ("2026-05-16-12-17-14-kiroku-bootstrap.sql", "2026-05-16-00-00-00-kiroku-bootstrap.sql", "2026-05-16 00:00:00+00")
-        , ("2026-05-29-15-26-04-add-subscription-dead-letters.sql", "2026-05-26-00-00-00-add-subscription-dead-letters.sql", "2026-05-26 00:00:00+00")
-        , ("2026-06-14-13-17-09-notify-trigger-append-guard.sql", "2026-06-11-00-00-00-notify-trigger-append-guard.sql", "2026-06-11 00:00:00+00")
-        , ("2026-06-14-13-25-40-dead-letters-event-id-index.sql", "2026-06-11-00-00-01-dead-letters-event-id-index.sql", "2026-06-11 00:00:01+00")
-        , ("2026-06-14-13-54-48-index-hygiene-and-streams-fillfactor.sql", "2026-06-11-00-00-02-index-hygiene-and-streams-fillfactor.sql", "2026-06-11 00:00:02+00")
-        , ("2026-06-14-14-01-17-stream-name-length-check.sql", "2026-06-11-00-00-03-stream-name-length-check.sql", "2026-06-11 00:00:03+00")
-        , ("2026-06-24-09-42-22-stream-truncate-before.sql", "2026-06-24-00-00-00-stream-truncate-before.sql", "2026-06-24 00:00:00+00")
+coddFixtureSql :: Text -> Bool -> Text
+coddFixtureSql sourceSchema partial =
+    Text.unlines
+        [ "CREATE SCHEMA " <> sourceSchema <> ";"
+        , "CREATE TABLE " <> sourceSchema <> ".sql_migrations ("
+        , "  id serial NOT NULL, migration_timestamp timestamptz NOT NULL,"
+        , "  applied_at timestamptz, name text NOT NULL, application_duration interval,"
+        , "  num_applied_statements int, no_txn_failed_at timestamptz, txnid bigint, connid int"
+        , ");"
+        , "INSERT INTO " <> sourceSchema <> ".sql_migrations"
+        , "  (migration_timestamp, applied_at, name, application_duration, num_applied_statements, no_txn_failed_at, txnid, connid) VALUES"
+        , Text.intercalate ",\n" (zipWith renderRow [1 :: Int ..] (toList kirokuLegacyMigrationNames)) <> ";"
         ]
-    script =
-        T.unlines
-            [ "UPDATE " <> qname <> " SET name = '" <> oldName <> "', migration_timestamp = '" <> oldTimestamp <> "' WHERE name = '" <> newName <> "';"
-            | (newName, oldName, oldTimestamp) <- pairs
-            ]
-
-assertBootstrapApplied :: Text -> IO ()
-assertBootstrapApplied connStr = do
-    pool <- Pool.acquire poolConfig
-    result <- Pool.use pool (Session.statement () bootstrapStmt)
-    Pool.release pool
-    case result of
-        Left err -> expectationFailure ("bootstrap verification query failed: " <> show err)
-        Right True -> pure ()
-        Right False -> expectationFailure "Kiroku bootstrap migration did not create the $all stream"
   where
-    poolConfig =
-        Pool.Config.settings
-            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
-            , Pool.Config.size 1
-            ]
+    renderRow index filename =
+        "('2026-01-01 00:00:00+00'::timestamptz + interval '"
+            <> Text.pack (show index)
+            <> " seconds', "
+            <> appliedAt index
+            <> ", '"
+            <> Text.pack filename
+            <> "', interval '1 second', 1, "
+            <> failureAt index
+            <> ", 1, 1)"
+    appliedAt index
+        | partial && index == 4 = "NULL"
+        | otherwise = "'2026-01-01 00:01:00+00'::timestamptz + interval '" <> Text.pack (show index) <> " seconds'"
+    failureAt index
+        | partial && index == 4 = "'2026-01-01 00:02:00+00'::timestamptz"
+        | otherwise = "NULL"
 
-bootstrapStmt :: Statement () Bool
-bootstrapStmt =
-    preparable
-        "SELECT EXISTS (SELECT 1 FROM kiroku.streams WHERE stream_id = 0 AND stream_name = '$all')"
-        E.noParams
-        (D.singleRow (D.column (D.nonNullable D.bool)))
+schemaExistsStatement :: Statement Text Bool
+schemaExistsStatement =
+    Statement.preparable
+        "SELECT to_regnamespace($1) IS NOT NULL"
+        (Encoders.param (Encoders.nonNullable Encoders.text))
+        (Decoders.singleRow (Decoders.column (Decoders.nonNullable Decoders.bool)))
 
-{- | Assert that the migration installed every Kiroku table under the @kiroku@
-schema and left @public@ free of Kiroku tables. The connection uses no special
-@search_path@, so the schema-qualified @to_regclass@ checks prove placement
-directly rather than relying on name resolution.
--}
-assertSchemaPlacement :: Text -> IO ()
-assertSchemaPlacement connStr = do
-    pool <- Pool.acquire poolConfig
-    result <- Pool.use pool (Session.statement () placementStmt)
-    Pool.release pool
-    case result of
-        Left err -> expectationFailure ("schema placement query failed: " <> show err)
-        Right (True, True) -> pure ()
-        Right (kirokuPresent, publicAbsent) ->
-            expectationFailure
-                ( "expected all Kiroku tables in 'kiroku' and none in 'public'; got kirokuPresent="
-                    <> show kirokuPresent
-                    <> ", publicAbsent="
-                    <> show publicAbsent
-                )
-  where
-    poolConfig =
-        Pool.Config.settings
-            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
-            , Pool.Config.size 1
-            ]
+sourceRowCountStatement :: Text -> Statement () Int64
+sourceRowCountStatement sourceSchema =
+    Statement.unpreparable
+        ("SELECT count(*) FROM " <> sourceSchema <> ".sql_migrations")
+        Encoders.noParams
+        (Decoders.singleRow (Decoders.column (Decoders.nonNullable Decoders.int8)))
 
-placementStmt :: Statement () (Bool, Bool)
-placementStmt =
-    preparable
-        "SELECT \
-        \  (to_regclass('kiroku.streams') IS NOT NULL \
-        \   AND to_regclass('kiroku.events') IS NOT NULL \
-        \   AND to_regclass('kiroku.stream_events') IS NOT NULL \
-        \   AND to_regclass('kiroku.subscriptions') IS NOT NULL), \
-        \  (to_regclass('public.streams') IS NULL \
-        \   AND to_regclass('public.events') IS NULL \
-        \   AND to_regclass('public.stream_events') IS NULL \
-        \   AND to_regclass('public.subscriptions') IS NULL)"
-        E.noParams
-        (D.singleRow ((,) <$> D.column (D.nonNullable D.bool) <*> D.column (D.nonNullable D.bool)))
-
-{- | Assert that the forward migration installed the @kiroku.dead_letters@ table
-(MasterPlan 6 / EP-40) — proving codd applied the timestamped migration after the
-bootstrap, not only the bootstrap itself.
--}
-assertDeadLettersTable :: Text -> IO ()
-assertDeadLettersTable connStr = do
-    pool <- Pool.acquire poolConfig
-    result <- Pool.use pool (Session.statement () deadLettersStmt)
-    Pool.release pool
-    case result of
-        Left err -> expectationFailure ("dead_letters verification query failed: " <> show err)
-        Right True -> pure ()
-        Right False -> expectationFailure "Kiroku migration did not create the kiroku.dead_letters table"
-  where
-    poolConfig =
-        Pool.Config.settings
-            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
-            , Pool.Config.size 1
-            ]
-
-deadLettersStmt :: Statement () Bool
-deadLettersStmt =
-    preparable
-        "SELECT to_regclass('kiroku.dead_letters') IS NOT NULL"
-        E.noParams
-        (D.singleRow (D.column (D.nonNullable D.bool)))
-
-assertDefaultUuidV7 :: Text -> IO ()
-assertDefaultUuidV7 connStr = do
-    pool <- Pool.acquire poolConfig
-    result <- Pool.use pool (Session.statement () defaultUuidStmt)
-    versionResult <- Pool.use pool (Session.statement () serverVersionStmt)
-    Pool.release pool
-    case (result, versionResult) of
-        (Right eventIdText, Right version)
-            | T.length eventIdText > 14 && T.index eventIdText 14 == '7' -> pure ()
-            | otherwise ->
-                expectationFailure
-                    ( "expected migration-created database default to generate UUIDv7 on PostgreSQL "
-                        <> T.unpack version
-                        <> ", got "
-                        <> T.unpack eventIdText
-                    )
-        (Left err, _) -> expectationFailure ("default UUID insert failed: " <> show err)
-        (_, Left err) -> expectationFailure ("server version query failed: " <> show err)
-  where
-    poolConfig =
-        Pool.Config.settings
-            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
-            , Pool.Config.size 1
-            ]
-
-defaultUuidStmt :: Statement () Text
-defaultUuidStmt =
-    preparable
-        "INSERT INTO kiroku.events (event_type, data) VALUES ('DefaultUuidGenerated', '{}'::jsonb) RETURNING event_id::text"
-        E.noParams
-        (D.singleRow (D.column (D.nonNullable D.text)))
-
-serverVersionStmt :: Statement () Text
-serverVersionStmt =
-    preparable
-        "SELECT current_setting('server_version_num')"
-        E.noParams
-        (D.singleRow (D.column (D.nonNullable D.text)))
-
-assertStreamTriggers :: Text -> IO ()
-assertStreamTriggers connStr = do
-    pool <- Pool.acquire poolConfig
-    result <- Pool.use pool (Session.statement () streamTriggersStmt)
-    Pool.release pool
-    case result of
-        Left err -> expectationFailure ("stream trigger verification query failed: " <> show err)
-        Right triggers ->
-            triggers
-                `shouldBe` [ "no_delete_streams"
-                           , "no_truncate_streams"
-                           , "stream_events_notify_insert"
-                           , "stream_events_notify_update"
-                           ]
-  where
-    poolConfig =
-        Pool.Config.settings
-            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
-            , Pool.Config.size 1
-            ]
-
-streamTriggersStmt :: Statement () [Text]
-streamTriggersStmt =
-    preparable
+importFactsStatement :: Statement () (Int64, Int64, Bool)
+importFactsStatement =
+    Statement.preparable
         """
-        SELECT t.tgname::text
-        FROM pg_trigger t
-        JOIN pg_class c ON c.oid = t.tgrelid
-        JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE n.nspname = 'kiroku' AND c.relname = 'streams' AND NOT t.tgisinternal
-        ORDER BY t.tgname
+        SELECT
+          (SELECT count(*) FROM pgmigrate.migrations),
+          (SELECT count(*) FROM pgmigrate.history_imports),
+          (SELECT bool_and(source_evidence #>> '{satisfying_evidence,0,details,adapter}' = 'codd') FROM pgmigrate.history_imports)
         """
-        E.noParams
-        (D.rowList (D.column (D.nonNullable D.text)))
-
-assertDeadLettersEventIdIndex :: Text -> IO ()
-assertDeadLettersEventIdIndex connStr = do
-    pool <- Pool.acquire poolConfig
-    result <- Pool.use pool (Session.statement () deadLettersEventIdIndexStmt)
-    Pool.release pool
-    case result of
-        Left err -> expectationFailure ("dead_letters event_id index verification query failed: " <> show err)
-        Right True -> pure ()
-        Right False -> expectationFailure "Kiroku migration did not create ix_dead_letters_event_id"
-  where
-    poolConfig =
-        Pool.Config.settings
-            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
-            , Pool.Config.size 1
-            ]
-
-deadLettersEventIdIndexStmt :: Statement () Bool
-deadLettersEventIdIndexStmt =
-    preparable
-        "SELECT to_regclass('kiroku.ix_dead_letters_event_id') IS NOT NULL"
-        E.noParams
-        (D.singleRow (D.column (D.nonNullable D.bool)))
-
-assertIndexHygiene :: Text -> IO ()
-assertIndexHygiene connStr = do
-    pool <- Pool.acquire poolConfig
-    result <- Pool.use pool (Session.statement () indexNamesStmt)
-    Pool.release pool
-    case result of
-        Left err -> expectationFailure ("index hygiene verification query failed: " <> show err)
-        Right indexes -> do
-            indexes `shouldSatisfy` elem "ix_dead_letters_event_id"
-            indexes `shouldSatisfy` elem "ix_dead_letters_subscription_position"
-            indexes `shouldSatisfy` elem "ux_stream_events_stream_version"
-            indexes `shouldSatisfy` notElem "ix_dead_letters_subscription_created_at"
-            indexes `shouldSatisfy` notElem "ix_events_event_type"
-            indexes `shouldSatisfy` notElem "ix_stream_events_stream_version"
-  where
-    poolConfig =
-        Pool.Config.settings
-            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
-            , Pool.Config.size 1
-            ]
-
-indexNamesStmt :: Statement () [Text]
-indexNamesStmt =
-    preparable
-        """
-        SELECT indexname::text
-        FROM pg_indexes
-        WHERE schemaname = 'kiroku'
-        ORDER BY indexname
-        """
-        E.noParams
-        (D.rowList (D.column (D.nonNullable D.text)))
-
-assertStreamVersionIndexUnique :: Text -> IO ()
-assertStreamVersionIndexUnique connStr = do
-    pool <- Pool.acquire poolConfig
-    result <- Pool.use pool (Session.statement () streamVersionIndexUniqueStmt)
-    Pool.release pool
-    case result of
-        Left err -> expectationFailure ("stream version unique-index verification query failed: " <> show err)
-        Right True -> pure ()
-        Right False -> expectationFailure "ux_stream_events_stream_version is not unique"
-  where
-    poolConfig =
-        Pool.Config.settings
-            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
-            , Pool.Config.size 1
-            ]
-
-streamVersionIndexUniqueStmt :: Statement () Bool
-streamVersionIndexUniqueStmt =
-    preparable
-        """
-        SELECT indisunique
-        FROM pg_index
-        WHERE indexrelid = 'kiroku.ux_stream_events_stream_version'::regclass
-        """
-        E.noParams
-        (D.singleRow (D.column (D.nonNullable D.bool)))
-
-assertStreamsFillfactor :: Text -> IO ()
-assertStreamsFillfactor connStr = do
-    pool <- Pool.acquire poolConfig
-    result <- Pool.use pool (Session.statement () streamsFillfactorStmt)
-    Pool.release pool
-    case result of
-        Left err -> expectationFailure ("streams fillfactor verification query failed: " <> show err)
-        Right True -> pure ()
-        Right False -> expectationFailure "kiroku.streams reloptions did not include fillfactor=50"
-  where
-    poolConfig =
-        Pool.Config.settings
-            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
-            , Pool.Config.size 1
-            ]
-
-streamsFillfactorStmt :: Statement () Bool
-streamsFillfactorStmt =
-    preparable
-        """
-        SELECT COALESCE('fillfactor=50' = ANY(reloptions), false)
-        FROM pg_class
-        WHERE oid = 'kiroku.streams'::regclass
-        """
-        E.noParams
-        (D.singleRow (D.column (D.nonNullable D.bool)))
-
-assertStreamNameLengthConstraint :: Text -> IO ()
-assertStreamNameLengthConstraint connStr = do
-    pool <- Pool.acquire poolConfig
-    result <- Pool.use pool (Session.statement () streamNameLengthConstraintStmt)
-    Pool.release pool
-    case result of
-        Left err -> expectationFailure ("stream-name length constraint verification query failed: " <> show err)
-        Right True -> pure ()
-        Right False -> expectationFailure "Kiroku migration did not create chk_streams_stream_name_length"
-  where
-    poolConfig =
-        Pool.Config.settings
-            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
-            , Pool.Config.size 1
-            ]
-
-streamNameLengthConstraintStmt :: Statement () Bool
-streamNameLengthConstraintStmt =
-    preparable
-        """
-        SELECT EXISTS (
-          SELECT 1
-          FROM pg_constraint
-          WHERE conname = 'chk_streams_stream_name_length'
-            AND conrelid = 'kiroku.streams'::regclass
+        Encoders.noParams
+        ( Decoders.singleRow
+            ( (,,)
+                <$> column Decoders.int8
+                <*> column Decoders.int8
+                <*> column Decoders.bool
+            )
         )
-        """
-        E.noParams
-        (D.singleRow (D.column (D.nonNullable D.bool)))
-
-assertOversizedStreamNameRejected :: Text -> IO ()
-assertOversizedStreamNameRejected connStr = do
-    pool <- Pool.acquire poolConfig
-    result <- Pool.use pool (Session.statement () oversizedStreamNameInsertStmt)
-    Pool.release pool
-    case result of
-        Left _ -> pure ()
-        Right () -> expectationFailure "direct insert of over-limit stream_name unexpectedly succeeded"
   where
-    poolConfig =
-        Pool.Config.settings
-            [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
-            , Pool.Config.size 1
-            ]
-
-oversizedStreamNameInsertStmt :: Statement () ()
-oversizedStreamNameInsertStmt =
-    preparable
-        "INSERT INTO kiroku.streams (stream_name) VALUES (repeat('a', 513))"
-        E.noParams
-        D.noResult
+    column = Decoders.column . Decoders.nonNullable

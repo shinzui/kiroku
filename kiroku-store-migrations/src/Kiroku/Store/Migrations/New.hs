@@ -1,52 +1,40 @@
 module Kiroku.Store.Migrations.New (
-    newMigrationFile,
+    AuthoringError,
     defaultMigrationsDir,
-    migrationFileName,
-    migrationSlug,
+    newMigrationFile,
     migrationTemplate,
 ) where
 
-import Codd.Extras.New qualified as New
-import Data.Time (UTCTime)
+import Data.ByteString (ByteString)
+import Data.Text qualified as Text
+import Data.Text.Encoding qualified as Text.Encoding
+import Database.PostgreSQL.Migrate.Embed (
+    AuthoringError,
+    newMigration,
+    newMigrationOptions,
+ )
+import System.FilePath ((</>))
 
 defaultMigrationsDir :: FilePath
-defaultMigrationsDir = New.defaultMigrationsDir
+defaultMigrationsDir = "migrations"
 
-newMigrationFile :: FilePath -> String -> IO FilePath
-newMigrationFile = New.newMigrationFile migrationFileConfig
+newMigrationFile :: FilePath -> String -> IO (Either AuthoringError FilePath)
+newMigrationFile migrationsDirectory description =
+    case newMigrationOptions manifestPath Nothing (migrationTemplate description) of
+        Left definitionError -> pure (Left definitionError)
+        Right options -> newMigration options
+  where
+    manifestPath = migrationsDirectory </> "manifest"
 
-migrationFileName :: UTCTime -> String -> FilePath
-migrationFileName = New.migrationFileName migrationFileConfig
-
-migrationSlug :: String -> String
-migrationSlug = New.migrationSlug Nothing
-
-migrationTemplate :: String -> String
+migrationTemplate :: String -> ByteString
 migrationTemplate description =
-    unlines
-        [ "-- " <> description
-        , "--"
-        , "-- Kiroku incremental migration. codd applies this file exactly once,"
-        , "-- keyed by filename, and records it in codd_schema.sql_migrations."
-        , "-- Keep every statement idempotent (IF NOT EXISTS / IF EXISTS) so a"
-        , "-- partial re-run is safe, and hard-qualify every object with the"
-        , "-- kiroku schema. Do NOT pin the schema search path; always write"
-        , "-- kiroku.<name> explicitly, as the incremental migrations do."
-        , ""
-        , "CREATE TABLE IF NOT EXISTS kiroku.example ("
-        , "    example_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY"
-        , ");"
-        , ""
-        , "-- Index name is bare; the ON target is schema-qualified."
-        , "CREATE INDEX IF NOT EXISTS ix_example_id"
-        , "    ON kiroku.example (example_id);"
-        , ""
-        , "-- TODO: replace the example above with the real DDL for this migration."
-        ]
-
-migrationFileConfig :: New.MigrationFileConfig
-migrationFileConfig =
-    New.MigrationFileConfig
-        { New.migrationSlugPrefix = Nothing
-        , New.migrationTemplate = migrationTemplate
-        }
+    Text.Encoding.encodeUtf8
+        ( Text.unlines
+            [ "-- " <> Text.pack description
+            , ""
+            , "-- Kiroku migrations are forward-only and applied exactly once by pg-migrate."
+            , "-- Qualify every object with the kiroku schema and append corrections"
+            , "-- as new manifest entries instead of editing released payloads."
+            , ""
+            ]
+        )

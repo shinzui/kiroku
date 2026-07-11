@@ -1,6 +1,12 @@
 { pkgs }:
 let
   inherit (pkgs.haskell.lib.compose) doJailbreak dontCheck overrideCabal;
+  pgMigrateSrc = pkgs.fetchFromGitHub {
+    owner = "shinzui";
+    repo = "pg-migrate";
+    rev = "v1.0.0.0";
+    hash = "sha256-cxDPGqheAlDPniZPOuzz9JpKEb39ejdH+8RL8VN8A+w=";
+  };
 in
 final: prev: {
   haxl = dontCheck (doJailbreak prev.haxl);
@@ -25,6 +31,24 @@ final: prev: {
         hash = "sha256-7MKlR3oepOwlBwiEpzz3NFepEYGqROT5RrYoe/vvBKM=";
       }) { }
     )
+  );
+
+  pg-migrate = dontCheck (final.callCabal2nix "pg-migrate" "${pgMigrateSrc}/pg-migrate" { });
+
+  pg-migrate-embed = dontCheck (
+    final.callCabal2nix "pg-migrate-embed" "${pgMigrateSrc}/pg-migrate-embed" { }
+  );
+
+  pg-migrate-cli = dontCheck (
+    final.callCabal2nix "pg-migrate-cli" "${pgMigrateSrc}/pg-migrate-cli" { }
+  );
+
+  pg-migrate-import-codd = dontCheck (
+    final.callCabal2nix "pg-migrate-import-codd" "${pgMigrateSrc}/pg-migrate-import-codd" { }
+  );
+
+  pg-migrate-test-support = dontCheck (
+    final.callCabal2nix "pg-migrate-test-support" "${pgMigrateSrc}/pg-migrate-test-support" { }
   );
 
   hasql-notifications = dontCheck (
@@ -118,14 +142,10 @@ final: prev: {
   kiroku-store-migrations = dontCheck (
     doJailbreak (
       overrideCabal (_: {
-        # The kiroku-write-expected-schema executable (cabal flag
-        # `expected-schema-tool`, on by default so
-        # `cabal run kiroku-write-expected-schema` works in the dev shell)
-        # depends on ephemeral-pg, which has no buildable source in this
-        # nixpkgs Haskell set. Turn the flag off and drop the executable
-        # deps so the library and the kiroku-store-migrate executable still
-        # build under nix. cabal2nix lists exe deps regardless of flags, so
-        # both the flag-off and the emptied deps are required.
+        # The disabled-by-default legacy expected-schema writer retains Codd
+        # and ephemeral-pg only for explicit snapshot maintenance. Keep it out
+        # of the normal Nix closure; cabal2nix lists executable dependencies
+        # even for a disabled flag, so both settings remain necessary.
         configureFlags = [ "-f-expected-schema-tool" ];
         executableHaskellDepends = [ ];
       }) (final.callCabal2nix "kiroku-store-migrations" ../kiroku-store-migrations { })

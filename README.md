@@ -17,9 +17,8 @@ workflows.
 - `kiroku-store`: the core event store library, built on `hasql`; includes
   append, read, link, lifecycle, transaction, subscription, consumer-group, and
   observability APIs.
-- `kiroku-store-migrations`: embedded forward-only codd migrations and the
-  `kiroku-store-migrate` executable for installing and upgrading the database
-  schema.
+- `kiroku-store-migrations`: a native `pg-migrate` component, Codd history
+  import mapping, and the `kiroku-store-migrate` executable.
 - `kiroku-cli`: an embeddable operator CLI library plus the standalone
   `kiroku` executable for commands such as subscription status.
 - `kiroku-otel`: W3C trace-context helpers for Kiroku event metadata.
@@ -40,7 +39,7 @@ rather than an API guarantee — see
 
 ```text
 kiroku-store/              Core event store library, tests, and benchmarks
-kiroku-store-migrations/   Embedded codd migrations and migration executable
+kiroku-store-migrations/   Native pg-migrate component and migration executable
 kiroku-cli/                Embeddable operator CLI and standalone executable
 kiroku-otel/               OpenTelemetry trace-context metadata helpers
 shibuya-kiroku-adapter/    Shibuya adapter for Kiroku subscriptions
@@ -49,7 +48,7 @@ docs/                      Design notes, production notes, audits, plans
 
 ## Development
 
-This repository is a Cabal project using GHC 9.12.2.
+This repository is a Cabal project using GHC 9.12.4.
 
 Common commands are available through `just`:
 

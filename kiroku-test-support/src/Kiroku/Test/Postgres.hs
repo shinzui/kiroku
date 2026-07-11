@@ -2,22 +2,20 @@ module Kiroku.Test.Postgres (
     withSharedMigratedPostgres,
     withMigratedTestDatabase,
     migrateTestDatabase,
-    findMigrationDir,
 ) where
 
 import Control.Concurrent.STM (TVar, atomically, newTVarIO, stateTVar)
 import Control.Exception (bracket, bracket_, onException)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
-import Data.List (isSuffixOf, sort)
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Text.IO qualified as TIO
+import Database.PostgreSQL.Migrate (defaultRunOptions, runMigrationPlan)
 import EphemeralPg qualified as Pg
 import Hasql.Connection.Settings qualified as Conn
 import Hasql.Pool qualified as Pool
 import Hasql.Pool.Config qualified as Pool.Config
 import Hasql.Session qualified as Session
-import System.Directory (doesDirectoryExist, listDirectory)
+import Kiroku.Store.Migrations (kirokuMigrationPlan)
 import System.IO.Unsafe (unsafePerformIO)
 
 data SharedPostgres = SharedPostgres
@@ -115,44 +113,17 @@ connectionStringFor db dbName =
 quoteIdentifier :: Text -> Text
 quoteIdentifier ident = "\"" <> T.replace "\"" "\"\"" ident <> "\""
 
-{- | Apply every Kiroku migration SQL file (the bootstrap plus each forward
-migration) in timestamped filename order. The files are concatenated into a
-single script so the @SET search_path@ the bootstrap establishes carries into
-the later migrations, then run once. Forward migrations added under
-@kiroku-store-migrations/sql-migrations@ are picked up automatically.
--}
+-- | Apply Kiroku's native component and record it in the pg-migrate ledger.
 migrateTestDatabase :: Text -> IO ()
 migrateTestDatabase connStr = do
-    migrationDir <- findMigrationDir
-    files <- sort . filter (".sql" `isSuffixOf`) <$> listDirectory migrationDir
-    sqls <- mapM (\f -> TIO.readFile (migrationDir <> "/" <> f)) files
-    let migrationSql = T.intercalate "\n" sqls
-    pool <- Pool.acquire (poolConfig connStr)
-    result <- Pool.use pool (Session.script migrationSql)
-    Pool.release pool
+    plan <- either (error . ("Invalid embedded Kiroku migration plan: " <>) . show) pure kirokuMigrationPlan
+    result <- runMigrationPlan defaultRunOptions (Conn.connectionString connStr) plan
     case result of
-        Left err -> error ("Failed to apply Kiroku migration SQL for test database: " <> show err)
-        Right () -> pure ()
+        Left err -> error ("Failed to apply Kiroku migration plan for test database: " <> show err)
+        Right _ -> pure ()
 
 poolConfig connStr =
     Pool.Config.settings
         [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)
         , Pool.Config.size 1
         ]
-
-{- | Locate the @kiroku-store-migrations/sql-migrations@ directory relative to a
-test's working directory (which is the package dir or the repo root depending
-on how the suite is invoked).
--}
-findMigrationDir :: IO FilePath
-findMigrationDir = go candidates
-  where
-    candidates =
-        [ "kiroku-store-migrations/sql-migrations"
-        , "../kiroku-store-migrations/sql-migrations"
-        ]
-
-    go [] = error "Could not locate kiroku-store-migrations/sql-migrations from test working directory"
-    go (path : rest) = do
-        exists <- doesDirectoryExist path
-        if exists then pure path else go rest

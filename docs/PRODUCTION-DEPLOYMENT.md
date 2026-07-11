@@ -14,8 +14,8 @@ function in the package enforces these recommendations.
 ## Database privilege separation
 
 `kiroku-store` no longer embeds schema DDL or creates tables during
-`withStore`. Run `kiroku-store-migrate` or
-`Kiroku.Store.Migrations.runKirokuMigrations` under a migration role
+`withStore`. Run `kiroku-store-migrate up` or the native
+`Kiroku.Store.Migrations.kirokuMigrations` component under a migration role
 before starting the application.
 
 Privileges required to run migrations:
@@ -48,8 +48,8 @@ Recommended pattern:
 1. Provision a `kiroku_admin` role with `CREATE` on the schema and
    `INSERT, UPDATE, SELECT, TRIGGER` on the data tables. Run
    `kiroku-store-migrate` once at deploy time under this role. The
-   migration package embeds Kiroku's timestamped SQL migrations and uses
-   `codd` to record which migrations have already run.
+   migration package embeds Kiroku's ordered native manifest and uses the
+   versioned `pgmigrate` ledger to record which migrations have already run.
 2. Provision a `kiroku_app` role with `INSERT, UPDATE, SELECT` on the
    data tables. The application connects as `kiroku_app` and uses
    `defaultConnectionSettings connString`.
@@ -97,13 +97,13 @@ forward connection-level events to your operational logging.
 
 ## Schema migration
 
-Schema SQL lives in `kiroku-store-migrations/sql-migrations`.
-`kiroku-store-migrations` embeds those timestamped files and passes them
-to `codd`, which records which migrations have already run. Do not edit a
-released migration file; add a new timestamped migration for every schema
-change.
+Schema SQL lives in `kiroku-store-migrations/migrations`, ordered by its
+`manifest`. `kiroku-store-migrations` embeds those exact files as component
+`kiroku`; `pg-migrate` records their component-local identity and checksum. Do
+not edit a released migration file; append a new numeric manifest entry for
+every schema change.
 
-`codd` is forward-only. Reverting the Haskell package after a migration
+The plan is forward-only. Reverting the Haskell package after a migration
 has run does not undo the database change. Recovery from a bad migration
 means restoring from backup or shipping another forward migration that
 repairs state.

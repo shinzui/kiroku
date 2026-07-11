@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+## 0.2.0.0 — 2026-07-10
+
+### Breaking Changes
+
+* Replaced the Codd runner surface with the native `kirokuMigrations` component
+  and `kirokuMigrationPlan`; consumers now compose and run `pg-migrate` plans.
+* Replaced timestamped runtime identities with manifest-ordered `0001` through
+  `0007` identities while preserving every SQL payload byte.
+
+### New Features
+
+* Added checked-in Codd history mappings and manifest-backed `SamePayload`
+  evidence for current `codd` and legacy `codd_schema` ledgers.
+* Mounted the reusable `pg-migrate-cli` command tree and native exclusive
+  migration authoring helper.
+* Added fresh, repeat, concurrent, strict verification, Codd import,
+  partial-row, audit, and source-preservation tests; Kiroku's full store suite
+  now consumes the native plan through `kiroku-test-support`.
+* Isolated the Codd expected-schema writer behind the disabled-by-default
+  `expected-schema-tool` flag so predecessor libraries do not enter the normal
+  production closure.
+
 ### New Features
 
 * `kiroku-store-migrate new "<description>"` scaffolds a new migration file
