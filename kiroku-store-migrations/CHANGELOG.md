@@ -14,58 +14,40 @@
 
 ### Breaking Changes
 
-* Replaced the Codd runner surface with the native `kirokuMigrations` component
-  and `kirokuMigrationPlan`; consumers now compose and run `pg-migrate` plans.
+* Migrated the package's runtime from Codd to `pg-migrate`. The public API now
+  exports the native `kirokuMigrations` component and `kirokuMigrationPlan`
+  instead of Codd settings, runner, ledger-status, and schema-check wrappers.
 * Replaced timestamped runtime identities with manifest-ordered `0001` through
   `0007` identities while preserving every SQL payload byte.
+* Replaced the Codd CLI and `CODD_*` configuration surface with the standard
+  `pg-migrate-cli` command tree and `DATABASE_URL`. `verify` now compares the
+  declared plan with the `pgmigrate` ledger; it does not compare live schema
+  objects with an expected-schema snapshot.
 
 ### New Features
 
-* Added checked-in Codd history mappings and manifest-backed `SamePayload`
-  evidence for current `codd` and legacy `codd_schema` ledgers.
-* Mounted the reusable `pg-migrate-cli` command tree and native exclusive
-  migration authoring helper.
-* Added fresh, repeat, concurrent, strict verification, Codd import,
-  partial-row, audit, and source-preservation tests; Kiroku's full store suite
-  now consumes the native plan through `kiroku-test-support`.
-* Isolated the Codd expected-schema writer behind the disabled-by-default
-  `expected-schema-tool` flag so predecessor libraries do not enter the normal
-  production closure.
+* Added a manifest-backed, compile-time-embedded migration component that
+  applications can compose with other libraries in explicit dependency order.
+* Added checked-in Codd history mappings and `SamePayload` evidence for safe,
+  non-replaying import from current `codd` and legacy `codd_schema` ledgers.
+  Shared-ledger consumers can combine Kiroku's exported payloads and mappings
+  with their own components before importing.
+* Added the standard `pg-migrate-cli` planning, inspection, execution,
+  verification, status, and numeric migration-authoring commands.
+* Added fresh-apply, rerun, concurrent-apply, strict ledger verification, Codd
+  import, partial-row rejection, audit, and source-preservation coverage. The
+  full Kiroku store suite now consumes the same native plan through
+  `kiroku-test-support`.
 
-### New Features
+### Changed
 
-* `kiroku-store-migrate new "<description>"` scaffolds a new migration file
-  stamped with the real current UTC time to the second and a schema-qualified,
-  idempotent SQL skeleton, so filenames always sort in codd's authoring order
-  and never collide. Backed by the new `Kiroku.Store.Migrations.New` module.
-* A portable, checked-in codd expected-schema snapshot under
-  `expected-schema/v18/` plus a strict drift-gate example in
-  `kiroku-store-migrations-test`: `cabal test kiroku-store-migrations-test` now
-  fails on any un-snapshotted schema change. Regenerate the snapshot with the
-  new `kiroku-write-expected-schema` executable after a schema-shape change.
-  The snapshot is captured under a fixed `kiroku` database identity so the test
-  passes on any machine, and the write tool is cabal-flag-gated
-  (`expected-schema-tool`) off under nix so it never enters the `nix build`
-  closure.
-* `Kiroku.Store.Migrations.Guards` exposes reusable pure migration validators
-  for timestamp sentinels, duplicate timestamps, body linting, and SHA-256
-  lockfile manifests. `kiroku-store-migrations-test` now enforces embed parity,
-  body lint, the checked-in `migrations.lock`, and a codd ledger canary.
-* `kiroku-store-migrate lock` regenerates `migrations.lock` from
-  `sql-migrations/`, making shipped migration body edits visible in review and
-  CI.
-* The historical ledger-fixup script is now dual-schema aware: it targets
-  `codd.sql_migrations` for codd 0.1.8+ ledgers and falls back to
-  `codd_schema.sql_migrations` for pre-upgrade databases.
-* Hardened the apply path: unknown `kiroku-store-migrate` arguments now exit 2
-  with usage, bare invocation and `up` are the only apply commands, embedded
-  migrations force codd's single-try retry policy, and concurrent applies are
-  serialized with a shared PostgreSQL advisory lock.
-* Added operator tooling: `kiroku-store-migrate verify` strict-checks a live
-  database against the expected-schema snapshot embedded in the binary,
-  `kiroku-store-migrate status` reports applied and pending ledger entries, and
-  `Kiroku.Store.Migrations.missingMigrations` lets applications fail fast at
-  startup when framework migrations have not been applied.
+* Preserved the seven historical SQL payloads byte-for-byte while moving their
+  authoritative ordering to `migrations/manifest`; `migrations.lock` remains
+  the source evidence used during Codd history import.
+* Removed Codd, `codd-extras`, `file-embed`, and `postgresql-simple` from the
+  normal library and executable dependency closure. The legacy Codd
+  expected-schema writer remained isolated behind a disabled-by-default flag
+  for transitional snapshot maintenance.
 
 ## 0.1.1.0 — 2026-05-31
 
