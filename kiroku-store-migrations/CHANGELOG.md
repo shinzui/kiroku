@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* Appended `0008-schema-management-comment`, a non-destructive observable
+  native-runner canary. Fresh and imported-prefix tests prove it applies once,
+  verifies strictly, and reruns as `AlreadyApplied` without changing historical
+  payloads or Codd mappings.
+
 ## 0.2.0.0 — 2026-07-10
 
 ### Breaking Changes
