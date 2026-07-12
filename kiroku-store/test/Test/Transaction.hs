@@ -38,6 +38,21 @@ spec = around withTestStore $ do
                 Right n -> n `shouldBe` (1 :: Int)
                 Left err -> expectationFailure ("Expected Right 1, got: " <> show err)
 
+        it "preserves SQLSTATE and message for an opaque foreign-key failure" $ \store -> do
+            createForeignKeyTables (store ^. #pool)
+            result <-
+                runStoreIO store $
+                    runTransaction $
+                        Tx.statement () insertMissingForeignKeyStmt
+            case result of
+                Left (UnexpectedServerError code message) -> do
+                    code `shouldBe` "23503"
+                    T.toLower message `shouldSatisfy` T.isInfixOf "foreign key"
+                Left (StreamNotFound (StreamName "<transaction>")) ->
+                    expectationFailure "foreign-key failure was misclassified as a missing <transaction> stream"
+                other ->
+                    expectationFailure ("Expected UnexpectedServerError 23503, got: " <> show other)
+
     describe "appendToStreamTx (driven inside runTransaction)" $ do
         it "appends events and a side-table row in one atomic transaction" $ \store -> do
             createSideTable (store ^. #pool)
@@ -326,6 +341,27 @@ createSideTableStmt =
         E.noParams
         D.noResult
 
+createForeignKeyParentStmt :: Statement () ()
+createForeignKeyParentStmt =
+    unpreparable
+        "CREATE TABLE IF NOT EXISTS test_tx_parent (id BIGINT PRIMARY KEY)"
+        E.noParams
+        D.noResult
+
+createForeignKeyChildStmt :: Statement () ()
+createForeignKeyChildStmt =
+    unpreparable
+        "CREATE TABLE IF NOT EXISTS test_tx_child (parent_id BIGINT NOT NULL REFERENCES test_tx_parent(id))"
+        E.noParams
+        D.noResult
+
+insertMissingForeignKeyStmt :: Statement () ()
+insertMissingForeignKeyStmt =
+    preparable
+        "INSERT INTO test_tx_child (parent_id) VALUES (999999)"
+        E.noParams
+        D.noResult
+
 {- | Insert a row into the side table. The @id@ doubles as the foreign
 key onto the stream the transaction appended to.
 -}
@@ -353,6 +389,14 @@ createSideTable pool = do
     case r of
         Left err -> error ("createSideTable failed: " <> show err)
         Right () -> pure ()
+
+createForeignKeyTables :: Pool -> IO ()
+createForeignKeyTables pool = do
+    parent <- Pool.use pool (Session.statement () createForeignKeyParentStmt)
+    child <- Pool.use pool (Session.statement () createForeignKeyChildStmt)
+    case (parent, child) of
+        (Right (), Right ()) -> pure ()
+        other -> error ("createForeignKeyTables failed: " <> show other)
 
 countSideTable :: Pool -> IO Int64
 countSideTable pool = do

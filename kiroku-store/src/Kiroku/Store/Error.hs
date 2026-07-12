@@ -183,8 +183,8 @@ mapUsageError streamName expected = \case
 {- | Map a hasql 'UsageError' raised inside an opaque transaction body.
 
 The body has no stream context, so append duplicate violations are mapped
-directly to 'DuplicateEvent' and all other failures fall back to the standard
-append-shaped mapper with sentinel stream context.
+directly to 'DuplicateEvent'. Every other failure uses the generic mapper so
+its SQLSTATE and server message survive without inventing stream context.
 -}
 mapTransactionUsageError :: UsageError -> StoreError
 mapTransactionUsageError usageErr =
@@ -195,7 +195,7 @@ mapTransactionUsageError usageErr =
             | containsConstraint "stream_events_pkey" message detail ->
                 DuplicateEvent (EventId <$> (detail >>= extractFirstUuidFromCompositeDetail))
         _ ->
-            mapUsageError "<transaction>" AnyVersion usageErr
+            mapGenericUsageError usageErr
   where
     containsConstraint name message detail =
         name `T.isInfixOf` message || maybe False (T.isInfixOf name) detail
