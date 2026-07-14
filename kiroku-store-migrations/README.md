@@ -50,7 +50,7 @@ with their own component evidence before constructing one atomic import.
 kiroku-store-migrate --help
 kiroku-store-migrate plan
 kiroku-store-migrate list
-kiroku-store-migrate check kiroku-store-migrations/migrations/manifest
+kiroku-store-migrate check --manifest kiroku-store-migrations/migrations/manifest
 kiroku-store-migrate up --database-url "$DATABASE_URL"
 kiroku-store-migrate verify --database-url "$DATABASE_URL"
 kiroku-store-migrate status --database-url "$DATABASE_URL"

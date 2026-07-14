@@ -4,8 +4,8 @@ let
   pgMigrateSrc = pkgs.fetchFromGitHub {
     owner = "shinzui";
     repo = "pg-migrate";
-    rev = "v1.0.0.0";
-    hash = "sha256-cxDPGqheAlDPniZPOuzz9JpKEb39ejdH+8RL8VN8A+w=";
+    rev = "v1.1.0.0";
+    hash = "sha256-gtSy0iWe+pe6wEHqm8OgvwMI13jNVul+5p7q36LV64E=";
   };
 in
 final: prev: {

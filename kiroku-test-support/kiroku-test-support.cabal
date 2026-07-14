@@ -24,6 +24,6 @@ library
     , hasql                    >=1.10
     , hasql-pool               >=1.2
     , kiroku-store-migrations
-    , pg-migrate               ^>=1.0.0.0
+    , pg-migrate               ^>=1.1.0.0
     , stm
     , text                     >=2.0

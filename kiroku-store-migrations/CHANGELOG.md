@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### Breaking Changes
+
+* Upgraded `pg-migrate` to 1.1.0.0. `kiroku-store-migrate check` now takes the
+  manifest as `--manifest PATH` instead of a positional argument, matching
+  `new --manifest`.
+
+### New Features
+
+* `kiroku-store-migrate up` and `repair` accept explicit `--wait` and
+  `--no-statement-timeout` overrides; omitting an execution flag now preserves
+  the application's configured runner settings instead of discarding them.
+* Successful migration, repair, and history-import runs are no longer replaced
+  by an error when advisory unlock or statement-timeout restoration fails; the
+  durable report is preserved and the cleanup observation attached to it.
+
+### Fixes
+
+* Adding or removing a migration SQL file without listing it in the manifest no
+  longer silently reuses a stale compile-time embedding: the embedding module now
+  forces GHC to revalidate manifest membership on every build it runs.
+
 ## 0.2.0.0 — 2026-07-11
 
 ### Breaking Changes
