@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.3.0.1 — 2026-07-14
+
+### Bug Fixes
+
+* A failure raised inside an opaque `runTransaction` body now preserves its
+  SQLSTATE and server message. Anything that was not a `stream_events_pkey`
+  duplicate previously went through the append-shaped mapper with a
+  `<transaction>` sentinel stream, so e.g. a foreign-key violation surfaced as
+  `StreamNotFound (StreamName "<transaction>")` and lost the real diagnostics.
+  Such failures now map through the generic mapper — the foreign-key case above
+  becomes `UnexpectedServerError "23503"` with the server's message intact.
+  Duplicate-event mapping is unchanged.
+
 ## 0.3.0.0 — 2026-07-11
 
 This release requires migrations `0003`–`0007` from `kiroku-store-migrations`.

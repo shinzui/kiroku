@@ -1,6 +1,6 @@
 cabal-version:   3.0
 name:            kiroku-store
-version:         0.3.0.0
+version:         0.3.0.1
 synopsis:        High-performance PostgreSQL event store
 description:
   Kiroku is a PostgreSQL-backed event store for Haskell applications. It

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.0.0 — 2026-07-14
+
 ### Breaking Changes
 
 * Upgraded `pg-migrate` to 1.1.0.0. `kiroku-store-migrate check` now takes the
