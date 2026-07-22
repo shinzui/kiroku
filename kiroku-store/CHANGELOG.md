@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+## 0.3.1.0 — 2026-07-22
+
+### New Features
+
+* `Kiroku.Store.Effect.Resource.runKirokuStoreWith` installs an already-acquired
+  `KirokuStore` into the effect stack without acquiring or releasing it — the
+  caller owns the handle's lifetime. Processes that open exactly one store, the
+  arrangement `KirokuStoreResource` already documents, can now run several
+  independent effectful actions against that one handle.
+
+  Previously the only runner was `withKirokuStore`, which acquires. A caller
+  that already held an open store but ran many actions through it paid for a
+  connection pool, a dedicated `LISTEN` connection, and a publisher thread on
+  every action. Switching one such caller to the new runner cut a
+  command-line invocation from 5 PostgreSQL connections to 3.
+
+  Note that `runKirokuStoreWith` requires `IOE` even though it neither brackets
+  nor unlifts: `KirokuStoreResource` is a `Static WithSideEffects` effect, and
+  `evalStaticRep` demands `IOE` for those.
+
 ## 0.3.0.1 — 2026-07-14
 
 ### Bug Fixes
