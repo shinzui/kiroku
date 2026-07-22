@@ -9,6 +9,9 @@ module Kiroku.Store.Effect.Resource (
 
     -- * Bracket-style runner
     withKirokuStore,
+
+    -- * Runner over an existing handle
+    runKirokuStoreWith,
 ) where
 
 import Effectful (Dispatch (..), DispatchOf, Eff, Effect, IOE, UnliftStrategy (..), withEffToIO, (:>))
@@ -52,3 +55,22 @@ withKirokuStore ::
 withKirokuStore settings action = withEffToIO SeqUnlift $ \unlift ->
     withStore settings $ \store ->
         unlift (evalStaticRep (KirokuStoreResource store) action)
+
+{- | Install an /already acquired/ 'KirokuStore' into the effect stack.
+
+Unlike 'withKirokuStore', this neither acquires nor releases: the caller owns
+the handle's lifetime. Use it when a process has opened exactly one store (the
+documented arrangement) and needs to run several independent effectful actions
+against it. Acquiring a store per action instead costs a connection pool, a
+dedicated @LISTEN@ connection, and a publisher thread each time.
+
+There is no bracket and no unlifting here, but @IOE@ is still required:
+'KirokuStoreResource' is @Static WithSideEffects@, and 'evalStaticRep' demands
+@IOE@ for any effect declared that way.
+-}
+runKirokuStoreWith ::
+    (IOE :> es) =>
+    KirokuStore ->
+    Eff (KirokuStoreResource : es) a ->
+    Eff es a
+runKirokuStoreWith = evalStaticRep . KirokuStoreResource
