@@ -87,11 +87,18 @@ store. The default `schema` setting is `kiroku`; it controls the `search_path`
 of every pooled connection and the notification channel that subscriptions
 listen on.
 
-Run the migration executable from `kiroku-store-migrations` first (with
-`CODD_SCHEMAS=kiroku`), then start the application normally with
+Run the migration executable from `kiroku-store-migrations` first:
+
+```bash
+kiroku-store-migrate up --database-url "$DATABASE_URL"
+```
+
+(when `--database-url` is omitted the executable reads the `DATABASE_URL`
+environment variable), then start the application normally with
 `withStore (defaultConnectionSettings connString)`. See
 [`kiroku-store-migrations/README.md`](kiroku-store-migrations/README.md) for
-the migration command and runtime settings.
+the full command set (`plan`, `list`, `check`, `up`, `verify`, `status`,
+`new`, `repair`) and runtime settings.
 
 ## Documentation
 

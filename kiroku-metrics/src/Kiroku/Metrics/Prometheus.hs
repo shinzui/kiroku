@@ -47,7 +47,7 @@ renderPrometheus snap = B.toLazyByteString (storeSection snap.store <> counterSe
 storeSection :: StoreGauges -> B.Builder
 storeSection g =
     mconcat
-        [ metric "kiroku_events_appended_total" "counter" "Total events appended store-wide (gap-free global position)." (g.globalPosition)
+        [ metric "kiroku_events_appended_total" "counter" "Current store global position (opaque; not guaranteed dense)." (g.globalPosition)
         , metricI "kiroku_active_subscribers" "gauge" "Currently registered subscribers." g.activeSubscribers
         , help "kiroku_pool_connections" "Pool connections by state."
         , typ "kiroku_pool_connections" "gauge"
