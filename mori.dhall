@@ -1,9 +1,10 @@
 let Schema =
-      https://raw.githubusercontent.com/shinzui/mori-schema/f53517e1a532275569bb14a452359f11c3e02c03/package.dhall
-        sha256:3b79aae9216456678300441ca8616b64a4b4fa520a1286dfcc418f60899d5d4a
+      https://raw.githubusercontent.com/shinzui/mori-schema/b85081a0e935a976202fd7a1227f8b93e2cbeb23/package.dhall
+        sha256:1501e5c3e55e78d2a58774e2f8aefda20e32b948fa7caf639473fce90929464b
 
-in  Schema.Project::{ project =
-      Schema.ProjectIdentity::{ name = "kiroku"
+in  Schema.Project::{
+    , project = Schema.ProjectIdentity::{
+      , name = "kiroku"
       , namespace = "shinzui"
       , type = Schema.PackageType.Library
       , description = Some "PostgreSQL event store in Haskell"
@@ -13,40 +14,46 @@ in  Schema.Project::{ project =
       , owners = [ "shinzui" ]
       }
     , repos =
-      [ Schema.Repo::{ name = "kiroku"
-        , github = Some "shinzui/kiroku"
-        }
-      ]
+      [ Schema.Repo::{ name = "kiroku", github = Some "shinzui/kiroku" } ]
     , packages =
-      [ Schema.Package::{ name = "kiroku-store"
+      [ Schema.Package::{
+        , name = "kiroku-store"
         , type = Schema.PackageType.Library
         , language = Schema.Language.Haskell
         , path = Some "kiroku-store"
         , description = Some "Core event store library using hasql"
         }
-      , Schema.Package::{ name = "shibuya-kiroku-adapter"
+      , Schema.Package::{
+        , name = "shibuya-kiroku-adapter"
         , type = Schema.PackageType.Library
         , language = Schema.Language.Haskell
         , path = Some "shibuya-kiroku-adapter"
-        , description = Some "Shibuya adapter for Kiroku event store subscriptions"
+        , description = Some
+            "Shibuya adapter for Kiroku event store subscriptions"
         }
-      , Schema.Package::{ name = "kiroku-otel"
+      , Schema.Package::{
+        , name = "kiroku-otel"
         , type = Schema.PackageType.Library
         , language = Schema.Language.Haskell
         , path = Some "kiroku-otel"
-        , description = Some "OpenTelemetry W3C trace-context helpers for Kiroku event metadata"
+        , description = Some
+            "OpenTelemetry W3C trace-context helpers for Kiroku event metadata"
         }
-      , Schema.Package::{ name = "kiroku-metrics"
+      , Schema.Package::{
+        , name = "kiroku-metrics"
         , type = Schema.PackageType.Library
         , language = Schema.Language.Haskell
         , path = Some "kiroku-metrics"
-        , description = Some "Metrics, health, and event-streaming HTTP endpoints for Kiroku"
+        , description = Some
+            "Metrics, health, and event-streaming HTTP endpoints for Kiroku"
         }
-      , Schema.Package::{ name = "kiroku-store-migrations"
+      , Schema.Package::{
+        , name = "kiroku-store-migrations"
         , type = Schema.PackageType.Library
         , language = Schema.Language.Haskell
         , path = Some "kiroku-store-migrations"
-        , description = Some "Native pg-migrate component and checked-in Codd history mapping for Kiroku"
+        , description = Some
+            "Native pg-migrate component and checked-in Codd history mapping for Kiroku"
         }
       ]
     , dependencies =
@@ -60,5 +67,15 @@ in  Schema.Project::{ project =
       , "shinzui/ephemeral-pg"
       , "shinzui/pg-migrate"
       , "shinzui/shibuya"
+      ]
+    , okfBundles =
+      [ Schema.OkfBundle::{
+        , name = "improvement-requests"
+        , path = "docs/improvement-requests"
+        , profile = Some "mori/improvement-requests-profile.dhall"
+        , okfVersion = "0.1"
+        , description = Some
+            "Cross-repository improvement requests owned by Kiroku"
+        }
       ]
     }
