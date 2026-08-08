@@ -101,6 +101,16 @@ bench-regression-pattern PATTERN:
     cabal bench kiroku-store:kiroku-store-bench \
         --benchmark-options="--baseline $PWD/kiroku-store/bench/results/baseline.csv --fail-if-slower 10 --pattern {{PATTERN}}"
 
+# --- Docs ---
+
+# Validate the OKF capability catalog against its pinned profile
+[group('docs')]
+capabilities-validate:
+    mori validate
+    okf validate docs/capabilities --profile docs/capabilities/profile.dhall \
+        --profile-enforce --log-enforce
+    okf graph docs/capabilities > /dev/null
+
 # --- Nix ---
 
 # Build via nix
