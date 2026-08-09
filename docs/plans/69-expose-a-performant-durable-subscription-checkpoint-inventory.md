@@ -73,7 +73,11 @@ supported library boundary instead of duplicating Kiroku SQL.
   the matching annotated tags and non-draft GitHub releases. A fresh Hackage-indexed Cabal project
   resolved all five exact versions and compiled the public inventory signature. Completed IR-2
   with the release and clean-consumer evidence.
-- [ ] Milestone 5: create, but do not execute, the dependent Keiro adoption ExecPlan.
+- [x] (2026-08-09T15:06:47Z) Milestone 5: created, but did not execute,
+  `mori://shinzui/keiro/plans/214-adopt-kiroku-s-durable-subscription-checkpoint-inventory` under
+  Keiro's operational CLI MasterPlan. The planning-only Keiro commit is `a4993e4b`; it registers
+  EP-5, requires released `kiroku-store` 0.4.0.0, preserves member-aware output, and explicitly
+  distinguishes global position distance from category, filtered, or sharded event lag.
 
 
 ## Surprises & Discoveries
@@ -139,6 +143,11 @@ supported library boundary instead of duplicating Kiroku SQL.
   and the files exist in their registered worktrees. This is an artifact-coverage/registry lag;
   per repository policy the plan retains the intended canonical `mori://` URIs rather than
   replacing them with ambiguous cross-repository paths.
+- The Keiro generator allocated plan 214 with slug
+  `adopt-kiroku-s-durable-subscription-checkpoint-inventory`. An immediate `mori path` check of
+  its canonical URI also reported “artifact not found,” as expected from the same registry
+  observation lag. The generated file and commit exist in the registered Keiro worktree, so this
+  plan records the intended canonical URI rather than a cross-repository path.
 - The test suite is Hspec-based and rejects the originally drafted Tasty-style `--pattern` flag.
   The focused command is `--test-options='--match SubscriptionCheckpointInventory'`; it ran 10
   examples with 0 failures.
@@ -330,7 +339,12 @@ created for it.
 
 `mori://shinzui/kiroku/okf/improvement-requests/concepts/IR-2` is complete. A clean Cabal consumer
 resolved the exact five-package release cohort from Hackage and compiled the inventory API. The
-downstream Keiro plan URI will be added after Milestone 5 initializes and validates that plan.
+planning-only downstream handoff is
+`mori://shinzui/keiro/plans/214-adopt-kiroku-s-durable-subscription-checkpoint-inventory`, committed
+in Keiro as `a4993e4b`. It consumes the released package through
+`mori://shinzui/kiroku/packages/kiroku-store`, replaces the private checkpoint read, plans durable
+member-aware CLI output, and reserves actual source-specific lag for a compatible source head.
+No Keiro implementation code was changed as part of this Kiroku plan.
 
 
 ## Context and Orientation
