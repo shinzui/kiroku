@@ -2,6 +2,9 @@
 
 ## 2026-08-08
 
+* **Update**: IR-2 now records that Keiro removed its process-local and cross-schema substitutes;
+  the durable checkpoint-inventory and projection-lag commands wait on the Kiroku API.
+
 * **Addition**: IR-2 requests a public, member-aware inventory of exact durable subscription
   checkpoints. It lets Keiro add database-only checkpoint reporting without private Kiroku SQL and
   keeps that state distinct from Kiroku and Shibuya's process-local live snapshots.

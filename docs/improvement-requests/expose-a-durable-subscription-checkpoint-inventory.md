@@ -8,15 +8,15 @@ description: >-
 generated:
   by: openai/gpt-5
   at: "2026-08-09T02:41:50Z"
-timestamp: "2026-08-09T02:41:50Z"
+timestamp: "2026-08-09T02:57:16Z"
 requestId: IR-2
 status: proposed
 origin: mori://shinzui/keiro
 reviews:
   - kind: model
     reviewer: codex
-    reviewed_at: "2026-08-09T02:41:50Z"
-    document_timestamp: "2026-08-09T02:41:50Z"
+    reviewed_at: "2026-08-09T02:57:16Z"
+    document_timestamp: "2026-08-09T02:57:16Z"
     scope: technical-accuracy
     outcome: approved
     provider: openai
@@ -28,9 +28,11 @@ reviews:
       subscriptionStates snapshot contains only live process-local FSM cursors and explicitly
       does not guarantee the durable database position. Shibuya's public processor
       introspection is likewise process-local and does not own Kiroku's checkpoint schema.
+      Keiro has removed both the process-local substitute and its indirect private-table
+      checkpoint query, so the durable CLI slice now waits on this owning-library API.
 verified:
   by: process:codex
-  at: "2026-08-09T02:41:50Z"
+  at: "2026-08-09T02:57:16Z"
 ---
 
 # Improvement Request: Expose a Durable Subscription Checkpoint Inventory
@@ -39,10 +41,10 @@ verified:
 
 Proposed as the owning-library follow-up to
 `mori://shinzui/keiro/plans/207-add-the-messaging-and-read-side-command-domains-to-keiro-ops`.
-Keiro's standalone operator CLI can currently show Kiroku's supported live registry honestly, but
-it cannot list durable subscription progress without crossing Kiroku's schema boundary. This
-request is not a blocker for the already completed live-state command; it enables a distinct
-database-only durable-inventory command once the API ships in a tagged Kiroku release.
+This request blocks that plan's durable checkpoint-inventory and projection-lag commands. Keiro
+removed its standalone live-registry substitute and the indirect private-table query; its other
+operational domains can proceed independently. Once this API ships in a tagged Kiroku release,
+Keiro can mount the deferred database-only commands without crossing Kiroku's schema boundary.
 
 ## Context
 
