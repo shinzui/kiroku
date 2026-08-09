@@ -8,7 +8,7 @@ description: >-
 generated:
   by: openai/gpt-5
   at: "2026-08-09T02:41:50Z"
-timestamp: "2026-08-09T02:57:16Z"
+timestamp: "2026-08-09T13:46:17Z"
 requestId: IR-2
 status: proposed
 origin: mori://shinzui/keiro
@@ -45,13 +45,17 @@ This request blocks that plan's durable checkpoint-inventory and projection-lag 
 removed its standalone live-registry substitute and the indirect private-table query; its other
 operational domains can proceed independently. Once this API ships in a tagged Kiroku release,
 Keiro can mount the deferred database-only commands without crossing Kiroku's schema boundary.
+The API and correctness tests are implemented on Kiroku master under
+`mori://shinzui/kiroku/plans/69-expose-a-performant-durable-subscription-checkpoint-inventory`,
+but this request remains proposed until the PVP-major package release is published.
 
 ## Context
 
 Kiroku stores subscription progress in the `subscriptions` table. The durable key is
-`(subscription_name, consumer_group_member)`, where member zero represents a non-group
-subscription. `last_seen` is the exact persisted `GlobalPosition`, and a row remains after its
-worker stops. The worker already reads and saves individual member checkpoints through
+`(subscription_name, consumer_group_member)`. Member zero can represent either a non-group
+subscription or member zero of a consumer group; the row alone cannot distinguish them.
+`last_seen` is the exact persisted `GlobalPosition`, and a row remains after its worker stops. The
+worker already reads and saves individual member checkpoints through
 `getCheckpointMemberStmt` and `saveCheckpointMemberStmt`, but those statements are internal and
 there is no public operation that lists the rows.
 
@@ -59,9 +63,9 @@ The public `Kiroku.Store.Subscription.subscriptionStates` function answers a dif
 It snapshots live workers registered on one `KirokuStore` handle and exposes each worker FSM's
 `cursor`. As documented by
 [the registry plan](../plans/45-central-subscription-state-registry-on-the-store-handle-for-cheap-observability.md),
-that cursor can be ahead of the persisted checkpoint while a batch is in flight or while an event
-is being retried. A stopped worker disappears from the registry even though its durable row
-remains. The completed
+that cursor is process-local rather than a durable database fact. Work inside an active handler
+does not appear in the durable inventory until the checkpoint write commits. A stopped worker
+disappears from the registry even though its durable row remains. The completed
 [operator CLI initiative](../masterplans/8-embeddable-operator-cli-for-kiroku-subscription-status.md)
 therefore deliberately reports only live process-local state.
 
@@ -74,42 +78,49 @@ reach into that table to manufacture an inventory.
 
 ## Requested Change
 
-Add an additive, read-only `kiroku-store` API that returns every durable subscription checkpoint
-visible to the configured Kiroku store:
+Add the read-only `kiroku-store` API now implemented on master. It returns a captured global store
+position and every durable subscription checkpoint visible to the configured Kiroku store:
 
-1. Define a public row type containing at least `SubscriptionName`, consumer-group member, and the
-   persisted `GlobalPosition`. If the existing `updated_at` column is exposed, document it as the
-   time of the latest checkpoint write/upsert, not proof that the position advanced.
-2. Add a public list operation, reachable through the mockable `Store` effect and an ordinary
-   consumer-facing module such as `Kiroku.Store.Subscription`. It should execute one read-only
-   database query and return an empty collection when no checkpoint rows exist.
-3. Return rows in deterministic ascending `(subscription name, member)` order. A consumer group is
+1. Define `SubscriptionCheckpoint` with `subscriptionName`, `consumerGroupMember`,
+   `checkpointPosition`, and `checkpointUpdatedAt`. The timestamp is the latest upsert time, not
+   proof that the position advanced.
+2. Define `SubscriptionCheckpointInventory` with one `storePosition` and a strict vector of
+   `checkpoints`. Fetch both from one read-only SQL statement snapshot and one database round trip,
+   retaining the position-zero `$all` row when no checkpoint exists.
+3. Expose `subscriptionCheckpointInventory` through the mockable `Store` effect and
+   `Kiroku.Store.Subscription`; consumers must not import the package-internal statement.
+4. Return rows in deterministic ascending `(subscription name, member)` order. A consumer group is
    represented by one row per persisted member; a non-group subscription is member zero.
-4. Make the semantics explicit in Haddock and user documentation: values are exact persisted
+5. Make the semantics explicit in Haddock and user documentation: values are exact persisted
    checkpoints, stopped subscriptions remain present, an active worker's live FSM cursor may be
    ahead, and the inventory is a point-in-time read rather than a transactionally frozen view of
    subsequent writes.
-5. Keep internal schema details behind Kiroku. Callers must not need `Hasql`, the `subscriptions`
+6. Keep internal schema details behind Kiroku. Callers must not need `Hasql`, the `subscriptions`
    table name, or raw SQL, and mock interpreters must be able to implement the operation without a
    database.
 
-One possible additive shape is:
+The implemented public shape is:
 
 ```haskell
 data SubscriptionCheckpoint = SubscriptionCheckpoint
     { subscriptionName :: !SubscriptionName
     , consumerGroupMember :: !Int32
-    , checkpoint :: !GlobalPosition
-    , updatedAt :: !UTCTime
+    , checkpointPosition :: !GlobalPosition
+    , checkpointUpdatedAt :: !UTCTime
     }
 
-subscriptionCheckpoints ::
+data SubscriptionCheckpointInventory = SubscriptionCheckpointInventory
+    { storePosition :: !GlobalPosition
+    , checkpoints :: !(Vector SubscriptionCheckpoint)
+    }
+
+subscriptionCheckpointInventory ::
     (HasCallStack, Store :> es) =>
-    Eff es (Vector SubscriptionCheckpoint)
+    Eff es SubscriptionCheckpointInventory
 ```
 
-The final names, collection type, and whether `updatedAt` is included belong to Kiroku. The
-required contract is the durable, member-aware inventory through the public store abstraction.
+The captured store position makes a global position-distance calculation cheap. It does not make
+that subtraction an exact relevant-event backlog for filtered, category, or sharded consumers.
 
 ## Boundaries
 
@@ -119,8 +130,11 @@ status view. Those actions need separate safety semantics and should not be impl
 inventory.
 
 It also does not ask Kiroku to calculate projection lag or know Keiro command rendering. Keiro can
-join the returned persisted position with its own head-position reads and present it through
-`keiro-ops`. Kiroku owns only the checkpoint facts and their public contract.
+interpret the captured store position where global position distance is meaningful and choose a
+category head or another definition where it is not. Kiroku owns only the durable snapshot facts
+and their public contract. A standalone store frontier and bounded replay-window API remain the
+separate repository-local request
+[Expose bounded fan-in replay windows](expose-bounded-fan-in-replay-windows.md).
 
 The legacy `stream_name` and `consumer_group_size` columns are not required fields in the public
 row unless Kiroku first guarantees that every checkpoint-writing path maintains them accurately.
@@ -129,16 +143,16 @@ topology values as authoritative inventory would overstate the schema's contract
 
 ## Acceptance
 
-1. An empty store returns an empty checkpoint inventory.
+1. An empty store returns `storePosition == GlobalPosition 0` and an empty checkpoint vector.
 2. Saving a non-group checkpoint produces one row with its name, member zero, and exact persisted
    `GlobalPosition`.
 3. Saving several members under one consumer-group name produces one independently positioned row
    per member; rows are ordered by name and then member.
 4. A stopped or cancelled subscription remains in the durable inventory after it disappears from
    `subscriptionStates`.
-5. While a live worker's FSM cursor is ahead of its last completed checkpoint write, the durable
-   inventory reports only the persisted position. After the write commits, a new inventory read
-   reports the advanced position.
+5. While a confirmed-live handler is processing an event before its checkpoint write, the durable
+   inventory reports only the prior persisted position. After the write commits, a new inventory
+   read reports the advanced position.
 6. Existing monotonic checkpoint writes, retry/dead-letter atomicity, subscription delivery, and
    live-registry behavior remain unchanged.
 7. The operation is available through the public `Store` effect, both pool-backed interpreters,
@@ -149,3 +163,25 @@ topology values as authoritative inventory would overstate the schema's contract
 9. A consumer such as
    `mori://shinzui/keiro/plans/207-add-the-messaging-and-read-side-command-domains-to-keiro-ops`
    can implement durable subscription listing using public Kiroku APIs only.
+10. The same SQL statement captures the `$all` store position and checkpoint rows; its query plan
+    has one store-row lookup and one checkpoint scan, with no per-checkpoint follow-up work.
+
+## Unreleased Implementation Evidence
+
+The focused correctness suite currently passes 10 examples covering the empty store, both
+pool-backed interpreter entry points, exact captured head, member-zero row, deterministic
+multi-member ordering, monotonic saves, stopped-worker retention, a synchronized live in-flight
+boundary, dead-letter atomicity, normal checkpoint bounds, and a Hasql-free custom interpreter:
+
+```text
+SubscriptionCheckpointInventory
+  9 examples, 0 failures
+SubscriptionCheckpointInventory mock interpreter
+  1 example, 0 failures
+```
+
+The full `kiroku-store` suite passes 245 examples with 0 failures, and Haddock generation succeeds
+for the package.
+
+Query-plan, benchmark, release, and clean-consumer evidence remain outstanding and are tracked by
+`mori://shinzui/kiroku/plans/69-expose-a-performant-durable-subscription-checkpoint-inventory`.

@@ -51,10 +51,12 @@ supported library boundary instead of duplicating Kiroku SQL.
 
 - [x] (2026-08-09T13:38:11Z) Milestone 1: added the public inventory/checkpoint types, `Store`
   operation, one-query SQL interpreter, smart constructor, empty-store integration coverage, and
-  Hasql-free mock-interpreter coverage. `cabal build kiroku-store` and the 9-example focused suite
+  Hasql-free mock-interpreter coverage. `cabal build kiroku-store` and the 10-example focused suite
   passed.
-- [ ] Milestone 2: prove the durable semantics with integration and mock-interpreter tests,
-  and document the boundary from live subscription state.
+- [x] (2026-08-09T13:46:17Z) Milestone 2: proved durable semantics through both pool-backed entry
+  points and a Hasql-free mock, documented the live/durable boundary and position-distance limits,
+  corrected legacy schema topology claims, and updated IR-2 without completing it. The 10-example
+  focused suite, all 245 package examples, and `cabal haddock kiroku-store` passed.
 - [ ] Milestone 3: establish and record query-plan and benchmark evidence at representative
   and stress cardinalities.
 - [ ] Milestone 4: complete the Kiroku IR and perform the PVP-major `kiroku-store`/dependent-bound
@@ -103,7 +105,7 @@ supported library boundary instead of duplicating Kiroku SQL.
   per repository policy the plan retains the intended canonical `mori://` URIs rather than
   replacing them with ambiguous cross-repository paths.
 - The test suite is Hspec-based and rejects the originally drafted Tasty-style `--pattern` flag.
-  The focused command is `--test-options='--match SubscriptionCheckpointInventory'`; it ran 9
+  The focused command is `--test-options='--match SubscriptionCheckpointInventory'`; it ran 10
   examples with 0 failures.
 - The worker does not publish its next `SubscriptionState` cursor before checkpoint persistence.
   `processEvents` handles the batch and saves the checkpoint before the driver loops and writes the

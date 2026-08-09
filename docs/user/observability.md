@@ -154,6 +154,26 @@ signal that complements the export-on-end span timeline (an in-progress
 shows instantly here). It is also the substrate a future Prometheus exporter or
 admin tool reads.
 
+### Reading Every Durable Checkpoint
+
+To answer *"what progress has PostgreSQL durably recorded, including for workers
+that are no longer running?"*, use the `Store` effect instead:
+
+```haskell
+inventory <- subscriptionCheckpointInventory
+-- inventory ^. #storePosition :: GlobalPosition
+-- inventory ^. #checkpoints   :: Vector SubscriptionCheckpoint
+```
+
+This performs one read-only statement and returns the global store position and
+checkpoint rows from the same statement snapshot. The rows are sorted by
+subscription name and member. They survive worker exit, while
+`subscriptionStates` contains only current process-local workers. A new call is
+needed to observe later commits. See
+[Subscriptions → Reading Durable Checkpoints](subscriptions.md#reading-durable-checkpoints)
+for a complete Effectful example and the limits of interpreting position
+distance as lag.
+
 To turn this same transition stream into OpenTelemetry spans (catch-up, pause,
 reconnect, retry, dead-letter), install the ready-made handler from
 `Kiroku.Otel.Subscription` as your `eventHandler` — see

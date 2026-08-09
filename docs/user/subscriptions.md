@@ -160,6 +160,58 @@ records (name, member, live state, a stable `statePhase` label, and the FSM
 *past* transitions (including the terminal stop reason), wire the `KirokuEvent`
 lifecycle events instead.
 
+## Reading Durable Checkpoints
+
+`subscriptionStates` answers which workers are live in this process. To answer
+which checkpoints have actually been committed to PostgreSQL, use the mockable
+`Store` operation `subscriptionCheckpointInventory`:
+
+```haskell
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE TypeOperators #-}
+
+import Control.Lens ((^.))
+import Data.Int (Int32, Int64)
+import Data.Vector (Vector)
+import Effectful (Eff, (:>))
+import Kiroku.Store
+
+durablePositionDistances ::
+  (Store :> es) =>
+  Eff es (Vector (SubscriptionName, Int32, Int64))
+durablePositionDistances = do
+  inventory <- subscriptionCheckpointInventory
+  let GlobalPosition headPosition = inventory ^. #storePosition
+  pure $ flip fmap (inventory ^. #checkpoints) $ \checkpoint ->
+    let GlobalPosition checkpointPosition = checkpoint ^. #checkpointPosition
+     in ( checkpoint ^. #subscriptionName
+        , checkpoint ^. #consumerGroupMember
+        , headPosition - checkpointPosition
+        )
+```
+
+The operation captures `storePosition` and all persisted checkpoint rows in one
+SQL statement snapshot and one database round trip. Rows are sorted by
+subscription name and numeric member. An empty vector means no checkpoint has
+yet been written; it does not mean no subscription is configured. A stopped,
+cancelled, or crashed worker disappears from `subscriptionStates` but its
+durable row remains here. Call the operation again to observe later commits.
+
+Member zero is ambiguous: it can mean an ordinary subscription or member zero
+of a consumer group. The checkpoint row does not preserve the configured target
+or group size, so do not infer topology from it. `checkpointUpdatedAt` is the
+time of the latest successful checkpoint upsert, including a lower monotonic
+save that left the position unchanged; it is not proof that progress advanced.
+
+The subtraction in the example is a **global position distance**, not an exact
+event backlog. Global positions include events skipped by category and event-
+type filters, and a consumer-group member handles only its hash-assigned shard.
+A target-specific lag calculation may need a category head or an event-count
+query instead. Capturing standalone frontiers and bounded replay pages is a
+separate proposed capability described by
+[Expose bounded fan-in replay windows](../improvement-requests/expose-bounded-fan-in-replay-windows.md).
+
 ## Lifecycle And Failure Modes
 
 `SubscriptionHandle` carries `cancel :: m ()`,

@@ -1,4 +1,5 @@
 {-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Test.SubscriptionCheckpointInventory (spec) where
 
@@ -12,6 +13,8 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import Data.Vector qualified as V
+import Effectful (runEff)
+import Effectful.Error.Static (runErrorNoCallStack)
 import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Kiroku.Store
@@ -27,6 +30,16 @@ spec = describe "SubscriptionCheckpointInventory" $ do
             SubscriptionCheckpointInventory captured rows <- readInventory store
             captured `shouldBe` GlobalPosition 0
             rows `shouldBe` V.empty
+
+    it "runs through the resource-backed Store interpreter" $
+        withTestStore $ \store -> do
+            result <-
+                runEff
+                    . runErrorNoCallStack @StoreError
+                    . runKirokuStoreWith store
+                    . runStoreResource
+                    $ subscriptionCheckpointInventory
+            result `shouldBe` Right (SubscriptionCheckpointInventory (GlobalPosition 0) V.empty)
 
     it "returns the exact store position and a member-zero checkpoint" $
         withTestStore $ \store -> do
