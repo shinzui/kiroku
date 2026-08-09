@@ -62,7 +62,10 @@ supported library boundary instead of duplicating Kiroku SQL.
   stores, captured 463.3 microsecond and 44.7 millisecond baselines (96.50x for 100x rows), and
   passed the focused 10% regression gate at 492 microseconds and 46.6 milliseconds.
 - [ ] Milestone 4: complete the Kiroku IR and perform the PVP-major `kiroku-store`/dependent-bound
-  release after explicit release confirmation.
+  release after explicit release confirmation. The 2026-08-09T14:11:17Z read-only release audit
+  verified Hackage and upstream tags, found no exhaustive sister-package `Store` interpreters,
+  and proposed `kiroku-store` 0.4.0.0 plus patch bound releases for `kiroku-otel`, `kiroku-cli`,
+  `kiroku-metrics`, and `shibuya-kiroku-adapter`; publication approval is pending.
 - [ ] Milestone 5: create, but do not execute, the dependent Keiro adoption ExecPlan.
 
 
@@ -101,6 +104,15 @@ supported library boundary instead of duplicating Kiroku SQL.
   `shibuya-kiroku-adapter` all bound `kiroku-store` to `^>=0.3`; a 0.4 release requires their
   bounds and releases to be audited. `mori registry dependents shinzui/kiroku --packages --json`
   also reports Keiro and other external registered projects, which may adopt 0.4 independently.
+- The release audit rechecked both authoritative sources on 2026-08-09. Hackage still listed
+  `kiroku-store` 0.3.1.0, `kiroku-otel` 0.2.0.1, `kiroku-cli` 0.2.0.0,
+  `kiroku-metrics` 0.1.0.1, and `shibuya-kiroku-adapter` 0.4.0.0 as current; `git ls-remote
+  --tags origin` showed matching latest upstream tags. `kiroku-store-migrations` remains at
+  0.3.0.0 and has no Cabal dependency on `kiroku-store`, so it is outside the proposed release.
+  The four source dependents call the concrete `runStoreIO` boundary and do not exhaustively
+  interpret `Store`; their only required compatibility work is updating every direct Cabal bound.
+  `kiroku-metrics` additionally contains one unpublished Prometheus HELP-text correction since
+  its last tag.
 - On 2026-08-09, `mori path` reported “artifact not found” for the Kiroku IR and the two Keiro
   planning artifacts cited here, even though `mori registry show --full` located both projects
   and the files exist in their registered worktrees. This is an artifact-coverage/registry lag;
