@@ -8,46 +8,43 @@ description: >-
 generated:
   by: openai/gpt-5
   at: "2026-08-09T02:41:50Z"
-timestamp: "2026-08-09T14:04:54Z"
+timestamp: "2026-08-09T14:52:11Z"
 requestId: IR-2
-status: proposed
+status: completed
+completedAt: "2026-08-09T14:52:11Z"
 origin: mori://shinzui/keiro
 reviews:
   - kind: model
     reviewer: codex
-    reviewed_at: "2026-08-09T02:57:16Z"
-    document_timestamp: "2026-08-09T02:57:16Z"
+    reviewed_at: "2026-08-09T14:52:11Z"
+    document_timestamp: "2026-08-09T14:52:11Z"
     scope: technical-accuracy
     outcome: approved
     provider: openai
     model: gpt-5
     effort: unspecified
     context: >-
-      Reviewed against kiroku-store 0.3.1.0 and current master. Kiroku persists checkpoints in
-      subscriptions, keyed by subscription_name and consumer_group_member; its public
-      subscriptionStates snapshot contains only live process-local FSM cursors and explicitly
-      does not guarantee the durable database position. Shibuya's public processor
-      introspection is likewise process-local and does not own Kiroku's checkpoint schema.
-      Keiro has removed both the process-local substitute and its indirect private-table
-      checkpoint query, so the durable CLI slice now waits on this owning-library API.
+      Re-reviewed the implemented contract, correctness and performance evidence, package
+      metadata, public Hackage artifacts, GitHub releases, and clean-consumer compilation.
+      kiroku-store 0.4.0.0 exposes the inventory through the Store effect with the documented
+      durable semantics; all required in-repository dependent releases resolve together from
+      Hackage. Keiro remains a downstream adopter and does not block completion of this
+      owning-library request.
 verified:
   by: process:codex
-  at: "2026-08-09T02:57:16Z"
+  at: "2026-08-09T14:52:11Z"
 ---
 
 # Improvement Request: Expose a Durable Subscription Checkpoint Inventory
 
 ## Status
 
-Proposed as the owning-library follow-up to
+Completed as the owning-library follow-up to
 `mori://shinzui/keiro/plans/207-add-the-messaging-and-read-side-command-domains-to-keiro-ops`.
-This request blocks that plan's durable checkpoint-inventory and projection-lag commands. Keiro
-removed its standalone live-registry substitute and the indirect private-table query; its other
-operational domains can proceed independently. Once this API ships in a tagged Kiroku release,
-Keiro can mount the deferred database-only commands without crossing Kiroku's schema boundary.
-The API and correctness tests are implemented on Kiroku master under
-`mori://shinzui/kiroku/plans/69-expose-a-performant-durable-subscription-checkpoint-inventory`,
-but this request remains proposed until the PVP-major package release is published.
+The API shipped in `kiroku-store` 0.4.0.0 under
+`mori://shinzui/kiroku/plans/69-expose-a-performant-durable-subscription-checkpoint-inventory`.
+Keiro can now mount its deferred durable commands without crossing Kiroku's schema boundary;
+that downstream adoption is planned separately and does not hold this request open.
 
 ## Context
 
@@ -166,7 +163,7 @@ topology values as authoritative inventory would overstate the schema's contract
 10. The same SQL statement captures the `$all` store position and checkpoint rows; its query plan
     has one store-row lookup and one checkpoint scan, with no per-checkpoint follow-up work.
 
-## Unreleased Implementation Evidence
+## Implementation and Release Evidence
 
 The focused correctness suite currently passes 10 examples covering the empty store, both
 pool-backed interpreter entry points, exact captured head, member-zero row, deterministic
@@ -190,5 +187,17 @@ respectively. The fully materialized public-effect benchmark baselines are 463.3
 100 rows and 44.7 milliseconds for 10,000 rows, a 96.50x time ratio for 100x the returned rows; the
 focused 10% regression comparison passes.
 
-Release and clean-consumer evidence remain outstanding and are tracked by
-`mori://shinzui/kiroku/plans/69-expose-a-performant-durable-subscription-checkpoint-inventory`.
+The supported API is published as
+[`kiroku-store-0.4.0.0`](https://hackage.haskell.org/package/kiroku-store-0.4.0.0), with the
+matching [annotated-tag GitHub release](https://github.com/shinzui/kiroku/releases/tag/kiroku-store-v0.4.0.0).
+The audited in-repository dependent cohort is also published as
+[`kiroku-otel-0.2.0.2`](https://hackage.haskell.org/package/kiroku-otel-0.2.0.2),
+[`kiroku-cli-0.2.0.1`](https://hackage.haskell.org/package/kiroku-cli-0.2.0.1),
+[`kiroku-metrics-0.1.0.3`](https://hackage.haskell.org/package/kiroku-metrics-0.1.0.3), and
+[`shibuya-kiroku-adapter-0.4.0.1`](https://hackage.haskell.org/package/shibuya-kiroku-adapter-0.4.0.1).
+Their direct bounds admit `kiroku-store ^>=0.4`.
+
+After refreshing the Hackage index, a clean temporary Cabal project constrained all five exact
+versions, downloaded them from Hackage, and compiled a public-effect signature calling
+`subscriptionCheckpointInventory`. This verifies that the released package set resolves and
+that consumers can compile the inventory API without this repository's working tree.

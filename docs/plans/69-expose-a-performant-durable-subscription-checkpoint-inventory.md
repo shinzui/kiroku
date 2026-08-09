@@ -67,17 +67,12 @@ supported library boundary instead of duplicating Kiroku SQL.
   `kiroku-store` bound to `^>=0.4` and prepared the changelogs. `nix fmt`, `cabal build all`,
   `cabal test all` (seven suites, 352 examples), `nix flake check`, `git diff --check`, and
   validation of both improvement-request bundles passed.
-- [ ] Milestone 4 publication and IR completion: commit the approved release metadata, create and
-  push the annotated package tags in dependency order, run every per-package packaging check,
-  publish packages and documentation to Hackage, create GitHub releases, verify a clean released
-  consumer, and complete IR-2 with the resulting evidence. As of 2026-08-09T14:35:04Z,
-  `kiroku-store` 0.4.0.0, `kiroku-otel` 0.2.0.2, and `kiroku-cli` 0.2.0.1 source and documentation
-  are published. Publication stopped before `kiroku-metrics` because its per-package `cabal check`
-  found a missing upper bound. Recovery as `kiroku-metrics` 0.1.0.3 was confirmed at
-  2026-08-09T14:38:05Z. The warning-free package check, `nix fmt`, `cabal build all`, all seven
-  suites and 352 examples under `cabal test all`, `nix flake check`, `git diff --check`, and both
-  improvement-request validations passed again at 2026-08-09T14:41:42Z; the adapter has not been
-  uploaded.
+- [x] (2026-08-09T14:52:11Z) Milestone 4 publication and IR completion: published source and
+  documentation for `kiroku-store` 0.4.0.0, `kiroku-otel` 0.2.0.2, `kiroku-cli` 0.2.0.1,
+  recovered `kiroku-metrics` 0.1.0.3, and `shibuya-kiroku-adapter` 0.4.0.1; created and verified
+  the matching annotated tags and non-draft GitHub releases. A fresh Hackage-indexed Cabal project
+  resolved all five exact versions and compiled the public inventory signature. Completed IR-2
+  with the release and clean-consumer evidence.
 - [ ] Milestone 5: create, but do not execute, the dependent Keiro adoption ExecPlan.
 
 
@@ -133,6 +128,12 @@ supported library boundary instead of duplicating Kiroku SQL.
   0.1.0.1 as current; publication stopped without uploading 0.1.0.2. Preserving that public tag and
   recovering with a new 0.1.0.3 patch is safer than moving the tag or publishing source that does
   not match it.
+- Hackage's refreshed index exposed all five final package versions to a clean temporary Cabal
+  project. The solver downloaded and built `kiroku-store` 0.4.0.0, `kiroku-otel` 0.2.0.2,
+  `kiroku-cli` 0.2.0.1, `kiroku-metrics` 0.1.0.3, and
+  `shibuya-kiroku-adapter` 0.4.0.1, then compiled a public
+  `subscriptionCheckpointInventory` signature. This exercises the released cohort rather than
+  any package from the repository working tree.
 - On 2026-08-09, `mori path` reported “artifact not found” for the Kiroku IR and the two Keiro
   planning artifacts cited here, even though `mori registry show --full` located both projects
   and the files exist in their registered worktrees. This is an artifact-coverage/registry lag;
@@ -284,9 +285,10 @@ supported library boundary instead of duplicating Kiroku SQL.
   avoids blessing broad machine/run variance or deleting the timed-out case's existing guard.
   Date: 2026-08-09
 
-- Decision: Release the supported inventory API as `kiroku-store` 0.4.0.0 and publish bound-only
-  compatibility patches `kiroku-otel` 0.2.0.2, `kiroku-cli` 0.2.0.1, `kiroku-metrics` 0.1.0.2,
-  and `shibuya-kiroku-adapter` 0.4.0.1; do not release `kiroku-store-migrations`.
+- Decision: Release the supported inventory API as `kiroku-store` 0.4.0.0 and initially prepare
+  bound-only compatibility patches `kiroku-otel` 0.2.0.2, `kiroku-cli` 0.2.0.1,
+  `kiroku-metrics` 0.1.0.2, and `shibuya-kiroku-adapter` 0.4.0.1; do not release
+  `kiroku-store-migrations`. The later metrics recovery decision supersedes only its final version.
   Rationale: Hackage and upstream tags still identify `kiroku-store` 0.3.1.0 as current, and the
   new exported `Store` constructor is a source-compatibility break for exhaustive interpreters.
   The four dependent packages use the concrete store runner, so they require only `^>=0.4`
@@ -306,9 +308,29 @@ supported library boundary instead of duplicating Kiroku SQL.
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation. Record measured row counts, query plans,
-benchmark means, the released version/tag, the completed IR reference, and the canonical URI of
-the generated Keiro plan.)
+Kiroku now exposes a public, mockable, one-statement durable checkpoint inventory while retaining
+schema ownership. PostgreSQL 18.4 used one singleton store-head scan, one checkpoint scan, and one
+in-memory quicksort: database execution was 0.088 ms for 100 rows and 2.679 ms for 10,000 rows,
+with no repeated scan, event-table lookup, subplan, or spill. Fully materialized public-effect
+means were 463.3 microseconds and 44.7 milliseconds (96.50x for 100x rows), and the focused 10%
+regression gate passed at 492 microseconds and 46.6 milliseconds.
+
+The supported release is
+[`kiroku-store-0.4.0.0`](https://hackage.haskell.org/package/kiroku-store-0.4.0.0), tagged and
+released as
+[`kiroku-store-v0.4.0.0`](https://github.com/shinzui/kiroku/releases/tag/kiroku-store-v0.4.0.0).
+The compatible published cohort is
+[`kiroku-otel-0.2.0.2`](https://hackage.haskell.org/package/kiroku-otel-0.2.0.2),
+[`kiroku-cli-0.2.0.1`](https://hackage.haskell.org/package/kiroku-cli-0.2.0.1),
+[`kiroku-metrics-0.1.0.3`](https://hackage.haskell.org/package/kiroku-metrics-0.1.0.3), and
+[`shibuya-kiroku-adapter-0.4.0.1`](https://hackage.haskell.org/package/shibuya-kiroku-adapter-0.4.0.1),
+each with matching GitHub releases. The public but unpublished metrics 0.1.0.2 tag remains as an
+honest record of the packaging-gate interruption; no Hackage artifact or GitHub release was
+created for it.
+
+`mori://shinzui/kiroku/okf/improvement-requests/concepts/IR-2` is complete. A clean Cabal consumer
+resolved the exact five-package release cohort from Hackage and compiled the inventory API. The
+downstream Keiro plan URI will be added after Milestone 5 initializes and validates that plan.
 
 
 ## Context and Orientation
