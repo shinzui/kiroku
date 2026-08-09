@@ -1,5 +1,18 @@
 # Revision history for kiroku-metrics
 
+## 0.1.0.2 -- 2026-08-09
+
+### Bug Fixes
+
+* Corrected the `kiroku_events_appended_total` Prometheus HELP text: the value
+  is the current opaque global position and is not guaranteed to be dense.
+
+### Other Changes
+
+* Requires `kiroku-store ^>=0.4`, whose exported `Store` effect now supports
+  durable subscription checkpoint inventory reads. No `kiroku-metrics` API
+  changed.
+
 ## 0.1.0.1 -- 2026-07-11
 
 ### Other Changes

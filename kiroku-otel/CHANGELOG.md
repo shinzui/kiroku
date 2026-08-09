@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.2.0.2 — 2026-08-09
+
+### Other Changes
+
+* Requires `kiroku-store ^>=0.4`, whose exported `Store` effect now supports
+  durable subscription checkpoint inventory reads. No `kiroku-otel` API or
+  runtime behavior changed.
+
 ## 0.2.0.1 — 2026-07-11
 
 ### Other Changes

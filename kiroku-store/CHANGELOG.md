@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## 0.4.0.0 — 2026-08-09
+
+### Breaking Changes
+
+* The exported `Store` effect gains `GetSubscriptionCheckpointInventory`.
+  Exhaustive custom and mock interpreters must handle the new constructor.
+
+### New Features
+
+* `subscriptionCheckpointInventory` returns the captured global store position
+  and every persisted, member-aware subscription checkpoint from one prepared
+  PostgreSQL statement snapshot. Results are ordered by subscription name and
+  consumer-group member and remain available after a worker stops.
+* New public `SubscriptionCheckpoint` and
+  `SubscriptionCheckpointInventory` records expose the durable checkpoint
+  position, member, last upsert time, and captured store position without
+  requiring consumers to import Hasql or query Kiroku-owned tables.
+
+### Other Changes
+
+* Added integration and mock-interpreter coverage, user and Haddock
+  documentation, PostgreSQL query-plan evidence, and fully materialized
+  100-row and 10,000-row performance benchmarks for the inventory operation.
+
 ## 0.3.1.0 — 2026-07-22
 
 ### New Features

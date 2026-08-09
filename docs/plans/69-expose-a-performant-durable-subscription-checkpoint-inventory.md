@@ -61,11 +61,16 @@ supported library boundary instead of duplicating Kiroku SQL.
   10,000 rows, added fully materialized public-effect benchmarks backed by separate migrated
   stores, captured 463.3 microsecond and 44.7 millisecond baselines (96.50x for 100x rows), and
   passed the focused 10% regression gate at 492 microseconds and 46.6 milliseconds.
-- [ ] Milestone 4: complete the Kiroku IR and perform the PVP-major `kiroku-store`/dependent-bound
-  release after explicit release confirmation. The 2026-08-09T14:11:17Z read-only release audit
-  verified Hackage and upstream tags, found no exhaustive sister-package `Store` interpreters,
-  and proposed `kiroku-store` 0.4.0.0 plus patch bound releases for `kiroku-otel`, `kiroku-cli`,
-  `kiroku-metrics`, and `shibuya-kiroku-adapter`; publication approval is pending.
+- [x] (2026-08-09T14:26:46Z) Milestone 4 release preparation: received explicit confirmation for
+  `kiroku-store` 0.4.0.0, `kiroku-otel` 0.2.0.2, `kiroku-cli` 0.2.0.1,
+  `kiroku-metrics` 0.1.0.2, and `shibuya-kiroku-adapter` 0.4.0.1; updated every direct
+  `kiroku-store` bound to `^>=0.4` and prepared the changelogs. `nix fmt`, `cabal build all`,
+  `cabal test all` (seven suites, 352 examples), `nix flake check`, `git diff --check`, and
+  validation of both improvement-request bundles passed.
+- [ ] Milestone 4 publication and IR completion: commit the approved release metadata, create and
+  push the annotated package tags in dependency order, run every per-package packaging check,
+  publish packages and documentation to Hackage, create GitHub releases, verify a clean released
+  consumer, and complete IR-2 with the resulting evidence.
 - [ ] Milestone 5: create, but do not execute, the dependent Keiro adoption ExecPlan.
 
 
@@ -262,6 +267,17 @@ supported library boundary instead of duplicating Kiroku SQL.
   accepted. The timeout prevented a complete replacement baseline, but both new cases completed
   before the failure and the focused comparison subsequently passed. Keeping prior unrelated rows
   avoids blessing broad machine/run variance or deleting the timed-out case's existing guard.
+  Date: 2026-08-09
+
+- Decision: Release the supported inventory API as `kiroku-store` 0.4.0.0 and publish bound-only
+  compatibility patches `kiroku-otel` 0.2.0.2, `kiroku-cli` 0.2.0.1, `kiroku-metrics` 0.1.0.2,
+  and `shibuya-kiroku-adapter` 0.4.0.1; do not release `kiroku-store-migrations`.
+  Rationale: Hackage and upstream tags still identify `kiroku-store` 0.3.1.0 as current, and the
+  new exported `Store` constructor is a source-compatibility break for exhaustive interpreters.
+  The four dependent packages use the concrete store runner, so they require only `^>=0.4`
+  bounds and patch releases. `kiroku-metrics` also carries its already-committed Prometheus HELP-
+  text correction. The migrations package has neither a direct store dependency nor a change to
+  publish.
   Date: 2026-08-09
 
 
