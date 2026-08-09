@@ -22,3 +22,5 @@ All.concurrent.32 writers x 10 appends,726238812500,275624726618
 All.reliability-audit.hot invoice-payment 10 AnyVersion appends,1708234765,139233664
 All.reliability-audit.appendMultiStream 3 existing streams,377894921,37405224
 All.reliability-audit.subscription category catch-up 100 events,2775395312,254604290
+All.subscription-checkpoint-inventory.100 rows,463298242,24335582
+All.subscription-checkpoint-inventory.10000 rows,44709175000,2067133040

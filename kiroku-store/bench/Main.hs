@@ -13,7 +13,7 @@ import Data.Aeson qualified as Aeson
 import Data.Functor.Contravariant ((>$<))
 import Data.Generics.Labels ()
 import Data.IORef
-import Data.Int (Int64)
+import Data.Int (Int32, Int64)
 import Data.Maybe (isNothing)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -34,7 +34,7 @@ import Hasql.Transaction.Sessions qualified as TxSessions
 import Kiroku.Store
 import Kiroku.Store.Effect (buildAppendParams, prepareEvents)
 import Kiroku.Store.SQL qualified as SQL
-import Kiroku.Test.Postgres (migrateTestDatabase)
+import Kiroku.Test.Postgres (migrateTestDatabase, withMigratedTestDatabase, withSharedMigratedPostgres)
 import Test.Tasty.Bench
 
 data RawAppendParams = RawAppendParams
@@ -763,6 +763,60 @@ forceRead :: Either StoreError (V.Vector RecordedEvent) -> IO ()
 forceRead (Right v) = V.length v `seq` pure ()
 forceRead (Left e) = error ("Benchmark read failed: " <> show e)
 
+seedCheckpointInventoryStmt :: Statement Int32 ()
+seedCheckpointInventoryStmt =
+    preparable
+        """
+        INSERT INTO subscriptions (
+            subscription_name,
+            consumer_group_member,
+            last_seen,
+            updated_at
+        )
+        SELECT 'inventory-' || lpad(n::text, 8, '0'),
+               0,
+               0,
+               now()
+        FROM generate_series(1, $1::int4) AS n
+        """
+        (E.param (E.nonNullable E.int4))
+        D.noResult
+
+seedCheckpointInventory :: KirokuStore -> Int32 -> IO ()
+seedCheckpointInventory store rowCount = do
+    result <- Pool.use (store ^. #pool) $ Session.statement rowCount seedCheckpointInventoryStmt
+    case result of
+        Left err -> error ("Checkpoint inventory benchmark setup failed: " <> show err)
+        Right () -> pure ()
+
+forceCheckpointInventory :: Either StoreError SubscriptionCheckpointInventory -> IO ()
+forceCheckpointInventory (Left err) = error ("Checkpoint inventory benchmark failed: " <> show err)
+forceCheckpointInventory (Right (SubscriptionCheckpointInventory (GlobalPosition storePos) rows)) = do
+    let !checksum = V.foldl' forceCheckpoint (fromIntegral storePos) rows
+    checksum `seq` pure ()
+  where
+    forceCheckpoint !acc (SubscriptionCheckpoint (SubscriptionName name) member (GlobalPosition position) updatedAt) =
+        updatedAt `seq`
+            acc
+                + T.length name
+                + fromIntegral member
+                + fromIntegral position
+
+runCheckpointInventoryBenchmark :: KirokuStore -> IO ()
+runCheckpointInventoryBenchmark store =
+    runStoreIO store subscriptionCheckpointInventory >>= forceCheckpointInventory
+
+withInventoryBenchmarkStores :: (KirokuStore -> KirokuStore -> IO a) -> IO a
+withInventoryBenchmarkStores action =
+    withSharedMigratedPostgres $
+        withMigratedTestDatabase $ \inventory100Connection ->
+            withMigratedTestDatabase $ \inventory10000Connection ->
+                withStore (defaultConnectionSettings inventory100Connection) $ \inventory100Store ->
+                    withStore (defaultConnectionSettings inventory10000Connection) $ \inventory10000Store -> do
+                        seedCheckpointInventory inventory100Store 100
+                        seedCheckpointInventory inventory10000Store 10_000
+                        action inventory100Store inventory10000Store
+
 main :: IO ()
 main = do
     -- Start ephemeral PostgreSQL once for all benchmarks
@@ -875,155 +929,161 @@ main = do
             subCounter <- newIORef (0 :: Int)
             pipelinedContentionCounter <- newIORef (0 :: Int)
 
-            defaultMain
-                [ bgroup
-                    "append"
+            withInventoryBenchmarkStores $ \inventory100Store inventory10000Store ->
+                defaultMain
                     [ bgroup
-                        "single-event"
-                        [ bench "NoStream (new stream)" $ whnfIO $ do
-                            sn <- nextStream "bench-single"
-                            r' <- runStoreIO store $ appendToStream sn NoStream [makeEvent "BenchEvent"]
-                            forceAppend r'
-                        , bench "AnyVersion (new stream)" $ whnfIO $ do
-                            sn <- nextStream "bench-any"
-                            r' <- runStoreIO store $ appendToStream sn AnyVersion [makeEvent "BenchEvent"]
-                            forceAppend r'
+                        "append"
+                        [ bgroup
+                            "single-event"
+                            [ bench "NoStream (new stream)" $ whnfIO $ do
+                                sn <- nextStream "bench-single"
+                                r' <- runStoreIO store $ appendToStream sn NoStream [makeEvent "BenchEvent"]
+                                forceAppend r'
+                            , bench "AnyVersion (new stream)" $ whnfIO $ do
+                                sn <- nextStream "bench-any"
+                                r' <- runStoreIO store $ appendToStream sn AnyVersion [makeEvent "BenchEvent"]
+                                forceAppend r'
+                            ]
+                        , bgroup
+                            "batch-10"
+                            [ bench "NoStream" $ whnfIO $ do
+                                sn <- nextStream "bench-b10"
+                                let events = map (\i -> makeEvent ("E" <> T.pack (show i))) [1 .. 10 :: Int]
+                                r' <- runStoreIO store $ appendToStream sn NoStream events
+                                forceAppend r'
+                            ]
+                        , bgroup
+                            "batch-100"
+                            [ bench "NoStream" $ whnfIO $ do
+                                sn <- nextStream "bench-b100"
+                                let events = map (\i -> makeEvent ("E" <> T.pack (show i))) [1 .. 100 :: Int]
+                                r' <- runStoreIO store $ appendToStream sn NoStream events
+                                forceAppend r'
+                            ]
+                        , bgroup
+                            "sequential"
+                            [ bench "10 appends to same stream" $ whnfIO $ do
+                                sn <- nextStream "bench-seq"
+                                r0 <- runStoreIO store $ appendToStream sn NoStream [makeEvent "Init"]
+                                forceAppend r0
+                                let Right res0 = r0
+                                let go _ 0 = pure ()
+                                    go v n = do
+                                        r' <- runStoreIO store $ appendToStream sn (ExactVersion v) [makeEvent "Seq"]
+                                        case r' of
+                                            Right res -> go (res ^. #streamVersion) (n - 1 :: Int)
+                                            Left e -> error ("Sequential append failed: " <> show e)
+                                go (res0 ^. #streamVersion) 9
+                            ]
                         ]
                     , bgroup
-                        "batch-10"
-                        [ bench "NoStream" $ whnfIO $ do
-                            sn <- nextStream "bench-b10"
-                            let events = map (\i -> makeEvent ("E" <> T.pack (show i))) [1 .. 10 :: Int]
-                            r' <- runStoreIO store $ appendToStream sn NoStream events
-                            forceAppend r'
+                        "raw-append-shape"
+                        [ bgroup
+                            "AnyVersion"
+                            [ bench "scalar singleton (new stream)" $
+                                whnfIO $
+                                    runRawScalarAppendAnyVersionNewStream store rawCounter
+                            , bench "production arrays/unnest (new stream)" $
+                                whnfIO $
+                                    runRawProductionAppendAnyVersionNewStream store rawCounter
+                            , bench "two-roundtrip (new stream)" $
+                                whnfIO $
+                                    runRawTwoRoundtripAppendNewStream store rawCounter
+                            , bench "two-roundtrip + BEGIN/COMMIT (new stream)" $
+                                whnfIO $
+                                    runRawTwoRoundtripAppendNewStreamTx store rawCounter
+                            , bench "scalar singleton (hot stream)" $
+                                whnfIO $
+                                    runRawScalarAppendAnyVersionHotStream store
+                            , bench "production arrays/unnest (hot stream)" $
+                                whnfIO $
+                                    runRawProductionAppendAnyVersionHotStream store
+                            , bench "two-roundtrip (hot stream)" $
+                                whnfIO $
+                                    runRawTwoRoundtripAppendExistingHotStream store
+                            , bench "two-roundtrip + BEGIN/COMMIT (hot stream)" $
+                                whnfIO $
+                                    runRawTwoRoundtripAppendExistingHotStreamTx store
+                            ]
                         ]
                     , bgroup
-                        "batch-100"
-                        [ bench "NoStream" $ whnfIO $ do
-                            sn <- nextStream "bench-b100"
-                            let events = map (\i -> makeEvent ("E" <> T.pack (show i))) [1 .. 100 :: Int]
-                            r' <- runStoreIO store $ appendToStream sn NoStream events
-                            forceAppend r'
+                        "pipelined-multi-append"
+                        [ bench "current shape (4 streams)" $
+                            whnfIO $
+                                runCurrentMultiAppend store pipelinedMultiAppend4Streams
+                        , bench "pipelined (4 streams)" $
+                            whnfIO $
+                                runPipelinedMultiAppend store pipelinedMultiAppend4Streams
+                        , bench "current shape (8 streams)" $
+                            whnfIO $
+                                runCurrentMultiAppend store pipelinedMultiAppend8Streams
+                        , bench "pipelined (8 streams)" $
+                            whnfIO $
+                                runPipelinedMultiAppend store pipelinedMultiAppend8Streams
+                        , bench "single-stream under 4 current multi-stream writers" $
+                            whnfIO $
+                                runSingleAppendUnderMultiWriters
+                                    store
+                                    pipelinedContentionCounter
+                                    runCurrentMultiAppend
+                                    "pipe-current"
+                                    pipelinedContentionCurrentGroups
+                        , bench "single-stream under 4 pipelined multi-stream writers" $
+                            whnfIO $
+                                runSingleAppendUnderMultiWriters
+                                    store
+                                    pipelinedContentionCounter
+                                    runPipelinedMultiAppend
+                                    "pipe-pipelined"
+                                    pipelinedContentionPipelinedGroups
                         ]
                     , bgroup
-                        "sequential"
-                        [ bench "10 appends to same stream" $ whnfIO $ do
-                            sn <- nextStream "bench-seq"
-                            r0 <- runStoreIO store $ appendToStream sn NoStream [makeEvent "Init"]
-                            forceAppend r0
-                            let Right res0 = r0
-                            let go _ 0 = pure ()
-                                go v n = do
-                                    r' <- runStoreIO store $ appendToStream sn (ExactVersion v) [makeEvent "Seq"]
-                                    case r' of
-                                        Right res -> go (res ^. #streamVersion) (n - 1 :: Int)
-                                        Left e -> error ("Sequential append failed: " <> show e)
-                            go (res0 ^. #streamVersion) 9
+                        "read"
+                        [ bench "stream forward (100-event page)" $ whnfIO $ do
+                            r' <- runStoreIO store $ readStreamForward readStreamName (StreamVersion 0) 100
+                            forceRead r'
+                        , bench "$all forward (100-event page)" $ whnfIO $ do
+                            r' <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
+                            forceRead r'
+                        ]
+                    , bgroup
+                        "category"
+                        [ bench "category forward (100-event page)" $ whnfIO $ do
+                            -- Read from cat1 category (has 10 streams × 100 events = 1000 events)
+                            r' <- runStoreIO store $ readCategory (CategoryName "cat1") (GlobalPosition 0) 100
+                            forceRead r'
+                        , bench "exhausted-category" $ whnfIO $ do
+                            -- cat1 events are inserted early in setup; a high cursor proves
+                            -- category reads do not scan the rest of $all looking for matches.
+                            r' <- runStoreIO store $ readCategory (CategoryName "cat1") (GlobalPosition 90_000) 100
+                            forceRead r'
+                        , bench "$all forward (100-event page, baseline)" $ whnfIO $ do
+                            r' <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
+                            forceRead r'
+                        ]
+                    , -- F19 — Concurrent-writer stress as structured benchmarks.
+                      -- The legacy ad-hoc B9 measurement (still present above
+                      -- for historical comparability) prints throughput and
+                      -- latency once; these bgroup entries surface the same
+                      -- workload through tasty-bench so it participates in the
+                      -- baseline-regression workflow (Justfile bench-regression).
+                      bgroup
+                        "concurrent"
+                        [ bench "8 writers x 10 appends" $ whnfIO $ runConcurrentWriters store concCounter 8 10
+                        , bench "32 writers x 10 appends" $ whnfIO $ runConcurrentWriters store concCounter 32 10
+                        ]
+                    , bgroup
+                        "reliability-audit"
+                        [ bench "hot invoice-payment 10 AnyVersion appends" $ whnfIO $ runHotInvoicePayment store 10
+                        , bench "appendMultiStream 3 existing streams" $ whnfIO $ runAppendMultiStream store
+                        , bench "subscription category catch-up 100 events" $ whnfIO $ runSubscriptionCatchup store subCounter
+                        ]
+                    , bgroup
+                        "subscription-checkpoint-inventory"
+                        [ bench "100 rows" $ whnfIO $ runCheckpointInventoryBenchmark inventory100Store
+                        , bench "10000 rows" $ whnfIO $ runCheckpointInventoryBenchmark inventory10000Store
                         ]
                     ]
-                , bgroup
-                    "raw-append-shape"
-                    [ bgroup
-                        "AnyVersion"
-                        [ bench "scalar singleton (new stream)" $
-                            whnfIO $
-                                runRawScalarAppendAnyVersionNewStream store rawCounter
-                        , bench "production arrays/unnest (new stream)" $
-                            whnfIO $
-                                runRawProductionAppendAnyVersionNewStream store rawCounter
-                        , bench "two-roundtrip (new stream)" $
-                            whnfIO $
-                                runRawTwoRoundtripAppendNewStream store rawCounter
-                        , bench "two-roundtrip + BEGIN/COMMIT (new stream)" $
-                            whnfIO $
-                                runRawTwoRoundtripAppendNewStreamTx store rawCounter
-                        , bench "scalar singleton (hot stream)" $
-                            whnfIO $
-                                runRawScalarAppendAnyVersionHotStream store
-                        , bench "production arrays/unnest (hot stream)" $
-                            whnfIO $
-                                runRawProductionAppendAnyVersionHotStream store
-                        , bench "two-roundtrip (hot stream)" $
-                            whnfIO $
-                                runRawTwoRoundtripAppendExistingHotStream store
-                        , bench "two-roundtrip + BEGIN/COMMIT (hot stream)" $
-                            whnfIO $
-                                runRawTwoRoundtripAppendExistingHotStreamTx store
-                        ]
-                    ]
-                , bgroup
-                    "pipelined-multi-append"
-                    [ bench "current shape (4 streams)" $
-                        whnfIO $
-                            runCurrentMultiAppend store pipelinedMultiAppend4Streams
-                    , bench "pipelined (4 streams)" $
-                        whnfIO $
-                            runPipelinedMultiAppend store pipelinedMultiAppend4Streams
-                    , bench "current shape (8 streams)" $
-                        whnfIO $
-                            runCurrentMultiAppend store pipelinedMultiAppend8Streams
-                    , bench "pipelined (8 streams)" $
-                        whnfIO $
-                            runPipelinedMultiAppend store pipelinedMultiAppend8Streams
-                    , bench "single-stream under 4 current multi-stream writers" $
-                        whnfIO $
-                            runSingleAppendUnderMultiWriters
-                                store
-                                pipelinedContentionCounter
-                                runCurrentMultiAppend
-                                "pipe-current"
-                                pipelinedContentionCurrentGroups
-                    , bench "single-stream under 4 pipelined multi-stream writers" $
-                        whnfIO $
-                            runSingleAppendUnderMultiWriters
-                                store
-                                pipelinedContentionCounter
-                                runPipelinedMultiAppend
-                                "pipe-pipelined"
-                                pipelinedContentionPipelinedGroups
-                    ]
-                , bgroup
-                    "read"
-                    [ bench "stream forward (100-event page)" $ whnfIO $ do
-                        r' <- runStoreIO store $ readStreamForward readStreamName (StreamVersion 0) 100
-                        forceRead r'
-                    , bench "$all forward (100-event page)" $ whnfIO $ do
-                        r' <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
-                        forceRead r'
-                    ]
-                , bgroup
-                    "category"
-                    [ bench "category forward (100-event page)" $ whnfIO $ do
-                        -- Read from cat1 category (has 10 streams × 100 events = 1000 events)
-                        r' <- runStoreIO store $ readCategory (CategoryName "cat1") (GlobalPosition 0) 100
-                        forceRead r'
-                    , bench "exhausted-category" $ whnfIO $ do
-                        -- cat1 events are inserted early in setup; a high cursor proves
-                        -- category reads do not scan the rest of $all looking for matches.
-                        r' <- runStoreIO store $ readCategory (CategoryName "cat1") (GlobalPosition 90_000) 100
-                        forceRead r'
-                    , bench "$all forward (100-event page, baseline)" $ whnfIO $ do
-                        r' <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
-                        forceRead r'
-                    ]
-                , -- F19 — Concurrent-writer stress as structured benchmarks.
-                  -- The legacy ad-hoc B9 measurement (still present above
-                  -- for historical comparability) prints throughput and
-                  -- latency once; these bgroup entries surface the same
-                  -- workload through tasty-bench so it participates in the
-                  -- baseline-regression workflow (Justfile bench-regression).
-                  bgroup
-                    "concurrent"
-                    [ bench "8 writers x 10 appends" $ whnfIO $ runConcurrentWriters store concCounter 8 10
-                    , bench "32 writers x 10 appends" $ whnfIO $ runConcurrentWriters store concCounter 32 10
-                    ]
-                , bgroup
-                    "reliability-audit"
-                    [ bench "hot invoice-payment 10 AnyVersion appends" $ whnfIO $ runHotInvoicePayment store 10
-                    , bench "appendMultiStream 3 existing streams" $ whnfIO $ runAppendMultiStream store
-                    , bench "subscription category catch-up 100 events" $ whnfIO $ runSubscriptionCatchup store subCounter
-                    ]
-                ]
     case result of
         Left err -> error ("Failed to start ephemeral PostgreSQL: " <> show err)
         Right () -> pure ()

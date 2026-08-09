@@ -57,8 +57,10 @@ supported library boundary instead of duplicating Kiroku SQL.
   points and a Hasql-free mock, documented the live/durable boundary and position-distance limits,
   corrected legacy schema topology claims, and updated IR-2 without completing it. The 10-example
   focused suite, all 245 package examples, and `cabal haddock kiroku-store` passed.
-- [ ] Milestone 3: establish and record query-plan and benchmark evidence at representative
-  and stress cardinalities.
+- [x] (2026-08-09T14:04:54Z) Milestone 3: recorded PostgreSQL 18.4 query plans at 100 and
+  10,000 rows, added fully materialized public-effect benchmarks backed by separate migrated
+  stores, captured 463.3 microsecond and 44.7 millisecond baselines (96.50x for 100x rows), and
+  passed the focused 10% regression gate at 492 microseconds and 46.6 milliseconds.
 - [ ] Milestone 4: complete the Kiroku IR and perform the PVP-major `kiroku-store`/dependent-bound
   release after explicit release confirmation.
 - [ ] Milestone 5: create, but do not execute, the dependent Keiro adoption ExecPlan.
@@ -112,6 +114,50 @@ supported library boundary instead of duplicating Kiroku SQL.
   next state to the registry cell. A deterministic live-handler barrier therefore proved the
   relevant boundary directly: handler work in flight left the durable inventory at position 1,
   and a fresh read after the stopping handler's synchronous checkpoint commit returned position 2.
+- PostgreSQL 18.4 preferred a sequential scan even for the singleton `streams` table rather than
+  its primary-key index, because the migrated benchmark databases contain only the `$all` row.
+  This is still one constant-cost store-head lookup. At both cardinalities the checkpoint side was
+  one sequential scan followed by one in-memory quicksort, with no subplan, repeated scan,
+  event-table access, or disk spill. The complete relevant plans were:
+
+  ```text
+  100 rows:
+  Sort  (actual time=0.058..0.061 rows=100 loops=1)
+    Sort Key: checkpoint.subscription_name, checkpoint.consumer_group_member
+    Sort Method: quicksort  Memory: 31kB
+    Buffers: shared hit=3
+    -> Nested Loop Left Join  (actual time=0.018..0.028 rows=100 loops=1)
+         -> Seq Scan on streams store_head (actual time=0.010..0.011 rows=1 loops=1)
+              Filter: (stream_id = 0)
+              Buffers: shared hit=1
+         -> Seq Scan on subscriptions checkpoint (actual time=0.005..0.007 rows=100 loops=1)
+              Buffers: shared hit=2
+  Planning: Buffers: shared hit=59 read=3
+  Planning Time: 0.940 ms
+  Execution Time: 0.088 ms
+
+  10000 rows:
+  Sort  (actual time=2.092..2.378 rows=10000 loops=1)
+    Sort Key: checkpoint.subscription_name, checkpoint.consumer_group_member
+    Sort Method: quicksort  Memory: 1010kB
+    Buffers: shared hit=115
+    -> Nested Loop Left Join  (actual time=0.014..1.208 rows=10000 loops=1)
+         -> Seq Scan on streams store_head (actual time=0.008..0.008 rows=1 loops=1)
+              Filter: (stream_id = 0)
+              Buffers: shared hit=1
+         -> Seq Scan on subscriptions checkpoint (actual time=0.004..0.512 rows=10000 loops=1)
+              Buffers: shared hit=114
+  Planning: Buffers: shared hit=62
+  Planning Time: 0.279 ms
+  Execution Time: 2.679 ms
+  ```
+- `just bench-baseline` measured every case and reached the two new inventory results, but the
+  pre-existing `reliability-audit.appendMultiStream 3 existing streams` case timed out after 100
+  seconds. Its fixture reuses fixed streams while repeated samples continually grow them; the
+  timeout is unrelated to this read API. The run still produced valid inventory measurements of
+  463.3 microseconds +/- 24.3 microseconds for 100 rows and 44.7 milliseconds +/- 2.1 milliseconds
+  for 10,000 rows. Only those new rows were retained. A subsequent focused baseline comparison
+  passed at 492 microseconds and 46.6 milliseconds with no slowdown beyond 10%.
 
 
 ## Decision Log
@@ -188,6 +234,22 @@ supported library boundary instead of duplicating Kiroku SQL.
   an ahead cursor is not an observable current-state transition. Blocking a confirmed live handler
   still proves the contract that handled-but-uncommitted work never appears in the durable
   inventory, without changing the worker lifecycle as an unrelated side effect.
+  Date: 2026-08-09
+
+- Decision: Keep the existing unique checkpoint index unchanged after measuring sequential scans
+  plus in-memory sorts.
+  Rationale: PostgreSQL executed the 10,000-row query in 2.679 milliseconds with 115 shared-buffer
+  hits and a 1010 kB quicksort, while the end-to-end effect remained linear and completed in 44.7
+  milliseconds. A covering index would churn on every checkpoint write without removing the
+  unavoidable transfer and decode cost of returning every row.
+  Date: 2026-08-09
+
+- Decision: Preserve all prior baseline rows and add only the two checkpoint-inventory rows after
+  the exhaustive capture encountered the unrelated appendMultiStream timeout.
+  Rationale: The plan requires unrelated movement to be investigated rather than silently
+  accepted. The timeout prevented a complete replacement baseline, but both new cases completed
+  before the failure and the focused comparison subsequently passed. Keeping prior unrelated rows
+  avoids blessing broad machine/run variance or deleting the timed-out case's existing guard.
   Date: 2026-08-09
 
 

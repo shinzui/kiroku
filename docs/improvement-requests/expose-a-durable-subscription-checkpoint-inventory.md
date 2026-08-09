@@ -8,7 +8,7 @@ description: >-
 generated:
   by: openai/gpt-5
   at: "2026-08-09T02:41:50Z"
-timestamp: "2026-08-09T13:46:17Z"
+timestamp: "2026-08-09T14:04:54Z"
 requestId: IR-2
 status: proposed
 origin: mori://shinzui/keiro
@@ -183,5 +183,12 @@ SubscriptionCheckpointInventory mock interpreter
 The full `kiroku-store` suite passes 245 examples with 0 failures, and Haddock generation succeeds
 for the package.
 
-Query-plan, benchmark, release, and clean-consumer evidence remain outstanding and are tracked by
+On PostgreSQL 18.4, the exact ordered query used one singleton `streams` scan, one `subscriptions`
+scan, and one in-memory quicksort at both 100 and 10,000 checkpoint rows. It had no subplans,
+repeated scans, event-table access, or disk spill. Database execution took 0.088 ms and 2.679 ms,
+respectively. The fully materialized public-effect benchmark baselines are 463.3 microseconds for
+100 rows and 44.7 milliseconds for 10,000 rows, a 96.50x time ratio for 100x the returned rows; the
+focused 10% regression comparison passes.
+
+Release and clean-consumer evidence remain outstanding and are tracked by
 `mori://shinzui/kiroku/plans/69-expose-a-performant-durable-subscription-checkpoint-inventory`.

@@ -47,6 +47,7 @@ Useful focused patterns include:
 
     just bench-regression-pattern category
     just bench-regression-pattern reliability-audit
+    just bench-regression-pattern subscription-checkpoint-inventory
 
 ## When to update the baseline
 
@@ -107,3 +108,10 @@ SQL change from a direct `$all` join to a LATERAL partial-index plan.
 That change preserves the normal 100-event category page around 1ms and
 adds a guard for the high-cursor case that should stay in the tens of
 microseconds on the benchmark dataset.
+
+The durable checkpoint inventory adds two public-effect cases under
+`subscription-checkpoint-inventory`: 100 persisted rows (representative) and
+10,000 rows (stress). Each uses its own migrated store, seeds outside the timed
+action, and forces the captured store position plus every returned row so the
+measurement includes query execution, transfer, decode, invariant validation,
+and materialization.
