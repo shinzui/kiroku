@@ -70,7 +70,11 @@ supported library boundary instead of duplicating Kiroku SQL.
 - [ ] Milestone 4 publication and IR completion: commit the approved release metadata, create and
   push the annotated package tags in dependency order, run every per-package packaging check,
   publish packages and documentation to Hackage, create GitHub releases, verify a clean released
-  consumer, and complete IR-2 with the resulting evidence.
+  consumer, and complete IR-2 with the resulting evidence. As of 2026-08-09T14:35:04Z,
+  `kiroku-store` 0.4.0.0, `kiroku-otel` 0.2.0.2, and `kiroku-cli` 0.2.0.1 source and documentation
+  are published. Publication stopped before `kiroku-metrics` because its per-package `cabal check`
+  found a missing upper bound; recovery confirmation is pending, and the adapter has not been
+  uploaded.
 - [ ] Milestone 5: create, but do not execute, the dependent Keiro adoption ExecPlan.
 
 
@@ -118,6 +122,14 @@ supported library boundary instead of duplicating Kiroku SQL.
   interpret `Store`; their only required compatibility work is updating every direct Cabal bound.
   `kiroku-metrics` additionally contains one unpublished Prometheus HELP-text correction since
   its last tag.
+- The release skill creates and pushes tags before running each package's `cabal check`. After the
+  first three packages were published, `cabal check` for `kiroku-metrics` reported that the shipped
+  example's `kiroku-test-support` dependency lacked an upper bound. The internal package is version
+  0.1.0.0, so `^>=0.1` is the matching PVP bound. The already-pushed
+  `kiroku-metrics-v0.1.0.2` tag points to the pre-fix release commit, while Hackage still lists
+  0.1.0.1 as current; publication stopped without uploading 0.1.0.2. Preserving that public tag and
+  recovering with a new 0.1.0.3 patch is safer than moving the tag or publishing source that does
+  not match it.
 - On 2026-08-09, `mori path` reported “artifact not found” for the Kiroku IR and the two Keiro
   planning artifacts cited here, even though `mori registry show --full` located both projects
   and the files exist in their registered worktrees. This is an artifact-coverage/registry lag;
