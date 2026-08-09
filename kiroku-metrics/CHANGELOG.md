@@ -1,6 +1,6 @@
 # Revision history for kiroku-metrics
 
-## 0.1.0.2 -- 2026-08-09
+## 0.1.0.3 -- 2026-08-09
 
 ### Bug Fixes
 
@@ -12,6 +12,9 @@
 * Requires `kiroku-store ^>=0.4`, whose exported `Store` effect now supports
   durable subscription checkpoint inventory reads. No `kiroku-metrics` API
   changed.
+* Added a PVP upper bound to the shipped example's internal
+  `kiroku-test-support` dependency. Version 0.1.0.2 was tagged but not
+  published after `cabal check` found the missing bound.
 
 ## 0.1.0.1 -- 2026-07-11
 

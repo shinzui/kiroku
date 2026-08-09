@@ -73,7 +73,10 @@ supported library boundary instead of duplicating Kiroku SQL.
   consumer, and complete IR-2 with the resulting evidence. As of 2026-08-09T14:35:04Z,
   `kiroku-store` 0.4.0.0, `kiroku-otel` 0.2.0.2, and `kiroku-cli` 0.2.0.1 source and documentation
   are published. Publication stopped before `kiroku-metrics` because its per-package `cabal check`
-  found a missing upper bound; recovery confirmation is pending, and the adapter has not been
+  found a missing upper bound. Recovery as `kiroku-metrics` 0.1.0.3 was confirmed at
+  2026-08-09T14:38:05Z. The warning-free package check, `nix fmt`, `cabal build all`, all seven
+  suites and 352 examples under `cabal test all`, `nix flake check`, `git diff --check`, and both
+  improvement-request validations passed again at 2026-08-09T14:41:42Z; the adapter has not been
   uploaded.
 - [ ] Milestone 5: create, but do not execute, the dependent Keiro adoption ExecPlan.
 
@@ -290,6 +293,14 @@ supported library boundary instead of duplicating Kiroku SQL.
   bounds and patch releases. `kiroku-metrics` also carries its already-committed Prometheus HELP-
   text correction. The migrations package has neither a direct store dependency nor a change to
   publish.
+  Date: 2026-08-09
+
+- Decision: Preserve the pushed but unpublished `kiroku-metrics-v0.1.0.2` tag and recover with
+  `kiroku-metrics` 0.1.0.3 after adding `kiroku-test-support ^>=0.1` to the shipped example.
+  Rationale: The release skill's per-package `cabal check` found the missing upper bound only after
+  the 0.1.0.2 tag had been pushed. Moving or deleting a public tag would make release evidence
+  unstable, while publishing different source under that tag would break provenance. Hackage
+  never received 0.1.0.2, so a new patch version is the safe, PVP-compatible recovery.
   Date: 2026-08-09
 
 
