@@ -1,6 +1,18 @@
+---
+type: Architecture Decision Record
+title: "Resolve stream names via an on-demand lookup API, not a `RecordedEvent` field"
+description: "Resolve stream names on demand via a batch lookup API instead of adding an originalStreamName field to RecordedEvent, keeping the read hot path byte-identical and inside the 10% read-regression gate."
+generated:
+  by: process:adopt-architecture-decisions/0.8.0
+  at: "2026-08-09T00:00:00Z"
+docId: ADR-1
+status: Accepted
+date: 2026-05-22
+timestamp: "2026-05-22T00:00:00Z"
+---
+
 # ADR-0001: Resolve stream names via an on-demand lookup API, not a `RecordedEvent` field
 
-- **Status:** Accepted — 2026-05-22
 - **Related:** ExecPlan `docs/plans/36-add-originalstreamname-to-recordedevent.md`;
   commit `743a573` (shipped) reverting `8a2bc87`/`859cd5a` (explored).
 

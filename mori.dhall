@@ -85,5 +85,12 @@ in  Schema.Project::{
         , description = Some
             "What Kiroku provides today, one concept per capability, with evidence"
         }
+      , Schema.OkfBundle::{
+        , name = "adrs"
+        , path = "docs/adr"
+        , profile = Some "docs/adr/profile.dhall"
+        , okfVersion = "0.2"
+        , description = Some "Durable architecture decisions"
+        }
       ]
     }

@@ -1,6 +1,18 @@
+---
+type: Architecture Decision Record
+title: Consumer groups are static, hash-partitioned competing consumers
+description: "Implement consumer groups as static, hash-partitioned competing consumers over each stream's surrogate stream_id, with structured per-member checkpoint columns and no dynamic rebalancing."
+generated:
+  by: process:adopt-architecture-decisions/0.8.0
+  at: "2026-08-09T00:00:00Z"
+docId: ADR-2
+status: Accepted (recorded retroactively)
+date: 2026-05-20
+timestamp: "2026-05-22T00:00:00Z"
+---
+
 # ADR-0002: Consumer groups are static, hash-partitioned competing consumers
 
-- **Status:** Accepted — 2026-05-20 (recorded retroactively 2026-05-22)
 - **Related:** MasterPlan `docs/masterplans/4-consumer-group-support-for-partitioned-subscriptions.md`;
   ExecPlans `docs/plans/28..31-consumer-group-*.md`.
 

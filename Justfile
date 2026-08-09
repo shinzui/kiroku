@@ -111,6 +111,14 @@ capabilities-validate:
         --profile-enforce --log-enforce
     okf graph docs/capabilities > /dev/null
 
+# Validate the OKF architecture-decision bundle against its pinned profile
+[group('docs')]
+adr-validate:
+    mori validate
+    okf validate docs/adr --profile docs/adr/profile.dhall \
+        --profile-enforce --log-enforce
+    okf graph docs/adr > /dev/null
+
 # --- Nix ---
 
 # Build via nix

@@ -1,3 +1,7 @@
+---
+okf_version: "0.2"
+---
+
 # Architecture Decision Records
 
 This directory holds Architecture Decision Records (ADRs): short, durable notes
@@ -12,27 +16,37 @@ worth remembering, write (or update) an ADR and link the two.
 
 ## Conventions
 
-- One decision per file, named `NNNN-kebab-case-title.md` (zero-padded, e.g.
-  `0001-resolve-stream-names-via-lookup.md`). Numbers are sequential and never
-  reused.
+- One decision per file. Existing files keep their `NNNN-kebab-case-title.md`
+  names (zero-padded, numbers sequential and never reused) for citation
+  stability; new ADRs may use any kebab-case filename, since the durable
+  identity is the frontmatter `docId` (`ADR-N`), not the filename.
 - Keep it to roughly one page. Link out to the ExecPlan, commits, or code for
   detail rather than restating them.
-- **Status** is one of `Proposed`, `Accepted`, `Superseded by ADR-NNNN`, or
-  `Deprecated`. Once `Accepted`, do not rewrite an ADR's decision: supersede it
-  with a new ADR and mark the old one `Superseded by ADR-NNNN`.
+- Frontmatter `status` is `Accepted`, `Proposed`, `Superseded by ADR-N`, or
+  `Deprecated`, optionally with a parenthetical qualifier (e.g. `Accepted
+  (amended …)`) when it carries meaning beyond the bare status. Once
+  `Accepted`, do not rewrite an ADR's decision: supersede it with a new ADR
+  and mark the old one `Superseded by ADR-N`.
 - Record the alternatives you rejected and the evidence (benchmarks, etc.) —
   that is usually the most valuable part for the next person.
+- This bundle is governed by the shared `docs/adr/profile.dhall` OKF profile.
+  Every ADR carries `type`, `title`, `description`, `docId`, `status`, `date`,
+  and `timestamp` frontmatter; validate with `just adr-validate` (see
+  `migration-reference.md` in the `adopt-architecture-decisions` blueprint for
+  the full field contract).
 
 ## Format
 
-Each ADR has: Title, Status (+ date), Context, Decision, Consequences, and
+Each ADR has: Title, Related links, Context, Decision, Consequences, and
 Alternatives Considered. Copy an existing ADR as a starting template.
 
-## Index
+# Files
 
-- [ADR-0001](0001-resolve-stream-names-via-lookup-not-recordedevent-field.md) —
-  Resolve stream names via an on-demand lookup API, not a `RecordedEvent` field.
-- [ADR-0002](0002-static-hash-partitioned-consumer-groups.md) —
-  Consumer groups are static, hash-partitioned competing consumers.
-- [ADR-0003](0003-dedicated-kiroku-schema.md) —
-  Install Kiroku objects in a dedicated `kiroku` schema.
+- [profile.dhall](profile.dhall)
+
+# Architecture Decision Record
+
+- [Resolve stream names via an on-demand lookup API, not a `RecordedEvent` field](0001-resolve-stream-names-via-lookup-not-recordedevent-field.md) - Resolve stream names on demand via a batch lookup API instead of adding an originalStreamName field to RecordedEvent, keeping the read hot path byte-identical and inside the 10% read-regression gate.
+- [Consumer groups are static, hash-partitioned competing consumers](0002-static-hash-partitioned-consumer-groups.md) - Implement consumer groups as static, hash-partitioned competing consumers over each stream's surrogate stream_id, with structured per-member checkpoint columns and no dynamic rebalancing.
+- [Install Kiroku objects in a dedicated `kiroku` schema](0003-dedicated-kiroku-schema.md) - Install all Kiroku-owned objects into a dedicated schema (default kiroku), making ConnectionSettings.schema authoritative for both table resolution and the LISTEN notification channel.
+

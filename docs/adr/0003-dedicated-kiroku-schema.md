@@ -1,6 +1,18 @@
+---
+type: Architecture Decision Record
+title: "Install Kiroku objects in a dedicated `kiroku` schema"
+description: "Install all Kiroku-owned objects into a dedicated schema (default kiroku), making ConnectionSettings.schema authoritative for both table resolution and the LISTEN notification channel."
+generated:
+  by: process:adopt-architecture-decisions/0.8.0
+  at: "2026-08-09T00:00:00Z"
+docId: ADR-3
+status: Accepted (recorded retroactively)
+date: 2026-05-21
+timestamp: "2026-07-10T00:00:00Z"
+---
+
 # ADR-0003: Install Kiroku objects in a dedicated `kiroku` schema
 
-- **Status:** Accepted — 2026-05-21 (recorded retroactively 2026-05-22)
 - **Related:** ExecPlan `docs/plans/20-install-kiroku-objects-in-a-dedicated-schema.md`;
   audit `docs/plans/4-multi-tenancy-security-and-schema-lifecycle-audit.md`;
   codd adoption `docs/plans/16-evaluate-codd-for-first-class-schema-migrations.md`.
