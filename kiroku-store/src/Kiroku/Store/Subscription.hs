@@ -4,6 +4,7 @@ module Kiroku.Store.Subscription (
     withSubscription,
 
     -- * Observability
+    subscriptionCheckpointInventory,
     subscriptionStates,
     SubscriptionStateView (..),
 
@@ -25,8 +26,12 @@ import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Unique (newUnique)
+import Effectful (Eff, (:>))
+import Effectful.Dispatch.Dynamic (send)
 import GHC.Generics (Generic)
+import GHC.Stack (HasCallStack)
 import Kiroku.Store.Connection (KirokuStore (..))
+import Kiroku.Store.Effect (Store (GetSubscriptionCheckpointInventory))
 import Kiroku.Store.Notification qualified as Notifier
 import Kiroku.Store.Subscription.EventPublisher qualified as Pub
 import Kiroku.Store.Subscription.Fsm (SubscriptionState (..), stateCursor, stateName)
@@ -218,6 +223,28 @@ withSubscription ::
     m a
 withSubscription store config action = withRunInIO $ \runInIO ->
     bracket (subscribe store config) cancel (runInIO . action)
+
+{- | Read the durable checkpoint inventory and global store position captured by
+one PostgreSQL statement snapshot.
+
+An empty 'checkpoints' vector means that no subscription checkpoint has yet
+been written. Unlike 'subscriptionStates', stopped subscriptions remain in this
+inventory because their committed rows are durable. Rows are sorted by
+subscription name and consumer-group member, and a new call is required to
+observe commits made after this snapshot.
+
+A live worker cursor may be ahead of its durable checkpoint while work is in
+flight. Member zero alone does not reveal whether a subscription is ungrouped
+or is member zero of a group. 'checkpointUpdatedAt' records the last successful
+checkpoint write, not proof that its position advanced. Finally, subtracting a
+'checkpointPosition' from 'storePosition' yields a global position distance,
+not an exact count of relevant events for filtered, category, or sharded
+consumers.
+-}
+subscriptionCheckpointInventory ::
+    (HasCallStack, Store :> es) =>
+    Eff es SubscriptionCheckpointInventory
+subscriptionCheckpointInventory = send GetSubscriptionCheckpointInventory
 
 {- | A public, point-in-time view of one live subscription's state, as returned
 by 'subscriptionStates'. This is the committed observability surface external

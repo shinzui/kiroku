@@ -49,6 +49,8 @@ import Test.ReadStream qualified as ReadStream
 import Test.StartupFailureSurfacing qualified as StartupFailureSurfacing
 import Test.StreamBridgeTermination qualified as StreamBridgeTermination
 import Test.StreamNameLookup qualified as StreamNameLookup
+import Test.SubscriptionCheckpointInventory qualified as SubscriptionCheckpointInventory
+import Test.SubscriptionCheckpointInventoryMock qualified as SubscriptionCheckpointInventoryMock
 import Test.SubscriptionPauseResume qualified as SubscriptionPauseResume
 import Test.SubscriptionReconnect qualified as SubscriptionReconnect
 import Test.SubscriptionRegistry qualified as SubscriptionRegistry
@@ -80,6 +82,8 @@ main = withSharedMigratedPostgres $ hspec $ do
     PublisherRestartNoRebroadcast.spec
     CatchupDbErrorNoPrematureSwitch.spec
     SubscriptionPauseResume.spec
+    SubscriptionCheckpointInventory.spec
+    SubscriptionCheckpointInventoryMock.spec
     SubscriptionReconnect.spec
     StartupFailureSurfacing.spec
     SubscriptionState.spec

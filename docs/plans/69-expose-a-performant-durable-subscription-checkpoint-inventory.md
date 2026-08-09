@@ -4,6 +4,7 @@ slug: expose-a-performant-durable-subscription-checkpoint-inventory
 title: "Expose a performant durable subscription checkpoint inventory"
 kind: exec-plan
 created_at: 2026-08-09T13:01:15Z
+intention: intention_01kzkbfhxjextbwheaq969h303
 ---
 
 # Expose a performant durable subscription checkpoint inventory
@@ -48,8 +49,10 @@ supported library boundary instead of duplicating Kiroku SQL.
 
 ## Progress
 
-- [ ] Milestone 1: add the public inventory/checkpoint types, `Store` operation, one-query SQL
-  interpreter, and smart constructor.
+- [x] (2026-08-09T13:38:11Z) Milestone 1: added the public inventory/checkpoint types, `Store`
+  operation, one-query SQL interpreter, smart constructor, empty-store integration coverage, and
+  Hasql-free mock-interpreter coverage. `cabal build kiroku-store` and the 9-example focused suite
+  passed.
 - [ ] Milestone 2: prove the durable semantics with integration and mock-interpreter tests,
   and document the boundary from live subscription state.
 - [ ] Milestone 3: establish and record query-plan and benchmark evidence at representative
@@ -99,6 +102,14 @@ supported library boundary instead of duplicating Kiroku SQL.
   and the files exist in their registered worktrees. This is an artifact-coverage/registry lag;
   per repository policy the plan retains the intended canonical `mori://` URIs rather than
   replacing them with ambiguous cross-repository paths.
+- The test suite is Hspec-based and rejects the originally drafted Tasty-style `--pattern` flag.
+  The focused command is `--test-options='--match SubscriptionCheckpointInventory'`; it ran 9
+  examples with 0 failures.
+- The worker does not publish its next `SubscriptionState` cursor before checkpoint persistence.
+  `processEvents` handles the batch and saves the checkpoint before the driver loops and writes the
+  next state to the registry cell. A deterministic live-handler barrier therefore proved the
+  relevant boundary directly: handler work in flight left the durable inventory at position 1,
+  and a fresh read after the stopping handler's synchronous checkpoint commit returned position 2.
 
 
 ## Decision Log
@@ -167,6 +178,14 @@ supported library boundary instead of duplicating Kiroku SQL.
   explicitly treated prior `Store` constructor additions as breaking, so PVP requires a major
   `A.B` bump rather than calling this a backwards-compatible export. Release state can change
   before implementation finishes, so the plan must still recalculate from the then-current tag.
+  Date: 2026-08-09
+
+- Decision: Test in-flight-versus-durable semantics with a blocked live handler rather than
+  asserting that `subscriptionStates` publishes an ahead-of-database cursor.
+  Rationale: The current worker publishes its next FSM state only after checkpoint persistence, so
+  an ahead cursor is not an observable current-state transition. Blocking a confirmed live handler
+  still proves the contract that handled-but-uncommitted work never appears in the durable
+  inventory, without changing the worker lifecycle as an unrelated side effect.
   Date: 2026-08-09
 
 
@@ -316,9 +335,9 @@ statement. At minimum cover:
 4. a lower later save does not regress the returned position, and a committed higher save is
    visible on a fresh inventory call;
 5. cancellation/removal from `subscriptionStates` does not remove the durable row;
-6. while a handler has advanced a live FSM cursor but its checkpoint write has not committed,
-   the inventory still reports the prior durable position; after commit, a fresh read reports the
-   new one;
+6. while a confirmed-live handler is processing an event but its checkpoint write has not
+   committed, the inventory still reports the prior durable position; after commit, a fresh read
+   reports the new one;
 7. a checkpoint advanced by the dead-letter transaction appears with the exact committed
    position, preserving the existing atomicity contract; and
 8. every normally written checkpoint is less than or equal to the captured store position, and
@@ -484,7 +503,7 @@ Tasty group name), then the package suite:
 ```bash
 nix fmt
 cabal test kiroku-store:kiroku-store-test \
-  --test-options='--pattern SubscriptionCheckpointInventory'
+  --test-options='--match SubscriptionCheckpointInventory'
 cabal test kiroku-store:kiroku-store-test
 ```
 
@@ -558,9 +577,9 @@ The implementation is accepted when all of the following are demonstrably true:
 3. The operation performs exactly one prepared database statement and returns the point-read
    `$all` tail plus all checkpoint rows from that statement snapshot. Neither SQL nor Haskell
    performs per-checkpoint head, event, stream, or topology lookups.
-4. A stopped worker's row remains visible; an active FSM cursor that is ahead of the committed
-   checkpoint does not leak into the inventory; a fresh read observes the later checkpoint only
-   after its write transaction commits.
+4. A stopped worker's row remains visible; work performed by an active live handler does not leak
+   into the inventory before its checkpoint commits; a fresh read observes the later checkpoint
+   only after that write commits.
 5. Monotonic checkpoint protection and dead-letter/checkpoint atomicity remain unchanged and are
    visible through the inventory.
 6. A custom `Store` interpreter can implement `GetSubscriptionCheckpointInventory` using only the

@@ -18,6 +18,8 @@ this module is the configuration/result surface that drives it.
 -}
 module Kiroku.Store.Subscription.Types (
     SubscriptionName (..),
+    SubscriptionCheckpoint (..),
+    SubscriptionCheckpointInventory (..),
     SubscriptionTarget (..),
     SubscriptionResult (..),
     OverflowPolicy (..),
@@ -55,6 +57,9 @@ import Data.Int (Int32)
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
+import Data.Time.Clock (UTCTime)
+import Data.Vector (Vector)
+import GHC.Generics (Generic)
 import Kiroku.Store.Subscription.Fsm (
     DeadLetterReason (..),
     RetryDelay (..),
@@ -63,7 +68,7 @@ import Kiroku.Store.Subscription.Fsm (
     deadLetterSummary,
     retryDelayMicros,
  )
-import Kiroku.Store.Types (CategoryName, EventType, RecordedEvent (..))
+import Kiroku.Store.Types (CategoryName, EventType, GlobalPosition, RecordedEvent (..))
 import Numeric.Natural (Natural)
 
 {- | A declarative, closed filter over event types for a subscription.
@@ -135,6 +140,25 @@ shouldDeliver etf sel event =
 -- | Unique name for a subscription (e.g., @"inventory-projection"@).
 newtype SubscriptionName = SubscriptionName Text
     deriving newtype (Eq, Ord, Show)
+
+-- | One checkpoint row that has been durably persisted by a subscription.
+data SubscriptionCheckpoint = SubscriptionCheckpoint
+    { subscriptionName :: !SubscriptionName
+    , consumerGroupMember :: !Int32
+    , checkpointPosition :: !GlobalPosition
+    , checkpointUpdatedAt :: !UTCTime
+    }
+    deriving stock (Eq, Show, Generic)
+
+{- | A point-in-time view of the global store position and every durable
+subscription checkpoint. The rows are ordered by 'subscriptionName' and then
+'consumerGroupMember'.
+-}
+data SubscriptionCheckpointInventory = SubscriptionCheckpointInventory
+    { storePosition :: !GlobalPosition
+    , checkpoints :: !(Vector SubscriptionCheckpoint)
+    }
+    deriving stock (Eq, Show, Generic)
 
 -- | Which stream to subscribe to.
 data SubscriptionTarget

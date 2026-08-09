@@ -56,6 +56,8 @@ import Kiroku.Store.Error (StoreError (..), attributeMultiStreamError, emptyResu
 import Kiroku.Store.Observability (KirokuEvent (..))
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Settings (decodeEvents, enrichEvents)
+import Kiroku.Store.Subscription.CheckpointInventory.SQL qualified as CheckpointInventorySQL
+import Kiroku.Store.Subscription.Types (SubscriptionCheckpointInventory)
 import Kiroku.Store.Types
 
 -- ---------------------------------------------------------------------------
@@ -123,6 +125,13 @@ data Store :: Effect where
     'Kiroku.Store.Lifecycle.clearStreamTruncateBefore'.
     -}
     SetStreamTruncateBefore :: StreamName -> StreamVersion -> Store m (Maybe StreamId)
+    {- | Read the global store position and all durable subscription checkpoint
+    rows from one PostgreSQL statement snapshot.
+
+    Surfaced as
+    'Kiroku.Store.Subscription.subscriptionCheckpointInventory'.
+    -}
+    GetSubscriptionCheckpointInventory :: Store m SubscriptionCheckpointInventory
     {- | Run an arbitrary @hasql-transaction@ value in a 'BEGIN'/'COMMIT'
     block on a single pool connection. Escape hatch from the abstract
     'Store' effect into the underlying SQL world; mock interpreters are
@@ -339,6 +348,9 @@ runStorePool store = interpret_ $ \case
         rejectInvalidApplicationStream name
         usePool (store ^. #pool) $
             Session.statement (name, v) SQL.setStreamTruncateBeforeStmt
+    GetSubscriptionCheckpointInventory ->
+        usePool (store ^. #pool) $
+            Session.statement () CheckpointInventorySQL.getSubscriptionCheckpointInventoryStmt
     RunTransaction tx ->
         runTxOnPool (store ^. #pool) TxSessions.transaction tx
     RunTransactionNoRetry tx ->
