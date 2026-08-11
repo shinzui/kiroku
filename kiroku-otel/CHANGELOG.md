@@ -1,6 +1,6 @@
 # kiroku-otel changelog
 
-## Unreleased
+## 0.2.0.3 — 2026-08-11
 
 ### Other Changes
 
@@ -8,6 +8,7 @@
   checkpoint-missing lifecycle events exhaustively. Both remain no-ops because
   the traced subscription episode begins at the later `Started` event; a
   refused startup still produces its terminal stopped span.
+* Requires `kiroku-store ^>=0.5`. No `kiroku-otel` API changed.
 
 ## 0.2.0.2 — 2026-08-09
 

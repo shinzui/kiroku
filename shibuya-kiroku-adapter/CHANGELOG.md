@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0.0 — 2026-08-11
 
 ### Breaking Changes
 
@@ -8,6 +8,7 @@
   `missingCheckpointPolicy`. Their smart constructors default it to
   `FromBeginning`; exhaustive record literals must choose a policy or use the
   smart constructors.
+* Requires `kiroku-store ^>=0.5`.
 
 ### New Features
 

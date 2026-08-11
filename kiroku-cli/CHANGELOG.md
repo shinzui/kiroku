@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.2.0.2 — 2026-08-11
+
+### Other Changes
+
+* Requires `kiroku-store ^>=0.5`, whose exported `Store` effect now supports
+  the subscription checkpoint initialization lifecycle. No `kiroku-cli` API or
+  runtime behavior changed.
 
 ## 0.2.0.1 — 2026-08-09
 
