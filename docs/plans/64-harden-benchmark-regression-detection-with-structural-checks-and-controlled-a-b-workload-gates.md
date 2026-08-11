@@ -69,9 +69,11 @@ runs the two authoritative gates: structure and controlled A/B.
       at four and eight streams using `bcompareWithin`; retire the six stale A/B leaves
       from the historical suite. Three unchanged wall-time runs passed with ratios of
       0.86x-0.88x, and the historical suite now matches all 25 baseline names exactly.
-- [ ] M3: Add an exact baseline-coverage preflight, make benchmark code alignment
+- [x] 2026-08-11T17:37:14Z: Add an exact baseline-coverage preflight, make benchmark code alignment
       deterministic, and separate non-failing historical telemetry from the existing
-      opt-in strict CSV regression command.
+      opt-in strict CSV regression command. The real 25-name comparison passed, and
+      controlled baseline-only and current-only mismatches both failed with unified
+      diffs naming the unmatched leaf.
 - [ ] M4: Add the final Justfile entry points and update the performance methodology,
       benchmark workflow, and three-tier regression-gate documentation.
 - [ ] Final: Run build, full tests, baseline coverage, structural checks, the controlled
@@ -136,6 +138,11 @@ runs the two authoritative gates: structure and controlled A/B.
   eight-stream ratios were 0.86x, 0.87x, and 0.86x. This keeps the observed
   advantage below the pre-registered 0.90 ceiling while showing less margin than
   ExecPlan 62's earlier approximately 0.78 measurements.
+
+- 2026-08-11: Exact baseline coverage is practical as a sorted multiset comparison,
+  not merely a count. The completed helper reported `baseline coverage OK: 25
+  historical benchmarks match exactly`; adding one baseline-only row and removing one
+  real baseline row each produced the expected unified diff and nonzero exit.
 
 
 ## Decision Log

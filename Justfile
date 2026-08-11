@@ -85,6 +85,12 @@ bench-baseline:
 bench-regression:
     just bench-regression-threshold 10
 
+# Verify every historical benchmark has exactly one baseline row
+[group('benchmarks')]
+bench-baseline-check:
+    cabal build kiroku-store:kiroku-store-bench
+    kiroku-store/bench/check-baseline-coverage.sh
+
 # Run benchmarks against baseline with a custom slowdown threshold (percent)
 [group('benchmarks')]
 bench-regression-threshold THRESHOLD:
@@ -92,14 +98,23 @@ bench-regression-threshold THRESHOLD:
         echo "kiroku-store/bench/results/baseline.csv is empty or missing — capture one with 'just bench-baseline'"; \
         exit 1; \
     fi
+    just bench-baseline-check
     cabal bench kiroku-store:kiroku-store-bench \
         --benchmark-options="--baseline $PWD/kiroku-store/bench/results/baseline.csv --fail-if-slower {{THRESHOLD}}"
 
 # Re-run a single benchmark against baseline; pattern matches tasty-bench's --pattern
 [group('benchmarks')]
 bench-regression-pattern PATTERN:
+    just bench-baseline-check
     cabal bench kiroku-store:kiroku-store-bench \
         --benchmark-options="--baseline $PWD/kiroku-store/bench/results/baseline.csv --fail-if-slower 10 --pattern {{PATTERN}}"
+
+# Compare historical timings without failing on timing movement
+[group('benchmarks')]
+perf-telemetry:
+    just bench-baseline-check
+    cabal bench kiroku-store:kiroku-store-bench \
+        --benchmark-options="--baseline $PWD/kiroku-store/bench/results/baseline.csv"
 
 # --- Docs ---
 
