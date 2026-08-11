@@ -3,7 +3,7 @@
 by fan-in reads back to a human-readable 'StreamName', without every read having
 to return the name (which a benchmark showed costs ~13% on @$all@ pages).
 -}
-module Test.StreamNameLookup (spec) where
+module Test.StreamNameLookup (spec, noOpSpec) where
 
 import Control.Lens ((^.))
 import Data.Aeson qualified as Aeson
@@ -52,27 +52,30 @@ spec = describe "lookupStreamNames / lookupStreamName" $ do
             Right missing <- runStoreIO store $ lookupStreamName (StreamId 888888)
             missing `shouldBe` Nothing
 
-    it "short-circuits empty input without a pool checkout" $ do
-        ref <- newIORef (0 :: Int)
-        let handler (ConnectionObservation _ InUseConnectionStatus) =
-                modifyIORef' ref (+ 1)
-            handler _ =
-                pure ()
-        withTestStoreSettings (\settings -> settings{observationHandler = Just handler}) $ \store -> do
-            Right appendResult <-
-                runStoreIO store $
-                    appendToStream (StreamName "lookup-count-1") NoStream [makeEvent "LookupCounted" (Aeson.object [])]
-            waitForPublisher store (appendResult ^. #globalPosition)
-            Right (Just sid) <- runStoreIO store $ lookupStreamId (StreamName "lookup-count-1")
+noOpSpec :: Spec
+noOpSpec =
+    describe "empty stream-name lookup" $
+        it "short-circuits empty input without a pool checkout" $ do
+            ref <- newIORef (0 :: Int)
+            let handler (ConnectionObservation _ InUseConnectionStatus) =
+                    modifyIORef' ref (+ 1)
+                handler _ =
+                    pure ()
+            withTestStoreSettings (\settings -> settings{observationHandler = Just handler}) $ \store -> do
+                Right appendResult <-
+                    runStoreIO store $
+                        appendToStream (StreamName "lookup-count-1") NoStream [makeEvent "LookupCounted" (Aeson.object [])]
+                waitForPublisher store (appendResult ^. #globalPosition)
+                Right (Just sid) <- runStoreIO store $ lookupStreamId (StreamName "lookup-count-1")
 
-            beforeEmpty <- readIORef ref
-            Right emptyNames <- runStoreIO store $ lookupStreamNames []
-            afterEmpty <- readIORef ref
-            emptyNames `shouldBe` Map.empty
-            afterEmpty - beforeEmpty `shouldBe` 0
+                beforeEmpty <- readIORef ref
+                Right emptyNames <- runStoreIO store $ lookupStreamNames []
+                afterEmpty <- readIORef ref
+                emptyNames `shouldBe` Map.empty
+                afterEmpty - beforeEmpty `shouldBe` 0
 
-            beforeReal <- readIORef ref
-            Right names <- runStoreIO store $ lookupStreamNames [sid]
-            afterReal <- readIORef ref
-            names `shouldBe` Map.singleton sid (StreamName "lookup-count-1")
-            afterReal - beforeReal `shouldBe` 1
+                beforeReal <- readIORef ref
+                Right names <- runStoreIO store $ lookupStreamNames [sid]
+                afterReal <- readIORef ref
+                names `shouldBe` Map.singleton sid (StreamName "lookup-count-1")
+                afterReal - beforeReal `shouldBe` 1

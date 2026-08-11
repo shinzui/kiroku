@@ -41,6 +41,7 @@ import Test.Helpers
 import Test.Hspec
 import Test.InterpreterHooks qualified as InterpreterHooks
 import Test.NotifyGuard qualified as NotifyGuard
+import Test.PerformanceStructure qualified as PerformanceStructure
 import Test.Properties qualified as Properties
 import Test.PublisherCallbackResilience qualified as PublisherCallbackResilience
 import Test.PublisherIdleAdvance qualified as PublisherIdleAdvance
@@ -79,7 +80,10 @@ main = withSharedMigratedPostgres $ hspec $ do
     ConsumerGroupSql.spec
     ConsumerGroup.spec
     ConsumerGroupEffect.spec
-    NotifyGuard.spec
+    describe "performance structure" $ do
+        PerformanceStructure.spec
+        NotifyGuard.spec
+        StreamNameLookup.noOpSpec
     CategoryIdleNoSpin.spec
     PublisherCallbackResilience.spec
     PublisherIdleAdvance.spec

@@ -4,6 +4,7 @@ slug: harden-benchmark-regression-detection-with-structural-checks-and-controlle
 title: "Harden benchmark regression detection with structural checks and controlled A/B workload gates"
 kind: exec-plan
 created_at: 2026-06-14T21:19:12Z
+intention: intention_01kzrxb4p6evrt9tacc5sfmcvv
 ---
 
 # Harden benchmark regression detection with structural checks and controlled A/B workload gates
@@ -14,280 +15,396 @@ Decision Log, and Outcomes & Retrospective must be kept up to date as work proce
 
 ## Purpose / Big Picture
 
-Kiroku currently has a benchmark regression workflow, but EP-5 showed that it is not
-strong enough to distinguish a real performance regression from measurement noise in
-small microbenchmarks. A single `tasty-bench` run compared to
-`kiroku-store/bench/results/baseline.csv` can fail on singleton append cells even when
-controlled same-database SQL A/B timing says the schema change is effectively neutral.
-That makes the gate hard to trust: it can block good work for noisy reasons, and it can
-also train contributors to refresh baselines instead of proving what changed.
+Kiroku's checked-in `tasty-bench` baseline is useful historical telemetry, but it is
+not a trustworthy promotion gate by itself. It compares today's run with timings
+captured on an earlier machine state, and `tasty-bench` deliberately treats a current
+benchmark with no matching baseline row as an un-compared success. The current tree
+makes both limitations concrete: `kiroku-store/bench/Main.hs --list-tests` lists 31
+benchmark leaves, while `kiroku-store/bench/results/baseline.csv` contains 25 rows.
+The six uncovered leaves are the old `pipelined-multi-append` experiment.
 
-After this plan, Kiroku has a two-tier performance regression system. The first tier is
-deterministic structural coverage: tests and EXPLAIN checks assert that critical query
-paths use the intended indexes, that append emits exactly one notification, and that
-cheap paths avoid unnecessary pool or transaction work. The second tier is a controlled
-workload benchmark harness: old and new variants run in the same process, against the
-same freshly seeded database shape, with warm-up, repeated rounds, environment metadata,
-and a pass/fail policy based on workload-level deltas rather than tiny one-off timing
-cells. Existing singleton `tasty-bench` cells remain useful telemetry, but they no
-longer carry the full responsibility of deciding whether a performance-sensitive change
-is safe.
+That experiment is also stale in a more important way. ExecPlan 62 promoted pipeline
+mode into the production `appendMultiStream` path on 2026-06-14. Consequently,
+`runCurrentMultiAppend` and `runPipelinedMultiAppend` now both execute the pipelined
+shape. Their labels still say “current” and “pipelined”, but they no longer compare an
+old control with a candidate. Leaving them in place gives the appearance of an A/B
+check without preserving the contrast that made the original experiment meaningful.
 
-A contributor can see the new system working by running:
+After this plan, contributors have three deliberately different signals. Structural
+checks fail deterministically when protected query plans, notification cardinality, or
+no-database-work invariants change. A focused same-process A/B workload gate compares
+the production pipelined multi-stream append path with an explicit sequential
+transaction control on identically seeded databases and fails on their relative ratio.
+The historical CSV comparison remains available as telemetry and as an opt-in strict
+smoke check, but it is not the evidence that promotes or rejects a performance change.
 
-```bash
-just perf-structure
-just perf-workload-gate
-just bench-regression
-```
-
-The first command should pass or fail deterministically based on query plans and
-invariants. The second should print a JSON and human summary showing workload medians,
-ratios, and metadata for the current checkout. The third remains as a smoke signal and
-historical continuity check, with documentation explaining that noisy microbenchmark
-warnings require investigation rather than immediate baseline refresh.
-
-
-## Progress
-
-Use a checklist to summarize granular steps. Every stopping point must be documented here,
-even if it requires splitting a partially completed task into two ("done" vs. "remaining").
-This section must always reflect the actual current state of the work.
-
-- [ ] M1: audit the current benchmark and structural coverage surface; record which
-      paths are already deterministic tests, which are timing-only, and which are
-      unguarded.
-- [ ] M2: add a deterministic structural performance test module for index access,
-      notification count, and cheap no-op paths; wire it into `kiroku-store-test` or
-      the migrations test suite.
-- [ ] M3: add a controlled workload benchmark executable that runs same-process A/B
-      workload comparisons with warm-up, repeated rounds, summary statistics, and
-      environment metadata.
-- [ ] M4: add Justfile recipes and documentation that separate structural gates,
-      controlled workload gates, and noisy telemetry.
-- [ ] M5: update EP-7 and future performance-plan guidance to depend on the controlled
-      A/B gate instead of `just bench-regression` alone.
-- [ ] Final: run the structural gate, workload gate, `just build`, `just test`, and
-      existing `just bench-regression`; record exact results and write Outcomes &
-      Retrospective.
-
-
-## Surprises & Discoveries
-
-Document unexpected behaviors, bugs, optimizations, or insights discovered during
-implementation. Provide concise evidence.
-
-(None yet.)
-
-
-## Decision Log
-
-Record every decision made while working on the plan.
-
-- Decision: Split regression detection into structural tests, controlled workload
-  A/B gates, and telemetry-only microbenchmarks.
-  Rationale: EP-5 showed that singleton append microbenchmarks can move enough to trip
-  the historical 10% `tasty-bench` baseline gate while same-database A/B timings show
-  no meaningful writer-latency regression. Structural checks catch query-shape mistakes
-  without clocks, controlled workload A/B catches user-visible performance changes, and
-  microbenchmarks remain useful for investigation.
-  Date: 2026-06-14
-
-- Decision: Keep the existing `just bench-regression` workflow, but demote it from the
-  only performance gate to a smoke signal.
-  Rationale: The checked-in `baseline.csv` and `docs/BENCH-REGRESSION.md` are already
-  part of the repository's history and still provide continuity. Removing them would
-  lose signal. The problem is treating one historical-baseline comparison as decisive
-  for very small operations.
-  Date: 2026-06-14
-
-- Decision: Prefer benchmark SQL and query text written with the Haskell
-  `MultilineStrings` extension when adding multiple embedded queries to a Haskell
-  harness.
-  Rationale: `kiroku-store/bench/Main.hs` and `kiroku-store/bench/Explain.hs` already
-  use `{-# LANGUAGE MultilineStrings #-}` for large SQL strings. Keeping new benchmark
-  queries in multiline literals makes A/B SQL easier to review and avoids fragile
-  concatenation.
-  Date: 2026-06-14
-
-
-## Outcomes & Retrospective
-
-Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
-Compare the result against the original purpose.
-
-(To be filled during and after implementation.)
-
-
-## Context and Orientation
-
-Kiroku is a PostgreSQL-backed event store written in Haskell. The package most affected
-by this plan is `kiroku-store`. Its public API lives under
-`kiroku-store/src/Kiroku/Store/`, its tests live under `kiroku-store/test/`, and its
-benchmark executable lives at `kiroku-store/bench/Main.hs`.
-
-The current benchmark workflow has three main entry points in `Justfile`:
-
-```bash
-just bench
-just bench-baseline
-just bench-regression
-```
-
-`just bench` runs `cabal bench all`. `just bench-baseline` runs the
-`kiroku-store:kiroku-store-bench` benchmark and overwrites
-`kiroku-store/bench/results/baseline.csv` using `tasty-bench` CSV output.
-`just bench-regression` runs the same benchmark against that CSV and fails if any named
-cell is more than 10% slower. This is documented in `docs/BENCH-REGRESSION.md`.
-
-The existing benchmark executable, `kiroku-store/bench/Main.hs`, uses
-`Test.Tasty.Bench.defaultMain` and `whnfIO` cells. It starts an ephemeral PostgreSQL
-cluster, applies migrations through `Kiroku.Test.Postgres.migrateTestDatabase`, opens a
-`KirokuStore`, seeds benchmark data, prints a legacy B9 pool-saturation measurement,
-and then runs named benchmark groups such as `append`, `raw-append-shape`, `read`,
-`category`, `concurrent`, and `reliability-audit`. The file already enables
-`MultilineStrings`, and its raw SQL snippets are large multiline literals.
-
-The repository also has PostgreSQL-oriented benchmark and profiling tools:
-`kiroku-store/bench/sql/run_benchmarks.sh` drives `pgbench` scripts under
-`kiroku-store/bench/sql/`, and `kiroku-store/bench/Explain.hs` runs
-`EXPLAIN (ANALYZE, BUFFERS, TIMING)` for focused append-path profiling. These should
-be reused where possible. `EXPLAIN` is PostgreSQL's query-plan inspection command; it
-can show whether a query uses an index scan, a sequential scan, a sort, and how many
-buffers were touched. For deterministic regression checks, prefer plan-shape assertions
-that do not depend on wall-clock timings.
-
-Terms used in this plan:
-
-**Structural check** means a test that verifies the database or API does the expected
-kind of work without measuring elapsed time. Examples are "the dead-letter read query
-uses `ix_dead_letters_subscription_position`" and "append emits exactly one PostgreSQL
-notification".
-
-**Workload benchmark** means a benchmark that runs enough real operations that the
-signal is larger than scheduler noise. Examples are "10,000 appends across many
-streams" or "read 100,000 category events in pages", not "one singleton append".
-
-**A/B benchmark** means a benchmark that runs two comparable variants in the same
-process and environment. Variant A is the baseline shape, variant B is the candidate
-shape. Running both back-to-back against the same seeded database is more reliable than
-comparing today's checkout to a CSV captured weeks earlier on a different machine load.
-
-**Telemetry benchmark** means a benchmark that is still collected and printed, but does
-not hard-fail the gate by itself. Singleton append microbenchmarks belong here unless
-they regress by a very large amount repeatedly or a workload benchmark confirms the
-same direction.
-
-The immediate motivation comes from EP-5, completed in
-`docs/plans/60-schema-and-trigger-hygiene-notify-guard-dead-letter-fk-policy-and-index-fixes.md`.
-That plan initially expected a guarded NOTIFY trigger to improve append writer latency.
-Controlled SQL A/B later corrected the interpretation: duplicate notifications and
-downstream wakeups were reduced, but writer latency was effectively neutral. The
-historical `just bench-regression` gate still produced noisy singleton/raw append
-failures. This plan turns that lesson into infrastructure.
-
-
-## Plan of Work
-
-Milestone 1 is an audit milestone. Read `kiroku-store/bench/Main.hs`,
-`kiroku-store/bench/Explain.hs`, `kiroku-store/bench/sql/run_benchmarks.sh`,
-`docs/BENCH-REGRESSION.md`, `docs/BENCH-GATE3.md`, `docs/PERF-METHODOLOGY.md`,
-and the EP-5 benchmark notes in
-`docs/plans/60-schema-and-trigger-hygiene-notify-guard-dead-letter-fk-policy-and-index-fixes.md`.
-Create `docs/perf-regression-gate-inventory.md`. This document should classify each
-important performance-sensitive behavior into one of three categories: structural gate,
-controlled workload gate, or telemetry. At the end of M1, no production code changes are
-required. Acceptance is a committed inventory that explains which checks will move out
-of timing-only coverage and why.
-
-Milestone 2 adds deterministic structural checks. Add a test module such as
-`kiroku-store/test/Test/PerformanceStructure.hs`, then import it from
-`kiroku-store/test/Main.hs`. The module should use the existing ephemeral PostgreSQL test
-helpers from `kiroku-store/test/Test/Helpers.hs` and
-`Kiroku.Test.Postgres.migrateTestDatabase`. It should include focused tests for the
-highest-value invariants:
-
-The first test checks the NOTIFY contract. Reuse the approach in
-`kiroku-store/test/Test/NotifyGuard.hs`: listen on the Kiroku notification channel,
-append to an application stream, perform lifecycle operations that update stream rows,
-and assert that exactly one append notification is received for the append and none for
-the lifecycle updates.
-
-The second group checks query plans. Use `Hasql.Session` and `EXPLAIN (FORMAT JSON)` or
-`EXPLAIN (FORMAT TEXT)` to assert stable structural facts. Seed enough rows to make the
-planner prefer the intended index, run the relevant query, and assert that the plan text
-contains the expected index name and does not contain an unexpected `Seq Scan` for the
-target table. Cover at least the dead-letter read path using
-`ix_dead_letters_subscription_position`, the dead-letter FK/delete support using
-`ix_dead_letters_event_id`, and the category exhausted-read path that should not scan
-the rest of `$all`.
-
-The third group checks cheap no-op paths that should be independent of timing. Existing
-tests already cover some of this behavior, such as empty append batches and empty stream
-name lookup. If a pool-checkout observation hook already exists, add or extend tests so
-empty append and empty lookup assert zero pool checkout. If no hook exists for a given
-path, record that in Surprises & Discoveries and limit M2 to the observable checks that
-can be made without intrusive instrumentation.
-
-Milestone 3 adds the controlled workload benchmark harness. Prefer a new executable
-module under `kiroku-store/bench/`, for example
-`kiroku-store/bench/RegressionGate.hs`, and a new Cabal benchmark stanza named
-`kiroku-store-regression-gate`. This keeps the existing `kiroku-store-bench` names stable
-for `baseline.csv`. The harness should start ephemeral PostgreSQL, apply migrations,
-seed deterministic data, warm up the workload, run repeated rounds, and emit two files
-under `kiroku-store/bench/results/`: a JSON result file and a short text summary.
-
-The first version of the controlled workload gate does not need to compare two source
-branches. It should compare stable in-tree workload variants that protect known risks:
-for example API append workload versus raw SQL append workload, category read workload
-versus `$all` read baseline shape, and subscription catch-up workload with notification
-wakeups counted. For future performance experiments, add an interface that allows a
-benchmark-only candidate variant to be plugged into the same harness. This can be as
-simple as a Haskell data type:
-
-```haskell
-data WorkloadVariant = Baseline | Candidate
-```
-
-and a runner shape:
-
-```haskell
-runWorkload :: Workload -> WorkloadVariant -> IO WorkloadResult
-```
-
-Do not overfit the exact type names. The requirement is that one executable can run
-both sides with the same seed, warm-up, and reporting path.
-
-The harness should record metadata in every JSON result: git SHA if available,
-benchmark executable name, GHC version, PostgreSQL server version, operating system,
-timestamp, seed size, warm-up count, measured round count, and any threshold used for
-failure. Use standard Haskell libraries already present where possible. If a new
-dependency is genuinely needed for statistics, inspect dependency source and docs with
-`mori` before using its API.
-
-Milestone 4 wires commands and documentation. Add Justfile recipes:
+A contributor can see the completed system working from the repository root:
 
 ```bash
 just perf-structure
 just perf-workload-gate
 just perf-telemetry
+just perf-check
 ```
 
-`perf-structure` should run the deterministic structural tests only. `perf-workload-gate`
-should run the new controlled workload benchmark and fail only on workload-level
-thresholds. `perf-telemetry` should run the existing `just bench-regression` workflow or
-a non-failing equivalent, depending on what is easiest to express with `tasty-bench`.
-Update `docs/BENCH-REGRESSION.md` so it no longer implies the CSV baseline is the only
-source of truth. Add a new document, `docs/PERF-REGRESSION-GATES.md`, that explains the
-three tiers and gives examples of when to use each.
+`perf-structure` reports only deterministic invariants. `perf-workload-gate` prints
+same-process control/candidate ratios and exits nonzero if the production path loses
+its pre-registered advantage. `perf-telemetry` reports differences from
+`baseline.csv` without converting a noisy percentage into a failing gate. `perf-check`
+runs the two authoritative gates: structure and controlled A/B.
 
-Milestone 5 updates future-plan guidance. Edit
-`docs/plans/62-benchmark-gated-append-pipelining-and-raw-payload-read-passthrough.md`
-so EP-7 explicitly depends on `just perf-workload-gate` or the new controlled A/B
-harness for promotion decisions. It may still run `just bench-regression`, but it must
-not promote or reject pipelining/raw-payload changes based on the historical CSV gate
-alone. If any master plan registry mentions EP-7 benchmark dependencies, update that
-wording to point at this new plan or the new docs.
+
+## Progress
+
+- [x] 2026-08-11: Re-audit the plan against the current benchmark, test, migration,
+      documentation, ADR, and dependency surfaces. Confirmed 31 current benchmark
+      leaves versus 25 baseline rows, the stale pipeline-vs-pipeline experiment, the
+      completed EP-7 implementation, and the current `tasty-bench`/Hasql APIs.
+- [x] 2026-08-11T17:26:12Z: Consolidate existing notification and no-op coverage under a focused
+      `performance structure` test group and add JSON EXPLAIN assertions for the three
+      protected index/query shapes. The focused run passed 8 examples in 1.4737
+      seconds, and the migration suite passed all 10 examples in 2.9136 seconds.
+- [ ] M2: Add a dedicated controlled workload benchmark that compares the old
+      sequential multi-stream transaction shape with the current production pipeline
+      at four and eight streams using `bcompareWithin`; retire the six stale A/B leaves
+      from the historical suite.
+- [ ] M3: Add an exact baseline-coverage preflight, make benchmark code alignment
+      deterministic, and separate non-failing historical telemetry from the existing
+      opt-in strict CSV regression command.
+- [ ] M4: Add the final Justfile entry points and update the performance methodology,
+      benchmark workflow, and three-tier regression-gate documentation.
+- [ ] Final: Run build, full tests, baseline coverage, structural checks, the controlled
+      workload gate, historical telemetry, and the opt-in strict historical check;
+      record exact results and complete Outcomes & Retrospective and ADR distillation.
+
+
+## Surprises & Discoveries
+
+- 2026-08-11: The current benchmark tree and baseline are structurally out of sync.
+  Running the built benchmark with `--list-tests` produced 31 `All.*` leaves, while
+  parsing `kiroku-store/bench/results/baseline.csv` produced 25 data rows. The exact six
+  missing names are the leaves under `All.pipelined-multi-append`.
+
+- 2026-08-11: The missing six leaves no longer form a valid A/B experiment.
+  `runCurrentMultiAppend` calls the public `appendMultiStream`, whose implementation in
+  `kiroku-store/src/Kiroku/Store/Effect.hs` has used `Session.pipeline` since commit
+  `b005e99`. `runPipelinedMultiAppend` separately issues the same `BEGIN` + pre-lock +
+  pipelined appends + commit shape. Both arms therefore measure pipeline mode.
+
+- 2026-08-11: `tasty-bench` 0.5.1 already supplies the portable relative gate that the
+  old plan proposed rebuilding. `bcompareWithin` divides a candidate benchmark's mean
+  by a uniquely selected control and fails when the ratio falls outside a declared
+  interval. Its baseline reporter separately returns no comparison for a missing CSV
+  row, which leaves that benchmark acceptable. The source was located through
+  `mori://Bodigrim/tasty-bench/packages/tasty-bench`.
+
+- 2026-08-11: Much of the proposed deterministic coverage already exists.
+  `kiroku-store/test/Test/NotifyGuard.hs` asserts exact notification payload count and
+  excludes lifecycle updates; `Test.StreamNameLookup` asserts an empty name lookup uses
+  zero pool checkouts; the append tests reject empty batches before state changes. The
+  missing structural checks are query-plan assertions and an explicit zero-checkout
+  assertion for empty append operations.
+
+- 2026-08-11: Hasql 1.10.3.7 exposes `Hasql.Statement.toSql`, so EXPLAIN tests can wrap
+  the actual production statement text instead of copying SQL into the test suite.
+  `Hasql.Decoders.jsonBytes Right`, already used by
+  `kiroku-store/bench/Explain.hs`, can preserve PostgreSQL's JSON plan for Aeson parsing.
+  The source was located through `mori://hasql/hasql/packages/hasql`.
+
+- 2026-08-11: `kiroku-store/bench/Main.hs` performs the 100,000-event category seed and
+  the legacy 6,400-append B9 measurement before `defaultMain` sees `--list-tests` or a
+  pattern filter. The baseline-coverage preflight can tolerate that cost, but the
+  authoritative A/B gate should live in its own small executable so its signal is not
+  preceded by unrelated setup and load.
+
+- 2026-08-11: A single realistic fixture of 200 category streams, 100 events per
+  stream, and 20,000 dead letters was sufficient for PostgreSQL to choose all three
+  protected indexes naturally. The focused run selected
+  `ix_stream_events_all_by_origin`, `ix_dead_letters_subscription_position` without a
+  `Sort`, and `ix_dead_letters_event_id` without setting `enable_seqscan=off`.
+
+
+## Decision Log
+
+- Decision: Keep three separate responsibilities: deterministic structural checks,
+  controlled same-process A/B workload checks, and historical timing telemetry.
+  Rationale: Structural checks catch query-shape and no-work regressions without a
+  clock. A/B ratios remove most host-to-host drift when a real control exists.
+  Historical timings preserve continuity but cannot reliably decide a small change by
+  themselves.
+  Date: 2026-06-14; reaffirmed 2026-08-11.
+
+- Decision: Preserve `just bench-regression` as the existing strict 10% historical
+  command, add `just perf-telemetry` as the non-failing baseline comparison, and make
+  `just perf-check` depend only on the structural and A/B gates.
+  Rationale: Silently changing the established command's exit semantics would surprise
+  existing users. Excluding it from the authoritative aggregate gate removes its noisy
+  veto while retaining an explicit strict diagnostic when a contributor wants it.
+  Date: 2026-08-11.
+
+- Decision: Use `Test.Tasty.Bench.bcompareWithin` in a dedicated Cabal benchmark rather
+  than implement a custom statistics and JSON-reporting framework.
+  Rationale: The resolved dependency already implements same-process relative
+  performance tests and integrates their pass/fail result with the existing benchmark
+  runner. A separate executable avoids the historical suite's unconditional 100K-event
+  seed and legacy B9 load. CSV remains available from `tasty-bench` when a durable
+  machine-readable result is needed; a bespoke JSON schema would add code without
+  improving the promotion decision.
+  Date: 2026-08-11.
+
+- Decision: Reconstruct the pre-pipeline sequential transaction only as a benchmark
+  control and compare the production `appendMultiStream` API against it at four and
+  eight streams. Require a candidate/control ratio no greater than 0.90 in both cells.
+  Rationale: EP-7 measured approximately 0.78 at both sizes across three runs (about 22%
+  faster). A 0.90 upper bound requires a still-material 10% advantage while leaving
+  substantial headroom for ordinary measurement variance. The sequential path is not
+  reintroduced into production or exposed as public behavior.
+  Date: 2026-08-11.
+
+- Decision: Retire the six `pipelined-multi-append` leaves from
+  `kiroku-store/bench/Main.hs` once the new controlled gate exists.
+  Rationale: Their labels are now false, they have no baseline rows, and the new
+  executable restores the original contrast with an explicit control. The historical
+  `reliability-audit.appendMultiStream 3 existing streams` cell remains as telemetry for
+  the public API.
+  Date: 2026-08-11.
+
+- Decision: Build EXPLAIN statements from `Hasql.Statement.toSql` and inspect parsed
+  JSON plan nodes rather than asserting substrings in copied SQL or timing EXPLAIN
+  ANALYZE.
+  Rationale: This couples the check to the statement production actually executes,
+  avoids destructive execution for DELETE shapes, and lets tests assert semantic plan
+  facts such as index names and the absence of a `Sort` node.
+  Date: 2026-08-11.
+
+- Decision: Reuse and regroup existing notification and empty-lookup tests instead of
+  duplicating them in a new performance module.
+  Rationale: Those tests already express the required deterministic behavior. The new
+  work should add only the missing empty-append checkout assertion and query-plan
+  coverage, then give `just perf-structure` one stable Hspec group to select.
+  Date: 2026-08-11.
+
+- Decision: Do not revise completed ExecPlan 62 as part of this work.
+  Rationale: It is execution history and its implementation is already on `master`.
+  This plan consumes its measured control/candidate evidence and corrects the durable
+  benchmark surface that remained afterward.
+  Date: 2026-08-11.
+
+- Decision: Add `-fproc-alignment=64` to the historical and controlled benchmark
+  stanzas.
+  Rationale: The resolved `tasty-bench` documentation specifically recommends aligned
+  procedure entry points for baseline comparison to avoid intermittent cache-line
+  placement skew. Both benchmark signals should compile under the same alignment rule.
+  Date: 2026-08-11.
+
+- Decision: Seed the structural EXPLAIN examples once per focused group with 200
+  category streams, 100 events per stream, and one dead-letter row per event.
+  Rationale: The 20,000-row shape is large enough to make the intended access paths
+  cost-effective on PostgreSQL's real planner while keeping the complete focused gate
+  below two seconds on the implementation host. Sharing the freshly cloned database
+  avoids repeating the seed for each read-only EXPLAIN example.
+  Date: 2026-08-11.
+
+
+## Outcomes & Retrospective
+
+The plan itself was refreshed on 2026-08-11; implementation has not started. The
+refresh removed an obsolete future dependency on EP-7, identified a silent six-cell
+baseline gap, found that the supposed A/B arms now execute the same implementation,
+and replaced a proposed custom reporting framework with the relative-gating capability
+already present in the resolved benchmark library.
+
+At implementation completion, replace this paragraph with the delivered commands,
+observed A/B ratios, structural-plan evidence, any remaining gaps, and the result of the
+ADR distillation pass.
+
+
+## Context and Orientation
+
+Kiroku is a PostgreSQL-backed event store written in Haskell. The public store package
+is `kiroku-store`; its implementation lives in `kiroku-store/src/Kiroku/Store/`, its
+Hspec suite lives in `kiroku-store/test/`, and its benchmark sources live in
+`kiroku-store/bench/`. Database migrations are no longer owned by `kiroku-store`; the
+current native migration component is `kiroku-store-migrations`, with SQL under
+`kiroku-store-migrations/migrations/` and an embedded history under
+`kiroku-store-migrations/src/Kiroku/Store/Migrations/History/`.
+
+The current historical benchmark target is the Cabal benchmark
+`kiroku-store:kiroku-store-bench`, whose `main-is` is
+`kiroku-store/bench/Main.hs`. It boots cached ephemeral PostgreSQL, calls
+`Kiroku.Test.Postgres.migrateTestDatabase`, opens a `KirokuStore`, seeds a 100K-event
+category fixture, runs the legacy B9 pool-saturation measurement once, and then passes
+its benchmark tree to `Test.Tasty.Bench.defaultMain`. Its 31 leaves are grouped under
+`append`, `raw-append-shape`, `pipelined-multi-append`, `read`, `category`,
+`concurrent`, `reliability-audit`, and `subscription-checkpoint-inventory`.
+
+`Justfile` currently exposes `bench`, `bench-baseline`, `bench-regression`,
+`bench-regression-threshold`, and `bench-regression-pattern`. `bench-baseline` writes
+`kiroku-store/bench/results/baseline.csv`. `bench-regression` compares the current run
+against that file and asks `tasty-bench` to fail any compared leaf more than 10% slower.
+The baseline has 25 rows: every current leaf except the six under
+`pipelined-multi-append`.
+
+The current production multi-stream path lives in the `AppendMultiStream` branch of
+`Kiroku.Store.Effect.runStorePool`. It enriches and prepares events, then calls
+`runAppendMultiStreamPipeline`. The first protocol phase sends `BEGIN`, the
+deterministic stream pre-lock, and all append statements through `Session.pipeline`;
+the second phase commits or rolls back after the client inspects results. One transient
+serialization or deadlock error is retried. ExecPlan 62 measured the old sequential
+transaction against this pipeline at four and eight streams and then promoted the
+pipeline into production. See
+[`docs/plans/62-benchmark-gated-append-pipelining-and-raw-payload-read-passthrough.md`](62-benchmark-gated-append-pipelining-and-raw-payload-read-passthrough.md)
+and the 2026-06-14 rows in
+[`docs/perf-experiment-log.md`](../perf-experiment-log.md).
+
+The test suite runs under one shared cached PostgreSQL server through
+`Kiroku.Test.Postgres.withSharedMigratedPostgres`. Each call to
+`withMigratedTestDatabase` clones a newly migrated template database, so tests and the
+new A/B gate can obtain isolated databases with identical starting schema. Store test
+fixtures in `kiroku-store/test/Test/Helpers.hs` wrap those databases with
+`withTestStore` or `withTestStoreSettings`.
+
+A structural check verifies the kind of work performed without comparing elapsed
+time. In this plan that means an exact notification count, zero observed pool checkouts
+for a no-op, or a PostgreSQL JSON query plan containing an intended index. A controlled
+A/B workload has a control and candidate compiled into one executable, run on the same
+server against identically seeded databases. Historical telemetry compares an absolute
+timing with an older CSV row and reports the change without deciding promotion.
+
+The protected production query shapes are in `kiroku-store/src/Kiroku/Store/SQL.hs`.
+`readCategoryForwardStmt` uses a LATERAL subquery over the partial index
+`ix_stream_events_all_by_origin` so a high cursor does not scan the remaining `$all`
+suffix. `readDeadLettersStmt` orders by global position and dead-letter id so
+`ix_dead_letters_subscription_position` can satisfy both filtering and ordering without
+a separate sort. `deleteDeadLettersForOrphanedEventsStmt` probes dead letters by event id
+and depends on `ix_dead_letters_event_id`. The indexes are installed by
+`kiroku-store-migrations/migrations/0001-kiroku-bootstrap.sql`,
+`0004-dead-letters-event-id-index.sql`, and
+`0005-index-hygiene-and-streams-fillfactor.sql`.
+
+Existing deterministic tests already cover part of the target. `Test.NotifyGuard`
+asserts one append notification per append and no lifecycle-update notification.
+`Test.StreamNameLookup` uses Hasql pool observations to prove empty batch lookup takes
+zero pool checkouts. The empty append group in `kiroku-store/test/Main.hs` proves empty
+single- and multi-stream requests do not change durable state, but it does not yet
+count pool checkouts.
+
+Three local ADRs matter. [ADR-1](../adr/0001-resolve-stream-names-via-lookup-not-recordedevent-field.md)
+records a same-machine A/B decision and the standing 10% read-regression concern; it is
+evidence for using a real control, not authority for applying one historical CSV
+threshold to every leaf. [ADR-3](../adr/0003-dedicated-kiroku-schema.md) makes
+`ConnectionSettings.schema` and the per-connection `search_path` authoritative, so
+EXPLAIN tests should run through the store pool or explicitly preserve that path.
+[ADR-4](../adr/0004-explicit-subscription-checkpoint-lifecycle.md) explains the current
+checkpoint contract whose 100-row and 10,000-row inventory cells now appear in the
+historical suite. No current ADR governs performance-regression gate architecture; the
+implementation must perform the required final ADR distillation instead of inventing an
+ADR during this planning refresh.
+
+Dependency APIs used by this design were verified from Mori-located source. The
+resolved `tasty-bench` is 0.5.1 and provides `bcompareWithin`; the package API is
+`mori://Bodigrim/tasty-bench/packages/tasty-bench`. The resolved Hasql is 1.10.3.7 and
+provides `Hasql.Statement.toSql` and `Hasql.Decoders.jsonBytes`; its package API is
+`mori://hasql/hasql/packages/hasql`. Ephemeral PostgreSQL lifecycle and cached startup
+come from `mori://shinzui/ephemeral-pg/packages/ephemeral-pg`, while Kiroku should
+normally consume them through `kiroku-test-support`'s existing migrated-template
+helpers.
+
+
+## Plan of Work
+
+Milestone 1 creates one deterministic structural gate without rewriting existing
+coverage. Add `kiroku-store/test/Test/PerformanceStructure.hs` and register it in
+`kiroku-store/kiroku-store.cabal` and `kiroku-store/test/Main.hs`. Give the top-level
+group the exact name `performance structure`. Move the existing empty-lookup
+zero-checkout spec behind an exported sub-spec from `Test.StreamNameLookup`, and nest
+`Test.NotifyGuard.spec` under this top-level group rather than running a duplicate.
+Add an empty `appendToStream` and empty `appendMultiStream` observation test that records
+`InUseConnectionStatus` events and requires a delta of zero.
+
+The same module adds three query-plan examples. Seed representative category, event,
+and dead-letter rows, run PostgreSQL `ANALYZE` so estimates are realistic, and build
+`EXPLAIN (FORMAT JSON, COSTS OFF)` SQL by prefixing the text returned by
+`Hasql.Statement.toSql` for the production statement under test. Substitute only
+hard-coded test literals for positional parameters; no user input enters this helper.
+Decode the one JSON result with `D.jsonBytes Right`, parse it with Aeson, recursively
+collect `Node Type`, `Relation Name`, and `Index Name` from `Plan` and nested `Plans`,
+and assert semantic facts. The category plan must name
+`ix_stream_events_all_by_origin`; the dead-letter read must name
+`ix_dead_letters_subscription_position` and contain no `Sort`; the orphan dead-letter
+delete/probe must name `ix_dead_letters_event_id`. Do not set `enable_seqscan=off`: the
+test proves the representative shape is actually selected, not merely available.
+
+Milestone 1 is complete when a focused Hspec run selects all notification, no-op, and
+plan-shape examples under one group and passes, and when temporarily changing an
+expected index name makes the focused command fail with a plan dump useful for
+diagnosis.
+
+Milestone 2 restores a real controlled A/B gate. Add
+`kiroku-store/bench/RegressionGate.hs` and a Cabal benchmark named
+`kiroku-store-bench-workload-gate`. The executable obtains two fresh databases from one
+shared migrated PostgreSQL server: one for the sequential control and one for the
+production candidate. Seed matching four-stream and eight-stream sets in each database
+and warm both arms before measurement.
+
+Implement the control only inside the benchmark. It must reproduce the pre-`b005e99`
+transaction topology: prepare events, pre-lock stream names through
+`SQL.lockStreamsForMultiStmt`, issue each append with `appendDispatchTx` inside
+`TxSessions.transaction ReadCommitted Write`, and commit after all results. The
+candidate must call the public `appendMultiStream` through `runStoreIO`; it must not call
+`runAppendMultiStreamPipeline` or another internal shortcut, because the gate protects
+the production dispatch path. Use unique or `AnyVersion` appends so repeated benchmark
+iterations remain valid, force all results, and fail immediately on a store or pool
+error.
+
+Declare the sequential cell before its dependent candidate. Wrap the production cells
+with `bcompareWithin 0 0.90`, selecting the unique matching sequential control at the
+same stream count. The console should show candidate ratios, and a ratio above 0.90
+must make the benchmark executable exit nonzero. Keep the prior contention pair only
+if it remains useful as non-gating telemetry; scheduler-sensitive contention must not
+become a required ratio in the first version.
+
+Once the new gate passes, remove the six stale `pipelined-multi-append` leaves and their
+now-misleading helpers from `kiroku-store/bench/Main.hs`. Do not remove
+`reliability-audit.appendMultiStream 3 existing streams`; it remains historical public
+API telemetry. The historical suite should then list exactly the 25 names already
+present in `baseline.csv`, so this milestone requires no baseline timing refresh.
+
+Milestone 3 makes historical coverage explicit. Add an executable shell helper at
+`kiroku-store/bench/check-baseline-coverage.sh`. It should locate the built
+`kiroku-store-bench` binary with `cabal list-bin`, run `--list-tests`, select only lines
+beginning with `All.`, parse the baseline header and name column, sort both name sets,
+and fail with a unified diff when either side has an unmatched name. Benchmark names
+currently contain no commas; document that constraint in the helper and fail loudly if
+a future name contains one instead of parsing it incorrectly. Use a private directory
+from `mktemp -d` and clean only that exact directory in a trap.
+
+Add `just bench-baseline-check`; have that recipe build
+`kiroku-store:kiroku-store-bench` before invoking the helper. Run the preflight before
+`bench-regression`, `bench-regression-threshold`, `bench-regression-pattern`, and the
+new `perf-telemetry` recipe. `perf-telemetry` runs the same benchmark with `--baseline`
+but without `--fail-if-slower`, so real benchmark execution errors still fail while
+timing differences remain reports. Preserve the current strict commands and
+thresholds. Add `-fproc-alignment=64` to both the historical benchmark stanza and the
+new workload-gate stanza; do not change the library or test compiler options.
+
+Milestone 4 wires and documents the public workflow. Add `perf-structure`,
+`perf-workload-gate`, `perf-telemetry`, and `perf-check` recipes to `Justfile`.
+`perf-check` should invoke only the first two. Update `docs/BENCH-REGRESSION.md` to
+describe exact baseline coverage, the non-failing telemetry command, and the retained
+strict historical command. Update `docs/PERF-METHODOLOGY.md` so future optimization
+plans use controlled pairs for promotion and the historical suite to detect unrelated
+movement. Add `docs/PERF-REGRESSION-GATES.md` as the short contributor-facing map of
+the three tiers, their commands, failure meaning, and baseline-update policy. Link the
+new guide from both existing documents instead of duplicating their detailed content.
+
+At finalization, update Progress after every stopping point, capture unexpected planner
+or benchmark behavior in Surprises & Discoveries, and record any threshold or workload
+change in the Decision Log before changing code. Review all three living sections and
+Outcomes & Retrospective for durable architectural context. If the final three-tier
+policy is judged project-level architecture, create or update the appropriate ADR
+under the profiled `docs/adr/` bundle and run `just adr-validate`; otherwise record why
+the existing contributor docs are sufficient.
 
 
 ## Concrete Steps
@@ -298,262 +415,193 @@ All commands run from the repository root:
 cd /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku
 ```
 
-Start by confirming the repository identity and benchmark surface:
-
-```bash
-mori show --full
-rg -n "bench-regression|bench-baseline|kiroku-store-bench" Justfile docs kiroku-store/kiroku-store.cabal
-rg -n "defaultMain|bgroup|MultilineStrings|EXPLAIN" kiroku-store/bench kiroku-store/test
-```
-
-Expected shape: `mori show --full` identifies the project as `shinzui/kiroku` with
-packages including `kiroku-store`; the `rg` commands show the current Justfile recipes,
-the `kiroku-store-bench` Cabal stanza, `Test.Tasty.Bench.defaultMain`, and existing
-multiline SQL in `kiroku-store/bench/Main.hs` and `kiroku-store/bench/Explain.hs`.
-
-For M1, create the inventory document and commit it:
+Confirm the refreshed starting point without modifying benchmark data:
 
 ```bash
 git status --short
-just build
+mori show --full
+cabal build kiroku-store:kiroku-store-bench
+BENCH_BIN=$(cabal list-bin kiroku-store:kiroku-store-bench)
+"$BENCH_BIN" --list-tests | rg '^All\.' | wc -l
+sed '1d' kiroku-store/bench/results/baseline.csv | wc -l
 ```
 
-Expected: `git status --short` is either clean or only shows unrelated user changes that
-must not be touched; `just build` exits successfully. Write
-`docs/perf-regression-gate-inventory.md` with the classification described above, then
-commit:
+Expected before implementation: the two counts are 31 and 25. `git status` may show
+unrelated user changes; do not stage or edit them.
+
+For Milestone 1, add and select the structural group:
 
 ```bash
-git add docs/perf-regression-gate-inventory.md docs/plans/64-harden-benchmark-regression-detection-with-structural-checks-and-controlled-a-b-workload-gates.md
-git commit -m "docs(perf): classify regression gate responsibilities" \
-  -m "ExecPlan: docs/plans/64-harden-benchmark-regression-detection-with-structural-checks-and-controlled-a-b-workload-gates.md"
+cabal test kiroku-store:kiroku-store-test \
+  --test-show-details=direct \
+  --test-options='--match "performance structure"'
+cabal test kiroku-store-migrations:kiroku-store-migrations-test \
+  --test-show-details=direct
 ```
 
-For M2, add the structural test module and run it directly:
-
-```bash
-cabal test kiroku-store:kiroku-store-test --test-show-details=direct --test-options='--match "performance structure"'
-```
-
-Expected output should include a named hspec group such as:
+Expected focused output has one `performance structure` group containing the existing
+NOTIFY guard, empty lookup and append checkout assertions, and three named query-plan
+examples. A useful success shape is:
 
 ```text
 performance structure
-  notification contract emits only application append payloads [✔]
-  dead-letter reads use the subscription position index [✔]
-  dead-letter event-id cleanup uses the event-id index [✔]
-  exhausted category reads avoid scanning unrelated $all rows [✔]
+  NOTIFY trigger guard ...
+  no-op paths use no pooled connection ...
+  category high-cursor reads use ix_stream_events_all_by_origin ...
+  dead-letter reads use ix_dead_letters_subscription_position without Sort ...
+  orphan dead-letter cleanup uses ix_dead_letters_event_id ...
 ```
 
-Then run the full store tests:
+For Milestone 2, build and run the dedicated gate directly before adding its Justfile
+wrapper:
 
 ```bash
-cabal test kiroku-store:kiroku-store-test --test-show-details=direct
+cabal build kiroku-store:kiroku-store-bench-workload-gate
+cabal bench kiroku-store:kiroku-store-bench-workload-gate \
+  --benchmark-options='--stdev 5'
 ```
 
-For M3, add the new benchmark executable and Cabal stanza. Build it before running it:
+The exact timings vary, but both candidate leaves must be marked `OK`, print ratios at
+or below `0.90x`, and the summary must report all tests passed. The command must exit
+nonzero if either `bcompareWithin` upper bound is temporarily reduced below the
+observed ratio.
+
+After moving the stale cells out of `Main.hs`, confirm historical coverage before
+capturing or comparing timings:
 
 ```bash
-cabal build kiroku-store:kiroku-store-regression-gate
-cabal bench kiroku-store:kiroku-store-regression-gate
+just bench-baseline-check
 ```
 
-Expected output should include a metadata block and a workload summary. The exact numbers
-will vary, but the shape should be stable:
+Expected: the helper reports that all 25 listed historical benchmarks have exactly one
+baseline row. It must fail if a temporary extra line is added to either name set.
 
-```text
-Kiroku performance regression gate
-metadata: ghc=..., postgres=..., git=...
-workload append.multi-stream.10000: PASS median_ratio=...
-workload read.category.high-cursor: PASS median_ratio=...
-results: kiroku-store/bench/results/regression-gate-YYYYMMDD-HHMMSS.json
-```
-
-If a workload fails, do not refresh a baseline. Investigate, record the failure in
-Surprises & Discoveries, and either fix the regression or adjust the workload only with
-a Decision Log entry explaining why the old threshold was invalid.
-
-For M4, add the Justfile recipes and docs. Verify recipe listing and each new command:
+For Milestone 3 and Milestone 4, exercise each public command separately:
 
 ```bash
 just --list
 just perf-structure
 just perf-workload-gate
 just perf-telemetry
+just perf-check
 ```
 
-For M5, update EP-7 guidance and run a consistency check:
+`perf-telemetry` may report slower or faster historical leaves but exits zero unless
+the suite itself errors or baseline coverage is incomplete. `perf-check` exits zero
+only when structure and both controlled ratios pass.
+
+Check documentation and stale-name cleanup:
 
 ```bash
-rg -n "bench-regression|perf-workload-gate|controlled A/B|baseline.csv" docs/plans/62-benchmark-gated-append-pipelining-and-raw-payload-read-passthrough.md docs/BENCH-REGRESSION.md docs/PERF-REGRESSION-GATES.md
+rg -n 'perf-structure|perf-workload-gate|perf-telemetry|perf-check|bench-baseline-check' \
+  Justfile docs/BENCH-REGRESSION.md docs/PERF-METHODOLOGY.md \
+  docs/PERF-REGRESSION-GATES.md
+rg -n 'pipelined-multi-append|runPipelinedMultiAppend|runCurrentMultiAppend' \
+  kiroku-store/bench/Main.hs
 ```
 
-At final validation, run:
+Expected: the first search finds each new interface in the implementation and docs;
+the second search returns no matches in the historical benchmark.
+
+Run final validation:
 
 ```bash
 just build
 just test
+just bench-baseline-check
 just perf-structure
 just perf-workload-gate
+just perf-telemetry
 just bench-regression
 ```
 
-Record all final results in this plan's Surprises & Discoveries or Outcomes &
-Retrospective before the final commit.
+The build, tests, coverage preflight, structural gate, workload gate, and telemetry
+command must pass. Run the strict historical command and record its exact result. A
+timing-only failure there is not by itself a failed plan, but an overlapping slowdown
+in `reliability-audit.appendMultiStream 3 existing streams` must be investigated
+against the controlled gate before completion.
+
+Every implementation commit must use a Conventional Commit subject and end with this
+trailer:
+
+```text
+ExecPlan: docs/plans/64-harden-benchmark-regression-detection-with-structural-checks-and-controlled-a-b-workload-gates.md
+```
 
 
 ## Validation and Acceptance
 
-This plan is accepted when a future contributor has a reliable way to catch performance
-regressions without relying solely on historical singleton timing cells.
+The plan is accepted when a contributor can distinguish a structural regression, a
+same-process workload regression, and historical timing movement by running the four
+documented commands without interpreting one signal as another.
 
-M1 acceptance: `docs/perf-regression-gate-inventory.md` exists and classifies every
-existing `kiroku-store/bench/Main.hs` benchmark group as structural gate, workload gate,
-or telemetry. The document must explicitly mention the EP-5 lesson that append writer
-latency did not improve measurably even though notification duplication was fixed.
+Milestone 1 is accepted when `just perf-structure` runs the existing notification and
+empty-lookup invariants, the new empty-append zero-checkout assertion, and all three
+production-SQL JSON EXPLAIN assertions. Removing or making unusable one of the protected
+indexes must fail a named test with the actual parsed plan shown in the diagnostic.
 
-M2 acceptance: `just perf-structure` exists and passes. It must fail if a contributor
-removes an index or changes a query shape so a protected path degrades to an unexpected
-sequential scan. It must include at least one notification-count invariant and at least
-two plan-shape/index invariants.
+Milestone 2 is accepted when the dedicated workload executable compares isolated but
+identically seeded control and candidate databases in one process. The production
+four-stream and eight-stream candidates must each measure no more than 0.90 times their
+sequential controls. The old six pipeline experiment leaves must no longer appear in
+the historical suite.
 
-M3 acceptance: `just perf-workload-gate` exists and runs a controlled workload benchmark
-that emits both machine-readable JSON and human-readable summary output. The output must
-include metadata and repeated-run statistics. It must not overwrite
-`kiroku-store/bench/results/baseline.csv`.
+Milestone 3 is accepted when the historical suite and baseline have exactly the same
+25 names and the coverage helper fails in both mismatch directions. The historical and
+controlled benchmark stanzas both compile with `-fproc-alignment=64`.
 
-M4 acceptance: `docs/BENCH-REGRESSION.md` clearly states that `just bench-regression` is
-a smoke signal and telemetry source. `docs/PERF-REGRESSION-GATES.md` explains which
-command to use for structural regressions, workload regressions, and historical
-microbenchmark telemetry.
+Milestone 4 is accepted when `docs/PERF-REGRESSION-GATES.md` tells a novice which
+command to run and what a failure means; `docs/BENCH-REGRESSION.md` distinguishes
+non-failing telemetry from the retained strict command; and
+`docs/PERF-METHODOLOGY.md` requires controlled evidence for promotion decisions.
 
-M5 acceptance: `docs/plans/62-benchmark-gated-append-pipelining-and-raw-payload-read-passthrough.md`
-no longer treats one `just bench-regression` run as sufficient evidence to promote or
-reject EP-7 prototypes. It names the controlled A/B workload gate as the deciding
-performance evidence.
-
-Final acceptance: these commands all pass from the repository root:
-
-```bash
-just build
-just test
-just perf-structure
-just perf-workload-gate
-```
-
-`just bench-regression` should also be run. If it warns or fails on telemetry-only
-microbenchmarks while the structural and workload gates pass, document the exact warning
-and do not treat that alone as a failed plan. If it fails on a workload-like benchmark
-that overlaps the new controlled gate, investigate until the discrepancy is understood.
+Final acceptance requires successful `just build`, `just test`,
+`just bench-baseline-check`, `just perf-structure`, `just perf-workload-gate`, and
+`just perf-telemetry`. The strict `just bench-regression` result must be recorded and
+explained, but a timing-only failure is not authoritative when structure and the
+controlled gate pass.
 
 
 ## Idempotence and Recovery
 
-Most steps are additive and safe to repeat. Structural tests create temporary ephemeral
-PostgreSQL databases through the existing test helpers. The controlled workload gate
-should also use ephemeral PostgreSQL by default. It must write timestamped result files
-under `kiroku-store/bench/results/` instead of overwriting `baseline.csv`.
+All new database work uses cached ephemeral PostgreSQL and freshly cloned migrated
+databases. Re-running structural or workload gates creates no durable database state.
+The two A/B arms use separate databases, so repeated measurements cannot let control
+rows change the candidate's initial table shape.
 
-Do not edit or refresh `kiroku-store/bench/results/baseline.csv` as part of this plan
-unless a later explicit decision says the historical tasty-bench baseline itself is being
-updated. If it changes accidentally, inspect it before restoring anything:
+The baseline-coverage helper creates only a private temporary directory with
+`mktemp -d`. Its trap must remove the resolved temporary directory, never a broad path
+or an unresolved environment variable. The helper reads `baseline.csv`; it does not
+rewrite it.
+
+Do not run `just bench-baseline` merely to make a historical timing failure disappear.
+This plan deliberately removes six stale unbaselined cells so the remaining 25 current
+names match the existing 25 rows without changing their measurements. If
+`baseline.csv` changes accidentally, inspect it first:
 
 ```bash
 git diff -- kiroku-store/bench/results/baseline.csv
 ```
 
-If the diff is accidental and not a user edit, restore only that file:
+Restore it only when the diff is known to be generated by this work and not a user
+edit. Never restore or delete unrelated working-tree changes.
 
-```bash
-git restore kiroku-store/bench/results/baseline.csv
-```
+If an EXPLAIN test chooses a sequential scan, first verify the fixture row counts,
+`ANALYZE` call, parameter substitution, and actual JSON plan. Increase realistic seed
+cardinality when the planner has insufficient evidence. Do not force index selection
+with `enable_seqscan=off`, and do not weaken the assertion without recording the
+observed plan and rationale in this plan.
 
-If a benchmark run leaves timestamped result files that are only scratch artifacts, either
-record them in the plan and commit the useful one, or remove only those generated files
-after checking `git status --short`. Do not remove unrelated files.
-
-If a structural EXPLAIN test is flaky because PostgreSQL chooses a sequential scan on a
-tiny table, do not weaken the assertion immediately. First seed enough rows and run
-`ANALYZE` in the test setup so the planner has realistic statistics. If the plan remains
-unstable, record the evidence and decide whether that path is unsuitable for structural
-assertion.
-
-If the controlled workload gate is noisy, increase operation counts, warm-up rounds, or
-measured rounds before changing thresholds. The goal is to make the signal bigger than
-the noise, not to tune thresholds until a bad benchmark passes.
+If an A/B cell is noisy, run it on a quiet host and inspect the reported standard
+deviation. Repeat the unchanged gate three times before diagnosing a real regression.
+Increase work per iteration or tighten `--stdev` before changing the 0.90 threshold.
+Any threshold or workload change requires a Decision Log entry made before accepting
+the new result.
 
 
 ## Interfaces and Dependencies
 
-Use the existing repository tooling first.
-
-`Test.Tasty.Bench` is already used by `kiroku-store/bench/Main.hs`. Keep it for the
-historical `kiroku-store-bench` suite and for telemetry. The new controlled workload
-gate may use plain Haskell timing with `Data.Time.Clock.getCurrentTime` if that makes
-warm-up, repeated rounds, and JSON reporting easier than fitting the shape into
-`tasty-bench`.
-
-`EphemeralPg` and `Kiroku.Test.Postgres.migrateTestDatabase` are already used to boot
-temporary PostgreSQL databases and apply embedded migrations. The new workload gate
-should use the same approach unless there is a documented reason to use an operator's
-existing local database.
-
-`Hasql.Session`, `Hasql.Statement`, `Hasql.Encoders`, and `Hasql.Decoders` are already
-used in benchmark and test code. Use them for EXPLAIN checks and raw workload queries.
-When adding several embedded SQL queries in Haskell, enable and use:
-
-```haskell
-{-# LANGUAGE MultilineStrings #-}
-```
-
-Then write queries as multiline string literals:
-
-```haskell
-explainDeadLettersReadSQL :: Text
-explainDeadLettersReadSQL =
-    """
-    EXPLAIN (FORMAT TEXT)
-    SELECT dead_letter_id, event_id, global_position
-    FROM kiroku.dead_letters
-    WHERE subscription_name = $1
-      AND consumer_group_member = $2
-    ORDER BY global_position DESC, dead_letter_id DESC
-    LIMIT $3
-    """
-```
-
-This matches the current benchmark style and is easier to review than string
-concatenation.
-
-The new Cabal benchmark stanza should live in `kiroku-store/kiroku-store.cabal` near the
-existing benchmark stanzas. A likely shape is:
-
-```cabal
-benchmark kiroku-store-regression-gate
-  type: exitcode-stdio-1.0
-  hs-source-dirs: bench
-  main-is: RegressionGate.hs
-  build-depends:
-      base
-    , aeson
-    , bytestring
-    , containers
-    , ephemeral-pg
-    , hasql
-    , hasql-pool
-    , kiroku-store
-    , kiroku-test-support
-    , text
-    , time
-  ghc-options: -threaded -rtsopts
-```
-
-Adjust the exact dependency list to compile; do not add new third-party dependencies
-until inspecting them with `mori registry search`, `mori registry show --full`, and
-local source/docs.
-
-The new structural test module should be exposed through the existing test tree. A
-reasonable interface is:
+The structural test module has the conventional test interface:
 
 ```haskell
 module Test.PerformanceStructure (spec) where
@@ -561,18 +609,91 @@ module Test.PerformanceStructure (spec) where
 spec :: Spec
 ```
 
-and `kiroku-store/test/Main.hs` should include it in the top-level hspec tree under a
-group named `performance structure`.
+`kiroku-store/test/Main.hs` should expose one stable selector:
 
-The new documentation interfaces are:
+```haskell
+describe "performance structure" $ do
+    PerformanceStructure.spec
+    NotifyGuard.spec
+    StreamNameLookup.noOpSpec
+```
 
-`docs/perf-regression-gate-inventory.md` — one-time inventory produced in M1.
+Adjust the exact split if Hspec fixture nesting requires it, but do not duplicate the
+existing notification or lookup examples and keep the full path selectable by
+`--match "performance structure"`.
 
-`docs/PERF-REGRESSION-GATES.md` — durable operator/contributor guide for which
-performance command to run and how to interpret results.
+The EXPLAIN helper consumes actual statement text:
 
-`docs/BENCH-REGRESSION.md` — revised historical baseline documentation.
+```haskell
+Hasql.Statement.toSql :: Statement params result -> Text
+```
 
-`docs/plans/62-benchmark-gated-append-pipelining-and-raw-payload-read-passthrough.md`
-— updated future EP-7 guidance so performance promotion relies on controlled A/B
-evidence.
+It wraps that text with `EXPLAIN (FORMAT JSON, COSTS OFF)`, substitutes fixed test
+literals for parameters, decodes the returned PostgreSQL `json` value with
+`D.jsonBytes Right`, and parses it with the already declared `aeson` test dependency.
+No new library dependency or production API is needed.
+
+The workload benchmark is a new Cabal stanza near the current benchmark stanzas:
+
+```cabal
+benchmark kiroku-store-bench-workload-gate
+  import:         common
+  type:           exitcode-stdio-1.0
+  main-is:        RegressionGate.hs
+  hs-source-dirs: bench
+  ghc-options:    -threaded -rtsopts "-with-rtsopts=-N -A32m" -fproc-alignment=64
+```
+
+Its dependencies should be limited to packages already used by the historical
+benchmark: `base`, `aeson`, `generic-lens`, `hasql`, `hasql-pool`,
+`hasql-transaction`, `kiroku-store`, `kiroku-test-support`, `lens`, `tasty-bench`,
+`text`, `time`, and `vector`, trimming any unused entries after compilation. Do not add
+a statistics package: `tasty-bench` owns estimation and the relative gate.
+
+The essential gate shape is:
+
+```haskell
+bgroup
+    "append-multi-stream"
+    [ bench "sequential control (4 streams)" $ whnfIO control4
+    , bcompareWithin 0 0.90 "sequential control (4 streams)" $
+        bench "production pipeline (4 streams)" $ whnfIO candidate4
+    , bench "sequential control (8 streams)" $ whnfIO control8
+    , bcompareWithin 0 0.90 "sequential control (8 streams)" $
+        bench "production pipeline (8 streams)" $ whnfIO candidate8
+    ]
+```
+
+Use unambiguous control patterns; if name growth makes the short strings ambiguous,
+construct exact paths with `locateBenchmark` and Tasty's pattern printer after locating
+that dependency through Mori.
+
+`kiroku-store/bench/check-baseline-coverage.sh` is the only new script. It compares the
+historical executable's `All.*` list with the first CSV column after the header and
+prints a diff. It must reject commas in names unless it is upgraded to a real CSV
+parser.
+
+The public command contract is:
+
+```text
+just perf-structure        deterministic Hspec and query-plan invariants
+just perf-workload-gate    authoritative same-process relative performance gate
+just perf-telemetry        non-failing historical timing comparison
+just perf-check            perf-structure followed by perf-workload-gate
+just bench-regression      retained opt-in strict 10% historical comparison
+```
+
+No cross-repository code change is required. Cross-repository dependency references in
+durable documentation must use the Mori URIs recorded in Context and Orientation, not
+local absolute corpus paths.
+
+
+## Revision Note
+
+2026-08-11: Rebased the June plan on the current code before implementation. The
+revision accounts for completed ExecPlan 62, the native migration package, new
+checkpoint inventory benchmarks, existing notification/no-op tests, the 31-leaf versus
+25-row baseline mismatch, and the stale pipeline-vs-pipeline cells. It replaces the
+proposed custom JSON statistics harness and obsolete EP-7 update milestone with a
+focused `tasty-bench` `bcompareWithin` gate, exact baseline coverage, and current
+repository commands and paths.

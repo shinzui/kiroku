@@ -105,6 +105,7 @@ test-suite kiroku-store-test
     Test.Helpers
     Test.InterpreterHooks
     Test.NotifyGuard
+    Test.PerformanceStructure
     Test.Properties
     Test.PublisherCallbackResilience
     Test.PublisherIdleAdvance
