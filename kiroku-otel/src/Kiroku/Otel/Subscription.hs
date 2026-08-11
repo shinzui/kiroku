@@ -216,6 +216,12 @@ primaryEpisode st = reconnect st <|> catchup st <|> pause st
 
 onEvent :: Tracer -> SpanCells -> KirokuEvent -> IO ()
 onEvent tracer cell = \case
+    -- Resolution precedes Started and has no open episode to annotate. It is
+    -- retained as structured logging/metrics telemetry; tracing begins at the
+    -- Started catch-up span. A missing refusal is followed by Stopped, which
+    -- produces the terminal span.
+    KirokuEventSubscriptionCheckpointResolved{} -> pure ()
+    KirokuEventSubscriptionCheckpointMissing{} -> pure ()
     KirokuEventSubscriptionStarted name pos grp ->
         withKey cell (keyOf name grp) $ \st -> do
             -- Defensively close a catch-up span left open by a prior episode.

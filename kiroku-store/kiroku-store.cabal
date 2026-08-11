@@ -116,6 +116,7 @@ test-suite kiroku-store-test
     Test.SubscriptionCheckpointInitializationMock
     Test.SubscriptionCheckpointInventory
     Test.SubscriptionCheckpointInventoryMock
+    Test.SubscriptionCheckpointWorker
     Test.SubscriptionPauseResume
     Test.SubscriptionReconnect
     Test.SubscriptionRegistry

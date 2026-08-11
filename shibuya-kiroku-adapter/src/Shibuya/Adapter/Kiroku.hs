@@ -132,6 +132,7 @@ module Shibuya.Adapter.Kiroku (
     SubscriptionTarget (..),
     ConsumerGroup (..),
     EventTypeFilter (..),
+    MissingCheckpointPolicy (..),
 ) where
 
 import Control.Exception (SomeException)
@@ -146,6 +147,7 @@ import Kiroku.Store.Subscription.Types (
     ConsumerGroup (..),
     EventTypeFilter (..),
     InvalidConsumerGroup (..),
+    MissingCheckpointPolicy (..),
     SubscriptionConfig,
     SubscriptionName (..),
     SubscriptionResult (..),
@@ -204,6 +206,13 @@ data KirokuAdapterConfig = KirokuAdapterConfig
     the underlying 'Kiroku.Store.Subscription.subscribe' call, which throws
     'Kiroku.Store.Subscription.Types.InvalidConsumerGroup' on violation.
     -}
+    , missingCheckpointPolicy :: !MissingCheckpointPolicy
+    {- ^ What the underlying Kiroku worker does when this adapter's exact
+    @(subscriptionName, consumer-group member)@ checkpoint row is absent.
+    'FromBeginning' is the compatibility default; use 'FromCurrentHead' for a
+    future-only processor or 'FailIfMissing' when prior provisioning is
+    mandatory. Existing checkpoints always win.
+    -}
     , eventTypeFilter :: !EventTypeFilter
     {- ^ Which event types this adapter delivers. Pass 'AllEventTypes' (deliver
     everything) or @'OnlyEventTypes' s@ to receive only events whose type is in
@@ -255,6 +264,7 @@ defaultKirokuAdapterConfig name target =
         , bufferSize = 256
         , queueCapacity = 16
         , consumerGroup = Nothing
+        , missingCheckpointPolicy = FromBeginning
         , eventTypeFilter = AllEventTypes
         , selector = Nothing
         }
@@ -303,7 +313,7 @@ kirokuAdapter ::
     KirokuStore ->
     KirokuAdapterConfig ->
     Eff es (Adapter es RecordedEvent)
-kirokuAdapter store KirokuAdapterConfig{subscriptionName = subName, subscriptionTarget = subTarget, batchSize = bs, bufferSize = buf, queueCapacity = qCap, consumerGroup = cg, eventTypeFilter = etf, selector = sel} = do
+kirokuAdapter store KirokuAdapterConfig{subscriptionName = subName, subscriptionTarget = subTarget, batchSize = bs, bufferSize = buf, queueCapacity = qCap, consumerGroup = cg, missingCheckpointPolicy = checkpointPolicy, eventTypeFilter = etf, selector = sel} = do
     -- Build from 'defaultSubscriptionConfig' and override only the non-default
     -- fields. Using the smart constructor (rather than a full record literal)
     -- means any future field added to 'SubscriptionConfigM' is inherited at its
@@ -314,6 +324,7 @@ kirokuAdapter store KirokuAdapterConfig{subscriptionName = subName, subscription
                 { Sub.batchSize = bs
                 , Sub.queueCapacity = qCap
                 , Sub.consumerGroup = cg
+                , Sub.missingCheckpointPolicy = checkpointPolicy
                 , Sub.eventTypeFilter = etf
                 , Sub.selector = sel
                 }
@@ -380,6 +391,11 @@ data KirokuConsumerGroupConfig = KirokuConsumerGroupConfig
     -}
     , memberConcurrency :: !Concurrency
     -- ^ Per-member concurrency; must be 'Serial' (validated).
+    , missingCheckpointPolicy :: !MissingCheckpointPolicy
+    {- ^ Missing-checkpoint policy applied independently to every member key.
+    Existing member rows always win; a new 'FromCurrentHead' group seeds every
+    member at the head each member observes during startup.
+    -}
     , eventTypeFilter :: !EventTypeFilter
     {- ^ Event-type filter applied to /every/ member (the same filter on each).
     'AllEventTypes' delivers everything; @'OnlyEventTypes' s@ delivers only the
@@ -419,6 +435,7 @@ defaultConsumerGroupConfig name target n =
         , bufferSize = 256
         , queueCapacity = 16
         , memberConcurrency = Serial
+        , missingCheckpointPolicy = FromBeginning
         , eventTypeFilter = AllEventTypes
         , selector = Nothing
         }
@@ -466,7 +483,7 @@ kirokuConsumerGroupProcessors ::
     KirokuConsumerGroupConfig ->
     Handler es RecordedEvent ->
     Eff es (Either PolicyError [(ProcessorId, QueueProcessor es)])
-kirokuConsumerGroupProcessors store cfg@KirokuConsumerGroupConfig{subscriptionName = subName, subscriptionTarget = subTarget, groupSize = n, batchSize = bs, bufferSize = buf, queueCapacity = qCap, eventTypeFilter = etf, selector = sel} handler =
+kirokuConsumerGroupProcessors store cfg@KirokuConsumerGroupConfig{subscriptionName = subName, subscriptionTarget = subTarget, groupSize = n, batchSize = bs, bufferSize = buf, queueCapacity = qCap, missingCheckpointPolicy = checkpointPolicy, eventTypeFilter = etf, selector = sel} handler =
     kirokuConsumerGroupProcessorsWith mkMemberAdapter cfg handler
   where
     mkMemberAdapter m =
@@ -479,6 +496,7 @@ kirokuConsumerGroupProcessors store cfg@KirokuConsumerGroupConfig{subscriptionNa
                 , bufferSize = buf
                 , queueCapacity = qCap
                 , consumerGroup = Just (ConsumerGroup{member = m, size = n})
+                , missingCheckpointPolicy = checkpointPolicy
                 , eventTypeFilter = etf
                 , selector = sel
                 }

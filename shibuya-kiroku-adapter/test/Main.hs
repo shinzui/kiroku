@@ -304,6 +304,51 @@ main = withSharedMigratedPostgres $ hspec $ do
                 collected <- readIORef ref
                 length collected `shouldBe` 10
 
+            it "supports a future-only FromCurrentHead adapter" $ \store -> do
+                Right _ <-
+                    runStoreIO store $
+                        appendToStream
+                            (StreamName "shibuya-future-only-events")
+                            NoStream
+                            (map (\i -> makeEvent ("Historical" <> T.pack (show i)) (Aeson.object [])) [1 .. 4 :: Int])
+                ref <- newIORef ([] :: [RecordedEvent])
+                countVar <- newTVarIO (0 :: Int)
+
+                runEff $ runTracingNoop $ do
+                    adapter <-
+                        kirokuAdapter store $
+                            defaultKirokuAdapterConfig (SubscriptionName "shibuya-future-only") AllStreams
+                                & #missingCheckpointPolicy .~ FromCurrentHead
+                    liftIO $
+                        waitForCheckpointPosition
+                            store
+                            (SubscriptionCheckpointKey (SubscriptionName "shibuya-future-only") 0)
+                            (GlobalPosition 4)
+                    liftIO $ do
+                        Right _ <-
+                            runStoreIO store $
+                                appendToStream
+                                    (StreamName "shibuya-future-only-events")
+                                    StreamExists
+                                    [makeEvent "Future" (Aeson.object [])]
+                        pure ()
+                    let handler ingested = do
+                            liftIO $ do
+                                modifyIORef' ref (envelopePayload ingested :)
+                                atomically $ do
+                                    count <- readTVar countVar
+                                    writeTVar countVar (count + 1)
+                            pure AckOk
+                    result <- runApp defaultAppConfig [(ProcessorId "future-only", mkProcessor adapter handler)]
+                    case result of
+                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                        Right appHandle -> do
+                            liftIO $ waitForCount countVar 1 10_000_000
+                            stopApp appHandle
+
+                collected <- reverse <$> readIORef ref
+                map globalPos collected `shouldBe` [5]
+
             it "delivers live events through Shibuya pipeline" $ \store -> do
                 ref <- newIORef ([] :: [RecordedEvent])
                 countVar <- newTVarIO (0 :: Int)
@@ -1037,6 +1082,21 @@ within label action = do
     case result of
         Nothing -> fail ("Timed out waiting for " <> label)
         Just a -> pure a
+
+waitForCheckpointPosition :: KirokuStore -> SubscriptionCheckpointKey -> GlobalPosition -> IO ()
+waitForCheckpointPosition store expectedKey expectedPosition =
+    within "subscription checkpoint initialization" loop
+  where
+    loop = do
+        Right (SubscriptionCheckpointInventory _ checkpoints) <-
+            runStoreIO store subscriptionCheckpointInventory
+        let positions =
+                [ (SubscriptionCheckpointKey name member, position)
+                | SubscriptionCheckpoint name member position _ <- toList checkpoints
+                ]
+        if (expectedKey, expectedPosition) `elem` positions
+            then pure ()
+            else threadDelay 20_000 >> loop
 
 makeEvent :: Text -> Value -> EventData
 makeEvent typ p =

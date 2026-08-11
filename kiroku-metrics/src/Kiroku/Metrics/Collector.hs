@@ -50,7 +50,12 @@ import Kiroku.Store.Subscription.EventPublisher (
     EventPublisher (..),
     publisherPosition,
  )
-import Kiroku.Store.Subscription.Types (SubscriptionName (..))
+import Kiroku.Store.Subscription.Types (
+    CheckpointInitialization (..),
+    SubscriptionCheckpointKey (..),
+    SubscriptionCheckpointMissing (..),
+    SubscriptionName (..),
+ )
 import Kiroku.Store.Types (GlobalPosition (..))
 
 -- | Opaque collector handle. Construct with 'newKirokuMetrics'.
@@ -168,6 +173,12 @@ applyEvent km = \case
     KirokuEventSubscriptionDbError name phase _ _ -> do
         bumpCounters km (bumpDbPhase phase)
         touchSub km name (\s -> s{smDbErrorCount = s.smDbErrorCount + 1})
+    KirokuEventSubscriptionCheckpointResolved initialization _ ->
+        case initialization of
+            ExistingCheckpoint (SubscriptionCheckpointKey name _) pos -> recordPosition km name pos
+            InitializedCheckpoint _ (SubscriptionCheckpointKey name _) pos -> recordPosition km name pos
+    KirokuEventSubscriptionCheckpointMissing (SubscriptionCheckpointMissing (SubscriptionCheckpointKey name _)) _ ->
+        touchSub km name id
     KirokuEventSubscriptionStarted name pos _ -> do
         bumpCounters km (\c -> c{subscriptionsStarted = c.subscriptionsStarted + 1})
         recordPosition km name pos

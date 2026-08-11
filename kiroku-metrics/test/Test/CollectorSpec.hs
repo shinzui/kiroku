@@ -34,7 +34,12 @@ import Kiroku.Store (
     SubscriptionStopReason (..),
  )
 import Kiroku.Store.Observability (SubscriptionDeliveryPhase (..))
-import Kiroku.Store.Subscription.Types (SubscriptionName (..))
+import Kiroku.Store.Subscription.Types (
+    CheckpointInitialization (..),
+    MissingCheckpointPolicy (..),
+    SubscriptionCheckpointKey (..),
+    SubscriptionName (..),
+ )
 import Kiroku.Store.Types (GlobalPosition (..))
 
 {- | A collector whose fake store readers report the given global position and
@@ -109,6 +114,23 @@ spec = describe "Kiroku.Metrics.Collector" $ do
             Just m -> do
                 m.lastKnownPosition `shouldBe` 5
                 m.lag `shouldBe` 7
+
+    it "records the durable position from checkpoint resolution telemetry" $ do
+        let key = SubscriptionCheckpointKey sub 0
+        snap <-
+            runScript
+                (pure (GlobalPosition 12))
+                (pure 0)
+                [ KirokuEventSubscriptionCheckpointResolved
+                    (InitializedCheckpoint FromCurrentHead key (GlobalPosition 9))
+                    NonGroup
+                ]
+                []
+        case Map.lookup "p" snap.subscriptions of
+            Nothing -> expectationFailure "expected resolved subscription in snapshot"
+            Just metrics -> do
+                metrics.lastKnownPosition `shouldBe` 9
+                metrics.lag `shouldBe` 3
 
     it "advances last-known position monotonically and never reports negative lag" $ do
         snap <-

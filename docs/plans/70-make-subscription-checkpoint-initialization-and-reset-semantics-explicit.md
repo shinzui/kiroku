@@ -46,8 +46,8 @@ This section must always reflect the actual current state of the work.
 
 - [x] (2026-08-11T15:15:42Z) Milestone 1: added the closed policy/result vocabulary, atomic
   initialization SQL, public `Store` operation, and eight passing focused database/mock examples.
-- [ ] Milestone 2: route every worker entry point through policy resolution before delivery and
-  add lifecycle telemetry plus consumer-group and race coverage.
+- [x] (2026-08-11T15:26:11Z) Milestone 2: routed every worker entry point through policy resolution
+  before delivery and added lifecycle telemetry plus consumer-group, adapter, and race coverage.
 - [ ] Milestone 3: add the explicit transactional reset API, exact affected/missing report, and
   rollback/monotonicity tests.
 - [ ] Milestone 4: update adapters, Haddocks, guides, capability evidence, changelogs, ADRs, and
@@ -74,6 +74,10 @@ implementation. Provide concise evidence.
   insert-plus-final-read statement first and, only when an initializing policy loses that race,
   performs one fresh-snapshot read. Evidence: twenty concurrent initializers converged on one row
   and exactly one `InitializedCheckpoint` in the focused suite.
+- Plain IO, bracketed IO, the higher-order Effectful interpreter, and the Streamly bridge all
+  preserve `SubscriptionConfigM` by record update or direct forwarding; Shibuya is the only layer
+  that owns a separate configuration record and therefore needed an explicit policy field. The
+  affected-package run passed 260 store, 30 adapter, 20 metrics, and 17 OTel examples.
 
 
 ## Decision Log
@@ -119,6 +123,13 @@ Record every decision made while working on the plan.
   on the same session observes it without changing the winning checkpoint.
   Date: 2026-08-11
 
+- Decision: Emit `KirokuEventSubscriptionCheckpointResolved` for successful resume/seed outcomes
+  and `KirokuEventSubscriptionCheckpointMissing` for semantic refusal, both before `Started`.
+  Rationale: The initialization result already distinguishes existing, zero-seeded, and head-seeded
+  outcomes without adding another parallel vocabulary. A refused worker never truthfully starts;
+  it emits the typed refusal and then follows the existing terminal crash path.
+  Date: 2026-08-11
+
 
 ## Outcomes & Retrospective
 
@@ -132,6 +143,13 @@ worker. `FromBeginning`, `FromCurrentHead`, and `FailIfMissing` now have durable
 existing rows win for every policy, members remain isolated, concurrent starters converge, and a
 Hasql-free interpreter can model the closed operation. `cabal build kiroku-store` succeeds and the
 focused Hspec selection reports 8 examples with 0 failures.
+
+Milestone 2 made that boundary authoritative for real workers. Missing refusal happens before the
+handler and before `Started`; successful startup emits its exact resolution. The append-race test
+proved a clean `FromCurrentHead` cut by observing that delivered positions were exactly those
+greater than the durable seed. Non-group and two-member group workers, plain and bracketed IO,
+Effectful, Streamly, and Shibuya paths all passed. Metrics consumes the resolution position and the
+OTel translator remains exhaustive while starting its episode span at the subsequent `Started`.
 
 
 ## Context and Orientation
@@ -149,10 +167,11 @@ batch/backpressure settings, consumer-group membership, retry policy, and filter
 construction path used by Kiroku and the Shibuya adapter.
 
 `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs` owns concrete worker startup.
-`loadCheckpoint` calls `getCheckpointMemberStmt`; a missing row becomes `GlobalPosition 0` without
-inserting anything. `saveCheckpoint` later calls the member-aware monotonic upsert. The worker
-emits lifecycle events from `Kiroku.Store.Observability` and enters `CatchingUp` only after the
-checkpoint load succeeds.
+`loadCheckpoint` now invokes the shared package-internal initialization session with the exact
+member key and configured policy. A successful resolution is emitted before `Started`; a
+`FailIfMissing` refusal is emitted and thrown before the handler runs. `saveCheckpoint` later calls
+the member-aware monotonic upsert. The worker enters `CatchingUp` only after initialization
+succeeds.
 
 `kiroku-store/src/Kiroku/Store/Effect.hs` defines the exported, mockable `Store` GADT and its pool
 and resource interpreters. `Kiroku.Store.Subscription.subscriptionCheckpointInventory` is the
@@ -380,3 +399,6 @@ the later release workflow.
 Revision note (2026-08-11): Recorded the active intention and Milestone 1 implementation evidence,
 including the PostgreSQL conflict-snapshot retry decision discovered while implementing the atomic
 initializer.
+
+Revision note (2026-08-11): Recorded Milestone 2 worker routing, lifecycle telemetry, entry-point
+coverage, and the clean-cut concurrency evidence from the complete affected-package test run.

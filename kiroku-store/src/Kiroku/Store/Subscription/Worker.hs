@@ -59,6 +59,7 @@ import Kiroku.Store.Observability (
  )
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Settings (StoreSettings, decodeEvents)
+import Kiroku.Store.Subscription.Checkpoint.SQL qualified as CheckpointSQL
 import Kiroku.Store.Subscription.EventPublisher (SubscriberStatus)
 import Kiroku.Store.Subscription.EventPublisher qualified as Pub
 import Kiroku.Store.Subscription.Fsm (
@@ -86,7 +87,13 @@ type FetchBatchHook =
 
 type LoadCheckpointHook =
     SubscriptionConfig ->
-    IO (Maybe (Either Pool.UsageError (Maybe Int64)))
+    IO
+        ( Maybe
+            ( Either
+                Pool.UsageError
+                (Either SubscriptionCheckpointMissing CheckpointInitialization)
+            )
+        )
 
 {-# NOINLINE fetchBatchHookRef #-}
 fetchBatchHookRef :: IORef (Maybe FetchBatchHook)
@@ -163,8 +170,12 @@ and surfaces through 'Async.waitCatch').
 
 If an 'eventHandler' callback is supplied, the worker emits:
 
-* 'Kiroku.Store.Observability.KirokuEventSubscriptionStarted' once at
-  startup, after the checkpoint has been read.
+* 'Kiroku.Store.Observability.KirokuEventSubscriptionCheckpointResolved' once
+  when startup resumes or initializes a checkpoint, followed by
+  'Kiroku.Store.Observability.KirokuEventSubscriptionStarted'. A refused
+  missing checkpoint emits
+  'Kiroku.Store.Observability.KirokuEventSubscriptionCheckpointMissing'
+  instead and fails before delivery.
 * 'Kiroku.Store.Observability.KirokuEventSubscriptionCaughtUp' when
   catch-up completes and the worker switches to live mode.
 * 'Kiroku.Store.Observability.KirokuEventSubscriptionDbError' in the
@@ -209,7 +220,14 @@ runWorker pool liveSource stateVar pubPosVar catGenVar config mHandler stSetting
             case (consumerGroupGuard config, consumerGroup config) of
                 (True, Just (ConsumerGroup m _)) -> guardMember pool subName m
                 _ -> pure ()
-            checkpoint <- loadCheckpoint pool config emit
+            resolution <- loadCheckpoint pool config emit
+            checkpoint <- case resolution of
+                Left missing -> do
+                    emit (KirokuEventSubscriptionCheckpointMissing missing groupCtx)
+                    throwIO missing
+                Right initialization -> do
+                    emit (KirokuEventSubscriptionCheckpointResolved initialization groupCtx)
+                    pure (checkpointInitializationPosition initialization)
             writeIORef posRef checkpoint
             emit (KirokuEventSubscriptionStarted subName checkpoint groupCtx)
             -- Drive the explicit FSM from the catch-up state. The pure 'step'
@@ -435,30 +453,33 @@ classifyStopReason e
 configMember :: SubscriptionConfig -> Int32
 configMember config = maybe 0 member (consumerGroup config)
 
--- Load the checkpoint from the database, defaulting to 0 only when no checkpoint
--- row exists. A database error is emitted and rethrown so startup fails loudly
--- instead of silently re-processing from position 0.
--- Keyed by (subscription_name, member) so each group member resumes from its
--- own saved position.
+-- Resolve the exact checkpoint key through the shared initializer. A database
+-- error is emitted and rethrown so startup fails loudly. A semantic
+-- 'FailIfMissing' result remains typed so the caller can emit the distinct
+-- refusal event before throwing it. Each group member resolves its own key.
 loadCheckpoint ::
     Pool ->
     SubscriptionConfig ->
     (KirokuEvent -> IO ()) ->
-    IO GlobalPosition
+    IO (Either SubscriptionCheckpointMissing CheckpointInitialization)
 loadCheckpoint pool config emit = do
-    let subName@(SubscriptionName name') = name config
+    let subName = name config
         mem = configMember config
     mHook <- readIORef loadCheckpointHookRef
     injected <- maybe (pure Nothing) (\hook -> hook config) mHook
     result <- case injected of
         Just hooked -> pure hooked
-        Nothing -> Pool.use pool (Session.statement (name', mem) SQL.getCheckpointMemberStmt)
+        Nothing ->
+            Pool.use pool $
+                CheckpointSQL.initializeSubscriptionCheckpointSession
+                    subName
+                    mem
+                    (missingCheckpointPolicy config)
     case result of
         Left err -> do
             emit (KirokuEventSubscriptionDbError subName LoadCheckpoint err (groupCtxOf config))
             throwIO err
-        Right Nothing -> pure (GlobalPosition 0)
-        Right (Just pos) -> pure (GlobalPosition pos)
+        Right resolution -> pure resolution
 
 -- How a DB-driven live loop ('liveLoopCategoryNotify' / 'liveLoopDbDriven')
 -- exited. The driver maps these onto FSM inputs: a clean handler stop becomes

@@ -49,7 +49,11 @@ import Data.Foldable (for_)
 import Data.Int (Int32)
 import Hasql.Pool (UsageError)
 import Kiroku.Store.Subscription.Fsm (DeadLetterReason (..), SubscriptionStopReason (..))
-import Kiroku.Store.Subscription.Types (SubscriptionName)
+import Kiroku.Store.Subscription.Types (
+    CheckpointInitialization,
+    SubscriptionCheckpointMissing,
+    SubscriptionName,
+ )
 import Kiroku.Store.Types (GlobalPosition, StreamId, StreamName)
 
 {- | A structured operational event emitted by 'Kiroku.Store' itself.
@@ -96,10 +100,23 @@ data KirokuEvent
       (if any) emitted it.
       -}
       KirokuEventSubscriptionDbError !SubscriptionName !SubscriptionDbPhase !UsageError !SubscriptionGroupContext
+    | {- | Startup resolved an exact checkpoint key before the worker emitted
+      'KirokuEventSubscriptionStarted'. 'ExistingCheckpoint' means the worker
+      resumed durable progress; 'InitializedCheckpoint' identifies whether it
+      seeded zero or the current store head. The event contains no payload data.
+      -}
+      KirokuEventSubscriptionCheckpointResolved !CheckpointInitialization !SubscriptionGroupContext
+    | {- | Startup applied 'Kiroku.Store.Subscription.Types.FailIfMissing' to
+      an absent exact checkpoint key. The worker emits this event and throws the
+      carried typed exception before emitting 'KirokuEventSubscriptionStarted'
+      or invoking the handler.
+      -}
+      KirokuEventSubscriptionCheckpointMissing !SubscriptionCheckpointMissing !SubscriptionGroupContext
     | {- | A subscription's worker thread has just started; the worker
-      will begin from the recorded 'GlobalPosition' (zero only when no
-      checkpoint exists). The trailing 'SubscriptionGroupContext' identifies
-      which consumer-group member (if any) started.
+      will begin from the durable 'GlobalPosition' reported by the immediately
+      preceding checkpoint-resolution event. The trailing
+      'SubscriptionGroupContext' identifies which consumer-group member (if any)
+      started.
       -}
       KirokuEventSubscriptionStarted !SubscriptionName !GlobalPosition !SubscriptionGroupContext
     | {- | The subscription has reached the EventPublisher's

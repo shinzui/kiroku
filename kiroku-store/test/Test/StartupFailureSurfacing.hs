@@ -48,6 +48,39 @@ spec = describe "startup failure surfacing" $ do
         any (isLoadCheckpointError subName) observed `shouldBe` True
         any (isCrashedStop subName) observed `shouldBe` True
 
+    it "refuses a missing checkpoint before Started or handler delivery" $ do
+        handlerCalled <- newTVarIO False
+        observedRef <- newIORef ([] :: [KirokuEvent])
+        let subName = SubscriptionName "fail-if-checkpoint-missing"
+            key = SubscriptionCheckpointKey subName 0
+            cfg =
+                ( defaultSubscriptionConfig subName AllStreams $ \_ -> do
+                    atomically (writeTVar handlerCalled True)
+                    pure Continue
+                )
+                    { missingCheckpointPolicy = FailIfMissing
+                    }
+            observe evt = modifyIORef' observedRef (evt :)
+            tweak settings = settings & #eventHandler .~ Just observe
+
+        withTestStoreSettings tweak $ \store -> do
+            handle <- subscribe store cfg
+            result <- waitWithTimeout 5_000_000 handle
+            case result of
+                Right (Left e)
+                    | Just (SubscriptionCheckpointMissing actualKey) <- fromException e ->
+                        actualKey `shouldBe` key
+                Left timeout -> expectationFailure timeout
+                Right other -> expectationFailure ("expected missing-checkpoint refusal, got: " <> show other)
+
+            runStoreIO store subscriptionCheckpointInventory
+                `shouldReturn` Right (SubscriptionCheckpointInventory (GlobalPosition 0) mempty)
+
+        readTVarIO handlerCalled `shouldReturn` False
+        observed <- reverse <$> readIORef observedRef
+        observed `shouldSatisfy` any (isMissingCheckpoint key)
+        observed `shouldSatisfy` all (not . isStarted subName)
+
     it "leaves no publisher or subscription registry entries after a subscribe/cancel storm" $
         withTestStore $ \store -> do
             let cfg = defaultSubscriptionConfig (SubscriptionName "subscribe-cancel-storm") AllStreams (\_ -> pure Continue)
@@ -78,4 +111,14 @@ isCrashedStop expected = \case
         | actual == expected
         , Just Pool.AcquisitionTimeoutUsageError <- fromException e ->
             True
+    _ -> False
+
+isMissingCheckpoint :: SubscriptionCheckpointKey -> KirokuEvent -> Bool
+isMissingCheckpoint expected = \case
+    KirokuEventSubscriptionCheckpointMissing (SubscriptionCheckpointMissing actual) _ -> actual == expected
+    _ -> False
+
+isStarted :: SubscriptionName -> KirokuEvent -> Bool
+isStarted expected = \case
+    KirokuEventSubscriptionStarted actual _ _ -> actual == expected
     _ -> False
