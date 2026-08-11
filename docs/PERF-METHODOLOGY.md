@@ -16,8 +16,12 @@ The discipline below is what subsequent append-perf plans must follow. It is
 short on purpose; the goal is friction sufficient to stop the cycle, not
 process for its own sake.
 
+The commands and failure meanings for Kiroku's structural, controlled, and
+historical signals are summarized in
+[`docs/PERF-REGRESSION-GATES.md`](PERF-REGRESSION-GATES.md).
 
-## The four steps
+
+## The five steps
 
 1. **Profile first.** Before proposing an optimization plan, run the
    Haskell-side profiling harness and the PostgreSQL-side profiling harness
@@ -57,7 +61,18 @@ process for its own sake.
    the post-implementation measurement is a falsifiable check, not a
    sense-making exercise.
 
-4. **Re-profile after.** Once the experiment is implemented (or completed as
+4. **Pre-register and run a controlled promotion comparison.** Preserve an
+   explicit control that represents the behavior being replaced, run control
+   and candidate in the same process and environment, and state the workload,
+   measurement mode, and acceptable ratio before seeing the result. Database
+   work must use wall-clock measurement so server and socket wait time is not
+   omitted. Prefer workload-sized operations over singleton timing cells, force
+   all results, and repeat an unchanged noisy gate three times before changing
+   its workload or threshold. Historical CSV movement can identify unrelated
+   cells to investigate, but it cannot promote or reject the candidate by
+   itself.
+
+5. **Re-profile after.** Once the experiment is implemented (or completed as
    a benchmark-only proof), re-run the same harness commands and compare. Add
    a new row to the ledger whose **Outcome** records whether the prediction
    held, and whose **Lesson** records the delta between expected and observed.
@@ -155,10 +170,12 @@ Rules:
 The methodology above slots into the project's existing benchmark workflow; it
 does not replace it. The relevant existing docs are:
 
-- [`docs/BENCH-REGRESSION.md`](BENCH-REGRESSION.md) — the regression-gate
-  workflow run as `just bench-regression`, against the baseline at
-  `kiroku-store/bench/results/baseline.csv`. Use this to confirm a kept change
-  did not regress unrelated cells.
+- [`docs/PERF-REGRESSION-GATES.md`](PERF-REGRESSION-GATES.md) — the short map
+  of authoritative structure/workload gates and historical telemetry.
+- [`docs/BENCH-REGRESSION.md`](BENCH-REGRESSION.md) — the historical CSV
+  workflow against `kiroku-store/bench/results/baseline.csv`. Use
+  `just perf-telemetry` to identify unrelated cells worth investigating; the
+  opt-in `just bench-regression` percentage threshold is not a promotion veto.
 - [`docs/BENCH-GATE3.md`](BENCH-GATE3.md) — the M4 public-API benchmark gate
   (2026-03-23), which is the baseline append-via-`withStore` measurement.
 - [`docs/BENCH-HASKELL-APPEND.md`](BENCH-HASKELL-APPEND.md) — the M2

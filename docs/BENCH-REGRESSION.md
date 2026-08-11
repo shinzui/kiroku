@@ -3,15 +3,19 @@
 > See [`docs/perf-experiment-log.md`](perf-experiment-log.md) for the history
 > of append-performance experiments and
 > [`docs/PERF-METHODOLOGY.md`](PERF-METHODOLOGY.md) for the discipline future
-> optimization plans must follow.
+> optimization plans must follow. The contributor-facing map of authoritative
+> gates versus telemetry is
+> [`docs/PERF-REGRESSION-GATES.md`](PERF-REGRESSION-GATES.md).
 
 ## What this is
 
 The `kiroku-store-bench` suite (`kiroku-store/bench/Main.hs`) carries an
 on-disk baseline (`kiroku-store/bench/results/baseline.csv`) captured by
-`tasty-bench`'s CSV mode. Subsequent runs compare against the baseline
-and report each benchmark as OK or WARN. CI can be wired to fail when
-any benchmark regresses past a configurable threshold.
+`tasty-bench`'s CSV mode. Subsequent runs can report each benchmark against
+that historical reference without failing on timing movement, or opt into the
+older strict percentage check. The CSV is historical telemetry; Kiroku's
+authoritative promotion gate is `just perf-check`, which combines deterministic
+structure with a same-process control/candidate workload.
 
 This protects the Gate 3 throughput numbers (recorded in
 `docs/BENCH-GATE3.md`) from silent regressions across refactors and
@@ -19,25 +23,50 @@ dependency bumps. It also protects the focused reliability-and-scale
 audit gates for hot `invoice-payment` writes, `appendMultiStream`,
 subscription catch-up, and high-cursor category reads.
 
-## Running
+## Running historical comparisons
 
-The `bench-regression` Justfile target runs the suite, compares to
-`baseline.csv`, and fails if any benchmark is more than 10% slower:
+The default historical command reports timing movement without turning a noisy
+percentage into a failing gate:
 
-    just bench-regression
+```bash
+just perf-telemetry
+```
+
+It still fails if baseline names do not match, the benchmark cannot start, or
+the workload itself errors. Every historical comparison begins with
+`just bench-baseline-check`, which requires all 25 current leaves to have
+exactly one baseline row.
+
+The retained opt-in strict command runs the same suite and fails if any compared
+benchmark is more than 10% slower:
+
+```bash
+just bench-regression
+```
+
+A timing-only failure here is a smoke signal. Repeat it on a quiet host and
+compare the affected behavior with `just perf-structure` and
+`just perf-workload-gate`; do not refresh the CSV solely to make it green.
 
 To raise or lower the threshold for a one-off run:
 
-    just bench-regression-threshold 5      # 5% allowed slowdown
+```bash
+just bench-regression-threshold 5      # 5% allowed slowdown
+```
 
 To rerun only a specific benchmark:
 
-    just bench-regression-pattern append.batch-100
+```bash
+just bench-regression-pattern append.batch-100
+```
 
 To capture a fresh baseline (overwrites the on-disk file — see *When to
 update*):
 
-    just bench-baseline
+```bash
+just bench-baseline
+just bench-baseline-check
+```
 
 The capture target writes `kiroku-store/bench/results/baseline.csv` from
 a clean run. Commit the change with a Decision Log entry in the relevant
@@ -45,9 +74,11 @@ ExecPlan or in `docs/BENCH-GATE3.md`.
 
 Useful focused patterns include:
 
-    just bench-regression-pattern category
-    just bench-regression-pattern reliability-audit
-    just bench-regression-pattern subscription-checkpoint-inventory
+```bash
+just bench-regression-pattern category
+just bench-regression-pattern reliability-audit
+just bench-regression-pattern subscription-checkpoint-inventory
+```
 
 ## When to update the baseline
 
@@ -81,11 +112,17 @@ The baseline file is `tasty-bench`'s standard CSV: header line
 `tasty-bench` parses both the on-disk baseline and the current run, then
 prints `OK` or `WARN` per benchmark with the percent change.
 
-## When to rerun the baseline
+## Exact name coverage
 
-Rerun the baseline when adding or removing benchmarks (the comparison
-is keyed by benchmark name; a missing baseline entry produces a "not
-found" message and a new entry is silently ignored).
+`tasty-bench` itself does not fail a current benchmark merely because its name
+is absent from the baseline. `just bench-baseline-check` closes that gap by
+comparing the complete sorted name multisets and printing a unified diff. Run it
+after adding, removing, or renaming a benchmark and before reviewing timing.
+
+Historical benchmark names must not contain commas. The checker intentionally
+rejects such names instead of implementing a partial CSV parser. When a
+benchmark-set change is intentional, capture and review a complete baseline,
+then rerun the exact coverage check; do not synthesize timings for a new leaf.
 
 ## Where the legacy ad-hoc B9 measurement lives
 

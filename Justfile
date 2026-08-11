@@ -116,6 +116,25 @@ perf-telemetry:
     cabal bench kiroku-store:kiroku-store-bench \
         --benchmark-options="--baseline $PWD/kiroku-store/bench/results/baseline.csv"
 
+# Run deterministic performance invariants
+[group('benchmarks')]
+perf-structure:
+    cabal test kiroku-store:kiroku-store-test \
+        --test-show-details=direct \
+        --test-options='--match "performance structure"'
+
+# Compare production appendMultiStream with the sequential control
+[group('benchmarks')]
+perf-workload-gate:
+    cabal bench kiroku-store:kiroku-store-bench-workload-gate \
+        --benchmark-options="--stdev 5"
+
+# Run the authoritative structural and controlled workload gates
+[group('benchmarks')]
+perf-check:
+    just perf-structure
+    just perf-workload-gate
+
 # --- Docs ---
 
 # Validate the OKF capability catalog against its pinned profile

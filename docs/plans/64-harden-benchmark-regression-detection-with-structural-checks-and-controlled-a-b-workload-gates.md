@@ -74,8 +74,11 @@ runs the two authoritative gates: structure and controlled A/B.
       opt-in strict CSV regression command. The real 25-name comparison passed, and
       controlled baseline-only and current-only mismatches both failed with unified
       diffs naming the unmatched leaf.
-- [ ] M4: Add the final Justfile entry points and update the performance methodology,
+- [x] 2026-08-11T17:40:47Z: Add the final Justfile entry points and update the performance methodology,
       benchmark workflow, and three-tier regression-gate documentation.
+      `just --list` exposes all five new interfaces; `just perf-structure` passed
+      8 examples, `just perf-workload-gate` passed the registered ratios, and
+      `just perf-check` invoked the two authoritative tiers in order.
 - [ ] Final: Run build, full tests, baseline coverage, structural checks, the controlled
       workload gate, historical telemetry, and the opt-in strict historical check;
       record exact results and complete Outcomes & Retrospective and ADR distillation.
