@@ -20,6 +20,7 @@ module Kiroku.Store (
     module Kiroku.Store.Read,
     module Kiroku.Store.Settings,
     module Kiroku.Store.Subscription,
+    module Kiroku.Store.Subscription.Checkpoint,
     module Kiroku.Store.Transaction,
 
     -- * Subscription effect (interpreter only — import Effect module for @subscribe@)
@@ -61,6 +62,7 @@ import Kiroku.Store.Observability (KirokuEvent (..), SubscriptionDbPhase (..), S
 import Kiroku.Store.Read
 import Kiroku.Store.Settings
 import Kiroku.Store.Subscription
+import Kiroku.Store.Subscription.Checkpoint
 import Kiroku.Store.Subscription.Effect (Subscription, runSubscription, runSubscriptionResource)
 import Kiroku.Store.Subscription.Fsm (stateCursor, stateName)
 import Kiroku.Store.Transaction

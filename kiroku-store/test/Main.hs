@@ -53,6 +53,7 @@ import Test.SubscriptionCheckpointInitialization qualified as SubscriptionCheckp
 import Test.SubscriptionCheckpointInitializationMock qualified as SubscriptionCheckpointInitializationMock
 import Test.SubscriptionCheckpointInventory qualified as SubscriptionCheckpointInventory
 import Test.SubscriptionCheckpointInventoryMock qualified as SubscriptionCheckpointInventoryMock
+import Test.SubscriptionCheckpointReset qualified as SubscriptionCheckpointReset
 import Test.SubscriptionCheckpointWorker qualified as SubscriptionCheckpointWorker
 import Test.SubscriptionPauseResume qualified as SubscriptionPauseResume
 import Test.SubscriptionReconnect qualified as SubscriptionReconnect
@@ -90,6 +91,7 @@ main = withSharedMigratedPostgres $ hspec $ do
     SubscriptionCheckpointWorker.spec
     SubscriptionCheckpointInventory.spec
     SubscriptionCheckpointInventoryMock.spec
+    SubscriptionCheckpointReset.spec
     SubscriptionReconnect.spec
     StartupFailureSurfacing.spec
     SubscriptionState.spec

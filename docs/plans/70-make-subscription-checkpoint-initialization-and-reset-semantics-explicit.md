@@ -48,8 +48,8 @@ This section must always reflect the actual current state of the work.
   initialization SQL, public `Store` operation, and eight passing focused database/mock examples.
 - [x] (2026-08-11T15:26:11Z) Milestone 2: routed every worker entry point through policy resolution
   before delivery and added lifecycle telemetry plus consumer-group, adapter, and race coverage.
-- [ ] Milestone 3: add the explicit transactional reset API, exact affected/missing report, and
-  rollback/monotonicity tests.
+- [x] (2026-08-11T15:32:40Z) Milestone 3: added the explicit transactional reset API, exact
+  affected/missing report, and passing rollback/monotonicity coverage.
 - [ ] Milestone 4: update adapters, Haddocks, guides, capability evidence, changelogs, ADRs, and
   full-repository validation without publishing packages.
 
@@ -130,6 +130,13 @@ Record every decision made while working on the plan.
   it emits the typed refusal and then follows the existing terminal crash path.
   Date: 2026-08-11
 
+- Decision: Treat the non-empty reset input as a set of subscription names and report each
+  requested name or persisted member exactly once in deterministic key order.
+  Rationale: A duplicate declaration must not produce duplicate operational evidence, while the
+  underlying name still expands to every persisted consumer-group member. Deduplication inside the
+  owned SQL statement keeps the mutation and its report consistent in one snapshot.
+  Date: 2026-08-11
+
 
 ## Outcomes & Retrospective
 
@@ -150,6 +157,13 @@ proved a clean `FromCurrentHead` cut by observing that delivered positions were 
 greater than the durable seed. Non-group and two-member group workers, plain and bracketed IO,
 Effectful, Streamly, and Shibuya paths all passed. Metrics consumes the resolution position and the
 OTel translator remains exhaustive while starting its episode span at the subsequent `Started`.
+
+Milestone 3 established an owned mutation seam without exposing a raw statement. The public
+`resetSubscriptionCheckpointsTx` combinator directly assigns the requested position to every
+persisted member, returns sorted affected keys and sorted absent names, and creates no topology.
+Four focused PostgreSQL examples proved exact commit evidence, application-write plus reset
+rollback under `Tx.condemn`, a real rewind, and the continued `GREATEST(...)` monotonicity of normal
+saves. The complete `kiroku-store` run reports 264 examples with 0 failures.
 
 
 ## Context and Orientation
@@ -184,6 +198,10 @@ session used by that interpreter; Milestone 2 routes worker startup through the 
 callers such as Keiro that need Kiroku-owned SQL inside a larger `Tx.Transaction`. Put the reset
 combinator in a public checkpoint module and re-export it from `Kiroku.Store`; do not export a raw
 `Statement`.
+
+`kiroku-store/src/Kiroku/Store/Subscription/Checkpoint.hs` is now that public checkpoint mutation
+module. It exposes the typed reset report and transaction combinator, while the SQL statement
+remains package-internal in `Checkpoint/SQL.hs`.
 
 The primary tests live in `kiroku-store/test/Main.hs` and focused modules under
 `kiroku-store/test/Test/Subscription*.hs`. Add focused modules for initialization and reset rather
@@ -402,3 +420,6 @@ initializer.
 
 Revision note (2026-08-11): Recorded Milestone 2 worker routing, lifecycle telemetry, entry-point
 coverage, and the clean-cut concurrency evidence from the complete affected-package test run.
+
+Revision note (2026-08-11): Recorded Milestone 3's set-oriented reset contract, transaction
+rollback evidence, explicit rewind behavior, and the complete store-suite result.

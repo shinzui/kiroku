@@ -46,6 +46,7 @@ library
     Kiroku.Store.Settings
     Kiroku.Store.SQL
     Kiroku.Store.Subscription
+    Kiroku.Store.Subscription.Checkpoint
     Kiroku.Store.Subscription.Effect
     Kiroku.Store.Subscription.EventPublisher
     Kiroku.Store.Subscription.Fsm
@@ -116,6 +117,7 @@ test-suite kiroku-store-test
     Test.SubscriptionCheckpointInitializationMock
     Test.SubscriptionCheckpointInventory
     Test.SubscriptionCheckpointInventoryMock
+    Test.SubscriptionCheckpointReset
     Test.SubscriptionCheckpointWorker
     Test.SubscriptionPauseResume
     Test.SubscriptionReconnect

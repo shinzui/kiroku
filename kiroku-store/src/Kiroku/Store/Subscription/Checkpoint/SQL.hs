@@ -3,11 +3,13 @@
 -- | Package-internal SQL for subscription checkpoint lifecycle operations.
 module Kiroku.Store.Subscription.Checkpoint.SQL (
     initializeSubscriptionCheckpointSession,
+    resetSubscriptionCheckpointsStmt,
 ) where
 
 import Contravariant.Extras (contrazip2, contrazip3)
 import Data.Int (Int32, Int64)
 import Data.Text (Text)
+import Data.Vector (Vector)
 import Hasql.Decoders qualified as D
 import Hasql.Encoders qualified as E
 import Hasql.Session qualified as Session
@@ -117,3 +119,42 @@ readInitializedCheckpointStmt =
             (E.param (E.nonNullable E.int4))
         )
         (D.singleRow (D.column (D.nonNullable D.int8)))
+
+{- | Reset every persisted member belonging to the requested subscription
+names. The input is treated as a set by PostgreSQL. Each returned row contains
+either one reset member or a requested name with no persisted rows, and the
+result is deterministically ordered by name and member.
+
+This statement deliberately assigns @last_seen@ directly. Ordinary worker
+saves retain their separate @GREATEST(...)@ monotonicity contract.
+-}
+resetSubscriptionCheckpointsStmt ::
+    Statement (Vector Text, Int64) (Vector (Text, Maybe Int32))
+resetSubscriptionCheckpointsStmt =
+    preparable
+        """
+        WITH requested AS (
+          SELECT DISTINCT requested_name AS subscription_name
+          FROM unnest($1::text[]) AS requested_name
+        ),
+        updated AS (
+          UPDATE subscriptions AS checkpoint
+          SET last_seen = $2, updated_at = now()
+          FROM requested
+          WHERE checkpoint.subscription_name = requested.subscription_name
+          RETURNING checkpoint.subscription_name, checkpoint.consumer_group_member
+        )
+        SELECT requested.subscription_name, updated.consumer_group_member
+        FROM requested
+        LEFT JOIN updated USING (subscription_name)
+        ORDER BY requested.subscription_name, updated.consumer_group_member
+        """
+        ( contrazip2
+            (E.param (E.nonNullable (E.foldableArray (E.nonNullable E.text))))
+            (E.param (E.nonNullable E.int8))
+        )
+        ( D.rowVector $
+            (,)
+                <$> D.column (D.nonNullable D.text)
+                <*> D.column (D.nullable D.int4)
+        )
