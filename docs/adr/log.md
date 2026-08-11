@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-08-11
+* **Addition**: ADR-5 establishes deterministic structural checks and same-process controlled workload ratios as authoritative performance gates, with exact-coverage historical comparisons retained as telemetry and an opt-in strict smoke check.
 * **Addition**: ADR-4 records explicit absent-checkpoint initialization, existing-row precedence, and the separation between monotonic saves and transaction-composable reset.
 
 ## 2026-08-09

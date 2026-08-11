@@ -79,9 +79,12 @@ runs the two authoritative gates: structure and controlled A/B.
       `just --list` exposes all five new interfaces; `just perf-structure` passed
       8 examples, `just perf-workload-gate` passed the registered ratios, and
       `just perf-check` invoked the two authoritative tiers in order.
-- [ ] Final: Run build, full tests, baseline coverage, structural checks, the controlled
-      workload gate, historical telemetry, and the opt-in strict historical check;
-      record exact results and complete Outcomes & Retrospective and ADR distillation.
+- [x] 2026-08-11T17:55:13Z: Run build, full tests, exact baseline coverage, both
+      authoritative gates, historical telemetry, and the opt-in strict historical
+      check. `just build` succeeded, `just test` passed all seven test suites,
+      structural coverage passed 8 examples, the final aggregate controlled ratios
+      were 0.88x and 0.87x, and both historical modes passed all 25 cells. Distilled the
+      three-tier policy into ADR-5 and passed strict OKF and repository ADR validation.
 
 
 ## Surprises & Discoveries
@@ -146,6 +149,17 @@ runs the two authoritative gates: structure and controlled A/B.
   not merely a count. The completed helper reported `baseline coverage OK: 25
   historical benchmarks match exactly`; adding one baseline-only row and removing one
   real baseline row each produced the expected unified diff and nonzero exit.
+
+- 2026-08-11: A deliberately impossible 0.10 ratio ceiling made both controlled
+  candidates fail at 0.87x and made Cabal exit nonzero. Restoring the registered 0.90
+  ceiling byte-for-byte returned the gate to green, demonstrating that the relative
+  comparison is an effective gate rather than report-only output.
+
+- 2026-08-11: The final non-failing historical telemetry run and the opt-in strict 10%
+  run both passed all 25 cells. In the strict run the retained
+  `reliability-audit.appendMultiStream 3 existing streams` cell measured 248 microseconds,
+  34% below its historical baseline, consistent with the separately controlled
+  workload gate rather than contradicting it.
 
 
 ## Decision Log
@@ -247,18 +261,48 @@ runs the two authoritative gates: structure and controlled A/B.
   that contract true without refreshing or otherwise altering historical timing data.
   Date: 2026-08-11.
 
+- Decision: Distill the completed three-tier policy into ADR-5 rather than leave it
+  only in contributor workflow documentation.
+  Rationale: Which evidence may promote or veto a performance change is a durable
+  project-level architecture decision. The ADR records the authoritative aggregate,
+  the role of exact historical coverage, and the requirement to pre-register controlled
+  workloads and thresholds.
+  Date: 2026-08-11.
+
 
 ## Outcomes & Retrospective
 
-The plan itself was refreshed on 2026-08-11; implementation has not started. The
-refresh removed an obsolete future dependency on EP-7, identified a silent six-cell
-baseline gap, found that the supposed A/B arms now execute the same implementation,
-and replaced a proposed custom reporting framework with the relative-gating capability
-already present in the resolved benchmark library.
+The repository now has two authoritative performance gates. `just perf-structure`
+passed all 8 examples in the final focused run, including zero pooled checkouts for
+empty appends, exact notification behavior, and natural PostgreSQL selection of
+`ix_stream_events_all_by_origin`, `ix_dead_letters_subscription_position` without a
+`Sort`, and `ix_dead_letters_event_id`. The final `just perf-check` run passed the
+controlled workload in 12.74 seconds: the production four-stream path measured 550
+microseconds against a 623-microsecond sequential control (0.88x), and the eight-stream
+path measured 1.01 milliseconds against a 1.16-millisecond control (0.87x). The
+aggregate runs those two gates and no historical timing veto.
 
-At implementation completion, replace this paragraph with the delivered commands,
-observed A/B ratios, structural-plan evidence, any remaining gaps, and the result of the
-ADR distillation pass.
+Historical evidence is complete rather than silently partial. The dedicated preflight
+reported exactly 25 current names and 25 matching baseline rows; controlled tests proved
+that either a baseline-only or current-only name makes it fail. `just perf-telemetry`
+then passed all 25 cells in 155.49 seconds without a timing failure threshold, while
+the retained `just bench-regression` strict 10% smoke check independently passed all 25
+cells in 215.30 seconds. No baseline timing was refreshed: only the comma-bearing label
+was normalized, with its stored mean and deviation retained byte-for-byte.
+
+Repository-wide validation also passed: `just build` completed for the workspace,
+`just test` passed all seven test suites, the migration suite passed all 10 examples,
+and both strict OKF profile validation and `just adr-validate` accepted all 5 ADRs.
+[ADR-5](../adr/0005-three-tier-performance-regression-gates.md) now records the durable
+policy that structural checks and controlled same-process ratios decide promotion,
+while exact-coverage historical comparisons supply telemetry and an opt-in diagnostic.
+
+The main lesson is that benchmark coverage and benchmark validity are separate
+problems. Exact name matching repaired the first, but retiring the stale
+pipeline-versus-pipeline leaves and rebuilding an explicit sequential control repaired
+the second. The remaining operational cost is deliberate: PostgreSQL planner fixtures
+and the benchmark-only control must evolve when supported query plans or production
+transaction topology legitimately change.
 
 
 ## Context and Orientation
