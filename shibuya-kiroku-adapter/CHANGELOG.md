@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Breaking Changes
+
+* `KirokuAdapterConfig` and `KirokuConsumerGroupConfig` gain
+  `missingCheckpointPolicy`. Their smart constructors default it to
+  `FromBeginning`; exhaustive record literals must choose a policy or use the
+  smart constructors.
+
+### New Features
+
+* The adapter re-exports `MissingCheckpointPolicy` and forwards it to every
+  underlying Kiroku worker. `FromCurrentHead` supports future-only Shibuya
+  processors without historical side effects, while `FailIfMissing` preserves
+  mandatory checkpoint provisioning. A consumer-group policy is applied
+  independently to every member key; existing rows always win.
+
 ## 0.4.0.1 — 2026-08-09
 
 ### Other Changes

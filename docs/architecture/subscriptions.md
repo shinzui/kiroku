@@ -20,12 +20,13 @@ The main implementation is split across these modules:
 | --- | --- | --- |
 | Public native API | `kiroku-store/src/Kiroku/Store/Subscription.hs` | `subscribe`, `withSubscription`, lifecycle contract, worker startup. |
 | Public types | `kiroku-store/src/Kiroku/Store/Subscription/Types.hs` | `SubscriptionConfig`, targets, overflow policy, handles, consumer groups. |
+| Public checkpoint mutation | `kiroku-store/src/Kiroku/Store/Subscription/Checkpoint.hs` | Transaction-composable explicit reset and its exact affected/missing report. |
 | PostgreSQL listener | `kiroku-store/src/Kiroku/Store/Notification.hs` | Dedicated `LISTEN` connection, reconnect loop, global ticks, category wake counters. |
 | Shared publisher | `kiroku-store/src/Kiroku/Store/Subscription/EventPublisher.hs` | Reads new `$all` events once and broadcasts batches to all-stream subscribers. |
-| Worker runtime | `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs` | Checkpoint load/save, catch-up, live loops, event handler execution. |
+| Worker runtime | `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs` | Checkpoint initialization/save, catch-up, live loops, event handler execution. |
 | Streamly bridge | `kiroku-store/src/Kiroku/Store/Subscription/Stream.hs` | Converts the push handler API into a pull-based `Stream IO RecordedEvent`. |
 | Effectful API | `kiroku-store/src/Kiroku/Store/Subscription/Effect.hs` | `Subscription` effect and interpreter for handlers that run in `Eff`. |
-| SQL | `kiroku-store/src/Kiroku/Store/SQL.hs` | `$all`, category, consumer-group, and checkpoint statements. |
+| SQL | `kiroku-store/src/Kiroku/Store/SQL.hs` and `Subscription/Checkpoint/SQL.hs` | `$all`, category, consumer-group, ordinary checkpoint saves, and owned checkpoint initialization/reset statements. |
 | Schema | `kiroku-store-migrations/migrations/0001-kiroku-bootstrap.sql` | `subscriptions` table and `notify_events()` trigger. |
 | Shibuya adapter | `shibuya-kiroku-adapter/src/Shibuya/Adapter/Kiroku.hs` | Shibuya `Adapter` backed by `subscriptionStream`. |
 | Shibuya conversion | `shibuya-kiroku-adapter/src/Shibuya/Adapter/Kiroku/Convert.hs` | `RecordedEvent` to Shibuya `Ingested`/`Envelope` mapping. |
@@ -101,10 +102,24 @@ The unique checkpoint key is `(subscription_name, consumer_group_member)`.
 This lets ordinary subscriptions have one row and consumer groups have one row
 per member under one shared `subscription_name`.
 
-Checkpoint writes use `GREATEST(existing.last_seen, new.last_seen)`, so a stale
-batch, retry boundary, or duplicate save cannot move the durable checkpoint
-backward. The worker normally processes events in increasing global-position
-order, but this SQL invariant is the final guardrail.
+On startup, the worker resolves the exact composite key with the configured
+`MissingCheckpointPolicy`. An existing row always wins. When absent,
+`FromBeginning` inserts zero, `FromCurrentHead` selects and inserts the current
+`$all` position in the same atomic statement, and `FailIfMissing` inserts
+nothing and fails before the handler runs. Every member resolves independently;
+the system never derives or creates other members from a configured group size.
+
+Ordinary checkpoint writes use `GREATEST(existing.last_seen, new.last_seen)`,
+so a stale batch, retry boundary, or duplicate save cannot move the durable
+checkpoint backward. The worker normally processes events in increasing
+global-position order, but this SQL invariant is the final guardrail.
+
+Intentional movement to an exact position is a separate operation:
+`resetSubscriptionCheckpointsTx` directly assigns the target to all persisted
+members of a non-empty name set and returns sorted affected keys plus names with
+no rows. It creates no topology and is exposed as a `Tx.Transaction` combinator
+so a caller can commit or condemn the reset with application-owned fence and
+projection-table writes. Its raw statement remains package-internal.
 
 ## Worker Lifecycle
 
@@ -112,9 +127,10 @@ order, but this SQL invariant is the final guardrail.
 
 1. Validate `consumerGroup`, if present: `size >= 1` and
    `0 <= member < size`.
-2. Register a bounded `TBQueue (Vector RecordedEvent)` with the
-   `EventPublisher`, receiving the queue, a status `TVar`, and an
-   `unsubscribe` action.
+2. Select a live source. A non-group `AllStreams` worker registers a bounded
+   `TBQueue (Vector RecordedEvent)` with the `EventPublisher`; category and
+   consumer-group workers use DB-driven live sources and register no publisher
+   queue.
 3. Create a `TVar SubscriptionState` (seeded `CatchingUp`), register it (guarded
    by a fresh `Data.Unique.Unique` token) into the store's central
    `subscriptionRegistry` under `(name, member)`, and start `runWorker` in an
@@ -130,6 +146,12 @@ order, but this SQL invariant is the final guardrail.
    one coherent value. Because a not-live subscription's key is removed, "stopped
    = absent" is one rule across both reads (the FSM never writes `Stopped` into
    the cell).
+
+The forked worker's first database action is to resolve the configured
+missing-checkpoint policy for the exact `(name, member)` key. It emits the typed
+resolution before `Started`, or emits/throws `SubscriptionCheckpointMissing`
+before catch-up or handler delivery. Because the handle is returned after the
+thread is started, startup failures are observed through `wait`.
 
 The worker is driven by an **explicit finite state machine** (a value always in
 exactly one named state) defined in
@@ -340,7 +362,8 @@ Consumer groups use member-aware SQL:
 
 - `$all`: `SQL.readAllForwardConsumerGroupStmt`
 - category: `SQL.readCategoryForwardConsumerGroupStmt`
-- checkpoint load: `SQL.getCheckpointMemberStmt`
+- checkpoint initialization: the shared `Subscription.Checkpoint.SQL` session
+  with the exact member key
 - checkpoint save: `SQL.saveCheckpointMemberStmt`
 
 Consumer-group live mode is DB-driven for both `$all` and category targets. It
@@ -403,9 +426,10 @@ The Shibuya adapter uses this path.
 The adapter:
 
 1. Builds a `SubscriptionConfig` from `defaultSubscriptionConfig`.
-2. Overrides `batchSize`, `queueCapacity = 16`, `overflowPolicy =
-   DropSubscription`, `consumerGroup`, and the delivery filters
-   (`eventTypeFilter`, `selector`).
+2. Overrides `batchSize`, `queueCapacity`, `consumerGroup`,
+   `missingCheckpointPolicy`, and the delivery filters (`eventTypeFilter`,
+   `selector`); the underlying default lossless `PauseAndResume` overflow
+   policy is retained.
 3. Calls the **ack-coupled** bridge `subscriptionAckStream store subConfig
    bufferSize`, yielding a `Stream IO AckItem` where each item carries a
    one-shot reply variable.
@@ -484,7 +508,8 @@ What the system guarantees:
 - `$all` subscriptions see global positions in order.
 - Category subscriptions see matching events in global-position order.
 - Consumer-group members see their assigned events in global-position order.
-- Checkpoints never move backward.
+- Ordinary worker checkpoint saves never move backward. The separately named
+  transactional reset operation may assign an exact earlier position.
 - A restart resumes from the durable checkpoint for the same
   `(subscription_name, consumer_group_member)`.
 - Missed notifications are repaired by safety polls.
@@ -509,7 +534,9 @@ handler hook is configured on the store:
 | --- | --- | --- |
 | notifier reconnecting/reconnected | `Notifier` | Dedicated `LISTEN` connection failed and is being restored. |
 | publisher pool error | `EventPublisher` | Publisher could not read `$all`; it will retry on later wake/safety poll. |
-| subscription started | `Worker` | Checkpoint was loaded and the worker is beginning catch-up. |
+| subscription checkpoint resolved | `Worker` | Startup found an existing row or durably seeded an absent exact member key. |
+| subscription checkpoint missing | `Worker` | `FailIfMissing` refused startup before `Started` or handler delivery. |
+| subscription started | `Worker` | Checkpoint resolution succeeded and the worker is beginning catch-up. |
 | subscription caught up | `Worker` | Catch-up completed and live mode is starting. |
 | subscription paused | `Worker` | Bounded queue filled under `PauseAndResume`; worker paused delivery (pairs with resumed). |
 | subscription resumed | `Worker` | Worker drained the stale queue and re-catches-up from its checkpoint after a pause. |
@@ -541,7 +568,10 @@ Future changes should preserve these invariants unless they deliberately change
 the public contract and update the docs/tests with that change:
 
 - `subscriptions.last_seen` is always a `$all` global position.
-- Checkpoint writes are monotonic.
+- Ordinary checkpoint saves are monotonic; only the public, explicitly named
+  transaction reset may assign an earlier position.
+- Missing-checkpoint policy applies only to an absent exact `(name, member)`
+  key; an existing row always wins and member topology is never invented.
 - A worker never invokes more than one handler call at a time.
 - Live all-stream delivery must not miss appends that happen while catch-up is
   running.

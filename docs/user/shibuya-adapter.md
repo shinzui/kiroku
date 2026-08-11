@@ -63,13 +63,31 @@ literal so a field added later is inherited at its default automatically.
 | `subscriptionTarget :: SubscriptionTarget` | (required) | `AllStreams` or `Category categoryName`. |
 | `batchSize :: Int32` | `100` | Events per database fetch during catch-up. |
 | `bufferSize :: Natural` | `256` | `TBQueue` capacity — the backpressure threshold. |
+| `queueCapacity :: Natural` | `16` | Publisher-side capacity in batches for non-group `AllStreams` adapters. Kiroku pauses and resumes losslessly when it fills. |
 | `consumerGroup :: Maybe ConsumerGroup` | `Nothing` | `Nothing` = ordinary subscription. `Just (ConsumerGroup { member, size })` = this adapter is member `member` of a size-`size` consumer group (see below). |
+| `missingCheckpointPolicy :: MissingCheckpointPolicy` | `FromBeginning` | What an absent exact member key means. Use `FromCurrentHead` for future-only processing or `FailIfMissing` for mandatory provisioning; existing rows always win. |
 | `eventTypeFilter :: EventTypeFilter` | `AllEventTypes` | Deliver only chosen event types. Forwarded into the underlying subscription; filtering is worker-side, so a filtered-out event never reaches the Shibuya handler yet the checkpoint still advances past it. |
 | `selector :: Maybe (RecordedEvent -> Bool)` | `Nothing` | Optional opaque per-event predicate for filtering `eventTypeFilter` cannot express; composed with it as a logical AND. Also worker-side. |
 
-`SubscriptionName`, `SubscriptionTarget`, `ConsumerGroup`, and `EventTypeFilter`
-are re-exported from the adapter module, so you do not need a separate
-`kiroku-store` import for them.
+`SubscriptionName`, `SubscriptionTarget`, `ConsumerGroup`, `EventTypeFilter`,
+and `MissingCheckpointPolicy` are re-exported from the adapter module, so you
+do not need a separate `kiroku-store` import for them.
+
+A future-only processor that must not apply historical side effects can seed
+the current `$all` head atomically on its first start:
+
+```haskell
+let cfg =
+      (defaultKirokuAdapterConfig
+        (SubscriptionName "customer-webhook-delivery")
+        AllStreams)
+        { missingCheckpointPolicy = FromCurrentHead }
+
+adapter <- kirokuAdapter store cfg
+```
+
+The policy applies only when this adapter's exact `(subscriptionName, member)`
+row is absent. A restart with an existing row resumes that row unchanged.
 
 ## Consumer Groups
 
@@ -93,10 +111,11 @@ waitApp appHandle
 ```
 
 `KirokuConsumerGroupConfig` (built by `defaultConsumerGroupConfig name target
-size`) describes the whole group; its `eventTypeFilter` / `selector` apply to
-every member, and `memberConcurrency` must be `Serial` (any `Ahead` / `Async`
-is rejected before any subscription opens, because Shibuya does not route by
-partition key — member identity rides each processor's `ProcessorId`,
+size`) describes the whole group; its `missingCheckpointPolicy`,
+`eventTypeFilter`, and `selector` apply independently to every member key, and
+`memberConcurrency` must be `Serial` (any `Ahead` / `Async` is rejected before
+any subscription opens, because Shibuya does not route by partition key —
+member identity rides each processor's `ProcessorId`,
 `"<name>-member-<m>"`).
 
 To run members across separate processes instead, give each process one

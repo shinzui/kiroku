@@ -2,6 +2,41 @@
 
 ## Unreleased
 
+### Breaking Changes
+
+* `SubscriptionConfigM` gains `missingCheckpointPolicy`, defaulting to
+  `FromBeginning` in `defaultSubscriptionConfig`. Exhaustive record literals
+  must choose a policy or switch to the smart constructor.
+* The exported `Store` effect gains `InitializeSubscriptionCheckpoint`.
+  Exhaustive custom and mock interpreters must handle the new constructor.
+* `KirokuEvent` gains `KirokuEventSubscriptionCheckpointResolved` and
+  `KirokuEventSubscriptionCheckpointMissing`. Exhaustive event handlers must
+  handle both startup lifecycle events.
+
+### New Features
+
+* Subscription startup now resolves an absent exact `(name, member)` checkpoint
+  through a closed `MissingCheckpointPolicy`: `FromBeginning` durably seeds
+  zero, `FromCurrentHead` atomically seeds the current `$all` position, and
+  `FailIfMissing` refuses startup with `SubscriptionCheckpointMissing` before
+  handler delivery. Existing rows always win and concurrent initializers
+  converge on the first committed row.
+* `initializeSubscriptionCheckpoint` exposes the same closed initialization
+  contract through the mockable `Store` effect, returning an
+  `ExistingCheckpoint` or `InitializedCheckpoint` result with its exact key and
+  durable position.
+* `Kiroku.Store.Subscription.Checkpoint` exposes
+  `resetSubscriptionCheckpointsTx`, an explicitly non-monotonic transaction
+  combinator that assigns one exact position to every persisted member of a
+  non-empty name set and returns sorted affected keys plus names with no rows.
+  Missing rows are never created, and ordinary worker saves remain monotonic.
+
+### Other Changes
+
+* Added native, Effectful, Streamly, consumer-group, Shibuya, mock-interpreter,
+  startup-race, rollback, and ordinary-save monotonicity coverage for the
+  checkpoint lifecycle contract.
+
 ## 0.4.0.0 — 2026-08-09
 
 ### Breaking Changes

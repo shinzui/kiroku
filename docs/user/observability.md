@@ -58,8 +58,10 @@ regression. Keep a catch-all branch if you only care about specific events.
 | `KirokuEventNotifierReconnecting !Int !SomeException` | The dedicated `LISTEN` connection failed and the listener is about to reconnect. The `Int` is the consecutive failure count (drives backoff, capped at 30s). | Alert on a sustained / rising count — subscriptions are on the safety poll until reconnect. |
 | `KirokuEventNotifierReconnected` | The `LISTEN` connection was re-established; the failure counter resets. | Pairs with the reconnecting event; clear the alert. |
 | `KirokuEventPublisherPoolError !UsageError` | The publisher's read query returned a pool error; it retries on the next tick or the 30s poll. | Sustained emissions indicate pool exhaustion or a persistent server error. |
-| `KirokuEventSubscriptionDbError !SubscriptionName !SubscriptionDbPhase !UsageError !SubscriptionGroupContext` | A subscription worker hit a database error in a specific phase. Checkpoint load/save phases continue with their documented fallback behavior; fetch-batch errors retry at the same cursor with capped backoff. | Investigate the phase (below), especially if emissions are sustained. |
-| `KirokuEventSubscriptionStarted !SubscriptionName !GlobalPosition !SubscriptionGroupContext` | A subscription worker started, beginning from the recorded position. | Useful as a liveness signal and to confirm the resumed checkpoint. |
+| `KirokuEventSubscriptionDbError !SubscriptionName !SubscriptionDbPhase !UsageError !SubscriptionGroupContext` | A subscription worker hit a database error in a specific phase. Checkpoint initialization errors fail startup, fetch-batch errors retry at the same cursor with capped backoff, and save errors preserve at-least-once replay. | Investigate the phase (below), especially if emissions are sustained. |
+| `KirokuEventSubscriptionCheckpointResolved !CheckpointInitialization !SubscriptionGroupContext` | Startup found an existing exact member row or durably initialized one according to its missing-checkpoint policy. | Distinguish resume, zero seed, and current-head seed before `Started`. |
+| `KirokuEventSubscriptionCheckpointMissing !SubscriptionCheckpointMissing !SubscriptionGroupContext` | `FailIfMissing` refused an absent exact member key. No row was inserted and the worker has not emitted `Started` or invoked the handler. | Treat as a provisioning or deployment-identity failure. |
+| `KirokuEventSubscriptionStarted !SubscriptionName !GlobalPosition !SubscriptionGroupContext` | Checkpoint resolution succeeded and the worker is beginning catch-up from that position. | Useful as a liveness signal; pair with the preceding resolution event to distinguish resume from initialization. |
 | `KirokuEventSubscriptionCaughtUp !SubscriptionName !GlobalPosition !SubscriptionGroupContext` | The subscription reached the publisher's last-published position and switched from catch-up to live. Fires at most once per run. | Track catch-up latency after a restart. |
 | `KirokuEventSubscriptionPaused !SubscriptionName !GlobalPosition !SubscriptionGroupContext` | The subscriber's bounded queue filled under `PauseAndResume`; the worker paused delivery and entered the `Paused` state. Pairs with a later resumed event. | A transient slowdown signal — sustained pausing means the handler cannot keep up. |
 | `KirokuEventSubscriptionResumed !SubscriptionName !GlobalPosition !SubscriptionGroupContext` | The worker drained the stale queue and re-caught-up from its checkpoint after a pause. | Clear the pause alert; confirm recovery. |
@@ -74,9 +76,11 @@ regression. Keep a catch-all branch if you only care about specific events.
 
 Identifies which database phase a `KirokuEventSubscriptionDbError` came from:
 
-- `LoadCheckpoint` — failed to read the saved checkpoint at startup. The
-  worker continues at position 0; correct for a fresh subscription, but
-  silently re-processes for an existing one.
+- `LoadCheckpoint` — failed to resolve the checkpoint at startup. The worker
+  fails rather than falling back to position zero, so a database failure cannot
+  silently replay history. A semantic `FailIfMissing` refusal uses the separate
+  `KirokuEventSubscriptionCheckpointMissing` event rather than this DB-error
+  phase.
 - `FetchBatch` — a catch-up or DB-driven live fetch errored. The worker retries
   the same cursor with capped backoff instead of treating the error as an empty
   result. Sustained emissions mean the subscription is not making progress until

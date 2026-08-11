@@ -50,8 +50,8 @@ This section must always reflect the actual current state of the work.
   before delivery and added lifecycle telemetry plus consumer-group, adapter, and race coverage.
 - [x] (2026-08-11T15:32:40Z) Milestone 3: added the explicit transactional reset API, exact
   affected/missing report, and passing rollback/monotonicity coverage.
-- [ ] Milestone 4: update adapters, Haddocks, guides, capability evidence, changelogs, ADRs, and
-  full-repository validation without publishing packages.
+- [x] (2026-08-11T15:41:42Z) Milestone 4: updated adapters, Haddocks, guides, capability evidence,
+  changelogs, ADR/IR records, and passed full-repository validation without publishing packages.
 
 
 ## Surprises & Discoveries
@@ -78,6 +78,13 @@ implementation. Provide concise evidence.
   preserve `SubscriptionConfigM` by record update or direct forwarding; Shibuya is the only layer
   that owns a separate configuration record and therefore needed an explicit policy field. The
   affected-package run passed 260 store, 30 adapter, 20 metrics, and 17 OTel examples.
+- The repository has no root `CHANGELOG.md`; release notes are owned by the individual package
+  changelogs. The final milestone updated every package whose source contract or exhaustive event
+  matching changed: `kiroku-store`, `shibuya-kiroku-adapter`, `kiroku-metrics`, and `kiroku-otel`.
+- The observability guide still described the pre-0.3 checkpoint-load fallback to position zero,
+  and the architecture guide described every checkpoint mutation as monotonic. The documentation
+  audit corrected both stale claims and now separates failed initialization, ordinary monotonic
+  save, and explicit reset.
 
 
 ## Decision Log
@@ -164,6 +171,18 @@ persisted member, returns sorted affected keys and sorted absent names, and crea
 Four focused PostgreSQL examples proved exact commit evidence, application-write plus reset
 rollback under `Tx.condemn`, a real rewind, and the continued `GREATEST(...)` monotonicity of normal
 saves. The complete `kiroku-store` run reports 264 examples with 0 failures.
+
+Milestone 4 made the contract adoptable and durable. The native and Shibuya guides now contain an
+explicit replayable `FromBeginning` projection and a future-only `FromCurrentHead` worker, plus the
+transaction reset/report boundary. ADR-4 records existing-row precedence, atomic head seeding, and
+the monotonic-save/reset separation; CAP-20 carries source and test evidence. IR-3 is `implemented`
+but deliberately not `completed`, and no version, tag, upload, or GitHub release was created.
+
+Final acceptance passed `nix fmt`, `cabal haddock kiroku-store`, `cabal build all`, all seven Cabal
+test suites (373 examples total, 0 failures), `nix flake check`, strict profile/log validation for
+the ADR and improvement-request bundles, profile/log-enforced validation for the capability bundle,
+regenerated OKF indexes, and `git diff --check`. The capability catalog's strict mode still reports
+its pre-existing recommended-review backlog; CAP-20 itself includes review provenance.
 
 
 ## Context and Orientation
@@ -423,3 +442,6 @@ coverage, and the clean-cut concurrency evidence from the complete affected-pack
 
 Revision note (2026-08-11): Recorded Milestone 3's set-oriented reset contract, transaction
 rollback evidence, explicit rewind behavior, and the complete store-suite result.
+
+Revision note (2026-08-11): Recorded Milestone 4 documentation, ADR-4/CAP-20/IR-3 state, the absent
+root changelog discovery, and the complete repository acceptance evidence.

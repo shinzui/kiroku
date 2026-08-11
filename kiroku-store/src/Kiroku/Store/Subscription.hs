@@ -44,9 +44,11 @@ import Kiroku.Store.Types (CategoryName (..), GlobalPosition (..))
 
 The subscription spawns a worker thread that:
 
-1. Reads the checkpoint from the database (or starts from global position 0
-   for a fresh subscription name). A database error while loading the checkpoint
-   fails the worker loudly through 'wait'; it does not fall back to 0.
+1. Resolves the exact @(subscription name, consumer-group member)@ checkpoint.
+   An existing row always wins. If absent, 'missingCheckpointPolicy' durably
+   seeds zero, atomically seeds the current @$all@ head, or fails before the
+   handler runs. A database error fails the worker loudly through 'wait'; it
+   does not fall back to 0.
 2. Catches up by querying the database directly until it reaches the
    'Kiroku.Store.Subscription.EventPublisher.lastPublished' cursor.
 3. Switches to live mode. For 'Kiroku.Store.Subscription.Types.AllStreams'
@@ -110,6 +112,10 @@ returned handle resolves with one of:
 * @Left e@ where @e@ is a 'Hasql.Pool.UsageError' from checkpoint load —
   startup could not read the saved checkpoint. The worker stops rather than
   silently replaying from global position 0.
+* @Left e@ where @e@ is
+  'Kiroku.Store.Subscription.Types.SubscriptionCheckpointMissing' —
+  'Kiroku.Store.Subscription.Types.FailIfMissing' refused an absent exact key.
+  No checkpoint row was inserted and the handler did not run.
 * @Left e@ for any exception thrown by the handler — handler exceptions
   are not caught; the worker thread dies and the original exception
   propagates to the consumer. This is intentional: a handler that

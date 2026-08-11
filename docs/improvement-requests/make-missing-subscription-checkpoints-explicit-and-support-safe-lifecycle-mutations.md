@@ -7,10 +7,10 @@ description: >-
   side effects and coordinating libraries do not write Kiroku-owned tables directly.
 generated:
   by: openai/gpt-5
-  at: "2026-08-09T17:49:15Z"
-timestamp: "2026-08-09T17:49:15Z"
+  at: "2026-08-11T15:41:42Z"
+timestamp: "2026-08-11T15:41:42Z"
 requestId: IR-3
-status: proposed
+status: implemented
 origin: mori://shinzui/keiro
 reviews:
   - kind: model
@@ -31,20 +31,21 @@ reviews:
       declared identity.
 verified:
   by: process:codex
-  at: "2026-08-09T17:49:15Z"
+  at: "2026-08-11T15:41:42Z"
 ---
 
 # Improvement Request: Make Missing Subscription Checkpoints Explicit and Support Safe Lifecycle Mutations
 
 ## Status
 
-Proposed as a release-blocking dependency of the next unreleased Keiro projection-catalog cohort.
-The implementation plan is
+Implemented in Kiroku repository source by
 `mori://shinzui/kiroku/plans/70-make-subscription-checkpoint-initialization-and-reset-semantics-explicit`.
-Keiro adoption will be coordinated by
+The three startup policies, typed resolution/refusal events, and transaction-composable exact reset
+are covered by the store, adapter, mock, concurrency, rollback, and monotonicity suites. Publication
+and Keiro adoption remain coordinated by
 `mori://shinzui/keiro/masterplans/33-make-subscription-checkpoint-lifecycle-explicit-before-the-next-release`.
-These are intended canonical URIs even if a local Mori registry has not observed the newly created
-artifacts yet.
+The request remains `implemented`, not `completed`, until that downstream release cohort is
+published and adopted.
 
 ## Context
 

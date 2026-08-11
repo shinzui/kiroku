@@ -1,5 +1,13 @@
 # Revision history for kiroku-metrics
 
+## Unreleased
+
+### Other Changes
+
+* The collector consumes the new subscription checkpoint-resolution lifecycle
+  event and records its durable position as the subscription checkpoint gauge.
+  It also remains exhaustive for typed missing-checkpoint startup refusal.
+
 ## 0.1.0.3 -- 2026-08-09
 
 ### Bug Fixes

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Other Changes
+
+* The subscription tracer handles the new checkpoint-resolved and
+  checkpoint-missing lifecycle events exhaustively. Both remain no-ops because
+  the traced subscription episode begins at the later `Started` event; a
+  refused startup still produces its terminal stopped span.
+
 ## 0.2.0.2 — 2026-08-09
 
 ### Other Changes

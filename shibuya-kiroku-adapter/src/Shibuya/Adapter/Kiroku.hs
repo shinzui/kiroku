@@ -239,7 +239,8 @@ data KirokuAdapterConfig = KirokuAdapterConfig
 
 {- | A 'KirokuAdapterConfig' with sensible defaults: @batchSize = 100@,
 @bufferSize = 256@, @queueCapacity = 16@, @consumerGroup = 'Nothing'@
-(ordinary single-consumer subscription), @eventTypeFilter = 'AllEventTypes'@
+(ordinary single-consumer subscription), @missingCheckpointPolicy =
+'FromBeginning'@, @eventTypeFilter = 'AllEventTypes'@
 (deliver every type), and @selector = 'Nothing'@ (no extra predicate
 filtering). Supply the subscription name and target; override individual fields
 with record-update syntax.
@@ -420,7 +421,8 @@ data KirokuConsumerGroupConfig = KirokuConsumerGroupConfig
 
 {- | A 'KirokuConsumerGroupConfig' with sensible defaults: @memberConcurrency =
 'Serial'@ (the only legal per-member concurrency), @batchSize = 100@,
-@bufferSize = 256@, @queueCapacity = 16@, @eventTypeFilter = 'AllEventTypes'@
+@bufferSize = 256@, @queueCapacity = 16@, @missingCheckpointPolicy =
+'FromBeginning'@, @eventTypeFilter = 'AllEventTypes'@
 (deliver every type), @selector = 'Nothing'@ (no extra predicate filtering).
 Supply the subscription name, target, and group size.
 -}

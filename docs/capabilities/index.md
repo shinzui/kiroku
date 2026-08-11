@@ -2,53 +2,29 @@
 okf_version: "0.2"
 ---
 
-# Kiroku capabilities
+# Files
 
-What the Kiroku repository (`mori://shinzui/kiroku`) — an experimental PostgreSQL event store in
-Haskell — provides to a consumer **today**, one concept per capability, each backed by evidence a
-reader can open. Kiroku stores immutable events in PostgreSQL, tracks stream membership, and
-maintains a totally ordered `$all` log; on top of that it offers subscriptions, projections
-support, consumer groups, tracing, and operational endpoints across five consumable packages.
+- [profile.dhall](profile.dhall)
 
-Every capability is `status: shipped` and `stability: experimental`. The uniform stability is
-correct, not a gap: Kiroku is pre-1.0 (lifecycle Experimental) with a single compatibility
-promise — everything here is usable *and* subject to breaking change before 1.0. Availability
-(`status`) and compatibility (`stability`) are tracked separately; `since` is the release each
-capability arrived in, per package.
+# Capability
 
-## What is deliberately excluded
-
-- **`kiroku-jitsurei`** (worked examples) and **`kiroku-test-support`** (shared test fixtures) are
-  internal packages, not adoption targets. `kiroku-jitsurei`'s consumer-group demo appears only as
-  *evidence* for [CAP-13](partitioned-consumer-groups.md).
-- **Composition claims.** End-to-end behaviors that are only true when Kiroku and a sibling project
-  cooperate are not Kiroku capabilities. The Shibuya adapter ([CAP-19](shibuya-adapter.md)) is
-  included because this repository ships and proves the adapter *package*; guarantees that depend on
-  `shibuya-core` belong to the consuming repository.
-- **The effectful `Store` effect's mockability** is described in the relevant records' interfaces
-  rather than as a standalone capability, because no dedicated mock-interpreter test was found to
-  evidence it independently.
-
-## Capabilities
-
-| ID | Capability | Package | Since |
-|----|------------|---------|-------|
-| [CAP-1](schema-provisioning.md) | Schema provisioning and migrations | kiroku-store-migrations | 0.1.0.0 |
-| [CAP-2](store-acquisition.md) | Store acquisition with pooling and schema isolation | kiroku-store | 0.1.0.0 |
-| [CAP-3](append-with-optimistic-concurrency.md) | Append events with optimistic concurrency | kiroku-store | 0.1.0.0 |
-| [CAP-4](reading-events.md) | Read streams, categories, and the global log | kiroku-store | 0.1.0.0 |
-| [CAP-5](causation-correlation-queries.md) | Causation and correlation graph queries | kiroku-store | 0.1.0.0 |
-| [CAP-6](transactional-append-composition.md) | Transactional append composition | kiroku-store | 0.1.0.0 |
-| [CAP-7](interpreter-event-hooks.md) | Interpreter-level event enrich/decode hooks | kiroku-store | 0.1.0.0 |
-| [CAP-8](stream-lifecycle.md) | Stream lifecycle: soft/hard delete, undelete | kiroku-store | 0.1.0.0 |
-| [CAP-9](logical-truncate-before.md) | Logical truncate-before compaction | kiroku-store | 0.3.0.0 |
-| [CAP-10](event-linking.md) | Link an existing event into another stream (provisional) | kiroku-store | 0.1.0.0 |
-| [CAP-11](live-subscriptions.md) | Live catch-up subscriptions | kiroku-store | 0.1.0.0 |
-| [CAP-12](resilient-delivery.md) | Resilient delivery: retry, dead-letter, filtering, backpressure recovery | kiroku-store | 0.2.0.0 |
-| [CAP-13](partitioned-consumer-groups.md) | Partitioned consumer groups | kiroku-store | 0.1.0.0 |
-| [CAP-14](observability-events.md) | Observability event stream | kiroku-store | 0.1.0.0 |
-| [CAP-15](opentelemetry-trace-context.md) | OpenTelemetry W3C trace-context propagation | kiroku-otel | 0.1.0.0 |
-| [CAP-16](opentelemetry-subscription-tracing.md) | OpenTelemetry subscription tracing | kiroku-otel | 0.2.0.0 |
-| [CAP-17](operational-http-endpoints.md) | Operational HTTP endpoints: metrics, health, streaming | kiroku-metrics | 0.1.0.0 |
-| [CAP-18](operator-cli.md) | Embeddable operator CLI | kiroku-cli | 0.1.0.0 |
-| [CAP-19](shibuya-adapter.md) | Shibuya queue-framework adapter | shibuya-kiroku-adapter | 0.1.0.0 |
+- [Append events with optimistic concurrency](append-with-optimistic-concurrency.md) - Append events to one or many streams atomically with an expected-version precondition, all-or-nothing per call, with read-your-own-writes and typed conflict errors.
+- [Causation and correlation graph queries](causation-correlation-queries.md) - Walk the causation graph forward and backward from a seed event, and gather every event sharing a correlation id, using dedicated partial indexes.
+- [Link an existing event into another stream](event-linking.md) - Add an existing event to a second stream by its event id, sharing the underlying event row through a stream-event junction rather than copying the payload.
+- [Explicit subscription checkpoint lifecycle](explicit-subscription-checkpoint-lifecycle.md) - Resolve absent subscription checkpoints by an explicit atomic policy and compose exact multi-name checkpoint resets with application-owned SQL in one transaction.
+- [Interpreter-level event enrich and decode hooks](interpreter-event-hooks.md) - Transform every event on the write path (enrichEvent) and the read/subscription path (decodeHook) through interpreter-level hooks wired once on ConnectionSettings, with an allocation-free fast path when absent.
+- [Live catch-up subscriptions](live-subscriptions.md) - Subscribe to the global log or a category, catch up from a durable checkpoint and switch to live delivery, with at-least-once, per-batch checkpointing and a Streamly bridge.
+- [Logical truncate-before compaction](logical-truncate-before.md) - Set a per-stream truncate-before marker that hides events below a version from ordered per-stream reads, without deleting anything, to support snapshot-and-compact rehydration.
+- [Observability event stream](observability-events.md) - Install a synchronous eventHandler that receives a typed KirokuEvent stream covering store-internal thread health and the full subscription lifecycle, hardened so a throwing handler cannot kill a store thread.
+- [OpenTelemetry subscription tracing](opentelemetry-subscription-tracing.md) - Turn the subscription worker's finite-state lifecycle into OpenTelemetry spans through a ready-made KirokuEvent handler, with kiroku.* and messaging.* semantic-convention attributes.
+- [OpenTelemetry W3C trace-context propagation](opentelemetry-trace-context.md) - Inject a W3C traceparent/tracestate into an event's metadata on write and extract a SpanContext back on read, keeping kiroku-store free of any OpenTelemetry dependency.
+- [Operational HTTP endpoints: metrics, health, and event streaming](operational-http-endpoints.md) - Serve in-process metrics as JSON and Prometheus exposition, liveness/readiness/detailed health, a subscription-status endpoint, and a WebSocket channel for live metrics and events, without pulling a web framework into the core library.
+- [Embeddable operator CLI](operator-cli.md) - Embed a kiroku operator command group into a host CLI, or run the standalone kiroku binary as a remote client that reports subscription status from a running worker's HTTP endpoint.
+- [Partitioned consumer groups](partitioned-consumer-groups.md) - Split a named subscription across N members that each process a disjoint, per-stream-ordered slice in parallel, with per-member checkpoints and an optional startup conflict guard.
+- [Read streams, categories, and the global log](reading-events.md) - Read events forward or backward from a single stream, a category, or the totally ordered global $all log, including a constant-memory streaming read and batch surrogate-id resolution.
+- [Resilient delivery: retry, dead-letter, filtering, and backpressure recovery](resilient-delivery.md) - Drive per-event dispositions (retry with backoff, dead-letter) through an ack-coupled stream, filter deliveries by event type or predicate, and recover from backpressure and live DB errors without losing events.
+- [Schema provisioning and migrations](schema-provisioning.md) - Install and version-control the Kiroku PostgreSQL schema through an embedded, manifest-ordered pg-migrate component and the kiroku-store-migrate executable before any application opens a store.
+- [Shibuya queue-framework adapter](shibuya-adapter.md) - A published adapter package that presents a Kiroku subscription (or a whole consumer group) as a Shibuya pull-based Adapter, mapping ack decisions onto Kiroku's per-event retry, dead-letter, and checkpoint semantics.
+- [Store acquisition with connection pooling and schema isolation](store-acquisition.md) - Open a KirokuStore over a pooled hasql connection, isolated in a dedicated PostgreSQL schema, with a dedicated LISTEN connection and pluggable observation/event handlers.
+- [Stream lifecycle: soft delete, hard delete, undelete](stream-lifecycle.md) - Soft-delete a stream (reversible, hidden from reads), hard-delete it (purge payloads and dead letters), or undelete a soft-deleted stream, with hard deletes gated by a session GUC.
+- [Transactional append composition](transactional-append-composition.md) - Atomically compose a single-stream append with a caller-supplied hasql transaction, so an event and the application state it drives commit or roll back together.

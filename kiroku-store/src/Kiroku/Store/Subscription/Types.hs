@@ -407,8 +407,13 @@ small enough that a single slow handler call does not stall the worker
 for long. Override the 'batchSize' field on the returned record if a
 different value suits the workload.
 
+The missing-checkpoint policy defaults to 'FromBeginning' for source
+compatibility. New call sites should override 'missingCheckpointPolicy'
+deliberately when a future-only or pre-provisioned worker is intended.
+
 @
-let cfg = defaultSubscriptionConfig "my-projection" AllStreams handler
+let cfg = (defaultSubscriptionConfig "my-projection" AllStreams handler)
+        { missingCheckpointPolicy = FromBeginning }
 withSubscription store cfg $ \\h -> wait h
 @
 -}

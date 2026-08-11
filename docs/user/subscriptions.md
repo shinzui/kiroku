@@ -33,10 +33,11 @@ import Kiroku.Store.Subscription
 runProjection :: KirokuStore -> IO ()
 runProjection store = do
   let cfg =
-        defaultSubscriptionConfig
+        (defaultSubscriptionConfig
           (SubscriptionName "inventory-projection")
           AllStreams
-          handler
+          handler)
+          { missingCheckpointPolicy = FromBeginning }
   withSubscription store cfg $ \h -> do
     result <- wait h        -- block until Stop, cancel, or failure
     print result
@@ -46,6 +47,10 @@ runProjection store = do
       apply (event ^. #payload)   -- your projection update
       pure Continue
 ```
+
+This projection chooses `FromBeginning` explicitly because it can rebuild from
+retained history. That is also the compatibility default, but spelling it out
+makes the intended recovery behavior visible at the call site.
 
 Prefer `withSubscription` for any non-trivial path. The bare `subscribe`
 returns a `SubscriptionHandle` whose worker thread runs until you `cancel` it
@@ -81,6 +86,7 @@ handler`):
 | `eventTypeFilter :: EventTypeFilter` | `AllEventTypes` | Restrict delivery to chosen event types. See [Event-Type Filtering](#event-type-filtering). |
 | `selector :: Maybe (RecordedEvent -> Bool)` | `Nothing` | Optional opaque per-event predicate, the escape hatch for filtering the type set cannot express (e.g. metadata). Composed with `eventTypeFilter` as a logical AND. See [Event-Type Filtering](#event-type-filtering). |
 | `consumerGroup :: Maybe ConsumerGroup` | `Nothing` | Run this worker as one member of a hash-partitioned group. See [Consumer Groups](consumer-groups.md). |
+| `missingCheckpointPolicy :: MissingCheckpointPolicy` | `FromBeginning` | What startup does when the exact `(name, consumer-group member)` checkpoint row is absent: seed zero, atomically seed the current head, or fail. Existing rows always win. See [Choosing A Startup Checkpoint](#choosing-a-startup-checkpoint). |
 
 `SubscriptionTarget` is `AllStreams` (every event in global position order)
 or `Category !CategoryName` (events whose source stream's name prefix matches
@@ -91,8 +97,9 @@ their cursor.
 
 The worker thread:
 
-1. Reads the saved checkpoint for `name`, or starts at global position 0 for
-   a fresh name.
+1. Resolves the exact `(name, consumer-group member)` checkpoint according to
+   `missingCheckpointPolicy`. An existing row is unchanged; a new row is
+   durably seeded before any handler call, or startup fails.
 2. **Catches up** by querying the database directly in `batchSize` pages
    until it reaches the publisher's last-published cursor.
 3. Switches to **live** mode. For `AllStreams` it reads pre-broadcast events
@@ -212,6 +219,69 @@ query instead. Capturing standalone frontiers and bounded replay pages is a
 separate proposed capability described by
 [Expose bounded fan-in replay windows](../improvement-requests/expose-bounded-fan-in-replay-windows.md).
 
+## Choosing A Startup Checkpoint
+
+`missingCheckpointPolicy` is consulted only when the exact
+`(SubscriptionName, consumer-group member)` key has no durable row:
+
+- `FromBeginning` inserts position zero and replays retained history. Use it for
+  rebuildable projections.
+- `FromCurrentHead` captures and inserts the current `$all` head atomically.
+  Use it for a future-only worker whose external effects must not be applied to
+  historical events.
+- `FailIfMissing` inserts nothing and terminates startup with the typed
+  `SubscriptionCheckpointMissing` exception before the handler runs. Use it
+  when checkpoint provisioning is an operational prerequisite.
+
+For example, a future-only side-effect worker can deliberately ignore history:
+
+```haskell
+let cfg =
+      (defaultSubscriptionConfig
+        (SubscriptionName "customer-email-notifications")
+        AllStreams
+        sendEmail)
+        { missingCheckpointPolicy = FromCurrentHead }
+
+withSubscription store cfg $ \handle -> wait handle
+```
+
+The head read and row insertion are one atomic database boundary. An append is
+therefore either included in the durable seed or delivered afterward; it cannot
+fall into a gap between a separate head read and insert. Concurrent starters
+converge on the first row that commits.
+
+An existing row always takes precedence for all three policies. Changing a
+deployed configuration from `FromBeginning` to `FromCurrentHead` or
+`FailIfMissing` does not rewind, fast-forward, or delete durable progress.
+
+### Explicit Transactional Reset
+
+Ordinary worker saves are monotonic. A coordinating application that must move
+durable progress to an exact position can use the separately named
+`resetSubscriptionCheckpointsTx` combinator inside its own transaction:
+
+```haskell
+import Data.List.NonEmpty (NonEmpty (..))
+import Kiroku.Store
+
+result <- runStoreIO store $ runTransaction $
+  resetSubscriptionCheckpointsTx
+    ( SubscriptionName "orders-projection"
+        :| [SubscriptionName "inventory-projection"]
+    )
+    (GlobalPosition 1200)
+```
+
+The result is a `SubscriptionCheckpointResetReport` with sorted
+`resetCheckpointKeys` for every persisted member updated and sorted
+`missingSubscriptionNames` for requested names with no rows. Duplicate input
+names are treated as one name. Reset updates every existing member directly,
+can move progress backward, and never invents consumer-group members or creates
+rows for missing names. Because it is a `Hasql.Transaction.Transaction`
+combinator, `Tx.condemn` rolls it back together with the caller's projection
+fence and target-table writes.
+
 ## Lifecycle And Failure Modes
 
 `SubscriptionHandle` carries `cancel :: m ()`,
@@ -223,6 +293,7 @@ resolves with one of:
 | `Right ()` | The handler returned `Stop`; the worker exited cleanly, checkpoint saved at that event. |
 | `Left AsyncCancelled` | The caller invoked `cancel`. No checkpoint advance is guaranteed; in-flight events replay on the next start. |
 | `Left SubscriptionOverflowed` | The publisher dropped this subscriber under the (non-default) `DropSubscription` policy. Under the default `PauseAndResume` the worker recovers rather than failing. |
+| `Left SubscriptionCheckpointMissing` | The exact checkpoint key was absent under `FailIfMissing`. No row was inserted and the handler did not run. |
 | `Left e` (any other) | The handler threw. Exceptions are **not** caught — the worker thread dies and the exception propagates. A throwing handler signals the subscription cannot proceed safely. |
 
 ## Overflow Policy
