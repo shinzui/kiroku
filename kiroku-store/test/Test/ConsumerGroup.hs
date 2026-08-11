@@ -295,6 +295,7 @@ spec = describe "consumer groups" $ do
                         (defaultSubscriptionConfig (SubscriptionName "guard-sub") (Category (CategoryName "guardcat")) (\_ -> pure Continue))
                             { consumerGroup = Just (ConsumerGroup{member = 3, size = 4})
                             , consumerGroupGuard = True
+                            , missingCheckpointPolicy = FromBeginning
                             , retryPolicy = defaultRetryPolicy
                             , eventTypeFilter = AllEventTypes
                             , selector = Nothing

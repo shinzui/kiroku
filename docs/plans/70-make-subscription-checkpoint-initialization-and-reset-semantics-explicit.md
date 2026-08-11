@@ -4,6 +4,7 @@ slug: make-subscription-checkpoint-initialization-and-reset-semantics-explicit
 title: "Make subscription checkpoint initialization and reset semantics explicit"
 kind: exec-plan
 created_at: 2026-08-09T17:50:15Z
+intention: intention_01kzrntjkgehjtahtfxzyjbap2
 ---
 
 # Make subscription checkpoint initialization and reset semantics explicit
@@ -43,8 +44,8 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] Milestone 1: add the closed policy/result vocabulary, atomic initialization SQL, public
-  `Store` operation, and database/mock tests.
+- [x] (2026-08-11T15:15:42Z) Milestone 1: added the closed policy/result vocabulary, atomic
+  initialization SQL, public `Store` operation, and eight passing focused database/mock examples.
 - [ ] Milestone 2: route every worker entry point through policy resolution before delivery and
   add lifecycle telemetry plus consumer-group and race coverage.
 - [ ] Milestone 3: add the explicit transactional reset API, exact affected/missing report, and
@@ -68,6 +69,11 @@ implementation. Provide concise evidence.
   that statement and must be an explicitly named transaction operation.
 - Consumer-group topology is not authoritative in each row. The reset API can reset every existing
   member for a name and report a missing name, but must not manufacture members from a group size.
+- PostgreSQL's `ON CONFLICT DO NOTHING` can wait for a concurrent winner whose row is not visible to
+  the original statement snapshot. The initialization session therefore performs the prescribed
+  insert-plus-final-read statement first and, only when an initializing policy loses that race,
+  performs one fresh-snapshot read. Evidence: twenty concurrent initializers converged on one row
+  and exactly one `InitializedCheckpoint` in the focused suite.
 
 
 ## Decision Log
@@ -106,6 +112,13 @@ Record every decision made while working on the plan.
   together; the later release workflow chooses versions and publishes them.
   Date: 2026-08-09
 
+- Decision: Keep the atomic insert and result classification in one package-internal Hasql session,
+  with a fresh-snapshot read only for the concurrent `DO NOTHING` loser case.
+  Rationale: Both the `Store` interpreter and the worker need identical semantics. PostgreSQL can
+  hide a just-committed conflict winner from the first statement snapshot, while a second statement
+  on the same session observes it without changing the winning checkpoint.
+  Date: 2026-08-11
+
 
 ## Outcomes & Retrospective
 
@@ -114,7 +127,11 @@ Compare the result against the original purpose. Before marking the plan complet
 distill durable project context from the Decision Log, Surprises & Discoveries, and
 this section into docs/adr/. Keep task-local execution details here.
 
-(To be filled during and after implementation.)
+Milestone 1 established the public lifecycle vocabulary and effect boundary without involving a
+worker. `FromBeginning`, `FromCurrentHead`, and `FailIfMissing` now have durable database evidence,
+existing rows win for every policy, members remain isolated, concurrent starters converge, and a
+Hasql-free interpreter can model the closed operation. `cabal build kiroku-store` succeeds and the
+focused Hspec selection reports 8 examples with 0 failures.
 
 
 ## Context and Orientation
@@ -126,9 +143,10 @@ Kiroku-owned `subscriptions` table. A non-group worker uses member zero; a stati
 uses one independent row per configured member.
 
 `kiroku-store/src/Kiroku/Store/Subscription/Types.hs` owns `SubscriptionConfigM`. The configuration
-contains name, target, handler, batch/backpressure settings, consumer-group membership, retry
-policy, and filters, but no missing-checkpoint policy. `defaultSubscriptionConfig` supplies all
-defaults and is the compatibility construction path used by Kiroku and the Shibuya adapter.
+now contains the closed `MissingCheckpointPolicy` field alongside name, target, handler,
+batch/backpressure settings, consumer-group membership, retry policy, and filters.
+`defaultSubscriptionConfig` supplies `FromBeginning` as the compatibility default and remains the
+construction path used by Kiroku and the Shibuya adapter.
 
 `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs` owns concrete worker startup.
 `loadCheckpoint` calls `getCheckpointMemberStmt`; a missing row becomes `GlobalPosition 0` without
@@ -138,9 +156,10 @@ checkpoint load succeeds.
 
 `kiroku-store/src/Kiroku/Store/Effect.hs` defines the exported, mockable `Store` GADT and its pool
 and resource interpreters. `Kiroku.Store.Subscription.subscriptionCheckpointInventory` is the
-released read-only checkpoint API. Add initialization as a new effect constructor so an in-memory
-consumer can model the closed policy without Hasql. Share one package-internal SQL implementation
-between that interpreter and worker startup.
+released read-only checkpoint API. `InitializeSubscriptionCheckpoint` now carries the closed policy
+through the effect, so an in-memory consumer can model it without Hasql.
+`kiroku-store/src/Kiroku/Store/Subscription/Checkpoint/SQL.hs` owns the package-internal Hasql
+session used by that interpreter; Milestone 2 routes worker startup through the same session.
 
 `kiroku-store/src/Kiroku/Store/Transaction.hs` is intentionally the public composition seam for
 callers such as Keiro that need Kiroku-owned SQL inside a larger `Tx.Transaction`. Put the reset
@@ -356,3 +375,8 @@ The primary downstream consumer is
 Kiroku must not import Keiro catalog types. Hackage 0.4.0.0 and upstream tag
 `kiroku-store-v0.4.0.0` are the released baseline; version selection and dependent bounds wait for
 the later release workflow.
+
+
+Revision note (2026-08-11): Recorded the active intention and Milestone 1 implementation evidence,
+including the PostgreSQL conflict-snapshot retry decision discovered while implementing the atomic
+initializer.

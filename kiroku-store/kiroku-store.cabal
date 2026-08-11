@@ -55,7 +55,10 @@ library
     Kiroku.Store.Transaction
     Kiroku.Store.Types
 
-  other-modules:   Kiroku.Store.Subscription.CheckpointInventory.SQL
+  other-modules:
+    Kiroku.Store.Subscription.Checkpoint.SQL
+    Kiroku.Store.Subscription.CheckpointInventory.SQL
+
   build-depends:
     , aeson                 >=2.1  && <2.3
     , async                 >=2.2  && <2.3
@@ -109,6 +112,8 @@ test-suite kiroku-store-test
     Test.StartupFailureSurfacing
     Test.StreamBridgeTermination
     Test.StreamNameLookup
+    Test.SubscriptionCheckpointInitialization
+    Test.SubscriptionCheckpointInitializationMock
     Test.SubscriptionCheckpointInventory
     Test.SubscriptionCheckpointInventoryMock
     Test.SubscriptionPauseResume

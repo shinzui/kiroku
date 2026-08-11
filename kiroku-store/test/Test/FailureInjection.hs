@@ -65,6 +65,7 @@ spec = describe "kiroku-store failure injection" $ do
                     , overflowPolicy = DropSubscription
                     , consumerGroup = Nothing
                     , consumerGroupGuard = False
+                    , missingCheckpointPolicy = FromBeginning
                     , retryPolicy = defaultRetryPolicy
                     , eventTypeFilter = AllEventTypes
                     , selector = Nothing

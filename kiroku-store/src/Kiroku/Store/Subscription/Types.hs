@@ -18,6 +18,11 @@ this module is the configuration/result surface that drives it.
 -}
 module Kiroku.Store.Subscription.Types (
     SubscriptionName (..),
+    MissingCheckpointPolicy (..),
+    SubscriptionCheckpointKey (..),
+    CheckpointInitialization (..),
+    checkpointInitializationPosition,
+    SubscriptionCheckpointMissing (..),
     SubscriptionCheckpoint (..),
     SubscriptionCheckpointInventory (..),
     SubscriptionTarget (..),
@@ -140,6 +145,52 @@ shouldDeliver etf sel event =
 -- | Unique name for a subscription (e.g., @"inventory-projection"@).
 newtype SubscriptionName = SubscriptionName Text
     deriving newtype (Eq, Ord, Show)
+
+{- | What a subscription does when its exact
+@('SubscriptionName', consumer-group member)@ checkpoint key has no durable
+row. The policy is consulted only for absence; an existing row always wins and
+is never moved by initialization.
+-}
+data MissingCheckpointPolicy
+    = -- | Materialize position zero and replay retained history.
+      FromBeginning
+    | -- | Atomically materialize the current @$all@ store head.
+      FromCurrentHead
+    | -- | Refuse startup without inserting a row.
+      FailIfMissing
+    deriving stock (Eq, Show, Generic)
+
+-- | The durable identity of one subscription checkpoint row.
+data SubscriptionCheckpointKey = SubscriptionCheckpointKey
+    { subscriptionName :: !SubscriptionName
+    , consumerGroupMember :: !Int32
+    }
+    deriving stock (Eq, Ord, Show, Generic)
+
+{- | The successful result of resolving one subscription checkpoint at
+startup. 'ExistingCheckpoint' means a durable row already existed;
+'InitializedCheckpoint' records the policy that created the row. In both
+cases the position is the durable position returned by PostgreSQL.
+-}
+data CheckpointInitialization
+    = ExistingCheckpoint !SubscriptionCheckpointKey !GlobalPosition
+    | InitializedCheckpoint !MissingCheckpointPolicy !SubscriptionCheckpointKey !GlobalPosition
+    deriving stock (Eq, Show, Generic)
+
+-- | Extract the durable position from either successful initialization result.
+checkpointInitializationPosition :: CheckpointInitialization -> GlobalPosition
+checkpointInitializationPosition = \case
+    ExistingCheckpoint _ position -> position
+    InitializedCheckpoint _ _ position -> position
+
+{- | A typed startup refusal produced by 'FailIfMissing'. No checkpoint row is
+inserted and a worker throws this exception before invoking its handler.
+-}
+newtype SubscriptionCheckpointMissing = SubscriptionCheckpointMissing
+    { checkpointKey :: SubscriptionCheckpointKey
+    }
+    deriving stock (Eq, Show, Generic)
+    deriving anyclass (Exception)
 
 -- | One checkpoint row that has been durably persisted by a subscription.
 data SubscriptionCheckpoint = SubscriptionCheckpoint
@@ -302,6 +353,14 @@ data SubscriptionConfigM m = SubscriptionConfig
     (a startup detection probe, not a lifetime-held lock). Ignored when
     'consumerGroup' is 'Nothing'.
     -}
+    , missingCheckpointPolicy :: !MissingCheckpointPolicy
+    {- ^ What startup does only when the exact @(name, member)@ checkpoint row
+    is absent. 'FromBeginning' is the compatibility default and materializes
+    position zero. 'FromCurrentHead' atomically seeds the current store head,
+    and 'FailIfMissing' refuses startup before the handler runs. Existing rows
+    always take precedence, so changing this field never rewinds or advances
+    durable progress.
+    -}
     , retryPolicy :: !RetryPolicy
     {- ^ Bounds redelivery of an event for which the handler returned
     'Retry' before the worker dead-letters it. Default: 'defaultRetryPolicy'
@@ -368,6 +427,7 @@ defaultSubscriptionConfig name' target' handler' =
         , overflowPolicy = PauseAndResume
         , consumerGroup = Nothing
         , consumerGroupGuard = False
+        , missingCheckpointPolicy = FromBeginning
         , retryPolicy = defaultRetryPolicy
         , eventTypeFilter = AllEventTypes
         , selector = Nothing

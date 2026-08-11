@@ -4,6 +4,7 @@ module Kiroku.Store.Subscription (
     withSubscription,
 
     -- * Observability
+    initializeSubscriptionCheckpoint,
     subscriptionCheckpointInventory,
     subscriptionStates,
     SubscriptionStateView (..),
@@ -31,7 +32,7 @@ import Effectful.Dispatch.Dynamic (send)
 import GHC.Generics (Generic)
 import GHC.Stack (HasCallStack)
 import Kiroku.Store.Connection (KirokuStore (..))
-import Kiroku.Store.Effect (Store (GetSubscriptionCheckpointInventory))
+import Kiroku.Store.Effect (Store (GetSubscriptionCheckpointInventory, InitializeSubscriptionCheckpoint))
 import Kiroku.Store.Notification qualified as Notifier
 import Kiroku.Store.Subscription.EventPublisher qualified as Pub
 import Kiroku.Store.Subscription.Fsm (SubscriptionState (..), stateCursor, stateName)
@@ -245,6 +246,24 @@ subscriptionCheckpointInventory ::
     (HasCallStack, Store :> es) =>
     Eff es SubscriptionCheckpointInventory
 subscriptionCheckpointInventory = send GetSubscriptionCheckpointInventory
+
+{- | Resolve the durable checkpoint for one exact @(subscription name,
+consumer-group member)@ key.
+
+An existing row is returned unchanged for every policy. When no row exists,
+'FromBeginning' atomically inserts position zero, 'FromCurrentHead' atomically
+inserts the current @$all@ store position, and 'FailIfMissing' returns
+'SubscriptionCheckpointMissing' without inserting. Concurrent initializers
+converge on the first committed row.
+-}
+initializeSubscriptionCheckpoint ::
+    (HasCallStack, Store :> es) =>
+    SubscriptionName ->
+    Int32 ->
+    MissingCheckpointPolicy ->
+    Eff es (Either SubscriptionCheckpointMissing CheckpointInitialization)
+initializeSubscriptionCheckpoint subscriptionName member policy =
+    send (InitializeSubscriptionCheckpoint subscriptionName member policy)
 
 {- | A public, point-in-time view of one live subscription's state, as returned
 by 'subscriptionStates'. This is the committed observability surface external

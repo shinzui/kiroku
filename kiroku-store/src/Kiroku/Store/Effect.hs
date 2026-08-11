@@ -56,8 +56,15 @@ import Kiroku.Store.Error (StoreError (..), attributeMultiStreamError, emptyResu
 import Kiroku.Store.Observability (KirokuEvent (..))
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Settings (decodeEvents, enrichEvents)
+import Kiroku.Store.Subscription.Checkpoint.SQL qualified as CheckpointSQL
 import Kiroku.Store.Subscription.CheckpointInventory.SQL qualified as CheckpointInventorySQL
-import Kiroku.Store.Subscription.Types (SubscriptionCheckpointInventory)
+import Kiroku.Store.Subscription.Types (
+    CheckpointInitialization,
+    MissingCheckpointPolicy,
+    SubscriptionCheckpointInventory,
+    SubscriptionCheckpointMissing,
+    SubscriptionName,
+ )
 import Kiroku.Store.Types
 
 -- ---------------------------------------------------------------------------
@@ -132,6 +139,17 @@ data Store :: Effect where
     'Kiroku.Store.Subscription.subscriptionCheckpointInventory'.
     -}
     GetSubscriptionCheckpointInventory :: Store m SubscriptionCheckpointInventory
+    {- | Resolve one exact subscription checkpoint key according to its
+    missing-row policy. Existing rows always take precedence.
+
+    Surfaced as
+    'Kiroku.Store.Subscription.initializeSubscriptionCheckpoint'.
+    -}
+    InitializeSubscriptionCheckpoint ::
+        SubscriptionName ->
+        Int32 ->
+        MissingCheckpointPolicy ->
+        Store m (Either SubscriptionCheckpointMissing CheckpointInitialization)
     {- | Run an arbitrary @hasql-transaction@ value in a 'BEGIN'/'COMMIT'
     block on a single pool connection. Escape hatch from the abstract
     'Store' effect into the underlying SQL world; mock interpreters are
@@ -351,6 +369,9 @@ runStorePool store = interpret_ $ \case
     GetSubscriptionCheckpointInventory ->
         usePool (store ^. #pool) $
             Session.statement () CheckpointInventorySQL.getSubscriptionCheckpointInventoryStmt
+    InitializeSubscriptionCheckpoint subscriptionName member policy ->
+        usePool (store ^. #pool) $
+            CheckpointSQL.initializeSubscriptionCheckpointSession subscriptionName member policy
     RunTransaction tx ->
         runTxOnPool (store ^. #pool) TxSessions.transaction tx
     RunTransactionNoRetry tx ->
