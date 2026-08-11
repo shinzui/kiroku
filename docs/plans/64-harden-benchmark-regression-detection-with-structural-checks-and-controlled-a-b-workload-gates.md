@@ -64,10 +64,11 @@ runs the two authoritative gates: structure and controlled A/B.
       `performance structure` test group and add JSON EXPLAIN assertions for the three
       protected index/query shapes. The focused run passed 8 examples in 1.4737
       seconds, and the migration suite passed all 10 examples in 2.9136 seconds.
-- [ ] M2: Add a dedicated controlled workload benchmark that compares the old
+- [x] 2026-08-11T17:34:09Z: Add a dedicated controlled workload benchmark that compares the old
       sequential multi-stream transaction shape with the current production pipeline
       at four and eight streams using `bcompareWithin`; retire the six stale A/B leaves
-      from the historical suite.
+      from the historical suite. Three unchanged wall-time runs passed with ratios of
+      0.86x-0.88x, and the historical suite now matches all 25 baseline names exactly.
 - [ ] M3: Add an exact baseline-coverage preflight, make benchmark code alignment
       deterministic, and separate non-failing historical telemetry from the existing
       opt-in strict CSV regression command.
@@ -122,6 +123,19 @@ runs the two authoritative gates: structure and controlled A/B.
   protected indexes naturally. The focused run selected
   `ix_stream_events_all_by_origin`, `ix_dead_letters_subscription_position` without a
   `Sort`, and `ix_dead_letters_event_id` without setting `enable_seqscan=off`.
+
+- 2026-08-11: The refreshed plan's assertion that current benchmark names contain no
+  commas was wrong. The leaf `All.category.$all forward (100-event page, baseline)`
+  is CSV-quoted in `baseline.csv`; a naive first-column split truncated it to
+  `"All.category.$all forward (100-event page` even though both sides had 25 rows.
+  Exact coverage therefore requires normalizing that one label before the shell
+  helper can safely enforce the documented comma-free contract.
+
+- 2026-08-11: The controlled wall-time gate passed three unchanged runs. The
+  four-stream production/control ratios were 0.88x, 0.86x, and 0.88x; the
+  eight-stream ratios were 0.86x, 0.87x, and 0.86x. This keeps the observed
+  advantage below the pre-registered 0.90 ceiling while showing less margin than
+  ExecPlan 62's earlier approximately 0.78 measurements.
 
 
 ## Decision Log
@@ -203,6 +217,24 @@ runs the two authoritative gates: structure and controlled A/B.
   cost-effective on PostgreSQL's real planner while keeping the complete focused gate
   below two seconds on the implementation host. Sharing the freshly cloned database
   avoids repeating the seed for each read-only EXPLAIN example.
+  Date: 2026-08-11.
+
+- Decision: Pin the controlled database workload group to `tasty-bench`'s
+  `WallTime` mode instead of accepting its default `CpuTime` mode.
+  Rationale: The control and candidate spend most of their elapsed time waiting
+  for PostgreSQL, which runs outside the benchmark process. `CpuTime` would omit
+  most server and socket wait time and could compare only client-side overhead;
+  `WallTime` measures the end-to-end database operation the gate is intended to
+  protect. Both arms remain in the same process and server, so shared host noise
+  still affects the ratio symmetrically.
+  Date: 2026-08-11.
+
+- Decision: Rename the historical leaf `$all forward (100-event page, baseline)` to
+  `$all forward (100-event page baseline)` and update only that row's name in
+  `baseline.csv`, retaining its mean and deviation values byte-for-byte.
+  Rationale: The coverage helper is intentionally a small shell script rather than a
+  CSV parser and must reject commas in names. Removing the sole existing comma makes
+  that contract true without refreshing or otherwise altering historical timing data.
   Date: 2026-08-11.
 
 
@@ -355,7 +387,8 @@ candidate must call the public `appendMultiStream` through `runStoreIO`; it must
 `runAppendMultiStreamPipeline` or another internal shortcut, because the gate protects
 the production dispatch path. Use unique or `AnyVersion` appends so repeated benchmark
 iterations remain valid, force all results, and fail immediately on a store or pool
-error.
+error. Apply Tasty's `localOption WallTime` to the complete controlled group so the
+measurement includes PostgreSQL server and socket wait time.
 
 Declare the sequential cell before its dependent candidate. Wrap the production cells
 with `bcompareWithin 0 0.90`, selecting the unique matching sequential control at the
@@ -644,11 +677,12 @@ benchmark kiroku-store-bench-workload-gate
   ghc-options:    -threaded -rtsopts "-with-rtsopts=-N -A32m" -fproc-alignment=64
 ```
 
-Its dependencies should be limited to packages already used by the historical
-benchmark: `base`, `aeson`, `generic-lens`, `hasql`, `hasql-pool`,
-`hasql-transaction`, `kiroku-store`, `kiroku-test-support`, `lens`, `tasty-bench`,
-`text`, `time`, and `vector`, trimming any unused entries after compilation. Do not add
-a statistics package: `tasty-bench` owns estimation and the relative gate.
+Its dependencies should be limited to `base`, `aeson`, `generic-lens`, `hasql-pool`,
+`hasql-transaction`, `kiroku-store`, `kiroku-test-support`, `lens`, `tasty`,
+`tasty-bench`, `text`, `time`, and `vector`, trimming any unused entries after
+compilation. The direct `tasty` dependency supplies `localOption`; `tasty-bench`
+supplies `WallTime`, estimation, and the relative gate. Do not add a statistics
+package.
 
 The essential gate shape is:
 

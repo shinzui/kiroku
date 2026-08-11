@@ -16,7 +16,7 @@ All.read.stream forward (100-event page),1162203906,105193022
 All.read.$all forward (100-event page),1067247656,55478942
 All.category.category forward (100-event page),1114750390,71000398
 All.category.exhausted-category,30102893,1634850
-"All.category.$all forward (100-event page, baseline)",1082442578,60768640
+All.category.$all forward (100-event page baseline),1082442578,60768640
 All.concurrent.8 writers x 10 appends,15674956250,1082927720
 All.concurrent.32 writers x 10 appends,726238812500,275624726618
 All.reliability-audit.hot invoice-payment 10 AnyVersion appends,1708234765,139233664
