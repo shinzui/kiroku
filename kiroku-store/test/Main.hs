@@ -63,6 +63,8 @@ import Test.SubscriptionRetryDeadLetter qualified as SubscriptionRetryDeadLetter
 import Test.SubscriptionState qualified as SubscriptionState
 import Test.Transaction qualified as Transaction
 import Test.TruncateBefore qualified as TruncateBefore
+import Test.VisibleGlobalHeadPosition qualified as VisibleGlobalHeadPosition
+import Test.VisibleGlobalHeadPositionMock qualified as VisibleGlobalHeadPositionMock
 
 main :: IO ()
 main = withSharedMigratedPostgres $ hspec $ do
@@ -102,6 +104,8 @@ main = withSharedMigratedPostgres $ hspec $ do
     SubscriptionRegistry.spec
     SubscriptionRetryDeadLetter.spec
     EventTypeFilter.spec
+    VisibleGlobalHeadPosition.spec
+    VisibleGlobalHeadPositionMock.spec
     around withTestStore $ do
         describe "schema migrations" $ do
             it "installs every Kiroku table under the kiroku schema" $ \store -> do

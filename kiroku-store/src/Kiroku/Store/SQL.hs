@@ -21,6 +21,7 @@ module Kiroku.Store.SQL (
     eventExistsInStreamStmt,
     lookupStreamNamesStmt,
     currentGlobalPositionStmt,
+    visibleGlobalHeadPositionStmt,
 
     -- * Consumer-group read statements
     readCategoryForwardConsumerGroupStmt,
@@ -456,6 +457,22 @@ currentGlobalPositionStmt =
         "SELECT stream_version FROM streams WHERE stream_id = 0"
         E.noParams
         (D.singleRow (D.column (D.nonNullable D.int8)))
+
+-- | Read the greatest position still visible in the global $all stream.
+visibleGlobalHeadPositionStmt :: Statement () GlobalPosition
+visibleGlobalHeadPositionStmt =
+    preparable
+        """
+        SELECT COALESCE((
+          SELECT stream_version
+          FROM stream_events
+          WHERE stream_id = 0
+          ORDER BY stream_version DESC
+          LIMIT 1
+        ), 0)
+        """
+        E.noParams
+        (D.singleRow (GlobalPosition <$> D.column (D.nonNullable D.int8)))
 
 -- | Get stream metadata by name.
 getStreamStmt :: Statement Text (Maybe StreamInfo)

@@ -78,6 +78,14 @@ data Store :: Effect where
     ReadStreamBackward :: StreamName -> StreamVersion -> Int32 -> Store m (Vector RecordedEvent)
     ReadAllForward :: GlobalPosition -> Int32 -> Store m (Vector RecordedEvent)
     ReadAllBackward :: GlobalPosition -> Int32 -> Store m (Vector RecordedEvent)
+    {- | Read the greatest position whose @$all@ junction still survives, or
+    zero when no event remains visible. Unlike
+    'Kiroku.Store.Subscription.subscriptionCheckpointInventory', this is a
+    visibility cursor rather than the authoritative append frontier.
+
+    Surfaced as 'Kiroku.Store.Read.visibleGlobalHeadPosition'.
+    -}
+    GetVisibleGlobalHeadPosition :: Store m GlobalPosition
     GetStream :: StreamName -> Store m (Maybe StreamInfo)
     {- | Resolve a 'StreamName' to its surrogate 'StreamId' without
     materializing the full 'StreamInfo' row. Mirrors 'GetStream'\'s
@@ -234,6 +242,9 @@ runStorePool store = interpret_ $ \case
             usePool (store ^. #pool) $
                 Session.statement (cursor, limit) SQL.readAllBackwardStmt
         liftIO $ decodeEvents (store ^. #storeSettings) evs
+    GetVisibleGlobalHeadPosition ->
+        usePool (store ^. #pool) $
+            Session.statement () SQL.visibleGlobalHeadPositionStmt
     GetStream (StreamName name) ->
         usePool (store ^. #pool) $
             Session.statement name SQL.getStreamStmt

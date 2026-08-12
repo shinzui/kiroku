@@ -4,6 +4,7 @@ module Kiroku.Store.Read (
     readStreamBackward,
     readAllForward,
     readAllBackward,
+    visibleGlobalHeadPosition,
     readCategory,
     getStream,
     lookupStreamId,
@@ -135,6 +136,25 @@ readAllBackward ::
     Int32 ->
     Eff es (Vector RecordedEvent)
 readAllBackward startPos limit = send (ReadAllBackward startPos limit)
+
+{- | Return the greatest 'GlobalPosition' still visible in the global @$all@
+stream, or @'GlobalPosition' 0@ when no event remains.
+
+Logical truncation and soft deletion leave @$all@ junctions intact, so neither
+changes this value. Hard deletion removes junctions and can make the visible
+head move backward or return to zero. This differs from
+'Kiroku.Store.Subscription.Types.storePosition' in
+'Kiroku.Store.Subscription.Types.SubscriptionCheckpointInventory', which is
+the authoritative append frontier and remains monotonic after hard deletion.
+
+The value is observed by one database statement. A concurrent append or hard
+deletion may change the visible head immediately after this function returns;
+the result does not retain a database snapshot.
+-}
+visibleGlobalHeadPosition ::
+    (HasCallStack, Store :> es) =>
+    Eff es GlobalPosition
+visibleGlobalHeadPosition = send GetVisibleGlobalHeadPosition
 
 {- | Read events whose source stream's category prefix matches the given
 'CategoryName', in 'GlobalPosition' order.
