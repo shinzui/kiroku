@@ -86,7 +86,7 @@ handler`):
 | `eventTypeFilter :: EventTypeFilter` | `AllEventTypes` | Restrict delivery to chosen event types. See [Event-Type Filtering](#event-type-filtering). |
 | `selector :: Maybe (RecordedEvent -> Bool)` | `Nothing` | Optional opaque per-event predicate, the escape hatch for filtering the type set cannot express (e.g. metadata). Composed with `eventTypeFilter` as a logical AND. See [Event-Type Filtering](#event-type-filtering). |
 | `consumerGroup :: Maybe ConsumerGroup` | `Nothing` | Run this worker as one member of a hash-partitioned group. See [Consumer Groups](consumer-groups.md). |
-| `missingCheckpointPolicy :: MissingCheckpointPolicy` | `FromBeginning` | What startup does when the exact `(name, consumer-group member)` checkpoint row is absent: seed zero, atomically seed the current head, or fail. Existing rows always win. See [Choosing A Startup Checkpoint](#choosing-a-startup-checkpoint). |
+| `missingCheckpointPolicy :: MissingCheckpointPolicy` | `FromBeginning` | What startup does when the exact `(name, consumer-group member)` checkpoint row is absent: seed zero, atomically seed the authoritative current append frontier, or fail. Existing rows always win. See [Choosing A Startup Checkpoint](#choosing-a-startup-checkpoint). |
 
 `SubscriptionTarget` is `AllStreams` (every event in global position order)
 or `Category !CategoryName` (events whose source stream's name prefix matches
@@ -199,11 +199,14 @@ durablePositionDistances = do
 ```
 
 The operation captures `storePosition` and all persisted checkpoint rows in one
-SQL statement snapshot and one database round trip. Rows are sorted by
-subscription name and numeric member. An empty vector means no checkpoint has
-yet been written; it does not mean no subscription is configured. A stopped,
-cancelled, or crashed worker disappears from `subscriptionStates` but its
-durable row remains here. Call the operation again to observe later commits.
+SQL statement snapshot and one database round trip. `storePosition` is the
+**authoritative append frontier**: the greatest `$all` position ever allocated.
+It remains monotonic after hard deletion and can therefore be greater than
+every event still visible in `$all`. Rows are sorted by subscription name and
+numeric member. An empty vector means no checkpoint has yet been written; it
+does not mean no subscription is configured. A stopped, cancelled, or crashed
+worker disappears from `subscriptionStates` but its durable row remains here.
+Call the operation again to observe later commits.
 
 Member zero is ambiguous: it can mean an ordinary subscription or member zero
 of a consumer group. The checkpoint row does not preserve the configured target
@@ -211,12 +214,16 @@ or group size, so do not infer topology from it. `checkpointUpdatedAt` is the
 time of the latest successful checkpoint upsert, including a lower monotonic
 save that left the position unchanged; it is not proof that progress advanced.
 
-The subtraction in the example is a **global position distance**, not an exact
-event backlog. Global positions include events skipped by category and event-
-type filters, and a consumer-group member handles only its hash-assigned shard.
-A target-specific lag calculation may need a category head or an event-count
-query instead. Capturing standalone frontiers and bounded replay pages is a
-separate proposed capability described by
+The subtraction in the example is a **distance to the authoritative append
+frontier**, not an exact or necessarily actionable event backlog. Global
+positions include events skipped by category and event-type filters, and a
+consumer-group member handles only its hash-assigned shard. Tail hard deletion
+can also leave `storePosition` above every visible event. When a caller needs a
+currently reachable global target, read `visibleGlobalHeadPosition` separately.
+That call is its own statement-time observation and does not share the
+inventory's one-statement snapshot. A target-specific lag calculation may need
+a category head or an event-count query instead. Capturing bounded replay pages
+is a separate proposed capability described by
 [Expose bounded fan-in replay windows](../improvement-requests/expose-bounded-fan-in-replay-windows.md).
 
 ## Choosing A Startup Checkpoint
@@ -226,9 +233,12 @@ separate proposed capability described by
 
 - `FromBeginning` inserts position zero and replays retained history. Use it for
   rebuildable projections.
-- `FromCurrentHead` captures and inserts the current `$all` head atomically.
-  Use it for a future-only worker whose external effects must not be applied to
-  historical events.
+- `FromCurrentHead` captures and inserts the authoritative current append
+  frontier atomically. Use it for a future-only worker whose external effects
+  must not be applied to any position allocated before initialization,
+  including positions whose events were already hard-deleted. The seeded
+  position is a future-only boundary; it does not promise that an event is
+  currently visible there.
 - `FailIfMissing` inserts nothing and terminates startup with the typed
   `SubscriptionCheckpointMissing` exception before the handler runs. Use it
   when checkpoint provisioning is an operational prerequisite.
@@ -246,10 +256,12 @@ let cfg =
 withSubscription store cfg $ \handle -> wait handle
 ```
 
-The head read and row insertion are one atomic database boundary. An append is
-therefore either included in the durable seed or delivered afterward; it cannot
-fall into a gap between a separate head read and insert. Concurrent starters
-converge on the first row that commits.
+The authoritative-frontier read and row insertion are one atomic database
+boundary. An append is therefore either included in the durable seed or
+delivered afterward; it cannot fall into a gap between a separate frontier read
+and insert. Concurrent starters converge on the first row that commits. This is
+deliberately different from `visibleGlobalHeadPosition`, whose reachability
+observation may regress and is not part of the initialization statement.
 
 An existing row always takes precedence for all three policies. Changing a
 deployed configuration from `FromBeginning` to `FromCurrentHead` or

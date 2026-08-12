@@ -83,7 +83,9 @@ to cut round-trips.
 
 ## Reading The Global `$all` Stream
 
-`$all` is the global, gap-free log of every appended event in append order.
+`$all` is the globally ordered log of every appended event in append order.
+Position allocation is monotonic, but the visible log is not necessarily
+gap-free because hard deletion can remove events and their `$all` junctions.
 
 ```haskell
 readAllForward ::
@@ -99,12 +101,41 @@ The cursor is exclusive on `globalPosition`. `readAllForward (GlobalPosition
 0) limit` reads from the first event; `readAllBackward (GlobalPosition 0)
 limit` reads from the most recent event backward.
 
-`$all` includes events from **soft-deleted** streams (the global log is
-append-only and they survive even after their owning stream is hidden). It
-excludes events from **hard-deleted** streams. The internal seed row at
+`$all` includes events from **soft-deleted** streams because soft deletion does
+not remove their global junctions. It excludes events from **hard-deleted**
+streams. The internal seed row at
 `globalPosition = 0` is never returned. You cannot read `$all` through
 `readStreamForward (StreamName "$all")` — that name is reserved and mutating
 APIs reject it; use these functions instead.
+
+### Reading The Visible Global Head
+
+Use `visibleGlobalHeadPosition` when you need the greatest position that a
+global read can currently reach without loading or decoding an event:
+
+```haskell
+visibleGlobalHeadPosition ::
+  (HasCallStack, Store :> es) => Eff es GlobalPosition
+
+headPosition <- visibleGlobalHeadPosition
+```
+
+An empty store returns `GlobalPosition 0`. Soft deletion and logical
+truncate-before markers preserve `$all` junctions, so they do not change the
+visible head. Hard deletion removes junctions and can make it move backward. For
+example, if separate source streams own global positions 1, 2, and 3, deleting
+the position-3 source makes the visible head fall back to 2; deleting the other
+sources eventually returns it to zero.
+
+Do not confuse this value with the **authoritative append frontier** exposed as
+`SubscriptionCheckpointInventory.storePosition`. The append frontier is the
+greatest position ever allocated and remains monotonic after hard deletion. The
+visible head is the greatest surviving position and is the appropriate target
+when a caller needs a position that is currently reachable through `$all`.
+
+Each call is one statement-time observation, not a retained database snapshot.
+A concurrent append or hard deletion can change the visible head immediately
+after the function returns.
 
 ## Reading A Category
 

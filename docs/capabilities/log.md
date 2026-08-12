@@ -1,5 +1,8 @@
 # Capability Catalog Log
 
+## 2026-08-12
+* **Update**: CAP-4 now exposes and proves the payload-free visible global head position.
+
 ## 2026-08-11
 * **Addition**: CAP-20 records explicit atomic checkpoint initialization policies and exact transaction-composable reset evidence.
 

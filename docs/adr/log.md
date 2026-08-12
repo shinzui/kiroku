@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-08-12
+* **Update**: ADR-4 now distinguishes authoritative frontier seeding from the visible global head.
+
 ## 2026-08-11
 * **Addition**: ADR-5 establishes deterministic structural checks and same-process controlled workload ratios as authoritative performance gates, with exact-coverage historical comparisons retained as telemetry and an opt-in strict smoke check.
 * **Addition**: ADR-4 records explicit absent-checkpoint initialization, existing-row precedence, and the separation between monotonic saves and transaction-composable reset.

@@ -8,9 +8,9 @@ description: >-
 generated:
   by: openai/gpt-5
   at: "2026-08-12T16:20:30Z"
-timestamp: "2026-08-12T16:20:30Z"
+timestamp: "2026-08-12T17:03:14Z"
 requestId: IR-4
-status: proposed
+status: implemented
 origin: mori://shinzui/keiro
 reviews:
   - kind: model
@@ -29,18 +29,21 @@ reviews:
       Hard deletion removes those junctions without reducing the authoritative append frontier.
 verified:
   by: process:codex
-  at: "2026-08-12T16:20:30Z"
+  at: "2026-08-12T17:03:14Z"
 ---
 
 # Improvement Request: Expose the Visible Global Head
 
 ## Status
 
-Proposed as the owning-library follow-up to
+Implemented in repository source by
+`mori://shinzui/kiroku/plans/71-expose-the-visible-global-head-position`, as the owning-library
+follow-up to
 `mori://shinzui/keiro/plans/238-target-strong-consistency-waits-at-the-visible-store-head`.
-Keiro can correct its release-blocking wait-target defect with a temporary private query, so this
-request does not gate that plan. Once a released Kiroku API is available, Keiro should adopt it and
-remove its Kiroku-schema query rather than retain two implementations of the same storage fact.
+The public Kiroku API, concrete runner coverage, mock contract, structural query-plan proof, and
+documentation are complete locally. Package publication and Keiro adoption remain pending. Once a
+released Kiroku API is available, Keiro should adopt it and remove its temporary Kiroku-schema
+query rather than retain two implementations of the same storage fact.
 
 ## Context
 
@@ -78,14 +81,16 @@ frontier needed for reachability and actionable backlog calculations.
 
 ## Requested Change
 
-Add an additive, read-only `kiroku-store` operation with these semantics:
+Add a read-only `kiroku-store` operation with these semantics. The public read function is
+additive, while the new constructor on the exported `Store` GADT is source-breaking for exhaustive
+custom interpreters:
 
 1. Return the greatest currently visible global position in `$all`, or `GlobalPosition 0` when no
    event is visible.
 2. Execute as a scalar position query. Do not fetch event data or metadata and do not invoke the
    store's decode hook.
-3. Expose the operation through the mockable `Store` effect and a public read module such as
-   `Kiroku.Store.Read`; consumers must not import a package-internal Hasql statement.
+3. Expose the operation through the mockable `Store` effect and `Kiroku.Store.Read`; consumers need
+   not import `Kiroku.Store.SQL` or Hasql.
 4. Define visibility to match Kiroku's global reads. Soft deletion and logical truncation do not
    hide events from `$all`; hard deletion removes them and may make the visible head regress.
 5. Keep `SubscriptionCheckpointInventory.storePosition` and any authoritative
@@ -135,9 +140,27 @@ long-lived database snapshot.
    `readAllForward` and `readAllBackward` visibility.
 5. A deliberately failing decode hook does not affect the operation, proving that no event payload
    passes through the read or decode path.
-6. Both concrete pool interpreters and a mock `Store` interpreter expose the operation with the
-   same result semantics.
+6. The direct and resource-backed runners, both wrappers over the single `runStorePool` concrete
+   interpreter, and a mock `Store` interpreter expose the operation with the same result semantics.
 7. Haddocks and the reading-events or subscription guide contrast the visible head with
    `SubscriptionCheckpointInventory.storePosition` and include the hard-deleted-tail example.
-8. A downstream consumer can replace private SQL with the public operation and preserve tests for
-   empty, caught-up, genuinely behind, hard-deleted-tail, and timeout behavior.
+8. The production-statement EXPLAIN test selects `ux_stream_events_stream_version` without a
+   `Sort` node, using the existing schema and natural planner settings.
+
+## Implementation Evidence
+
+`Kiroku.Store.Read.visibleGlobalHeadPosition` dispatches
+`GetVisibleGlobalHeadPosition` through the public `Store` effect. `runStorePool` executes the
+payload-free `Kiroku.Store.SQL.visibleGlobalHeadPositionStmt`; both `runStoreIO` and
+`runStoreResource` reach that interpreter. The behavior and mock suites are
+`kiroku-store/test/Test/VisibleGlobalHeadPosition.hs` and
+`kiroku-store/test/Test/VisibleGlobalHeadPositionMock.hs`. The production-statement structural
+proof lives in `kiroku-store/test/Test/PerformanceStructure.hs`. No migration, index, dependency,
+or version bound changed.
+
+## Follow-up
+
+Publishing a `kiroku-store` release containing the API remains pending. After publication, Keiro
+should replace its temporary compatibility query and preserve its empty, caught-up, genuinely
+behind, hard-deleted-tail, and timeout tests under
+`mori://shinzui/keiro/plans/238-target-strong-consistency-waits-at-the-visible-store-head`.

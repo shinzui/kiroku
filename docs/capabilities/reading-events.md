@@ -1,7 +1,7 @@
 ---
 title: "Read streams, categories, and the global log"
 type: Capability
-description: "Read events forward or backward from a single stream, a category, or the totally ordered global $all log, including a constant-memory streaming read and batch surrogate-id resolution."
+description: "Read events forward or backward from a single stream, a category, or the totally ordered global $all log, including its payload-free visible head position, a constant-memory streaming read, and batch surrogate-id resolution."
 generated:
   by: anthropic/claude-sonnet-4.5
   at: "2026-08-08T00:00:00Z"
@@ -27,6 +27,9 @@ evidence:
   - kind: test
     resource: kiroku-store/test/Test/StreamNameLookup.hs
     proves: lookupStreamNames resolves batches of surrogate stream ids to names in a single round trip.
+  - kind: test
+    resource: kiroku-store/test/Test/VisibleGlobalHeadPosition.hs
+    proves: visibleGlobalHeadPosition returns the greatest surviving $all position without decoding payloads and follows hard-delete, soft-delete, and logical-truncation visibility.
   - kind: guide
     resource: docs/user/reading-events.md
     proves: The read API surface and the cursor conventions.
@@ -36,10 +39,11 @@ evidence:
 
 Read events by stream (`readStreamForward` / `readStreamBackward`), by category
 (`readCategory`), or across the totally ordered global log (`readAllForward` / `readAllBackward`).
-`readStreamForwardStream` is a Streamly companion that paginates internally for constant-memory
-folds over long streams. `getStream`, `lookupStreamId`, `lookupStreamNames`, and
-`eventExistsInStream` cover metadata and surrogate-id resolution. Reads run against an acquired
-store — see [store acquisition](store-acquisition.md).
+`visibleGlobalHeadPosition` returns the greatest position still visible in `$all`, or zero when no
+event remains, without loading an event payload. `readStreamForwardStream` is a Streamly companion
+that paginates internally for constant-memory folds over long streams. `getStream`,
+`lookupStreamId`, `lookupStreamNames`, and `eventExistsInStream` cover metadata and surrogate-id
+resolution. Reads run against an acquired store — see [store acquisition](store-acquisition.md).
 
 ## Usage
 
@@ -55,8 +59,8 @@ events <- readStreamForward (StreamName "order-42") (StreamVersion 1) 100
 - `RecordedEvent` deliberately carries no source stream name on fan-in reads (`$all`, categories,
   causation/correlation) — only the surrogate `originalStreamId`. Recover names with
   `lookupStreamNames`; carrying the name on every row cost ~13% on `$all` pages.
-- `GlobalPosition` is an opaque, strictly-increasing cursor: never construct one by arithmetic and
-  never assume density (`pos + 1` may not exist), even though the current implementation happens
-  to assign contiguous positions.
+- `GlobalPosition` is an opaque, strictly-increasing allocation cursor: never construct one by
+  arithmetic and never assume visible density (`pos + 1` may not exist). Allocation is monotonic,
+  while hard deletion can remove positions from the visible `$all` log.
 - Per-stream ordered reads hide events below a stream's truncate-before marker (CAP-9); the
   global `$all` log, categories, and subscriptions are unaffected.

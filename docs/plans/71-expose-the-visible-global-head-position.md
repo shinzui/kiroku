@@ -52,13 +52,18 @@ This section must always reflect the actual current state of the work.
 - [x] (2026-08-12T17:01:47Z) Milestone 2: added the production-statement EXPLAIN assertion and
       passed `just perf-structure` with 9 examples in 1.3277 seconds; the plan used
       `ux_stream_events_stream_version` and contained no `Sort`.
-- [ ] Milestone 3: update Haddocks, user guides, capability evidence, changelog, IR-4 status and
-      evidence, and the durable checkpoint terminology in ADR-4 and its bundle log.
-- [ ] Final validation: format the tree; run the focused store tests, structural performance gate,
-      full build and tests, capability/ADR/improvement-request validation, and record exact results
-      in this plan.
-- [ ] Completion: review the Decision Log, Surprises & Discoveries, and Outcomes & Retrospective;
-      finish the ADR distillation pass and update this plan's outcome.
+- [x] (2026-08-12T17:09:43Z) Milestone 3: updated Haddocks, user guides, capability evidence,
+      changelog, IR-4 status and evidence, and the durable checkpoint terminology in ADR-4 and all
+      three bundle logs.
+- [x] (2026-08-12T17:09:43Z) Final validation: formatted the tree; passed the 6-example focused
+      suite, 9-example structural suite, full build, all 385 tests across seven suites, final
+      aggregate performance gate, and strict capability/ADR/improvement-request validation.
+- [x] (2026-08-12T17:11:01Z) Final validation: inspected the complete 19-file change set;
+      `git diff --check` passed, the migration diff was empty, and the only Cabal change registered
+      the two new test modules without changing a dependency bound.
+- [x] (2026-08-12T17:11:01Z) Completion: reviewed the Decision Log, Surprises & Discoveries, and
+      Outcomes & Retrospective; distilled the durable frontier distinction into ADR-4 and
+      confirmed that no separate ADR was warranted.
 
 
 ## Surprises & Discoveries
@@ -80,6 +85,29 @@ implementation. Provide concise evidence.
   `ux_stream_events_stream_version` naturally for the production statement, with no `Sort` node;
   no planner setting or fixture adjustment was needed. Evidence: `just perf-structure` passed the
   named structural assertion as part of 9 examples in 1.3277 seconds.
+
+- Observation: The first aggregate performance run passed all structural checks but its unrelated
+  four-stream append workload measured the production pipeline at `0.92x` of control, just outside
+  the declared `0.90x` maximum. No source or threshold changed. A standalone rerun passed at
+  `0.87x` and `0.89x`, and the required final `just perf-check` passed at `0.84x` and `0.88x`.
+  Evidence:
+
+  ```text
+  first aggregate: production-pipeline-4 664 μs ± 54 μs, 0.92x (FAIL)
+  standalone retry: production-pipeline-4 0.87x; production-pipeline-8 0.89x (PASS)
+  final aggregate: production-pipeline-4 0.84x; production-pipeline-8 0.88x (PASS)
+  ```
+
+- Observation: `okf log add` warned that each named concept was not found even though it wrote the
+  requested entry. The subsequent strict profile-and-log validations recognized all documents and
+  passed with 20 capabilities, 5 ADRs, and 4 improvement requests. The repository's existing
+  `mori.dhall` semantic-hash drift also remained a non-failing warning from `mori validate`; this
+  plan did not rewrite the dependency registry descriptor.
+
+- Observation: `mori path mori://shinzui/kiroku/plans/71-expose-the-visible-global-head-position`
+  did not yet resolve after the plan was committed. Mori's plan-artifact coverage or registry view
+  lags this newly added file, so the implementation request retains the intended canonical URI as
+  required instead of replacing it with ambiguous shorthand.
 
 
 ## Decision Log
@@ -162,6 +190,15 @@ Record every decision made while working on the plan.
   gate policy.
   Date: 2026-08-12.
 
+- Decision: Keep the controlled append workload gate unchanged after its first borderline failure,
+  rerun it without source edits, and require a fresh aggregate `just perf-check` pass before
+  completion.
+  Rationale: this feature adds a read-only statement and does not touch append execution, the first
+  sample still measured production faster than control, and weakening the declared `0.90x` gate or
+  accepting a failed aggregate would contradict ADR-5. The standalone retry and final aggregate
+  both passed the original threshold for the four- and eight-stream workloads.
+  Date: 2026-08-12.
+
 
 ## Outcomes & Retrospective
 
@@ -170,13 +207,31 @@ Compare the result against the original purpose. Before marking the plan complet
 distill durable project context from the Decision Log, Surprises & Discoveries, and
 this section into docs/adr/. Keep task-local execution details here.
 
-Milestones 1 and 2 delivered the public effectful scalar API and its exact production SQL, with
-behavioral proof that it diverges from the append frontier only when hard deletion removes the
-visible tail. The focused suite also proved that the scalar path supports both public runner
-shapes, is mockable, and never invokes event decoding. The structural performance suite selected
-the existing unique `(stream_id, stream_version)` index without a `Sort`. Documentation, durable
-ADR terminology, bundle updates, and the full validation matrix remain for Milestone 3 and final
-completion.
+The implementation now exposes `visibleGlobalHeadPosition` through the public, mockable `Store`
+effect and both public runner shapes. Its scalar statement returns zero for an empty store, follows
+the visibility of surviving `$all` junctions across soft deletion, logical truncation, and hard
+deletion, and never reads or decodes an event payload. The focused suite passed 6 examples in
+0.7178 seconds. The production EXPLAIN gate repeatedly selected
+`ux_stream_events_stream_version` with no `Sort`; the final structural run passed 9 examples in
+1.4617 seconds.
+
+The public documentation now distinguishes the authoritative append frontier from the potentially
+regressing visible head. ADR-4 durably records why `FromCurrentHead` continues to seed the former,
+and the changelog identifies the exported GADT constructor as source-breaking. CAP-4, CAP-20, and
+IR-4 use the same terminology; IR-4 is implemented locally while publication and downstream Keiro
+adoption remain explicitly pending.
+
+`just build` built every component successfully. `just test` passed 385 examples across seven
+suites with zero failures: codd-extras 10, kiroku-store-migrations 10, kiroku-otel 17, kiroku-cli
+22, kiroku-metrics 20, shibuya-kiroku-adapter 30, and kiroku-store 276 (the store suite completed in
+52.4308 seconds). The final `just perf-check` passed the 9-example structural tier and all 4
+controlled-workload tests in 21.35 seconds, with production/control ratios of `0.84x` and `0.88x`.
+Strict validation passed for 20 capability concepts, 5 ADR concepts, and 4 improvement-request
+concepts. No new ADR, migration, dependency, runtime configuration, or package version was needed.
+The final audit covered 19 files, `git diff --check` exited zero, the migration diff was empty, and
+the Cabal diff contained only the two new test-module registrations. The remaining work—package
+publication and adoption by Keiro—is an explicit downstream follow-up rather than an incomplete
+part of this plan.
 
 
 ## Context and Orientation
@@ -630,3 +685,9 @@ external service, migration, or runtime configuration.
   isolation, and mock-dispatch proofs after the focused 6-example test run passed.
 - 2026-08-12T17:01:47Z: Recorded the completed structural performance gate and the natural
   index-backed, no-sort plan selected by PostgreSQL.
+- 2026-08-12T17:09:43Z: Recorded the completed documentation and ADR milestone, all repository and
+  bundle validation evidence, and the transient controlled-workload result that passed unchanged
+  on retry and in the final aggregate gate.
+- 2026-08-12T17:11:01Z: Marked the plan complete after the final file-set, migration, dependency,
+  trailer, formatting, and whitespace audits passed and the ADR distillation remained scoped to
+  ADR-4.

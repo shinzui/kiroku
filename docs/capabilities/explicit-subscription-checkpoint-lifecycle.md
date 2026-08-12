@@ -25,7 +25,7 @@ evidence:
     proves: All three missing-checkpoint policies, existing-row precedence, member isolation, and concurrent initialization convergence against PostgreSQL.
   - kind: test
     resource: kiroku-store/test/Test/SubscriptionCheckpointWorker.hs
-    proves: Real workers form a clean future-only cut at an atomically seeded current head across native, Effectful, Streamly, and consumer-group entry points.
+    proves: Real workers form a clean future-only cut at an atomically seeded authoritative current append frontier across native, Effectful, Streamly, and consumer-group entry points.
   - kind: test
     resource: kiroku-store/test/Test/SubscriptionCheckpointReset.hs
     proves: Exact sorted reset evidence, missing-name reporting, application-write rollback under Tx.condemn, explicit rewind, and ordinary-save monotonicity.
@@ -51,8 +51,10 @@ reviews:
 
 Choose what an absent exact `(subscription name, consumer-group member)` checkpoint means before a
 worker can deliver an event. `FromBeginning` durably seeds zero, `FromCurrentHead` atomically seeds
-the current `$all` position, and `FailIfMissing` refuses startup with a typed failure. Existing rows
-always win, so changing policy is never an implicit reset.
+the authoritative current append frontier, and `FailIfMissing` refuses startup with a typed
+failure. Existing rows always win, so changing policy is never an implicit reset. The
+`FromCurrentHead` boundary remains monotonic after hard deletion and is distinct from the
+potentially regressing visible global head used for reachability.
 
 For coordinated projection rebuilds, `resetSubscriptionCheckpointsTx` assigns one exact position to
 every persisted member of a non-empty subscription-name set and returns sorted affected keys plus

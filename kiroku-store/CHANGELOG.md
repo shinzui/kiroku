@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Breaking Changes
+
+* The exported `Store` effect gains `GetVisibleGlobalHeadPosition`. Exhaustive
+  custom and mock interpreters must handle the new constructor.
+
+### New Features
+
+* `Kiroku.Store.Read.visibleGlobalHeadPosition` returns the greatest global
+  position still visible in `$all`, or zero when no event remains, through a
+  payload-free scalar query. Hard deletion of the visible tail can make the
+  result regress while the authoritative append frontier remains monotonic; no
+  event payload is read and the configured decode hook is not invoked.
+
 ## 0.5.0.0 — 2026-08-11
 
 ### Breaking Changes

@@ -8,7 +8,7 @@ generated:
 docId: ADR-4
 status: Accepted
 date: 2026-08-11
-timestamp: "2026-08-11T15:37:12Z"
+timestamp: "2026-08-12T17:03:14Z"
 ---
 
 # ADR-0004: Subscription checkpoint initialization is explicit and reset is a separate transaction operation
@@ -30,19 +30,31 @@ Coordinating projection libraries also need to rewind several declared subscript
 transaction as their own fence and target preparation. If they issue private SQL, Kiroku loses
 ownership of its schema and an update that affects no rows can be mistaken for success.
 
+The reserved `$all` stream row records the authoritative append frontier: the greatest global
+position allocated so far. Hard deletion can remove the event and `$all` junction at that position
+without reducing the frontier. Kiroku therefore also exposes `visibleGlobalHeadPosition`, a
+separate statement-time reachability observation of the greatest surviving `$all` junction. That
+visible head can regress; the authoritative append frontier cannot.
+
 ## Decision
 
 Resolve every worker's exact checkpoint key before `Started` or handler delivery through a closed
 `MissingCheckpointPolicy`:
 
 - `FromBeginning` inserts global position zero;
-- `FromCurrentHead` reads and inserts the current `$all` position in the same atomic database
-  boundary; and
+- `FromCurrentHead` reads and inserts the authoritative current append frontier in the same atomic
+  database boundary; and
 - `FailIfMissing` inserts nothing and returns a typed terminal startup failure.
 
 An existing row always wins for all policies. Concurrent initializers converge on the first
 committed row. Each consumer-group member resolves independently; Kiroku never infers or creates
 group topology from another member.
+
+`FromCurrentHead` deliberately does not use `visibleGlobalHeadPosition`. A future-only worker must
+skip every position allocated before initialization, including positions already removed by hard
+deletion, so it seeds the authoritative frontier. Callers that need a currently reachable wait or
+backlog target may observe the visible head separately, but that separate statement does not share
+the initialization transaction's snapshot.
 
 Keep ordinary handler-driven checkpoint saves monotonic with `GREATEST(existing, requested)`.
 Expose intentional position reassignment only as the separately named
@@ -58,8 +70,10 @@ with application-owned SQL.
 
 - Replayable, future-only, and pre-provisioned workers state their different safety intentions
   explicitly.
-- Atomic current-head seeding makes every racing append either part of the durable seed or eligible
-  for later delivery; there is no head-read/insert gap.
+- Atomic authoritative-frontier seeding makes every racing append either part of the durable seed
+  or eligible for later delivery; there is no frontier-read/insert gap.
+- The separate visible-head API lets reachability-oriented callers avoid waiting on a
+  hard-deleted tail without weakening the future-only initialization boundary.
 - Existing-row precedence prevents configuration changes from becoming accidental rewinds or
   fast-forwards.
 - Reset reports every affected or absent identity and preserves Kiroku's ownership of the
@@ -71,6 +85,8 @@ with application-owned SQL.
   breaking source-compatibility cycle and updates to exhaustive record literals/interpreters.
 - `FromBeginning` remains the compatibility default, so safety still depends on new services
   selecting a deliberate policy.
+- The visible head is a separate statement-time observation and may regress after it is returned;
+  it is not an atomic substitute for the frontier captured during `FromCurrentHead` initialization.
 - Reset is destructive and intentionally bypasses normal monotonicity; callers must validate its
   report and condemn their surrounding transaction when missing names violate their contract.
 
