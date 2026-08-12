@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0.1 — 2026-08-12
+
+### Other Changes
+
+* Requires `kiroku-store ^>=0.6`, whose exported `Store` effect now offers the
+  visible global head position read. No `shibuya-kiroku-adapter` API or runtime
+  behavior changed.
+
 ## 0.5.0.0 — 2026-08-11
 
 ### Breaking Changes

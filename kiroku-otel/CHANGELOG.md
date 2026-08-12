@@ -1,5 +1,13 @@
 # kiroku-otel changelog
 
+## 0.2.0.4 — 2026-08-12
+
+### Other Changes
+
+* Requires `kiroku-store ^>=0.6`, whose exported `Store` effect now offers the
+  visible global head position read. No `kiroku-otel` API or runtime behavior
+  changed.
+
 ## 0.2.0.3 — 2026-08-11
 
 ### Other Changes
