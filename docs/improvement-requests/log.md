@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-08-12
+* **Addition**: IR-4 requests a public payload-free visible global head, distinct from the monotonic append frontier, so Keiro can remove private Kiroku SQL after the owning API is released.
+
 ## 2026-08-11
 * **Implementation**: IR-3 is implemented in repository source with explicit atomic startup policies, typed refusal telemetry, exact transactional reset, and full acceptance evidence; downstream release remains pending.
 
