@@ -53,6 +53,15 @@ queryPlanSpec :: Spec
 queryPlanSpec =
     describe "production query plans" $
         aroundAll withQueryPlanStore $ do
+            it "visible global head lookup uses ux_stream_events_stream_version without Sort" $ \store -> do
+                plan <-
+                    explainProductionStatement
+                        store
+                        SQL.visibleGlobalHeadPositionStmt
+                        []
+                expectIndex "ux_stream_events_stream_version" plan
+                expectNoNodeType "Sort" plan
+
             it "category high-cursor reads use ix_stream_events_all_by_origin" $ \store -> do
                 plan <-
                     explainProductionStatement

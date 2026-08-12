@@ -49,8 +49,9 @@ This section must always reflect the actual current state of the work.
       inventory unchanged; the focused run passed 6 examples in 0.7178 seconds.
 - [x] (2026-08-12T17:00:09Z) Milestone 2: proved soft-delete and logical-truncation visibility,
       decode-hook isolation, and one-call mock dispatch.
-- [ ] Milestone 2: add a production-statement EXPLAIN assertion for the existing unique index with
-      no `Sort`, then run the structural performance gate.
+- [x] (2026-08-12T17:01:47Z) Milestone 2: added the production-statement EXPLAIN assertion and
+      passed `just perf-structure` with 9 examples in 1.3277 seconds; the plan used
+      `ux_stream_events_stream_version` and contained no `Sort`.
 - [ ] Milestone 3: update Haddocks, user guides, capability evidence, changelog, IR-4 status and
       evidence, and the durable checkpoint terminology in ADR-4 and its bundle log.
 - [ ] Final validation: format the tree; run the focused store tests, structural performance gate,
@@ -74,6 +75,11 @@ implementation. Provide concise evidence.
   Test.VisibleGlobalHeadPositionMock.hs:8:27:
     Module ‘Kiroku.Store.Read’ does not export ‘visibleGlobalHeadPosition’.
   ```
+
+- Observation: The shared 20,000-event fixture made PostgreSQL select
+  `ux_stream_events_stream_version` naturally for the production statement, with no `Sort` node;
+  no planner setting or fixture adjustment was needed. Evidence: `just perf-structure` passed the
+  named structural assertion as part of 9 examples in 1.3277 seconds.
 
 
 ## Decision Log
@@ -164,7 +170,13 @@ Compare the result against the original purpose. Before marking the plan complet
 distill durable project context from the Decision Log, Surprises & Discoveries, and
 this section into docs/adr/. Keep task-local execution details here.
 
-(To be filled during and after implementation.)
+Milestones 1 and 2 delivered the public effectful scalar API and its exact production SQL, with
+behavioral proof that it diverges from the append frontier only when hard deletion removes the
+visible tail. The focused suite also proved that the scalar path supports both public runner
+shapes, is mockable, and never invokes event decoding. The structural performance suite selected
+the existing unique `(stream_id, stream_version)` index without a `Sort`. Documentation, durable
+ADR terminology, bundle updates, and the full validation matrix remain for Milestone 3 and final
+completion.
 
 
 ## Context and Orientation
@@ -616,3 +628,5 @@ external service, migration, or runtime configuration.
   missing-symbol compile failure before production implementation.
 - 2026-08-12T17:00:09Z: Recorded the completed scalar API, lifecycle behavior, runner, decode
   isolation, and mock-dispatch proofs after the focused 6-example test run passed.
+- 2026-08-12T17:01:47Z: Recorded the completed structural performance gate and the natural
+  index-backed, no-sort plan selected by PostgreSQL.
