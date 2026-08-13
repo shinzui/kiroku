@@ -8,15 +8,15 @@ description: >-
 generated:
   by: openai/gpt-5
   at: "2026-08-13T18:52:50Z"
-timestamp: "2026-08-13T18:52:50Z"
+timestamp: "2026-08-13T20:32:58Z"
 requestId: IR-5
 status: proposed
 origin: mori://shinzui/keiro
 reviews:
   - kind: model
     reviewer: codex
-    reviewed_at: "2026-08-13T18:52:50Z"
-    document_timestamp: "2026-08-13T18:52:50Z"
+    reviewed_at: "2026-08-13T20:32:58Z"
+    document_timestamp: "2026-08-13T20:32:58Z"
     scope: technical-accuracy
     outcome: approved
     provider: openai
@@ -24,12 +24,13 @@ reviews:
     effort: unspecified
     context: >-
       Reviewed against the Kiroku checkpoint inventory, checkpoint SQL, native migration schema,
-      and Keiro MasterPlan 41. Kiroku publishes the durable inventory through its Haskell Store
-      effect, but it has no stable SQL relation; a downstream persisted view would otherwise have
-      to reference the private subscriptions table and become coupled to Kiroku's internal DDL.
+      pg-migrate 1.1.0.0 source and PostgreSQL ordinary-view behavior. The request is sound after
+      specifying semantic non-null values, a structurally read-only owner-rights view, and a
+      focused Kiroku catalog test instead of treating ledger verification as live-schema
+      verification.
 verified:
   by: process:codex
-  at: "2026-08-13T18:52:50Z"
+  at: "2026-08-13T20:32:58Z"
 ---
 
 # Improvement Request: Publish a Stable SQL Subscription Checkpoint Relation
@@ -45,6 +46,13 @@ That artifact handle is intended and awaits a Keiro registry refresh; the produc
 Keiro needs this relation before it can publish a durable SQL status contract for out-of-process
 projection readers. The request is independently useful to database-native monitoring and
 coordination tools that cannot call Kiroku's Haskell `Store` effect.
+
+The technical review has reconciled two PostgreSQL and pg-migrate constraints before source
+implementation. An ordinary view returns non-null values from Kiroku's constrained base columns,
+but PostgreSQL reports those view columns as nullable in generic catalog metadata. Also,
+`pg-migrate verify` compares the declared migration plan with its ledger; it deliberately does not
+inspect live schema objects. The acceptance contract below therefore requires semantic non-null
+values plus a focused Kiroku-owned catalog test.
 
 
 ## Context
@@ -81,27 +89,49 @@ writes into a Keiro table would add a second cursor authority that can drift.
 ## Requested Change
 
 Publish a Kiroku-owned, read-only, versioned SQL relation for exact durable checkpoint-member
-facts. The requested v1 contract is equivalent to:
+facts. The requested v1 contract uses this structurally read-only form:
 
 ```sql
-CREATE VIEW kiroku.subscription_checkpoints_v1 AS
+CREATE VIEW kiroku.subscription_checkpoints_v1
+    (subscription_name,
+     consumer_group_member,
+     checkpoint_position,
+     checkpoint_updated_at)
+WITH (security_invoker = false)
+AS
+WITH checkpoint_rows AS NOT MATERIALIZED (
+    SELECT subscription_name,
+           consumer_group_member,
+           last_seen AS checkpoint_position,
+           updated_at AS checkpoint_updated_at
+    FROM kiroku.subscriptions
+)
 SELECT subscription_name,
        consumer_group_member,
-       last_seen AS checkpoint_position,
-       updated_at AS checkpoint_updated_at
-FROM kiroku.subscriptions;
+       checkpoint_position,
+       checkpoint_updated_at
+FROM checkpoint_rows;
 ```
 
-The definition is illustrative, not the contract. Kiroku may change the private source table or
-replace the view body without affecting clients. The supported v1 contract is the relation name
-and these columns in this exact order:
+The top-level common-table expression, which is a named query inside the view, makes the view
+non-updatable even to its owner. `NOT MATERIALIZED` lets PostgreSQL fold that query into a caller's
+query so subscription-name predicates can still use the private table's existing index.
+`security_invoker = false` explicitly uses the view owner's base-table privileges. Kiroku may
+change the private source table or replace the view body without affecting clients. The supported
+v1 contract is the relation name and these columns in this exact order:
 
 ```text
-subscription_name       text        not null
-consumer_group_member   integer     not null
-checkpoint_position     bigint      not null
-checkpoint_updated_at   timestamptz not null
+subscription_name       text        semantically non-null
+consumer_group_member   integer     semantically non-null
+checkpoint_position     bigint      semantically non-null
+checkpoint_updated_at   timestamptz semantically non-null
 ```
+
+The source columns are constrained `NOT NULL` and fixture rows must decode every field with
+non-null decoders. PostgreSQL nevertheless reports ordinary-view columns with
+`pg_attribute.attnotnull = false` and `information_schema.columns.is_nullable = YES`. That catalog
+behavior is part of the documented v1 integration contract rather than a reason to introduce a
+materialized copy or a second checkpoint authority.
 
 The relation has one row per persisted checkpoint member. It returns no synthetic row for an
 empty inventory. A consumer that needs a subscription-wide floor calculates
@@ -109,10 +139,13 @@ empty inventory. A consumer that needs a subscription-wide floor calculates
 names and member set it expects. The relation does not claim that member zero distinguishes a
 non-group subscription from member zero of a group.
 
-Ship the relation through `kiroku-store-migrations` so pg-migrate owns its lifecycle and the
-expected-schema verifier detects its absence or incompatible shape. Add SQL `COMMENT` text to the
-relation and every column documenting the exact semantics. If the current verifier does not
-inspect views and ordered view columns, extend its checked object classes in the same change.
+Ship the relation through `kiroku-store-migrations` so pg-migrate owns its lifecycle. Keep
+`pg-migrate verify` as strict plan-versus-ledger verification. Add a focused migration-package
+test which queries PostgreSQL catalogs and fails if the relation is absent or its kind, ordered
+columns, types, catalog nullability, security option, read-only status, owner relationship, or
+comments drift. Do not restore the retired Codd expected-schema snapshot system or add a
+production runtime schema verifier. Add SQL `COMMENT` text to the relation and every column
+documenting the exact semantics.
 
 Freeze v1. Do not use an open-ended “additive columns may appear” promise. A future incompatible
 or extended row contract receives a separately named relation such as
@@ -172,7 +205,8 @@ owner-published checkpoint relation.
 ## Acceptance
 
 1. A freshly migrated database contains `kiroku.subscription_checkpoints_v1` with exactly the
-   documented v1 columns, types, order, and nullability.
+   documented v1 columns, types, and order. Fixture values decode as non-null, while ordinary-view
+   catalog metadata is explicitly asserted and documented as nullable.
 2. An empty checkpoint inventory returns zero rows.
 3. Saving a non-group checkpoint produces the exact name, member zero, persisted position, and
    update timestamp.
@@ -184,19 +218,22 @@ owner-published checkpoint relation.
    deliberate regression, and is invisible if the surrounding transaction rolls back.
 7. A database role granted only schema usage plus view selection can query the relation but cannot
    select the private checkpoint table.
-8. The migration and expected-schema verifier detect a missing view, renamed column, reordered or
-   retyped column, and changed nullability.
+8. A focused migration-package catalog test detects a missing view, renamed, reordered or retyped
+   columns, catalog-nullability drift, changed security or read-only mode, owner divergence, and
+   changed comments. `pg-migrate verify` remains plan-versus-ledger verification.
 9. Kiroku user documentation states the frozen v1 compatibility promise and distinguishes this
    SQL relation from the Haskell inventory and live worker registry.
 10. A downstream fixture can create a persisted view that joins
     `kiroku.subscription_checkpoints_v1`, migrate Kiroku forward, and retain a valid dependency
     without referencing `kiroku.subscriptions`.
+11. At 10,000 mixed checkpoint rows, a subscription-name-filtered aggregate through the public
+    relation uses `ix_subscriptions_name_member` and contains no materialized common-table scan.
 
 
 ## Requested Deliverables
 
 - A native `kiroku-store-migrations` migration for the view and comments.
-- Expected-schema and migration-fixture coverage for views and ordered columns.
+- Focused catalog-contract and migration-fixture coverage for the view and ordered columns.
 - Real PostgreSQL semantic and least-privilege tests.
 - User documentation with explicit v1 compatibility and grants examples.
 - Changelog entries identifying the new supported SQL contract.

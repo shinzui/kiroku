@@ -56,8 +56,9 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] Milestone 1: reconcile IR-5's catalog-nullability and verifier language, add the forward
-  `0009` migration, and make the native migration suite assert the frozen relation contract.
+- [x] (2026-08-13T20:37:07Z) Milestone 1: reconciled IR-5's catalog-nullability and verifier
+  language, added the forward `0009` migration, and made the native migration suite assert the
+  frozen relation contract. The manifest check and all 11 migration examples pass.
 - [ ] Milestone 2: prove durable value semantics, read-only privilege isolation, downstream-view
   dependency survival, and index-preserving query behavior against real PostgreSQL.
 - [ ] Milestone 3: publish the compatibility and privilege contract in user documentation,
@@ -134,7 +135,11 @@ Compare the result against the original purpose. Before marking the plan complet
 distill durable project context from the Decision Log, Surprises & Discoveries, and
 this section into docs/adr/. Keep task-local execution details here.
 
-(To be filled during and after implementation.)
+Milestone 1 published the nine-entry native migration plan and the frozen
+`kiroku.subscription_checkpoints_v1` catalog contract without changing pg-migrate's verifier or
+the seven-entry legacy lock. The full migration package suite passes 11 examples, including fresh,
+rerun, concurrent, and both Codd-ledger import shapes. Behavioral, privilege, dependency, and
+query-plan proofs remain for Milestone 2.
 
 
 ## Context and Orientation
@@ -639,3 +644,10 @@ The downstream dependency remains
 Its current registry cannot yet resolve that MasterPlan handle, but the producing Keiro repository
 defines that exact intended canonical URI; do not replace it with an absolute path or bare plan
 number.
+
+
+## Revision Note
+
+2026-08-13T20:37:07Z: Recorded Milestone 1 completion after generating `0009.sql`, correcting
+IR-5's PostgreSQL catalog and verifier contract, and passing the manifest check plus all 11 native
+migration examples. The remaining milestones and release authorization boundary are unchanged.

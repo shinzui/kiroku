@@ -6,3 +6,4 @@
 0006-stream-name-length-check.sql
 0007-stream-truncate-before.sql
 0008-schema-management-comment.sql
+0009.sql

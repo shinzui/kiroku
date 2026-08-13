@@ -39,7 +39,7 @@ import Test.Hspec
 main :: IO ()
 main = hspec $ do
     describe "native Kiroku migration definition" $ do
-        it "tracks the eight native files in manifest order" $ do
+        it "tracks the nine native files in manifest order" $ do
             directory <- findMigrationsDirectory
             manifest <- Text.lines <$> Text.IO.readFile (directory </> "manifest")
             manifest `shouldBe` Text.pack <$> nativeMigrationFiles
@@ -52,7 +52,7 @@ main = hspec $ do
                 bytes <- ByteString.readFile (directory </> nativeName)
                 lookup legacyName lockEntries `shouldBe` Just (checksumText bytes)
 
-        it "builds component kiroku and an eight-migration plan" $ do
+        it "builds component kiroku and a nine-migration plan" $ do
             component <- requireRight kirokuMigrations
             component `seq` pure ()
             plan <- requirePlan
@@ -62,7 +62,7 @@ main = hspec $ do
                     ]
             validateHistoryMappingTargets plan kirokuCoddHistoryMappings
                 `shouldBe` Right ()
-            length targetIds `shouldBe` 8
+            length targetIds `shouldBe` length nativeMigrationFiles
 
     describe "native migration authoring" $ do
         it "creates the next numeric file and atomically appends the manifest" $
@@ -88,18 +88,18 @@ main = hspec $ do
                     `shouldReturn` "0007-existing.sql\n"
 
     describe "fresh native databases" $ do
-        it "applies all eight, verifies strictly, and reports AlreadyApplied on rerun" $ do
+        it "applies all nine, verifies strictly, and reports AlreadyApplied on rerun" $ do
             plan <- requirePlan
             result <- withMigratedDatabase plan $ \connection -> do
                 assertSchema connection
                 let provider = providerFor connection
                 rerun <- runMigrationPlanWith defaultRunOptions provider plan >>= requireMigration
-                reportOutcomes rerun `shouldBe` replicate 8 AlreadyApplied
+                reportOutcomes rerun `shouldBe` replicate (length nativeMigrationFiles) AlreadyApplied
                 verified <- verifyMigrationPlanWith defaultRunOptions provider plan >>= requireMigration
                 case verified of
                     VerificationReport verificationIssues applied _ _ -> do
                         verificationIssues `shouldBe` []
-                        length applied `shouldBe` 8
+                        length applied `shouldBe` length nativeMigrationFiles
             either (expectationFailure . show) pure result
 
         it "serializes concurrent applies through the pg-migrate advisory lock" $ do
@@ -111,7 +111,52 @@ main = hspec $ do
                         (runMigrationPlan defaultRunOptions settings plan >>= requireMigration)
                         (runMigrationPlan defaultRunOptions settings plan >>= requireMigration)
                 sort [reportOutcomes first, reportOutcomes second]
-                    `shouldBe` sort [replicate 8 AppliedNow, replicate 8 AlreadyApplied]
+                    `shouldBe` sort
+                        [ replicate (length nativeMigrationFiles) AppliedNow
+                        , replicate (length nativeMigrationFiles) AlreadyApplied
+                        ]
+
+    describe "subscription checkpoint SQL relation" $ do
+        it "publishes the frozen ordinary-view catalog contract" $ do
+            plan <- requirePlan
+            result <- withMigratedDatabase plan $ \connection -> do
+                relation <- useSession connection (Session.statement () relationCatalogStatement)
+                relation
+                    `shouldBe` ( "v"
+                               , "security_invoker=false"
+                               , True
+                               , "NO"
+                               , "NO"
+                               , "Stable read-only v1 relation of exact persisted subscription-member checkpoints; its columns and order are frozen, and its rows are unordered unless the caller supplies ORDER BY."
+                               )
+                columns <- useSession connection (Session.statement () relationColumnsStatement)
+                columns
+                    `shouldBe` [
+                                   ( "subscription_name"
+                                   , "text"
+                                   , False
+                                   , "Persisted subscription name; member zero does not distinguish a non-group subscription from member zero of a consumer group."
+                                   )
+                               ,
+                                   ( "consumer_group_member"
+                                   , "integer"
+                                   , False
+                                   , "Persisted consumer-group member key; member zero carries no topology classification."
+                                   )
+                               ,
+                                   ( "checkpoint_position"
+                                   , "bigint"
+                                   , False
+                                   , "Exact persisted global position for this subscription member; an explicit reset may move it backward or forward."
+                                   )
+                               ,
+                                   ( "checkpoint_updated_at"
+                                   , "timestamp with time zone"
+                                   , False
+                                   , "Time of the latest checkpoint-row upsert; it does not imply position advancement or worker liveness."
+                                   )
+                               ]
+            either (expectationFailure . show) pure result
 
     describe "Codd history import" $ do
         it "imports a current codd V5 ledger, verifies, and never replays SQL" $
@@ -155,20 +200,23 @@ importFixture sourceSchema = do
             importCoddHistory defaultImportOptions config provider plan kirokuCoddHistoryMappings
                 >>= requireRight
         importOutcomes first `shouldBe` replicate 7 Imported
-        canaryId <- requireRight (migrationId "kiroku" "0008-schema-management-comment")
+        pendingIds <-
+            traverse
+                (requireRight . migrationId "kiroku")
+                ["0008-schema-management-comment", "0009"]
         verifiedBeforeCanary <- verifyMigrationPlan defaultRunOptions settings plan >>= requireMigration
         case verifiedBeforeCanary of
             VerificationReport verificationIssues _ _ _ ->
                 verificationIssues
-                    `shouldBe` [PendingMigration canaryId]
+                    `shouldBe` (PendingMigration <$> pendingIds)
         up <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
-        reportOutcomes up `shouldBe` replicate 7 AlreadyApplied <> [AppliedNow]
+        reportOutcomes up `shouldBe` replicate 7 AlreadyApplied <> replicate 2 AppliedNow
         verifiedAfterCanary <- verifyMigrationPlan defaultRunOptions settings plan >>= requireMigration
         case verifiedAfterCanary of
             VerificationReport verificationIssues _ _ _ ->
                 verificationIssues `shouldBe` []
         rerun <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
-        reportOutcomes rerun `shouldBe` replicate 8 AlreadyApplied
+        reportOutcomes rerun `shouldBe` replicate (length nativeMigrationFiles) AlreadyApplied
         second <-
             importCoddHistory defaultImportOptions config provider plan kirokuCoddHistoryMappings
                 >>= requireRight
@@ -178,7 +226,7 @@ importFixture sourceSchema = do
             sourceRows <- useSession connection (Session.statement () (sourceRowCountStatement sourceSchema))
             sourceRows `shouldBe` 7
             facts <- useSession connection (Session.statement () importFactsStatement)
-            facts `shouldBe` (8, 7, True)
+            facts `shouldBe` (fromIntegral (length nativeMigrationFiles), 7, True)
 
 nativeMigrationFiles :: [FilePath]
 nativeMigrationFiles =
@@ -190,6 +238,7 @@ nativeMigrationFiles =
     , "0006-stream-name-length-check.sql"
     , "0007-stream-truncate-before.sql"
     , "0008-schema-management-comment.sql"
+    , "0009.sql"
     ]
 
 findMigrationsDirectory :: IO FilePath
@@ -319,6 +368,71 @@ oversizedStreamStatement =
         "INSERT INTO kiroku.streams (stream_name, stream_version) VALUES ($1, 0)"
         (Encoders.param (Encoders.nonNullable Encoders.text))
         Decoders.noResult
+
+relationCatalogStatement :: Statement () (Text, Text, Bool, Text, Text, Text)
+relationCatalogStatement =
+    Statement.preparable
+        """
+        SELECT c.relkind::text,
+               COALESCE(array_to_string(c.reloptions, ','), ''),
+               c.relowner = source.relowner,
+               view_contract.is_updatable::text,
+               view_contract.is_insertable_into::text,
+               pg_catalog.obj_description(c.oid, 'pg_class')
+        FROM pg_catalog.pg_class AS c
+        JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+        JOIN pg_catalog.pg_class AS source
+          ON source.oid = to_regclass('kiroku.subscriptions')
+        JOIN information_schema.views AS view_contract
+          ON view_contract.table_schema = n.nspname
+         AND view_contract.table_name = c.relname
+        WHERE n.nspname = 'kiroku'
+          AND c.relname = 'subscription_checkpoints_v1'
+        """
+        Encoders.noParams
+        ( Decoders.singleRow
+            ( (,,,,,)
+                <$> column Decoders.text
+                <*> column Decoders.text
+                <*> column Decoders.bool
+                <*> column Decoders.text
+                <*> column Decoders.text
+                <*> column Decoders.text
+            )
+        )
+  where
+    column = Decoders.column . Decoders.nonNullable
+
+relationColumnsStatement :: Statement () [(Text, Text, Bool, Text)]
+relationColumnsStatement =
+    Statement.preparable
+        """
+        SELECT attribute.attname::text,
+               pg_catalog.format_type(attribute.atttypid, attribute.atttypmod),
+               attribute.attnotnull,
+               pg_catalog.col_description(relation.oid, attribute.attnum)
+        FROM pg_catalog.pg_class AS relation
+        JOIN pg_catalog.pg_namespace AS namespace
+          ON namespace.oid = relation.relnamespace
+        JOIN pg_catalog.pg_attribute AS attribute
+          ON attribute.attrelid = relation.oid
+        WHERE namespace.nspname = 'kiroku'
+          AND relation.relname = 'subscription_checkpoints_v1'
+          AND attribute.attnum > 0
+          AND NOT attribute.attisdropped
+        ORDER BY attribute.attnum
+        """
+        Encoders.noParams
+        ( Decoders.rowList
+            ( (,,,)
+                <$> column Decoders.text
+                <*> column Decoders.text
+                <*> column Decoders.bool
+                <*> column Decoders.text
+            )
+        )
+  where
+    column = Decoders.column . Decoders.nonNullable
 
 applyNativeSqlFromDisk :: Connection.Connection -> FilePath -> IO ()
 applyNativeSqlFromDisk connection directory =
