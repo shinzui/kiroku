@@ -29,6 +29,7 @@ import Data.UUID qualified as UUID
 import GHC.Generics (Generic)
 import Hasql.Errors qualified as Errors
 import Hasql.Pool (UsageError (..))
+import Kiroku.Store.HistoryRetention.Types (HistoryRetentionConflict)
 import Kiroku.Store.Types
 
 {- | Errors that can occur during store operations.
@@ -69,6 +70,10 @@ data StoreError
       EmptyAppendBatch !StreamName
     | -- | The named stream does not exist (or has been soft-deleted).
       StreamNotFound !StreamName
+    | {- | A supported hard delete found one or more active replay-history
+      retention leases and committed no destructive work.
+      -}
+      HistoryRetentionActive !StreamName !HistoryRetentionConflict
     | {- | The named stream is reserved for store internals and cannot be
       used as an application stream target. For now this applies only
       to @$all@, which is the global read stream backed by the seeded

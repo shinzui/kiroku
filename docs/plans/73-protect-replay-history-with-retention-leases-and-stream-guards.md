@@ -68,8 +68,10 @@ This section must always reflect the actual current state of the work.
       transaction algorithms, prepared SQL, public module, and focused tests. The 2 selected
       migration catalog examples and all 7 focused store examples passed before the full
       18-example migration-suite milestone gate also passed.
-- [ ] Milestone 2: add mockable `Store` operations, structured lease observability, and typed
-      hard-delete conflicts on top of the same lease implementation.
+- [x] (2026-08-13T21:38:15Z) Milestone 2: added all five mockable `Store` operations,
+      post-commit observability without reason text, and typed supported hard-delete conflicts on
+      the shared transaction implementation. All 10 focused retention/mock examples and all 10
+      pre-existing hard-delete examples pass after formatting.
 - [ ] Milestone 3: add the transaction-scoped stream-history guard and make supported hard delete
       pre-lock every stream whose history it can change.
 - [ ] Milestone 4: complete concurrency, raw-SQL defense, rollback, deadlock, performance,
@@ -227,6 +229,14 @@ bounded inputs, captures the authoritative frontier with database time, preserve
 renew/release transitions, derives inventory state, and safely prunes only terminal evidence. The
 18-example migration suite and 7-example focused Store suite pass. Effect wrappers, supported
 hard-delete behavior, stream guards, and operational documentation remain for later milestones.
+
+Milestone 2 connected that core to ordinary Effectful applications and mock interpreters. The
+effect interpreter emits acquisition, successful renewal, actual release, prune, and hard-delete
+conflict events only after the owning transaction finishes; repeated release emits no false
+transition, and reason text is absent from the event constructors. Supported hard delete now locks
+the coordinator, reports `HistoryRetentionActive` with active count and earliest expiry, changes
+no rows while any lease remains active, and resumes normally after the final release. Ten focused
+retention/mock examples and the ten-example legacy hard-delete group pass.
 
 
 ## Context and Orientation

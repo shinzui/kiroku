@@ -47,7 +47,9 @@ module Kiroku.Store.Observability (
 import Control.Exception (SomeAsyncException, SomeException, asyncExceptionFromException, catch, throwIO)
 import Data.Foldable (for_)
 import Data.Int (Int32)
+import Data.Time.Clock (UTCTime)
 import Hasql.Pool (UsageError)
+import Kiroku.Store.HistoryRetention.Types (HistoryRetentionConflict, HistoryRetentionLeaseId, HistoryRetentionLeaseOwner, HistoryRetentionPruneResult)
 import Kiroku.Store.Subscription.Fsm (DeadLetterReason (..), SubscriptionStopReason (..))
 import Kiroku.Store.Subscription.Types (
     CheckpointInitialization,
@@ -213,6 +215,18 @@ data KirokuEvent
       stream did not exist.
       -}
       KirokuEventHardDeleteIssued !StreamName !StreamId
+    | {- | A lease acquisition committed. The lease row is the durable audit
+      evidence; this process-local event contains no event payload.
+      -}
+      KirokuEventHistoryRetentionLeaseAcquired !HistoryRetentionLeaseId !HistoryRetentionLeaseOwner !GlobalPosition !UTCTime
+    | -- | A live lease renewal committed.
+      KirokuEventHistoryRetentionLeaseRenewed !HistoryRetentionLeaseId !HistoryRetentionLeaseOwner !UTCTime
+    | -- | A previously active lease was actually released and committed.
+      KirokuEventHistoryRetentionLeaseReleased !HistoryRetentionLeaseId !HistoryRetentionLeaseOwner !UTCTime
+    | -- | A prune operation committed with the reported terminal-row counts.
+      KirokuEventHistoryRetentionLeasesPruned !HistoryRetentionPruneResult
+    | -- | Supported hard delete was refused before changing history.
+      KirokuEventHardDeleteHistoryRetentionConflict !StreamName !HistoryRetentionConflict
     deriving stock (Show)
 
 {- | Invoke the optional observability handler, dropping any synchronous exception

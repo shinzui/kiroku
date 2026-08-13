@@ -23,7 +23,6 @@ import Control.Lens ((^.))
 import Control.Monad.Except qualified as Except
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Aeson (Value)
-import Data.Foldable (for_)
 import Data.Generics.Labels ()
 import Data.Int (Int32, Int64)
 import Data.List (find)
@@ -53,7 +52,9 @@ import Hasql.Transaction.Sessions qualified as TxSessions
 import Kiroku.Store.Connection (KirokuStore (..))
 import Kiroku.Store.Effect.Resource (KirokuStoreResource, getKirokuStore)
 import Kiroku.Store.Error (StoreError (..), attributeMultiStreamError, emptyResultError, isTransientSerializationError, mapLinkUsageError, mapTransactionUsageError, mapUsageError, validateStreamName)
-import Kiroku.Store.Observability (KirokuEvent (..))
+import Kiroku.Store.HistoryRetention.Internal qualified as HistoryRetention
+import Kiroku.Store.HistoryRetention.Types
+import Kiroku.Store.Observability (KirokuEvent (..), emitOrDrop)
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Settings (decodeEvents, enrichEvents)
 import Kiroku.Store.Subscription.Checkpoint.SQL qualified as CheckpointSQL
@@ -158,6 +159,18 @@ data Store :: Effect where
         Int32 ->
         MissingCheckpointPolicy ->
         Store m (Either SubscriptionCheckpointMissing CheckpointInitialization)
+    AcquireHistoryRetentionLease :: HistoryRetentionLeaseRequest -> Store m HistoryRetentionLease
+    RenewHistoryRetentionLease ::
+        HistoryRetentionLeaseHandle ->
+        HistoryRetentionLeaseDuration ->
+        Store m (Either HistoryRetentionRenewalError HistoryRetentionLease)
+    ReleaseHistoryRetentionLease ::
+        HistoryRetentionLeaseHandle ->
+        Store m HistoryRetentionReleaseResult
+    GetHistoryRetentionLeaseInventory ::
+        HistoryRetentionInventoryQuery ->
+        Store m (Vector HistoryRetentionLease)
+    PruneHistoryRetentionLeases :: UTCTime -> Store m HistoryRetentionPruneResult
     {- | Run an arbitrary @hasql-transaction@ value in a 'BEGIN'/'COMMIT'
     block on a single pool connection. Escape hatch from the abstract
     'Store' effect into the underlying SQL world; mock interpreters are
@@ -346,18 +359,23 @@ runStorePool store = interpret_ $ \case
         rejectInvalidApplicationStream name
         let txn = do
                 Tx.sql "SET LOCAL kiroku.enable_hard_deletes = 'on'"
+                HistoryRetention.lockHistoryRetentionCoordinatorTx
                 mSid <- Tx.statement name SQL.findStreamIdStmt
                 case mSid of
-                    Nothing -> pure Nothing
+                    Nothing -> pure (Right Nothing)
                     Just sid -> do
-                        originated <- Tx.statement sid SQL.deleteAllRowsForOriginStmt
-                        Tx.statement originated SQL.deleteJunctionsByEventIdsStmt
-                        linkedIn <- Tx.statement sid SQL.deleteStreamOwnJunctionsStmt
-                        let affected = originated <> linkedIn
-                        Tx.statement affected SQL.deleteDeadLettersForOrphanedEventsStmt
-                        Tx.statement affected SQL.deleteOrphanedEventsStmt
-                        Tx.statement sid SQL.deleteStreamRowStmt
-                        pure (Just (StreamId sid))
+                        conflict <- HistoryRetention.activeHistoryRetentionConflictTx
+                        case conflict of
+                            Just active -> pure (Left active)
+                            Nothing -> do
+                                originated <- Tx.statement sid SQL.deleteAllRowsForOriginStmt
+                                Tx.statement originated SQL.deleteJunctionsByEventIdsStmt
+                                linkedIn <- Tx.statement sid SQL.deleteStreamOwnJunctionsStmt
+                                let affected = originated <> linkedIn
+                                Tx.statement affected SQL.deleteDeadLettersForOrphanedEventsStmt
+                                Tx.statement affected SQL.deleteOrphanedEventsStmt
+                                Tx.statement sid SQL.deleteStreamRowStmt
+                                pure (Right (Just (StreamId sid)))
         result <-
             usePool (store ^. #pool) $
                 TxSessions.transaction TxSessions.ReadCommitted TxSessions.Write txn
@@ -366,9 +384,16 @@ runStorePool store = interpret_ $ \case
         -- application-level event before calling hardDeleteStream — see
         -- docs/PRODUCTION-DEPLOYMENT.md.
         case result of
-            Just sid -> liftIO $ for_ (store ^. #eventHandler) ($ KirokuEventHardDeleteIssued (StreamName name) sid)
-            Nothing -> pure ()
-        pure result
+            Right (Just sid) ->
+                liftIO $ emitOrDrop (store ^. #eventHandler) (KirokuEventHardDeleteIssued (StreamName name) sid)
+            Right Nothing -> pure ()
+            Left conflict -> do
+                liftIO $
+                    emitOrDrop
+                        (store ^. #eventHandler)
+                        (KirokuEventHardDeleteHistoryRetentionConflict (StreamName name) conflict)
+                throwError (HistoryRetentionActive (StreamName name) conflict)
+        pure (either (const Nothing) (\value -> value) result)
     UndeleteStream (StreamName name) -> do
         rejectInvalidApplicationStream name
         usePool (store ^. #pool) $
@@ -383,6 +408,56 @@ runStorePool store = interpret_ $ \case
     InitializeSubscriptionCheckpoint subscriptionName member policy ->
         usePool (store ^. #pool) $
             CheckpointSQL.initializeSubscriptionCheckpointSession subscriptionName member policy
+    AcquireHistoryRetentionLease request -> do
+        lease <- runTxOnPool (store ^. #pool) TxSessions.transaction (HistoryRetention.acquireHistoryRetentionLeaseTx request)
+        let HistoryRetentionLease{leaseId, owner, protectedThrough, expiresAt} = lease
+        liftIO $
+            emitOrDrop
+                (store ^. #eventHandler)
+                (KirokuEventHistoryRetentionLeaseAcquired leaseId owner protectedThrough expiresAt)
+        pure lease
+    RenewHistoryRetentionLease handle duration -> do
+        result <-
+            runTxOnPool
+                (store ^. #pool)
+                TxSessions.transaction
+                (HistoryRetention.renewHistoryRetentionLeaseTx handle duration)
+        case result of
+            Right lease ->
+                let HistoryRetentionLease{leaseId, owner, expiresAt} = lease
+                 in liftIO $
+                        emitOrDrop
+                            (store ^. #eventHandler)
+                            (KirokuEventHistoryRetentionLeaseRenewed leaseId owner expiresAt)
+            Left _ -> pure ()
+        pure result
+    ReleaseHistoryRetentionLease handle -> do
+        result <-
+            runTxOnPool
+                (store ^. #pool)
+                TxSessions.transaction
+                (HistoryRetention.releaseHistoryRetentionLeaseTx handle)
+        case result of
+            HistoryRetentionReleased HistoryRetentionLease{leaseId, owner, releasedAt = Just releasedAt} ->
+                liftIO $
+                    emitOrDrop
+                        (store ^. #eventHandler)
+                        (KirokuEventHistoryRetentionLeaseReleased leaseId owner releasedAt)
+            _ -> pure ()
+        pure result
+    GetHistoryRetentionLeaseInventory query ->
+        runTxOnPool
+            (store ^. #pool)
+            TxSessions.transaction
+            (HistoryRetention.historyRetentionLeaseInventoryTx query)
+    PruneHistoryRetentionLeases cutoff -> do
+        result <-
+            runTxOnPool
+                (store ^. #pool)
+                TxSessions.transaction
+                (HistoryRetention.pruneHistoryRetentionLeasesTx cutoff)
+        liftIO $ emitOrDrop (store ^. #eventHandler) (KirokuEventHistoryRetentionLeasesPruned result)
+        pure result
     RunTransaction tx ->
         runTxOnPool (store ^. #pool) TxSessions.transaction tx
     RunTransactionNoRetry tx ->

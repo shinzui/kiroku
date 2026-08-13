@@ -39,6 +39,7 @@ import Test.EventTypeFilter qualified as EventTypeFilter
 import Test.FailureInjection qualified as FailureInjection
 import Test.Helpers
 import Test.HistoryRetention qualified as HistoryRetention
+import Test.HistoryRetentionMock qualified as HistoryRetentionMock
 import Test.Hspec
 import Test.InterpreterHooks qualified as InterpreterHooks
 import Test.NotifyGuard qualified as NotifyGuard
@@ -74,6 +75,7 @@ main = withSharedMigratedPostgres $ hspec $ do
     Concurrency.spec
     FailureInjection.spec
     HistoryRetention.spec
+    HistoryRetentionMock.spec
     Transaction.spec
     TruncateBefore.spec
     ReadStream.spec
