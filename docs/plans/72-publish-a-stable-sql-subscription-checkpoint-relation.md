@@ -66,9 +66,10 @@ This section must always reflect the actual current state of the work.
 - [x] (2026-08-13T20:51:05Z) Milestone 3: published the compatibility and privilege contract in
   user documentation, changelog, CAP-1, and ADR-6; set IR-5 to implemented; and passed the planned
   repository-wide validation.
-- [ ] Milestone 4: with explicit release authorization, publish `kiroku-store-migrations` 0.3.1.0,
-  verify Hackage and the annotated upstream tag, and complete IR-5 with released evidence. Not
-  started: no upload, tag, push, or release has been attempted without that authorization.
+- [x] (2026-08-13T21:11:18Z) Milestone 4: with explicit release authorization, published
+  `kiroku-store-migrations` 0.3.1.0 and its Haddocks to Hackage, pushed the annotated upstream
+  tag, created the GitHub release, matched the published source archive to the pre-upload hash,
+  applied its plan in an isolated clean consumer, and completed IR-5 with released evidence.
 
 
 ## Surprises & Discoveries
@@ -105,6 +106,12 @@ implementation. Provide concise evidence.
   profile: append-with-optimistic-concurrency: missing profile-recommended field: reviews
   profile: causation-correlation-queries: missing profile-recommended field: reviews
   ```
+
+- The release skill's package-local shorthand `cabal test kiroku-store-migrations` resolves to
+  the library target in this multi-package project, so Cabal rejected it before running tests.
+  The explicit target `cabal test kiroku-store-migrations:kiroku-store-migrations-test` ran all
+  16 examples successfully. The repository-wide `cabal test all` gate had already passed all
+  seven suites and 391 examples.
 
 
 ## Decision Log
@@ -177,6 +184,13 @@ Record every decision made while working on the plan.
   provisioning capability.
   Date: 2026-08-13
 
+- Decision: Publish only `kiroku-store-migrations` 0.3.1.0 from release commit
+  `8e53cf0a7efb1434176e745dc9fb3751425b2dcc`, with no dependency-bound changes.
+  Rationale: The user explicitly authorized the release after the package-only PVP scope was
+  established. Hackage confirmed the version was unused, and the release candidate passed the
+  full repository gate before the annotated tag and source upload were created.
+  Date: 2026-08-13
+
 
 ## Outcomes & Retrospective
 
@@ -208,6 +222,22 @@ migration changelog carries the feature, and IR-5 is `implemented` with `complet
 `nix flake check` pass. Strict ADR validation reports six valid concepts and strict
 improvement-request validation reports six valid concepts. Publication and released-artifact
 verification are the only remaining acceptance work.
+
+Milestone 4 completed publication and the original purpose. Hackage lists
+[`kiroku-store-migrations` 0.3.1.0](https://hackage.haskell.org/package/kiroku-store-migrations-0.3.1.0)
+as a normal version and serves the uploaded Haddocks. The
+[GitHub release](https://github.com/shinzui/kiroku/releases/tag/kiroku-store-migrations-v0.3.1.0)
+uses annotated tag object `30dfa04f79cf44c4256555320390eb868458883a`, which peels to release
+commit `8e53cf0a7efb1434176e745dc9fb3751425b2dcc`. The Hackage-downloaded source archive and the
+pre-upload sdist have identical SHA-256
+`f93e2cdbd51301f51d846fccda45e21e24da25897c6b28537f3b99534db1687a`; the archive contains
+`migrations/0009.sql` and its manifest ends in `0009.sql`. An isolated Cabal config, index, cache,
+and store resolved `kiroku-store-migrations == 0.3.1.0` from Hackage, built it from scratch,
+applied all nine migrations to ephemeral PostgreSQL, queried the supported relation, and printed
+`published checkpoint relation verified: (True,0)`. IR-5 is completed. Keiro adoption is the
+remaining cross-repository consumer task, not a gap in this plan. Post-release `nix fmt`, strict
+ADR and improvement-request profile/log validation, `nix flake check`, and `git diff --check` all
+pass.
 
 
 ## Context and Orientation
@@ -730,3 +760,9 @@ reset-suite command and documented the observed PostgreSQL 18.4 plan and Hasql c
 capability, ADR-6, and IR-5 implementation evidence and passing formatting, all builds, all seven
 Cabal test suites, Nix flake checks, and strict ADR/improvement-request validation. Milestone 4
 remains explicitly unauthorized and unstarted.
+
+2026-08-13T21:11:18Z: Recorded explicit release authorization and Milestone 4 completion after
+publishing `kiroku-store-migrations` 0.3.1.0 and Haddocks, pushing the annotated tag, creating the
+GitHub release, matching Hackage's downloaded archive to the pre-upload SHA-256, and applying the
+published plan in an isolated clean consumer. IR-5 is now completed with authoritative release
+evidence.

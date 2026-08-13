@@ -8,35 +8,37 @@ description: >-
 generated:
   by: openai/gpt-5
   at: "2026-08-13T18:52:50Z"
-timestamp: "2026-08-13T20:47:41Z"
+timestamp: "2026-08-13T21:11:18Z"
 requestId: IR-5
-status: implemented
+status: completed
+completedAt: "2026-08-13T21:11:18Z"
 origin: mori://shinzui/keiro
 reviews:
   - kind: model
     reviewer: codex
-    reviewed_at: "2026-08-13T20:47:41Z"
-    document_timestamp: "2026-08-13T20:47:41Z"
+    reviewed_at: "2026-08-13T21:11:18Z"
+    document_timestamp: "2026-08-13T21:11:18Z"
     scope: technical-accuracy
     outcome: approved
     provider: openai
     model: gpt-5
     effort: unspecified
     context: >-
-      Reviewed against migration 0009, all 16 migration-package examples, the Haskell inventory
-      and reset suites, PostgreSQL 18.4 role/dependency/query-plan evidence, user documentation,
-      and ADR-6. The implementation satisfies every source acceptance item; publication remains
-      pending.
+      Re-reviewed migration 0009, all 16 migration-package examples, the Haskell inventory and
+      reset suites, PostgreSQL 18.4 role/dependency/query-plan evidence, user documentation,
+      ADR-6, Hackage metadata and tarball contents, the annotated upstream tag, and an isolated
+      clean consumer that applied the published plan and queried the relation. All acceptance
+      items are satisfied.
 verified:
   by: process:codex
-  at: "2026-08-13T20:47:41Z"
+  at: "2026-08-13T21:11:18Z"
 ---
 
 # Improvement Request: Publish a Stable SQL Subscription Checkpoint Relation
 
 ## Status
 
-Implemented in repository source by
+Completed by
 [ExecPlan 72](../plans/72-publish-a-stable-sql-subscription-checkpoint-relation.md) as an
 owning-library prerequisite of
 `mori://shinzui/keiro/masterplans/41-make-read-models-safely-readable-by-out-of-process-consumers`.
@@ -46,9 +48,13 @@ That artifact handle is intended and awaits a Keiro registry refresh; the produc
 
 Migration `0009` and its manifest entry, focused catalog and behavior tests, Haskell-inventory
 comparison, user guides, changelog, capability evidence, and
-[ADR-6](../adr/0006-versioned-public-sql-relations-are-owner-published-and-frozen.md) are complete.
-Publication of `kiroku-store-migrations` 0.3.1.0 and downstream adoption remain pending, so this
-request is implemented rather than completed and has no `completedAt` value.
+[ADR-6](../adr/0006-versioned-public-sql-relations-are-owner-published-and-frozen.md) shipped in
+[`kiroku-store-migrations` 0.3.1.0](https://hackage.haskell.org/package/kiroku-store-migrations-0.3.1.0).
+The corresponding
+[GitHub release](https://github.com/shinzui/kiroku/releases/tag/kiroku-store-migrations-v0.3.1.0)
+and annotated upstream tag resolve to release commit
+`8e53cf0a7efb1434176e745dc9fb3751425b2dcc`. Keiro adoption remains downstream work and does not
+hold this owning-library request open.
 
 The technical review has reconciled two PostgreSQL and pg-migrate constraints before source
 implementation. An ordinary view returns non-null values from Kiroku's constrained base columns,
@@ -254,11 +260,22 @@ contracts. No production Haskell declaration, checkpoint write, copied table, tr
 index changed.
 
 
-## Follow-up
+## Release Evidence
 
-Release `kiroku-store-migrations` 0.3.1.0 only through the separately authorized release workflow.
-After Hackage, the annotated upstream tag, published tarball contents, and a clean consumer agree,
-mark this request completed, add `completedAt`, and record the released verification evidence.
+Hackage's preferred-version metadata lists `0.3.1.0`. The published source tarball has SHA-256
+`f93e2cdbd51301f51d846fccda45e21e24da25897c6b28537f3b99534db1687a`, matching the pre-upload
+archive byte-for-byte; it contains `migrations/0009.sql`, and its packaged manifest ends with
+`0009.sql`. Upstream tag object `30dfa04f79cf44c4256555320390eb868458883a` peels to release
+commit `8e53cf0a7efb1434176e745dc9fb3751425b2dcc`.
+
+An isolated temporary Cabal project used a fresh package index, cache, and store, constrained
+`kiroku-store-migrations == 0.3.1.0`, and downloaded the package from Hackage. Its executable used
+the published `kirokuMigrationPlan`, applied all nine migrations to an ephemeral PostgreSQL
+database, queried `kiroku.subscription_checkpoints_v1`, and printed:
+
+```text
+published checkpoint relation verified: (True,0)
+```
 
 
 ## Requested Deliverables

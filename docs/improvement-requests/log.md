@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-08-13
+* **Completion**: IR-5 shipped in `kiroku-store-migrations` 0.3.1.0; Hackage, the annotated upstream tag, the published source archive, and an isolated clean consumer agree on the nine-migration checkpoint-relation contract.
 * **Implementation**: IR-5 is implemented in repository source with migration 0009, frozen catalog and behavior proofs, least-privilege isolation, dependency replacement evidence, indexed planning, user documentation, and ADR-6; publication remains pending.
 * **Correction**: IR-5 now specifies semantic non-null view values, a structurally read-only owner-rights definition, and a focused catalog contract test while preserving pg-migrate's plan-versus-ledger verifier semantics.
 * **Addition**: IR-6 requests renewable fan-in history-retention leases and transaction-scoped stream-history guards that serialize replay with destructive lifecycle mutations.
