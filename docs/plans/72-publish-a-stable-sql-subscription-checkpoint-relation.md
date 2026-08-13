@@ -59,8 +59,10 @@ This section must always reflect the actual current state of the work.
 - [x] (2026-08-13T20:37:07Z) Milestone 1: reconciled IR-5's catalog-nullability and verifier
   language, added the forward `0009` migration, and made the native migration suite assert the
   frozen relation contract. The manifest check and all 11 migration examples pass.
-- [ ] Milestone 2: prove durable value semantics, read-only privilege isolation, downstream-view
-  dependency survival, and index-preserving query behavior against real PostgreSQL.
+- [x] (2026-08-13T20:44:07Z) Milestone 2: proved durable value semantics, read-only privilege
+  isolation, downstream-view dependency survival, and index-preserving query behavior against
+  PostgreSQL 18.4. The migration suite passes 16 examples, inventory comparison passes 10, and
+  the reset lifecycle group passes 4.
 - [ ] Milestone 3: publish the compatibility and privilege contract in user documentation,
   changelog and an ADR, then pass repository-wide validation.
 - [ ] Milestone 4: with explicit release authorization, publish `kiroku-store-migrations` 0.3.1.0,
@@ -72,7 +74,25 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+- PostgreSQL 18.4 chose a plain `Index Scan` rather than the planning prototype's bitmap scan for
+  the 10,000-row filtered aggregate. Both shapes use `ix_subscriptions_name_member`; the captured
+  plan contained no `CTE Scan`, confirming that the structural gate is correctly scan-agnostic.
+  Evidence:
+
+  ```text
+  Aggregate
+    ->  Index Scan using ix_subscriptions_name_member on subscriptions
+          Index Cond: (subscription_name = 'subscription-042'::text)
+  ```
+
+- Hspec's `--match` is case-sensitive. The planned
+  `--match "SubscriptionCheckpointReset"` command ran zero examples because the actual group is
+  named `subscription checkpoint reset`; the corrected lowercase command ran all four examples.
+  The Concrete Steps now use the exact group name.
+
+- Hasql 1.10 strictly distinguishes the `information_schema.views` yes/no domain from PostgreSQL
+  `text`. The catalog statement casts `is_updatable` and `is_insertable_into` to `text`; without
+  the casts the focused test failed with expected OID 25 and actual OID 1043.
 
 
 ## Decision Log
@@ -127,6 +147,15 @@ Record every decision made while working on the plan.
   bump and existing `^>=0.3` consumers admit it.
   Date: 2026-08-13
 
+- Decision: Decode `checkpoint_updated_at` as a non-null `UTCTime` in both the migration-package
+  relation fixture and the store inventory comparison, adding `time >=1.12 && <1.15` only to the
+  migration test suite.
+  Rationale: Casting timestamps to text would weaken the acceptance proof by checking rendering
+  rather than the published PostgreSQL type and value. The bound matches every existing Kiroku
+  package that directly uses the registered `mori://haskell/time/packages/time` dependency and
+  does not change the production migration package closure.
+  Date: 2026-08-13
+
 
 ## Outcomes & Retrospective
 
@@ -140,6 +169,14 @@ Milestone 1 published the nine-entry native migration plan and the frozen
 the seven-entry legacy lock. The full migration package suite passes 11 examples, including fresh,
 rerun, concurrent, and both Codd-ledger import shapes. Behavioral, privilege, dependency, and
 query-plan proofs remain for Milestone 2.
+
+Milestone 2 completed all database behavior proofs on PostgreSQL 18.4. Six focused relation
+examples cover empty and exact non-null rows, two-connection commit/rollback visibility, real-role
+owner-rights isolation, owner-update SQLSTATE `55000`, same-shape replacement under a downstream
+view, and the 10,000-row indexed plan. The public Haskell inventory and SQL relation agree in the
+empty, multi-member, stopped-worker, and in-flight scenarios; the four reset examples continue to
+prove committed regression and rollback behavior. No production Haskell module or checkpoint
+write path changed.
 
 
 ## Context and Orientation
@@ -444,7 +481,7 @@ cabal test kiroku-store:kiroku-store-test \
   --test-options='--match "SubscriptionCheckpointInventory"'
 cabal test kiroku-store:kiroku-store-test \
   --test-show-details=direct \
-  --test-options='--match "SubscriptionCheckpointReset"'
+  --test-options='--match "subscription checkpoint reset"'
 ```
 
 Both commands must finish with `0 failures`. The relation plan diagnostic must contain the existing
@@ -651,3 +688,7 @@ number.
 2026-08-13T20:37:07Z: Recorded Milestone 1 completion after generating `0009.sql`, correcting
 IR-5's PostgreSQL catalog and verifier contract, and passing the manifest check plus all 11 native
 migration examples. The remaining milestones and release authorization boundary are unchanged.
+
+2026-08-13T20:44:07Z: Recorded Milestone 2 completion with real PostgreSQL semantic, privilege,
+dependency, performance, and Haskell-inventory comparison evidence. Corrected the case-sensitive
+reset-suite command and documented the observed PostgreSQL 18.4 plan and Hasql catalog cast.

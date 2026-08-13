@@ -9,12 +9,14 @@ import Data.ByteString (ByteString)
 import Data.ByteString qualified as ByteString
 import Data.Either (isLeft)
 import Data.Foldable (toList)
-import Data.Int (Int64)
+import Data.Int (Int32, Int64)
 import Data.List (sort)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text.IO
+import Data.Time (UTCTime (..), fromGregorian, secondsToDiffTime)
+import Data.Unique (hashUnique, newUnique)
 import Database.PostgreSQL.Migrate
 import Database.PostgreSQL.Migrate.History.Codd
 import Database.PostgreSQL.Migrate.Internal (migrationChecksumBytes)
@@ -24,6 +26,7 @@ import Hasql.Connection qualified as Connection
 import Hasql.Connection.Settings qualified as Settings
 import Hasql.Decoders qualified as Decoders
 import Hasql.Encoders qualified as Encoders
+import Hasql.Errors qualified as Errors
 import Hasql.Session qualified as Session
 import Hasql.Statement (Statement)
 import Hasql.Statement qualified as Statement
@@ -156,6 +159,93 @@ main = hspec $ do
                                    , "Time of the latest checkpoint-row upsert; it does not imply position advancement or worker liveness."
                                    )
                                ]
+            either (expectationFailure . show) pure result
+
+        it "returns zero rows for an empty checkpoint inventory" $ do
+            plan <- requirePlan
+            result <- withMigratedDatabase plan $ \connection -> do
+                rows <- useSession connection (Session.statement () checkpointRowsStatement)
+                rows `shouldBe` []
+            either (expectationFailure . show) pure result
+
+        it "returns exact non-null member rows and exposes reassignment only after commit" $ do
+            plan <- requirePlan
+            withKirokuPg $ \database -> do
+                let settings = Pg.connectionSettings database
+                _ <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
+                withConnection settings $ \writer ->
+                    withConnection settings $ \reader -> do
+                        useSession writer (Session.script checkpointFixtureSql)
+                        rows <- useSession reader (Session.statement () checkpointRowsStatement)
+                        rows
+                            `shouldBe` [ ("grouped", 0, 20, checkpointFixtureTimestamp)
+                                       , ("grouped", 1, 21, checkpointFixtureTimestamp)
+                                       , ("grouped", 2, 22, checkpointFixtureTimestamp)
+                                       , ("ordinary", 0, 11, checkpointFixtureTimestamp)
+                                       ]
+
+                        useSession writer (Session.script "BEGIN")
+                        useSession writer (Session.script checkpointAdvanceSql)
+                        checkpointPosition writer `shouldReturn` 5
+                        checkpointPosition reader `shouldReturn` 11
+                        useSession writer (Session.script "COMMIT")
+                        checkpointPosition reader `shouldReturn` 5
+
+                        useSession writer (Session.script "BEGIN")
+                        useSession writer (Session.script checkpointRegressionSql)
+                        checkpointPosition writer `shouldReturn` 2
+                        checkpointPosition reader `shouldReturn` 5
+                        useSession writer (Session.script "ROLLBACK")
+                        checkpointPosition reader `shouldReturn` 5
+
+        it "allows view-only readers while structurally rejecting owner updates" $ do
+            plan <- requirePlan
+            result <- withMigratedDatabase plan $ \connection ->
+                withTemporaryReaderRole connection $ \role -> do
+                    let identifier = quoteTestIdentifier role
+                    useSession
+                        connection
+                        ( Session.script
+                            ( "GRANT USAGE ON SCHEMA kiroku TO "
+                                <> identifier
+                                <> "; GRANT SELECT ON kiroku.subscription_checkpoints_v1 TO "
+                                <> identifier
+                                <> "; SET ROLE "
+                                <> identifier
+                            )
+                        )
+                    viewCount <- useSession connection (Session.statement () checkpointRowCountStatement)
+                    viewCount `shouldBe` 0
+                    privatePrivilege <- useSession connection (Session.statement () privateTablePrivilegeStatement)
+                    privatePrivilege `shouldBe` False
+                    directPrivateRead <- Connection.use connection (Session.statement () privateTableCountStatement)
+                    directPrivateRead `shouldSatisfy` hasSqlState "42501"
+
+                    useSession connection (Session.script "RESET ROLE")
+                    ownerUpdate <- Connection.use connection (Session.statement () updatePublicViewStatement)
+                    ownerUpdate `shouldSatisfy` hasSqlState "55000"
+            either (expectationFailure . show) pure result
+
+        it "preserves a downstream view while private checkpoint storage is replaced" $ do
+            plan <- requirePlan
+            withKirokuPg $ \database -> do
+                let settings = Pg.connectionSettings database
+                _ <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
+                withConnection settings $ \connection -> do
+                    useSession connection (Session.script downstreamReplacementFixtureSql)
+                    floors <- useSession connection (Session.statement () downstreamFloorsStatement)
+                    floors `shouldBe` [("dependency", 42)]
+
+        it "pushes a subscription filter to the existing checkpoint index" $ do
+            plan <- requirePlan
+            result <- withMigratedDatabase plan $ \connection -> do
+                useSession connection (Session.script checkpointPlanFixtureSql)
+                version <- useSession connection (Session.statement () serverVersionStatement)
+                planLines <- useSession connection (Session.statement () checkpointExplainStatement)
+                let planText = Text.unlines planLines
+                Text.IO.putStrLn ("PostgreSQL " <> version <> " checkpoint relation plan:\n" <> planText)
+                planText `shouldSatisfy` Text.isInfixOf "ix_subscriptions_name_member"
+                Text.isInfixOf "CTE Scan" planText `shouldBe` False
             either (expectationFailure . show) pure result
 
     describe "Codd history import" $ do
@@ -433,6 +523,248 @@ relationColumnsStatement =
         )
   where
     column = Decoders.column . Decoders.nonNullable
+
+checkpointRowsStatement :: Statement () [(Text, Int32, Int64, UTCTime)]
+checkpointRowsStatement =
+    Statement.preparable
+        """
+        SELECT subscription_name,
+               consumer_group_member,
+               checkpoint_position,
+               checkpoint_updated_at
+        FROM kiroku.subscription_checkpoints_v1
+        ORDER BY subscription_name, consumer_group_member
+        """
+        Encoders.noParams
+        ( Decoders.rowList
+            ( (,,,)
+                <$> column Decoders.text
+                <*> column Decoders.int4
+                <*> column Decoders.int8
+                <*> column Decoders.timestamptz
+            )
+        )
+  where
+    column = Decoders.column . Decoders.nonNullable
+
+checkpointFixtureTimestamp :: UTCTime
+checkpointFixtureTimestamp =
+    UTCTime
+        (fromGregorian 2026 8 13)
+        (secondsToDiffTime (12 * 60 * 60 + 34 * 60 + 56))
+
+checkpointFixtureSql :: Text
+checkpointFixtureSql =
+    """
+    INSERT INTO kiroku.subscriptions
+      (subscription_name, consumer_group_member, last_seen, updated_at)
+    VALUES
+      ('ordinary', 0, 11, '2026-08-13 12:34:56+00'),
+      ('grouped', 0, 20, '2026-08-13 12:34:56+00'),
+      ('grouped', 1, 21, '2026-08-13 12:34:56+00'),
+      ('grouped', 2, 22, '2026-08-13 12:34:56+00')
+    """
+
+checkpointAdvanceSql :: Text
+checkpointAdvanceSql =
+    """
+    UPDATE kiroku.subscriptions
+    SET last_seen = 5
+    WHERE subscription_name = 'ordinary'
+      AND consumer_group_member = 0
+    """
+
+checkpointRegressionSql :: Text
+checkpointRegressionSql =
+    """
+    UPDATE kiroku.subscriptions
+    SET last_seen = 2
+    WHERE subscription_name = 'ordinary'
+      AND consumer_group_member = 0
+    """
+
+checkpointPosition :: Connection.Connection -> IO Int64
+checkpointPosition connection =
+    useSession connection (Session.statement "ordinary" checkpointPositionStatement)
+
+checkpointPositionStatement :: Statement Text Int64
+checkpointPositionStatement =
+    Statement.preparable
+        """
+        SELECT checkpoint_position
+        FROM kiroku.subscription_checkpoints_v1
+        WHERE subscription_name = $1
+          AND consumer_group_member = 0
+        """
+        (Encoders.param (Encoders.nonNullable Encoders.text))
+        (Decoders.singleRow (Decoders.column (Decoders.nonNullable Decoders.int8)))
+
+withTemporaryReaderRole :: Connection.Connection -> (Text -> IO value) -> IO value
+withTemporaryReaderRole connection action = do
+    unique <- newUnique
+    let role =
+            "kiroku_checkpoint_reader_"
+                <> Text.replace "-" "n" (Text.pack (show (hashUnique unique)))
+        identifier = quoteTestIdentifier role
+    useSession connection (Session.script ("CREATE ROLE " <> identifier))
+    action role
+        `finally` useSession
+            connection
+            ( Session.script
+                ( "RESET ROLE; DROP OWNED BY "
+                    <> identifier
+                    <> "; DROP ROLE "
+                    <> identifier
+                )
+            )
+
+quoteTestIdentifier :: Text -> Text
+quoteTestIdentifier value =
+    "\"" <> Text.replace "\"" "\"\"" value <> "\""
+
+checkpointRowCountStatement :: Statement () Int64
+checkpointRowCountStatement =
+    Statement.preparable
+        "SELECT count(*) FROM kiroku.subscription_checkpoints_v1"
+        Encoders.noParams
+        (Decoders.singleRow (Decoders.column (Decoders.nonNullable Decoders.int8)))
+
+privateTablePrivilegeStatement :: Statement () Bool
+privateTablePrivilegeStatement =
+    Statement.preparable
+        "SELECT has_table_privilege(current_user, 'kiroku.subscriptions', 'SELECT')"
+        Encoders.noParams
+        (Decoders.singleRow (Decoders.column (Decoders.nonNullable Decoders.bool)))
+
+privateTableCountStatement :: Statement () Int64
+privateTableCountStatement =
+    Statement.preparable
+        "SELECT count(*) FROM kiroku.subscriptions"
+        Encoders.noParams
+        (Decoders.singleRow (Decoders.column (Decoders.nonNullable Decoders.int8)))
+
+updatePublicViewStatement :: Statement () ()
+updatePublicViewStatement =
+    Statement.unpreparable
+        """
+        UPDATE kiroku.subscription_checkpoints_v1
+        SET checkpoint_position = checkpoint_position
+        """
+        Encoders.noParams
+        Decoders.noResult
+
+hasSqlState :: Text -> Either Errors.SessionError value -> Bool
+hasSqlState expected = \case
+    Left
+        ( Errors.StatementSessionError
+                _
+                _
+                _
+                _
+                _
+                (Errors.ServerStatementError (Errors.ServerError actual _ _ _ _))
+            ) -> actual == expected
+    _ -> False
+
+downstreamReplacementFixtureSql :: Text
+downstreamReplacementFixtureSql =
+    """
+    INSERT INTO kiroku.subscriptions
+      (subscription_name, consumer_group_member, last_seen,
+       updated_at)
+    VALUES ('dependency', 0, 42, '2026-08-13 12:34:56+00');
+
+    CREATE VIEW public.subscription_checkpoint_floors AS
+    SELECT subscription_name,
+           min(checkpoint_position) AS checkpoint_floor
+    FROM kiroku.subscription_checkpoints_v1
+    GROUP BY subscription_name;
+
+    CREATE TABLE kiroku.subscription_checkpoint_storage_v2 (
+      subscription_name text NOT NULL,
+      consumer_group_member integer NOT NULL,
+      checkpoint_position bigint NOT NULL,
+      checkpoint_updated_at timestamptz NOT NULL,
+      PRIMARY KEY (subscription_name, consumer_group_member)
+    );
+
+    INSERT INTO kiroku.subscription_checkpoint_storage_v2
+    SELECT subscription_name,
+           consumer_group_member,
+           last_seen,
+           updated_at
+    FROM kiroku.subscriptions;
+
+    CREATE OR REPLACE VIEW kiroku.subscription_checkpoints_v1
+        (subscription_name,
+         consumer_group_member,
+         checkpoint_position,
+         checkpoint_updated_at)
+    WITH (security_invoker = false)
+    AS
+    WITH checkpoint_rows AS NOT MATERIALIZED (
+        SELECT subscription_name,
+               consumer_group_member,
+               checkpoint_position,
+               checkpoint_updated_at
+        FROM kiroku.subscription_checkpoint_storage_v2
+    )
+    SELECT subscription_name,
+           consumer_group_member,
+           checkpoint_position,
+           checkpoint_updated_at
+    FROM checkpoint_rows;
+
+    DROP TABLE kiroku.subscriptions;
+    """
+
+downstreamFloorsStatement :: Statement () [(Text, Int64)]
+downstreamFloorsStatement =
+    Statement.preparable
+        """
+        SELECT subscription_name, checkpoint_floor
+        FROM public.subscription_checkpoint_floors
+        ORDER BY subscription_name
+        """
+        Encoders.noParams
+        ( Decoders.rowList
+            ( (,)
+                <$> Decoders.column (Decoders.nonNullable Decoders.text)
+                <*> Decoders.column (Decoders.nonNullable Decoders.int8)
+            )
+        )
+
+checkpointPlanFixtureSql :: Text
+checkpointPlanFixtureSql =
+    """
+    INSERT INTO kiroku.subscriptions
+      (subscription_name, consumer_group_member, last_seen)
+    SELECT 'subscription-' || lpad((value % 100)::text, 3, '0'),
+           value::integer,
+           value::bigint
+    FROM generate_series(1, 10000) AS generated(value);
+
+    ANALYZE kiroku.subscriptions;
+    """
+
+serverVersionStatement :: Statement () Text
+serverVersionStatement =
+    Statement.preparable
+        "SELECT current_setting('server_version')"
+        Encoders.noParams
+        (Decoders.singleRow (Decoders.column (Decoders.nonNullable Decoders.text)))
+
+checkpointExplainStatement :: Statement () [Text]
+checkpointExplainStatement =
+    Statement.preparable
+        """
+        EXPLAIN (COSTS OFF)
+        SELECT min(checkpoint_position)
+        FROM kiroku.subscription_checkpoints_v1
+        WHERE subscription_name = 'subscription-042'
+        """
+        Encoders.noParams
+        (Decoders.rowList (Decoders.column (Decoders.nonNullable Decoders.text)))
 
 applyNativeSqlFromDisk :: Connection.Connection -> FilePath -> IO ()
 applyNativeSqlFromDisk connection directory =

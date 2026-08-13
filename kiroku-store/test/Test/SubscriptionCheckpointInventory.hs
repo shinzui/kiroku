@@ -1,3 +1,4 @@
+{-# LANGUAGE MultilineStrings #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -11,12 +12,15 @@ import Data.Int (Int32, Int64)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Time.Clock (getCurrentTime)
+import Data.Time.Clock (UTCTime, getCurrentTime)
 import Data.Vector qualified as V
 import Effectful (runEff)
 import Effectful.Error.Static (runErrorNoCallStack)
+import Hasql.Decoders qualified as D
+import Hasql.Encoders qualified as E
 import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
+import Hasql.Statement (Statement, preparable)
 import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
 import System.Timeout (timeout)
@@ -27,9 +31,10 @@ spec :: Spec
 spec = describe "SubscriptionCheckpointInventory" $ do
     it "returns position zero and no rows for an empty migrated store" $
         withTestStore $ \store -> do
-            SubscriptionCheckpointInventory captured rows <- readInventory store
+            inventory@(SubscriptionCheckpointInventory captured rows) <- readInventory store
             captured `shouldBe` GlobalPosition 0
             rows `shouldBe` V.empty
+            assertSqlRelationMatchesInventory store inventory
 
     it "runs through the resource-backed Store interpreter" $
         withTestStore $ \store -> do
@@ -61,13 +66,14 @@ spec = describe "SubscriptionCheckpointInventory" $ do
             saveCheckpoint store "alpha" 10 3
             saveCheckpoint store "alpha" 2 5
 
-            SubscriptionCheckpointInventory captured rows <- readInventory store
+            inventory@(SubscriptionCheckpointInventory captured rows) <- readInventory store
             captured `shouldBe` GlobalPosition 20
             checkpointKeys rows
                 `shouldBe` [ ("alpha", 2, 5)
                            , ("alpha", 10, 3)
                            , ("zeta", 2, 7)
                            ]
+            assertSqlRelationMatchesInventory store inventory
 
     it "preserves monotonic checkpoints and observes later commits on a fresh read" $
         withTestStore $ \store -> do
@@ -94,6 +100,7 @@ spec = describe "SubscriptionCheckpointInventory" $ do
             Map.member (name, 0) states `shouldBe` False
             inventory <- readInventory store
             inventoryKeys inventory `shouldBe` [("stopped", 0, 1)]
+            assertSqlRelationMatchesInventory store inventory
 
     it "does not expose in-flight live handler progress before checkpoint commit" $ do
         caughtUp <- newEmptyMVar
@@ -117,11 +124,13 @@ spec = describe "SubscriptionCheckpointInventory" $ do
             waitForMVar "live handler did not receive the event" enteredHandler
             beforeCommit <- readInventory store
             inventoryKeys beforeCommit `shouldBe` [("in-flight", 0, 1)]
+            assertSqlRelationMatchesInventory store beforeCommit
 
             putMVar releaseHandler ()
             waitClean handle
             afterCommit <- readInventory store
             inventoryKeys afterCommit `shouldBe` [("in-flight", 0, 2)]
+            assertSqlRelationMatchesInventory store afterCommit
 
     it "observes the checkpoint advanced by a dead-letter transaction" $
         withTestStore $ \store -> do
@@ -196,3 +205,40 @@ checkpointKeys rows =
     [ (name, member, position)
     | SubscriptionCheckpoint (SubscriptionName name) member (GlobalPosition position) _ <- V.toList rows
     ]
+
+assertSqlRelationMatchesInventory :: KirokuStore -> SubscriptionCheckpointInventory -> Expectation
+assertSqlRelationMatchesInventory store (SubscriptionCheckpointInventory _ inventoryRows) = do
+    result <- Pool.use (store ^. #pool) $ Session.statement () subscriptionCheckpointRelationStmt
+    case result of
+        Left err -> expectationFailure ("subscription checkpoint relation failed: " <> show err)
+        Right sqlRows ->
+            sqlRows
+                `shouldBe` [ (name, member, position, updatedAt)
+                           | SubscriptionCheckpoint
+                                (SubscriptionName name)
+                                member
+                                (GlobalPosition position)
+                                updatedAt <-
+                                V.toList inventoryRows
+                           ]
+
+subscriptionCheckpointRelationStmt :: Statement () [(Text, Int32, Int64, UTCTime)]
+subscriptionCheckpointRelationStmt =
+    preparable
+        """
+        SELECT subscription_name,
+               consumer_group_member,
+               checkpoint_position,
+               checkpoint_updated_at
+        FROM kiroku.subscription_checkpoints_v1
+        ORDER BY subscription_name, consumer_group_member
+        """
+        E.noParams
+        ( D.rowList
+            ( (,,,)
+                <$> D.column (D.nonNullable D.text)
+                <*> D.column (D.nonNullable D.int4)
+                <*> D.column (D.nonNullable D.int8)
+                <*> D.column (D.nonNullable D.timestamptz)
+            )
+        )
