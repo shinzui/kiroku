@@ -20,6 +20,11 @@ levels are provided:
   transaction. This is the primary API for @keiro@-style projection
   consumers.
 
+Replay-history leases and one-stream repair guards are exposed separately by
+'Kiroku.Store.HistoryRetention' as @Tx.Transaction@ combinators. When composing
+both in one body, acquire or renew the lease before taking the stream guard.
+The transactional read deliberately bypasses the IO-only decode hook.
+
 The @-NoRetry@ variants use
 'Hasql.Transaction.Sessions.transactionNoRetry' under the hood; the
 default variants use 'Hasql.Transaction.Sessions.transaction', which

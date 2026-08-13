@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-08-13
+* **Addition**: ADR-7 establishes durable replay-history leases, conservative destructive-operation coordination, affected-stream lock ordering, transaction/read-hook boundaries, and ordinary-hot-path exclusion.
 * **Addition**: ADR-6 establishes owner-published, frozen versioned SQL relations with owner-rights access, structural read-only behavior, semantic non-null values, and focused catalog tests.
 
 ## 2026-08-12

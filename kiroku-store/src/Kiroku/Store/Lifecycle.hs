@@ -73,12 +73,25 @@ correctly". Production deployments that need stricter control should:
   authorization layer before they reach this function. Reading the
   @protect_deletion@ trigger as a security boundary is incorrect.
 
+Replay-history retention is an independent safety layer. While any
+'Kiroku.Store.HistoryRetention.Types.HistoryRetentionLease' is active,
+supported hard delete returns
+'Kiroku.Store.Error.HistoryRetentionActive' before changing rows. A
+GUC-enabled direct @DELETE@ or @TRUNCATE@ receives SQLSTATE @KR001@. There is
+no ordinary bypass: release the lease or wait for its database-derived expiry.
+
 == Event preservation semantics
 
 The interpreter cleans up junction rows ('stream_events') first,
 then deletes orphaned 'events' rows — events still linked to other
 streams from this one's hard-deleted source junctions are removed;
 events linked to streams /not/ owned by this deletion are preserved.
+
+Before deletion, Kiroku locks the target and every stream containing a link to
+one of the target's originated events in ascending internal ID order. This
+serializes hard delete with
+'Kiroku.Store.HistoryRetention.lockStreamHistoryForReplayTx' guards, including
+a guard held on a linked stream.
 
 == Result
 
@@ -87,8 +100,8 @@ exist. The exact stream name @$all@ is rejected with
 'Kiroku.Store.Error.ReservedStreamName'. There is no \"undo\" — for reversible deletes use
 'softDeleteStream' instead. The deletion emits no in-band audit row;
 operators relying on an audit log must capture hard-deletes through
-the connection-pool observation handler (see
-'Kiroku.Store.Connection.ConnectionSettings.observationHandler') or
+the store event handler (see
+'Kiroku.Store.Connection.ConnectionSettingsM.eventHandler') or
 record an application-level event /before/ calling this function.
 -}
 hardDeleteStream ::

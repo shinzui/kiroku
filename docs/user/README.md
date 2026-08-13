@@ -60,3 +60,5 @@ tuning see `docs/PRODUCTION-DEPLOYMENT.md` and `docs/PRODUCTION-TUNING.md`.
   with the `kiroku-store-migrations` package.
 - [Stream Lifecycle](lifecycle.md) — soft delete, undelete, and hard delete
   (GDPR-style erasure).
+- [Replay-History Retention](history-retention.md) — durable renewable leases
+  for long rebuilds and transaction-scoped guards for one-stream repair.

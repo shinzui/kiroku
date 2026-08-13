@@ -31,12 +31,20 @@ Privileges required at runtime by the application user:
 
 - `INSERT, UPDATE, SELECT` on `streams`, `events`, `stream_events`,
   `subscriptions`.
+- `SELECT, UPDATE` on `history_retention_coordinator`, plus `SELECT, INSERT,
+  UPDATE` on `history_retention_leases`, when the application acquires,
+  renews, releases, or inventories replay-history leases. Grant `DELETE` on
+  `history_retention_leases` only to a role that may prune terminal evidence.
 - `DELETE` on `streams`, `events`, `stream_events` /only/ if the
   application calls `Kiroku.Store.Lifecycle.hardDeleteStream`. Without
   hard-delete, the application user can be denied `DELETE` entirely;
   soft-delete works through `UPDATE` on `streams.deleted_at`.
 - `EXECUTE` on `protect_deletion()` and `protect_truncation()` (granted
   to `PUBLIC` by default; only restrict if you have a reason to).
+- `EXECUTE` on `protect_replay_history()` (also granted to `PUBLIC` by
+  default). A role performing hard delete or direct destructive maintenance
+  also needs the coordinator and lease-table privileges above because the
+  trigger checks the active inventory as the invoking role.
 - `LISTEN` privilege on the schema for the dedicated listener
   connection (granted to `PUBLIC` by default).
 - `USAGE` on the `streams_stream_id_seq` sequence (granted to the
@@ -90,9 +98,57 @@ authorization layer that enforces the rule before the SQL runs.
 Hard-delete emits no in-band audit row. To capture hard-deletes for
 compliance, either record an application-level event /before/ calling
 `hardDeleteStream` or use the connection pool's
-`observationHandler` (see
-`Kiroku.Store.Connection.ConnectionSettings.observationHandler`) to
-forward connection-level events to your operational logging.
+`eventHandler` (see `KirokuEventHardDeleteIssued`) as a fail-safe operational
+signal.
+
+
+## Replay-history retention operations
+
+A long rebuild should acquire a durable lease through
+`Kiroku.Store.HistoryRetention`, page only through the returned inclusive
+`protectedThrough` position, renew before `expiresAt`, and release on every
+normal or abandoned completion path. Lease lifetime is limited to one second
+through one hour and all timestamps come from PostgreSQL. Schedule renewal
+with enough margin for expected database and network outages. Renewal errors
+are terminal for that lease; an expired lease is never resurrected.
+
+Expiry is passive. A crashed process needs no cleanup worker, and destructive
+work resumes when database time passes the last expiry. Consequently the
+maximum deletion outage caused by one abandoned lease is one hour after its
+last successful acquisition or renewal. The row remains available to
+`historyRetentionLeaseInventory` as expired evidence. Inventory limits are
+validated from 1 through 1,000; `pruneHistoryRetentionLeases cutoff` removes
+only expired or released evidence strictly older than the cutoff. Run pruning
+under an operator role with explicit `DELETE` on
+`history_retention_leases`.
+
+The lease owner is an operational identity used to reject accidental renewal
+or release by a different owner. It is visible in inventory, is not a secret,
+and does not authorize the caller. PostgreSQL roles and the grants above are
+the authorization boundary.
+
+While any lease is active:
+
+- `hardDeleteStream` returns typed `HistoryRetentionActive` without changing
+  rows and emits `KirokuEventHardDeleteHistoryRetentionConflict` after the
+  refused transaction;
+- direct `DELETE` or `TRUNCATE` of `events`, `stream_events`, or `streams`
+  fails with SQLSTATE `KR001`, even after `SET LOCAL
+  kiroku.enable_hard_deletes = 'on'`.
+
+There is no ordinary application override. Release active leases or wait for
+expiry. Superuser trigger disabling, direct catalog changes, physical restore,
+and similar operations are outside Kiroku's retention guarantee. If emergency
+maintenance truly requires one of them, stop lease owners and all destructive
+callers, verify the inventory, take a backup, perform the operation in a
+documented maintenance window, restore every trigger, verify migrations, and
+only then resume traffic.
+
+For short one-stream repair, prefer `lockStreamHistoryForReplayTx` and
+`readStreamForwardTx` in one caller-owned transaction. The guard ends at
+commit or rollback and blocks every supported mutation that could change the
+stream's home or linked junctions. If a transaction combines a lease and a
+guard, take the lease first and the guard second.
 
 
 ## Schema migration
@@ -185,10 +241,14 @@ terminated, etc.) are surfaced through
 logger or metrics pipeline. Connection acquisition latency, the
 listener's reconnection events, and pool exhaustion all surface here.
 
-The package does not (yet) emit structured operational events for
-hard-deletes, soft-deletes, schema-init failures, or subscription
-worker lifecycle changes. EP-5 (operational hardening) of the
-production-readiness review tracks the gap.
+Store-level transitions are surfaced through `ConnectionSettings.eventHandler`
+as `KirokuEvent` values. Replay-history lease acquisition, successful renewal,
+actual release, pruning, and hard-delete conflict are emitted only after the
+owning transaction finishes. The lease reason is deliberately absent from
+these process-local events; query the durable inventory for it rather than
+using free-form text as a metrics label. Hard-delete success and subscription
+lifecycle/database failures are also covered. Keep both callbacks fast or fan
+out to an asynchronous worker.
 
 
 ## Required PostgreSQL version

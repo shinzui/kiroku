@@ -5,7 +5,7 @@ wire at construction time:
 
 - `eventHandler` receives **store-emitted operational events** (`KirokuEvent`)
   — notifier reconnection, publisher errors, subscription lifecycle, and
-  hard-delete issuance.
+  hard-delete and replay-history-retention transitions.
 - `observationHandler` receives **connection-pool lifecycle observations**
   from `hasql-pool`.
 
@@ -71,6 +71,17 @@ regression. Keep a catch-all branch if you only care about specific events.
 | `KirokuEventSubscriptionFetched !SubscriptionName !Int !SubscriptionGroupContext` | A DB-driven live loop fetched a batch of the given size. | Trace live-loop activity for `Category` / consumer-group workers. |
 | `KirokuEventSubscriptionStopped !SubscriptionName !GlobalPosition !SubscriptionStopReason !SubscriptionGroupContext` | The worker stopped. | Branch on the reason (below) to distinguish normal completion from failure. |
 | `KirokuEventHardDeleteIssued !StreamName !StreamId` | A hard-delete transaction committed. Not emitted when the stream did not exist. | A fail-safe audit signal — see [Stream Lifecycle](lifecycle.md). |
+| `KirokuEventHistoryRetentionLeaseAcquired !HistoryRetentionLeaseId !HistoryRetentionLeaseOwner !GlobalPosition !UTCTime` | A durable lease acquisition committed. | Track rebuild protection and expiry; query inventory for the free-form reason. |
+| `KirokuEventHistoryRetentionLeaseRenewed !HistoryRetentionLeaseId !HistoryRetentionLeaseOwner !UTCTime` | A live lease renewal committed. | Track renewal liveness and alert before the database-derived expiry. |
+| `KirokuEventHistoryRetentionLeaseReleased !HistoryRetentionLeaseId !HistoryRetentionLeaseOwner !UTCTime` | A previously active lease was actually released and committed. | Clear rebuild-protection state. Repeated release emits no event. |
+| `KirokuEventHistoryRetentionLeasesPruned !HistoryRetentionPruneResult` | Terminal retention evidence was pruned. | Record the expired/released row counts as operator hygiene. |
+| `KirokuEventHardDeleteHistoryRetentionConflict !StreamName !HistoryRetentionConflict` | Supported hard delete was refused before mutation because one or more leases were active. | Do not retry tightly; inspect inventory, coordinate with owners, or wait for earliest expiry. |
+
+Retention events never contain the free-form lease reason. Keep reasons in the
+durable inventory rather than turning them into high-cardinality metrics
+labels. The transaction-composable `*Tx` functions cannot emit process-local
+events; the Effectful wrappers emit only after their database transaction has
+finished.
 
 ### `SubscriptionDbPhase`
 
@@ -212,7 +223,10 @@ A practical pattern:
    fail-safe rather than compliance-grade, also record an application-level
    event **before** the hard delete; see [Stream Lifecycle](lifecycle.md) and
    `docs/PRODUCTION-DEPLOYMENT.md`.
-4. Keep both callbacks fast; fan out blocking work asynchronously.
+4. Alert on `KirokuEventHardDeleteHistoryRetentionConflict` and on a retained
+   rebuild approaching expiry without a renewal event. Use inventory, not
+   event labels, to retrieve the reason.
+5. Keep both callbacks fast; fan out blocking work asynchronously.
 
 To expose these aggregated signals as an **HTTP/JSON and Prometheus endpoint**,
 health probes, and a live event-streaming WebSocket without writing your own
@@ -228,3 +242,5 @@ counters and server, use the `kiroku-metrics` sister package — see
 - [OpenTelemetry](opentelemetry.md) — per-event trace context, and turning the
   subscription FSM into spans via `Kiroku.Otel.Subscription`.
 - [Stream Lifecycle](lifecycle.md) — the hard-delete audit pattern.
+- [Replay-History Retention](history-retention.md) — lease and guard behavior,
+  renewal, inventory, and SQLSTATE `KR001`.

@@ -56,7 +56,10 @@ hardDeleteStream ::
 where they are not referenced by other streams. It is intended for
 maintenance and GDPR-style erasure. There is **no undo** — for reversible
 deletes use `softDeleteStream`. It returns `Just streamId` on success, or
-`Nothing` if the stream did not exist.
+`Nothing` if the stream did not exist. If a replay-history retention lease is
+active, it fails before changing rows with
+`HistoryRetentionActive stream conflict`; the conflict reports the active
+lease count and earliest expiry.
 
 ### Event-Preservation Semantics
 
@@ -80,6 +83,11 @@ SET LOCAL kiroku.enable_hard_deletes = 'on';
 Without that setting, the `protect_deletion` and `protect_truncation`
 triggers reject any direct `DELETE` or `TRUNCATE` against `events`,
 `stream_events`, and `streams`.
+
+The separate replay-history retention triggers still reject a GUC-enabled
+`DELETE` or `TRUNCATE` while any retention lease is active, using SQLSTATE
+`KR001`. The GUC does not bypass a lease. Release the lease or wait for its
+database-derived expiry; see [Replay-History Retention](history-retention.md).
 
 **The GUC is an advisory protection, not a security boundary.** Any session
 with `DELETE` privilege can issue `SET LOCAL` itself — PostgreSQL grants it to
@@ -188,3 +196,5 @@ be removed, and route it through privilege separation and auditing as above.
   maintenance GUC.
 - [Linking Events](linking.md) — how hard delete preserves linked events.
 - [Observability](observability.md) — the hard-delete audit event.
+- [Replay-History Retention](history-retention.md) — protect a long rebuild or
+  one-transaction stream repair from concurrent lifecycle mutation.

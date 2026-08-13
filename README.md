@@ -15,8 +15,8 @@ workflows.
 ## What It Provides
 
 - `kiroku-store`: the core event store library, built on `hasql`; includes
-  append, read, link, lifecycle, transaction, subscription, consumer-group, and
-  observability APIs.
+  append, read, link, lifecycle, replay-history retention, transaction,
+  subscription, consumer-group, and observability APIs.
 - `kiroku-store-migrations`: a native `pg-migrate` component, Codd history
   import mapping, and the `kiroku-store-migrate` executable.
 - `kiroku-cli`: an embeddable operator CLI library plus the standalone

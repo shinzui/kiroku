@@ -5,6 +5,12 @@ authorized direct SQL deletion until its database-derived expiry. Transaction
 combinators persist durable evidence but cannot emit process-local observability
 events from inside an opaque caller-owned transaction.
 
+Lease duration is one second through one hour. Expiry is passive: a crashed
+owner blocks destructive work only until PostgreSQL time reaches @expiresAt@.
+The owner is an accidental-mutation guard, not an authorization credential;
+database roles and grants remain the security boundary. Direct destructive SQL
+receives SQLSTATE @KR001@ while any lease is active.
+
 When one transaction needs both a lease operation and a stream-history guard,
 perform the lease operation first. This preserves Kiroku's coordinator-before-
 stream-row lock order.
@@ -38,11 +44,17 @@ import Kiroku.Store.HistoryRetention.Types
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Types (RecordedEvent, StreamInfo, StreamName (..), StreamVersion (..))
 
--- | Acquire a new lease and atomically capture the authoritative @$all@ frontier.
+{- | Acquire a new lease and atomically capture the authoritative @$all@
+frontier as the inclusive @protectedThrough@ rebuild ceiling. PostgreSQL
+supplies every timestamp. Rollback leaves no lease row.
+-}
 acquireHistoryRetentionLeaseTx :: HistoryRetentionLeaseRequest -> Tx.Transaction HistoryRetentionLease
 acquireHistoryRetentionLeaseTx = Internal.acquireHistoryRetentionLeaseTx
 
--- | Renew a still-active lease without shortening its current expiry.
+{- | Renew a still-active lease without shortening its current expiry.
+Unknown, wrong-owner, expired, and released leases return distinct typed
+errors and are never resurrected.
+-}
 renewHistoryRetentionLeaseTx ::
     HistoryRetentionLeaseHandle ->
     HistoryRetentionLeaseDuration ->
@@ -55,21 +67,26 @@ releaseHistoryRetentionLeaseTx ::
     Tx.Transaction HistoryRetentionReleaseResult
 releaseHistoryRetentionLeaseTx = Internal.releaseHistoryRetentionLeaseTx
 
--- | Read a deterministic, database-time-derived, bounded inventory.
+{- | Read a deterministic, database-time-derived, bounded inventory. Active,
+expired, and released state is derived at statement time; no expiry worker is
+required.
+-}
 historyRetentionLeaseInventoryTx ::
     HistoryRetentionInventoryQuery ->
     Tx.Transaction (Vector HistoryRetentionLease)
 historyRetentionLeaseInventoryTx = Internal.historyRetentionLeaseInventoryTx
 
--- | Remove terminal rows strictly older than the supplied cutoff.
+-- | Remove only expired or released rows strictly older than the supplied cutoff.
 pruneHistoryRetentionLeasesTx :: UTCTime -> Tx.Transaction HistoryRetentionPruneResult
 pruneHistoryRetentionLeasesTx = Internal.pruneHistoryRetentionLeasesTx
 
--- | Acquire a lease through the mockable 'Store' effect.
+{- | Acquire a lease through the mockable 'Store' effect. The production
+interpreter emits the committed acquisition event after the transaction ends.
+-}
 acquireHistoryRetentionLease :: (Store :> es) => HistoryRetentionLeaseRequest -> Eff es HistoryRetentionLease
 acquireHistoryRetentionLease request = send (AcquireHistoryRetentionLease request)
 
--- | Renew a lease through the mockable 'Store' effect.
+-- | Renew a lease through the mockable 'Store' effect and emit only a committed success.
 renewHistoryRetentionLease ::
     (Store :> es) =>
     HistoryRetentionLeaseHandle ->
@@ -77,7 +94,7 @@ renewHistoryRetentionLease ::
     Eff es (Either HistoryRetentionRenewalError HistoryRetentionLease)
 renewHistoryRetentionLease handle duration = send (RenewHistoryRetentionLease handle duration)
 
--- | Release a lease through the mockable 'Store' effect.
+-- | Release a lease through the mockable 'Store' effect. Repeated release emits no false transition.
 releaseHistoryRetentionLease ::
     (Store :> es) =>
     HistoryRetentionLeaseHandle ->
@@ -118,6 +135,8 @@ lockStreamHistoryForReplayTx stream@(StreamName name)
 {- | Read a page inside the caller's transaction using the production
 exclusive-lower cursor and ascending-order statement. This function deliberately
 does not run 'Kiroku.Store.Settings.decodeHook': 'Tx.Transaction' has no 'IO'.
+The caller must take 'lockStreamHistoryForReplayTx' earlier in the same
+transaction when stable one-stream history is required.
 -}
 readStreamForwardTx ::
     StreamName ->

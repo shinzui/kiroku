@@ -2,9 +2,9 @@
 
 `kiroku-store-migrations` owns Kiroku's PostgreSQL schema as one native
 `pg-migrate` component named `kiroku`. The component embeds an ordered manifest
-and nine SQL payloads, so applications can compose it with other libraries
+and ten SQL payloads, so applications can compose it with other libraries
 without copying Kiroku SQL. The first seven payloads are immutable historical
-Codd bytes; `0008` and `0009` are native-only forward migrations.
+Codd bytes; `0008`, `0009`, and `0010` are native-only forward migrations.
 
 ## Public API
 
@@ -108,6 +108,10 @@ owner-rights privilege isolation, structural read-only behavior, downstream
 view survival, and indexed query plan. `cabal test kiroku-store:kiroku-store-test`
 consumes the same native plan through `kiroku-test-support` and proves the
 complete store behavior, including append and read scenarios.
+
+Migration `0010` adds replay-history retention leases, the per-schema
+coordinator, an indexed active-lease predicate, and statement-level
+`DELETE`/`TRUNCATE` guards on the three event-store data tables.
 
 ## Recovery
 

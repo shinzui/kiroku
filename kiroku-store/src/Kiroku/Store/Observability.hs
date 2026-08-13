@@ -20,6 +20,13 @@ package emits itself:
 * Hard-delete issuance (a fail-safe audit signal — see
   @docs\/PRODUCTION-DEPLOYMENT.md@ for the recommended in-band audit
   pattern).
+* Committed replay-history lease acquisition, renewal, actual release, pruning,
+  and supported hard-delete refusal.
+
+Lease reasons remain in the durable inventory and are deliberately absent from
+these process-local events. Do not turn free-form reasons into metrics labels.
+Direct @Tx.Transaction@ combinators cannot emit process-local events; the
+mockable effect wrappers emit only after their database transaction finishes.
 
 Wire 'Kiroku.Store.Connection.ConnectionSettingsM.eventHandler' to a
 callback that forwards to your structured logger or metrics pipeline.
@@ -219,7 +226,7 @@ data KirokuEvent
       evidence; this process-local event contains no event payload.
       -}
       KirokuEventHistoryRetentionLeaseAcquired !HistoryRetentionLeaseId !HistoryRetentionLeaseOwner !GlobalPosition !UTCTime
-    | -- | A live lease renewal committed.
+    | -- | A live lease renewal committed; reason text is not copied into the event.
       KirokuEventHistoryRetentionLeaseRenewed !HistoryRetentionLeaseId !HistoryRetentionLeaseOwner !UTCTime
     | -- | A previously active lease was actually released and committed.
       KirokuEventHistoryRetentionLeaseReleased !HistoryRetentionLeaseId !HistoryRetentionLeaseOwner !UTCTime

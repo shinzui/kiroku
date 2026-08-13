@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### New Features
+
+* Added forward migration `0010`, which installs durable replay-history
+  retention leases, a per-schema singleton coordinator, a partial active-lease
+  index, and statement-level `DELETE`/`TRUNCATE` guards for `events`,
+  `stream_events`, and `streams`. Active retention is refused with SQLSTATE
+  `KR001` even when the existing hard-delete GUC is enabled.
+
 ## 0.3.1.0 — 2026-08-13
 
 ### New Features

@@ -1,5 +1,39 @@
 # Changelog
 
+## Unreleased
+
+### Breaking Changes
+
+* The exported `Store` effect gains acquire, renew, release, inventory, and
+  prune operations for replay-history retention. Exhaustive custom and mock
+  interpreters must handle the five new constructors.
+* `KirokuEvent` gains committed retention acquisition, renewal, release,
+  pruning, and hard-delete-conflict events. Exhaustive handlers must handle the
+  new constructors.
+* `StoreError` gains `HistoryRetentionActive`, returned when supported hard
+  delete is refused by an active lease.
+
+### New Features
+
+* New `Kiroku.Store.HistoryRetention` and
+  `Kiroku.Store.HistoryRetention.Types` modules expose validated, durable,
+  database-time-derived leases for stable long rebuilds. Transaction
+  combinators and mockable effect wrappers share the same owner-aware acquire,
+  renew, release, bounded inventory, and terminal-row pruning semantics.
+* `lockStreamHistoryForReplayTx` holds a transaction-scoped stream guard, and
+  `readStreamForwardTx` reads exact ordered history in that same transaction.
+  Append, link, lifecycle mutation, and every supported hard delete affecting
+  the stream serialize behind the guard.
+* Supported hard delete checks retention before mutation and locks every
+  affected stream in ascending ID order, including streams containing links to
+  target-originated events.
+
+### Other Changes
+
+* Added deterministic coordinator-race, raw `DELETE`/`TRUNCATE`, rollback,
+  linked-history, deadlock, hot-path exclusion, query-plan, and controlled
+  workload coverage for replay-history protection.
+
 ## 0.6.0.0 — 2026-08-12
 
 ### Breaking Changes

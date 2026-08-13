@@ -19,7 +19,7 @@ interface:
 evidence:
   - kind: test
     resource: kiroku-store-migrations/test/Main.hs
-    proves: Applies the nine-entry manifest against ephemeral PostgreSQL, preserves all seven legacy payload checksums, and proves the frozen SQL checkpoint relation, privileges, dependency survival, and indexed plan.
+    proves: Applies the ten-entry manifest against ephemeral PostgreSQL, preserves all seven legacy payload checksums, and proves the frozen SQL checkpoint relation plus replay-retention coordinator, lease, trigger, and index contracts.
   - kind: module
     resource: kiroku-store-migrations/src/Kiroku/Store/Migrations.hs
     proves: Exposes kirokuMigrations (the compile-time-embedded component) and kirokuMigrationPlan, validated against the manifest at build time.
@@ -29,16 +29,17 @@ evidence:
 reviews:
   - kind: model
     reviewer: codex
-    reviewed_at: "2026-08-13T20:45:05Z"
-    document_timestamp: "2026-08-13T20:45:05Z"
+    reviewed_at: "2026-08-13T21:59:54Z"
+    document_timestamp: "2026-08-13T21:59:54Z"
     scope: technical-accuracy
     outcome: approved
     provider: openai
     model: gpt-5
     effort: unspecified
     context: >-
-      Reviewed against the nine-entry manifest, native and Codd-import migration suites, focused
-      PostgreSQL checkpoint-relation contract tests, and the updated operator and schema guides.
+      Reviewed against the ten-entry manifest, native and Codd-import migration suites, focused
+      PostgreSQL checkpoint-relation and replay-retention schema tests, and the updated operator
+      and schema guides.
 ---
 
 # Schema provisioning and migrations
@@ -49,10 +50,11 @@ upgrades the `kiroku` schema out of band with this package: a native
 the `kiroku-store-migrate` executable. Applications compose `kirokuMigrations` with their own
 components in explicit dependency order, or run the executable at deploy time before startup.
 
-The native manifest currently has nine entries. The first seven preserve the importable Codd
-payloads; `0008` and `0009` are native-only. Migration `0009` publishes the supported, frozen
+The native manifest currently has ten entries. The first seven preserve the importable Codd
+payloads; `0008`, `0009`, and `0010` are native-only. Migration `0009` publishes the supported, frozen
 `kiroku.subscription_checkpoints_v1` relation for least-privilege database readers while leaving
-the underlying checkpoint table private.
+the underlying checkpoint table private. Migration `0010` adds the replay-history retention
+coordinator, durable lease evidence, active-lease index, and destructive-operation triggers.
 
 ## Usage
 

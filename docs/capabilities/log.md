@@ -1,7 +1,8 @@
 # Capability Catalog Log
 
 ## 2026-08-13
-* **Update**: CAP-1 now records the nine-entry native manifest, seven-entry Codd import prefix, and the frozen least-privilege subscription checkpoint SQL relation.
+* **Addition**: CAP-21 records durable replay-history leases and transaction-scoped one-stream guards with raw-SQL, concurrency, and hot-path evidence.
+* **Update**: CAP-1 now records the ten-entry native manifest, seven-entry Codd import prefix, frozen least-privilege subscription checkpoint SQL relation, and replay-retention schema contract.
 
 ## 2026-08-12
 * **Update**: CAP-4 now exposes and proves the payload-free visible global head position.
