@@ -38,6 +38,8 @@ library
     Kiroku.Store.Effect
     Kiroku.Store.Effect.Resource
     Kiroku.Store.Error
+    Kiroku.Store.HistoryRetention
+    Kiroku.Store.HistoryRetention.Types
     Kiroku.Store.Lifecycle
     Kiroku.Store.Link
     Kiroku.Store.Notification
@@ -57,6 +59,8 @@ library
     Kiroku.Store.Types
 
   other-modules:
+    Kiroku.Store.HistoryRetention.Internal
+    Kiroku.Store.HistoryRetention.SQL
     Kiroku.Store.Subscription.Checkpoint.SQL
     Kiroku.Store.Subscription.CheckpointInventory.SQL
 
@@ -103,6 +107,7 @@ test-suite kiroku-store-test
     Test.EventTypeFilter
     Test.FailureInjection
     Test.Helpers
+    Test.HistoryRetention
     Test.InterpreterHooks
     Test.NotifyGuard
     Test.PerformanceStructure

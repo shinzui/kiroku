@@ -50,8 +50,24 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] Milestone 1: add the forward migration, typed lease model, internal SQL, and public
-      transaction-composable acquire/renew/release/inventory/prune operations.
+- [x] (2026-08-13T21:30:38Z) Milestone 1: added forward migration `0010`, the validated lease
+      model, shared internal SQL/transaction algorithms, public transaction-composable
+      acquire/renew/release/inventory/prune operations, and focused coverage. All 18 migration
+      examples and all 7 focused store examples pass after formatting.
+- [x] (2026-08-13T21:19:49Z) Reconciled the implementation baseline after plan 72 released
+      migration `0009`: this plan now creates forward migration `0010`, expects ten native
+      migrations, and preserves the seven-entry Codd import boundary.
+- [x] (2026-08-13T21:20:34Z) Captured the clean implementation baseline: all 9 performance
+      structure examples passed, and the controlled four- and eight-stream production pipelines
+      measured `0.87x` and `0.84x` of their sequential controls against the unchanged `0.90x`
+      maximum.
+- [x] (2026-08-13T21:21:13Z) Created forward migration
+      `kiroku-store-migrations/migrations/0010.sql` through `kiroku-store-migrate new`; the
+      scaffolder appended it after released `0009.sql` without touching historical payloads.
+- [x] (2026-08-13T21:29:24Z) Implemented Milestone 1's validated public lease types, shared
+      transaction algorithms, prepared SQL, public module, and focused tests. The 2 selected
+      migration catalog examples and all 7 focused store examples passed before the full
+      18-example migration-suite milestone gate also passed.
 - [ ] Milestone 2: add mockable `Store` operations, structured lease observability, and typed
       hard-delete conflicts on top of the same lease implementation.
 - [ ] Milestone 3: add the transaction-scoped stream-history guard and make supported hard delete
@@ -67,7 +83,16 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+- Plan 72 completed and released `kiroku-store-migrations` 0.3.1.0 after this plan was written,
+  consuming migration number `0009`. The authoritative manifest now ends in `0009.sql`, and tag
+  `kiroku-store-migrations-v0.3.1.0` peels to the released checkpoint-relation implementation.
+  Therefore replay-history retention must be additive migration `0010`; released `0009` remains
+  byte-for-byte immutable.
+
+- PostgreSQL 18 exposes column `NOT NULL` constraints through `pg_constraint`, so counting every
+  constraint on the two new tables returned 17 rather than the nine explicitly named primary-key
+  and check constraints. The migration contract assertion now selects the exact stable constraint
+  names; this proves the intended surface without coupling to version-specific catalog expansion.
 
 
 ## Decision Log
@@ -177,6 +202,14 @@ Record every decision made while working on the plan.
   and must be chosen from actual PVP impact and authoritative Hackage/tag state at release time.
   Date: 2026-08-13.
 
+- Decision: Advance the replay-history retention migration from the plan's provisional `0009` to
+  `0010` and update native-manifest assertions from nine to ten entries.
+  Rationale: Plan 72 published `0009` in `kiroku-store-migrations` 0.3.1.0 before implementation of
+  this plan began. Kiroku migrations are forward-only released artifacts, so reusing, renaming, or
+  editing `0009` is invalid. The seven-entry Codd import boundary is unchanged; native migrations
+  `0008`, `0009`, and `0010` follow it.
+  Date: 2026-08-13.
+
 
 ## Outcomes & Retrospective
 
@@ -186,6 +219,14 @@ distill durable project context from the Decision Log, Surprises & Discoveries, 
 this section into docs/adr/. Keep task-local execution details here.
 
 (To be filled during and after implementation.)
+
+Milestone 1 established durable, passively expiring replay-history leases without touching an
+ordinary append or read statement. Migration `0010` adds the coordinator, constrained audit rows,
+partial expiry index, and raw destructive triggers; the public transaction API validates all
+bounded inputs, captures the authoritative frontier with database time, preserves owner-aware
+renew/release transitions, derives inventory state, and safely prunes only terminal evidence. The
+18-example migration suite and 7-example focused Store suite pass. Effect wrappers, supported
+hard-delete behavior, stream guards, and operational documentation remain for later milestones.
 
 
 ## Context and Orientation
@@ -241,11 +282,12 @@ payload; lease reason remains queryable through inventory but should not be copi
 low-cardinality metrics labels.
 
 The schema is owned by the forward-only `kiroku-store-migrations` package. Its manifest is
-`kiroku-store-migrations/migrations/manifest`; migration 0008 is the current tail. Use the
-`kiroku-store-migrate new` command to create migration 0009 and never edit an already released
+`kiroku-store-migrations/migrations/manifest`; released checkpoint-relation migration `0009.sql`
+is the current tail. Use the `kiroku-store-migrate new` command to create migration `0010` and
+never edit an already released
 payload. `kiroku-store-migrations/test/Main.hs` proves manifest order, fresh apply, strict ledger
 verification, idempotent rerun, Codd-history import, and selected schema facts. It must be updated
-to expect nine native migrations while retaining the seven historical Codd mappings. The new
+to expect ten native migrations while retaining the seven historical Codd mappings. The new
 migration owns the coordinator row, lease table, active-lease index, and statement-level
 retention triggers. The existing row-level `protect_deletion` and statement-level
 `protect_truncation` GUC gates stay in place; retention is an additional defense.
@@ -308,12 +350,12 @@ release milestone until all local behavior and performance evidence are complete
 
 ### Milestone 1 — Persist and expose durable history-retention leases
 
-Create migration 0009 with the repository's migration scaffolder. Add
+Create migration `0010` with the repository's migration scaffolder. Add
 `kiroku.history_retention_coordinator` with exactly one checked Boolean row, and add
 `kiroku.history_retention_leases` with a UUID primary key, non-empty bounded owner and reason,
 non-negative `protected_through`, `created_at`, `renewed_at`, `expires_at`, and nullable
 `released_at`. Add an index on `expires_at` for unreleased rows. Update the schema management
-comment to name migration 0009. The migration is additive and must be safe on a populated store.
+comment to name migration `0010`. The migration is additive and must be safe on a populated store.
 
 Add `kiroku-store/src/Kiroku/Store/HistoryRetention/Types.hs` for public types and validation.
 Hide raw constructors for the validated duration, owner, reason, and inventory limit. The duration
@@ -414,7 +456,7 @@ must not be accepted.
 
 ### Milestone 4 — Defend raw SQL, preserve performance, and deliver durable documentation
 
-Finish migration 0009's statement-level defense. A function invoked before `DELETE` and
+Finish migration `0010`'s statement-level defense. A function invoked before `DELETE` and
 `TRUNCATE` on `kiroku.events`, `kiroku.stream_events`, and `kiroku.streams` locks the coordinator
 row and checks active leases. It composes with, rather than replaces, the existing GUC triggers.
 Use the trigger's table schema safely when locating its coordinator and lease table so a
@@ -510,7 +552,7 @@ cabal run kiroku-store-migrate -- new \
   --description "add replay history retention"
 ```
 
-The command should create and append `kiroku-store-migrations/migrations/0009.sql`. If it prints a
+The command should create and append `kiroku-store-migrations/migrations/0010.sql`. If it prints a
 different path, use the printed path and update this plan before continuing; do not rename the
 generated migration manually. After editing it and the migration assertions, run:
 
@@ -519,10 +561,10 @@ cabal test kiroku-store-migrations:kiroku-store-migrations-test \
   --test-show-details=direct
 ```
 
-Expected output ends with zero failures and proves nine native migrations, seven legacy Codd
+Expected output ends with zero failures and proves ten native migrations, seven legacy Codd
 history mappings, fresh apply, strict verify, and idempotent rerun. Do not change the seven-entry
-Codd mapping to include migration 0008 or 0009; those migrations are native forward work after the
-legacy import boundary.
+Codd mapping to include migrations `0008`, `0009`, or `0010`; those migrations are native forward
+work after the legacy import boundary.
 
 Build and run each focused store group as it lands:
 
@@ -697,11 +739,11 @@ already-released result on repetition. Renewal never recreates an expired or rel
 Inventory is read-only. Prune is monotonic and may be repeated with the same cutoff.
 
 The coordinator and trigger functions are installed by a forward-only migration. The migration
-must use idempotent object creation/replacement where repository policy permits, but once 0009 is
+must use idempotent object creation/replacement where repository policy permits, but once `0010` is
 released its bytes and manifest identity are immutable. On a disposable database, discard and
 recreate the database to retry. On a persistent database, take a backup before upgrade; recover
 from a bad applied migration by restoring the backup or appending a corrective migration, never by
-editing 0009 or deleting `pgmigrate` ledger rows manually.
+editing `0010` or deleting `pgmigrate` ledger rows manually.
 
 The coordinator row must never be deleted by application cleanup. A missing or duplicate
 coordinator is a schema-integrity failure, not a signal to continue without protection. Migration
@@ -883,7 +925,7 @@ the connection's ADR-3-controlled `search_path`. The affected-stream lock statem
 `stream_id = 0`, locks actual `streams` rows in ascending ID order, and completes before any delete
 statement.
 
-Migration 0009 uses these stable database object names: tables
+Migration `0010` uses these stable database object names: tables
 `kiroku.history_retention_coordinator` and `kiroku.history_retention_leases`; constraint
 `chk_history_retention_coordinator_singleton`; index
 `ix_history_retention_leases_unreleased_expiry`; function
@@ -923,3 +965,9 @@ PostgreSQL 17 remains the minimum. Use row locks, statement-level triggers,
 not require a new extension. Kiroku migrations remain the sole owner of the tables, functions,
 indexes, and triggers. Keiro consumes only these public Haskell APIs and never queries or locks a
 Kiroku private relation.
+
+
+Revision note (2026-08-13): Implementation began after plan 72 had released migration `0009` in
+`kiroku-store-migrations` 0.3.1.0. All replay-history-retention migration instructions and native
+manifest counts now point to forward migration `0010` and ten native entries while retaining the
+seven-entry Codd boundary.

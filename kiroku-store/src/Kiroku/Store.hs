@@ -13,6 +13,7 @@ module Kiroku.Store (
     module Kiroku.Store.Effect,
     module Kiroku.Store.Effect.Resource,
     module Kiroku.Store.Error,
+    module Kiroku.Store.HistoryRetention,
     module Kiroku.Store.Append,
     module Kiroku.Store.Causation,
     module Kiroku.Store.Lifecycle,
@@ -55,6 +56,7 @@ import Kiroku.Store.Connection
 import Kiroku.Store.Effect
 import Kiroku.Store.Effect.Resource
 import Kiroku.Store.Error
+import Kiroku.Store.HistoryRetention
 import Kiroku.Store.Lifecycle
 import Kiroku.Store.Link
 import Kiroku.Store.Notification (NotifierStartError (..))

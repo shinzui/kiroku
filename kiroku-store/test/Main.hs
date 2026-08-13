@@ -38,6 +38,7 @@ import Test.ConsumerGroupSql qualified as ConsumerGroupSql
 import Test.EventTypeFilter qualified as EventTypeFilter
 import Test.FailureInjection qualified as FailureInjection
 import Test.Helpers
+import Test.HistoryRetention qualified as HistoryRetention
 import Test.Hspec
 import Test.InterpreterHooks qualified as InterpreterHooks
 import Test.NotifyGuard qualified as NotifyGuard
@@ -72,6 +73,7 @@ main = withSharedMigratedPostgres $ hspec $ do
     Properties.spec
     Concurrency.spec
     FailureInjection.spec
+    HistoryRetention.spec
     Transaction.spec
     TruncateBefore.spec
     ReadStream.spec

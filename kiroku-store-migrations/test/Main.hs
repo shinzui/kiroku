@@ -42,7 +42,7 @@ import Test.Hspec
 main :: IO ()
 main = hspec $ do
     describe "native Kiroku migration definition" $ do
-        it "tracks the nine native files in manifest order" $ do
+        it "tracks the ten native files in manifest order" $ do
             directory <- findMigrationsDirectory
             manifest <- Text.lines <$> Text.IO.readFile (directory </> "manifest")
             manifest `shouldBe` Text.pack <$> nativeMigrationFiles
@@ -55,7 +55,7 @@ main = hspec $ do
                 bytes <- ByteString.readFile (directory </> nativeName)
                 lookup legacyName lockEntries `shouldBe` Just (checksumText bytes)
 
-        it "builds component kiroku and a nine-migration plan" $ do
+        it "builds component kiroku and a ten-migration plan" $ do
             component <- requireRight kirokuMigrations
             component `seq` pure ()
             plan <- requirePlan
@@ -91,7 +91,7 @@ main = hspec $ do
                     `shouldReturn` "0007-existing.sql\n"
 
     describe "fresh native databases" $ do
-        it "applies all nine, verifies strictly, and reports AlreadyApplied on rerun" $ do
+        it "applies all ten, verifies strictly, and reports AlreadyApplied on rerun" $ do
             plan <- requirePlan
             result <- withMigratedDatabase plan $ \connection -> do
                 assertSchema connection
@@ -248,6 +248,31 @@ main = hspec $ do
                 Text.isInfixOf "CTE Scan" planText `shouldBe` False
             either (expectationFailure . show) pure result
 
+    describe "history retention schema" $ do
+        it "publishes the exact coordinator and lease table columns" $ do
+            plan <- requirePlan
+            result <- withMigratedDatabase plan $ \connection -> do
+                columns <- useSession connection (Session.statement () historyRetentionColumnsStatement)
+                columns
+                    `shouldBe` [ ("history_retention_coordinator", "singleton", "boolean", True)
+                               , ("history_retention_leases", "lease_id", "uuid", True)
+                               , ("history_retention_leases", "owner", "text", True)
+                               , ("history_retention_leases", "reason", "text", True)
+                               , ("history_retention_leases", "protected_through", "bigint", True)
+                               , ("history_retention_leases", "created_at", "timestamp with time zone", True)
+                               , ("history_retention_leases", "renewed_at", "timestamp with time zone", True)
+                               , ("history_retention_leases", "expires_at", "timestamp with time zone", True)
+                               , ("history_retention_leases", "released_at", "timestamp with time zone", False)
+                               ]
+            either (expectationFailure . show) pure result
+
+        it "installs the singleton, checks, partial index, function, and six triggers" $ do
+            plan <- requirePlan
+            result <- withMigratedDatabase plan $ \connection -> do
+                facts <- useSession connection (Session.statement () historyRetentionFactsStatement)
+                facts `shouldBe` (1, 9, True, True, 6)
+            either (expectationFailure . show) pure result
+
     describe "Codd history import" $ do
         it "imports a current codd V5 ledger, verifies, and never replays SQL" $
             importFixture "codd"
@@ -293,14 +318,14 @@ importFixture sourceSchema = do
         pendingIds <-
             traverse
                 (requireRight . migrationId "kiroku")
-                ["0008-schema-management-comment", "0009"]
+                ["0008-schema-management-comment", "0009", "0010"]
         verifiedBeforeCanary <- verifyMigrationPlan defaultRunOptions settings plan >>= requireMigration
         case verifiedBeforeCanary of
             VerificationReport verificationIssues _ _ _ ->
                 verificationIssues
                     `shouldBe` (PendingMigration <$> pendingIds)
         up <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
-        reportOutcomes up `shouldBe` replicate 7 AlreadyApplied <> replicate 2 AppliedNow
+        reportOutcomes up `shouldBe` replicate 7 AlreadyApplied <> replicate 3 AppliedNow
         verifiedAfterCanary <- verifyMigrationPlan defaultRunOptions settings plan >>= requireMigration
         case verifiedAfterCanary of
             VerificationReport verificationIssues _ _ _ ->
@@ -329,6 +354,7 @@ nativeMigrationFiles =
     , "0007-stream-truncate-before.sql"
     , "0008-schema-management-comment.sql"
     , "0009.sql"
+    , "0010.sql"
     ]
 
 findMigrationsDirectory :: IO FilePath
@@ -446,11 +472,95 @@ schemaFactsStatement =
           (EXISTS (SELECT 1 FROM pg_catalog.pg_indexes WHERE schemaname = 'kiroku' AND indexname = 'ix_dead_letters_event_id')),
           (EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'chk_streams_stream_name_length')),
           (EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a JOIN pg_catalog.pg_class c ON c.oid = a.attrelid JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'kiroku' AND c.relname = 'streams' AND a.attname = 'truncate_before' AND NOT a.attisdropped)),
-          (obj_description(to_regnamespace('kiroku'), 'pg_namespace') = 'Managed by pg-migrate component kiroku through 0008-schema-management-comment')
+          (obj_description(to_regnamespace('kiroku'), 'pg_namespace') = 'Managed by pg-migrate component kiroku through 0010')
         ) AS checks(ok)
         """
         Encoders.noParams
         (Decoders.singleRow (Decoders.column (Decoders.nonNullable Decoders.bool)))
+
+historyRetentionColumnsStatement :: Statement () [(Text, Text, Text, Bool)]
+historyRetentionColumnsStatement =
+    Statement.preparable
+        """
+        SELECT relation.relname::text,
+               attribute.attname::text,
+               pg_catalog.format_type(attribute.atttypid, attribute.atttypmod),
+               attribute.attnotnull
+        FROM pg_catalog.pg_class AS relation
+        JOIN pg_catalog.pg_namespace AS namespace
+          ON namespace.oid = relation.relnamespace
+        JOIN pg_catalog.pg_attribute AS attribute
+          ON attribute.attrelid = relation.oid
+        WHERE namespace.nspname = 'kiroku'
+          AND relation.relname IN ('history_retention_coordinator', 'history_retention_leases')
+          AND attribute.attnum > 0
+          AND NOT attribute.attisdropped
+        ORDER BY relation.relname, attribute.attnum
+        """
+        Encoders.noParams
+        ( Decoders.rowList
+            ( (,,,)
+                <$> column Decoders.text
+                <*> column Decoders.text
+                <*> column Decoders.text
+                <*> column Decoders.bool
+            )
+        )
+  where
+    column = Decoders.column . Decoders.nonNullable
+
+historyRetentionFactsStatement :: Statement () (Int64, Int64, Bool, Bool, Int64)
+historyRetentionFactsStatement =
+    Statement.preparable
+        """
+        SELECT
+          (SELECT count(*) FROM kiroku.history_retention_coordinator WHERE singleton),
+          (SELECT count(*)
+             FROM pg_catalog.pg_constraint AS con_record
+             JOIN pg_catalog.pg_class AS relation ON relation.oid = con_record.conrelid
+             JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+            WHERE namespace.nspname = 'kiroku'
+              AND relation.relname IN ('history_retention_coordinator', 'history_retention_leases')
+              AND con_record.conname IN (
+                'history_retention_coordinator_pkey',
+                'chk_history_retention_coordinator_singleton',
+                'history_retention_leases_pkey',
+                'chk_history_retention_lease_owner_bytes',
+                'chk_history_retention_lease_reason_bytes',
+                'chk_history_retention_lease_frontier',
+                'chk_history_retention_lease_renewal_time',
+                'chk_history_retention_lease_expiry',
+                'chk_history_retention_lease_release_time'
+              )),
+          EXISTS (
+            SELECT 1
+            FROM pg_catalog.pg_indexes
+            WHERE schemaname = 'kiroku'
+              AND indexname = 'ix_history_retention_leases_unreleased_expiry'
+              AND indexdef LIKE '%WHERE (released_at IS NULL)'
+          ),
+          to_regprocedure('kiroku.protect_replay_history_from_destruction()') IS NOT NULL,
+          (SELECT count(*)
+             FROM pg_catalog.pg_trigger AS trigger_record
+             JOIN pg_catalog.pg_class AS relation ON relation.oid = trigger_record.tgrelid
+             JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+            WHERE namespace.nspname = 'kiroku'
+              AND relation.relname IN ('events', 'stream_events', 'streams')
+              AND trigger_record.tgname IN ('protect_replay_history_delete', 'protect_replay_history_truncate')
+              AND NOT trigger_record.tgisinternal)
+        """
+        Encoders.noParams
+        ( Decoders.singleRow
+            ( (,,,,)
+                <$> column Decoders.int8
+                <*> column Decoders.int8
+                <*> column Decoders.bool
+                <*> column Decoders.bool
+                <*> column Decoders.int8
+            )
+        )
+  where
+    column = Decoders.column . Decoders.nonNullable
 
 oversizedStreamStatement :: Statement Text ()
 oversizedStreamStatement =
