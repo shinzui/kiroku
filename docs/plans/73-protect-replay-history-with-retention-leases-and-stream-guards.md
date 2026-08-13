@@ -95,6 +95,12 @@ This section must always reflect the actual current state of the work.
       pass. IR-6 is now accurately `in_progress`: implemented locally, publication pending.
 - [ ] Milestone 5: prepare and, only after explicit release confirmation, publish the independently
       versioned package cohort and prove the public API from a clean downstream consumer.
+- [x] (2026-08-13T22:16:00Z) Completed Milestone 5 release-scope preflight with the release skill,
+      authoritative Hackage `preferred.json`, peeled upstream tags, local package history, Cabal
+      bounds, and Mori reverse dependents. Proposed PVP cohort: `kiroku-store` 0.7.0.0,
+      `kiroku-store-migrations` 0.3.2.0, `kiroku-otel` 0.2.0.5, `kiroku-cli` 0.2.0.4,
+      `kiroku-metrics` 0.1.0.6, and `shibuya-kiroku-adapter` 0.5.0.2. Version/bound/changelog
+      edits await the release skill's first user confirmation; nothing external has been changed.
 
 
 ## Surprises & Discoveries
@@ -126,6 +132,13 @@ implementation. Provide concise evidence.
   examples continued to prove the retention feature is absent from ordinary append SQL and
   INSERT/UPDATE triggers. The variance is retained here as evidence rather than misclassified as
   a feature-caused hot-path regression.
+
+- The release skill's package-order overview says `kiroku-store-migrations` depends on
+  `kiroku-store`, but the authoritative Cabal file has no such dependency in any component. Its
+  0.3.2.0 proposal is therefore driven solely by migration `0010`, not a propagated store bound.
+  Conversely, `kiroku-otel`, `kiroku-cli`, `kiroku-metrics`, and
+  `shibuya-kiroku-adapter` all declare `kiroku-store ^>=0.6`; the 0.7.0.0 store release requires
+  patch releases with `^>=0.7` bounds even for the two packages whose source code did not change.
 
 
 ## Decision Log
@@ -249,6 +262,18 @@ Record every decision made while working on the plan.
   transaction/read-hook boundary, and ordinary-hot-path exclusion. CAP-21 points consumers to the
   public lease and guard surface with migration, concurrency, raw-SQL, performance, and operations
   evidence rather than overloading the existing generic stream-lifecycle capability.
+  Date: 2026-08-13.
+
+- Decision: Propose one dependency-ordered six-package release cohort with independent PVP bumps:
+  `kiroku-store` 0.7.0.0, `kiroku-store-migrations` 0.3.2.0, `kiroku-otel` 0.2.0.5,
+  `kiroku-cli` 0.2.0.4, `kiroku-metrics` 0.1.0.6, and
+  `shibuya-kiroku-adapter` 0.5.0.2.
+  Rationale: The public `Store`, `KirokuEvent`, and `StoreError` closed sums make the store change
+  PVP-major. Migration `0010` is an additive migration-package feature. The tracer and metrics
+  adapter have internal exhaustive-match fixes, and every published store dependent needs a
+  compatible `^>=0.7` bound; those four dependent changes are patch-level. Hackage and upstream
+  tags confirm the current starting versions, and Mori identifies the external reverse-dependent
+  projects that need the released contract.
   Date: 2026-08-13.
 
 
