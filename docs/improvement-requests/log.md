@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-08-13
+* **Addition**: IR-6 requests renewable fan-in history-retention leases and transaction-scoped stream-history guards that serialize replay with destructive lifecycle mutations.
 * **Addition**: IR-5 requests a frozen Kiroku-owned SQL relation for exact durable subscription-member checkpoints so database consumers do not depend on the private subscriptions table.
 
 ## 2026-08-12
