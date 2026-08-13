@@ -367,6 +367,11 @@ onEvent tracer cell = \case
     KirokuEventPublisherPoolError{} -> pure ()
     KirokuEventPublisherLoopError{} -> pure ()
     KirokuEventHardDeleteIssued{} -> pure ()
+    KirokuEventHistoryRetentionLeaseAcquired{} -> pure ()
+    KirokuEventHistoryRetentionLeaseRenewed{} -> pure ()
+    KirokuEventHistoryRetentionLeaseReleased{} -> pure ()
+    KirokuEventHistoryRetentionLeasesPruned{} -> pure ()
+    KirokuEventHardDeleteHistoryRetentionConflict{} -> pure ()
 
 -- Span / state-cell helpers ---------------------------------------------------
 

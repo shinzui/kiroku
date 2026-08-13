@@ -84,6 +84,11 @@ This section must always reflect the actual current state of the work.
       structure examples prove trigger and ordinary-hot-path exclusions plus indexed active-lease
       lookup; the unchanged controlled workload measured `0.86x` and `0.88x` against its `0.90x`
       maximum. Durable documentation and governance records remain.
+- [x] (2026-08-13T22:03:40Z) Drafted and compiled the public Haddocks, replay-retention user guide,
+      production operations/grants, observability guide, migration facts, and both package
+      changelogs. Allocated ADR-7 and CAP-21 through the profile workflows; strict validation
+      passes for all 7 ADRs and 21 capabilities. The full repository gates and IR-6 transition
+      remain.
 - [ ] Milestone 5: prepare and, only after explicit release confirmation, publish the independently
       versioned package cohort and prove the public API from a clean downstream consumer.
 
@@ -103,6 +108,12 @@ implementation. Provide concise evidence.
   constraint on the two new tables returned 17 rather than the nine explicitly named primary-key
   and check constraints. The migration contract assertion now selects the exact stable constraint
   names; this proves the intended surface without coupling to version-specific catalog expansion.
+
+- Adding retention constructors to the deliberately exhaustive `KirokuEvent` sum surfaced
+  incomplete-pattern warnings in `kiroku-otel`'s subscription-only tracer and `kiroku-metrics`'
+  fixed subscription metrics collector during `just build`. Both adapters now match the five
+  constructors explicitly as no-ops while preserving their existing scope; composed event
+  handlers still receive the original events.
 
 
 ## Decision Log
@@ -218,6 +229,14 @@ Record every decision made while working on the plan.
   this plan began. Kiroku migrations are forward-only released artifacts, so reusing, renaming, or
   editing `0009` is invalid. The seven-entry Codd import boundary is unchanged; native migrations
   `0008`, `0009`, and `0010` follow it.
+  Date: 2026-08-13.
+
+- Decision: Record the durable retention architecture as ADR-7 and the delivered contract as
+  CAP-21.
+  Rationale: ADR-7 owns the coordinator, conservative deletion block, affected-stream lock order,
+  transaction/read-hook boundary, and ordinary-hot-path exclusion. CAP-21 points consumers to the
+  public lease and guard surface with migration, concurrency, raw-SQL, performance, and operations
+  evidence rather than overloading the existing generic stream-lifecycle capability.
   Date: 2026-08-13.
 
 

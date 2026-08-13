@@ -219,6 +219,14 @@ applyEvent km = \case
         recordPosition km name pos
     KirokuEventHardDeleteIssued _ _ ->
         bumpCounters km (\c -> c{hardDeletesIssued = c.hardDeletesIssued + 1})
+    -- Retention transitions are deliberately passed through without being
+    -- converted into the subscription-focused fixed metrics schema. Callers
+    -- can consume them from the composed eventHandler.
+    KirokuEventHistoryRetentionLeaseAcquired{} -> pure ()
+    KirokuEventHistoryRetentionLeaseRenewed{} -> pure ()
+    KirokuEventHistoryRetentionLeaseReleased{} -> pure ()
+    KirokuEventHistoryRetentionLeasesPruned{} -> pure ()
+    KirokuEventHardDeleteHistoryRetentionConflict{} -> pure ()
 
 bumpDbPhase :: SubscriptionDbPhase -> LifecycleCounters -> LifecycleCounters
 bumpDbPhase phase c = case phase of
