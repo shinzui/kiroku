@@ -3,7 +3,7 @@
 module Test.PerformanceStructure (spec) where
 
 import Control.Lens ((^.))
-import Control.Monad (unless)
+import Control.Monad (forM_, unless)
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
@@ -11,6 +11,7 @@ import Data.ByteString (ByteString)
 import Data.Foldable (foldl')
 import Data.Generics.Labels ()
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
+import Data.Int (Int64)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Hasql.Decoders qualified as D
@@ -49,6 +50,32 @@ noOpAppendSpec =
                 after <- readIORef checkouts
                 result `shouldBe` Right []
                 after - before `shouldBe` 0
+
+        it "rejects invalid retention requests before pool checkout" $ do
+            checkouts <- newIORef (0 :: Int)
+            withObservedStore checkouts $ \_store -> do
+                before <- readIORef checkouts
+                mkHistoryRetentionLeaseOwner "" `shouldSatisfy` either (const True) (const False)
+                mkHistoryRetentionLeaseReason "" `shouldSatisfy` either (const True) (const False)
+                mkHistoryRetentionInventoryLimit 0 `shouldSatisfy` either (const True) (const False)
+                after <- readIORef checkouts
+                after - before `shouldBe` 0
+
+        it "keeps every ordinary statement free of retention coordination" $ do
+            let ordinarySql =
+                    [ Statement.toSql SQL.appendExpectedVersion
+                    , Statement.toSql SQL.appendStreamExists
+                    , Statement.toSql SQL.appendNoStream
+                    , Statement.toSql SQL.appendAnyVersion
+                    , Statement.toSql SQL.readStreamForwardStmt
+                    , Statement.toSql SQL.readAllForwardStmt
+                    , Statement.toSql SQL.softDeleteStreamStmt
+                    , Statement.toSql SQL.undeleteStreamStmt
+                    , Statement.toSql SQL.setStreamTruncateBeforeStmt
+                    ]
+            forM_ ordinarySql $ \sql ->
+                T.toLower sql `shouldNotSatisfy` T.isInfixOf "history_retention"
+
 queryPlanSpec :: Spec
 queryPlanSpec =
     describe "production query plans" $
@@ -91,6 +118,16 @@ queryPlanSpec =
                         SQL.deleteDeadLettersForOrphanedEventsStmt
                         [("$1", "ARRAY['00000000-0000-0000-0000-000000000001'::uuid]::uuid[]")]
                 expectIndex "ix_dead_letters_event_id" plan
+
+            it "active retention lookup uses ix_history_retention_leases_unreleased_expiry" $ \store -> do
+                plan <- explainProductionStatement store activeLeaseLookupStmt []
+                expectIndex "ix_history_retention_leases_unreleased_expiry" plan
+
+            it "installs no retention trigger for INSERT or UPDATE" $ \store -> do
+                result <- Pool.use (store ^. #pool) (Session.statement () retentionTriggerShapeStmt)
+                case result of
+                    Left err -> expectationFailure ("could not inspect retention triggers: " <> show err)
+                    Right shape -> shape `shouldBe` (6, 0)
 
 withObservedStore :: IORef Int -> (KirokuStore -> IO ()) -> IO ()
 withObservedStore checkouts =
@@ -187,6 +224,17 @@ queryPlanFixture =
     ANALYZE events;
     ANALYZE stream_events;
     ANALYZE dead_letters;
+    INSERT INTO history_retention_leases
+      (owner, reason, protected_through, created_at, renewed_at, expires_at, released_at)
+    SELECT 'performance-owner',
+           'performance-reason',
+           0,
+           clock_timestamp() - interval '1 day',
+           clock_timestamp() - interval '1 day',
+           clock_timestamp() + interval '1 hour',
+           CASE WHEN n <= 9900 THEN clock_timestamp() ELSE NULL END
+    FROM generate_series(1, 10000) AS n;
+    ANALYZE history_retention_leases;
     """
 
 explainProductionStatement ::
@@ -264,3 +312,38 @@ expectNoNodeType forbidden plan = do
                 <> show facts
                 <> " from:\n"
                 <> show plan
+
+activeLeaseLookupStmt :: Statement () ()
+activeLeaseLookupStmt =
+    Statement.preparable
+        """
+        SELECT count(*), min(expires_at)
+        FROM history_retention_leases
+        WHERE released_at IS NULL
+          AND expires_at > clock_timestamp()
+        HAVING count(*) > 0
+        """
+        E.noParams
+        D.noResult
+
+retentionTriggerShapeStmt :: Statement () (Int64, Int64)
+retentionTriggerShapeStmt =
+    Statement.preparable
+        """
+        SELECT count(*),
+               count(*) FILTER (WHERE (trigger.tgtype & 4) <> 0 OR (trigger.tgtype & 16) <> 0)
+        FROM pg_catalog.pg_trigger AS trigger
+        JOIN pg_catalog.pg_class AS relation ON relation.oid = trigger.tgrelid
+        JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+        WHERE namespace.nspname = 'kiroku'
+          AND relation.relname IN ('events', 'stream_events', 'streams')
+          AND trigger.tgname IN ('protect_replay_history_delete', 'protect_replay_history_truncate')
+          AND NOT trigger.tgisinternal
+        """
+        E.noParams
+        ( D.singleRow
+            ( (,)
+                <$> D.column (D.nonNullable D.int8)
+                <*> D.column (D.nonNullable D.int8)
+            )
+        )

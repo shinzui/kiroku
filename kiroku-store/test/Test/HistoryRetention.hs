@@ -1,17 +1,26 @@
+{-# LANGUAGE MultilineStrings #-}
 {-# LANGUAGE NumericUnderscores #-}
 
 module Test.HistoryRetention (spec) where
 
 import Control.Concurrent (threadDelay)
+import Control.Concurrent.Async qualified as Async
 import Control.Lens ((&), (.~), (^.))
 import Data.Aeson qualified as Aeson
 import Data.Either (isLeft)
 import Data.IORef (modifyIORef', newIORef, readIORef)
-import Data.Int (Int32)
+import Data.Int (Int32, Int64)
 import Data.Text qualified as Text
 import Data.Time.Clock (addUTCTime, diffUTCTime, getCurrentTime, secondsToDiffTime)
 import Data.Vector qualified as Vector
+import Hasql.Decoders qualified as D
+import Hasql.Encoders qualified as E
+import Hasql.Errors qualified as Errors
+import Hasql.Pool qualified as Pool
+import Hasql.Session qualified as Session
+import Hasql.Statement (Statement, preparable, unpreparable)
 import Hasql.Transaction qualified as Tx
+import Hasql.Transaction.Sessions qualified as TxSessions
 import Kiroku.Store
 import Test.Helpers (countEvents, makeEvent, withTestStore, withTestStoreSettings)
 import Test.Hspec
@@ -173,6 +182,73 @@ spec = describe "history retention" $ do
                 ]
         conflictCounts `shouldBe` [2, 1]
 
+    describe "history retention raw SQL" $ do
+        it "serializes lease-first acquisition ahead of raw deletion" $
+            withTestStore $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "raw-race-lease-first") NoStream [makeEvent "Raw" (Aeson.object [])]
+                before <- countStreamEvents store
+                acquisition <- Async.async $ runStoreIO store $ runTransaction $ do
+                    lease <- acquireHistoryRetentionLeaseTx (request "raw-race" "lease-first" 60)
+                    _ <- Tx.statement () holdCoordinatorStmt
+                    pure lease
+                waitForCoordinatorPhase store 100
+                deletion <- Async.async (runRawDestruction store rawDeleteStreamEventsStmt)
+                threadDelay 50_000
+                Async.poll deletion >>= \case
+                    Nothing -> pure ()
+                    Just _ -> expectationFailure "raw deletion completed while lease acquisition held the coordinator"
+                acquired <- waitWithin "lease-first acquisition" acquisition
+                acquired `shouldSatisfy` \case Right HistoryRetentionLease{} -> True; _ -> False
+                rejected <- waitWithin "lease-first raw deletion" deletion
+                rejected `shouldSatisfy` hasSqlState "KR001"
+                countStreamEvents store `shouldReturn` before
+
+        it "serializes delete-first maintenance ahead of post-delete acquisition" $
+            withTestStore $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "raw-race-delete-first") NoStream [makeEvent "Raw" (Aeson.object [])]
+                deletion <- Async.async (runRawDestructionHeld store rawDeleteStreamEventsStmt)
+                waitForCoordinatorPhase store 100
+                acquisition <- Async.async $ runStoreIO store $ acquireHistoryRetentionLease (request "raw-race" "delete-first" 60)
+                threadDelay 50_000
+                Async.poll acquisition >>= \case
+                    Nothing -> pure ()
+                    Just _ -> expectationFailure "lease acquisition completed while raw deletion held the coordinator"
+                waitWithin "delete-first raw deletion" deletion `shouldReturn` Right ()
+                acquired <- waitWithin "delete-first acquisition" acquisition
+                acquired `shouldSatisfy` \case Right HistoryRetentionLease{} -> True; _ -> False
+                countStreamEvents store `shouldReturn` 0
+
+        it "rejects GUC-enabled DELETE with KR001 and permits it after release" $
+            withTestStore $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "raw-delete") NoStream (replicate 2 (makeEvent "Raw" (Aeson.object [])))
+                before <- countStreamEvents store
+                Right lease <- runStoreIO store $ acquireHistoryRetentionLease (request "raw" "delete" 60)
+                rejected <- runRawDestruction store rawDeleteStreamEventsStmt
+                rejected `shouldSatisfy` hasSqlState "KR001"
+                countStreamEvents store `shouldReturn` before
+                Right HistoryRetentionReleased{} <- runStoreIO store $ releaseHistoryRetentionLease (leaseHandle lease)
+                runRawDestruction store rawDeleteStreamEventsStmt `shouldReturn` Right ()
+                countStreamEvents store `shouldReturn` 0
+
+        it "rejects GUC-enabled TRUNCATE with KR001 and permits it after release" $
+            withTestStore $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "raw-truncate") NoStream [makeEvent "Raw" (Aeson.object [])]
+                before <- countEvents store
+                Right lease <- runStoreIO store $ acquireHistoryRetentionLease (request "raw" "truncate" 60)
+                rejected <- runRawDestruction store rawTruncateDataStmt
+                rejected `shouldSatisfy` hasSqlState "KR001"
+                countEvents store `shouldReturn` before
+                Right HistoryRetentionReleased{} <- runStoreIO store $ releaseHistoryRetentionLease (leaseHandle lease)
+                runRawDestruction store rawTruncateDataStmt `shouldReturn` Right ()
+                countEvents store `shouldReturn` 0
+
+        it "permits GUC-enabled maintenance after passive expiry" $
+            withTestStore $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "raw-expiry") NoStream [makeEvent "Raw" (Aeson.object [])]
+                Right _ <- runStoreIO store $ acquireHistoryRetentionLease (request "raw" "expiry" 1)
+                threadDelay 1_100_000
+                runRawDestruction store rawDeleteStreamEventsStmt `shouldReturn` Right ()
+
 runTx :: KirokuStore -> Tx.Transaction value -> IO value
 runTx store transaction = do
     result <- runStoreIO store (runTransaction transaction)
@@ -199,3 +275,102 @@ inventoryQuery = HistoryRetentionInventoryQuery . either (error . show) (\value 
 
 leaseHandle :: HistoryRetentionLease -> HistoryRetentionLeaseHandle
 leaseHandle lease = HistoryRetentionLeaseHandle (lease ^. #leaseId) (lease ^. #owner)
+
+runRawDestruction :: KirokuStore -> Statement () () -> IO (Either Pool.UsageError ())
+runRawDestruction store statement =
+    Pool.use (store ^. #pool) $
+        TxSessions.transaction TxSessions.ReadCommitted TxSessions.Write $ do
+            Tx.sql "SET LOCAL kiroku.enable_hard_deletes = 'on'"
+            Tx.statement () statement
+
+runRawDestructionHeld :: KirokuStore -> Statement () () -> IO (Either Pool.UsageError ())
+runRawDestructionHeld store statement =
+    Pool.use (store ^. #pool) $
+        TxSessions.transaction TxSessions.ReadCommitted TxSessions.Write $ do
+            Tx.sql "SET LOCAL kiroku.enable_hard_deletes = 'on'"
+            Tx.statement () statement
+            _ <- Tx.statement () holdCoordinatorStmt
+            pure ()
+
+waitForCoordinatorPhase :: KirokuStore -> Int -> IO ()
+waitForCoordinatorPhase _ 0 = expectationFailure "coordinator holder never reached its held phase"
+waitForCoordinatorPhase store attempts = do
+    result <- Pool.use (store ^. #pool) (Session.statement () coordinatorActiveStmt)
+    case result of
+        Right True -> pure ()
+        Right False -> threadDelay 10_000 >> waitForCoordinatorPhase store (attempts - 1)
+        Left err -> expectationFailure ("could not observe coordinator phase: " <> show err)
+
+waitWithin :: String -> Async.Async value -> IO value
+waitWithin label action = do
+    result <- Async.race (threadDelay 2_000_000) (Async.wait action)
+    case result of
+        Left () -> do
+            Async.cancel action
+            expectationFailure (label <> " timed out")
+            error "unreachable"
+        Right value -> pure value
+
+hasSqlState :: Text.Text -> Either Pool.UsageError value -> Bool
+hasSqlState expected = \case
+    Left
+        ( Pool.SessionUsageError
+                ( Errors.StatementSessionError
+                        _
+                        _
+                        _
+                        _
+                        _
+                        (Errors.ServerStatementError (Errors.ServerError actual _ _ _ _))
+                    )
+            ) -> actual == expected
+    _ -> False
+
+countStreamEvents :: KirokuStore -> IO Int64
+countStreamEvents store = do
+    result <- Pool.use (store ^. #pool) (TxSessions.transaction TxSessions.ReadCommitted TxSessions.Read (Tx.statement () countStreamEventsStmt))
+    case result of
+        Left err -> expectationFailure ("could not count stream junctions: " <> show err) >> error "unreachable"
+        Right value -> pure value
+
+countStreamEventsStmt :: Statement () Int64
+countStreamEventsStmt =
+    unpreparable
+        "SELECT count(*) FROM stream_events"
+        E.noParams
+        (D.singleRow (D.column (D.nonNullable D.int8)))
+
+rawDeleteStreamEventsStmt :: Statement () ()
+rawDeleteStreamEventsStmt =
+    unpreparable
+        "DELETE FROM stream_events"
+        E.noParams
+        D.noResult
+
+rawTruncateDataStmt :: Statement () ()
+rawTruncateDataStmt =
+    unpreparable
+        "TRUNCATE dead_letters, stream_events, events"
+        E.noParams
+        D.noResult
+
+holdCoordinatorStmt :: Statement () Bool
+holdCoordinatorStmt =
+    preparable
+        "SELECT pg_sleep(0.4) IS NULL /* history-retention-coordinator-race */"
+        E.noParams
+        (D.singleRow (D.column (D.nonNullable D.bool)))
+
+coordinatorActiveStmt :: Statement () Bool
+coordinatorActiveStmt =
+    preparable
+        """
+        SELECT EXISTS (
+          SELECT 1
+          FROM pg_stat_activity
+          WHERE state = 'active'
+            AND query = 'SELECT pg_sleep(0.4) IS NULL /* history-retention-coordinator-race */'
+        )
+        """
+        E.noParams
+        (D.singleRow (D.column (D.nonNullable D.bool)))

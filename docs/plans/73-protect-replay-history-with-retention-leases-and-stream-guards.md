@@ -78,6 +78,12 @@ This section must always reflect the actual current state of the work.
       existing hard-delete examples pass after formatting.
 - [ ] Milestone 4: complete concurrency, raw-SQL defense, rollback, deadlock, performance,
       documentation, capability, improvement-request, and ADR evidence.
+- [x] (2026-08-13T21:51:31Z) Completed Milestone 4's executable acceptance boundary: five raw-SQL
+      examples prove both coordinator race outcomes, `KR001` refusal for GUC-enabled `DELETE` and
+      `TRUNCATE`, preservation under refusal, and release/expiry recovery. Thirteen performance
+      structure examples prove trigger and ordinary-hot-path exclusions plus indexed active-lease
+      lookup; the unchanged controlled workload measured `0.86x` and `0.88x` against its `0.90x`
+      maximum. Durable documentation and governance records remain.
 - [ ] Milestone 5: prepare and, only after explicit release confirmation, publish the independently
       versioned package cohort and prove the public API from a clean downstream consumer.
 
