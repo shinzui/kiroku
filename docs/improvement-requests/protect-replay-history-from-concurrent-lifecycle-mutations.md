@@ -8,9 +8,9 @@ description: >-
 generated:
   by: openai/gpt-5
   at: "2026-08-13T18:52:50Z"
-timestamp: "2026-08-13T18:52:50Z"
+timestamp: "2026-08-13T22:10:57Z"
 requestId: IR-6
-status: proposed
+status: in_progress
 origin: mori://shinzui/keiro
 reviews:
   - kind: model
@@ -28,26 +28,73 @@ reviews:
       global position freezes only the replay ceiling; hard delete can still remove $all,
       category, and per-stream junctions while replay is in progress, and the current hard-delete
       path does not acquire the target stream row lock before deleting junctions.
+  - kind: model
+    reviewer: codex
+    reviewed_at: "2026-08-13T22:10:57Z"
+    document_timestamp: "2026-08-13T22:10:57Z"
+    scope: implementation-evidence
+    outcome: approved
+    provider: openai
+    model: gpt-5
+    effort: unspecified
+    context: >-
+      Re-reviewed migration 0010, the public transaction and effect surfaces, coordinator and
+      affected-stream lock algorithms, 18 migration and 305 core-store examples, both raw-SQL
+      coordinator race outcomes, linked-stream guard coverage, hot-path structural assertions,
+      the unchanged controlled workload gate, user and operator documentation, ADR-7, CAP-21,
+      the full repository build, all 422 tests, and nix flake check. Local implementation is
+      complete; package publication and the clean downstream consumer remain pending.
 verified:
   by: process:codex
-  at: "2026-08-13T18:52:50Z"
+  at: "2026-08-13T22:10:57Z"
 ---
 
 # Improvement Request: Protect Replay History From Concurrent Lifecycle Mutations
 
 ## Status
 
-Proposed as an owning-library prerequisite of
+In progress. Implemented in repository source by
+[ExecPlan 73](../plans/73-protect-replay-history-with-retention-leases-and-stream-guards.md) as an
+owning-library prerequisite of
 `mori://shinzui/keiro/masterplans/41-make-read-models-safely-readable-by-out-of-process-consumers`.
 That intended artifact handle awaits a Keiro registry refresh; its producing path is
 `docs/masterplans/41-make-read-models-safely-readable-by-out-of-process-consumers.md` in
 `mori://shinzui/keiro`.
+
+Migration `0010`, the validated public lease model, transaction and Effectful operations, raw-SQL
+enforcement, affected-stream hard-delete lock order, stream-history guard, observability,
+documentation, [ADR-7](../adr/0007-replay-history-retention-uses-leases-and-ordered-stream-guards.md),
+and [CAP-21](../capabilities/protected-replay-history.md) are complete locally. The request remains
+`in_progress` until Milestone 5 publishes the independently versioned package cohort and verifies
+the public API from a clean downstream consumer; no release is claimed here.
 
 The request strengthens the bounded logical replay window requested by
 `mori://shinzui/kiroku/okf/improvement-requests/concepts/IR-1`. IR-1 correctly states that a
 captured global upper position does not stop later hard deletion from changing visible history.
 This request adds the missing opt-in coordination contract for consumers whose completion proof
 requires history to remain stable for the duration of a rebuild.
+
+
+## Implementation Evidence
+
+- `kiroku-store-migrations/migrations/0010.sql` owns the schema-local coordinator, constrained
+  durable lease rows, partial active-lease index, SQLSTATE `KR001`, and the six statement-level
+  destructive-operation triggers. The 18-example migration suite proves the ten-entry native
+  manifest and exact catalog contract while retaining the seven-entry Codd import boundary.
+- `Kiroku.Store.HistoryRetention` and `Kiroku.Store.HistoryRetention.Types` expose the validated
+  transaction and mockable effect surface. `Test.HistoryRetention` proves the lifecycle,
+  post-commit events, typed hard-delete conflict, both coordinator race outcomes, raw `DELETE` and
+  `TRUNCATE` refusal, release, and passive-expiry recovery.
+- `Test.StreamHistoryGuard` proves exact metadata and pagination plus blocking of append, link,
+  soft delete, undelete, logical truncate, origin hard delete, and linked-origin hard delete; it
+  also proves rollback release and repeated deadlock-free hard-delete/multi-append races.
+- `Test.PerformanceStructure` proves no INSERT/UPDATE retention trigger, no retention reference in
+  ordinary append/read/lifecycle statements, pre-pool validation, and indexed active lookup. The
+  final unchanged controlled gate passed at `0.82x` and `0.83x` against its `0.90x` maximum after
+  the prescribed repeated-noise investigation.
+- All 422 repository tests, `just build`, strict ADR/capability validation, and
+  `nix flake check` pass. Publication evidence and a clean Hackage consumer are intentionally
+  deferred to the release-confirmed milestone.
 
 
 ## Context

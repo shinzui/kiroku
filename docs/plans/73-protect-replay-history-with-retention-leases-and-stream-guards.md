@@ -76,8 +76,8 @@ This section must always reflect the actual current state of the work.
       guard, same-transaction production forward reads, and ascending pre-locks for the hard-delete
       target plus every linked affected stream. All 10 focused guard/deadlock examples and all 10
       existing hard-delete examples pass after formatting.
-- [ ] Milestone 4: complete concurrency, raw-SQL defense, rollback, deadlock, performance,
-      documentation, capability, improvement-request, and ADR evidence.
+- [x] (2026-08-13T22:10:57Z) Milestone 4: completed concurrency, raw-SQL defense, rollback,
+      deadlock, performance, documentation, capability, improvement-request, and ADR evidence.
 - [x] (2026-08-13T21:51:31Z) Completed Milestone 4's executable acceptance boundary: five raw-SQL
       examples prove both coordinator race outcomes, `KR001` refusal for GUC-enabled `DELETE` and
       `TRUNCATE`, preservation under refusal, and release/expiry recovery. Thirteen performance
@@ -89,6 +89,10 @@ This section must always reflect the actual current state of the work.
       changelogs. Allocated ADR-7 and CAP-21 through the profile workflows; strict validation
       passes for all 7 ADRs and 21 capabilities. The full repository gates and IR-6 transition
       remain.
+- [x] (2026-08-13T22:10:57Z) Completed the local acceptance sweep: `just build`, all 422 tests
+      (including 305 core-store and 18 migration examples), final `just perf-check` at `0.82x`
+      and `0.83x`, `nix flake check`, and strict capability/ADR/improvement-request validation all
+      pass. IR-6 is now accurately `in_progress`: implemented locally, publication pending.
 - [ ] Milestone 5: prepare and, only after explicit release confirmation, publish the independently
       versioned package cohort and prove the public API from a clean downstream consumer.
 
@@ -114,6 +118,14 @@ implementation. Provide concise evidence.
   fixed subscription metrics collector during `just build`. Both adapters now match the five
   constructors explicitly as no-ops while preserving their existing scope; composed event
   handlers still receive the original events.
+
+- The final controlled workload sweep produced boundary-noisy samples despite no append-path
+  change: one run reported `0.91x/0.80x`; the three ADR-5-prescribed unchanged repeats reported
+  `0.88x/0.87x`, a rounded-but-failing `0.90x/0.79x`, and `0.89x/0.92x`. No workload or threshold
+  was changed. A final complete idle-host gate passed at `0.82x/0.83x`, and all 13 structural
+  examples continued to prove the retention feature is absent from ordinary append SQL and
+  INSERT/UPDATE triggers. The variance is retained here as evidence rather than misclassified as
+  a feature-caused hot-path regression.
 
 
 ## Decision Log
@@ -273,6 +285,62 @@ the guard. Supported hard delete discovers the target and every stream containin
 one of its originated events, then locks those rows by ascending ID before deleting anything. Ten
 focused examples include the linked-stream acceptance case, rollback release, and five repeated
 hard-delete/multi-append races; the ten pre-existing hard-delete examples still pass.
+
+Milestone 4 closed the defense-in-depth and delivery boundary. Five raw-SQL examples force both
+sides of the coordinator race, assert SQLSTATE `KR001` and unchanged rows for active-lease
+`DELETE`/`TRUNCATE`, and prove recovery after release or passive expiry. Thirteen structural
+performance examples prove ordinary SQL/round-trip exclusion, trigger shape, no pre-validation
+checkout, and indexed active lookup. Public Haddocks, the replay-retention guide, production
+grants/operations, observability guidance, migration facts, package changelogs, ADR-7, CAP-21, and
+IR-6 all agree. The full build, 422 repository examples, final `0.82x/0.83x` controlled workload,
+Nix checks, and all profiled bundles pass. The local implementation is complete; package versions,
+publication, tags, and clean Hackage consumption remain exclusively in Milestone 5.
+
+The exact Milestones 1–4 changed-file inventory is:
+
+```text
+README.md
+docs/PRODUCTION-DEPLOYMENT.md
+docs/adr/0007-replay-history-retention-uses-leases-and-ordered-stream-guards.md
+docs/adr/index.md
+docs/adr/log.md
+docs/capabilities/index.md
+docs/capabilities/log.md
+docs/capabilities/protected-replay-history.md
+docs/capabilities/schema-provisioning.md
+docs/improvement-requests/log.md
+docs/improvement-requests/protect-replay-history-from-concurrent-lifecycle-mutations.md
+docs/plans/73-protect-replay-history-with-retention-leases-and-stream-guards.md
+docs/user/README.md
+docs/user/history-retention.md
+docs/user/lifecycle.md
+docs/user/observability.md
+docs/user/schema-migrations.md
+kiroku-metrics/src/Kiroku/Metrics/Collector.hs
+kiroku-otel/src/Kiroku/Otel/Subscription.hs
+kiroku-store-migrations/CHANGELOG.md
+kiroku-store-migrations/README.md
+kiroku-store-migrations/migrations/0010.sql
+kiroku-store-migrations/migrations/manifest
+kiroku-store-migrations/test/Main.hs
+kiroku-store/CHANGELOG.md
+kiroku-store/kiroku-store.cabal
+kiroku-store/src/Kiroku/Store.hs
+kiroku-store/src/Kiroku/Store/Effect.hs
+kiroku-store/src/Kiroku/Store/Error.hs
+kiroku-store/src/Kiroku/Store/HistoryRetention.hs
+kiroku-store/src/Kiroku/Store/HistoryRetention/Internal.hs
+kiroku-store/src/Kiroku/Store/HistoryRetention/SQL.hs
+kiroku-store/src/Kiroku/Store/HistoryRetention/Types.hs
+kiroku-store/src/Kiroku/Store/Lifecycle.hs
+kiroku-store/src/Kiroku/Store/Observability.hs
+kiroku-store/src/Kiroku/Store/Transaction.hs
+kiroku-store/test/Main.hs
+kiroku-store/test/Test/HistoryRetention.hs
+kiroku-store/test/Test/HistoryRetentionMock.hs
+kiroku-store/test/Test/PerformanceStructure.hs
+kiroku-store/test/Test/StreamHistoryGuard.hs
+```
 
 
 ## Context and Orientation
@@ -1016,4 +1084,5 @@ Kiroku private relation.
 Revision note (2026-08-13): Implementation began after plan 72 had released migration `0009` in
 `kiroku-store-migrations` 0.3.1.0. All replay-history-retention migration instructions and native
 manifest counts now point to forward migration `0010` and ten native entries while retaining the
-seven-entry Codd boundary.
+seven-entry Codd boundary. Milestones 1–4 are locally complete and validated; Milestone 5 remains
+pending because external publication requires the release skill's explicit confirmation.
