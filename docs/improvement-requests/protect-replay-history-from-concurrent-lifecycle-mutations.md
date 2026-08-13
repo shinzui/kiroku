@@ -8,9 +8,10 @@ description: >-
 generated:
   by: openai/gpt-5
   at: "2026-08-13T18:52:50Z"
-timestamp: "2026-08-13T22:10:57Z"
+timestamp: "2026-08-13T22:46:12Z"
 requestId: IR-6
-status: in_progress
+status: completed
+completedAt: "2026-08-13T22:46:12Z"
 origin: mori://shinzui/keiro
 reviews:
   - kind: model
@@ -44,16 +45,31 @@ reviews:
       the unchanged controlled workload gate, user and operator documentation, ADR-7, CAP-21,
       the full repository build, all 422 tests, and nix flake check. Local implementation is
       complete; package publication and the clean downstream consumer remain pending.
+  - kind: model
+    reviewer: codex
+    reviewed_at: "2026-08-13T22:46:12Z"
+    document_timestamp: "2026-08-13T22:46:12Z"
+    scope: release-evidence
+    outcome: approved
+    provider: openai
+    model: gpt-5
+    effort: unspecified
+    context: >-
+      Re-reviewed the six annotated tags and GitHub releases, all six Hackage source and
+      documentation archives, refreshed Hackage index metadata, release-version package tests,
+      and an isolated Cabal consumer that downloaded kiroku-store 0.7.0.0 from Hackage, imported
+      Kiroku.Store.HistoryRetention, constructed a validated request, and compiled the public
+      acquisition transaction. All acceptance items are satisfied.
 verified:
   by: process:codex
-  at: "2026-08-13T22:10:57Z"
+  at: "2026-08-13T22:46:12Z"
 ---
 
 # Improvement Request: Protect Replay History From Concurrent Lifecycle Mutations
 
 ## Status
 
-In progress. Implemented in repository source by
+Completed by
 [ExecPlan 73](../plans/73-protect-replay-history-with-retention-leases-and-stream-guards.md) as an
 owning-library prerequisite of
 `mori://shinzui/keiro/masterplans/41-make-read-models-safely-readable-by-out-of-process-consumers`.
@@ -64,9 +80,15 @@ That intended artifact handle awaits a Keiro registry refresh; its producing pat
 Migration `0010`, the validated public lease model, transaction and Effectful operations, raw-SQL
 enforcement, affected-stream hard-delete lock order, stream-history guard, observability,
 documentation, [ADR-7](../adr/0007-replay-history-retention-uses-leases-and-ordered-stream-guards.md),
-and [CAP-21](../capabilities/protected-replay-history.md) are complete locally. The request remains
-`in_progress` until Milestone 5 publishes the independently versioned package cohort and verifies
-the public API from a clean downstream consumer; no release is claimed here.
+and [CAP-21](../capabilities/protected-replay-history.md) shipped in
+[`kiroku-store` 0.7.0.0](https://hackage.haskell.org/package/kiroku-store-0.7.0.0) and
+[`kiroku-store-migrations` 0.3.2.0](https://hackage.haskell.org/package/kiroku-store-migrations-0.3.2.0).
+Their annotated tags, the four required dependent patch releases, and all six GitHub releases
+resolve to release commit `1a977df4e175b6aaafbfd4816a3b32d9fd60ce56`. An isolated Cabal project
+downloaded `kiroku-store` 0.7.0.0 from a refreshed Hackage index, imported
+`Kiroku.Store.HistoryRetention`, constructed a validated request, compiled
+`acquireHistoryRetentionLeaseTx`, and ran successfully. Keiro adoption remains downstream work
+and does not hold this owning-library request open.
 
 The request strengthens the bounded logical replay window requested by
 `mori://shinzui/kiroku/okf/improvement-requests/concepts/IR-1`. IR-1 correctly states that a
@@ -93,8 +115,14 @@ requires history to remain stable for the duration of a rebuild.
   final unchanged controlled gate passed at `0.82x` and `0.83x` against its `0.90x` maximum after
   the prescribed repeated-noise investigation.
 - All 422 repository tests, `just build`, strict ADR/capability validation, and
-  `nix flake check` pass. Publication evidence and a clean Hackage consumer are intentionally
-  deferred to the release-confirmed milestone.
+  `nix flake check` pass. All six release-version package suites also pass before publication.
+- Hackage publishes the source and documentation archives for `kiroku-store` 0.7.0.0,
+  `kiroku-store-migrations` 0.3.2.0, `kiroku-otel` 0.2.0.5, `kiroku-cli` 0.2.0.4,
+  `kiroku-metrics` 0.1.0.6, and `shibuya-kiroku-adapter` 0.5.0.2. The corresponding annotated
+  tags and non-draft GitHub releases point at release commit
+  `1a977df4e175b6aaafbfd4816a3b32d9fd60ce56`.
+- A clean temporary consumer downloaded the released store archive from Hackage and compiled the
+  validated request and acquisition transaction without a repository source-package override.
 
 
 ## Context

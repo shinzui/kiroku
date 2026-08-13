@@ -93,7 +93,7 @@ This section must always reflect the actual current state of the work.
       (including 305 core-store and 18 migration examples), final `just perf-check` at `0.82x`
       and `0.83x`, `nix flake check`, and strict capability/ADR/improvement-request validation all
       pass. IR-6 is now accurately `in_progress`: implemented locally, publication pending.
-- [ ] Milestone 5: prepare and, only after explicit release confirmation, publish the independently
+- [x] Milestone 5: prepare and, only after explicit release confirmation, publish the independently
       versioned package cohort and prove the public API from a clean downstream consumer.
 - [x] (2026-08-13T22:16:00Z) Completed Milestone 5 release-scope preflight with the release skill,
       authoritative Hackage `preferred.json`, peeled upstream tags, local package history, Cabal
@@ -107,6 +107,14 @@ This section must always reflect the actual current state of the work.
       all`, all 422 tests, `just perf-check` at `0.89x` and `0.90x`, and `nix flake check` pass.
       The exact release diff is ready for the separate external-publication confirmation; no
       commit, tag, push, Hackage upload, or GitHub release has been made.
+- [x] (2026-08-13T22:46:12Z) After explicit publication confirmation, committed release snapshot
+      `1a977df4e175b6aaafbfd4816a3b32d9fd60ce56`, pushed six annotated tags, published all six
+      source and Haddock archives to Hackage in dependency order, and created six verified
+      non-draft GitHub releases. A clean temporary Cabal project downloaded `kiroku-store`
+      0.7.0.0 from Hackage, imported `Kiroku.Store.HistoryRetention`, constructed a validated
+      request, compiled `acquireHistoryRetentionLeaseTx`, and ran successfully. The refreshed
+      Hackage index recognizes all six versions; Mori refreshed `shinzui/kiroku`; IR-6 is
+      completed and CAP-21 records `since: 0.7.0.0`.
 
 
 ## Surprises & Discoveries
@@ -145,6 +153,18 @@ implementation. Provide concise evidence.
   Conversely, `kiroku-otel`, `kiroku-cli`, `kiroku-metrics`, and
   `shibuya-kiroku-adapter` all declare `kiroku-store ^>=0.6`; the 0.7.0.0 store release requires
   patch releases with `^>=0.7` bounds even for the two packages whose source code did not change.
+
+- The release skill's generic `cabal test <package>` example selects the library rather than a
+  test suite in this multi-package project. The release used each explicit
+  `<package>:<package>-test` target; all six release-version suites passed before their uploads.
+  The clean consumer also initially named `hasql` as the owner of `Hasql.Transaction`; Mori
+  confirmed the module belongs to `hasql-transaction`, and the corrected isolated project then
+  compiled and ran against the downloaded Hackage store archive.
+
+- `mori registry reregister --namespace shinzui` updated `shinzui/kiroku` but returned failure
+  because six unrelated registered projects have stale schemas or missing configuration. Direct
+  `mori registry show shinzui/kiroku --full` succeeds and exposes all eight Kiroku package handles;
+  no unrelated repository was changed.
 
 
 ## Decision Log
@@ -327,13 +347,17 @@ IR-6 all agree. The full build, 422 repository examples, final `0.82x/0.83x` con
 Nix checks, and all profiled bundles pass. The local implementation is complete; package versions,
 publication, tags, and clean Hackage consumption remain exclusively in Milestone 5.
 
-Milestone 5 local preparation selected and applied the independently versioned six-package cohort:
+Milestone 5 selected, validated, and published the independently versioned six-package cohort:
 `kiroku-store` 0.7.0.0, `kiroku-store-migrations` 0.3.2.0, `kiroku-otel` 0.2.0.5,
 `kiroku-cli` 0.2.0.4, `kiroku-metrics` 0.1.0.6, and
 `shibuya-kiroku-adapter` 0.5.0.2. Every published store dependent now requires
 `kiroku-store ^>=0.7`. Package checks and source distributions, the release-version build, all
-422 tests, the unchanged performance gate at `0.89x/0.90x`, and Nix checks pass. Publication and
-clean Hackage consumption remain pending the required external-publication confirmation.
+422 tests, the unchanged performance gate at `0.89x/0.90x`, and Nix checks pass. Release commit
+`1a977df4e175b6aaafbfd4816a3b32d9fd60ce56` owns all six annotated tags. Hackage serves all six
+source and documentation archives, GitHub serves six matching non-draft releases, and a clean
+temporary project downloaded `kiroku-store` 0.7.0.0, compiled the validated request plus public
+acquisition transaction, and ran. IR-6 and CAP-21 now record the shipped contract; downstream
+Keiro adoption remains outside this owning-library plan.
 
 The exact Milestones 1–4 changed-file inventory is:
 
@@ -1123,7 +1147,6 @@ Kiroku private relation.
 Revision note (2026-08-13): Implementation began after plan 72 had released migration `0009` in
 `kiroku-store-migrations` 0.3.1.0. All replay-history-retention migration instructions and native
 manifest counts now point to forward migration `0010` and ten native entries while retaining the
-seven-entry Codd boundary. Milestones 1–4 are locally complete and validated. Milestone 5's local
-version, bound, changelog, package, test, performance, and Nix preparation is also complete;
-external publication and clean Hackage consumption remain pending the release skill's explicit
-publication confirmation.
+seven-entry Codd boundary. Milestones 1–4 are locally complete and validated. Milestone 5 is also
+complete: the six-package cohort, annotated tags, Hackage source/docs, GitHub releases, clean
+Hackage consumer, Mori refresh, IR-6 completion, and CAP-21 release version are recorded above.

@@ -1,7 +1,7 @@
 # Capability Catalog Log
 
 ## 2026-08-13
-* **Addition**: CAP-21 records durable replay-history leases and transaction-scoped one-stream guards with raw-SQL, concurrency, and hot-path evidence.
+* **Addition**: CAP-21 records durable replay-history leases and transaction-scoped one-stream guards, shipped in `kiroku-store` 0.7.0.0 and `kiroku-store-migrations` 0.3.2.0 with raw-SQL, concurrency, hot-path, and clean-consumer evidence.
 * **Update**: CAP-1 now records the ten-entry native manifest, seven-entry Codd import prefix, frozen least-privilege subscription checkpoint SQL relation, and replay-retention schema contract.
 
 ## 2026-08-12

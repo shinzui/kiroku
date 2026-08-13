@@ -1,7 +1,7 @@
 # Bundle Update Log
 
 ## 2026-08-13
-* **Implementation**: IR-6 is implemented in repository source with migration 0010, durable replay-history leases, ordered stream guards, raw-SQL and concurrency defenses, hot-path evidence, operations documentation, ADR-7, and CAP-21; package publication remains pending.
+* **Completion**: IR-6 shipped in `kiroku-store` 0.7.0.0 and `kiroku-store-migrations` 0.3.2.0 with the four required dependent patch releases; Hackage source/docs, annotated tags, GitHub releases, and an isolated clean consumer agree on the replay-history retention contract.
 * **Completion**: IR-5 shipped in `kiroku-store-migrations` 0.3.1.0; Hackage, the annotated upstream tag, the published source archive, and an isolated clean consumer agree on the nine-migration checkpoint-relation contract.
 * **Implementation**: IR-5 is implemented in repository source with migration 0009, frozen catalog and behavior proofs, least-privilege isolation, dependency replacement evidence, indexed planning, user documentation, and ADR-6; publication remains pending.
 * **Correction**: IR-5 now specifies semantic non-null view values, a structurally read-only owner-rights definition, and a focused catalog contract test while preserving pg-migrate's plan-versus-ledger verifier semantics.

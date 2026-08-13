@@ -9,7 +9,7 @@ capabilityId: CAP-21
 provider: mori://shinzui/kiroku
 status: shipped
 stability: experimental
-since: "unreleased"
+since: "0.7.0.0"
 packages:
   - kiroku-store
   - kiroku-store-migrations
