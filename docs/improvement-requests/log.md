@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-08-13
+* **Addition**: IR-5 requests a frozen Kiroku-owned SQL relation for exact durable subscription-member checkpoints so database consumers do not depend on the private subscriptions table.
+
 ## 2026-08-12
 * **Implementation**: IR-4 is implemented in repository source with a payload-free visible-head API, lifecycle and mock evidence, and an indexed no-sort query-plan gate; release publication and Keiro adoption remain pending.
 * **Addition**: IR-4 requests a public payload-free visible global head, distinct from the monotonic append frontier, so Keiro can remove private Kiroku SQL after the owning API is released.
