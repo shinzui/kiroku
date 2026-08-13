@@ -1,5 +1,13 @@
 # Revision history for kiroku-metrics
 
+## 0.1.0.6 -- 2026-08-13
+
+### Other Changes
+
+* Requires `kiroku-store ^>=0.7`. The fixed subscription metrics schema
+  explicitly ignores replay-history retention lifecycle events while composed
+  event passthrough still receives them; no `kiroku-metrics` API changed.
+
 ## 0.1.0.5 -- 2026-08-12
 
 ### Other Changes

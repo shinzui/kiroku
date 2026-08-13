@@ -100,7 +100,13 @@ This section must always reflect the actual current state of the work.
       bounds, and Mori reverse dependents. Proposed PVP cohort: `kiroku-store` 0.7.0.0,
       `kiroku-store-migrations` 0.3.2.0, `kiroku-otel` 0.2.0.5, `kiroku-cli` 0.2.0.4,
       `kiroku-metrics` 0.1.0.6, and `shibuya-kiroku-adapter` 0.5.0.2. Version/bound/changelog
-      edits await the release skill's first user confirmation; nothing external has been changed.
+      edits awaited the release skill's first user confirmation; nothing external was changed.
+- [x] (2026-08-13T22:24:06Z) After explicit confirmation, applied the six independent version
+      bumps, changed every publishable `kiroku-store` dependency to `^>=0.7`, and finalized all
+      six changelog entries. All six packages pass `cabal check` and `cabal sdist`; `cabal build
+      all`, all 422 tests, `just perf-check` at `0.89x` and `0.90x`, and `nix flake check` pass.
+      The exact release diff is ready for the separate external-publication confirmation; no
+      commit, tag, push, Hackage upload, or GitHub release has been made.
 
 
 ## Surprises & Discoveries
@@ -320,6 +326,14 @@ grants/operations, observability guidance, migration facts, package changelogs, 
 IR-6 all agree. The full build, 422 repository examples, final `0.82x/0.83x` controlled workload,
 Nix checks, and all profiled bundles pass. The local implementation is complete; package versions,
 publication, tags, and clean Hackage consumption remain exclusively in Milestone 5.
+
+Milestone 5 local preparation selected and applied the independently versioned six-package cohort:
+`kiroku-store` 0.7.0.0, `kiroku-store-migrations` 0.3.2.0, `kiroku-otel` 0.2.0.5,
+`kiroku-cli` 0.2.0.4, `kiroku-metrics` 0.1.0.6, and
+`shibuya-kiroku-adapter` 0.5.0.2. Every published store dependent now requires
+`kiroku-store ^>=0.7`. Package checks and source distributions, the release-version build, all
+422 tests, the unchanged performance gate at `0.89x/0.90x`, and Nix checks pass. Publication and
+clean Hackage consumption remain pending the required external-publication confirmation.
 
 The exact Milestones 1–4 changed-file inventory is:
 
@@ -1109,5 +1123,7 @@ Kiroku private relation.
 Revision note (2026-08-13): Implementation began after plan 72 had released migration `0009` in
 `kiroku-store-migrations` 0.3.1.0. All replay-history-retention migration instructions and native
 manifest counts now point to forward migration `0010` and ten native entries while retaining the
-seven-entry Codd boundary. Milestones 1–4 are locally complete and validated; Milestone 5 remains
-pending because external publication requires the release skill's explicit confirmation.
+seven-entry Codd boundary. Milestones 1–4 are locally complete and validated. Milestone 5's local
+version, bound, changelog, package, test, performance, and Nix preparation is also complete;
+external publication and clean Hackage consumption remain pending the release skill's explicit
+publication confirmation.

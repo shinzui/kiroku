@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0.4 — 2026-08-13
+
+### Other Changes
+
+* Requires `kiroku-store ^>=0.7` for the new replay-history retention API. No
+  `kiroku-cli` API or runtime behavior changed.
+
 ## 0.2.0.3 — 2026-08-12
 
 ### Other Changes

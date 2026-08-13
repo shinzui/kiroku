@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0.2 — 2026-08-13
+
+### Other Changes
+
+* Requires `kiroku-store ^>=0.7` for the new replay-history retention API. No
+  `shibuya-kiroku-adapter` API or runtime behavior changed.
+
 ## 0.5.0.1 — 2026-08-12
 
 ### Other Changes

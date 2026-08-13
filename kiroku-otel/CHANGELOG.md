@@ -1,5 +1,14 @@
 # kiroku-otel changelog
 
+## 0.2.0.5 — 2026-08-13
+
+### Other Changes
+
+* Requires `kiroku-store ^>=0.7`. The subscription-only tracer explicitly
+  ignores the new replay-history retention lifecycle events while remaining
+  exhaustive over `KirokuEvent`; no `kiroku-otel` API or runtime behavior
+  changed.
+
 ## 0.2.0.4 — 2026-08-12
 
 ### Other Changes
