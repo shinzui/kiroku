@@ -72,8 +72,10 @@ This section must always reflect the actual current state of the work.
       post-commit observability without reason text, and typed supported hard-delete conflicts on
       the shared transaction implementation. All 10 focused retention/mock examples and all 10
       pre-existing hard-delete examples pass after formatting.
-- [ ] Milestone 3: add the transaction-scoped stream-history guard and make supported hard delete
-      pre-lock every stream whose history it can change.
+- [x] (2026-08-13T21:45:39Z) Milestone 3: added the transaction-scoped `FOR SHARE` stream-history
+      guard, same-transaction production forward reads, and ascending pre-locks for the hard-delete
+      target plus every linked affected stream. All 10 focused guard/deadlock examples and all 10
+      existing hard-delete examples pass after formatting.
 - [ ] Milestone 4: complete concurrency, raw-SQL defense, rollback, deadlock, performance,
       documentation, capability, improvement-request, and ADR evidence.
 - [ ] Milestone 5: prepare and, only after explicit release confirmation, publish the independently
@@ -237,6 +239,15 @@ transition, and reason text is absent from the event constructors. Supported har
 the coordinator, reports `HistoryRetentionActive` with active count and earliest expiry, changes
 no rows while any lease remains active, and resumes normally after the final release. Ten focused
 retention/mock examples and the ten-example legacy hard-delete group pass.
+
+Milestone 3 delivered one-stream repair isolation. A guard returns exact metadata even for a
+soft-deleted or logically truncated stream, rejects missing and reserved names with typed results,
+and holds a share lock through caller-owned commit or rollback. Append, link, soft delete,
+undelete, logical truncate, direct-origin hard delete, and linked-origin hard delete all wait for
+the guard. Supported hard delete discovers the target and every stream containing a junction for
+one of its originated events, then locks those rows by ascending ID before deleting anything. Ten
+focused examples include the linked-stream acceptance case, rollback release, and five repeated
+hard-delete/multi-append races; the ten pre-existing hard-delete examples still pass.
 
 
 ## Context and Orientation

@@ -9,6 +9,8 @@ module Kiroku.Store.HistoryRetention.SQL (
     leaseInventoryStmt,
     pruneLeasesStmt,
     activeConflictStmt,
+    lockStreamHistoryStmt,
+    lockAffectedStreamsForHardDeleteStmt,
 ) where
 
 import Contravariant.Extras (contrazip2, contrazip3)
@@ -22,7 +24,7 @@ import Hasql.Decoders qualified as D
 import Hasql.Encoders qualified as E
 import Hasql.Statement (Statement, preparable)
 import Kiroku.Store.HistoryRetention.Types
-import Kiroku.Store.Types (GlobalPosition (..))
+import Kiroku.Store.Types (GlobalPosition (..), StreamId (..), StreamInfo (..), StreamName (..), StreamVersion (..))
 
 acquireLeaseStmt :: Statement (Text, Text, DiffTime) HistoryRetentionLease
 acquireLeaseStmt =
@@ -196,6 +198,40 @@ activeConflictStmt =
             )
         )
 
+lockStreamHistoryStmt :: Statement Text (Maybe StreamInfo)
+lockStreamHistoryStmt =
+    preparable
+        """
+        SELECT stream_id, stream_name, stream_version,
+               created_at, deleted_at, truncate_before
+        FROM streams
+        WHERE stream_name = $1
+        FOR SHARE
+        """
+        textParam
+        (D.rowMaybe streamInfoRow)
+
+lockAffectedStreamsForHardDeleteStmt :: Statement Int64 (Vector Int64)
+lockAffectedStreamsForHardDeleteStmt =
+    preparable
+        """
+        WITH affected_streams AS (
+          SELECT $1::bigint AS stream_id
+          UNION
+          SELECT stream_events.stream_id
+          FROM stream_events
+          WHERE stream_events.original_stream_id = $1
+            AND stream_events.stream_id <> 0
+        )
+        SELECT streams.stream_id
+        FROM streams
+        JOIN affected_streams USING (stream_id)
+        ORDER BY streams.stream_id
+        FOR UPDATE OF streams
+        """
+        int8Param
+        (D.rowVector (column D.int8))
+
 leaseRow :: D.Row HistoryRetentionLease
 leaseRow =
     makeLease
@@ -227,8 +263,18 @@ makeLease leaseUuid ownerText reasonText frontier created renewed expires releas
             unexpected -> error ("unknown history retention lease state from database: " <> show unexpected)
         }
 
+streamInfoRow :: D.Row StreamInfo
+streamInfoRow =
+    StreamInfo
+        <$> (StreamId <$> column D.int8)
+        <*> (StreamName <$> column D.text)
+        <*> (StreamVersion <$> column D.int8)
+        <*> column D.timestamptz
+        <*> D.column (D.nullable D.timestamptz)
+        <*> (StreamVersion <$> column D.int8)
+
 requireValidated :: Either error value -> value
-requireValidated = either (const (error "database returned an invalid history retention lease")) id
+requireValidated = either (const (error "database returned an invalid history retention lease")) (\value -> value)
 
 column :: D.Value value -> D.Row value
 column = D.column . D.nonNullable
@@ -241,6 +287,9 @@ uuidParam = E.param (E.nonNullable E.uuid)
 
 int4Param :: E.Params Int32
 int4Param = E.param (E.nonNullable E.int4)
+
+int8Param :: E.Params Int64
+int8Param = E.param (E.nonNullable E.int8)
 
 intervalParam :: E.Params DiffTime
 intervalParam = E.param (E.nonNullable E.interval)

@@ -21,8 +21,11 @@ module Kiroku.Store.HistoryRetention (
     releaseHistoryRetentionLease,
     historyRetentionLeaseInventory,
     pruneHistoryRetentionLeases,
+    lockStreamHistoryForReplayTx,
+    readStreamForwardTx,
 ) where
 
+import Data.Int (Int32)
 import Data.Time.Clock (UTCTime)
 import Data.Vector (Vector)
 import Effectful (Eff, (:>))
@@ -30,7 +33,10 @@ import Effectful.Dispatch.Dynamic (send)
 import Hasql.Transaction qualified as Tx
 import Kiroku.Store.Effect (Store (..))
 import Kiroku.Store.HistoryRetention.Internal qualified as Internal
+import Kiroku.Store.HistoryRetention.SQL qualified as HistoryRetentionSQL
 import Kiroku.Store.HistoryRetention.Types
+import Kiroku.Store.SQL qualified as SQL
+import Kiroku.Store.Types (RecordedEvent, StreamInfo, StreamName (..), StreamVersion (..))
 
 -- | Acquire a new lease and atomically capture the authoritative @$all@ frontier.
 acquireHistoryRetentionLeaseTx :: HistoryRetentionLeaseRequest -> Tx.Transaction HistoryRetentionLease
@@ -91,3 +97,32 @@ pruneHistoryRetentionLeases ::
     UTCTime ->
     Eff es HistoryRetentionPruneResult
 pruneHistoryRetentionLeases cutoff = send (PruneHistoryRetentionLeases cutoff)
+
+{- | Lock one application's stream row in share mode until the surrounding
+transaction ends. The returned metadata includes soft-delete and logical
+truncate state so a repair can reject incomplete history before mutating its
+target. @$all@ is reserved.
+
+When composing this guard with a lease operation, acquire or renew the lease
+first and take this guard second.
+-}
+lockStreamHistoryForReplayTx ::
+    StreamName ->
+    Tx.Transaction (Either StreamHistoryUnavailable StreamInfo)
+lockStreamHistoryForReplayTx stream@(StreamName name)
+    | name == "$all" = pure (Left (StreamHistoryReserved stream))
+    | otherwise = do
+        locked <- Tx.statement name HistoryRetentionSQL.lockStreamHistoryStmt
+        pure $ maybe (Left (StreamHistoryNotFound stream)) Right locked
+
+{- | Read a page inside the caller's transaction using the production
+exclusive-lower cursor and ascending-order statement. This function deliberately
+does not run 'Kiroku.Store.Settings.decodeHook': 'Tx.Transaction' has no 'IO'.
+-}
+readStreamForwardTx ::
+    StreamName ->
+    StreamVersion ->
+    Int32 ->
+    Tx.Transaction (Vector RecordedEvent)
+readStreamForwardTx (StreamName name) (StreamVersion cursor) limit =
+    Tx.statement (name, cursor, limit) SQL.readStreamForwardStmt

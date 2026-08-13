@@ -6,8 +6,10 @@ module Kiroku.Store.HistoryRetention.Internal (
     pruneHistoryRetentionLeasesTx,
     lockHistoryRetentionCoordinatorTx,
     activeHistoryRetentionConflictTx,
+    lockAffectedStreamsForHardDeleteTx,
 ) where
 
+import Data.Int (Int64)
 import Data.Time.Clock (UTCTime)
 import Data.UUID (UUID)
 import Data.Vector (Vector)
@@ -79,6 +81,11 @@ lockHistoryRetentionCoordinatorTx = do
 
 activeHistoryRetentionConflictTx :: Tx.Transaction (Maybe HistoryRetentionConflict)
 activeHistoryRetentionConflictTx = Tx.statement () SQL.activeConflictStmt
+
+lockAffectedStreamsForHardDeleteTx :: Int64 -> Tx.Transaction ()
+lockAffectedStreamsForHardDeleteTx streamId = do
+    _ <- Tx.statement streamId SQL.lockAffectedStreamsForHardDeleteStmt
+    pure ()
 
 leaseUuid :: HistoryRetentionLeaseId -> UUID
 leaseUuid (HistoryRetentionLeaseId value) = value

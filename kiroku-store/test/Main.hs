@@ -51,6 +51,7 @@ import Test.PublisherRestartNoRebroadcast qualified as PublisherRestartNoRebroad
 import Test.ReadStream qualified as ReadStream
 import Test.StartupFailureSurfacing qualified as StartupFailureSurfacing
 import Test.StreamBridgeTermination qualified as StreamBridgeTermination
+import Test.StreamHistoryGuard qualified as StreamHistoryGuard
 import Test.StreamNameLookup qualified as StreamNameLookup
 import Test.SubscriptionCheckpointInitialization qualified as SubscriptionCheckpointInitialization
 import Test.SubscriptionCheckpointInitializationMock qualified as SubscriptionCheckpointInitializationMock
@@ -81,6 +82,7 @@ main = withSharedMigratedPostgres $ hspec $ do
     ReadStream.spec
     StreamNameLookup.spec
     StreamBridgeTermination.spec
+    StreamHistoryGuard.spec
     InterpreterHooks.spec
     Causation.spec
     ConsumerGroupSql.spec

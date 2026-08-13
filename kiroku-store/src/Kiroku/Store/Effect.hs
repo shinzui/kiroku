@@ -368,6 +368,7 @@ runStorePool store = interpret_ $ \case
                         case conflict of
                             Just active -> pure (Left active)
                             Nothing -> do
+                                HistoryRetention.lockAffectedStreamsForHardDeleteTx sid
                                 originated <- Tx.statement sid SQL.deleteAllRowsForOriginStmt
                                 Tx.statement originated SQL.deleteJunctionsByEventIdsStmt
                                 linkedIn <- Tx.statement sid SQL.deleteStreamOwnJunctionsStmt
