@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### New Features
+
+* Added forward migration `0009`, which publishes the frozen, structurally read-only
+  `kiroku.subscription_checkpoints_v1` relation for exact durable subscription-member
+  checkpoints. Database readers can receive schema usage and view selection without access to
+  Kiroku's private checkpoint table; no role or grant is created automatically.
+
 ## 0.3.0.0 — 2026-07-14
 
 ### Breaking Changes

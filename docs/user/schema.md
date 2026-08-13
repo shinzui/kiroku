@@ -116,6 +116,57 @@ only the authoritative name/member key, `last_seen`, and `updated_at`, together
 with a same-statement `$all` position. It deliberately does not expose the
 legacy target or group-size columns as topology facts.
 
+## `subscription_checkpoints_v1`
+
+`kiroku.subscription_checkpoints_v1` is the supported SQL relation for database-native clients
+that need exact persisted subscription-member checkpoints. It is a PostgreSQL view—a stored query,
+not a copied or materialized table—over Kiroku's private checkpoint storage. Clients should depend
+on this versioned relation rather than `kiroku.subscriptions`, whose storage shape remains private.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `subscription_name` | `TEXT` | Persisted subscription name. Together with `consumer_group_member` it identifies one exact checkpoint key. |
+| `consumer_group_member` | `INTEGER` | Persisted member key. Member zero does not distinguish an ordinary subscription from member zero of a consumer group. |
+| `checkpoint_position` | `BIGINT` | Exact persisted global position for the member. An explicit reset may move it backward or forward. |
+| `checkpoint_updated_at` | `TIMESTAMPTZ` | Time of the latest checkpoint-row upsert. It is not proof that the position advanced and is not a worker heartbeat or liveness signal. |
+
+Every returned value is semantically non-null because the source columns are constrained
+`NOT NULL`, and an empty checkpoint inventory returns zero rows. PostgreSQL ordinary views do not
+copy base-column nullability into their own catalog attributes: generic introspection reports
+`pg_attribute.attnotnull = false` and `information_schema.columns.is_nullable = YES` for these four
+columns. Clients should treat that as view metadata behavior, not as permission for null values.
+
+The relation has no implicit row order. Name the four columns explicitly and add the order needed
+by the caller:
+
+```sql
+SELECT subscription_name,
+       consumer_group_member,
+       checkpoint_position,
+       checkpoint_updated_at
+FROM kiroku.subscription_checkpoints_v1
+ORDER BY subscription_name, consumer_group_member;
+```
+
+The v1 relation name, ordered four-column shape, SQL types, and value meanings are frozen. Kiroku
+may replace its private storage and update the view body without breaking a downstream view that
+depends on the supported relation. Any incompatible or extended public row shape receives a new
+name such as `subscription_checkpoints_v2`; consumers should not expect columns to be added to v1.
+
+The view is structurally non-updatable and explicitly uses owner-rights evaluation
+(`security_invoker = false`). A reader therefore needs schema usage and view selection, but no
+privilege on `kiroku.subscriptions`. Deployments own role creation and grants; Kiroku migrations
+create neither:
+
+```sql
+CREATE ROLE checkpoint_reader;
+GRANT USAGE ON SCHEMA kiroku TO checkpoint_reader;
+GRANT SELECT ON kiroku.subscription_checkpoints_v1 TO checkpoint_reader;
+```
+
+The view owner must retain access to the private source relation. Do not grant readers mutation or
+private-table privileges merely to query this view.
+
 ## `dead_letters`
 
 `dead_letters` records events that a subscription handler asked to dead-letter —

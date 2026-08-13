@@ -2,8 +2,9 @@
 
 `kiroku-store-migrations` owns Kiroku's PostgreSQL schema as one native
 `pg-migrate` component named `kiroku`. The component embeds an ordered manifest
-and seven immutable SQL payloads, so applications can compose it with other
-libraries without copying Kiroku SQL.
+and nine SQL payloads, so applications can compose it with other libraries
+without copying Kiroku SQL. The first seven payloads are immutable historical
+Codd bytes; `0008` and `0009` are native-only forward migrations.
 
 ## Public API
 
@@ -101,9 +102,12 @@ cabal test kiroku-store-migrations:kiroku-store-migrations-test
 It proves manifest order, legacy SHA-256 parity, fresh apply, strict verify,
 idempotent rerun, concurrent locking, current Codd V5 import, legacy
 `codd_schema` import, partial-row rejection, import audit records, and
-source-ledger preservation. `cabal test kiroku-store:kiroku-store-test` consumes
-the same native plan through `kiroku-test-support` and proves the complete store
-behavior, including append and read scenarios.
+source-ledger preservation. The relation contract suite also proves the frozen
+`kiroku.subscription_checkpoints_v1` catalog, non-null value semantics,
+owner-rights privilege isolation, structural read-only behavior, downstream
+view survival, and indexed query plan. `cabal test kiroku-store:kiroku-store-test`
+consumes the same native plan through `kiroku-test-support` and proves the
+complete store behavior, including append and read scenarios.
 
 ## Recovery
 

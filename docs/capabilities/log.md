@@ -1,5 +1,8 @@
 # Capability Catalog Log
 
+## 2026-08-13
+* **Update**: CAP-1 now records the nine-entry native manifest, seven-entry Codd import prefix, and the frozen least-privilege subscription checkpoint SQL relation.
+
 ## 2026-08-12
 * **Update**: CAP-4 now exposes and proves the payload-free visible global head position.
 

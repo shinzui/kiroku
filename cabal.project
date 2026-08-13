@@ -34,8 +34,9 @@ source-repository-package
   tag: 2bc7ace5db942d87962990bba0b2323ec4c67770
   subdir: hasql-notifications
 
--- pg-migrate's six-package v1 release is tagged but intentionally not yet
--- published to Hackage. Pin the released tag until Hackage publication.
+-- pg-migrate 1.1.0.0 is published to Hackage. Keep the source-repository pins
+-- so this multi-package development project resolves every companion package
+-- from the same reviewed upstream tag.
 source-repository-package
   type: git
   location: https://github.com/shinzui/pg-migrate.git

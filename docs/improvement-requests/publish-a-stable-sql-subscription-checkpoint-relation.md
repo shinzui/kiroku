@@ -8,44 +8,47 @@ description: >-
 generated:
   by: openai/gpt-5
   at: "2026-08-13T18:52:50Z"
-timestamp: "2026-08-13T20:32:58Z"
+timestamp: "2026-08-13T20:47:41Z"
 requestId: IR-5
-status: proposed
+status: implemented
 origin: mori://shinzui/keiro
 reviews:
   - kind: model
     reviewer: codex
-    reviewed_at: "2026-08-13T20:32:58Z"
-    document_timestamp: "2026-08-13T20:32:58Z"
+    reviewed_at: "2026-08-13T20:47:41Z"
+    document_timestamp: "2026-08-13T20:47:41Z"
     scope: technical-accuracy
     outcome: approved
     provider: openai
     model: gpt-5
     effort: unspecified
     context: >-
-      Reviewed against the Kiroku checkpoint inventory, checkpoint SQL, native migration schema,
-      pg-migrate 1.1.0.0 source and PostgreSQL ordinary-view behavior. The request is sound after
-      specifying semantic non-null values, a structurally read-only owner-rights view, and a
-      focused Kiroku catalog test instead of treating ledger verification as live-schema
-      verification.
+      Reviewed against migration 0009, all 16 migration-package examples, the Haskell inventory
+      and reset suites, PostgreSQL 18.4 role/dependency/query-plan evidence, user documentation,
+      and ADR-6. The implementation satisfies every source acceptance item; publication remains
+      pending.
 verified:
   by: process:codex
-  at: "2026-08-13T20:32:58Z"
+  at: "2026-08-13T20:47:41Z"
 ---
 
 # Improvement Request: Publish a Stable SQL Subscription Checkpoint Relation
 
 ## Status
 
-Proposed as an owning-library prerequisite of
+Implemented in repository source by
+[ExecPlan 72](../plans/72-publish-a-stable-sql-subscription-checkpoint-relation.md) as an
+owning-library prerequisite of
 `mori://shinzui/keiro/masterplans/41-make-read-models-safely-readable-by-out-of-process-consumers`.
 That artifact handle is intended and awaits a Keiro registry refresh; the producing file is
 `docs/masterplans/41-make-read-models-safely-readable-by-out-of-process-consumers.md` in
 `mori://shinzui/keiro`.
 
-Keiro needs this relation before it can publish a durable SQL status contract for out-of-process
-projection readers. The request is independently useful to database-native monitoring and
-coordination tools that cannot call Kiroku's Haskell `Store` effect.
+Migration `0009` and its manifest entry, focused catalog and behavior tests, Haskell-inventory
+comparison, user guides, changelog, capability evidence, and
+[ADR-6](../adr/0006-versioned-public-sql-relations-are-owner-published-and-frozen.md) are complete.
+Publication of `kiroku-store-migrations` 0.3.1.0 and downstream adoption remain pending, so this
+request is implemented rather than completed and has no `completedAt` value.
 
 The technical review has reconciled two PostgreSQL and pg-migrate constraints before source
 implementation. An ordinary view returns non-null values from Kiroku's constrained base columns,
@@ -228,6 +231,34 @@ owner-published checkpoint relation.
     without referencing `kiroku.subscriptions`.
 11. At 10,000 mixed checkpoint rows, a subscription-name-filtered aggregate through the public
     relation uses `ix_subscriptions_name_member` and contains no materialized common-table scan.
+
+
+## Implementation Evidence
+
+`kiroku-store-migrations/migrations/0009.sql` creates the four-column
+`kiroku.subscription_checkpoints_v1` view and all five reviewed comments. The manifest now has nine
+native entries; the seven legacy Codd payloads and lock evidence remain byte-identical. The focused
+group in `kiroku-store-migrations/test/Main.hs` proves the frozen catalog contract, empty and exact
+non-null rows, two-connection commit/rollback visibility, view-only role access, direct-table
+SQLSTATE `42501`, owner-update SQLSTATE `55000`, downstream-view survival across replacement
+storage, and index use without a `CTE Scan` on PostgreSQL 18.4. The full migration package suite
+passes 16 examples.
+
+`kiroku-store/test/Test/SubscriptionCheckpointInventory.hs` compares the SQL relation with the
+public Haskell inventory in empty, multi-member, stopped-worker, and synchronized in-flight
+scenarios; the matched inventory group passes 10 examples. The existing
+`kiroku-store/test/Test/SubscriptionCheckpointReset.hs` group passes four examples and remains the
+authoritative public-API proof for committed regression and rollback. User documentation now
+publishes the v1 compatibility, semantic-nullability, ordering, privilege, and three-surface
+contracts. No production Haskell declaration, checkpoint write, copied table, trigger, or new
+index changed.
+
+
+## Follow-up
+
+Release `kiroku-store-migrations` 0.3.1.0 only through the separately authorized release workflow.
+After Hackage, the annotated upstream tag, published tarball contents, and a clean consumer agree,
+mark this request completed, add `completedAt`, and record the released verification evidence.
 
 
 ## Requested Deliverables

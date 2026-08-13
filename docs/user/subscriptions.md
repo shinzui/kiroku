@@ -214,6 +214,22 @@ or group size, so do not infer topology from it. `checkpointUpdatedAt` is the
 time of the latest successful checkpoint upsert, including a lower monotonic
 save that left the position unchanged; it is not proof that progress advanced.
 
+Kiroku exposes three deliberately different checkpoint-reading surfaces:
+
+- `subscriptionStates` is a process-local snapshot of workers that are live in the current
+  `KirokuStore`. Stopped workers are absent even when their durable checkpoint remains.
+- `subscriptionCheckpointInventory` is the mockable Haskell `Store` operation for every persisted
+  member plus the authoritative append frontier captured in the same SQL statement.
+- [`kiroku.subscription_checkpoints_v1`](schema.md#subscription_checkpoints_v1) is the supported
+  read-only SQL relation for database-native clients and persisted downstream views. It contains
+  the durable member rows but not the append frontier; an empty inventory therefore appears as
+  zero rows.
+
+Use the Haskell inventory when code needs the same-statement frontier or a mock interpreter. Use
+the versioned SQL relation when a database client needs to join or aggregate checkpoint rows
+without importing the `Store` effect. Neither durable surface reports live worker state, and SQL
+callers must add their own `ORDER BY` when order matters.
+
 The subtraction in the example is a **distance to the authoritative append
 frontier**, not an exact or necessarily actionable event backlog. Global
 positions include events skipped by category and event-type filters, and a

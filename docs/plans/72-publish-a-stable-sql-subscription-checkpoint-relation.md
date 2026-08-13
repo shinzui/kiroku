@@ -63,10 +63,12 @@ This section must always reflect the actual current state of the work.
   isolation, downstream-view dependency survival, and index-preserving query behavior against
   PostgreSQL 18.4. The migration suite passes 16 examples, inventory comparison passes 10, and
   the reset lifecycle group passes 4.
-- [ ] Milestone 3: publish the compatibility and privilege contract in user documentation,
-  changelog and an ADR, then pass repository-wide validation.
+- [x] (2026-08-13T20:51:05Z) Milestone 3: published the compatibility and privilege contract in
+  user documentation, changelog, CAP-1, and ADR-6; set IR-5 to implemented; and passed the planned
+  repository-wide validation.
 - [ ] Milestone 4: with explicit release authorization, publish `kiroku-store-migrations` 0.3.1.0,
-  verify Hackage and the annotated upstream tag, and complete IR-5 with released evidence.
+  verify Hackage and the annotated upstream tag, and complete IR-5 with released evidence. Not
+  started: no upload, tag, push, or release has been attempted without that authorization.
 
 
 ## Surprises & Discoveries
@@ -93,6 +95,16 @@ implementation. Provide concise evidence.
 - Hasql 1.10 strictly distinguishes the `information_schema.views` yes/no domain from PostgreSQL
   `text`. The catalog statement casts `is_updatable` and `is_insertable_into` to `text`; without
   the casts the focused test failed with expected OID 25 and actual OID 1043.
+
+- Optional strict validation of the entire capability bundle exits non-zero on 18 pre-existing
+  concepts that lack the profile-recommended `reviews` field. CAP-1 itself now carries current
+  review provenance and a log entry; the plan's required strict ADR and improvement-request
+  bundles both pass. Evidence begins:
+
+  ```text
+  profile: append-with-optimistic-concurrency: missing profile-recommended field: reviews
+  profile: causation-correlation-queries: missing profile-recommended field: reviews
+  ```
 
 
 ## Decision Log
@@ -156,6 +168,15 @@ Record every decision made while working on the plan.
   does not change the production migration package closure.
   Date: 2026-08-13
 
+- Decision: Record the public SQL compatibility boundary as
+  [ADR-6](../adr/0006-versioned-public-sql-relations-are-owner-published-and-frozen.md) and extend
+  CAP-1's schema-provisioning evidence rather than create a separate capability concept.
+  Rationale: Versioning, owner-rights privilege evaluation, structural read-only behavior,
+  semantic nullability, and focused catalog verification are durable rules for future Kiroku SQL
+  relations. The shipped behavior still belongs to the existing migration package and its schema
+  provisioning capability.
+  Date: 2026-08-13
+
 
 ## Outcomes & Retrospective
 
@@ -177,6 +198,16 @@ view, and the 10,000-row indexed plan. The public Haskell inventory and SQL rela
 empty, multi-member, stopped-worker, and in-flight scenarios; the four reset examples continue to
 prove committed regression and rollback behavior. No production Haskell module or checkpoint
 write path changed.
+
+Milestone 3 completed the source implementation. The schema and subscription guides publish the
+frozen v1, ordering, semantic-nullability, least-privilege, and Haskell/live/SQL distinctions;
+migration documentation now distinguishes nine native entries from the seven-entry Codd import
+prefix. ADR-6 owns the durable compatibility decision, CAP-1 cites the shipped relation, the
+migration changelog carries the feature, and IR-5 is `implemented` with `completedAt` absent.
+`nix fmt`, `cabal build all`, all seven Cabal test suites (391 examples total), and
+`nix flake check` pass. Strict ADR validation reports six valid concepts and strict
+improvement-request validation reports six valid concepts. Publication and released-artifact
+verification are the only remaining acceptance work.
 
 
 ## Context and Orientation
@@ -267,9 +298,10 @@ which fixes per-member identity and rejects inferred topology;
 the sole DDL authority; [ADR-4](../adr/0004-explicit-subscription-checkpoint-lifecycle.md), which
 separates monotonic save from explicit transactional reset; and
 [ADR-5](../adr/0005-three-tier-performance-regression-gates.md), which prefers structural plan
-assertions over noisy absolute timing gates. No existing ADR owns the compatibility promise for a
-versioned public SQL relation, so Milestone 3 creates one using the profiled `docs/adr` workflow.
-`docs/adr/profile.dhall` was read and successfully type-checked during planning.
+assertions over noisy absolute timing gates; and
+[ADR-6](../adr/0006-versioned-public-sql-relations-are-owner-published-and-frozen.md), which now owns
+the frozen, owner-published SQL relation compatibility policy. `docs/adr/profile.dhall` was read
+and successfully type-checked, and OKF allocated `ADR-6` through the profiled workflow.
 
 
 ## Plan of Work
@@ -675,7 +707,8 @@ The implementation uses the already-bound `pg-migrate`, `pg-migrate-embed`,
 dependency upgrade. PostgreSQL 17 and 18 are the supported database majors; both support
 `security_invoker` view options and `NOT MATERIALIZED` common-table expressions.
 
-The local artifacts controlling durable context are IR-5, the newly allocated ADR, and this plan.
+The local artifacts controlling durable context are IR-5,
+[ADR-6](../adr/0006-versioned-public-sql-relations-are-owner-published-and-frozen.md), and this plan.
 The downstream dependency remains
 `mori://shinzui/keiro/masterplans/41-make-read-models-safely-readable-by-out-of-process-consumers`.
 Its current registry cannot yet resolve that MasterPlan handle, but the producing Keiro repository
@@ -692,3 +725,8 @@ migration examples. The remaining milestones and release authorization boundary 
 2026-08-13T20:44:07Z: Recorded Milestone 2 completion with real PostgreSQL semantic, privilege,
 dependency, performance, and Haskell-inventory comparison evidence. Corrected the case-sensitive
 reset-suite command and documented the observed PostgreSQL 18.4 plan and Hasql catalog cast.
+
+2026-08-13T20:51:05Z: Recorded Milestone 3 completion after publishing user, changelog,
+capability, ADR-6, and IR-5 implementation evidence and passing formatting, all builds, all seven
+Cabal test suites, Nix flake checks, and strict ADR/improvement-request validation. Milestone 4
+remains explicitly unauthorized and unstarted.

@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-08-13
+* **Addition**: ADR-6 establishes owner-published, frozen versioned SQL relations with owner-rights access, structural read-only behavior, semantic non-null values, and focused catalog tests.
+
 ## 2026-08-12
 * **Update**: ADR-4 now distinguishes authoritative frontier seeding from the visible global head.
 

@@ -5,10 +5,11 @@ Kiroku ships one native `pg-migrate` component in
 the event-store library itself never runs schema DDL.
 
 The component is named `kiroku`, has no component dependencies, and currently
-contains seven ordered migrations. Its checked-in
+contains nine ordered native migrations. Its checked-in
 `kiroku-store-migrations/migrations/manifest` is authoritative. SQL bytes are
 embedded at compile time and deployed services do not discover migration files
-at runtime.
+at runtime. The first seven entries preserve the historical Codd payloads
+byte-for-byte; `0008` and `0009` are native-only forward migrations.
 
 ## Running the executable
 
@@ -58,9 +59,11 @@ migrations already appear in `codd.sql_migrations` or
 4. writes equivalent applied rows and audit evidence to `pgmigrate`; and
 5. leaves the Codd source objects unchanged.
 
-After import, run strict `verify`, then `up`. `up` must report
-`AlreadyApplied` for all seven Kiroku migrations. A missing row, checksum
-mismatch, or partial nontransactional row is a cutover blocker.
+After import, inspect strict `verify`: it must report the first seven entries as applied and only
+`0008` and `0009` as pending. Then run `up`; it must report seven `AlreadyApplied` outcomes and two
+`AppliedNow` outcomes. A final `verify` must be clean across all nine native entries. A missing
+legacy row, checksum mismatch, partial nontransactional row, or any other unexpected issue is a
+cutover blocker.
 
 ## Authoring and recovery
 
