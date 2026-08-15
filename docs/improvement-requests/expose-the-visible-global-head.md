@@ -10,7 +10,8 @@ generated:
   at: "2026-08-12T16:20:30Z"
 timestamp: "2026-08-12T17:03:14Z"
 requestId: IR-4
-status: implemented
+status: completed
+completedAt: "2026-08-15T14:12:26Z"
 origin: mori://shinzui/keiro
 reviews:
   - kind: model
@@ -36,14 +37,14 @@ verified:
 
 ## Status
 
-Implemented in repository source by
+Completed. Implemented in repository source by
 `mori://shinzui/kiroku/plans/71-expose-the-visible-global-head-position`, as the owning-library
 follow-up to
 `mori://shinzui/keiro/plans/238-target-strong-consistency-waits-at-the-visible-store-head`.
 The public Kiroku API, concrete runner coverage, mock contract, structural query-plan proof, and
-documentation are complete locally. Package publication and Keiro adoption remain pending. Once a
-released Kiroku API is available, Keiro should adopt it and remove its temporary Kiroku-schema
-query rather than retain two implementations of the same storage fact.
+documentation are complete. `kiroku-store` 0.6.0.0 published the API to Hackage on
+2026-08-12, and 0.7.0.0 carries it forward. Keiro adopted the released operation and removed its
+temporary Kiroku-schema query, so a single implementation of the storage fact remains.
 
 ## Context
 
@@ -160,7 +161,7 @@ or version bound changed.
 
 ## Follow-up
 
-Publishing a `kiroku-store` release containing the API remains pending. After publication, Keiro
-should replace its temporary compatibility query and preserve its empty, caught-up, genuinely
-behind, hard-deleted-tail, and timeout tests under
+None. `kiroku-store` 0.6.0.0 published the API, and Keiro replaced its temporary compatibility
+query while preserving its empty, caught-up, genuinely behind, hard-deleted-tail, and timeout
+tests under
 `mori://shinzui/keiro/plans/238-target-strong-consistency-waits-at-the-visible-store-head`.

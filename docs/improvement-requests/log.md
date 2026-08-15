@@ -1,5 +1,10 @@
 # Bundle Update Log
 
+## 2026-08-15
+* **Completion**: IR-4 is complete; `kiroku-store` 0.6.0.0 published the visible-head API on 2026-08-12 and Keiro adopted it in `Keiro.ReadModel` and `Keiro.ReadModel.Rebuild`, retiring its temporary Kiroku-schema head query.
+* **Completion**: IR-3 is complete; `kiroku-store` 0.5.0.0 published the checkpoint lifecycle API on 2026-08-11, Keiro adopted the policy in its projection catalog and the reset combinator in coordinated rebuilds, and the downstream cohort shipped as Keiro 0.12.0.0.
+* **Correction**: IR-3 and IR-4 left the non-vocabulary status `implemented` for Mori's closed lifecycle set; both now record `completed`.
+
 ## 2026-08-13
 * **Completion**: IR-6 shipped in `kiroku-store` 0.7.0.0 and `kiroku-store-migrations` 0.3.2.0 with the four required dependent patch releases; Hackage source/docs, annotated tags, GitHub releases, and an isolated clean consumer agree on the replay-history retention contract.
 * **Completion**: IR-5 shipped in `kiroku-store-migrations` 0.3.1.0; Hackage, the annotated upstream tag, the published source archive, and an isolated clean consumer agree on the nine-migration checkpoint-relation contract.

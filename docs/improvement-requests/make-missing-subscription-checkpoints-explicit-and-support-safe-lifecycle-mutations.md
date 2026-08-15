@@ -10,7 +10,8 @@ generated:
   at: "2026-08-11T15:41:42Z"
 timestamp: "2026-08-11T15:41:42Z"
 requestId: IR-3
-status: implemented
+status: completed
+completedAt: "2026-08-15T14:12:26Z"
 origin: mori://shinzui/keiro
 reviews:
   - kind: model
@@ -38,14 +39,14 @@ verified:
 
 ## Status
 
-Implemented in Kiroku repository source by
+Completed. Implemented in Kiroku repository source by
 `mori://shinzui/kiroku/plans/70-make-subscription-checkpoint-initialization-and-reset-semantics-explicit`.
 The three startup policies, typed resolution/refusal events, and transaction-composable exact reset
-are covered by the store, adapter, mock, concurrency, rollback, and monotonicity suites. Publication
-and Keiro adoption remain coordinated by
-`mori://shinzui/keiro/masterplans/33-make-subscription-checkpoint-lifecycle-explicit-before-the-next-release`.
-The request remains `implemented`, not `completed`, until that downstream release cohort is
-published and adopted.
+are covered by the store, adapter, mock, concurrency, rollback, and monotonicity suites.
+`kiroku-store` 0.5.0.0 published the API to Hackage on 2026-08-11, and 0.7.0.0 carries it forward.
+Keiro adopted it under
+`mori://shinzui/keiro/masterplans/33-make-subscription-checkpoint-lifecycle-explicit-before-the-next-release`,
+which records the initiative as complete, and shipped that downstream cohort as Keiro 0.12.0.0.
 
 ## Context
 
