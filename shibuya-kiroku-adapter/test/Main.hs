@@ -1017,8 +1017,16 @@ main = withSharedMigratedPostgres $ hspec $ do
                             -- The group is presented as N processors, each pinned to the
                             -- group-level PartitionedInOrder contract + per-member Serial.
                             liftIO $ length processors `shouldBe` 4
-                            let policies = map (\(_, QueueProcessor _ _ ord conc) -> (ord, conc)) processors
-                            liftIO $ policies `shouldBe` replicate 4 (PartitionedInOrder, Serial)
+                            -- 'Nothing' marks a batching processor, which the
+                            -- consumer group must never produce.
+                            let policies =
+                                    map
+                                        ( \(_, p) -> case p of
+                                            QueueProcessor{ordering, concurrency} -> Just (ordering, concurrency)
+                                            BatchingProcessor{} -> Nothing
+                                        )
+                                        processors
+                            liftIO $ policies `shouldBe` replicate 4 (Just (PartitionedInOrder, Serial))
                             -- The member index is readable off the ProcessorId.
                             let pids = map (\(ProcessorId p, _) -> p) processors
                             liftIO $
