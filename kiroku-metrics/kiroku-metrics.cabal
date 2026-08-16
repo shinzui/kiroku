@@ -1,6 +1,6 @@
 cabal-version:   3.0
 name:            kiroku-metrics
-version:         0.1.0.6
+version:         0.1.0.7
 synopsis:
   Metrics, health, and event-streaming HTTP endpoints for Kiroku
 

@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.7.0.1 — 2026-08-15
+
+### Bug Fixes
+
+* `nextInput` in the subscription worker did not handle the `Retrying` state
+  and would have crashed the worker with a pattern-match failure had that
+  state ever driven it. `Retrying` is a surfaced observability state that the
+  delivery primitive writes into the state `TVar` and then restores, so it
+  should never reach `nextInput`; the new arm is defensive and mirrors
+  `step`'s own `Retrying` clause, returning to `Live` at the same cursor.
+
+### Other Changes
+
+* Built with `ghc-options: -Wall -Werror=incomplete-patterns`, matching every
+  other package in the repository. Library sources are warning-free; the
+  cleanup removed redundant imports in `Kiroku.Store.Effect`,
+  `Kiroku.Store.HistoryRetention.SQL`, `Kiroku.Store.Subscription.Stream`,
+  and `Kiroku.Store.Subscription.EventPublisher`, and unused binders in
+  `Kiroku.Store.HistoryRetention.Internal` and `Kiroku.Store.Transaction`. No
+  API or runtime behavior changed.
+* The `kiroku-shibuya-overhead` benchmark component now requires
+  `shibuya-core >=0.9 && <0.10`. The library has no `shibuya-core`
+  dependency.
+
 ## 0.7.0.0 — 2026-08-13
 
 ### Breaking Changes

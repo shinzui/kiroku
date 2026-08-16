@@ -1,5 +1,14 @@
 # Revision history for kiroku-metrics
 
+## 0.1.0.7 -- 2026-08-15
+
+### Other Changes
+
+* Built with `ghc-options: -Wall -Werror=incomplete-patterns`, matching every
+  other package in the repository. The fixed subscription metrics schema's
+  `KirokuEvent` match was already exhaustive, so no source change was required
+  and no `kiroku-metrics` API or runtime behavior changed.
+
 ## 0.1.0.6 -- 2026-08-13
 
 ### Other Changes

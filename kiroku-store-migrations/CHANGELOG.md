@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.2.1 — 2026-08-15
+
+### Other Changes
+
+* Built with `ghc-options: -Wall -Werror=incomplete-patterns`, matching every
+  other package in the repository. The `kiroku-store-migrate` executable
+  renames a local binding that shadowed `Options.Applicative`'s `command`, and
+  the test-suite imports `EphemeralPg.Config` for the ambiguous `user` field.
+  No library API or runtime behavior changed.
+
 ## 0.3.2.0 — 2026-08-13
 
 ### New Features

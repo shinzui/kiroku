@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0.5 — 2026-08-15
+
+### Other Changes
+
+* Built with `ghc-options: -Wall -Werror=incomplete-patterns`, matching every
+  other package in the repository. No source change was required and no
+  `kiroku-cli` API or runtime behavior changed.
+
 ## 0.2.0.4 — 2026-08-13
 
 ### Other Changes

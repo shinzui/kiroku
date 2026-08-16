@@ -1,5 +1,14 @@
 # kiroku-otel changelog
 
+## 0.2.0.6 — 2026-08-15
+
+### Other Changes
+
+* Built with `ghc-options: -Wall -Werror=incomplete-patterns`, matching every
+  other package in the repository. The tracer's `KirokuEvent` match was
+  already exhaustive, so no source change was required and no `kiroku-otel`
+  API or runtime behavior changed.
+
 ## 0.2.0.5 — 2026-08-13
 
 ### Other Changes
