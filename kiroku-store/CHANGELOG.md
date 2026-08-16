@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.8.0.0 — 2026-08-16
+
+### Breaking Changes
+
+* `StoreError` gains a `TransientTransactionFailure` constructor carrying the
+  `SQLSTATE` code and message. PostgreSQL's class-40 transaction-rollback codes
+  — `40001` serialization_failure and `40P01` deadlock_detected — now map to it
+  instead of to `UnexpectedServerError`. Consumers that matched
+  `UnexpectedServerError "40P01"` or `UnexpectedServerError "40001"` must match
+  the new constructor; every other constructor is unchanged, and exhaustive
+  matches over `StoreError` need a new arm.
+
+  The old mapping was actively misleading. `UnexpectedServerError` documents
+  itself as "*not* generally retryable — investigate", while these two codes are
+  precisely the ones PostgreSQL expects a client to retry: the transaction
+  rolled back completely and nothing was committed. A caller following the
+  documentation would have diagnosed a condition whose correct handling is to
+  retry. `TransientTransactionFailure` documents the retry contract, including
+  that the store already retried the append once before surfacing it.
+
+  This changes error *classification* only. No lock ordering, SQL, or hot-path
+  code changed, so append and read throughput are unaffected.
+
+### Other Changes
+
+* Corrected the design comment on `lockStreamsForMultiStmt`, which claimed that
+  deadlocks between multi-stream and single-stream appends "are avoided". They
+  are not, for streams that do not exist yet: the pre-lock matches only existing
+  rows, so a multi-stream append over `[A, B]` with `B` fresh takes `A` → `$all`
+  → `B`, while a concurrent single-stream append to `B` takes `B` → `$all`. The
+  comment now describes the cycle and points at IR-7, which proposes closing it.
+  PostgreSQL detects the deadlock and nothing is committed; the surviving
+  behavior is a retry and, if the conflict repeats, a
+  `TransientTransactionFailure`.
+* `Test.Concurrency`'s transient-leak case asserted that these SQLSTATEs never
+  reach the caller, which no bounded retry can guarantee — it failed roughly
+  once in 24 runs under contention. It now asserts what the store does
+  guarantee, and what its own comment always described: that a surfaced
+  conflict arrives typed as retryable rather than as `UnexpectedServerError`.
+  A deterministic unit test covers the mapping across all five error paths.
+
 ## 0.7.0.1 — 2026-08-15
 
 ### Bug Fixes
