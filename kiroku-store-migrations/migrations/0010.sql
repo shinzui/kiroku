@@ -1,5 +1,39 @@
 -- add replay history retention
 
+-- Publish kiroku.uuidv7() as the component's version-independent, always
+-- schema-qualified UUIDv7 generator.
+--
+-- PostgreSQL 18 provides pg_catalog.uuidv7(), so 0001 installed no fallback
+-- and the name exists only in pg_catalog. PostgreSQL 17 has no builtin, so
+-- 0001 installed the fallback into the Kiroku schema. Naming uuidv7()
+-- unqualified therefore resolves only through search_path, which no migration
+-- after 0001 may depend on. Establishing kiroku.uuidv7() on both versions lets
+-- this migration -- and every migration after it -- name one generator that
+-- resolves without session state on every PostgreSQL version the component
+-- supports.
+DO $$
+BEGIN
+    IF to_regprocedure('kiroku.uuidv7()') IS NOT NULL THEN
+        -- PostgreSQL 17: 0001's fallback already occupies the name.
+        RETURN;
+    END IF;
+
+    IF to_regprocedure('pg_catalog.uuidv7()') IS NULL THEN
+        RAISE EXCEPTION
+            'no uuidv7() generator: neither pg_catalog.uuidv7() nor kiroku.uuidv7() exists';
+    END IF;
+
+    -- PostgreSQL 18+: alias the builtin so the qualified name is available.
+    EXECUTE $fn$
+        CREATE FUNCTION kiroku.uuidv7()
+        RETURNS uuid
+        LANGUAGE sql
+        VOLATILE
+        AS 'SELECT pg_catalog.uuidv7()'
+    $fn$;
+END
+$$;
+
 -- A schema-local singleton row serializes lease lifecycle changes with every
 -- destructive statement without adding work to append or ordinary read paths.
 CREATE TABLE kiroku.history_retention_coordinator (
@@ -15,7 +49,7 @@ ON CONFLICT DO NOTHING;
 -- set to remain stable. Active state is derived from released_at and database
 -- time; expiry needs no worker or cleanup mutation.
 CREATE TABLE kiroku.history_retention_leases (
-    lease_id          UUID        PRIMARY KEY DEFAULT uuidv7(),
+    lease_id          UUID        PRIMARY KEY DEFAULT kiroku.uuidv7(),
     owner             TEXT        NOT NULL,
     reason            TEXT        NOT NULL,
     protected_through BIGINT      NOT NULL,
