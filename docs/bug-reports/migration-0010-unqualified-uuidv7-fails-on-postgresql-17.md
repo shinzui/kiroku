@@ -9,8 +9,23 @@ generated:
   by: anthropic/claude-opus-5
   at: "2026-08-16T13:29:06Z"
 bugId: BUG-1
-status: reported
+status: fixed
 severity: degraded
+fixedVersion: "0.4.0.0"
+resolution: >-
+  Fixed in kiroku-store-migrations 0.4.0.0 by the second option below. 0010 now publishes
+  kiroku.uuidv7() on every supported major version -- PostgreSQL 17 already had 0001's fallback,
+  PostgreSQL 18 gets a thin alias for the builtin -- and defaults lease_id to that qualified name,
+  so the file stays search_path-free and every later migration has one generator to call.
+  Correcting a released payload changes its checksum, which no forward migration could avoid
+  because the withdrawn payload fails at DDL parse time; ledger-fixups/2026-08-16-rebaseline-
+  0010-checksum.sql re-baselines the one ledger row for databases that already applied it, and
+  new forward migration 0011 converges their schema. 0.3.2.0 and 0.3.2.1 are deprecated.
+  The suggested component-wide audit found 0010 to be the only migration relying on 0001's
+  search_path. The reason a fresh-install-only suite could not tell the difference is now
+  recorded: the suite connects as role "kiroku", so the default "$user" search_path entry
+  resolves to the Kiroku schema in every session it opens. The regression case pins
+  search_path to pg_catalog and fails on the withdrawn payload against PostgreSQL 17.10.
 origin: mori://shinzui/kioku
 affects: mori://shinzui/kiroku/packages/kiroku-store-migrations
 capability: mori://shinzui/kiroku/okf/capabilities/concepts/CAP-1

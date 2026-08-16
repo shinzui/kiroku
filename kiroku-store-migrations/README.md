@@ -2,9 +2,9 @@
 
 `kiroku-store-migrations` owns Kiroku's PostgreSQL schema as one native
 `pg-migrate` component named `kiroku`. The component embeds an ordered manifest
-and ten SQL payloads, so applications can compose it with other libraries
+and eleven SQL payloads, so applications can compose it with other libraries
 without copying Kiroku SQL. The first seven payloads are immutable historical
-Codd bytes; `0008`, `0009`, and `0010` are native-only forward migrations.
+Codd bytes; `0008` through `0011` are native-only forward migrations.
 
 ## Public API
 
@@ -111,7 +111,28 @@ complete store behavior, including append and read scenarios.
 
 Migration `0010` adds replay-history retention leases, the per-schema
 coordinator, an indexed active-lease predicate, and statement-level
-`DELETE`/`TRUNCATE` guards on the three event-store data tables.
+`DELETE`/`TRUNCATE` guards on the three event-store data tables. Migration
+`0011` converges databases that applied the withdrawn 0.3.2.x payload of `0010`
+(see below).
+
+## The `kiroku.uuidv7()` generator
+
+`uuidv7()` is a PostgreSQL 18 builtin. On PostgreSQL 17 `0001` installs a
+fallback into the Kiroku schema, and it does so under its own
+`SET search_path`, so the bare name resolves only in a session that ran `0001`.
+Every migration after `0001` runs in whatever session the operator's upgrade
+happens to use, so none of them may name it unqualified — that is BUG-1, fixed
+in 0.4.0.0.
+
+`0010` therefore publishes `kiroku.uuidv7()` on every supported major version:
+PostgreSQL 17 already has it from `0001`, and PostgreSQL 18 gets a thin alias
+for the builtin. **New migrations that need a UUIDv7 value must call
+`kiroku.uuidv7()`, never bare `uuidv7()`.** The qualified name resolves without
+any session state on every version the component supports.
+
+The same rule holds for every other object: name it `kiroku.<name>`. Only
+`0001` may rely on `search_path`, because it is the only migration guaranteed
+to have set it.
 
 ## Recovery
 
@@ -120,7 +141,14 @@ applied migration is bad, either restore that backup or append a corrective
 migration. Do not delete or rewrite an applied `pgmigrate.migrations` row except
 through the reviewed `pg-migrate` repair workflow.
 
-The historical script under `ledger-fixups/` remains checked in only as source
-evidence for databases that previously needed Codd timestamp repair. New native
-migrations use component-local numeric identities and do not use timestamped
-filenames.
+`ledger-fixups/` holds operator scripts that adjust the migration ledger's
+bookkeeping without touching your schema. Read the header of a script before
+running it; each states exactly which databases need it.
+
+* `2026-07-05-realign-kiroku-migration-timestamps.sql` is historical, kept as
+  source evidence for databases that once needed Codd timestamp repair. New
+  native migrations use component-local numeric identities.
+* `2026-08-16-rebaseline-0010-checksum.sql` re-baselines `0010`'s stored
+  checksum for databases that applied the withdrawn 0.3.2.0/0.3.2.1 payload.
+  Required before migrating such a database onto 0.4.0.0 or later; see the
+  changelog.

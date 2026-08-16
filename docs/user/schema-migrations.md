@@ -5,11 +5,11 @@ Kiroku ships one native `pg-migrate` component in
 the event-store library itself never runs schema DDL.
 
 The component is named `kiroku`, has no component dependencies, and currently
-contains ten ordered native migrations. Its checked-in
+contains eleven ordered native migrations. Its checked-in
 `kiroku-store-migrations/migrations/manifest` is authoritative. SQL bytes are
 embedded at compile time and deployed services do not discover migration files
 at runtime. The first seven entries preserve the historical Codd payloads
-byte-for-byte; `0008`, `0009`, and `0010` are native-only forward migrations.
+byte-for-byte; `0008` through `0011` are native-only forward migrations.
 
 ## Running the executable
 
@@ -60,8 +60,8 @@ migrations already appear in `codd.sql_migrations` or
 5. leaves the Codd source objects unchanged.
 
 After import, inspect strict `verify`: it must report the first seven entries as applied and only
-`0008`, `0009`, and `0010` as pending. Then run `up`; it must report seven `AlreadyApplied`
-outcomes and three `AppliedNow` outcomes. A final `verify` must be clean across all ten native
+`0008` through `0011` as pending. Then run `up`; it must report seven `AlreadyApplied`
+outcomes and four `AppliedNow` outcomes. A final `verify` must be clean across all eleven native
 entries. A missing
 legacy row, checksum mismatch, partial nontransactional row, or any other unexpected issue is a
 cutover blocker.
@@ -80,3 +80,24 @@ Review both the new SQL file and appended manifest line. Keep Kiroku objects
 schema-qualified and never edit a released payload. Migrations are
 forward-only: recover by restoring a pre-migration backup or appending a new
 corrective migration.
+
+"Schema-qualified" includes functions. Only `0001` sets `search_path`, and only
+`0001` may rely on it; a later migration runs in whatever session the operator's
+upgrade uses. Write `kiroku.<name>` for every Kiroku object, and
+`kiroku.uuidv7()` — never bare `uuidv7()` — for a UUIDv7 value. The component
+publishes `kiroku.uuidv7()` on every supported PostgreSQL version: `0001`'s
+fallback on 17, and `0010`'s alias for the builtin on 18. A migration that
+names `uuidv7()` unqualified parses on a fresh install, where `0001` has just
+run in the same session, and fails with SQLSTATE 42883 on every upgrade. That
+was BUG-1, fixed in `kiroku-store-migrations` 0.4.0.0.
+
+## Upgrading from kiroku-store-migrations 0.3.2.x
+
+0.4.0.0 corrects the payload of `0010`, which changes its checksum. A database
+that already applied `0010` — PostgreSQL 18, or a fresh PostgreSQL 17 install
+performed by 0.3.2.0/0.3.2.1 — fails `up` and `verify` with a
+`MigrationChecksumMismatch` until its ledger row is re-baselined. Run
+`kiroku-store-migrations/ledger-fixups/2026-08-16-rebaseline-0010-checksum.sql`
+against it once, then migrate normally; forward migration `0011` converges the
+schema. A database still pending on `0010`, which is every PostgreSQL 17
+database the defect blocked, needs nothing.
