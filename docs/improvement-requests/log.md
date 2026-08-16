@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-08-16
+* **Addition**: IR-7 requests source-before-`$all` lock ordering in `appendMultiStream` for streams that do not exist yet, closing the multi-versus-single deadlock that the EP-1 F4 pre-lock leaves open for fresh streams. Filed as a request rather than a defect: the published `appendMultiStream` claim covers multi-versus-multi contention only, and a repeated conflict now surfaces as the retryable `TransientTransactionFailure`. Adoption is gated on append-throughput measurement.
+
 ## 2026-08-15
 * **Completion**: IR-4 is complete; `kiroku-store` 0.6.0.0 published the visible-head API on 2026-08-12 and Keiro adopted it in `Keiro.ReadModel` and `Keiro.ReadModel.Rebuild`, retiring its temporary Kiroku-schema head query.
 * **Completion**: IR-3 is complete; `kiroku-store` 0.5.0.0 published the checkpoint lifecycle API on 2026-08-11, Keiro adopted the policy in its projection catalog and the reset combinator in coordinated rebuilds, and the downstream cohort shipped as Keiro 0.12.0.0.
