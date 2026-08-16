@@ -24,7 +24,7 @@ import Control.Monad.Except qualified as Except
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Aeson (Value)
 import Data.Generics.Labels ()
-import Data.Int (Int32, Int64)
+import Data.Int (Int32)
 import Data.List (find)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map

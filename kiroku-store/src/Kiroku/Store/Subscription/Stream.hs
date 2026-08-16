@@ -39,7 +39,6 @@ where
 import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.STM (
     STM,
-    TBQueue,
     TMVar,
     TVar,
     atomically,

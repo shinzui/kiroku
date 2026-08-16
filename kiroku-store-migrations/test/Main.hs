@@ -11,7 +11,6 @@ import Data.Either (isLeft)
 import Data.Foldable (toList)
 import Data.Int (Int32, Int64)
 import Data.List (sort)
-import Data.List.NonEmpty (NonEmpty (..))
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text.IO
@@ -22,6 +21,7 @@ import Database.PostgreSQL.Migrate.History.Codd
 import Database.PostgreSQL.Migrate.Internal (migrationChecksumBytes)
 import Database.PostgreSQL.Migrate.Test (withMigratedDatabase)
 import EphemeralPg qualified as Pg
+import EphemeralPg.Config qualified as PgConfig
 import Hasql.Connection qualified as Connection
 import Hasql.Connection.Settings qualified as Settings
 import Hasql.Decoders qualified as Decoders
@@ -432,7 +432,7 @@ importOutcomes :: HistoryImportReport -> [HistoryImportOutcome]
 importOutcomes HistoryImportReport{importResults} = importOutcome <$> toList importResults
 
 kirokuPgConfig :: Pg.Config
-kirokuPgConfig = Pg.defaultConfig{Pg.user = "kiroku"}
+kirokuPgConfig = Pg.defaultConfig{PgConfig.user = "kiroku"}
 
 withKirokuPg :: (Pg.Database -> IO ()) -> IO ()
 withKirokuPg action = do

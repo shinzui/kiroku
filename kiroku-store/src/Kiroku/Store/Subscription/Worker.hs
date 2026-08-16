@@ -36,7 +36,7 @@ import Control.Concurrent.STM (TBQueue, TVar, atomically, check, orElse, readTBQ
 import Control.Exception (SomeException, bracket, fromException, throwIO, try)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
-import Data.Int (Int32, Int64)
+import Data.Int (Int32)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
@@ -340,6 +340,12 @@ runWorker pool liveSource stateVar pubPosVar catGenVar config mHandler stSetting
                     Right events
                         | V.null events -> pure FetchEmpty
                         | otherwise -> pure (BatchFetched events)
+            -- Defensive totality: 'Retrying' is a surfaced observability state
+            -- that the delivery primitive writes into the state TVar and then
+            -- restores, so it is never a driving state reaching this function.
+            -- Mirror 'step''s defensive 'Retrying' clause, which returns to
+            -- 'Live' at the same cursor.
+            Retrying c _ -> nextInput (Live c)
             Stopped{} -> pure Cancelled
 
         -- Interpret a transition's effects against the *new* state. Returns a

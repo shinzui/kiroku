@@ -122,6 +122,7 @@ migrateTestDatabase connStr = do
         Left err -> error ("Failed to apply Kiroku migration plan for test database: " <> show err)
         Right _ -> pure ()
 
+poolConfig :: Text -> Pool.Config.Config
 poolConfig connStr =
     Pool.Config.settings
         [ Pool.Config.staticConnectionSettings (Conn.connectionString connStr)

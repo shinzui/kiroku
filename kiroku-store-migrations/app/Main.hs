@@ -15,7 +15,7 @@ import System.Exit qualified as Exit
 main :: IO ()
 main = do
     plan <- either (fail . show) pure kirokuMigrationPlan
-    command <-
+    cmd <-
         execParser
             ( info
                 (migrationCommandParser plan <**> helper)
@@ -25,16 +25,16 @@ main = do
     let defaultSettings =
             Settings.connectionString (Text.pack (maybe "" id defaultDatabaseUrl))
         environment = cliEnvironment defaultSettings plan defaultRunOptions
-    outcome <- runMigrationCommand environment command
-    case commandOutputFormat command of
+    outcome <- runMigrationCommand environment cmd
+    case commandOutputFormat cmd of
         TextOutput -> Text.IO.putStrLn (renderMigrationCommandText outcome)
         JsonOutput -> LazyByteString.putStrLn (Aeson.encode (renderMigrationCommandJson outcome))
     Exit.exitWith
         (case exitClass outcome of ExitSucceeded -> Exit.ExitSuccess; _ -> Exit.ExitFailure 1)
 
 commandOutputFormat :: MigrationCommand -> OutputFormat
-commandOutputFormat command =
-    case command of
+commandOutputFormat cmd =
+    case cmd of
         Plan PlanOptions{output = OutputOptions format} -> format
         List ListOptions{output = OutputOptions format} -> format
         Check CheckOptions{output = OutputOptions format} -> format

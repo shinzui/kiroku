@@ -27,6 +27,8 @@ common common
     OverloadedLabels
     OverloadedStrings
 
+  ghc-options:        -Wall -Werror=incomplete-patterns
+
 executable kiroku-consumer-group-example
   import:         common
   main-is:        Main.hs

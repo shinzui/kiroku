@@ -35,7 +35,7 @@ renewHistoryRetentionLeaseTx HistoryRetentionLeaseHandle{leaseId, owner = reques
     current <- Tx.statement (leaseUuid leaseId) SQL.readLeaseForUpdateStmt
     case current of
         Nothing -> pure (Left HistoryRetentionRenewalUnknown)
-        Just lease@HistoryRetentionLease{owner = actualOwner, state}
+        Just HistoryRetentionLease{owner = actualOwner, state}
             | actualOwner /= requestedOwner -> pure (Left HistoryRetentionRenewalOwnerMismatch)
             | state == HistoryRetentionLeaseReleased -> pure (Left HistoryRetentionRenewalReleased)
             | state == HistoryRetentionLeaseExpired -> pure (Left HistoryRetentionRenewalExpired)

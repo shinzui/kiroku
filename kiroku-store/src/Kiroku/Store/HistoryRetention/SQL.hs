@@ -14,7 +14,6 @@ module Kiroku.Store.HistoryRetention.SQL (
 ) where
 
 import Contravariant.Extras (contrazip2, contrazip3)
-import Data.Functor.Contravariant ((>$<))
 import Data.Int (Int32, Int64)
 import Data.Text (Text)
 import Data.Time.Clock (DiffTime, UTCTime)

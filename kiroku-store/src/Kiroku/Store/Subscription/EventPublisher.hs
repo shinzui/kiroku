@@ -55,7 +55,7 @@ import Control.Exception (SomeAsyncException, SomeException, asyncExceptionFromE
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Foldable (for_)
-import Data.Int (Int32, Int64)
+import Data.Int (Int32)
 import Data.IntMap.Strict (IntMap)
 import Data.IntMap.Strict qualified as IntMap
 import Data.Vector (Vector)

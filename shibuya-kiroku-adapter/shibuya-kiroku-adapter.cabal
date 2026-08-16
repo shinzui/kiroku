@@ -36,14 +36,6 @@ common common
     OverloadedLabels
     OverloadedStrings
 
-  -- This package translates between two dependency-owned sum types
-  -- (Shibuya's AckDecision/DeadLetterReason and Kiroku's
-  -- SubscriptionResult/DeadLetterReason). When an upstream release adds a
-  -- constructor, the translation silently loses a case and fails at runtime
-  -- on the first message carrying it. shibuya-core 0.9.0.0 adding
-  -- ApplicationFailure is exactly that scenario, so an incomplete match is a
-  -- build failure here rather than a -Wall warning that a green build hides.
-  -- Targeted -Werror= only: Hackage rejects an unconditional -Werror.
   ghc-options:        -Wall -Werror=incomplete-patterns
 
 library

@@ -33,7 +33,7 @@ common common
     OverloadedLabels
     OverloadedStrings
 
-  ghc-options:        -Wall
+  ghc-options:        -Wall -Werror=incomplete-patterns
 
 library
   import:          common

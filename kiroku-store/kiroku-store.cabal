@@ -28,6 +28,8 @@ common common
     OverloadedLabels
     OverloadedStrings
 
+  ghc-options:        -Wall -Werror=incomplete-patterns
+
 library
   import:          common
   exposed-modules:

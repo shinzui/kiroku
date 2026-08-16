@@ -350,7 +350,7 @@ runTransactionAppendingWith ::
     [EventData] ->
     (AppendResult -> Tx.Transaction a) ->
     Eff es (Either StoreError a)
-runTransactionAppendingWith ctor sn@(StreamName name) expected events k
+runTransactionAppendingWith ctor sn@(StreamName _) expected events k
     | Left err <- validateStreamName sn = pure (Left err)
     | null events = pure (Left (EmptyAppendBatch sn))
     | otherwise = do
