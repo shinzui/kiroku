@@ -253,6 +253,16 @@ spec = describe "kiroku-store concurrency (deterministic)" $ do
     -- The race can pass vacuously on fast machines, but it must never surface
     -- PostgreSQL's transient transaction SQLSTATEs (40001/40P01) to callers as
     -- UnexpectedServerError.
+    --
+    -- Note what is and is not asserted. The store retries once, and no bounded
+    -- retry can promise that a repeated conflict never reaches the caller --
+    -- under contention this shape does deadlock, because a multi-stream append
+    -- whose later stream is fresh takes $all before that stream's row while a
+    -- single-stream append takes them in the opposite order (see IR-7). So a
+    -- surfaced conflict is allowed; what is not allowed is surfacing it as
+    -- UnexpectedServerError, which documents itself as "not generally
+    -- retryable -- investigate" and would send a caller to diagnose a
+    -- condition whose correct handling is to retry.
     it "single-stream append retry does not leak transient SQLSTATEs" $
         withTestStore $ \store -> do
             forM_ [1 .. 25 :: Int] $ \i -> do
@@ -284,9 +294,16 @@ assertRightMulti = \case
 
 assertNoTransientLeak :: String -> Either StoreError a -> IO ()
 assertNoTransientLeak label = \case
-    Left (UnexpectedServerError code _)
+    Left (UnexpectedServerError code message)
         | code == "40P01" || code == "40001" ->
-            expectationFailure (label <> ": transient SQLSTATE leaked as UnexpectedServerError " <> show code)
+            expectationFailure
+                ( label
+                    <> ": transient SQLSTATE "
+                    <> show code
+                    <> " surfaced as UnexpectedServerError instead of "
+                    <> "TransientTransactionFailure: "
+                    <> show message
+                )
     _ ->
         pure ()
 

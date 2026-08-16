@@ -1122,14 +1122,29 @@ order. Used by AppendMultiStream to avoid row-lock deadlocks between
 concurrent multi-stream transactions that touch overlapping streams in
 different orders.
 
-Streams that don't yet exist (NoStream variant on a fresh stream) are not
-matched by the WHERE clause, so they aren't pre-locked here; concurrent
-INSERTs of a fresh stream serialize on the unique index on @stream_name@.
 \$all is intentionally NOT included in the pre-lock — its row lock is
 acquired by each per-stream CTE inside the transaction, after the source
-stream's row lock, so deadlocks between multi-stream and single-stream
-transactions are avoided as long as both lock kinds in the same order
-(source-first, then $all). See EP-1 F4.
+stream's row lock. See EP-1 F4.
+
+Streams that don't yet exist (NoStream variant on a fresh stream) are not
+matched by the WHERE clause, so they aren't pre-locked here. Concurrent
+INSERTs of a fresh stream do serialize on the unique index on
+@stream_name@, but that serialization does /not/ preserve the
+source-before-$all acquisition order this pre-lock exists to establish,
+and a multi-stream append can still deadlock against a concurrent
+single-stream append:
+
+  * multi locks stream A, then @$all@ (both inside A's CTE), then stream B;
+  * a single-stream append to the still-fresh B locks B, then wants @$all@.
+
+Each then waits on the other. PostgreSQL detects it and aborts one side
+with @40P01@; the interpreter retries the append once, and a repeated
+conflict reaches the caller as
+'Kiroku.Store.Error.TransientTransactionFailure', which is documented
+retryable. Eliminating the cycle would mean establishing every source
+lock before any @$all@ lock, including for streams that do not exist yet
+— tracked as IR-7, deliberately not done here because it is a throughput
+question that needs benchmarking, not a correctness gap.
 -}
 lockStreamsForMultiStmt :: Statement (Vector Text) ()
 lockStreamsForMultiStmt =
