@@ -198,5 +198,13 @@ in  Schema.Project::{
         , okfVersion = "0.2"
         , description = Some "Durable architecture decisions"
         }
+      , Schema.OkfBundle::{
+        , name = "bug-reports"
+        , path = "docs/bug-reports"
+        , profile = Some "docs/bug-reports/profile.dhall"
+        , okfVersion = "0.2"
+        , description = Some
+            "Defects in behavior Kiroku already provides, one reproduction per report"
+        }
       ]
     }
