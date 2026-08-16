@@ -15,6 +15,9 @@
 * The `PoisonPill`, `InvalidPayload`, and `MaxRetriesExceeded` translations are
   unchanged, so existing `dead_letters` rows keep their encoding. No
   `shibuya-kiroku-adapter` API changed.
+* Build with `-Werror=incomplete-patterns`. This package translates between
+  dependency-owned sum types, where an upstream constructor addition otherwise
+  degrades a translation into a runtime failure behind a green `-Wall` build.
 
 ## 0.5.0.2 — 2026-08-13
 
