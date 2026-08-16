@@ -7,7 +7,7 @@ import Control.Concurrent.STM (atomically, check, newTVarIO, readTVar, writeTVar
 import Control.Exception (SomeException)
 import Control.Exception qualified
 import Control.Lens ((&), (.~), (^.))
-import Control.Monad (unless)
+import Control.Monad (forM_, unless)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
@@ -1947,6 +1947,30 @@ main = withSharedMigratedPostgres $ hspec $ do
             isTransientSerializationError (serverUsage "40001") `shouldBe` True
             isTransientSerializationError (serverUsage "23505") `shouldBe` False
             isTransientSerializationError AcquisitionTimeoutUsageError `shouldBe` False
+
+        -- The store retries an append once on these codes, so a caller only
+        -- sees one when the conflict repeated. It must arrive as the retryable
+        -- constructor: 'UnexpectedServerError' documents itself as "not
+        -- generally retryable — investigate", which would send a caller to
+        -- diagnose a condition whose correct handling is to retry.
+        it "maps both transient SQLSTATEs to TransientTransactionFailure" $ do
+            forM_ ["40001", "40P01"] $ \code -> do
+                mapUsageError "orders-1" AnyVersion (serverUsage code)
+                    `shouldBe` TransientTransactionFailure code "server error"
+                mapGenericUsageError (serverUsage code)
+                    `shouldBe` TransientTransactionFailure code "server error"
+                mapTransactionUsageError (serverUsage code)
+                    `shouldBe` TransientTransactionFailure code "server error"
+                mapLinkUsageError (StreamName "orders-1") (serverUsage code)
+                    `shouldBe` TransientTransactionFailure code "server error"
+                attributeMultiStreamError
+                    [(StreamName "orders-1", AnyVersion)]
+                    (serverUsage code)
+                    `shouldBe` TransientTransactionFailure code "server error"
+
+        it "leaves non-transient server codes on UnexpectedServerError" $ do
+            mapGenericUsageError (serverUsage "42883")
+                `shouldBe` UnexpectedServerError "42883" "server error"
 
     -- =================================================================
     -- Notifier reconnection tests (EP-3 F1)

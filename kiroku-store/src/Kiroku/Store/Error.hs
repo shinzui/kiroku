@@ -129,11 +129,30 @@ data StoreError
       description for diagnostics. Retryable in most cases.
       -}
       ConnectionLost !Text
+    | {- | PostgreSQL aborted the transaction with a class-40
+      (transaction rollback) @SQLSTATE@: @40001@ serialization_failure
+      or @40P01@ deadlock_detected. The first 'Text' is the @SQLSTATE@
+      code, the second is the human-readable message.
+
+      __Retryable.__ PostgreSQL rolled the transaction back completely
+      and expects the client to run it again; nothing was committed.
+      The store already retries an append once on these codes before
+      surfacing them, so reaching a caller means the conflict repeated
+      — retry with backoff rather than escalating.
+
+      Appends are safe to retry when the caller supplies
+      'Kiroku.Store.Types.EventData.eventId' values, which makes the
+      retry idempotent; see the "Idempotent retries" note on
+      'Kiroku.Store.Append.appendToStream'.
+      -}
+      TransientTransactionFailure !Text !Text
     | {- | PostgreSQL raised a server error whose @SQLSTATE@ code is
       outside the set this store recognises (currently @23505@
-      unique violation and @23503@ foreign key violation). The first
-      'Text' is the @SQLSTATE@ code, the second is the human-readable
-      message. This is *not* generally retryable — investigate.
+      unique violation, @23503@ foreign key violation, and the
+      class-40 codes carried by 'TransientTransactionFailure'). The
+      first 'Text' is the @SQLSTATE@ code, the second is the
+      human-readable message. This is *not* generally retryable —
+      investigate.
       -}
       UnexpectedServerError !Text !Text
     | {- | Catch-all for everything not matched by a more specific
@@ -214,8 +233,11 @@ mapGenericUsageError = \case
         PoolAcquisitionTimeout
     SessionUsageError sessionErr ->
         case extractServerError (SessionUsageError sessionErr) of
-            Just (Errors.ServerError code message _ _ _) ->
-                UnexpectedServerError code message
+            Just (Errors.ServerError code message _ _ _)
+                | isTransientTransactionCode code ->
+                    TransientTransactionFailure code message
+                | otherwise ->
+                    UnexpectedServerError code message
             Nothing ->
                 ConnectionError ("Session error: " <> T.pack (show sessionErr))
 
@@ -255,6 +277,7 @@ mapServerError :: Text -> ExpectedVersion -> Errors.ServerError -> StoreError
 mapServerError streamName expected (Errors.ServerError code message detail _hint _position)
     | code == "23505" = mapUniqueViolation streamName expected message detail
     | code == "23503" = StreamNotFound (StreamName streamName)
+    | isTransientTransactionCode code = TransientTransactionFailure code message
     | otherwise = UnexpectedServerError code message
 
 {- | Map a unique_violation (23505) to an StoreError.
@@ -476,11 +499,21 @@ extractServerError = \case
             _ -> Nothing
     _ -> Nothing
 
+{- | True for PostgreSQL class-40 (transaction rollback) @SQLSTATE@ codes:
+@40001@ serialization_failure and @40P01@ deadlock_detected.
+
+These are the codes hasql-transaction retries, and the ones the store maps to
+'TransientTransactionFailure'. Kept as one predicate so the retry decision and
+the error classification can never drift apart.
+-}
+isTransientTransactionCode :: Text -> Bool
+isTransientTransactionCode code = code == "40001" || code == "40P01"
+
 -- | True for PostgreSQL transient transaction aborts retried by hasql-transaction.
 isTransientSerializationError :: UsageError -> Bool
 isTransientSerializationError usageErr =
     case extractServerError usageErr of
         Just (Errors.ServerError code _ _ _ _) ->
-            code == "40001" || code == "40P01"
+            isTransientTransactionCode code
         Nothing ->
             False
