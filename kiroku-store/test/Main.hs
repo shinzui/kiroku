@@ -9,7 +9,6 @@ import Control.Exception qualified
 import Control.Lens ((&), (.~), (^.))
 import Control.Monad (unless)
 import Control.Monad.IO.Class (liftIO)
-import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
 import Data.IORef (modifyIORef', newIORef, readIORef, writeIORef)
@@ -22,10 +21,8 @@ import Effectful.Error.Static (runErrorNoCallStack)
 import Hasql.Errors qualified as Errors
 import Hasql.Pool (UsageError (..))
 import Kiroku.Store
-import Kiroku.Store.Error (extractStreamNameFromDetail)
 import Kiroku.Store.Subscription.Effect qualified as SubEff
 import Kiroku.Store.Subscription.EventPublisher (publisherPosition)
-import Kiroku.Store.Subscription.Types (OverflowPolicy (..), SubscriptionConfigM (..), SubscriptionOverflowed (..))
 import Kiroku.Test.Postgres (withMigratedTestDatabase)
 import Test.CatchupDbErrorNoPrematureSwitch qualified as CatchupDbErrorNoPrematureSwitch
 import Test.Category qualified as Category
@@ -156,12 +153,12 @@ main = withSharedMigratedPostgres $ hspec $ do
 
             describe "empty event batches" $ do
                 it "rejects NoStream without creating a phantom stream or advancing $all" $ \store -> do
-                    Right beforeAll <- runStoreIO store $ readAllForward (GlobalPosition 0) 10
+                    Right allBefore <- runStoreIO store $ readAllForward (GlobalPosition 0) 10
                     result <- runStoreIO store $ appendToStream (StreamName "empty-nostream") NoStream []
                     result `shouldBe` Left (EmptyAppendBatch (StreamName "empty-nostream"))
                     runStoreIO store (getStream (StreamName "empty-nostream")) `shouldReturn` Right Nothing
-                    Right afterAll <- runStoreIO store $ readAllForward (GlobalPosition 0) 10
-                    fmap (^. #globalPosition) (V.toList afterAll) `shouldBe` fmap (^. #globalPosition) (V.toList beforeAll)
+                    Right allAfter <- runStoreIO store $ readAllForward (GlobalPosition 0) 10
+                    fmap (^. #globalPosition) (V.toList allAfter) `shouldBe` fmap (^. #globalPosition) (V.toList allBefore)
 
                 it "rejects empty batches for existing-stream expectations without changing version" $ \store -> do
                     Right _ <- runStoreIO store $ appendToStream (StreamName "empty-existing") NoStream [makeEvent "Created" (Aeson.object [])]
@@ -999,10 +996,10 @@ main = withSharedMigratedPostgres $ hspec $ do
             it "removes orphan event payloads from the events table" $ \store -> do
                 let evts = map (\i -> makeEvent ("F1Orphan" <> T.pack (show i)) (Aeson.object [])) [1 .. 3 :: Int]
                 Right _ <- runStoreIO store $ appendToStream (StreamName "f1-orphan") NoStream evts
-                before <- countEvents store
+                countBefore <- countEvents store
                 Right _ <- runStoreIO store $ hardDeleteStream (StreamName "f1-orphan")
-                after <- countEvents store
-                (before - after) `shouldBe` 3
+                countAfter <- countEvents store
+                (countBefore - countAfter) `shouldBe` 3
 
             it "removes dead letters for orphaned events before deleting their payloads" $ \store -> do
                 Right _ <- runStoreIO store $ appendToStream (StreamName "dl-hard-source") NoStream [makeEvent "DeadLettered" (Aeson.object [])]
@@ -1293,7 +1290,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                 let handler1 evt = do
                         modifyIORef' firstRef (evt :)
                         putMVar firstSeen ()
-                        takeMVar block
+                        _ <- takeMVar block
                         pure Continue
                     cfg1 =
                         SubscriptionConfig

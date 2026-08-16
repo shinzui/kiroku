@@ -16,7 +16,6 @@ import Hasql.Connection.Settings qualified as Conn
 import Hasql.Notifications qualified as Notifications
 import Kiroku.Store
 import Kiroku.Test.Postgres (withMigratedTestDatabase)
-import System.IO.Error (userError)
 import Test.Helpers (makeEvent)
 import Test.Hspec
 

@@ -158,7 +158,7 @@ spec = describe "history retention" $ do
             $ \store -> do
                 let stream = StreamName "history-retention-hard-delete"
                 Right _ <- runStoreIO store $ appendToStream stream NoStream [makeEvent "Protected" (Aeson.object [])]
-                before <- countEvents store
+                countBefore <- countEvents store
                 Right first <- runStoreIO store $ acquireHistoryRetentionLease (request "first" "protect" 60)
                 Right second <- runStoreIO store $ acquireHistoryRetentionLease (request "second" "protect" 60)
                 blocked <- runStoreIO store $ hardDeleteStream stream
@@ -167,7 +167,7 @@ spec = describe "history retention" $ do
                         actual `shouldBe` stream
                         activeLeaseCount `shouldBe` 2
                     other -> expectationFailure ("expected typed retention conflict, got " <> show other)
-                countEvents store `shouldReturn` before
+                countEvents store `shouldReturn` countBefore
                 Right (Just _) <- runStoreIO store $ getStream stream
                 Right HistoryRetentionReleased{} <- runStoreIO store $ releaseHistoryRetentionLease (leaseHandle first)
                 stillBlocked <- runStoreIO store $ hardDeleteStream stream
@@ -186,7 +186,7 @@ spec = describe "history retention" $ do
         it "serializes lease-first acquisition ahead of raw deletion" $
             withTestStore $ \store -> do
                 Right _ <- runStoreIO store $ appendToStream (StreamName "raw-race-lease-first") NoStream [makeEvent "Raw" (Aeson.object [])]
-                before <- countStreamEvents store
+                countBefore <- countStreamEvents store
                 acquisition <- Async.async $ runStoreIO store $ runTransaction $ do
                     lease <- acquireHistoryRetentionLeaseTx (request "raw-race" "lease-first" 60)
                     _ <- Tx.statement () holdCoordinatorStmt
@@ -201,7 +201,7 @@ spec = describe "history retention" $ do
                 acquired `shouldSatisfy` \case Right HistoryRetentionLease{} -> True; _ -> False
                 rejected <- waitWithin "lease-first raw deletion" deletion
                 rejected `shouldSatisfy` hasSqlState "KR001"
-                countStreamEvents store `shouldReturn` before
+                countStreamEvents store `shouldReturn` countBefore
 
         it "serializes delete-first maintenance ahead of post-delete acquisition" $
             withTestStore $ \store -> do
@@ -221,11 +221,11 @@ spec = describe "history retention" $ do
         it "rejects GUC-enabled DELETE with KR001 and permits it after release" $
             withTestStore $ \store -> do
                 Right _ <- runStoreIO store $ appendToStream (StreamName "raw-delete") NoStream (replicate 2 (makeEvent "Raw" (Aeson.object [])))
-                before <- countStreamEvents store
+                countBefore <- countStreamEvents store
                 Right lease <- runStoreIO store $ acquireHistoryRetentionLease (request "raw" "delete" 60)
                 rejected <- runRawDestruction store rawDeleteStreamEventsStmt
                 rejected `shouldSatisfy` hasSqlState "KR001"
-                countStreamEvents store `shouldReturn` before
+                countStreamEvents store `shouldReturn` countBefore
                 Right HistoryRetentionReleased{} <- runStoreIO store $ releaseHistoryRetentionLease (leaseHandle lease)
                 runRawDestruction store rawDeleteStreamEventsStmt `shouldReturn` Right ()
                 countStreamEvents store `shouldReturn` 0
@@ -233,11 +233,11 @@ spec = describe "history retention" $ do
         it "rejects GUC-enabled TRUNCATE with KR001 and permits it after release" $
             withTestStore $ \store -> do
                 Right _ <- runStoreIO store $ appendToStream (StreamName "raw-truncate") NoStream [makeEvent "Raw" (Aeson.object [])]
-                before <- countEvents store
+                countBefore <- countEvents store
                 Right lease <- runStoreIO store $ acquireHistoryRetentionLease (request "raw" "truncate" 60)
                 rejected <- runRawDestruction store rawTruncateDataStmt
                 rejected `shouldSatisfy` hasSqlState "KR001"
-                countEvents store `shouldReturn` before
+                countEvents store `shouldReturn` countBefore
                 Right HistoryRetentionReleased{} <- runStoreIO store $ releaseHistoryRetentionLease (leaseHandle lease)
                 runRawDestruction store rawTruncateDataStmt `shouldReturn` Right ()
                 countEvents store `shouldReturn` 0

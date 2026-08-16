@@ -20,7 +20,7 @@ import Control.Lens ((^.))
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
 import Data.HashMap.Strict qualified as HashMap
-import Data.IORef (atomicModifyIORef', newIORef, readIORef)
+import Data.IORef (atomicModifyIORef', newIORef)
 import Data.List (sort)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -28,9 +28,7 @@ import Data.Time.Clock (diffUTCTime, getCurrentTime)
 import Effectful (Eff, IOE, liftIO, runEff, (:>))
 import EphemeralPg qualified as Pg
 import Kiroku.Store
-import Kiroku.Store.Subscription (subscribe)
 import Kiroku.Store.Subscription.Stream (subscriptionStream)
-import Kiroku.Store.Subscription.Types (OverflowPolicy (..), SubscriptionConfigM (..), SubscriptionHandleM (..))
 import Shibuya.Adapter (Adapter (..))
 import Shibuya.App (ProcessorId (..), defaultAppConfig, mkProcessor, runApp, stopApp)
 import Shibuya.Core.Ack (AckDecision (..))

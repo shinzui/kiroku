@@ -95,10 +95,10 @@ spec = describe "kiroku-store concurrency (deterministic)" $ do
                     [ makeEvent (label <> "-" <> T.pack (show i)) (Aeson.object [])
                     | i <- [1 .. n]
                     ]
-            Right r10 <- runStoreIO store $ appendToStream stream NoStream (mkBatch "Batch10" 10)
+            Right r10 <- runStoreIO store $ appendToStream stream NoStream (mkBatch "Batch10" (10 :: Int))
             (r10 ^. #streamVersion) `shouldBe` StreamVersion 10
             (r10 ^. #globalPosition) `shouldBe` GlobalPosition 10
-            Right r100 <- runStoreIO store $ appendToStream stream AnyVersion (mkBatch "Batch100" 100)
+            Right r100 <- runStoreIO store $ appendToStream stream AnyVersion (mkBatch "Batch100" (100 :: Int))
             (r100 ^. #streamVersion) `shouldBe` StreamVersion 110
             (r100 ^. #globalPosition) `shouldBe` GlobalPosition 110
             Right streamEvents <- runStoreIO store $ readStreamForward stream (StreamVersion 0) 200
@@ -152,7 +152,7 @@ spec = describe "kiroku-store concurrency (deterministic)" $ do
             Right _ <- runStoreIO store $ appendToStream (StreamName "rollback-a") NoStream [makeEvent "init-a" (Aeson.object [])]
             Right _ <- runStoreIO store $ appendToStream (StreamName "rollback-b") NoStream [makeEvent "init-b" (Aeson.object [])]
             beforeCount <- countEvents store
-            Right beforeAll <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
+            Right allBefore <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
             result <-
                 runStoreIO store $
                     appendMultiStream
@@ -163,8 +163,8 @@ spec = describe "kiroku-store concurrency (deterministic)" $ do
                 Left (DuplicateEvent _) -> pure ()
                 other -> expectationFailure ("duplicate event should abort the multi-stream transaction, got: " <> show other)
             countEvents store `shouldReturn` beforeCount
-            Right afterAll <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
-            globalPositions afterAll `shouldBe` globalPositions beforeAll
+            Right allAfter <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
+            globalPositions allAfter `shouldBe` globalPositions allBefore
             Right streamA <- runStoreIO store $ readStreamForward (StreamName "rollback-a") (StreamVersion 0) 100
             Right streamB <- runStoreIO store $ readStreamForward (StreamName "rollback-b") (StreamVersion 0) 100
             streamVersions streamA `shouldBe` [1]

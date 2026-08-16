@@ -51,7 +51,7 @@ spec = describe "TruncateBefore" $
         it "leaves the $all global log and category reads intact" $ \store -> do
             let name = StreamName "preference-abc"
             seedStream store name 6
-            before <- countEvents store
+            countBefore <- countEvents store
             Right (Just _) <- runStoreIO store $ setStreamTruncateBefore name (StreamVersion 6)
 
             -- \$all global log still returns the full history.
@@ -63,8 +63,8 @@ spec = describe "TruncateBefore" $
             length (V.toList catEvents) `shouldBe` 6
 
             -- Nothing was physically deleted.
-            after <- countEvents store
-            after `shouldBe` before
+            countAfter <- countEvents store
+            countAfter `shouldBe` countBefore
 
         it "is reversible via clearStreamTruncateBefore" $ \store -> do
             let name = StreamName "preference-abc"

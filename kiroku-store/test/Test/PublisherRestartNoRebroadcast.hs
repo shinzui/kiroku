@@ -11,7 +11,6 @@ import Data.Generics.Labels ()
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.Text qualified as T
 import Kiroku.Store
-import Kiroku.Store.Subscription.Types (OverflowPolicy (..), SubscriptionConfigM (..))
 import Kiroku.Test.Postgres (withMigratedTestDatabase)
 import Test.Helpers (caughtUpEventHandler, makeEvent, waitForPublisher, waitForSubscriptionLive, waitWithTimeout)
 import Test.Hspec

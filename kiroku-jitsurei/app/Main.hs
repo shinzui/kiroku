@@ -39,7 +39,6 @@ import Data.Text qualified as T
 import EphemeralPg qualified as Pg
 import Kiroku.Store
 import Kiroku.Store.Subscription.EventPublisher (publisherPosition)
-import Kiroku.Store.Subscription.Types (ConsumerGroup (..))
 
 -- | Block until the publisher has ingested at least 'target' events.
 waitForPublisher :: KirokuStore -> GlobalPosition -> IO ()

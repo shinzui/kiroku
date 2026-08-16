@@ -26,7 +26,6 @@ import Hasql.Statement (Statement, preparable)
 import Hasql.Transaction qualified as Tx
 import Hasql.Transaction.Sessions qualified as TxSessions
 import Kiroku.Store
-import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Test.Postgres (migrateTestDatabase, withMigratedTestDatabase, withSharedMigratedPostgres)
 import Test.Tasty.Bench
 
@@ -853,7 +852,9 @@ main = do
                                 sn <- nextStream "bench-seq"
                                 r0 <- runStoreIO store $ appendToStream sn NoStream [makeEvent "Init"]
                                 forceAppend r0
-                                let Right res0 = r0
+                                let res0 = case r0 of
+                                        Right ok -> ok
+                                        Left e -> error ("Sequential append failed: " <> show e)
                                 let go _ 0 = pure ()
                                     go v n = do
                                         r' <- runStoreIO store $ appendToStream sn (ExactVersion v) [makeEvent "Seq"]

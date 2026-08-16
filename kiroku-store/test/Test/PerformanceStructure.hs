@@ -8,7 +8,6 @@ import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.ByteString (ByteString)
-import Data.Foldable (foldl')
 import Data.Generics.Labels ()
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
 import Data.Int (Int64)
@@ -36,30 +35,30 @@ noOpAppendSpec =
         it "rejects an empty appendToStream batch before pool checkout" $ do
             checkouts <- newIORef (0 :: Int)
             withObservedStore checkouts $ \store -> do
-                before <- readIORef checkouts
+                checkoutsBefore <- readIORef checkouts
                 result <- runStoreIO store $ appendToStream (StreamName "performance-empty-append") AnyVersion []
-                after <- readIORef checkouts
+                checkoutsAfter <- readIORef checkouts
                 result `shouldBe` Left (EmptyAppendBatch (StreamName "performance-empty-append"))
-                after - before `shouldBe` 0
+                checkoutsAfter - checkoutsBefore `shouldBe` 0
 
         it "returns an empty appendMultiStream result before pool checkout" $ do
             checkouts <- newIORef (0 :: Int)
             withObservedStore checkouts $ \store -> do
-                before <- readIORef checkouts
+                checkoutsBefore <- readIORef checkouts
                 result <- runStoreIO store $ appendMultiStream []
-                after <- readIORef checkouts
+                checkoutsAfter <- readIORef checkouts
                 result `shouldBe` Right []
-                after - before `shouldBe` 0
+                checkoutsAfter - checkoutsBefore `shouldBe` 0
 
         it "rejects invalid retention requests before pool checkout" $ do
             checkouts <- newIORef (0 :: Int)
             withObservedStore checkouts $ \_store -> do
-                before <- readIORef checkouts
+                checkoutsBefore <- readIORef checkouts
                 mkHistoryRetentionLeaseOwner "" `shouldSatisfy` either (const True) (const False)
                 mkHistoryRetentionLeaseReason "" `shouldSatisfy` either (const True) (const False)
                 mkHistoryRetentionInventoryLimit 0 `shouldSatisfy` either (const True) (const False)
-                after <- readIORef checkouts
-                after - before `shouldBe` 0
+                checkoutsAfter <- readIORef checkouts
+                checkoutsAfter - checkoutsBefore `shouldBe` 0
 
         it "keeps every ordinary statement free of retention coordination" $ do
             let ordinarySql =

@@ -91,11 +91,11 @@ spec = describe "publisher idle advance" $ do
                 cancel
                 $ \_handle -> do
                     within "category subscription live" (waitForSubscriptionLive caughtUp)
-                    before <- readIORef counter
+                    countBefore <- readIORef counter
                     tailPos <- appendEvents store 30 "pubidleb"
                     waitForPublisher store tailPos
-                    after <- readIORef counter
-                    (after - before) `shouldBe` 0
+                    countAfter <- readIORef counter
+                    (countAfter - countBefore) `shouldBe` 0
                     publisherSubscriberCount store `shouldReturn` 0
 
                     Right wakePos <-

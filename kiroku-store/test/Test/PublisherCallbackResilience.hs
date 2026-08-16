@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Test.PublisherCallbackResilience (spec) where
@@ -7,11 +6,10 @@ module Test.PublisherCallbackResilience (spec) where
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.MVar (newEmptyMVar, tryPutMVar)
-import Control.Concurrent.STM (atomically, check, newTVarIO, readTVar, writeTVar)
+import Control.Concurrent.STM (atomically, newTVarIO, readTVar, writeTVar)
 import Control.Exception (Exception, throwIO)
 import Control.Lens ((&), (.~), (^.))
 import Data.Aeson qualified as Aeson
-import Data.Data (Typeable)
 import Data.Generics.Labels ()
 import Data.IORef (atomicModifyIORef', modifyIORef', newIORef, readIORef)
 import Kiroku.Store
@@ -19,7 +17,7 @@ import Test.Helpers (caughtUpEventHandler, makeEvent, waitForSubscriptionLive, w
 import Test.Hspec
 
 data CallbackBoom = CallbackBoom
-    deriving stock (Show, Typeable)
+    deriving stock (Show)
     deriving anyclass (Exception)
 
 timeoutMicros :: Int

@@ -41,7 +41,6 @@ import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
 import Data.Text qualified as T
 import Kiroku.Store
-import Kiroku.Store.Subscription.Types (ConsumerGroup (..), SubscriptionConfigM (..))
 import Test.Helpers (caughtUpEventHandler, makeEvent, waitForPublisher, waitForSubscriptionLive, withTestStoreSettings)
 import Test.Hspec
 

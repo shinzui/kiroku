@@ -34,7 +34,6 @@ import Data.Maybe (isJust, isNothing)
 import Data.Text (Text)
 import Kiroku.Store
 import Kiroku.Store.Subscription.EventPublisher qualified as Pub
-import Kiroku.Store.Subscription.Types (SubscriptionConfigM (..))
 import Test.Helpers (makeEvent, waitForPublisher, withTestStore)
 import Test.Hspec
 

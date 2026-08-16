@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Test.StreamBridgeTermination (spec) where
@@ -10,9 +9,7 @@ import Control.Concurrent.STM (atomically, putTMVar)
 import Control.Exception (Exception, SomeException, finally, fromException, throwIO, try)
 import Control.Lens ((^.))
 import Data.Aeson qualified as Aeson
-import Data.Data (Typeable)
 import Data.Generics.Labels ()
-import Hasql.Pool qualified as Pool
 import Kiroku.Store
 import Kiroku.Store.Subscription.Stream (AckItem (..), InvalidStreamBufferSize (..), subscriptionAckStream)
 import Kiroku.Store.Subscription.Worker (withFetchBatchHookForTest)
@@ -21,7 +18,7 @@ import Test.Helpers (makeEvent, waitForPublisher, withTestStore)
 import Test.Hspec
 
 data TestBoom = TestBoom
-    deriving stock (Show, Typeable)
+    deriving stock (Show)
     deriving anyclass (Exception)
 
 timeoutMicros :: Int
@@ -91,7 +88,7 @@ spec = describe "stream bridge termination" $ do
         withTestStore $ \store -> do
             let cfg = defaultSubscriptionConfig (SubscriptionName "bridge-full-cancel-sub") AllStreams (\_ -> pure Continue)
             (stream0, cancelStream) <- subscriptionAckStream store cfg 1
-            pos1 <- appendOne store (StreamName "bridge-full-cancel-1") (EventType "BridgeFullCancel1")
+            _pos1 <- appendOne store (StreamName "bridge-full-cancel-1") (EventType "BridgeFullCancel1")
             pos2 <- appendOne store (StreamName "bridge-full-cancel-2") (EventType "BridgeFullCancel2")
             waitForPublisher store pos2
 

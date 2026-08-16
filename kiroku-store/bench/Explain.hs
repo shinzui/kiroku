@@ -303,7 +303,9 @@ runSmallWorkload store = do
     -- AnyVersion append: hits the appendAnyVersionSQL CTE.
     r1 <- runStoreIO store $ appendToStream sn AnyVersion [mkEvent "Created"]
     forceOk "AnyVersion" r1
-    let Right res1 = r1
+    let res1 = case r1 of
+            Right ok -> ok
+            Left e -> error ("AnyVersion append failed: " <> show e)
     -- ExactVersion append against the same stream: hits the
     -- appendExpectedVersionSQL CTE with a non-trivial conflict check.
     r2 <-

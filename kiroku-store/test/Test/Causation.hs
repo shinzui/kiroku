@@ -30,7 +30,7 @@ spec :: Spec
 spec = around withTestStore $ do
     describe "findCausationDescendants" $ do
         it "returns the seed event and every descendant in global-position order" $ \store -> do
-            uuids@[uA, uB, uC, uD, uE] <- replicateUuids 5
+            uuids@[uA, _uB, _uC, _uD, _uE] <- replicateUuids 5
             appendChain store uuids
             Right found <- runStoreIO store $ findCausationDescendants (EventId uA)
             eventIds found `shouldBe` map EventId uuids

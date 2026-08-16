@@ -107,14 +107,14 @@ spec = do
                     events = [makeEvent (T.pack ("E" <> show i)) (Aeson.object []) | i <- [1 .. 5 :: Int]]
                 Right appendResult <- runStoreIO store $ appendToStream name NoStream events
                 waitForPublisher store (appendResult ^. #globalPosition)
-                before <- readIORef ref
+                countBefore <- readIORef ref
                 streamed <- runStoreIO store $ Stream.toList (readStreamForwardStream name (StreamVersion 0) 2)
-                after <- readIORef ref
+                countAfter <- readIORef ref
                 case streamed of
                     Right xs -> do
                         map (^. #streamVersion) xs
                             `shouldBe` [StreamVersion 1, StreamVersion 2, StreamVersion 3, StreamVersion 4, StreamVersion 5]
-                        after - before `shouldBe` 3
+                        countAfter - countBefore `shouldBe` 3
                     Left err -> expectationFailure ("Unexpected error: " <> show err)
 
     describe "eventExistsInStream" $

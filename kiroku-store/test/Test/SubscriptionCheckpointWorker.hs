@@ -37,7 +37,7 @@ spec = describe "subscription checkpoint worker policies" $ do
                 _ -> pure ()
             tweak settings = settings & #eventHandler .~ Just observe
         withTestStoreSettings tweak $ \store -> do
-            appendBatch store "worker-from-beginning-events" 3
+            _ <- appendBatch store "worker-from-beginning-events" 3
             waitForPublisher store (GlobalPosition 3)
             let handler event = do
                     modifyIORef' eventsRef (event ^. #globalPosition :)
@@ -70,7 +70,7 @@ spec = describe "subscription checkpoint worker policies" $ do
                 _ -> pure ()
             tweak settings = settings & #eventHandler .~ Just observe
         withTestStoreSettings tweak $ \store -> do
-            appendBatch store "worker-current-head-race-events" 10
+            _ <- appendBatch store "worker-current-head-race-events" 10
             waitForPublisher store (GlobalPosition 10)
             gate <- newEmptyMVar
             let handler event = do
@@ -114,7 +114,7 @@ spec = describe "subscription checkpoint worker policies" $ do
                 _ -> pure ()
             tweak settings = settings & #eventHandler .~ Just observe
         withTestStoreSettings tweak $ \store -> do
-            appendBatch store "worker-current-head-members-events" 6
+            _ <- appendBatch store "worker-current-head-members-events" 6
             waitForPublisher store (GlobalPosition 6)
             let config member =
                     ( defaultSubscriptionConfig name AllStreams $ \_ -> do
@@ -169,7 +169,7 @@ spec = describe "subscription checkpoint worker policies" $ do
                 _ -> pure ()
             tweak settings = settings & #eventHandler .~ Just observe
         withTestStoreSettings tweak $ \store -> do
-            appendBatch store "worker-effect-current-head-events" 5
+            _ <- appendBatch store "worker-effect-current-head-events" 5
             waitForPublisher store (GlobalPosition 5)
             runEff $ SubEff.runSubscription store $ do
                 let config =

@@ -33,7 +33,6 @@ import Hasql.Statement (Statement, preparable)
 import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Subscription.Stream (subscriptionStream)
-import Kiroku.Store.Subscription.Types (ConsumerGroup (..), SubscriptionConfigM (..))
 import Kiroku.Test.Postgres (withMigratedTestDatabase)
 import Streamly.Data.Stream qualified as Stream
 import Test.Helpers (makeEvent, waitForPublisher, waitWithTimeout, withTestStore, withTestStoreSettings)
@@ -197,7 +196,7 @@ spec = describe "consumer groups" $ do
     it "$all group partitions the whole store across members" $
         withTestStore $ \store -> do
             let cats = ["acct", "user", "order"]
-                perCat = 10
+                perCat = 10 :: Int
                 perStream = 2
                 streams = [c <> "-" <> T.pack (show i) | c <- cats, i <- [1 .. perCat]]
                 total = length streams * perStream
@@ -228,7 +227,7 @@ spec = describe "consumer groups" $ do
 
     it "resumes member 2 from its own (name, member) checkpoint" $
         withTestStore $ \store -> do
-            let nStreams = 60
+            let nStreams = 60 :: Int
                 streams = ["rz-" <> T.pack (show i) | i <- [1 .. nStreams]]
             seed store streams 1
             waitForPublisher store (GlobalPosition (fromIntegral nStreams))

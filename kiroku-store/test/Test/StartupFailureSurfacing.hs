@@ -3,7 +3,7 @@
 module Test.StartupFailureSurfacing (spec) where
 
 import Control.Concurrent.Async qualified as Async
-import Control.Concurrent.STM (atomically, newTVarIO, readTVar, readTVarIO, writeTVar)
+import Control.Concurrent.STM (atomically, newTVarIO, readTVarIO, writeTVar)
 import Control.Exception (SomeException, fromException)
 import Control.Lens ((&), (.~), (^.))
 import Control.Monad (replicateM_)
@@ -87,9 +87,9 @@ spec = describe "startup failure surfacing" $ do
             -- 200 iterations gives async exceptions many chances to land in the
             -- pre-fork window without making the test expensive on normal runs.
             replicateM_ 200 $ do
-                pending <- Async.async (subscribe store cfg)
-                Async.cancel pending
-                outcome <- Async.waitCatch pending
+                pendingAsync <- Async.async (subscribe store cfg)
+                Async.cancel pendingAsync
+                outcome <- Async.waitCatch pendingAsync
                 case outcome of
                     Right handle -> cancel handle >> (() <$ wait handle)
                     Left (_ :: SomeException) -> pure ()

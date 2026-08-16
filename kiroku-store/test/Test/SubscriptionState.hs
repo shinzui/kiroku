@@ -31,7 +31,6 @@ import Hasql.Session qualified as Session
 import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Subscription.Fsm (SubscriptionState (..))
-import Kiroku.Store.Subscription.Types (SubscriptionConfigM (..))
 import Test.Helpers (caughtUpEventHandler, makeEvent, waitForPublisher, waitForSubscriptionLive, waitWithTimeout, withTestStoreSettings)
 import Test.Hspec
 

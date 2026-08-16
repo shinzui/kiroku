@@ -52,7 +52,6 @@ import Hasql.Session qualified as Session
 import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Subscription.Effect qualified as SubEff
-import Kiroku.Store.Subscription.Types (ConsumerGroup (..), SubscriptionConfigM (..))
 import Test.Helpers (makeEvent, waitForPublisher, waitWithTimeout, withTestStore)
 import Test.Hspec
 

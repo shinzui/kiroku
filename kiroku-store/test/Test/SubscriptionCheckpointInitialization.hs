@@ -4,7 +4,6 @@
 module Test.SubscriptionCheckpointInitialization (spec) where
 
 import Control.Concurrent.Async qualified as Async
-import Control.Lens ((&), (.~))
 import Data.Aeson qualified as Aeson
 import Data.Int (Int32)
 import Data.Text (Text)

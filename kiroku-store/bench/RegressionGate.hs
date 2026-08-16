@@ -13,9 +13,7 @@ import Hasql.Pool qualified as Pool
 import Hasql.Transaction qualified as Tx
 import Hasql.Transaction.Sessions qualified as TxSessions
 import Kiroku.Store
-import Kiroku.Store.Effect (appendDispatchTx, buildAppendParams, prepareEvents)
 import Kiroku.Store.SQL qualified as SQL
-import Kiroku.Store.Settings (enrichEvents)
 import Kiroku.Test.Postgres (withMigratedTestDatabase, withSharedMigratedPostgres)
 import Test.Tasty (localOption)
 import Test.Tasty.Bench

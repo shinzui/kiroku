@@ -1,6 +1,6 @@
 module Test.CatchupDbErrorNoPrematureSwitch (spec) where
 
-import Control.Concurrent.MVar (newEmptyMVar, tryPutMVar)
+import Control.Concurrent.MVar (newEmptyMVar)
 import Control.Concurrent.STM (atomically, check, newTVarIO, readTVar, writeTVar)
 import Control.Lens ((&), (.~), (^.))
 import Data.Aeson qualified as Aeson

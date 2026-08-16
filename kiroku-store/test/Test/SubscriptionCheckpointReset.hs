@@ -63,7 +63,7 @@ spec = describe "subscription checkpoint reset" $ do
         withTestStore $ \store -> do
             appendEvents store "reset-rollback-events" 10
             initializeRows store [("rollback", 0)]
-            reset store (SubscriptionName "rollback" :| []) (GlobalPosition 9)
+            _ <- reset store (SubscriptionName "rollback" :| []) (GlobalPosition 9)
             createSentinelTable store
 
             result <- runStoreIO store $ runTransaction $ do
@@ -90,8 +90,8 @@ spec = describe "subscription checkpoint reset" $ do
         withTestStore $ \store -> do
             appendEvents store "reset-rewind-events" 10
             initializeRows store [("rewind", 0)]
-            reset store (SubscriptionName "rewind" :| []) (GlobalPosition 8)
-            reset store (SubscriptionName "rewind" :| []) (GlobalPosition 4)
+            _ <- reset store (SubscriptionName "rewind" :| []) (GlobalPosition 8)
+            _ <- reset store (SubscriptionName "rewind" :| []) (GlobalPosition 4)
             inventoryKeys <$> inventory store `shouldReturn` [("rewind", 0, 4)]
 
             saveCheckpoint store "rewind" 0 2

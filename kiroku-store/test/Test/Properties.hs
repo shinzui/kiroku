@@ -35,7 +35,7 @@ import Hedgehog.Range qualified as Range
 import Kiroku.Store
 import Test.Helpers (makeEvent, withTestStore)
 import Test.Hspec
-import Test.Hspec.Hedgehog (PropertyT, hedgehog, modifyMaxSuccess)
+import Test.Hspec.Hedgehog (hedgehog, modifyMaxSuccess)
 
 -- | Operations the property generators can produce.
 data Op

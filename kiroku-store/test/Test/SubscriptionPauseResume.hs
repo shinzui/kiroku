@@ -43,7 +43,6 @@ import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
-import Kiroku.Store.Subscription.Types (OverflowPolicy (..), SubscriptionConfigM (..), SubscriptionOverflowed (..))
 import Test.Helpers (makeEvent, waitForPublisher, waitWithTimeout, withTestStoreSettings)
 import Test.Hspec
 
