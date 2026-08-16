@@ -58,6 +58,34 @@ build:
 test:
     cabal test all
 
+# Run every suite against one supported PostgreSQL major (17 or 18)
+[group('build')]
+test-pg MAJOR:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{MAJOR}}" in
+      17|18) ;;
+      *) echo "unsupported PostgreSQL major: {{MAJOR}} (supported: 17, 18)" >&2; exit 1 ;;
+    esac
+    # The suites reach PostgreSQL through ephemeral-pg, which runs whichever
+    # server it finds on PATH. Assert the shell really put the requested major
+    # there, so a matrix run cannot silently test one major twice.
+    nix develop ".#postgresql{{MAJOR}}" --command bash -euo pipefail -c '
+      found=$(postgres --version | grep -oE "[0-9]+" | head -1)
+      if [ "$found" != "{{MAJOR}}" ]; then
+        echo "expected PostgreSQL {{MAJOR}} on PATH, found $found" >&2
+        exit 1
+      fi
+      echo "== $(postgres --version) =="
+      cabal test all
+    '
+
+# Run every suite against both supported PostgreSQL majors
+[group('build')]
+test-matrix:
+    just test-pg 17
+    just test-pg 18
+
 # --- Benchmarks ---
 
 # Run benchmarks

@@ -8,15 +8,56 @@
 { inputs, ... }:
 {
   perSystem =
-    { system, pkgs, ... }:
+    {
+      system,
+      pkgs,
+      config,
+      ...
+    }:
     let
       haskellPackages = pkgs.haskell.packages.ghc9124.override {
         overrides =
           pkgs.lib.composeExtensions (inputs.haskell-nix.lib.haskellExtension pkgs.haskell.lib.compose pkgs)
             (import ./nix/haskell-overlay.nix { inherit pkgs; });
       };
+
+      # Acceptance shells, one per supported PostgreSQL major. The suites reach
+      # PostgreSQL through ephemeral-pg, which runs whichever `initdb` and
+      # `postgres` it finds on PATH, so prepending the chosen major is what
+      # selects the server under test.
+      #
+      # This replaces the base shell's hook rather than appending to it: that
+      # hook initializes the shared .pg/data cluster, and a cluster initialized
+      # by one major cannot be started by the other. Each acceptance shell keeps
+      # its own cluster under .pg/<name>, leaving the default shell's untouched.
+      matrixShell =
+        name: postgres:
+        config.devShells.ghc9124.overrideAttrs (_: {
+          shellHook = ''
+            export PATH="${postgres}/bin:$PATH"
+
+            ${config.pre-commit.installationScript}
+
+            export PGHOST="$PWD/.pg/${name}"
+            export PGDATA="$PGHOST/data"
+            export PGLOG="$PGHOST/postgres.log"
+            export PGDATABASE=kiroku
+            export PG_CONNECTION_STRING="postgresql:///kiroku?host=$PGHOST"
+
+            if [ ! -d "$PGDATA" ]; then
+              echo "Initializing $(postgres --version) database for ${name}..."
+              mkdir -p "$PGHOST"
+              initdb --auth=trust --no-locale --encoding=UTF8 -D "$PGDATA"
+            fi
+          '';
+        });
     in
     {
+      devShells = {
+        postgresql17 = matrixShell "postgresql17" pkgs.postgresql_17;
+        postgresql18 = matrixShell "postgresql18" pkgs.postgresql_18;
+      };
+
       packages = {
         kiroku-store = haskellPackages.kiroku-store;
         kiroku-store-migrations = haskellPackages.kiroku-store-migrations;
