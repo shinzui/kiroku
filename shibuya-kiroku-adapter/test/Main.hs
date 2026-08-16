@@ -27,6 +27,7 @@ import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
+import Kiroku.Store.Subscription.Types qualified as KTypes
 import Kiroku.Store.Subscription.Worker (withFetchBatchHookForTest)
 import Kiroku.Test.Postgres (withMigratedTestDatabase, withSharedMigratedPostgres)
 import OpenTelemetry.Attributes (toAttribute)
@@ -40,7 +41,12 @@ import Shibuya.Adapter.Kiroku (
     kirokuConsumerGroupProcessors,
     kirokuConsumerGroupProcessorsWith,
  )
-import Shibuya.Adapter.Kiroku.Convert (KirokuEnvelopeAttrs, kirokuEnvelopeAttrs, toEnvelope)
+import Shibuya.Adapter.Kiroku.Convert (
+    KirokuEnvelopeAttrs,
+    kirokuEnvelopeAttrs,
+    toEnvelope,
+    toKirokuDeadLetterReason,
+ )
 import Shibuya.App (
     ProcessorId (..),
     QueueProcessor (..),
@@ -136,6 +142,35 @@ main = withSharedMigratedPostgres $ hspec $ do
                 `shouldBe` Just (toAttribute ("orders-proj" :: Text))
             HashMap.lookup "kiroku.consumer_group.member" attributes
                 `shouldBe` Just (toAttribute (2 :: Int64))
+
+    describe "toKirokuDeadLetterReason" $ do
+        it "keeps the framework reasons on their dedicated Kiroku constructors" $ do
+            toKirokuDeadLetterReason 3 (PoisonPill "bad event")
+                `shouldBe` KTypes.DeadLetterPoison "bad event"
+            toKirokuDeadLetterReason 3 (InvalidPayload "not json")
+                `shouldBe` KTypes.DeadLetterInvalid "not json"
+            toKirokuDeadLetterReason 3 MaxRetriesExceeded
+                `shouldBe` KTypes.DeadLetterMaxAttempts 3
+
+        it "maps an application failure to DeadLetterOther with a queryable code (shibuya-core 0.9)" $ do
+            code <-
+                either (E.throwIO . userError . T.unpack) pure $
+                    Ack.mkDeadLetterCode "billing.card_declined"
+            let reason =
+                    toKirokuDeadLetterReason 1 (Ack.ApplicationFailure code "card declined by issuer")
+
+            KTypes.deadLetterSummary reason
+                `shouldBe` "billing.card_declined: card declined by issuer"
+            KTypes.deadLetterReasonJson reason
+                `shouldBe` Aeson.object
+                    [ "kind" Aeson..= ("other" :: Text)
+                    , "summary" Aeson..= ("billing.card_declined: card declined by issuer" :: Text)
+                    , "detail"
+                        Aeson..= Aeson.object
+                            [ "code" Aeson..= ("billing.card_declined" :: Text)
+                            , "detail" Aeson..= ("card declined by issuer" :: Text)
+                            ]
+                    ]
 
     describe "consumer group policy" $ do
         it "accepts Serial member concurrency as (PartitionedInOrder, Serial)" $

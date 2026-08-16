@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.5.1.0 — 2026-08-15
+
+### Other Changes
+
+* Requires `shibuya-core >=0.9 && <0.10`, which adds the
+  `ApplicationFailure DeadLetterCode Text` dead-letter reason.
+* `toKirokuDeadLetterReason` now translates `ApplicationFailure` into Kiroku's
+  `DeadLetterOther`. The summary is Shibuya's canonical `code: detail`
+  rendering, and the structured `reason` JSONB is
+  `{"kind":"other","summary":…,"detail":{"code":…,"detail":…}}` so the
+  application-owned code is queryable as `reason->'detail'->>'code'` without
+  parsing the summary.
+* The `PoisonPill`, `InvalidPayload`, and `MaxRetriesExceeded` translations are
+  unchanged, so existing `dead_letters` rows keep their encoding. No
+  `shibuya-kiroku-adapter` API changed.
+
 ## 0.5.0.2 — 2026-08-13
 
 ### Other Changes

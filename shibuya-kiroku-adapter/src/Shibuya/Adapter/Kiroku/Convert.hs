@@ -34,7 +34,7 @@ module Shibuya.Adapter.Kiroku.Convert (
 
 import Control.Concurrent.STM (atomically, tryPutTMVar)
 import Control.Monad (void)
-import Data.Aeson (Value (..))
+import Data.Aeson (Value (..), object, (.=))
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
 import Data.HashMap.Strict (HashMap)
@@ -152,12 +152,27 @@ toKirokuResult attempt = \case
     AckDeadLetter reason -> DeadLetter (toKirokuDeadLetterReason attempt reason)
     AckHalt _ -> Continue
 
--- | Translate a Shibuya 'Ack.DeadLetterReason' into a Kiroku 'DeadLetterReason'.
+{- | Translate a Shibuya 'Ack.DeadLetterReason' into a Kiroku 'DeadLetterReason'.
+
+The three framework-owned reasons keep their dedicated Kiroku constructors, so
+their @reason_summary@ and @reason@ JSONB encodings are unchanged.
+
+'Ack.ApplicationFailure' (added in @shibuya-core@ 0.9) has no Kiroku
+counterpart — Kiroku deliberately knows nothing about application-owned
+dead-letter codes — so it maps to 'DeadLetterOther'. The summary is Shibuya's
+canonical @code: detail@ rendering, and the structured JSON keeps the code in
+its own field so operators can query @reason->'detail'->>'code'@ without
+parsing the summary text.
+-}
 toKirokuDeadLetterReason :: Word -> Ack.DeadLetterReason -> DeadLetterReason
 toKirokuDeadLetterReason attempt = \case
     Ack.PoisonPill detail -> DeadLetterPoison detail
     Ack.InvalidPayload detail -> DeadLetterInvalid detail
     Ack.MaxRetriesExceeded -> DeadLetterMaxAttempts (fromIntegral attempt)
+    reason@(Ack.ApplicationFailure code detail) ->
+        DeadLetterOther
+            (Ack.renderDeadLetterReason reason)
+            (object ["code" .= Ack.deadLetterCodeText code, "detail" .= detail])
 
 {- | Convert a 'RecordedEvent' to a Shibuya 'Envelope'.
 
