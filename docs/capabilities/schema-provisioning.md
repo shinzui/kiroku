@@ -19,7 +19,7 @@ interface:
 evidence:
   - kind: test
     resource: kiroku-store-migrations/test/Main.hs
-    proves: Applies the eleven-entry manifest against ephemeral PostgreSQL, preserves all seven legacy payload checksums, applies the pending tail in a session that never ran the bootstrap and cannot reach the Kiroku schema through search_path, and proves the frozen SQL checkpoint relation plus replay-retention coordinator, lease, trigger, and index contracts.
+    proves: Applies the eleven-entry manifest against ephemeral PostgreSQL 17 and 18 (`just test-matrix`), preserves all seven legacy payload checksums, applies the pending tail in a session that never ran the bootstrap and cannot reach the Kiroku schema through search_path, pins the UUIDv7 generator to the route its major requires, and proves the frozen SQL checkpoint relation plus replay-retention coordinator, lease, trigger, and index contracts.
   - kind: module
     resource: kiroku-store-migrations/src/Kiroku/Store/Migrations.hs
     proves: Exposes kirokuMigrations (the compile-time-embedded component) and kirokuMigrationPlan, validated against the manifest at build time.
@@ -60,7 +60,9 @@ publishes `kiroku.uuidv7()` as the component's version-independent UUIDv7 genera
 
 Every migration after `0001` names its objects `kiroku.<name>`, including functions: only `0001`
 sets `search_path`, so only `0001` may rely on it. This holds on every PostgreSQL version the
-component supports, 17 and 18 alike.
+component supports, 17 and 18 alike. `just test-matrix` runs every suite against
+both majors; the migration suite reports which route published `kiroku.uuidv7()` on the
+server it ran against, so each leg states the half of the matrix it covered.
 
 ## Usage
 

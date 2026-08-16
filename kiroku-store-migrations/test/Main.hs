@@ -315,16 +315,27 @@ main = hspec $ do
                         length applied `shouldBe` length nativeMigrationFiles
                 withConnection settings assertSchema
 
-        it "resolves the lease default through the qualified component generator" $ do
+        -- kiroku.uuidv7() is the component's version-independent generator, but
+        -- it arrives by a different route on each major: 0001's fallback on
+        -- PostgreSQL 17, 0010's alias for the builtin on PostgreSQL 18. This
+        -- case pins the route to the running server, so an acceptance run that
+        -- believes it exercised one major and actually ran the other fails here
+        -- instead of passing quietly. Both routes need a run to be covered --
+        -- see `just test-matrix`.
+        it "publishes the generator by the route its PostgreSQL major requires" $ do
             plan <- requirePlan
             result <- withMigratedDatabase plan $ \connection -> do
-                -- kiroku.uuidv7() is the component's version-independent
-                -- generator: PostgreSQL 17 gets 0001's fallback, PostgreSQL 18
-                -- gets 0010's alias for the builtin. Either way the stored
-                -- default names it, and no later migration needs search_path to
-                -- reach a UUIDv7 generator.
-                generator <- useSession connection (Session.statement () leaseDefaultStatement)
-                generator `shouldBe` (True, Just "kiroku.uuidv7()")
+                (major, builtinExists, generatorExists, leaseDefault) <-
+                    useSession connection (Session.statement () leaseDefaultStatement)
+                Text.IO.putStrLn
+                    ( "PostgreSQL "
+                        <> Text.pack (show major)
+                        <> " UUIDv7 generator: kiroku.uuidv7() via "
+                        <> (if builtinExists then "0010's alias for the builtin" else "0001's fallback")
+                    )
+                generatorExists `shouldBe` True
+                builtinExists `shouldBe` (major >= 18)
+                leaseDefault `shouldBe` Just "kiroku.uuidv7()"
             either (expectationFailure . show) pure result
 
         it "acquires a lease from a session whose search_path excludes kiroku" $ do
@@ -559,12 +570,17 @@ schemaFactsStatement =
         Encoders.noParams
         (Decoders.singleRow (Decoders.column (Decoders.nonNullable Decoders.bool)))
 
--- | Whether @kiroku.uuidv7()@ exists, and the stored @lease_id@ default.
-leaseDefaultStatement :: Statement () (Bool, Maybe Text)
+{- | The server major, whether each UUIDv7 generator exists, and the stored
+@lease_id@ default. Together these pin which route published
+@kiroku.uuidv7()@ on the running server.
+-}
+leaseDefaultStatement :: Statement () (Int32, Bool, Bool, Maybe Text)
 leaseDefaultStatement =
     Statement.preparable
         """
-        SELECT to_regprocedure('kiroku.uuidv7()') IS NOT NULL,
+        SELECT pg_catalog.current_setting('server_version_num')::int / 10000,
+               to_regprocedure('pg_catalog.uuidv7()') IS NOT NULL,
+               to_regprocedure('kiroku.uuidv7()') IS NOT NULL,
                (SELECT pg_catalog.pg_get_expr(stored.adbin, stored.adrelid)
                   FROM pg_catalog.pg_attrdef AS stored
                   JOIN pg_catalog.pg_attribute AS attribute
@@ -575,8 +591,10 @@ leaseDefaultStatement =
         """
         Encoders.noParams
         ( Decoders.singleRow
-            ( (,)
-                <$> Decoders.column (Decoders.nonNullable Decoders.bool)
+            ( (,,,)
+                <$> Decoders.column (Decoders.nonNullable Decoders.int4)
+                <*> Decoders.column (Decoders.nonNullable Decoders.bool)
+                <*> Decoders.column (Decoders.nonNullable Decoders.bool)
                 <*> Decoders.column (Decoders.nullable Decoders.text)
             )
         )

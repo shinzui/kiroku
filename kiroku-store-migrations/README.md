@@ -105,9 +105,37 @@ idempotent rerun, concurrent locking, current Codd V5 import, legacy
 source-ledger preservation. The relation contract suite also proves the frozen
 `kiroku.subscription_checkpoints_v1` catalog, non-null value semantics,
 owner-rights privilege isolation, structural read-only behavior, downstream
-view survival, and indexed query plan. `cabal test kiroku-store:kiroku-store-test`
-consumes the same native plan through `kiroku-test-support` and proves the
-complete store behavior, including append and read scenarios.
+view survival, and indexed query plan. It also applies the plan's pending tail
+in a session that never ran `0001` and cannot reach the Kiroku schema through
+`search_path`, which is the upgrade shape BUG-1 lived in.
+`cabal test kiroku-store:kiroku-store-test` consumes the same native plan
+through `kiroku-test-support` and proves the complete store behavior, including
+append and read scenarios.
+
+### Both PostgreSQL majors
+
+The suites reach PostgreSQL through `ephemeral-pg`, which runs whichever server
+is on `PATH`, and the default dev shell carries only PostgreSQL 18. Migration
+behavior differs by major -- `uuidv7()` is a builtin on 18 and comes from
+`0001`'s fallback on 17 -- so a single-major run cannot cover this package.
+Run both:
+
+```bash
+just test-matrix        # every suite, on PostgreSQL 17 and then 18
+just test-pg 17         # one major
+```
+
+Each recipe enters the matching `nix develop .#postgresql<major>` shell and
+refuses to run if that major is not the one on `PATH`. The suite reports the
+route it exercised, so a run states which half of the matrix it covered:
+
+```
+PostgreSQL 17 UUIDv7 generator: kiroku.uuidv7() via 0001's fallback
+PostgreSQL 18 UUIDv7 generator: kiroku.uuidv7() via 0010's alias for the builtin
+```
+
+Run the matrix before releasing this package, and after any migration change
+that touches version-dependent behavior.
 
 Migration `0010` adds replay-history retention leases, the per-schema
 coordinator, an indexed active-lease predicate, and statement-level
