@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               kiroku-store-migrations
-version:            0.3.2.1
+version:            0.4.0.0
 synopsis:           Schema migrations for kiroku-store
 description:
   Native pg-migrate component, Codd history mapping, and migration executable
@@ -15,6 +15,7 @@ build-type:         Simple
 category:           Database, Eventing
 extra-doc-files:    CHANGELOG.md
 extra-source-files:
+  ledger-fixups/*.sql
   migrations/*.sql
   migrations/manifest
   migrations.lock
