@@ -11,6 +11,8 @@ import Data.Either (isLeft)
 import Data.Foldable (toList)
 import Data.Int (Int32, Int64)
 import Data.List (sort)
+import Data.List.NonEmpty (NonEmpty ((:|)))
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text.IO
@@ -42,7 +44,7 @@ import Test.Hspec
 main :: IO ()
 main = hspec $ do
     describe "native Kiroku migration definition" $ do
-        it "tracks the ten native files in manifest order" $ do
+        it "tracks the eleven native files in manifest order" $ do
             directory <- findMigrationsDirectory
             manifest <- Text.lines <$> Text.IO.readFile (directory </> "manifest")
             manifest `shouldBe` Text.pack <$> nativeMigrationFiles
@@ -55,7 +57,7 @@ main = hspec $ do
                 bytes <- ByteString.readFile (directory </> nativeName)
                 lookup legacyName lockEntries `shouldBe` Just (checksumText bytes)
 
-        it "builds component kiroku and a ten-migration plan" $ do
+        it "builds component kiroku and an eleven-migration plan" $ do
             component <- requireRight kirokuMigrations
             component `seq` pure ()
             plan <- requirePlan
@@ -91,7 +93,7 @@ main = hspec $ do
                     `shouldReturn` "0007-existing.sql\n"
 
     describe "fresh native databases" $ do
-        it "applies all ten, verifies strictly, and reports AlreadyApplied on rerun" $ do
+        it "applies all eleven, verifies strictly, and reports AlreadyApplied on rerun" $ do
             plan <- requirePlan
             result <- withMigratedDatabase plan $ \connection -> do
                 assertSchema connection
@@ -273,6 +275,66 @@ main = hspec $ do
                 facts `shouldBe` (1, 9, True, True, 6)
             either (expectationFailure . show) pure result
 
+    -- BUG-1. Migrations 0002 onward are parsed in sessions that never ran 0001,
+    -- so a name that only 0001's `SET search_path` makes resolvable parses on a
+    -- fresh install and fails on every ordinary upgrade. 0.3.2.x's 0010 named
+    -- uuidv7() that way and could not be applied to a database bootstrapped
+    -- through 0009 on PostgreSQL 17. These cases apply the tail of the plan in a
+    -- session that carries none of 0001's state.
+    describe "upgrades of already-bootstrapped databases" $ do
+        it "applies the pending tail in a session that never ran the bootstrap" $ do
+            plan <- requirePlan
+            throughBootstrap <- planThrough (length nativeMigrationFiles - 2)
+            withKirokuPg $ \database -> do
+                let settings = Pg.connectionSettings database
+                bootstrapped <-
+                    runMigrationPlan defaultRunOptions settings throughBootstrap
+                        >>= requireMigration
+                reportOutcomes bootstrapped
+                    `shouldBe` replicate (length nativeMigrationFiles - 2) AppliedNow
+
+                -- A separate session, and one that cannot reach the Kiroku
+                -- schema through search_path. The suite connects as role
+                -- "kiroku", so the default "$user" entry resolves to the Kiroku
+                -- schema and would hide exactly the name resolution this case
+                -- exists to prove -- the same accident that let 0001's
+                -- SET search_path carry a fresh install through 0.3.2.x's 0010.
+                withConnection settings $ \upgradeSession -> do
+                    useSession upgradeSession (Session.script "SET search_path TO pg_catalog")
+                    upgraded <-
+                        runMigrationPlanWith defaultRunOptions (providerFor upgradeSession) plan
+                            >>= requireMigration
+                    reportOutcomes upgraded
+                        `shouldBe` replicate (length nativeMigrationFiles - 2) AlreadyApplied
+                            <> replicate 2 AppliedNow
+
+                verified <- verifyMigrationPlan defaultRunOptions settings plan >>= requireMigration
+                case verified of
+                    VerificationReport verificationIssues applied _ _ -> do
+                        verificationIssues `shouldBe` []
+                        length applied `shouldBe` length nativeMigrationFiles
+                withConnection settings assertSchema
+
+        it "resolves the lease default through the qualified component generator" $ do
+            plan <- requirePlan
+            result <- withMigratedDatabase plan $ \connection -> do
+                -- kiroku.uuidv7() is the component's version-independent
+                -- generator: PostgreSQL 17 gets 0001's fallback, PostgreSQL 18
+                -- gets 0010's alias for the builtin. Either way the stored
+                -- default names it, and no later migration needs search_path to
+                -- reach a UUIDv7 generator.
+                generator <- useSession connection (Session.statement () leaseDefaultStatement)
+                generator `shouldBe` (True, Just "kiroku.uuidv7()")
+            either (expectationFailure . show) pure result
+
+        it "acquires a lease from a session whose search_path excludes kiroku" $ do
+            plan <- requirePlan
+            result <- withMigratedDatabase plan $ \connection -> do
+                useSession connection (Session.script "SET search_path TO pg_catalog")
+                version <- useSession connection (Session.statement () insertLeaseStatement)
+                version `shouldBe` 7
+            either (expectationFailure . show) pure result
+
     describe "Codd history import" $ do
         it "imports a current codd V5 ledger, verifies, and never replays SQL" $
             importFixture "codd"
@@ -318,14 +380,14 @@ importFixture sourceSchema = do
         pendingIds <-
             traverse
                 (requireRight . migrationId "kiroku")
-                ["0008-schema-management-comment", "0009", "0010"]
+                ["0008-schema-management-comment", "0009", "0010", "0011"]
         verifiedBeforeCanary <- verifyMigrationPlan defaultRunOptions settings plan >>= requireMigration
         case verifiedBeforeCanary of
             VerificationReport verificationIssues _ _ _ ->
                 verificationIssues
                     `shouldBe` (PendingMigration <$> pendingIds)
         up <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
-        reportOutcomes up `shouldBe` replicate 7 AlreadyApplied <> replicate 3 AppliedNow
+        reportOutcomes up `shouldBe` replicate 7 AlreadyApplied <> replicate 4 AppliedNow
         verifiedAfterCanary <- verifyMigrationPlan defaultRunOptions settings plan >>= requireMigration
         case verifiedAfterCanary of
             VerificationReport verificationIssues _ _ _ ->
@@ -355,7 +417,26 @@ nativeMigrationFiles =
     , "0008-schema-management-comment.sql"
     , "0009.sql"
     , "0010.sql"
+    , "0011.sql"
     ]
+
+{- | The plan truncated to its first @count@ migrations, read from the checked-in
+directory. It stands in for a database that a previous release bootstrapped: the
+ledger it produces is byte-identical to the one the full plan would have written
+for those entries, so the full plan later sees exactly the remainder as pending.
+-}
+planThrough :: Int -> IO MigrationPlan
+planThrough count = do
+    directory <- findMigrationsDirectory
+    entries <- traverse (readEntry directory) (take count nativeMigrationFiles)
+    component <-
+        requireRight
+            (migrationComponentFromEmbeddedSql "kiroku" mempty (NonEmpty.fromList entries))
+    requireRight (migrationPlan (component :| []))
+  where
+    readEntry directory file = do
+        bytes <- ByteString.readFile (directory </> file)
+        pure (file, bytes)
 
 findMigrationsDirectory :: IO FilePath
 findMigrationsDirectory =
@@ -472,11 +553,48 @@ schemaFactsStatement =
           (EXISTS (SELECT 1 FROM pg_catalog.pg_indexes WHERE schemaname = 'kiroku' AND indexname = 'ix_dead_letters_event_id')),
           (EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'chk_streams_stream_name_length')),
           (EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a JOIN pg_catalog.pg_class c ON c.oid = a.attrelid JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'kiroku' AND c.relname = 'streams' AND a.attname = 'truncate_before' AND NOT a.attisdropped)),
-          (obj_description(to_regnamespace('kiroku'), 'pg_namespace') = 'Managed by pg-migrate component kiroku through 0010')
+          (obj_description(to_regnamespace('kiroku'), 'pg_namespace') = 'Managed by pg-migrate component kiroku through 0011')
         ) AS checks(ok)
         """
         Encoders.noParams
         (Decoders.singleRow (Decoders.column (Decoders.nonNullable Decoders.bool)))
+
+-- | Whether @kiroku.uuidv7()@ exists, and the stored @lease_id@ default.
+leaseDefaultStatement :: Statement () (Bool, Maybe Text)
+leaseDefaultStatement =
+    Statement.preparable
+        """
+        SELECT to_regprocedure('kiroku.uuidv7()') IS NOT NULL,
+               (SELECT pg_catalog.pg_get_expr(stored.adbin, stored.adrelid)
+                  FROM pg_catalog.pg_attrdef AS stored
+                  JOIN pg_catalog.pg_attribute AS attribute
+                    ON attribute.attrelid = stored.adrelid
+                   AND attribute.attnum = stored.adnum
+                 WHERE stored.adrelid = 'kiroku.history_retention_leases'::regclass
+                   AND attribute.attname = 'lease_id')
+        """
+        Encoders.noParams
+        ( Decoders.singleRow
+            ( (,)
+                <$> Decoders.column (Decoders.nonNullable Decoders.bool)
+                <*> Decoders.column (Decoders.nullable Decoders.text)
+            )
+        )
+
+-- | Insert one lease and report the UUID version its default generated.
+insertLeaseStatement :: Statement () Int32
+insertLeaseStatement =
+    Statement.preparable
+        """
+        INSERT INTO kiroku.history_retention_leases
+            (owner, reason, protected_through, created_at, renewed_at, expires_at)
+        VALUES
+            ('kiroku-store-migrations-test', 'search_path independence', 0,
+             pg_catalog.now(), pg_catalog.now(), pg_catalog.now() + interval '1 hour')
+        RETURNING pg_catalog.get_byte(pg_catalog.uuid_send(lease_id), 6) >> 4
+        """
+        Encoders.noParams
+        (Decoders.singleRow (Decoders.column (Decoders.nonNullable Decoders.int4)))
 
 historyRetentionColumnsStatement :: Statement () [(Text, Text, Text, Bool)]
 historyRetentionColumnsStatement =
