@@ -1,5 +1,14 @@
 # kiroku-otel changelog
 
+## 0.2.0.7 — 2026-08-16
+
+### Other Changes
+
+* Requires `kiroku-store ^>=0.8`, which adds the `TransientTransactionFailure`
+  constructor to `StoreError`. The tracer does not match on `StoreError`, so no
+  source change was required and no `kiroku-otel` API or runtime behavior
+  changed.
+
 ## 0.2.0.6 — 2026-08-15
 
 ### Other Changes

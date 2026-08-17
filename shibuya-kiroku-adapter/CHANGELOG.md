@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.1.1 — 2026-08-16
+
+### Other Changes
+
+* Requires `kiroku-store ^>=0.8`, which adds the `TransientTransactionFailure`
+  constructor to `StoreError`. The adapter does not match on `StoreError`, so
+  no source change was required and no `shibuya-kiroku-adapter` API or runtime
+  behavior changed.
+
 ## 0.5.1.0 — 2026-08-15
 
 ### Other Changes

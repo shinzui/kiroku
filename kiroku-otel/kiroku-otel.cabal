@@ -1,6 +1,6 @@
 cabal-version:   3.0
 name:            kiroku-otel
-version:         0.2.0.6
+version:         0.2.0.7
 synopsis:
   OpenTelemetry W3C trace-context helpers for Kiroku event metadata
 

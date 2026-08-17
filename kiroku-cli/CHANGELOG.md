@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0.6 — 2026-08-16
+
+### Other Changes
+
+* Requires `kiroku-store ^>=0.8`, which adds the `TransientTransactionFailure`
+  constructor to `StoreError`. No source change was required and no
+  `kiroku-cli` API or runtime behavior changed.
+
 ## 0.2.0.5 — 2026-08-15
 
 ### Other Changes

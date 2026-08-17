@@ -1,5 +1,14 @@
 # Revision history for kiroku-metrics
 
+## 0.1.0.8 -- 2026-08-16
+
+### Other Changes
+
+* Requires `kiroku-store ^>=0.8`, which adds the `TransientTransactionFailure`
+  constructor to `StoreError`. The fixed subscription metrics schema does not
+  match on `StoreError`, so no source change was required and no
+  `kiroku-metrics` API or runtime behavior changed.
+
 ## 0.1.0.7 -- 2026-08-15
 
 ### Other Changes
