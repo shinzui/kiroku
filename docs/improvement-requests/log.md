@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-08-19
+* **Addition**: Add the keiro-ui UI-endpoint request set (IR-8..IR-13): a REST read API for browsing streams, categories, and events; a public dead-letter read API; durable subscription checkpoints over HTTP; configurable CORS in kiroku-metrics; additive WebSocket convergence with the cross-project convention; and a wire-format stability ADR. All raised by mori://shinzui/keiro-ui with origin recorded per request.
+
 ## 2026-08-16
 * **Addition**: IR-7 requests source-before-`$all` lock ordering in `appendMultiStream` for streams that do not exist yet, closing the multi-versus-single deadlock that the EP-1 F4 pre-lock leaves open for fresh streams. Filed as a request rather than a defect: the published `appendMultiStream` claim covers multi-versus-multi contention only, and a repeated conflict now surfaces as the retryable `TransientTransactionFailure`. Adoption is gated on append-throughput measurement.
 
