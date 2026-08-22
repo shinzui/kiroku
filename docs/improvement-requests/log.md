@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-08-22
+* **Addition**: IR-14 requests a manifest-driven transactional selective-event compaction primitive that preserves retained identities, stream versions, positions, links, and append correctness; it originates from Mori MasterPlan 27 and hard-gates its legacy Repository compaction plan.
+
 ## 2026-08-19
 * **Addition**: Add the keiro-ui UI-endpoint request set (IR-8..IR-13): a REST read API for browsing streams, categories, and events; a public dead-letter read API; durable subscription checkpoints over HTTP; configurable CORS in kiroku-metrics; additive WebSocket convergence with the cross-project convention; and a wire-format stability ADR. All raised by mori://shinzui/keiro-ui with origin recorded per request.
 
