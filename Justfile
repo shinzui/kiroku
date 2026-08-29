@@ -181,6 +181,14 @@ adr-validate:
         --profile-enforce --log-enforce
     okf graph docs/adr > /dev/null
 
+# Strictly validate commit-pinned review records against the shared
+# assurance.reviews profile.
+[group('docs')]
+reviews-validate:
+    mori validate
+    okf validate docs/reviews --strict --profile docs/reviews/profile.dhall \
+        --profile-enforce --log-enforce
+
 # --- Nix ---
 
 # Build via nix
