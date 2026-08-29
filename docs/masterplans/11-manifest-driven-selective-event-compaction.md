@@ -35,8 +35,9 @@ builds an immutable, digest-sealed *compaction manifest* naming the store, an op
 explicit reference policies, the expected head version of every affected stream, and every
 selected event with its event ID, originating stream, original stream version, global position,
 and any link memberships it explicitly acknowledges. It previews the manifest: a read-only
-operation that validates every witness against the live store and returns either a closed list
-of typed refusals or a deterministic report with counts and a report digest. It applies the
+operation that validates every witness against the live store under one snapshot and returns
+either a closed list of typed refusals, a deterministic report with counts and a report digest,
+or the stored ledger record when the manifest was already applied. It applies the
 manifest: one database transaction that takes the ADR-7 coordinator lock, refuses while any
 history-retention lease is active, locks every affected stream row in ascending `stream_id`
 order, re-validates every witness under those locks, deletes exactly the accounted-for junction
@@ -222,19 +223,14 @@ Mori's plan 237 (manifest construction).
 `Kiroku.Store.Types` gains:
 
 ```haskell
-data EventMembershipKind = HomeMembership | GlobalMembership | LinkMembership
-    deriving stock (Eq, Ord, Show, Generic)
-
-data EventMembership = EventMembership
-    { stream :: !StreamName
-    , streamId :: !StreamId
-    , streamVersion :: !StreamVersion   -- the global position for GlobalMembership
-    , kind :: !EventMembershipKind
-    }
+data EventMembership
+    = HomeMembership !StreamName !StreamId !StreamVersion
+    | GlobalMembership !GlobalPosition
+    | LinkMembership !StreamName !StreamId !StreamVersion
     deriving stock (Eq, Show, Generic)
 
 data EventReferenceInventory = EventReferenceInventory
-    { memberships :: !(Vector EventMembership)  -- ascending streamId
+    { memberships :: !(Vector EventMembership)  -- GlobalMembership first, then ascending streamId
     , deadLetterCount :: !Int64
     , causationDependentCount :: !Int64         -- other events whose causation_id is this event
     }
@@ -242,22 +238,40 @@ data EventReferenceInventory = EventReferenceInventory
 ```
 
 `HomeMembership` is the row where `stream_id = original_stream_id`; `GlobalMembership` is the
-row where `stream_id = 0`; every other row is a `LinkMembership`. The effect surface is
+row where `stream_id = 0` and carries the global position; every other row is a
+`LinkMembership`. Each constructor carries exactly the identity that membership class has, so
+a global position is never smuggled through a `StreamVersion` field. The effect surface is
 `LookupEventReferences :: [EventId] -> Store m (Map EventId EventReferenceInventory)` wrapped as
 `Kiroku.Store.Read.lookupEventReferences`, with
 `Kiroku.Store.Transaction.lookupEventReferencesTx`. Unknown IDs are absent from the map; an
-empty input performs no pool checkout. The SQL statements live in
+empty input performs no pool checkout. The input is not bounded at the API: the interpreter
+chunks the membership and dead-letter statements internally into batches of at most 10000 IDs
+per statement execution, all on one pool checkout, so a consumer may pass its full candidate
+list (Mori's 475058) without tripping a parameter-size cliff. The causation statement is the
+one exception and always runs once over the full request: its array is simultaneously the
+lookup set and the exclusion set, so batching it would silently change "dependents outside the
+input set" into "dependents outside the batch" and overcount dependents that are themselves
+selected in another batch of the same call. The SQL statements live in
 `Kiroku.Store.SQL` under a new export group `-- * Event reference inventory statements`:
 `eventMembershipsStmt :: Statement (Vector UUID) (Vector (UUID, Int64, Text, Int64, Int64))`
 returning `(event_id, stream_id, stream_name, stream_version, original_stream_id)`,
 `deadLetterCountsStmt :: Statement (Vector UUID) (Vector (UUID, Int64))`, and
 `causationDependentCountsStmt :: Statement (Vector UUID) (Vector (UUID, Int64))` (dependents
-outside the input set).
+outside the input set). The "outside the input set" exclusion must be written as an anti-join
+over `unnest($1)` (`LEFT JOIN ... IS NULL` or `NOT EXISTS`), never `NOT (event_id = ANY($1))`,
+which degrades to a linear array scan per candidate row at large input sizes. All three
+statements carry `EXPLAIN` plan-shape assertions in the structural suite using a realistically
+large input array (the planner's choice for a one-element array proves nothing): the expected
+access paths are `stream_events_pkey`, `ix_dead_letters_event_id`, and `ix_events_causation_id`.
 
 ### Manifest, digest, refusal, and report types
 
 Owner: EP-3, in the new exposed module `Kiroku.Store.Compaction.Types`. Consumers: EP-4, EP-5,
-EP-6, EP-7.
+EP-6, EP-7. The module sets `NoFieldSelectors`: the package compiles with
+`DuplicateRecordFields` and re-exports everything through `Kiroku.Store`, so exported selector
+functions would collide with `Kiroku.Store.Read.storeIdentity` (and with any future function
+sharing a field's name); fields are read through `#field` labels (generic-lens, the repository
+style) or record patterns.
 
 ```haskell
 newtype CompactionOperation = CompactionOperation Text      -- validated 1..512 UTF-8 bytes
@@ -304,7 +318,6 @@ manifestCausationPolicy :: CompactionManifest -> CausationPolicy
 manifestStreamHeads :: CompactionManifest -> Vector StreamHeadWitness   -- ascending by stream
 manifestSelections :: CompactionManifest -> Vector CompactionSelection  -- ascending by globalPosition
 manifestStreamNames :: CompactionManifest -> Vector Text                -- the heads' names, ascending
-manifestDigest :: CompactionManifest -> CompactionDigest                -- synonym of compactionManifestDigest
 
 -- Validated newtype constructors and renderings:
 mkCompactionOperation :: Text -> Either CompactionManifestError CompactionOperation
@@ -323,6 +336,8 @@ data CompactionManifestError
     | CompactionManifestInvalidStreamName !StreamName !Int
     | CompactionManifestNonPositiveVersion !EventId
     | CompactionManifestNonPositivePosition !EventId
+    | CompactionManifestDuplicatePosition !GlobalPosition
+    | CompactionManifestDuplicateOriginVersion !StreamName !StreamVersion
     | CompactionManifestDuplicateLink !EventId !LinkWitness
     | CompactionManifestLinkIntoOrigin !EventId
     | CompactionManifestMissingStreamHead !StreamName
@@ -332,12 +347,14 @@ data CompactionManifestError
     | CompactionManifestOperationTooLong !Int
     | CompactionManifestDigestMismatch { expected :: !CompactionDigest, computed :: !CompactionDigest }
 
+-- Field names are unique per role: DuplicateRecordFields still forbids one field
+-- name at two different types within a single data declaration.
 data CompactionRefusal
-    = CompactionStoreIdentityMismatch { expected :: !StoreIdentity, actual :: !StoreIdentity }
+    = CompactionStoreIdentityMismatch { expectedIdentity :: !StoreIdentity, actualIdentity :: !StoreIdentity }
     | CompactionHistoryRetentionActive !HistoryRetentionConflict
     | CompactionStreamMissing !StreamName
     | CompactionStreamSoftDeleted !StreamName
-    | CompactionStreamHeadDrift { stream :: !StreamName, expected :: !StreamVersion, actual :: !StreamVersion }
+    | CompactionStreamHeadDrift { stream :: !StreamName, expectedHead :: !StreamVersion, actualHead :: !StreamVersion }
     | CompactionSelectedEventMissing !EventId
     | CompactionWitnessMismatch !EventId !WitnessMismatch
     | CompactionUnexpectedLink !EventId !LinkWitness
@@ -379,6 +396,10 @@ data CompactionRecord = CompactionRecord
     , appliedBy :: !Text
     }
 
+data CompactionPreview
+    = CompactionPreviewReady !CompactionReport
+    | CompactionPreviewAlreadyApplied !CompactionRecord
+
 data CompactionApplyResult
     = CompactionAppliedNow !CompactionRecord
     | CompactionAlreadyApplied !CompactionRecord
@@ -396,6 +417,10 @@ snake_case keys (`format`, `store_identity`, `operation`, `dead_letter_policy`,
 `kiroku-compaction-manifest/1` and a `digest` key, and routes through `mkCompactionManifest` so
 a corrupted document is rejected at decode time. Policies serialise as `refuse`/`remove` and
 `refuse`/`allow`, the same words the ledger stores. Digests render as lowercase hex in JSON.
+`CompactionRefusal`, `WitnessMismatch`, `LinkWitness`, `StreamHeadWitness`, `CompactionSelection`,
+and `StoreIdentity` also carry hand-written instances (refusals as tagged objects under a
+`refusal` key), so EP-6's CLI renders refusal lists from the library's JSON rather than
+inventing its own encoding.
 
 The canonical manifest encoding is fixed here so every implementation (and any other language)
 computes the same root digest. It is the SHA-256 of the concatenation of: the ASCII bytes
@@ -403,19 +428,26 @@ computes the same root digest. It is the SHA-256 of the concatenation of: the AS
 4-byte big-endian length prefix followed by its UTF-8 bytes; one byte each for
 `deadLetterPolicy` (`0x00` refuse, `0x01` remove) and `causationPolicy` (`0x00` refuse, `0x01`
 allow); a 4-byte big-endian count of stream-head witnesses followed by each witness as
-length-prefixed UTF-8 stream name then 8-byte big-endian head version, in ascending byte order
-of stream name; a 4-byte big-endian count of selections followed by each selection, in
-ascending global position, as 16 raw UUID bytes, length-prefixed origin stream name, 8-byte
-big-endian origin version, 8-byte big-endian global position, a 4-byte count of acknowledged
-links, and each link as length-prefixed stream name then 8-byte big-endian stream version in
-ascending (name, version) order. The report digest uses the prefix
+length-prefixed UTF-8 stream name then 8-byte big-endian head version, in ascending UTF-8 byte
+order of stream name (which `Text`'s `Ord` implements); a 4-byte big-endian count of selections
+followed by each selection, in strictly ascending global position, as 16 raw UUID bytes,
+length-prefixed origin stream name, 8-byte big-endian origin version, 8-byte big-endian global
+position, a 4-byte count of acknowledged links, and each link as length-prefixed stream name
+then 8-byte big-endian stream version in ascending (name, version) order. Every ordering above
+is total because `mkCompactionManifest` rejects duplicate global positions and duplicate
+`(origin stream, origin version)` pairs (`CompactionManifestDuplicatePosition`,
+`CompactionManifestDuplicateOriginVersion`) in addition to duplicate event IDs, so a valid
+manifest has exactly one canonical encoding. The report digest uses the prefix
 `kiroku-compaction-report/1\n` followed by the manifest digest bytes, the store UUID,
-the length-prefixed operation, the two policy bytes, the eleven 8-byte big-endian counters and
-positions in declaration order, and the affected streams encoded like stream-head witnesses.
+the length-prefixed operation, the two policy bytes, the eight 8-byte big-endian counters and
+positions in declaration order (`selectedEvents` through `highestGlobalPosition`), and the
+affected streams encoded like stream-head witnesses.
 
-SHA-256 comes from the `crypton` package (`Crypto.Hash.SHA256`), which is already in the
-repository's dependency closure through `pg-migrate`; EP-3 confirms this with
-`mori registry show` before adding the build dependency.
+SHA-256 comes from the `crypton` package (module `Crypto.Hash`, e.g.
+`hashWith SHA256 :: ByteString -> Digest SHA256` — `Crypto.Hash.SHA256` is a different
+package's module name), and `crypton` is already in the repository's dependency closure
+through `pg-migrate`; EP-3 confirms this with `mori registry show` before adding the build
+dependency.
 
 ### Effect constructors, wrappers, and transaction combinators
 
@@ -427,44 +459,114 @@ added to `data Store` in `kiroku-store/src/Kiroku/Store/Effect.hs` and interpret
 ```haskell
 GetStoreIdentity :: Store m StoreIdentity
 LookupEventReferences :: [EventId] -> Store m (Map EventId EventReferenceInventory)
-PreviewCompaction :: CompactionManifest -> Store m (Either (NonEmpty CompactionRefusal) CompactionReport)
+PreviewCompaction :: CompactionManifest -> Store m (Either (NonEmpty CompactionRefusal) CompactionPreview)
 ApplyCompaction :: CompactionManifest -> Store m (Either (NonEmpty CompactionRefusal) CompactionApplyResult)
 GetCompactionLedger :: CompactionLedgerQuery -> Store m (Vector CompactionRecord)
 ```
 
+Preview is interpreted through a new private helper `runReadOnlyTxOnPool` (owner EP-4, beside
+`runTxOnPool` in `Effect.hs`) that mirrors `runTxOnPool` but passes
+`TxSessions.RepeatableRead` / `TxSessions.Read`, so every validation statement observes one
+snapshot and a concurrent append cannot manufacture spurious head-drift or witness refusals
+mid-validation (a read-only repeatable-read transaction can never serialization-fail).
+`runTxOnPool` itself keeps its current three-argument shape and apply uses it unchanged with
+`TxSessions.transaction`. EP-5 also adds one constructor to `Kiroku.Store.Error.StoreError`:
+`CompactionConcurrentMutation !CompactionDigest !Text` — the typed, documented-retryable error
+for apply-time count mismatches and SQLSTATE `23503` aborts caused by concurrent references
+from streams outside the lock set (see the transaction shape below); the `Text` names the
+guard that fired.
+
 The public module `Kiroku.Store.Compaction` (created by EP-4, extended by EP-5) re-exports
 `Kiroku.Store.Compaction.Types` and exposes `previewCompaction`, `applyCompaction`,
 `compactionLedger` (effect wrappers) and `previewCompactionTx`, `applyCompactionTx`,
-`compactionLedgerTx` (transaction combinators). `Kiroku.Store` re-exports the module. Internal
-modules are `Kiroku.Store.Compaction.Internal` and `Kiroku.Store.Compaction.SQL`
-(`other-modules`).
+`compactionLedgerTx` (transaction combinators). `Kiroku.Store` re-exports the module.
+`Kiroku.Store.Compaction.SQL` is an exposed module — mirroring `Kiroku.Store.SQL`, so the
+structural suite can `EXPLAIN` its statements — while `Kiroku.Store.Compaction.Internal`
+stays an `other-module`.
 
 ### Lock order and transaction shape for apply
 
 Owner: EP-5, constrained by ADR-7. EP-4 owns the single validation function
 `validateCompactionTx :: CompactionManifest -> Tx.Transaction ValidationOutcome` with
 `ValidationOutcome = ValidationRefused (NonEmpty CompactionRefusal) | ValidationAlreadyApplied
-CompactionRecord | ValidationReady ValidatedCompaction`; it performs the identity check, the
-lease probe, non-locking stream resolution with head-drift checks, the witness join, membership
-comparison, reference policies, and the ledger lookup by manifest digest (including the
-surviving-event count that distinguishes "already applied" from "ledger conflict"). Preview
-calls it alone; apply calls it unchanged after taking its locks. `applyCompactionTx` runs inside
-one `ReadCommitted`/`Write` transaction and performs, in this order: `SET LOCAL
-kiroku.enable_hard_deletes = 'on'`; `lockHistoryRetentionCoordinatorTx`;
+CompactionRecord | ValidationReady ValidatedCompaction` (see "Shared preview/apply internals"
+below). Its steps run in this order: the store-identity check; the lease probe; the ledger
+lookup by manifest digest — `ValidationAlreadyApplied` when the digest is recorded and no
+selected event survives, the `CompactionLedgerConflict` refusal (with the surviving count) when
+the digest is recorded but some survive, and otherwise fall through — so an already-applied
+manifest is recognised before any witness work instead of after discarding a hundred thousand
+spurious `CompactionSelectedEventMissing` values; then non-locking stream resolution with
+head-drift checks, the witness join, membership and acknowledged-link comparison, and the
+reference policies. Witness matching is per fact, with no cascading exclusions: each
+acknowledged link either matches a live link row or yields `CompactionAcknowledgedLinkMissing`;
+each live link row either matches an acknowledged link or yields `CompactionUnexpectedLink`; a
+manifest stream that does not resolve yields `CompactionStreamMissing`; one discrepancy never
+suppresses or fabricates another. Preview calls the function alone under `RepeatableRead`/`Read`
+(one snapshot, no locks); apply calls it unchanged after taking its locks.
+
+`applyCompactionTx` runs inside one `ReadCommitted`/`Write` transaction and performs, in this
+order: `SET LOCAL kiroku.enable_hard_deletes = 'on'`; `lockHistoryRetentionCoordinatorTx`;
 `activeHistoryRetentionConflictTx` (refuse on `Just` before any stream lock is taken);
 `SELECT ... FROM kiroku.streams WHERE stream_name = ANY($1) ORDER BY stream_id FOR UPDATE` over
 every origin, link-target, and witness stream; `validateCompactionTx` (whose reads now observe
 the locked rows and whose ledger lookup runs under the coordinator lock); `DELETE FROM
-kiroku.stream_events WHERE event_id = ANY($1) RETURNING stream_id, original_stream_id`;
-`DELETE FROM kiroku.dead_letters WHERE event_id = ANY($1)` only under `RemoveDeadLetters`;
-`DELETE FROM kiroku.events WHERE event_id = ANY($1)`; `INSERT INTO kiroku.event_compactions ...
-RETURNING compaction_id, applied_at, applied_by`. Any refusal returns `Left` before the first
-`DELETE`, and `ValidationAlreadyApplied` returns `Right (CompactionAlreadyApplied record)`
-without deleting anything. Returned counts that differ from the
-validated expectation condemn the transaction and surface as
-`UnexpectedServerError "KRCMP" ...`; this cannot happen under the held locks and exists as a
-defensive invariant. The transaction never touches the `$all` streams row and never updates a
-`streams` row, so no `NOTIFY` fires.
+kiroku.stream_events se USING unnest($1::uuid[], $2::bigint[]) AS k(event_id, stream_id)
+WHERE se.event_id = k.event_id AND se.stream_id = k.stream_id` over exactly the validated
+`junctionRows` pairs — never `event_id = ANY`, so a junction row the manifest did not account
+for is structurally outside the delete; `DELETE FROM kiroku.dead_letters WHERE event_id =
+ANY($1)` only under `RemoveDeadLetters`; `DELETE FROM kiroku.events WHERE event_id = ANY($1)`;
+`INSERT INTO kiroku.event_compactions ... RETURNING compaction_id, applied_at, applied_by`.
+Any refusal returns `Left` before the first `DELETE`, and `ValidationAlreadyApplied` returns
+`Right (CompactionAlreadyApplied record)` without deleting anything.
+
+The count checks and the schema's foreign keys are live concurrency guards, not dead code.
+Streams outside the manifest are never locked and `linkToStream` locks only its target stream,
+so between validation and commit a concurrent transaction can link a selected event into an
+unlisted stream, and a subscription worker can dead-letter one at any time. The pair-keyed
+junction delete leaves such a link row in place, and the `stream_events.event_id -> events`
+foreign key then blocks on the inserter's `KEY SHARE` lock and aborts `DELETE FROM
+kiroku.events` with SQLSTATE `23503`; a freshly inserted dead letter aborts the same way under
+`RefuseDeadLetters`, or surfaces as a dead-letter count mismatch under `RemoveDeadLetters`.
+Every count that differs from the validated expectation and every `23503` raised by these
+deletes maps to `CompactionConcurrentMutation` — the transaction rolls back completely and the
+operator re-runs preview and apply. Causation dependents have no foreign key and no lock, so
+`RefuseCausationDependents` is validation-time best-effort: a dependent appended to an
+unlisted stream after validation is not detected, and the refusal's Haddock, the operator
+guide, and the compaction ADR must say so explicitly. The transaction never touches the `$all`
+streams row and never updates a `streams` row, so no `NOTIFY` fires.
+
+### Shared preview/apply internals
+
+Owner: EP-4 unless noted; EP-5 consumes verbatim. In `Kiroku.Store.Compaction.SQL` (exposed),
+EP-4 defines `resolveStreamsStmt` (stream id, head, `deleted_at` for the manifest's stream
+names), `selectionWitnessesStmt` (one CTE over
+`unnest($1::uuid[], $2::bigint[], $3::bigint[], $4::bigint[])` joined to `stream_events`
+through its primary key), `survivingSelectedEventsStmt` (how many selected event IDs still
+exist), and `ledgerRecordByDigestStmt`. EP-5 adds `lockCompactionStreamsStmt`,
+`deleteJunctionRowsStmt`, `deleteSelectedDeadLettersStmt`, `deleteSelectedEventsStmt`, and
+`insertCompactionRecordStmt` with its parameter record `CompactionRecordInsert` (one field per
+ledger column without a database default). In `Kiroku.Store.Compaction.Internal`:
+
+```haskell
+data ValidatedCompaction = ValidatedCompaction
+    { report :: !CompactionReport                -- sealed; preview returns it verbatim
+    , selectedEventIds :: !(Vector UUID)         -- ascending global position
+    , junctionRows :: !(Vector (UUID, Int64))    -- every (event_id, stream_id) pair apply deletes
+    }
+
+buildReport :: CompactionManifest -> Int64 -> Int64 -> Int64 -> CompactionReport
+-- ^ link memberships, dead letters removed, causation dependents; every other field
+-- derives from the manifest; seals the result with sealCompactionReport.
+
+compactionRecordRow :: D.Row CompactionRecord
+```
+
+Expected delete counts derive from `ValidatedCompaction`: the junction total is
+`length junctionRows`, the dead-letter total is the report's `deadLettersRemoved`, and the
+events total is the report's `selectedEvents`. `compactionRecordRow` decodes a ledger row using
+the stored `report_digest` verbatim — it never recomputes and never fails on mismatch, so a
+corrupted row is caught by EP-5's digest-equality test and by audits, not by crashing an
+operator's ledger read.
 
 ### Observability events
 
@@ -484,12 +586,18 @@ EP-5 for the last two). This is what makes the `kiroku-store` release a major bu
 
 ### Structural gates
 
-Owner: EP-5, extending `kiroku-store/test/Test/PerformanceStructure.hs` and
-`kiroku-store-migrations/test/Main.hs`. The ordinary-statement list gains the assertion that no
-ordinary statement mentions `event_compactions` or `store_identity`; the trigger-shape
-assertion stays `(6, 0)`; a new assertion proves the ledger and identity tables carry only
-DELETE/TRUNCATE/UPDATE protection triggers and nothing on INSERT; the migrations suite gains a
-`describe "compaction schema"` block asserting exact columns and named constraints.
+Owners: EP-1, EP-2, EP-4, and EP-5, extending `kiroku-store/test/Test/PerformanceStructure.hs`
+and `kiroku-store-migrations/test/Main.hs`. EP-1 ships the schema, so EP-1 adds the migrations
+suite's `describe "compaction schema"` block asserting exact columns and named constraints, and
+the ordinary-statement assertion that no ordinary statement mentions `event_compactions` or
+`store_identity`. EP-2 adds `EXPLAIN` plan-shape assertions for the three inventory statements.
+EP-4 adds plan-shape assertions for `selectionWitnessesStmt` and `resolveStreamsStmt`. EP-5
+keeps the trigger-shape assertion at `(6, 0)`, adds the assertion that the ledger and identity
+tables carry only DELETE/TRUNCATE/UPDATE protection triggers and nothing on INSERT, and adds
+plan-shape assertions for the delete and ledger statements. Every plan-shape assertion on a
+statement that takes an ID array uses a realistically large input array (hundreds of elements
+at minimum) — the planner's choice for a one-element array proves nothing about the 100000-row
+case.
 
 ### Documentation and catalog surfaces
 
@@ -498,6 +606,24 @@ Owner: EP-6. `docs/user/compaction.md` (new), `docs/user/lifecycle.md` (cross-re
 `docs/PRODUCTION-DEPLOYMENT.md`, `docs/capabilities/selective-event-compaction.md` (handle
 allocated with `okf id next`), and the ADRs: EP-1 records the store-identity decision, EP-5
 records the compaction contract decision; EP-6 validates both bundles.
+
+Beyond the workflow itself, the operator guide must cover the storage and concurrency
+consequences the review surfaced. Space reclamation: deleted heap tuples (including TOASTed
+payloads) become reusable via autovacuum, but partially emptied B-tree leaf pages in
+`stream_events_pkey`, `ux_stream_events_stream_version`, and `ix_stream_events_all_by_origin`
+are compacted only by `REINDEX CONCURRENTLY`, and returning file space to the operating system
+needs `VACUUM FULL` or `pg_repack`. Run an explicit `VACUUM (ANALYZE)` of
+`kiroku.stream_events` and `kiroku.events` after a compaction campaign — a few hundred
+thousand dead tuples in multi-million-row tables may not reach autovacuum's scale factor. WAL:
+scattered deletes pay a full-page image per touched heap and index page, so a large chunk can
+emit hundreds of megabytes of WAL; prefer chunked campaigns and watch replication lag. Also
+documented here: compacted event IDs become appendable again, so the `DuplicateEvent`
+idempotent-retry protection is lost for exactly those IDs; a subscription worker that
+dead-letters an already-compacted event fails on the `dead_letters.event_id` foreign key
+(pre-existing hard-delete behaviour, now likelier); the ledger records counts and digests but
+not the selected event list, so "which events did compaction X remove" is answered by the
+consumer's archive, not by the store; and the causation-dependent refusal is validation-time
+best-effort.
 
 ### Downstream standalone operator surface (keiro-ops)
 
@@ -542,7 +668,8 @@ and the milestone. This section provides an at-a-glance view of the entire initi
 - [ ] EP-4: `previewCompactionTx` validates every witness class and returns all refusals
 - [ ] EP-4: `previewCompaction` effect, events, adapter arms, mock, and integration tests complete
 - [ ] EP-5: `applyCompactionTx` deletes exactly the accounted rows under ADR-7 locks and writes the ledger
-- [ ] EP-5: Idempotent reapply, partial-store refusal, lease refusal, head-drift race, rollback injection, and gap-tolerant reads/appends proven
+- [ ] EP-5: Idempotent reapply, partial-store refusal, lease refusal, head-drift race, concurrent-link/dead-letter injection, rollback injection, and gap-tolerant reads/appends proven
+- [ ] EP-5: Apply benchmarked at 10k/50k/100k selections with lock-hold wall time recorded; `maxCompactionSelections` confirmed or revised from that evidence
 - [ ] EP-5: Structural gates extended and `just perf-check` unchanged; compaction ADR recorded
 - [ ] EP-6: Operator guide, capability record, Haddock, and production guidance published and validated
 - [ ] EP-6: `kiroku compaction preview|apply|ledger` and `kiroku store identity` embeddable commands with non-zero refusal exit codes
@@ -569,6 +696,28 @@ interactions between child plans. Provide concise evidence.
   remove dead letters. A selected event with dead letters can therefore only be compacted if the
   manifest explicitly opts in through `RemoveDeadLetters`; this is why the policy is part of the
   digest-sealed manifest rather than a call-site flag.
+- The 2026-08-29 pre-implementation review found that the first draft of Integration Points
+  would not compile: `kiroku-store` uses `DuplicateRecordFields` without `NoFieldSelectors`, so
+  `CompactionRefusal`'s reuse of `expected`/`actual` at two field types, the `manifestDigest`
+  accessor beside the `CompactionReport` field of the same name, and the `storeIdentity` fields
+  colliding with the EP-1 read wrapper through the `Kiroku.Store` re-export were all errors.
+  `Kiroku.Store.Compaction.Types` now sets `NoFieldSelectors`, the drift refusal fields carry
+  role-unique names, and the accessor synonym is gone.
+- `linkToStreamSQL` locks only its *target* stream row and takes no coordinator lock
+  (`kiroku-store/src/Kiroku/Store/SQL.hs`), so a selected event can gain a link row in a stream
+  outside apply's lock set between validation and commit, and a subscription worker can insert
+  a dead letter at any time. Apply's count checks and the `stream_events -> events` /
+  `dead_letters -> events` foreign keys are therefore reachable concurrency guards, not
+  defensive dead code; the transaction shape was rewritten around pair-keyed junction deletes
+  and a typed `CompactionConcurrentMutation` error, and the causation-dependent refusal was
+  documented as validation-time best-effort (soft reference: no key, no lock).
+- Test stores are databases cloned from one `kiroku_template`
+  (`kiroku-test-support/src/Kiroku/Test/Postgres.hs`), so every test store shares one
+  `store_id`. A store-identity-mismatch test must forge a manifest carrying a random
+  `StoreIdentity`; opening a second test store proves nothing.
+- `readStreamForwardSQL` hard-codes `0::bigint AS global_position`, so a manifest built from
+  per-stream reads is invalid by construction; global positions come from `readAllForward` or
+  `lookupEventReferences`. EP-7's clean-consumer walkthrough was corrected accordingly.
 
 
 ## Decision Log
@@ -663,6 +812,84 @@ plan.
   live; refusing is the conservative reading of "unsupported topology". Logically truncated
   events still physically exist and are exactly the rows a consumer may wish to reclaim.
   Date: 2026-08-22
+
+- Decision: Apply deletes junction rows by exact `(event_id, stream_id)` pairs, maps every
+  delete-count mismatch and apply-time SQLSTATE `23503` to a new typed, retryable
+  `StoreError` constructor `CompactionConcurrentMutation`, and documents the
+  causation-dependent refusal as validation-time best-effort.
+  Rationale: The review disproved the draft's "cannot happen under the held locks" claim —
+  streams outside the manifest are never locked, and `linkToStream` and the dead-letter writer
+  mutate references concurrently. Pair-keyed deletes make "delete only what was accounted for"
+  structural rather than an after-the-fact count check, the foreign keys become deliberate
+  backstops with a typed error instead of `UnexpectedServerError "KRCMP"`, and causation IDs
+  (soft references with no key and no lock) cannot honestly be guaranteed, only checked at
+  validation time.
+  Date: 2026-08-29
+
+- Decision: Preview runs under `RepeatableRead`/`Read` via a new `runReadOnlyTxOnPool` helper
+  (`runTxOnPool` keeps its three-argument shape); validation performs the ledger lookup before
+  any witness work; and the preview outcome type is
+  `CompactionPreview = CompactionPreviewReady CompactionReport | CompactionPreviewAlreadyApplied CompactionRecord`.
+  Rationale: Under `ReadCommitted` each validation statement sees a different snapshot, so a
+  concurrent append could manufacture spurious head-drift refusals; a read-only repeatable-read
+  transaction gives one snapshot and can never serialization-fail. Ledger-first ordering makes
+  re-previewing an applied 100k manifest O(1) instead of building and discarding 100k
+  `CompactionSelectedEventMissing` values. The dedicated outcome type lets the CLI and Mori's
+  workflow distinguish "ready to apply" from "already done", which
+  `Either refusals CompactionReport` could not express.
+  Date: 2026-08-29
+
+- Decision: `Kiroku.Store.Compaction.Types` sets `NoFieldSelectors`; the drift refusals use
+  role-unique field names (`expectedIdentity`/`actualIdentity`, `expectedHead`/`actualHead`);
+  the `manifestDigest` accessor synonym is dropped; duplicate global positions and duplicate
+  `(origin stream, origin version)` pairs are manifest construction errors.
+  Rationale: Compile-safety under the package's `DuplicateRecordFields`-without-selectors
+  regime (see Surprises), and the digest is a cross-language contract, so every canonical sort
+  key must be provably total — duplicates would make the encoding of one logical manifest
+  ambiguous.
+  Date: 2026-08-29
+
+- Decision: `lookupEventReferences` accepts an unbounded ID list; the membership and
+  dead-letter statements chunk internally at 10000 IDs per statement on one pool checkout,
+  while the causation statement always runs once over the full request.
+  Rationale: The consumer's natural call passes the full candidate list; a caller-facing bound
+  would push chunking boilerplate into every consumer, while internal chunking keeps parameter
+  sizes and result sets predictable on a maintenance path where extra round trips are cheap.
+  The causation statement cannot chunk because its array is both the lookup set and the
+  exclusion set — a batch-sized exclusion set would overcount dependents that are themselves
+  selected in another batch of the same call (flagged by EP-2 during the 2026-08-29 cascade).
+  Date: 2026-08-29
+
+- Decision: EP-5 gains an apply benchmark at 10k/50k/100k selections measuring lock-hold wall
+  time; `maxCompactionSelections = 100000` stays a hard ceiling that the benchmark confirms or
+  revises before release, with the recommended operational chunk size documented from the same
+  evidence.
+  Rationale: Apply holds the coordinator and every affected stream lock across the validation
+  join, roughly three `protect_deletion` row-trigger invocations per selection, index
+  maintenance on seven indexes, and per-row RI probes — plausibly ~10 s at the 100k bound, an
+  eternity for appends to the affected streams and for lease administration. The exported
+  bound cannot be lowered later without a major bump, so the evidence must exist before 0.9
+  ships.
+  Date: 2026-08-29
+
+- Decision: Keep the ledger's `home_memberships` and `global_memberships` columns and their
+  equality CHECKs; keep `affected_streams` bounded only by the selection bound.
+  Rationale: The columns are redundant with `selected_events` by schema invariant (every event
+  has exactly one home and one `$all` row), but they make each ledger row self-evident to an
+  auditor reading raw SQL, and the CHECK makes the redundancy safe. `affected_streams` is at
+  worst one entry per selection (~5 MB TOASTed JSONB at the 100k ceiling), which the operator
+  guide documents rather than a second bound complicating the manifest.
+  Date: 2026-08-29
+
+- Decision: `Kiroku.Store.Compaction.SQL` is an exposed module; structural-gate ownership is
+  EP-1 (migrations `describe` block and the ordinary-statement text assertion), EP-2
+  (inventory plan shapes), EP-4 (preview plan shapes), EP-5 (trigger shapes and delete/ledger
+  plan shapes); and EP-7's clean consumer exercises preview *and* apply.
+  Rationale: `EXPLAIN`-based structural tests can only reach statements in exposed modules —
+  the precedent is `Kiroku.Store.SQL` itself. Gate ownership follows "who ships the artifact",
+  which the first draft misassigned. A clean-consumer proof that stops at preview would leave
+  the headline destructive operation unproven from the released packages.
+  Date: 2026-08-29
 
 
 ## Outcomes & Retrospective

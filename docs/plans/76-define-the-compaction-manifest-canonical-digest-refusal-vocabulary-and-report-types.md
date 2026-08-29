@@ -30,7 +30,7 @@ set of *refusals* as the negative outcome, and a deterministic *report* as the p
 This plan delivers that vocabulary as a pure Haskell module, `Kiroku.Store.Compaction.Types`,
 with no database code at all. After it lands, a developer can open `cabal repl kiroku-store`,
 build a manifest from plain values with `mkCompactionManifest`, see it rejected for any of
-fifteen typed reasons, obtain its canonical SHA-256 digest, encode it to JSON, decode it back
+seventeen typed reasons, obtain its canonical SHA-256 digest, encode it to JSON, decode it back
 with the digest re-verified, and run a Hedgehog property suite proving the digest is
 deterministic, order-independent, and sensitive to every field. Nothing about the database
 changes in this plan; the preview and apply plans build on these types without modifying them.
@@ -113,6 +113,21 @@ Record every decision made while working on the plan.
   the other fields, so a mismatch is detectable wherever the record travels.
   Date: 2026-08-22
 
+- Decision: (from the MasterPlan's 2026-08-29 pre-implementation review) the module sets
+  `NoFieldSelectors`; the drift refusals use role-unique field names
+  (`expectedIdentity`/`actualIdentity`, `expectedHead`/`actualHead`) while JSON keeps the short
+  `expected`/`actual` keys; the `manifestDigest` accessor synonym is dropped
+  (`compactionManifestDigest` is the one name); duplicate global positions and duplicate
+  `(origin stream, origin version)` pairs get their own construction errors; and
+  `CompactionPreview` joins the vocabulary here.
+  Rationale: The first draft did not compile — one field name at two types within
+  `CompactionRefusal` is illegal regardless of extensions, and exported selectors would collide
+  with `Kiroku.Store.Read.storeIdentity` and with the accessor family through the
+  `Kiroku.Store` re-export. The duplicate checks make every canonical sort key provably total,
+  which the cross-language digest contract requires. The preview outcome type lives here so
+  EP-4 adds no public type of its own.
+  Date: 2026-08-29
+
 
 ## Outcomes & Retrospective
 
@@ -137,7 +152,14 @@ uses the `GHC2024` language edition with default extensions `DeriveAnyClass`,
 `DuplicateRecordFields`, `OverloadedLabels`, `OverloadedStrings`, and compiles with
 `-Wall -Werror=incomplete-patterns`. Because `DuplicateRecordFields` is on, several records may
 share field names (for example `stream`); code reads them through `generic-lens` labels
-(`value ^. #stream`) or pattern matching, not through bare selector functions.
+(`value ^. #stream`) or pattern matching, not through bare selector functions. The new module
+additionally sets `{-# LANGUAGE NoFieldSelectors #-}` (per the MasterPlan): everything here is
+re-exported through `Kiroku.Store`, so exported selector functions would collide with
+same-named functions elsewhere in the surface — concretely, the `storeIdentity` fields of
+`CompactionManifestInput` and `CompactionReport` would clash with the
+`Kiroku.Store.Read.storeIdentity` wrapper from `docs/plans/74-...`. With `NoFieldSelectors`,
+record construction, record patterns, record update, and `#field` labels all still work; only
+bare selector functions are not generated.
 
 Public API re-exports live in `kiroku-store/src/Kiroku/Store.hs`, which re-exports whole
 modules (`module Kiroku.Store.Types`, `module Kiroku.Store.HistoryRetention`, and so on). A
@@ -273,6 +295,8 @@ data CompactionManifestError
     | CompactionManifestInvalidStreamName !StreamName !Int
     | CompactionManifestNonPositiveVersion !EventId
     | CompactionManifestNonPositivePosition !EventId
+    | CompactionManifestDuplicatePosition !GlobalPosition
+    | CompactionManifestDuplicateOriginVersion !StreamName !StreamVersion
     | CompactionManifestDuplicateLink !EventId !LinkWitness
     | CompactionManifestLinkIntoOrigin !EventId
     | CompactionManifestMissingStreamHead !StreamName
@@ -282,12 +306,14 @@ data CompactionManifestError
     | CompactionManifestOperationTooLong !Int
     | CompactionManifestDigestMismatch { expected :: !CompactionDigest, computed :: !CompactionDigest }
 
+-- Field names are unique per role: DuplicateRecordFields still forbids one field
+-- name at two different types within a single data declaration.
 data CompactionRefusal
-    = CompactionStoreIdentityMismatch { expected :: !StoreIdentity, actual :: !StoreIdentity }
+    = CompactionStoreIdentityMismatch { expectedIdentity :: !StoreIdentity, actualIdentity :: !StoreIdentity }
     | CompactionHistoryRetentionActive !HistoryRetentionConflict
     | CompactionStreamMissing !StreamName
     | CompactionStreamSoftDeleted !StreamName
-    | CompactionStreamHeadDrift { stream :: !StreamName, expected :: !StreamVersion, actual :: !StreamVersion }
+    | CompactionStreamHeadDrift { stream :: !StreamName, expectedHead :: !StreamVersion, actualHead :: !StreamVersion }
     | CompactionSelectedEventMissing !EventId
     | CompactionWitnessMismatch !EventId !WitnessMismatch
     | CompactionUnexpectedLink !EventId !LinkWitness
@@ -329,6 +355,10 @@ data CompactionRecord = CompactionRecord
     , appliedBy :: !Text
     }
 
+data CompactionPreview
+    = CompactionPreviewReady !CompactionReport
+    | CompactionPreviewAlreadyApplied !CompactionRecord
+
 data CompactionApplyResult
     = CompactionAppliedNow !CompactionRecord
     | CompactionAlreadyApplied !CompactionRecord
@@ -338,8 +368,12 @@ data CompactionLedgerQuery = CompactionLedgerQuery { limit :: !CompactionLedgerL
 ```
 
 Every record derives `stock (Eq, Show, Generic)`; every newtype additionally derives `Ord`;
-`DeadLetterPolicy`, `CausationPolicy`, and `CompactionApplyResult` derive `stock (Eq, Show,
-Generic)`, the two policies also `Ord` and `Enum, Bounded`.
+`DeadLetterPolicy`, `CausationPolicy`, `CompactionPreview`, and `CompactionApplyResult` derive
+`stock (Eq, Show, Generic)`, the two policies also `Ord` and `Enum, Bounded`.
+`CompactionPreview` is owned here so the whole vocabulary lives in one module; the preview plan
+(`docs/plans/77-...`) is its first consumer — `CompactionPreviewReady` carries the report a
+not-yet-applied manifest would produce, `CompactionPreviewAlreadyApplied` carries the stored
+ledger record, so operators and Mori's workflow can tell "ready to apply" from "already done".
 
 ### The canonical byte encoding
 
@@ -355,12 +389,19 @@ two's-complement of the declared width.
    `RemoveDeadLetters`.
 5. One byte for the causation policy: `0x00` for `RefuseCausationDependents`, `0x01` for
    `AllowDanglingCausation`.
-6. A 4-byte count of stream-head witnesses, then each witness in ascending byte order of the
-   UTF-8 stream name: the name length-prefixed, then the 8-byte head version.
-7. A 4-byte count of selections, then each selection in ascending global position: the 16 raw
-   event UUID bytes, the origin stream name length-prefixed, the 8-byte origin version, the
-   8-byte global position, a 4-byte count of acknowledged links, and each link in ascending
+6. A 4-byte count of stream-head witnesses, then each witness in ascending UTF-8 byte order of
+   the stream name (which `Text`'s `Ord` implements): the name length-prefixed, then the 8-byte
+   head version.
+7. A 4-byte count of selections, then each selection in strictly ascending global position: the
+   16 raw event UUID bytes, the origin stream name length-prefixed, the 8-byte origin version,
+   the 8-byte global position, a 4-byte count of acknowledged links, and each link in ascending
    (name bytes, version) order as the name length-prefixed then the 8-byte stream version.
+
+Every ordering above is total — and therefore the encoding of a valid manifest is unique —
+because `mkCompactionManifest` rejects duplicate event IDs, duplicate global positions, and
+duplicate `(origin stream, origin version)` pairs. The digest is a cross-language contract; if
+two selections could share a sort key, one logical manifest would have more than one encoding
+and implementations could disagree on the root digest.
 
 The report digest uses the same primitives: the ASCII bytes `kiroku-compaction-report/1` and a
 newline; the 32 manifest digest bytes; the 16 store UUID bytes; the operation length-prefixed;
@@ -394,7 +435,7 @@ stream-head witness `orders-1` at head version 7, and one selection: event
 ```
 
 Milestone 2 turns this example into a unit test: it builds the manifest, asserts
-`canonicalCompactionManifestBytes` equals exactly these 115 bytes, and pins the SHA-256 of those
+`canonicalCompactionManifestBytes` equals exactly these 134 bytes, and pins the SHA-256 of those
 bytes as a hex string. Compute the expected hex once at implementation time with a trusted tool
 (for example `printf` of the bytes piped to `shasum -a 256`) and record it in the test and in
 the Surprises & Discoveries section, so any later change to the layout is caught.
@@ -432,7 +473,8 @@ newtype StoreIdentity = StoreIdentity UUID
 and export `StoreIdentity (..)` from the module's export list. Do not add anything else from
 plan 74.
 
-Create `kiroku-store/src/Kiroku/Store/Compaction/Types.hs`. Its export list names every type from
+Create `kiroku-store/src/Kiroku/Store/Compaction/Types.hs` with `{-# LANGUAGE NoFieldSelectors #-}`
+at the top (see Context and Orientation for why). Its export list names every type from
 the specification with constructors (`CompactionSelection (..)`, `CompactionRefusal (..)`, and
 so on) except `CompactionManifest`, which is exported without constructors; plus the
 constructors and accessors listed under Interfaces and Dependencies. Define the types verbatim
@@ -452,9 +494,10 @@ data CompactionManifest = CompactionManifest
 ```
 
 and expose accessors `manifestStoreIdentity`, `manifestOperation`, `manifestDeadLetterPolicy`,
-`manifestCausationPolicy`, `manifestStreamHeads`, `manifestSelections`, `manifestDigest` (the
-last one is a synonym of `compactionManifestDigest`, kept so the accessor family reads
-uniformly), plus the derived `manifestStreamNames :: CompactionManifest -> Vector Text`, the
+`manifestCausationPolicy`, `manifestStreamHeads`, `manifestSelections` (there is deliberately
+no `manifestDigest` accessor — `compactionManifestDigest` is the one name for the digest, and a
+same-named function would collide with the `CompactionReport` field in any module without
+`NoFieldSelectors`), plus the derived `manifestStreamNames :: CompactionManifest -> Vector Text`, the
 ascending stream names of every head witness, which by construction is exactly the set of
 streams the manifest touches (origins, acknowledged link targets, and witnesses coincide). The
 apply plan passes it to its `FOR UPDATE` lock statement.
@@ -496,10 +539,13 @@ Implement `mkCompactionManifest`. It validates in this order and returns the fir
    link stream equal to the origin stream → `CompactionManifestLinkIntoOrigin eventId`;
    duplicate `(stream, streamVersion)` within one selection →
    `CompactionManifestDuplicateLink eventId link`.
-5. Duplicate `eventId` across selections → `CompactionManifestDuplicateEvent eventId`
-   (detect with a `Set`). Duplicate global position across selections is also a
-   `CompactionManifestDuplicateEvent` of the later event, because two events cannot share a
-   position; document this in the Haddock.
+5. Duplicates across selections, each detected with a `Set` and each its own error so the
+   canonical sort keys are provably total: duplicate `eventId` →
+   `CompactionManifestDuplicateEvent eventId`; then duplicate `globalPosition` →
+   `CompactionManifestDuplicatePosition position` (two events cannot share a position); then
+   duplicate `(originStream, originVersion)` →
+   `CompactionManifestDuplicateOriginVersion stream version` (two events cannot share a
+   per-stream slot). Check in that order so `[sel, sel]` reports the duplicate event ID.
 6. Stream heads: the same stream-name checks on each witness (`CompactionManifestReservedStream`
    / `CompactionManifestInvalidStreamName`); a name appearing twice →
    `CompactionManifestDuplicateStreamHead name`; the set of witness names must equal the set of
@@ -599,7 +645,8 @@ that sets `reportDigest` from the other fields; the preview plan calls it once a
 counts.
 
 Result and proof: the worked-example unit test in `Test.CompactionManifest` passes with the
-pinned hex, and `compactionManifestDigest` equals `manifestDigest`.
+pinned hex, and `compactionManifestDigest` on a decoded manifest equals the digest it was
+sealed with.
 
 ### Milestone 3 — JSON codec
 
@@ -651,7 +698,11 @@ Aeson renders `UTCTime`), `applied_by`.
 `CompactionRefusal` is tagged: `{"refusal": "<constructor-name-in-snake_case>", ...fields}`,
 for example `{"refusal": "stream_head_drift", "stream": "orders-1", "expected": 7, "actual": 9}`
 and `{"refusal": "history_retention_active", "active_lease_count": 2, "earliest_expiry":
-"..."}`. Provide `FromJSON` too, so the CLI can round-trip refusal lists.
+"..."}`. The wire keys stay the short `expected`/`actual` for both the head-drift and the
+store-identity-mismatch refusals: the Haskell field names (`expectedHead`/`actualHead`,
+`expectedIdentity`/`actualIdentity`) exist only to satisfy the one-name-one-type rule inside
+the data declaration, and the hand-written instances map them to the stable wire keys. Provide
+`FromJSON` too, so the CLI can round-trip refusal lists.
 
 Result and proof: the JSON round-trip properties in Milestone 4 pass, and the example manifest
 above decodes to a value whose digest equals the `digest` key.
@@ -686,7 +737,10 @@ detection); `decode . encode` on a report and on a record round-trips (`Eq`).
 
 Unit examples, one per error branch, each asserting the exact `Left` value: empty selections;
 `maxCompactionSelections + 1` selections (build with `replicate` over distinct positions — cheap
-enough, but keep it to one example); duplicate event ID; `$all` as an origin, as a link target,
+enough, but keep it to one example); duplicate event ID; two distinct events sharing a global
+position (`CompactionManifestDuplicatePosition`); two distinct events sharing an
+`(originStream, originVersion)` pair (`CompactionManifestDuplicateOriginVersion`); `$all` as an
+origin, as a link target,
 and as a head witness; a 513-byte stream name; version 0; position 0; duplicate link; link into
 origin; missing head; unused head; duplicate head; empty operation; 513-byte operation; expected
 digest mismatch. Plus the worked-example bytes test from Milestone 2, and hex rendering/parsing
@@ -869,12 +923,12 @@ CompactionManifestInput (..),
 CompactionManifest,                      -- abstract
 mkCompactionManifest,
 manifestStoreIdentity, manifestOperation, manifestDeadLetterPolicy, manifestCausationPolicy,
-manifestStreamHeads, manifestSelections, manifestStreamNames, manifestDigest,
+manifestStreamHeads, manifestSelections, manifestStreamNames,
 compactionManifestDigest, canonicalCompactionManifestBytes, maxCompactionSelections,
 CompactionManifestError (..),
 CompactionRefusal (..), WitnessMismatch (..),
 CompactionReport (..), compactionReportDigest, canonicalCompactionReportBytes, sealCompactionReport,
-CompactionRecord (..), CompactionApplyResult (..),
+CompactionRecord (..), CompactionPreview (..), CompactionApplyResult (..),
 CompactionLedgerLimit, mkCompactionLedgerLimit, compactionLedgerLimitValue,
 CompactionLedgerQuery (..), CompactionLedgerError (..)
 ```
@@ -896,7 +950,6 @@ manifestCausationPolicy :: CompactionManifest -> CausationPolicy
 manifestStreamHeads :: CompactionManifest -> Vector StreamHeadWitness
 manifestSelections :: CompactionManifest -> Vector CompactionSelection
 manifestStreamNames :: CompactionManifest -> Vector Text   -- ascending; the heads' stream names
-manifestDigest :: CompactionManifest -> CompactionDigest
 compactionManifestDigest :: CompactionManifest -> CompactionDigest
 canonicalCompactionManifestBytes :: CompactionManifest -> ByteString
 maxCompactionSelections :: Int
@@ -910,9 +963,10 @@ compactionLedgerLimitValue :: CompactionLedgerLimit -> Int32
 Instances: `ToJSON`/`FromJSON` for `CompactionManifest`, `CompactionReport`,
 `CompactionRecord`, `CompactionRefusal`, `WitnessMismatch`, `LinkWitness`,
 `StreamHeadWitness`, `CompactionSelection`, `DeadLetterPolicy`, `CausationPolicy`,
-`CompactionDigest` (hex string), `CompactionId` (UUID string), `StoreIdentity` (UUID string;
-define the instance here, orphan-free, only if `Kiroku.Store.Types` does not already provide
-one — coordinate with `docs/plans/74-...`, which is told to leave JSON instances to this plan).
+`CompactionDigest` (hex string), `CompactionId` (UUID string), `StoreIdentity` (UUID string).
+This plan owns the `StoreIdentity` JSON instance: `docs/plans/74-...` defines only the newtype
+and no JSON instances, so define the instance here — but check `Kiroku.Store.Types` first and
+skip it if one has appeared in the meantime, to avoid a duplicate-instance error.
 
 `Kiroku.Store` re-exports `module Kiroku.Store.Compaction.Types` until
 `docs/plans/77-preview-a-compaction-manifest-read-only-with-deterministic-witnesses.md`

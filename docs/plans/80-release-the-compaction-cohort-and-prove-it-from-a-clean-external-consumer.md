@@ -30,8 +30,9 @@ cannot see this repository. The improvement request IR-14 moves to `completed` o
 proof is recorded.
 
 To see it working: the witness program in Milestone 5 prints one line naming the released
-versions, the store identity, and a manifest digest, after resolving every package from Hackage
-into a fresh Cabal store.
+versions, the store identity, a manifest digest, the applied compaction id, the surviving
+stream versions, and the post-compaction append position, after resolving every package from
+Hackage into a fresh Cabal store.
 
 
 ## Progress
@@ -48,7 +49,7 @@ This section must always reflect the actual current state of the work.
 - [ ] M3: Single `chore(release)` commit with per-package justification and the three trailers; six annotated tags; pushed.
 - [ ] M4: Pre-upload sdist SHA-256 recorded for each package; packages uploaded in dependency order with documentation; GitHub releases created.
 - [ ] M5: Hackage `preferred.json`, tag peel, tarball hash and listing recorded.
-- [ ] M5: Clean isolated consumer resolved the exact released versions, built, migrated ephemeral PostgreSQL to `0012`, previewed a manifest, and printed the witness line; transcript recorded here.
+- [ ] M5: Clean isolated consumer resolved the exact released versions, built, migrated ephemeral PostgreSQL to `0012`, previewed a manifest, applied it, reapplied it as a recognised no-op, re-read the gapped stream, appended from the unchanged head, and printed the witness line; transcript recorded here.
 - [ ] M5: IR-14 status `implemented` after upload, then `completed` with `completedAt` after the consumer proof; improvement-request `log.md` entry added.
 
 
@@ -68,9 +69,10 @@ Record every decision made while working on the plan.
   Rationale: `KirokuEvent` gains four constructors and `Store` gains five; `kiroku-otel` and
   `kiroku-metrics` match `KirokuEvent` exhaustively under `-Werror=incomplete-patterns`, so
   the change breaks downstream builds (the same situation that made 0.7.0.0 a major release in
-  `docs/plans/73-protect-replay-history-with-retention-leases-and-stream-guards.md`). Three new
-  exposed modules and new `Kiroku.Store.Types` constructors are additive, but PVP takes the
-  strictest component.
+  `docs/plans/73-protect-replay-history-with-retention-leases-and-stream-guards.md`). The three
+  new exposed modules (`Kiroku.Store.Compaction`, `Kiroku.Store.Compaction.Types`,
+  `Kiroku.Store.Compaction.SQL`) and new `Kiroku.Store.Types` constructors are additive, but
+  PVP takes the strictest component.
   Date: 2026-08-22
 
 - Decision: `kiroku-store-migrations` 0.4.0.0 → 0.4.1.0 (minor).
@@ -107,14 +109,17 @@ Record every decision made while working on the plan.
   blueprint's version space is `kiroku-store`, and the previous edge is `0.7.0.1 → 0.8.0.0`.
   Date: 2026-08-22
 
-- Decision: The clean-consumer proof exercises preview (not apply) against ephemeral PostgreSQL
-  migrated with the released migration plan.
-  Rationale: Preview reaches every released surface — identity, manifest construction, digest,
-  the `0012` tables, and the `Store` effect — without needing `DELETE` grants or a destructive
-  step in a throwaway program; apply is proven exhaustively by the repository suite. The proof
-  must build from Hackage in an isolated Cabal store so it cannot accidentally resolve the working
-  tree.
-  Date: 2026-08-22
+- Decision: The clean-consumer proof exercises preview *and* apply against ephemeral PostgreSQL
+  migrated with the released migration plan: preview (`CompactionPreviewReady`), apply
+  (`CompactionAppliedNow`), reapply (`CompactionAlreadyApplied` with the same compaction id),
+  then a gap-tolerant read and an expected-version append from the unchanged head.
+  Rationale: Preview alone reaches identity, manifest construction, digest, the `0012` tables,
+  and the `Store` effect, but leaves the headline destructive operation unproven from the
+  released packages — and `docs/plans/78-apply-a-compaction-manifest-transactionally-with-ledgered-idempotence.md`
+  promises the clean consumer exercises `applyCompaction`. Grants are not a concern: the
+  throwaway program owns its ephemeral database. The proof must build from Hackage in an
+  isolated Cabal store so it cannot accidentally resolve the working tree.
+  Date: 2026-08-22 (revised 2026-08-29 per the MasterPlan review: apply included)
 
 
 ## Outcomes & Retrospective
@@ -404,8 +409,9 @@ releases, recorded in Progress with the sdist hashes.
 
 Goal: an isolated project that cannot see this repository downloads the released packages,
 builds, migrates a fresh database to `0012`, reads the store identity, constructs a manifest,
-previews it, and prints a witness line; the authoritative artifacts agree with the pre-upload
-hashes; IR-14 is closed with that evidence.
+previews it, applies it, reapplies it as a recognised no-op, re-reads the gapped stream,
+appends from the unchanged head, and prints a witness line; the authoritative artifacts agree
+with the pre-upload hashes; IR-14 is closed with that evidence.
 
 Work. Wait for the Hackage index to refresh (minutes), then gather the authoritative facts:
 
@@ -458,17 +464,19 @@ build-type:    Simple
 executable kiroku-compaction-consumer
   main-is:          Main.hs
   default-language: GHC2024
-  default-extensions: OverloadedStrings
+  default-extensions: OverloadedRecordDot OverloadedStrings
   ghc-options:      -Wall
   build-depends:
     , base
     , aeson
+    , containers
     , ephemeral-pg          >=0.2
     , hasql
     , kiroku-store          ==0.9.0.0
     , kiroku-store-migrations ==0.4.1.0
     , pg-migrate            ^>=1.1.0.0
     , text
+    , vector
 ```
 
 `Main.hs` — adjust the exact accessor and constructor names to the released Haddock at
@@ -478,11 +486,12 @@ the shape is:
 ```haskell
 module Main (main) where
 
+import Data.Map.Strict qualified as Map
 import Data.Text qualified as T
 import Data.Text.IO qualified as TIO
+import Data.Vector qualified as V
 import Database.PostgreSQL.Migrate (defaultRunOptions, runMigrationPlan)
 import EphemeralPg qualified as Pg
-import Hasql.Connection.Settings qualified as Conn
 import Kiroku.Store
 import Kiroku.Store.Compaction
 import Kiroku.Store.Migrations (kirokuMigrationPlan)
@@ -491,53 +500,84 @@ main :: IO ()
 main = Pg.withCached $ \db -> do
     let connStr = Pg.connectionString db
     plan <- either (fail . show) pure kirokuMigrationPlan
-    _ <- runMigrationPlan defaultRunOptions (Conn.connectionString connStr) plan
+    _ <- runMigrationPlan defaultRunOptions connStr plan
     withStore (defaultConnectionSettings connStr) $ \store -> do
-        Right appended <- runStoreIO store $ do
-            _ <- appendToStream (StreamName "consumer-proof") NoStream [sample "One", sample "Two"]
+        Right events <- runStoreIO store $ do
+            _ <- appendToStream (StreamName "consumer-proof") NoStream [sample "One", sample "Two", sample "Three"]
             readStreamForward (StreamName "consumer-proof") (StreamVersion 0) 10
+        let middle = events V.! 1   -- versions 1..3; the middle event is version 2
         Right identity <- runStoreIO store storeIdentity
-        let middle = appended `atIndex` 0
-            Right operation = mkCompactionOperation "clean-consumer/proof"
+        -- readStreamForward reports global_position 0 by design; the reference
+        -- inventory's GlobalMembership carries the real position.
+        Right references <- runStoreIO store (lookupEventReferences [middle.eventId])
+        globalPos <- case Map.lookup middle.eventId references of
+            Nothing -> fail "middle event missing from the reference inventory"
+            Just inventory ->
+                case [p | GlobalMembership p <- V.toList inventory.memberships] of
+                    [p] -> pure p
+                    other -> fail ("expected one $all membership: " <> show other)
+        let Right operation = mkCompactionOperation "clean-consumer/proof"
             input =
                 CompactionManifestInput
                     { storeIdentity = identity
                     , operation = operation
                     , deadLetterPolicy = RefuseDeadLetters
                     , causationPolicy = RefuseCausationDependents
-                    , streamHeads = [StreamHeadWitness (StreamName "consumer-proof") (StreamVersion 2)]
+                    , streamHeads = [StreamHeadWitness (StreamName "consumer-proof") (StreamVersion 3)]
                     , selections =
                         [ CompactionSelection
                             { eventId = middle.eventId
                             , originStream = StreamName "consumer-proof"
                             , originVersion = middle.streamVersion
-                            , globalPosition = middle.globalPosition
+                            , globalPosition = globalPos
                             , acknowledgedLinks = mempty
                             }
                         ]
                     , expectedDigest = Nothing
                     }
         manifest <- either (fail . show) pure (mkCompactionManifest input)
-        Right outcome <- runStoreIO store (previewCompaction manifest)
-        case outcome of
+        Right previewed <- runStoreIO store (previewCompaction manifest)
+        report <- case previewed of
             Left refusals -> fail ("unexpected refusal: " <> show refusals)
-            Right report ->
-                TIO.putStrLn $
-                    "clean consumer verified: kiroku-store 0.9.0.0, kiroku-store-migrations 0.4.1.0, store "
-                        <> T.pack (show identity)
-                        <> ", manifest "
-                        <> compactionDigestHex (manifestDigest manifest)
-                        <> ", selected "
-                        <> T.pack (show report.selectedEvents)
+            Right (CompactionPreviewAlreadyApplied record) -> fail ("fresh store, yet already applied: " <> show record)
+            Right (CompactionPreviewReady report) -> pure report
+        Right applied <- runStoreIO store (applyCompaction manifest)
+        record <- case applied of
+            Right (CompactionAppliedNow record) -> pure record
+            other -> fail ("expected CompactionAppliedNow: " <> show other)
+        Right reapplied <- runStoreIO store (applyCompaction manifest)
+        case reapplied of
+            Right (CompactionAlreadyApplied record')
+                | record'.compactionId == record.compactionId -> pure ()
+            other -> fail ("expected CompactionAlreadyApplied with the same id: " <> show other)
+        Right (survivors, appendResult) <- runStoreIO store $ do
+            survivors <- readStreamForward (StreamName "consumer-proof") (StreamVersion 0) 10
+            appendResult <- appendToStream (StreamName "consumer-proof") (ExactVersion (StreamVersion 3)) [sample "Four"]
+            pure (survivors, appendResult)
+        let survivingVersions = [v | e <- V.toList survivors, let StreamVersion v = e.streamVersion]
+        TIO.putStrLn $
+            "clean consumer verified: kiroku-store 0.9.0.0, kiroku-store-migrations 0.4.1.0, store "
+                <> T.pack (show identity)
+                <> ", manifest "
+                <> compactionDigestHex (compactionManifestDigest manifest)
+                <> ", selected "
+                <> T.pack (show report.selectedEvents)
+                <> ", applied "
+                <> T.pack (show record.compactionId)
+                <> ", surviving versions "
+                <> T.pack (show survivingVersions)
+                <> ", appended at version "
+                <> T.pack (show appendResult.streamVersion)
   where
     sample name = EventData { eventId = Nothing, eventType = EventType name, payload = "{}", metadata = Nothing, causationId = Nothing, correlationId = Nothing }
-    atIndex v i = v `seq` (v Data.Vector.! i)
 ```
 
-(Use `Data.Vector` indexing with an explicit import, set the `payload` to an Aeson `Value` such
-as `Data.Aeson.object []`, and name fields exactly as the released `EventData` and
-`RecordedEvent` declare them — the repository's `kiroku-store/src/Kiroku/Store/Types.hs` is a
-reliable guide, but the released Haddock is authoritative.) Run:
+(Set the `payload` to an Aeson `Value` such as `Data.Aeson.object []`, name fields exactly as
+the released `EventData` and `RecordedEvent` declare them, and take the expected-version
+constructor name from the released `ExpectedVersion` — the repository's
+`kiroku-store/src/Kiroku/Store/Types.hs` is a reliable guide, but the released Haddock is
+authoritative. The record-dot reads rely on `OverloadedRecordDot`, which works against the
+`NoFieldSelectors` compaction types through `HasField`.) Run:
 
 ```bash
 cabal build
@@ -547,7 +587,7 @@ cabal run kiroku-compaction-consumer
 Expected:
 
 ```text
-clean consumer verified: kiroku-store 0.9.0.0, kiroku-store-migrations 0.4.1.0, store StoreIdentity 0199…, manifest 5b1e…(64 hex)…, selected 1
+clean consumer verified: kiroku-store 0.9.0.0, kiroku-store-migrations 0.4.1.0, store StoreIdentity 0199…, manifest 5b1e…(64 hex)…, selected 1, applied CompactionId 0199…, surviving versions [1,3], appended at version 4
 ```
 
 `cabal build` must show the solver downloading and building `kiroku-store-0.9.0.0` and
@@ -657,7 +697,8 @@ each Hackage tarball equals the pre-upload sdist hash recorded in Progress, and 
 migrations tarball lists `migrations/0012.sql` with a manifest whose last line is `0012.sql`.
 An isolated consumer with its own `CABAL_DIR`, pinned to the exact versions, builds from the
 downloaded packages and prints a line beginning `clean consumer verified: kiroku-store 0.9.0.0`
-that includes a 64-character lowercase-hex manifest digest and `selected 1`.
+that includes a 64-character lowercase-hex manifest digest, `selected 1`, the applied
+compaction id, `surviving versions [1,3]`, and `appended at version 4`.
 `docs/improvement-requests/add-manifest-driven-selective-event-compaction.md` has `status:
 completed` and a `completedAt` timestamp, and `okf validate docs/improvement-requests` exits 0.
 `docs/capabilities/selective-event-compaction.md` says `since: "0.9.0.0"` and `just
@@ -710,11 +751,13 @@ declare `kiroku-store ^>=0.9`.
 Public surfaces the clean consumer exercises and which must therefore be exported from the
 released `kiroku-store` 0.9.0.0: `Kiroku.Store` (re-exporting `withStore`,
 `defaultConnectionSettings`, `runStoreIO`, `appendToStream`, `readStreamForward`,
-`storeIdentity`, `Kiroku.Store.Compaction`, and `Kiroku.Store.Types`);
-`Kiroku.Store.Compaction` (`previewCompaction`, `mkCompactionManifest`,
-`mkCompactionOperation`, `manifestDigest`, `compactionDigestHex`, the
+`storeIdentity`, `lookupEventReferences`, `Kiroku.Store.Compaction`, and `Kiroku.Store.Types`);
+`Kiroku.Store.Compaction` (`previewCompaction`, `applyCompaction`, `mkCompactionManifest`,
+`mkCompactionOperation`, `compactionManifestDigest`, `compactionDigestHex`, the
 `CompactionManifestInput`, `CompactionSelection`, `StreamHeadWitness`, `DeadLetterPolicy`,
-`CausationPolicy`, and `CompactionReport` types); and from `kiroku-store-migrations` 0.4.1.0,
+`CausationPolicy`, `CompactionPreview`, `CompactionApplyResult`, `CompactionRecord`, and
+`CompactionReport` types); the `EventReferenceInventory` and `EventMembership` types from
+`Kiroku.Store.Types`; and from `kiroku-store-migrations` 0.4.1.0,
 `Kiroku.Store.Migrations.kirokuMigrationPlan` whose plan ends in `0012`.
 
 Artifacts this plan edits: the eight `.cabal` files, six `CHANGELOG.md` files,

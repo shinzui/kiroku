@@ -65,6 +65,7 @@ This section must always reflect the actual current state of the work.
 - [ ] M2: Add `StoreIdentity` to `Kiroku.Store.Types`, `storeIdentityStmt` to `Kiroku.Store.SQL`, `GetStoreIdentity` to the `Store` effect and interpreter.
 - [ ] M2: Add `Kiroku.Store.Read.storeIdentity` and `Kiroku.Store.Transaction.storeIdentityTx` with Haddock.
 - [ ] M2: Write `kiroku-store/test/Test/StoreIdentity.hs` and `Test/StoreIdentityMock.hs`; register both in the cabal file and `test/Main.hs`.
+- [ ] M2: Extend the `Test/PerformanceStructure.hs` ordinary-statement example so no ordinary statement mentions `event_compactions` or `store_identity`.
 - [ ] M2: Run the store suite and `just perf-structure`.
 - [ ] M3: Allocate the ADR handle with `okf id next`, write the store-identity ADR, update `docs/adr/index.md` and `docs/adr/log.md`, run `just adr-validate`.
 - [ ] M3: Add unreleased changelog sections to `kiroku-store/CHANGELOG.md` and `kiroku-store-migrations/CHANGELOG.md`; update `docs/user/schema-migrations.md`.
@@ -123,6 +124,17 @@ Record every decision made while working on the plan.
   (`docs/plans/80-release-the-compaction-cohort-and-prove-it-from-a-clean-external-consumer.md`),
   which selects the bump for the whole cohort once.
   Date: 2026-08-22
+
+- Decision: Cascade from the MasterPlan's 2026-08-29 review: seed one valid ledger row before
+  asserting the ledger's DELETE gate (`protect_deletion()` is a row trigger, so a DELETE on an
+  empty table succeeds vacuously — the original test could never pass), demonstrate the psql
+  DELETE gate on `store_identity` instead, and take ownership of the
+  `Test/PerformanceStructure.hs` assertion that no ordinary statement mentions
+  `event_compactions` or `store_identity` (structural-gate ownership moved to EP-1 because this
+  plan ships the tables).
+  Rationale: The MasterPlan's Structural gates section and Decision Log entries dated
+  2026-08-29 are authoritative for both changes.
+  Date: 2026-08-29
 
 
 ## Outcomes & Retrospective
@@ -200,8 +212,9 @@ The list `nativeMigrationFiles` (near line 420) enumerates the eleven basenames;
 order"` and `"applies all eleven, verifies strictly, and reports AlreadyApplied on rerun"` —
 rename both to "twelve". In the Codd-history import fixture (near line 391) the `pendingIds`
 list `["0008-schema-management-comment", "0009", "0010", "0011"]` gains `"0012"`, and the
-assertion `replicate 7 AlreadyApplied <> replicate 4 AppliedNow` becomes `replicate 5
-AppliedNow`. The block `describe "upgrades of already-bootstrapped databases"` (near line 284)
+assertion `replicate 7 AlreadyApplied <> replicate 4 AppliedNow` becomes
+`replicate 7 AlreadyApplied <> replicate 5 AppliedNow` (the seven Codd-imported rows stay
+imported; the native tail grows from four to five). The block `describe "upgrades of already-bootstrapped databases"` (near line 284)
 uses `planThrough (length nativeMigrationFiles - 2)` and `replicate 2 AppliedNow`; it models a
 database bootstrapped two releases ago and applying the pending tail in a session with no
 `search_path`. Keep the shape: with twelve files the tail is still the last two (`0011`,
@@ -595,6 +608,10 @@ spec = describe "store identity" $ do
             updateRejected store "store_identity" `shouldReturn` True
             deleteRejected store "store_identity" `shouldReturn` True
             truncateRejected store "store_identity" `shouldReturn` True
+            -- protect_deletion() is FOR EACH ROW: a DELETE on the still-empty
+            -- ledger matches zero rows and succeeds vacuously, so seed one
+            -- valid row first (INSERT is deliberately ungated).
+            seedLedgerRow store
             deleteRejected store "event_compactions" `shouldReturn` True
             truncateRejected store "event_compactions" `shouldReturn` True
 
@@ -603,7 +620,13 @@ spec = describe "store identity" $ do
 
 Write `updateRejected` and `deleteRejected` locally in the same style as
 `Test.Helpers.truncateRejected` (run the raw statement through `Pool.use`, return `True` on a
-server error). For the template case, use `withMigratedTestDatabase` from
+server error). `seedLedgerRow` is a local helper that inserts one row satisfying every named
+CHECK constraint via a raw statement — 32-byte digests with
+`decode(repeat('ab', 32), 'hex')` / `decode(repeat('cd', 32), 'hex')`, `store_id` from
+`kiroku.uuidv7()`, `operation` `'trigger-test'`, both policies `'refuse'`, counts
+`1, 1, 1, 0, 0, 0` (selected, home, global, link, dead letters, causation), positions `1, 1`,
+and `'[]'::jsonb` for `affected_streams`. INSERT carries no trigger by design, so the seed
+needs no GUC. For the template case, use `withMigratedTestDatabase` from
 `Kiroku.Test.Postgres` to obtain a connection string, open a store, read the identity, then
 from a second raw `Hasql.Connection` run `CREATE DATABASE <fresh> TEMPLATE <current>` (this
 requires no other sessions on the template; the test database is yours alone, so close the
@@ -622,8 +645,17 @@ dispatch returns the configured `StoreIdentity`. Register `Test.StoreIdentity` a
 suite (keep alphabetical order) and in `kiroku-store/test/Main.hs` next to the other mock and
 lifecycle specs.
 
+In `kiroku-store/test/Test/PerformanceStructure.hs`, extend the example
+`keeps every ordinary statement free of retention coordination`: alongside the existing
+`history_retention` infix check, assert that no statement in the same `ordinarySql` list
+mentions `event_compactions` or `store_identity`. This plan ships the two tables, so this plan
+proves the ordinary append/read/lifecycle statements ignore them (the MasterPlan's Structural
+gates section assigns this assertion to EP-1); `storeIdentityStmt` is not in the ordinary list
+and is unaffected.
+
 Acceptance: `cabal test kiroku-store:kiroku-store-test` passes with the three new examples and
-the mock example; `just perf-structure` still reports the `(6, 0)` trigger shape.
+the mock example; `just perf-structure` still reports the `(6, 0)` trigger shape and the
+extended ordinary-statement example passes.
 
 ### Milestone 3 — ADR, changelogs, and documentation
 
@@ -806,10 +838,16 @@ you can check by hand with `psql` against a local database after `just reset-dat
 SELECT count(*) FROM kiroku.store_identity;            -- 1
 SELECT count(*) FROM kiroku.event_compactions;         -- 0
 UPDATE kiroku.store_identity SET created_at = now();   -- ERROR: Immutable table: store_identity cannot be updated
-DELETE FROM kiroku.event_compactions;                  -- ERROR: Hard deletes require: SET LOCAL kiroku.enable_hard_deletes = 'on'
+DELETE FROM kiroku.store_identity;                     -- ERROR: Hard deletes require: SET LOCAL kiroku.enable_hard_deletes = 'on'
+TRUNCATE kiroku.event_compactions;                     -- ERROR: TRUNCATE requires: SET LOCAL kiroku.enable_hard_deletes = 'on'
 SELECT obj_description(to_regnamespace('kiroku'), 'pg_namespace');
 -- Managed by pg-migrate component kiroku through 0012
 ```
+
+(`kiroku.protect_deletion()` is a row trigger, so a `DELETE` against the still-empty ledger
+matches zero rows and returns `DELETE 0` without firing it; the statement-level `TRUNCATE`
+gate fires regardless, and the seeded-row example in `Test.StoreIdentity` proves the ledger's
+`DELETE` gate.)
 
 After Milestone 2, a program using the public API observes one UUID from `storeIdentity`, the
 same UUID from `storeIdentityTx`, and the same UUID after the database is copied with `CREATE

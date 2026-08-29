@@ -35,11 +35,13 @@ exactly what a tool needs before it can safely remove events.
 
 After this plan, `lookupEventReferences :: [EventId] -> Eff es (Map EventId
 EventReferenceInventory)` (and a transaction-composable `lookupEventReferencesTx`) returns, for
-each requested event that exists, its complete list of memberships — each tagged as home,
-global, or link, with the stream's name, surrogate id, and the version the event holds in that
-stream — plus the number of dead-letter rows referencing it and the number of *other* events
-whose causation id points to it. Unknown ids are simply absent from the map, and an empty
-request performs no database work at all.
+each requested event that exists, its complete list of memberships — each a home, global, or
+link constructor carrying exactly the identity that membership class has: stream name,
+surrogate id, and held version for home and link rows, the global position for the `$all` row
+— plus the number of dead-letter rows referencing it and the number of *other* events whose
+causation id points to it. Unknown ids are simply absent from the map, and an empty request
+performs no database work at all. Requests of any size are accepted: the interpreter batches
+the membership and dead-letter statements at 10000 ids per execution, all on one connection.
 
 You can see it working by appending an event to stream `order-1`, linking it into
 `audit-2026`, inserting a dead letter for it, appending a second event whose causation id is
@@ -54,13 +56,13 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] M1: Add `EventMembershipKind`, `EventMembership`, `EventReferenceInventory` to `Kiroku.Store.Types` with Haddock.
-- [ ] M1: Add `eventMembershipsStmt`, `deadLetterCountsStmt`, `causationDependentCountsStmt` to `Kiroku.Store.SQL` under a new export group.
-- [ ] M1: Add `LookupEventReferences` to the `Store` effect and its interpreter arm (empty input short-circuits; three statements on one checkout).
-- [ ] M1: Add `Kiroku.Store.Read.lookupEventReferences` and `Kiroku.Store.Transaction.lookupEventReferencesTx`, sharing one pure assembly function.
-- [ ] M2: Write `kiroku-store/test/Test/EventReferences.hs` covering every membership and reference case plus the no-checkout property.
+- [ ] M1: Add `EventMembership` (home/global/link sum type) and `EventReferenceInventory` to `Kiroku.Store.Types` with Haddock.
+- [ ] M1: Add `eventMembershipsStmt`, `deadLetterCountsStmt`, `causationDependentCountsStmt` (anti-join exclusion) to `Kiroku.Store.SQL` under a new export group.
+- [ ] M1: Add `LookupEventReferences` to the `Store` effect and its interpreter arm (empty input short-circuits; membership/dead-letter statements batched at `maxEventReferenceBatch`; one checkout).
+- [ ] M1: Add `Kiroku.Store.Read.lookupEventReferences` and `Kiroku.Store.Transaction.lookupEventReferencesTx`, sharing one pure assembly function and the batching helper.
+- [ ] M2: Write `kiroku-store/test/Test/EventReferences.hs` covering every membership and reference case, the no-checkout property, and the multi-batch merge.
 - [ ] M2: Write `kiroku-store/test/Test/EventReferencesMock.hs`; register both modules in the cabal file and `test/Main.hs`.
-- [ ] M2: Add the `eventMembershipsStmt` query-plan example to `Test.PerformanceStructure` under the `performance structure` describe.
+- [ ] M2: Add query-plan examples for all three inventory statements (realistically large input arrays) to `Test.PerformanceStructure` under the `performance structure` describe.
 - [ ] M2: Run the store suite and `just perf-structure`.
 - [ ] M3: Add the unreleased changelog entry, run `cabal build all`, `cabal test all`, `nix fmt`, `nix flake check`; commit with trailers.
 
@@ -70,7 +72,11 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+- Planning-time (2026-08-29): batching interacts with the causation exclusion. The
+  causation-dependent statement's array is both its lookup set and its exclusion set, so
+  running it per 10000-id batch would count a dependent that sits in another batch of the same
+  request as "outside the input set". The statement therefore runs once over the full request;
+  only the membership and dead-letter statements batch. See the 2026-08-29 Decision Log entry.
 
 
 ## Decision Log
@@ -116,6 +122,28 @@ Record every decision made while working on the plan.
   an operator/maintenance read, not a hot path. The transaction combinator runs the same three
   statements inside the caller's transaction.
   Date: 2026-08-22
+
+- Decision: Cascade from the MasterPlan's 2026-08-29 review: `EventMembership` is a sum type
+  (`HomeMembership !StreamName !StreamId !StreamVersion | GlobalMembership !GlobalPosition |
+  LinkMembership !StreamName !StreamId !StreamVersion`) so a global position is never carried
+  in a `StreamVersion` field; the causation exclusion is an anti-join over `unnest($1)` rather
+  than `NOT (event_id = ANY($1))`; the interpreter and `lookupEventReferencesTx` batch the
+  membership and dead-letter statements at `maxEventReferenceBatch = 10000` ids on one
+  checkout; and all three statements carry plan-shape assertions with realistically large
+  input arrays.
+  Rationale: The MasterPlan's Integration Points ("Event membership and reference inventory")
+  and 2026-08-29 Decision Log entries are authoritative for all four changes.
+  Date: 2026-08-29
+
+- Decision: The causation-dependent statement always executes once over the full request and
+  is exempt from the 10000-id batching applied to the membership and dead-letter statements.
+  Rationale: Its input array is simultaneously the lookup set and the "outside the input set"
+  exclusion set; executing it per batch would silently change the contract to "outside the
+  batch" and overcount dependents that are themselves in another batch of the same request.
+  One large array bind on a maintenance read is the lesser cost. This is a deliberate,
+  documented exemption from the MasterPlan's blanket "at most 10000 IDs per statement
+  execution" sentence; the MasterPlan should note it when next cascaded.
+  Date: 2026-08-29
 
 
 ## Outcomes & Retrospective
@@ -246,8 +274,9 @@ The structural performance gate is the `describe "performance structure"` block 
 production statements through `explainProductionStatement store stmt [(placeholder,
 literal)]` and asserts index usage with `expectIndex "<index name>" plan` and absence of node
 types with `expectNoNodeType "Sort" plan`. The fixture `withQueryPlanStore` seeds 200 streams
-of 100 events, dead letters, and leases, then `ANALYZE`s. A new example there proves the
-membership statement uses `stream_events_pkey`.
+of 100 events, dead letters, and leases, then `ANALYZE`s. New examples there prove all three
+inventory statements use their indexes (`stream_events_pkey`, `ix_dead_letters_event_id`,
+`ix_events_causation_id`), each with a realistically large input array.
 
 ### ADRs
 
@@ -285,38 +314,30 @@ Scope: the complete library surface. At the end, `lookupEventReferences` and
 `lookupEventReferencesTx` compile, are re-exported by `Kiroku.Store`, and return correct
 inventories when exercised by hand in `cabal repl`.
 
-In `kiroku-store/src/Kiroku/Store/Types.hs`, add `EventMembershipKind (..)`,
-`EventMembership (..)`, and `EventReferenceInventory (..)` to the export list, import
-`Data.Vector (Vector)`, and add after `EventFilter`:
+In `kiroku-store/src/Kiroku/Store/Types.hs`, add `EventMembership (..)` and
+`EventReferenceInventory (..)` to the export list, import `Data.Vector (Vector)`, and add
+after `EventFilter`:
 
 ```haskell
 {- | How an event is visible in one stream. Every event has exactly one
-'HomeMembership' (the stream it was appended to) and one 'GlobalMembership'
-(the @$all@ log at its global position); each 'Kiroku.Store.Link.linkToStream'
-adds one 'LinkMembership'.
+'HomeMembership' (the stream it was appended to, with the version it holds
+there) and one 'GlobalMembership' (the @$all@ log, carrying the event's global
+position); each 'Kiroku.Store.Link.linkToStream' adds one 'LinkMembership'
+naming the target stream and the version the event holds in it. Each
+constructor carries exactly the identity its membership class has, so a global
+position is never smuggled through a 'StreamVersion' field.
 -}
-data EventMembershipKind
-    = HomeMembership
-    | GlobalMembership
-    | LinkMembership
-    deriving stock (Eq, Ord, Show, Generic)
-
-{- | One junction row of an event: the stream, its surrogate id, the version
-the event holds in that stream (the global position for 'GlobalMembership'),
-and the membership kind.
--}
-data EventMembership = EventMembership
-    { stream :: !StreamName
-    , streamId :: !StreamId
-    , streamVersion :: !StreamVersion
-    , kind :: !EventMembershipKind
-    }
+data EventMembership
+    = HomeMembership !StreamName !StreamId !StreamVersion
+    | GlobalMembership !GlobalPosition
+    | LinkMembership !StreamName !StreamId !StreamVersion
     deriving stock (Eq, Show, Generic)
 
-{- | Everything in the store that refers to one event: its memberships in
-ascending 'streamId' order, the number of @dead_letters@ rows that reference it
-(across all subscriptions), and the number of /other/ events whose
-@causation_id@ is this event. Produced by
+{- | Everything in the store that refers to one event: its memberships — the
+'GlobalMembership' first (its junction row is stream id 0), then home and link
+entries in ascending stream-id order — the number of @dead_letters@ rows that
+reference it (across all subscriptions), and the number of /other/ events
+whose @causation_id@ is this event. Produced by
 'Kiroku.Store.Read.lookupEventReferences'.
 -}
 data EventReferenceInventory = EventReferenceInventory
@@ -377,8 +398,13 @@ deadLetterCountsStmt =
 
 {- | Per referenced event, the number of other events whose @causation_id@ is
 that event, excluding events that are themselves in the input set. Served by
-the partial index @ix_events_causation_id@. Events with no dependents are
-absent from the result.
+the partial index @ix_events_causation_id@. The exclusion is an anti-join over
+@unnest($1)@ — never @NOT (event_id = ANY($1))@, which degrades to a linear
+scan of the array per candidate row at large input sizes. The input array is
+simultaneously the lookup set and the exclusion set, so callers always execute
+this statement once over the full request (batching it would silently change
+"outside the input set" into "outside the batch"). Events with no dependents
+are absent from the result.
 -}
 causationDependentCountsStmt :: Statement (Vector UUID) (Vector (UUID, Int64))
 causationDependentCountsStmt =
@@ -386,8 +412,10 @@ causationDependentCountsStmt =
         """
         SELECT e.causation_id, count(*)
         FROM events e
+        LEFT JOIN unnest($1::uuid[]) AS excluded(event_id)
+          ON excluded.event_id = e.event_id
         WHERE e.causation_id = ANY($1::uuid[])
-          AND NOT (e.event_id = ANY($1::uuid[]))
+          AND excluded.event_id IS NULL
         GROUP BY e.causation_id
         """
         (E.param (E.nonNullable (E.foldableArray (E.nonNullable E.uuid))))
@@ -398,12 +426,24 @@ Now the assembly. Because both the effect interpreter and the transaction combin
 produce identical maps from the same three result vectors, write one pure function and call
 it from both. Put it in `kiroku-store/src/Kiroku/Store/Effect.hs` (it already exports internal
 building blocks such as `prepareEvents`) and export it under the `$internal` section as
-`assembleEventReferences`:
+`assembleEventReferences`, together with the batching constant and helper:
 
 ```haskell
+{- | Ids per execution of the membership and dead-letter statements. The
+causation-dependent statement is exempt: its array is also its exclusion set,
+so it always runs once over the full request.
+-}
+maxEventReferenceBatch :: Int
+maxEventReferenceBatch = 10000
+
+-- | Split a request into batches of at most 'maxEventReferenceBatch' ids.
+chunkUuids :: Int -> Vector UUID -> [Vector UUID]
+
 {- | Fold the three inventory statements' rows into one map. Memberships keep
-statement order (ascending stream id); kinds are classified as global
-(@stream_id = 0@), home (@stream_id = original_stream_id@), or link.
+statement order (ascending stream id, so the global row's entry comes first);
+each row becomes 'GlobalMembership' (@stream_id = 0@, carrying the global
+position), 'HomeMembership' (@stream_id = original_stream_id@), or
+'LinkMembership'.
 -}
 assembleEventReferences ::
     Vector (UUID, Int64, Text, Int64, Int64) ->
@@ -418,16 +458,10 @@ assembleEventReferences memberships deadLetters dependents =
             [ (EventId eid, V.singleton (membership sid name version origin))
             | (eid, sid, name, version, origin) <- V.toList memberships
             ]
-    membership sid name version origin =
-        EventMembership
-            { stream = StreamName name
-            , streamId = StreamId sid
-            , streamVersion = StreamVersion version
-            , kind
-                | sid == 0 = GlobalMembership
-                | sid == origin = HomeMembership
-                | otherwise = LinkMembership
-            }
+    membership sid name version origin
+        | sid == 0 = GlobalMembership (GlobalPosition version)
+        | sid == origin = HomeMembership (StreamName name) (StreamId sid) (StreamVersion version)
+        | otherwise = LinkMembership (StreamName name) (StreamId sid) (StreamVersion version)
     deadLetterMap = Map.fromList [(EventId eid, n) | (eid, n) <- V.toList deadLetters]
     dependentMap = Map.fromList [(EventId eid, n) | (eid, n) <- V.toList dependents]
     attach eid ms =
@@ -440,7 +474,9 @@ assembleEventReferences memberships deadLetters dependents =
 
 Note that an event with no `stream_events` rows cannot exist in a consistent store (hard
 delete removes payloads whose junctions are all gone), so building the map from memberships
-and attaching counts is exact. Add the `Store` constructor next to `LookupStreamNames`:
+and attaching counts is exact, and batching by input ids is safe for the membership and
+dead-letter statements because each requested id lands in exactly one batch. Add the `Store`
+constructor next to `LookupStreamNames`:
 
 ```haskell
     {- | Complete membership and reference inventory for a batch of event ids:
@@ -460,30 +496,44 @@ and the interpreter arms:
         pure Map.empty
     LookupEventReferences eventIds -> do
         let uuids = V.fromList [uid | EventId uid <- eventIds]
-        usePool (store ^. #pool) $
-            assembleEventReferences
-                <$> Session.statement uuids SQL.eventMembershipsStmt
-                <*> Session.statement uuids SQL.deadLetterCountsStmt
-                <*> Session.statement uuids SQL.causationDependentCountsStmt
+            batches = chunkUuids maxEventReferenceBatch uuids
+        usePool (store ^. #pool) $ do
+            perBatch <-
+                traverse
+                    ( \batch ->
+                        (,)
+                            <$> Session.statement batch SQL.eventMembershipsStmt
+                            <*> Session.statement batch SQL.deadLetterCountsStmt
+                    )
+                    batches
+            dependents <- Session.statement uuids SQL.causationDependentCountsStmt
+            let (memberships, deadLetters) = unzip perBatch
+            pure (assembleEventReferences (V.concat memberships) (V.concat deadLetters) dependents)
 ```
+
+All batches and the full-input causation statement run in one `Session`, so the whole lookup
+still uses exactly one pool checkout regardless of request size.
 
 In `kiroku-store/src/Kiroku/Store/Read.hs`, export and define:
 
 ```haskell
 {- | Everything that refers to each of the given events. For every id that
-exists, the result holds its 'EventReferenceInventory': memberships in
-ascending stream-id order (home stream, @$all@ at the global position, and one
-entry per link target), the count of @dead_letters@ rows referencing it, and
-the count of other events whose @causationId@ is it (events in the request are
+exists, the result holds its 'EventReferenceInventory': memberships (the
+@$all@ 'GlobalMembership' first, then home and link entries in ascending
+stream-id order), the count of @dead_letters@ rows referencing it, and the
+count of other events whose @causationId@ is it (events in the request are
 not counted as each other's dependents). Ids that name no event are absent.
 
 Soft-deleted streams are reported like live ones: the rows physically exist.
 Use 'getStream' when stream state matters.
 
 Passing @[]@ returns an empty map without a database round trip. Non-empty
-input runs three statements on one pooled connection. This is an operator and
-maintenance read, not a hot path; it is the inventory a caller consults before
-asking Kiroku to remove events (see "Kiroku.Store.Compaction" once available).
+input of any size runs on one pooled connection: the membership and
+dead-letter statements execute in batches of at most 10000 ids, and the
+causation statement executes once over the full request (its input is also its
+exclusion set). This is an operator and maintenance read, not a hot path; it
+is the inventory a caller consults before asking Kiroku to remove events (see
+"Kiroku.Store.Compaction" once available).
 -}
 lookupEventReferences ::
     (HasCallStack, Store :> es) =>
@@ -499,20 +549,31 @@ In `kiroku-store/src/Kiroku/Store/Transaction.hs`, export `lookupEventReferences
 ```haskell
 {- | 'Kiroku.Store.Read.lookupEventReferences' inside the caller's transaction,
 so the inventory and any decision taken on it share one snapshot. Empty input
-runs no statement.
+runs no statement. Batching mirrors the interpreter: membership and
+dead-letter statements at most 10000 ids per execution, the causation
+statement once over the full request.
 -}
 lookupEventReferencesTx :: [EventId] -> Tx.Transaction (Map EventId EventReferenceInventory)
 lookupEventReferencesTx [] = pure Map.empty
 lookupEventReferencesTx eventIds = do
     let uuids = V.fromList [uid | EventId uid <- eventIds]
-    assembleEventReferences
-        <$> Tx.statement uuids SQL.eventMembershipsStmt
-        <*> Tx.statement uuids SQL.deadLetterCountsStmt
-        <*> Tx.statement uuids SQL.causationDependentCountsStmt
+        batches = chunkUuids maxEventReferenceBatch uuids
+    perBatch <-
+        traverse
+            ( \batch ->
+                (,)
+                    <$> Tx.statement batch SQL.eventMembershipsStmt
+                    <*> Tx.statement batch SQL.deadLetterCountsStmt
+            )
+            batches
+    dependents <- Tx.statement uuids SQL.causationDependentCountsStmt
+    let (memberships, deadLetters) = unzip perBatch
+    pure (assembleEventReferences (V.concat memberships) (V.concat deadLetters) dependents)
 ```
 
 Add the needed imports (`Data.Map.Strict`, `Data.Vector`, `Kiroku.Store.SQL qualified as SQL`,
-and `assembleEventReferences` from `Kiroku.Store.Effect`). Acceptance for this milestone is
+and `assembleEventReferences`, `chunkUuids`, `maxEventReferenceBatch` from
+`Kiroku.Store.Effect`). Acceptance for this milestone is
 `cabal build kiroku-store` succeeding with no warnings and a `cabal repl kiroku-store` session
 showing the exports.
 
@@ -528,18 +589,17 @@ NoStream [makeEvent "Placed" (Aeson.object [])]` to create events, then read the
 `RecordedEvent`s back with `readStreamForward` to learn ids and global positions.
 
 "reports home and global memberships for a plain event": one event; the inventory has exactly
-two memberships — `EventMembership (StreamName "order-1") sid (StreamVersion 1)
-HomeMembership` and `EventMembership (StreamName "$all") (StreamId 0) (StreamVersion g)
-GlobalMembership` where `g` equals the event's `globalPosition` — sorted so the `$all` entry
-(stream id 0) comes first; counts are zero.
+two memberships — `GlobalMembership (GlobalPosition g)` where `g` equals the event's
+`globalPosition`, followed by `HomeMembership (StreamName "order-1") sid (StreamVersion 1)` —
+the global entry first because its junction row is stream id 0; counts are zero.
 
 "reports one link membership per target": link the event into `audit-2026` and `audit-all`
-with `linkToStream`; the inventory has four memberships, the two link entries carry
-`LinkMembership`, the target stream names, and version 1 in each target.
+with `linkToStream`; the inventory has four memberships, the two `LinkMembership` entries
+carrying the target stream names and version 1 in each target.
 
 "records the true origin for a link of a link": link event from `order-1` into `hub`, then link
-from `hub` into `mirror` by passing the same event id; `mirror`'s membership is `LinkMembership`
-(not home), and the home membership still names `order-1`.
+from `hub` into `mirror` by passing the same event id; `mirror`'s entry is a `LinkMembership`
+(not a home), and the `HomeMembership` still names `order-1`.
 
 "counts dead letters across subscriptions": call `insertDeadLetterForEvent store "proj-a"
 event` and `insertDeadLetterForEvent store "proj-b" event`; `deadLetterCount` is 2.
@@ -559,6 +619,13 @@ and `0` for `second`.
 `lookupEventReferences []` changes the checkout counter by 0 and `lookupEventReferences [id]`
 changes it by exactly 1 (three statements, one checkout).
 
+"merges input beyond one batch on one checkout": append `maxEventReferenceBatch + 1` small
+events (in appends of a few thousand events each), call `lookupEventReferences` once with all
+their ids under `withObservedStore`; the map has `maxEventReferenceBatch + 1` keys, each
+inventory has exactly two memberships, and the checkout counter still changes by exactly 1 —
+the batches share one session. Import `maxEventReferenceBatch` from the `$internal` section
+rather than hard-coding 10000.
+
 "agrees between the effect and the transaction combinator": `runTransaction
 (lookupEventReferencesTx ids)` returns the same map as the effect.
 
@@ -567,7 +634,11 @@ Create `kiroku-store/test/Test/EventReferencesMock.hs` modelled on
 `ids` equals the expected list, returns a hand-built map, and the example checks the map and
 one dispatch.
 
-In `kiroku-store/test/Test/PerformanceStructure.hs`, inside `queryPlanSpec`, add:
+In `kiroku-store/test/Test/PerformanceStructure.hs`, inside `queryPlanSpec`, add one example
+per inventory statement. Each uses a realistically large literal array — the planner's choice
+for a one-element array proves nothing about the 100000-row case — built by a local helper
+`uuidArrayLiteral :: Int -> Text` that renders `ARRAY['...','...']::uuid[]` from 500 distinct
+deterministic UUIDs (for example by formatting the counter into the low hex digits):
 
 ```haskell
             it "event membership inventory uses stream_events_pkey" $ \store -> do
@@ -575,16 +646,32 @@ In `kiroku-store/test/Test/PerformanceStructure.hs`, inside `queryPlanSpec`, add
                     explainProductionStatement
                         store
                         SQL.eventMembershipsStmt
-                        [("$1::uuid[]", "ARRAY['00000000-0000-0000-0000-000000000001']::uuid[]")]
+                        [("$1::uuid[]", uuidArrayLiteral 500)]
                 expectIndex "stream_events_pkey" plan
+
+            it "dead-letter counts use ix_dead_letters_event_id" $ \store -> do
+                plan <-
+                    explainProductionStatement
+                        store
+                        SQL.deadLetterCountsStmt
+                        [("$1::uuid[]", uuidArrayLiteral 500)]
+                expectIndex "ix_dead_letters_event_id" plan
+
+            it "causation dependent counts use ix_events_causation_id" $ \store -> do
+                plan <-
+                    explainProductionStatement
+                        store
+                        SQL.causationDependentCountsStmt
+                        [("$1::uuid[]", uuidArrayLiteral 500)]
+                expectIndex "ix_events_causation_id" plan
 ```
 
 Register `Test.EventReferences` and `Test.EventReferencesMock` in `kiroku-store/kiroku-store.cabal`
 (`other-modules`, alphabetical) and in `kiroku-store/test/Main.hs` (import and spec call next
 to the other read/mock specs).
 
-Acceptance: `cabal test kiroku-store:kiroku-store-test` passes with the ten new examples and
-`just perf-structure` passes including the new plan example.
+Acceptance: `cabal test kiroku-store:kiroku-store-test` passes with the eleven new examples
+and `just perf-structure` passes including the three new plan examples.
 
 ### Milestone 3 — Changelog and final verification
 
@@ -594,11 +681,13 @@ section if `docs/plans/74-...` has not already):
 ```markdown
 * `Kiroku.Store.Read.lookupEventReferences` and
   `Kiroku.Store.Transaction.lookupEventReferencesTx` return, per event id, every
-  junction membership classified as home, global, or link (with stream name,
-  id, and version), the dead-letter count, and the count of causation
-  dependents outside the request. New types `EventMembershipKind`,
-  `EventMembership`, and `EventReferenceInventory` live in `Kiroku.Store.Types`.
-  Empty input performs no database work.
+  junction membership (`HomeMembership`/`GlobalMembership`/`LinkMembership`,
+  carrying the stream name, id, and held version — the global position for the
+  `$all` entry), the dead-letter count, and the count of causation dependents
+  outside the request. New types `EventMembership` and
+  `EventReferenceInventory` live in `Kiroku.Store.Types`. Empty input performs
+  no database work; larger inputs are batched internally at 10000 ids per
+  statement on one connection.
 ```
 
 Run the full verification and commit.
@@ -632,16 +721,18 @@ event references
   omits unknown ids
   reports memberships in a soft-deleted stream
   short-circuits empty input without a pool checkout
+  merges input beyond one batch on one checkout
   agrees between the effect and the transaction combinator
 event references mock
   returns the configured inventory through one Store effect call
 
 Finished in N seconds
-10 examples, 0 failures
+11 examples, 0 failures
 ```
 
 Expected from `just perf-structure`: the existing examples plus `event membership inventory
-uses stream_events_pkey`, all passing.
+uses stream_events_pkey`, `dead-letter counts use ix_dead_letters_event_id`, and `causation
+dependent counts use ix_events_causation_id`, all passing.
 
 Commit message shape:
 
@@ -669,16 +760,17 @@ inventory is exactly
 ```haskell
 EventReferenceInventory
     { memberships =
-        [ EventMembership "$all" (StreamId 0) (StreamVersion P) GlobalMembership
-        , EventMembership "order-1" (StreamId 1) (StreamVersion 1) HomeMembership
-        , EventMembership "audit-2026" (StreamId 2) (StreamVersion 1) LinkMembership
+        [ GlobalMembership (GlobalPosition P)
+        , HomeMembership "order-1" (StreamId 1) (StreamVersion 1)
+        , LinkMembership "audit-2026" (StreamId 2) (StreamVersion 1)
         ]
     , deadLetterCount = 1
     , causationDependentCount = 1
     }
 ```
 
-(stream ids depend on creation order; the ordering by ascending stream id is what is fixed).
+(stream ids depend on creation order; what is fixed is the global entry first — its junction
+row is stream id 0 — then home and links in ascending stream id).
 `lookupEventReferences []` returns `Map.empty` with zero pool checkouts. The test transcript in
 Concrete Steps is the executable form of this acceptance, and `just perf-structure` proves the
 membership statement is served by `stream_events_pkey`.
@@ -687,10 +779,10 @@ membership statement is served by `stream_events_pkey`.
 ## Idempotence and Recovery
 
 Every step is additive and safe to repeat: re-running the suites creates fresh ephemeral
-databases; rebuilding after an edit is cheap. If the plan-shape example fails because the
-planner chooses a sequential scan on the tiny `EXPLAIN` input, confirm `withQueryPlanStore` has
-`ANALYZE`d `stream_events` (it does) and that the literal you substituted is a valid
-`uuid[]`; do not weaken the assertion. If a membership case surprises you (for example a link
+databases; rebuilding after an edit is cheap. If a plan-shape example fails because the
+planner chooses a sequential scan for the `EXPLAIN` input, confirm `withQueryPlanStore` has
+`ANALYZE`d the table (it does) and that the literal `uuidArrayLiteral` produced is a valid
+`uuid[]`; do not weaken the assertion or shrink the array to make the planner cooperate. If a membership case surprises you (for example a link
 of a link not recording the origin), record the evidence in Surprises & Discoveries before
 changing the classification rule, because the rule is shared with the compaction plans.
 
@@ -704,9 +796,10 @@ Declarations that exist at the end of Milestone 1 and are re-exported by `Kiroku
 
 ```haskell
 -- Kiroku.Store.Types
-data EventMembershipKind = HomeMembership | GlobalMembership | LinkMembership
-data EventMembership = EventMembership
-    { stream :: !StreamName, streamId :: !StreamId, streamVersion :: !StreamVersion, kind :: !EventMembershipKind }
+data EventMembership
+    = HomeMembership !StreamName !StreamId !StreamVersion
+    | GlobalMembership !GlobalPosition
+    | LinkMembership !StreamName !StreamId !StreamVersion
 data EventReferenceInventory = EventReferenceInventory
     { memberships :: !(Vector EventMembership), deadLetterCount :: !Int64, causationDependentCount :: !Int64 }
 
@@ -720,6 +813,8 @@ LookupEventReferences :: [EventId] -> Store m (Map EventId EventReferenceInvento
 assembleEventReferences ::
     Vector (UUID, Int64, Text, Int64, Int64) -> Vector (UUID, Int64) -> Vector (UUID, Int64)
     -> Map EventId EventReferenceInventory
+maxEventReferenceBatch :: Int   -- 10000
+chunkUuids :: Int -> Vector UUID -> [Vector UUID]
 
 -- Kiroku.Store.Read
 lookupEventReferences :: (HasCallStack, Store :> es) => [EventId] -> Eff es (Map EventId EventReferenceInventory)
@@ -728,7 +823,10 @@ lookupEventReferences :: (HasCallStack, Store :> es) => [EventId] -> Eff es (Map
 lookupEventReferencesTx :: [EventId] -> Tx.Transaction (Map EventId EventReferenceInventory)
 ```
 
-The three statements and `assembleEventReferences` are consumed unchanged by
+The three statements are reused by
 `docs/plans/77-preview-a-compaction-manifest-read-only-with-deterministic-witnesses.md` and
 `docs/plans/78-apply-a-compaction-manifest-transactionally-with-ledgered-idempotence.md` to
 discover unacknowledged links, dead letters, and causation dependents of selected events.
+`assembleEventReferences` is this plan's own assembly step, shared by the interpreter and the
+transaction combinator; the preview plan groups witness rows its own way and does not consume
+it.

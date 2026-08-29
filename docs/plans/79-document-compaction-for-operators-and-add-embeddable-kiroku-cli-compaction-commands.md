@@ -44,7 +44,7 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] M1: Write `docs/user/compaction.md` with the four-way distinction, the consumer workflow, the manifest JSON example, the refusal vocabulary, lease interaction, chunking, authorization, and audit guidance.
+- [ ] M1: Write `docs/user/compaction.md` with the four-way distinction, the consumer workflow, the manifest JSON example, the refusal vocabulary, lease interaction, chunking, storage/WAL/reclamation guidance, consumer consequences, authorization, and audit guidance.
 - [ ] M1: Update `docs/user/lifecycle.md`, `docs/user/observability.md`, `docs/user/schema-migrations.md`, `docs/user/README.md`, `docs/PRODUCTION-DEPLOYMENT.md`, and `README.md`.
 - [ ] M1: Review Haddock on `Kiroku.Store.Compaction`, `Kiroku.Store.Compaction.Types`, `Kiroku.Store.Read`, and `Kiroku.Store.Transaction` for the same distinctions; fix gaps.
 - [ ] M2: Allocate a capability handle with `okf id next`, write `docs/capabilities/selective-event-compaction.md`, update `docs/capabilities/index.md` and `log.md`, run `just capabilities-validate` and `just adr-validate`.
@@ -122,6 +122,18 @@ Record every decision made while working on the plan.
   identical prose.
   Date: 2026-08-22
 
+- Decision: Cascade the MasterPlan's 2026-08-29 review corrections: `parseCompactionDigestHex`
+  returns `Maybe`; the manifest-digest accessor is `compactionManifestDigest` (the synonym was
+  dropped); the report carries eight counters and positions; the `StoreCommand` constructor is
+  `ShowStoreIdentity` (the bare name collides with the `StoreIdentity` newtype constructor the
+  same modules import); `compaction preview` renders the new `CompactionPreview` outcome,
+  reporting an already-applied manifest with exit 0; `CompactionConcurrentMutation` is rendered
+  with re-run guidance; and the operator guide gains storage/WAL/reclamation and
+  consumer-consequence sections.
+  Rationale: The MasterPlan's Integration Points are the single source of truth and were
+  corrected before implementation started; see its Decision Log entries dated 2026-08-29.
+  Date: 2026-08-29
+
 
 ## Outcomes & Retrospective
 
@@ -149,7 +161,9 @@ memberships), plus the store identity, an operation label, two reference policie
 expected head version of every affected stream, sealed by a SHA-256 *digest* over a canonical
 byte encoding. *Preview* (`previewCompaction`) validates a manifest against the live store
 without writing anything and returns either a non-empty list of typed *refusals* or a
-deterministic *report* with counts and its own digest. *Apply* (`applyCompaction`) runs preview's
+`CompactionPreview` outcome: a deterministic *report* with counts and its own digest
+(`CompactionPreviewReady`), or the stored ledger record when the manifest was already applied
+(`CompactionPreviewAlreadyApplied`). *Apply* (`applyCompaction`) runs preview's
 validation under locks inside one transaction, deletes exactly the accounted rows, writes a
 *ledger* record into `kiroku.event_compactions`, and returns the record; applying the same
 manifest again returns the stored record as `CompactionAlreadyApplied`. The *store identity*
@@ -169,21 +183,22 @@ The public signatures this plan consumes (from `Kiroku.Store.Compaction`, re-exp
 `Kiroku.Store`) are:
 
 ```haskell
-previewCompaction :: (Store :> es) => CompactionManifest -> Eff es (Either (NonEmpty CompactionRefusal) CompactionReport)
+previewCompaction :: (Store :> es) => CompactionManifest -> Eff es (Either (NonEmpty CompactionRefusal) CompactionPreview)
 applyCompaction   :: (Store :> es) => CompactionManifest -> Eff es (Either (NonEmpty CompactionRefusal) CompactionApplyResult)
 compactionLedger  :: (Store :> es) => CompactionLedgerQuery -> Eff es (Vector CompactionRecord)
-storeIdentity     :: (Store :> es) => Eff es StoreIdentity          -- Kiroku.Store.Read
+storeIdentity     :: (HasCallStack, Store :> es) => Eff es StoreIdentity   -- Kiroku.Store.Read
 mkCompactionLedgerLimit :: Int32 -> Either CompactionLedgerError CompactionLedgerLimit   -- 1..1000
 compactionDigestHex :: CompactionDigest -> Text
-parseCompactionDigestHex :: Text -> Either Text CompactionDigest
-manifestDigest :: CompactionManifest -> CompactionDigest
+parseCompactionDigestHex :: Text -> Maybe CompactionDigest
+compactionManifestDigest :: CompactionManifest -> CompactionDigest
 maxCompactionSelections :: Int   -- 100000
 ```
 
-`CompactionApplyResult` is `CompactionAppliedNow CompactionRecord | CompactionAlreadyApplied
-CompactionRecord`. `CompactionRecord` carries `compactionId`, `report`, `appliedAt`, and
-`appliedBy`. `CompactionReport` carries the manifest digest, store identity, operation, the two
-policies, eleven counters and positions (`selectedEvents`, `homeMemberships`,
+`CompactionPreview` is `CompactionPreviewReady CompactionReport | CompactionPreviewAlreadyApplied
+CompactionRecord`. `CompactionApplyResult` is `CompactionAppliedNow CompactionRecord |
+CompactionAlreadyApplied CompactionRecord`. `CompactionRecord` carries `compactionId`, `report`,
+`appliedAt`, and `appliedBy`. `CompactionReport` carries the manifest digest, store identity,
+operation, the two policies, eight counters and positions (`selectedEvents`, `homeMemberships`,
 `globalMemberships`, `linkMemberships`, `deadLettersRemoved`, `causationDependents`,
 `lowestGlobalPosition`, `highestGlobalPosition`), `affectedStreams`, and `reportDigest`.
 `CompactionManifest`, `CompactionReport`, `CompactionRecord`, and `CompactionRefusal` have
@@ -403,7 +418,9 @@ identity mismatch; active history-retention lease; missing or soft-deleted strea
 drift; selected event missing; witness mismatch; unexpected link; acknowledged link missing; dead
 letters present; causation dependents present; ledger conflict) and what the operator does about
 each. State that preview returns every refusal it can find, that apply re-validates under locks,
-and that a refusal never changes a row.
+and that a refusal never changes a row. State that the causation-dependents refusal is
+validation-time best-effort: causation IDs are soft references with no foreign key and no lock,
+so a dependent appended after validation to a stream outside the lock set is not detected.
 
 *Leases and locks.* Say that apply refuses while any history-retention lease is active (the
 same rule as hard delete), that it takes the coordinator lock first and then every affected
@@ -415,6 +432,25 @@ unchanged head. Link `history-retention.md`.
 each one transaction, and stream-head witnesses stay valid across chunks because compaction never
 changes `stream_version` — only an intervening append invalidates them, which is the point.
 
+*Storage, WAL, and reclamation.* Explain what actually happens to disk. Deleted heap tuples
+(including TOASTed payloads) become reusable free space through autovacuum, but partially
+emptied B-tree leaf pages in `stream_events_pkey`, `ux_stream_events_stream_version`, and
+`ix_stream_events_all_by_origin` are compacted only by `REINDEX CONCURRENTLY`, and file space
+returns to the operating system only through `VACUUM FULL` or `pg_repack`. Tell operators to
+run an explicit `VACUUM (ANALYZE)` on `kiroku.stream_events` and `kiroku.events` after a
+campaign — a few hundred thousand dead tuples in multi-million-row tables may not reach
+autovacuum's scale factor. Warn about WAL volume: scattered deletes pay a full-page image per
+touched heap and index page, so a large chunk can emit hundreds of megabytes of WAL; prefer
+chunked campaigns and watch replication lag between chunks.
+
+*Consequences for consumers.* Three facts the guide must state plainly. Compacted event IDs
+become appendable again, so the `DuplicateEvent` idempotent-retry protection is lost for
+exactly those IDs. A subscription worker that dead-letters an already-compacted event fails on
+the `dead_letters.event_id` foreign key (pre-existing hard-delete behaviour, made likelier by
+compaction). And a concurrent reference appearing between validation and commit rolls apply
+back with the retryable `CompactionConcurrentMutation` store error — nothing was deleted;
+re-run preview and apply.
+
 *Authorization.* Mirror the hard-delete model: apply sets `kiroku.enable_hard_deletes` for its
 transaction, so the connecting role needs `DELETE` on `events`, `stream_events`, and (under
 `RemoveDeadLetters`) `dead_letters`, plus `INSERT` on `event_compactions` and `SELECT, UPDATE` on
@@ -424,10 +460,13 @@ transaction, so the connecting role needs `DELETE` on `events`, `stream_events`,
 *Audit.* The ledger row is the durable evidence; `compactionLedger` reads it newest first; the
 four `KirokuEvent` constructors (`KirokuEventCompactionPreviewed`, `KirokuEventCompactionRefused`,
 `KirokuEventCompactionApplied`, `KirokuEventCompactionAlreadyApplied`) are process-local signals.
+Say plainly that the ledger records counts and digests, not the selected event list — "which
+events did compaction X remove" is answered by the consumer's archive, not by the store.
 Link `observability.md`.
 
 *Idempotence.* Reapplying an identical manifest returns `CompactionAlreadyApplied` with the
-stored record and the same report digest; a manifest whose digest is in the ledger but whose
+stored record and the same report digest, and previewing it returns
+`CompactionPreviewAlreadyApplied` with the same record; a manifest whose digest is in the ledger but whose
 events partly survive is a `CompactionLedgerConflict`, which indicates a restore from a
 pre-compaction backup and needs an operator decision.
 
@@ -516,7 +555,7 @@ data CompactionCommand
     deriving stock (Eq, Show)
 
 data StoreCommand
-    = StoreIdentity IdentityOptions
+    = ShowStoreIdentity IdentityOptions
     deriving stock (Eq, Show)
 
 newtype ManifestPath = ManifestPath FilePath
@@ -549,7 +588,12 @@ newtype IdentityOptions = IdentityOptions
 
 Export every new type with `(..)`. `DuplicateRecordFields` is on, so repeated `outputFormat`
 fields are legal; construct and match positionally or with `OverloadedLabels` lenses as the
-existing code does.
+existing code does. Naming notes: the `StoreCommand` constructor is `ShowStoreIdentity`, not
+`StoreIdentity` — the bare name would collide with the `StoreIdentity` newtype's data
+constructor from `Kiroku.Store.Types`, which `Run.hs` and `Compaction.hs` import for rendering.
+The `CompactionPreview` *command* constructor is legal beside the library's `CompactionPreview`
+*type* (types and data constructors live in separate namespaces), but keep import lists
+explicit so readers are never guessing which one a name means.
 
 `kiroku-cli/src/Kiroku/Cli/Parser.hs`: inside `kirokuCommandParser`'s `subparser`, append
 `<> command "compaction" (info (KirokuCompaction <$> compactionCommandParser) (fullDesc <>
@@ -594,12 +638,17 @@ padded columns with upper-case headers. `renderCompactionReport` prints a key/va
 (`STREAM  HEAD_VERSION`); JSON is the library's `ToJSON CompactionReport`.
 `renderCompactionRefusals :: OutputFormat -> NonEmpty CompactionRefusal -> Text` prints one
 line per refusal in table mode (`KIND  EVENT_ID  STREAM  DETAIL`) and the library's JSON array
-otherwise; it is prefixed by a line `refused: N refusal(s); no rows were changed`.
+of tagged `refusal` objects otherwise; it is prefixed by a line
+`refused: N refusal(s); no rows were changed`.
 `renderCompactionRecords :: OutputFormat -> Vector CompactionRecord -> Text` prints
 `COMPACTION_ID  APPLIED_AT  APPLIED_BY  OPERATION  SELECTED_EVENTS  MANIFEST_DIGEST`.
 `renderStoreIdentity` prints the UUID (table mode: `STORE_IDENTITY` header and one row; JSON:
-`{"store_identity": "..."}`). For an apply, prefix the report with `applied: <compaction id> at
-<applied_at> by <applied_by>` or `already applied: <compaction id> ...`.
+`{"store_identity": "..."}`). For an apply — and for a preview that finds the manifest already
+applied — prefix the report with `applied: <compaction id> at <applied_at> by <applied_by>` or
+`already applied: <compaction id> ...`. `renderCompactionCommandError` renders a
+`StoreFailure (CompactionConcurrentMutation digest guard)` specially: print the guard text and
+the advice `a concurrent reference appeared mid-apply; nothing was deleted — re-run preview and
+apply`.
 
 `kiroku-cli/src/Kiroku/Cli/Run.hs`: add
 
@@ -617,14 +666,17 @@ Its arms: `KirokuNoCommand` and `KirokuSubscriptions` delegate to the existing r
 return `ExitSuccess` (preserving today's behaviour, quirk included). `KirokuCompaction
 (CompactionPreview opts)`: load the manifest (error → `ExitFailure 1` with the rendered error);
 `runStoreIO store (previewCompaction manifest)`; `Left storeErr` → `ExitFailure 1`; `Right (Left
-refusals)` → rendered refusals and `ExitFailure 2`; `Right (Right report)` → rendered report and
-`ExitSuccess`. `CompactionApply opts`: load; `parseCompactionDigestHex confirmDigest`
-(unparseable → `ExitFailure 1`); compare with `manifestDigest manifest` (mismatch → rendered
+refusals)` → rendered refusals and `ExitFailure 2`; `Right (Right (CompactionPreviewReady
+report))` → rendered report and `ExitSuccess`; `Right (Right (CompactionPreviewAlreadyApplied
+record))` → the record rendered with the `already applied:` prefix and `ExitSuccess`.
+`CompactionApply opts`: load; `parseCompactionDigestHex confirmDigest`
+(`Nothing` → rendered `ConfirmDigestUnparseable`, `ExitFailure 1`); compare with
+`compactionManifestDigest manifest` (mismatch → rendered
 `ConfirmDigestMismatch`, `ExitFailure 2`, and **no database call**); then `applyCompaction` with
 the same mapping, where both `CompactionAppliedNow` and `CompactionAlreadyApplied` are
 `ExitSuccess`. `CompactionLedger opts`: `mkCompactionLedgerLimit limit` (out of range →
 `ExitFailure 1`), `compactionLedger (CompactionLedgerQuery validated)`, `ExitSuccess`.
-`KirokuStore (StoreIdentity opts)`: `storeIdentity`, `ExitSuccess`. Then redefine
+`KirokuStore (ShowStoreIdentity opts)`: `storeIdentity`, `ExitSuccess`. Then redefine
 `renderKirokuCommandWithStore store cmd = (.output) <$> executeKirokuCommandWithStore store cmd`
 (keeping its exported type) and `runKirokuCommandWithStore store cmd = do outcome <- execute...;
 TIO.putStrLn outcome.output; when (outcome.exitCode /= ExitSuccess) (exitWith outcome.exitCode)`.
@@ -686,7 +738,9 @@ a manifest with a wrong head witness previews to `ExitFailure 2` and output cont
 `ExitFailure 2` and `countEvents` unchanged; `compaction apply` with the right digest returns
 `ExitSuccess`, output starting `applied:`, and `countEvents` decreased by one; a second identical
 `apply` returns `ExitSuccess` with output starting `already applied:` and the same compaction id;
-`compaction ledger` lists one record; `--format json` outputs decode with `Data.Aeson.decode`.
+a `compaction preview` of the applied manifest returns `ExitSuccess` with output starting
+`already applied:`; `compaction ledger` lists one record; `--format json` outputs decode with
+`Data.Aeson.decode`.
 The test needs `countEvents`, which `kiroku-cli/test/Main.hs` does not have — copy the two-line
 helper from `kiroku-store/test/Test/Helpers.hs` (`Pool.use` of `SELECT count(*) FROM events`)
 or add a local statement.
@@ -786,6 +840,7 @@ executeKirokuCommandWithStore
   refuses a mismatched --confirm-digest before touching the store
   applies a confirmed manifest and removes exactly the selected event
   reports an identical reapply as already applied with exit 0
+  reports a preview of an applied manifest as already applied with exit 0
   lists the ledger newest first
 Finished in 4.1 seconds
 NN examples, 0 failures
@@ -874,7 +929,7 @@ Signatures that must exist at the end of Milestone 3:
 data KirokuCommand = KirokuNoCommand | KirokuSubscriptions SubscriptionCommand
                    | KirokuCompaction CompactionCommand | KirokuStore StoreCommand
 data CompactionCommand = CompactionPreview CompactionOptions | CompactionApply ApplyOptions | CompactionLedger LedgerOptions
-data StoreCommand = StoreIdentity IdentityOptions
+data StoreCommand = ShowStoreIdentity IdentityOptions
 newtype ManifestPath = ManifestPath FilePath
 data CompactionOptions = CompactionOptions { manifestPath :: !ManifestPath, outputFormat :: !OutputFormat }
 data ApplyOptions = ApplyOptions { manifestPath :: !ManifestPath, confirmDigest :: !Text, outputFormat :: !OutputFormat }
@@ -914,9 +969,11 @@ resolveStandaloneOptions :: [(String, String)] -> StandaloneOptions -> Either Te
 ```
 
 Exit-code contract: `ExitSuccess` for a rendered report, an applied or already-applied
-manifest, a ledger listing, or a store identity; `ExitFailure 2` for any compaction refusal
-(including a `--confirm-digest` mismatch); `ExitFailure 1` for unreadable or invalid manifest
-files, an unparseable digest, an out-of-range ledger limit, or a `StoreError`.
+manifest (whether preview or apply reports it), a ledger listing, or a store identity;
+`ExitFailure 2` for any compaction refusal (including a `--confirm-digest` mismatch);
+`ExitFailure 1` for unreadable or invalid manifest files, an unparseable digest, an
+out-of-range ledger limit, or a `StoreError` (including the retryable
+`CompactionConcurrentMutation`, rendered with re-run guidance).
 
 Consumed from `kiroku-store`: `Kiroku.Store.Compaction` (`previewCompaction`,
 `applyCompaction`, `compactionLedger`, and the re-exported `Kiroku.Store.Compaction.Types`),

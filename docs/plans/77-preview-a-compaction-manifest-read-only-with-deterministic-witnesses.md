@@ -28,10 +28,13 @@ This plan delivers that dry run. After it lands, a consumer holding a `Compactio
 `docs/plans/76-define-the-compaction-manifest-canonical-digest-refusal-vocabulary-and-report-types.md`)
 calls `previewCompaction manifest` through the `Store` effect and receives either a non-empty
 list of typed refusals — every discrepancy between the manifest's witnesses and the live store
-that could be found, not just the first — or a deterministic `CompactionReport` with exact counts
+that could be found, not just the first — or a `CompactionPreview`:
+`CompactionPreviewReady` carrying a deterministic `CompactionReport` with exact counts
 of what would be removed, the head version of every affected stream, and a report digest an
-operator can sign off on. Preview takes no locks, sets no session variable, writes no row, and
-uses exactly one pool checkout. The same validation function is reused unchanged by the apply
+operator can sign off on, or `CompactionPreviewAlreadyApplied` carrying the stored ledger
+record when this exact manifest was already applied. Preview takes no locks, sets no session
+variable, writes no row, uses exactly one pool checkout, and runs all of its reads on one
+`RepeatableRead` snapshot. The same validation function is reused unchanged by the apply
 plan `docs/plans/78-apply-a-compaction-manifest-transactionally-with-ledgered-idempotence.md`,
 executed there under the ADR-7 locks; this plan is therefore also where the "validate every
 witness before the first delete" property is implemented.
@@ -45,13 +48,13 @@ This section must always reflect the actual current state of the work.
 
 - [ ] M1: Create `Kiroku.Store.Compaction.SQL` with the stream-resolution, witness, ledger-lookup statements and re-exports of the EP-2 inventory statements.
 - [ ] M1: Create `Kiroku.Store.Compaction.Internal` with `validateCompactionTx`, `ValidatedCompaction`, and `previewCompactionTx`.
-- [ ] M1: Register both as `other-modules`; `cabal build kiroku-store` passes.
-- [ ] M2: Add `PreviewCompaction` to `Store`, the interpreter arm with one checkout, and the two `KirokuEvent` constructors.
+- [ ] M1: Register `Kiroku.Store.Compaction.SQL` as an exposed module and `Kiroku.Store.Compaction.Internal` as an other-module; `cabal build kiroku-store` passes.
+- [ ] M2: Add `PreviewCompaction` to `Store`, `runReadOnlyTxOnPool`, the interpreter arm with one checkout, and the two `KirokuEvent` constructors.
 - [ ] M2: Add explicit no-op arms in `kiroku-otel` and `kiroku-metrics`; `cabal build all` passes.
 - [ ] M2: Create public `Kiroku.Store.Compaction` exporting `previewCompaction` and `previewCompactionTx`, re-exporting Types; switch the `Kiroku.Store` re-export.
 - [ ] M3: `Test.CompactionPreview` integration suite covering the happy path and every refusal constructor.
 - [ ] M3: `Test.CompactionPreviewMock` dispatch test.
-- [ ] M3: Structural assertions (one checkout per preview; preview SQL text contains no `FOR UPDATE`, `DELETE`, `SET LOCAL`) registered under `describe "performance structure"`.
+- [ ] M3: Structural assertions (one checkout per preview; preview SQL text contains no `FOR UPDATE`, `DELETE`, `SET LOCAL`; `EXPLAIN` plan shapes for `selectionWitnessesStmt` and `resolveStreamsStmt` with large arrays) registered under `describe "performance structure"`.
 - [ ] M3: Haddock for `Kiroku.Store.Compaction` distinguishing preview from apply; `kiroku-store/CHANGELOG.md` entry.
 - [ ] M3: `cabal test all`, `just perf-structure`, `nix fmt`, commit with trailers.
 
@@ -69,20 +72,27 @@ implementation. Provide concise evidence.
 Record every decision made while working on the plan.
 
 - Decision: Implement validation once, as `validateCompactionTx`, returning a
-  `ValidatedCompaction` value that carries the resolved stream IDs and computed counts; preview
+  `ValidatedCompaction` value that carries the sealed report, the canonical selected-event IDs,
+  and the exact `(event_id, stream_id)` junction pairs apply deletes (payload shape fixed by
+  the MasterPlan's 2026-08-29 review); preview
   wraps it, and the apply plan calls the same function after taking its locks.
   Rationale: The request's central safety property is that the complete manifest is validated
   before the first row is deleted. A single shared function makes preview and apply agree by
   construction; any divergence would be a bug in exactly one place.
   Date: 2026-08-22
 
-- Decision: Preview runs in a `ReadCommitted` transaction opened in `Read` mode
-  (`TxSessions.Read`), with no `SET LOCAL` and no row locks.
+- Decision: Preview runs in a `RepeatableRead` transaction opened in `Read` mode
+  (`TxSessions.Read`) through the new `runReadOnlyTxOnPool` helper, with no `SET LOCAL` and no
+  row locks. (Supersedes the 2026-08-22 `ReadCommitted` decision, per the MasterPlan's
+  2026-08-29 review.)
   Rationale: A read-only transaction is the strongest statement that preview cannot mutate; all
-  of preview's statements are `SELECT`s, so `Read` mode costs nothing. Preview observes a single
-  statement-level snapshot per statement (ReadCommitted), which is adequate for a dry run; the
-  locked apply transaction is the authoritative check.
-  Date: 2026-08-22
+  of preview's statements are `SELECT`s, so `Read` mode costs nothing. Under `ReadCommitted`
+  each statement would see a different snapshot, so a concurrent append landing between the
+  head-resolution statement and the witness join could manufacture spurious
+  `CompactionStreamHeadDrift` or witness refusals; `RepeatableRead` gives one snapshot for the
+  whole validation, and a read-only repeatable-read transaction can never serialization-fail.
+  The locked apply transaction remains the authoritative check.
+  Date: 2026-08-29
 
 - Decision: Preview accumulates every refusal it can determine rather than stopping at the first,
   with two short-circuits: a store-identity mismatch (every other witness is meaningless against
@@ -93,12 +103,18 @@ Record every decision made while working on the plan.
   Date: 2026-08-22
 
 - Decision: When the ledger already records the manifest digest and no selected event survives,
-  preview returns `Right` the stored report (whose `reportDigest` equals the report preview would
-  have computed at apply time); apply returns `CompactionAlreadyApplied` for the same state.
+  preview returns `Right (CompactionPreviewAlreadyApplied record)` with the stored ledger
+  record; apply returns `CompactionAlreadyApplied` for the same state. The ledger lookup runs
+  before any witness work. (Supersedes the 2026-08-22 "return the stored report" decision, per
+  the MasterPlan's 2026-08-29 review.)
   Rationale: The request defines reapplication of a completed manifest as an observable no-op
-  with the same logical report. Returning the stored report from preview gives the operator the
-  same evidence before and after, and keeps preview's type simple.
-  Date: 2026-08-22
+  with the same logical report; the stored record carries that report plus the applied-at
+  evidence, and the dedicated `CompactionPreview` outcome lets the CLI and Mori's workflow tell
+  "ready to apply" from "already done", which `Either refusals CompactionReport` could not
+  express. Checking the ledger first means re-previewing an applied 100k manifest costs one
+  digest lookup and one surviving-count query instead of building and discarding 100k
+  `CompactionSelectedEventMissing` values.
+  Date: 2026-08-29
 
 - Decision: A selection whose home row is below its stream's `truncate_before` marker is
   eligible; a selection in a soft-deleted stream is refused with `CompactionStreamSoftDeleted`.
@@ -197,8 +213,10 @@ runTxOnPool ::
 ```
 
 runs a `hasql-transaction` body on one pooled connection (one checkout) and maps pool errors to
-`StoreError`; it is currently called as `runTxOnPool pool TxSessions.transaction body` and
-hard-codes `ReadCommitted`/`Write`. This plan generalises it slightly (see Milestone 2). Effect
+`StoreError`; it is called as `runTxOnPool pool TxSessions.transaction body` and hard-codes
+`ReadCommitted`/`Write`. This plan leaves `runTxOnPool` untouched (the apply plan's call sites
+depend on its three-argument shape) and adds a read-only sibling, `runReadOnlyTxOnPool`, that
+passes `RepeatableRead`/`Read` (see Milestone 2). Effect
 wrappers are thin: `previewCompaction manifest = send (PreviewCompaction manifest)`, following
 `Kiroku.Store.HistoryRetention.acquireHistoryRetentionLease`.
 
@@ -225,8 +243,9 @@ returning `(event_id, stream_id, stream_name, stream_version, original_stream_id
 junction row of the given events; `deadLetterCountsStmt :: Statement (Vector UUID) (Vector
 (UUID, Int64))`; and `causationDependentCountsStmt :: Statement (Vector UUID) (Vector (UUID,
 Int64))` counting events outside the input set whose `causation_id` is in it. Their types
-`EventMembership`, `EventMembershipKind`, and `EventReferenceInventory` live in
-`Kiroku.Store.Types`.
+`EventMembership` (a sum: `HomeMembership`/`GlobalMembership`/`LinkMembership`, each carrying
+exactly its class's identity) and `EventReferenceInventory` live in `Kiroku.Store.Types`; this
+plan consumes the raw statements, not those types.
 
 Test infrastructure: `kiroku-store/test/Test/Helpers.hs` provides `withTestStore :: (KirokuStore
 -> IO ()) -> IO ()` (a fresh migrated database per call from an ephemeral PostgreSQL started once
@@ -282,16 +301,20 @@ workflow is "build manifest → preview on a restored clone → preview on produ
 
 ```haskell
 -- Kiroku.Store.Effect
-PreviewCompaction :: CompactionManifest -> Store m (Either (NonEmpty CompactionRefusal) CompactionReport)
+PreviewCompaction :: CompactionManifest -> Store m (Either (NonEmpty CompactionRefusal) CompactionPreview)
 
 -- Kiroku.Store.Compaction (public)
-previewCompaction :: (Store :> es) => CompactionManifest -> Eff es (Either (NonEmpty CompactionRefusal) CompactionReport)
-previewCompactionTx :: CompactionManifest -> Tx.Transaction (Either (NonEmpty CompactionRefusal) CompactionReport)
+previewCompaction :: (Store :> es) => CompactionManifest -> Eff es (Either (NonEmpty CompactionRefusal) CompactionPreview)
+previewCompactionTx :: CompactionManifest -> Tx.Transaction (Either (NonEmpty CompactionRefusal) CompactionPreview)
 
 -- Kiroku.Store.Observability
 KirokuEventCompactionPreviewed !CompactionDigest !Int64                 -- selected events
 KirokuEventCompactionRefused !CompactionDigest !CompactionRefusal !Int  -- first refusal, total count
 ```
+
+`CompactionPreview` (`CompactionPreviewReady CompactionReport` /
+`CompactionPreviewAlreadyApplied CompactionRecord`) comes from
+`Kiroku.Store.Compaction.Types`; this plan adds no public type of its own.
 
 The refusal vocabulary (from `Kiroku.Store.Compaction.Types`) that preview must be able to
 produce: `CompactionStoreIdentityMismatch`, `CompactionHistoryRetentionActive`,
@@ -380,13 +403,9 @@ exporting `validateCompactionTx`, `ValidatedCompaction (..)`, `previewCompaction
 
 ```haskell
 data ValidatedCompaction = ValidatedCompaction
-    { manifest :: !CompactionManifest
-    , streamIds :: !(Map StreamName StreamId)          -- every touched stream, resolved
-    , selectedEventIds :: !(Vector UUID)               -- canonical order
-    , acknowledgedLinkCount :: !Int64
-    , deadLetterCount :: !Int64                        -- rows that RemoveDeadLetters would delete
-    , causationDependentCount :: !Int64
-    , report :: !CompactionReport                      -- sealed
+    { report :: !CompactionReport                -- sealed; preview returns it verbatim
+    , selectedEventIds :: !(Vector UUID)         -- ascending global position
+    , junctionRows :: !(Vector (UUID, Int64))    -- every (event_id, stream_id) pair apply deletes
     }
 
 data ValidationOutcome
@@ -397,68 +416,90 @@ data ValidationOutcome
 validateCompactionTx :: CompactionManifest -> Tx.Transaction ValidationOutcome
 ```
 
+The shape is fixed by the MasterPlan's "Shared preview/apply internals": `junctionRows` is the
+exact set of `(event_id, stream_id)` pairs the apply plan deletes — the home row (origin
+`stream_id`), the global row (`stream_id = 0`), and one row per acknowledged link (the link
+target's resolved `stream_id`) for every selection — so "delete only what was accounted for"
+is structural in apply's `DELETE`. Every count apply verifies derives from this value: the
+junction total is `length junctionRows`, the dead-letter total is the report's
+`deadLettersRemoved`, the events total is the report's `selectedEvents`. Resolved stream IDs
+and running counts are locals of `validateCompactionTx`, not fields.
+
 `validateCompactionTx` performs these steps in order, collecting refusals in a `Seq` or reversed
 list and returning `ValidationRefused` at the end unless a short-circuit fires:
 
 1. Identity. `actual <- storeIdentityTx`; if `actual /= manifestStoreIdentity manifest`, return
-   `ValidationRefused (CompactionStoreIdentityMismatch {expected, actual} :| [])` immediately.
+   `ValidationRefused (CompactionStoreIdentityMismatch {expectedIdentity, actualIdentity} :| [])`
+   immediately.
 
 2. Leases. `conflict <- activeHistoryRetentionConflictTx`; on `Just c` add
    `CompactionHistoryRetentionActive c` (do not short-circuit: the operator wants the other
    findings too).
 
-3. Streams. Collect the set of touched names (every `originStream`, every acknowledged link's
+3. Ledger. `record <- Tx.statement digestBytes ledgerRecordByDigestStmt`. If `Just record`:
+   count surviving selected events with `survivingSelectedEventsStmt` over *all* selection IDs;
+   zero → return `ValidationAlreadyApplied record` (short-circuit); non-zero → return
+   `ValidationRefused (CompactionLedgerConflict {compactionId, survivingEvents} :| [])`
+   (short-circuit: the store is inconsistent relative to the ledger and per-event findings
+   would only add noise). Running this before any witness work means re-previewing an applied
+   100k manifest costs one digest lookup and one count instead of building and discarding
+   100k `CompactionSelectedEventMissing` values.
+
+4. Streams. Collect the set of touched names (every `originStream`, every acknowledged link's
    `stream`, every head witness's `stream`; by construction of `mkCompactionManifest` these are
    the same set as the witnesses). Run `resolveStreamsStmt`. For each witness: absent →
    `CompactionStreamMissing name`; present with `deleted` → `CompactionStreamSoftDeleted name`;
-   present and `stream_version /= headVersion` → `CompactionStreamHeadDrift {stream, expected,
-   actual}`. Build `streamIds` from the present rows. Streams that are missing cannot be used
-   in step 4; for selections whose origin stream is missing, emit no per-event refusal (the
-   stream refusal already covers them) and exclude them from the witness statement. Do the same
-   for acknowledged links targeting a missing stream.
+   present and `stream_version /= headVersion` → `CompactionStreamHeadDrift {stream,
+   expectedHead, actualHead}`. Keep the resolved name→ID map as a local. Matching is per fact,
+   with no cascading exclusions: a missing stream yields exactly its `CompactionStreamMissing`.
+   A selection whose origin stream is missing is excluded from the witness statement (its
+   events cannot be resolved) and gets no additional per-event refusal — the stream refusal
+   already covers it; an acknowledged link targeting a missing stream is likewise covered by
+   that stream's refusal, while the same selection's other links and its origin witnesses are
+   still validated normally, and no spurious `CompactionUnexpectedLink` or
+   `CompactionAcknowledgedLinkMissing` is emitted for facts that do match. One discrepancy
+   never suppresses or fabricates another.
 
-4. Witnesses. For the remaining selections run `selectionWitnessesStmt` with the resolved origin
+5. Witnesses. For the remaining selections run `selectionWitnessesStmt` with the resolved origin
    IDs. Per row: if all four live columns are NULL → `CompactionSelectedEventMissing eventId`;
    else if the home version is NULL, or differs from `originVersion`, or `original_stream_id`
    differs from the resolved origin ID, or `original_stream_version` differs, or the global
    position is NULL or differs from `globalPosition` → `CompactionWitnessMismatch eventId
    (WitnessMismatch {actualOriginStream, actualOriginVersion, actualGlobalPosition})`, where
-   `actualOriginStream` is looked up from `original_stream_id` through an inverse of
-   `streamIds` or, if the ID is not among the touched streams, through one extra
+   `actualOriginStream` is looked up from `original_stream_id` through an inverse of the
+   resolved map or, if the ID is not among the touched streams, through one extra
    `SQL.lookupStreamNamesStmt` call gathered for all such IDs (at most one call). Keep the set
    of event IDs that passed as `verified`.
 
-5. Memberships. Run `SQL.eventMembershipsStmt` over `verified`. Group rows by event. For each
+6. Memberships. Run `SQL.eventMembershipsStmt` over `verified`. Group rows by event. For each
    event, the actual link set is every row whose `stream_id` is neither 0 nor the origin ID,
    keyed by `(stream_name, stream_version)`. Compare with the selection's `acknowledgedLinks`:
    actual but not acknowledged → `CompactionUnexpectedLink eventId (LinkWitness stream
    version)`; acknowledged but not actual → `CompactionAcknowledgedLinkMissing eventId link`.
-   Sum acknowledged links over events that passed into `acknowledgedLinkCount`.
+   Sum acknowledged links over events that passed into the link count.
 
-6. References. Run `SQL.deadLetterCountsStmt` and `SQL.causationDependentCountsStmt` over
+7. References. Run `SQL.deadLetterCountsStmt` and `SQL.causationDependentCountsStmt` over
    `verified`. Under `RefuseDeadLetters`, each non-zero dead-letter count →
-   `CompactionDeadLettersPresent eventId n`; under `RemoveDeadLetters`, sum into
-   `deadLetterCount`. Under `RefuseCausationDependents`, each non-zero dependent count →
+   `CompactionDeadLettersPresent eventId n`; under `RemoveDeadLetters`, sum into the
+   dead-letter count. Under `RefuseCausationDependents`, each non-zero dependent count →
    `CompactionCausationDependentsPresent eventId n`; under `AllowDanglingCausation`, sum into
-   `causationDependentCount`.
+   the causation count. (Per the MasterPlan, the causation refusal is validation-time
+   best-effort — causation IDs have no foreign key and apply takes no lock on unlisted
+   streams; say so in the Haddock.)
 
-7. Ledger. `record <- Tx.statement digestBytes ledgerRecordByDigestStmt`. If `Just record`:
-   count surviving selected events with `survivingSelectedEventsStmt` over *all* selection IDs;
-   zero → return `ValidationAlreadyApplied record` (short-circuit, discarding the per-event
-   refusals, which in this state are all `CompactionSelectedEventMissing`); non-zero → return
-   `ValidationRefused (CompactionLedgerConflict {compactionId, survivingEvents} :| [])`.
-   If `Nothing` and refusals were collected, return `ValidationRefused` with them in the order
+8. Outcome. If refusals were collected, return `ValidationRefused` with them in the order
    collected (identity, lease, streams in witness order, then per-selection findings in
-   canonical selection order). Otherwise build the report and return `ValidationReady`.
+   canonical selection order). Otherwise assemble `junctionRows` from the resolved IDs and
+   acknowledged links, build the report, and return `ValidationReady`.
 
-`buildReport :: CompactionManifest -> Int64 -> Int64 -> Int64 -> CompactionReport` fills
-`manifestDigest`, `storeIdentity`, `operation`, both policies, `selectedEvents = length
-selections`, `homeMemberships = selectedEvents`, `globalMemberships = selectedEvents`,
-`linkMemberships = acknowledgedLinkCount`, `deadLettersRemoved = deadLetterCount` (zero under
-the refuse policy), `causationDependents = causationDependentCount` (zero under the refuse
-policy), `lowestGlobalPosition` and `highestGlobalPosition` from the first and last canonical
-selection, `affectedStreams = manifestStreamHeads manifest` (already sorted by name and verified
-equal to live heads), and seals it with `sealCompactionReport`.
+`buildReport :: CompactionManifest -> Int64 -> Int64 -> Int64 -> CompactionReport` takes the
+link, dead-letter, and causation counts and fills `manifestDigest`, `storeIdentity`,
+`operation`, both policies, `selectedEvents = length selections`, `homeMemberships =
+selectedEvents`, `globalMemberships = selectedEvents`, `linkMemberships`,
+`deadLettersRemoved` (zero under the refuse policy), `causationDependents` (zero under the
+refuse policy), `lowestGlobalPosition` and `highestGlobalPosition` from the first and last
+canonical selection, `affectedStreams = manifestStreamHeads manifest` (already sorted by name
+and verified equal to live heads), and seals it with `sealCompactionReport`.
 
 `previewCompactionTx manifest` is then:
 
@@ -466,16 +507,18 @@ equal to live heads), and seals it with `sealCompactionReport`.
 previewCompactionTx manifest =
     validateCompactionTx manifest <&> \case
         ValidationRefused refusals -> Left refusals
-        ValidationAlreadyApplied record -> Right (record ^. #report)
-        ValidationReady validated -> Right (validated ^. #report)
+        ValidationAlreadyApplied record -> Right (CompactionPreviewAlreadyApplied record)
+        ValidationReady validated -> Right (CompactionPreviewReady (validated ^. #report))
 ```
 
-Register `Kiroku.Store.Compaction.Internal` and `Kiroku.Store.Compaction.SQL` under
-`other-modules` in `kiroku-store/kiroku-store.cabal`.
+Register `Kiroku.Store.Compaction.SQL` under `exposed-modules` (mirroring `Kiroku.Store.SQL`:
+the structural suite must be able to import it and `EXPLAIN` its statements) and
+`Kiroku.Store.Compaction.Internal` under `other-modules` in
+`kiroku-store/kiroku-store.cabal`.
 
 Result and proof: `cabal build kiroku-store` passes, and a throwaway test (or `cabal repl`
 session against a store from `withTestStore`) running `runTransaction (previewCompactionTx m)`
-returns `Right` a report for a freshly appended stream and
+returns `Right (CompactionPreviewReady report)` for a freshly appended stream and
 `Left (CompactionStreamMissing ... :| [])` for an unknown stream. Milestone 3 makes this
 permanent.
 
@@ -485,27 +528,52 @@ Goal: consumers call `previewCompaction` through `Store`, mocks can intercept it
 see a `KirokuEvent` per preview.
 
 Work. Add `PreviewCompaction :: CompactionManifest -> Store m (Either (NonEmpty
-CompactionRefusal) CompactionReport)` to `data Store` in `Kiroku.Store.Effect`, with a Haddock
+CompactionRefusal) CompactionPreview)` to `data Store` in `Kiroku.Store.Effect`, with a Haddock
 comment stating it is surfaced as `Kiroku.Store.Compaction.previewCompaction`, takes no locks,
-and writes nothing. Generalise `runTxOnPool` by adding a `TxSessions.Mode` parameter (update
-its existing call sites to pass `TxSessions.Write`; the hard-delete arm and the lease arms keep
-their behaviour). Add the interpreter arm:
+and writes nothing. Leave `runTxOnPool` exactly as it is; add beside it:
+
+```haskell
+-- | Like 'runTxOnPool' but for read-only work: one snapshot for every
+-- statement, no serialization failures possible in a Read transaction.
+runReadOnlyTxOnPool ::
+    (IOE :> es, Error StoreError :> es) =>
+    Pool ->
+    Tx.Transaction a ->
+    Eff es a
+runReadOnlyTxOnPool pool tx = do
+    result <-
+        liftIO $
+            Pool.use pool $
+                TxSessions.transaction TxSessions.RepeatableRead TxSessions.Read tx
+    case result of
+        Left usageErr -> throwError (mapTransactionUsageError usageErr)
+        Right a -> pure a
+```
+
+Add the interpreter arm:
 
 ```haskell
 PreviewCompaction manifest -> do
     result <-
-        runTxOnPool (store ^. #pool) TxSessions.transaction TxSessions.Read
+        runReadOnlyTxOnPool (store ^. #pool)
             (Internal.previewCompactionTx manifest)
     let digest = compactionManifestDigest manifest
     liftIO $ case result of
-        Right report ->
+        Right (CompactionPreviewReady report) ->
             emitOrDrop (store ^. #eventHandler)
                 (KirokuEventCompactionPreviewed digest (report ^. #selectedEvents))
+        Right (CompactionPreviewAlreadyApplied record) ->
+            emitOrDrop (store ^. #eventHandler)
+                (KirokuEventCompactionPreviewed digest (record ^. #report . #selectedEvents))
         Left refusals ->
             emitOrDrop (store ^. #eventHandler)
                 (KirokuEventCompactionRefused digest (NonEmpty.head refusals) (NonEmpty.length refusals))
     pure result
 ```
+
+Both preview outcomes emit `KirokuEventCompactionPreviewed` — the already-applied recognition
+is still a preview; the `KirokuEventCompactionAlreadyApplied` constructor belongs to the apply
+plan and is emitted only by apply.
 
 Events are emitted after the transaction finishes, matching the retention arms. Add the two
 constructors to `KirokuEvent` in `Kiroku.Store.Observability` with Haddock (the refusal carried
@@ -551,7 +619,9 @@ and `around withTestStore`. Write local helpers: `seed :: KirokuStore -> StreamN
 `readAllForward`); `liveIdentity :: KirokuStore -> IO StoreIdentity` via `storeIdentity`;
 `manifestFor :: StoreIdentity -> [(StreamName, StreamVersion)] -> [CompactionSelection] ->
 CompactionManifestInput`; `selectionOf :: RecordedEvent -> StreamName -> CompactionSelection`.
-Examples (each asserts the exact `Left`/`Right` value or exact report fields):
+Examples (each asserts the exact `Left`/`Right` value or exact report fields; below,
+"`Right` a report" abbreviates `Right (CompactionPreviewReady report)` — only the
+already-applied example produces `CompactionPreviewAlreadyApplied`):
 
 - happy path: seed `orders-1` with 5 events, select versions 2 and 3, head witness 5; the report
   has `selectedEvents 2`, `homeMemberships 2`, `globalMemberships 2`, `linkMemberships 0`,
@@ -610,18 +680,20 @@ VALUES ($1, $2, $3, 'test', 'refuse', 'refuse', 2, 2, 2, 0, 0, 0, $4, $5,
   still exist, preview returns `Left (CompactionLedgerConflict {compactionId, survivingEvents =
   2} :| [])`. Then remove the two events with raw SQL (`SET LOCAL kiroku.enable_hard_deletes =
   'on'` inside one transaction, `DELETE FROM stream_events WHERE event_id = ANY($1)`, `DELETE
-  FROM events WHERE event_id = ANY($1)`) and preview again: `Right report` whose
-  `manifestDigest`, counts, and `reportDigest` equal the inserted row, proving the stored report
-  is returned.
+  FROM events WHERE event_id = ANY($1)`) and preview again:
+  `Right (CompactionPreviewAlreadyApplied record)` whose record's report `manifestDigest`,
+  counts, and `reportDigest` equal the inserted row, proving the stored record is returned and
+  is distinguishable from a ready preview.
 - observability: install an `eventHandler` collecting `KirokuEvent`s via
   `withTestStoreSettings`; one successful preview yields exactly one
-  `KirokuEventCompactionPreviewed digest 2`; one refused preview yields exactly one
+  `KirokuEventCompactionPreviewed digest 2`; the already-applied preview also yields exactly
+  one `KirokuEventCompactionPreviewed`; one refused preview yields exactly one
   `KirokuEventCompactionRefused digest firstRefusal n` with `n` equal to the list length.
 
 Create `kiroku-store/test/Test/CompactionPreviewMock.hs`: an `interpret_` mock handling only
 `PreviewCompaction manifest` (assert it equals the sample manifest, record `"preview"`, return
-`Right sampleReport`), proving `previewCompaction` dispatches exactly once; build the sample
-manifest with `mkCompactionManifest` and a fixed UUID identity.
+`Right (CompactionPreviewReady sampleReport)`), proving `previewCompaction` dispatches exactly
+once; build the sample manifest with `mkCompactionManifest` and a fixed UUID identity.
 
 Add to `kiroku-store/test/Test/PerformanceStructure.hs`, inside `noOpAppendSpec` (so it runs
 under `just perf-structure`): "previews a manifest with one pool checkout" — using
@@ -630,19 +702,25 @@ the checkout delta is exactly 1; and "keeps preview SQL free of locks and writes
 `CompactionSQL.resolveStreamsStmt`, `selectionWitnessesStmt`, `ledgerRecordByDigestStmt`,
 `survivingSelectedEventsStmt`, `SQL.eventMembershipsStmt`, `SQL.deadLetterCountsStmt`,
 `SQL.causationDependentCountsStmt`, assert `T.toUpper (Statement.toSql stmt)` contains none of
-`"FOR UPDATE"`, `"FOR SHARE"`, `"DELETE"`, `"INSERT"`, `"UPDATE "`, `"SET LOCAL"`. Since
-`Kiroku.Store.Compaction.SQL` is an `other-module`, the test cannot import it; instead export a
-`previewStatementTexts :: [Text]` helper from `Kiroku.Store.Compaction` (documented as a
-testing aid, like `Kiroku.Store.Effect`'s internal building blocks) that returns the SQL text
-of every statement preview issues. Also extend the existing "keeps every ordinary statement free
-of retention coordination" example to additionally assert that no ordinary statement mentions
-`event_compactions` or `store_identity`.
+`"FOR UPDATE"`, `"FOR SHARE"`, `"DELETE"`, `"INSERT"`, `"UPDATE "`, `"SET LOCAL"`.
+`Kiroku.Store.Compaction.SQL` is an exposed module precisely so this test imports the
+statements directly (no re-exported SQL-text helper exists or is needed). Under
+`queryPlanSpec`, add `EXPLAIN` plan-shape assertions for `selectionWitnessesStmt` and
+`resolveStreamsStmt` following the existing `explainProductionStatement` examples, each
+substituting a realistically large parameter array (hundreds of elements at minimum — the
+planner's choice for a one-element array proves nothing about the 100000-row case): assert the
+witness joins are served by `stream_events_pkey` and the stream resolution by
+`ix_streams_stream_name`. (The ordinary-statement `event_compactions`/`store_identity` text
+assertion is owned by `docs/plans/74-...`, not this plan.)
 
 Register `Test.CompactionPreview` and `Test.CompactionPreviewMock` in `other-modules` and in
 `kiroku-store/test/Main.hs` (next to `HistoryRetention.spec` / `HistoryRetentionMock.spec`).
 
-Write the Haddock on `previewCompaction` and `previewCompactionTx` (read-only; one checkout;
-reports all refusals; lease conflicts are reported, not waited for; `Tx` variant runs inside the
+Write the Haddock on `previewCompaction` and `previewCompactionTx` (read-only; one checkout on
+one `RepeatableRead` snapshot; reports all refusals; lease conflicts are reported, not waited
+for; the causation-dependent refusal is validation-time best-effort — causation IDs carry no
+foreign key and apply locks no unlisted stream, so a dependent appended elsewhere after
+validation is not detected; `Tx` variant runs inside the
 caller's transaction and takes no locks, so a caller wanting a stable view should take the
 ADR-7 guards itself). Add a `### New Features` bullet to the `## Unreleased` section of
 `kiroku-store/CHANGELOG.md` describing `previewCompaction`, the two events, and the adapter
@@ -715,11 +793,12 @@ Behavioural acceptance, observable in a test or a `cabal repl` session against a
 `withTestStore` database:
 
 1. After appending five events to `orders-1` and building a manifest selecting versions 2 and
-   3 with head witness 5, `runStoreIO store (previewCompaction m)` returns `Right report` with
+   3 with head witness 5, `runStoreIO store (previewCompaction m)` returns
+   `Right (CompactionPreviewReady report)` with
    `selectedEvents = 2`, `linkMemberships = 0`, `affectedStreams = [orders-1 @ 5]`, and
    `countEvents store` is unchanged before and after.
 2. Changing the head witness to 6 returns `Left (CompactionStreamHeadDrift {stream = "orders-1",
-   expected = 6, actual = 5} :| [])`.
+   expectedHead = 6, actualHead = 5} :| [])`.
 3. With an active history-retention lease, the otherwise valid manifest returns `Left` whose
    only element is `CompactionHistoryRetentionActive` with `activeLeaseCount = 1`.
 4. Linking event 2 into `audit-1` and previewing without acknowledging it returns `Left`
@@ -727,7 +806,8 @@ Behavioural acceptance, observable in a test or a `cabal repl` session against a
    `linkMemberships = 1`.
 5. Building the manifest with a random `StoreIdentity` returns exactly one refusal,
    `CompactionStoreIdentityMismatch`.
-6. `just perf-structure` passes with the two new examples; `cabal test all` passes; the
+6. `just perf-structure` passes with the new examples (checkout count, lock-free SQL text, and
+   the two large-array plan shapes); `cabal test all` passes; the
    pool-checkout delta for one preview is exactly 1.
 
 
@@ -738,8 +818,8 @@ database. If an integration example fails because the ledger or identity table i
 migration `0012` from `docs/plans/74-...` has not been applied: that plan is a hard
 dependency and must be completed first. If the adapters fail to compile after adding the
 events, add the missing `pure ()` arms in `kiroku-otel` and `kiroku-metrics` — nothing else in
-those packages changes. If `runTxOnPool`'s new `Mode` parameter breaks existing call sites,
-pass `TxSessions.Write` at each of them; behaviour is unchanged.
+those packages changes. `runTxOnPool` is deliberately untouched; if a diff shows its signature
+changing, revert it and route preview through `runReadOnlyTxOnPool` instead.
 
 
 ## Interfaces and Dependencies
@@ -758,30 +838,29 @@ build-depends.
 Signatures that must exist at the end of this plan:
 
 ```haskell
--- Kiroku.Store.Compaction.SQL (other-module)
+-- Kiroku.Store.Compaction.SQL (exposed)
 resolveStreamsStmt :: Statement (Vector Text) (Vector (Text, Int64, Int64, Bool))
 selectionWitnessesStmt :: Statement (Vector UUID, Vector Int64, Vector Int64, Vector Int64)
                                     (Vector (UUID, Maybe Int64, Maybe Int64, Maybe Int64, Maybe Int64))
 ledgerRecordByDigestStmt :: Statement ByteString (Maybe CompactionRecord)
 survivingSelectedEventsStmt :: Statement (Vector UUID) Int64
+compactionRecordRow :: D.Row CompactionRecord
 
 -- Kiroku.Store.Compaction.Internal (other-module)
-data ValidatedCompaction = ValidatedCompaction { manifest, streamIds, selectedEventIds, acknowledgedLinkCount, deadLetterCount, causationDependentCount, report }
+data ValidatedCompaction = ValidatedCompaction { report, selectedEventIds, junctionRows }
 data ValidationOutcome = ValidationRefused (NonEmpty CompactionRefusal) | ValidationAlreadyApplied CompactionRecord | ValidationReady ValidatedCompaction
 validateCompactionTx :: CompactionManifest -> Tx.Transaction ValidationOutcome
 buildReport :: CompactionManifest -> Int64 -> Int64 -> Int64 -> CompactionReport
-previewCompactionTx :: CompactionManifest -> Tx.Transaction (Either (NonEmpty CompactionRefusal) CompactionReport)
+previewCompactionTx :: CompactionManifest -> Tx.Transaction (Either (NonEmpty CompactionRefusal) CompactionPreview)
 
 -- Kiroku.Store.Effect
-PreviewCompaction :: CompactionManifest -> Store m (Either (NonEmpty CompactionRefusal) CompactionReport)
-runTxOnPool :: (IOE :> es, Error StoreError :> es) => Pool
-            -> (TxSessions.IsolationLevel -> TxSessions.Mode -> Tx.Transaction a -> Session.Session a)
-            -> TxSessions.Mode -> Tx.Transaction a -> Eff es a
+PreviewCompaction :: CompactionManifest -> Store m (Either (NonEmpty CompactionRefusal) CompactionPreview)
+runReadOnlyTxOnPool :: (IOE :> es, Error StoreError :> es) => Pool -> Tx.Transaction a -> Eff es a
+-- runTxOnPool keeps its existing three-argument shape, unchanged.
 
 -- Kiroku.Store.Compaction (exposed)
-previewCompaction :: (Store :> es) => CompactionManifest -> Eff es (Either (NonEmpty CompactionRefusal) CompactionReport)
-previewCompactionTx :: CompactionManifest -> Tx.Transaction (Either (NonEmpty CompactionRefusal) CompactionReport)
-previewStatementTexts :: [Text]
+previewCompaction :: (Store :> es) => CompactionManifest -> Eff es (Either (NonEmpty CompactionRefusal) CompactionPreview)
+previewCompactionTx :: CompactionManifest -> Tx.Transaction (Either (NonEmpty CompactionRefusal) CompactionPreview)
 
 -- Kiroku.Store.Observability
 KirokuEventCompactionPreviewed :: CompactionDigest -> Int64 -> KirokuEvent
