@@ -8,15 +8,32 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-08-19T00:00:00Z"
+timestamp: "2026-09-10T03:20:08Z"
 requestId: IR-13
-status: proposed
+status: completed
+completedAt: "2026-09-10T03:20:08Z"
 origin: mori://shinzui/keiro-ui
 ---
 
 # Improvement Request: Record HTTP and WebSocket Wire-Format Stability in an ADR
 
 ## Status
+
+Completed on 2026-09-10 by
+[ADR-9](../adr/0009-published-http-and-websocket-wire-shapes-are-frozen-and-served-only-by-sister-packages.md)
+(`mori://shinzui/kiroku/okf/adrs/concepts/ADR-9`). The record fixes what is published as of
+`kiroku-metrics` 0.1.0.8 (the JSON endpoint bodies and status codes, the legacy string error
+envelope, the Prometheus metric and label names, both WebSocket paths and their full frame
+inventory, the camelCase event object, and the documented delivery semantics), the change
+discipline over them (never remove, rename, or re-type; additive fields, frames, routes, and
+vocabulary members allowed; incompatible changes ship as a new path or frame type; new keys are
+snake_case even on the camelCase event object), and the endpoint-ownership boundary
+(`kiroku-store` owns no wire format and gains no web dependency; sister packages wrap supported
+library APIs and add missing reads to the library first). It also names what is deliberately not
+covered, such as configuration defaults, push timing, and human-readable message text.
+[`docs/user/metrics.md`](../user/metrics.md) gained a "Wire-format stability" section citing
+the record, so an implementer touching an encoder encounters the contract. The record was written
+directly from this request without an ExecPlan.
 
 Proposed by the keiro runtime UI initiative
 (`mori://shinzui/keiro-ui/masterplans/1-keiro-runtime-ui-foundations`, filed under

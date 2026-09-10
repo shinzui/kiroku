@@ -22,6 +22,7 @@ accessors.
 
 - [Wiring the collector](#wiring-the-collector)
 - [Starting the server](#starting-the-server)
+- [Wire-format stability](#wire-format-stability)
 - [HTTP endpoints](#http-endpoints)
 - [Prometheus metric reference](#prometheus-metric-reference)
 - [Interpreting the metrics](#interpreting-the-metrics)
@@ -108,6 +109,30 @@ Lifecycle: `withMetricsServerWithStore cfg metrics store deps` (bracketed,
 recommended) or `startMetricsServerWithStore … >>= … ; stopMetricsServer`. The
 `deps :: [DependencyCheck]` list drives readiness; `postgresPing store` is the
 built-in PostgreSQL ping.
+
+## Wire-format stability
+
+Every JSON body, HTTP status, Prometheus metric name, WebSocket frame, and event
+field documented on this page is a **published contract** governed by
+[ADR-9](../adr/0009-published-http-and-websocket-wire-shapes-are-frozen-and-served-only-by-sister-packages.md)
+(`mori://shinzui/kiroku/okf/adrs/concepts/ADR-9`), the HTTP-layer analogue of
+ADR-6's frozen SQL relations:
+
+- A published field is never removed, renamed, or re-typed; a frame's `type` and
+  its meaning never change; a route's path never changes.
+- New optional fields, new frame types, new routes, new metrics, and new members
+  of an enumerated vocabulary (such as `phase`) may be added. Clients must ignore
+  what they do not recognize.
+- An incompatible change ships as a new path or a new frame type; the old one
+  stays for its documented compatibility window.
+- New keys are snake_case everywhere, including on the camelCase event object,
+  whose shipped casing is frozen and is not precedent.
+- The human-readable text of an `error` string or `message` field is not a
+  contract; switch on status codes, not wording.
+
+Changing an encoder in `kiroku-metrics` means changing this page in the same
+commit — read the record first. `kiroku-store` itself owns no wire format and
+gains no web dependency; the surface lives here, in a sister package.
 
 ## HTTP endpoints
 
@@ -214,7 +239,8 @@ Add your own dependency check by appending an `IO DependencyStatus` action to th
 
 ## Prometheus metric reference
 
-Metric names are a stable public contract for dashboards. The endpoint emits:
+Metric names, types, and label names are a published contract for dashboards
+(see [Wire-format stability](#wire-format-stability)). The endpoint emits:
 
 | Metric | Type | Labels | Meaning |
 |--------|------|--------|---------|
@@ -298,7 +324,9 @@ Two paths, dispatched by URL. Messages are tagged JSON (`{"type": "..."}`).
 ### The `RecordedEvent` wire shape
 
 Produced by `recordedEventToJSON`. **Note:** the protocol envelope and metrics keys
-are snake_case, but the per-event payload fields are **camelCase**:
+are snake_case, but the per-event payload fields are **camelCase**. Both halves are
+frozen as shipped; a key added to this object later is snake_case (see
+[Wire-format stability](#wire-format-stability)):
 
 | Field | JSON type | Meaning |
 |-------|-----------|---------|
@@ -401,3 +429,6 @@ compiling reference for the wiring pattern above.
 - [OpenTelemetry](opentelemetry.md) — the other sister package, for per-event trace
   context.
 - [Subscriptions](subscriptions.md) — the lifecycle these metrics report on.
+- [ADR-9](../adr/0009-published-http-and-websocket-wire-shapes-are-frozen-and-served-only-by-sister-packages.md)
+  — the wire-format stability contract and the sister-package ownership boundary
+  behind everything on this page.
