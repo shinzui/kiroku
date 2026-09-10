@@ -6,6 +6,24 @@ kind: exec-plan
 created_at: 2026-08-27T21:14:15Z
 intention: "intention_01m12ed0r5e61aqa9h1rfgvk4a"
 master_plan: "docs/masterplans/12-harden-the-kiroku-event-store-and-subscription-machinery-surfaced-by-the-2026-07-kiroku-review.md"
+provenance:
+  reviews:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-09T23:32:21Z
+      verdict: "changes-requested"
+      note: "Perf review: save must stay one upsert per batch, validation inside init checkout, ADR-5 gates missing"
+  revisions:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-09T23:32:21Z
+      mode: "update"
+      note: "Fixed save-path boundary, validation inside init checkout, structural checkout assertion, ADR-5 gates in steps and acceptance"
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T00:37:26Z
+      mode: "update"
+      note: "Design review: migration-derived topology replaces runtime adoption; mismatch routed through SomeSubscriptionStartupFailure"
 ---
 
 # Make consumer-group topology durable and resize without gaps
@@ -27,13 +45,15 @@ After this plan, every checkpoint records the topology under which it was produc
 refuses a mismatched restart before delivery, and operators can call one public transactional
 resize operation that rewinds the new topology to the old members' minimum checkpoint. The
 focused test demonstrates a deliberately skewed size-2 group: starting size 3 is refused, then
-the supported resize delivers every seeded event at least once.
+the supported resize delivers every seeded event at least once. Existing databases receive their
+topology from a migration that derives it from the member rows already present, so no runtime
+adoption path exists.
 
 
 ## Progress
 
 - [ ] M1: write `consumer_group_size` through initialization, ordinary checkpoint saves, and dead-letter checkpoint saves; read and validate group-wide stored topology at startup.
-- [ ] M1: add typed mismatch and legacy-adoption tests, including the currently lossy skewed size-2 to size-3 scenario.
+- [ ] M1: generate the derived-topology migration and add typed mismatch, upgrade-path, and underestimate-then-resize tests, including the currently lossy skewed size-2 to size-3 scenario.
 - [ ] M2: expose and test idempotent `resizeConsumerGroupTx`, rewinding all new members to the old members' minimum checkpoint in one transaction.
 - [ ] M3: rewrite `docs/user/consumer-groups.md` and amend ADR-2 so stop/drain/restart alone is no longer described as safe.
 - [ ] Run the focused and full Kiroku test suites; update living sections and perform ADR distillation.
@@ -48,6 +68,10 @@ the supported resize delivers every seeded event at least once.
 - Transfer audit (2026-08-27): `consumer_group_size` remains referenced only by schema and
   downstream inspection tests, not by Kiroku checkpoint writes or worker validation. No schema
   migration is required for the field itself.
+- Design review (2026-09-09): a migration is required after all, not for the column but for its
+  values. Existing member rows let the migration derive each group's size as
+  `max(consumer_group_member) + 1`, which removes the runtime legacy-adoption branch entirely. The
+  note above that no migration is required is superseded.
 
 
 ## Decision Log
@@ -72,6 +96,31 @@ the supported resize delivers every seeded event at least once.
   every stream through its cursor and new members start no later than that cursor; re-delivery is
   possible, loss is not.
   Date: 2026-08-27
+  Superseded on 2026-09-09 by the migration-derived topology decision below.
+
+- Decision: Persist topology as additional upsert columns and validate it only at startup inside
+  the existing initialization checkout.
+  Rationale: The save runs once per delivered batch tail and is the only per-batch write on the
+  subscription path. A predicate or verification round trip there would be paid on every batch
+  for a condition that can only change between restarts. The 2026-09-09 performance review under
+  [ADR-5](../adr/0005-three-tier-performance-regression-gates.md) fixed this boundary.
+  Date: 2026-09-09
+
+- Decision: Derive stored topology in a migration from the member rows already present, and have
+  no runtime adoption path; an underestimated derivation is refused at startup and corrected by
+  the operator through the idempotent resize.
+  Rationale: A group that has run has one row per member, so `max(consumer_group_member) + 1` is
+  its size. Computing that once in a migration replaces an implicit one-way transition on first
+  start with an explicit schema step, and the only failure mode, a group whose higher members never
+  checkpointed, surfaces as the same typed refusal every other mismatch does, with the same safe
+  remedy.
+  Date: 2026-09-09
+
+- Decision: Route `ConsumerGroupSizeMismatch` through the `SomeSubscriptionStartupFailure`
+  hierarchy parent that plan 82 introduces.
+  Rationale: Callers should be able to catch every startup refusal once. Whichever plan lands
+  second adds the instance, so neither plan blocks the other.
+  Date: 2026-09-09
 
 
 ## Outcomes & Retrospective
@@ -110,6 +159,14 @@ transaction operation. The completed
 `mori://shinzui/kiroku/okf/improvement-requests/concepts/IR-3` added initialization and exact reset
 but explicitly does not infer topology; this plan adds that missing contract.
 
+[ADR-5](../adr/0005-three-tier-performance-regression-gates.md) makes `just perf-check`
+authoritative for performance evidence. The historical cell
+`All.reliability-audit.subscription category catch-up 100 events` exercises the fetch, delivery,
+and checkpoint upsert this plan widens, and `kiroku-store/test/Test/PerformanceStructure.hs` pins
+zero-checkout refusals and production query plans. `kiroku.subscriptions` is indexed only on
+`subscription_id` and the composite `(subscription_name, consumer_group_member)` key, so writing
+`consumer_group_size` keeps the upsert HOT-eligible.
+
 Downstream Keiro workers use Kiroku consumer-group members for shards. Their safe adoption is
 coordinated by `docs/plans/85-release-the-subscription-hardening-cohort-and-coordinate-downstream-adoption.md`;
 this plan owns only Kiroku's public topology and resize semantics.
@@ -119,26 +176,62 @@ this plan owns only Kiroku's public topology and resize semantics.
 
 ### Milestone 1 — persist topology and refuse unsafe startup
 
+Generate a migration with the repository scaffolder that derives each group's stored size from
+the member rows already present:
+
+```sql
+UPDATE kiroku.subscriptions AS s
+SET consumer_group_size = derived.size
+FROM (
+    SELECT subscription_name, max(consumer_group_member) + 1 AS size
+    FROM kiroku.subscriptions
+    GROUP BY subscription_name
+) AS derived
+WHERE s.subscription_name = derived.subscription_name
+  AND s.consumer_group_size <> derived.size;
+```
+
+A non-group subscription has one row with member 0 and derives size 1, which is already its
+default. A group whose higher members never checkpointed derives an underestimate; that is
+acceptable because the next start with the configured size is refused by the validation below and
+the operator corrects it with the milestone 2 resize, which is safe at any size. The rewrite
+touches one row per member and runs with subscription workers stopped, like every checkpoint
+migration. Plan 82 generates a separate additive migration for its target columns; do not merge
+the two.
+
 Extend the checkpoint initialization statement in
 `kiroku-store/src/Kiroku/Store/Subscription/Checkpoint/SQL.hs` to accept the configured size and
 write `consumer_group_size` on insert. Existing-row resolution must return the stored topology as
 well as position. Extend `saveCheckpointMemberStmt` and the checkpoint half of
 `insertDeadLetterAndCheckpointStmt` in `kiroku-store/src/Kiroku/Store/SQL.hs` to write the size on
-every insert and update. Thread `configSize` from `Worker.hs` through every call.
+every insert and update. Thread `configSize` from `Worker.hs` through every call. The save
+statements gain a column and nothing else: no `WHERE` predicate on the stored size, no
+returned-row check, and no second statement. Ordinary saves run once per delivered batch tail and
+must remain one statement and one pool checkout.
 
-Before delivery, validate the stored rows for the subscription name as one topology. Equal sizes
-proceed. A legacy set containing only stored size 1 may be adopted atomically by the configured
-size. Any other mismatch throws a typed `ConsumerGroupSizeMismatch` containing the subscription,
-configured size, and observed sizes. Export it beside the other subscription startup failures and
-emit a typed refusal event before the worker terminates.
+Before delivery, validate the stored rows for the subscription name as one topology. Perform that
+read inside the existing `initializeSubscriptionCheckpointSession` checkout, by extending the
+session or the initialization statement to return the sibling rows, rather than through a separate
+`Pool.use`; startup stays at one checkout per member, and plan 82 adds target validation to the
+same read. Equal sizes proceed. There is no runtime adoption path: any mismatch throws a typed
+`ConsumerGroupSizeMismatch` containing the subscription, configured size, and observed sizes.
+Export it beside the other subscription startup failures, route it through
+`SomeSubscriptionStartupFailure` as plan 82 defines, and emit a typed refusal event before the
+worker terminates.
 
 Add `kiroku-store/test/Test/ConsumerGroupResize.hs` and register it in the store test suite. Seed
 several streams, advance size-2 members to deliberately different checkpoints, and prove a size-3
 start is refused before its handler runs. Add initializer, ordinary-save, and dead-letter-save
-assertions proving every path persists the configured size. Add the legacy adoption case.
+assertions proving every path persists the configured size. Add an upgrade-path test against a
+snapshot with two member rows of a group at the default size: after the migration both rows read
+size 2 and a size-2 start proceeds; with only member 0 present the migration derives size 1 and a
+size-2 start is refused, and milestone 2 extends that case with the resize. Add the mismatch
+refusal to the "no-op paths use no pooled connection" block of
+`kiroku-store/test/Test/PerformanceStructure.hs` using its checkout counter: a refused start
+performs exactly the one initialization checkout and runs no handler.
 
-Milestone acceptance is that the mismatch is typed and deterministic, no handler runs, and the
-legacy upgrade case converges to one recorded topology.
+Milestone acceptance is that the mismatch is typed and deterministic, no handler runs, the refusal
+is pinned at one checkout, and the migration yields one recorded topology per group that has run.
 
 ### Milestone 2 — provide the supported resize transaction
 
@@ -182,7 +275,8 @@ The focused transcript must end with examples equivalent to:
 ```text
 consumer-group resize
   refuses a configured size that disagrees with stored topology [OK]
-  adopts legacy default-size rows exactly once [OK]
+  derives stored topology from existing member rows during migration [OK]
+  refuses an underestimated derived topology until resized [OK]
   delivers every seeded event after equalizing size 2 to size 3 [OK]
   is idempotent when repeated at the same size [OK]
 ```
@@ -194,25 +288,44 @@ cabal test kiroku-store:kiroku-store-test --test-show-details=direct
 okf validate docs/adr --strict --profile docs/adr/profile.dhall --profile-enforce --log-enforce
 ```
 
+Finally run the [ADR-5](../adr/0005-three-tier-performance-regression-gates.md) performance gates
+from the repository root. `just perf-check` is the authoritative structural and
+controlled-workload tier and must pass. `just perf-telemetry` prints the historical cells against
+the checked-in baseline without failing on timing; compare the
+`All.reliability-audit.subscription category catch-up 100 events`, `All.category.*`, and
+`All.subscription-checkpoint-inventory.*` cells with their baseline rows, record both figures in
+Surprises & Discoveries, and investigate any corroborated slowdown on the catch-up cell before
+completion, because that cell exercises the fetch, delivery, and checkpoint upsert this plan
+touches.
+
+```bash
+just perf-check
+just perf-telemetry
+```
+
 
 ## Validation and Acceptance
 
 The work is complete only when a mis-sized startup fails before handler delivery, all checkpoint
-write paths store topology, legacy rows adopt safely, and the supported resize test proves no
+write paths store topology, the migration derives topology for existing groups with no runtime
+adoption, and the supported resize test proves no
 seeded event is skipped after a skewed 2-to-3 transition. Ordinary saves must remain monotonic;
 only the explicit resize transaction may move positions backward. The user guide and ADR-2 must
-describe the same procedure and strict ADR validation must pass.
+describe the same procedure and strict ADR validation must pass. `just perf-check` must pass, the
+ordinary checkpoint save must remain a single upsert issued once per batch tail, and topology
+validation must add no pool checkout beyond the initialization session.
 
 
 ## Idempotence and Recovery
 
 Tests use ephemeral databases and are repeatable. `resizeConsumerGroupTx` must be idempotent and
 must either replace the complete topology or roll back without change. Rewinding to the minimum
-can cause duplicate delivery but cannot lose an event. No migration is expected because the
-column already exists; if implementation discovers a schema/default change is required, generate
-it with `kiroku-store-migrate new --manifest kiroku-store-migrations/migrations/manifest
---description "persist consumer group topology"`, never edit a released payload, and record the
-new migration in this plan before proceeding.
+can cause duplicate delivery but cannot lose an event. The derivation migration is generated with
+`kiroku-store-migrate new --manifest kiroku-store-migrations/migrations/manifest --description
+"derive consumer group topology"`; it is forward-only and idempotent because it updates only rows
+whose stored size differs from the derived size. Never edit a released payload, and record the
+allocated filename in this plan before proceeding. Plan 82 generates its own additive migration
+for the target columns; the two are not merged.
 
 
 ## Interfaces and Dependencies
@@ -228,6 +341,19 @@ resizeConsumerGroupTx ::
 
 `ConsumerGroupResizeResult` reports the previous topology, new size, and `GlobalPosition` from
 which every new member resumes. The subscription startup surface exports a typed
-`ConsumerGroupSizeMismatch`. Checkpoint initialization, ordinary save, and dead-letter save all
+`ConsumerGroupSizeMismatch`, routed through the `SomeSubscriptionStartupFailure` parent that plan
+82 defines. Checkpoint initialization, ordinary save, and dead-letter save all
 persist `consumer_group_size`. No new external package dependency is required; use the existing
 Hasql session/transaction stack located through Mori under `mori://hasql/hasql`.
+
+
+Revision note (2026-09-09): Performance review under ADR-5. Fixed the save-path boundary (columns
+only, no predicates or extra statements), placed topology validation inside the existing
+initialization checkout, added the structural one-checkout refusal assertion, and added
+`just perf-check` plus the named telemetry cells to the concrete steps and acceptance.
+
+Revision note (2026-09-09): Design review. Replaced the runtime legacy-adoption branch with a
+migration that derives each group's stored size from its existing member rows, so an
+underestimate is refused and corrected by the explicit resize rather than adopted silently; routed
+`ConsumerGroupSizeMismatch` through plan 82's startup-failure parent. The adoption decision is
+marked superseded rather than removed.

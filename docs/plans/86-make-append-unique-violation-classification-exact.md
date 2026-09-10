@@ -6,6 +6,13 @@ kind: exec-plan
 created_at: 2026-08-27T21:14:52Z
 intention: "intention_01m12ed0r5e61aqa9h1rfgvk4a"
 master_plan: "docs/masterplans/12-harden-the-kiroku-event-store-and-subscription-machinery-surfaced-by-the-2026-07-kiroku-review.md"
+provenance:
+  reviews:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-09T23:32:21Z
+      verdict: "approved"
+      note: "Perf review: error-path only, mapUsageError runs only on Left; no hot-path impact, no gate needed beyond EP-6"
 ---
 
 # Make append unique-violation classification exact

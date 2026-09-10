@@ -6,6 +6,24 @@ kind: exec-plan
 created_at: 2026-08-27T21:14:25Z
 intention: "intention_01m12ed0r5e61aqa9h1rfgvk4a"
 master_plan: "docs/masterplans/12-harden-the-kiroku-event-store-and-subscription-machinery-surfaced-by-the-2026-07-kiroku-review.md"
+provenance:
+  reviews:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-09T23:32:21Z
+      verdict: "changes-requested"
+      note: "Perf review: release gate omitted ADR-5 perf-check and perf-telemetry"
+  revisions:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-09T23:32:21Z
+      mode: "update"
+      note: "Added perf-check and perf-telemetry to the release gate"
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T00:37:26Z
+      mode: "update"
+      note: "Design review: updated forecast of public-surface changes and migrations for the release gate and clean-consumer proof"
 ---
 
 # Release the subscription hardening cohort and coordinate downstream adoption
@@ -35,7 +53,7 @@ user's explicit release-time confirmation.
 - [ ] Gate: plans 81, 82, 83, 84, and 86 are complete, their living sections are current, and required ADR/OKF validation passes.
 - [ ] M1: determine changed packages and PVP impact from commits since authoritative tags; verify Hackage and upstream tags rather than trusting local registry versions.
 - [ ] M1: present exact package versions, bounds, and changelogs for user confirmation before editing release metadata.
-- [ ] M2: update approved versions/bounds/changelogs and pass formatting, build, test, migration, sdist, Haddock, and flake gates.
+- [ ] M2: update approved versions/bounds/changelogs and pass formatting, build, test, ADR-5 performance, migration, sdist, Haddock, and flake gates.
 - [ ] M3: after a second explicit publication confirmation, commit, tag, push, publish Hackage/docs and GitHub releases in dependency order; verify clean-consumer resolution.
 - [ ] M4: adopt the released public resize operation in `mori://shinzui/keiro` and prove atomic shard/checkpoint resizing without private Kiroku SQL.
 - [ ] Record release URLs, tag commits, clean-consumer evidence, downstream commit, and retrospective.
@@ -100,9 +118,12 @@ last package-specific tag need a release, but a new `kiroku-store` major/minor l
 dependent bound updates and corresponding patch releases. `kiroku-test-support` and example/test
 components are not Hackage packages.
 
-Plans 81 and 82 change checkpoint public APIs and may add a migration. Plan 83 may add public
-publisher status/errors and observability. Plan 84 changes both adapter config records and may add
-store observability. Plan 86 is an internal bug fix. Their final diffs, not these forecasts,
+Plans 81 and 82 change checkpoint public APIs and each adds a migration. Plan 83 changes the type
+of `decodeHook` in `StoreSettings`, makes `RetryPolicy` a record, and adds a `StoreError`
+constructor, a dead-letter reason, and an observability constructor. Plan 84 adds a store
+subscription config field and observability constructor and changes both adapter config records.
+Plan 82 also adds an exception-hierarchy parent for startup failures. Plan 86 is an internal bug
+fix. Their final diffs, not these forecasts,
 determine PVP. Relevant durable records are [ADR-2](../adr/0002-static-hash-partitioned-consumer-groups.md),
 [ADR-4](../adr/0004-explicit-subscription-checkpoint-lifecycle.md), and any ADR created by plan 83
 or 84.
@@ -111,7 +132,11 @@ Use Mori to discover reverse dependencies with `mori registry dependents shinzui
 --packages --json`, but verify released versions against Hackage and package tags. The release
 skill requires all package tests, `nix fmt`, `cabal build all`, `cabal test all`, and
 `nix flake check` before publication, then `cabal check`, source archive, and Hackage Haddock
-archive per package.
+archive per package. This plan additionally requires the
+[ADR-5](../adr/0005-three-tier-performance-regression-gates.md) gates `just perf-check` and
+`just perf-telemetry`, because plans 81 through 84 change the checkpoint upsert, the publisher
+loop, and the adapter bridge; the MasterPlan's Performance gates integration point names the
+telemetry cells to report.
 
 The downstream repository is `mori://shinzui/keiro`. Its project-relative
 `keiro/src/Keiro/Subscription/Shard.hs` defines `ensureShards` and
@@ -138,11 +163,14 @@ because this plan has reached the gate.
 
 ### Milestone 2 — prepare and verify the approved cohort
 
-Apply only the approved independent bumps. Update every internal dependency bound in library,
-test, executable, and benchmark stanzas; add dated changelog sections. If plans 81/82 created a
-migration, prove both fresh installation and upgrade from the newest released manifest snapshot.
+Apply only the approved independent bumps. Update every internal dependency bound in library, test,
+executable, and benchmark stanzas; add dated changelog sections. Plans 81 and 82 each add a
+migration; prove both fresh installation and upgrade from the newest released manifest snapshot,
+including that plan 82's column addition rewrites no rows.
 
-Run repository-wide formatting/build/test/flake gates. Run `cabal check`, `cabal sdist`, and
+Run repository-wide formatting/build/test/flake gates, then `just perf-check` and
+`just perf-telemetry`; record the telemetry cells named in the MasterPlan's Performance gates
+integration point against their baseline rows. Run `cabal check`, `cabal sdist`, and
 Hackage Haddock generation for each proposed package without uploading. Inspect each source
 archive for its public modules, migration manifest/payload, changelog, license, and generated
 documentation. Stage newly created files before `nix flake check` so Nix sees them, but do not
@@ -158,9 +186,10 @@ released package, and push commit plus tags. Upload source and documentation arc
 order; stop immediately if any dependency upload fails. Create one GitHub release per tag.
 
 Refresh package metadata and build a clean temporary consumer outside the worktree using exact
-published versions. Import the new store resize/rebind/failure surfaces and adapter config fields,
-run a minimal compile, and record Hackage URLs, hashes, annotated tag objects/peeled commits,
-GitHub release URLs, and consumer transcript in Outcomes.
+published versions. Import the new store resize and rebind operations, the typed decode hook, the
+startup-failure parent, the handler-stall event, and the adapter config fields, run a minimal
+compile, and record Hackage URLs, hashes, annotated tag objects/peeled commits, GitHub release URLs,
+and consumer transcript in Outcomes.
 
 ### Milestone 4 — adopt safe resize in Keiro
 
@@ -195,6 +224,8 @@ nix fmt
 cabal build all
 cabal test all --test-show-details=direct
 nix flake check
+just perf-check
+just perf-telemetry
 ```
 
 For every package approved for release, from its package directory:
@@ -236,10 +267,10 @@ cabal test keiro:keiro-test --test-show-details=direct
 
 ## Validation and Acceptance
 
-All Kiroku child-plan acceptance tests, ADR/OKF gates, package tests, migration paths, source
-archives, Haddocks, and flake checks must pass before publication. Hackage source/docs versions,
-annotated tags, GitHub releases, and peeled commits must agree. A clean consumer must resolve only
-published artifacts and compile the new APIs.
+All Kiroku child-plan acceptance tests, ADR/OKF gates, ADR-5 performance gates, package tests,
+migration paths, source archives, Haddocks, and flake checks must pass before publication. Hackage
+source/docs versions, annotated tags, GitHub releases, and peeled commits must agree. A clean
+consumer must resolve only published artifacts and compile the new APIs.
 
 Keiro acceptance requires an active lease to refuse before either table changes; a stopped
 skewed-size group must atomically equalize Kiroku checkpoints and replace Keiro shard rows; a
@@ -293,3 +324,13 @@ resizeShardCount ::
 Kiroku schema. The implementation composes the released
 `Kiroku.Store.Subscription.ConsumerGroup.resizeConsumerGroupTx` with Keiro's Hasql transaction;
 no new external dependency is expected beyond the approved Kiroku bound.
+
+
+Revision note (2026-09-09): Performance review under ADR-5. Added `just perf-check` and
+`just perf-telemetry` to the release gate in Progress, Context, milestone 2, the concrete steps,
+and acceptance, with the telemetry cells owned by the MasterPlan's Performance gates integration
+point.
+
+Revision note (2026-09-09): Design review. Updated the forecast of public-surface changes from
+plans 82, 83, and 84 (typed decode hook, `RetryPolicy` record, startup-failure parent, worker
+stall event, two migrations) so the release gate and the clean-consumer proof cover them.
