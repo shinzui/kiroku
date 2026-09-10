@@ -1,5 +1,9 @@
 # Bundle Update Log
 
+## 2026-09-10
+* **Update**: IR-8 now names its implementation plan, [Plan 88](../plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md) (`mori://shinzui/kiroku/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events`), which adds listStreams/listCategories/getEvent to the Store effect and the paginated browse routes to kiroku-metrics; status stays proposed until implementation lands.
+* **Update**: IR-10 is accepted; [ExecPlan 87](../plans/87-serve-durable-subscription-checkpoints-over-http.md) plans the `GET /subscriptions/checkpoints` route in `kiroku-metrics`, its tests and documentation, and the confirmation-gated 0.2.0.0 release that will complete the request.
+
 ## 2026-08-22
 * **Addition**: IR-14 requests a manifest-driven transactional selective-event compaction primitive that preserves retained identities, stream versions, positions, links, and append correctness; it originates from Mori MasterPlan 27 and hard-gates its legacy Repository compaction plan.
 

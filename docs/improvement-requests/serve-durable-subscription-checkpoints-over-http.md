@@ -9,9 +9,9 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-08-19T00:00:00Z"
+timestamp: "2026-09-10T03:05:48Z"
 requestId: IR-10
-status: proposed
+status: accepted
 origin: mori://shinzui/keiro-ui
 ---
 
@@ -27,6 +27,14 @@ library-level capability this endpoint wraps already shipped:
 `subscriptionCheckpointInventory` has been public in `kiroku-store` since 0.4.0.0. This request
 asks only for the missing HTTP surface. Implementation is kiroku's own downstream work under
 kiroku's plans.
+
+Accepted by kiroku on 2026-09-10. Implementation is planned by
+[ExecPlan 87, Serve durable subscription checkpoints over HTTP](../plans/87-serve-durable-subscription-checkpoints-over-http.md)
+(`mori://shinzui/kiroku/plans/87-serve-durable-subscription-checkpoints-over-http`), which
+finalizes the route as `GET /subscriptions/checkpoints`, keeps the live `GET /subscriptions`
+route unchanged, and releases the surface in `kiroku-metrics` 0.2.0.0. The request moves to
+`in_progress` when that plan's first milestone starts and to `completed` once the release is
+published.
 
 ## Context
 

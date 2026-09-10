@@ -185,13 +185,16 @@ process that shares the database: the durable body is the same.
   non-breaking change for HTTP consumers.
   Date: 2026-09-10
 
-- Decision: IR-10's `status` moves from `proposed` to `in_progress` when Milestone 1 starts and
-  to `completed` (with `completedAt`) only after the release evidence exists; the release itself
-  requires explicit user confirmation through the repository `release` skill.
+- Decision: IR-10's `status` moves from `proposed` to `accepted` when this plan is created
+  (with the request's Status section linking the plan), to `in_progress` when Milestone 1
+  starts, and to `completed` (with `completedAt`) only after the release evidence exists; the
+  release itself requires explicit user confirmation through the repository `release` skill.
   Rationale: This is the lifecycle plans 69 and 72 followed, using Mori's closed vocabulary
   (`proposed`, `accepted`, `in_progress`, `completed`, `declined`, `superseded`); plan 72's use
-  of `implemented` was later corrected. Publishing is irreversible and the request leaves version
-  bumps "at kiroku's discretion", so a human confirms.
+  of `implemented` was later corrected. Earlier requests stayed `proposed` at planning time only
+  because they were filed together with their plans; IR-10 predates its plan, so acceptance is
+  a distinct, recordable step. Publishing is irreversible and the request leaves version bumps
+  "at kiroku's discretion", so a human confirms.
   Date: 2026-09-10
 
 - Decision: No new ADR is planned up front. The distillation pass at completion decides whether
@@ -366,9 +369,10 @@ changed body and description and added a log entry without altering `generated.a
 `docs/improvement-requests/serve-durable-subscription-checkpoints-over-http.md` is IR-10 in the
 `improvement-requests` OKF bundle governed by `mori/improvement-requests-profile.dhall`
 (okf-profiles v0.5.0 `coordination.improvementRequests`). Its frontmatter carries `timestamp`,
-`requestId: IR-10`, `status: proposed`, and `origin: mori://shinzui/keiro-ui`. Status changes
-must advance `timestamp`, add a dated entry to `docs/improvement-requests/log.md`, and pass the
-strict validation command in Concrete Steps.
+`requestId: IR-10`, `status: accepted` (set when this plan was created; its Status section
+links back here), and `origin: mori://shinzui/keiro-ui`. Status changes must advance
+`timestamp`, add a dated entry to `docs/improvement-requests/log.md`, and pass the strict
+validation command in Concrete Steps.
 
 `agents/skills/release/SKILL.md` is the release procedure (independent per-package PVP versions,
 tags named `<package>-v<version>`, publish order `kiroku-store`, `kiroku-store-migrations`,
@@ -421,13 +425,12 @@ prove its JSON shape with a pure test. At the end of this milestone the module c
 exported from the package, can be mounted standalone with `Warp.testWithApplication`, and the
 exact wire keys are locked by a test. Nothing in the router changes yet.
 
-First move IR-10 to `in_progress`: in
+First move IR-10 from `accepted` to `in_progress`: in
 `docs/improvement-requests/serve-durable-subscription-checkpoints-over-http.md` set
 `status: in_progress`, advance `timestamp` to the current UTC time, and under `## Status`
-replace "Proposed by" with a sentence saying implementation is under way in this plan
-(`mori://shinzui/kiroku/plans/87-serve-durable-subscription-checkpoints-over-http`). Add a
-dated `**Implementation**` entry to `docs/improvement-requests/log.md` and run the strict bundle
-validation from Concrete Steps.
+change the acceptance paragraph (which already links this plan) to say implementation is under
+way. Add a dated `**Implementation**` entry to `docs/improvement-requests/log.md` and run the
+strict bundle validation from Concrete Steps.
 
 Then add a reusable error-envelope helper to `kiroku-metrics/src/Kiroku/Metrics/JSON.hs` and
 export it:
@@ -1109,3 +1112,12 @@ dependency sources through `mori registry show <project> --full` (for example `h
 
 Dependency direction is unchanged: `kiroku-metrics` depends on `kiroku-cli` and `kiroku-store`;
 nothing depends on `kiroku-metrics`.
+
+
+## Revision Notes
+
+- 2026-09-10: Linked IR-10 to this plan in the same session the plan was created. The request's
+  frontmatter now reads `status: accepted` with its Status section citing this plan, the
+  improvement-request bundle log records the acceptance, and Milestone 1, Context and
+  Orientation, and the status-lifecycle decision were reworded so the plan starts from
+  `accepted` rather than `proposed`. No implementation scope changed.
