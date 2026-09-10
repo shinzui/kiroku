@@ -8,9 +8,9 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-08-19T00:00:00Z"
+timestamp: "2026-09-10T03:28:57Z"
 requestId: IR-9
-status: proposed
+status: accepted
 origin: mori://shinzui/keiro-ui
 ---
 
@@ -24,6 +24,16 @@ Proposed by the keiro runtime UI initiative
 Dead letters recorded by kiroku subscriptions are kiroku-owned state, so their read API belongs
 here per `mori://shinzui/keiro-ui/okf/adrs/concepts/ADR-1`. Implementation is kiroku's own
 downstream work under kiroku's plans.
+
+Accepted by kiroku on 2026-09-10. Implementation is planned by
+[ExecPlan 89, Expose a public dead-letter read API](../plans/89-expose-a-public-dead-letter-read-api.md)
+(`mori://shinzui/kiroku/plans/89-expose-a-public-dead-letter-read-api`), which adds the public
+`subscriptionDeadLetters` operation to the `Store` effect with keyset pagination in the store's
+canonical newest-first order, finalizes the route as `GET /subscriptions/<name>/dead-letters`
+with `member`, `from`, and `limit` query parameters, serves the reason as JSON, and leaves every
+existing endpoint and the dead-letter write and cleanup paths unchanged. The request moves to
+`in_progress` when that plan's first milestone starts and to `completed` once the release is
+published.
 
 ## Context
 
