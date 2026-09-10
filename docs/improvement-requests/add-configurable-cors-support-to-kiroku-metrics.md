@@ -8,9 +8,9 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-08-19T00:00:00Z"
+timestamp: "2026-09-10T03:32:09Z"
 requestId: IR-11
-status: proposed
+status: accepted
 origin: mori://shinzui/keiro-ui
 ---
 
@@ -24,6 +24,15 @@ Proposed by the keiro runtime UI initiative
 is the enabling request for every browser consumer of kiroku-metrics: without it, none of the
 other endpoints requested by the initiative are reachable from a browser page on a different
 origin. Implementation is kiroku's own downstream work under kiroku's plans.
+
+Accepted by kiroku on 2026-09-10. Implementation is planned by
+[ExecPlan 90, Add configurable CORS support to kiroku-metrics](../plans/90-add-configurable-cors-support-to-kiroku-metrics.md)
+(`mori://shinzui/kiroku/plans/90-add-configurable-cors-support-to-kiroku-metrics`), which adds a
+`cors` policy field to `MetricsServerConfig` (default off; an explicit allowed-origins list with
+the wildcard unrepresentable), applies it as a WAI middleware to HTTP responses, preflight
+requests, and WebSocket upgrades, and releases the hook in the next `kiroku-metrics` major
+version. The request moves to `in_progress` when that plan's first milestone starts and to
+`completed` once the release is published.
 
 ## Context
 
