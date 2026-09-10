@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-09-10
+* **Addition**: ADR-8 records the subscription API conventions MasterPlan 12 establishes toward 1.0: construction-time validation, declared startup policies, one exception parent for runtime refusals, and never skipping an event on a consumer's behalf.
+
 ## 2026-08-13
 * **Addition**: ADR-7 establishes durable replay-history leases, conservative destructive-operation coordination, affected-stream lock ordering, transaction/read-hook boundaries, and ordinary-hot-path exclusion.
 * **Addition**: ADR-6 establishes owner-published, frozen versioned SQL relations with owner-rights access, structural read-only behavior, semantic non-null values, and focused catalog tests.

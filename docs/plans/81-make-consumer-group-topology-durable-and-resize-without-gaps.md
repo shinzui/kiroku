@@ -24,6 +24,11 @@ provenance:
       at: 2026-09-10T00:37:26Z
       mode: "update"
       note: "Design review: migration-derived topology replaces runtime adoption; mismatch routed through SomeSubscriptionStartupFailure"
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T01:21:50Z
+      mode: "update"
+      note: "Design review, second pass: ConsumerGroupSize and mkConsumerGroup; resize moved to the Checkpoint module with Report naming"
 ---
 
 # Make consumer-group topology durable and resize without gaps
@@ -52,9 +57,9 @@ adoption path exists.
 
 ## Progress
 
-- [ ] M1: write `consumer_group_size` through initialization, ordinary checkpoint saves, and dead-letter checkpoint saves; read and validate group-wide stored topology at startup.
+- [ ] M1: introduce validated `ConsumerGroupSize` and `mkConsumerGroup`; write `consumer_group_size` through initialization, ordinary checkpoint saves, and dead-letter checkpoint saves; read and validate group-wide stored topology at startup.
 - [ ] M1: generate the derived-topology migration and add typed mismatch, upgrade-path, and underestimate-then-resize tests, including the currently lossy skewed size-2 to size-3 scenario.
-- [ ] M2: expose and test idempotent `resizeConsumerGroupTx`, rewinding all new members to the old members' minimum checkpoint in one transaction.
+- [ ] M2: expose and test idempotent `resizeConsumerGroupTx` in `Kiroku.Store.Subscription.Checkpoint`, rewinding all new members to the old members' minimum checkpoint in one transaction.
 - [ ] M3: rewrite `docs/user/consumer-groups.md` and amend ADR-2 so stop/drain/restart alone is no longer described as safe.
 - [ ] Run the focused and full Kiroku test suites; update living sections and perform ADR distillation.
 
@@ -88,6 +93,9 @@ adoption path exists.
   transaction-composable explicit checkpoint mutation. Keiro must be able to compose topology
   resize with its shard-table rewrite without private Kiroku SQL.
   Date: 2026-08-27
+  Amended on 2026-09-09: it lives in `Kiroku.Store.Subscription.Checkpoint` beside reset and
+  rebind, takes a validated `ConsumerGroupSize`, and returns `ConsumerGroupResizeReport`, matching
+  `SubscriptionCheckpointResetReport`.
 
 - Decision: Treat an all-size-1 legacy row set as adoptable once, including a genuine size-1 to
   larger-size transition.
@@ -122,6 +130,18 @@ adoption path exists.
   second adds the instance, so neither plan blocks the other.
   Date: 2026-09-09
 
+- Decision: Validate consumer-group configuration at construction with `ConsumerGroupSize` and
+  `mkConsumerGroup`, and take `ConsumerGroupSize` in `resizeConsumerGroupTx`;
+  `InvalidConsumerGroup` becomes the constructors' error value rather than an exception thrown by
+  `subscribe`.
+  Rationale: Plan 82 adopts the `mkHistoryRetentionInventoryLimit` precedent for every
+  configuration value, recorded in
+  [ADR-8](../adr/0008-subscription-configuration-validates-at-construction-and-runtime-refusals-share-one-parent.md).
+  A size validated once at construction needs no `newSize >= 1` check in the resize operation
+  and no runtime check in `subscribe`, and Keiro constructs the same type when it composes a
+  shard resize.
+  Date: 2026-09-09
+
 
 ## Outcomes & Retrospective
 
@@ -138,7 +158,10 @@ cannot currently distinguish a real size-1 group from any pre-existing larger gr
 
 `kiroku-store/src/Kiroku/Store/Subscription/Types.hs` defines `ConsumerGroup { member, size }` and
 `SubscriptionConfig`. `kiroku-store/src/Kiroku/Store/Subscription.hs` validates only local bounds
-(`size >= 1` and `0 <= member < size`) before starting a worker. The worker resolves the exact
+(`size >= 1` and `0 <= member < size`) before starting a worker; plan 82 establishes
+construction-time validation following `mkHistoryRetentionInventoryLimit` in
+`Kiroku.Store.HistoryRetention.Types`, and this plan applies it to the consumer-group pair. The
+worker resolves the exact
 checkpoint key through `initializeSubscriptionCheckpointSession` in
 `kiroku-store/src/Kiroku/Store/Subscription/Checkpoint/SQL.hs`, then saves progress through
 `saveCheckpointMemberStmt` in `kiroku-store/src/Kiroku/Store/SQL.hs`. The dead-letter statement in
@@ -199,6 +222,15 @@ touches one row per member and runs with subscription workers stopped, like ever
 migration. Plan 82 generates a separate additive migration for its target columns; do not merge
 the two.
 
+Introduce `ConsumerGroupSize` in `Subscription/Types.hs` as a newtype whose constructor is not
+exported, with `mkConsumerGroupSize :: Int32 -> Either InvalidConsumerGroup ConsumerGroupSize`
+requiring at least one, and
+`mkConsumerGroup :: Int32 -> ConsumerGroupSize -> Either InvalidConsumerGroup ConsumerGroup`
+enforcing `0 <= member < size`. Stop exporting the `ConsumerGroup` data constructor and export
+field accessors instead. Remove the runtime bounds check and the `InvalidConsumerGroup` throw from
+`subscribe`, and drop that type's `Exception` instance; it is now the constructors' error value.
+Update every in-repository caller, example, and test, including the adapter's group factory.
+
 Extend the checkpoint initialization statement in
 `kiroku-store/src/Kiroku/Store/Subscription/Checkpoint/SQL.hs` to accept the configured size and
 write `consumer_group_size` on insert. Existing-row resolution must return the stored topology as
@@ -235,16 +267,21 @@ is pinned at one checkout, and the migration yields one recorded topology per gr
 
 ### Milestone 2 — provide the supported resize transaction
 
-Create `Kiroku.Store.Subscription.ConsumerGroup` (or another narrowly named module under
-`Kiroku.Store.Subscription`) containing `resizeConsumerGroupTx`. Validate `newSize >= 1`. In one
-transaction, lock all checkpoint rows for the name, calculate their minimum `last_seen`, replace
-the row set with members `0 .. newSize - 1` at that minimum and the new stored size, and return a
-structured result with old sizes, old member count, new size, and resume position. A missing row
-set resumes from zero. Running the same resize again must produce the same rows and position.
+Add `resizeConsumerGroupTx` to `Kiroku.Store.Subscription.Checkpoint`, beside
+`resetSubscriptionCheckpointsTx` and plan 82's `rebindSubscriptionTargetTx`, so every explicit
+checkpoint-set operation lives in one module. It takes a `ConsumerGroupSize`, so no size check is
+needed. In one transaction, lock all checkpoint rows for the name, calculate their minimum
+`last_seen`, replace the row set with members `0 .. newSize - 1` at that minimum and the new
+stored size, preserving each row's target columns from plan 82, and return a
+`ConsumerGroupResizeReport` with old sizes, old member count, new size, and resume position. A
+missing row set resumes from zero. Running the same resize again must produce the same rows and
+position.
 
 Extend the skewed test: after the initial mismatch refusal, call `resizeConsumerGroupTx`, start
 three members, collect event ids, and assert every seeded id is observed. Duplicates are permitted;
-missing ids are not. Call resize twice and assert idempotence.
+missing ids are not. Call resize twice and assert idempotence. Extend the milestone 1 underestimate
+case: after the migration derives size 1 from a lone member 0 row and a size-2 start is refused,
+resize at size 2 and prove the start proceeds.
 
 Milestone acceptance is full set coverage after resize and exact stable rows after a repeated call.
 
@@ -306,10 +343,10 @@ just perf-telemetry
 
 ## Validation and Acceptance
 
-The work is complete only when a mis-sized startup fails before handler delivery, all checkpoint
-write paths store topology, the migration derives topology for existing groups with no runtime
-adoption, and the supported resize test proves no
-seeded event is skipped after a skewed 2-to-3 transition. Ordinary saves must remain monotonic;
+The work is complete only when an invalid member/size pair cannot be constructed, a mis-sized
+startup fails before handler delivery, all checkpoint write paths store topology, the migration
+derives topology for existing groups with no runtime adoption, and the supported resize test proves
+no seeded event is skipped after a skewed 2-to-3 transition. Ordinary saves must remain monotonic;
 only the explicit resize transaction may move positions backward. The user guide and ADR-2 must
 describe the same procedure and strict ADR validation must pass. `just perf-check` must pass, the
 ordinary checkpoint save must remain a single upsert issued once per batch tail, and topology
@@ -330,22 +367,25 @@ for the target columns; the two are not merged.
 
 ## Interfaces and Dependencies
 
-The end state includes a public transaction-composable operation with this semantic shape:
+The end state includes a public transaction-composable operation in
+`Kiroku.Store.Subscription.Checkpoint` with this semantic shape:
 
 ```haskell
 resizeConsumerGroupTx ::
     SubscriptionName ->
-    Int32 ->
-    Tx.Transaction ConsumerGroupResizeResult
+    ConsumerGroupSize ->
+    Tx.Transaction ConsumerGroupResizeReport
 ```
 
-`ConsumerGroupResizeResult` reports the previous topology, new size, and `GlobalPosition` from
-which every new member resumes. The subscription startup surface exports a typed
-`ConsumerGroupSizeMismatch`, routed through the `SomeSubscriptionStartupFailure` parent that plan
-82 defines. Checkpoint initialization, ordinary save, and dead-letter save all
-persist `consumer_group_size`. No new external package dependency is required; use the existing
-Hasql session/transaction stack located through Mori under `mori://hasql/hasql`.
-
+`ConsumerGroupResizeReport` reports the previous topology, new size, and `GlobalPosition` from
+which every new member resumes, named to match `SubscriptionCheckpointResetReport`.
+`Kiroku.Store.Subscription.Types` exports `ConsumerGroupSize`, `mkConsumerGroupSize`, and
+`mkConsumerGroup`, with `InvalidConsumerGroup` as their error value; the subscription startup
+surface exports a typed `ConsumerGroupSizeMismatch` routed through the
+`SomeSubscriptionStartupFailure` parent that plan 82 defines. Checkpoint initialization, ordinary
+save, and dead-letter save all persist `consumer_group_size`. No new external package dependency
+is required; use the existing Hasql session/transaction stack located through Mori under
+`mori://hasql/hasql`.
 
 Revision note (2026-09-09): Performance review under ADR-5. Fixed the save-path boundary (columns
 only, no predicates or extra statements), placed topology validation inside the existing
@@ -357,3 +397,8 @@ migration that derives each group's stored size from its existing member rows, s
 underestimate is refused and corrected by the explicit resize rather than adopted silently; routed
 `ConsumerGroupSizeMismatch` through plan 82's startup-failure parent. The adoption decision is
 marked superseded rather than removed.
+
+Revision note (2026-09-09): Design review, second pass. Consumer-group configuration is validated
+at construction through `ConsumerGroupSize` and `mkConsumerGroup`, the resize operation moves
+into `Kiroku.Store.Subscription.Checkpoint` beside reset and rebind, takes the validated size, and
+returns a `...Report` type matching the existing reset report.

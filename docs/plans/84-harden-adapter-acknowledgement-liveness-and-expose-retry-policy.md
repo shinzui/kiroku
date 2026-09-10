@@ -24,6 +24,11 @@ provenance:
       at: 2026-09-10T00:37:26Z
       mode: "update"
       note: "Design review: stall watchdog moved into the store worker as handlerStallWarnAfter and KirokuEventSubscriptionHandlerStalled; adapter forwards the field"
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T01:21:50Z
+      mode: "update"
+      note: "Design review, second pass: RetryPolicy unchanged; adapter configs adopt BatchSize, StreamBufferSize, and mkConsumerGroup"
 ---
 
 # Harden adapter acknowledgement liveness and expose retry policy
@@ -58,7 +63,7 @@ counts.
 - [ ] M1: reproduce current Shibuya Core 0.9 exception/finalization behavior and the raw-source pending-ack case with bounded integration tests.
 - [ ] M2: export `kirokuProcessor` as the recommended guarded single-processor path and correct module/user documentation.
 - [ ] M2: add `handlerStallWarnAfter` to `SubscriptionConfigM` with a single-cell, parked watchdog in the store worker emitting `KirokuEventSubscriptionHandlerStalled`; forward the field from both adapter configs.
-- [ ] M3: expose and thread `retryPolicy` through single and consumer-group configs; prove default and custom delivery counts.
+- [ ] M3: expose and thread `retryPolicy` through single and consumer-group configs, adopt plan 82's validated size types on both configs, and prove default and custom delivery counts.
 - [ ] Run adapter and store suites plus the overhead benchmark; update living sections and perform ADR distillation.
 
 
@@ -212,7 +217,9 @@ approximately one second and processing continues.
 
 ### Milestone 3 — expose retry policy
 
-Add `retryPolicy :: RetryPolicy` to both configs and both defaults. Thread it through
+Add `retryPolicy :: RetryPolicy` to both configs and both defaults, change `batchSize` on both
+configs to plan 82's `BatchSize` and `bufferSize` on `KirokuAdapterConfig` to `StreamBufferSize`
+with the current default values, and forward all three unchanged. Thread the policy through
 `kirokuAdapter` into `Sub.retryPolicy` and through the group factory to each member. Document that
 `retryMaxAttempts` is total deliveries, while each `AckRetry` decides delay.
 
@@ -324,11 +331,13 @@ KirokuEventSubscriptionHandlerStalled
 
 Use `GHC.Clock.getMonotonicTime` from `base` for the start time; do not introduce wall-clock
 ordering into tests. The Shibuya API source of truth is
-`mori://shinzui/shibuya/packages/shibuya-core`. Plan 83 changes `RetryPolicy` to a record with
-`decodeRetryDelay` and adds its own observability constructor; forward the whole `RetryPolicy`
-value so the new field passes through, and preserve both constructors in exhaustive matches. Plans
-82 and 83 also edit `Worker.hs`; keep the stall cell writes confined to the two lines around the
-handler call.
+`mori://shinzui/shibuya/packages/shibuya-core`. Plan 83 adds its own observability constructor and a
+`StopUndecodable` stop reason; `RetryPolicy` is unchanged and is forwarded as is, and both
+observability constructors must survive exhaustive matches. Plan 82 replaces `Int32` batch sizes
+and `Natural` buffer sizes with validated `BatchSize` and `StreamBufferSize`, and plan 81 replaces
+the `ConsumerGroup` constructor with `mkConsumerGroup`; both adapter configs adopt those types and
+the group factory builds members through the constructor. Plans 82 and 83 also edit `Worker.hs`;
+keep the stall cell writes confined to the two lines around the handler call.
 
 Revision note (2026-09-09): Performance review under ADR-5. Fixed the pending-ack record to one
 cell per adapter cleared in the finalizer's existing STM transaction with a parked, non-polling
@@ -341,3 +350,7 @@ subscriptions, the ack stream, and the adapter share one event and the store's v
 no adapter-specific constructor; the adapter now forwards the field. The per-adapter cell decision
 from the morning performance review is marked superseded. Title and file name are retained for
 reference stability.
+
+Revision note (2026-09-09): Design review, second pass. `RetryPolicy` is unchanged after plan 83's
+revision; both adapter configs adopt plan 82's validated `BatchSize` and `StreamBufferSize` and
+plan 81's `mkConsumerGroup`.

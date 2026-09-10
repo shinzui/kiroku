@@ -23,6 +23,11 @@ provenance:
       at: 2026-09-10T00:37:26Z
       mode: "update"
       note: "Design review: recorded typed target columns, per-event decode contract, worker stall event, derived/declared adoption, startup-failure parent; cascaded to 81-85"
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T01:21:50Z
+      mode: "update"
+      note: "Design review, second pass: undecodable-handler callback replaces automatic dead-lettering; construction-time validation, stream_name drop, checkpoint-module consolidation, landing order, ADR-8"
 ---
 
 # Harden the Kiroku event store and subscription machinery surfaced by the 2026-07 Kiroku review
@@ -55,7 +60,9 @@ store-wide decode hook cannot decode is dead-lettered per subscriber instead of 
 `$all` subscriber; append unique-violation mapping distinguishes duplicate caller event ids from
 store corruption; the store reports a handler that has held one event too long for every
 subscriber kind; and the Shibuya adapter exposes retry policy. The final child plan releases the
-affected Kiroku packages and proves downstream Keiro adoption.
+affected Kiroku packages and proves downstream Keiro adoption. This cohort is a deliberately
+breaking release: while the store stabilizes toward 1.0, the best API wins over compatibility with
+the pre-1.0 surface, and every public change is recorded so the 1.0 review can audit it.
 
 Out of scope are dynamic consumer-group rebalancing, the proposed fresh-stream lock-order work in
 `mori://shinzui/kiroku/okf/improvement-requests/concepts/IR-7`, `HandlerInTransaction`, prefix
@@ -87,17 +94,20 @@ Relevant durable context is [ADR-2](../adr/0002-static-hash-partitioned-consumer
 defines static hash partitioning but contains a resize consequence EP-1 must amend;
 [ADR-4](../adr/0004-explicit-subscription-checkpoint-lifecycle.md), which requires exact checkpoint
 identity and separates ordinary monotonic saves from explicit reset; and
-[ADR-7](../adr/0007-replay-history-retention-uses-leases-and-ordered-stream-guards.md), which owns the
-hard-delete lock order that superseded the source plan's proposed single-row locking change.
+[ADR-7](../adr/0007-replay-history-retention-uses-leases-and-ordered-stream-guards.md), which owns
+the hard-delete lock order that superseded the source plan's proposed single-row locking change.
 [ADR-5](../adr/0005-three-tier-performance-regression-gates.md) governs performance evidence: the
 structural and controlled-workload tiers behind `just perf-check` are authoritative, and the
 historical CSV behind `just perf-telemetry` is corroborating telemetry. Every implementation child
 touches a measured path (the per-batch checkpoint upsert, the shared publisher loop, or the adapter
 acknowledgement bridge), so the Performance gates integration point below assigns each child the
-gates it must run and the hot-path boundary it must keep. The
-completed checkpoint lifecycle request
-`mori://shinzui/kiroku/okf/improvement-requests/concepts/IR-3` is adjacent but does not bind a
-checkpoint to a subscription target or define group topology. No existing ADR covers the decode
+gates it must run and the hot-path boundary it must keep.
+[ADR-8](../adr/0008-subscription-configuration-validates-at-construction-and-runtime-refusals-share-one-parent.md),
+accepted by this revision, records the subscription API conventions the cohort establishes toward
+1.0: construction-time validation, declared startup policies, one exception parent for runtime
+refusals, and never skipping an event on a consumer's behalf. The completed checkpoint lifecycle
+request `mori://shinzui/kiroku/okf/improvement-requests/concepts/IR-3` is adjacent but does not bind
+a checkpoint to a subscription target or define group topology. No existing ADR covers the decode
 hook's failure contract or handler-stall observability; EP-3 creates one for the former, and EP-4
 decides during implementation whether the latter warrants a record.
 
@@ -116,14 +126,16 @@ decides during implementation whether the latter warrants a record.
 
 ## Dependency Graph
 
-EP-1 through EP-5 have no hard dependencies and can proceed in parallel. EP-1 and EP-2 both
-change checkpoint reads and writes, so their dependency is integration-only: whichever lands
-second must preserve both topology and target-binding fields. EP-2, EP-3, and EP-4 all
-edit `Worker.hs`: EP-2 owns reconnect and validation, EP-3 owns the `DecodedEvent` walk in
-`processEvents`, and EP-4 owns the stall cell around the handler call. Each change is a few lines
-in a distinct place, so the dependency is integration-only, but EP-4 should land after EP-3 to
-avoid a three-way merge of the delivery primitive. EP-4 also forwards the whole `RetryPolicy`
-value, which EP-3 turns into a record.
+EP-1 through EP-5 have no hard dependencies. EP-1 and EP-2 both change checkpoint reads and
+writes, so their dependency is integration-only: whichever lands second must preserve both
+topology and target-binding fields. EP-2, EP-3, and EP-4 all edit `Worker.hs`: EP-2 owns
+reconnect and validation, EP-3 owns the `DecodedEvent` walk and the undecodable-event
+disposition in `processEvents`, and EP-4 owns the stall cell around the handler call. Each change
+is a few lines in a distinct place, so none is a hard dependency, but the recommended landing
+order is EP-3, then EP-2, then EP-4, so that the delivery primitive is merged serially rather than
+three ways; EP-1 and EP-5 can land at any point. EP-4 also consumes plan 82's `BatchSize` and
+`StreamBufferSize` types and plan 81's `mkConsumerGroup` in its adapter configs, so it should
+land after both as well.
 
 EP-6 hard-depends on all five implementation plans because package versions, PVP impact,
 migration manifests, release order, and downstream Keiro bounds can be selected truthfully only
@@ -137,9 +149,9 @@ future version number.
 `kiroku.subscriptions` and the checkpoint SQL are shared by EP-1 and EP-2. EP-1 owns
 `consumer_group_size`, which exists in migration `0001` but was never written; EP-1 derives its
 values for existing groups in a migration. EP-2 owns target binding through two new typed
-columns, `target_kind` and `target_category`, added by a separate additive migration; the
-historical `stream_name` column stays untouched and unread. The current migration manifest has
-advanced beyond the source plan's claimed `0009`, so neither child may reuse that number. Each
+columns, `target_kind` and `target_category`, added by a separate additive migration that also
+drops the historical `stream_name` column, since nothing reads it. The current migration manifest
+has advanced beyond the source plan's claimed `0009`, so neither child may reuse that number. Each
 plan creates its migration with the standard `kiroku-store-migrate new --manifest ...` scaffolder,
 lets the manifest allocate the filename, and does not merge the two.
 
@@ -155,15 +167,22 @@ the handler call. Keep the changes mechanically composable.
 vocabulary. Each must update every exhaustive consumer in Kiroku packages and tests.
 
 The public `SubscriptionConfig`/`RetryPolicy` contract flows from `kiroku-store` into
-`shibuya-kiroku-adapter`. EP-3 turns `RetryPolicy` into a record with `decodeRetryDelay`; EP-4
-threads the whole value plus the new `handlerStallWarnAfter` field without redefining either.
-EP-6 owns final cross-package version/bound changes and the downstream Keiro adoption proof.
+`shibuya-kiroku-adapter`. `RetryPolicy` is unchanged; EP-4 threads it, the new
+`handlerStallWarnAfter` field, plan 82's validated `BatchSize` and `StreamBufferSize` types, and
+plan 81's `mkConsumerGroup` through both adapter configs without redefining any of them. EP-6 owns
+final cross-package version/bound changes and the downstream Keiro adoption proof.
 
 `Kiroku.Store.Settings.decodeHook` and `decodeEvents` are owned by EP-3 and have three callers:
 the read interpreter in `Kiroku.Store.Effect`, worker catch-up, and the publisher. EP-3 defines
-all three semantics: reads fail with `EventDecodeFailed`, and subscriptions retry and dead-letter
-per event. The startup-failure parent `SomeSubscriptionStartupFailure` is owned by EP-2; EP-1's
-`ConsumerGroupSizeMismatch` routes through it, and whichever plan lands second adds the instance.
+all three semantics: reads fail with `EventDecodeFailed`, and a subscription hands an undecodable
+event to its optional `undecodableHandler` or, by default, retries briefly and stops with
+`StopUndecodable`; the store never dead-letters on a consumer's behalf. Construction-time
+validation is owned by EP-2 (`BatchSize`, `StreamBufferSize`) and EP-1 (`ConsumerGroupSize`,
+`mkConsumerGroup`), following `mkHistoryRetentionInventoryLimit`; the runtime-refusal parent
+`SomeSubscriptionStartupFailure` is owned by EP-2, EP-1's `ConsumerGroupSizeMismatch` routes
+through it, and whichever plan lands second adds the instance. All three explicit checkpoint-set
+operations, reset, resize (EP-1), and rebind (EP-2), live in `Kiroku.Store.Subscription.Checkpoint`
+and return `...Report` types.
 
 Performance gates are shared by every implementation child and by EP-6, under
 [ADR-5](../adr/0005-three-tier-performance-regression-gates.md). The review of 2026-09-09 verified
@@ -190,12 +209,13 @@ surfaced event, so making its result typed changes no call count. The queue elem
 `Vector DecodedEvent`, one constructor per event beside its JSON payload, because each element now
 carries its own decode outcome; there is no control signal in the queue, no failure counter, and
 no terminal state, and `SubscriberStatus` is unchanged. A decode retry re-applies the hook in the
-worker for one event and sleeps `decodeRetryDelay`; it performs no database work until the
-existing single dead-letter statement. EP-4 owns the handler-stall cell in `Worker.hs`.
-`processEvents` delivers one event at a time, so the cell is one `TVar` per worker written before
-and cleared after the handler call, one monotonic clock read and two STM writes per event, and the
-watchdog parks on STM until an item is pending and then waits the full threshold; it never polls.
-When the threshold is `Nothing` no thread starts and the cell is never written.
+worker for one event after the callback's or the default one-second delay; it performs no
+database work unless a consumer callback chooses to dead-letter, which is the existing single
+statement. EP-4 owns the handler-stall cell in `Worker.hs`. `processEvents` delivers one event at
+a time, so the cell is one `TVar` per worker written before and cleared after the handler call,
+one monotonic clock read and two STM writes per event, and the watchdog parks on STM until an item
+is pending and then waits the full threshold; it never polls. When the threshold is `Nothing` no
+thread starts and the cell is never written.
 
 Gate ownership: EP-1 and EP-2 run `just perf-check` and `just perf-telemetry` and must report the
 `All.reliability-audit.subscription category catch-up 100 events`, `All.category.*`, and
@@ -248,11 +268,12 @@ coverage after the fact.
 - [x] (2026-08-27) Baseline: `40001`/`40P01` surface as retryable `TransientTransactionFailure` in Kiroku 0.8 and Keiro classifies the constructor as transient.
 - [x] (2026-09-09) Performance review: verified against source that no child adds a hot-path round trip; ADR-5 gate ownership and hot-path boundaries recorded in Integration Points and cascaded to plans 81 through 85.
 - [x] (2026-09-09) Design review: five API concerns resolved as recorded decisions and cascaded to plans 81 through 85.
-- [ ] EP-1: derive stored topology by migration, persist and validate it, refuse unsafe restarts, and expose an idempotent gap-free resize operation.
+- [x] (2026-09-09) Design review, second pass: undecodable events dispose through a consumer callback rather than automatic dead-lettering; construction-time validation, the `stream_name` drop, checkpoint-module consolidation, landing order, and ADR-8 recorded.
+- [ ] EP-1: derive stored topology by migration, persist and validate it, refuse unsafe restarts, validate group configuration at construction, and expose an idempotent gap-free resize operation in the checkpoint module.
 - [ ] EP-1: amend ADR-2 and the consumer-group guide; expose the transaction surface needed for downstream adoption.
 - [ ] EP-2: reconnect database-driven live subscriptions from `posRef` and reject `batchSize < 1` before a worker starts.
-- [ ] EP-2: bind every checkpoint to its target in typed columns under a declared binding policy, introduce the startup-failure parent exception, and document deliberate retarget operations.
-- [ ] EP-3: prove the current apparent-live stall, then make decode failure a typed per-event outcome that retries and dead-letters per subscriber and fails reads with a typed error.
+- [ ] EP-2: bind every checkpoint to its target in typed columns under a declared binding policy, drop `stream_name`, validate batch and buffer sizes at construction, introduce the startup-refusal parent exception, and document deliberate retarget operations.
+- [ ] EP-3: prove the current apparent-live stall, then make decode failure a typed per-event outcome that each subscriber disposes of through an optional callback, stopping by default, and that fails reads with a typed error.
 - [ ] EP-4: expose retry policy on single and consumer-group adapter configs; provide a guarded processor path and a worker-level handler-stall event the adapter configures.
 - [ ] EP-5: distinguish `stream_events_pkey` duplicates and `ux_stream_events_stream_version` corruption with deterministic mapping tests.
 - [ ] EP-6: run the integrated test matrix and the ADR-5 performance gates, release the affected package cohort with current authoritative versions, and prove downstream Keiro shard-count adoption without private Kiroku SQL.
@@ -295,6 +316,10 @@ coverage after the fact.
 - Design review (2026-09-09): `decodeEvents` has three callers (the read interpreter in
   `Kiroku.Store.Effect`, worker catch-up, and the publisher), so the decode contract could not be
   changed at the publisher alone; EP-3 now defines read-path semantics as well.
+- Design review (2026-09-09): no package or user guide reads `kiroku.subscriptions.stream_name`,
+  and the published relation does not expose it, so EP-2 drops the column instead of deferring a
+  cleanup with no owner. The adapter also carries its own `batchSize` and `bufferSize` fields, so
+  EP-4 must adopt the validated types rather than merely forward them.
 
 
 ## Decision Log
@@ -366,6 +391,8 @@ coverage after the fact.
   the worker's existing retry and dead-letter machinery gives bounded, per-subscriber, replayable
   outcomes with no magic number and no store-wide failure mode.
   Date: 2026-09-09
+  Amended later on 2026-09-09: automatic dead-lettering is withdrawn. The store never skips an
+  event on a consumer's behalf; see the undecodable-handler decision below.
 
 - Decision: Implement handler-stall observability in the store worker as `handlerStallWarnAfter`
   plus `KirokuEventSubscriptionHandlerStalled`; the adapter forwards the setting and adds no
@@ -387,6 +414,57 @@ coverage after the fact.
   subscription startup refusal, owned by EP-2 and adopted by EP-1's new failure.
   Rationale: The cohort grows the startup surface from four failures to seven. The GHC hierarchy
   pattern lets callers catch once without breaking any existing concrete handler.
+  Date: 2026-09-09
+  Amended later on 2026-09-09: construction-time validation removes the three configuration
+  errors, so the parent covers four runtime refusals.
+
+- Decision: An undecodable event is handed to an optional per-subscription `undecodableHandler`
+  that returns an ordinary `SubscriptionResult`; without one, the worker retries briefly and stops
+  the subscription with `StopUndecodable`. The store never dead-letters on a consumer's behalf.
+  Rationale: Every dead-letter in Kiroku is the consumer's decision. An automatic one advances
+  the checkpoint past an event the consumer never saw and, under a systemic hook failure, turns
+  one configuration error into a flood of skipped events. The disposition vocabulary already
+  expresses every choice a consumer could want, and the default is the safe one.
+  Date: 2026-09-09
+
+- Decision: Validate configuration at construction with smart constructors returning typed
+  errors (`BatchSize`, `StreamBufferSize`, `ConsumerGroupSize`, `mkConsumerGroup`), following the
+  retention-limit precedent; configuration errors are values, and only refusals that depend on
+  stored state remain exceptions.
+  Rationale: A value that cannot be invalid needs no runtime check, and separating the two kinds
+  of failure gives the 1.0 surface one clear rule. Recorded in
+  [ADR-8](../adr/0008-subscription-configuration-validates-at-construction-and-runtime-refusals-share-one-parent.md).
+  Date: 2026-09-09
+
+- Decision: Drop `kiroku.subscriptions.stream_name` in EP-2's migration.
+  Rationale: Nothing reads it, the published relation does not expose it, and `DROP COLUMN` is
+  metadata-only; a cleanup deferred to "a later migration" with no owner would not happen.
+  Date: 2026-09-09
+
+- Decision: All explicit checkpoint-set operations (reset, resize, rebind) live in
+  `Kiroku.Store.Subscription.Checkpoint` and return `...Report` types.
+  Rationale: ADR-4 defines them as one family; one module and one naming scheme make that visible
+  to a 1.0 reader and to Keiro, which composes them.
+  Date: 2026-09-09
+
+- Decision: Recommended landing order through `Worker.hs` is EP-3, then EP-2, then EP-4; EP-1 and
+  EP-5 are free.
+  Rationale: Three edits to the delivery primitive are small individually but a three-way merge of
+  it is not; serial landing keeps each diff reviewable. Hard dependencies are unchanged.
+  Date: 2026-09-09
+
+- Decision: Record the cohort's API conventions now as
+  [ADR-8](../adr/0008-subscription-configuration-validates-at-construction-and-runtime-refusals-share-one-parent.md)
+  rather than leaving them to a child plan.
+  Rationale: The conventions are cross-plan and will govern the 1.0 review; the decode hook's
+  own contract still becomes EP-3's ADR at implementation.
+  Date: 2026-09-09
+
+- Decision: Regrouping `SubscriptionConfig` into policy sub-records is a deliberate exclusion,
+  deferred to the 1.0 API review.
+  Rationale: The record now carries seven policy-like fields and would read better grouped, but
+  regrouping touches every caller for no behavioral gain and belongs to a review of the whole
+  configuration surface, not to a hardening cohort.
   Date: 2026-09-09
 
 
@@ -414,3 +492,11 @@ into plans 81 through 85: EP-3 is substantially redesigned, EP-4 moves its watch
 store, EP-1 and EP-2 each gain a migration, and EP-6's forecast of public-surface changes is
 updated. Child titles and file names are retained for reference stability. ADR creation stays
 with the implementing children (EP-3 creates the decode-contract ADR; EP-2 amends ADR-4).
+
+Revision note (2026-09-09): Design review, second pass, approved by the user. Withdrew automatic
+dead-lettering in favor of a per-subscription `undecodableHandler` with a retry-then-stop
+default; adopted construction-time validation for batch, buffer, and consumer-group values;
+dropped `stream_name` in EP-2's migration; consolidated reset, resize, and rebind in the
+checkpoint module with `...Report` naming; recorded a landing order through `Worker.hs`; widened
+EP-6's Keiro scope; accepted ADR-8 for the resulting API conventions; and recorded the
+`SubscriptionConfig` regrouping as a deliberate exclusion. Cascaded to plans 81 through 85.

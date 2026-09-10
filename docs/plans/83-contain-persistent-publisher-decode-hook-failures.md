@@ -24,6 +24,11 @@ provenance:
       at: 2026-09-10T00:37:26Z
       mode: "update"
       note: "Design review: typed per-event decode contract with retry and DeadLetterDecodeFailure replaces attempt budget and terminal publisher state"
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T01:21:50Z
+      mode: "update"
+      note: "Design review, second pass: undecodableHandler callback with retry-then-StopUndecodable default replaces automatic dead-lettering; RetryPolicy unchanged"
 ---
 
 # Contain persistent publisher decode-hook failures
@@ -35,27 +40,26 @@ If durable project context changes, update or create ADRs in docs/adr/ in the sa
 
 ## Purpose / Big Picture
 
-The shared event publisher and the worker catch-up path apply the store-wide `decodeHook` before
-events reach any subscriber. Today the hook's only failure channel is an exception, so one event
-the hook cannot decode fails its whole batch, and a permanently failing hook retries the same
-publisher position forever while every `$all` subscriber continues to appear live and makes no
-progress.
+The shared event publisher, the worker catch-up path, and every read apply the store-wide
+`decodeHook` before an event reaches a consumer. Today the hook's only failure channel is an
+exception, so one event the hook cannot decode fails its whole batch, and a permanently failing
+hook retries the same publisher position forever while every `$all` subscriber continues to
+appear live and makes no progress.
 
-After this plan, the hook returns a typed per-event result. An event the hook cannot decode is
-carried to each subscriber as an undecodable event, retried under that subscriber's own
-`RetryPolicy` with a configurable delay, and dead-lettered with a `DeadLetterDecodeFailure` reason
-when the policy is exhausted. The publisher never stalls and never enters a terminal state, one
-transient failure still recovers, and a read that meets an undecodable event returns a typed
-`StoreError` instead of throwing. Focused tests prove one-shot recovery, bounded per-event
-dead-lettering, unaffected delivery of the other events in the same batch, and the typed read
-failure.
+After this plan, the hook returns a typed per-event result. The publisher never stalls: it
+broadcasts an undecodable event as such and moves on. Each subscriber decides what an undecodable
+event means through an optional callback that uses the ordinary disposition vocabulary; without
+one, the worker retries briefly and then stops that subscription with a typed reason, so the store
+never skips an event on a consumer's behalf. A read that meets an undecodable event returns a
+typed `StoreError`. Focused tests prove one-shot recovery, the default stop, a consumer-chosen
+dead-letter that continues with the rest of the batch, and the typed read failure.
 
 
 ## Progress
 
 - [ ] M1: add a deterministic persistent-`decodeHook` regression that proves the current repeated same-position loop and apparent-live subscriber state.
-- [ ] M2: introduce `DecodeFailure`, change `decodeHook` to return `Either DecodeFailure RecordedEvent`, and make `decodeEvents` produce `DecodedEvent` values.
-- [ ] M2: decode per event in the publisher and the worker catch-up path; route `Undecodable` through the worker's `RetryPolicy` into `DeadLetterDecodeFailure`; map read-path failures to `EventDecodeFailed`.
+- [ ] M2: introduce `DecodeFailure`, change `decodeHook` to return `Either DecodeFailure RecordedEvent`, make `decodeEvents` produce `DecodedEvent` values, and decode per event in the publisher and the worker catch-up path.
+- [ ] M2: add `undecodableHandler` to `SubscriptionConfigM`; deliver `Undecodable` to it, or apply the default retry-then-`StopUndecodable`; map read-path failures to `EventDecodeFailed`.
 - [ ] M3: document the hook contract, create its ADR, and run focused plus full Kiroku tests and the performance gates.
 
 
@@ -77,6 +81,10 @@ failure.
   applies it to every read result, `Worker.hs` applies it to every catch-up batch, and the
   publisher applies it once per live batch. Any change to the hook's result type must therefore
   define read-path semantics as well as subscription semantics.
+- Design review (2026-09-09), second pass: the first per-event draft had the worker dead-letter
+  an undecodable event automatically after retries. It was withdrawn the same day because every
+  dead-letter in Kiroku is the consumer's decision, and an automatic one would advance the
+  checkpoint past an event the consumer never saw.
 
 
 ## Decision Log
@@ -136,6 +144,21 @@ failure.
   state. The dead-letter row preserves the event for replay after the hook is fixed. The retry
   path re-applies the hook in the worker, which already holds `StoreSettings` for catch-up.
   Date: 2026-09-09
+  Superseded later on 2026-09-09: the store must not skip an event on the consumer's behalf; see
+  the callback decision below. `decodeRetryDelay` is withdrawn and `RetryPolicy` is unchanged.
+
+- Decision: Deliver an undecodable event to an optional per-subscription `undecodableHandler`
+  that returns an ordinary `SubscriptionResult`; when none is configured, retry with a one-second
+  delay up to `retryMaxAttempts` and then stop the subscription with `StopUndecodable`.
+  Rationale: Every dead-letter in Kiroku is the consumer's choice, made through the handler's
+  disposition vocabulary. Skipping an undecodable event automatically would advance the
+  checkpoint past an event the consumer never saw, which corrupts an ordering-sensitive read
+  model silently, and under a systemic hook failure it would turn one configuration error into a
+  flood of skipped events. Reusing the disposition vocabulary lets a consumer that can skip poison
+  say so, keeps ordinary handlers free of decode concerns, and makes the default the safe one:
+  transient failures recover, persistent ones stop one subscription loudly with the event id in
+  the reason.
+  Date: 2026-09-09
 
 - Decision: A read that meets an undecodable event fails with a typed
   `EventDecodeFailed DecodeFailure` `StoreError` rather than returning a partial result.
@@ -180,7 +203,10 @@ It walks a batch one event at a time, applies the filters, calls the handler, an
 retry and an explicit `DeadLetter` both call `writeDeadLetter`, which records the event in
 `kiroku.dead_letters` and advances the checkpoint in one statement. `DeadLetterReason` and its
 `deadLetterSummary` and `deadLetterReasonJson` encoders live in `Subscription/Fsm.hs`.
-`Kiroku.Store.Error.StoreError` is the typed read and append error vocabulary.
+`Kiroku.Store.Error.StoreError` is the typed read and append error vocabulary. `StopReason` in
+`Subscription/Fsm.hs` records why a worker stopped (`StopHandlerRequested`, `StopOverflowed`,
+`StopCancelled`, `StopWorkerCrashed`) and is surfaced through `SubscriptionState` and the handle's
+wait.
 
 `kiroku-store/test/Test/PublisherCallbackResilience.hs` covers a one-shot hook failure and a
 throwing observability handler. No existing ADR records the decode hook's failure contract; this
@@ -221,26 +247,36 @@ the publisher position over undecodable events exactly as over decoded ones. Emi
 exception boundary and its wake cadence are unchanged; there is no failure counter and no terminal
 state, and `SubscriberStatus` is unchanged.
 
-In `Worker.hs`, make `fetchBatch` return `Vector DecodedEvent` and make `processEvents` walk that
-type. A `Decoded` event follows the existing path. An `Undecodable` event is treated as a delivery
-attempt that produced `Retry`: while the attempt is below `retryMaxAttempts`, set the observable
-`Retrying` state, wait `decodeRetryDelay`, re-apply the hook to the raw event, and continue with
-the decoded result if it now succeeds; once the policy is exhausted, call `writeDeadLetter` with
-`DeadLetterDecodeFailure` and advance past it. Add `decodeRetryDelay :: RetryDelay` to
-`RetryPolicy`, convert it from a newtype to a record, and set one second in `defaultRetryPolicy`.
-Add `DeadLetterDecodeFailure DecodeFailure` to `DeadLetterReason` with summary and JSON encodings,
-and pin the summary token in tests.
+Add `undecodableHandler :: Maybe (RecordedEvent -> DecodeFailure -> m SubscriptionResult)` to
+`SubscriptionConfigM`, defaulting to `Nothing`. In `Worker.hs`, make `fetchBatch` return
+`Vector DecodedEvent` and make `processEvents` walk that type. A `Decoded` event follows the
+existing path. For an `Undecodable` event the worker consults the callback. When it is set, call
+it with the raw event and the failure and honor its `SubscriptionResult` exactly as the ordinary
+handler's: `Continue` skips the event, `Retry` re-applies the hook after the requested delay and
+delivers the decoded event to the ordinary handler if the hook now succeeds, `DeadLetter` records
+the row and advances, `Stop` stops, and retry exhaustion dead-letters under the existing
+`retryMaxAttempts` contract. When it is not set, the worker retries with a fixed one-second delay
+while the attempt is below `retryMaxAttempts`, setting the observable `Retrying` state, and then
+stops the subscription with a new `StopUndecodable DecodeFailure` stop reason surfaced through
+`SubscriptionState` and the handle's wait, leaving the checkpoint before the event. The worker
+never dead-letters an undecodable event on its own. Add `DeadLetterDecodeFailure DecodeFailure` to
+`DeadLetterReason`, with summary and JSON encodings pinned in tests, as the reason a callback
+returns when it chooses to dead-letter. `RetryPolicy` is unchanged.
 
 In `Effect.hs`, map any `Undecodable` in a read result to a new `EventDecodeFailed DecodeFailure`
 constructor of `StoreError`, so reads fail typed rather than partially. Update every exhaustive
-match on `DeadLetterReason`, `KirokuEvent`, and `StoreError` in Kiroku packages and tests.
+match on `DeadLetterReason`, `StopReason`, `KirokuEvent`, and `StoreError` in Kiroku packages and
+tests.
 
-Rewrite the milestone-1 test to assert that the undecodable event reaches the handler zero times,
-is retried `retryMaxAttempts - 1` times with the configured delay, and is dead-lettered once with
-`DeadLetterDecodeFailure`; that the other events in the batch are delivered exactly once; and that
-the subscription remains `Live` and continues past the event. Retain the one-shot recovery test
-with a hook that returns `Left` once and `Right` on retry, and the throwing observability-handler
-test unchanged. Add a read test that returns `Left (EventDecodeFailed _)`.
+Rewrite the milestone-1 test around the default: the undecodable event reaches the ordinary
+handler zero times, is retried `retryMaxAttempts - 1` times at one-second spacing, and the
+subscription stops with `StopUndecodable` carrying the event id while its checkpoint still
+precedes the event; the events before it in the batch were delivered exactly once. Add a callback
+case whose `undecodableHandler` returns `DeadLetter (DeadLetterDecodeFailure _)`: one dead-letter
+row, the checkpoint advances, and the remaining events in the batch are delivered exactly once
+while the subscription stays `Live`. Retain the one-shot recovery test with a hook that returns
+`Left` once and `Right` on retry, and the throwing observability-handler test unchanged. Add a
+read test that returns `Left (EventDecodeFailed _)`.
 
 ### Milestone 3 — publish the hook contract
 
@@ -266,7 +302,8 @@ The final focused transcript must contain examples equivalent to:
 ```text
 publisher callback resilience
   keeps the publisher alive when decodeHook fails once and recovers on retry [OK]
-  dead-letters an undecodable event per subscriber and delivers the rest of the batch [OK]
+  stops a subscription with StopUndecodable after retries when no callback is configured [OK]
+  honors an undecodableHandler that dead-letters and continues with the rest of the batch [OK]
   does not treat a throwing observability handler as a decode failure [OK]
   returns EventDecodeFailed from a read that meets an undecodable event [OK]
 ```
@@ -291,27 +328,31 @@ just perf-check
 
 ## Validation and Acceptance
 
-A hook that returns `Left` once must recover on the next retry and deliver the event normally. A
-hook that always returns `Left` for one event must never reach the handler with that event, must
-be retried exactly `retryMaxAttempts - 1` times with the configured delay, and must produce one
-`kiroku.dead_letters` row with the `DeadLetterDecodeFailure` summary while the checkpoint advances
-past it. Every other event in the same batch must be delivered exactly once, the subscription must
-remain `Live`, and the publisher position must advance. A read that meets an undecodable event
-must return `Left (EventDecodeFailed _)` and no partial vector.
+A hook that returns `Left` once must recover on the next retry and deliver the event normally
+without any callback configured. A hook that always returns `Left` for one event must never reach
+the ordinary handler with that event; with no callback it must be retried exactly
+`retryMaxAttempts - 1` times at one-second spacing and then stop the subscription with
+`StopUndecodable` carrying the event id, with the checkpoint still before the event and the
+publisher position advanced past it. With a callback that returns `DeadLetter`, exactly one
+`kiroku.dead_letters` row with the `DeadLetterDecodeFailure` summary must exist, the checkpoint
+must advance, every other event in the batch must be delivered exactly once, and the subscription
+must remain `Live`. A read that meets an undecodable event must return `Left (EventDecodeFailed _)`
+and no partial vector.
 
-A throwing observability callback must neither be dead-lettered nor stop the publisher. Store
-shutdown during a decode retry must not leak a thread or block. The bare-subscribe layer of
+A throwing observability callback must neither stop the subscription nor stop the publisher.
+Store shutdown during a decode retry must not leak a thread or block. The bare-subscribe layer of
 `kiroku-shibuya-overhead` must show no corroborated slowdown against the pre-change run, and
 `just perf-check` must pass. Focused, full store, and strict ADR validation must pass.
 
 
 ## Idempotence and Recovery
 
-Tests are deterministic and repeatable; use bounded waits, not wall-clock sleeps. Dead-lettering
-an undecodable event is one statement that records the row and advances the checkpoint together,
-so a crash between the two cannot occur. Recovery after fixing a hook is the existing dead-letter
-replay procedure; no store restart is required, and the publisher never needs restarting because
-it never stops. Reverting the change restores the exception-based hook without a schema change.
+Tests are deterministic and repeatable; use bounded waits, not wall-clock sleeps. A subscription
+stopped by `StopUndecodable` has moved nothing: its checkpoint still precedes the event, so after
+the hook is fixed the operator restarts it and the event is delivered normally. A consumer whose
+callback dead-lettered uses the existing dead-letter replay procedure. The publisher never needs
+restarting because it never stops. Reverting the change restores the exception-based hook without
+a schema change.
 
 
 ## Interfaces and Dependencies
@@ -332,10 +373,16 @@ decodeHook :: Maybe (RecordedEvent -> IO (Either DecodeFailure RecordedEvent))
 decodeEvents :: StoreSettings -> Vector RecordedEvent -> IO (Vector DecodedEvent)
 ```
 
-`Kiroku.Store.Subscription.Types.RetryPolicy` becomes a record with `retryMaxAttempts :: Int` and
-`decodeRetryDelay :: RetryDelay`; `defaultRetryPolicy` sets five attempts and one second.
-`DeadLetterReason` gains `DeadLetterDecodeFailure DecodeFailure`. `Kiroku.Store.Error.StoreError`
-gains `EventDecodeFailed DecodeFailure`. `Kiroku.Store.Observability.KirokuEvent` gains:
+`Kiroku.Store.Subscription.Types.SubscriptionConfigM` gains:
+
+```haskell
+-- default Nothing
+undecodableHandler :: Maybe (RecordedEvent -> DecodeFailure -> m SubscriptionResult)
+```
+
+`RetryPolicy` is unchanged. `StopReason` gains `StopUndecodable DecodeFailure`. `DeadLetterReason`
+gains `DeadLetterDecodeFailure DecodeFailure`. `Kiroku.Store.Error.StoreError` gains
+`EventDecodeFailed DecodeFailure`. `Kiroku.Store.Observability.KirokuEvent` gains:
 
 ```haskell
 KirokuEventPublisherDecodeFailed
@@ -344,11 +391,11 @@ KirokuEventPublisherDecodeFailed
 
 The publisher queue element type becomes `Vector DecodedEvent`; `SubscriberStatus` is unchanged.
 Use existing `async`, STM, and exception dependencies; add no new external package. Plan 84 adds
-`KirokuEventSubscriptionHandlerStalled` to the same observability type and forwards the whole
-`RetryPolicy` value, so both must preserve each other's constructors and fields during
-integration. Plans 82 and 84 also edit `Worker.hs`: plan 82 owns reconnect and validation and
-plan 84 owns the handler-stall cell around the handler call, so keep the `DecodedEvent` walk in
-`processEvents` mechanically separable from both.
+`KirokuEventSubscriptionHandlerStalled` to the same observability type, so both must preserve each
+other's constructors during integration. Plans 82 and 84 also edit `Worker.hs`: plan 82 owns
+reconnect and validation and plan 84 owns the handler-stall cell around the handler call, so keep
+the `DecodedEvent` walk and the undecodable disposition in `processEvents` mechanically separable
+from both.
 
 Revision note (2026-09-09): Performance review under ADR-5. Changed the terminal signal from a new
 queue element type to a `SubscriberStatus` constructor so the hot path and full-queue behavior are
@@ -363,3 +410,10 @@ with a typed per-event decode contract: `decodeHook` returns `Either DecodeFailu
 `EventDecodeFailed`. Three earlier decisions are marked superseded rather than removed, and the
 `SubscriberStatus` decision from the morning performance review is superseded because the queue
 element now carries a per-event outcome. Title and file name are retained for reference stability.
+
+Revision note (2026-09-09): Design review, second pass. Withdrew automatic dead-lettering: an
+undecodable event now goes to an optional per-subscription `undecodableHandler` that returns an
+ordinary `SubscriptionResult`, and without one the worker retries briefly and stops with
+`StopUndecodable`, so the store never skips an event on a consumer's behalf. `decodeRetryDelay`
+is withdrawn and `RetryPolicy` is unchanged. The earlier dead-letter decision is marked
+superseded.

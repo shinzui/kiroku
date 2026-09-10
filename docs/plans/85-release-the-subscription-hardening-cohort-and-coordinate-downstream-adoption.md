@@ -24,6 +24,11 @@ provenance:
       at: 2026-09-10T00:37:26Z
       mode: "update"
       note: "Design review: updated forecast of public-surface changes and migrations for the release gate and clean-consumer proof"
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T01:21:50Z
+      mode: "update"
+      note: "Design review, second pass: wider Keiro adoption scope, Checkpoint-module resize, ConsumerGroupSize, ADR-8"
 ---
 
 # Release the subscription hardening cohort and coordinate downstream adoption
@@ -118,15 +123,20 @@ last package-specific tag need a release, but a new `kiroku-store` major/minor l
 dependent bound updates and corresponding patch releases. `kiroku-test-support` and example/test
 components are not Hackage packages.
 
-Plans 81 and 82 change checkpoint public APIs and each adds a migration. Plan 83 changes the type
-of `decodeHook` in `StoreSettings`, makes `RetryPolicy` a record, and adds a `StoreError`
-constructor, a dead-letter reason, and an observability constructor. Plan 84 adds a store
-subscription config field and observability constructor and changes both adapter config records.
-Plan 82 also adds an exception-hierarchy parent for startup failures. Plan 86 is an internal bug
-fix. Their final diffs, not these forecasts,
-determine PVP. Relevant durable records are [ADR-2](../adr/0002-static-hash-partitioned-consumer-groups.md),
-[ADR-4](../adr/0004-explicit-subscription-checkpoint-lifecycle.md), and any ADR created by plan 83
-or 84.
+Plans 81 and 82 change checkpoint public APIs and each adds a migration; plan 82's migration also
+drops `stream_name`. Plan 83 changes the type of `decodeHook` in `StoreSettings`, adds an
+`undecodableHandler` subscription field and a `StopUndecodable` stop reason, and adds a
+`StoreError` constructor, a dead-letter reason, and an observability constructor. Plan 84 adds a
+store subscription config field and observability constructor and changes both adapter config
+records, including their batch and buffer size types. Plans 81 and 82 replace runtime
+configuration checks with validated types (`BatchSize`, `StreamBufferSize`, `ConsumerGroupSize`)
+and add an exception-hierarchy parent for runtime startup refusals. Plan 86 is an internal bug
+fix. Their final diffs, not these forecasts, determine PVP, but `kiroku-store` will be a major
+bump. Relevant durable records are
+[ADR-2](../adr/0002-static-hash-partitioned-consumer-groups.md),
+[ADR-4](../adr/0004-explicit-subscription-checkpoint-lifecycle.md),
+[ADR-8](../adr/0008-subscription-configuration-validates-at-construction-and-runtime-refusals-share-one-parent.md),
+and any ADR created by plan 83 or 84.
 
 Use Mori to discover reverse dependencies with `mori registry dependents shinzui/kiroku
 --packages --json`, but verify released versions against Hackage and package tags. The release
@@ -199,11 +209,20 @@ helpers that lock the complete subscription lease-row set and refuse resize whil
 active. Add `resizeShardCount` in `keiro/src/Keiro/Subscription/Shard.hs`. In one
 `Hasql.Transaction.Transaction` it must:
 
-1. validate the new count is positive and lock existing Keiro shard rows;
+1. construct Kiroku's `ConsumerGroupSize` from the new count, whose `Either` is the validation,
+   and lock existing Keiro shard rows;
 2. refuse with typed `ShardResizeActiveLeases` unless every owner is clear;
 3. call Kiroku's released `resizeConsumerGroupTx` for the same subscription;
 4. replace Keiro rows with buckets `0 .. newSize - 1` and the new recorded count;
 5. return both Kiroku's resume position/report and Keiro's old/new topology.
+
+Adopting the released cohort in Keiro is wider than the resize seam. Keiro must construct its
+subscription configuration through `mkBatchSize` and `mkConsumerGroup`, classify the new
+`EventDecodeFailed` store error as non-transient in its error mapping, decide whether its
+projections supply an `undecodableHandler` or accept the default stop, catch
+`SomeSubscriptionStartupFailure` in its worker supervisor and align `ShardCountMismatch` with
+Kiroku's `ConsumerGroupSizeMismatch`, and update any decode hook it configures to the typed
+result. Record each of these in the Keiro change alongside the resize adoption.
 
 Retain `ensureShards` as a strict startup guard. Add tests for active-lease refusal, idempotent
 same-size resize, deliberately skewed Kiroku checkpoints, atomic rollback after injected failure,
@@ -319,10 +338,10 @@ resizeShardCount ::
     Eff es ShardResizeResult
 ```
 
-`ShardResizeResult` includes Kiroku's `ConsumerGroupResizeResult` plus old/new Keiro counts.
+`ShardResizeResult` includes Kiroku's `ConsumerGroupResizeReport` plus old/new Keiro counts.
 `ShardResizeActiveLeases` identifies the subscription and active buckets without exposing private
 Kiroku schema. The implementation composes the released
-`Kiroku.Store.Subscription.ConsumerGroup.resizeConsumerGroupTx` with Keiro's Hasql transaction;
+`Kiroku.Store.Subscription.Checkpoint.resizeConsumerGroupTx` with Keiro's Hasql transaction;
 no new external dependency is expected beyond the approved Kiroku bound.
 
 
@@ -334,3 +353,8 @@ point.
 Revision note (2026-09-09): Design review. Updated the forecast of public-surface changes from
 plans 82, 83, and 84 (typed decode hook, `RetryPolicy` record, startup-failure parent, worker
 stall event, two migrations) so the release gate and the clean-consumer proof cover them.
+
+Revision note (2026-09-09): Design review, second pass. Widened the Keiro adoption milestone to
+cover validated configuration constructors, the new store error classification, the undecodable
+handler choice, the startup-refusal parent, and any typed decode hook; corrected the resize
+module and report names; cited ADR-8.
