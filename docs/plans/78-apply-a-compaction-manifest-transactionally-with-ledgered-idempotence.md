@@ -6,6 +6,19 @@ kind: exec-plan
 created_at: 2026-08-22T14:06:35Z
 intention: "intention_01m0mwdmnfex3tv9fg0t57htfv"
 master_plan: "docs/masterplans/11-manifest-driven-selective-event-compaction.md"
+provenance:
+  reviews:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T00:36:16Z
+      verdict: "changes-requested"
+      note: "Concurrent-link and dead-letter race tests need a barrier seam because Compaction.Internal is an other-module; KRCMP must map in Kiroku.Store.Error for runTransaction composers; a recorded manifest should return before stream locks; currentGlobalPosition is a statement, not an API"
+  revisions:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T00:45:20Z
+      mode: "update"
+      note: "Identity-first and ledger-before-stream-locks apply order, applyCompactionTxWith seam, KRCMP with digest in DETAIL mapped in Kiroku.Store.Error, benchmark records coordinator hold time"
 ---
 
 # Apply a compaction manifest transactionally with ledgered idempotence
@@ -75,10 +88,12 @@ This section must always reflect the actual current state of the work.
   `deleteSelectedEventsStmt`, `insertCompactionRecordStmt` (with its
   `CompactionRecordInsert` parameter record), and
   `compactionLedgerStmt` to `kiroku-store/src/Kiroku/Store/Compaction/SQL.hs`
-- [ ] M1: Implement `applyCompactionTx` and `compactionLedgerTx` in
+- [ ] M1: Implement `applyCompactionTxWith` (with `applyCompactionTx = applyCompactionTxWith
+  (pure ())`) and `compactionLedgerTx` in
   `kiroku-store/src/Kiroku/Store/Compaction/Internal.hs` in the exact lock order
-- [ ] M1: Export `applyCompactionTx` and `compactionLedgerTx` from `Kiroku.Store.Compaction`
-  with Haddock; build clean with `cabal build kiroku-store`
+- [ ] M1: Export `applyCompactionTx`, `applyCompactionTxWith` (failure-injection seam), and
+  `compactionLedgerTx` from `Kiroku.Store.Compaction` with Haddock; build clean with
+  `cabal build kiroku-store`
 - [ ] M1: `Test.CompactionApply` transaction-level examples (happy path, refusals leave rows
   unchanged, condemned wrapper transaction leaves rows and ledger unchanged) pass
 - [ ] M2: Add `ApplyCompaction` and `GetCompactionLedger` to `data Store`, interpret them in
@@ -179,6 +194,36 @@ Record every decision made while working on the plan.
   surrogate ID is gone; names are the identity consumers reason about, and the head version is
   the witness an auditor wants to compare against the manifest.
   Date: 2026-08-22
+
+- Decision: Apply checks the store identity before any lock, and probes the ledger
+  (`ledgerOutcomeTx`, the function `validateCompactionTx` also calls) under the coordinator but
+  before the stream `FOR UPDATE` locks, returning `CompactionAlreadyApplied` without locking a
+  stream row. (Supersedes the 2026-08-29 entry above, which accepted idle stream locks for a
+  no-op reapply; cascade from the MasterPlan's 2026-09-09 review.)
+  Rationale: A no-op reapply of a 100k-selection manifest would otherwise block appends to
+  every affected stream while validation discovered the ledger row. The coordinator alone
+  serialises concurrent applies of one manifest, so the probe is exact there; the identity
+  pre-check keeps a misdirected manifest from queueing behind lease administration at all.
+  Date: 2026-09-09
+
+- Decision: `KRCMP` raises carry the guard name as `MESSAGE` and the manifest digest hex as
+  `DETAIL`; `Kiroku.Store.Error.mapTransactionUsageError` maps `KRCMP` to
+  `CompactionConcurrentMutation`, and only the `23503` foreign-key abort is mapped in the
+  `ApplyCompaction` arm.
+  Rationale: `mapTransactionUsageError` is shared with `Kiroku.Store.Transaction.runTransaction`,
+  which is how the consuming project composes `applyCompactionTx` with its own checkpoint
+  guard; mapping in the effect arm alone would give that path a generic server error for the
+  common committed-concurrent-reference case. A foreign-key SQLSTATE cannot be mapped globally
+  because it carries no digest and means other things on other paths.
+  Date: 2026-09-09
+
+- Decision: `applyCompactionTx` is `applyCompactionTxWith (pure ())`, and the seam is public
+  under a `-- * Failure-injection seam` heading.
+  Rationale: `kiroku-store-test` can import only exposed modules, so the concurrent-link and
+  concurrent-dead-letter examples — the only way to prove the pair-keyed delete and the foreign
+  keys are live guards — need a barrier between validation and the first delete that the
+  production code path executes as a no-op.
+  Date: 2026-09-09
 
 
 ## Outcomes & Retrospective
@@ -371,9 +416,12 @@ mismatch), the active-lease probe (`activeHistoryRetentionConflictTx`, recorded 
 without short-circuiting), the ledger lookup by manifest digest — a ledger row with zero
 surviving selected events yields `ValidationAlreadyApplied record`, a ledger row with survivors
 yields `ValidationRefused (CompactionLedgerConflict ... :| [])`, and no ledger row falls
-through — then stream resolution through the non-locking `resolveStreamsStmt` (missing,
-soft-deleted, and head-drift refusals), the witness join, the membership comparison against
-acknowledged links (which is also what computes `junctionRows`, the exact
+through; that ledger step is the exported `ledgerOutcomeTx :: CompactionManifest ->
+Tx.Transaction LedgerOutcome` with `LedgerUnrecorded | LedgerAlreadyApplied CompactionRecord
+| LedgerConflict CompactionId Int64`, which this plan also calls on its own — then stream
+resolution through the non-locking `resolveStreamsStmt` (missing, soft-deleted, and
+head-drift refusals), one unbatched pass of `SQL.eventMembershipsStmt` whose grouped rows
+yield the witness comparison, the acknowledged-link comparison, and `junctionRows` (the exact
 `(event_id, stream_id)` pairs apply deletes), and the dead-letter and causation policies,
 ending in either the accumulated refusals or `ValidationReady` with the sealed report built by
 `buildReport`. Expected delete counts derive from `ValidatedCompaction`: the junction total is
@@ -601,31 +649,58 @@ Then implement the transaction in `kiroku-store/src/Kiroku/Store/Compaction/Inte
 applyCompactionTx ::
     CompactionManifest ->
     Tx.Transaction (Either (NonEmpty CompactionRefusal) CompactionApplyResult)
-applyCompactionTx manifest = do
-    Tx.sql "SET LOCAL kiroku.enable_hard_deletes = 'on'"
-    HistoryRetention.lockHistoryRetentionCoordinatorTx
-    conflict <- HistoryRetention.activeHistoryRetentionConflictTx
-    case conflict of
-        Just active -> pure (Left (CompactionHistoryRetentionActive active :| []))
-        Nothing -> do
-            _ <- Tx.statement (manifestStreamNames manifest) SQL.lockCompactionStreamsStmt
-            validateCompactionTx manifest >>= \case
-                ValidationRefused refusals -> pure (Left refusals)
-                ValidationAlreadyApplied record -> pure (Right (CompactionAlreadyApplied record))
-                ValidationReady validated -> Right . CompactionAppliedNow <$> deleteAndRecord validated
+applyCompactionTx = applyCompactionTxWith (pure ())
+
+-- | The barrier runs after validation and before the first DELETE. Production
+-- passes @pure ()@; the concurrency examples pass a pg_sleep marker statement.
+applyCompactionTxWith ::
+    Tx.Transaction () ->
+    CompactionManifest ->
+    Tx.Transaction (Either (NonEmpty CompactionRefusal) CompactionApplyResult)
+applyCompactionTxWith barrier manifest = do
+    actual <- storeIdentityTx
+    if actual /= manifestStoreIdentity manifest
+        then pure (Left (CompactionStoreIdentityMismatch {expectedIdentity = manifestStoreIdentity manifest, actualIdentity = actual} :| []))
+        else do
+            Tx.sql "SET LOCAL kiroku.enable_hard_deletes = 'on'"
+            HistoryRetention.lockHistoryRetentionCoordinatorTx
+            conflict <- HistoryRetention.activeHistoryRetentionConflictTx
+            case conflict of
+                Just active -> pure (Left (CompactionHistoryRetentionActive active :| []))
+                Nothing ->
+                    ledgerOutcomeTx manifest >>= \case
+                        LedgerAlreadyApplied record -> pure (Right (CompactionAlreadyApplied record))
+                        LedgerConflict compactionId survivingEvents ->
+                            pure (Left (CompactionLedgerConflict {compactionId, survivingEvents} :| []))
+                        LedgerUnrecorded -> do
+                            _ <- Tx.statement (manifestStreamNames manifest) SQL.lockCompactionStreamsStmt
+                            validateCompactionTx manifest >>= \case
+                                ValidationRefused refusals -> pure (Left refusals)
+                                ValidationAlreadyApplied record -> pure (Right (CompactionAlreadyApplied record))
+                                ValidationReady validated -> do
+                                    barrier
+                                    Right . CompactionAppliedNow <$> deleteAndRecord validated
 ```
 
-The early lease probe is deliberate even though `validateCompactionTx` probes again: an active
-lease must refuse before apply takes any stream lock, so that a long rebuild never has its
-protected streams locked by a destructive operation that is going to refuse anyway. Because
-`validateCompactionTx` performs the ledger lookup (`ledgerRecordByDigestStmt` and
-`survivingSelectedEventsStmt` from the preview plan) after the coordinator lock is held, a
-second apply of the same manifest racing with the first waits on the coordinator, then observes
-the committed ledger row and zero survivors, and returns `CompactionAlreadyApplied` with the
-stored record. A ledger row with survivors is `CompactionLedgerConflict`. The case where no
+Three things happen before any stream lock on purpose. The identity check comes first so a
+manifest built for another store is refused without ever queueing behind lease administration.
+The lease probe runs before the stream locks (and `validateCompactionTx` probes again under
+them) so that a long rebuild never has its protected streams locked by a destructive operation
+that is going to refuse anyway. The ledger probe (`ledgerOutcomeTx`, the same function
+`validateCompactionTx` calls) runs under the coordinator but before the stream locks: a second
+apply of the same manifest racing with the first waits on the coordinator, then observes the
+committed ledger row and zero survivors, and returns `CompactionAlreadyApplied` with the stored
+record without having locked a single stream row — so a no-op reapply of a 100k-selection
+manifest never blocks appends. A ledger row with survivors is `CompactionLedgerConflict`.
+`validateCompactionTx` repeats the identity and ledger steps under the locks; both are one
+indexed lookup and the repetition keeps the validation function whole. The case where no
 ledger row exists and every selected event is absent is not special-cased: validation reports
 `CompactionSelectedEventMissing` for each, which is the correct answer for a manifest that never
-applied here.
+applied here. `applyCompactionTxWith` exists because `kiroku-store-test` can import only the
+library's exposed modules: the concurrent-link and concurrent-dead-letter examples in
+Milestone 3 must commit a reference between validation and the first delete, and a barrier
+argument is the smallest seam that makes those guards observable without rebuilding the
+transaction inside the test.
 
 `deleteAndRecord` unzips `junctionRows` into the two parallel arrays, runs
 `deleteJunctionRowsStmt`, checks the returned row count equals `length junctionRows`, and folds
@@ -633,7 +708,9 @@ the returned `(stream_id, original_stream_id)` pairs into three counters — `st
 global, `stream_id = original_stream_id` is home, anything else is a link — comparing each to
 the report's `selectedEvents`, `selectedEvents`, and `linkMemberships`. On any mismatch it
 raises through `Tx.sql` with SQLSTATE `KRCMP` (`DO $$ BEGIN RAISE EXCEPTION USING ERRCODE =
-'KRCMP', MESSAGE = '...'; END $$;`) so PostgreSQL itself rolls the transaction back. Then, only
+'KRCMP', MESSAGE = '<guard name>', DETAIL = '<manifest digest, 64 lowercase hex>'; END $$;`)
+so PostgreSQL itself rolls the transaction back; the digest travels in `DETAIL` because the
+error is mapped in `Kiroku.Store.Error`, which never sees the manifest. Then, only
 if `manifestDeadLetterPolicy manifest == RemoveDeadLetters`, run
 `deleteSelectedDeadLettersStmt` and check the count equals the report's `deadLettersRemoved`.
 Then run `deleteSelectedEventsStmt` and check the count equals the report's `selectedEvents`.
@@ -643,10 +720,14 @@ into an unlisted, unlocked stream after validation survives the pair-keyed junct
 blocks the events delete through the `stream_events.event_id -> events` foreign key — the
 delete waits on the inserter's `KEY SHARE` lock, then aborts with SQLSTATE `23503`; a freshly
 inserted dead letter aborts the same way under `RefuseDeadLetters` or trips the count check
-under `RemoveDeadLetters`. The interpreter maps every `KRCMP` raise and every `23503` from
-these deletes to `CompactionConcurrentMutation (compactionManifestDigest manifest) guardName`
-(Milestone 2). Document in the Haddock that `CompactionConcurrentMutation` is retryable —
-nothing was committed, and the recovery is re-preview and re-apply. Causation dependents have
+under `RemoveDeadLetters`. `Kiroku.Store.Error.mapTransactionUsageError` maps every `KRCMP`
+raise to `CompactionConcurrentMutation digest guardName` (parsing the digest from `DETAIL`),
+so both `runTxOnPool` and a consumer's own `runTransaction (applyCompactionTx m)` receive the
+typed error; the `ApplyCompaction` interpreter arm additionally maps a `23503` from these two
+deletes (Milestone 2). Document in the Haddock that `CompactionConcurrentMutation` is
+retryable — nothing was committed, and the recovery is re-preview and re-apply — and that a
+direct `applyCompactionTx` composer may still see `UnexpectedServerError "23503" _` for the
+in-flight-link race and must treat it the same way. Causation dependents have
 no foreign key and no lock, so `RefuseCausationDependents` is validation-time best-effort: a
 dependent appended to an unlisted stream after validation is not detected; say exactly that in
 the `CompactionCausationDependentsPresent` Haddock and in the ADR. Then build the
@@ -658,7 +739,10 @@ from the sealed report), and return the `CompactionRecord`.
 `compactionLedgerTx :: CompactionLedgerQuery -> Tx.Transaction (Vector CompactionRecord)`
 runs `compactionLedgerStmt` with the validated limit and rebuilds records.
 
-Export both from `kiroku-store/src/Kiroku/Store/Compaction.hs` with Haddock that states: the
+Export `applyCompactionTx`, `compactionLedgerTx`, and — under a `-- * Failure-injection seam`
+heading whose Haddock says it runs its barrier after validation and before the first delete
+and exists for tests — `applyCompactionTxWith` from
+`kiroku-store/src/Kiroku/Store/Compaction.hs` with Haddock that states: the
 lock order (coordinator, then affected streams ascending by `stream_id`, then validation, then
 deletes); that the operation refuses while any history-retention lease is active; that
 `streams.stream_version` is never changed so expected-version appends continue from the
@@ -717,14 +801,21 @@ and interpret them in `runStorePool`:
 
 where `membershipsOf report = homeMemberships + globalMemberships + linkMemberships`. Events are
 emitted only after the transaction has finished, matching the lease interpreter arms; a
-transaction error propagates as `StoreError` and emits nothing. The `ApplyCompaction` arm wraps
-`runTxOnPool` so that a usage error carrying SQLSTATE `KRCMP`, or SQLSTATE `23503` from the
-dead-letter or events deletes, is rethrown as
-`CompactionConcurrentMutation (compactionManifestDigest manifest) guardName` — the new
-constructor this plan adds to `Kiroku.Store.Error.StoreError`, with Haddock stating it is
-retryable (nothing committed; re-preview and re-apply). All other errors map exactly as
-`runTxOnPool` maps them today. `runTxOnPool` itself keeps its three-argument shape; preview's
-separate `runReadOnlyTxOnPool` helper belongs to the preview plan and is not touched here.
+transaction error propagates as `StoreError` and emits nothing. This plan adds
+`CompactionConcurrentMutation !CompactionDigest !Text` to `Kiroku.Store.Error.StoreError`
+(Haddock: retryable — nothing committed; re-preview and re-apply) and teaches
+`mapTransactionUsageError` to produce it for SQLSTATE `KRCMP`, taking the guard name from the
+server `MESSAGE` and the digest from `DETAIL` through `parseCompactionDigestHex` (a `KRCMP`
+whose detail does not parse maps to `UnexpectedServerError` as today). Because that mapper is
+shared with `Kiroku.Store.Transaction.runTransaction`, a consumer composing `applyCompactionTx`
+in its own transaction gets the typed error too. The `ApplyCompaction` arm additionally wraps
+`runTxOnPool` so an `UnexpectedServerError "23503" _` raised by the dead-letter or events
+delete is rethrown as `CompactionConcurrentMutation (compactionManifestDigest manifest)
+"<constraint name from the message>"`; a foreign-key SQLSTATE cannot be mapped globally
+because it carries no digest and means other things on other paths. All other errors map
+exactly as `runTxOnPool` maps them today. `runTxOnPool` itself keeps its three-argument shape;
+preview's separate `runReadOnlyTxOnPool` helper belongs to the preview plan and is not touched
+here.
 
 In `kiroku-store/src/Kiroku/Store/Observability.hs` add, with Haddock, after
 `KirokuEventCompactionRefused`:
@@ -818,10 +909,12 @@ and `Test.StreamHistoryGuard` (no marker).
 `lockStreamHistoryForReplayTx origin` in one transaction and prove `applyCompaction` blocks until
 it ends, then succeeds.
 
-*Concurrent link into an unlisted stream.* Use the race pattern: run an apply whose
-transaction holds the `pg_sleep(0.4)` barrier *after* `validateCompactionTx` and before the
-junction delete (marker `compaction-apply-concurrent-link`); once `pg_stat_activity` shows the
-barrier, `linkToStream "bystander-1" [selectedId]` from a second connection — the stream is
+*Concurrent link into an unlisted stream.* Use the race pattern with the seam: run
+`runTransaction (applyCompactionTxWith (Tx.statement () barrierStmt) manifest)` where
+`barrierStmt` is `SELECT pg_sleep(0.4) IS NULL /* compaction-apply-concurrent-link */`, so the
+transaction pauses *after* `validateCompactionTx` and before the junction delete; once
+`pg_stat_activity` shows the barrier, `linkToStream "bystander-1" [selectedId]` from a second
+connection — the stream is
 not in the manifest, so its row is unlocked and the link commits — then let the apply proceed.
 Assert the apply fails with `CompactionConcurrentMutation` and that nothing changed:
 `countEvents`, every junction row (including the new link), the dead letters, and the ledger
@@ -882,8 +975,10 @@ retained position when the last event was selected and is unchanged otherwise.
 
 *Compacted tail.* Select the newest events (the highest global positions and the origin
 stream's newest versions); apply; `visibleGlobalHeadPosition` drops to the highest retained
-position while `getStream`'s `stream_version` and `currentGlobalPosition` (the `$all` frontier)
-are unchanged; `readStreamBackward` and `readAllBackward` "from latest" return exactly the
+position while `getStream`'s version and the `$all` row's `stream_version` (the global
+frontier; read it with raw SQL, `SELECT stream_version FROM streams WHERE stream_id = 0`, which
+is what `SQL.currentGlobalPositionStmt` does) are unchanged; `readStreamBackward` and
+`readAllBackward` "from latest" return exactly the
 retained events; an `ExactVersion` append from the unchanged head still succeeds.
 
 *Subscription continues.* Start a `$all` subscription with a checkpoint saved at position 1
@@ -952,8 +1047,8 @@ just perf-check
 ```
 
 If the controlled workload ratio fails, repeat per ADR-5's protocol (unchanged code, idle host,
-three repeats) and record each run here; ExecPlan 73 recorded boundary-noisy samples of
-`0.88x–0.92x` with no append-path change.
+three repeats) and record each run here; ExecPlan 73 recorded boundary-noisy sample pairs of
+`0.88x/0.87x`, `0.90x/0.79x`, and `0.89x/0.92x` with no append-path change.
 
 Benchmark apply itself — the MasterPlan's 2026-08-29 Decision Log requires this evidence before
 release. On the ADR-5 harness (the `kiroku-store/bench` process against a seeded store), apply
@@ -965,7 +1060,11 @@ invocations, index maintenance on seven indexes, and two RI probes, so expect se
 top of the range. From that evidence either confirm `maxCompactionSelections = 100000` or
 propose a revision through the MasterPlan (Integration Points and Decision Log first), and hand
 the measured numbers to `docs/plans/79-...` as the documented recommended operational chunk
-size.
+size (the guide provisionally says 10000 until these numbers exist). Record the coordinator
+hold time explicitly: every history-retention lease renewal queues behind it, so the
+recommended chunk must keep apply well inside the renewal margin an operator would reasonably
+leave on a lease (ADR-7 bounds a lease at one hour; a renewal issued with a few seconds of
+lifetime left and queued behind a ten-second apply expires while waiting).
 
 Create the ADR. Allocate the handle and do not guess it:
 
@@ -1238,6 +1337,7 @@ and in `Kiroku.Store.Compaction.Internal` (other-module) re-exported by the publ
 
 ```haskell
 applyCompactionTx :: CompactionManifest -> Tx.Transaction (Either (NonEmpty CompactionRefusal) CompactionApplyResult)
+applyCompactionTxWith :: Tx.Transaction () -> CompactionManifest -> Tx.Transaction (Either (NonEmpty CompactionRefusal) CompactionApplyResult)
 compactionLedgerTx :: CompactionLedgerQuery -> Tx.Transaction (Vector CompactionRecord)
 ```
 
@@ -1269,6 +1369,8 @@ CompactionConcurrentMutation :: CompactionDigest -> Text -> StoreError
 -- retryable: the transaction committed nothing; re-preview and re-apply.
 -- The Text names the guard that fired (junction count, dead-letter count,
 -- events count, or the foreign key that aborted a delete).
+-- Produced by mapTransactionUsageError for SQLSTATE KRCMP (digest in DETAIL) on
+-- every transaction path, and by the ApplyCompaction arm alone for 23503.
 ```
 
 Consumed from sibling plans (must already exist): `Kiroku.Store.Types.StoreIdentity`,
@@ -1276,9 +1378,22 @@ Consumed from sibling plans (must already exist): `Kiroku.Store.Types.StoreIdent
 `Kiroku.Store.SQL.eventMembershipsStmt`, `deadLetterCountsStmt`,
 `causationDependentCountsStmt`, `Kiroku.Store.Read.lookupEventReferences`
 (`docs/plans/75-...`); everything in `Kiroku.Store.Compaction.Types` (`docs/plans/76-...`);
-`Kiroku.Store.Compaction.Internal.validateCompactionTx`, the report-building function, and the
+`Kiroku.Store.Compaction.Internal.validateCompactionTx`, `ledgerOutcomeTx`, the
+report-building function, and the
 `PreviewCompaction` interpreter arm with `KirokuEventCompactionPreviewed` /
 `KirokuEventCompactionRefused` (`docs/plans/77-...`). Consumed by later plans:
 `docs/plans/79-...` wraps `applyCompaction` and `compactionLedger` in `kiroku-cli` and
 documents them; `docs/plans/80-...` releases them and exercises preview *and* apply from a
 clean external consumer.
+
+
+## Revision Notes
+
+- 2026-09-09 (claude-fable-5-1, update cascaded from the MasterPlan review): The apply body
+  now checks the store identity before any lock, probes the ledger through the shared
+  `ledgerOutcomeTx` under the coordinator but before the stream locks (a no-op reapply takes
+  no stream lock), and is defined as `applyCompactionTxWith (pure ())` with the barrier seam
+  exported for the concurrency examples. `KRCMP` carries the digest in `DETAIL` and is mapped
+  in `Kiroku.Store.Error.mapTransactionUsageError`; only `23503` is mapped in the effect arm.
+  Corrected the compacted-tail example's `currentGlobalPosition` reference, the ExecPlan 73
+  noise figures, and added the coordinator-hold-time requirement to the benchmark.

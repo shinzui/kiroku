@@ -6,6 +6,19 @@ kind: exec-plan
 created_at: 2026-08-22T14:06:35Z
 intention: "intention_01m0mwdmnfex3tv9fg0t57htfv"
 master_plan: "docs/masterplans/11-manifest-driven-selective-event-compaction.md"
+provenance:
+  reviews:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T00:36:16Z
+      verdict: "comments"
+      note: "Worked example verified at 134 bytes and its SHA-256 computed independently; memory must be a direct build dependency; crypton sorts after contravariant-extras"
+  revisions:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T00:45:20Z
+      mode: "update"
+      note: "Pinned the worked-example SHA-256; memory is a required direct dependency"
 ---
 
 # Define the compaction manifest, canonical digest, refusal vocabulary, and report types
@@ -42,7 +55,7 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] M1: Confirm `crypton` availability through Mori and the cached build plan; add `crypton` to `kiroku-store` build-depends.
+- [ ] M1: Confirm `crypton` availability through Mori and the cached build plan; add `crypton` and `memory` to `kiroku-store` build-depends.
 - [ ] M1: Ensure `StoreIdentity` exists in `kiroku-store/src/Kiroku/Store/Types.hs` (add it if `docs/plans/74-...` has not landed).
 - [ ] M1: Create `kiroku-store/src/Kiroku/Store/Compaction/Types.hs` with all newtypes, records, sum types, and deriving clauses.
 - [ ] M1: Implement validated constructors (`mkCompactionOperation`, `mkCompactionDigest`, `parseCompactionDigestHex`, `compactionDigestHex`, `mkCompactionLedgerLimit`).
@@ -62,7 +75,11 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+- Planning-time (2026-09-09 review): the worked example's canonical bytes were rebuilt
+  independently of any Haskell code (Python `struct` and `hashlib`), confirmed at exactly 134
+  bytes matching the hex table in Context and Orientation, and hashed to
+  `965e364734a98abdc509ceb0b4f082ab7a2dbd66713d56ce77d2071e55589d08`; that value is now the
+  pin for Milestone 2's digest test.
 
 
 ## Decision Log
@@ -436,9 +453,17 @@ stream-head witness `orders-1` at head version 7, and one selection: event
 
 Milestone 2 turns this example into a unit test: it builds the manifest, asserts
 `canonicalCompactionManifestBytes` equals exactly these 134 bytes, and pins the SHA-256 of those
-bytes as a hex string. Compute the expected hex once at implementation time with a trusted tool
-(for example `printf` of the bytes piped to `shasum -a 256`) and record it in the test and in
-the Surprises & Discoveries section, so any later change to the layout is caught.
+bytes as a hex string. That digest was computed independently of any Haskell code on
+2026-09-09 (Python `hashlib` over the bytes above) and is
+
+```text
+965e364734a98abdc509ceb0b4f082ab7a2dbd66713d56ce77d2071e55589d08
+```
+
+Pin exactly this value; if the implementation disagrees, the implementation (or the byte
+table) is wrong, never the pin. Reconfirm it once with an independent tool (for example
+`printf` of the bytes piped to `shasum -a 256`) and note the confirmation in Surprises &
+Discoveries, so any later change to the layout is caught.
 
 
 ## Plan of Work
@@ -453,9 +478,11 @@ as separate proof points only).
 
 Work. First confirm the hashing dependency. Run `mori registry search crypton` and
 `mori registry show kazu-yamamoto/crypton --full`; confirm the cached build plan already contains
-it with the Python one-liner in Concrete Steps. Add `, crypton >=1.0 && <1.2` to the library
-`build-depends` in `kiroku-store/kiroku-store.cabal` (the list is alphabetical; place it after
-`containers`). If Mori shows `crypton` as unavailable or the plan lacks it, use
+it with the Python one-liner in Concrete Steps. Add `, crypton >=1.0 && <1.2` and `, memory >=0.18 && <0.19` to the library
+`build-depends` in `kiroku-store/kiroku-store.cabal` (the list is alphabetical; `crypton` goes
+after `contravariant-extras`, `memory` after `lens`). `memory` is required, not optional:
+`Data.ByteArray.convert` comes from it and Cabal never exposes a transitive package to
+imports. If Mori shows `crypton` as unavailable or the plan lacks it, use
 `cryptohash-sha256 >=0.11 && <0.12` and its `Crypto.Hash.SHA256.hash :: ByteString -> ByteString`
 instead; record the choice in the Decision Log.
 
@@ -632,8 +659,8 @@ sha256 :: ByteString -> CompactionDigest
 sha256 bytes = CompactionDigest (convert (hash bytes :: Digest SHA256))
 ```
 
-(`Data.ByteArray` is from the `memory` package, which `crypton` re-exports transitively; add
-`memory >=0.18 && <0.19` to build-depends if the import does not resolve.) Wire the digest into
+(`Data.ByteArray` is from the `memory` package, added to `build-depends` in Milestone 1; a
+transitive dependency is never importable.) Wire the digest into
 `mkCompactionManifest` step 8.
 
 Implement `canonicalCompactionReportBytes :: CompactionReport -> ByteString` and
@@ -907,7 +934,7 @@ Libraries: `crypton` (`Crypto.Hash` for `SHA256`), `memory` (`Data.ByteArray.con
 `bytestring` (`Data.ByteString.Builder`), `text`, `uuid` (`Data.UUID.toByteString`,
 `fromByteString`, `toText`, `fromText`), `vector`, `containers` (`Data.Set` for duplicate
 detection), `aeson`; test side `hspec`, `hspec-hedgehog`, `hedgehog`. All but `crypton`
-(and possibly `memory`) are already in `kiroku-store`'s build-depends.
+and `memory` are already in `kiroku-store`'s build-depends.
 
 Module `Kiroku.Store.Compaction.Types` (exposed) must export, at the end of Milestone 4:
 
@@ -976,3 +1003,11 @@ Consumers of this module: `docs/plans/77-...` (preview), `docs/plans/78-...` (ap
 ledger), `docs/plans/79-...` (CLI JSON manifests), `docs/plans/80-...` (clean-consumer
 witness program), and the external consumer
 `mori://shinzui/mori/plans/237-compact-legacy-repository-history-without-discarding-facts`.
+
+
+## Revision Notes
+
+- 2026-09-09 (claude-fable-5-1, update cascaded from the MasterPlan review): Pinned the
+  worked example's SHA-256, made `memory` a required direct dependency with the correct
+  alphabetical placement for both new packages, and recorded the independent digest
+  computation in Surprises & Discoveries.

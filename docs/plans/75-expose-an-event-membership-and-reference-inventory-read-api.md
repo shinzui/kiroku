@@ -6,6 +6,19 @@ kind: exec-plan
 created_at: 2026-08-22T14:06:35Z
 intention: "intention_01m0mwdmnfex3tv9fg0t57htfv"
 master_plan: "docs/masterplans/11-manifest-driven-selective-event-compaction.md"
+provenance:
+  reviews:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T00:36:16Z
+      verdict: "approved"
+      note: "Statements, batching, anti-join, LookupStreamNames precedent, and EXPLAIN helper verified against SQL.hs, Effect.hs, and PerformanceStructure.hs"
+  revisions:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T00:45:20Z
+      mode: "update"
+      note: "Recorded unbatched reuse of eventMembershipsStmt as the compaction plans' only witness source"
 ---
 
 # Expose an event membership and reference inventory read API
@@ -825,8 +838,20 @@ lookupEventReferencesTx :: [EventId] -> Tx.Transaction (Map EventId EventReferen
 
 The three statements are reused by
 `docs/plans/77-preview-a-compaction-manifest-read-only-with-deterministic-witnesses.md` and
-`docs/plans/78-apply-a-compaction-manifest-transactionally-with-ledgered-idempotence.md` to
-discover unacknowledged links, dead letters, and causation dependents of selected events.
+`docs/plans/78-apply-a-compaction-manifest-transactionally-with-ledgered-idempotence.md`:
+`eventMembershipsStmt` is their only source of witness facts (home row, `$all` row, and link
+rows) as well as of unacknowledged links, and they run it once, unbatched, over every
+selection of a manifest (at most 100000 IDs), so the raw statement must accept the whole array
+— only the `lookupEventReferences` interpreter arm and `lookupEventReferencesTx` batch.
+`deadLetterCountsStmt` and `causationDependentCountsStmt` supply the reference policies.
 `assembleEventReferences` is this plan's own assembly step, shared by the interpreter and the
 transaction combinator; the preview plan groups witness rows its own way and does not consume
 it.
+
+
+## Revision Notes
+
+- 2026-09-09 (claude-fable-5-1, update cascaded from the MasterPlan review): Recorded that the
+  compaction plans consume `eventMembershipsStmt` unbatched over a whole manifest as their
+  only witness source, so the raw statement's contract now explicitly covers arrays up to the
+  manifest bound. No behaviour in this plan changed.

@@ -6,6 +6,19 @@ kind: exec-plan
 created_at: 2026-08-22T14:06:35Z
 intention: "intention_01m0mwdmnfex3tv9fg0t57htfv"
 master_plan: "docs/masterplans/11-manifest-driven-selective-event-compaction.md"
+provenance:
+  reviews:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T00:36:16Z
+      verdict: "changes-requested"
+      note: "selectionWitnessesStmt is redundant with EP-2's eventMembershipsStmt (three index probes per selection plus a second pass); ledger decoder should use D.refine rather than error"
+  revisions:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T00:45:20Z
+      mode: "update"
+      note: "Dropped selectionWitnessesStmt in favour of one eventMembershipsStmt pass; exported ledgerOutcomeTx; D.refine in the ledger decoder"
 ---
 
 # Preview a compaction manifest read-only with deterministic witnesses
@@ -46,15 +59,15 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] M1: Create `Kiroku.Store.Compaction.SQL` with the stream-resolution, witness, ledger-lookup statements and re-exports of the EP-2 inventory statements.
-- [ ] M1: Create `Kiroku.Store.Compaction.Internal` with `validateCompactionTx`, `ValidatedCompaction`, and `previewCompactionTx`.
+- [ ] M1: Create `Kiroku.Store.Compaction.SQL` with the stream-resolution and ledger statements and re-exports of the EP-2 inventory statements.
+- [ ] M1: Create `Kiroku.Store.Compaction.Internal` with `ledgerOutcomeTx`, `validateCompactionTx`, `ValidatedCompaction`, and `previewCompactionTx`.
 - [ ] M1: Register `Kiroku.Store.Compaction.SQL` as an exposed module and `Kiroku.Store.Compaction.Internal` as an other-module; `cabal build kiroku-store` passes.
 - [ ] M2: Add `PreviewCompaction` to `Store`, `runReadOnlyTxOnPool`, the interpreter arm with one checkout, and the two `KirokuEvent` constructors.
 - [ ] M2: Add explicit no-op arms in `kiroku-otel` and `kiroku-metrics`; `cabal build all` passes.
 - [ ] M2: Create public `Kiroku.Store.Compaction` exporting `previewCompaction` and `previewCompactionTx`, re-exporting Types; switch the `Kiroku.Store` re-export.
 - [ ] M3: `Test.CompactionPreview` integration suite covering the happy path and every refusal constructor.
 - [ ] M3: `Test.CompactionPreviewMock` dispatch test.
-- [ ] M3: Structural assertions (one checkout per preview; preview SQL text contains no `FOR UPDATE`, `DELETE`, `SET LOCAL`; `EXPLAIN` plan shapes for `selectionWitnessesStmt` and `resolveStreamsStmt` with large arrays) registered under `describe "performance structure"`.
+- [ ] M3: Structural assertions (one checkout per preview; preview SQL text contains no `FOR UPDATE`, `DELETE`, `SET LOCAL`; `EXPLAIN` plan shape for `resolveStreamsStmt` with a large array) registered under `describe "performance structure"`.
 - [ ] M3: Haddock for `Kiroku.Store.Compaction` distinguishing preview from apply; `kiroku-store/CHANGELOG.md` entry.
 - [ ] M3: `cabal test all`, `just perf-structure`, `nix fmt`, commit with trailers.
 
@@ -88,7 +101,7 @@ Record every decision made while working on the plan.
   Rationale: A read-only transaction is the strongest statement that preview cannot mutate; all
   of preview's statements are `SELECT`s, so `Read` mode costs nothing. Under `ReadCommitted`
   each statement would see a different snapshot, so a concurrent append landing between the
-  head-resolution statement and the witness join could manufacture spurious
+  head-resolution statement and the membership pass could manufacture spurious
   `CompactionStreamHeadDrift` or witness refusals; `RepeatableRead` gives one snapshot for the
   whole validation, and a read-only repeatable-read transaction can never serialization-fail.
   The locked apply transaction remains the authoritative check.
@@ -128,6 +141,28 @@ Record every decision made while working on the plan.
   Rationale: The purpose of preview is to predict apply; an operator must learn before
   attempting apply that a lease would block it and when the earliest lease expires.
   Date: 2026-08-22
+
+- Decision: There is no dedicated witness statement. Validation runs EP-2's
+  `SQL.eventMembershipsStmt` once, unbatched, over every resolvable selection and derives the
+  witness comparison, the acknowledged-link comparison, and `junctionRows` from the grouped
+  rows. (Cascade from the MasterPlan's 2026-09-09 review; replaces the draft's
+  `selectionWitnessesStmt`.)
+  Rationale: The membership rows already carry every column the witness join fetched — the
+  home row's `stream_version`, `original_stream_id`, and `original_stream_version`, the `$all`
+  row's `stream_version`, and each link row with its resolved stream name — and validation had
+  to run the membership statement anyway for the link comparison. One primary-key range scan
+  per event replaces three probes plus a `LATERAL ... LIMIT 1` and a second membership pass,
+  and the structural suite gates one statement fewer.
+  Date: 2026-09-09
+
+- Decision: The ledger step of validation is its own exported function, `ledgerOutcomeTx ::
+  CompactionManifest -> Tx.Transaction LedgerOutcome`, and the ledger row decoder uses
+  `D.refine` for the digest columns instead of `error`.
+  Rationale: The apply plan calls the ledger step once more before it takes any stream lock, so
+  a no-op reapply never blocks appends; sharing the function keeps the two call sites identical.
+  `D.refine` keeps the decoder total — the check constraints make a malformed column
+  unreachable, but a typed decode failure is the right shape if it ever happens.
+  Date: 2026-09-09
 
 
 ## Outcomes & Retrospective
@@ -344,47 +379,25 @@ FROM unnest($1::text[]) AS requested(stream_name)
 JOIN streams s USING (stream_name)
 ```
 
-`selectionWitnessesStmt :: Statement (Vector UUID, Vector Int64, Vector Int64, Vector Int64)
-(Vector (UUID, Maybe Int64, Maybe Int64, Maybe Int64, Maybe Int64))` — the four input arrays
-are, position by position, event ID, expected origin `stream_id`, expected origin version, and
-expected global position. For every input row it returns the event ID plus, from the live
-store, the home row's `stream_version` where `stream_id = expected origin` (NULL if absent),
-the `original_stream_id` and `original_stream_version` from any junction row of the event (NULL
-if the event has no rows at all), and the global row's `stream_version` (NULL if absent):
-
-```sql
-WITH requested AS (
-  SELECT event_id, origin_stream_id, origin_version, global_position
-  FROM unnest($1::uuid[], $2::bigint[], $3::bigint[], $4::bigint[])
-       AS r(event_id, origin_stream_id, origin_version, global_position)
-)
-SELECT r.event_id,
-       home.stream_version,
-       anyrow.original_stream_id,
-       anyrow.original_stream_version,
-       global.stream_version
-FROM requested r
-LEFT JOIN stream_events home
-       ON home.event_id = r.event_id AND home.stream_id = r.origin_stream_id
-LEFT JOIN stream_events global
-       ON global.event_id = r.event_id AND global.stream_id = 0
-LEFT JOIN LATERAL (
-  SELECT se.original_stream_id, se.original_stream_version
-  FROM stream_events se
-  WHERE se.event_id = r.event_id
-  LIMIT 1
-) anyrow ON true
-```
-
-Every join is served by the `stream_events` primary key `(event_id, stream_id)`. The encoder is
-`contrazip4` over four `E.foldableArray` parameters; the decoder uses `D.rowVector` with
-`D.column (D.nullable D.int8)` for the four nullable columns.
+There is no separate witness statement. Every fact a selection's witnesses are compared
+against — the home row's `stream_version`, `original_stream_id`, and `original_stream_version`,
+the `$all` row's `stream_version`, and every link row with its resolved stream name — is a
+column of the rows `SQL.eventMembershipsStmt` (from
+`docs/plans/75-expose-an-event-membership-and-reference-inventory-read-api.md`) returns for the
+same event IDs, and validation has to run that statement anyway to compare acknowledged links.
+Validation therefore runs it once, unbatched, over every selection whose origin stream
+resolved (the raw statement accepts the whole manifest's array; only the
+`lookupEventReferences` interpreter arm batches at 10000), and derives witness checks, link
+checks, and `junctionRows` from the grouped rows. That is one primary-key range scan per
+event instead of the three probes plus a `LATERAL ... LIMIT 1` that a dedicated witness join
+would cost, and one statement fewer for the structural suite to gate.
 
 `ledgerRecordByDigestStmt :: Statement ByteString (Maybe CompactionRecord)` — selects every
 ledger column `WHERE manifest_digest = $1`. Decode it into `CompactionRecord` by rebuilding the
 `CompactionReport` (parse `affected_streams` JSONB with Aeson into `Vector StreamHeadWitness`,
-map the policy strings back to the enums, wrap digests with `mkCompactionDigest` and fail with
-`error` on a malformed 32-byte column — the table's check constraints make that impossible) and
+map the policy strings back to the enums, wrap digests with `mkCompactionDigest` through
+`D.refine` so a malformed column surfaces as a typed decode error rather than an `error` call
+— the table's check constraints make it unreachable, but the decoder stays total) and
 `sealCompactionReport` is **not** applied: the stored `report_digest` is used verbatim and a
 test asserts it equals the recomputed value. Name the row decoder `compactionRecordRow ::
 D.Row CompactionRecord` and export it from the SQL module: the apply plan
@@ -398,8 +411,8 @@ Re-export `SQL.eventMembershipsStmt`, `SQL.deadLetterCountsStmt`, and
 `SQL.causationDependentCountsStmt` from `Kiroku.Store.SQL` rather than copying them.
 
 Work, part two: validation. Create `kiroku-store/src/Kiroku/Store/Compaction/Internal.hs`
-exporting `validateCompactionTx`, `ValidatedCompaction (..)`, `previewCompactionTx`, and
-`buildReport`. Define:
+exporting `ledgerOutcomeTx`, `LedgerOutcome (..)`, `validateCompactionTx`,
+`ValidatedCompaction (..)`, `previewCompactionTx`, and `buildReport`. Define:
 
 ```haskell
 data ValidatedCompaction = ValidatedCompaction
@@ -413,6 +426,12 @@ data ValidationOutcome
     | ValidationAlreadyApplied CompactionRecord
     | ValidationReady ValidatedCompaction
 
+data LedgerOutcome
+    = LedgerUnrecorded
+    | LedgerAlreadyApplied CompactionRecord   -- recorded, no selected event survives
+    | LedgerConflict CompactionId Int64       -- recorded, this many selected events survive
+
+ledgerOutcomeTx :: CompactionManifest -> Tx.Transaction LedgerOutcome
 validateCompactionTx :: CompactionManifest -> Tx.Transaction ValidationOutcome
 ```
 
@@ -436,14 +455,17 @@ list and returning `ValidationRefused` at the end unless a short-circuit fires:
    `CompactionHistoryRetentionActive c` (do not short-circuit: the operator wants the other
    findings too).
 
-3. Ledger. `record <- Tx.statement digestBytes ledgerRecordByDigestStmt`. If `Just record`:
-   count surviving selected events with `survivingSelectedEventsStmt` over *all* selection IDs;
-   zero → return `ValidationAlreadyApplied record` (short-circuit); non-zero → return
-   `ValidationRefused (CompactionLedgerConflict {compactionId, survivingEvents} :| [])`
+3. Ledger. `ledgerOutcomeTx manifest`: `Tx.statement digestBytes ledgerRecordByDigestStmt`,
+   and only when that returns `Just record`, `survivingSelectedEventsStmt` over *all*
+   selection IDs. `LedgerAlreadyApplied record` (zero survivors) → return
+   `ValidationAlreadyApplied record` (short-circuit); `LedgerConflict compactionId n` → return
+   `ValidationRefused (CompactionLedgerConflict {compactionId, survivingEvents = n} :| [])`
    (short-circuit: the store is inconsistent relative to the ledger and per-event findings
-   would only add noise). Running this before any witness work means re-previewing an applied
-   100k manifest costs one digest lookup and one count instead of building and discarding
-   100k `CompactionSelectedEventMissing` values.
+   would only add noise); `LedgerUnrecorded` falls through. Running this before any witness
+   work means re-previewing an applied 100k manifest costs one digest lookup and one count
+   instead of building and discarding 100k `CompactionSelectedEventMissing` values. The step
+   is its own exported function because the apply plan calls it once more, before it takes
+   any stream lock, so a no-op reapply never blocks appends.
 
 4. Streams. Collect the set of touched names (every `originStream`, every acknowledged link's
    `stream`, every head witness's `stream`; by construction of `mkCompactionManifest` these are
@@ -452,33 +474,37 @@ list and returning `ValidationRefused` at the end unless a short-circuit fires:
    present and `stream_version /= headVersion` → `CompactionStreamHeadDrift {stream,
    expectedHead, actualHead}`. Keep the resolved name→ID map as a local. Matching is per fact,
    with no cascading exclusions: a missing stream yields exactly its `CompactionStreamMissing`.
-   A selection whose origin stream is missing is excluded from the witness statement (its
-   events cannot be resolved) and gets no additional per-event refusal — the stream refusal
+   A selection whose origin stream is missing is excluded from the membership pass (its
+   origin ID cannot be resolved) and gets no additional per-event refusal — the stream refusal
    already covers it; an acknowledged link targeting a missing stream is likewise covered by
    that stream's refusal, while the same selection's other links and its origin witnesses are
    still validated normally, and no spurious `CompactionUnexpectedLink` or
    `CompactionAcknowledgedLinkMissing` is emitted for facts that do match. One discrepancy
    never suppresses or fabricates another.
 
-5. Witnesses. For the remaining selections run `selectionWitnessesStmt` with the resolved origin
-   IDs. Per row: if all four live columns are NULL → `CompactionSelectedEventMissing eventId`;
-   else if the home version is NULL, or differs from `originVersion`, or `original_stream_id`
-   differs from the resolved origin ID, or `original_stream_version` differs, or the global
-   position is NULL or differs from `globalPosition` → `CompactionWitnessMismatch eventId
+5. Memberships and witnesses. Run `SQL.eventMembershipsStmt` once over every remaining
+   selection's event ID (the full array; no batching) and group its rows by event ID. Per
+   selection: no rows at all → `CompactionSelectedEventMissing eventId`. Otherwise the *home*
+   row is the row whose `stream_id` equals the resolved origin ID and the *global* row is the
+   row whose `stream_id` is 0. If the home row is absent, or its `stream_version` differs from
+   `originVersion`, or its `original_stream_id` differs from the resolved origin ID, or its
+   `original_stream_version` differs from `originVersion`, or the global row is absent, or its
+   `stream_version` differs from `globalPosition` → `CompactionWitnessMismatch eventId
    (WitnessMismatch {actualOriginStream, actualOriginVersion, actualGlobalPosition})`, where
-   `actualOriginStream` is looked up from `original_stream_id` through an inverse of the
-   resolved map or, if the ID is not among the touched streams, through one extra
-   `SQL.lookupStreamNamesStmt` call gathered for all such IDs (at most one call). Keep the set
-   of event IDs that passed as `verified`.
+   `actualOriginVersion` and the origin ID come from any row's `original_*` columns,
+   `actualGlobalPosition` is the global row's version or `Nothing`, and `actualOriginStream`
+   is the home row's own `stream_name` when that row exists, else the name resolved from the
+   origin ID through the touched-stream map or, when the ID is not a touched stream, through
+   one `SQL.lookupStreamNamesStmt` call gathered for all such IDs (at most one call). Every
+   other row of the event is a live link, keyed by `(stream_name, stream_version)`; compare it
+   with the selection's `acknowledgedLinks` per fact: actual but not acknowledged →
+   `CompactionUnexpectedLink eventId (LinkWitness stream version)`; acknowledged but not
+   actual → `CompactionAcknowledgedLinkMissing eventId link`. A selection with no witness or
+   link refusal is `verified`: it contributes `(eventId, originId)`, `(eventId, 0)`, and one
+   `(eventId, stream_id)` pair per acknowledged link (the link row's `stream_id`) to
+   `junctionRows`, and its acknowledged-link count to the link total.
 
-6. Memberships. Run `SQL.eventMembershipsStmt` over `verified`. Group rows by event. For each
-   event, the actual link set is every row whose `stream_id` is neither 0 nor the origin ID,
-   keyed by `(stream_name, stream_version)`. Compare with the selection's `acknowledgedLinks`:
-   actual but not acknowledged → `CompactionUnexpectedLink eventId (LinkWitness stream
-   version)`; acknowledged but not actual → `CompactionAcknowledgedLinkMissing eventId link`.
-   Sum acknowledged links over events that passed into the link count.
-
-7. References. Run `SQL.deadLetterCountsStmt` and `SQL.causationDependentCountsStmt` over
+6. References. Run `SQL.deadLetterCountsStmt` and `SQL.causationDependentCountsStmt` over
    `verified`. Under `RefuseDeadLetters`, each non-zero dead-letter count →
    `CompactionDeadLettersPresent eventId n`; under `RemoveDeadLetters`, sum into the
    dead-letter count. Under `RefuseCausationDependents`, each non-zero dependent count →
@@ -487,7 +513,7 @@ list and returning `ValidationRefused` at the end unless a short-circuit fires:
    best-effort — causation IDs have no foreign key and apply takes no lock on unlisted
    streams; say so in the Haddock.)
 
-8. Outcome. If refusals were collected, return `ValidationRefused` with them in the order
+7. Outcome. If refusals were collected, return `ValidationRefused` with them in the order
    collected (identity, lease, streams in witness order, then per-selection findings in
    canonical selection order). Otherwise assemble `junctionRows` from the resolved IDs and
    acknowledged links, build the report, and return `ValidationReady`.
@@ -699,19 +725,20 @@ Add to `kiroku-store/test/Test/PerformanceStructure.hs`, inside `noOpAppendSpec`
 under `just perf-structure`): "previews a manifest with one pool checkout" — using
 `withObservedStore`, seed a stream, build a valid manifest, run `previewCompaction`, and assert
 the checkout delta is exactly 1; and "keeps preview SQL free of locks and writes" — for each of
-`CompactionSQL.resolveStreamsStmt`, `selectionWitnessesStmt`, `ledgerRecordByDigestStmt`,
+`CompactionSQL.resolveStreamsStmt`, `ledgerRecordByDigestStmt`,
 `survivingSelectedEventsStmt`, `SQL.eventMembershipsStmt`, `SQL.deadLetterCountsStmt`,
 `SQL.causationDependentCountsStmt`, assert `T.toUpper (Statement.toSql stmt)` contains none of
 `"FOR UPDATE"`, `"FOR SHARE"`, `"DELETE"`, `"INSERT"`, `"UPDATE "`, `"SET LOCAL"`.
 `Kiroku.Store.Compaction.SQL` is an exposed module precisely so this test imports the
 statements directly (no re-exported SQL-text helper exists or is needed). Under
-`queryPlanSpec`, add `EXPLAIN` plan-shape assertions for `selectionWitnessesStmt` and
-`resolveStreamsStmt` following the existing `explainProductionStatement` examples, each
-substituting a realistically large parameter array (hundreds of elements at minimum — the
-planner's choice for a one-element array proves nothing about the 100000-row case): assert the
-witness joins are served by `stream_events_pkey` and the stream resolution by
-`ix_streams_stream_name`. (The ordinary-statement `event_compactions`/`store_identity` text
-assertion is owned by `docs/plans/74-...`, not this plan.)
+`queryPlanSpec`, add an `EXPLAIN` plan-shape assertion for `resolveStreamsStmt` following the
+existing `explainProductionStatement` examples, substituting a realistically large
+`text[]` literal (hundreds of names at minimum — the planner's choice for a one-element array
+proves nothing about the 100000-row case) and asserting the resolution is served by
+`ix_streams_stream_name`. The membership statement validation reuses is gated by
+`docs/plans/75-...`'s large-array `stream_events_pkey` assertion; do not duplicate it. (The
+ordinary-statement `event_compactions`/`store_identity` text assertion is owned by
+`docs/plans/74-...`, not this plan.)
 
 Register `Test.CompactionPreview` and `Test.CompactionPreviewMock` in `other-modules` and in
 `kiroku-store/test/Main.hs` (next to `HistoryRetention.spec` / `HistoryRetentionMock.spec`).
@@ -807,7 +834,7 @@ Behavioural acceptance, observable in a test or a `cabal repl` session against a
 5. Building the manifest with a random `StoreIdentity` returns exactly one refusal,
    `CompactionStoreIdentityMismatch`.
 6. `just perf-structure` passes with the new examples (checkout count, lock-free SQL text, and
-   the two large-array plan shapes); `cabal test all` passes; the
+   the large-array plan shape); `cabal test all` passes; the
    pool-checkout delta for one preview is exactly 1.
 
 
@@ -840,8 +867,6 @@ Signatures that must exist at the end of this plan:
 ```haskell
 -- Kiroku.Store.Compaction.SQL (exposed)
 resolveStreamsStmt :: Statement (Vector Text) (Vector (Text, Int64, Int64, Bool))
-selectionWitnessesStmt :: Statement (Vector UUID, Vector Int64, Vector Int64, Vector Int64)
-                                    (Vector (UUID, Maybe Int64, Maybe Int64, Maybe Int64, Maybe Int64))
 ledgerRecordByDigestStmt :: Statement ByteString (Maybe CompactionRecord)
 survivingSelectedEventsStmt :: Statement (Vector UUID) Int64
 compactionRecordRow :: D.Row CompactionRecord
@@ -849,6 +874,8 @@ compactionRecordRow :: D.Row CompactionRecord
 -- Kiroku.Store.Compaction.Internal (other-module)
 data ValidatedCompaction = ValidatedCompaction { report, selectedEventIds, junctionRows }
 data ValidationOutcome = ValidationRefused (NonEmpty CompactionRefusal) | ValidationAlreadyApplied CompactionRecord | ValidationReady ValidatedCompaction
+data LedgerOutcome = LedgerUnrecorded | LedgerAlreadyApplied CompactionRecord | LedgerConflict CompactionId Int64
+ledgerOutcomeTx :: CompactionManifest -> Tx.Transaction LedgerOutcome
 validateCompactionTx :: CompactionManifest -> Tx.Transaction ValidationOutcome
 buildReport :: CompactionManifest -> Int64 -> Int64 -> Int64 -> CompactionReport
 previewCompactionTx :: CompactionManifest -> Tx.Transaction (Either (NonEmpty CompactionRefusal) CompactionPreview)
@@ -868,6 +895,17 @@ KirokuEventCompactionRefused :: CompactionDigest -> CompactionRefusal -> Int -> 
 ```
 
 Consumers: `docs/plans/78-apply-a-compaction-manifest-transactionally-with-ledgered-idempotence.md`
-imports `validateCompactionTx`, `ValidationOutcome`, `ValidatedCompaction`, and the SQL
-module; `docs/plans/79-...` wraps `previewCompaction` in the CLI; the external consumer is
+imports `ledgerOutcomeTx`, `validateCompactionTx`, `ValidationOutcome`, `ValidatedCompaction`,
+and the SQL module; `docs/plans/79-...` wraps `previewCompaction` in the CLI; the external consumer is
 `mori://shinzui/mori/plans/237-compact-legacy-repository-history-without-discarding-facts`.
+
+
+## Revision Notes
+
+- 2026-09-09 (claude-fable-5-1, update cascaded from the MasterPlan review): Removed
+  `selectionWitnessesStmt`; witness checks, link checks, and `junctionRows` now come from one
+  unbatched `eventMembershipsStmt` pass (validation steps 5 and 6 merged). Factored the ledger
+  step out as the exported `ledgerOutcomeTx` so the apply plan can probe the ledger before
+  locking streams. The ledger row decoder uses `D.refine` instead of `error`. Structural
+  assertions and Interfaces updated to match; the plan-shape gate for the membership statement
+  stays with EP-2.

@@ -6,6 +6,19 @@ kind: exec-plan
 created_at: 2026-08-22T14:06:35Z
 intention: "intention_01m0mwdmnfex3tv9fg0t57htfv"
 master_plan: "docs/masterplans/11-manifest-driven-selective-event-compaction.md"
+provenance:
+  reviews:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T00:36:16Z
+      verdict: "comments"
+      note: "Migration, fixtures, scaffolder, and trigger claims verified; three (not two) migrations-suite example titles say eleven"
+  revisions:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T00:45:20Z
+      mode: "update"
+      note: "Three migrations-suite example titles say eleven, not two"
 ---
 
 # Add a store identity and an append-only event-compaction ledger
@@ -208,9 +221,10 @@ accidental-mutation guard, not a security boundary; PostgreSQL privileges remain
 in several places that you must update for a twelfth file:
 
 The list `nativeMigrationFiles` (near line 420) enumerates the eleven basenames; append
-`"0012.sql"`. Two example titles say "eleven" — `"tracks the eleven native files in manifest
-order"` and `"applies all eleven, verifies strictly, and reports AlreadyApplied on rerun"` —
-rename both to "twelve". In the Codd-history import fixture (near line 391) the `pendingIds`
+`"0012.sql"`. Three example titles say "eleven" — `"tracks the eleven native files in manifest
+order"`, `"builds component kiroku and an eleven-migration plan"`, and `"applies all eleven,
+verifies strictly, and reports AlreadyApplied on rerun"` — rename all three to "twelve". In the
+Codd-history import fixture (near line 391) the `pendingIds`
 list `["0008-schema-management-comment", "0009", "0010", "0011"]` gains `"0012"`, and the
 assertion `replicate 7 AlreadyApplied <> replicate 4 AppliedNow` becomes
 `replicate 7 AlreadyApplied <> replicate 5 AppliedNow` (the seven Codd-imported rows stay
@@ -918,3 +932,11 @@ The ledger table is consumed by `docs/plans/77-preview-a-compaction-manifest-rea
 `docs/plans/76-define-the-compaction-manifest-canonical-digest-refusal-vocabulary-and-report-types.md`
 as a manifest field. If that plan lands first, it adds the newtype exactly as shown here and
 this plan finds it present.
+
+
+## Revision Notes
+
+- 2026-09-09 (claude-fable-5-1, update cascaded from the MasterPlan review): Corrected the
+  migrations-suite fixture inventory — three example titles say "eleven", not two. Every other
+  claim (scaffolder command, fixture line numbers, trigger functions, template fixture, ADR
+  handle `ADR-8`) was verified against the working tree unchanged.

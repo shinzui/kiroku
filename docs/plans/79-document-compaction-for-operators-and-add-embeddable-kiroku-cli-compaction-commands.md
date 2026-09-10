@@ -6,6 +6,19 @@ kind: exec-plan
 created_at: 2026-08-22T14:06:35Z
 intention: "intention_01m0mwdmnfex3tv9fg0t57htfv"
 master_plan: "docs/masterplans/11-manifest-driven-selective-event-compaction.md"
+provenance:
+  reviews:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T00:36:16Z
+      verdict: "changes-requested"
+      note: "outcome.output needs OverloadedRecordDot, which kiroku-cli does not enable; the guide must cover visibleGlobalHeadPosition moving backwards, coordinator hold time versus lease renewal margin, and lock_timeout"
+  revisions:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T00:45:20Z
+      mode: "update"
+      note: "Record patterns instead of OverloadedRecordDot; guide covers lease margin, lock_timeout, starting chunk, visible-head decrease, archive locator"
 ---
 
 # Document compaction for operators and add embeddable kiroku-cli compaction commands
@@ -133,6 +146,17 @@ Record every decision made while working on the plan.
   Rationale: The MasterPlan's Integration Points are the single source of truth and were
   corrected before implementation started; see its Decision Log entries dated 2026-08-29.
   Date: 2026-08-29
+
+- Decision: Cascade the MasterPlan's 2026-09-09 review: `Run.hs` reads
+  `KirokuCommandOutcome` through record patterns rather than `outcome.output`; the guide adds
+  the coordinator-hold-time versus lease-renewal warning, `lock_timeout`, the 10,000-selection
+  starting chunk (chunked by stream), the `visibleGlobalHeadPosition` decrease, the
+  `operation`-label-as-archive-locator advice, and the `23503` note for direct
+  `applyCompactionTx` composers.
+  Rationale: `kiroku-cli` does not enable `OverloadedRecordDot`, so the draft would not have
+  compiled; the remaining items are operational hazards the review found unstated (see the
+  MasterPlan's 2026-09-09 Decision Log entries).
+  Date: 2026-09-09
 
 
 ## Outcomes & Retrospective
@@ -426,11 +450,19 @@ so a dependent appended after validation to a stream outside the lock set is not
 same rule as hard delete), that it takes the coordinator lock first and then every affected
 stream row in ascending internal ID order, that it waits for a held `lockStreamHistoryForReplayTx`
 guard, and that concurrent appends to affected streams wait for apply and then continue from the
-unchanged head. Link `history-retention.md`.
+unchanged head. Add two operational warnings: apply holds the coordinator for its whole
+transaction, so lease renewals queue behind it and a lease renewed with little remaining
+lifetime can expire while waiting — size chunks so measured apply time stays well inside the
+renewal margin; and a held stream guard blocks apply indefinitely, so run apply on a session
+with `SET lock_timeout` (or a role default) when failing fast is preferable to waiting. Link
+`history-retention.md`.
 
 *Sizing and chunking.* `maxCompactionSelections` is 100,000; larger jobs are several manifests,
 each one transaction, and stream-head witnesses stay valid across chunks because compaction never
 changes `stream_version` — only an intervening append invalidates them, which is the point.
+State the recommended starting chunk as 10,000 selections per manifest — to be replaced by the
+measured numbers `docs/plans/78-...` hands over — and recommend chunking by stream so each
+manifest locks few stream rows.
 
 *Storage, WAL, and reclamation.* Explain what actually happens to disk. Deleted heap tuples
 (including TOASTed payloads) become reusable free space through autovacuum, but partially
@@ -443,13 +475,18 @@ autovacuum's scale factor. Warn about WAL volume: scattered deletes pay a full-p
 touched heap and index page, so a large chunk can emit hundreds of megabytes of WAL; prefer
 chunked campaigns and watch replication lag between chunks.
 
-*Consequences for consumers.* Three facts the guide must state plainly. Compacted event IDs
+*Consequences for consumers.* Four facts the guide must state plainly. Compacted event IDs
 become appendable again, so the `DuplicateEvent` idempotent-retry protection is lost for
 exactly those IDs. A subscription worker that dead-letters an already-compacted event fails on
 the `dead_letters.event_id` foreign key (pre-existing hard-delete behaviour, made likelier by
 compaction). And a concurrent reference appearing between validation and commit rolls apply
 back with the retryable `CompactionConcurrentMutation` store error — nothing was deleted;
-re-run preview and apply.
+re-run preview and apply (a consumer composing `applyCompactionTx` in its own transaction may
+see the same condition as `UnexpectedServerError "23503"` in the in-flight-link race and should
+treat it identically). And `visibleGlobalHeadPosition` — the highest surviving `$all` row —
+moves backwards when a manifest removes the newest events, while the `$all` row's
+`stream_version` frontier never does, so a consumer that bounds a replay window by the visible
+head must tolerate a decrease.
 
 *Authorization.* Mirror the hard-delete model: apply sets `kiroku.enable_hard_deletes` for its
 transaction, so the connecting role needs `DELETE` on `events`, `stream_events`, and (under
@@ -461,7 +498,8 @@ transaction, so the connecting role needs `DELETE` on `events`, `stream_events`,
 four `KirokuEvent` constructors (`KirokuEventCompactionPreviewed`, `KirokuEventCompactionRefused`,
 `KirokuEventCompactionApplied`, `KirokuEventCompactionAlreadyApplied`) are process-local signals.
 Say plainly that the ledger records counts and digests, not the selected event list — "which
-events did compaction X remove" is answered by the consumer's archive, not by the store.
+events did compaction X remove" is answered by the consumer's archive, not by the store — so
+put the archive locator in the manifest's `operation` label, which the ledger stores verbatim.
 Link `observability.md`.
 
 *Idempotence.* Reapplying an identical manifest returns `CompactionAlreadyApplied` with the
@@ -677,9 +715,12 @@ the same mapping, where both `CompactionAppliedNow` and `CompactionAlreadyApplie
 `ExitSuccess`. `CompactionLedger opts`: `mkCompactionLedgerLimit limit` (out of range →
 `ExitFailure 1`), `compactionLedger (CompactionLedgerQuery validated)`, `ExitSuccess`.
 `KirokuStore (ShowStoreIdentity opts)`: `storeIdentity`, `ExitSuccess`. Then redefine
-`renderKirokuCommandWithStore store cmd = (.output) <$> executeKirokuCommandWithStore store cmd`
-(keeping its exported type) and `runKirokuCommandWithStore store cmd = do outcome <- execute...;
-TIO.putStrLn outcome.output; when (outcome.exitCode /= ExitSuccess) (exitWith outcome.exitCode)`.
+`renderKirokuCommandWithStore store cmd = (\KirokuCommandOutcome{output} -> output) <$>
+executeKirokuCommandWithStore store cmd` (keeping its exported type) and
+`runKirokuCommandWithStore store cmd = do KirokuCommandOutcome{output, exitCode} <- execute...;
+TIO.putStrLn output; when (exitCode /= ExitSuccess) (exitWith exitCode)`. Use record patterns
+(`NamedFieldPuns` is part of `GHC2024`), not `outcome.output`: `kiroku-cli`'s `common` stanza
+does not enable `OverloadedRecordDot`, and this plan adds no extension.
 Update `runKirokuCommand` with guidance arms for the two new constructors ("This command needs a
 live KirokuStore ..."). Export `KirokuCommandOutcome (..)` and `executeKirokuCommandWithStore`.
 
@@ -978,3 +1019,11 @@ out-of-range ledger limit, or a `StoreError` (including the retryable
 Consumed from `kiroku-store`: `Kiroku.Store.Compaction` (`previewCompaction`,
 `applyCompaction`, `compactionLedger`, and the re-exported `Kiroku.Store.Compaction.Types`),
 `Kiroku.Store.Read.storeIdentity`, `Kiroku.Store.Effect.runStoreIO`, `Kiroku.Store.Error.StoreError`.
+
+
+## Revision Notes
+
+- 2026-09-09 (claude-fable-5-1, update cascaded from the MasterPlan review): Replaced
+  `OverloadedRecordDot` syntax with record patterns in the `Run.hs` guidance; extended the
+  operator guide's leases, sizing, consequences, and audit sections with the coordinator-hold,
+  `lock_timeout`, starting-chunk, visible-head, archive-locator, and composer-`23503` facts.

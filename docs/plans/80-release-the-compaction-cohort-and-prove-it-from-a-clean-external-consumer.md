@@ -6,6 +6,13 @@ kind: exec-plan
 created_at: 2026-08-22T14:06:35Z
 intention: "intention_01m0mwdmnfex3tv9fg0t57htfv"
 master_plan: "docs/masterplans/11-manifest-driven-selective-event-compaction.md"
+provenance:
+  reviews:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-10T00:36:16Z
+      verdict: "approved"
+      note: "Versions, PVP reasoning, release skill, blueprint edge, ephemeral-pg and pg-migrate API names, and record field names verified against the working tree"
 ---
 
 # Release the compaction cohort and prove it from a clean external consumer
