@@ -9,7 +9,7 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-08-19T00:00:00Z"
+timestamp: "2026-09-10T03:06:36Z"
 requestId: IR-8
 status: proposed
 origin: mori://shinzui/keiro-ui
@@ -25,7 +25,11 @@ Proposed by the keiro runtime UI initiative
 initiative is preparing a React web UI for operating applications built on the keiro runtime
 stack; per `mori://shinzui/keiro-ui/okf/adrs/concepts/ADR-1`, every endpoint lives in the project
 that owns the concept, and store browsing belongs to kiroku. Implementation is kiroku's own
-downstream work under kiroku's plans.
+downstream work under kiroku's plans. The implementation plan is
+`mori://shinzui/kiroku/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events`
+(repository path `docs/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md`),
+which adds the three `kiroku-store` read primitives and the `kiroku-metrics` routes in four
+independently verifiable milestones.
 
 ## Context
 
