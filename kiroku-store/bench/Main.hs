@@ -26,7 +26,7 @@ import Hasql.Statement (Statement, preparable)
 import Hasql.Transaction qualified as Tx
 import Hasql.Transaction.Sessions qualified as TxSessions
 import Kiroku.Store
-import Kiroku.Test.Postgres (migrateTestDatabase, withMigratedTestDatabase, withSharedMigratedPostgres)
+import Kiroku.Test.Postgres (ephemeralConfig, migrateTestDatabase, withMigratedTestDatabase, withSharedMigratedPostgres)
 import Test.Tasty.Bench
 
 data RawAppendParams = RawAppendParams
@@ -712,7 +712,8 @@ withInventoryBenchmarkStores action =
 main :: IO ()
 main = do
     -- Start ephemeral PostgreSQL once for all benchmarks
-    result <- Pg.withCached $ \db -> do
+    config <- ephemeralConfig
+    result <- Pg.withCachedConfig config Pg.defaultCacheConfig $ \db -> do
         migrateTestDatabase (Pg.connectionString db)
         let settings = defaultConnectionSettings (Pg.connectionString db)
         withStore settings $ \store -> do

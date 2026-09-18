@@ -29,6 +29,7 @@ import Effectful (Eff, IOE, liftIO, runEff, (:>))
 import EphemeralPg qualified as Pg
 import Kiroku.Store
 import Kiroku.Store.Subscription.Stream (subscriptionStream)
+import Kiroku.Test.Postgres (ephemeralConfig)
 import Shibuya.Adapter (Adapter (..))
 import Shibuya.App (ProcessorId (..), defaultAppConfig, mkProcessor, runApp, stopApp)
 import Shibuya.Core.Ack (AckDecision (..))
@@ -46,7 +47,8 @@ iterations = 5
 
 main :: IO ()
 main = do
-    result <- Pg.withCached $ \db -> do
+    config <- ephemeralConfig
+    result <- Pg.withCachedConfig config Pg.defaultCacheConfig $ \db -> do
         let settings = defaultConnectionSettings (Pg.connectionString db)
         withStore settings $ \store -> do
             putStrLn "=== Kiroku Shibuya Adapter Overhead Benchmark ==="

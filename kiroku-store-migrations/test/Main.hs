@@ -21,7 +21,7 @@ import Data.Unique (hashUnique, newUnique)
 import Database.PostgreSQL.Migrate
 import Database.PostgreSQL.Migrate.History.Codd
 import Database.PostgreSQL.Migrate.Internal (migrationChecksumBytes)
-import Database.PostgreSQL.Migrate.Test (withMigratedDatabase)
+import Database.PostgreSQL.Migrate.Test (defaultEphemeralConfig, withMigratedDatabase)
 import EphemeralPg qualified as Pg
 import EphemeralPg.Config qualified as PgConfig
 import Hasql.Connection qualified as Connection
@@ -523,12 +523,18 @@ reportOutcomes MigrationReport{results} = outcome <$> toList results
 importOutcomes :: HistoryImportReport -> [HistoryImportOutcome]
 importOutcomes HistoryImportReport{importResults} = importOutcome <$> toList importResults
 
-kirokuPgConfig :: Pg.Config
-kirokuPgConfig = Pg.defaultConfig{PgConfig.user = "kiroku"}
+{- | Built on pg-migrate's stable per-user temporary root, which 'withMigratedDatabase'
+also uses, so ephemeral-pg's startup sweep reclaims clusters left by killed runs.
+-}
+kirokuPgConfig :: IO Pg.Config
+kirokuPgConfig = do
+    base <- defaultEphemeralConfig
+    pure base{PgConfig.user = "kiroku"}
 
 withKirokuPg :: (Pg.Database -> IO ()) -> IO ()
 withKirokuPg action = do
-    started <- Pg.startCached kirokuPgConfig Pg.defaultCacheConfig
+    config <- kirokuPgConfig
+    started <- Pg.startCached config Pg.defaultCacheConfig
     case started of
         Left startError -> expectationFailure (show startError)
         Right database -> action database `finally` Pg.stop database

@@ -4,7 +4,7 @@
 
 Two modes:
 
-  * default — boots a cached ephemeral PostgreSQL via 'Pg.withCached', runs
+  * default — boots a cached ephemeral PostgreSQL via 'Pg.withCachedConfig', runs
     the production @AnyVersion@ CTE under
     @EXPLAIN (ANALYZE, BUFFERS, TIMING, FORMAT TEXT)@ wrapped in
     @BEGIN ... ROLLBACK@, prints the result to stdout, then runs the same
@@ -46,6 +46,7 @@ import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Hasql.Statement (Statement, unpreparable)
 import Kiroku.Store
+import Kiroku.Test.Postgres (ephemeralConfig)
 import System.Directory (createDirectoryIfMissing, doesFileExist, getCurrentDirectory, listDirectory, removePathForcibly)
 import System.Environment (getArgs)
 import System.FilePath (takeDirectory, (</>))
@@ -262,7 +263,8 @@ runExplainAnalyze = do
     createDirectoryIfMissing True dir
     putStrLn ("=== Output directory: " <> dir <> " ===")
     putStrLn "=== Booting cached ephemeral PostgreSQL for EXPLAIN ANALYZE ==="
-    result <- Pg.withCached $ \db -> do
+    config <- ephemeralConfig
+    result <- Pg.withCachedConfig config Pg.defaultCacheConfig $ \db -> do
         let settings = defaultConnectionSettings (Pg.connectionString db)
         withStore settings $ \store -> do
             paramsText <- mkSampleParams
@@ -371,8 +373,9 @@ runAutoExplain = do
               -- & Discoveries for the empirical evidence.
               ("log_min_messages", "'log'")
             ]
+    base <- ephemeralConfig
     let cfg =
-            PgC.defaultConfig
+            base
                 <> PgC.autoExplainConfig 0
                 <> (mempty :: PgC.Config){PgC.postgresSettings = collectorSettings}
     result <- Pg.withConfig cfg $ \db -> do

@@ -1,4 +1,5 @@
 module Kiroku.Test.Postgres (
+    ephemeralConfig,
     withSharedMigratedPostgres,
     withMigratedTestDatabase,
     migrateTestDatabase,
@@ -7,6 +8,7 @@ module Kiroku.Test.Postgres (
 import Control.Concurrent.STM (TVar, atomically, newTVarIO, stateTVar)
 import Control.Exception (bracket, bracket_, onException)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import Data.Monoid (Last (..))
 import Data.Text (Text)
 import Data.Text qualified as T
 import Database.PostgreSQL.Migrate (defaultRunOptions, runMigrationPlan)
@@ -16,13 +18,33 @@ import Hasql.Pool qualified as Pool
 import Hasql.Pool.Config qualified as Pool.Config
 import Hasql.Session qualified as Session
 import Kiroku.Store.Migrations (kirokuMigrationPlan)
+import System.Directory (createDirectoryIfMissing)
 import System.IO.Unsafe (unsafePerformIO)
+import System.Posix.User (getEffectiveUserID)
 
 data SharedPostgres = SharedPostgres
     { database :: Pg.Database
     , templateName :: Text
     , nextDatabaseId :: TVar Int
     }
+
+{- | 'Pg.defaultConfig' with @temporaryRoot@ pinned to @\/tmp\/ephpg-kiroku-\<uid\>@,
+created if missing.
+
+ephemeral-pg reaps clusters abandoned by killed runs on the next startup, but only
+within the temporary root. An unset root resolves to @$TMPDIR@, which @nix develop@,
+@nix-shell@, and many CI runners allocate per session, so the sweep would never see
+earlier sessions' orphans. Keying the root by effective uid keeps it stable across a
+user's sessions while keeping build sandboxes running as another uid out of a
+developer-owned @0700@ directory. Every Kiroku suite shares this root so a run of one
+suite cleans up after a killed run of another.
+-}
+ephemeralConfig :: IO Pg.Config
+ephemeralConfig = do
+    uid <- getEffectiveUserID
+    let root = "/tmp/ephpg-kiroku-" <> show uid
+    createDirectoryIfMissing True root
+    pure Pg.defaultConfig{Pg.temporaryRoot = Last (Just root)}
 
 {-# NOINLINE sharedPostgres #-}
 sharedPostgres :: IORef (Maybe SharedPostgres)
@@ -42,7 +64,8 @@ withMigratedTestDatabase action = do
     case mShared of
         Just server -> withTemplateDatabase server action
         Nothing -> do
-            result <- Pg.withCached $ \db -> do
+            config <- ephemeralConfig
+            result <- Pg.withCachedConfig config Pg.defaultCacheConfig $ \db -> do
                 migrateTestDatabase (Pg.connectionString db)
                 action (Pg.connectionString db)
             case result of
@@ -51,7 +74,8 @@ withMigratedTestDatabase action = do
 
 startSharedPostgres :: IO SharedPostgres
 startSharedPostgres = do
-    result <- Pg.startCached Pg.defaultConfig Pg.defaultCacheConfig
+    config <- ephemeralConfig
+    result <- Pg.startCached config Pg.defaultCacheConfig
     db <- case result of
         Left err -> error ("Failed to start shared ephemeral PostgreSQL: " <> show err)
         Right db -> pure db

@@ -35,10 +35,13 @@ import Data.Generics.Labels ()
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.Int (Int32)
 import Data.List (sort)
+import Data.Monoid (Last (..))
 import Data.Text qualified as T
 import EphemeralPg qualified as Pg
 import Kiroku.Store
 import Kiroku.Store.Subscription.EventPublisher (publisherPosition)
+import System.Directory (createDirectoryIfMissing)
+import System.Posix.User (getEffectiveUserID)
 
 -- | Block until the publisher has ingested at least 'target' events.
 waitForPublisher :: KirokuStore -> GlobalPosition -> IO ()
@@ -59,9 +62,24 @@ waitUntil budget act
                 threadDelay 20_000
                 waitUntil (budget - 20_000) act
 
+{- | 'Pg.defaultConfig' with a temporary root that is stable per user.
+
+ephemeral-pg reaps clusters left behind by killed runs on the next startup, but
+only within the temporary root. The default root is @$TMPDIR@, which @nix develop@
+and many CI runners allocate per session, so the sweep would never find earlier
+sessions' orphans. Keying the root by effective uid keeps it stable across runs.
+-}
+ephemeralConfig :: IO Pg.Config
+ephemeralConfig = do
+    uid <- getEffectiveUserID
+    let root = "/tmp/ephpg-kiroku-" <> show uid
+    createDirectoryIfMissing True root
+    pure Pg.defaultConfig{Pg.temporaryRoot = Last (Just root)}
+
 main :: IO ()
 main = do
-    result <- Pg.withCached \db -> do
+    config <- ephemeralConfig
+    result <- Pg.withCachedConfig config Pg.defaultCacheConfig \db -> do
         let connStr = Pg.connectionString db
         withStore (defaultConnectionSettings connStr) \store -> do
             -- 1. Append 120 events across 40 streams in category "example".
