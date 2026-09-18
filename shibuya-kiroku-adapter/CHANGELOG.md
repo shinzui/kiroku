@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1.2 — 2026-09-18
+
+### Other Changes
+
+* The test-suite now requires `ephemeral-pg >=0.3.1 && <0.4` (was
+  `>=0.2 && <0.3`). The library's dependencies, API and runtime behavior are
+  unchanged.
+
 ## 0.5.1.1 — 2026-08-16
 
 ### Other Changes

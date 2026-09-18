@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.5.0.0 — 2026-09-18
+
+### Breaking Changes
+
+* Requires the `pg-migrate` 1.2 series (`pg-migrate`, `pg-migrate-embed`,
+  `pg-migrate-import-codd`, `pg-migrate-cli` `^>=1.2.0.0`, was `^>=1.1.0.0`).
+  `Kiroku.Store.Migrations` re-exports `MigrationComponent`, `MigrationPlan`,
+  `DefinitionError` and `PlanError` from `pg-migrate`, so this major bump
+  follows the dependency's. pg-migrate 1.2 has no API or behavior changes
+  relative to 1.1: consumers only need to move their own `pg-migrate` bounds
+  to `^>=1.2`. The migration payloads, their checksums and the
+  `kiroku-store-migrate` executable are unchanged.
+
+### Other Changes
+
+* The test-suite requires `ephemeral-pg >=0.3.1 && <0.4` and
+  `pg-migrate-test-support ^>=1.2.0.0`, and builds on its
+  `defaultEphemeralConfig` so orphaned clusters from killed runs are reaped.
+* The UUIDv7 test now requires the PostgreSQL 18 builtin to exist exactly when
+  the server major is 18, and reports which route supplied `kiroku.uuidv7()`.
+  A run can no longer pass while exercising a different major than intended.
+* The README documents running the suites against both PostgreSQL 17 and 18
+  (`just test-matrix`, `just test-pg <major>`).
+
 ## 0.4.0.0 — 2026-08-16
 
 ### Breaking Changes

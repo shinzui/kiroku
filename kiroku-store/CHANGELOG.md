@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.0.1 — 2026-09-18
+
+### Other Changes
+
+* The test-suite and benchmarks now require `ephemeral-pg >=0.3.1 && <0.4`
+  (was `>=0.2 && <0.3`). The benchmarks pin ephemeral-pg's temporary root to a
+  stable per-user directory, so clusters left behind by killed runs are cleaned
+  up on the next start. The library's dependencies, API and runtime behavior
+  are unchanged.
+
 ## 0.8.0.0 — 2026-08-16
 
 ### Breaking Changes
