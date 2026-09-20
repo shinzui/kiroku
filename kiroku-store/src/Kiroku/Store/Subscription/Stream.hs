@@ -54,7 +54,7 @@ import Control.Concurrent.STM (
     writeTBQueue,
     writeTVar,
  )
-import Control.Exception (Exception, SomeException, fromException, throwIO)
+import Control.Exception (Exception, SomeException, fromException, mask, onException, throwIO)
 import Control.Monad (when)
 import Data.IORef (atomicModifyIORef', newIORef)
 import Kiroku.Store.Connection (KirokuStore)
@@ -176,7 +176,7 @@ subscriptionAckStream ::
     -- | TBQueue capacity for the bridge; must be at least 1.
     Natural ->
     IO (Stream IO AckItem, IO ())
-subscriptionAckStream store config bufferSize = do
+subscriptionAckStream store config bufferSize = mask $ \restore -> do
     when (bufferSize < 1) $
         throwIO (InvalidStreamBufferSize bufferSize)
     queue <- newTBQueueIO bufferSize
@@ -200,17 +200,21 @@ subscriptionAckStream store config bufferSize = do
 
     let bridgeConfig = config{handler = bridgeHandler}
 
-    subHandle <- subscribe store bridgeConfig
-    _monitor <- Async.async $ do
-        outcome <- wait subHandle
-        atomically . closeBridge closedVar $ case outcome of
-            Right () -> BridgeClosedCleanly
-            Left e
-                | Just Async.AsyncCancelled <- fromException e -> BridgeClosedCleanly
-                | otherwise -> BridgeCrashed e
+    subHandle <- restore (subscribe store bridgeConfig)
+    monitor <-
+        ( Async.async $ do
+            outcome <- wait subHandle
+            atomically . closeBridge closedVar $ case outcome of
+                Right () -> BridgeClosedCleanly
+                Left e
+                    | Just Async.AsyncCancelled <- fromException e -> BridgeClosedCleanly
+                    | otherwise -> BridgeCrashed e
+        )
+            `onException` cancel subHandle
 
     let cancelAction = do
             cancel subHandle
+            Async.wait monitor
             atomically (closeBridge closedVar BridgeClosedCleanly)
 
     let step :: () -> IO (Maybe (AckItem, ()))

@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Bug Fixes
+
+* `subscriptionAckStream` now masks the ownership transfer from the underlying
+  subscription to its monitor and cancels the subscription if monitor startup
+  fails. Its cancel action waits for the monitor to terminate, remains
+  idempotent, and returns only after the subscription registry entry is gone.
+
+### Other Changes
+
+* Subscription lifecycle tests gain a checkpoint-save boundary hook so
+  cancellation after an acknowledgement but before persistence can be proved
+  to replay the event without leaking a worker.
+
 ## 0.8.0.1 — 2026-09-18
 
 ### Other Changes

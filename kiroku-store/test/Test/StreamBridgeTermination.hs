@@ -10,6 +10,7 @@ import Control.Exception (Exception, SomeException, finally, fromException, thro
 import Control.Lens ((^.))
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
+import Data.Map.Strict qualified as Map
 import Kiroku.Store
 import Kiroku.Store.Subscription.Stream (AckItem (..), InvalidStreamBufferSize (..), subscriptionAckStream)
 import Kiroku.Store.Subscription.Worker (withFetchBatchHookForTest)
@@ -103,3 +104,19 @@ spec = describe "stream bridge termination" $ do
                     case mNext of
                         Nothing -> pure ()
                         Just _ -> expectationFailure "expected stream to end after cancel"
+
+    it "cancelAction is idempotent and leaves no subscription thread registered" $
+        withTestStore $ \store -> do
+            let subscriptionName = SubscriptionName "bridge-idempotent-cancel-sub"
+                cfg = defaultSubscriptionConfig subscriptionName AllStreams (\_ -> pure Continue)
+                key = (subscriptionName, 0)
+            (_stream, cancelStream) <- subscriptionAckStream store cfg 1
+
+            statesBefore <- subscriptionStates store
+            Map.member key statesBefore `shouldBe` True
+
+            within "first bridge cancellation" cancelStream
+            within "repeated bridge cancellation" cancelStream
+
+            statesAfter <- subscriptionStates store
+            Map.member key statesAfter `shouldBe` False

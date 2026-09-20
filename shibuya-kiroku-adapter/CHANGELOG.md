@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Bug Fixes
+
+* Consumer-group construction now uses a masked ownership ledger. Cancellation
+  cannot strand a member between factory return and registration, every
+  acquired member receives a shutdown attempt after a later failure, and a
+  throwing shutdown no longer replaces the primary construction exception.
+* The underlying ack-stream bridge now closes its own subscription-to-monitor
+  ownership window and waits for both threads during idempotent shutdown.
+
+### Other Changes
+
+* Real-store regressions cover duplicate acknowledgement, `AckHalt` replay,
+  cancellation after reply but before checkpoint persistence, existing and
+  missing checkpoint policies, source failure, retry, and leak-free shutdown.
+* The handler-exception documentation now reflects Shibuya's supervised
+  immediate-retry finalization behavior.
+
 ## 0.5.1.2 — 2026-09-18
 
 ### Other Changes

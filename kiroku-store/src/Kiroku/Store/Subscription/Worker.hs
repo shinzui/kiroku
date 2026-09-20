@@ -18,8 +18,9 @@ and the bounded-retry \/ dead-letter disposition mechanics) is concentrated in
 the single delivery primitive shared by every live path, so behaviour is
 identical for @AllStreams@, @Category@, and consumer-group subscriptions.
 
-'withFetchBatchHookForTest' and 'withLoadCheckpointHookForTest' are test-only
-seams for injecting fetch and checkpoint-load failures.
+'withFetchBatchHookForTest', 'withLoadCheckpointHookForTest', and
+'withSaveCheckpointHookForTest' are test-only seams for controlling fetch,
+checkpoint-load, and checkpoint-save boundaries.
 -}
 module Kiroku.Store.Subscription.Worker (
     LiveSource (..),
@@ -27,6 +28,7 @@ module Kiroku.Store.Subscription.Worker (
     configMember,
     withFetchBatchHookForTest,
     withLoadCheckpointHookForTest,
+    withSaveCheckpointHookForTest,
 ) where
 
 import Contravariant.Extras (contrazip2)
@@ -95,6 +97,11 @@ type LoadCheckpointHook =
             )
         )
 
+type SaveCheckpointHook =
+    SubscriptionConfig ->
+    GlobalPosition ->
+    IO ()
+
 {-# NOINLINE fetchBatchHookRef #-}
 fetchBatchHookRef :: IORef (Maybe FetchBatchHook)
 fetchBatchHookRef = unsafePerformIO (newIORef Nothing)
@@ -102,6 +109,10 @@ fetchBatchHookRef = unsafePerformIO (newIORef Nothing)
 {-# NOINLINE loadCheckpointHookRef #-}
 loadCheckpointHookRef :: IORef (Maybe LoadCheckpointHook)
 loadCheckpointHookRef = unsafePerformIO (newIORef Nothing)
+
+{-# NOINLINE saveCheckpointHookRef #-}
+saveCheckpointHookRef :: IORef (Maybe SaveCheckpointHook)
+saveCheckpointHookRef = unsafePerformIO (newIORef Nothing)
 
 {- | Install a process-local fetch hook for tests that need deterministic
 subscription-worker fault injection. Production code leaves the hook unset.
@@ -130,6 +141,22 @@ withLoadCheckpointHookForTest hook action =
             pure previous
         )
         (writeIORef loadCheckpointHookRef)
+        (const action)
+
+{- | Install a process-local checkpoint-save boundary hook for lifecycle tests.
+
+The hook runs immediately before the database statement. Production code leaves
+it unset.
+-}
+withSaveCheckpointHookForTest :: SaveCheckpointHook -> IO a -> IO a
+withSaveCheckpointHookForTest hook action =
+    bracket
+        ( do
+            previous <- readIORef saveCheckpointHookRef
+            writeIORef saveCheckpointHookRef (Just hook)
+            pure previous
+        )
+        (writeIORef saveCheckpointHookRef)
         (const action)
 
 fetchRetryDelayMicros :: Int -> Int
@@ -794,9 +821,11 @@ saveCheckpoint ::
     GlobalPosition ->
     (KirokuEvent -> IO ()) ->
     IO ()
-saveCheckpoint pool config (GlobalPosition pos) emit = do
+saveCheckpoint pool config position@(GlobalPosition pos) emit = do
     let subName@(SubscriptionName name') = name config
         mem = configMember config
+    mHook <- readIORef saveCheckpointHookRef
+    mapM_ (\hook -> hook config position) mHook
     result <- Pool.use pool (Session.statement (name', mem, pos) SQL.saveCheckpointMemberStmt)
     case result of
         Left err -> emit (KirokuEventSubscriptionDbError subName SaveCheckpoint err (groupCtxOf config))

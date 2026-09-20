@@ -103,12 +103,12 @@ pauses this subscriber. The adapter uses Kiroku's lossless @PauseAndResume@
 overflow policy, so a paused subscriber catches up from its checkpoint instead
 of being killed.
 
-A Shibuya handler used with this adapter must not let synchronous exceptions
-escape. Shibuya's supervised runner records handler exceptions without
-finalizing the ack; with Kiroku's ack-coupled bridge, an unfinalized ack blocks
-the Kiroku worker forever. Direct 'mkProcessor' users should wrap handlers in
-'guardKirokuHandler' or handle exceptions themselves.
-'kirokuConsumerGroupProcessors' applies 'guardKirokuHandler' automatically.
+Shibuya's supervised runner converts a synchronous handler exception to an
+immediate 'AckRetry' and finalizes it, so the ack-coupled Kiroku worker cannot be
+left blocked by an abandoned reply. 'guardKirokuHandlerWith' remains useful when
+the application wants a different exception disposition, and
+'kirokuConsumerGroupProcessors' applies the adapter's default guard
+automatically. Asynchronous cancellation is never converted into an ack.
 -}
 module Shibuya.Adapter.Kiroku (
     -- * Adapter
@@ -139,7 +139,7 @@ import Control.Exception (SomeException)
 import Data.Int (Int32)
 import Data.Text qualified as T
 import Effectful (Eff, IOE, liftIO, (:>))
-import Effectful.Exception (catchSync, onException, throwIO)
+import Effectful.Exception (catchSync, throwIO)
 import GHC.Generics (Generic)
 import Kiroku.Store.Connection (KirokuStore)
 import Kiroku.Store.Subscription.Stream (subscriptionAckStream)
@@ -159,6 +159,7 @@ import Kiroku.Store.Types (RecordedEvent)
 import Numeric.Natural (Natural)
 import Shibuya.Adapter (Adapter (..))
 import Shibuya.Adapter.Kiroku.Convert (kirokuEnvelopeAttrs, toIngestedAck)
+import Shibuya.Adapter.Kiroku.Internal (acquireAllAndTransfer)
 import Shibuya.App (ProcessorId (..), QueueProcessor (..))
 import Shibuya.Core.Ack (AckDecision (..), RetryDelay (..))
 import Shibuya.Core.Error (PolicyError (..))
@@ -530,19 +531,15 @@ kirokuConsumerGroupProcessorsWith
                 Left e -> pure (Left e)
                 Right (ordering, conc) -> do
                     let SubscriptionName name = subName
-                    adapters <- createAdapters [] 0
-                    let processors =
-                            [ let pid = ProcessorId (name <> "-member-" <> T.pack (show m))
-                               in (pid, QueueProcessor adapter (guardKirokuHandler handler) ordering conc)
-                            | (m, adapter) <- zip [0 .. n - 1] adapters
-                            ]
-                    pure (Right processors)
-      where
-        createAdapters created m
-            | m >= n = pure (reverse created)
-            | otherwise = do
-                adapter <- mkMemberAdapter m `onException` shutdownCreated created
-                createAdapters (adapter : created) (m + 1)
-
-        shutdownCreated =
-            mapM_ $ \Adapter{shutdown = shutdownAction} -> shutdownAction
+                    acquireAllAndTransfer
+                        n
+                        mkMemberAdapter
+                        (\Adapter{shutdown = shutdownAction} -> shutdownAction)
+                        (\_ _ -> pure ())
+                        ( \adapters ->
+                            pure . Right $
+                                [ let pid = ProcessorId (name <> "-member-" <> T.pack (show m))
+                                   in (pid, QueueProcessor adapter (guardKirokuHandler handler) ordering conc)
+                                | (m, adapter) <- zip [0 .. n - 1] adapters
+                                ]
+                        )

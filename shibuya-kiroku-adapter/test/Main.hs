@@ -1,8 +1,8 @@
 module Main where
 
-import Control.Concurrent (threadDelay)
+import Control.Concurrent (forkIO, killThread, threadDelay)
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
-import Control.Concurrent.STM (atomically, newTVarIO, readTVar, registerDelay, writeTVar)
+import Control.Concurrent.STM (atomically, newEmptyTMVarIO, newTVarIO, readTMVar, readTVar, registerDelay, writeTVar)
 import Control.Concurrent.STM qualified as STM
 import Control.Exception qualified as E
 import Control.Lens ((&), (.~), (^.))
@@ -27,8 +27,9 @@ import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
+import Kiroku.Store.Subscription.Stream (AckItem (..))
 import Kiroku.Store.Subscription.Types qualified as KTypes
-import Kiroku.Store.Subscription.Worker (withFetchBatchHookForTest)
+import Kiroku.Store.Subscription.Worker (withFetchBatchHookForTest, withSaveCheckpointHookForTest)
 import Kiroku.Test.Postgres (withMigratedTestDatabase, withSharedMigratedPostgres)
 import OpenTelemetry.Attributes (toAttribute)
 import Shibuya.Adapter (Adapter (..))
@@ -45,8 +46,10 @@ import Shibuya.Adapter.Kiroku.Convert (
     KirokuEnvelopeAttrs,
     kirokuEnvelopeAttrs,
     toEnvelope,
+    toIngestedAck,
     toKirokuDeadLetterReason,
  )
+import Shibuya.Adapter.Kiroku.Internal (acquireAllAndTransfer)
 import Shibuya.App (
     ProcessorId (..),
     QueueProcessor (..),
@@ -56,12 +59,14 @@ import Shibuya.App (
     runApp,
     stopApp,
     stopAppGracefully,
+    waitApp,
  )
 import Shibuya.App qualified as Shibuya
-import Shibuya.Core.Ack (AckDecision (..), DeadLetterReason (..))
+import Shibuya.Core.Ack (AckDecision (..), DeadLetterReason (..), HaltReason (..))
 import Shibuya.Core.Ack qualified as Ack
+import Shibuya.Core.AckHandle (AckHandle (..))
 import Shibuya.Core.Error (PolicyError (..))
-import Shibuya.Core.Ingested (Message (..))
+import Shibuya.Core.Ingested (Ingested (..), Message (..))
 import Shibuya.Core.Metrics (ProcessorState (..))
 import Shibuya.Core.Types (Attempt (..), Envelope (..))
 import Shibuya.Policy (Concurrency (..), OrderingPolicy (..))
@@ -384,6 +389,83 @@ main = withSharedMigratedPostgres $ hspec $ do
                 collected <- reverse <$> readIORef ref
                 map globalPos collected `shouldBe` [5]
 
+            it "preserves an existing checkpoint when restarted with FromCurrentHead" $ \store -> do
+                let subscriptionName = SubscriptionName "shibuya-existing-checkpoint"
+                    checkpointKey = SubscriptionCheckpointKey subscriptionName 0
+                    config policy =
+                        defaultKirokuAdapterConfig subscriptionName AllStreams
+                            & #missingCheckpointPolicy .~ policy
+                Right _ <- runStoreIO store $ appendToStream (StreamName "shibuya-existing-checkpoint-events") NoStream [makeEvent "First" (Aeson.object [])]
+                firstSeen <- newTVarIO (0 :: Int)
+
+                runEff $ runTracingNoop $ do
+                    adapter <- kirokuAdapter store (config FromBeginning)
+                    result <-
+                        runApp
+                            defaultAppConfig
+                            [
+                                ( ProcessorId "existing-checkpoint-first"
+                                , mkProcessor adapter $ \_ -> do
+                                    liftIO $ atomically $ writeTVar firstSeen 1
+                                    pure AckOk
+                                )
+                            ]
+                    case result of
+                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                        Right appHandle -> do
+                            liftIO $ waitForCount firstSeen 1 10_000_000
+                            liftIO $ waitForCheckpointPosition store checkpointKey (GlobalPosition 1)
+                            stopApp appHandle
+
+                Right _ <-
+                    runStoreIO store $
+                        appendToStream
+                            (StreamName "shibuya-existing-checkpoint-events")
+                            StreamExists
+                            [makeEvent "Second" (Aeson.object [])]
+                replayed <- newIORef ([] :: [Int64])
+                within "existing checkpoint restart" $
+                    runEff $
+                        runTracingNoop $ do
+                            adapter <- kirokuAdapter store (config FromCurrentHead)
+                            result <-
+                                runApp
+                                    defaultAppConfig
+                                    [
+                                        ( ProcessorId "existing-checkpoint-restart"
+                                        , mkProcessor adapter $ \ingested -> do
+                                            liftIO $ modifyIORef' replayed (globalPos (envelopePayload ingested) :)
+                                            pure (AckHalt (HaltFatal "existing checkpoint observed"))
+                                        )
+                                    ]
+                            case result of
+                                Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                                Right appHandle -> waitApp appHandle
+
+                readIORef replayed `shouldReturn` [2]
+
+            it "surfaces FailIfMissing without leaving a subscription registered" $ \store -> do
+                let subscriptionName = SubscriptionName "shibuya-required-checkpoint"
+                    checkpointKey = SubscriptionCheckpointKey subscriptionName 0
+                    config =
+                        defaultKirokuAdapterConfig subscriptionName AllStreams
+                            & #missingCheckpointPolicy .~ FailIfMissing
+                outcome <-
+                    E.try $
+                        within "FailIfMissing adapter refusal" $
+                            runEff $
+                                runTracingNoop $ do
+                                    adapter <- kirokuAdapter store config
+                                    let Adapter{source = sourceStream} = adapter
+                                    Stream.fold Fold.drain sourceStream
+                case outcome of
+                    Left exception
+                        | Just (SubscriptionCheckpointMissing actual) <- E.fromException (exception :: E.SomeException) ->
+                            actual `shouldBe` checkpointKey
+                    Left exception -> expectationFailure ("expected SubscriptionCheckpointMissing, got: " <> show exception)
+                    Right () -> expectationFailure "expected a missing-checkpoint refusal"
+                Map.null <$> subscriptionStates store `shouldReturn` True
+
             it "delivers live events through Shibuya pipeline" $ \store -> do
                 ref <- newIORef ([] :: [RecordedEvent])
                 countVar <- newTVarIO (0 :: Int)
@@ -654,6 +736,22 @@ main = withSharedMigratedPostgres $ hspec $ do
                             liftIO $ drained `shouldBe` True
 
         describe "ack dispositions" $ do
+            it "keeps the first Kiroku reply when an ack is finalized twice" $ \_store -> do
+                reply <- newEmptyTMVarIO
+                cancellations <- newIORef (0 :: Int)
+                let Ingested{ack = AckHandle{finalize}} =
+                        toIngestedAck
+                            sampleEnvelopeAttrs
+                            (modifyIORef' cancellations (+ 1))
+                            (AckItem (makeRecordedEvent Nothing) 0 reply)
+
+                runEff $ do
+                    finalize AckOk
+                    finalize (AckDeadLetter (PoisonPill "late duplicate"))
+
+                atomically (readTMVar reply) `shouldReturn` Continue
+                readIORef cancellations `shouldReturn` 0
+
             it "AckRetry redelivers the same event, then AckOk advances (EP-40 M3)" $ \store -> do
                 Right _ <- runStoreIO store $ appendToStream (StreamName "ackretry-1") NoStream [makeEvent "R1" (Aeson.object [])]
                 threadDelay 200_000
@@ -689,6 +787,108 @@ main = withSharedMigratedPostgres $ hspec $ do
                 -- It was not dead-lettered (the retry succeeded).
                 dls <- readDeadLetters store "ackretry-proj"
                 length dls `shouldBe` 0
+
+            it "AckHalt leaves the checkpoint behind the event and restart replays it" $ \store -> do
+                let subscriptionName = SubscriptionName "ackhalt-replay-proj"
+                    checkpointKey = SubscriptionCheckpointKey subscriptionName 0
+                Right _ <- runStoreIO store $ appendToStream (StreamName "ackhalt-replay-1") NoStream [makeEvent "H1" (Aeson.object [])]
+                threadDelay 200_000
+
+                deliveries <- newIORef ([] :: [Int64])
+                let runHaltingProcessor label =
+                        within label $
+                            runEff $
+                                runTracingNoop $ do
+                                    adapter <-
+                                        kirokuAdapter store $
+                                            defaultKirokuAdapterConfig subscriptionName AllStreams
+                                    result <-
+                                        runApp
+                                            defaultAppConfig
+                                            [
+                                                ( ProcessorId "ackhalt-replay"
+                                                , mkProcessor adapter $ \ingested -> do
+                                                    liftIO $ modifyIORef' deliveries (globalPos (envelopePayload ingested) :)
+                                                    pure (AckHalt (HaltFatal "intentional halt"))
+                                                )
+                                            ]
+                                    case result of
+                                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                                        Right appHandle -> waitApp appHandle
+
+                runHaltingProcessor "first AckHalt"
+                readCheckpointPosition store checkpointKey `shouldReturn` Just (GlobalPosition 0)
+
+                runHaltingProcessor "AckHalt restart"
+                reverse <$> readIORef deliveries `shouldReturn` [1, 1]
+                readCheckpointPosition store checkpointKey `shouldReturn` Just (GlobalPosition 0)
+
+            it "shutdown after an ack but before checkpoint persistence replays without leaking" $ \store -> do
+                let subscriptionName = SubscriptionName "checkpoint-cancel-replay-proj"
+                    checkpointKey = SubscriptionCheckpointKey subscriptionName 0
+                Right _ <- runStoreIO store $ appendToStream (StreamName "checkpoint-cancel-replay-1") NoStream [makeEvent "C1" (Aeson.object [])]
+                threadDelay 200_000
+
+                saveStarted <- newEmptyMVar
+                holdSave <- newEmptyMVar
+                firstDelivery <- newTVarIO (0 :: Int)
+                let pauseSave config _
+                        | KTypes.name config == subscriptionName = putMVar saveStarted () >> takeMVar holdSave
+                        | otherwise = pure ()
+
+                withSaveCheckpointHookForTest pauseSave $
+                    within "shutdown during checkpoint persistence" $
+                        runEff $
+                            runTracingNoop $ do
+                                adapter <-
+                                    kirokuAdapter store $
+                                        defaultKirokuAdapterConfig subscriptionName AllStreams
+                                result <-
+                                    runApp
+                                        defaultAppConfig
+                                        [
+                                            ( ProcessorId "checkpoint-cancel"
+                                            , mkProcessor adapter $ \_ -> do
+                                                liftIO $ atomically $ do
+                                                    count <- readTVar firstDelivery
+                                                    writeTVar firstDelivery (count + 1)
+                                                pure AckOk
+                                            )
+                                        ]
+                                case result of
+                                    Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                                    Right appHandle -> do
+                                        liftIO $ waitForCount firstDelivery 1 10_000_000
+                                        liftIO $ takeMVar saveStarted
+                                        stopApp appHandle
+
+                readCheckpointPosition store checkpointKey `shouldReturn` Just (GlobalPosition 0)
+                Map.null <$> subscriptionStates store `shouldReturn` True
+
+                replayed <- newIORef ([] :: [Int64])
+                within "restart after interrupted checkpoint" $
+                    runEff $
+                        runTracingNoop $ do
+                            adapter <-
+                                kirokuAdapter store $
+                                    defaultKirokuAdapterConfig subscriptionName AllStreams
+                            result <-
+                                runApp
+                                    defaultAppConfig
+                                    [
+                                        ( ProcessorId "checkpoint-replay"
+                                        , mkProcessor adapter $ \ingested -> do
+                                            liftIO $ modifyIORef' replayed (globalPos (envelopePayload ingested) :)
+                                            pure (AckHalt (HaltFatal "replay observed"))
+                                        )
+                                    ]
+                            case result of
+                                Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                                Right appHandle -> waitApp appHandle
+
+                readIORef replayed `shouldReturn` [1]
+                readCheckpointPosition store checkpointKey `shouldReturn` Just (GlobalPosition 0)
+                Map.null <$> subscriptionStates store `shouldReturn` True
 
             it "AckDeadLetter records the event and the next event continues (EP-40 M3)" $ \store -> do
                 Right _ <- runStoreIO store $ appendToStream (StreamName "ackdl-1") NoStream [makeEvent "D1" (Aeson.object [])]
@@ -918,7 +1118,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                 throwsSize 0
                 throwsSize (-1)
 
-            it "shuts down already-created member adapters after a later factory failure" $ \_store -> do
+            it "shuts down every created member and preserves the factory failure when cleanup throws" $ \_store -> do
                 shutdowns <- newIORef ([] :: [Int32])
                 let sentinel = userError "member 2 failed"
                     factory m
@@ -928,7 +1128,11 @@ main = withSharedMigratedPostgres $ hspec $ do
                                 Adapter
                                     { adapterName = "stub-kiroku"
                                     , source = Stream.nil
-                                    , shutdown = liftIO $ modifyIORef' shutdowns (<> [m])
+                                    , shutdown = liftIO $ do
+                                        modifyIORef' shutdowns (<> [m])
+                                        if m == 1
+                                            then E.throwIO (userError "member 1 cleanup failed")
+                                            else pure ()
                                     }
                     handler ingested = do
                         let _ = envelopePayload ingested
@@ -945,6 +1149,41 @@ main = withSharedMigratedPostgres $ hspec $ do
                     Left (e :: E.SomeException) -> show e `shouldContain` "member 2 failed"
                     Right _ -> expectationFailure "expected the member factory failure to rethrow"
                 readIORef shutdowns `shouldReturn` [1, 0]
+
+            it "owns a returned member before cancellation can interrupt construction" $ \_store -> do
+                acquired <- newEmptyMVar
+                holdTransfer <- newEmptyMVar
+                finished <- newEmptyMVar
+                shutdowns <- newIORef ([] :: [Int32])
+                maskingStates <- newIORef ([] :: [E.MaskingState])
+                worker <-
+                    forkIO $ do
+                        outcome <-
+                            E.try $
+                                runEff $
+                                    acquireAllAndTransfer
+                                        2
+                                        pure
+                                        (\member -> liftIO $ modifyIORef' shutdowns (<> [member]))
+                                        ( \member _ -> liftIO $ do
+                                            state <- E.getMaskingState
+                                            modifyIORef' maskingStates (<> [state])
+                                            if member == 0
+                                                then putMVar acquired () >> takeMVar holdTransfer
+                                                else pure ()
+                                        )
+                                        pure
+                        putMVar finished (outcome :: Either E.SomeException [Int32])
+
+                takeMVar acquired
+                killThread worker
+                outcome <- takeMVar finished
+                case outcome of
+                    Left exception ->
+                        E.fromException exception `shouldBe` Just E.ThreadKilled
+                    Right _ -> expectationFailure "expected cancellation during ownership transfer"
+                readIORef maskingStates `shouldReturn` [E.MaskedInterruptible]
+                readIORef shutdowns `shouldReturn` [0]
 
             it "wraps consumer-group handlers so exceptions finalize a retry decision" $ \store -> do
                 Right _ <- runStoreIO store $ appendToStream (StreamName "cgp-guard-1") NoStream [makeEvent "CGGuard" (Aeson.object [])]
@@ -1140,6 +1379,17 @@ waitForCheckpointPosition store expectedKey expectedPosition =
         if (expectedKey, expectedPosition) `elem` positions
             then pure ()
             else threadDelay 20_000 >> loop
+
+readCheckpointPosition :: KirokuStore -> SubscriptionCheckpointKey -> IO (Maybe GlobalPosition)
+readCheckpointPosition store expectedKey = do
+    Right (SubscriptionCheckpointInventory _ checkpoints) <-
+        runStoreIO store subscriptionCheckpointInventory
+    pure $ case [ position
+                | SubscriptionCheckpoint name member position _ <- toList checkpoints
+                , SubscriptionCheckpointKey name member == expectedKey
+                ] of
+        position : _ -> Just position
+        [] -> Nothing
 
 makeEvent :: Text -> Value -> EventData
 makeEvent typ p =

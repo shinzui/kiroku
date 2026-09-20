@@ -1,5 +1,11 @@
 # Capability Catalog Log
 
+## 2026-09-20
+* **Update**: CAP-19 now records masked consumer-group ownership transfer, exception-preserving
+  cleanup, single-subscription monitor ownership, and real-store replay/leak evidence for halt and
+  cancellation at the checkpoint boundary. It also replaces the obsolete handler-exception
+  limitation with the exact candidate-core contract and release-bound caveat.
+
 ## 2026-08-13
 * **Addition**: CAP-21 records durable replay-history leases and transaction-scoped one-stream guards, shipped in `kiroku-store` 0.7.0.0 and `kiroku-store-migrations` 0.3.2.0 with raw-SQL, concurrency, hot-path, and clean-consumer evidence.
 * **Update**: CAP-1 now records the ten-entry native manifest, seven-entry Codd import prefix, frozen least-privilege subscription checkpoint SQL relation, and replay-retention schema contract.
