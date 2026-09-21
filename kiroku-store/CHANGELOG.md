@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.0.2 — 2026-09-21
 
 ### Bug Fixes
 
@@ -11,6 +11,8 @@
 
 ### Other Changes
 
+* The Shibuya integration benchmark now targets `shibuya-core >=0.10 && <0.11`
+  so the store can participate in the coordinated lifecycle release candidate.
 * Support `effectful-core` 2.6.1 and 2.7.1.1 or later, while excluding 2.7.0.0
   through 2.7.1.0 because upstream records a per-operation performance
   regression for dynamically dispatched effects.

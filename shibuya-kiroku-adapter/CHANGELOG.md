@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.1.3 — 2026-09-21
 
 ### Bug Fixes
 
@@ -13,6 +13,8 @@
 
 ### Other Changes
 
+* Require `shibuya-core >=0.10 && <0.11` across the library, tests, lifecycle
+  fixture, and benchmark for the coordinated lifecycle release candidate.
 * Support `effectful-core` 2.6.1 and 2.7.1.1 or later, while excluding 2.7.0.0
   through 2.7.1.0 because upstream records a per-operation performance
   regression for dynamically dispatched effects.
