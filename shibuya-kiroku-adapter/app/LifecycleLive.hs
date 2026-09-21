@@ -7,6 +7,7 @@ import Control.Concurrent.STM (TVar, atomically, modifyTVar', newTVarIO, readTVa
 import Control.Monad (forever, unless, when)
 import Data.Aeson (encode, object, withObject, (.:), (.=))
 import Data.Aeson.Types (parseMaybe)
+import Data.ByteString.Char8 qualified as BS
 import Data.ByteString.Lazy qualified as LBS
 import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef)
 import Data.Int (Int64)
@@ -38,7 +39,7 @@ import Shibuya.Core.Types (Envelope (..))
 import Shibuya.Telemetry.Effect (runTracingNoop)
 import System.Environment (lookupEnv)
 import System.Exit (exitFailure)
-import System.IO (Handle, IOMode (..), hFlush, hPutStrLn, withFile)
+import System.IO (Handle, IOMode (..), SeekMode (AbsoluteSeek), hFlush, hPutStrLn, hSeek, hSetFileSize, withFile)
 import System.Mem (performMajorGC)
 import Text.Read (readMaybe)
 
@@ -66,9 +67,10 @@ data Sample = Sample
     }
 
 data DeliveryLedger = DeliveryLedger
-    { producedIds :: !(IORef (Set Int))
-    , processedIds :: !(IORef (Set Int))
-    , duplicateIds :: !(IORef (Set Int))
+    { producedHandle :: !Handle
+    , processedHandle :: !Handle
+    , producedPath :: !FilePath
+    , processedPath :: !FilePath
     , malformedDeliveries :: !(IORef Int)
     }
 
@@ -134,43 +136,43 @@ runFixture config store streamName subscriptionName = do
     producedVar <- newTVarIO (0 :: Int)
     processedRef <- newIORef (0 :: Int)
     failedRef <- newIORef (0 :: Int)
-    ledger <- newDeliveryLedger
     stopVar <- newTVarIO False
     startTime <- getCurrentTime
 
-    withFile config.outputCsv WriteMode $ \handle -> do
-        hPutStrLn handle csvHeader
-        producerThread <- Async.async $ runProducer config store streamName producedVar failedRef ledger stopVar
-        samplerThread <- Async.async $ runSampler config store subscriptionName startTime producedVar processedRef failedRef handle
+    withDeliveryLedger config $ \ledger ->
+        withFile config.outputCsv WriteMode $ \handle -> do
+            hPutStrLn handle csvHeader
+            producerThread <- Async.async $ runProducer config store streamName producedVar failedRef ledger stopVar
+            samplerThread <- Async.async $ runSampler config store subscriptionName startTime producedVar processedRef failedRef handle
 
-        runConsumerSegment config store subscriptionName processedRef failedRef ledger $ do
-            threadDelay (config.restartAtSecs * 1_000_000)
-            putStrLn "Graceful midpoint stop"
+            runConsumerSegment config store subscriptionName processedRef failedRef ledger $ do
+                threadDelay (config.restartAtSecs * 1_000_000)
+                putStrLn "Graceful midpoint stop"
 
-        putStrLn "Restarting with the same durable subscription"
-        runConsumerSegment config store subscriptionName processedRef failedRef ledger $ do
-            threadDelay ((config.durationSecs - config.restartAtSecs) * 1_000_000)
-            atomically $ writeTVar stopVar True
-            Async.wait producerThread
-            waitForDrain producedVar processedRef 60
-            waitForCheckpointDrain store subscriptionName 30
+            putStrLn "Restarting with the same durable subscription"
+            runConsumerSegment config store subscriptionName processedRef failedRef ledger $ do
+                threadDelay ((config.durationSecs - config.restartAtSecs) * 1_000_000)
+                atomically $ writeTVar stopVar True
+                Async.wait producerThread
+                waitForDrain producedVar processedRef 60
+                waitForCheckpointDrain store subscriptionName 30
 
-        Async.cancel samplerThread
-        finalSample <- sampleMetrics store subscriptionName startTime producedVar processedRef failedRef
-        hPutStrLn handle $ sampleToCsv finalSample
-        hFlush handle
+            Async.cancel samplerThread
+            finalSample <- sampleMetrics store subscriptionName startTime producedVar processedRef failedRef
+            hPutStrLn handle $ sampleToCsv finalSample
+            hFlush handle
 
-        ledgerPassed <- writeDeliveryLedger config ledger
+            ledgerPassed <- writeDeliveryLedger config ledger
 
-        let passed =
-                finalSample.messagesFailed == 0
-                    && finalSample.messagesProcessed == finalSample.messagesProduced
-                    && finalSample.queueDepth == 0
-                    && ledgerPassed
-        putStrLn $ "Produced: " <> show finalSample.messagesProduced
-        putStrLn $ "Processed: " <> show finalSample.messagesProcessed
-        putStrLn $ "Durable backlog: " <> show finalSample.queueDepth
-        unless passed exitFailure
+            let passed =
+                    finalSample.messagesFailed == 0
+                        && finalSample.messagesProcessed == finalSample.messagesProduced
+                        && finalSample.queueDepth == 0
+                        && ledgerPassed
+            putStrLn $ "Produced: " <> show finalSample.messagesProduced
+            putStrLn $ "Processed: " <> show finalSample.messagesProcessed
+            putStrLn $ "Durable backlog: " <> show finalSample.queueDepth
+            unless passed exitFailure
 
 runProducer :: Config -> KirokuStore -> StreamName -> TVar Int -> IORef Int -> DeliveryLedger -> TVar Bool -> IO ()
 runProducer config store streamName producedVar failedRef ledger stopVar = loop (0 :: Int)
@@ -229,32 +231,31 @@ runConsumerSegment config store subscriptionName processedRef failedRef ledger a
                     recordProcessed ledger value
                 pure AckOk
 
-newDeliveryLedger :: IO DeliveryLedger
-newDeliveryLedger =
-    DeliveryLedger
-        <$> newIORef Set.empty
-        <*> newIORef Set.empty
-        <*> newIORef Set.empty
-        <*> newIORef 0
+withDeliveryLedger :: Config -> (DeliveryLedger -> IO a) -> IO a
+withDeliveryLedger config action =
+    let producedPath = config.outputLedger <> ".produced.ids"
+        processedPath = config.outputLedger <> ".processed.ids"
+     in withFile producedPath ReadWriteMode $ \producedHandle ->
+            withFile processedPath ReadWriteMode $ \processedHandle -> do
+                hSetFileSize producedHandle 0
+                hSetFileSize processedHandle 0
+                malformedDeliveries <- newIORef 0
+                action DeliveryLedger{producedHandle, processedHandle, producedPath, processedPath, malformedDeliveries}
 
 recordProduced :: DeliveryLedger -> Int -> IO ()
-recordProduced ledger value =
-    atomicModifyIORef' ledger.producedIds $ \values -> (Set.insert value values, ())
+recordProduced ledger value = hPutStrLn ledger.producedHandle (show value)
 
 recordProcessed :: DeliveryLedger -> Int -> IO ()
-recordProcessed ledger value = do
-    duplicate <- atomicModifyIORef' ledger.processedIds $ \values ->
-        (Set.insert value values, Set.member value values)
-    when duplicate $
-        atomicModifyIORef' ledger.duplicateIds $
-            \values -> (Set.insert value values, ())
+recordProcessed ledger value = hPutStrLn ledger.processedHandle (show value)
 
 writeDeliveryLedger :: Config -> DeliveryLedger -> IO Bool
 writeDeliveryLedger config ledger = do
-    produced <- readIORef ledger.producedIds
-    processed <- readIORef ledger.processedIds
-    duplicates <- readIORef ledger.duplicateIds
+    producedValues <- readIdentityHandle ledger.producedPath ledger.producedHandle
+    processedValues <- readIdentityHandle ledger.processedPath ledger.processedHandle
     malformed <- readIORef ledger.malformedDeliveries
+    let produced = Set.fromList producedValues
+        processed = Set.fromList processedValues
+        duplicates = duplicateValues processedValues
     let missing = produced `Set.difference` processed
         unexpected = processed `Set.difference` produced
         passed = Set.null missing && Set.null unexpected && Set.null duplicates && malformed == 0
@@ -274,6 +275,23 @@ writeDeliveryLedger config ledger = do
     LBS.writeFile config.outputLedger (encode artifact)
     putStrLn $ "Delivery ledger: " <> config.outputLedger <> " (" <> if passed then "pass)" else "fail)"
     pure passed
+
+readIdentityHandle :: FilePath -> Handle -> IO [Int]
+readIdentityHandle path handle = do
+    hFlush handle
+    hSeek handle AbsoluteSeek 0
+    contents <- BS.hGetContents handle
+    traverse parseIdentity (filter (not . BS.null) (BS.lines contents))
+  where
+    parseIdentity raw =
+        maybe (ioError $ userError $ "Invalid delivery identity in " <> path) pure (readMaybe $ BS.unpack raw)
+
+duplicateValues :: [Int] -> Set Int
+duplicateValues = snd . foldl' step (Set.empty, Set.empty)
+  where
+    step (seen, duplicates) value
+        | Set.member value seen = (seen, Set.insert value duplicates)
+        | otherwise = (Set.insert value seen, duplicates)
 
 runSampler :: Config -> KirokuStore -> SubscriptionName -> UTCTime -> TVar Int -> IORef Int -> IORef Int -> Handle -> IO ()
 runSampler config store subscriptionName startTime producedVar processedRef failedRef handle = forever $ do
