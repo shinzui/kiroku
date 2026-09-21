@@ -11,6 +11,7 @@
 
 ### Other Changes
 
+* Support only the `effectful` and `effectful-core` 2.6 and 2.7 release series.
 * Subscription lifecycle tests gain a checkpoint-save boundary hook so
   cancellation after an acknowledgement but before persistence can be proved
   to replay the event without leaking a worker.

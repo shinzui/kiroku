@@ -13,6 +13,7 @@
 
 ### Other Changes
 
+* Support only the `effectful` and `effectful-core` 2.6 and 2.7 release series.
 * Real-store regressions cover duplicate acknowledgement, `AckHalt` replay,
   cancellation after reply but before checkpoint persistence, existing and
   missing checkpoint policies, source failure, retry, and leak-free shutdown.
