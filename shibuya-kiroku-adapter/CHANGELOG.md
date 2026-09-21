@@ -13,7 +13,9 @@
 
 ### Other Changes
 
-* Support only the `effectful` and `effectful-core` 2.6 and 2.7 release series.
+* Support `effectful-core` 2.6.1 and 2.7.1.1 or later, while excluding 2.7.0.0
+  through 2.7.1.0 because upstream records a per-operation performance
+  regression for dynamically dispatched effects.
 * Real-store regressions cover duplicate acknowledgement, `AckHalt` replay,
   cancellation after reply but before checkpoint persistence, existing and
   missing checkpoint policies, source failure, retry, and leak-free shutdown.

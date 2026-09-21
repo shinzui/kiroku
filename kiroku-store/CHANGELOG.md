@@ -11,7 +11,9 @@
 
 ### Other Changes
 
-* Support only the `effectful` and `effectful-core` 2.6 and 2.7 release series.
+* Support `effectful-core` 2.6.1 and 2.7.1.1 or later, while excluding 2.7.0.0
+  through 2.7.1.0 because upstream records a per-operation performance
+  regression for dynamically dispatched effects.
 * Subscription lifecycle tests gain a checkpoint-save boundary hook so
   cancellation after an acknowledgement but before persistence can be proved
   to replay the event without leaking a worker.
