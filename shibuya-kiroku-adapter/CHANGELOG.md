@@ -21,6 +21,8 @@
 * Real-store regressions cover duplicate acknowledgement, `AckHalt` replay,
   cancellation after reply but before checkpoint persistence, existing and
   missing checkpoint policies, source failure, retry, and leak-free shutdown.
+* The live restart fixture now emits and enforces a per-delivery identity
+  ledger, detecting duplicate/loss compensation that aggregate counts cannot.
 * The handler-exception documentation now reflects Shibuya's supervised
   immediate-retry finalization behavior.
 
