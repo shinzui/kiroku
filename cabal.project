@@ -13,6 +13,9 @@ with-compiler: ghc-9.12.4
 tests: True
 benchmarks: True
 
+package shibuya-kiroku-adapter
+  flags: +lifecycle-live
+
 package codd
   tests: False
   benchmarks: False

@@ -21,6 +21,9 @@
 * Real-store regressions cover duplicate acknowledgement, `AckHalt` replay,
   cancellation after reply but before checkpoint persistence, existing and
   missing checkpoint policies, source failure, retry, and leak-free shutdown.
+* Keep the live lifecycle fixture enabled in the repository while making it an
+  opt-in Cabal component for source-distribution consumers, so the published
+  library does not require the unpublished `kiroku-test-support` package.
 * The live restart fixture now streams identities externally, then emits and
   enforces a reconciled per-delivery ledger. This detects duplicate/loss
   compensation without retaining the identity set in the measured process heap.
