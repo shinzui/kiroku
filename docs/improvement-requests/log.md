@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-09-24
+* **Addition**: IR-15 asks consumerGroupGuard to hold a session-level advisory lock for the worker's lifetime instead of a transaction-scoped probe that cannot see a running peer. The request originates from mori://shinzui/notification-hub (plan 75) and is non-blocking: the application holds the lock itself with Kiroku's key.
+
 ## 2026-09-10
 * **Update**: IR-11 is accepted; [ExecPlan 90](../plans/90-add-configurable-cors-support-to-kiroku-metrics.md) (`mori://shinzui/kiroku/plans/90-add-configurable-cors-support-to-kiroku-metrics`) plans the default-off `cors` policy on `MetricsServerConfig`, the WAI middleware covering HTTP responses, preflights, and WebSocket upgrades, its tests and documentation, and the confirmation-gated major release that will complete the request.
 * **Update**: IR-9 is accepted; [ExecPlan 89](../plans/89-expose-a-public-dead-letter-read-api.md) (`mori://shinzui/kiroku/plans/89-expose-a-public-dead-letter-read-api`) plans the public `subscriptionDeadLetters` Store operation with keyset pagination and the `GET /subscriptions/<name>/dead-letters` route in `kiroku-metrics`, its tests and documentation, and the confirmation-gated release that will complete the request.
