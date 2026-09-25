@@ -10,7 +10,21 @@ generated:
   by: anthropic/claude-opus-5-5
   at: "2026-09-25T15:10:00Z"
 bugId: BUG-2
-status: confirmed
+status: fixed
+fixedVersion: "unreleased"
+resolution: >-
+  Fixed on master for kiroku-store 0.9.0.0 with kiroku-store-migrations 0.6.0.0 (plan 91). Migration
+  0012 copies each source stream's category onto its $all junction rows (stream_events.category,
+  enforced by ck_stream_events_all_category) and adds the partial index
+  ix_stream_events_all_by_category (category, stream_version) INCLUDE (original_stream_id) WHERE
+  stream_id = 0. Both readCategoryForwardSQL and readCategoryForwardConsumerGroupSQL are now one range
+  scan of that index from (category, checkpoint) that stops at the limit; the group hash applies to
+  the included original_stream_id. A caught-up poll of a 20,000-stream category fell from 60,387
+  shared buffers to 6 (group member: 29,958 to 3). The unpartitioned read shared the defect and was
+  fixed alongside; a same-process gate shows it faster on every protected cell, including plan 10's
+  exhausted-category case (0.43x). The suggested position-driven join was rejected because its cost
+  follows the $all rows after the checkpoint. The requested regression guard exists as a 32-buffer
+  budget test on a 20,000-stream category. Recorded as ADR-10.
 severity: degraded
 origin: mori://tan/notification-hub
 affects: mori://shinzui/kiroku/packages/kiroku-store

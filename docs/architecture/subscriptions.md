@@ -316,10 +316,16 @@ stores it in `streams.category`.
 
 Category reads use `SQL.readCategoryForwardStmt`:
 
-- Find streams with `streams.category = category`.
-- For each stream, find matching `$all` rows by `original_stream_id`.
-- Return the matching events ordered by `$all` global position.
-- Use the subscription cursor as a global-position lower bound.
+- Every `$all` junction row carries its source stream's category in
+  `stream_events.category`, written by the append statements (migration `0012`).
+- The read range-scans `ix_stream_events_all_by_category` from
+  `(category, cursor)` in global-position order and stops at the batch limit.
+- The subscription cursor is the global-position lower bound.
+
+A poll therefore costs work proportional to the events it returns. It does not
+depend on how many streams the category holds or on how many other categories'
+events follow the cursor. Before plan 91 the read probed every stream of the
+category once per poll (BUG-2).
 
 Category subscriptions keep global-position checkpoints, so their observed
 positions may have gaps relative to `$all`. For example, if positions 10 and 13
@@ -361,7 +367,11 @@ stream go to the same member.
 Consumer groups use member-aware SQL:
 
 - `$all`: `SQL.readAllForwardConsumerGroupStmt`
-- category: `SQL.readCategoryForwardConsumerGroupStmt`
+- category: `SQL.readCategoryForwardConsumerGroupStmt`, the same range scan
+  of `ix_stream_events_all_by_category` as the plain category read, with the
+  slot predicate applied to `original_stream_id` on index tuples; a member's
+  poll cost follows the category's events after its cursor, not the number of
+  streams in the category
 - checkpoint initialization: the shared `Subscription.Checkpoint.SQL` session
   with the exact member key
 - checkpoint save: `SQL.saveCheckpointMemberStmt`

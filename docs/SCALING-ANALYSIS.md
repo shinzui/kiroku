@@ -32,7 +32,8 @@ Index sizes (estimated at 2 years):
 | `stream_events_pkey` (uuid, bigint) | ~120GB |
 | `ix_stream_events_stream_version` (bigint, bigint) | ~80GB |
 | `ix_stream_events_all_by_origin` (bigint, bigint, partial) | ~40GB |
-| **Total indexes** | **~370GB** |
+| `ix_stream_events_all_by_category` (text, bigint, include bigint, partial) | ~55GB |
+| **Total indexes** | **~425GB** |
 
 **Total database size at 2 years: ~1.2-1.3TB.**
 
@@ -65,10 +66,12 @@ Same index, same analysis. Reads start from a specific global position and scan 
 
 ### Category reads
 
-    WHERE se.stream_id = 0 AND se.stream_version > $1 AND s.category = $2
+    WHERE se.stream_id = 0 AND se.category = $2 AND se.stream_version > $1
     ORDER BY se.stream_version ASC LIMIT $3
 
-Uses `ix_stream_events_all_by_origin` partial index and the LATERAL join pattern. This is the most complex read path. The query finds streams in the category, then scans each stream's `$all` entries via the partial index. Performance depends on the number of active streams per category. **Scales with category stream count, not total event count.** Already validated at about 1.03ms for a 100-event page with 100K events across 100 categories. The focused reliability-and-scale audit also added an `exhausted-category` benchmark at about 21.6us for a high cursor after a category has no newer events; this guards against accidentally scanning the rest of `$all` looking for category matches.
+Uses the `ix_stream_events_all_by_category` partial index on `(category, stream_version)`, fed by the `category` column that appends copy onto each `$all` row (migration `0012`). The read is one index range scan that starts at `(category, checkpoint)` and stops at the limit, the same shape as an `$all` read restricted to one category. **Scales with rows returned**, not with the number of streams in the category and not with the other categories' events after the checkpoint. A consumer-group member evaluates its hash on `original_stream_id`, an included index column, so it skips other members' rows on index pages.
+
+Until plan 91 (September 2026) category reads used a LATERAL join that probed `ix_stream_events_all_by_origin` once per stream in the category, so every poll cost work proportional to the category's stream count: 60,384 buffers for a caught-up poll of a 20,000-stream category, against 6 now (BUG-2). The `exhausted-category` and `category-scaling` benchmarks guard both failure modes: scanning the rest of `$all` looking for category matches, and visiting every stream of the category.
 
 ### Writes (append CTE)
 
@@ -284,4 +287,4 @@ The fundamental mismatch: **event stores have stream-centric access patterns, no
 | Backup/restore | **Medium** | pgbackrest for incremental backups. Streaming replication for failover |
 | Write throughput ceiling | **Low** | Already validated at ~50K events/s. Schema-per-tenant or Strategy D as escape hatches |
 
-The store's architecture is sound for billion-row scale. A focused May 2026 audit captured plans on 100K representative events and confirmed the intended index paths for stream reads, `$all` reads, category reads, and subscription checkpoints after switching category reads back to the LATERAL partial-index shape. The primary investment should be in operational practices (VACUUM tuning, monitoring, incremental backups) and domain-driven archival (hot/cold partitioning), not time-based table partitioning.
+The store's architecture is sound for billion-row scale. A focused May 2026 audit captured plans on 100K representative events and confirmed the intended index paths for stream reads, `$all` reads, category reads, and subscription checkpoints; plan 91 later replaced the LATERAL category shape with the `ix_stream_events_all_by_category` range scan, whose cost no longer depends on category stream count. The primary investment should be in operational practices (VACUUM tuning, monitoring, incremental backups) and domain-driven archival (hot/cold partitioning), not time-based table partitioning.

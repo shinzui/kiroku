@@ -41,6 +41,11 @@ changes while the group runs. The exact hash formula and its one caveat are in
 A size-1 group is exactly equivalent to an ordinary, non-partitioned
 subscription: every stream hashes to the single member 0.
 
+A member's poll reads its slice by range-scanning the category's `$all` rows
+after its checkpoint, so its cost follows the category's new events, not the
+number of streams the category has ever held. A group over a category with one
+stream per entity stays cheap however many entities accumulate.
+
 ## Starting A Member
 
 A member is an ordinary subscription with the `consumerGroup` field set. Build

@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-09-25
+* **Addition**: ADR-10 records, for BUG-2 and plan 91, that category reads (plain and consumer-group) range-scan a (category, global position) partial index over a category column copied onto $all junction rows, replacing plan 10's LATERAL per-stream probe; migration 0012 adds the column, backfill, CHECK, and index.
+
 ## 2026-09-10
 * **Addition**: ADR-9 records, for IR-13, that every documented kiroku-metrics JSON body, WebSocket frame, and Prometheus metric name is a published contract that grows only additively, with incompatible changes shipping as new paths or frame types, and that the HTTP/WebSocket surface lives in sister packages wrapping supported kiroku-store APIs.
 * **Addition**: ADR-8 records the subscription API conventions MasterPlan 12 establishes toward 1.0: construction-time validation, declared startup policies, one exception parent for runtime refusals, and never skipping an event on a consumer's behalf.

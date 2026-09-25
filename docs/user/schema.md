@@ -83,10 +83,16 @@ maintenance GUC described in [Deletes And Truncates](#deletes-and-truncates).
 | `stream_version` | `BIGINT NOT NULL` | Position of the entry within `stream_id`. For `$all`, this is the global position. For link streams, this is the link target's position. |
 | `original_stream_id` | `BIGINT NOT NULL` | Source stream where the event was first appended. For source-stream and `$all` rows, this is the source stream id. For link rows, it remains the original source stream id. |
 | `original_stream_version` | `BIGINT NOT NULL` | Event's original position in its source stream. For link rows, this differs from the target stream's `stream_version`. |
+| `category` | `TEXT` | The source stream's category, copied from `streams.category` when the event is appended. Set on `$all` rows (`stream_id = 0`) only; source-stream and link rows leave it `NULL`. Added by migration `0012`. |
 
 The primary key is `(event_id, stream_id)`. This means one event can appear at
 most once in a given stream, but it can appear in multiple streams through
 links.
+
+The check constraint `ck_stream_events_all_category` (`stream_id <> 0 OR
+category IS NOT NULL`) rejects an `$all` row without a category. Code that
+writes junction rows directly, such as a benchmark fixture, must set
+`category` on its `$all` rows or the insert fails with SQLSTATE `23514`.
 
 ## `subscriptions`
 
@@ -199,7 +205,8 @@ event_id)` is unique, so re-recording the same dead letter is idempotent.
 | `ix_streams_stream_name` | `streams(stream_name)` | Enforces unique stream names and supports stream lookup. |
 | `ix_streams_category` | `streams(category)` | Supports category reads and category subscriptions. |
 | `ix_stream_events_stream_version` | `stream_events(stream_id, stream_version)` | Primary ordered read path for a stream. |
-| `ix_stream_events_all_by_origin` | `stream_events(original_stream_id, stream_version) WHERE stream_id = 0` | Supports category reads by joining source streams to their `$all` entries in global order. |
+| `ix_stream_events_all_by_category` | `stream_events(category, stream_version) INCLUDE (original_stream_id) WHERE stream_id = 0` | Category reads and consumer-group category reads: one range scan from `(category, checkpoint)` in global order that stops at the batch limit. The included column lets the consumer-group hash run on index tuples. Added by migration `0012`. |
+| `ix_stream_events_all_by_origin` | `stream_events(original_stream_id, stream_version) WHERE stream_id = 0` | Finds a stream's `$all` rows by source stream; used by hard deletes. Category reads used it before migration `0012`. |
 | `ix_events_event_type` | `events(event_type)` | Supports event-type filtering. |
 | `ix_events_correlation_id` | `events(correlation_id) WHERE correlation_id IS NOT NULL` | Supports correlation lookups. |
 | `ix_events_causation_id` | `events(causation_id) WHERE causation_id IS NOT NULL` | Supports causation-chain lookups. |

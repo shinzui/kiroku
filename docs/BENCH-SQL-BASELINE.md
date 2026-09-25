@@ -72,7 +72,7 @@ Below the 30K events/s target at 16 connections. Each 10-event batch holds the `
 | `$all` read | 2,190 | 0.337ms | 0.527ms | 1.765ms |
 | Category read | 1,100 | 1.061ms | 1.694ms | 3.257ms |
 
-All read paths meet targets. `$all` reads are fastest — clean range scan on `(stream_id=0, stream_version)`. Category reads use a LATERAL join + partial index (`ix_stream_events_all_by_origin`) to avoid scanning all of `$all` — the planner finds category streams first, then fetches per-stream from the partial index and merges.
+All read paths meet targets. `$all` reads are fastest — clean range scan on `(stream_id=0, stream_version)`. Category reads used a LATERAL join + partial index (`ix_stream_events_all_by_origin`) to avoid scanning all of `$all` — the planner found category streams first, then fetched per-stream from the partial index and merged. (Historical: plan 91 replaced that shape; see "Category reads are solved".)
 
 ### Benchmark 6: Mixed read/write
 
@@ -121,7 +121,7 @@ Initial category reads using `LIKE 'prefix-%'` were p50=5.1ms / p99=42.3ms — u
 2. **Partial index** `ix_stream_events_all_by_origin ON stream_events (original_stream_id, stream_version) WHERE stream_id = 0` — allows the planner to scan `$all` entries per originating stream rather than scanning all of `$all`.
 3. **LATERAL join query pattern** — forces the planner to: find category streams → index scan each via the partial index → merge and sort → LIMIT 100. Without LATERAL, the planner chose a full `$all` scan with post-hoc filtering.
 
-The LATERAL pattern is the recommended query shape for `readCategory` in the Haskell API.
+The LATERAL pattern was the query shape for `readCategory` until September 2026. It is historical now: it costs one index probe per stream in the category on every read, so a caught-up poll of a 20,000-stream category read about 60,000 buffers (BUG-2). Plan 91 (migration `0012`) copies each stream's category onto its `$all` junction rows and adds `ix_stream_events_all_by_category (category, stream_version) INCLUDE (original_stream_id) WHERE stream_id = 0`; category reads are now a single range scan from `(category, cursor)` that stops at the limit. `kiroku-store/bench/sql/bench_read_category.sql` uses the current shape, so its results are not comparable with the table above.
 
 ### Read-write isolation is excellent
 
@@ -163,4 +163,4 @@ Both are additive — no changes to existing columns, indexes, or write path.
 
 1. ~~Proceed to Milestone 2: implement Haskell append operations~~ **Done.** See `docs/BENCH-HASKELL-APPEND.md`.
 2. ~~Compare Haskell append overhead against these SQL baselines (target: < 20% overhead)~~ **Done.** Gate 2 passed — negative overhead (Haskell is 1.5–5x faster).
-3. Use LATERAL join pattern for `readCategory` in the Haskell API
+3. ~~Use LATERAL join pattern for `readCategory` in the Haskell API~~ Superseded by plan 91's category index; see "Category reads are solved".

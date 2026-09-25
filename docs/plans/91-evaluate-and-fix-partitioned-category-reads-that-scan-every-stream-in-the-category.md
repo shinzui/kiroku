@@ -103,7 +103,7 @@ properties, the size-1 equivalence, and every subscription test pass as before.
 - [x] M2 (2026-09-25 17:15Z): added migration `0012` (column, backfill, CHECK constraint, partial index), updated the four append CTEs to populate `stream_events.category` on `$all` rows, updated every direct `stream_events` inserter (the two fixtures, four raw-shape copies in `bench/Main.hs`, `bench/Explain.hs`, eight pgbench scripts and `setup.sql`), extended the migrations suite with the 0012 upgrade-path case, and added the G4 append gate. Migrations and store suites pass on PostgreSQL 17.10 and 18.4; G4 measured 1.00x, 1.04x, 1.00x.
 - [ ] M2 follow-up: re-run `just perf-workload-gate` on a quiet host; the three G4 runs had a spread of about ±100% of the mean.
 - [x] M3 (2026-09-25 17:45Z): switched `readCategoryForwardSQL` and `readCategoryForwardConsumerGroupSQL` to the index-range shape, moved the category plan-shape test to a new `category read cost` group on the category-scaling fixture (G2, both statements), added the buffer-budget test (G1, failed before at 60,387 buffers, passes after), added the read A/B gate (G3, every cell passes), updated the category and category-scaling baseline rows, and rewrote `bench/sql/bench_read_category.sql` to the new shape. `cabal test all` passes on PostgreSQL 18.4; the store suite passes on 17.10.
-- [ ] M4: write ADR-10, update `docs/user/schema.md`, `docs/SCALING-ANALYSIS.md`, `docs/architecture/subscriptions.md`, `docs/DESIGN.md`, `docs/BENCH-SQL-BASELINE.md`, both CHANGELOGs and package versions, move BUG-2 to `fixed`, and append the perf-log rows.
+- [x] M4 (2026-09-25 18:10Z): wrote ADR-10; updated `docs/user/schema.md`, `docs/SCALING-ANALYSIS.md`, `docs/architecture/subscriptions.md`, `docs/DESIGN.md`, `docs/BENCH-SQL-BASELINE.md`, `docs/user/schema-migrations.md`, `docs/user/consumer-groups.md`, and the migrations README; bumped `kiroku-store` to 0.9.0.0 and `kiroku-store-migrations` to 0.6.0.0 with CHANGELOG entries, and widened the four in-repo dependents to `kiroku-store ^>=0.9`; moved BUG-2 to `fixed`; appended the G3 and G4 perf-log rows. ADR, bug-report, and capability bundles validate; `cabal test all` passes.
 - [ ] M5: route consumer-group category members through the category-generation live loop so an idle category's members no longer poll on every global append, and extend `Test.CategoryIdleNoSpin` to prove zero idle fetches.
 
 
@@ -313,6 +313,13 @@ properties, the size-1 equivalence, and every subscription test pass as before.
   `category-scaling` cells".
   Rationale: the host was heavily loaded, and a full refresh would have replaced every unrelated row
   with noisy figures. The rest of the baseline stays as it was.
+  Date: 2026-09-25
+
+- Decision: Widen `kiroku-cli`, `kiroku-metrics`, `kiroku-otel`, and `shibuya-kiroku-adapter` from
+  `kiroku-store ^>=0.8` to `^>=0.9` without bumping their own versions.
+  Rationale: the local project cannot resolve otherwise, none of them uses a changed API, and this
+  follows the 0.8.0.0 release preparation (commit `239f60f`), which left the dependents' patch bumps
+  to the cohort release.
   Date: 2026-09-25
 
 - Decision: Track this work under intention `intention_01m3cn0wx4ef9thtphet1ns7vp`, created with

@@ -201,7 +201,7 @@ WITH
     SET stream_version = stream_version + (SELECT count(*) FROM new_events)
     WHERE stream_name = $8
       AND stream_version = $9    -- expected_version
-    RETURNING stream_id, stream_version - (SELECT count(*) FROM new_events) AS initial_version
+    RETURNING stream_id, category, stream_version - (SELECT count(*) FROM new_events) AS initial_version
   ),
 
   -- Step 2: Insert event payloads (only if version check passed — no orphans)
@@ -230,10 +230,11 @@ WITH
     RETURNING stream_version - (SELECT count(*) FROM new_events) AS initial_global_version
   ),
 
-  -- Step 5: Link events to $all
+  -- Step 5: Link events to $all, carrying the source stream's category
+  -- (returned by stream_update as `category`) for category reads
   all_links AS (
-    INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
-    SELECT ne.event_id, 0, au.initial_global_version + ne.idx, su.stream_id, su.initial_version + ne.idx
+    INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version, category)
+    SELECT ne.event_id, 0, au.initial_global_version + ne.idx, su.stream_id, su.initial_version + ne.idx, su.category
     FROM new_events ne
     CROSS JOIN all_update au
     CROSS JOIN stream_update su
