@@ -22,17 +22,6 @@ final: prev: {
     executableHaskellDepends = [ ];
   }) prev.wai-websockets;
 
-  codd = dontCheck (
-    doJailbreak (
-      final.callCabal2nix "codd" (pkgs.fetchFromGitHub {
-        owner = "mzabani";
-        repo = "codd";
-        rev = "29478ff469b1c0466a7d126d64ab3dc1dbff4756";
-        hash = "sha256-7MKlR3oepOwlBwiEpzz3NFepEYGqROT5RrYoe/vvBKM=";
-      }) { }
-    )
-  );
-
   pg-migrate = dontCheck (final.callCabal2nix "pg-migrate" "${pgMigrateSrc}/pg-migrate" { });
 
   pg-migrate-embed = dontCheck (
