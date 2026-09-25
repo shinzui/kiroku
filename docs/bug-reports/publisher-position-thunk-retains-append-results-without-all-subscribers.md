@@ -4,18 +4,18 @@ title: Publisher position thunk retains append results without all-stream subscr
 description: The empty-subscriber publisher path stores an unevaluated max in its position TVar, retaining a chain of Hasql results and large objects as events are appended.
 generated:
   by: process:codex
-  at: "2026-09-25T20:20:33Z"
+  at: "2026-09-25T21:47:43Z"
 bugId: BUG-3
 status: fixed
-fixedVersion: "unreleased"
+fixedVersion: "0.9.0.1"
 resolution: >-
-  On master, cheapAdvance forces the next scalar global position before writing
-  it to the TVar. The new publisher retention regression test failed on the
-  old code with 7.09 MB of large-object growth over 12,000 appends without
-  queue subscribers, then passed with the strict update. The previously
-  isolated Keiro 20,000-append comparison also reduced large-object bytes
-  from 15.03 MiB to about 0.30 MiB with this one-line change. A released
-  version and the full live-worker soak remain pending.
+  Released in kiroku-store 0.9.0.1. cheapAdvance forces the next scalar global
+  position before writing it to the TVar. Its regression test failed on the
+  old code with 7.09 MB of large-object growth over 12,000 appends and passed
+  with the fix. In a version-locked three-minute Keiro command soak, changing
+  only this Kiroku source update reduced post-major live growth from 93.1 MB
+  to 1.6 MB while all commands and durable checks passed. A full live-worker
+  soak against the released package remains to be run.
 severity: degraded
 origin: mori://shinzui/keiro/okf/bug-reports/concepts/BUG-1
 affects: mori://shinzui/kiroku/packages/kiroku-store
@@ -28,7 +28,7 @@ reproduction:
   - Keep the store open and inspect the six to twelve post-major samples; the direct append path retains large objects even without a Kiroku subscription consumer.
   - Profile either `keiro/pm-worker` or `keiro/router-worker` in the released `mori://shinzui/keiro-runtime-kenshou` cohort with `kenshou diagnose profile --mode info-table`. Both profiles name `Kiroku.Store.Subscription.EventPublisher` line 251 among the growing sites.
   - In an isolated Kiroku 0.9.0.0 worktree, force `nextPos = max cur tailPos` before writing `GlobalPosition nextPos` to `posVar`, then rerun the isolated append leg. The 20,000-append comparison held large-object bytes near 0.30 MiB and lowered the live-heap slope to 332 bytes per operation.
-workaround: No released version contains the strict publisher update yet. Use the current source fix or a local patch that forces the position before the TVar write; the full live-worker soak still needs re-verification.
+workaround: Upgrade to kiroku-store 0.9.0.1 or later. The full live-worker soak still needs re-verification.
 reviews:
   - kind: model
     reviewer: process:codex
@@ -58,3 +58,5 @@ On the exact released Kenshou cohort (Kiroku 0.8.0.1), the process-manager and r
 The Keiro `kiroku-append-only` leg reproduced 16.92 MiB kept-sample live growth and 15.03 MiB large objects on released Kiroku 0.9.0.0. A detached worktree with only a strict evaluation before the TVar write changed the same leg to 4.75 MiB growth at 332 bytes per operation, while large-object bytes stayed around 0.30 MiB after the first block. No Keiro code changed in that comparison. Kiroku now forces the new scalar position before storing it. Its regression test appends 12,000 events with no all-stream queue subscribers and samples large-object bytes after major GC. The test failed on the old code with 7.09 MB of growth and passed with the fix.
 
 The original Keiro worker report is `mori://shinzui/keiro/okf/bug-reports/concepts/BUG-1`. Its execution plan is `mori://shinzui/keiro/plans/297-isolate-and-fix-write-side-worker-heap-retention-under-steady-subscription-load`.
+
+The matched command workload in `mori://shinzui/keiro/plans/298-isolate-and-fix-command-runner-heap-retention-over-long-snapshotted-histories` changed only this Kiroku position update on the original 0.8.0.1 cohort. Over three minutes, the unchanged arm retained 93,130,336 post-major live bytes; the patched arm retained 1,632,328 bytes. All 21,639 and 22,030 commands, respectively, passed their durable correctness checks. The fix is published as [kiroku-store 0.9.0.1](https://hackage.haskell.org/package/kiroku-store-0.9.0.1).

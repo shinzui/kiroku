@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-09-25
+* **Update**: BUG-3 fixed in released kiroku-store 0.9.0.1; matched command soak confirms publisher attribution
 * **Fix**: BUG-3: forced the idle publisher position before its TVar write and added a post-major-GC regression test; release and live-worker soak remain pending.
 * **Report**: BUG-3: publisher position thunk retains Hasql append results when no all-stream queue subscribers are registered; exact worker profiles and a strict-update comparison identify the cause.
 * **Modification**: BUG-2 moves to `fixed` (unreleased; kiroku-store 0.9.0.0 with kiroku-store-migrations 0.6.0.0). Migration `0012` puts the category on `$all` junction rows with `ix_stream_events_all_by_category`, and both category statements range-scan it: a caught-up poll on 20,000 streams reads 6 buffers instead of 60,387. Recorded as ADR-10.
