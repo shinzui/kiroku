@@ -100,7 +100,8 @@ properties, the size-1 equivalence, and every subscription test pass as before.
 
 - [x] M1 (2026-09-25 17:10Z): added `Kiroku.Test.Fixtures.CategoryScaling` and the five `category-scaling` cells, captured `EXPLAIN (ANALYZE, BUFFERS)` for both category statements at 200 and 20,000 streams, recorded the numbers in Surprises & Discoveries and `docs/perf-experiment-log.md`, and moved BUG-2 to `confirmed`.
 - [ ] M1 follow-up: re-run `cabal bench kiroku-store:kiroku-store-bench --benchmark-options="-p category-scaling"` on a quiet host for telemetry timings (the loaded host timed out every LATERAL cell).
-- [ ] M2: add migration `0012` (column, backfill, CHECK constraint, partial index), update the four append CTEs to populate `stream_events.category` on `$all` rows, update every direct `stream_events` inserter in tests and benches, extend the migrations test suite with the upgrade-path assertions, and add the append A/B gate (G4).
+- [x] M2 (2026-09-25 17:15Z): added migration `0012` (column, backfill, CHECK constraint, partial index), updated the four append CTEs to populate `stream_events.category` on `$all` rows, updated every direct `stream_events` inserter (the two fixtures, four raw-shape copies in `bench/Main.hs`, `bench/Explain.hs`, eight pgbench scripts and `setup.sql`), extended the migrations suite with the 0012 upgrade-path case, and added the G4 append gate. Migrations and store suites pass on PostgreSQL 17.10 and 18.4; G4 measured 1.00x, 1.04x, 1.00x.
+- [ ] M2 follow-up: re-run `just perf-workload-gate` on a quiet host; the three G4 runs had a spread of about ±100% of the mean.
 - [ ] M3: switch `readCategoryForwardSQL` and `readCategoryForwardConsumerGroupSQL` to the index-range shape, update the plan-shape structural test, add the buffer-budget structural test (G1, G2), add the read A/B gate (G3), refresh the historical baseline rows for the category cells with the reason recorded.
 - [ ] M4: write ADR-10, update `docs/user/schema.md`, `docs/SCALING-ANALYSIS.md`, `docs/architecture/subscriptions.md`, `docs/DESIGN.md`, `docs/BENCH-SQL-BASELINE.md`, both CHANGELOGs and package versions, move BUG-2 to `fixed`, and append the perf-log rows.
 - [ ] M5: route consumer-group category members through the category-generation live loop so an idle category's members no longer poll on every global append, and extend `Test.CategoryIdleNoSpin` to prove zero idle fetches.
@@ -137,6 +138,24 @@ properties, the size-1 equivalence, and every subscription test pass as before.
 
 - `kiroku-store/bench/check-baseline-coverage.sh` rejects benchmark names containing a comma, so the
   cells are named `plain caught-up poll (200 streams)` and so on rather than the comma form above.
+
+- G4 (append A/B, 40 single-event appends per iteration, control on a database with the 0012
+  index and CHECK dropped running the pre-0012 `appendAnyVersion`): three runs at load average
+  10 to 33 gave
+
+  ```text
+  control-append-40:   55.2 ms ±  55 ms   candidate-append-40: 55.3 ms ±  57 ms, 1.00x
+  control-append-40:   50.7 ms ±  51 ms   candidate-append-40: 52.5 ms ±  51 ms, 1.04x
+  control-append-40:   51.7 ms ±  50 ms   candidate-append-40: 51.7 ms ±  52 ms, 1.00x
+  ```
+
+  Every ratio is within the 1.05 gate, but the spread is as large as the mean, so the gate passes
+  without resolving the predicted ≤ 3% cost. The migrations and store suites pass on both
+  PostgreSQL 17.10 and 18.4.
+
+- The existing BUG-1 upgrade case in `kiroku-store-migrations/test/Main.hs` bootstrapped through
+  `length nativeMigrationFiles - 2`, which after adding `0012` would have moved `0010` out of the
+  pending tail it exists to test. It now bootstraps through `0009` explicitly.
 
 - A local `cabal.project.local` naming `../../codd-extras` made the whole project unresolvable
   (`ephemeral-pg` conflict). At the user's direction codd was removed entirely: commit `4b06594`
@@ -227,6 +246,13 @@ properties, the size-1 equivalence, and every subscription test pass as before.
   authoritative before/after proof; G3 and G4 (wall-clock ratios) run when the host is quiet.
   Rationale: the host was heavily loaded (the user said so) and tasty-bench could not converge.
   Buffer counts are deterministic for a given plan and data.
+  Date: 2026-09-25
+
+- Decision: G4's control and candidate use two new databases rather than the existing
+  append-multi-stream gate's pair.
+  Rationale: the control needs the 0012 index and CHECK dropped; doing that on the existing
+  control database would make the unrelated append-multi-stream control cheaper and change that
+  gate's meaning.
   Date: 2026-09-25
 
 - Decision: Track this work under intention `intention_01m3cn0wx4ef9thtphet1ns7vp`, created with

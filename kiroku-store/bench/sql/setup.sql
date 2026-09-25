@@ -98,8 +98,8 @@ BEGIN
             FROM generate_series(1, v_batch_size) AS g;
 
             -- Link to $all
-            INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
-            SELECT v_event_ids[g], 0, v_all_version + g, v_stream_id, v_stream_version + g
+            INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version, category)
+            SELECT v_event_ids[g], 0, v_all_version + g, v_stream_id, v_stream_version + g, split_part(v_stream_name, '-', 1)
             FROM generate_series(1, v_batch_size) AS g;
 
             -- Update versions

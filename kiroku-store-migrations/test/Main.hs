@@ -44,7 +44,7 @@ import Test.Hspec
 main :: IO ()
 main = hspec $ do
     describe "native Kiroku migration definition" $ do
-        it "tracks the eleven native files in manifest order" $ do
+        it "tracks the twelve native files in manifest order" $ do
             directory <- findMigrationsDirectory
             manifest <- Text.lines <$> Text.IO.readFile (directory </> "manifest")
             manifest `shouldBe` Text.pack <$> nativeMigrationFiles
@@ -57,7 +57,7 @@ main = hspec $ do
                 bytes <- ByteString.readFile (directory </> nativeName)
                 lookup legacyName lockEntries `shouldBe` Just (checksumText bytes)
 
-        it "builds component kiroku and an eleven-migration plan" $ do
+        it "builds component kiroku and a twelve-migration plan" $ do
             component <- requireRight kirokuMigrations
             component `seq` pure ()
             plan <- requirePlan
@@ -93,7 +93,7 @@ main = hspec $ do
                     `shouldReturn` "0007-existing.sql\n"
 
     describe "fresh native databases" $ do
-        it "applies all eleven, verifies strictly, and reports AlreadyApplied on rerun" $ do
+        it "applies all twelve, verifies strictly, and reports AlreadyApplied on rerun" $ do
             plan <- requirePlan
             result <- withMigratedDatabase plan $ \connection -> do
                 assertSchema connection
@@ -284,14 +284,15 @@ main = hspec $ do
     describe "upgrades of already-bootstrapped databases" $ do
         it "applies the pending tail in a session that never ran the bootstrap" $ do
             plan <- requirePlan
-            throughBootstrap <- planThrough (length nativeMigrationFiles - 2)
+            let bootstrapCount = 9 -- through 0009, so 0010 is in the pending tail
+            throughBootstrap <- planThrough bootstrapCount
             withKirokuPg $ \database -> do
                 let settings = Pg.connectionSettings database
                 bootstrapped <-
                     runMigrationPlan defaultRunOptions settings throughBootstrap
                         >>= requireMigration
                 reportOutcomes bootstrapped
-                    `shouldBe` replicate (length nativeMigrationFiles - 2) AppliedNow
+                    `shouldBe` replicate bootstrapCount AppliedNow
 
                 -- A separate session, and one that cannot reach the Kiroku
                 -- schema through search_path. The suite connects as role
@@ -305,8 +306,8 @@ main = hspec $ do
                         runMigrationPlanWith defaultRunOptions (providerFor upgradeSession) plan
                             >>= requireMigration
                     reportOutcomes upgraded
-                        `shouldBe` replicate (length nativeMigrationFiles - 2) AlreadyApplied
-                            <> replicate 2 AppliedNow
+                        `shouldBe` replicate bootstrapCount AlreadyApplied
+                            <> replicate (length nativeMigrationFiles - bootstrapCount) AppliedNow
 
                 verified <- verifyMigrationPlan defaultRunOptions settings plan >>= requireMigration
                 case verified of
@@ -314,6 +315,37 @@ main = hspec $ do
                         verificationIssues `shouldBe` []
                         length applied `shouldBe` length nativeMigrationFiles
                 withConnection settings assertSchema
+
+        -- BUG-2. 0012 copies each $all row's originating-stream category onto the
+        -- junction row so category reads can range-scan an index. A store
+        -- written before 0012 has $all rows without it; the backfill must fill
+        -- every one, and afterwards the CHECK must refuse a new $all row that
+        -- omits it, the immutability trigger must be back on, and the index must
+        -- exist in exactly the shape the category reads rely on.
+        it "backfills $all-row categories when 0012 upgrades a populated store" $ do
+            plan <- requirePlan
+            let throughCount = length nativeMigrationFiles - 1
+            throughPrevious <- planThrough throughCount
+            withKirokuPg $ \database -> do
+                let settings = Pg.connectionSettings database
+                _ <- runMigrationPlan defaultRunOptions settings throughPrevious >>= requireMigration
+                withConnection settings $ \connection ->
+                    useSession connection (Session.script preCategoryFixtureSql)
+                upgraded <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
+                reportOutcomes upgraded
+                    `shouldBe` replicate throughCount AlreadyApplied <> [AppliedNow]
+                withConnection settings $ \connection -> do
+                    facts <- useSession connection (Session.statement () categoryBackfillFactsStatement)
+                    facts
+                        `shouldBe` ( True
+                                   , 0
+                                   , True
+                                   , Just "CREATE INDEX ix_stream_events_all_by_category ON kiroku.stream_events USING btree (category, stream_version) INCLUDE (original_stream_id) WHERE (stream_id = 0)"
+                                   , "O"
+                                   )
+                    missingCategory <- Connection.use connection (Session.statement () insertAllRowWithoutCategoryStatement)
+                    missingCategory `shouldSatisfy` hasSqlState "23514"
+                    assertSchema connection
 
         -- kiroku.uuidv7() is the component's version-independent generator, but
         -- it arrives by a different route on each major: 0001's fallback on
@@ -391,14 +423,14 @@ importFixture sourceSchema = do
         pendingIds <-
             traverse
                 (requireRight . migrationId "kiroku")
-                ["0008-schema-management-comment", "0009", "0010", "0011"]
+                ["0008-schema-management-comment", "0009", "0010", "0011", "0012"]
         verifiedBeforeCanary <- verifyMigrationPlan defaultRunOptions settings plan >>= requireMigration
         case verifiedBeforeCanary of
             VerificationReport verificationIssues _ _ _ ->
                 verificationIssues
                     `shouldBe` (PendingMigration <$> pendingIds)
         up <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
-        reportOutcomes up `shouldBe` replicate 7 AlreadyApplied <> replicate 4 AppliedNow
+        reportOutcomes up `shouldBe` replicate 7 AlreadyApplied <> replicate 5 AppliedNow
         verifiedAfterCanary <- verifyMigrationPlan defaultRunOptions settings plan >>= requireMigration
         case verifiedAfterCanary of
             VerificationReport verificationIssues _ _ _ ->
@@ -429,6 +461,7 @@ nativeMigrationFiles =
     , "0009.sql"
     , "0010.sql"
     , "0011.sql"
+    , "0012.sql"
     ]
 
 {- | The plan truncated to its first @count@ migrations, read from the checked-in
@@ -568,13 +601,88 @@ schemaFactsStatement =
           (to_regclass('kiroku.dead_letters') IS NOT NULL),
           (EXISTS (SELECT 1 FROM pg_catalog.pg_trigger WHERE tgname = 'stream_events_notify_insert' AND NOT tgisinternal)),
           (EXISTS (SELECT 1 FROM pg_catalog.pg_indexes WHERE schemaname = 'kiroku' AND indexname = 'ix_dead_letters_event_id')),
+          (EXISTS (SELECT 1 FROM pg_catalog.pg_indexes WHERE schemaname = 'kiroku' AND indexname = 'ix_stream_events_all_by_category')),
+          (EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'ck_stream_events_all_category')),
           (EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'chk_streams_stream_name_length')),
           (EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a JOIN pg_catalog.pg_class c ON c.oid = a.attrelid JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'kiroku' AND c.relname = 'streams' AND a.attname = 'truncate_before' AND NOT a.attisdropped)),
-          (obj_description(to_regnamespace('kiroku'), 'pg_namespace') = 'Managed by pg-migrate component kiroku through 0011')
+          (obj_description(to_regnamespace('kiroku'), 'pg_namespace') = 'Managed by pg-migrate component kiroku through 0012')
         ) AS checks(ok)
         """
         Encoders.noParams
         (Decoders.singleRow (Decoders.column (Decoders.nonNullable Decoders.bool)))
+
+{- | One stream with one event, written with the five-column junction shape
+every release before 0012 used: a home row and an @$all@ row, no category.
+-}
+preCategoryFixtureSql :: Text
+preCategoryFixtureSql =
+    """
+    INSERT INTO kiroku.streams (stream_name, stream_version) VALUES ('upgrade-1', 1);
+    INSERT INTO kiroku.events (event_id, event_type, data)
+    VALUES ('00000000-0000-7000-8000-000000000001', 'UpgradeFixture', '{}'::jsonb);
+    INSERT INTO kiroku.stream_events
+      (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
+    SELECT '00000000-0000-7000-8000-000000000001'::uuid, s.stream_id, 1, s.stream_id, 1
+    FROM kiroku.streams AS s WHERE s.stream_name = 'upgrade-1'
+    UNION ALL
+    SELECT '00000000-0000-7000-8000-000000000001'::uuid, 0, 1, s.stream_id, 1
+    FROM kiroku.streams AS s WHERE s.stream_name = 'upgrade-1';
+    UPDATE kiroku.streams SET stream_version = 1 WHERE stream_id = 0;
+    """
+
+{- | After 0012: whether the fixture's @$all@ row carries its stream's category,
+how many @$all@ rows lack one, whether the home row stayed NULL, the category
+index definition, and the immutability trigger's enabled state.
+-}
+categoryBackfillFactsStatement :: Statement () (Bool, Int64, Bool, Maybe Text, Text)
+categoryBackfillFactsStatement =
+    Statement.preparable
+        """
+        SELECT (SELECT se.category = s.category
+                  FROM kiroku.stream_events AS se
+                  JOIN kiroku.streams AS s ON s.stream_id = se.original_stream_id
+                 WHERE se.stream_id = 0 AND s.stream_name = 'upgrade-1'),
+               (SELECT count(*) FROM kiroku.stream_events
+                 WHERE stream_id = 0 AND category IS NULL),
+               (SELECT se.category IS NULL
+                  FROM kiroku.stream_events AS se
+                  JOIN kiroku.streams AS s ON s.stream_id = se.stream_id
+                 WHERE s.stream_name = 'upgrade-1'),
+               (SELECT indexdef FROM pg_catalog.pg_indexes
+                 WHERE schemaname = 'kiroku' AND indexname = 'ix_stream_events_all_by_category'),
+               (SELECT tgenabled::text FROM pg_catalog.pg_trigger
+                 WHERE tgrelid = 'kiroku.stream_events'::regclass
+                   AND tgname = 'no_update_stream_events')
+        """
+        Encoders.noParams
+        ( Decoders.singleRow
+            ( (,,,,)
+                <$> Decoders.column (Decoders.nonNullable Decoders.bool)
+                <*> Decoders.column (Decoders.nonNullable Decoders.int8)
+                <*> Decoders.column (Decoders.nonNullable Decoders.bool)
+                <*> Decoders.column (Decoders.nullable Decoders.text)
+                <*> Decoders.column (Decoders.nonNullable Decoders.text)
+            )
+        )
+
+-- | An @$all@ row written the pre-0012 way, which the CHECK must now refuse.
+insertAllRowWithoutCategoryStatement :: Statement () ()
+insertAllRowWithoutCategoryStatement =
+    Statement.preparable
+        """
+        WITH new_event AS (
+          INSERT INTO kiroku.events (event_id, event_type, data)
+          VALUES ('00000000-0000-7000-8000-000000000002', 'UpgradeFixture', '{}'::jsonb)
+          RETURNING event_id
+        )
+        INSERT INTO kiroku.stream_events
+          (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
+        SELECT new_event.event_id, 0, 2, s.stream_id, 2
+        FROM new_event, kiroku.streams AS s
+        WHERE s.stream_name = 'upgrade-1'
+        """
+        Encoders.noParams
+        Decoders.noResult
 
 {- | The server major, whether each UUIDv7 generator exists, and the stored
 @lease_id@ default. Together these pin which route published

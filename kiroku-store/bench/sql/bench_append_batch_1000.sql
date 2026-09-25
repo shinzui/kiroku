@@ -21,7 +21,7 @@ WITH
     UPDATE streams
     SET stream_version = stream_version + (SELECT count(*) FROM new_events)
     WHERE stream_name = 'bench-batch1000-' || :client_id
-    RETURNING stream_id, stream_version - (SELECT count(*) FROM new_events) AS initial_version
+    RETURNING stream_id, category, stream_version - (SELECT count(*) FROM new_events) AS initial_version
   ),
 
   inserted_events AS (
@@ -48,8 +48,8 @@ WITH
   ),
 
   all_links AS (
-    INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
-    SELECT ne.event_id, 0, au.initial_global_version + ne.idx, su.stream_id, su.initial_version + ne.idx
+    INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version, category)
+    SELECT ne.event_id, 0, au.initial_global_version + ne.idx, su.stream_id, su.initial_version + ne.idx, su.category
     FROM new_events ne
     CROSS JOIN all_update au
     CROSS JOIN stream_update su

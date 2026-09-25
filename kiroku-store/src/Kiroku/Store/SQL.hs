@@ -3,6 +3,8 @@
 module Kiroku.Store.SQL (
     -- * Append statements
     AppendParams (..),
+    appendParamsEncoder,
+    appendResultDecoder,
     appendExpectedVersion,
     appendStreamExists,
     appendNoStream,
@@ -179,7 +181,7 @@ appendExpectedVersionSQL =
         WHERE stream_name = $8
           AND stream_version = $9
           AND deleted_at IS NULL
-        RETURNING stream_id, stream_version - (SELECT count(*) FROM new_events) AS initial_version
+        RETURNING stream_id, category, stream_version - (SELECT count(*) FROM new_events) AS initial_version
       ),
       inserted_events AS (
         INSERT INTO events (event_id, event_type, causation_id, correlation_id, data, metadata, created_at)
@@ -202,8 +204,8 @@ appendExpectedVersionSQL =
         RETURNING stream_version - (SELECT count(*) FROM new_events) AS initial_global_version
       ),
       all_links AS (
-        INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
-        SELECT ne.event_id, 0, au.initial_global_version + ne.idx, su.stream_id, su.initial_version + ne.idx
+        INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version, category)
+        SELECT ne.event_id, 0, au.initial_global_version + ne.idx, su.stream_id, su.initial_version + ne.idx, su.category
         FROM new_events ne
         CROSS JOIN all_update au
         CROSS JOIN stream_update su
@@ -230,7 +232,7 @@ appendStreamExistsSQL =
         SET stream_version = stream_version + (SELECT count(*) FROM new_events)
         WHERE stream_name = $8
           AND deleted_at IS NULL
-        RETURNING stream_id, stream_version - (SELECT count(*) FROM new_events) AS initial_version
+        RETURNING stream_id, category, stream_version - (SELECT count(*) FROM new_events) AS initial_version
       ),
       inserted_events AS (
         INSERT INTO events (event_id, event_type, causation_id, correlation_id, data, metadata, created_at)
@@ -253,8 +255,8 @@ appendStreamExistsSQL =
         RETURNING stream_version - (SELECT count(*) FROM new_events) AS initial_global_version
       ),
       all_links AS (
-        INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
-        SELECT ne.event_id, 0, au.initial_global_version + ne.idx, su.stream_id, su.initial_version + ne.idx
+        INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version, category)
+        SELECT ne.event_id, 0, au.initial_global_version + ne.idx, su.stream_id, su.initial_version + ne.idx, su.category
         FROM new_events ne
         CROSS JOIN all_update au
         CROSS JOIN stream_update su
@@ -280,7 +282,7 @@ appendNoStreamSQL =
         INSERT INTO streams (stream_name, stream_version)
         VALUES ($8, (SELECT count(*) FROM new_events))
         ON CONFLICT (stream_name) DO NOTHING
-        RETURNING stream_id, 0::bigint AS initial_version
+        RETURNING stream_id, category, 0::bigint AS initial_version
       ),
       inserted_events AS (
         INSERT INTO events (event_id, event_type, causation_id, correlation_id, data, metadata, created_at)
@@ -303,8 +305,8 @@ appendNoStreamSQL =
         RETURNING stream_version - (SELECT count(*) FROM new_events) AS initial_global_version
       ),
       all_links AS (
-        INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
-        SELECT ne.event_id, 0, au.initial_global_version + ne.idx, si.stream_id, si.initial_version + ne.idx
+        INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version, category)
+        SELECT ne.event_id, 0, au.initial_global_version + ne.idx, si.stream_id, si.initial_version + ne.idx, si.category
         FROM new_events ne
         CROSS JOIN all_update au
         CROSS JOIN stream_insert si
@@ -336,7 +338,7 @@ appendAnyVersionSQL =
         ON CONFLICT (stream_name)
         DO UPDATE SET stream_version = streams.stream_version + (SELECT count(*) FROM new_events)
           WHERE streams.deleted_at IS NULL
-        RETURNING stream_id, stream_version - (SELECT count(*) FROM new_events) AS initial_version
+        RETURNING stream_id, category, stream_version - (SELECT count(*) FROM new_events) AS initial_version
       ),
       inserted_events AS (
         INSERT INTO events (event_id, event_type, causation_id, correlation_id, data, metadata, created_at)
@@ -359,8 +361,8 @@ appendAnyVersionSQL =
         RETURNING stream_version - (SELECT count(*) FROM new_events) AS initial_global_version
       ),
       all_links AS (
-        INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
-        SELECT ne.event_id, 0, au.initial_global_version + ne.idx, su.stream_id, su.initial_version + ne.idx
+        INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version, category)
+        SELECT ne.event_id, 0, au.initial_global_version + ne.idx, su.stream_id, su.initial_version + ne.idx, su.category
         FROM new_events ne
         CROSS JOIN all_update au
         CROSS JOIN stream_upsert su

@@ -181,12 +181,13 @@ queryPlanFixture =
       RETURNING event_id
     ), all_links AS (
       INSERT INTO stream_events
-        (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
+        (event_id, stream_id, stream_version, original_stream_id, original_stream_version, category)
       SELECT fixture.event_id,
              0,
              fixture.global_position,
              fixture.stream_id,
-             fixture.stream_version
+             fixture.stream_version,
+             'performance'
       FROM fixture_events AS fixture
       JOIN inserted_events USING (event_id)
       RETURNING event_id
