@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-09-25
+* **Fix**: BUG-3: forced the idle publisher position before its TVar write and added a post-major-GC regression test; release and live-worker soak remain pending.
 * **Report**: BUG-3: publisher position thunk retains Hasql append results when no all-stream queue subscribers are registered; exact worker profiles and a strict-update comparison identify the cause.
 * **Modification**: BUG-2 moves to `fixed` (unreleased; kiroku-store 0.9.0.0 with kiroku-store-migrations 0.6.0.0). Migration `0012` puts the category on `$all` junction rows with `ix_stream_events_all_by_category`, and both category statements range-scan it: a caught-up poll on 20,000 streams reads 6 buffers instead of 60,387. Recorded as ADR-10.
 * **Modification**: BUG-2 moves to `confirmed`: a caught-up poll reads 613 buffers at 200 streams and 60,384 at 20,000 streams for the unpartitioned category read (298 and 29,958 for a group member of size 2), on PostgreSQL 18.4. The unpartitioned `readCategoryForwardSQL` shares the shape and the cost. Fix tracked in plan 91.

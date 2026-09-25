@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Bug Fixes
+
+* The publisher now forces its scalar global position before storing it when
+  no all-stream queue subscribers are registered (BUG-3). This prevents a
+  chain of unevaluated position updates from retaining earlier Hasql results
+  and large objects during sustained appends. A post-major-GC regression test
+  covers the idle publisher path.
+
 ## 0.9.0.0 — 2026-09-25
 
 ### Breaking Changes

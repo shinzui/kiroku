@@ -6,7 +6,16 @@ generated:
   by: process:codex
   at: "2026-09-25T20:20:33Z"
 bugId: BUG-3
-status: confirmed
+status: fixed
+fixedVersion: "unreleased"
+resolution: >-
+  On master, cheapAdvance forces the next scalar global position before writing
+  it to the TVar. The new publisher retention regression test failed on the
+  old code with 7.09 MB of large-object growth over 12,000 appends without
+  queue subscribers, then passed with the strict update. The previously
+  isolated Keiro 20,000-append comparison also reduced large-object bytes
+  from 15.03 MiB to about 0.30 MiB with this one-line change. A released
+  version and the full live-worker soak remain pending.
 severity: degraded
 origin: mori://shinzui/keiro/okf/bug-reports/concepts/BUG-1
 affects: mori://shinzui/kiroku/packages/kiroku-store
@@ -19,7 +28,7 @@ reproduction:
   - Keep the store open and inspect the six to twelve post-major samples; the direct append path retains large objects even without a Kiroku subscription consumer.
   - Profile either `keiro/pm-worker` or `keiro/router-worker` in the released `mori://shinzui/keiro-runtime-kenshou` cohort with `kenshou diagnose profile --mode info-table`. Both profiles name `Kiroku.Store.Subscription.EventPublisher` line 251 among the growing sites.
   - In an isolated Kiroku 0.9.0.0 worktree, force `nextPos = max cur tailPos` before writing `GlobalPosition nextPos` to `posVar`, then rerun the isolated append leg. The 20,000-append comparison held large-object bytes near 0.30 MiB and lowered the live-heap slope to 332 bytes per operation.
-workaround: No released version contains the strict publisher update. A local source patch forcing the position before the TVar write removed the large-object growth in the isolated reproduction; the full live worker soak still needs re-verification with that patch.
+workaround: No released version contains the strict publisher update yet. Use the current source fix or a local patch that forces the position before the TVar write; the full live-worker soak still needs re-verification.
 reviews:
   - kind: model
     reviewer: process:codex
@@ -46,6 +55,6 @@ writeTVar posVar (GlobalPosition (max cur tailPos))
 
 On the exact released Kenshou cohort (Kiroku 0.8.0.1), the process-manager and router child profiles both reproduced the reported post-major growth. Their info-table censuses independently found the publisher line 251 as a growing site (+307,488 and +323,392 bytes respectively) and `Hasql.Codecs.Decoders.Value` lines 97–98 (+230,616 and +242,544 bytes). Their RTS large-object bytes reached 19,930,464 and 16,616,720 respectively. The closure census accounts for much less than the RTS large-object total, so those byte counts are not interchangeable; the matching allocation sites and the isolated patch comparison support the shared cause.
 
-The Keiro `kiroku-append-only` leg reproduced 16.92 MiB kept-sample live growth and 15.03 MiB large objects on released Kiroku 0.9.0.0. A detached worktree with only a strict evaluation before the TVar write changed the same leg to 4.75 MiB growth at 332 bytes per operation, while large-object bytes stayed around 0.30 MiB after the first block. No Keiro code changed in that comparison. The proposed upstream fix is to force the new scalar position before storing it and add a regression test that appends many events with no all-stream queue subscribers while sampling post-major heap.
+The Keiro `kiroku-append-only` leg reproduced 16.92 MiB kept-sample live growth and 15.03 MiB large objects on released Kiroku 0.9.0.0. A detached worktree with only a strict evaluation before the TVar write changed the same leg to 4.75 MiB growth at 332 bytes per operation, while large-object bytes stayed around 0.30 MiB after the first block. No Keiro code changed in that comparison. Kiroku now forces the new scalar position before storing it. Its regression test appends 12,000 events with no all-stream queue subscribers and samples large-object bytes after major GC. The test failed on the old code with 7.09 MB of growth and passed with the fix.
 
 The original Keiro worker report is `mori://shinzui/keiro/okf/bug-reports/concepts/BUG-1`. Its execution plan is `mori://shinzui/keiro/plans/297-isolate-and-fix-write-side-worker-heap-retention-under-steady-subscription-load`.

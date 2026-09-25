@@ -8,16 +8,18 @@ import Control.Concurrent.MVar (newEmptyMVar, tryPutMVar)
 import Control.Concurrent.STM (readTVarIO)
 import Control.Exception (bracket)
 import Control.Lens ((&), (.~), (^.))
-import Control.Monad (when)
+import Control.Monad (forM, when)
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
 import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef)
 import Data.IntMap.Strict qualified as IntMap
 import Data.List (sort)
 import Data.String (fromString)
+import GHC.Stats (GCDetails (..), RTSStats (..), getRTSStats, getRTSStatsEnabled)
 import Kiroku.Store
 import Kiroku.Store.Subscription.EventPublisher qualified as Pub
-import Test.Helpers (caughtUpEventHandler, makeEvent, waitForPublisher, waitForSubscriptionLive, withTestStoreSettings)
+import System.Mem (performMajorGC)
+import Test.Helpers (caughtUpEventHandler, makeEvent, waitForPublisher, waitForSubscriptionLive, withTestStore, withTestStoreSettings)
 import Test.Hspec
 
 timeoutMicros :: Int
@@ -62,8 +64,41 @@ publisherSubscriberCount :: KirokuStore -> IO Int
 publisherSubscriberCount store =
     IntMap.size <$> readTVarIO (Pub.subscribers (store ^. #publisher))
 
+sampleLargeObjects :: IO Integer
+sampleLargeObjects = do
+    enabled <- getRTSStatsEnabled
+    when (not enabled) (fail "publisher retention test requires RTS statistics")
+    performMajorGC
+    fromIntegral . gcdetails_large_objects_bytes . gc <$> getRTSStats
+
 spec :: Spec
 spec = describe "publisher idle advance" $ do
+    it "does not retain append results while advancing with no queue subscribers" $ do
+        withTestStore $ \store -> do
+            let blockSize :: Int
+                blockSize = 2_000
+                blocks :: Int
+                blocks = 6
+                event = makeEvent "Retention" (Aeson.object [])
+                appendOne = do
+                    result <- runStoreIO store $ appendToStream (StreamName "pubidle-retention") AnyVersion [event]
+                    case result of
+                        Left err -> fail ("append failed: " <> show err)
+                        Right _ -> pure ()
+            samples <- forM [1 .. blocks] $ \_ -> do
+                sequence_ (replicate blockSize appendOne)
+                -- Allow the notification-driven publisher to finish its tail
+                -- query without reading (and thereby forcing) its position.
+                threadDelay 100_000
+                sampleLargeObjects
+            publisherSubscriberCount store `shouldReturn` 0
+            case samples of
+                firstSample : _ -> do
+                    let growth = last samples - firstSample
+                    when (growth >= 3 * 1024 * 1024) $
+                        expectationFailure ("large-object bytes grew by " <> show growth <> "; samples: " <> show samples)
+                [] -> expectationFailure "publisher retention test collected no heap samples"
+
     it "advances lastPublished without decoding any rows when no subscriber is registered" $ do
         counter <- newIORef 0
         withTestStoreSettings (countingSettings counter) $ \store -> do

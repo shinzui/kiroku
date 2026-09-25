@@ -248,7 +248,10 @@ publisherLoop pool tickChan subsVar posVar mHandler stSettings = loop
                     if IntMap.null subs'
                         then do
                             GlobalPosition cur <- readTVar posVar
-                            writeTVar posVar (GlobalPosition (max cur tailPos))
+                            let nextPos = max cur tailPos
+                            -- Do not store a chain of lazy max expressions that
+                            -- retains earlier tail-query results.
+                            nextPos `seq` writeTVar posVar (GlobalPosition nextPos)
                             pure False
                         else pure True
                 when raced fullFetch
