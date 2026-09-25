@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.6.0.0 — unreleased
+
+### Breaking Changes
+
+* New forward migration `0012` adds `kiroku.stream_events.category`, the
+  source stream's category on every `$all` junction row, so category reads can
+  range-scan an index instead of probing every stream in the category (BUG-2).
+  It backfills the column on existing `$all` rows from `streams.category`,
+  adds `ck_stream_events_all_category` (`stream_id <> 0 OR category IS NOT
+  NULL`), and builds the partial index `ix_stream_events_all_by_category
+  (category, stream_version) INCLUDE (original_stream_id) WHERE stream_id =
+  0`. kiroku-store 0.9.0.0 requires it.
+* Any code that inserts `$all` junction rows directly must now set `category`;
+  the check constraint rejects the old five-column shape with SQLSTATE `23514`.
+
+### Other Changes
+
+* `0012` runs in one transaction. Its backfill rewrites every `$all` row and
+  temporarily disables the `no_update_stream_events` trigger inside that
+  transaction; appends block until it commits. On a large store apply it in a
+  maintenance window and run `VACUUM (ANALYZE) kiroku.stream_events`
+  afterwards.
+* The test-suite gains an upgrade case that applies `0012` to a store
+  populated with pre-`0012` junction rows and checks the backfill, the
+  constraint, the index definition, and the re-enabled trigger. The BUG-1
+  upgrade case now bootstraps through `0009` explicitly, so `0010` stays in its
+  pending tail.
+
 ## 0.5.0.0 — 2026-09-18
 
 ### Breaking Changes

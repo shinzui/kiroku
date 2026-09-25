@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.9.0.0 — unreleased
+
+### Breaking Changes
+
+* Requires schema migration `0012` from kiroku-store-migrations 0.6.0.0. The
+  append statements now write the source stream's category onto each `$all`
+  junction row, so against an older schema every append fails with SQLSTATE
+  `42703` (undefined column). Apply the migration before deploying; it needs a
+  maintenance window on a large store.
+
+### Bug Fixes
+
+* Category reads no longer cost work proportional to the number of streams in
+  the category (BUG-2). `readCategory`, category subscriptions, and
+  consumer-group category subscriptions used a LATERAL join that probed every
+  stream of the category on each call: a caught-up poll of a 20,000-stream
+  category read 60,387 shared buffers (about 30,000 for a member of a size-2
+  group), and the figure grew with every stream ever created. Both statements
+  are now one range scan of `ix_stream_events_all_by_category` from
+  `(category, checkpoint)` that stops at the limit; the same poll reads 6
+  buffers (3 for the group member). Results and ordering are unchanged.
+
+### Other Changes
+
+* `Kiroku.Store.SQL` additionally exports `appendParamsEncoder`,
+  `appendResultDecoder`, `readCategoryEncoder`,
+  `readCategoryConsumerGroupEncoder`, and `recordedEventRow`, used by the
+  benchmark controls.
+* New structural tests pin both category statements to
+  `ix_stream_events_all_by_category` without a Sort and hold a caught-up poll
+  on a 20,000-stream category to 32 buffers. The workload gate gains
+  `category-read` (the new statements against the LATERAL ones) and
+  `append-category-column` (the append cost of the new column and index), and
+  the benchmark suite gains a `category-scaling` group.
+
 ## 0.8.0.2 — 2026-09-21
 
 ### Bug Fixes

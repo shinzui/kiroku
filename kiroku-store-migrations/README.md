@@ -2,9 +2,9 @@
 
 `kiroku-store-migrations` owns Kiroku's PostgreSQL schema as one native
 `pg-migrate` component named `kiroku`. The component embeds an ordered manifest
-and eleven SQL payloads, so applications can compose it with other libraries
+and twelve SQL payloads, so applications can compose it with other libraries
 without copying Kiroku SQL. The first seven payloads are immutable historical
-Codd bytes; `0008` through `0011` are native-only forward migrations.
+Codd bytes; `0008` through `0012` are native-only forward migrations.
 
 ## Public API
 
@@ -141,7 +141,10 @@ Migration `0010` adds replay-history retention leases, the per-schema
 coordinator, an indexed active-lease predicate, and statement-level
 `DELETE`/`TRUNCATE` guards on the three event-store data tables. Migration
 `0011` converges databases that applied the withdrawn 0.3.2.x payload of `0010`
-(see below).
+(see below). Migration `0012` copies each stream's category onto its `$all`
+junction rows and indexes it for category reads; it rewrites every `$all` row
+in one transaction, so apply it in a maintenance window on a large store (see
+`docs/user/schema-migrations.md`).
 
 ## The `kiroku.uuidv7()` generator
 
