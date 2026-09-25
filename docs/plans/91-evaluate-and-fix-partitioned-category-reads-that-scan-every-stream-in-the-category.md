@@ -105,6 +105,7 @@ properties, the size-1 equivalence, and every subscription test pass as before.
 - [x] M3 (2026-09-25 17:45Z): switched `readCategoryForwardSQL` and `readCategoryForwardConsumerGroupSQL` to the index-range shape, moved the category plan-shape test to a new `category read cost` group on the category-scaling fixture (G2, both statements), added the buffer-budget test (G1, failed before at 60,387 buffers, passes after), added the read A/B gate (G3, every cell passes), updated the category and category-scaling baseline rows, and rewrote `bench/sql/bench_read_category.sql` to the new shape. `cabal test all` passes on PostgreSQL 18.4; the store suite passes on 17.10.
 - [x] M4 (2026-09-25 18:10Z): wrote ADR-10; updated `docs/user/schema.md`, `docs/SCALING-ANALYSIS.md`, `docs/architecture/subscriptions.md`, `docs/DESIGN.md`, `docs/BENCH-SQL-BASELINE.md`, `docs/user/schema-migrations.md`, `docs/user/consumer-groups.md`, and the migrations README; bumped `kiroku-store` to 0.9.0.0 and `kiroku-store-migrations` to 0.6.0.0 with CHANGELOG entries, and widened the four in-repo dependents to `kiroku-store ^>=0.9`; moved BUG-2 to `fixed`; appended the G3 and G4 perf-log rows. ADR, bug-report, and capability bundles validate; `cabal test all` passes.
 - [x] M5 (2026-09-25 18:35Z): routed consumer-group category members through `liveLoopCategoryNotify` (`Kiroku.Store.Subscription.subscribe` now maps `(_, Category)` to `LiveFromCategoryNotify`), rewrote the worker comments, replaced the old group case in `Test.CategoryIdleNoSpin` with a size-2 idle-category case (zero fetches, then the owner delivers) and an `$all` group case that keeps the corrected-gate coverage, and updated `docs/architecture/subscriptions.md`, CAP-13, CAP-1, and the kiroku-store CHANGELOG. `cabal test all` passes.
+- [x] (2026-09-25 19:00Z) Added the `kiroku-upgrade` blueprint edge `0.8.0.2 -> 0.9.0.0` (`blueprints/kiroku-upgrade/migrations/0-8-to-0-9.md`, blueprint 0.2.0) and recorded the no-rolling-deploy cutover in both CHANGELOGs, `docs/user/schema-migrations.md`, and ADR-10.
 - [ ] Remaining (needs a quiet host): re-run `just perf-workload-gate` (G3, G4) and the `category-scaling` cells for clean timings; optionally `just test-matrix` for all suites on PostgreSQL 17.
 
 
@@ -342,6 +343,16 @@ properties, the size-1 equivalence, and every subscription test pass as before.
   rather than in an ADR.
   Rationale: it reuses an existing mechanism (the category generation) for one more
   configuration and changes no contract; ADR-10 carries the durable decision of this plan.
+  Date: 2026-09-25
+
+- Decision: The 0.9 upgrade is a stop-the-writers cutover, not a rolling deploy, and a
+  `kiroku-upgrade` Seihou blueprint edge `0.8.0.2 -> 0.9.0.0` carries it to consuming projects.
+  Rationale: after `0012`, kiroku-store 0.8 appends fail the new check constraint (`23514`), and
+  0.9 appends fail on a schema without `0012` (`42703`). A `BEFORE INSERT` trigger that filled
+  `category` for old writers would have allowed a rolling deploy, but at the cost of a trigger call
+  on every insert; the user chose the write pause (2026-09-25). The blueprint's README requires an
+  edge for any release that needs judgement work, and this one needs database classification and
+  deploy-order review.
   Date: 2026-09-25
 
 - Decision: Track this work under intention `intention_01m3cn0wx4ef9thtphet1ns7vp`, created with

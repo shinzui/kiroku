@@ -110,7 +110,20 @@ category, adds the check constraint `ck_stream_events_all_category`, and builds
 the partial index `ix_stream_events_all_by_category` that category reads now
 use. kiroku-store 0.9.0.0 requires it: its append statements write the new
 column, so they fail with SQLSTATE `42703` against a schema that has not applied
-`0012`.
+`0012`. The reverse also holds: after `0012`, kiroku-store 0.8 and older fail
+every append with SQLSTATE `23514`, because their `$all` rows carry no
+category. There is no rolling-deploy path across this migration:
+
+1. rehearse `0012` on a restored clone to time the window;
+2. stop every process that appends with the old library (readers may keep
+   running; their reads work on either schema);
+3. apply `0012`;
+4. run the `VACUUM` below;
+5. start the processes on kiroku-store 0.9.
+
+Consuming projects can run the `kiroku-upgrade` Seihou blueprint's
+`0.8.0.2 -> 0.9.0.0` edge, which classifies their databases and deploy
+automation and hands the operator this sequence.
 
 The migration runs in one transaction, and its duration grows with the number
 of events in the store. The backfill rewrites every `$all` row, the constraint

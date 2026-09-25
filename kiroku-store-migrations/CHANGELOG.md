@@ -14,6 +14,10 @@
   0`. kiroku-store 0.9.0.0 requires it.
 * Any code that inserts `$all` junction rows directly must now set `category`;
   the check constraint rejects the old five-column shape with SQLSTATE `23514`.
+  That includes kiroku-store 0.8 and older, whose appends fail against a
+  migrated schema: stop old writers before applying `0012`, and start
+  kiroku-store 0.9 after it. No rolling deploy is possible across this
+  migration.
 
 ### Other Changes
 

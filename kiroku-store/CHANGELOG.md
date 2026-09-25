@@ -7,8 +7,13 @@
 * Requires schema migration `0012` from kiroku-store-migrations 0.6.0.0. The
   append statements now write the source stream's category onto each `$all`
   junction row, so against an older schema every append fails with SQLSTATE
-  `42703` (undefined column). Apply the migration before deploying; it needs a
-  maintenance window on a large store.
+  `42703` (undefined column). Conversely, once `0012` is applied, any process
+  still on kiroku-store 0.8 or older fails every append with SQLSTATE `23514`,
+  because its `$all` rows lack the category the new check constraint requires.
+  There is no rolling-deploy path: stop every appending process, apply `0012`
+  (in a maintenance window on a large store), then start the new code. Reads by
+  old code keep working on the new schema. The `kiroku-upgrade` Seihou
+  blueprint's `0.8.0.2 -> 0.9.0.0` edge walks a consuming project through it.
 
 ### Bug Fixes
 

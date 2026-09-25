@@ -8,7 +8,7 @@ generated:
 docId: ADR-10
 status: Accepted
 date: 2026-09-25
-timestamp: "2026-09-25T18:00:00Z"
+timestamp: "2026-09-25T19:00:00Z"
 originatingPlan: docs/plans/91-evaluate-and-fix-partitioned-category-reads-that-scan-every-stream-in-the-category.md
 ---
 
@@ -87,7 +87,12 @@ statements from an index on `(category, global position)`.
   it carries a text key and an included bigint.
 - `0012` rewrites every `$all` row and builds the index in one transaction that blocks appends, so
   large stores apply it in a maintenance window and vacuum afterwards. kiroku-store 0.9.0.0 cannot
-  append to a schema without it (SQLSTATE `42703`).
+  append to a schema without it (SQLSTATE `42703`), and kiroku-store 0.8 cannot append to a schema
+  with it (SQLSTATE `23514`), so the upgrade has no rolling-deploy path: stop old writers, migrate,
+  start the new code. A `BEFORE INSERT` trigger filling `category` for old writers would have allowed
+  a rolling deploy at the price of a trigger call on every insert; we chose the write pause and kept
+  the append path trigger-free. The `kiroku-upgrade` blueprint's `0.8.0.2 -> 0.9.0.0` edge carries
+  the cutover sequence to consuming projects.
 - Code that inserts junction rows directly, including benchmark fixtures and out-of-repository
   tools such as `kiroku-bench`, must set `category` on `$all` rows.
 - `ix_stream_events_all_by_origin` no longer serves category reads; it remains for hard deletes,

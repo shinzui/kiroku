@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-09-25
+* **Update**: ADR-10 now records that the 0.9 upgrade has no rolling-deploy path (0.8 writers fail with 23514 after 0012), that a compatibility trigger was rejected in favour of a write pause, and that the kiroku-upgrade blueprint carries the cutover.
 * **Addition**: ADR-10 records, for BUG-2 and plan 91, that category reads (plain and consumer-group) range-scan a (category, global position) partial index over a category column copied onto $all junction rows, replacing plan 10's LATERAL per-stream probe; migration 0012 adds the column, backfill, CHECK, and index.
 
 ## 2026-09-10
