@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.1.4 — 2026-09-25
+
+### Other Changes
+
+* Requires `kiroku-store ^>=0.9`, which requires schema migration `0012` from
+  kiroku-store-migrations 0.6.0.0 and serves category reads from the new `$all`
+  category index. No source change was required and no adapter API or
+  runtime behavior changed.
+
 ## 0.5.1.3 — 2026-09-21
 
 ### Bug Fixes

@@ -1,5 +1,13 @@
 # kiroku-otel changelog
 
+## 0.2.0.9 — 2026-09-25
+
+### Other Changes
+
+* Requires `kiroku-store ^>=0.9`, which requires schema migration `0012` from
+  kiroku-store-migrations 0.6.0.0 and serves category reads from the new `$all`
+  category index. The tracer's source, API and runtime behavior are unchanged.
+
 ## 0.2.0.8 — 2026-09-18
 
 ### Other Changes
