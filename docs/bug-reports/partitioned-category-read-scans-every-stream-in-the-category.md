@@ -10,7 +10,7 @@ generated:
   by: anthropic/claude-opus-5-5
   at: "2026-09-25T15:10:00Z"
 bugId: BUG-2
-status: reported
+status: confirmed
 severity: degraded
 origin: mori://tan/notification-hub
 affects: mori://shinzui/kiroku/packages/kiroku-store

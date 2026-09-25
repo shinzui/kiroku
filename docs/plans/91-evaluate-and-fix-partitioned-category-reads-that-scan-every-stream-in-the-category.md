@@ -10,6 +10,12 @@ provenance:
     model: "claude-fable-5-1"
     harness: "claude-code"
     at: 2026-09-25T16:09:49Z
+  revisions:
+    - model: "claude-opus-5-5"
+      harness: "claude-code"
+      at: 2026-09-25T16:24:38Z
+      mode: "implement"
+      note: "Implementing milestones M1-M5"
 ---
 
 # Evaluate and fix partitioned category reads that scan every stream in the category
@@ -92,7 +98,8 @@ properties, the size-1 equivalence, and every subscription test pass as before.
 
 ## Progress
 
-- [ ] M1: add the `category-scaling` benchmark fixture and cells, capture `EXPLAIN (ANALYZE, BUFFERS)` for both category statements at 100 and 20,000 idle streams, record the numbers in Surprises & Discoveries and `docs/perf-experiment-log.md`, and move BUG-2 to `confirmed`.
+- [x] M1 (2026-09-25 17:10Z): added `Kiroku.Test.Fixtures.CategoryScaling` and the five `category-scaling` cells, captured `EXPLAIN (ANALYZE, BUFFERS)` for both category statements at 200 and 20,000 streams, recorded the numbers in Surprises & Discoveries and `docs/perf-experiment-log.md`, and moved BUG-2 to `confirmed`.
+- [ ] M1 follow-up: re-run `cabal bench kiroku-store:kiroku-store-bench --benchmark-options="-p category-scaling"` on a quiet host for telemetry timings (the loaded host timed out every LATERAL cell).
 - [ ] M2: add migration `0012` (column, backfill, CHECK constraint, partial index), update the four append CTEs to populate `stream_events.category` on `$all` rows, update every direct `stream_events` inserter in tests and benches, extend the migrations test suite with the upgrade-path assertions, and add the append A/B gate (G4).
 - [ ] M3: switch `readCategoryForwardSQL` and `readCategoryForwardConsumerGroupSQL` to the index-range shape, update the plan-shape structural test, add the buffer-budget structural test (G1, G2), add the read A/B gate (G3), refresh the historical baseline rows for the category cells with the reason recorded.
 - [ ] M4: write ADR-10, update `docs/user/schema.md`, `docs/SCALING-ANALYSIS.md`, `docs/architecture/subscriptions.md`, `docs/DESIGN.md`, `docs/BENCH-SQL-BASELINE.md`, both CHANGELOGs and package versions, move BUG-2 to `fixed`, and append the perf-log rows.
@@ -101,8 +108,40 @@ properties, the size-1 equivalence, and every subscription test pass as before.
 
 ## Surprises & Discoveries
 
-(None yet. Planning-time findings that shaped the approach are recorded in Context and
-Orientation and in the Decision Log.)
+- M1 reproduced BUG-2 on PostgreSQL 18.4 with the `category-scaling` fixture. `EXPLAIN (ANALYZE,
+  BUFFERS, COSTS OFF)` of the LATERAL statements, caught-up poll at cursor 80,000, zero rows returned:
+
+  ```text
+  plain, performance (200 streams)      shared hit=613     0.42 ms
+  plain, idle (20,000 streams)          shared hit=60384   14.7 ms   (Seq Scan on streams, 20,000 index probes)
+  group m1/2, performance (200 streams) shared hit=298
+  group m1/2, idle (20,000 streams)     shared hit=29958   8.6 ms    (9,858 probes)
+  plain, idle, cursor 0, limit 100      shared hit=160384  36 ms     (returns 100 rows)
+  plain, performance, cursor 20,000     shared hit=607               ("exhausted category")
+  ```
+
+  The 20,000-stream figure is 98 times the 200-stream figure, so the report is reproduced; the cost
+  is about three buffers per stream here, not the report's 1.3 (its figures are from PostgreSQL 17 on
+  a category of one-event streams whose index pages were denser).
+
+- A scratch-database prototype of M2 and M3 (the `0012` DDL applied by hand, the index-range
+  statements run with `EXPLAIN`) confirmed the target before any production change: caught-up poll
+  on `idle` reads 6 buffers (plain) and 3 (group), a 100-event page from cursor 0 reads about 405,
+  and every plan is a single `Index Scan using ix_stream_events_all_by_category` with no Sort. The
+  32-buffer G1 budget has ample headroom.
+
+- The machine was heavily loaded during M1. tasty-bench could not converge on any LATERAL
+  `category-scaling` cell within its 100 s timeout, even after cutting each cell to 10 polls; one
+  earlier run reported 2.42 ms and 2.04 ms per 100 polls for the two 200-stream cells. Wall-clock
+  figures from this session are telemetry at best; the buffer counts above are the evidence.
+
+- `kiroku-store/bench/check-baseline-coverage.sh` rejects benchmark names containing a comma, so the
+  cells are named `plain caught-up poll (200 streams)` and so on rather than the comma form above.
+
+- A local `cabal.project.local` naming `../../codd-extras` made the whole project unresolvable
+  (`ephemeral-pg` conflict). At the user's direction codd was removed entirely: commit `4b06594`
+  drops the codd pin, its package stanza, and its nix overlay entry, and resolves `pg-migrate` and
+  `hasql-notifications` from Hackage instead of git pins.
 
 
 ## Decision Log
@@ -175,6 +214,19 @@ Orientation and in the Decision Log.)
   Rationale: Releases follow the existing cohort release process; this plan lands the change on
   `master` with `kiroku-store-migrations` bumped to 0.6.0.0 and `kiroku-store` to 0.9.0.0, and
   records that the store now requires migration `0012`.
+  Date: 2026-09-25
+
+- Decision: The `category-scaling` cells run each statement 10 times per iteration rather than 100,
+  and the "exhausted category" cell reads `performance` at cursor 20,000 (its last event, with 60,000
+  other rows after it) instead of 80,000, which would duplicate the 200-stream caught-up cell.
+  Rationale: at 15 ms per LATERAL poll on 20,000 streams, 100 polls per iteration made tasty-bench
+  exceed its timeout; the distinct cursor measures the regime plan 10 protected.
+  Date: 2026-09-25
+
+- Decision: Treat buffer counts, not wall-clock, as M1's evidence and keep G1 (buffers) as the
+  authoritative before/after proof; G3 and G4 (wall-clock ratios) run when the host is quiet.
+  Rationale: the host was heavily loaded (the user said so) and tasty-bench could not converge.
+  Buffer counts are deterministic for a given plan and data.
   Date: 2026-09-25
 
 - Decision: Track this work under intention `intention_01m3cn0wx4ef9thtphet1ns7vp`, created with

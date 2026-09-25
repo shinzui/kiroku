@@ -18,7 +18,10 @@ common common
 
 library
   import:          common
-  exposed-modules: Kiroku.Test.Postgres
+  exposed-modules:
+    Kiroku.Test.Fixtures.CategoryScaling
+    Kiroku.Test.Postgres
+
   hs-source-dirs:  src
   build-depends:
     , base                     >=4.18     && <5

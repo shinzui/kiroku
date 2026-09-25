@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-09-25
+* **Modification**: BUG-2 moves to `confirmed`: a caught-up poll reads 613 buffers at 200 streams and 60,384 at 20,000 streams for the unpartitioned category read (298 and 29,958 for a group member of size 2), on PostgreSQL 18.4. The unpartitioned `readCategoryForwardSQL` shares the shape and the cost. Fix tracked in plan 91.
 * **Report**: BUG-2: partitioned category reads visit every stream in the category on every poll (reported from mori://tan/notification-hub)
 
 ## 2026-08-16
