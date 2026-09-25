@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-09-25
+* **Addition**: IR-16 requests bounded, prompt publisher retries after returned pool errors. PostgreSQL 17 and 18 verification runs kept the at-least-once guarantee but exceeded kenshou's local 60-second blackhole-recovery target; the diagnostic PostgreSQL 18 run recorded successive publisher pool errors separated by safety-poll waits. This is a recovery-latency request, not a bug report for a promised 60-second deadline.
+
 ## 2026-09-24
 * **Addition**: IR-15 asks consumerGroupGuard to hold a session-level advisory lock for the worker's lifetime instead of a transaction-scoped probe that cannot see a running peer. The request originates from mori://shinzui/notification-hub (plan 75) and is non-blocking: the application holds the lock itself with Kiroku's key.
 
