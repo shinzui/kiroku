@@ -28,7 +28,7 @@ reproduction:
   - Keep the store open and inspect the six to twelve post-major samples; the direct append path retains large objects even without a Kiroku subscription consumer.
   - Profile either `keiro/pm-worker` or `keiro/router-worker` in the released `mori://shinzui/keiro-runtime-kenshou` cohort with `kenshou diagnose profile --mode info-table`. Both profiles name `Kiroku.Store.Subscription.EventPublisher` line 251 among the growing sites.
   - In an isolated Kiroku 0.9.0.0 worktree, force `nextPos = max cur tailPos` before writing `GlobalPosition nextPos` to `posVar`, then rerun the isolated append leg. The 20,000-append comparison held large-object bytes near 0.30 MiB and lowered the live-heap slope to 332 bytes per operation.
-workaround: Upgrade to kiroku-store 0.9.0.1 or later. The full live-worker soak still needs re-verification.
+workaround: Upgrade to kiroku-store 0.9.0.1 or later. Upgrading from 0.8 requires stopping older writers and applying schema migration 0012 before starting new writers; there is no rolling cutover. The full live-worker soak still needs re-verification.
 reviews:
   - kind: model
     reviewer: process:codex
