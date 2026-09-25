@@ -1,5 +1,13 @@
 # kiroku-otel changelog
 
+## 0.2.0.10 — 2026-09-25
+
+### Other Changes
+
+* Require `kiroku-store ^>=0.9.0.1`, which forces the idle publisher position
+  before storing it and prevents retained append results. The tracer's API and
+  behavior are unchanged.
+
 ## 0.2.0.9 — 2026-09-25
 
 ### Other Changes

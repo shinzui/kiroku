@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1.5 — 2026-09-25
+
+### Other Changes
+
+* Require `kiroku-store ^>=0.9.0.1` so adapter consumers receive the idle
+  publisher retention fix. The adapter API and behavior are unchanged.
+
 ## 0.5.1.4 — 2026-09-25
 
 ### Other Changes

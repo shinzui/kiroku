@@ -1,5 +1,13 @@
 # Revision history for kiroku-metrics
 
+## 0.1.0.10 -- 2026-09-25
+
+### Other Changes
+
+* Require `kiroku-store ^>=0.9.0.1` and `kiroku-cli ^>=0.2.0.8` so the
+  metrics server resolves the idle publisher retention fix. Its API and wire
+  format are unchanged.
+
 ## 0.1.0.9 -- 2026-09-25
 
 ### Other Changes

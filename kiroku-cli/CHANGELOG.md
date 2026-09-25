@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0.8 — 2026-09-25
+
+### Other Changes
+
+* Require `kiroku-store ^>=0.9.0.1` so CLI users receive the idle publisher
+  retention fix. The CLI API and behavior are unchanged.
+
 ## 0.2.0.7 — 2026-09-25
 
 ### Other Changes
