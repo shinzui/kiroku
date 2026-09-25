@@ -1,6 +1,8 @@
 -- Benchmark 5c: Category read only (for isolated measurement)
--- Uses LATERAL join to force the planner to use the partial index
--- ix_stream_events_all_by_origin per category stream, then merge+sort.
+-- Mirrors readCategoryForwardSQL: one range scan of the partial index
+-- ix_stream_events_all_by_category from (category, start_pos), stopping at the
+-- limit (migration 0012, plan 91). The LATERAL shape it replaced cost one
+-- index probe per stream in the category.
 --
 -- pgbench usage:
 --   PGOPTIONS="-c search_path=kiroku,pg_catalog" pgbench -n -f bench_read_category.sql -t 1000 -c 1 kiroku
@@ -11,17 +13,10 @@
 SELECT e.event_id, e.event_type, e.data, e.created_at,
        se.stream_version AS global_position,
        se.original_stream_id, se.original_stream_version
-FROM streams s
-JOIN LATERAL (
-    SELECT se.*
-    FROM stream_events se
-    WHERE se.stream_id = 0
-      AND se.original_stream_id = s.stream_id
-      AND se.stream_version > :start_pos
-    ORDER BY se.stream_version ASC
-    LIMIT 100
-) se ON true
+FROM stream_events se
 JOIN events e ON e.event_id = se.event_id
-WHERE s.category = 'benchcat' || :category_num
+WHERE se.stream_id = 0
+  AND se.category = 'benchcat' || :category_num
+  AND se.stream_version > :start_pos
 ORDER BY se.stream_version ASC
 LIMIT 100;

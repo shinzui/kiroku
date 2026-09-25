@@ -19,6 +19,7 @@ module Kiroku.Store.SQL (
     readAllForwardStmt,
     readAllBackwardStmt,
     readCategoryForwardStmt,
+    readCategoryEncoder,
     getStreamStmt,
     eventExistsInStreamStmt,
     lookupStreamNamesStmt,
@@ -27,7 +28,11 @@ module Kiroku.Store.SQL (
 
     -- * Consumer-group read statements
     readCategoryForwardConsumerGroupStmt,
+    readCategoryConsumerGroupEncoder,
     readAllForwardConsumerGroupStmt,
+
+    -- * Row decoders
+    recordedEventRow,
 
     -- * Causation / correlation statements
     findByCorrelationStmt,
@@ -795,7 +800,14 @@ linkToStreamSQL =
 -- Category Read Statements
 -- ---------------------------------------------------------------------------
 
--- | Read events from streams matching a category, in global position order.
+{- | Read events from streams matching a category, in global position order.
+
+Scans @ix_stream_events_all_by_category@ from @(category, startPosition)@ and
+stops at the limit, so a poll's cost follows the rows it returns, not the
+number of streams in the category (BUG-2). The @category@ column on @$all@
+junction rows is written by the append statements (migration @0012@). Params:
+@(startPosition, category, limit)@.
+-}
 readCategoryForwardStmt :: Statement (Int64, Text, Int32) (Vector RecordedEvent)
 readCategoryForwardStmt =
     preparable
@@ -818,18 +830,11 @@ readCategoryForwardSQL =
            se.original_stream_id, se.original_stream_version,
            e.data, e.metadata, e.causation_id, e.correlation_id,
            e.created_at
-    FROM streams s
-    JOIN LATERAL (
-      SELECT se.*
-      FROM stream_events se
-      WHERE se.stream_id = 0
-        AND se.original_stream_id = s.stream_id
-        AND se.stream_version > $1
-      ORDER BY se.stream_version ASC
-      LIMIT $3
-    ) se ON true
+    FROM stream_events se
     JOIN events e ON e.event_id = se.event_id
-    WHERE s.category = $2
+    WHERE se.stream_id = 0
+      AND se.category = $2
+      AND se.stream_version > $1
     ORDER BY se.stream_version ASC
     LIMIT $3
     """
@@ -847,9 +852,12 @@ signed result into @[0, size)@:
 
 @member_of(stream_id) = (((hashtextextended(stream_id::text, 0) % size) + size) % size)@
 
-The predicate is applied to @s.stream_id@ in the outer @WHERE@ so whole
-unassigned streams are pruned before the lateral join. Params:
-@(startPosition, category, member, size, limit)@.
+The read scans @ix_stream_events_all_by_category@ from
+@(category, startPosition)@ and applies the predicate to
+@se.original_stream_id@, which the index carries as an @INCLUDE@ column, so
+other members' rows are skipped on index tuples. A poll touches about
+@limit * size@ index entries at most, never one probe per stream in the
+category (BUG-2). Params: @(startPosition, category, member, size, limit)@.
 -}
 readCategoryForwardConsumerGroupStmt ::
     Statement (Int64, Text, Int32, Int32, Int32) (Vector RecordedEvent)
@@ -876,19 +884,12 @@ readCategoryForwardConsumerGroupSQL =
            se.original_stream_id, se.original_stream_version,
            e.data, e.metadata, e.causation_id, e.correlation_id,
            e.created_at
-    FROM streams s
-    JOIN LATERAL (
-      SELECT se.*
-      FROM stream_events se
-      WHERE se.stream_id = 0
-        AND se.original_stream_id = s.stream_id
-        AND se.stream_version > $1
-      ORDER BY se.stream_version ASC
-      LIMIT $5
-    ) se ON true
+    FROM stream_events se
     JOIN events e ON e.event_id = se.event_id
-    WHERE s.category = $2
-      AND (((hashtextextended(s.stream_id::text, 0) % $4) + $4) % $4) = $3
+    WHERE se.stream_id = 0
+      AND se.category = $2
+      AND se.stream_version > $1
+      AND (((hashtextextended(se.original_stream_id::text, 0) % $4) + $4) % $4) = $3
     ORDER BY se.stream_version ASC
     LIMIT $5
     """

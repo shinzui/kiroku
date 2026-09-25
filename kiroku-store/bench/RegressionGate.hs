@@ -7,11 +7,13 @@ import Control.Monad (forM, unless)
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
 import Data.IORef (IORef, atomicModifyIORef', newIORef)
+import Data.Int (Int32, Int64)
 import Data.Maybe (isNothing)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time.Clock (getCurrentTime)
 import Data.Vector qualified as V
+import Hasql.Decoders qualified as D
 import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Hasql.Statement (Statement)
@@ -20,6 +22,7 @@ import Hasql.Transaction qualified as Tx
 import Hasql.Transaction.Sessions qualified as TxSessions
 import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
+import Kiroku.Test.Fixtures.CategoryScaling (categoryScalingFixtureSql, categoryScalingHead)
 import Kiroku.Test.Postgres (withMigratedTestDatabase, withSharedMigratedPostgres)
 import Test.Tasty (localOption)
 import Test.Tasty.Bench
@@ -31,51 +34,192 @@ main =
             withMigratedTestDatabase $ \candidateConnectionString ->
                 withStore (defaultConnectionSettings controlConnectionString) $ \controlStore ->
                     withStore (defaultConnectionSettings candidateConnectionString) $ \candidateStore ->
-                        withAppendCategoryStores $ \appendControlStore appendCandidateStore -> do
-                            let fourStreams = namedStreams "workload-gate-4" 4
-                                eightStreams = namedStreams "workload-gate-8" 8
-                            seedStreams controlStore (fourStreams <> eightStreams)
-                            seedStreams candidateStore (fourStreams <> eightStreams)
+                        withAppendCategoryStores $ \appendControlStore appendCandidateStore ->
+                            withCategoryScalingStore $ \scalingStore -> do
+                                let fourStreams = namedStreams "workload-gate-4" 4
+                                    eightStreams = namedStreams "workload-gate-8" 8
+                                seedStreams controlStore (fourStreams <> eightStreams)
+                                seedStreams candidateStore (fourStreams <> eightStreams)
 
-                            runSequentialMultiAppend controlStore fourStreams
-                            runProductionMultiAppend candidateStore fourStreams
-                            runSequentialMultiAppend controlStore eightStreams
-                            runProductionMultiAppend candidateStore eightStreams
+                                runSequentialMultiAppend controlStore fourStreams
+                                runProductionMultiAppend candidateStore fourStreams
+                                runSequentialMultiAppend controlStore eightStreams
+                                runProductionMultiAppend candidateStore eightStreams
 
-                            appendControlCounter <- newIORef 0
-                            appendCandidateCounter <- newIORef 0
-                            runAppendWorkload preCategoryAppendAnyVersion appendControlStore appendControlCounter
-                            runAppendWorkload SQL.appendAnyVersion appendCandidateStore appendCandidateCounter
+                                appendControlCounter <- newIORef 0
+                                appendCandidateCounter <- newIORef 0
+                                runAppendWorkload preCategoryAppendAnyVersion appendControlStore appendControlCounter
+                                runAppendWorkload SQL.appendAnyVersion appendCandidateStore appendCandidateCounter
 
-                            defaultMain
-                                [ localOption WallTime $
-                                    bgroup
-                                        "append-multi-stream"
-                                        [ bench "sequential-control-4" $
-                                            whnfIO (runSequentialMultiAppend controlStore fourStreams)
-                                        , bcompareWithin 0 0.90 "sequential-control-4" $
-                                            bench "production-pipeline-4" $
-                                                whnfIO (runProductionMultiAppend candidateStore fourStreams)
-                                        , bench "sequential-control-8" $
-                                            whnfIO (runSequentialMultiAppend controlStore eightStreams)
-                                        , bcompareWithin 0 0.90 "sequential-control-8" $
-                                            bench "production-pipeline-8" $
-                                                whnfIO (runProductionMultiAppend candidateStore eightStreams)
-                                        ]
-                                , -- BUG-2 / plan 91 G4: carrying the category onto each $all
-                                  -- row (migration 0012) adds a column and one partial-index
-                                  -- insert per event. The control runs the pre-0012 append on
-                                  -- a database without the index or CHECK.
-                                  localOption WallTime $
-                                    bgroup
-                                        "append-category-column"
-                                        [ bench "control-append-40" $
-                                            whnfIO (runAppendWorkload preCategoryAppendAnyVersion appendControlStore appendControlCounter)
-                                        , bcompareWithin 0 1.05 "control-append-40" $
-                                            bench "candidate-append-40" $
-                                                whnfIO (runAppendWorkload SQL.appendAnyVersion appendCandidateStore appendCandidateCounter)
-                                        ]
-                                ]
+                                defaultMain
+                                    [ localOption WallTime $
+                                        bgroup
+                                            "append-multi-stream"
+                                            [ bench "sequential-control-4" $
+                                                whnfIO (runSequentialMultiAppend controlStore fourStreams)
+                                            , bcompareWithin 0 0.90 "sequential-control-4" $
+                                                bench "production-pipeline-4" $
+                                                    whnfIO (runProductionMultiAppend candidateStore fourStreams)
+                                            , bench "sequential-control-8" $
+                                                whnfIO (runSequentialMultiAppend controlStore eightStreams)
+                                            , bcompareWithin 0 0.90 "sequential-control-8" $
+                                                bench "production-pipeline-8" $
+                                                    whnfIO (runProductionMultiAppend candidateStore eightStreams)
+                                            ]
+                                    , -- BUG-2 / plan 91 G4: carrying the category onto each $all
+                                      -- row (migration 0012) adds a column and one partial-index
+                                      -- insert per event. The control runs the pre-0012 append on
+                                      -- a database without the index or CHECK.
+                                      localOption WallTime $
+                                        bgroup
+                                            "append-category-column"
+                                            [ bench "control-append-40" $
+                                                whnfIO (runAppendWorkload preCategoryAppendAnyVersion appendControlStore appendControlCounter)
+                                            , bcompareWithin 0 1.05 "control-append-40" $
+                                                bench "candidate-append-40" $
+                                                    whnfIO (runAppendWorkload SQL.appendAnyVersion appendCandidateStore appendCandidateCounter)
+                                            ]
+                                    , -- BUG-2 / plan 91 G3: the index-range category reads against
+                                      -- the LATERAL statements they replaced, on one database seeded
+                                      -- with the category-scaling fixture. The unpartitioned read
+                                      -- must not be slower where LATERAL was already cheap, and both
+                                      -- caught-up polls on 20,000 streams must be 5x faster.
+                                      localOption WallTime $
+                                        bgroup
+                                            "category-read"
+                                            [ bench "control-exhausted-category" $
+                                                whnfIO (runPlainReads lateralCategoryRead scalingStore "performance" categoryScalingHead)
+                                            , bcompareWithin 0 1.05 "control-exhausted-category" $
+                                                bench "candidate-exhausted-category" $
+                                                    whnfIO (runPlainReads SQL.readCategoryForwardStmt scalingStore "performance" categoryScalingHead)
+                                            , bench "control-page-200-streams-from-0" $
+                                                whnfIO (runPlainReads lateralCategoryRead scalingStore "performance" 0)
+                                            , bcompareWithin 0 1.05 "control-page-200-streams-from-0" $
+                                                bench "candidate-page-200-streams-from-0" $
+                                                    whnfIO (runPlainReads SQL.readCategoryForwardStmt scalingStore "performance" 0)
+                                            , bench "control-page-20000-streams-from-0" $
+                                                whnfIO (runPlainReads lateralCategoryRead scalingStore "idle" 0)
+                                            , bcompareWithin 0 1.05 "control-page-20000-streams-from-0" $
+                                                bench "candidate-page-20000-streams-from-0" $
+                                                    whnfIO (runPlainReads SQL.readCategoryForwardStmt scalingStore "idle" 0)
+                                            , bench "control-plain-caught-up-20000-streams" $
+                                                whnfIO (runPlainReads lateralCategoryRead scalingStore "idle" categoryScalingHead)
+                                            , bcompareWithin 0 0.20 "control-plain-caught-up-20000-streams" $
+                                                bench "candidate-plain-caught-up-20000-streams" $
+                                                    whnfIO (runPlainReads SQL.readCategoryForwardStmt scalingStore "idle" categoryScalingHead)
+                                            , bench "control-group-caught-up-20000-streams" $
+                                                whnfIO (runGroupReads lateralCategoryGroupRead scalingStore "idle" categoryScalingHead)
+                                            , bcompareWithin 0 0.20 "control-group-caught-up-20000-streams" $
+                                                bench "candidate-group-caught-up-20000-streams" $
+                                                    whnfIO (runGroupReads SQL.readCategoryForwardConsumerGroupStmt scalingStore "idle" categoryScalingHead)
+                                            ]
+                                    ]
+
+-- | A migrated store seeded with 'categoryScalingFixtureSql'.
+withCategoryScalingStore :: (KirokuStore -> IO a) -> IO a
+withCategoryScalingStore action =
+    withMigratedTestDatabase $ \connectionString ->
+        withStore (defaultConnectionSettings connectionString) $ \store -> do
+            seeded <- Pool.use (store ^. #pool) (Session.script categoryScalingFixtureSql)
+            case seeded of
+                Left err -> error ("category-read gate setup failed: " <> show err)
+                Right () -> action store
+
+{- | Ten executions of an unpartitioned category read (limit 100). Ten, not a
+hundred: a LATERAL control poll on 20,000 streams costs about 15 ms, and a
+hundred per iteration exceeds tasty-bench's timeout.
+-}
+runPlainReads ::
+    Statement (Int64, Text, Int32) (V.Vector RecordedEvent) ->
+    KirokuStore ->
+    Text ->
+    Int64 ->
+    IO ()
+runPlainReads statement store category cursor =
+    mapM_
+        (\_ -> Pool.use (store ^. #pool) (Session.statement (cursor, category, 100) statement) >>= forceReads)
+        [1 .. 10 :: Int]
+
+-- | Ten executions of a consumer-group category read, member 1 of 2 (limit 100).
+runGroupReads ::
+    Statement (Int64, Text, Int32, Int32, Int32) (V.Vector RecordedEvent) ->
+    KirokuStore ->
+    Text ->
+    Int64 ->
+    IO ()
+runGroupReads statement store category cursor =
+    mapM_
+        (\_ -> Pool.use (store ^. #pool) (Session.statement (cursor, category, 1, 2, 100) statement) >>= forceReads)
+        [1 .. 10 :: Int]
+
+forceReads :: Either Pool.UsageError (V.Vector RecordedEvent) -> IO ()
+forceReads (Right events) = V.length events `seq` pure ()
+forceReads (Left err) = error ("category-read gate read failed: " <> show err)
+
+-- | 'SQL.readCategoryForwardStmt' as it was before plan 91 (git 12d50d5).
+lateralCategoryRead :: Statement (Int64, Text, Int32) (V.Vector RecordedEvent)
+lateralCategoryRead =
+    Statement.preparable
+        lateralCategoryReadSQL
+        SQL.readCategoryEncoder
+        (D.rowVector SQL.recordedEventRow)
+
+-- | 'SQL.readCategoryForwardConsumerGroupStmt' as it was before plan 91 (git 12d50d5).
+lateralCategoryGroupRead :: Statement (Int64, Text, Int32, Int32, Int32) (V.Vector RecordedEvent)
+lateralCategoryGroupRead =
+    Statement.preparable
+        lateralCategoryGroupReadSQL
+        SQL.readCategoryConsumerGroupEncoder
+        (D.rowVector SQL.recordedEventRow)
+
+lateralCategoryReadSQL :: Text
+lateralCategoryReadSQL =
+    """
+    SELECT e.event_id, e.event_type,
+           se.stream_version, se.stream_version AS global_position,
+           se.original_stream_id, se.original_stream_version,
+           e.data, e.metadata, e.causation_id, e.correlation_id,
+           e.created_at
+    FROM streams s
+    JOIN LATERAL (
+      SELECT se.*
+      FROM stream_events se
+      WHERE se.stream_id = 0
+        AND se.original_stream_id = s.stream_id
+        AND se.stream_version > $1
+      ORDER BY se.stream_version ASC
+      LIMIT $3
+    ) se ON true
+    JOIN events e ON e.event_id = se.event_id
+    WHERE s.category = $2
+    ORDER BY se.stream_version ASC
+    LIMIT $3
+    """
+
+lateralCategoryGroupReadSQL :: Text
+lateralCategoryGroupReadSQL =
+    """
+    SELECT e.event_id, e.event_type,
+           se.stream_version, se.stream_version AS global_position,
+           se.original_stream_id, se.original_stream_version,
+           e.data, e.metadata, e.causation_id, e.correlation_id,
+           e.created_at
+    FROM streams s
+    JOIN LATERAL (
+      SELECT se.*
+      FROM stream_events se
+      WHERE se.stream_id = 0
+        AND se.original_stream_id = s.stream_id
+        AND se.stream_version > $1
+      ORDER BY se.stream_version ASC
+      LIMIT $5
+    ) se ON true
+    JOIN events e ON e.event_id = se.event_id
+    WHERE s.category = $2
+      AND (((hashtextextended(s.stream_id::text, 0) % $4) + $4) % $4) = $3
+    ORDER BY se.stream_version ASC
+    LIMIT $5
+    """
 
 {- | Two freshly migrated stores for the append-category-column gate. The
 control database has the category index and CHECK from migration 0012

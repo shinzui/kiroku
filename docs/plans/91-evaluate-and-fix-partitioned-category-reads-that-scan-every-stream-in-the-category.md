@@ -102,7 +102,7 @@ properties, the size-1 equivalence, and every subscription test pass as before.
 - [ ] M1 follow-up: re-run `cabal bench kiroku-store:kiroku-store-bench --benchmark-options="-p category-scaling"` on a quiet host for telemetry timings (the loaded host timed out every LATERAL cell).
 - [x] M2 (2026-09-25 17:15Z): added migration `0012` (column, backfill, CHECK constraint, partial index), updated the four append CTEs to populate `stream_events.category` on `$all` rows, updated every direct `stream_events` inserter (the two fixtures, four raw-shape copies in `bench/Main.hs`, `bench/Explain.hs`, eight pgbench scripts and `setup.sql`), extended the migrations suite with the 0012 upgrade-path case, and added the G4 append gate. Migrations and store suites pass on PostgreSQL 17.10 and 18.4; G4 measured 1.00x, 1.04x, 1.00x.
 - [ ] M2 follow-up: re-run `just perf-workload-gate` on a quiet host; the three G4 runs had a spread of about ±100% of the mean.
-- [ ] M3: switch `readCategoryForwardSQL` and `readCategoryForwardConsumerGroupSQL` to the index-range shape, update the plan-shape structural test, add the buffer-budget structural test (G1, G2), add the read A/B gate (G3), refresh the historical baseline rows for the category cells with the reason recorded.
+- [x] M3 (2026-09-25 17:45Z): switched `readCategoryForwardSQL` and `readCategoryForwardConsumerGroupSQL` to the index-range shape, moved the category plan-shape test to a new `category read cost` group on the category-scaling fixture (G2, both statements), added the buffer-budget test (G1, failed before at 60,387 buffers, passes after), added the read A/B gate (G3, every cell passes), updated the category and category-scaling baseline rows, and rewrote `bench/sql/bench_read_category.sql` to the new shape. `cabal test all` passes on PostgreSQL 18.4; the store suite passes on 17.10.
 - [ ] M4: write ADR-10, update `docs/user/schema.md`, `docs/SCALING-ANALYSIS.md`, `docs/architecture/subscriptions.md`, `docs/DESIGN.md`, `docs/BENCH-SQL-BASELINE.md`, both CHANGELOGs and package versions, move BUG-2 to `fixed`, and append the perf-log rows.
 - [ ] M5: route consumer-group category members through the category-generation live loop so an idle category's members no longer poll on every global append, and extend `Test.CategoryIdleNoSpin` to prove zero idle fetches.
 
@@ -156,6 +156,37 @@ properties, the size-1 equivalence, and every subscription test pass as before.
 - The existing BUG-1 upgrade case in `kiroku-store-migrations/test/Main.hs` bootstrapped through
   `length nativeMigrationFiles - 2`, which after adding `0012` would have moved `0010` out of the
   pending tail it exists to test. It now bootstraps through `0009` explicitly.
+
+- G1 before the SQL change (production LATERAL statements, category-scaling fixture):
+
+  ```text
+  3) performance structure, category read cost, category caught-up poll on 20000 idle streams reads at most 32 buffers
+       plain caught-up poll: expected at most 32 shared buffers, but the plan read 60387
+  ```
+
+  After: the test passes. The same statement text on the scratch database reads 6 buffers for the
+  plain caught-up poll, 3 for the group poll, and 405 for a 100-event page from cursor 0 (about four
+  per returned event, below the ten the plan predicted).
+
+- G3 (`just perf-workload-gate`, `category-read` group, 10 executions per cell, load average 8 to
+  24):
+
+  ```text
+  control-exhausted-category:              2.31 ms   candidate: 1.00 ms, 0.43x  (gate 1.05)
+  control-page-200-streams-from-0:          278 ms   candidate: 7.68 ms, 0.03x  (gate 1.05)
+  control-page-20000-streams-from-0:        357 ms   candidate: 7.77 ms, 0.02x  (gate 1.05)
+  control-plain-caught-up-20000-streams:    117 ms   candidate:  947 us, 0.01x  (gate 0.20)
+  control-group-caught-up-20000-streams:   79.1 ms   candidate: 1.03 ms, 0.01x  (gate 0.20)
+  ```
+
+  The non-partitioned read is faster on every protected cell, including plan 10's exhausted
+  category regime (0.43x), so fixing it alongside the group read cost nothing. The remaining
+  candidate time is round trips: about 100 us per poll whatever the category size.
+
+- The historical `category` cells moved from 1,115 us to 816 us (`category forward`) and from 30.1 us
+  to 16.9 us (`exhausted-category`), but the unchanged `$all forward (100-event page baseline)` cell
+  in the same group also moved from 1,082 us to 757 us, so part of that change is host drift against
+  the older baseline.
 
 - A local `cabal.project.local` naming `../../codd-extras` made the whole project unresolvable
   (`ephemeral-pg` conflict). At the user's direction codd was removed entirely: commit `4b06594`
@@ -253,6 +284,35 @@ properties, the size-1 equivalence, and every subscription test pass as before.
   Rationale: the control needs the 0012 index and CHECK dropped; doing that on the existing
   control database would make the unrelated append-multi-stream control cheaper and change that
   gate's meaning.
+  Date: 2026-09-25
+
+- Decision: The category plan-shape and buffer-budget tests run in their own `category read cost`
+  group on a store seeded only with `categoryScalingFixtureSql`, instead of adding that fixture to
+  `withQueryPlanStore`, and the old "category high-cursor reads use ix_stream_events_all_by_origin"
+  case moved there.
+  Rationale: both fixtures create `performance-1` to `performance-200` and number global positions
+  from 1, so they cannot share a database; with only one category in the old fixture the planner
+  also had no selective category to prefer the new index for.
+  Date: 2026-09-25
+
+- Decision: The G1 test checks both members of a size-2 group after one append and asserts that
+  exactly one of them returns the row, instead of asserting that member 1 returns it.
+  Rationale: which member owns `idle-1` depends on its hashed surrogate id, which the plan cannot
+  know in advance.
+  Date: 2026-09-25
+
+- Decision: G3's cells run each statement 10 times per iteration, not 100, and the plan's
+  `page-10-streams` cell is named `page-200-streams-from-0` because category `performance` has 200
+  streams.
+  Rationale: same timeout as M1; the name should describe the data.
+  Date: 2026-09-25
+
+- Decision: Refresh only the `category` and `category-scaling` rows of `baseline.csv` from a
+  targeted run (`-p /All.category/`) instead of running `just bench-baseline` over the full suite.
+  Reason for the refresh: "category reads moved to `ix_stream_events_all_by_category`; new
+  `category-scaling` cells".
+  Rationale: the host was heavily loaded, and a full refresh would have replaced every unrelated row
+  with noisy figures. The rest of the baseline stays as it was.
   Date: 2026-09-25
 
 - Decision: Track this work under intention `intention_01m3cn0wx4ef9thtphet1ns7vp`, created with

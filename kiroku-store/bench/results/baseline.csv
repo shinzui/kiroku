@@ -14,13 +14,18 @@ All.raw-append-shape.AnyVersion.two-roundtrip (hot stream),186551464,10712380
 All.raw-append-shape.AnyVersion.two-roundtrip + BEGIN/COMMIT (hot stream),217226562,7320720
 All.read.stream forward (100-event page),1162203906,105193022
 All.read.$all forward (100-event page),1067247656,55478942
-All.category.category forward (100-event page),1114750390,71000398
-All.category.exhausted-category,30102893,1634850
-All.category.$all forward (100-event page baseline),1082442578,60768640
+All.category.category forward (100-event page),816304882,26913174
+All.category.exhausted-category,16920123,1054870
+All.category.$all forward (100-event page baseline),757463281,68439402
 All.concurrent.8 writers x 10 appends,15674956250,1082927720
 All.concurrent.32 writers x 10 appends,726238812500,275624726618
 All.reliability-audit.hot invoice-payment 10 AnyVersion appends,1708234765,139233664
 All.reliability-audit.appendMultiStream 3 existing streams,377894921,37405224
 All.reliability-audit.subscription category catch-up 100 events,2775395312,254604290
+All.category-scaling.plain caught-up poll (200 streams),171067773,14780976
+All.category-scaling.plain caught-up poll (20000 streams),173666064,9301954
+All.category-scaling.group caught-up poll (20000 streams),177814794,15962336
+All.category-scaling.plain page from 0 (20000 streams),6240009375,438534856
+All.category-scaling.exhausted category (200 streams),170566503,15421880
 All.subscription-checkpoint-inventory.100 rows,463298242,24335582
 All.subscription-checkpoint-inventory.10000 rows,44709175000,2067133040

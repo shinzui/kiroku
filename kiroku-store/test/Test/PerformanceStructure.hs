@@ -21,13 +21,15 @@ import Hasql.Statement (Statement, unpreparable)
 import Hasql.Statement qualified as Statement
 import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
-import Test.Helpers (withTestStore, withTestStoreSettings)
+import Kiroku.Test.Fixtures.CategoryScaling (categoryScalingFixtureSql, categoryScalingHead)
+import Test.Helpers (makeEvent, withTestStore, withTestStoreSettings)
 import Test.Hspec
 
 spec :: Spec
 spec = do
     noOpAppendSpec
     queryPlanSpec
+    categoryReadCostSpec
 
 noOpAppendSpec :: Spec
 noOpAppendSpec =
@@ -88,17 +90,6 @@ queryPlanSpec =
                 expectIndex "ux_stream_events_stream_version" plan
                 expectNoNodeType "Sort" plan
 
-            it "category high-cursor reads use ix_stream_events_all_by_origin" $ \store -> do
-                plan <-
-                    explainProductionStatement
-                        store
-                        SQL.readCategoryForwardStmt
-                        [ ("$3", "100::int4")
-                        , ("$2", "'performance'::text")
-                        , ("$1", "15000::bigint")
-                        ]
-                expectIndex "ix_stream_events_all_by_origin" plan
-
             it "dead-letter reads use ix_dead_letters_subscription_position without Sort" $ \store -> do
                 plan <-
                     explainProductionStatement
@@ -127,6 +118,125 @@ queryPlanSpec =
                 case result of
                     Left err -> expectationFailure ("could not inspect retention triggers: " <> show err)
                     Right shape -> shape `shouldBe` (6, 0)
+
+{- | BUG-2. A category read's cost must follow the rows it returns, not the
+number of streams in the category. The store holds the category-scaling
+fixture: @performance@ with 200 streams, @idle@ with 20,000 one-event streams,
+and @noise@, head at 'categoryScalingHead'.
+-}
+categoryReadCostSpec :: Spec
+categoryReadCostSpec =
+    describe "category read cost" $
+        aroundAll withCategoryScalingStore $ do
+            it "category high-cursor reads use ix_stream_events_all_by_category without Sort" $ \store -> do
+                plan <-
+                    explainProductionStatement
+                        store
+                        SQL.readCategoryForwardStmt
+                        [ ("$3", "100::int4")
+                        , ("$2", "'performance'::text")
+                        , ("$1", "15000::bigint")
+                        ]
+                expectIndex "ix_stream_events_all_by_category" plan
+                expectNoNodeType "Sort" plan
+
+            it "consumer-group category reads use ix_stream_events_all_by_category without Sort" $ \store -> do
+                plan <-
+                    explainProductionStatement
+                        store
+                        SQL.readCategoryForwardConsumerGroupStmt
+                        [ ("$5", "100::int4")
+                        , ("$4", "2::int4")
+                        , ("$3", "1::int4")
+                        , ("$2", "'performance'::text")
+                        , ("$1", "15000::bigint")
+                        ]
+                expectIndex "ix_stream_events_all_by_category" plan
+                expectNoNodeType "Sort" plan
+
+            it "category caught-up poll on 20000 idle streams reads at most 32 buffers" $ \store -> do
+                let cursor = T.pack (show categoryScalingHead) <> "::bigint"
+                    plainAt =
+                        [ ("$3", "100::int4")
+                        , ("$2", "'idle'::text")
+                        , ("$1", cursor)
+                        ]
+                    groupAt member =
+                        [ ("$5", "100::int4")
+                        , ("$4", "2::int4")
+                        , ("$3", T.pack (show member) <> "::int4")
+                        , ("$2", "'idle'::text")
+                        , ("$1", cursor)
+                        ]
+                    groupMembers = [0, 1 :: Int]
+
+                plainIdle <- explainAnalyzeBuffers store SQL.readCategoryForwardStmt plainAt
+                expectBufferBudget "plain caught-up poll" plainIdle
+                snd plainIdle `shouldBe` 0
+                groupIdle <- mapM (explainAnalyzeBuffers store SQL.readCategoryForwardConsumerGroupStmt . groupAt) groupMembers
+                mapM_ (expectBufferBudget "group caught-up poll") groupIdle
+                map snd groupIdle `shouldBe` [0, 0]
+
+                appended <- runStoreIO store $ appendToStream (StreamName "idle-1") AnyVersion [makeEvent "IdleWake" Null]
+                appended `shouldSatisfy` either (const False) (const True)
+
+                plainOne <- explainAnalyzeBuffers store SQL.readCategoryForwardStmt plainAt
+                expectBufferBudget "plain poll after one append" plainOne
+                snd plainOne `shouldBe` 1
+                groupOne <- mapM (explainAnalyzeBuffers store SQL.readCategoryForwardConsumerGroupStmt . groupAt) groupMembers
+                mapM_ (expectBufferBudget "group poll after one append") groupOne
+                -- Exactly one member owns idle-1.
+                sum (map snd groupOne) `shouldBe` 1
+
+withCategoryScalingStore :: (KirokuStore -> IO ()) -> IO ()
+withCategoryScalingStore action =
+    withTestStore $ \store -> do
+        result <- Pool.use (store ^. #pool) (Session.script categoryScalingFixtureSql)
+        case result of
+            Left err -> expectationFailure ("failed to seed category-scaling fixture: " <> show err)
+            Right () -> action store
+
+-- | The G1 budget: a category poll that returns at most one row.
+expectBufferBudget :: String -> (Int64, Int64) -> Expectation
+expectBufferBudget label (buffers, _) =
+    unless (buffers <= 32) $
+        expectationFailure $
+            label
+                <> ": expected at most 32 shared buffers, but the plan read "
+                <> show buffers
+
+{- | Execute a production statement under @EXPLAIN (ANALYZE, BUFFERS)@ and
+return the top plan node's shared buffers (hit plus read) and actual rows.
+Planning buffers are excluded; they are not paid by a prepared statement.
+-}
+explainAnalyzeBuffers ::
+    KirokuStore ->
+    Statement params result ->
+    [(Text, Text)] ->
+    IO (Int64, Int64)
+explainAnalyzeBuffers store productionStatement replacements = do
+    plan <-
+        explainWith
+            "EXPLAIN (ANALYZE, BUFFERS, COSTS OFF, TIMING OFF, FORMAT JSON)\n"
+            store
+            productionStatement
+            replacements
+    case plan of
+        Array entries
+            | Just (Object entry) <- headMay entries
+            , Just (Object top) <- KeyMap.lookup "Plan" entry ->
+                pure
+                    ( numberField "Shared Hit Blocks" top + numberField "Shared Read Blocks" top
+                    , numberField "Actual Rows" top
+                    )
+        _ -> expectationFailure ("unexpected EXPLAIN shape: " <> show plan) >> fail "unreachable"
+  where
+    headMay values = case foldr (:) [] values of
+        value : _ -> Just value
+        [] -> Nothing
+    numberField key object = case KeyMap.lookup key object of
+        Just value | Aeson.Success (number :: Double) <- Aeson.fromJSON value -> round number
+        _ -> 0
 
 withObservedStore :: IORef Int -> (KirokuStore -> IO ()) -> IO ()
 withObservedStore checkouts =
@@ -242,10 +352,18 @@ explainProductionStatement ::
     Statement params result ->
     [(Text, Text)] ->
     IO Value
-explainProductionStatement store productionStatement replacements = do
+explainProductionStatement = explainWith "EXPLAIN (FORMAT JSON, COSTS OFF)\n"
+
+explainWith ::
+    Text ->
+    KirokuStore ->
+    Statement params result ->
+    [(Text, Text)] ->
+    IO Value
+explainWith explainPrefix store productionStatement replacements = do
     let productionSql = Statement.toSql productionStatement
         explainedSql =
-            "EXPLAIN (FORMAT JSON, COSTS OFF)\n"
+            explainPrefix
                 <> foldl' (\sql (placeholder, literal) -> T.replace placeholder literal sql) productionSql replacements
         explainStatement :: Statement () ByteString
         explainStatement =
