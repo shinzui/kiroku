@@ -104,7 +104,8 @@ properties, the size-1 equivalence, and every subscription test pass as before.
 - [ ] M2 follow-up: re-run `just perf-workload-gate` on a quiet host; the three G4 runs had a spread of about ±100% of the mean.
 - [x] M3 (2026-09-25 17:45Z): switched `readCategoryForwardSQL` and `readCategoryForwardConsumerGroupSQL` to the index-range shape, moved the category plan-shape test to a new `category read cost` group on the category-scaling fixture (G2, both statements), added the buffer-budget test (G1, failed before at 60,387 buffers, passes after), added the read A/B gate (G3, every cell passes), updated the category and category-scaling baseline rows, and rewrote `bench/sql/bench_read_category.sql` to the new shape. `cabal test all` passes on PostgreSQL 18.4; the store suite passes on 17.10.
 - [x] M4 (2026-09-25 18:10Z): wrote ADR-10; updated `docs/user/schema.md`, `docs/SCALING-ANALYSIS.md`, `docs/architecture/subscriptions.md`, `docs/DESIGN.md`, `docs/BENCH-SQL-BASELINE.md`, `docs/user/schema-migrations.md`, `docs/user/consumer-groups.md`, and the migrations README; bumped `kiroku-store` to 0.9.0.0 and `kiroku-store-migrations` to 0.6.0.0 with CHANGELOG entries, and widened the four in-repo dependents to `kiroku-store ^>=0.9`; moved BUG-2 to `fixed`; appended the G3 and G4 perf-log rows. ADR, bug-report, and capability bundles validate; `cabal test all` passes.
-- [ ] M5: route consumer-group category members through the category-generation live loop so an idle category's members no longer poll on every global append, and extend `Test.CategoryIdleNoSpin` to prove zero idle fetches.
+- [x] M5 (2026-09-25 18:35Z): routed consumer-group category members through `liveLoopCategoryNotify` (`Kiroku.Store.Subscription.subscribe` now maps `(_, Category)` to `LiveFromCategoryNotify`), rewrote the worker comments, replaced the old group case in `Test.CategoryIdleNoSpin` with a size-2 idle-category case (zero fetches, then the owner delivers) and an `$all` group case that keeps the corrected-gate coverage, and updated `docs/architecture/subscriptions.md`, CAP-13, CAP-1, and the kiroku-store CHANGELOG. `cabal test all` passes.
+- [ ] Remaining (needs a quiet host): re-run `just perf-workload-gate` (G3, G4) and the `category-scaling` cells for clean timings; optionally `just test-matrix` for all suites on PostgreSQL 17.
 
 
 ## Surprises & Discoveries
@@ -187,6 +188,21 @@ properties, the size-1 equivalence, and every subscription test pass as before.
   to 16.9 us (`exhausted-category`), but the unchanged `$all forward (100-event page baseline)` cell
   in the same group also moved from 1,082 us to 757 us, so part of that change is host drift against
   the older baseline.
+
+- M5's new case fails against the old routing exactly as intended. With consumer-group category
+  members sent back to `liveLoopDbDriven`, 20 appends to another category produced
+
+  ```text
+  expected: [0,0]
+   but got: [15,15]
+  ```
+
+  idle fetches per member; with the change both stay at 0.
+
+- One full-suite run failed "pauses a slow AllStreams consumer and resumes, delivering all events",
+  a plain `$all` publisher-queue test that M5 does not touch. It passed three isolated reruns and a
+  following full `kiroku-store-test` run (311 examples, 0 failures); it is load-sensitive, not a
+  regression.
 
 - A local `cabal.project.local` naming `../../codd-extras` made the whole project unresolvable
   (`ephemeral-pg` conflict). At the user's direction codd was removed entirely: commit `4b06594`
@@ -322,6 +338,12 @@ properties, the size-1 equivalence, and every subscription test pass as before.
   to the cohort release.
   Date: 2026-09-25
 
+- Decision: M5's routing change is recorded in `docs/architecture/subscriptions.md` and CAP-13
+  rather than in an ADR.
+  Rationale: it reuses an existing mechanism (the category generation) for one more
+  configuration and changes no contract; ADR-10 carries the durable decision of this plan.
+  Date: 2026-09-25
+
 - Decision: Track this work under intention `intention_01m3cn0wx4ef9thtphet1ns7vp`, created with
   `mina ci`.
   Rationale: Per-initiative intentions are the expected workflow.
@@ -330,7 +352,29 @@ properties, the size-1 equivalence, and every subscription test pass as before.
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+All five milestones are implemented on `master` (2026-09-25).
+
+The plan's two questions have measured answers. The report's suggested fix is not safe as a drop-in,
+and the plan did not use it; the fix it implemented (a `category` column on `$all` rows plus
+`ix_stream_events_all_by_category`) is. Fixing the non-partitioned read changed it too, but only for
+the better: G3 shows it faster on every protected cell, including plan 10's exhausted-category case
+(0.43x), and the caught-up poll on a 20,000-stream category went from 60,387 buffers to 6. The group
+statement went from 29,958 to 3. G1 and G2 now hold the new shape structurally on both PostgreSQL 17
+and 18, and M5 removed the other half of BUG-2's cost: idle consumer-group category members no
+longer poll on every append in the store.
+
+What remains is measurement quality, not correctness. The host was heavily loaded for the whole
+session, so G4's append ratio (1.00x to 1.04x) passed with noise as large as the effect, and the
+timing cells were only telemetry; both should be re-run on a quiet host. Publishing is out of scope:
+kiroku-store 0.9.0.0 and kiroku-store-migrations 0.6.0.0 are prepared but unreleased, the four
+dependents need patch bumps at release, and `kiroku-bench` must set `category` on its raw `$all`
+inserts when it next bumps its kiroku pin.
+
+Lessons. Buffer counts from `EXPLAIN (ANALYZE, BUFFERS)` were the reliable evidence on a busy
+machine; wall-clock gates were not. Prototyping the migration and statements by hand on a scratch
+database before M2 confirmed the whole design in minutes. And a shape chosen in an earlier plan's
+Decision Log (LATERAL, plan 10) had never been tested against category stream count; ADR-10 now
+records the replacement and the rejected alternatives so the choice is not re-litigated.
 
 
 ## Context and Orientation
@@ -1047,3 +1091,11 @@ pins `kiroku-store` by flake input and its raw-SQL variants insert `stream_event
 when it bumps the pin past this change those copies must set `category` on `$all` rows or fail
 `ck_stream_events_all_category` loudly. `keiro` consumes `kiroku-store` from Hackage by version
 bound and reaches this change only through a release, which is outside this plan.
+
+---
+
+Revision note (2026-09-25, implementation): recorded M1 to M5 as implemented, with evidence in
+Surprises & Discoveries, the decisions taken during implementation (cell sizes and names, the separate
+category read cost test group, targeted baseline refresh, dependent bound widening, M5 without an
+ADR) in the Decision Log, and the outcomes above. The build no longer uses codd (commit `4b06594`, at
+the user's direction).

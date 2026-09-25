@@ -174,12 +174,13 @@ data LiveSource
       TVar carries Paused/Overflowed backpressure signals.
       -}
       LiveFromPublisherQueue !(TBQueue (Vector RecordedEvent)) !(TVar SubscriberStatus)
-    | {- | Non-group Category: wake on the named category's NOTIFY generation
-      counter and re-query the database.
+    | {- | Category, plain or consumer-group member: wake on the named
+      category's NOTIFY generation counter and re-query the database (with the
+      partition predicate, for a member).
       -}
       LiveFromCategoryNotify !Text
-    | {- | Consumer-group member, for either target: wake when the global
-      position advances and re-query with the partition predicate.
+    | {- | Consumer-group member of AllStreams: wake when the global position
+      advances and re-query with the partition predicate.
       -}
       LiveFromGroupPolling
 
@@ -535,10 +536,14 @@ data LiveExit
 -- 30s safety poll) reconciles notifications lost while the listener connection is
 -- reconnecting, preserving at-least-once delivery with bounded latency.
 --
--- This loop serves only non-group `Category` subscriptions. Consumer-group members
--- cannot use the per-category signal: their interest is
--- `hashtextextended(stream_id) % size = member`, a Postgres hash the worker cannot
--- cheaply replicate from the payload, so they stay on `liveLoopDbDriven`.
+-- This loop serves every `Category` subscription, plain or consumer-group. A
+-- member cannot tell from a NOTIFY payload whether the stream is in its slice
+-- (that is `hashtextextended(stream_id) % size = member`, a Postgres hash), but
+-- it can gate on the category: the category generation advances on every append
+-- to a stream of the category, a superset of the member's own streams, and
+-- `fetchBatch` applies the partition predicate in SQL. So a member of an idle
+-- category does no live database work while other categories are busy, and a
+-- member whose sibling received the append does one empty fetch.
 liveLoopCategoryNotify ::
     Pool ->
     SubscriptionConfig ->
@@ -588,7 +593,7 @@ liveLoopCategoryNotify pool config stateVar catGenVar cat emit posRef startPos s
                                 Nothing -> pure (Right Nothing) -- handler said Stop
                                 Just newPos -> drainTo newPos
 
--- Phase 2: live (DB-driven, consumer-group members only). Bypasses the broadcast
+-- Phase 2: live (DB-driven, consumer-group members of AllStreams). Bypasses the broadcast
 -- and re-queries the database when the publisher's GLOBAL position advances,
 -- letting `fetchBatch` apply the partition predicate baked into the consumer-group
 -- SQL. A partitioned member cannot read the broadcast `liveQueue` because it

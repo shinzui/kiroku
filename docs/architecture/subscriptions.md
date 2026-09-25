@@ -332,10 +332,10 @@ positions may have gaps relative to `$all`. For example, if positions 10 and 13
 belong to category `invoice`, the category checkpoint moves from 10 to 13 after
 processing 13; positions 11 and 12 are irrelevant to that subscription.
 
-Ordinary non-group category live mode does not consume the publisher's
-broadcast queue. Instead, the `Notifier` increments
-`categoryGenerations[category]` when a notification payload identifies that
-category. The category worker:
+Category live mode, for ordinary subscriptions and consumer-group members
+alike, does not consume the publisher's broadcast queue. Instead, the
+`Notifier` increments `categoryGenerations[category]` when a notification
+payload identifies that category. The category worker:
 
 1. Snapshots the current category generation.
 2. Drains all currently available category events from PostgreSQL.
@@ -382,9 +382,18 @@ unpartitioned `$all` batches and the partition predicate is PostgreSQL's hash
 over the originating stream id. Re-querying with the partition predicate in SQL
 is the current source of truth.
 
-The DB-driven live loop waits for the publisher's global `lastPublished` value
-to advance beyond the last observed global position, then drains this member's
-partition from PostgreSQL. It does not wait for `lastPublished > memberCursor`,
+A member of a category group runs the same category live loop as an ordinary
+category subscription (see "Category Subscriptions"). It cannot tell from a
+notification payload whether the stream hashes into its slice, but the
+category's generation advances on every append to any stream of the category,
+a superset of its own streams, and its fetch applies the slot predicate in SQL.
+So the members of an idle category do no live database work while other
+categories are busy, and a member whose sibling owns the new event does one
+empty fetch.
+
+A member of an `$all` group runs the global-position live loop. It waits for the
+publisher's global `lastPublished` value to advance beyond the last observed
+global position, then drains this member's partition from PostgreSQL. It does not wait for `lastPublished > memberCursor`,
 because a member cursor may lag behind unrelated partitions forever; that shape
 causes busy loops when other members own the latest events.
 

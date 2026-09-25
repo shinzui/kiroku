@@ -140,9 +140,12 @@ subscribe store config = liftIO $ do
                                 (queueCapacity config)
                                 (overflowPolicy config)
                     pure (LiveFromPublisherQueue queue statusVar, unsubscribe)
-                (Nothing, Category (CategoryName cat)) ->
+                -- Plain categories and consumer-group category members both wake
+                -- on the category's NOTIFY generation; a member's fetch applies
+                -- its partition predicate in SQL.
+                (_, Category (CategoryName cat)) ->
                     pure (LiveFromCategoryNotify cat, pure ())
-                (Just _, _) ->
+                (Just _, AllStreams) ->
                     pure (LiveFromGroupPolling, pure ())
             )
             (\(_, unsubscribe) -> unsubscribe)

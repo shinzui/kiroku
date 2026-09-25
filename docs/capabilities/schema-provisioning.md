@@ -19,7 +19,7 @@ interface:
 evidence:
   - kind: test
     resource: kiroku-store-migrations/test/Main.hs
-    proves: Applies the eleven-entry manifest against ephemeral PostgreSQL 17 and 18 (`just test-matrix`), preserves all seven legacy payload checksums, applies the pending tail in a session that never ran the bootstrap and cannot reach the Kiroku schema through search_path, pins the UUIDv7 generator to the route its major requires, and proves the frozen SQL checkpoint relation plus replay-retention coordinator, lease, trigger, and index contracts.
+    proves: Applies the twelve-entry manifest against ephemeral PostgreSQL 17 and 18 (`just test-matrix`), preserves all seven legacy payload checksums, applies the pending tail in a session that never ran the bootstrap and cannot reach the Kiroku schema through search_path, pins the UUIDv7 generator to the route its major requires, and proves the frozen SQL checkpoint relation plus replay-retention coordinator, lease, trigger, and index contracts.
   - kind: module
     resource: kiroku-store-migrations/src/Kiroku/Store/Migrations.hs
     proves: Exposes kirokuMigrations (the compile-time-embedded component) and kirokuMigrationPlan, validated against the manifest at build time.
@@ -50,13 +50,16 @@ upgrades the `kiroku` schema out of band with this package: a native
 the `kiroku-store-migrate` executable. Applications compose `kirokuMigrations` with their own
 components in explicit dependency order, or run the executable at deploy time before startup.
 
-The native manifest currently has eleven entries. The first seven preserve the importable Codd
-payloads; `0008` through `0011` are native-only. Migration `0009` publishes the supported, frozen
+The native manifest currently has twelve entries. The first seven preserve the importable Codd
+payloads; `0008` through `0012` are native-only. Migration `0009` publishes the supported, frozen
 `kiroku.subscription_checkpoints_v1` relation for least-privilege database readers while leaving
 the underlying checkpoint table private. Migration `0010` adds the replay-history retention
 coordinator, durable lease evidence, active-lease index, and destructive-operation triggers, and
 publishes `kiroku.uuidv7()` as the component's version-independent UUIDv7 generator. Migration
-`0011` converges databases that applied the withdrawn 0.3.2.x payload of `0010`.
+`0011` converges databases that applied the withdrawn 0.3.2.x payload of `0010`. Migration `0012`
+copies each source stream's category onto its `$all` junction rows, enforces it with a check
+constraint, and adds the `ix_stream_events_all_by_category` index that category reads range-scan;
+it backfills existing rows in one transaction and needs a maintenance window on a large store.
 
 Every migration after `0001` names its objects `kiroku.<name>`, including functions: only `0001`
 sets `search_path`, so only `0001` may rely on it. This holds on every PostgreSQL version the

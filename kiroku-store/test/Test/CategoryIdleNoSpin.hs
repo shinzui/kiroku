@@ -12,8 +12,12 @@ Two paths are covered:
     blocks on its own per-category NOTIFY generation and does __zero__ database
     fetches while a different category receives sustained traffic. A real append
     to the subscribed category still wakes it (liveness).
-  * Consumer-group member
-    ('Kiroku.Store.Subscription.Worker.liveLoopDbDriven', corrected gate): an idle
+  * Consumer-group members of a @Category@ (plan 91 M5): they share the plain
+    category loop and its per-category generation, so both members of an idle
+    category do __zero__ fetches while another category is busy, and an append
+    to the category wakes them and the owning member delivers it.
+  * Consumer-group member of @AllStreams@
+    ('Kiroku.Store.Subscription.Worker.liveLoopDbDriven', corrected gate): the
     member gates on the /last observed global position/ rather than its
     per-partition cursor, so it wakes at most once per global advance — a bounded
     number of fetches — instead of the unbounded spin the original cursor-gate
@@ -27,8 +31,10 @@ handler counts deliveries. (@pg_stat_statements@ is not available in this suite 
 see the plan's Decision Log.)
 
 To confirm these specs actually pin the regression: temporarily restore the old
-cursor-gated 'liveLoopDbDriven' body and route @(Nothing, Category{})@ back through
-it — both idle fetch counts then explode and the assertions fail.
+cursor-gated 'liveLoopDbDriven' body and route @Category@ subscriptions back
+through it — the idle fetch counts then explode and the assertions fail. Routing
+only @(Just _, Category{})@ back through the corrected 'liveLoopDbDriven' fails
+the zero-fetch assertion for group category members.
 -}
 module Test.CategoryIdleNoSpin (spec) where
 
@@ -112,8 +118,63 @@ spec = describe "live loops do not busy-spin while idle (plan 37)" $ do
                 deliveredFinal <- readTVarIO deliveredVar
                 deliveredFinal `shouldBe` 1
 
-    it "an idle consumer-group member does not spin while a different category advances the global position" $ do
-        let subName = SubscriptionName "grp-sub"
+    it "idle consumer-group category members do zero fetches while another category is active, then the owner wakes on its own event" $ do
+        -- Two members (0 and 1 of size 2) over category "quiet". Each runs under
+        -- its own subscription name so each has its own live barrier and fetch
+        -- counter; the partition predicate depends only on (member, size).
+        let names = [SubscriptionName "quiet-grp-0", SubscriptionName "quiet-grp-1"]
+        deliveredVar <- newTVarIO (0 :: Int)
+        fetchVars <- mapM (const (newTVarIO (0 :: Int))) names
+        barriers <- mapM (const newEmptyMVar) names
+        let countFetch evt = case evt of
+                KirokuEventSubscriptionFetched n _ _ ->
+                    sequence_
+                        [ atomically (modifyTVar' v (+ 1))
+                        | (subName, v) <- zip names fetchVars
+                        , n == subName
+                        ]
+                _ -> pure ()
+            obsHandler evt = do
+                sequence_ [caughtUpEventHandler subName barrier Nothing evt | (subName, barrier) <- zip names barriers]
+                countFetch evt
+            deliver _evt = do
+                atomically (modifyTVar' deliveredVar (+ 1))
+                pure Continue
+            memberConfig subName member =
+                (defaultSubscriptionConfig subName (Category (CategoryName "quiet")) deliver)
+                    { consumerGroup = Just ConsumerGroup{member = member, size = 2}
+                    }
+        withTestStoreSettings (\s -> s & #eventHandler .~ Just obsHandler) $ \store ->
+            bracket (subscribe store (memberConfig (names !! 0) 0)) cancel $ \_ ->
+                bracket (subscribe store (memberConfig (names !! 1) 1)) cancel $ \_ -> do
+                    -- Settle: each member reaches live mode and finishes its initial
+                    -- post-catch-up drain (one empty fetch).
+                    mapM_ waitForSubscriptionLive barriers
+                    mapM_ (\v -> waitUntil 5_000_000 ((>= 1) <$> readTVarIO v)) fetchVars
+                    bases <- mapM readTVarIO fetchVars
+
+                    -- Drive a different category. Before plan 91 M5 each member woke on
+                    -- every global advance and ran one empty fetch per wake; now both
+                    -- wait on the "quiet" category's generation, which never moves.
+                    let busyCount = 20 :: Int
+                        busyStreams = ["busy-" <> T.pack (show i) | i <- [1 .. busyCount]]
+                    appendEach store busyStreams "Busy"
+                    waitForPublisher store (GlobalPosition (fromIntegral busyCount))
+                    threadDelay 500_000
+
+                    afterIdle <- mapM readTVarIO fetchVars
+                    zipWith (-) afterIdle bases `shouldBe` [0, 0]
+                    readTVarIO deliveredVar `shouldReturn` 0
+
+                    -- Liveness: an append to the quiet category wakes both members;
+                    -- exactly the owner of "quiet-1" delivers it.
+                    appendEach store ["quiet-1"] "Quiet"
+                    waitUntil 5_000_000 ((>= 1) <$> readTVarIO deliveredVar)
+                    threadDelay 200_000
+                    readTVarIO deliveredVar `shouldReturn` 1
+
+    it "an idle AllStreams consumer-group member wakes a bounded number of times, not a busy spin" $ do
+        let subName = SubscriptionName "grp-all-sub"
         deliveredVar <- newTVarIO (0 :: Int)
         fetchVar <- newTVarIO (0 :: Int)
         liveBarrier <- newEmptyMVar
@@ -126,18 +187,16 @@ spec = describe "live loops do not busy-spin while idle (plan 37)" $ do
             let deliver _evt = do
                     atomically (modifyTVar' deliveredVar (+ 1))
                     pure Continue
-                -- Member 0 of 3 over category "grp" — which receives NO events, so
-                -- this member's partition fetch is always empty. The flood lands in
-                -- a different category, advancing only the global position.
+                -- Member 0 of 3 over $all. Its fetches apply the partition
+                -- predicate, so it receives only its slice of the flood, but every
+                -- append advances the global position it gates on.
                 cfg =
-                    (defaultSubscriptionConfig subName (Category (CategoryName "grp")) deliver)
+                    (defaultSubscriptionConfig subName AllStreams deliver)
                         { consumerGroup = Just ConsumerGroup{member = 0, size = 3}
                         }
             bracket (subscribe store cfg) cancel $ \_handle -> do
                 waitForSubscriptionLive liveBarrier
 
-                -- The corrected group loop gates BEFORE draining, so on an empty
-                -- store it blocks with zero fetches until the global position moves.
                 let floodCount = 20 :: Int
                     floodStreams = ["flood-" <> T.pack (show i) | i <- [1 .. floodCount]]
                 appendEach store floodStreams "Flood"
@@ -145,9 +204,11 @@ spec = describe "live loops do not busy-spin while idle (plan 37)" $ do
                 threadDelay 500_000
 
                 afterIdle <- readTVarIO fetchVar
-                deliveredIdle <- readTVarIO deliveredVar
+                delivered <- readTVarIO deliveredVar
                 -- The corrected gate wakes at most once per observed global position
-                -- (<= floodCount), bounded — NOT the unbounded busy-spin of the old
-                -- cursor gate, which racks up thousands of empty fetches in 500ms.
+                -- and drains to empty, so fetches stay bounded by the flood size
+                -- (plus the drain's empty fetch per wake) — NOT the unbounded
+                -- busy-spin of the old cursor gate, which racks up thousands of
+                -- empty fetches in 500ms.
                 afterIdle `shouldSatisfy` (< 50)
-                deliveredIdle `shouldBe` 0
+                delivered `shouldSatisfy` (<= floodCount)

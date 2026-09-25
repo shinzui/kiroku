@@ -1,10 +1,14 @@
 # Capability Catalog Log
 
+## 2026-09-25
+* **Update**: CAP-1 now records the twelve-entry native manifest and migration `0012`, which puts the source stream's category on `$all` junction rows and indexes it for category reads (plan 91).
+* **Update**: CAP-13 notes that consumer-group category members now wake only on appends to their category (plan 91), while $all group members still wake on every global advance.
+
 ## 2026-09-20
 * **Update**: CAP-19 now records masked consumer-group ownership transfer, exception-preserving
-  cleanup, single-subscription monitor ownership, and real-store replay/leak evidence for halt and
-  cancellation at the checkpoint boundary. It also replaces the obsolete handler-exception
-  limitation with the exact candidate-core contract and release-bound caveat.
+cleanup, single-subscription monitor ownership, and real-store replay/leak evidence for halt and
+cancellation at the checkpoint boundary. It also replaces the obsolete handler-exception
+limitation with the exact candidate-core contract and release-bound caveat.
 
 ## 2026-08-13
 * **Addition**: CAP-21 records durable replay-history leases and transaction-scoped one-stream guards, shipped in `kiroku-store` 0.7.0.0 and `kiroku-store-migrations` 0.3.2.0 with raw-SQL, concurrency, hot-path, and clean-consumer evidence.

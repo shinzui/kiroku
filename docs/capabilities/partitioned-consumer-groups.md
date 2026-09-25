@@ -55,5 +55,6 @@ defaultSubscriptionConfig
   it does not prevent a second process claiming the same member later.
 - `subscribe` throws `InvalidConsumerGroup` when `size < 1` or `member` is out of range.
 - Group members are DB-driven in live mode (no publisher queue), so subscription overflow tuning
-  does not apply to them.
+  does not apply to them. Members of a category group wake only on appends to their category;
+  members of an `$all` group wake on every global advance.
 - Membership is static: resizing a group re-partitions stream-to-member assignments.

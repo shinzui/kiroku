@@ -24,6 +24,12 @@
 
 ### Other Changes
 
+* Consumer-group members of a `Category` subscription now wake in live mode
+  only when their category receives an append, as ordinary category
+  subscriptions already did, instead of on every append anywhere in the
+  store. Members of an idle category do no live database work; a member whose
+  sibling owns the new event does one empty fetch. `AllStreams` group members
+  are unchanged.
 * `Kiroku.Store.SQL` additionally exports `appendParamsEncoder`,
   `appendResultDecoder`, `readCategoryEncoder`,
   `readCategoryConsumerGroupEncoder`, and `recordedEventRow`, used by the
