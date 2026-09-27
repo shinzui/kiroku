@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-09-27
+* **Addition**: IR-17 requests an opt-in lifetime member guard in `KirokuAdapterConfig` after IR-15 makes the store guard effective for the worker's lifetime. Kenshou's released and current-tested adapter runs showed duplicate handler effects with two processes sharing one member while preserving at-least-once delivery.
+
 ## 2026-09-25
 * **Addition**: IR-16 requests bounded, prompt publisher retries after returned pool errors. PostgreSQL 17 and 18 verification runs kept the at-least-once guarantee but exceeded kenshou's local 60-second blackhole-recovery target; the diagnostic PostgreSQL 18 run recorded successive publisher pool errors separated by safety-poll waits. This is a recovery-latency request, not a bug report for a promised 60-second deadline.
 
