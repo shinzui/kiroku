@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-09-28
+* **Report**: BUG-4 records historical shibuya-kiroku-adapter 0.5.1.2 partial group-acquisition cleanup failure and the released 0.5.1.3 masked-ownership fix, with PostgreSQL 17 and 18 external reproductions and passing controls.
+
 ## 2026-09-25
 * **Update**: BUG-3 fixed in released kiroku-store 0.9.0.1; matched command soak confirms publisher attribution
 * **Fix**: BUG-3: forced the idle publisher position before its TVar write and added a post-major-GC regression test; release and live-worker soak remain pending.
