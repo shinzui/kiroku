@@ -9,9 +9,9 @@ description: >-
 generated:
   by: anthropic/claude-fable-5-1
   at: "2026-09-24T18:40:00Z"
-timestamp: "2026-09-24T18:40:00Z"
+timestamp: "2026-09-30T22:20:00Z"
 requestId: IR-15
-status: proposed
+status: accepted
 origin: mori://shinzui/notification-hub
 ---
 
@@ -24,6 +24,19 @@ Proposed by Notification Hub (`mori://shinzui/notification-hub`), found while im
 2026-09-24. The application works around it today by holding its own session-level lock with
 Kiroku's key (recorded in `mori://shinzui/notification-hub/adrs/application-owned-delivery-capacity`, artifact-level
 URI pending), so this request is non-blocking.
+
+Accepted by kiroku on 2026-09-30. Implementation is planned by
+[ExecPlan 93, Hold the consumer-group member guard for the worker's lifetime](../plans/93-hold-the-consumer-group-member-guard-for-the-worker-s-lifetime.md)
+(`mori://shinzui/kiroku/plans/93-hold-the-consumer-group-member-guard-for-the-worker-s-lifetime`): the worker holds a
+session-level `pg_try_advisory_lock` on the unchanged key `hashtextextended('<name>:<member>', 0)`
+on a dedicated connection tagged `kiroku-member-guard` from before its checkpoint load until it
+exits, fails start-up closed on a guard error, re-takes the lock by heartbeat after its guard
+connection is lost and stops with `ConsumerGroupGuardLost` if a peer took the member meanwhile,
+and keeps the guard-off path free of any new connection or pool checkout under the structural
+performance gate. The dependent adapter surface is
+[IR-17](expose-the-lifetime-member-guard-in-the-shibuya-adapter.md), planned separately by
+[ExecPlan 92](../plans/92-expose-the-lifetime-member-guard-in-the-shibuya-adapter.md) (`mori://shinzui/kiroku/plans/92-expose-the-lifetime-member-guard-in-the-shibuya-adapter`).
+Status moves to `completed` only after release evidence exists.
 
 ## Context
 

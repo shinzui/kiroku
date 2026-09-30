@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-09-30
+* **Update**: IR-15 is accepted; [ExecPlan 93](../plans/93-hold-the-consumer-group-member-guard-for-the-worker-s-lifetime.md) (`mori://shinzui/kiroku/plans/93-hold-the-consumer-group-member-guard-for-the-worker-s-lifetime`) plans the lifetime-held session-level member guard on a dedicated connection with fail-closed start-up and heartbeat reacquisition, structural tests pinning zero new pool checkouts, documentation and ADR updates, and the confirmation-gated `kiroku-store` release. IR-17 is accepted; [ExecPlan 92](../plans/92-expose-the-lifetime-member-guard-in-the-shibuya-adapter.md) (`mori://shinzui/kiroku/plans/92-expose-the-lifetime-member-guard-in-the-shibuya-adapter`) plans the dependent opt-in `consumerGroupGuard` fields on `KirokuAdapterConfig` and `KirokuConsumerGroupConfig`, their two-store tests, documentation, and the confirmation-gated adapter release. Both stay short of `completed` until release evidence exists.
+
 ## 2026-09-27
 * **Addition**: IR-17 requests an opt-in lifetime member guard in `KirokuAdapterConfig` after IR-15 makes the store guard effective for the worker's lifetime. Kenshou's released and current-tested adapter runs showed duplicate handler effects with two processes sharing one member while preserving at-least-once delivery.
 

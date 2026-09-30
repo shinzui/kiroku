@@ -8,13 +8,28 @@ description: >-
 generated:
   by: openai-codex/gpt-6-sol
   at: "2026-09-27T17:34:20Z"
-timestamp: "2026-09-27T17:34:20Z"
+timestamp: "2026-09-30T22:20:00Z"
 requestId: IR-17
-status: proposed
+status: accepted
 origin: mori://shinzui/keiro-runtime-kenshou/masterplans/1-build-an-extensive-verification-suite-for-the-keiro-runtime
 ---
 
 # Expose the lifetime member guard in the Shibuya adapter
+
+## Status
+
+Accepted by kiroku on 2026-09-30. Implementation is planned by
+[ExecPlan 92, Expose the lifetime member guard in the Shibuya adapter](../plans/92-expose-the-lifetime-member-guard-in-the-shibuya-adapter.md)
+(`mori://shinzui/kiroku/plans/92-expose-the-lifetime-member-guard-in-the-shibuya-adapter`), which adds the opt-in
+`consumerGroupGuard` field to `KirokuAdapterConfig` and `KirokuConsumerGroupConfig` (default
+`False`), forwards it to the store, proves both the guard-on and guard-off arms with two-store
+tests on PostgreSQL 17 and 18, documents the option, and releases the adapter after confirmation.
+It depends on
+[ExecPlan 93, Hold the consumer-group member guard for the worker's lifetime](../plans/93-hold-the-consumer-group-member-guard-for-the-worker-s-lifetime.md)
+(`mori://shinzui/kiroku/plans/93-hold-the-consumer-group-member-guard-for-the-worker-s-lifetime`), which delivers the
+lifetime-held store guard requested by
+[IR-15](hold-the-consumer-group-member-guard-for-the-workers-lifetime.md). Status moves to
+`completed` only after release evidence exists.
 
 ## Why this is a request
 
