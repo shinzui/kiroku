@@ -8,7 +8,7 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-09-10T03:32:09Z"
+timestamp: "2026-09-30T23:40:00Z"
 requestId: IR-11
 status: accepted
 origin: mori://shinzui/keiro-ui
@@ -29,10 +29,18 @@ Accepted by kiroku on 2026-09-10. Implementation is planned by
 [ExecPlan 90, Add configurable CORS support to kiroku-metrics](../plans/90-add-configurable-cors-support-to-kiroku-metrics.md)
 (`mori://shinzui/kiroku/plans/90-add-configurable-cors-support-to-kiroku-metrics`), which adds a
 `cors` policy field to `MetricsServerConfig` (default off; an explicit allowed-origins list with
-the wildcard unrepresentable), applies it as a WAI middleware to HTTP responses, preflight
-requests, and WebSocket upgrades, and releases the hook in the next `kiroku-metrics` major
-version. The request moves to `in_progress` when that plan's first milestone starts and to
-`completed` once the release is published.
+the wildcard unrepresentable) and applies it as a WAI middleware to HTTP responses, preflight
+requests, and WebSocket upgrades.
+
+Since 2026-09-30 that plan is EP-1 of
+[MasterPlan 13, Expose the Kiroku inspection surface for the keiro runtime UI and a standalone Kiroku UI](../masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md)
+(`mori://shinzui/kiroku/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui`),
+which coordinates IR-8 through IR-12 as one cohort and lands this plan first because every
+browser consumer depends on it. The release moved out of plan 90: the request moves to
+`in_progress` when plan 90's first milestone starts and to `completed` once the cohort release
+(a `kiroku-metrics` major, forecast 0.2.0.0), performed by
+[ExecPlan 96](../plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md),
+is published.
 
 ## Context
 

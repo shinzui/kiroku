@@ -9,7 +9,7 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-09-10T03:05:48Z"
+timestamp: "2026-09-30T23:40:00Z"
 requestId: IR-10
 status: accepted
 origin: mori://shinzui/keiro-ui
@@ -31,10 +31,18 @@ kiroku's plans.
 Accepted by kiroku on 2026-09-10. Implementation is planned by
 [ExecPlan 87, Serve durable subscription checkpoints over HTTP](../plans/87-serve-durable-subscription-checkpoints-over-http.md)
 (`mori://shinzui/kiroku/plans/87-serve-durable-subscription-checkpoints-over-http`), which
-finalizes the route as `GET /subscriptions/checkpoints`, keeps the live `GET /subscriptions`
-route unchanged, and releases the surface in `kiroku-metrics` 0.2.0.0. The request moves to
-`in_progress` when that plan's first milestone starts and to `completed` once the release is
-published.
+finalizes the route as `GET /subscriptions/checkpoints` and keeps the live `GET /subscriptions`
+route unchanged.
+
+Since 2026-09-30 that plan is EP-2 of
+[MasterPlan 13, Expose the Kiroku inspection surface for the keiro runtime UI and a standalone Kiroku UI](../masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md)
+(`mori://shinzui/kiroku/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui`),
+which coordinates IR-8 through IR-12 as one cohort; plan 87 also introduces the server
+composition record every other route in the cohort extends. The release moved out of plan 87:
+the request moves to `in_progress` when plan 87's first milestone starts and to `completed` once
+the cohort release (forecast `kiroku-metrics` 0.2.0.0), performed by
+[ExecPlan 96](../plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md),
+is published.
 
 ## Context
 

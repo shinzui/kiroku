@@ -8,7 +8,7 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-09-10T03:28:57Z"
+timestamp: "2026-09-30T23:40:00Z"
 requestId: IR-9
 status: accepted
 origin: mori://shinzui/keiro-ui
@@ -31,9 +31,15 @@ Accepted by kiroku on 2026-09-10. Implementation is planned by
 `subscriptionDeadLetters` operation to the `Store` effect with keyset pagination in the store's
 canonical newest-first order, finalizes the route as `GET /subscriptions/<name>/dead-letters`
 with `member`, `from`, and `limit` query parameters, serves the reason as JSON, and leaves every
-existing endpoint and the dead-letter write and cleanup paths unchanged. The request moves to
-`in_progress` when that plan's first milestone starts and to `completed` once the release is
-published.
+existing endpoint and the dead-letter write and cleanup paths unchanged.
+
+Since 2026-09-30 that plan is EP-4 of
+[MasterPlan 13, Expose the Kiroku inspection surface for the keiro runtime UI and a standalone Kiroku UI](../masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md)
+(`mori://shinzui/kiroku/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui`),
+which coordinates IR-8 through IR-12 as one cohort. The request moves to `in_progress` when
+plan 89's first milestone starts and to `completed` once the cohort release, performed by
+[ExecPlan 96](../plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md),
+is published.
 
 ## Context
 
