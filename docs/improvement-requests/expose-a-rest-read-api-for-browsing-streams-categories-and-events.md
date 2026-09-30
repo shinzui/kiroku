@@ -9,9 +9,9 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-09-10T03:06:36Z"
+timestamp: "2026-09-30T23:10:00Z"
 requestId: IR-8
-status: proposed
+status: accepted
 origin: mori://shinzui/keiro-ui
 ---
 
@@ -25,11 +25,18 @@ Proposed by the keiro runtime UI initiative
 initiative is preparing a React web UI for operating applications built on the keiro runtime
 stack; per `mori://shinzui/keiro-ui/okf/adrs/concepts/ADR-1`, every endpoint lives in the project
 that owns the concept, and store browsing belongs to kiroku. Implementation is kiroku's own
-downstream work under kiroku's plans. The implementation plan is
-`mori://shinzui/kiroku/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events`
-(repository path `docs/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md`),
+downstream work under kiroku's plans.
+
+Accepted by kiroku on 2026-09-30. Implementation is planned by
+[ExecPlan 88, Expose a REST read API for browsing streams, categories, and events](../plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md)
+(`mori://shinzui/kiroku/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events`),
 which adds the three `kiroku-store` read primitives and the `kiroku-metrics` routes in four
-independently verifiable milestones.
+independently verifiable milestones, as EP-3 of
+[MasterPlan 13, Expose the Kiroku inspection surface for the keiro runtime UI and a standalone Kiroku UI](../masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md)
+(`mori://shinzui/kiroku/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui`),
+which coordinates IR-8 through IR-12 as one cohort and releases them together. The request
+moves to `in_progress` when that plan's first milestone starts and to `completed` once the
+cohort release is published.
 
 ## Context
 

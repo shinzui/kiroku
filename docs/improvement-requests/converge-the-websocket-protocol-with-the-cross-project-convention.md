@@ -9,9 +9,9 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-08-19T00:00:00Z"
+timestamp: "2026-09-30T23:10:00Z"
 requestId: IR-12
-status: proposed
+status: accepted
 origin: mori://shinzui/keiro-ui
 ---
 
@@ -27,6 +27,23 @@ convention this request references is recorded in
 document (`mori://shinzui/keiro-ui`, `docs/architecture/inspection-api-conventions.md`,
 artifact-level URI pending, area 5). Implementation is kiroku's own downstream work under
 kiroku's plans.
+
+Accepted by kiroku on 2026-09-30. Implementation is planned by
+[ExecPlan 94, Converge the kiroku-metrics WebSocket protocol with the cross-project convention](../plans/94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention.md)
+(`mori://shinzui/kiroku/plans/94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention`),
+EP-5 of
+[MasterPlan 13, Expose the Kiroku inspection surface for the keiro runtime UI and a standalone Kiroku UI](../masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md)
+(`mori://shinzui/kiroku/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui`).
+The audit behind that plan corrected one candidate gap and found two others: both WebSocket
+paths already run a 30-second server ping thread, so idle pings are met; the metrics channel
+pushes without a subscribe frame (to be closed additively with an `unsubscribe_metrics` frame
+and a documented deviation); `error` frames carry no stable code (to gain an optional
+snake_case `code`); and the in-band overflow `error` frame the guide documents is never emitted
+under the tail's `DropOldest` policy, which the plan fixes with a publisher drop counter in
+`kiroku-store`. The plan also adds `original_stream_name` to `event` frames so a client can
+name the source stream without a lookup, sharing one event object with the REST browse items.
+The request moves to `in_progress` when the plan's first milestone starts and to `completed`
+once the cohort release is published.
 
 ## Context
 

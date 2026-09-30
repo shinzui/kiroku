@@ -5,11 +5,18 @@ title: "Expose a REST read API for browsing streams, categories, and events"
 kind: exec-plan
 created_at: 2026-09-10T02:48:14Z
 intention: "intention_01m24kefe1en2vvvek852kwcgv"
+master_plan: "docs/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md"
 provenance:
   created_by:
     model: "claude-fable-5-1"
     harness: "claude-code"
     at: 2026-09-10T02:48:14Z
+  revisions:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-30T22:56:43Z
+      mode: "update"
+      note: "Adopted as a child of MasterPlan 13: settled ServerProviders record, errorEnvelope/errorResponse ownership, resolved-name encoder, versions deferred to plan 96, release milestone moved"
 ---
 
 # Expose a REST read API for browsing streams, categories, and events
@@ -17,6 +24,26 @@ provenance:
 This ExecPlan is a living document. The sections Progress, Surprises & Discoveries,
 Decision Log, and Outcomes & Retrospective must be kept up to date as work proceeds.
 If durable project context changes, update or create ADRs in docs/adr/ in the same change.
+
+Since 2026-09-30 this plan is EP-3 of
+[MasterPlan 13, Expose the Kiroku inspection surface for the keiro runtime UI and a standalone Kiroku UI](../masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md),
+which coordinates the five open keiro-ui requests as one cohort. It now hard-depends on plan 87
+(EP-2), which introduces the `ServerProviders` record (with `webSocketServer`,
+`subscriptionStatus`, and `checkpointInventory`) and the four `...WithProviders` functions this
+plan's Milestone 3 originally proposed; this plan adds the `browser` field and the browse route
+arms to that record instead of creating it. The MasterPlan's Integration Points section is
+authoritative wherever this plan's older text disagrees. The other changes made at adoption: the
+structured error envelope is plan 90's `errorEnvelope`/`errorResponse` pair in
+`Kiroku.Metrics.JSON` (this plan's `browseErrorResponse` is withdrawn); the resolved-name event
+encoder is named `recordedEventToJSONResolved` and lives in `Kiroku.Metrics.WebSocket` beside
+`recordedEventToJSON`, because plan 94 (EP-5) uses it for WebSocket frames too; no `.cabal`
+version or dependency bound changes here, because plan 96 (EP-7) assigns the cohort's versions
+(`kiroku-store` 0.10.0.0 and `kiroku-metrics` 0.2.0.0 are the forecast; the 0.9.0.0 and
+0.1.1.0 numbers in this plan's older text are stale, since `kiroku-store` 0.9.0.1 shipped on
+2026-09-25); and the Milestone 4 ADR is withdrawn as subsumed by
+[ADR-9](../adr/0009-published-http-and-websocket-wire-shapes-are-frozen-and-served-only-by-sister-packages.md).
+Commits carry this plan's Intention trailer and a `MasterPlan:` trailer naming the MasterPlan
+file.
 
 
 ## Purpose / Big Picture
@@ -58,16 +85,16 @@ dependency.
 - [ ] M1: add `ListStreams`, `ListCategories`, and `GetEvent` constructors to the `Store` effect in `kiroku-store/src/Kiroku/Store/Effect.hs` and interpret them in `runStorePool` (with the read `decodeEvents` hook applied to `GetEvent`).
 - [ ] M1: add `listStreams`, `listCategories`, and `getEvent` wrappers with Haddock to `kiroku-store/src/Kiroku/Store/Read.hs`.
 - [ ] M1: add `kiroku-store/test/Test/BrowseReads.hs` (database tests) and `kiroku-store/test/Test/BrowseReadsMock.hs` (mock-interpreter test); register both in `kiroku-store/test/Main.hs` and the cabal test stanza; run the store test suite.
-- [ ] M1: bump `kiroku-store` to 0.9.0.0 with a changelog entry; bump the `kiroku-store` bound to `^>=0.9` in `kiroku-cli`, `kiroku-otel`, `shibuya-kiroku-adapter`, and `kiroku-metrics` with patch-level version and changelog entries; `cabal build all` is warning-free.
-- [ ] M2: create `kiroku-metrics/src/Kiroku/Metrics/Browse.hs` with `StoreBrowser`, `BrowseLimits`, `ReadDirection`, the query-parameter parser, the page and error envelopes, `recordedEventToBrowseJSON`, `streamInfoToJSON`, and `browseApp`.
+- [ ] M1: add this plan's bullets under `## Unreleased` in `kiroku-store/CHANGELOG.md` (no `version:` or bound edits; plan 96 assigns 0.10.0.0); `cabal build all` is warning-free.
+- [ ] M2: create `kiroku-metrics/src/Kiroku/Metrics/Browse.hs` with `StoreBrowser`, `BrowseLimits`, `ReadDirection`, the query-parameter parser, the page envelope, `streamInfoToJSON`, and `browseApp`; add `recordedEventToJSONResolved` to `Kiroku.Metrics.WebSocket` (or reuse it if plan 94 landed first).
 - [ ] M2: add `kiroku-metrics/test/Test/BrowseSpec.hs` database-free tests over a mock `Store` interpreter covering every route, pagination, and every error code; register the module and add `effectful-core` to the library and test-suite `build-depends`.
-- [ ] M3: add `ServerProviders`, `defaultServerProviders`, `storeServerProviders`, `startMetricsServerWithProviders`, `withMetricsServerWithProviders`, `combinedAppWithProviders`, and `httpAppWithProviders` to `kiroku-metrics/src/Kiroku/Metrics/Server.hs`; route `/streams`, `/categories`, and `/events` to the browser; make every existing starter delegate unchanged; wire browsing into `startMetricsServerWithStore`.
+- [ ] M3: add the `browser` field to plan 87's `ServerProviders` in `kiroku-metrics/src/Kiroku/Metrics/Server.hs` (`Nothing` in `defaultServerProviders`, `Just (storeBrowser store)` in `storeServerProviders` and `startMetricsServerWithStore`); route `/streams`, `/categories`, and `/events` to the browser in `httpAppWithProviders`.
 - [ ] M3: extend `kiroku-metrics/test/Test/BrowseSpec.hs` with end-to-end tests against a real ephemeral PostgreSQL store, plus regression assertions that the legacy 404 body and the pre-existing endpoints are unchanged; run the metrics test suite.
 - [ ] M4: document the endpoints in `docs/user/metrics.md` (one copyable transcript per endpoint, the error-code table, the cursor rules) and the new primitives in `docs/user/reading-events.md`; update `docs/user/README.md`.
 - [ ] M4: extend `kiroku-metrics/example/Main.hs` with browse checks and update its documented transcript.
-- [ ] M4: bump `kiroku-metrics` to 0.1.1.0 with a changelog entry describing the new routes and exports.
-- [ ] M4: ADR distillation: allocate the next ADR handle with `okf id next`, write the ADR on HTTP browse endpoints wrapping `Store` primitives under the cross-project inspection conventions, run strict `okf validate`, and add the `log.md` entry.
-- [ ] Fill in Outcomes & Retrospective and record the closing provenance revision.
+- [ ] M4: add this plan's bullets under `## Unreleased` in `kiroku-metrics/CHANGELOG.md` describing the new routes and exports (no `version:` edit; plan 96 assigns 0.2.0.0); update CAP-17 and its log; add IR-8's "Implementation Evidence" section.
+- [ ] M4: ADR distillation pass (the browse-endpoint ADR first planned here is withdrawn as subsumed by ADR-9; record in Outcomes whether anything else is durable).
+- [ ] Fill in Outcomes & Retrospective, mark EP-3 `Complete` in the MasterPlan registry, and record the closing provenance revision.
 
 
 ## Surprises & Discoveries
@@ -136,6 +163,11 @@ dependency.
   event object flat lets the browser reuse one decoder for WebSocket `event` frames and REST
   items; the extra key is optional in that decoder.
   Date: 2026-09-10
+  Amended on 2026-09-30: the encoder is `recordedEventToJSONResolved :: Map StreamId StreamName -> RecordedEvent -> Value`
+  in `Kiroku.Metrics.WebSocket`, beside `recordedEventToJSON`, and is shared with plan 94, which
+  puts the same key on WebSocket `event` frames. This plan owns it; if plan 94 lands first it
+  introduces the function with exactly this name, type, and module and this plan reuses it
+  (check with `grep -n recordedEventToJSONResolved kiroku-metrics/src/Kiroku/Metrics/WebSocket.hs`).
 
 - Decision: Add `GET /streams/<name>` (one stream summary) and a `direction=backward` option on
   `GET /events`, which IR-8 does not list.
@@ -167,6 +199,10 @@ dependency.
   turning on `/subscriptions` there would change a pre-existing endpoint's response, which
   acceptance 7 forbids.
   Date: 2026-09-10
+  Amended on 2026-09-30: MasterPlan 13 adopted this record design cohort-wide and assigned its
+  introduction to plan 87 (EP-2), which lands before this plan and adds the `checkpointInventory`
+  field; this plan only adds `browser`. The behaviour decided here (browsing on the store-backed
+  starters, `/subscriptions` unchanged there, `storeServerProviders` wiring everything) stands.
 
 - Decision: Browse limits (`defaultLimit = 100`, `maxLimit = 1000`) live in a `BrowseLimits`
   record carried by `StoreBrowser`, not in `MetricsServerConfig`; an out-of-range `limit` is
@@ -187,6 +223,10 @@ dependency.
   release-time confirmation (see `docs/plans/85-release-the-subscription-hardening-cohort-and-coordinate-downstream-adoption.md`),
   so this plan stops at in-tree version metadata and changelogs.
   Date: 2026-09-10
+  Superseded on 2026-09-30: the numbers are stale (`kiroku-store` 0.9.0.1 is released) and no
+  `.cabal` version or bound is edited by this plan at all. This plan writes bullets under one
+  `## Unreleased` heading per changelog; plan 96 (EP-7) assigns the versions, forecast as
+  `kiroku-store` 0.10.0.0 and `kiroku-metrics` 0.2.0.0, and moves the bounds.
 
 - Decision: Coordinate with the parallel plan
   `docs/plans/87-serve-durable-subscription-checkpoints-over-http.md` (IR-10), which was created
@@ -198,6 +238,21 @@ dependency.
   the same package would violate the conventions' "one dialect" goal and force a breaking
   consolidation later.
   Date: 2026-09-10
+  Superseded on 2026-09-30 by MasterPlan 13's fixed ownership: plan 90 (EP-1) creates the
+  envelope helpers `errorEnvelope :: Text -> Text -> Maybe Value -> Value` and
+  `errorResponse :: Status -> Text -> Text -> Maybe Value -> Response` in `Kiroku.Metrics.JSON`,
+  plan 87 (EP-2) creates the record, and this plan hard-depends on plan 87. This plan's
+  `browseErrorResponse` is withdrawn; every error response in `Kiroku.Metrics.Browse` is built
+  with `errorResponse`.
+
+- Decision: The Milestone 4 ADR on browse endpoints wrapping `Store` primitives is withdrawn.
+  Rationale: [ADR-9](../adr/0009-published-http-and-websocket-wire-shapes-are-frozen-and-served-only-by-sister-packages.md),
+  accepted on 2026-09-10 after this plan was written, already records that sister-package
+  endpoints wrap supported `Store` APIs, add missing reads to the library first, and grow only
+  additively under the conventions; a second record would duplicate it. MasterPlan 13 assigns
+  the composition-boundary ADR (providers record, prefix-mountable application, self-hosting) to
+  plan 95.
+  Date: 2026-09-30
 
 
 ## Outcomes & Retrospective
@@ -613,19 +668,15 @@ dispatches to its constructor exactly once with the arguments given. Register bo
 `kiroku-store/test/Main.hs` and in the `other-modules` list of the `kiroku-store-test` stanza in
 `kiroku-store/kiroku-store.cabal`.
 
-**Versions and changelogs.** In `kiroku-store/kiroku-store.cabal` set `version: 0.9.0.0` and add
-a `## 0.9.0.0 — <date>` entry at the top of `kiroku-store/CHANGELOG.md` with a "Breaking Changes"
-bullet (the `Store` effect gains `ListStreams`, `ListCategories`, `GetEvent`; exhaustive custom
-and mock interpreters must handle them) and a "New Features" bullet naming the three wrappers.
-Then change every `kiroku-store ^>=0.8` to `^>=0.9` in `kiroku-cli/kiroku-cli.cabal` (version
-0.2.0.7), `kiroku-otel/kiroku-otel.cabal` (0.2.0.8), and
-`shibuya-kiroku-adapter/shibuya-kiroku-adapter.cabal` (0.5.1.2), adding to each `CHANGELOG.md` an
-"Other Changes" entry in the exact phrasing of the 2026-08-16 entries ("Requires
-`kiroku-store ^>=0.9`, whose exported `Store` effect gains three browse read constructors. No
-source change was required and no … API or runtime behavior changed."). `kiroku-metrics`'s bound
-moves in Milestone 4 together with its own version bump. If, at implementation time, another
-plan has already moved `kiroku-store` past 0.8.0.0 without a release, add this plan's bullets
-under that unreleased heading instead of bumping twice.
+**Changelog only.** Do not edit `version:` in any `.cabal` file and do not touch any
+dependency bound; plan 96 (EP-7 of MasterPlan 13) assigns the cohort's versions (forecast:
+`kiroku-store` 0.10.0.0, because the closed `Store` GADT gains constructors) and moves every
+dependant's bound in one release commit. Add a `## Unreleased` heading at the top of
+`kiroku-store/CHANGELOG.md` if none exists (plans 89 and 94 write under the same heading; keep
+exactly one) with a `### Breaking Changes` bullet (the `Store` effect gains `ListStreams`,
+`ListCategories`, `GetEvent`; exhaustive custom and mock interpreters must handle them) and a
+`### New Features` bullet naming the three wrappers. Because in-tree packages resolve against
+their local versions, `cabal build all` stays satisfiable with every version untouched.
 
 Acceptance for M1: `cabal build all` succeeds with no warnings, and
 `cabal test kiroku-store-test --test-options='--match "browse reads"'` passes every case above.
@@ -646,11 +697,25 @@ module Kiroku.Metrics.Browse (
     defaultBrowseLimits,
     ReadDirection (..),
     browseApp,
-    browseErrorResponse,
-    recordedEventToBrowseJSON,
     streamInfoToJSON,
 ) where
 ```
+
+The resolved-name event encoder does not live here. Add it to
+`kiroku-metrics/src/Kiroku/Metrics/WebSocket.hs`, exported beside `recordedEventToJSON`, unless
+plan 94 has already added it (`grep -n recordedEventToJSONResolved kiroku-metrics/src/Kiroku/Metrics/WebSocket.hs`):
+
+```haskell
+{- | 'recordedEventToJSON' plus exactly one snake_case key, @original_stream_name@:
+the source stream's name from the supplied lookup, or @null@ when the id is not
+in it. Shared by the REST browse items (plan 88) and the @event@ frames (plan 94)
+so a client keeps one decoder. The camelCase keys are frozen (ADR-9).
+-}
+recordedEventToJSONResolved :: Map StreamId StreamName -> RecordedEvent -> Value
+```
+
+Error responses in this module are built with `errorResponse` from `Kiroku.Metrics.JSON`
+(created by plan 90); do not add a browse-specific envelope helper.
 
 with these definitions (GHC2024 already enables `RankNTypes`):
 
@@ -709,13 +774,13 @@ is refused; the global log is `/events`).
 Every event-returning route runs one `Eff` program that reads the page, collects the distinct
 `originalStreamId`s with `Data.List.nub`, calls `lookupStreamNames` once, and returns both; the
 handler then over-fetch-trims to `limit` and emits items with
-`recordedEventToBrowseJSON :: Map StreamId StreamName -> RecordedEvent -> Value`, which is
-`recordedEventToJSON` with one added key `"original_stream_name"` (the resolved name or `null`).
-`streamInfoToJSON :: StreamInfo -> Value` emits
-`{"stream_id", "name", "category", "version", "created_at", "deleted_at", "truncate_before"}`
+`recordedEventToJSONResolved :: Map StreamId StreamName -> RecordedEvent -> Value` (from
+`Kiroku.Metrics.WebSocket`), which is `recordedEventToJSON` with one added key
+`"original_stream_name"` (the resolved name or `null`). `streamInfoToJSON :: StreamInfo -> Value`
+emits `{"stream_id", "name", "category", "version", "created_at", "deleted_at", "truncate_before"}`
 with `category` computed by `categoryName`, `deleted_at` `null` when live, and `truncate_before`
-`0` by default. `browseErrorResponse :: Status -> Text -> Text -> Maybe Value -> Response` builds
-the envelope and is exported so `Kiroku.Metrics.Server` (and plan 87) reuse it.
+`0` by default. Every error body is built with
+`errorResponse :: Status -> Text -> Text -> Maybe Value -> Response` from `Kiroku.Metrics.JSON`.
 
 Store failures: a `Left (ConnectionError msg)` from the runner becomes 503 `store_unavailable`
 with `message` carrying `msg`; any other `Left` becomes 500 `store_error` with `show err`. Reads
@@ -768,37 +833,35 @@ without a database being touched by these cases (the shared PostgreSQL still sta
 Scope: the store-aware server serves the new routes; every existing starter keeps its signature
 and behavior; end-to-end tests prove the acceptance criteria over real HTTP against a real store.
 
-In `kiroku-metrics/src/Kiroku/Metrics/Server.hs` add and export:
+Plan 87 (EP-2, a hard dependency of this plan) has already added to
+`kiroku-metrics/src/Kiroku/Metrics/Server.hs` the record and the general functions:
 
 ```haskell
 data ServerProviders = ServerProviders
     { webSocketServer :: !WS.ServerApp
     , subscriptionStatus :: !(Maybe SubscriptionStatusProvider)
-    , browser :: !(Maybe StoreBrowser)
+    , checkpointInventory :: !(Maybe CheckpointInventoryProvider)
     }
-
--- | Rejecting WebSocket stub, no subscription provider, no store browser.
 defaultServerProviders :: ServerProviders
-
--- | Everything a store can offer: the event/metrics WebSocket, the live
--- subscription registry, and store browsing. Allocates the WebSocket state.
 storeServerProviders :: MetricsServerConfig -> KirokuMetrics -> KirokuStore -> IO ServerProviders
-
 startMetricsServerWithProviders :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> ServerProviders -> IO MetricsServer
 withMetricsServerWithProviders :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> ServerProviders -> (MetricsServer -> IO a) -> IO a
 combinedAppWithProviders :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> ServerProviders -> Application
 httpAppWithProviders :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> ServerProviders -> Application
 ```
 
-Move the body of today's `startMetricsServerWith'` into `startMetricsServerWithProviders` and
-the body of `httpApp` into `httpAppWithProviders`; then make the existing functions one-line
-delegations: `startMetricsServerWith' cfg m deps mProvider wsApp` builds
-`defaultServerProviders{webSocketServer = wsApp, subscriptionStatus = mProvider}`; `httpApp` and
-`combinedApp` likewise pass `browser = Nothing`; `startMetricsServerWithStore cfg m store deps`
-builds the WebSocket state as today and passes
-`defaultServerProviders{webSocketServer = websocketApp cfg m store wsState, browser = Just (storeBrowser store)}`
-(subscription status stays `Nothing` there, exactly as before). In `httpAppWithProviders` add,
-before the `["ws"]` arm:
+with every legacy starter delegating to them, `combinedAppWithProviders` wrapped in
+`corsMiddleware cfg.cors` (plan 90's invariant), and `httpAppWithProviders` holding the router.
+Confirm with `grep -n "ServerProviders\|WithProviders" kiroku-metrics/src/Kiroku/Metrics/Server.hs`
+before starting; if the record is missing, stop and implement plan 87 first.
+
+Add one field, `browser :: !(Maybe StoreBrowser)`, with a Haddock line ("Backs `/streams`,
+`/categories`, and `/events`"). Set it to `Nothing` in `defaultServerProviders`, to
+`Just (storeBrowser store)` in `storeServerProviders`, and to `Just (storeBrowser store)` in the
+record `startMetricsServerWithStore` builds (subscription status stays `Nothing` there, exactly
+as before, so `/subscriptions` on that starter keeps its published 404). Plan 89 adds
+`deadLetters` the same way, and plan 95 later adds `webSocketChannels`; never add a second
+record. In `httpAppWithProviders` add, before the `["ws"]` arm:
 
 ```haskell
         ("streams" : _) -> browseRoute
@@ -813,7 +876,7 @@ with
         Just browser -> browseApp browser req respond
         Nothing ->
             respond $
-                browseErrorResponse
+                errorResponse
                     status404
                     "store_browsing_not_configured"
                     "This server was started without a store browser; use startMetricsServerWithStore or storeServerProviders."
@@ -885,41 +948,34 @@ Names", each with the signature, the exclusive-cursor paging idiom, and a short 
 `original_stream_name`, and `GET /events/<eventId of the first item>` is 200; renumber the step
 transcript and mirror the new lines in the "Try it" block of `docs/user/metrics.md`.
 
-`kiroku-metrics/kiroku-metrics.cabal`: `version: 0.1.1.0`, `kiroku-store ^>=0.9` in all three
-stanzas; `kiroku-metrics/CHANGELOG.md`: a `## 0.1.1.0 — <date>` entry with "New Features" (the
-routes, `Kiroku.Metrics.Browse`, `ServerProviders` and the `…WithProviders` functions,
-`storeServerProviders`) and "Other Changes" (requires `kiroku-store ^>=0.9`; all pre-existing
-endpoints, frames, and starters unchanged).
+`kiroku-metrics/CHANGELOG.md`: under the `## Unreleased` heading (plans 90 and 87 opened it),
+add "New Features" bullets (the routes, `Kiroku.Metrics.Browse`, `recordedEventToJSONResolved`,
+the `browser` field) and an "Other Changes" bullet (`effectful-core` is a new library
+dependency; all pre-existing endpoints, frames, and starters unchanged). Do not edit `version:`
+or any bound in `kiroku-metrics.cabal`; plan 96 dates the section as 0.2.0.0.
 
-**ADR.** `docs/adr/` is a profile-governed OKF bundle (`docs/adr/profile.dhall`). Allocate the
-handle and write the record:
+**Capability and request evidence.** Update `docs/capabilities/operational-http-endpoints.md`
+(CAP-17): name the browse routes in `description` and the body, add `Kiroku.Metrics.Browse` to
+`interface`, add an `evidence` entry for `kiroku-metrics/test/Test/BrowseSpec.hs`, and add a
+dated `**Update**` entry to `docs/capabilities/log.md` without changing `generated.at`, `since`,
+or `capabilityId`; run `just capabilities-validate`. Update IR-8's body
+(`docs/improvement-requests/expose-a-rest-read-api-for-browsing-streams-categories-and-events.md`,
+status stays `in_progress`): add an "Implementation Evidence" section naming the primitives,
+the module, the routes, the response shapes, the test files, and the example; advance
+`timestamp`; add a dated entry to `docs/improvement-requests/log.md`; run the strict validation
+command from Concrete Steps.
 
-```bash
-okf id next docs/adr --profile docs/adr/profile.dhall ADR
-```
-
-(prints the next free handle; `ADR-9` at the time of writing, but use whatever it prints). Create
-`docs/adr/000N-http-browse-endpoints-wrap-store-primitives-under-the-inspection-conventions.md`
-with the frontmatter shape of `docs/adr/0006-…md` (`type: Architecture Decision Record`,
-`title`, one-sentence `description`, `generated.by` = your model actor string, `generated.at`,
-`docId: ADR-N`, `status: Accepted`, `date`, `timestamp`, `originatingPlan: docs/plans/88-…md`).
-The decision: new `kiroku-metrics` read endpoints wrap public `Store`-effect primitives through
-an injectable runner (`StoreBrowser`) and never run SQL of their own; new HTTP surfaces follow the
-cross-project inspection conventions (snake_case fields, exclusive-cursor pagination with the
-`items`/`next_cursor` envelope, the structured error envelope with a per-project code
-vocabulary); shipped shapes are frozen and grow only additively, with incompatible changes shipping
-as new paths (the HTTP analogue of ADR-6). Cite ADR-1, ADR-6, the keiro-ui ADR-1 and ADR-4
-handles, and IR-8; note that IR-13 may extend the record to the pre-existing surfaces. Then:
-
-```bash
-okf log add docs/adr --kind Addition -m "ADR-N records that kiroku-metrics browse endpoints wrap Store primitives through an injectable runner and adopt the cross-project inspection conventions (cursor pagination, structured errors, frozen additive shapes)."
-okf validate docs/adr --strict --profile docs/adr/profile.dhall --profile-enforce --log-enforce
-```
-
-Expected last line: `OK: 9 concepts (okf_version 0.2)` (one more than today's 8).
+**ADR.** The record this milestone once planned is withdrawn: ADR-9 already states that
+sister-package endpoints wrap supported `Store` APIs through the library, adopt the conventions,
+and freeze shipped shapes. Perform the distillation pass instead: reread the Decision Log and
+Surprises & Discoveries, and if something not covered by ADR-9 is durable (for example the
+loose-index-scan category enumeration as a query-shape commitment), allocate a record with
+`okf id next docs/adr --profile docs/adr/profile.dhall ADR` and run `just adr-validate`;
+otherwise record in Outcomes that no record was needed.
 
 Acceptance for M4: the guide's transcripts match a live server, `cabal run -fexample kiroku-metrics-example`
-prints its new steps and exits 0, `okf validate` passes, and `cabal build all` is warning-free.
+prints its new steps and exits 0, `just capabilities-validate` and the strict
+improvement-request validation pass, and `cabal build all` is warning-free.
 
 
 ## Concrete Steps
@@ -989,11 +1045,22 @@ Example (Milestone 4):
 cabal run -fexample kiroku-metrics-example
 ```
 
-ADR validation (Milestone 4): the `okf id next`, `okf log add`, and `okf validate` commands shown
-in Milestone 4.
+Bundle validation (Milestone 4):
+
+```bash
+just capabilities-validate
+okf validate docs/improvement-requests \
+  --strict \
+  --profile mori/improvement-requests-profile.dhall \
+  --profile-enforce \
+  --log-enforce
+```
+
+The strict run prints "missing profile-recommended field: reviews" lines for several requests;
+they are benign, so judge success by the absence of any other error.
 
 Commit after each milestone (and more often when a step is complete and the tree builds), using
-Conventional Commits and both trailers:
+Conventional Commits and the three trailers (every commit under this plan carries all three):
 
 ```text
 feat(store): add listStreams, listCategories, and getEvent browse reads
@@ -1003,14 +1070,16 @@ prefix-filterable stream listing over kiroku.streams, a loose-index-scan
 category enumeration, and fetch-one-event-by-id as seen from $all. New SQL
 is off every hot path; no existing statement changes.
 
+MasterPlan: docs/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md
 ExecPlan: docs/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md
 Intention: intention_01m24kefe1en2vvvek852kwcgv
 ```
 
-Suggested commit sequence: `feat(store): …` (M1 primitives and tests), `chore(release): bump
-kiroku-store to 0.9.0.0 and dependant bounds` (M1 versions), `feat(metrics): add the browse WAI
-application` (M2), `feat(metrics): serve browse routes from the store-aware server` (M3),
-`docs(metrics): document the browse endpoints` and `docs(adr): add ADR-N …` (M4).
+Suggested commit sequence: `feat(store): …` (M1 primitives, tests, and changelog bullets),
+`feat(metrics): add the browse WAI application` (M2), `feat(metrics): serve browse routes from
+the store-aware server` (M3), `docs(metrics): document the browse endpoints` and
+`docs(okf): record browse evidence in CAP-17 and IR-8` (M4). No `chore(release)` commit:
+versions and bounds belong to plan 96.
 
 
 ## Validation and Acceptance
@@ -1042,8 +1111,9 @@ The plan is complete when every item below is observed, mapped to IR-8's accepta
 
 Beyond the request: `cabal build all` produces no warnings (the repository builds with `-Wall`
 and `-Werror=incomplete-patterns`, so any interpreter in the repository that misses the new
-constructors fails to compile rather than silently crashing); `okf validate … --strict` passes
-with one more concept than before; the example exits 0.
+constructors fails to compile rather than silently crashing); `just capabilities-validate` and
+the strict improvement-request validation pass; the example exits 0; and the MasterPlan
+registry shows EP-3 complete.
 
 
 ## Idempotence and Recovery
@@ -1057,20 +1127,20 @@ before it is mounted).
 If `cabal build all` fails after M1 with an incomplete-patterns error in a package other than
 `kiroku-store`, that package has an exhaustive `Store` interpreter; add arms for the three new
 constructors there (a mock should `error`, a real interpreter should delegate) and note it in
-Surprises & Discoveries. If a version bump conflicts with a concurrent unreleased bump, keep the
-higher version and merge the changelog bullets under it. To roll back, revert the milestone's
-commits in reverse order; nothing outside the repository observes the change until a release,
-which this plan does not perform.
+Surprises & Discoveries. If plan 89 or plan 94 has already opened the `## Unreleased` heading in
+a changelog, add bullets under it rather than a second heading. To roll back, revert the
+milestone's commits in reverse order; nothing outside the repository observes the change until a
+release, which this plan does not perform.
 
-The `okf id next` allocation is idempotent until the file exists; never fill a gap or reuse a
-handle. If `okf validate` fails, fix the frontmatter it names (the descriptor in
-`docs/adr/profile.dhall` is authoritative) and re-run.
+If `okf validate` fails for a bundle, fix the frontmatter it names (the pinned profile is
+authoritative) and re-run; the `timestamp` that did not advance or the missing dated log entry
+is the usual cause.
 
 
 ## Interfaces and Dependencies
 
-At the end of Milestone 1, `kiroku-store` (version 0.9.0.0) exports from
-`Kiroku.Store.Effect` the constructors `ListStreams :: Maybe Text -> Maybe StreamName -> Int32 -> Store m (Vector StreamInfo)`,
+At the end of Milestone 1, `kiroku-store` (its `.cabal` version unchanged in-tree; plan 96
+releases it as 0.10.0.0) exports from `Kiroku.Store.Effect` the constructors `ListStreams :: Maybe Text -> Maybe StreamName -> Int32 -> Store m (Vector StreamInfo)`,
 `ListCategories :: Maybe CategoryName -> Int32 -> Store m (Vector CategoryName)`, and
 `GetEvent :: EventId -> Store m (Maybe RecordedEvent)`; from `Kiroku.Store.Read` the wrappers
 `listStreams :: (HasCallStack, Store :> es) => Maybe Text -> Maybe StreamName -> Int32 -> Eff es (Vector StreamInfo)`,
@@ -1083,22 +1153,36 @@ No new library dependency is added to `kiroku-store`; the SQL uses only `hasql`,
 At the end of Milestone 2, `kiroku-metrics` exports `Kiroku.Metrics.Browse` with
 `StoreBrowser(..)` (`runStoreRead`, `limits`), `storeBrowser :: KirokuStore -> StoreBrowser`,
 `storeBrowserWith :: BrowseLimits -> KirokuStore -> StoreBrowser`, `BrowseLimits(..)`,
-`defaultBrowseLimits`, `ReadDirection(..)`, `browseApp :: StoreBrowser -> Application`,
-`browseErrorResponse :: Status -> Text -> Text -> Maybe Value -> Response`,
-`recordedEventToBrowseJSON :: Map StreamId StreamName -> RecordedEvent -> Value`, and
-`streamInfoToJSON :: StreamInfo -> Value`. New dependency: `effectful-core >=2.4 && <2.7`
-(library and test suite). Existing dependencies used: `wai`, `http-types`, `aeson`, `uuid`
-(`Data.UUID.fromText` for the event-id segment), `text`, `containers`, `vector`.
+`defaultBrowseLimits`, `ReadDirection(..)`, `browseApp :: StoreBrowser -> Application`, and
+`streamInfoToJSON :: StreamInfo -> Value`; and `Kiroku.Metrics.WebSocket` additionally exports
+`recordedEventToJSONResolved :: Map StreamId StreamName -> RecordedEvent -> Value` (shared with
+plan 94). Error bodies use `errorResponse` from `Kiroku.Metrics.JSON` (plan 90). New
+dependency: `effectful-core >=2.4 && <2.7` (library and test suite). Existing dependencies used:
+`wai`, `http-types`, `aeson`, `uuid` (`Data.UUID.fromText` for the event-id segment), `text`,
+`containers`, `vector`.
 
-At the end of Milestone 3, `Kiroku.Metrics.Server` additionally exports `ServerProviders(..)`
-(`webSocketServer`, `subscriptionStatus`, `browser`), `defaultServerProviders`,
-`storeServerProviders :: MetricsServerConfig -> KirokuMetrics -> KirokuStore -> IO ServerProviders`,
-`startMetricsServerWithProviders`, `withMetricsServerWithProviders`, `combinedAppWithProviders`,
-and `httpAppWithProviders`, each typed as shown in Milestone 3, while every previously exported
-name keeps its exact type and observable behavior.
+At the end of Milestone 3, plan 87's `ServerProviders` in `Kiroku.Metrics.Server` has one more
+field, `browser :: !(Maybe StoreBrowser)`, set to `Nothing` in `defaultServerProviders` and to
+`Just (storeBrowser store)` in `storeServerProviders` and in `startMetricsServerWithStore`;
+every previously exported name keeps its exact type and observable behavior.
 
-At the end of Milestone 4, `kiroku-metrics` is at version 0.1.1.0 with `kiroku-store ^>=0.9`;
-`kiroku-cli` 0.2.0.7, `kiroku-otel` 0.2.0.8, and `shibuya-kiroku-adapter` 0.5.1.2 carry the same
-bound; and `docs/adr/` holds one more accepted record. Publishing any of these to Hackage, CORS
-(IR-11), authentication, dead-letter reads (IR-9), durable checkpoints over HTTP (IR-10, plan
-87), and bounded replay windows (IR-1) remain outside this plan.
+At the end of Milestone 4, `kiroku-metrics/CHANGELOG.md` and `kiroku-store/CHANGELOG.md` carry
+this plan's bullets under `## Unreleased`; no `.cabal` version or bound has changed. Publishing
+to Hackage and every version number belong to plan 96. CORS (IR-11, plan 90), authentication,
+dead-letter reads (IR-9, plan 89), durable checkpoints over HTTP (IR-10, plan 87), the
+standalone server and discovery route (plan 95), and bounded replay windows (IR-1) remain outside
+this plan.
+
+
+## Revision Notes
+
+- 2026-09-30: Adopted as EP-3 of MasterPlan 13 (`master_plan` added to the frontmatter) with a
+  hard dependency on plan 87, which now introduces the `ServerProviders` record and the
+  `...WithProviders` functions this plan first proposed; Milestone 3 adds only the `browser`
+  field and the route arms. The error envelope became plan 90's `errorResponse` (the
+  browse-specific helper is withdrawn); the resolved-name encoder became
+  `recordedEventToJSONResolved` in `Kiroku.Metrics.WebSocket`, shared with plan 94; the stale
+  0.9.0.0 and 0.1.1.0 version bumps and every bound edit were withdrawn in favour of
+  `## Unreleased` changelog bullets, with plan 96 assigning the versions; the Milestone 4 ADR was
+  withdrawn as subsumed by ADR-9 and replaced by CAP-17 and IR-8 evidence steps. The primitives,
+  the routes, their wire shapes, and the tests are unchanged.

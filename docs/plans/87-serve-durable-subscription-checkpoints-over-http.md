@@ -5,11 +5,18 @@ title: "Serve durable subscription checkpoints over HTTP"
 kind: exec-plan
 created_at: 2026-09-10T02:45:19Z
 intention: "intention_01m24k3bxye7cv6x088hpvs6ne"
+master_plan: "docs/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md"
 provenance:
   created_by:
     model: "claude-fable-5-1"
     harness: "claude-code"
     at: 2026-09-10T02:45:19Z
+  revisions:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-30T22:56:42Z
+      mode: "update"
+      note: "Adopted as a child of MasterPlan 13: settled ServerProviders record, errorEnvelope/errorResponse ownership, resolved-name encoder, versions deferred to plan 96, release milestone moved"
 ---
 
 # Serve durable subscription checkpoints over HTTP
@@ -27,8 +34,22 @@ which is building a browser UI over the keiro runtime stack and needs every subs
 persisted position to be visible over HTTP. The library capability the endpoint wraps already
 shipped: `subscriptionCheckpointInventory` has been public in `kiroku-store` since 0.4.0.0
 (IR-2, [plan 69](69-expose-a-performant-durable-subscription-checkpoint-inventory.md)). This
-plan adds only the missing HTTP surface in `kiroku-metrics`, its tests, its documentation, and
-the release that makes it consumable. It is a single ExecPlan without a MasterPlan.
+plan adds only the missing HTTP surface in `kiroku-metrics`, its tests, and its documentation.
+
+Since 2026-09-30 this plan is EP-2 of
+[MasterPlan 13, Expose the Kiroku inspection surface for the keiro runtime UI and a standalone Kiroku UI](../masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md),
+which coordinates the five open keiro-ui requests as one cohort. Three things changed when it
+was adopted, and the MasterPlan's Integration Points section is authoritative wherever this
+plan's older text disagrees: the server composition record is `ServerProviders` (the shape
+plan 88 proposed, carrying the WebSocket app) introduced by this plan through four new
+`...WithProviders` functions while every legacy starter keeps its exact signature, not the
+breaking `MetricsProviders` replacement first written here; the structured error envelope is the
+details-carrying `errorEnvelope`/`errorResponse` pair that plan 90 (EP-1, which lands first)
+creates in `Kiroku.Metrics.JSON`, which this plan reuses; and no version is bumped and nothing is
+released here, because plan 96 (EP-7) releases the whole cohort. This plan has no hard
+dependency, but plan 90 lands before it and establishes an invariant this plan must preserve:
+the application handed to Warp is wrapped in `corsMiddleware cfg.cors`. Commits carry this
+plan's Intention trailer and a `MasterPlan:` trailer naming the MasterPlan file.
 
 
 ## Purpose / Big Picture
@@ -78,10 +99,12 @@ process that shares the database: the durable body is the same.
 - [ ] Milestone 1: `Kiroku.Metrics.Checkpoints` module with the provider type, the canonical
       store-backed provider, the wire types and their hand-written JSON codec, the
       `checkpointsApp` WAI application, and the pure codec test; IR-10 set to `in_progress`.
-- [ ] Milestone 2: `MetricsProviders` record threaded through `Kiroku.Metrics.Server`;
+- [ ] Milestone 2: `ServerProviders` record and the four `...WithProviders` functions added to
+      `Kiroku.Metrics.Server` with every legacy starter delegating unchanged;
       `/subscriptions/checkpoints` matched as a reserved segment ahead of the by-name live route;
       structured not-configured envelope; store-backed starters serve the durable route
-      automatically; umbrella re-exports; existing suites green.
+      automatically; the CORS wrap from plan 90 preserved at the composition point; umbrella
+      re-exports; existing suites green.
 - [ ] Milestone 3: end-to-end `Test.CheckpointsSpec` coverage for every IR-10 acceptance item
       (stopped-worker retention versus live absence, ordering, two handles over one database,
       no live provider, empty store, not configured, provider failure, standalone 404).
@@ -89,8 +112,8 @@ process that shares the database: the durable body is the same.
       explanation, cross-links from `docs/user/subscriptions.md` and `docs/user/operator-cli.md`,
       the self-verifying example extended, CAP-17 updated, changelog `Unreleased` entry, IR-10
       body updated with implementation evidence, all repository validations green.
-- [ ] Milestone 5: `kiroku-metrics` 0.2.0.0 released after explicit user confirmation, IR-10
-      set to `completed` with release evidence, ADR distillation pass performed, Outcomes written.
+- [ ] Milestone 5: ADR distillation pass performed and Outcomes written. (The release and the
+      `completed` status of IR-10 moved to plan 96, EP-7 of MasterPlan 13, on 2026-09-30.)
 
 
 ## Surprises & Discoveries
@@ -145,6 +168,8 @@ process that shares the database: the durable body is the same.
   result keeps database failures typed so the route can answer 503 with a structured envelope and
   mock providers can simulate failure.
   Date: 2026-09-10
+  Superseded on 2026-09-30 in the record's shape only: the provider closure and its canonical
+  implementation stand, but the record is `ServerProviders` as decided below.
 
 - Decision: The change is a PVP major bump: `kiroku-metrics` 0.1.0.8 becomes 0.2.0.0.
   Rationale: `startMetricsServerWith'`, `combinedApp`, and `httpApp` are exported and their
@@ -153,6 +178,43 @@ process that shares the database: the durable body is the same.
   with `noProviders`/`noProviders{subscriptionStatus = Just p}`. `kiroku-store` does not change (the inventory API shipped in 0.4.0.0 and the current
   bound `^>=0.8` already admits it), and `kiroku-cli` does not change.
   Date: 2026-09-10
+  Superseded on 2026-09-30: this plan changes no exported signature and bumps no version; plan
+  96 assigns the cohort's versions (`kiroku-metrics` 0.2.0.0 is still the forecast, driven by
+  plan 90's configuration field).
+
+- Decision: The composition record is `ServerProviders { webSocketServer :: WS.ServerApp,
+  subscriptionStatus :: Maybe SubscriptionStatusProvider, checkpointInventory :: Maybe
+  CheckpointInventoryProvider }`, introduced here with `defaultServerProviders`,
+  `storeServerProviders :: MetricsServerConfig -> KirokuMetrics -> KirokuStore -> IO ServerProviders`,
+  and four general functions `startMetricsServerWithProviders`, `withMetricsServerWithProviders`,
+  `combinedAppWithProviders`, and `httpAppWithProviders`; every pre-existing starter and
+  application function keeps its exact signature and becomes a one-line delegation. Plans 88
+  and 89 add their `browser` and `deadLetters` fields to this record; plan 95 reads it for the
+  discovery route.
+  Rationale: MasterPlan 13 settled the conflict between this plan's `MetricsProviders` and plan
+  88's `ServerProviders`. Carrying the WebSocket app in the record makes one starter and one
+  application function sufficient for every deployment, including the standalone executable and
+  keiro's composed mount, and additive fields never force another signature change. The cohort is
+  a PVP major regardless (plan 90's `cors` field), so additivity is chosen for API quality.
+  Date: 2026-09-30
+
+- Decision: `combinedAppWithProviders` is the single composition point and returns the
+  application wrapped in `corsMiddleware cfg.cors`, exactly as plan 90 wraps `combinedApp`
+  today; `httpAppWithProviders` stays unwrapped; no route assumes an absolute mount path and no
+  response carries an absolute URL.
+  Rationale: Plan 90 lands first and establishes that the value handed to Warp is the wrapped
+  composition; moving the composition into a new function must not lose the wrap. Keiro's
+  composed mount (`mori://shinzui/keiro/okf/improvement-requests/concepts/IR-31`) embeds the
+  exported application behind a path prefix, so the router must match `pathInfo` relative to
+  its mount.
+  Date: 2026-09-30
+
+- Decision: The error envelope is the pair `errorEnvelope :: Text -> Text -> Maybe Value -> Value`
+  and `errorResponse :: Status -> Text -> Text -> Maybe Value -> Response` in
+  `Kiroku.Metrics.JSON`, created by plan 90 and reused here with `Nothing` for details.
+  Rationale: One helper with the details argument the conventions describe serves every new
+  route family; plan 90 lands first, so it creates the pair and this plan never adds a variant.
+  Date: 2026-09-30
 
 - Decision: The store-backed starters `startMetricsServerWithStore` and
   `withMetricsServerWithStore` wire the durable provider automatically from the store they
@@ -173,6 +235,7 @@ process that shares the database: the durable body is the same.
   Rationale: The cross-project conventions require the envelope for new endpoints and freeze
   shipped shapes. The envelope helper lives in `Kiroku.Metrics.JSON` so IR-8 and IR-9 reuse it.
   Date: 2026-09-10
+  Amended on 2026-09-30: the helper is plan 90's details-carrying pair; see the decision below.
 
 - Decision: The wire types and codec live in `kiroku-metrics`
   (`Kiroku.Metrics.Checkpoints`), not in `kiroku-cli`, and no CLI command is added.
@@ -432,17 +495,22 @@ change the acceptance paragraph (which already links this plan) to say implement
 way. Add a dated `**Implementation**` entry to `docs/improvement-requests/log.md` and run the
 strict bundle validation from Concrete Steps.
 
-Then add a reusable error-envelope helper to `kiroku-metrics/src/Kiroku/Metrics/JSON.hs` and
-export it:
+Then confirm the shared error-envelope helpers exist in `kiroku-metrics/src/Kiroku/Metrics/JSON.hs`;
+plan 90 (EP-1 of MasterPlan 13) lands before this plan and creates them:
 
 ```haskell
--- | The structured error body used by endpoints added from IR-10 onwards:
--- @{"error":{"code":"...","message":"..."}}@. Existing endpoints keep their
--- published @{"error":"<string>"}@ bodies; do not migrate them.
-errorEnvelope :: Text -> Text -> Value
-errorEnvelope code message =
-    object ["error" .= object ["code" .= code, "message" .= message]]
+-- | The structured error body used by endpoints added under the cross-project
+-- inspection conventions: @{"error":{"code":"...","message":"..."}}@ plus
+-- @"details"@ only when given. Existing endpoints keep their published
+-- @{"error":"<string>"}@ bodies; do not migrate them.
+errorEnvelope :: Text -> Text -> Maybe Value -> Value
+errorResponse :: Status -> Text -> Text -> Maybe Value -> Response
 ```
+
+If `grep -n "errorEnvelope\|errorResponse" kiroku-metrics/src/Kiroku/Metrics/JSON.hs` finds
+nothing because plan 90 has not landed after all, add exactly these two definitions with exactly
+these types (the envelope omits the `details` key when the argument is `Nothing`) and record in
+Surprises & Discoveries that this plan introduced them; never add a second variant.
 
 Write the new module. The provider type and canonical provider mirror
 `Kiroku.Metrics.Subscriptions`, but the result keeps the store error because the database can be
@@ -520,11 +588,13 @@ checkpointsApp provider req respond
             Right inventory ->
                 jsonResponse status200 (encode (checkpointInventoryResponse inventory))
             Left err ->
-                jsonResponse status503 $ encode $ errorEnvelope
+                errorResponse
+                    status503
                     "checkpoint_inventory_unavailable"
                     ("could not read the durable checkpoint inventory: " <> T.pack (show err))
+                    Nothing
     | otherwise =
-        respond (jsonResponse status404 (encode (errorEnvelope "not_found" "Not found")))
+        respond (errorResponse status404 "not_found" "Not found" Nothing)
 ```
 
 Do not restrict the HTTP method; the sibling applications do not, and adding method checks to
@@ -558,42 +628,73 @@ passing.
 
 ### Milestone 2: mount the route in the server without touching the live route
 
-Scope: introduce `MetricsProviders`, thread it through the router and the starters, match the
-reserved segment ahead of the by-name live route, answer a structured 404 when no durable
-provider is configured, and make store-backed starters serve the route automatically. At the end
-a server started with `withMetricsServerWithStore` answers `/subscriptions/checkpoints` while
-`/subscriptions` still answers its configured 404, and every pre-existing test passes unchanged
-except for the mechanical provider-argument update.
+Scope: introduce the `ServerProviders` record and the four general `...WithProviders`
+functions, turn every legacy starter and application function into a one-line delegation with
+its exact signature, match the reserved segment ahead of the by-name live route, answer a
+structured 404 when no durable provider is configured, and make store-backed starters serve the
+route automatically. At the end a server started with `withMetricsServerWithStore` answers
+`/subscriptions/checkpoints` while `/subscriptions` still answers its configured 404, and every
+pre-existing test passes with no edits at all, because no exported signature changes.
 
 In `kiroku-metrics/src/Kiroku/Metrics/Server.hs` add and export:
 
 ```haskell
--- | The optional store-backed data sources a server may serve. Both default to
--- 'Nothing'; the routes they back answer a configured-404 until wired.
-data MetricsProviders = MetricsProviders
-    { subscriptionStatus :: !(Maybe SubscriptionStatusProvider)
+-- | Everything a server composes beyond the collector: the WebSocket app and the
+-- optional store-backed data sources. Optional providers default to 'Nothing';
+-- the routes they back answer a configured-404 until wired. Later route families
+-- (plan 88's @browser@, plan 89's @deadLetters@) add fields here, never a second
+-- record.
+data ServerProviders = ServerProviders
+    { webSocketServer :: !WS.ServerApp
+    -- ^ Handles WebSocket upgrades; 'stubWebSocketApp' rejects them.
+    , subscriptionStatus :: !(Maybe SubscriptionStatusProvider)
     -- ^ Backs @GET /subscriptions@ (live, process-local registry).
     , checkpointInventory :: !(Maybe CheckpointInventoryProvider)
     -- ^ Backs @GET /subscriptions/checkpoints@ (durable, cross-process inventory).
     }
 
-noProviders :: MetricsProviders
-noProviders = MetricsProviders Nothing Nothing
-
--- | Wire both providers from one store: the common case for a worker that
--- wants live and durable subscription introspection.
-storeProviders :: KirokuStore -> MetricsProviders
-storeProviders store =
-    MetricsProviders
-        { subscriptionStatus = Just (storeSubscriptionStatus store)
-        , checkpointInventory = Just (storeCheckpointInventory store)
+-- | The rejecting WebSocket stub and no providers.
+defaultServerProviders :: ServerProviders
+defaultServerProviders =
+    ServerProviders
+        { webSocketServer = stubWebSocketApp
+        , subscriptionStatus = Nothing
+        , checkpointInventory = Nothing
         }
+
+-- | Everything a store can offer: the real event/metrics WebSocket, the live
+-- subscription registry, and the durable checkpoint inventory. Allocates the
+-- shared WebSocket connection-limiting state, hence 'IO'.
+storeServerProviders :: MetricsServerConfig -> KirokuMetrics -> KirokuStore -> IO ServerProviders
+storeServerProviders cfg m store = do
+    wsState <- newWebSocketState cfg.wsMaxConnections
+    pure
+        ServerProviders
+            { webSocketServer = websocketApp cfg m store wsState
+            , subscriptionStatus = Just (storeSubscriptionStatus store)
+            , checkpointInventory = Just (storeCheckpointInventory store)
+            }
+
+startMetricsServerWithProviders :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> ServerProviders -> IO MetricsServer
+withMetricsServerWithProviders :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> ServerProviders -> (MetricsServer -> IO a) -> IO a
+combinedAppWithProviders :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> ServerProviders -> Application
+httpAppWithProviders :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> ServerProviders -> Application
 ```
 
-Change the fourth parameter of `startMetricsServerWith'`, `combinedApp`, and `httpApp` from
-`Maybe SubscriptionStatusProvider` to `MetricsProviders`. In `httpApp` insert the reserved
-segment match immediately before the two live matches, and add its handler next to
-`subscriptionsRoute`:
+Move the body of today's `startMetricsServerWith'` (the port handling and the two Warp calls)
+into `startMetricsServerWithProviders`, the body of `combinedApp` into
+`combinedAppWithProviders`, and the body of `httpApp` into `httpAppWithProviders`. Plan 90 has
+already wrapped the composition in `corsMiddleware cfg.cors`; keep that wrap on
+`combinedAppWithProviders` so that the value handed to `Warp.runSettings` and
+`Warp.runSettingsSocket` is still the wrapped application (verify with
+`grep -n "runSettings\|corsMiddleware" kiroku-metrics/src/Kiroku/Metrics/Server.hs`), and leave
+`httpAppWithProviders` unwrapped. Then make the legacy functions one-line delegations that keep
+their exact types: `startMetricsServerWith' cfg m deps mProvider wsApp` calls
+`startMetricsServerWithProviders cfg m deps defaultServerProviders{webSocketServer = wsApp, subscriptionStatus = mProvider}`;
+`combinedApp` and `httpApp` build the same record; `withMetricsServerWithProviders` is
+`bracket (startMetricsServerWithProviders ...) stopMetricsServer`. In `httpAppWithProviders`
+insert the reserved segment match immediately before the two live matches, and add its handler
+next to `subscriptionsRoute`:
 
 ```haskell
         ["subscriptions", "checkpoints"] -> checkpointsRoute
@@ -604,22 +705,26 @@ segment match immediately before the two live matches, and add its handler next 
     checkpointsRoute = case providers.checkpointInventory of
         Just provider -> checkpointsApp provider req respond
         Nothing ->
-            respond $ jsonResponse status404 $ encode $ errorEnvelope
+            respond $ errorResponse status404
                 "checkpoint_inventory_not_configured"
-                "durable checkpoint inventory not configured: start the server from a KirokuStore (startMetricsServerWithStore) or set MetricsProviders.checkpointInventory"
+                "durable checkpoint inventory not configured: start the server from a KirokuStore (startMetricsServerWithStore) or set ServerProviders.checkpointInventory"
+                Nothing
     subscriptionsRoute = case providers.subscriptionStatus of
         ...  -- unchanged body, including its published string error
 ```
 
 Update the delegating starters so their public behaviour is unchanged except where this plan
-adds the route: `startMetricsServer` and `startMetricsServerWith` pass `noProviders`;
-`withMetricsServerSubscriptions cfg m deps provider` passes
-`noProviders{subscriptionStatus = Just provider}`; `startMetricsServerWithStore cfg m store deps`
-passes `noProviders{checkpointInventory = Just (storeCheckpointInventory store)}` together with
-the real WebSocket app, so `withMetricsServerWithStore` inherits the route. Update the module
-header comment and the Haddocks of the changed functions to describe both providers. Re-export
-`MetricsProviders (..)`, `noProviders`, and `storeProviders` through the umbrella module (they
-are in `Kiroku.Metrics.Server`, which the umbrella already re-exports wholesale).
+adds the route: `startMetricsServer` and `startMetricsServerWith` build
+`defaultServerProviders` (with the given WebSocket app); `withMetricsServerSubscriptions cfg m deps provider`
+builds `defaultServerProviders{subscriptionStatus = Just provider}`;
+`startMetricsServerWithStore cfg m store deps` allocates the WebSocket state as today and
+builds `defaultServerProviders{webSocketServer = websocketApp cfg m store wsState, checkpointInventory = Just (storeCheckpointInventory store)}`,
+deliberately leaving `subscriptionStatus` at `Nothing`, so `withMetricsServerWithStore`
+inherits the route and `GET /subscriptions` keeps its published 404 there. Update the module
+header comment and the Haddocks of the changed functions to describe the record; say in the
+Haddock of `storeServerProviders` that it is the path for a host that wants every route
+(`withMetricsServerWithProviders cfg m deps =<< storeServerProviders cfg m store`). Everything
+is in `Kiroku.Metrics.Server`, which the umbrella module already re-exports wholesale.
 
 No in-repository code outside `Server.hs` calls `startMetricsServerWith'`, `combinedApp`, or
 `httpApp` directly (verified at planning time with
@@ -627,12 +732,12 @@ No in-repository code outside `Server.hs` calls `startMetricsServerWith'`, `comb
 which finds only a Haddock mention in `Subscriptions.hs`); the existing tests and the example use
 `startMetricsServer`, `startMetricsServerWithStore`, `withMetricsServerWithStore`, and
 `withMetricsServerSubscriptions`, whose signatures do not change. Re-run the search before
-committing in case that has changed, and update any caller it finds.
+committing in case that has changed.
 
-Add the `### Breaking Changes` bullet to the `## Unreleased` changelog section: the three
-functions take `MetricsProviders`; replace `Nothing` with `noProviders` and `Just p` with
-`noProviders{subscriptionStatus = Just p}`; store-backed starters now also serve
-`/subscriptions/checkpoints`.
+Add a `### New Features` bullet to the `## Unreleased` changelog section (plan 90 opened it;
+open it if it is missing): `ServerProviders`, `defaultServerProviders`, `storeServerProviders`,
+and the four `...WithProviders` functions; store-backed starters now also serve
+`/subscriptions/checkpoints`; every pre-existing starter keeps its signature and behaviour.
 
 Acceptance for Milestone 2: `cabal build kiroku-metrics` and `cabal test kiroku-metrics` pass
 (the pre-existing example counts plus the two Milestone 1 examples). Behaviourally, in a
@@ -674,7 +779,8 @@ short `threadDelay 200_000` after start as the sibling specs do:
 1. Durable versus live (acceptance 1). Append three events to one stream; subscribe with
    `defaultSubscriptionConfig (SubscriptionName "durable-vs-live") AllStreams (\_ -> pure Continue)`;
    `waitUntilPhase` for `live`; `cancel handle`, `wait handle`, then `waitUntilAbsent`. Start
-   `startMetricsServerWith' (defaultConfig{port = 0}) m [] (storeProviders store) stubWebSocketApp`.
+   `startMetricsServerWithProviders cfg m [] =<< storeServerProviders cfg m store` with
+   `cfg = defaultConfig{port = 0}`.
    Assert `GET /subscriptions` is 200 with body `[]`, and `GET /subscriptions/checkpoints` is 200
    with `storePosition == 3` and rows `[("durable-vs-live", 0, 3)]`. The checkpoint equals the
    store position because the worker persists each batch's checkpoint before it publishes the
@@ -688,7 +794,7 @@ short `threadDelay 200_000` after start as the sibling specs do:
 3. Two handles over one database (acceptance 3). Open two `withStore` handles over the same
    connection string (two independent registries and pools, the closest in-process model of two
    worker processes). Append events and run a live subscription on handle A only; seed one extra
-   row through handle B. Start one server per handle with `storeProviders`. Assert the two
+   row through handle B. Start one server per handle with `storeServerProviders`. Assert the two
    `GET /subscriptions` bodies differ (A lists the running subscription, B returns `[]`) and the
    two decoded `CheckpointInventoryResponse` values are equal with `shouldBe` (equality includes
    `updatedAt`, so this proves identical rows, not merely identical keys).
@@ -721,8 +827,8 @@ In `docs/user/metrics.md`: add `/subscriptions/checkpoints` to the deployment-as
 (the surface has no authentication; conventions section 8); add a Contents entry "Durable
 subscription checkpoints over HTTP"; in "Wiring the collector" and "Starting the server" mention
 that store-backed starters serve the durable route automatically and show
-`startMetricsServerWith' cfg metrics deps (storeProviders store) wsApp` for a worker that wants
-both routes; in "HTTP endpoints" list the new route; and add a new section after "Subscription
+`withMetricsServerWithProviders cfg metrics deps =<< storeServerProviders cfg metrics store`
+for a worker that wants both routes; in "HTTP endpoints" list the new route; and add a new section after "Subscription
 status over HTTP" containing: the request and the response transcript from Purpose (copied from a
 real test run, with a real timestamp); a field-by-field description (`store_position` is the
 authoritative append frontier captured in the same SQL snapshot as the rows; `checkpoint_position`
@@ -770,53 +876,40 @@ Update IR-10's body (status stays `in_progress`): add an "Implementation Evidenc
 naming the module, the route, the response shape, the test file, and the example, mirroring the
 completed IR-2 and IR-4 documents; advance `timestamp`; add a log entry; validate.
 
-Finalize the `## Unreleased` changelog section so it is ready to be dated at release: Breaking
-Changes (the `MetricsProviders` signature change and the migration hint), New Features (the
-route, the module, `storeProviders`, `noProviders`, the error envelope helper), and a note that
-`kiroku-store` and `kiroku-cli` bounds are unchanged.
+Finalize this plan's bullets in the `## Unreleased` changelog section so they are ready to be
+dated by plan 96: New Features (the route, the module, `ServerProviders`,
+`defaultServerProviders`, `storeServerProviders`, the four `...WithProviders` functions). Do not
+date the section, do not edit `version:` in `kiroku-metrics.cabal`, and do not touch any
+dependency bound; plan 96 assigns the cohort's versions.
 
 Acceptance for Milestone 4: `nix fmt` is a no-op, `cabal build all`, `cabal test all`, and
 `nix build .#kiroku-metrics` succeed, `just capabilities-validate` and the strict
 improvement-request validation pass, `git diff --check` is clean, and the example prints its
 full passing transcript.
 
-### Milestone 5: release `kiroku-metrics` 0.2.0.0 and complete IR-10
+### Milestone 5: ADR distillation and Outcomes
 
-Scope: publish the package so the keiro-ui initiative can consume the route, then close the
-request with evidence. Nothing in this milestone may run before the user explicitly confirms the
-release in the implementation session.
+Scope: close this plan's own bookkeeping. The release and the completion of IR-10 are no longer
+this plan's work: plan 96 (EP-7 of MasterPlan 13) releases `kiroku-metrics` together with
+`kiroku-store` and the other cohort packages after every child of the MasterPlan is complete,
+verifies the cohort from a clean consumer, and sets IR-10 to `completed` with release evidence.
+Until then IR-10 stays `in_progress` with its "Implementation Evidence" section and the
+changelog section stays `## Unreleased`.
 
-Follow `agents/skills/release/SKILL.md` for `kiroku-metrics` with bump level `major`. Immediately
-before proposing, re-check the authoritative current version on Hackage and the latest
-`kiroku-metrics-v*` tag (`git tag --list 'kiroku-metrics-v*' | sort -V | tail -1`; at planning
-time it is `kiroku-metrics-v0.1.0.8`); if it moved, recompute the next major from the then-current
-version. Explain in the proposal that the exported signature change, not the read-only route,
-drives the major bump. The release skill's own ordering governs the version edit, the changelog
-dating (`## 0.2.0.0 -- <date>`), `cabal check`, sdist, tests, commit, annotated tag, push,
-Hackage upload, documentation upload, and GitHub release. No other package is bumped:
-`kiroku-store` did not change, `kiroku-cli` did not change, and nothing in the repository depends
-on `kiroku-metrics`.
+Perform the ADR distillation pass required by PLANS.md: reread the Decision Log and Surprises &
+Discoveries and decide whether the reserved-segment convention is durable project context worth
+a record of its own. The providers record and the composition boundary are deliberately not
+recorded here: MasterPlan 13 assigns that ADR to plan 95 (EP-6), which writes it once the
+record is complete, and the envelope boundary is already recorded by
+[ADR-9](../adr/0009-published-http-and-websocket-wire-shapes-are-frozen-and-served-only-by-sister-packages.md).
+If a record is warranted, allocate it with `okf id next docs/adr --profile docs/adr/profile.dhall ADR`,
+write it, add the bundle log entry, and run `just adr-validate`; if not, record in Outcomes why
+no ADR was needed. Write Outcomes & Retrospective, and update the MasterPlan's Exec-Plan Registry
+row for EP-2 to `Complete` and its Progress entries.
 
-After the Hackage index refreshes, verify from a clean temporary Cabal project (outside the
-working tree) that `kiroku-metrics ==0.2.0.0` resolves and that a small program importing
-`Kiroku.Metrics` compiles a call to `storeProviders` and `startMetricsServerWith'`. Record the
-Hackage URL, the tag and commit, and the clean-consumer output in this plan.
-
-Only then set IR-10 to `status: completed`, add `completedAt`, refresh `timestamp`, rewrite the
-`## Status` paragraph to say which version shipped the route and cite this plan, add a
-`**Completion**` log entry, and validate strictly. Do not edit anything in the keiro-ui
-repository; the initiative tracks adoption on its own plans and cites the request's completion.
-
-Finally perform the ADR distillation pass required by PLANS.md: reread the Decision Log and
-Surprises & Discoveries and decide whether the reserved-segment convention, the providers record,
-or the envelope boundary is durable project context. If so, allocate a record with `okf id next
-docs/adr --profile docs/adr/profile.dhall ADR`, write it, add the bundle log entry, and run
-`just adr-validate`; if not, record in Outcomes why no ADR was needed and note the items IR-13's
-future ADR should absorb. Write Outcomes & Retrospective.
-
-Acceptance for Milestone 5: Hackage lists `kiroku-metrics-0.2.0.0`, the tag
-`kiroku-metrics-v0.2.0.0` exists upstream with a GitHub release, the clean consumer compiles,
-IR-10 is `completed` and the bundle validates, and this plan's Progress shows every item checked.
+Acceptance for Milestone 5: Outcomes & Retrospective is written, the ADR bundle validates
+whether or not a record was added, this plan's Progress shows every item checked, and the
+MasterPlan registry shows EP-2 complete.
 
 
 ## Concrete Steps
@@ -845,7 +938,7 @@ okf validate docs/improvement-requests \
   --profile mori/improvement-requests-profile.dhall \
   --profile-enforce \
   --log-enforce
-# edit kiroku-metrics/src/Kiroku/Metrics/JSON.hs           (+ errorEnvelope)
+grep -n "errorEnvelope\|errorResponse" kiroku-metrics/src/Kiroku/Metrics/JSON.hs   # plan 90 added them; add them only if absent
 # write kiroku-metrics/src/Kiroku/Metrics/Checkpoints.hs
 # edit kiroku-metrics/src/Kiroku/Metrics.hs                (+ module re-export)
 # edit kiroku-metrics/kiroku-metrics.cabal                 (+ exposed module; test other-modules; test deps time, vector)
@@ -868,11 +961,13 @@ Finished in 0.4 seconds
 2 examples, 0 failures
 ```
 
-Commit with the plan trailer and the intention trailer:
+Commit with the MasterPlan, plan, and intention trailers (every commit under this plan carries
+all three):
 
 ```text
 feat(kiroku-metrics): add the durable checkpoint inventory route module
 
+MasterPlan: docs/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md
 ExecPlan: docs/plans/87-serve-durable-subscription-checkpoints-over-http.md
 Intention: intention_01m24k3bxye7cv6x088hpvs6ne
 ```
@@ -880,22 +975,24 @@ Intention: intention_01m24k3bxye7cv6x088hpvs6ne
 Milestone 2 edits and checks:
 
 ```bash
-# edit kiroku-metrics/src/Kiroku/Metrics/Server.hs   (MetricsProviders, noProviders, storeProviders; router; starters)
+# edit kiroku-metrics/src/Kiroku/Metrics/Server.hs   (ServerProviders, defaultServerProviders, storeServerProviders, ...WithProviders; router; delegating starters)
 grep -rn "startMetricsServerWith'\|combinedApp\|httpApp" kiroku-metrics --include='*.hs'   # expect no callers outside Server.hs
-# edit kiroku-metrics/CHANGELOG.md                     (### Breaking Changes)
+grep -n "runSettings\|corsMiddleware" kiroku-metrics/src/Kiroku/Metrics/Server.hs            # both Warp calls still receive the CORS-wrapped app
+# edit kiroku-metrics/CHANGELOG.md                     (### New Features under ## Unreleased)
 nix fmt
 cabal build kiroku-metrics
 cabal test kiroku-metrics
 ```
 
-Expected: every pre-existing example plus the two new ones pass. Commit:
+Expected: every pre-existing example plus the two new ones pass with no test edits. Commit:
 
 ```text
-feat(kiroku-metrics)!: serve GET /subscriptions/checkpoints from MetricsProviders
+feat(kiroku-metrics): serve GET /subscriptions/checkpoints through ServerProviders
 
-BREAKING CHANGE: startMetricsServerWith', combinedApp, and httpApp take a
-MetricsProviders record instead of Maybe SubscriptionStatusProvider.
+Introduce ServerProviders and the ...WithProviders starters; every legacy
+starter keeps its signature and delegates.
 
+MasterPlan: docs/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md
 ExecPlan: docs/plans/87-serve-durable-subscription-checkpoints-over-http.md
 Intention: intention_01m24k3bxye7cv6x088hpvs6ne
 ```
@@ -926,7 +1023,7 @@ Kiroku.Metrics.Checkpoints (/subscriptions/checkpoints)
 9 examples, 0 failures
 ```
 
-Commit as `test(kiroku-metrics): cover the durable checkpoint route end to end` with both
+Commit as `test(kiroku-metrics): cover the durable checkpoint route end to end` with the three
 trailers.
 
 Milestone 4 edits and checks:
@@ -964,30 +1061,21 @@ Expected example transcript (port varies):
 [7/7] kiroku-metrics-example: all checks passed (snapshot global position = 4)
 ```
 
-Commit as `docs(kiroku-metrics): document durable subscription checkpoints over HTTP` with both
-trailers (one commit for docs and example, one for the bundles is also fine).
+Commit as `docs(kiroku-metrics): document durable subscription checkpoints over HTTP` with the
+three trailers (one commit for docs and example, one for the bundles is also fine).
 
-Milestone 5, only after explicit confirmation:
-
-```bash
-git tag --list 'kiroku-metrics-v*' | sort -V | tail -1
-# follow agents/skills/release/SKILL.md for kiroku-metrics major
-```
-
-Then the clean-consumer check in a scratch directory outside the repository (for example under
-the session scratchpad):
+Milestone 5:
 
 ```bash
-mkdir -p "$SCRATCH/metrics-consumer" && cd "$SCRATCH/metrics-consumer"
-cabal update
-# write a one-module executable importing Kiroku.Metrics and referencing storeProviders
-# with `build-depends: base, kiroku-metrics ==0.2.0.0, kiroku-store` in its .cabal
-cabal build
+okf id next docs/adr --profile docs/adr/profile.dhall ADR   # only if the distillation pass warrants a record
+just adr-validate
+# edit docs/plans/87-serve-durable-subscription-checkpoints-over-http.md   (Outcomes & Retrospective, Progress)
+# edit docs/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md   (EP-2 Complete; Progress)
 ```
 
-Expected: the solver downloads `kiroku-metrics-0.2.0.0` from Hackage and the build succeeds.
-Return to the repository, complete IR-10, validate the bundle, run `just adr-validate` if an
-ADR was added, and commit as `docs(improvement-requests): complete IR-10` with both trailers.
+Commit as `docs(plans): complete plan 87 and mark EP-2 done in MasterPlan 13` with the three
+trailers. The release, the clean-consumer check, and `docs(improvement-requests): complete IR-10`
+belong to plan 96.
 
 
 ## Validation and Acceptance
@@ -1014,8 +1102,9 @@ The plan is accepted when all of the following are observable:
 8. `docs/user/metrics.md` contains the request/response transcript, the live-versus-durable
    explanation, the error vocabulary, and the position-distance wording; CAP-17 and IR-10 are
    updated and their bundles validate; the example prints the seven-step transcript.
-9. `kiroku-metrics` 0.2.0.0 is on Hackage with its tag and GitHub release, a clean consumer
-   compiles against it, and IR-10 is `completed`.
+9. Outcomes & Retrospective is written and the MasterPlan registry shows EP-2 complete. (The
+   Hackage release, the clean-consumer check, and IR-10's `completed` status are plan 96's
+   acceptance, not this plan's.)
 
 
 ## Idempotence and Recovery
@@ -1045,8 +1134,9 @@ section stays `## Unreleased`, and IR-10 stays `in_progress` with its evidence.
 At the end of Milestone 1, `kiroku-metrics` exposes:
 
 ```haskell
--- Kiroku.Metrics.JSON (addition)
-errorEnvelope :: Text -> Text -> Data.Aeson.Value
+-- Kiroku.Metrics.JSON (created by plan 90; reused here)
+errorEnvelope :: Text -> Text -> Maybe Data.Aeson.Value -> Data.Aeson.Value
+errorResponse :: Network.HTTP.Types.Status -> Text -> Text -> Maybe Data.Aeson.Value -> Network.Wai.Response
 
 -- Kiroku.Metrics.Checkpoints (new module)
 type CheckpointInventoryProvider = IO (Either StoreError SubscriptionCheckpointInventory)
@@ -1064,29 +1154,36 @@ checkpointsPath :: [Text]              -- ["subscriptions", "checkpoints"]
 checkpointsApp :: CheckpointInventoryProvider -> Network.Wai.Application
 ```
 
-At the end of Milestone 2, `Kiroku.Metrics.Server` exposes (changed signatures marked):
+At the end of Milestone 2, `Kiroku.Metrics.Server` additionally exposes (no existing
+signature changes):
 
 ```haskell
-data MetricsProviders = MetricsProviders
-    { subscriptionStatus :: !(Maybe SubscriptionStatusProvider)
+data ServerProviders = ServerProviders
+    { webSocketServer :: !WS.ServerApp
+    , subscriptionStatus :: !(Maybe SubscriptionStatusProvider)
     , checkpointInventory :: !(Maybe CheckpointInventoryProvider)
     }
-noProviders :: MetricsProviders
-storeProviders :: KirokuStore -> MetricsProviders
+defaultServerProviders :: ServerProviders
+storeServerProviders :: MetricsServerConfig -> KirokuMetrics -> KirokuStore -> IO ServerProviders
 
-startMetricsServerWith' ::                      -- changed: MetricsProviders
-    MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> MetricsProviders -> WS.ServerApp -> IO MetricsServer
-combinedApp ::                                  -- changed: MetricsProviders
-    MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> MetricsProviders -> WS.ServerApp -> Application
-httpApp ::                                      -- changed: MetricsProviders
-    MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> MetricsProviders -> Application
+startMetricsServerWithProviders :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> ServerProviders -> IO MetricsServer
+withMetricsServerWithProviders  :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> ServerProviders -> (MetricsServer -> IO a) -> IO a
+combinedAppWithProviders        :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> ServerProviders -> Application  -- CORS-wrapped
+httpAppWithProviders            :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> ServerProviders -> Application  -- unwrapped router
 
--- unchanged signatures, behaviour noted:
-startMetricsServer          -- noProviders
-startMetricsServerWith      -- noProviders
-startMetricsServerWithStore -- durable provider wired from the store; live provider not wired
-withMetricsServer, withMetricsServerWithStore, withMetricsServerSubscriptions, stopMetricsServer
+-- unchanged signatures, now one-line delegations; behaviour noted:
+startMetricsServer, startMetricsServerWith, startMetricsServerWith'   -- defaultServerProviders (+ given WS app / live provider)
+startMetricsServerWithStore   -- real WS app and durable provider wired from the store; live provider not wired
+combinedApp, httpApp, withMetricsServer, withMetricsServerWithStore, withMetricsServerSubscriptions, stopMetricsServer
 ```
+
+Plans 88 and 89 add `browser :: !(Maybe StoreBrowser)` and `deadLetters :: !(Maybe DeadLetterProvider)`
+to this record; whichever lands after this plan must also set its field in
+`defaultServerProviders` (`Nothing`), `storeServerProviders` (`Just`), and
+`startMetricsServerWithStore` (`Just`). Plan 95 later adds a non-provider field,
+`webSocketChannels`, declaring which WebSocket channels the chosen `webSocketServer` serves (so
+the discovery route can report them), and exports a `providerPresence` projection of the record;
+`storeServerProviders` and `startMetricsServerWithStore` will declare both channels there.
 
 Wire contract owned by this plan (frozen once released):
 
@@ -1104,9 +1201,10 @@ Error bodies on this route: `404 {"error":{"code":"checkpoint_inventory_not_conf
 only, `404 {"error":{"code":"not_found","message":"Not found"}}`.
 
 Dependencies: no new library dependency. The library already depends on `aeson`, `text`, `time`,
-`vector`, `wai`, `http-types`, `kiroku-store ^>=0.8`, and `kiroku-cli ^>=0.2`; the test suite
-gains `time` and `vector`. `kiroku-store` and `kiroku-cli` are unchanged and unreleased by this
-plan. The only runtime service is PostgreSQL with the existing Kiroku migrations. Locate
+`vector`, `wai`, `http-types`, `kiroku-store`, and `kiroku-cli`; the test suite gains `time` and
+`vector`. No `.cabal` `version:` line and no dependency bound changes in this plan;
+`kiroku-store` and `kiroku-cli` are untouched. The only runtime service is PostgreSQL with the
+existing Kiroku migrations. Locate
 dependency sources through `mori registry show <project> --full` (for example `hasql/hasql`,
 `yesodweb/wai`, `haskell/aeson`) when behaviour is uncertain; do not inspect `/nix/store`.
 
@@ -1121,3 +1219,12 @@ nothing depends on `kiroku-metrics`.
   improvement-request bundle log records the acceptance, and Milestone 1, Context and
   Orientation, and the status-lifecycle decision were reworded so the plan starts from
   `accepted` rather than `proposed`. No implementation scope changed.
+- 2026-09-30: Adopted as EP-2 of MasterPlan 13 (`master_plan` added to the frontmatter). The
+  composition record became the additive `ServerProviders` with the four `...WithProviders`
+  functions and delegating legacy starters, replacing the breaking `MetricsProviders`; the
+  error envelope became plan 90's details-carrying `errorEnvelope`/`errorResponse` pair, which
+  this plan reuses; the CORS wrap established by plan 90 became an invariant of the composition
+  point; the release milestone and IR-10's `completed` transition moved to plan 96, so this plan
+  bumps no version and edits no bound. Milestones 1, 2, 4, and 5, the Progress list, the
+  Decision Log, Concrete Steps, Validation, and Interfaces were updated accordingly; the route,
+  its wire shape, and its tests are unchanged.

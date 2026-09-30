@@ -5,11 +5,18 @@ title: "Add configurable CORS support to kiroku-metrics"
 kind: exec-plan
 created_at: 2026-09-10T03:24:48Z
 intention: "intention_01m24n4q6verjrhrk58qt6gbh2"
+master_plan: "docs/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md"
 provenance:
   created_by:
     model: "claude-fable-5-1"
     harness: "claude-code"
     at: 2026-09-10T03:24:48Z
+  revisions:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-30T22:56:43Z
+      mode: "update"
+      note: "Adopted as a child of MasterPlan 13: settled ServerProviders record, errorEnvelope/errorResponse ownership, resolved-name encoder, versions deferred to plan 96, release milestone moved"
 ---
 
 # Add configurable CORS support to kiroku-metrics
@@ -28,7 +35,21 @@ is building a browser UI over the keiro runtime stack. It is the enabling reques
 browser consumer of `kiroku-metrics`: until the server opts in, a page served from any other
 origin cannot call a single inspection endpoint. The request was moved from `proposed` to
 `accepted` in the same commit that created this plan, and its Status section links back here.
-This is a single ExecPlan without a MasterPlan.
+
+Since 2026-09-30 this plan is EP-1 of
+[MasterPlan 13, Expose the Kiroku inspection surface for the keiro runtime UI and a standalone Kiroku UI](../masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md),
+which coordinates the five open keiro-ui requests as one cohort, and it lands first. Three
+things changed when it was adopted, and the MasterPlan's Integration Points section is
+authoritative wherever this plan's older text disagrees: this plan owns the structured error
+envelope for the whole cohort and creates it as the details-carrying pair
+`errorEnvelope :: Text -> Text -> Maybe Value -> Value` and
+`errorResponse :: Status -> Text -> Text -> Maybe Value -> Response` in `Kiroku.Metrics.JSON`,
+which plans 87, 88, 89, and 95 reuse; the wrap this plan puts around the composed application
+is an invariant plan 87 (EP-2) must preserve when it moves the composition into
+`combinedAppWithProviders`; and no version is bumped and nothing is released here, because plan
+96 (EP-7) releases the whole cohort and this plan's configuration field is what makes that
+release a PVP major. Commits carry this plan's Intention trailer and a `MasterPlan:` trailer
+naming the MasterPlan file.
 
 
 ## Purpose / Big Picture
@@ -102,7 +123,8 @@ expressed: the only way to build an allowed origin is a validating constructor t
       requests, disallowed and absent origins, matching rules, credentials, and the WebSocket
       upgrade refusal at the WAI layer; IR-11 set to `in_progress`.
 - [ ] Milestone 2: middleware wired into `combinedApp` so every starter honours `cfg.cors`; the
-      shared `errorEnvelope` helper in `Kiroku.Metrics.JSON`; real-server examples proving
+      shared `errorEnvelope`/`errorResponse` helpers in `Kiroku.Metrics.JSON` (created in
+      Milestone 1); real-server examples proving
       `GET /metrics` is decorated through `startMetricsServerWithStore`, `/ws/metrics` upgrades
       for an allowed origin, is refused for a disallowed one, ignores an absent `Origin`, and
       stays open to any origin when CORS is disabled; whole suite green.
@@ -111,9 +133,9 @@ expressed: the only way to build an allowed origin is a validating constructor t
       deployment note; example extended with a CORS step and the quoted transcript updated;
       CAP-17 updated with log entry; changelog finalized; IR-11 body updated with implementation
       evidence; all repository validations green.
-- [ ] Milestone 4: `kiroku-metrics` released (PVP major) after explicit user confirmation,
-      clean-consumer check, IR-11 set to `completed` with release evidence, ADR distillation
-      pass performed, Outcomes written.
+- [ ] Milestone 4: ADR distillation pass performed (the CORS-posture record decided with
+      evidence in hand) and Outcomes written. (The release, the clean-consumer check, and
+      IR-11's `completed` status moved to plan 96, EP-7 of MasterPlan 13, on 2026-09-30.)
 
 
 ## Surprises & Discoveries
@@ -220,6 +242,10 @@ expressed: the only way to build an allowed origin is a validating constructor t
   `{"error":{"code":"origin_not_allowed","message":"..."}}` and HTTP 403, built with an
   `errorEnvelope` helper in `Kiroku.Metrics.JSON` that is byte-for-byte the helper plan 87
   specifies; whichever plan lands first creates it and the other reuses it.
+  Amended on 2026-09-30: this plan lands first and owns the helper, and the shape is the
+  details-carrying pair `errorEnvelope :: Text -> Text -> Maybe Value -> Value` plus
+  `errorResponse :: Status -> Text -> Text -> Maybe Value -> Response` (the `details` key is
+  omitted when `Nothing`), so plans 87, 88, 89, and 95 share one definition.
   Rationale: The cross-project conventions require the envelope for new responses and freeze the
   legacy string bodies; ADR-9 makes shipped bodies permanent and asks that a new surface ship
   with a test pinning its key set, which `Test.CorsSpec` does. Nothing this plan adds changes a
@@ -248,6 +274,18 @@ expressed: the only way to build an allowed origin is a validating constructor t
   implemented concurrently against the same package; the changelog `Unreleased` section is the
   merge point, and the release skill re-checks Hackage and tags before proposing a number.
   Date: 2026-09-10
+  Superseded on 2026-09-30: this plan releases nothing and edits no `version:` line or bound.
+  Plan 96 (EP-7 of MasterPlan 13) assigns the cohort's versions; the `cors` field is still what
+  makes `kiroku-metrics`'s next release a PVP major (0.2.0.0 is the forecast).
+
+- Decision: Land first among the MasterPlan's children, and treat the CORS wrap around the
+  composed application as an invariant of the composition point that plan 87 preserves when it
+  introduces `combinedAppWithProviders`.
+  Rationale: This is the enabling request for every browser consumer and touches only the
+  configuration record and the composition point, so landing it first means every later route
+  inherits the middleware without a retrofit. MasterPlan 13 records the invariant in its
+  Integration Points, and plan 87's Milestone 2 checks it with the same `grep` this plan uses.
+  Date: 2026-09-30
 
 - Decision: No new ADR is planned up front. The distillation pass at completion decides whether
   to record "browser access to sister-package HTTP surfaces is default-off, explicit-origin CORS
@@ -623,19 +661,37 @@ compares the header to the origin it serialized. `preflightResponse` is
 `("Access-Control-Allow-Headers", requested)` when the request carried
 `Access-Control-Request-Headers`, then `("Access-Control-Max-Age", show n)` when
 `policy.maxAgeSeconds` is `Just n`. `refusedUpgrade` is
-`jsonResponse status403 (encode (errorEnvelope "origin_not_allowed" msg))` where `msg` names the
-refused origin and says it is not in the configured allowed-origins list; it imports
-`jsonResponse` and `errorEnvelope` from `Kiroku.Metrics.JSON`. If `errorEnvelope` does not yet
-exist in `Kiroku.Metrics.JSON` (plan 87 adds the identical helper), add and export it now:
+`errorResponse status403 "origin_not_allowed" msg Nothing` where `msg` names the refused origin
+and says it is not in the configured allowed-origins list; it imports `errorResponse` from
+`Kiroku.Metrics.JSON`. This plan owns the structured error envelope for the whole cohort (plans
+87, 88, 89, and 95 reuse it and never add a variant), so add and export both helpers to
+`kiroku-metrics/src/Kiroku/Metrics/JSON.hs` now:
 
 ```haskell
--- | The structured error body used by responses added from IR-10 onwards:
--- @{"error":{"code":"...","message":"..."}}@. Existing endpoints keep their
--- published @{"error":"<string>"}@ bodies; do not migrate them.
-errorEnvelope :: Text -> Text -> Value
-errorEnvelope code message =
-    object ["error" .= object ["code" .= code, "message" .= message]]
+-- | The structured error body used by every response added under the
+-- cross-project inspection conventions: @{"error":{"code":"...","message":"..."}}@,
+-- plus a @"details"@ object only when one is given. @code@ is a stable snake_case
+-- token a client may switch on; @message@ is a sentence and not a contract.
+-- Existing endpoints keep their published @{"error":"<string>"}@ bodies; do not
+-- migrate them.
+errorEnvelope :: Text -> Text -> Maybe Value -> Value
+errorEnvelope code message details =
+    object
+        [ "error"
+            .= object
+                ( ["code" .= code, "message" .= message]
+                    <> maybe [] (\d -> ["details" .= d]) details
+                )
+        ]
+
+-- | 'errorEnvelope' as an @application/json@ response with the given status.
+errorResponse :: Status -> Text -> Text -> Maybe Value -> Response
+errorResponse status code message details =
+    jsonResponse status (encode (errorEnvelope code message details))
 ```
+
+`Kiroku.Metrics.JSON` already imports `Data.Aeson` and `Network.HTTP.Types`; add
+`Data.Aeson (Value)` and `Data.Text (Text)` to its imports if missing.
 
 `normalizeOriginBytes` lowercases ASCII letters with `Data.ByteString.Char8.map toLower` and
 strips one trailing `/`. The module needs `Data.ByteString`, `Data.ByteString.Char8`,
@@ -749,10 +805,12 @@ combinedApp cfg m deps mProvider wsApp =
         WaiWS.websocketsOr WS.defaultConnectionOptions wsApp (httpApp cfg m deps mProvider)
 ```
 
-If plan 87 or 88 has already landed and renamed this function (for example to
-`combinedAppWithProviders`), wrap the function that `startMetricsServerWith'` or its successor
-hands to Warp; the invariant is that the value passed to `Warp.runSettings` and
-`Warp.runSettingsSocket` is the wrapped one. Verify with
+Under MasterPlan 13 this plan lands first, so `combinedApp` is the function to wrap; plan 87
+later moves the composition into `combinedAppWithProviders` and is bound to keep the wrap. If,
+against the recommended order, plan 87 or 88 has already landed and renamed this function, wrap
+the function that `startMetricsServerWith'` or its successor hands to Warp; the invariant is
+that the value passed to `Warp.runSettings` and `Warp.runSettingsSocket` is the wrapped one.
+Verify with
 `grep -n "runSettings" kiroku-metrics/src/Kiroku/Metrics/Server.hs` that both call sites use
 the application built through the wrapped composition. Update the module header comment (the
 server applies the host's CORS policy at the WAI layer to HTTP and WebSocket alike) and the
@@ -855,54 +913,41 @@ Update IR-11's body (status stays `in_progress`): add an "Implementation Evidenc
 naming the module, the configuration field, the middleware semantics, the test file, and the
 example, mirroring the completed IR-13 document; advance `timestamp`; add a log entry; validate.
 
-Finalize the `## Unreleased` changelog section so it is ready to be dated at release: Breaking
-Changes (the `cors` field and the migration hint), New Features (the module, `AllowedOrigin`
-and `allowedOrigin`, `CorsPolicy`, `corsMiddleware`, the WebSocket origin refusal, the
-`origin_not_allowed` envelope, `errorEnvelope` if this plan introduced it), and a note that
-`kiroku-store` and `kiroku-cli` bounds are unchanged.
+Finalize this plan's bullets in the `## Unreleased` changelog section so they are ready to be
+dated by plan 96: Breaking Changes (the `cors` field and the migration hint), New Features (the
+module, `AllowedOrigin` and `allowedOrigin`, `CorsPolicy`, `corsMiddleware`, the WebSocket
+origin refusal, the `origin_not_allowed` envelope, `errorEnvelope` and `errorResponse`). Do not
+date the section, do not edit `version:` in `kiroku-metrics.cabal`, and do not touch any
+dependency bound; plan 96 assigns the cohort's versions.
 
 Acceptance for Milestone 3: `nix fmt` is a no-op, `cabal build all`, `cabal test all`, and
 `nix build .#kiroku-metrics` succeed, `just capabilities-validate` and the strict
 improvement-request validation pass, `git diff --check` is clean, and the example prints its
 full passing transcript including the CORS step.
 
-### Milestone 4: release `kiroku-metrics` and complete IR-11
+### Milestone 4: ADR distillation and Outcomes
 
-Scope: publish the package so the keiro-ui initiative can consume the configuration hook, then
-close the request with evidence. Nothing in this milestone may run before the user explicitly
-confirms the release in the implementation session.
+Scope: close this plan's own bookkeeping. The release and the completion of IR-11 are no longer
+this plan's work: plan 96 (EP-7 of MasterPlan 13) releases `kiroku-metrics` together with
+`kiroku-store` and the other cohort packages after every child of the MasterPlan is complete,
+verifies the cohort from a clean consumer, and sets IR-11 to `completed` with release evidence.
+Until then IR-11 stays `in_progress` with its "Implementation Evidence" section and the
+changelog section stays `## Unreleased`.
 
-Follow `agents/skills/release/SKILL.md` for `kiroku-metrics` with bump level `major`.
-Immediately before proposing, re-check the authoritative current version on Hackage and the
-latest tag (`git tag --list 'kiroku-metrics-v*' | sort -V | tail -1`; at planning time it is
-`kiroku-metrics-v0.1.0.8`); if plan 87 or 88 shipped first, compute the next major from the
-then-current version. Explain in the proposal that the new record field, not the default-off
-behaviour, drives the major bump. The release skill's own ordering governs the version edit, the
-changelog dating, `cabal check`, sdist, tests, commit, annotated tag, push, Hackage upload,
-documentation upload, and GitHub release. No other package is bumped.
-
-After the Hackage index refreshes, verify from a clean temporary Cabal project (outside the
-working tree) that the released version resolves and that a small program importing
-`Kiroku.Metrics` compiles `defaultConfig{cors = corsAllowOrigins []}` and a call to
-`allowedOrigin`. Record the Hackage URL, the tag and commit, and the clean-consumer output in
-this plan.
-
-Only then set IR-11 to `status: completed`, add `completedAt`, refresh `timestamp`, rewrite the
-`## Status` paragraph to say which version shipped the hook and cite this plan, add a
-`**Completion**` log entry, and validate strictly. Do not edit anything in the keiro-ui
-repository; the initiative tracks adoption on its own plans.
-
-Finally perform the ADR distillation pass required by PLANS.md: reread the Decision Log and
-Surprises & Discoveries and decide whether the CORS posture (default-off, explicit origins,
-wildcard unrepresentable, WAI-layer enforcement covering WebSocket upgrades) is durable project
-context that future routes and sister packages must honour. If so, allocate a record with
+Perform the ADR distillation pass required by PLANS.md: reread the Decision Log and Surprises &
+Discoveries and decide whether the CORS posture (default-off, explicit origins, wildcard
+unrepresentable, WAI-layer enforcement covering WebSocket upgrades) is durable project context
+that future routes and sister packages must honour. MasterPlan 13 names it the most likely
+candidate because plans 87, 88, 89, and 95 inherit it silently. If so, allocate a record with
 `okf id next docs/adr --profile docs/adr/profile.dhall ADR`, write it citing ADR-9 and the
-keiro-ui conventions, add the bundle log entry, and run `just adr-validate`; if not, record in
-Outcomes why. Write Outcomes & Retrospective.
+keiro-ui conventions (imitate the frontmatter of `docs/adr/0010-...md`), add the bundle log
+entry with `okf log add`, and run `just adr-validate`; if not, record in Outcomes why. Write
+Outcomes & Retrospective, and update the MasterPlan's Exec-Plan Registry row for EP-1 to
+`Complete` and its Progress entries.
 
-Acceptance for Milestone 4: Hackage lists the new `kiroku-metrics` version, its tag exists
-upstream with a GitHub release, the clean consumer compiles, IR-11 is `completed` and the bundle
-validates, and this plan's Progress shows every item checked.
+Acceptance for Milestone 4: Outcomes & Retrospective is written, the ADR bundle validates
+whether or not a record was added, this plan's Progress shows every item checked, and the
+MasterPlan registry shows EP-1 complete.
 
 
 ## Concrete Steps
@@ -933,7 +978,7 @@ okf validate docs/improvement-requests \
   --profile-enforce \
   --log-enforce
 # write kiroku-metrics/src/Kiroku/Metrics/Cors.hs
-# edit kiroku-metrics/src/Kiroku/Metrics/JSON.hs        (+ errorEnvelope, if plan 87 has not added it)
+# edit kiroku-metrics/src/Kiroku/Metrics/JSON.hs        (+ errorEnvelope, errorResponse)
 # edit kiroku-metrics/src/Kiroku/Metrics/Config.hs      (+ cors field; defaultConfig)
 # edit kiroku-metrics/src/Kiroku/Metrics.hs             (+ module re-export)
 # edit kiroku-metrics/kiroku-metrics.cabal              (+ exposed module; test other-modules; test deps wai, case-insensitive)
@@ -966,7 +1011,8 @@ Finished in 0.6 seconds
 11 examples, 0 failures
 ```
 
-Commit with the plan trailer and the intention trailer:
+Commit with the MasterPlan, plan, and intention trailers (every commit under this plan carries
+all three):
 
 ```text
 feat(kiroku-metrics)!: add a host-configured CORS policy and middleware
@@ -974,6 +1020,7 @@ feat(kiroku-metrics)!: add a host-configured CORS policy and middleware
 BREAKING CHANGE: MetricsServerConfig gains a `cors` field (default
 corsDisabled); positional constructions must supply it.
 
+MasterPlan: docs/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md
 ExecPlan: docs/plans/90-add-configurable-cors-support-to-kiroku-metrics.md
 Intention: intention_01m24n4q6verjrhrk58qt6gbh2
 ```
@@ -1001,7 +1048,7 @@ Kiroku.Metrics.Cors (real server)
 ```
 
 Commit as `feat(kiroku-metrics): apply the CORS policy to every starter and WebSocket upgrade`
-with both trailers.
+with the three trailers.
 
 Milestone 3 edits and checks:
 
@@ -1039,31 +1086,21 @@ Expected example transcript (port varies; step count is eight if plan 87's step 
 ```
 
 Commit as `docs(kiroku-metrics): document configurable CORS and the reverse-proxy alternative`
-with both trailers (one commit for docs and example, one for the bundles is also fine).
+with the three trailers (one commit for docs and example, one for the bundles is also fine).
 
-Milestone 4, only after explicit confirmation:
-
-```bash
-git tag --list 'kiroku-metrics-v*' | sort -V | tail -1
-# follow agents/skills/release/SKILL.md for kiroku-metrics major
-```
-
-Then the clean-consumer check in a scratch directory outside the repository (for example under
-the session scratchpad):
+Milestone 4:
 
 ```bash
-mkdir -p "$SCRATCH/metrics-cors-consumer" && cd "$SCRATCH/metrics-cors-consumer"
-cabal update
-# write a one-module executable importing Kiroku.Metrics that evaluates
-# allowedOrigin "https://ops.example.com" and defaultConfig{cors = corsAllowOrigins []},
-# with `build-depends: base, kiroku-metrics ==<released version>` in its .cabal
-cabal build
+okf id next docs/adr --profile docs/adr/profile.dhall ADR   # only if the distillation pass warrants the CORS-posture record
+# write docs/adr/00NN-<slug>.md; okf log add docs/adr --kind Addition -m "..."
+just adr-validate
+# edit docs/plans/90-add-configurable-cors-support-to-kiroku-metrics.md   (Outcomes & Retrospective, Progress)
+# edit docs/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md   (EP-1 Complete; Progress)
 ```
 
-Expected: the solver downloads the released `kiroku-metrics` from Hackage and the build
-succeeds. Return to the repository, complete IR-11, validate the bundle, run
-`just adr-validate` if an ADR was added, and commit as
-`docs(improvement-requests): complete IR-11` with both trailers.
+Commit as `docs(plans): complete plan 90 and mark EP-1 done in MasterPlan 13` (and
+`docs(adr): ...` if a record was added) with the three trailers. The release, the
+clean-consumer check, and `docs(improvement-requests): complete IR-11` belong to plan 96.
 
 
 ## Validation and Acceptance
@@ -1091,8 +1128,9 @@ The plan is accepted when all of the following are observable:
 7. `docs/user/metrics.md` contains the CORS section with the three transcripts, the WebSocket
    rule, the credentials rule, and the reverse-proxy alternative; CAP-17 and IR-11 are updated
    and their bundles validate; the example prints its transcript with the CORS step.
-8. The new `kiroku-metrics` version is on Hackage with its tag and GitHub release, a clean
-   consumer compiles against it, and IR-11 is `completed`.
+8. Outcomes & Retrospective is written and the MasterPlan registry shows EP-1 complete. (The
+   Hackage release, the clean-consumer check, and IR-11's `completed` status are plan 96's
+   acceptance, not this plan's.)
 
 
 ## Idempotence and Recovery
@@ -1105,8 +1143,9 @@ a fresh migrated database per example, so reruns cannot collide.
 
 If a concurrent plan (87, 88, or 89) lands between milestones and changes `Server.hs`,
 re-apply the single wrapping edit at the new composition point and re-run the real-server
-examples; the `grep` for `runSettings` in Milestone 2 is the check. If both this plan and plan 87
-add `errorEnvelope`, keep one definition (they are identical). If the example's step numbering
+examples; the `grep` for `runSettings` in Milestone 2 is the check. If `Kiroku.Metrics.JSON`
+already has `errorEnvelope`/`errorResponse` because a sibling ran ahead of the recommended
+order, keep the one definition with the details-carrying type. If the example's step numbering
 conflicts, renumber and re-quote the transcript.
 
 The IR and capability bundle edits are validated by strict profile checks; if validation fails
@@ -1149,8 +1188,9 @@ corsMiddleware :: CorsPolicy -> Network.Wai.Middleware
 originAllowed :: CorsPolicy -> ByteString -> Bool
 isPreflight :: Network.Wai.Request -> Bool
 
--- Kiroku.Metrics.JSON (addition, shared with plan 87)
-errorEnvelope :: Text -> Text -> Data.Aeson.Value
+-- Kiroku.Metrics.JSON (addition; owned by this plan, reused by plans 87, 88, 89, 95)
+errorEnvelope :: Text -> Text -> Maybe Data.Aeson.Value -> Data.Aeson.Value
+errorResponse :: Network.HTTP.Types.Status -> Text -> Text -> Maybe Data.Aeson.Value -> Network.Wai.Response
 
 -- Kiroku.Metrics.Config (changed datatype)
 data MetricsServerConfig = MetricsServerConfig { ..., cors :: !CorsPolicy }
@@ -1184,4 +1224,17 @@ the exact versions from `dist-newstyle/cache/plan.json` out of `~/.cabal/package
 inspect `/nix/store`.
 
 Dependency direction is unchanged: `kiroku-metrics` depends on `kiroku-cli` and `kiroku-store`;
-nothing depends on `kiroku-metrics`.
+nothing depends on `kiroku-metrics`. No `.cabal` `version:` line and no dependency bound
+changes in this plan; plan 96 assigns the cohort's versions.
+
+
+## Revision Notes
+
+- 2026-09-30: Adopted as EP-1 of MasterPlan 13 (`master_plan` added to the frontmatter) and
+  ordered first. This plan now owns the cohort's structured error envelope as the
+  details-carrying `errorEnvelope`/`errorResponse` pair; its wrap around the composed
+  application is recorded as an invariant plan 87 preserves; the release milestone and IR-11's
+  `completed` transition moved to plan 96, so this plan bumps no version and edits no bound and
+  Milestone 4 is now the distillation pass. Milestones 1, 2, 3, and 4, the Progress list, the
+  Decision Log, Concrete Steps, Validation, Idempotence, and Interfaces were updated; the CORS
+  behaviour, the wire shape, and the tests are unchanged.

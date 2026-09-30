@@ -5,11 +5,18 @@ title: "Expose a public dead-letter read API"
 kind: exec-plan
 created_at: 2026-09-10T03:18:48Z
 intention: "intention_01m24mtzy1embbt15zkh9h3z8c"
+master_plan: "docs/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md"
 provenance:
   created_by:
     model: "claude-fable-5-1"
     harness: "claude-code"
     at: 2026-09-10T03:18:48Z
+  revisions:
+    - model: "claude-fable-5-1"
+      harness: "claude-code"
+      at: 2026-09-30T22:56:43Z
+      mode: "update"
+      note: "Adopted as a child of MasterPlan 13: settled ServerProviders record, errorEnvelope/errorResponse ownership, resolved-name encoder, versions deferred to plan 96, release milestone moved"
 ---
 
 # Expose a public dead-letter read API
@@ -25,15 +32,28 @@ filed by the keiro runtime UI initiative
 (`mori://shinzui/keiro-ui/masterplans/1-keiro-runtime-ui-foundations`, under
 `mori://shinzui/keiro-ui/plans/2-audit-kiroku-and-file-ui-endpoint-improvement-requests`),
 which is building a browser UI over the keiro runtime stack and needs an operator's
-"something is wrong" screen: which events a subscription parked, why, and when. It is a single
-ExecPlan without a MasterPlan. Two sibling plans created in the same week add the other
+"something is wrong" screen: which events a subscription parked, why, and when.
+
+Since 2026-09-30 this plan is EP-4 of
+[MasterPlan 13, Expose the Kiroku inspection surface for the keiro runtime UI and a standalone Kiroku UI](../masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md),
+which coordinates the five open keiro-ui requests as one cohort. Two sibling plans add the other
 endpoints that UI needs to `kiroku-metrics`:
 [plan 87](87-serve-durable-subscription-checkpoints-over-http.md) (IR-10, durable checkpoints
-over HTTP) and
+over HTTP, EP-2) and
 [plan 88](88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md) (IR-8, the
-REST browse API). This plan is written so that it can be implemented before, between, or after
-those two; the section "Coordinating with plans 87 and 88" in Context and Orientation says
-exactly what to reuse from whichever has landed.
+REST browse API, EP-3). The "whoever lands first" rules this plan was first written with are
+now settled, and the MasterPlan's Integration Points section is authoritative wherever this
+plan's older text disagrees: this plan hard-depends on plan 87, which introduces the
+`ServerProviders` record (`webSocketServer`, `subscriptionStatus`, `checkpointInventory`) and
+the four `...WithProviders` functions, so this plan only adds its `deadLetters` field; the
+structured error envelope is plan 90's (EP-1, lands first) `errorEnvelope`/`errorResponse` pair
+in `Kiroku.Metrics.JSON`, whose details-carrying shape is the one this plan asked for; plan 88
+may land before or after this plan, and whichever is second appends to the shared changelog
+heading, example step list, and guide; and no `.cabal` version or dependency bound changes here,
+because plan 96 (EP-7) assigns the cohort's versions (`kiroku-store` 0.10.0.0 and
+`kiroku-metrics` 0.2.0.0 are the forecast; the 0.9.0.0 in this plan's older text is stale,
+since `kiroku-store` 0.9.0.1 shipped on 2026-09-25). Commits carry this plan's Intention
+trailer and a `MasterPlan:` trailer naming the MasterPlan file.
 
 
 ## Purpose / Big Picture
@@ -103,27 +123,26 @@ retry-policy change, and no change to how dead letters are written or cleaned up
       `kiroku-store/test/Test/SubscriptionDeadLettersMock.hs` (mock interpreter), the
       `insertDeadLetterWith` helper, and the three structural-gate cases in
       `kiroku-store/test/Test/PerformanceStructure.hs`; register everything; store suite green.
-- [ ] M1: `kiroku-store` version and changelog (0.9.0.0, or the existing unreleased heading),
-      and the `^>=0.9` bound in every dependant with patch-level entries; `cabal build all`
-      warning-free.
+- [ ] M1: this plan's bullets under the one `## Unreleased` heading of
+      `kiroku-store/CHANGELOG.md` (no `version:` or bound edits; plan 96 assigns 0.10.0.0);
+      `cabal build all` warning-free.
 - [ ] M2: create `kiroku-metrics/src/Kiroku/Metrics/DeadLetters.hs` (provider type, canonical
       store provider, wire types and hand-written JSON codec, cursor text codec, query-parameter
       parser, `deadLettersApp`); ensure the structured error-envelope helper exists in
       `Kiroku.Metrics.JSON`; export from the umbrella module; database-free tests in
       `kiroku-metrics/test/Test/DeadLettersSpec.hs`.
-- [ ] M3: wire the route into `kiroku-metrics/src/Kiroku/Metrics/Server.hs` through the
-      providers record (reused or introduced per the coordination rules); store-backed starters
-      serve it automatically; end-to-end tests against a real store; every pre-existing spec
-      unchanged and green.
+- [ ] M3: add the `deadLetters` field to plan 87's `ServerProviders` in
+      `kiroku-metrics/src/Kiroku/Metrics/Server.hs` and the route arm to `httpAppWithProviders`;
+      store-backed starters serve it automatically; end-to-end tests against a real store; every
+      pre-existing spec unchanged and green.
 - [ ] M4: document the route in `docs/user/metrics.md`, the library operation in
       `docs/user/subscriptions.md`, fix the stale index row in `docs/user/schema.md`, extend
       the self-verifying example, update CAP-12 and CAP-17 and the capabilities log, update the
       IR-9 body with implementation evidence, finalize the `kiroku-metrics` changelog entry;
       all repository validations green.
-- [ ] M5: after explicit user confirmation, release the affected packages through the
-      repository release skill (preferably as one cohort with plans 87 and 88), verify from a
-      clean consumer, set IR-9 to `completed`, perform the ADR distillation pass, and write
-      Outcomes & Retrospective.
+- [ ] M5: perform the ADR distillation pass, write Outcomes & Retrospective, and mark EP-4
+      `Complete` in the MasterPlan registry. (The release, the clean-consumer check, and IR-9's
+      `completed` status moved to plan 96, EP-7 of MasterPlan 13, on 2026-09-30.)
 
 
 ## Surprises & Discoveries
@@ -245,6 +264,10 @@ retry-policy change, and no change to how dead letters are written or cleaned up
   tested with a scripted provider and no database, and keeps `StoreError` typed so the route
   can answer 503 with the structured envelope.
   Date: 2026-09-10
+  Amended on 2026-09-30: the record is plan 87's `ServerProviders`, a hard dependency of this
+  plan; the field is `deadLetters :: !(Maybe DeadLetterProvider)`, `Nothing` in
+  `defaultServerProviders` and `Just (storeDeadLetters store)` in `storeServerProviders` and in
+  `startMetricsServerWithStore`.
 
 - Decision: Unknown subscription names answer HTTP 200 with an empty page, never 404.
   Rationale: Kiroku has no registry of subscription names beyond checkpoint rows and dead
@@ -266,6 +289,10 @@ retry-policy change, and no change to how dead letters are written or cleaned up
   three UI-endpoint plans are best released as one cohort so the keiro-ui initiative pins one
   version set.
   Date: 2026-09-10
+  Superseded on 2026-09-30: the cohort release this decision hoped for is now plan 96 (EP-7 of
+  MasterPlan 13). This plan edits no `.cabal` version or bound; it writes bullets under one
+  `## Unreleased` heading per changelog, and plan 96 assigns `kiroku-store` 0.10.0.0 and
+  `kiroku-metrics` 0.2.0.0 (forecast) and moves the bounds.
 
 - Decision: IR-9's `status` moves from `proposed` to `accepted` when this plan is created (its
   Status section links the plan and the bundle log records it), to `in_progress` when
@@ -286,6 +313,9 @@ retry-policy change, and no change to how dead letters are written or cleaned up
   Rationale: This plan is one application of ADR-9, not a new architectural decision; recording
   an application as its own record would dilute the corpus.
   Date: 2026-09-10
+  Amended on 2026-09-30: plan 88's ADR was withdrawn as subsumed by ADR-9, so the only
+  candidate homes are ADR-9 itself or a new record; MasterPlan 13 assigns the
+  composition-boundary ADR to plan 95.
 
 
 ## Outcomes & Retrospective
@@ -525,58 +555,43 @@ include `time` or `vector` unless plan 87 added them. The self-verifying example
 `cabal run -fexample kiroku-metrics-example`); it prints numbered steps `[k/N]` and
 `docs/user/metrics.md` quotes its transcript in "Try it".
 
-### Coordinating with plans 87 and 88
+### Coordinating with plans 87, 88, 90, and 96
 
-Both sibling plans change `Server.hs` and both were skeleton-only when this plan was written.
-They differ in one place that this plan must not decide twice: plan 87 introduces a record
-`MetricsProviders { subscriptionStatus, checkpointInventory }`, replaces the
-`Maybe SubscriptionStatusProvider` argument of `startMetricsServerWith'`, `combinedApp`, and
-`httpApp` with it (a major bump), adds `noProviders` and `storeProviders :: KirokuStore ->
-MetricsProviders`, and puts an `errorEnvelope :: Text -> Text -> Value` helper in
-`Kiroku.Metrics.JSON`. Plan 88 introduces a record `ServerProviders { webSocketServer,
-subscriptionStatus, browser }`, keeps every existing signature and adds
-`startMetricsServerWithProviders`, `withMetricsServerWithProviders`, `combinedAppWithProviders`,
-`httpAppWithProviders`, `defaultServerProviders`, and `storeServerProviders` (a minor bump),
-and puts `browseErrorResponse :: Status -> Text -> Text -> Maybe Value -> Response` in
-`Kiroku.Metrics.Browse`. Plan 88's Decision Log says whichever plan lands second reuses the
-first's record and envelope. This plan follows the same rule, in this order of precedence:
+MasterPlan 13 settled the coordination this section once left to landing order. The rules now
+are:
 
-1. If `Server.hs` already exports a providers record (either name), add one field
-   `deadLetters :: !(Maybe DeadLetterProvider)` to it, default it to `Nothing` in the
-   no-providers value, set it to `Just (storeDeadLetters store)` in the store-backed value
-   (`storeProviders` or `storeServerProviders`) and in `startMetricsServerWithStore`, and add
-   the route arm to whichever `httpApp` variant holds the router. Do not add a second record.
-2. If neither has landed, introduce plan 88's design verbatim (it is the non-breaking one):
-   `ServerProviders { webSocketServer :: WS.ServerApp, subscriptionStatus :: Maybe SubscriptionStatusProvider, deadLetters :: Maybe DeadLetterProvider }`,
-   `defaultServerProviders`, `storeServerProviders`, and the four `…WithProviders` functions,
-   with every existing starter and app function becoming a one-line delegation with its exact
-   signature. Record in Surprises & Discoveries that this plan introduced the record, and note
-   in plans 87 and 88 (a one-line revision note each) that they must add their fields to it
-   instead of creating their own.
-3. For the structured error envelope, use the helper the package already has (`errorEnvelope`
-   from plan 87 or `browseErrorResponse` from plan 88). If it lacks a `details` argument, add a
-   details-carrying variant beside it rather than changing its type. If neither exists, add to
-   `Kiroku.Metrics.JSON` and export:
-
-   ```haskell
-   -- | Structured error body for endpoints added under the cross-project inspection
-   -- conventions: @{"error":{"code":…,"message":…,"details":…}}@ with @details@ omitted
-   -- when Nothing. Existing endpoints keep their published @{"error":"<string>"}@ bodies.
-   errorEnvelope :: Text -> Text -> Maybe Value -> Value
-   errorResponse :: Status -> Text -> Text -> Maybe Value -> Response
-   ```
-
-4. `kiroku-store` carries exactly one unreleased `0.9.0.0` changelog heading: add this plan's
-   bullets under it if plan 88 created it, otherwise create it. The `^>=0.9` bound edits in the
-   dependants are done once, by whichever plan gets there first.
-5. The example's step numbering, the `docs/user/metrics.md` Contents list, and the router's
-   route ordering are shared: append this plan's step and section after whatever exists, and
-   place the `["subscriptions", _, "dead-letters"]` arm together with the other
-   `/subscriptions` arms.
+1. Plan 87 (EP-2) is a hard dependency and has already added to `Server.hs` the record
+   `ServerProviders { webSocketServer :: WS.ServerApp, subscriptionStatus :: Maybe SubscriptionStatusProvider, checkpointInventory :: Maybe CheckpointInventoryProvider }`,
+   `defaultServerProviders`, `storeServerProviders :: MetricsServerConfig -> KirokuMetrics -> KirokuStore -> IO ServerProviders`,
+   and the four functions `startMetricsServerWithProviders`, `withMetricsServerWithProviders`,
+   `combinedAppWithProviders` (wrapped in plan 90's `corsMiddleware cfg.cors`), and
+   `httpAppWithProviders` (the router); every legacy starter delegates to them with its exact
+   signature. Confirm with `grep -n "ServerProviders\|WithProviders" kiroku-metrics/src/Kiroku/Metrics/Server.hs`;
+   if the record is missing, stop and implement plan 87 first. This plan adds exactly one field,
+   `deadLetters :: !(Maybe DeadLetterProvider)`: `Nothing` in `defaultServerProviders`,
+   `Just (storeDeadLetters store)` in `storeServerProviders` and in the record that
+   `startMetricsServerWithStore` builds. Plan 88 adds `browser` the same way and plan 95 later
+   adds `webSocketChannels`; never add a second record.
+2. Plan 90 (EP-1) lands first and owns the structured error envelope in `Kiroku.Metrics.JSON`:
+   `errorEnvelope :: Text -> Text -> Maybe Value -> Value` (the `details` key omitted when
+   `Nothing`) and `errorResponse :: Status -> Text -> Text -> Maybe Value -> Response`. Use them;
+   never add a variant. If they are somehow absent, add exactly those two definitions and record
+   it in Surprises & Discoveries.
+3. `kiroku-store/CHANGELOG.md` and `kiroku-metrics/CHANGELOG.md` each carry exactly one
+   `## Unreleased` heading shared with plans 88, 90, 87, and 94: add this plan's bullets under
+   it, creating it only if absent. No `.cabal` `version:` line and no dependency bound is edited
+   by this plan; plan 96 (EP-7) does that once for the cohort.
+4. The example's step numbering, the `docs/user/metrics.md` Contents list, and the router's
+   route ordering are shared with plan 88, which may land before or after this plan: append this
+   plan's step and section after whatever exists, and place the
+   `["subscriptions", _, "dead-letters"]` arm together with the other `/subscriptions` arms
+   (after plan 87's reserved `["subscriptions", "checkpoints"]` arm). Both plans use the identical
+   `invalid_query_parameter` details shape `{"parameter", "value", "reason"}`, and both add
+   `time` and `vector` to the metrics test suite if absent.
 
 Run `git log --oneline -- kiroku-metrics/src/Kiroku/Metrics/Server.hs kiroku-store/CHANGELOG.md`
-and read `Server.hs` before starting Milestone 3 to learn which case applies, and record the
-answer in Surprises & Discoveries.
+and read `Server.hs` before starting Milestone 3 to confirm plan 87's record is present and to
+see whether plan 88 has landed, and record the answer in Surprises & Discoveries.
 
 ### Documentation and knowledge bundles touched
 
@@ -1028,20 +1043,18 @@ Register `Test.SubscriptionDeadLetters` and `Test.SubscriptionDeadLettersMock` i
 `kiroku-store/test/Main.hs` (import and call after `SubscriptionRetryDeadLetter.spec`) and in
 the cabal test stanza's `other-modules`.
 
-**Versions and changelogs.** In `kiroku-store/kiroku-store.cabal` set `version: 0.9.0.0` and
-add a `## 0.9.0.0 — <date>` entry at the top of `kiroku-store/CHANGELOG.md` (or add to the
-existing unreleased 0.9.0.0 heading) with a "Breaking Changes" bullet (the `Store` effect gains
-`ListSubscriptionDeadLetters`; exhaustive custom and mock interpreters must handle it) and a
-"New Features" bullet naming `subscriptionDeadLetters`, the query/page/cursor types, and
-`mkSubscriptionDeadLetterLimit`. Change every `kiroku-store ^>=0.8` to `^>=0.9` in
-`kiroku-cli/kiroku-cli.cabal` (0.2.0.7), `kiroku-otel/kiroku-otel.cabal` (0.2.0.8), and
-`shibuya-kiroku-adapter/shibuya-kiroku-adapter.cabal` (0.5.1.2) unless already done, adding to
-each `CHANGELOG.md` an "Other Changes" entry in the phrasing of the 2026-08-16 entries
-("Requires `kiroku-store ^>=0.9`, whose exported `Store` effect gains the dead-letter read
-constructor. No source change was required and no … API or runtime behavior changed."). If a
-package in the repository has an exhaustive `Store` interpreter, the build tells you; add the
-arm (delegate in a real interpreter, `error` in a mock) and record it. `kiroku-metrics`'s bound
-moves in Milestone 4 with its own changelog entry.
+**Changelog only.** Do not edit `version:` in any `.cabal` file and do not touch any
+dependency bound; plan 96 (EP-7 of MasterPlan 13) assigns the cohort's versions (forecast:
+`kiroku-store` 0.10.0.0, because the closed `Store` GADT gains constructors) and moves every
+dependant's bound in one release commit. Under the one `## Unreleased` heading at the top of
+`kiroku-store/CHANGELOG.md` (create it only if plans 88 and 94 have not) add a
+`### Breaking Changes` bullet (the `Store` effect gains `ListSubscriptionDeadLetters`;
+exhaustive custom and mock interpreters must handle it) and a `### New Features` bullet naming
+`subscriptionDeadLetters`, the query/page/cursor types, and `mkSubscriptionDeadLetterLimit`. If
+a package in the repository has an exhaustive `Store` interpreter, the build tells you; add the
+arm (delegate in a real interpreter, `error` in a mock) and record it. Because in-tree packages
+resolve against their local versions, `cabal build all` stays satisfiable with every version
+untouched.
 
 Acceptance for Milestone 1: `cabal build all` succeeds with no warnings, and
 `cabal test kiroku-store-test --test-options='--match "SubscriptionDeadLetters"'` and
@@ -1170,7 +1183,7 @@ deadLettersApp provider req respond =
 
 where `toQuery name parsed = SubscriptionDeadLetterQuery (SubscriptionName name)
 (requestMember parsed) (requestAfter parsed) (requestLimit parsed)`. `errorResponse` is the
-structured-envelope helper resolved by coordination rule 3. Reads raise no `StoreError` other
+structured-envelope helper plan 90 created in `Kiroku.Metrics.JSON` (coordination rule 2). Reads raise no `StoreError` other
 than `ConnectionError`, so the `store_error` arm is defensive. Exceptions thrown by a provider
 propagate to Warp exactly as they do for the sibling routes.
 
@@ -1222,11 +1235,12 @@ Scope: the store-aware server serves the route; every existing starter keeps its
 behaviour except for gaining this route where it already owns a store; end-to-end tests prove
 the acceptance criteria over real HTTP against a real store.
 
-Apply coordination rules 1 and 2 to `kiroku-metrics/src/Kiroku/Metrics/Server.hs`: add the
-`deadLetters :: !(Maybe DeadLetterProvider)` field to the providers record, wire
-`Just (storeDeadLetters store)` in the store-backed providers value and in
-`startMetricsServerWithStore` (so `withMetricsServerWithStore` inherits it), and add the route
-arm with the `/subscriptions` family:
+Apply coordination rule 1 to `kiroku-metrics/src/Kiroku/Metrics/Server.hs`: add the
+`deadLetters :: !(Maybe DeadLetterProvider)` field to plan 87's `ServerProviders` (with a
+Haddock line, "Backs `GET /subscriptions/<name>/dead-letters`"), set it to `Nothing` in
+`defaultServerProviders`, wire `Just (storeDeadLetters store)` in `storeServerProviders` and in
+the record `startMetricsServerWithStore` builds (so `withMetricsServerWithStore` inherits it),
+and add the route arm to `httpAppWithProviders` with the `/subscriptions` family:
 
 ```haskell
         ["subscriptions", _, "dead-letters"] -> deadLettersRoute
@@ -1284,9 +1298,10 @@ store helper does it). Decode page bodies with `eitherDecode` into `DeadLetterPa
    `IntegrationSpec`, `CollectorSpec`) passes with no assertion changes.
 5. Not configured. `startMetricsServer (defaultConfig{port = 0}) m []`:
    `/subscriptions/x/dead-letters` is 404 with `error.code == "dead_letters_not_configured"`.
-6. Both routes on one server. Start with the store-backed providers value (`storeProviders` or
-   `storeServerProviders` per the coordination rules) and a running live subscription:
-   `/subscriptions` is 200 with one row and `/subscriptions/<name>/dead-letters` is 200.
+6. Both routes on one server. Start with
+   `startMetricsServerWithProviders cfg m [] =<< storeServerProviders cfg m store` and a running
+   live subscription: `/subscriptions` is 200 with one row and
+   `/subscriptions/<name>/dead-letters` is 200.
 
 Acceptance for Milestone 3: `cabal test kiroku-metrics-test` passes in full, and the transcripts
 Milestone 4 pastes into the guide are captured from these tests (print the bodies with
@@ -1353,10 +1368,11 @@ Update IR-9's body (status stays `in_progress`): add an "Implementation Evidence
 naming the operation, the module, the route, the response shape, the test files, and the
 example; advance `timestamp`; add a log entry; validate.
 
-Finalize the `## Unreleased` section of `kiroku-metrics/CHANGELOG.md`: New Features (the
-route, `Kiroku.Metrics.DeadLetters`, `storeDeadLetters`, the `deadLetters` provider field),
-Other Changes (requires `kiroku-store ^>=0.9`; all pre-existing endpoints, frames, and starters
-unchanged), and set `kiroku-store ^>=0.9` in all three stanzas of `kiroku-metrics.cabal`.
+Add this plan's bullets to the `## Unreleased` section of `kiroku-metrics/CHANGELOG.md`: New
+Features (the route, `Kiroku.Metrics.DeadLetters`, `storeDeadLetters`, the `deadLetters`
+provider field) and Other Changes (all pre-existing endpoints, frames, and starters unchanged).
+Do not date the section and do not edit `version:` or any bound in `kiroku-metrics.cabal`; plan
+96 does that for the cohort.
 
 Acceptance for Milestone 4: `nix fmt` is a no-op, `cabal build all`, `cabal test all`, and
 `nix build .#kiroku-metrics` succeed, `just capabilities-validate` and the strict
@@ -1364,46 +1380,32 @@ improvement-request validation pass, `git diff --check` is clean, and
 `cabal run -fexample kiroku-metrics-example` prints its full passing transcript including the
 new step.
 
-### Milestone 5: release, request completion, and ADR distillation
+### Milestone 5: ADR distillation and Outcomes
 
-Scope: publish the packages so the keiro-ui initiative can consume the route, close the
-request with evidence, and distill durable context. Nothing in this milestone runs before the
-user explicitly confirms the release in the implementation session.
+Scope: close this plan's own bookkeeping. The release and the completion of IR-9 are no longer
+this plan's work: plan 96 (EP-7 of MasterPlan 13) releases `kiroku-store` and `kiroku-metrics`
+with the other cohort packages after every child of the MasterPlan is complete, verifies the
+cohort from a clean consumer (compiling a call to `subscriptionDeadLetters` and
+`storeDeadLetters` among others), and sets IR-9 to `completed` with release evidence. Until
+then IR-9 stays `in_progress` with its "Implementation Evidence" section and both changelog
+sections stay `## Unreleased`.
 
-Follow `agents/skills/release/SKILL.md`. Immediately before proposing, re-check the
-authoritative current versions on Hackage and the latest tags
-(`git tag --list 'kiroku-store-v*' | sort -V | tail -1` and the same for `kiroku-metrics`,
-`kiroku-cli`, `kiroku-otel`, `shibuya-kiroku-adapter`), and recompute the next versions from
-the then-current state: `kiroku-store` major (the effect gained a constructor), the three
-dependants patch (bound change only), and `kiroku-metrics` minor or major depending on whether
-plan 87's signature change is in the same unreleased section. Prefer releasing together with
-plans 87 and 88 as one cohort, in the skill's publish order, so downstream pins one version set;
-if the user chooses to release this plan alone, that is also valid. Record the Hackage URLs,
-tags, commits, and a clean-consumer check (a scratch Cabal project outside the working tree
-that depends on the released `kiroku-store` and `kiroku-metrics` and compiles a call to
-`subscriptionDeadLetters` and `storeDeadLetters`) in this plan.
-
-Only then set IR-9 to `status: completed`, add `completedAt`, refresh `timestamp`, rewrite
-the `## Status` paragraph to say which versions shipped the operation and the route and cite
-this plan, add a `**Completion**` log entry, and validate strictly. Do not edit anything in the
-keiro-ui repository.
-
-Finally perform the ADR distillation pass required by PLANS.md: reread the Decision Log and
+Perform the ADR distillation pass required by PLANS.md: reread the Decision Log and
 Surprises & Discoveries and judge whether the two candidate points from this plan are durable
 project context: composite keyset cursors are rendered as one opaque scalar and derived only by
 the library, and read-only inspection routes refuse mutating methods with 405 rather than
 silently ignoring them. If they are, extend
 [ADR-9](../adr/0009-published-http-and-websocket-wire-shapes-are-frozen-and-served-only-by-sister-packages.md)
 (its section 2 is the natural home; advance its `timestamp`, add the bundle log entry with
-`okf log add`, and run `just adr-validate`), or the ADR plan 88 writes about `Store`-wrapping
-endpoints if that exists and fits better; allocate a new handle with
-`okf id next docs/adr --profile docs/adr/profile.dhall ADR` (it printed `ADR-10` at planning
-time; use whatever it prints) only if neither record is the right home. Otherwise record in
-Outcomes why no ADR change was needed. Write Outcomes & Retrospective.
+`okf log add`, and run `just adr-validate`), or allocate a new handle with
+`okf id next docs/adr --profile docs/adr/profile.dhall ADR` (it printed `ADR-11` on 2026-09-30;
+use whatever it prints) only if ADR-9 is not the right home. Otherwise record in Outcomes why
+no ADR change was needed. Write Outcomes & Retrospective, and update the MasterPlan's Exec-Plan
+Registry row for EP-4 to `Complete` and its Progress entries.
 
-Acceptance for Milestone 5: Hackage lists the released versions with their tags and GitHub
-releases, the clean consumer compiles, IR-9 is `completed` and its bundle validates, the ADR
-bundle validates, and this plan's Progress shows every item checked.
+Acceptance for Milestone 5: Outcomes & Retrospective is written, the ADR bundle validates
+whether or not a record was changed, this plan's Progress shows every item checked, and the
+MasterPlan registry shows EP-4 complete.
 
 
 ## Concrete Steps
@@ -1422,9 +1424,9 @@ cabal test kiroku-store-test
 cabal test kiroku-metrics-test
 ```
 
-Expected: a clean tree, both suites passing, and the log telling you which of the
-coordination cases in Context and Orientation applies. Record that in Surprises & Discoveries
-before editing.
+Expected: a clean tree, both suites passing, plan 87's `ServerProviders` present in
+`Server.hs`, and the log telling you whether plan 88 has landed. Record that in Surprises &
+Discoveries before editing.
 
 Milestone 1 edits and checks:
 
@@ -1441,13 +1443,13 @@ okf validate docs/improvement-requests \
 # edit  kiroku-store/src/Kiroku/Store/SQL.hs                          (re-export the two statements in the dead-letter group)
 # edit  kiroku-store/src/Kiroku/Store/Effect.hs                       (+ constructor, interpreter branch)
 # edit  kiroku-store/src/Kiroku/Store/Subscription.hs                 (+ wrapper, export, Store import)
-# edit  kiroku-store/kiroku-store.cabal                               (+ other-module; test other-modules; version)
+# edit  kiroku-store/kiroku-store.cabal                               (+ other-module; test other-modules; no version edit)
 # edit  kiroku-store/test/Test/Helpers.hs                             (+ insertDeadLetterWith)
 # write kiroku-store/test/Test/SubscriptionDeadLetters.hs
 # write kiroku-store/test/Test/SubscriptionDeadLettersMock.hs
 # edit  kiroku-store/test/Test/PerformanceStructure.hs                (+ zero-checkout, two plan cases)
 # edit  kiroku-store/test/Main.hs                                     (+ two specs)
-# edit  kiroku-store/CHANGELOG.md, kiroku-cli/*.cabal+CHANGELOG, kiroku-otel/*.cabal+CHANGELOG, shibuya-kiroku-adapter/*.cabal+CHANGELOG
+# edit  kiroku-store/CHANGELOG.md                                     (bullets under the one ## Unreleased heading)
 nix fmt
 cabal build all
 cabal test kiroku-store-test --test-options='--match "SubscriptionDeadLetters"'
@@ -1476,7 +1478,7 @@ Finished in 4.10 seconds
 11 examples, 0 failures
 ```
 
-Commit (Conventional Commits, both trailers):
+Commit (Conventional Commits, the three trailers on every commit under this plan):
 
 ```text
 feat(store): add the public paginated dead-letter read operation
@@ -1488,17 +1490,17 @@ and the subscriptionDeadLetters wrapper. Newest first by (global_position,
 dead_letter_id); the existing readDeadLettersStmt and write/cleanup paths are
 unchanged.
 
+MasterPlan: docs/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md
 ExecPlan: docs/plans/89-expose-a-public-dead-letter-read-api.md
 Intention: intention_01m24mtzy1embbt15zkh9h3z8c
 ```
 
-followed by `chore(release): bump kiroku-store to 0.9.0.0 and dependant bounds` (skip if plan
-88 already did it) with the same trailers.
+There is no `chore(release)` commit in this plan; versions and bounds belong to plan 96.
 
 Milestone 2 edits and checks:
 
 ```bash
-# edit  kiroku-metrics/src/Kiroku/Metrics/JSON.hs         (structured envelope helper, if absent)
+grep -n "errorEnvelope\|errorResponse" kiroku-metrics/src/Kiroku/Metrics/JSON.hs   # plan 90 added them; add only if absent
 # write kiroku-metrics/src/Kiroku/Metrics/DeadLetters.hs
 # edit  kiroku-metrics/src/Kiroku/Metrics.hs              (+ module re-export)
 # edit  kiroku-metrics/kiroku-metrics.cabal               (+ exposed module; test other-modules; test deps time, vector)
@@ -1528,7 +1530,7 @@ Kiroku.Metrics.DeadLetters (scripted provider)
 10 examples, 0 failures
 ```
 
-Commit as `feat(metrics): add the dead-letter read WAI application` with both trailers.
+Commit as `feat(metrics): add the dead-letter read WAI application` with the three trailers.
 
 Milestone 3 edits and checks:
 
@@ -1554,9 +1556,8 @@ Kiroku.Metrics.DeadLetters (end to end)
 ```
 
 Commit as `feat(metrics): serve GET /subscriptions/<name>/dead-letters from the store-aware server`
-with both trailers (add `!` and a `BREAKING CHANGE:` footer only if coordination rule 1 applied
-to plan 87's already-changed signatures and you changed them further, which this plan does not
-expect).
+with the three trailers (no `!` and no `BREAKING CHANGE:` footer: adding a field to
+`ServerProviders` changes no exported signature).
 
 Milestone 4 edits and checks:
 
@@ -1565,7 +1566,7 @@ Milestone 4 edits and checks:
 # edit kiroku-metrics/example/Main.hs
 # edit docs/capabilities/resilient-delivery.md, docs/capabilities/operational-http-endpoints.md, docs/capabilities/log.md
 # edit docs/improvement-requests/expose-a-public-dead-letter-read-api.md, docs/improvement-requests/log.md
-# edit kiroku-metrics/CHANGELOG.md, kiroku-metrics/kiroku-metrics.cabal
+# edit kiroku-metrics/CHANGELOG.md                       (bullets under ## Unreleased; no .cabal edit)
 cabal run -fexample kiroku-metrics-example
 just capabilities-validate
 okf validate docs/improvement-requests \
@@ -1597,29 +1598,21 @@ varies):
 If cabal reports the `example` flag as unknown for another local package, use
 `cabal run --constraint='kiroku-metrics +example' kiroku-metrics-example` and record which form
 worked. Commit as `docs(metrics): document the dead-letter read API` and
-`docs(okf): record dead-letter read evidence in CAP-12, CAP-17, and IR-9` with both trailers.
+`docs(okf): record dead-letter read evidence in CAP-12, CAP-17, and IR-9` with the three
+trailers.
 
-Milestone 5, only after explicit confirmation:
-
-```bash
-git tag --list 'kiroku-store-v*' | sort -V | tail -1
-git tag --list 'kiroku-metrics-v*' | sort -V | tail -1
-# follow agents/skills/release/SKILL.md for the cohort
-```
-
-Then the clean-consumer check in a scratch directory outside the repository:
+Milestone 5:
 
 ```bash
-mkdir -p "$SCRATCH/dead-letter-consumer" && cd "$SCRATCH/dead-letter-consumer"
-cabal update
-# write a one-module executable importing Kiroku.Store and Kiroku.Metrics that references
-# subscriptionDeadLetters, defaultSubscriptionDeadLetterQuery, and storeDeadLetters,
-# with `build-depends: base, kiroku-store ==<released>, kiroku-metrics ==<released>`
-cabal build
+okf id next docs/adr --profile docs/adr/profile.dhall ADR   # only if the distillation pass warrants a new record
+just adr-validate
+# edit docs/plans/89-expose-a-public-dead-letter-read-api.md   (Outcomes & Retrospective, Progress)
+# edit docs/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md   (EP-4 Complete; Progress)
 ```
 
-Return to the repository, complete IR-9, run the ADR distillation pass, validate the bundles,
-and commit as `docs(improvement-requests): complete IR-9` with both trailers.
+Commit as `docs(plans): complete plan 89 and mark EP-4 done in MasterPlan 13` with the three
+trailers. The release, the clean-consumer check, and `docs(improvement-requests): complete IR-9`
+belong to plan 96.
 
 
 ## Validation and Acceptance
@@ -1650,8 +1643,9 @@ The plan is complete when every item below is observed, mapped to IR-9's accepta
 Beyond the request: `cabal build all` produces no warnings; a limit of 0 or 1001 is refused
 before any pool checkout (structural gate) and as HTTP 400 without calling the provider;
 `POST` on the route is 405; `just capabilities-validate` and the strict improvement-request
-validation pass; the example exits 0; and after Milestone 5 the released packages resolve from
-Hackage in a clean consumer and IR-9 is `completed`.
+validation pass; the example exits 0; and the MasterPlan registry shows EP-4 complete. (The
+Hackage release, the clean-consumer check, and IR-9's `completed` status are plan 96's
+acceptance, not this plan's.)
 
 
 ## Idempotence and Recovery
@@ -1665,19 +1659,19 @@ example and OS-assigned ports, so reruns cannot collide. The seeding statement i
 
 If `cabal build all` fails after Milestone 1 with an incomplete-patterns error in a package
 other than `kiroku-store`, that package has an exhaustive `Store` interpreter; add the arm and
-record it. If a version bump conflicts with a concurrent unreleased bump from plan 88, keep the
-single higher heading and merge the bullets under it. If the structural-gate case for the
+record it. If plan 88 or plan 94 has already opened the `## Unreleased` heading in a changelog,
+add bullets under it rather than a second heading. If the structural-gate case for the
 member-scoped statement reports a `Sort`, or the row comparison lands in a `Filter` instead of
 the `Index Cond`, rewrite the predicate as the expanded disjunction given in Milestone 1 and
 re-run; if the all-member case reports no index at all (the planner chose a sequential scan for
 the fixture's ten-percent selectivity), record the plan in Surprises & Discoveries and keep only
 the member-scoped assertion as the gate, since the documented index promise is per member.
 
-If `Server.hs` has changed under you because a sibling plan landed mid-implementation, re-read
-the "Coordinating with plans 87 and 88" rules, rebase this plan's field and route arm onto the
-record that now exists, and never leave two providers records or two envelope helpers in the
-package. To roll back before release, revert the milestone's commits in reverse order; nothing
-outside the repository observes the change until a release.
+If `Server.hs` has changed under you because plan 88 landed mid-implementation, re-read the
+"Coordinating with plans 87, 88, 90, and 96" rules, rebase this plan's field and route arm onto
+the record as it now stands, and never leave two providers records or two envelope helpers in
+the package. To roll back before release, revert the milestone's commits in reverse order;
+nothing outside the repository observes the change until a release.
 
 The IR and capability bundle edits are validated by strict profile checks; a failure names the
 offending field (typically a `timestamp` that did not advance or a missing dated log entry).
@@ -1685,14 +1679,15 @@ Keep `status: in_progress` until release evidence exists; never set `completed` 
 of a local build. Publishing is not idempotent: before retrying a partially failed release,
 inspect Hackage, local and upstream tags, and `git status` to see which step succeeded, follow
 the release skill's recovery guidance, and never reuse a version for different contents or move
-a pushed tag. If the release is declined or deferred, Milestones 1 to 4 remain complete and
-valid on `master`, the changelog sections stay unreleased, and IR-9 stays `in_progress` with
-its evidence.
+a pushed tag; all of that is plan 96's work. If the cohort release is declined or deferred,
+Milestones 1 to 5 remain complete and valid on `master`, the changelog sections stay unreleased,
+and IR-9 stays `in_progress` with its evidence.
 
 
 ## Interfaces and Dependencies
 
-At the end of Milestone 1, `kiroku-store` (version 0.9.0.0) exports:
+At the end of Milestone 1, `kiroku-store` (its `.cabal` version unchanged in-tree; plan 96
+releases it as 0.10.0.0) exports:
 
 ```haskell
 -- Kiroku.Store.Subscription.Types (re-exported by Kiroku.Store.Subscription and Kiroku.Store)
@@ -1736,14 +1731,15 @@ At the end of Milestone 2, `kiroku-metrics` exports `Kiroku.Metrics.DeadLetters`
 `renderDeadLetterCursor :: SubscriptionDeadLetterCursor -> Text`,
 `parseDeadLetterCursor :: Text -> Maybe SubscriptionDeadLetterCursor`,
 `DeadLetterRequest (..)`, `parseDeadLetterRequest :: Query -> Either (Status, Text, Text, Maybe Value) DeadLetterRequest`,
-and `deadLettersApp :: DeadLetterProvider -> Application`; and, unless a sibling plan already
-provides an equivalent, `Kiroku.Metrics.JSON` exports `errorEnvelope :: Text -> Text -> Maybe Value -> Value`
-and `errorResponse :: Status -> Text -> Text -> Maybe Value -> Response`. No new library
-dependency; the test suite gains `time` and `vector` if absent.
+and `deadLettersApp :: DeadLetterProvider -> Application`. Error bodies use
+`errorEnvelope :: Text -> Text -> Maybe Value -> Value` and
+`errorResponse :: Status -> Text -> Text -> Maybe Value -> Response` from `Kiroku.Metrics.JSON`,
+created by plan 90. No new library dependency; the test suite gains `time` and `vector` if
+absent.
 
-At the end of Milestone 3, the providers record in `Kiroku.Metrics.Server` has a field
-`deadLetters :: !(Maybe DeadLetterProvider)`; the no-providers value sets it to `Nothing`; the
-store-backed providers value and `startMetricsServerWithStore` set it to
+At the end of Milestone 3, plan 87's `ServerProviders` in `Kiroku.Metrics.Server` has a field
+`deadLetters :: !(Maybe DeadLetterProvider)`; `defaultServerProviders` sets it to `Nothing`;
+`storeServerProviders` and `startMetricsServerWithStore` set it to
 `Just (storeDeadLetters store)`; every previously exported name keeps its exact type and
 observable behaviour apart from store-backed starters additionally serving the route.
 
@@ -1787,3 +1783,11 @@ sources through `mori registry show <project> --full` (for example `hasql/hasql`
 - 2026-09-10: Linked IR-9 to this plan in the same session the plan was created. The request's
   frontmatter now reads `status: accepted` with its Status section citing this plan, and the
   improvement-request bundle log records the acceptance. No implementation scope changed.
+- 2026-09-30: Adopted as EP-4 of MasterPlan 13 (`master_plan` added to the frontmatter) with a
+  hard dependency on plan 87. The "whoever lands first" coordination rules were replaced by the
+  MasterPlan's fixed ownership: plan 87's `ServerProviders` gains this plan's `deadLetters`
+  field, plan 90's `errorEnvelope`/`errorResponse` pair is the envelope, the stale 0.9.0.0
+  version bump and every bound edit were withdrawn in favour of `## Unreleased` changelog
+  bullets with plan 96 assigning the versions, and the release milestone and IR-9's `completed`
+  transition moved to plan 96. The library operation, the route, its wire shape, and the tests
+  are unchanged.
