@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-09
+* **Update**: ADR-11 clarifies bounded evidence of unchanged performance without requiring every path to show a speedup; confirmed adverse changes remain blocking.
 * **Update**: Narrow controlled subscription-hardening performance acceptance to PostgreSQL 18 following the user scope correction; retain all write-performance and precision requirements.
 * **Update**: ADR-2: replace stop/drain/restart advice with durable topology validation and transactional minimum-checkpoint equalization
 * **Addition**: ADR-11 records the write-performance acceptance constraint for MasterPlan 12, controlled mixed append/subscription evidence, preserved no-hook fast paths, and opt-in handler-stall diagnostics.

@@ -67,7 +67,7 @@ adoption path exists.
 
 ## Progress
 
-- [x] (2026-10-09) Prepare the matched Linux harness, predeclare the 42-cell representative matrix, and wire fail-closed full-matrix verification into `just perf-check`.
+- [x] (2026-10-09) Prepare the matched Linux harness, predeclare the focused 15-cell matrix with two method calibrations, and wire fail-closed evidence verification into `just perf-check`.
 - [ ] Write-performance gate: establish pre-cohort controls and pass mixed append/subscription throughput, latency, checkpoint/WAL, and GC checks under ADR-11 before completion.
 - [x] (2026-10-09 16:54 UTC) M1: introduce validated `ConsumerGroupSize` and `mkConsumerGroup`; write `consumer_group_size` through initialization, ordinary checkpoint saves, and dead-letter checkpoint saves; read and validate group-wide stored topology at startup.
 - [x] (2026-10-09 16:54 UTC) M1: generate the derived-topology migration and add typed mismatch, upgrade-path, and underestimate-then-resize tests, including the currently lossy skewed size-2 to size-3 scenario.
@@ -78,7 +78,25 @@ adoption path exists.
 
 ## Surprises & Discoveries
 
-- Published/queued validation (2026-10-09 19:33 UTC): both clean Linux
+- Focused assurance (2026-10-09): following the user's instruction to avoid
+  unnecessary testing, `matrix.json` now selects five workloads / 15 A/B cells:
+  append-only fan-out; default category checkpoint rows; four-member group
+  writes at batch 1; group fan-out at batch 100; and real adapter acknowledgements.
+  Capacity and low/near-capacity latency remain separate. The unused 42-cell
+  background queue was cancelled before its first submission. Startup/resize
+  correctness remains covered by completed tests; unchanged idle/fetch paths
+  and duplicate write/target combinations are omitted from this child's timing
+  gate. EP-6 selects broader integrated coverage for the completed cohort.
+  Two frequent-checkpoint method calibrations determine the steady window
+  and pair count before candidates. Each comparison uses at least that window
+  and enough time for its declared arrivals, without multiplying long low-rate cases. Every A/B interval independently meets the
+  precision limit. Tight intervals around equality can pass without requiring
+  unchanged paths to prove a speedup; any confirmed slowdown still blocks even
+  below those limits. Ten interval tests and eight matrix tests pass.
+  The running 610-second diagnostic remains in progress; no candidate comparison
+  has started. Its evidence is not substituted for the matched method calibrations.
+
+- Published/queued validation (2026-10-09 19:33 UTC; original queue subsequently cancelled): both clean Linux
   payloads use harness revision `6f67012011fd329c258553f1fe758a170e5a1cb1`.
   Control bundle SHA-256 is
   `0197f49615f02705bc8db94ea5f56932b874c49fb6e159b118666444e1210400`;
@@ -97,7 +115,7 @@ adoption path exists.
   coverage is unverified. Required performance validation uses the published
   Linux payloads on PostgreSQL 18. No candidate comparison has started.
 
-- Shared matrix implementation (2026-10-09): `bench/mp12-cell/matrix.json`
+- Initial shared matrix implementation (2026-10-09; scope superseded above): `bench/mp12-cell/matrix.json`
   freezes 14 complementary configurations and three profiles (capacity, 20% and
   90% of the slowest control pilot capacity). Across the matrix all eight write
   shapes are covered; every mode has both payload/stream shapes and checkpoint
@@ -251,6 +269,15 @@ adoption path exists.
 
 
 ## Decision Log
+
+- Decision (2026-10-09, user-directed scope): use risk-based child performance
+  coverage, not exhaustive target/write-shape combinations. EP-1 requires five
+  workloads at three profiles and two method calibrations, with precise paired
+  evidence independently required per comparison. Accept tightly bounded
+  uncertainty around equality without requiring a speedup; confirmed adverse
+  changes remain blocking. See ADR-11 for the bounded-evidence contract.
+  Rationale: unchanged idle/fetch paths and redundant A/A combinations do not
+  justify replaying the full integrated cohort matrix for this checkpoint change.
 
 - Decision: Keep existing member row identities during resize using an upsert
   plus deletion of obsolete indices, rather than deleting and recreating the set.
@@ -707,3 +734,5 @@ Revision note (2026-10-09, cell gate): Applied the PostgreSQL 18-only user scope
 retained inconclusive sealed calibration evidence, corrected arrival timing,
 and implemented the representative matrix collector and fail-closed gate.
 Functional acceptance remains satisfied; performance acceptance remains open.
+
+Revision note (2026-10-09, focused assurance): Reduced timing coverage to affected checkpoint paths, replaced per-cell A/A repeats with two method calibrations, cancelled the unused full queue, and corrected the unintended requirement to demonstrate a speedup on unchanged paths. The performance gate remains open.

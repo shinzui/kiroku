@@ -8,7 +8,7 @@ generated:
 docId: ADR-11
 status: Accepted
 date: 2026-10-09
-timestamp: "2026-10-09T18:45:40Z"
+timestamp: "2026-10-09T19:43:21Z"
 originatingPlan: docs/masterplans/12-harden-the-kiroku-event-store-and-subscription-machinery-surfaced-by-the-2026-07-kiroku-review.md
 ---
 
@@ -43,7 +43,11 @@ append-only and mixed append/subscription comparisons against the pre-cohort imp
 including PostgreSQL 18, real acknowledgements, sustainable throughput, append latency
 percentiles, durable subscriber progress, and checkpoint write cost. Reproducible write regressions
 block completion and release. Noisy evidence is inconclusive and requires better measurement;
-lack of statistical significance is not proof of equivalence. Detailed workload controls and
+lack of statistical significance is not proof of equivalence. Acceptance can use a tightly
+bounded interval containing equality as evidence of unchanged performance at the declared
+measurement resolution; it does not require every unchanged path to demonstrate a speedup.
+An interval wholly on the adverse side still blocks, even below that resolution. Reports retain
+the possible adverse bound and must not claim proof of mathematical zero cost. Detailed workload controls and
 measurement resolution belong in the active MasterPlan and child evidence, not a new global
 replacement for ADR-5's existing thresholds. On 2026-10-09 the user explicitly
 narrowed the required database-version scope to PostgreSQL 18; PostgreSQL 17

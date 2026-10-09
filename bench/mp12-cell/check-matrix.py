@@ -26,6 +26,8 @@ def verify(root):
         for profile in matrix.SPEC['profiles']:
             name = config['id'] + '-' + profile
             for stage, calibrate in [('calibration', True), ('comparison', False)]:
+                if calibrate and (config['id'] != matrix.SPEC['calibrationConfiguration'] or profile not in matrix.SPEC['calibrationProfiles']):
+                    continue
                 directory = root / stage / name
                 accepted = matrix.read(directory / 'accepted.json')
                 seconds = accepted['seconds']
@@ -40,9 +42,9 @@ def verify(root):
                 if accepted['offered'] != offered or seconds < 60:
                     raise ValueError('offered load or steady window differs from the contract')
                 if not calibrate:
-                    calibrated = matrix.checked_calibration(root, name, profile, matrix.digest(root / 'frozen-loads.json'))
-                    if seconds != calibrated['seconds'] or accepted['pairs'] != calibrated['pairs']:
-                        raise ValueError('candidate window or pair count differs from calibration')
+                    calibrated_seconds, calibrated_pairs = matrix.candidate_design(root, frozen, case, profile)
+                    if seconds != calibrated_seconds or accepted['pairs'] != calibrated_pairs:
+                        raise ValueError('candidate window or pair count differs from the predeclared calibration rule')
                 if offered and seconds * offered < matrix.SPEC['minimumFixedLoadCalls']:
                     raise ValueError('too few fixed-load arrivals for tail measurement')
                 if accepted['frozenLoadsSha256'] != matrix.digest(root / 'frozen-loads.json'):
@@ -108,7 +110,7 @@ def main():
     except (ValueError, KeyError, OSError) as error:
         print(f'ADR-11 matrix is unfinished: {error}', file=sys.stderr)
         return 2
-    print(f'ADR-11 matrix: all {count} PostgreSQL 18 cells pass calibration, raw evidence and zero-regression checks')
+    print(f'ADR-11 matrix: all {count} PostgreSQL 18 comparisons pass method calibration, raw evidence and bounded regression checks')
     return 0
 
 

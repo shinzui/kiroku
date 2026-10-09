@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Collect the predeclared ADR-11 matrix using the Kenshou cell operator.
 
-The stages are deliberately separate: pilots freeze offered loads, all A/A
-calibrations finish before A/B starts, and an inconclusive A/B stops the gate.
+The stages are deliberately separate: pilots freeze offered loads, two A/A
+method calibrations finish before A/B starts, and an inconclusive A/B stops the gate.
 No timing allowance is introduced. Output directories are never overwritten.
 """
 import argparse
@@ -189,6 +189,27 @@ def trial_tag(seconds, pairs):
     return f'window-{seconds}-pairs-{pairs}'
 
 
+def initial_duration(case, profile):
+    offered = 0 if profile == 'capacity' else case[profile + 'Offered']
+    return 61 if not offered else max(61, math.ceil(SPEC['minimumFixedLoadCalls'] / offered))
+
+
+def calibration_anchor(frozen, profile):
+    case = next(case for case in frozen['cases']
+                if case['configuration']['id'] == SPEC['calibrationConfiguration'])
+    calibrated_profile = 'capacity' if profile == 'capacity' else 'below'
+    return case, calibrated_profile
+
+
+def candidate_design(root, frozen, case, profile):
+    anchor, calibrated_profile = calibration_anchor(frozen, profile)
+    name = anchor['configuration']['id'] + '-' + calibrated_profile
+    accepted = checked_calibration(root, name, calibrated_profile, digest(root / 'frozen-loads.json'))
+    # Reuse the demonstrated steady window, rather than multiplying an
+    # already-long low-rate case and collecting unnecessary extra arrivals.
+    return max(initial_duration(case, profile), accepted['seconds']), accepted['pairs']
+
+
 def resolution(path, calibrate, profile):
     spec = importlib.util.spec_from_file_location('resolution', HERE / 'check-comparison.py')
     module = importlib.util.module_from_spec(spec)
@@ -230,17 +251,21 @@ def pairs(args, calibrate):
     if candidate['harness']['dirty'] or candidate['harness'] != frozen['control']['harness']:
         raise ValueError('both arms must use the same clean harness revision')
     if not calibrate:
-        # Check the entire A/A matrix before the first candidate trial starts.
-        for case in frozen['cases']:
-            for profile in SPEC['profiles']:
-                name = case['configuration']['id'] + '-' + profile
-                checked_calibration(args.root, name, profile, digest(args.root / 'frozen-loads.json'))
+        # Calibrate the measurement method on frequent checkpoint writes.
+        # Every A/B cell still has to meet its own uncertainty limits.
+        for profile in SPEC['calibrationProfiles']:
+            name = SPEC['calibrationConfiguration'] + '-' + profile
+            checked_calibration(args.root, name, profile, digest(args.root / 'frozen-loads.json'))
     for case in frozen['cases']:
         config = case['configuration']
+        if calibrate and config['id'] != SPEC['calibrationConfiguration']:
+            continue
         for profile in SPEC['profiles']:
+            if calibrate and profile not in SPEC['calibrationProfiles']:
+                continue
             name = config['id'] + '-' + profile
             offered = 0 if profile == 'capacity' else case[profile + 'Offered']
-            duration = 61 if offered == 0 else max(61, math.ceil(SPEC['minimumFixedLoadCalls'] / offered))
+            duration = initial_duration(case, profile)
             directory = args.root / stage / name
             if directory.exists():
                 if (directory / 'accepted.json').exists():
@@ -256,11 +281,7 @@ def pairs(args, calibrate):
             write(policy_file, policy)
             limits = SPEC['calibrationWindows'] if calibrate else [{'durationMultiplier': 1, 'pairs': 5}]
             if not calibrate:
-                accepted = read(args.root / 'calibration' / name / 'accepted.json')
-                if accepted['resolution']['status'] != 'pass':
-                    raise ValueError('candidate measurement requires passed calibration')
-                duration = accepted['seconds']
-                limits[0]['pairs'] = accepted['pairs']
+                duration, limits[0]['pairs'] = candidate_design(args.root, frozen, case, profile)
             for window in limits:
                 seconds = duration * window['durationMultiplier']
                 pairs_count = window['pairs']

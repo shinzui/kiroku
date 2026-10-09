@@ -87,8 +87,13 @@ The required performance scope is PostgreSQL 18 on alpha, following the user
 correction on 2026-10-09. Completed PostgreSQL 17 functional tests remain recorded. A failed or wide
 control/control interval requires investigation or additional measurement before
 candidate comparisons. Candidate checks omit `--calibrate`; they require zero
-slowdown allowances and a nonpositive adverse upper bound. The 1% throughput/p50
-and 3% p95/p99 limits constrain precision, never permitted slowdown.
+slowdown allowances. Any confidence interval wholly on the adverse side blocks
+acceptance, even below the precision limits. An interval containing equality can
+pass only if it is sufficiently narrow and its adverse upper bound is within the
+1% throughput/p50 or 3% p95/p99 measurement-resolution target. This reports
+bounded uncertainty around unchanged performance; it does not accept a confirmed
+slowdown or require unchanged code to demonstrate a statistically significant
+speedup. Lack of significance alone is insufficient.
 
 This package and its checker are evidence-collection machinery. A single cell
 is explicitly `complete_matrix: false`; full ADR-11 coverage and integration
@@ -100,39 +105,47 @@ python3 bench/mp12-cell/test-comparison.py
 ```
 
 
-## Frozen representative matrix
+## Focused plan 81 matrix
 
-`matrix.json` declares 14 configurations, each measured at sustainable capacity,
-20% of the slowest control pilot capacity, and 90% of that capacity. These 42
-cells cover all eight combinations of single/multi-stream, fresh/existing and
-small/batched appends across the matrix. Every subscription mode has both
-complementary write shapes and checkpoint batches 1/100. Native single workers,
-four-member groups, the production adapter, append-only and an idle category
-subscription are included. The idle target is `quiet`; appends target `probe`,
-and zero deliveries/checkpoint updates are mandatory. The 512-character payload,
-four appenders, pool ten, durability and RTS settings stay fixed. Fresh names
-use even indices during warmup and odd indices during steady measurement,
-independent of clocks. Both arms therefore exercise the same hash partitions;
-the raw result records a fixture preview that the final gate verifies.
+`matrix.json` declares five workloads, each measured at sustainable capacity,
+20% of the slowest control pilot capacity, and 90% of that capacity: 15 A/B
+cells. This is change-based coverage of the new checkpoint metadata, selected
+before viewing any candidate results.
 
-This is a representative matrix, not every possible interaction. The complementary
-shapes deliberately exercise expensive fan-out and frequent checkpoint writes in
-different modes while covering all declared factors. No candidate measurement
-has been viewed when freezing it. Later hook/watchdog profiles remain owned by
-plans 83/84 and cannot substitute for the default matrix.
+| Workload | Risk covered |
+| --- | --- |
+| Append-only, multiple fresh streams, batched appends | Unchanged append path under write and allocation pressure |
+| Native category, single existing stream, small appends, checkpoint batch 1 | Default one-member checkpoint row and frequent saves |
+| Four-member category group, existing streams, checkpoint batch 1 | Group metadata under maximum checkpoint-write frequency |
+| Four-member all-streams group, multiple fresh streams, batched appends, checkpoint batch 100 | Amortized saves, hash partitioning and batched fan-out |
+| Real Shibuya adapter, multiple existing streams, small appends, checkpoint batch 1 | Acknowledgement-coupled processing in the same process and pool |
 
-Capacity pilots use three 61-second control runs for each configuration. The
-slowest observed capacity sets both offered loads before any candidate trial.
-Fixed-load trials retain at least 6,100 declared arrivals; their initial window
-is `max(61, ceil(6100 / offered))` seconds. A/A calibration uses five alternating
-pairs at the initial window, then five pairs at tenfold duration, then twenty
-pairs at that same longer duration if necessary. This increases independent
-observations without multiplying capacity-run data growth a hundredfold.
-The first sufficiently precise unbiased calibration fixes both the candidate
-window and pair count.
-Every calibration cell must pass before the first A/B cell starts. Candidate
-inconclusiveness or regression stops acceptance and requires investigation;
-the runner never widens a limit or silently selects a faster retry.
+The append SQL and the idle/fetch paths are unchanged by plan 81. Structural
+checks and completed functional tests cover startup and resize correctness;
+repeating every unchanged target and write-shape combination adds little
+performance assurance for this change. The earlier 42-cell expansion is not
+required here. EP-6 selects broader integrated cohort coverage, including
+paths changed by later children. Hook/watchdog cost remains owned by plans 83/84.
+
+Payload size (512 characters), four appenders, pool ten, durability, RTS settings
+and deterministic fresh-stream names remain fixed. The recorded fixture preview
+binds even warmup and odd steady names to the same hash partitions in both arms.
+
+Capacity pilots use three 61-second control runs per configuration and freeze
+both offered loads before any candidate trial. Fixed-load initial windows are
+`max(61, ceil(6100 / offered))` seconds, retaining at least 6,100 arrivals.
+Method calibration uses the frequent-checkpoint group configuration at capacity
+and below capacity, covering throughput and latency separately. It starts with
+five alternating pairs, then five at tenfold duration, then twenty at that same
+longer duration if precision remains insufficient. Both method calibrations
+must pass before A/B starts. Capacity comparisons inherit the capacity calibration;
+both fixed-load profiles inherit the latency calibration. Each case uses the longer of its
+own minimum-arrival window and the demonstrated calibration window, with the
+calibrated pair count. It does not multiply an already-long low-rate case. These rules are frozen before viewing candidates.
+
+Every A/B cell must independently satisfy the uncertainty and regression checks;
+shared method calibration does not waive them. Inconclusiveness or regression
+stops acceptance. The runner never widens limits or selects a favorable retry.
 
 The backlog bound is independent of window length: at most eight times the
 larger of the append width/batch and checkpoint batch/member count, capped by
@@ -170,6 +183,6 @@ journal before proceeding. No trial directory or published descriptor is overwri
 `kiroku-store/bench/results/mp12-cell-matrix`) supplies the entire accepted
 matrix. The checker recomputes resolution judgments and raw hashes, verifies
 workload/cohort identities and refuses changed production source. Preserve the
-whole matrix directory with its sealed trees; relative tree lookup allows moving
+whole focused matrix directory with its sealed trees; relative tree lookup allows moving
 it between checkouts. Do not use a lone calibration or copied acceptance flag as
-full-matrix evidence. The earlier ADR-5 workload gates still run after this gate.
+complete plan 81 evidence. The earlier ADR-5 workload gates still run after this gate.

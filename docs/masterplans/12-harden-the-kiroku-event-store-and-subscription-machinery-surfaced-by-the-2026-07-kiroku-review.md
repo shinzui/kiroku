@@ -357,6 +357,16 @@ successful-hook and opt-in watchdog arms. Use one and several workers and checkp
 1 and 100 to expose checkpoint write amplification. Freeze representative payload sizes,
 concurrency, and scenario combinations before measuring; avoid a huge arbitrary Cartesian product.
 
+Individual children use a risk-based subset selected before viewing candidate results;
+EP-6 selects the broader integrated coverage described above. EP-1 uses five
+workloads (append-only, ordinary category saves, grouped saves at batches 1/100,
+and the real adapter), each at capacity and below/near-capacity offered load.
+Unchanged idle/fetch paths and duplicate target/write-shape combinations are
+omitted from EP-1 performance reruns. Calibrate the method on frequent group
+checkpoint writes at capacity and below capacity, then require adequate paired
+uncertainty separately in every A/B cell. Do not replay A/A for every unchanged
+combination. Broaden a child's subset when its changes affect an omitted path.
+
 For latency, drive fixed offered loads below saturation and near the control's sustainable limit;
 retain request arrival times so queueing delay is included. Separately measure maximum sustainable
 throughput. Measure only after workers reach live mode for live cases. Assert equal delivered work,
@@ -465,7 +475,18 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Surprises & Discoveries
 
-- EP-1's shared matrix is now predeclared in `bench/mp12-cell/matrix.json`:
+- Scope refinement (2026-10-09): the user delegated selection of necessary
+  tests and explicitly asked to avoid over-engineering. EP-1 now has five
+  risk-based workloads / 15 A/B cells and two method calibrations, replacing
+  the unused 42-cell queue. The queue was cancelled before its first submission.
+  Per-case precision, matched implementations, durable delivery, backlog and
+  original-control checks remain mandatory. A bounded interval around equality
+  can establish unchanged performance at the declared resolution; the former
+  demand for a nonpositive upper bound accidentally required a speedup in every
+  unchanged case. Confirmed adverse intervals still block, however small.
+  No candidate results were viewed before this refinement.
+
+- Initial EP-1 matrix (superseded by the focused scope above) was predeclared in `bench/mp12-cell/matrix.json`:
   14 complementary configurations cover all eight write shapes, all native and
   real adapter modes, idle subscriptions, and checkpoint batches 1/100. Three
   profiles separate sustainable capacity from below/near-limit latency; control
@@ -562,6 +583,15 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 
 ## Decision Log
+
+- Decision (2026-10-09, user-directed scope): use risk-based child performance
+  coverage, not exhaustive target/write-shape combinations. EP-1 requires five
+  workloads at three profiles and two method calibrations, with precise paired
+  evidence independently required per comparison. Accept tightly bounded
+  uncertainty around equality without requiring a speedup; confirmed adverse
+  changes remain blocking. See ADR-11 for the bounded-evidence contract.
+  Rationale: unchanged idle/fetch paths and redundant A/A combinations do not
+  justify replaying the full integrated cohort matrix for this checkpoint change.
 
 - Decision: Preserve write performance as a hard acceptance constraint, use mixed workloads against
   the original control, make `handlerStallWarnAfter` default to `Nothing`, and preserve no-hook
@@ -793,3 +823,5 @@ Revision note (2026-10-09, measurement scope and gate): Propagated the user
 PostgreSQL 18-only correction, recorded cell calibration and the frozen shared
 matrix, and integrated authoritative evidence checks into `just perf-check`.
 The performance gate remains open.
+
+Revision note (2026-10-09, focused assurance): Replaced redundant EP-1 combinations and per-cell A/A repeats with change-based coverage and two method calibrations. Clarified bounded equivalence without requiring a speedup or accepting a confirmed slowdown.

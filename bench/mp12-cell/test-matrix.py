@@ -22,17 +22,29 @@ gate = load('gate', 'check-matrix.py')
 
 
 class MatrixContract(unittest.TestCase):
-    def test_representative_coverage(self):
+    def test_checkpoint_change_coverage(self):
         configurations = matrix.SPEC['configurations']
-        self.assertEqual({(c['width'], c['fresh'], c['appendBatch']) for c in configurations},
-                         {(width, fresh, batch) for width in [1, 4] for fresh in [False, True] for batch in [1, 100]})
-        for mode in ['none', 'idle', 'all', 'category', 'group-all', 'group-category', 'adapter']:
-            rows = [c for c in configurations if c['mode'] == mode]
-            self.assertEqual({c['width'] for c in rows}, {1, 4})
-            self.assertEqual({c['fresh'] for c in rows}, {False, True})
-            self.assertEqual({c['appendBatch'] for c in rows}, {1, 100})
-            self.assertEqual({c['checkpointBatch'] for c in rows}, {1, 100})
+        self.assertEqual(len(configurations), 5)
+        self.assertEqual({c['mode'] for c in configurations},
+                         {'none', 'category', 'group-all', 'group-category', 'adapter'})
+        groups = [c for c in configurations if c['mode'].startswith('group-')]
+        self.assertEqual({c['checkpointBatch'] for c in groups}, {1, 100})
+        self.assertEqual({c['width'] for c in configurations}, {1, 4})
+        self.assertEqual({c['fresh'] for c in configurations}, {False, True})
+        self.assertEqual({c['appendBatch'] for c in configurations}, {1, 100})
+        self.assertEqual(matrix.SPEC['calibrationProfiles'], ['capacity', 'below'])
+        self.assertIn(matrix.SPEC['calibrationConfiguration'], {c['id'] for c in groups})
         self.assertEqual(matrix.SPEC['profiles'], ['capacity', 'below', 'near'])
+
+    def test_fixed_load_case_inherits_predeclared_calibration_effort(self):
+        anchor = {'configuration': {'id': matrix.SPEC['calibrationConfiguration']}, 'belowOffered': 100}
+        case = {'configuration': {'id': 'other'}, 'nearOffered': 50}
+        frozen = {'cases': [anchor, case]}
+        with patch.object(matrix, 'checked_calibration', return_value={'seconds':610, 'pairs':20}), patch.object(matrix, 'digest', return_value='frozen'):
+            seconds, pairs = matrix.candidate_design(Path('/unused'), frozen, case, 'near')
+            self.assertEqual((seconds, pairs), (610,20))
+            case['nearOffered'] = 1
+            self.assertEqual(matrix.candidate_design(Path('/unused'), frozen, case, 'near'), (6100,20))
 
     def test_capacity_and_latency_have_distinct_primary_metrics(self):
         self.assertEqual(matrix.required_metrics('capacity'), ['op.append.throughput'])

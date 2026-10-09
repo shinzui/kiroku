@@ -52,12 +52,26 @@ class ComparisonAcceptance(unittest.TestCase):
         data['metrics']['op.append.latency.p50']['relativeLimit'] = .01
         self.assertEqual(gate.check(data, False)['status'], 'inconclusive')
 
-    def test_candidate_needs_a_nonpositive_adverse_upper_bound(self):
-        self.assertEqual(gate.check(evidence(), False)['status'], 'inconclusive')
+    def test_unchanged_candidate_does_not_need_to_prove_a_speedup(self):
+        data = evidence()
+        data['verdict'] = 'inconclusive'
+        for metric in data['metrics'].values():
+            metric['status'] = 'inconclusive'
+        self.assertEqual(gate.check(data, False)['status'], 'pass')
         data = evidence()
         for metric in data['metrics'].values():
             metric['ratio'] = {'low': .995, 'estimate': .997, 'high': .999}
         self.assertEqual(gate.check(data, False)['status'], 'pass')
+
+    def test_narrow_confirmed_slowdown_below_precision_limit_still_blocks(self):
+        data = evidence()
+        data['metrics']['op.append.latency.p50']['ratio'] = {'low':1.001,'estimate':1.002,'high':1.003}
+        self.assertEqual(gate.check(data, False)['status'], 'regression')
+
+    def test_nonsignificance_without_bounded_uncertainty_is_not_enough(self):
+        data = evidence()
+        data['metrics']['op.append.latency.p50']['ratio'] = {'low':.999,'estimate':1.006,'high':1.013}
+        self.assertEqual(gate.check(data, False)['status'], 'inconclusive')
 
     def test_confirmed_regression_is_preserved(self):
         data = evidence()

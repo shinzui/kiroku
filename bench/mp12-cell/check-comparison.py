@@ -50,11 +50,14 @@ def check(comparison, calibrate, required_metrics=None):
                 problems.append(f'{name}: control/control interval excludes equality')
         elif metric['relativeLimit'] != 0 or metric['absoluteFloor'] != 0:
             problems.append(f'{name}: a slowdown allowance was introduced')
-        elif metric['status'] != 'pass' or high > 1:
-            problems.append(f'{name}: no zero-regression upper bound ({metric["status"]})')
-    if not calibrate and comparison['verdict'] != 'pass':
+        elif metric['status'] == 'regression' or low > 1:
+            problems.append(f'{name}: confirmed adverse change')
+        elif high > 1 + resolution:
+            problems.append(f'{name}: possible adverse change exceeds bounded measurement uncertainty')
+    if not calibrate and comparison['verdict'] not in ('pass', 'inconclusive'):
         problems.append(f'Kenshou verdict: {comparison["verdict"]}')
-    regression = not calibrate and any(row['status'] == 'regression' for row in rows.values())
+    regression = not calibrate and (comparison['verdict'] == 'regression' or
+                  any(row['status'] == 'regression' or row['ratio']['low'] > 1 for row in rows.values()))
     status = 'regression' if regression else 'inconclusive' if problems else 'pass'
     return {'schema': 'kiroku.mp12.cell-resolution/v1', 'complete_matrix': False,
             'calibration': calibrate, 'status': status,
