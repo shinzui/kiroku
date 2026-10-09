@@ -13,7 +13,7 @@
       "source": {
         "type": "git",
         "location": "https://github.com/shinzui/kiroku.git",
-        "rev": "15c21e8a7bd833573ccd117157f2f12e656629e8"
+        "rev": "7bd37df3de809c04b323146a8c5a3d6bc1325023"
       },
       "packages": [
         {
