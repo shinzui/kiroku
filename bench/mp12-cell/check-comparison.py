@@ -18,14 +18,19 @@ RESOLUTION = {
 }
 
 
-def check(comparison, calibrate):
+def check(comparison, calibrate, required_metrics=None):
     problems = list(comparison['reasons'])
+    algorithm = comparison.get('algorithm', {})
+    if (algorithm.get('name') != 'paired-bootstrap-t-envelope' or algorithm.get('version') != 1
+            or algorithm.get('confidenceLevel', 0) < .95 or algorithm.get('iterations', 0) < 10000):
+        problems.append('missing or weakened paired uncertainty algorithm')
     if comparison['pairCount'] < 5:
         problems.append('fewer than five valid pairs')
     if comparison['design'] not in ('abba', 'baab'):
         problems.append('trials are not alternating')
     rows = {}
-    for name, resolution in RESOLUTION.items():
+    required = RESOLUTION if required_metrics is None else {name: RESOLUTION[name] for name in required_metrics}
+    for name, resolution in required.items():
         metric = comparison['metrics'].get(name)
         if metric is None:
             problems.append(f'{name}: missing metric')

@@ -465,6 +465,16 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Surprises & Discoveries
 
+- EP-1's shared matrix is now predeclared in `bench/mp12-cell/matrix.json`:
+  14 complementary configurations cover all eight write shapes, all native and
+  real adapter modes, idle subscriptions, and checkpoint batches 1/100. Three
+  profiles separate sustainable capacity from below/near-limit latency; control
+  pilots freeze offered loads before candidates. Full A/A calibration precedes
+  every A/B stage. `just perf-check` now fails closed without all 42 accepted
+  cells and matching raw/cohort/source evidence. Interval precision and zero
+  regression allowances are unchanged. EP-1 remains In Progress; no candidate
+  comparison has run.
+
 - Alpha control/control calibration passed workload correctness in ten verified
   trials, but latency precision remains insufficient (5.35% p50, 4.07% p95,
   34.57% p99 interval half-widths). Full raw samples remain in sealed GCS
@@ -778,3 +788,8 @@ Revision note (2026-10-09, implementation): Began EP-1 in registry order, record
 its functional progress and migration allocation, and documented the worker
 initializer and validated adapter group-size integration for later children.
 EP-1 remains In Progress until all required acceptance evidence is complete.
+
+Revision note (2026-10-09, measurement scope and gate): Propagated the user
+PostgreSQL 18-only correction, recorded cell calibration and the frozen shared
+matrix, and integrated authoritative evidence checks into `just perf-check`.
+The performance gate remains open.

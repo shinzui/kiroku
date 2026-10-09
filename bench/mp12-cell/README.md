@@ -7,7 +7,7 @@ branch constructs membership using the old or validated API; all workload,
 measurement, compiler, RTS, and non-Kiroku dependencies are shared.
 
 Use the operator from `mori://shinzui/keiro-runtime-kenshou` at
-`68f986cd7548e7da64e6eeb0444d8f5524cf5e82` or later. Its operator guide is
+`31275c01a5e011d13465f4ef9a9c6abfd4b5e9df` or later. Its operator guide is
 project-relative `docs/guides/running-on-gcp.md` (artifact-level URI pending).
 The scenario contract is copied from that pinned project into both builds;
 its historical general-purpose executables refuse this dedicated scenario.
@@ -98,3 +98,78 @@ thresholds are untouched. Validate the checker with:
 ```bash
 python3 bench/mp12-cell/test-comparison.py
 ```
+
+
+## Frozen representative matrix
+
+`matrix.json` declares 14 configurations, each measured at sustainable capacity,
+20% of the slowest control pilot capacity, and 90% of that capacity. These 42
+cells cover all eight combinations of single/multi-stream, fresh/existing and
+small/batched appends across the matrix. Every subscription mode has both
+complementary write shapes and checkpoint batches 1/100. Native single workers,
+four-member groups, the production adapter, append-only and an idle category
+subscription are included. The idle target is `quiet`; appends target `probe`,
+and zero deliveries/checkpoint updates are mandatory. The 512-character payload,
+four appenders, pool ten, durability and RTS settings stay fixed. Fresh names
+use even indices during warmup and odd indices during steady measurement,
+independent of clocks. Both arms therefore exercise the same hash partitions;
+the raw result records a fixture preview that the final gate verifies.
+
+This is a representative matrix, not every possible interaction. The complementary
+shapes deliberately exercise expensive fan-out and frequent checkpoint writes in
+different modes while covering all declared factors. No candidate measurement
+has been viewed when freezing it. Later hook/watchdog profiles remain owned by
+plans 83/84 and cannot substitute for the default matrix.
+
+Capacity pilots use three 61-second control runs for each configuration. The
+slowest observed capacity sets both offered loads before any candidate trial.
+Fixed-load trials retain at least 6,100 declared arrivals; their initial window
+is `max(61, ceil(6100 / offered))` seconds. A/A calibration uses five alternating
+pairs at the initial window, then five pairs at tenfold duration, then twenty
+pairs at that same longer duration if necessary. This increases independent
+observations without multiplying capacity-run data growth a hundredfold.
+The first sufficiently precise unbiased calibration fixes both the candidate
+window and pair count.
+Every calibration cell must pass before the first A/B cell starts. Candidate
+inconclusiveness or regression stops acceptance and requires investigation;
+the runner never widens a limit or silently selects a faster retry.
+
+The backlog bound is independent of window length: at most eight times the
+larger of the append width/batch and checkpoint batch/member count, capped by
+`mp12.max-backlog`. Capacity backpressure is tighter than that limit. Handler
+progress is sampled at 10 Hz, durable pending work at 1 Hz, with completeness
+assertions and final exact drain. Checkpoint statement snapshots record SQL
+execution time and WAL per save; those are server execution costs, not client
+round-trip latency. Startup-to-live time is recorded outside primary timing for one and four workers.
+Full activity/lock, CPU, RTS, raw arrival and service samples
+remain in the sealed trees.
+
+Use the freshly built operator at the pinned Kenshou revision. Collect stages
+sequentially on an idle cell, with a new payload pair built from a clean checkout:
+
+```bash
+python3 bench/mp12-cell/run-matrix.py pilot --operator kenshou --cell alpha \
+  --control /tmp/mp12-released.payload.json --root /tmp/mp12-matrix
+python3 bench/mp12-cell/run-matrix.py calibrate --operator kenshou --cell alpha \
+  --control /tmp/mp12-released.payload.json --root /tmp/mp12-matrix
+python3 bench/mp12-cell/run-matrix.py compare --operator kenshou --cell alpha \
+  --control /tmp/mp12-released.payload.json --candidate /tmp/mp12-head.payload.json \
+  --root /tmp/mp12-matrix
+MP12_CELL_MATRIX=/tmp/mp12-matrix just perf-check
+python3 bench/mp12-cell/test-matrix.py
+```
+
+All cell commands request startup so automatic idle stopping cannot strand the
+next submission. The operator holds and renews leases, resets PostgreSQL and
+verifies seals. The collector rechecks every artifact hash before saving evidence.
+Completed pilot/calibration cells can be reused with identical frozen inputs;
+an interrupted cell session must be inspected/resumed through its operator
+journal before proceeding. No trial directory or published descriptor is overwritten.
+
+`just perf-check` now fails closed until `MP12_CELL_MATRIX` (or the default
+`kiroku-store/bench/results/mp12-cell-matrix`) supplies the entire accepted
+matrix. The checker recomputes resolution judgments and raw hashes, verifies
+workload/cohort identities and refuses changed production source. Preserve the
+whole matrix directory with its sealed trees; relative tree lookup allows moving
+it between checkouts. Do not use a lone calibration or copied acceptance flag as
+full-matrix evidence. The earlier ADR-5 workload gates still run after this gate.

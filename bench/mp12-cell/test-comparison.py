@@ -11,12 +11,20 @@ spec.loader.exec_module(gate)
 
 def evidence():
     return {'reasons': [], 'pairCount': 5, 'design': 'abba', 'verdict': 'pass',
+            'algorithm': {'name': 'paired-bootstrap-t-envelope', 'version': 1,
+                          'confidenceLevel': .95, 'iterations': 10000},
             'metrics': {name: {'ratio': {'low': .998, 'estimate': 1, 'high': 1.002},
                                'status': 'pass', 'relativeLimit': 0, 'absoluteFloor': 0}
                         for name in gate.RESOLUTION}}
 
 
 class ComparisonAcceptance(unittest.TestCase):
+    def test_weaker_or_missing_uncertainty_is_not_accepted(self):
+        for field, value in [('confidenceLevel', .9), ('iterations', 1000), ('name', 'unpaired')]:
+            data = evidence()
+            data['algorithm'][field] = value
+            self.assertEqual(gate.check(data, True)['status'], 'inconclusive')
+
     def test_narrow_unbiased_calibration(self):
         self.assertEqual(gate.check(evidence(), True)['status'], 'pass')
 

@@ -67,6 +67,7 @@ adoption path exists.
 
 ## Progress
 
+- [x] (2026-10-09) Prepare the matched Linux harness, predeclare the 42-cell representative matrix, and wire fail-closed full-matrix verification into `just perf-check`.
 - [ ] Write-performance gate: establish pre-cohort controls and pass mixed append/subscription throughput, latency, checkpoint/WAL, and GC checks under ADR-11 before completion.
 - [x] (2026-10-09 16:54 UTC) M1: introduce validated `ConsumerGroupSize` and `mkConsumerGroup`; write `consumer_group_size` through initialization, ordinary checkpoint saves, and dead-letter checkpoint saves; read and validate group-wide stored topology at startup.
 - [x] (2026-10-09 16:54 UTC) M1: generate the derived-topology migration and add typed mismatch, upgrade-path, and underestimate-then-resize tests, including the currently lossy skewed size-2 to size-3 scenario.
@@ -76,6 +77,31 @@ adoption path exists.
 
 
 ## Surprises & Discoveries
+
+- Shared matrix implementation (2026-10-09): `bench/mp12-cell/matrix.json`
+  freezes 14 complementary configurations and three profiles (capacity, 20% and
+  90% of the slowest control pilot capacity). Across the matrix all eight write
+  shapes are covered; every mode has both payload/stream shapes and checkpoint
+  frequencies. Idle subscriptions target a category receiving no matching work.
+  The payload enforces zero idle deliveries/updates, a backlog bound independent
+  of trial duration, and records startup-to-live time outside primary timing.
+  `run-matrix.py` freezes offered loads before candidates, requires all A/A cells
+  before A/B, and extends calibration using five pairs at the initial window,
+  five at tenfold duration, then twenty at that longer duration. Candidate duration
+  and pair count are fixed by calibration. Throughput gates capacity; p50/p95/p99
+  gate fixed-load cells. Eight interval tests and six matrix/evidence tests pass.
+  The harness metadata is pinned to
+  `mori://shinzui/keiro-runtime-kenshou` revision
+  `31275c01a5e011d13465f4ef9a9c6abfd4b5e9df`; its registry tests and operator
+  build pass. `just perf-check` now fails closed without the full matrix, rather
+  than implying acceptance from its previously passing ADR-5 controls.
+  Both matched Linux payload builds pass. Fresh-stream fixture names use
+  deterministic, disjoint warmup/steady sequences rather than timestamps;
+  the gate verifies their recorded preview so matched arms retain identical
+  group partition assignments. Matrix trials remain open; the earlier
+  610-second A/A timing pilot is running
+  on alpha, and its first trial passed 61,000-event delivery, durable drain,
+  61,000 HOT checkpoint updates, and benchmark grade. It is not full acceptance.
 
 - Alpha cell calibration (2026-10-09): all ten sealed/verified control runs
   delivered and durably checkpointed exactly 6,100 events, with 6,100 HOT
@@ -303,10 +329,11 @@ validation, and operator documentation are present. ADR-2 is amended and strict
 profile enforcement passes. The new mismatch exception remains a concrete
 `Exception`; plan 82 owns its routing through the shared startup-refusal parent.
 
-Both PostgreSQL 17.10 and 18.6 pass the complete suite; the existing ADR-5
-`just perf-check` passes all 16 controlled cells and the structural checks. This
-child remains In Progress until telemetry and ADR-11 controlled write-performance
-acceptance are satisfied.
+Both PostgreSQL 17.10 and 18.6 pass the complete suite. Before integrating the
+new matrix gate, the existing ADR-5 controls passed all 16 cells and the structural
+checks; historical telemetry also completed. `just perf-check` now intentionally
+fails until full ADR-11 matrix evidence is available. This child remains In
+Progress pending that controlled write-performance acceptance.
 The pre-cohort control remains `e6ea664`; no performance acceptance is inferred
 from functional tests or the probe's smoke checks.
 
@@ -656,3 +683,8 @@ configured-size checkpoint writes, pre-insertion topology validation, migration
 0013, and transactional minimum-position resize. Updated consumers and tests,
 corrected the user guide and ADR-2, and preserved the pre-cohort control. Runtime
 and performance evidence are recorded above; unfinished acceptance remains open.
+
+Revision note (2026-10-09, cell gate): Applied the PostgreSQL 18-only user scope,
+retained inconclusive sealed calibration evidence, corrected arrival timing,
+and implemented the representative matrix collector and fail-closed gate.
+Functional acceptance remains satisfied; performance acceptance remains open.

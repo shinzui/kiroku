@@ -3,7 +3,7 @@
   inputs = {
     kiroku.url = "path:../..";
     kenshou = {
-      url = "github:shinzui/keiro-runtime-kenshou/68f986cd7548e7da64e6eeb0444d8f5524cf5e82";
+      url = "github:shinzui/keiro-runtime-kenshou/31275c01a5e011d13465f4ef9a9c6abfd4b5e9df";
     };
     control = {
       url = "github:shinzui/kiroku/e6ea66433c5320097b6afd3c4ca56cd18ba86bd0";

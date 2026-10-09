@@ -352,17 +352,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1791568053,
-        "narHash": "sha256-BUAoaO0GOlGAJnPoE9LpzpZWzC27OaTFV3jxUyGIOaA=",
+        "lastModified": 1791572103,
+        "narHash": "sha256-28m9X0tITUuqrt2wxJhy5XISGSnGNPFGyoHP/rzi9h4=",
         "owner": "shinzui",
         "repo": "keiro-runtime-kenshou",
-        "rev": "68f986cd7548e7da64e6eeb0444d8f5524cf5e82",
+        "rev": "31275c01a5e011d13465f4ef9a9c6abfd4b5e9df",
         "type": "github"
       },
       "original": {
         "owner": "shinzui",
         "repo": "keiro-runtime-kenshou",
-        "rev": "68f986cd7548e7da64e6eeb0444d8f5524cf5e82",
+        "rev": "31275c01a5e011d13465f4ef9a9c6abfd4b5e9df",
         "type": "github"
       }
     },

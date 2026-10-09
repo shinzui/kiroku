@@ -1,0 +1,33 @@
+{
+  "schema": "kiroku.mp12.matrix-spec/v1",
+  "postgresMajor": 18,
+  "payloadCharacters": 512,
+  "appenders": 4,
+  "poolSize": 10,
+  "profiles": ["capacity", "below", "near"],
+  "belowCapacityFraction": 0.2,
+  "nearCapacityFraction": 0.9,
+  "minimumFixedLoadCalls": 6100,
+  "minimumPairs": 5,
+  "calibrationWindows": [
+    {"durationMultiplier": 1, "pairs": 5},
+    {"durationMultiplier": 10, "pairs": 5},
+    {"durationMultiplier": 10, "pairs": 20}
+  ],
+  "configurations": [
+    {"id": "none-single-existing-small", "mode": "none", "width": 1, "fresh": false, "appendBatch": 1, "checkpointBatch": 1},
+    {"id": "none-multi-fresh-batched", "mode": "none", "width": 4, "fresh": true, "appendBatch": 100, "checkpointBatch": 100},
+    {"id": "idle-single-fresh-small", "mode": "idle", "width": 1, "fresh": true, "appendBatch": 1, "checkpointBatch": 1},
+    {"id": "idle-multi-existing-batched", "mode": "idle", "width": 4, "fresh": false, "appendBatch": 100, "checkpointBatch": 100},
+    {"id": "all-single-existing-batched", "mode": "all", "width": 1, "fresh": false, "appendBatch": 100, "checkpointBatch": 1},
+    {"id": "all-multi-fresh-small", "mode": "all", "width": 4, "fresh": true, "appendBatch": 1, "checkpointBatch": 100},
+    {"id": "category-single-fresh-batched", "mode": "category", "width": 1, "fresh": true, "appendBatch": 100, "checkpointBatch": 1},
+    {"id": "category-multi-existing-small", "mode": "category", "width": 4, "fresh": false, "appendBatch": 1, "checkpointBatch": 100},
+    {"id": "group-all-single-existing-small", "mode": "group-all", "width": 1, "fresh": false, "appendBatch": 1, "checkpointBatch": 100},
+    {"id": "group-all-multi-fresh-batched", "mode": "group-all", "width": 4, "fresh": true, "appendBatch": 100, "checkpointBatch": 1},
+    {"id": "group-category-single-fresh-small", "mode": "group-category", "width": 1, "fresh": true, "appendBatch": 1, "checkpointBatch": 1},
+    {"id": "group-category-multi-existing-batched", "mode": "group-category", "width": 4, "fresh": false, "appendBatch": 100, "checkpointBatch": 100},
+    {"id": "adapter-single-existing-batched", "mode": "adapter", "width": 1, "fresh": false, "appendBatch": 100, "checkpointBatch": 100},
+    {"id": "adapter-multi-fresh-small", "mode": "adapter", "width": 4, "fresh": true, "appendBatch": 1, "checkpointBatch": 1}
+  ]
+}
