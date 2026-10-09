@@ -463,6 +463,12 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Surprises & Discoveries
 
+- EP-1 controlled benchmark preparation: matched Linux payloads build under
+  `bench/mp12-cell`, reusing `mori://shinzui/keiro-runtime-kenshou` at revision
+  `68f986cd7548e7da64e6eeb0444d8f5524cf5e82`. Alpha (PostgreSQL 18) and beta
+  (PostgreSQL 17) are available. The workload and fail-closed checker are reusable
+  by later children; cell calibration and complete ADR-11 coverage remain open.
+
 - EP-1's local PostgreSQL 18 control/control write calibration exceeded the
   required precision and is inconclusive. The user directed authoritative
   measurement onto `mori://shinzui/keiro-runtime-kenshou` infrastructure. Its

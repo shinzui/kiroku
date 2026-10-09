@@ -1,0 +1,54 @@
+{
+  "schema": "kenshou.cohort/v1",
+  "name": "released",
+  "description": "MP-12 controlled write comparison; Kiroku source is the only runtime varying axis.",
+  "verifiedAt": "pending",
+  "compiler": "ghc-9.12.4",
+  "indexState": "2026-09-20T13:44:47Z",
+  "projectFile": "flake.nix",
+  "components": [
+    {
+      "id": "kiroku",
+      "moriUri": "mori://shinzui/kiroku",
+      "source": {
+        "type": "git",
+        "location": "https://github.com/shinzui/kiroku.git",
+        "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0"
+      },
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "version": "0.9.0.1",
+          "subdir": "kiroku-store"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "version": "0.6.0.0",
+          "subdir": "kiroku-store-migrations"
+        },
+        {
+          "name": "kiroku-otel",
+          "version": "0.2.0.10",
+          "subdir": "kiroku-otel"
+        },
+        {
+          "name": "kiroku-metrics",
+          "version": "0.1.0.10",
+          "subdir": "kiroku-metrics"
+        },
+        {
+          "name": "kiroku-cli",
+          "version": "0.2.0.8",
+          "subdir": "kiroku-cli"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "version": "0.5.1.5",
+          "subdir": "shibuya-kiroku-adapter"
+        }
+      ]
+    }
+  ],
+  "allowNewer": [],
+  "exceptions": []
+}

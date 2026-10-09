@@ -77,6 +77,17 @@ adoption path exists.
 
 ## Surprises & Discoveries
 
+- Controlled cell preparation (2026-10-09): `bench/mp12-cell` builds matched
+  Linux baseline/candidate payloads with the existing Kenshou executor and
+  measurement libraries. Both Linux builds pass. The shared scenario and p95
+  metrics are pinned at `mori://shinzui/keiro-runtime-kenshou` revision
+  `68f986cd7548e7da64e6eeb0444d8f5524cf5e82`; its 11 registry tests and 32
+  measurement tests pass. Seven local checker tests enforce missing-metric,
+  health, control-bias, uncertainty, and zero-regression rejection. Cell trials
+  have not yet run; this is preparation, not performance acceptance.
+  The production package directories are unchanged from candidate revision
+  `15c21e8a7bd833573ccd117157f2f12e656629e8`.
+
 - Validation: `nix develop .#postgresql17 --command cabal test all
   --test-show-details=direct` passes every suite (store 326, migrations 23,
   adapter 38, CLI 22, metrics 20, OpenTelemetry 17 examples). PostgreSQL 18.6

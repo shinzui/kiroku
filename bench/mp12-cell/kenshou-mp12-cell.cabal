@@ -1,0 +1,57 @@
+cabal-version: 3.0
+name:          kenshou-mp12-cell
+version:       0.1.0.0
+synopsis:
+  Controlled MP-12 write and subscription verification payload
+
+license:       BSD-3-Clause
+build-type:    Simple
+
+flag legacy-topology
+  description: Construct membership against the original pre-cohort API
+  default:     False
+  manual:      True
+
+executable kenshou
+  main-is:            Main.hs
+  hs-source-dirs:     src
+  other-modules:
+    Kenshou.Suite.Kiroku.Bench.Hardening
+    Workload
+
+  default-language:   GHC2024
+  default-extensions:
+    BlockArguments
+    CPP
+    DuplicateRecordFields
+    ImportQualifiedPost
+    LambdaCase
+    NoFieldSelectors
+    OverloadedRecordDot
+    OverloadedStrings
+
+  ghc-options:
+    -Wall -threaded -rtsopts "-with-rtsopts=-N4 -T -A32m" -O2
+
+  if flag(legacy-topology)
+    cpp-options: -DLEGACY_TOPOLOGY
+
+  build-depends:
+    , aeson
+    , async
+    , base                    >=4.21 && <4.22
+    , containers
+    , contravariant-extras
+    , directory
+    , effectful-core
+    , filepath
+    , hasql
+    , hasql-pool
+    , kenshou-core
+    , kenshou-measure
+    , kenshou-remote
+    , kiroku-store
+    , shibuya-core
+    , shibuya-kiroku-adapter
+    , text
+    , vector
