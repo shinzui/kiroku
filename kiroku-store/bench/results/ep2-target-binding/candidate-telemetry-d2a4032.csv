@@ -1,0 +1,11 @@
+Name,Mean (ps),2*Stdev (ps)
+All.category.category forward (100-event page),767866796,64720192
+All.category.exhausted-category,17074621,432582
+All.category.$all forward (100-event page baseline),751992578,71690434
+All.reliability-audit.subscription category catch-up 100 events,1427240478,19623460
+All.category-scaling.plain caught-up poll (200 streams),178030151,17487296
+All.category-scaling.group caught-up poll (20000 streams),202226733,4965206
+All.category-scaling.plain page from 0 (20000 streams),6470200000,338407924
+All.category-scaling.exhausted category (200 streams),177920507,14607812
+All.subscription-checkpoint-inventory.100 rows,387763671,32003722
+All.subscription-checkpoint-inventory.10000 rows,38888187500,1812053586

@@ -72,13 +72,14 @@ exception type.
 
 ## Progress
 
-- [ ] Write-performance evidence: pass existing ADR-5 gates and collect focused old/new checkpoint-write and named telemetry evidence under amended ADR-11; label local timing uncertainty.
+- [ ] Write-performance acceptance: resolve the retained, repeated checkpoint-save cost and inconclusive append comparison before completing this child under ADR-11. Functional implementation and evidence collection are complete; the performance gate is open.
 - [x] (2026-10-09 22:49 UTC) M1: carry the current `GlobalPosition` in `ConnectionLost` and reconnect from the maximum of FSM cursor and `posRef`; add the mid-live-fetch regression test.
 - [x] (2026-10-09 22:49 UTC) M1: make `BatchSize` and the ack-stream buffer size validated types built by smart constructors, and route every runtime startup refusal through `SomeSubscriptionStartupFailure`.
 - [x] (2026-10-09 22:49 UTC) M2: add the typed `target_kind`/`target_category` columns and drop `stream_name` in one migration; persist and validate target identity through initialization, ordinary saves, and dead-letter saves.
 - [x] (2026-10-09 22:49 UTC) M2: add `TargetBindingPolicy` with an observable adoption of unbound rows, and expose an explicit transaction-composable target rebind operation.
 - [x] (2026-10-09 22:49 UTC) M3: update subscriptions, schema, adapter and observability guides and ADR-4; all six package suites pass (339 store examples, 24 migration examples, 38 adapter examples, 17 tracing examples, 20 metrics examples, 22 CLI examples).
-- [ ] M3: finish structural/controlled gates, telemetry and the focused durable checkpoint comparison; finalize source-pinned evidence and completion status.
+- [x] (2026-10-09) M3: retain source-pinned correctness, 20 structural examples, 16 controlled comparisons, all named telemetry results (including one timeout), and both initial and optimized durable checkpoint/mixed diagnostics in `kiroku-store/bench/results/ep2-target-binding/`.
+- [x] (2026-10-09) Focused optimization: use fixed-kind checkpoint statements; `cabal build all` passes and the current store suite passes 340 examples. Fix the dead-letter test’s premature cancellation barrier; retain its initial failed run.
 
 
 ## Surprises & Discoveries
@@ -231,12 +232,38 @@ exception type.
 
 ## Outcomes & Retrospective
 
-Implementation (2026-10-09): reconnect retains processed live progress, capacities
-are validated at construction, four semantic startup refusals share one parent,
-and migration 0014 persists target identity with declared adoption and explicit
-transactional rebind. All package correctness suites passed. ADR-4 and the guides
-record the final behavior. Structural and performance evidence remains in progress;
-this child is not yet marked complete and no package has been released.
+Implementation (2026-10-09): the functional scope is complete at `6612523`:
+reconnect retains processed live progress; capacities validate at construction;
+four semantic startup refusals share one parent; and migration 0014 persists
+target identity with declared adoption, uniform resize preservation and explicit
+transactional rebind. Guides and ADR-4 record the behavior. The initial six
+package suites passed, the optimized store suite passes 340 examples, 20
+structural examples pass, and all 16 controlled append comparisons remain valid
+because their paths were not changed by the checkpoint optimization.
+
+**This child remains In Progress.** All evidence is retained in
+`kiroku-store/bench/results/ep2-target-binding/README.md` and `summary.json`.
+The first quiet category-save comparison showed +7.6–17.0% latency and about
++4.2% WAL per save. Fixed-kind statements remove constant parameter encoding,
+but the follow-up still shows +25.6–26.5% category-save latency locally. Control
+and candidate table columns/indexes were checked against the bootstrap and
+migration 0013; neither has subscription triggers. Do not call this equivalent
+performance or accept the candidate on correctness alone.
+
+All twelve mixed trials (six initial, six optimized) delivered exactly 1,500
+events and 1,500 checkpoint updates apiece and durably drained. Against the
+original `e6ea664` control, optimized point changes are p50 +14.84%, p95 +64.02%,
+p99 +109.27%, total WAL +0.181% and allocation +2.34%. Tail changes reverse sign
+in the third pair; descriptive 95% intervals are very wide (p50 -18.08/+61.00%,
+p95 -57.16/+527.96%, p99 -82.28/+2371.79%). Allocation’s interval is -0.413/+5.160%.
+The initial +6.01% allocation point increase was reduced, but append-performance
+acceptance remains inconclusive, with material adverse signals retained. These
+are local diagnostics, not benchmark-grade Linux results. No policy was weakened,
+no package was released and no remote run or lease was started.
+
+The next work must resolve the affected checkpoint cost under the existing gate,
+or record an explicit user-approved change to that trade-off. EP3 is independently
+ready, but this turn has not begun it or marked EP2 complete.
 
 
 ## Context and Orientation
@@ -454,7 +481,8 @@ okf validate docs/adr --strict --profile docs/adr/profile.dhall --profile-enforc
 
 Finally run the [ADR-5](../adr/0005-three-tier-performance-regression-gates.md) performance gates
 from the repository root. `just perf-check` is the authoritative structural and
-controlled-workload tier and must pass. `just perf-telemetry` prints the historical cells against
+controlled-workload tier and must pass. Select the affected cells from the historical telemetry
+executable (the full `just perf-telemetry` remains available) against
 the checked-in baseline without failing on timing; compare the
 `All.reliability-audit.subscription category catch-up 100 events`, `All.category.*`, and
 `All.subscription-checkpoint-inventory.*` cells with their baseline rows, record both figures in
@@ -464,7 +492,10 @@ touches.
 
 ```bash
 just perf-check
-just perf-telemetry
+kiroku_bench=$(cabal list-bin kiroku-store:kiroku-store-bench)
+"$kiroku_bench" --baseline "$PWD/kiroku-store/bench/results/baseline.csv" \
+  --pattern '/category/ || /subscription-checkpoint-inventory/' \
+  --csv /tmp/mp12-ep2-telemetry.csv
 ```
 
 
@@ -597,3 +628,5 @@ write performance. Implementation and benchmark gates remain open.
 Revision note (2026-10-09, EP-2 implementation): apply the parent’s final proportional-evidence
 scope to this child, preserve plan 81’s topology and resize binding, and represent prior rebind
 identity honestly for legacy or mixed rows. Migration 0014 follows plan 81’s 0013.
+
+Revision note (2026-10-09, focused evidence): retain both implementations and all adverse/failed results; reduce constant parameter encoding and fix the new dead-letter fixture’s durable barrier. Functional and structural work is complete, but EP2 remains In Progress under the unchanged write-performance gate. No next child or release is claimed.

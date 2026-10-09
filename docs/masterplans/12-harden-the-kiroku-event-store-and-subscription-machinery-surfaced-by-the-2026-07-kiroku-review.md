@@ -434,8 +434,9 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 - [x] (2026-09-09) Design review, second pass: undecodable events dispose through a consumer callback rather than automatic dead-lettering; construction-time validation, the `stream_name` drop, checkpoint-module consolidation, landing order, and ADR-8 recorded.
 - [x] (2026-10-09) EP-1: derive stored topology by migration, persist and validate it, refuse unsafe restarts, validate group configuration at construction, and expose an idempotent gap-free resize operation in the checkpoint module.
 - [x] (2026-10-09) EP-1: amend ADR-2 and the consumer-group guide; expose the transaction surface needed for downstream adoption.
-- [ ] EP-2: reconnect database-driven live subscriptions from `posRef` and reject `batchSize < 1` before a worker starts.
-- [ ] EP-2: bind every checkpoint to its target in typed columns under a declared binding policy, drop `stream_name`, validate batch and buffer sizes at construction, introduce the startup-refusal parent exception, and document deliberate retarget operations.
+- [x] (2026-10-09) EP-2 functional scope: reconnect database-driven live subscriptions from `posRef` and reject `batchSize < 1` before a worker starts.
+- [x] (2026-10-09) EP-2 functional scope: bind every checkpoint to its target in typed columns under a declared binding policy, drop `stream_name`, validate batch and buffer sizes at construction, introduce the startup-refusal parent exception, and document deliberate retarget operations.
+- [ ] EP-2 acceptance: resolve the repeated local checkpoint-save cost and inconclusive append-performance evidence. EP2 remains In Progress; correctness and structural gates pass, but no performance acceptance or release is claimed.
 - [ ] EP-3: prove the current apparent-live stall, then make decode failure a typed per-event outcome that each subscriber disposes of through an optional callback, stopping by default, and that fails reads with a typed error.
 - [ ] EP-4: expose retry policy on single and consumer-group adapter configs; provide a guarded processor path and a worker-level handler-stall event the adapter configures.
 - [ ] EP-5: distinguish `stream_events_pkey` duplicates and `ux_stream_events_stream_version` corruption with deterministic mapping tests.
@@ -449,8 +450,12 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
   members. Both adapter capacities now use the validated store types to keep
   the workspace compiling; EP-4 consumes them without redefining them. The
   rebind report uses optional prior bindings to represent legacy and mixed
-  sets honestly. All six package correctness suites passed; performance gates
-  and focused evidence remain open.
+  sets honestly. All six initial package suites passed; the optimized store suite
+  passes 340 examples and the structural/controlled gates pass. Fixed-kind
+  checkpoint statements reduce encoding allocation. The category-save probe
+  remains consistently slower, and both initial and optimized mixed diagnostics
+  are inconclusive with adverse signals retained. EP2 stays In Progress; the
+  evidence lives in `kiroku-store/bench/results/ep2-target-binding/`.
 
 - Final minimum-evidence correction (2026-10-09): the user rejected the
   five-workload/three-profile protocol as still disproportionate. EP1 now uses
@@ -770,8 +775,17 @@ correctness suites and existing ADR-5 gates passed. Its six retained mixed trial
 show no consistent adverse signal; the three-pair strict statistical report stays
 inconclusive. The user's minimum-evidence scope is satisfied with that limitation
 recorded in plan 81 and `bench/mp12-cell/evidence/`. The extra benchmark queue
-is stopped and alpha VMs are shut down. The other five children remain Not
-Started and no package has been released. The next registry child is plan 82.
+is stopped and alpha VMs are shut down.
+
+EP2’s functional implementation is complete at `6612523`, including migration
+0014, target binding/rebind, typed capacities and live reconnect progress. Its
+correctness and structural/controlled checks pass. The retained focused probes
+show a repeated local category-checkpoint cost; the optimized mixed comparison
+has adverse median/tail point estimates with wide intervals and no statistical
+acceptance. EP2 remains In Progress under the existing gate. Four children remain
+Not Started, no package has been released, and plan 82 remains the active child.
+EP3 (plan 83) is the next independent registry child once this stopping point is
+resolved; it has not been started.
 
 
 
@@ -836,3 +850,5 @@ The performance gate remains open.
 Revision note (2026-10-09, focused assurance): Replaced redundant EP-1 combinations and per-cell A/A repeats with change-based coverage and two method calibrations. Clarified bounded equivalence without requiring a speedup or accepting a confirmed slowdown.
 
 Revision note (2026-10-09, final scope correction): Applied the user's minimum-evidence instruction, amended ADR-11 for proportional assurance, removed the default matrix prerequisite and marked EP1 Complete with the original strict comparison still inconclusive. No later child or release is claimed.
+
+Revision note (2026-10-09, EP2 evidence): record functional completion, constant-parameter optimization and retained passing checks plus adverse/failed local diagnostics. Keep EP2 In Progress because the checkpoint cost is unresolved under the write gate. Preserve the distinction between implementation, verified durable work and accepted performance.

@@ -1,0 +1,153 @@
+{
+  "source": {
+    "control": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+    "candidate": "d2a4032eea789d84d5c630e1f76b02bea9a142e6"
+  },
+  "classification": "functional and structural evidence complete; EP2 performance gate remains open",
+  "strict_performance_acceptance": "inconclusive",
+  "durable_trials": 6,
+  "events_per_trial": 1500,
+  "checkpoint_updates_per_trial": 1500,
+  "local_intervals": {
+    "append_p50_ms": {
+      "estimate_pct": 0.21135081257894114,
+      "lower_pct": -3.0153857055425086,
+      "upper_pct": 3.5454427976795855,
+      "method": "descriptive paired log ratios, 95% Student-t with 2 degrees of freedom; not an acceptance policy"
+    },
+    "append_p95_ms": {
+      "estimate_pct": 7.597921975020312,
+      "lower_pct": -16.40111979653531,
+      "upper_pct": 38.48645801433529,
+      "method": "descriptive paired log ratios, 95% Student-t with 2 degrees of freedom; not an acceptance policy"
+    },
+    "append_p99_ms": {
+      "estimate_pct": 27.429459325763357,
+      "lower_pct": -32.6603697616566,
+      "upper_pct": 141.13983172438412,
+      "method": "descriptive paired log ratios, 95% Student-t with 2 degrees of freedom; not an acceptance policy"
+    },
+    "wal_bytes": {
+      "estimate_pct": 0.06502980393970763,
+      "lower_pct": -1.7119320995672958,
+      "upper_pct": 1.8741176172744827,
+      "method": "descriptive paired log ratios, 95% Student-t with 2 degrees of freedom; not an acceptance policy"
+    },
+    "allocated_bytes": {
+      "estimate_pct": 6.009638256440345,
+      "lower_pct": 5.102156588143026,
+      "upper_pct": 6.924955377453661,
+      "method": "descriptive paired log ratios, 95% Student-t with 2 degrees of freedom; not an acceptance policy"
+    }
+  },
+  "correctness_examples": {
+    "store": 339,
+    "migrations": 24,
+    "adapter": 38,
+    "tracing": 17,
+    "metrics": 20,
+    "cli": 22
+  },
+  "structural_examples": 20,
+  "controlled_workloads": 16,
+  "limitations": [
+    "Local macOS diagnostic, not benchmark-grade Kenshou evidence.",
+    "Three 15-second pairs cannot establish statistical equivalence; p95/p99 point estimates are adverse with wide intervals.",
+    "Allocation is approximately 6% higher against the original control; includes cumulative EP-1 and EP-2 changes.",
+    "Initial checkpoint-cost probe overlapped baseline setup and is retained separately, not used as clean comparison.",
+    "Candidate historical telemetry at d2a4032 passed 10 of 11 cells; unchanged plain caught-up poll (20000 streams) timed out at 100 seconds. Transcript retained; no successful replacement sample.",
+    "Optimized checkpoint category save remains 25.6\u201326.5% slower in the local probe; no checkpoint equivalence claim.",
+    "Optimized mixed p50/p95/p99 point estimates are adverse; tails change sign across pairs, with wide intervals; local conditions are not benchmark-grade."
+  ],
+  "artifact_sha256": {
+    ".gitattributes": "c1a929a23d1e27a405f7c8f5a67b9196d53b6067d4599068317a14b8f589d296",
+    "README.md": "9bdf8fd18a61ef798714496210729923d2efd8af359dc6d2ae50db4365beb122",
+    "adr-validation.log": "9f71a5a0a540f81a5fe6fd5c2452aa9180cbd81f747b6da99b3d90856ef6901b",
+    "baseline-coverage.log": "b8917ecf8cafd6b5a5038ee6e245acf4877c7c8ef21c55492a696d0ee7aecaff",
+    "candidate-telemetry-d2a4032.csv": "cb47a39f0a610b77d05862099f2243e4cc9bd58fb2394df3c81ee6ef0de07ff2",
+    "candidate-telemetry-d2a4032.log": "731e5b4bf68f66f8d7abdd6f2421fe1d5b5c0ffafb41f62f05a3fc87b2272b56",
+    "checkpoint-cost-optimized.log": "d59a0a401e3ae8309da6d06352ed6477d1945598d659cf3c87c51707b02f2533",
+    "checkpoint-cost-overlapped.log": "eff4476445463a8d81cc77da81fc08d81e2ada434bbf9ed733691709ee6c05a3",
+    "checkpoint-cost-quiet.log": "8ce577e1cf13ff6cabf521667bd16bb2aa926175ebe7bd74a30e98b3af1a4daa",
+    "control-telemetry.csv": "6f8992bde154c02065aa3e830573abe15eceb6f599779b52121754d608469dfd",
+    "control-telemetry.log": "7570ba38af17c824ff4904168321b0a92e19eb3d9e00ccfcd062fd8c601e83fc",
+    "correctness.log": "99171793aa33578b67c4e8075cf73be85c55492a568d1d607b2d21babb096a92",
+    "local-mixed-driver.py": "000926485fb6f3e419f4bed2a0002096c01f7ff4cbf0bba7ef2b31945688684c",
+    "local-mixed-optimized-driver.py": "c4d159d59653097270d33291310f2bb1173f9e14584e125192827c36aad0bfea",
+    "local-mixed-optimized.json": "2f2c28071a469e202659ac89d61d5a43c7ff92f2c95ea1043ae5fedf53e3a93e",
+    "local-mixed.json": "0d4504d532ba81104439cb9f66e368b1233b1ee5c2e72d51ba6b2e02678b95b5",
+    "optimized-build.log": "a70d3f21627f587ccaa9198ed3bde64f96353b5cd13fd26314615b16f9158b91",
+    "optimized-correctness-first-failed.log": "707f90da030cd054e9143e03e820f451e600a27d0a267915ecf4c0d1e92c4b52",
+    "optimized-correctness.log": "10528cb5234c8b4f29659a101223fde4f238c63a7197a2b677dc9d51e74ae053",
+    "perf-check.log": "a91e20627ed09604f4cfee96f9b21e7055af1828c343b07d9353277e0f835bdd"
+  },
+  "historical_telemetry": {
+    "control_passed": 11,
+    "candidate_passed": 10,
+    "candidate_timeouts": [
+      "All.category-scaling.plain caught-up poll (20000 streams)"
+    ],
+    "candidate_seconds": 329.54,
+    "candidate_source": "d2a4032eea789d84d5c630e1f76b02bea9a142e6"
+  },
+  "optimized_followup": {
+    "source": {
+      "control": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+      "candidate": "66125237a75827783e52f17c7d0a54654a23df3d"
+    },
+    "binary_sha256": {
+      "control": "838b8790c09f3e46de0038410f0be21517dc2318d0f82a777b40b74c827fa479",
+      "candidate": "14979753a8521ae4f0d487f939783ac938c1e44e622cf63e577cda4e54223f37"
+    },
+    "durable_trials": 6,
+    "events_per_trial": 1500,
+    "checkpoint_updates_per_trial": 1500,
+    "local_intervals": {
+      "append_p50_ms": {
+        "estimate_pct": 14.84093212070091,
+        "lower_pct": -18.084940297072354,
+        "upper_pct": 61.00140484766171,
+        "method": "descriptive paired log ratios, 95% Student-t with 2 degrees of freedom; not an acceptance policy"
+      },
+      "append_p95_ms": {
+        "estimate_pct": 64.02270715020445,
+        "lower_pct": -57.15739154477152,
+        "upper_pct": 527.9600946566187,
+        "method": "descriptive paired log ratios, 95% Student-t with 2 degrees of freedom; not an acceptance policy"
+      },
+      "append_p99_ms": {
+        "estimate_pct": 109.2661875166889,
+        "lower_pct": -82.28313350282313,
+        "upper_pct": 2371.7879566766624,
+        "method": "descriptive paired log ratios, 95% Student-t with 2 degrees of freedom; not an acceptance policy"
+      },
+      "wal_bytes": {
+        "estimate_pct": 0.18109344057069884,
+        "lower_pct": -1.8369185286567582,
+        "upper_pct": 2.2405911929144295,
+        "method": "descriptive paired log ratios, 95% Student-t with 2 degrees of freedom; not an acceptance policy"
+      },
+      "allocated_bytes": {
+        "estimate_pct": 2.33568805177365,
+        "lower_pct": -0.41299898129346796,
+        "upper_pct": 5.1602412152439925,
+        "method": "descriptive paired log ratios, 95% Student-t with 2 degrees of freedom; not an acceptance policy"
+      }
+    },
+    "checkpoint_ns_per_save": {
+      "control": [
+        64494.0,
+        62512.0,
+        60041.5
+      ],
+      "candidate": [
+        80998.5,
+        79047.0,
+        75494.5
+      ]
+    },
+    "allocation_change_from_initial_candidate_pct": -3.4656756358127594
+  },
+  "practical_completion": "not accepted: repeated checkpoint-save cost requires resolution or an explicit change to the gate",
+  "optimized_store_examples": 340
+}

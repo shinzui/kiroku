@@ -1,0 +1,40 @@
+
+--- Pre-populating category data (100 cats × 10 streams × 100 events) ---
+  Setup time: 4.080047s (100K events)
+
+--- B9: Pool saturation (64 writers × 100 appends, pool size 10) ---
+  Total appends: 6400
+  Elapsed: 4.518533s
+  Throughput: 1416 ops/s
+  Avg latency: 0.7060207812499999 ms
+---
+All
+  category
+    category forward (100-event page):         OK
+      768  μs ±  65 μs,       same as baseline
+    exhausted-category:                        OK
+      17.1 μs ± 433 ns,       same as baseline
+    $all forward (100-event page baseline):    OK
+      752  μs ±  72 μs,       same as baseline
+  reliability-audit
+    subscription category catch-up 100 events: OK
+      1.43 ms ±  20 μs, 48% less than baseline
+  category-scaling
+    plain caught-up poll (200 streams):        OK
+      178  μs ±  17 μs,       same as baseline
+    plain caught-up poll (20000 streams):      TIMEOUT
+      Timed out after 100s
+      Use -p '(/category/||/subscription-checkpoint-inventory/)&&/plain caught-up poll (20000 streams)/' to rerun this test only.
+    group caught-up poll (20000 streams):      OK
+      202  μs ± 5.0 μs, 13% more than baseline
+    plain page from 0 (20000 streams):         OK
+      6.47 ms ± 338 μs,       same as baseline
+    exhausted category (200 streams):          OK
+      178  μs ±  15 μs,       same as baseline
+  subscription-checkpoint-inventory
+    100 rows:                                  OK
+      388  μs ±  32 μs, 16% less than baseline
+    10000 rows:                                OK
+      38.9 ms ± 1.8 ms, 13% less than baseline
+
+1 out of 11 tests failed (329.54s)

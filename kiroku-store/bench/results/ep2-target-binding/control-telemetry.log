@@ -1,0 +1,39 @@
+
+--- Pre-populating category data (100 cats × 10 streams × 100 events) ---
+  Setup time: 3.858443s (100K events)
+
+--- B9: Pool saturation (64 writers × 100 appends, pool size 10) ---
+  Total appends: 6400
+  Elapsed: 3.470931s
+  Throughput: 1844 ops/s
+  Avg latency: 0.54233296875 ms
+---
+All
+  category
+    category forward (100-event page):         OK
+      794  μs ±  45 μs
+    exhausted-category:                        OK
+      16.7 μs ± 995 ns
+    $all forward (100-event page baseline):    OK
+      730  μs ±  56 μs
+  reliability-audit
+    subscription category catch-up 100 events: OK
+      1.25 ms ±  41 μs
+  category-scaling
+    plain caught-up poll (200 streams):        OK
+      165  μs ± 7.0 μs
+    plain caught-up poll (20000 streams):      OK
+      186  μs ±  10 μs
+    group caught-up poll (20000 streams):      OK
+      174  μs ± 5.7 μs
+    plain page from 0 (20000 streams):         OK
+      6.02 ms ± 292 μs
+    exhausted category (200 streams):          OK
+      163  μs ±  15 μs
+  subscription-checkpoint-inventory
+    100 rows:                                  OK
+      375  μs ±  26 μs
+    10000 rows:                                OK
+      37.5 ms ± 3.6 ms
+
+All 11 tests passed (261.20s)

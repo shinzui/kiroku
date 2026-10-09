@@ -1,0 +1,2 @@
+# Preserve raw tool transcripts byte for byte.
+*.log -whitespace

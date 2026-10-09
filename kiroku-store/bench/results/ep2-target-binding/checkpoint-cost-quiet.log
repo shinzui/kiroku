@@ -1,0 +1,16 @@
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.9.0.1 (bench:kiroku-checkpoint-target-cost) (first run)
+Preprocessing benchmark 'kiroku-checkpoint-target-cost' for kiroku-store-0.9.0.1...
+Building benchmark 'kiroku-checkpoint-target-cost' for kiroku-store-0.9.0.1...
+Running 1 benchmarks...
+Benchmark kiroku-checkpoint-target-cost: RUNNING...
+pair,arm,saves,ns_per_save,wal_bytes_per_save
+1,control,2000,61432.5,198.652
+1,candidate,2000,66083.0,206.936
+2,candidate,2000,63197.0,206.984
+2,control,2000,58542.5,198.804
+3,control,2000,57234.0,198.652
+3,candidate,2000,66936.0,207.032
+durable equal-work checks: passed
+Benchmark kiroku-checkpoint-target-cost: FINISH

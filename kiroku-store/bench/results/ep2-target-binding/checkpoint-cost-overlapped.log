@@ -1,0 +1,19 @@
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.9.0.1 (bench:kiroku-checkpoint-target-cost) (configuration changed)
+Configuring benchmark 'kiroku-checkpoint-target-cost' for kiroku-store-0.9.0.1...
+Preprocessing benchmark 'kiroku-checkpoint-target-cost' for kiroku-store-0.9.0.1...
+Building benchmark 'kiroku-checkpoint-target-cost' for kiroku-store-0.9.0.1...
+[1 of 1] Compiling Main             ( bench/CheckpointTargetCost.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/b/kiroku-checkpoint-target-cost/build/kiroku-checkpoint-target-cost/kiroku-checkpoint-target-cost-tmp/Main.o ) [Source file changed]
+[2 of 2] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/b/kiroku-checkpoint-target-cost/build/kiroku-checkpoint-target-cost/kiroku-checkpoint-target-cost [Objects changed]
+Running 1 benchmarks...
+Benchmark kiroku-checkpoint-target-cost: RUNNING...
+pair,arm,saves,ns_per_save,wal_bytes_per_save
+1,control,2000,61236.0,198.652
+1,candidate,2000,70320.0,206.936
+2,candidate,2000,67587.5,206.984
+2,control,2000,61834.5,198.82
+3,control,2000,61586.5,198.652
+3,candidate,2000,70035.0,207.032
+durable equal-work checks: passed
+Benchmark kiroku-checkpoint-target-cost: FINISH
