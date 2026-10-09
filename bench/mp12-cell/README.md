@@ -20,7 +20,9 @@ Durability, exact delivery, complete durable drain, checkpoint row count,
 checkpoint frequency, and the declared offered arrival count are assertions.
 Native all/category/group modes and the actual acknowledgement-coupled Shibuya
 adapter use the same process and store. `mp12.offered=0` selects unpaced capacity
-measurement with bounded subscriber backpressure. Capacity elapsed time includes
+measurement with bounded subscriber backpressure. Intended arrivals use a
+monotonic deadline and POSIX nanosecond waits, with a deadline recheck before
+starting each call; scheduling delay is included in append latency. Capacity elapsed time includes
 the final durable drain; fixed-load latency retains the declared arrival window.
 Sustainable-capacity acceptance also requires bounded steady backlog evidence.
 
@@ -81,7 +83,8 @@ python3 bench/mp12-cell/check-comparison.py \
   --out /tmp/mp12-calibration/resolution.json
 ```
 
-Beta supplies PostgreSQL 17. Use a version-17 plan on that cell. A failed or wide
+The required performance scope is PostgreSQL 18 on alpha, following the user
+correction on 2026-10-09. Completed PostgreSQL 17 functional tests remain recorded. A failed or wide
 control/control interval requires investigation or additional measurement before
 candidate comparisons. Candidate checks omit `--calibrate`; they require zero
 slowdown allowances and a nonpositive adverse upper bound. The 1% throughput/p50

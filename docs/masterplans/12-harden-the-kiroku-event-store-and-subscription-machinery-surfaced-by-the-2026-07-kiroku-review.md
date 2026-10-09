@@ -465,6 +465,13 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Surprises & Discoveries
 
+- Alpha control/control calibration passed workload correctness in ten verified
+  trials, but latency precision remains insufficient (5.35% p50, 4.07% p95,
+  34.57% p99 interval half-widths). Full raw samples remain in sealed GCS
+  artifacts, referenced by the committed evidence bundle in plan 81. A matched
+  arrival-clock correction and longer calibration are required; no candidate
+  result or completed performance gate is claimed.
+
 - Scope correction (2026-10-09): the user explicitly removed PostgreSQL 17
   testing from the remaining work. Authoritative performance acceptance uses
   PostgreSQL 18 on alpha. Previously completed PostgreSQL 17 functional tests

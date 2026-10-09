@@ -54,4 +54,5 @@ executable kenshou
     , shibuya-core
     , shibuya-kiroku-adapter
     , text
+    , unix
     , vector

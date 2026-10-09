@@ -34,6 +34,11 @@ provenance:
       at: 2026-10-09T16:21:16Z
       mode: "update"
       note: "Audit source at e6ea664; distinguish completed baseline from remaining work, refresh request coverage and performance evidence requirements"
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-09T18:48:29Z
+      mode: "update"
+      note: "Apply user PostgreSQL 18-only testing scope."
 ---
 
 # Release the subscription hardening cohort and coordinate downstream adoption
@@ -87,6 +92,11 @@ user's explicit release-time confirmation.
 
 
 ## Decision Log
+
+- Decision (2026-10-09): required testing for this cohort uses PostgreSQL 18.
+  The user explicitly removed PostgreSQL 17 testing; preserve already collected
+  PostgreSQL 17 evidence without requiring more trials. ADR-11 and the parent
+  MasterPlan carry this scope correction.
 
 - Decision: Apply ADR-11's write-performance constraint to this child's implementation and release
   evidence, including indirect CPU/GC/pool/checkpoint effects where applicable.
@@ -142,7 +152,7 @@ Preserve the existing migration-0012 cutover constraints in
 EP-4 must supply new direct controlled performance evidence for reads/live publisher fan-out
 and the real acknowledgement-coupled adapter: the old overhead benchmark is synthetic and
 primarily catch-up. Run those gates in the integrated release, alongside `just test-matrix`
-for PostgreSQL 17 and 18 and the existing ADR-5 gates. Recheck the independently owned member-guard
+for PostgreSQL 18 and the existing ADR-5 gates. Recheck the independently owned member-guard
 plans 93/92 and their release state before selecting the final package diff.
 
 Kiroku's repository release instructions are in `.agents/skills/release/SKILL.md`. Publishable
@@ -211,7 +221,7 @@ Run repository-wide formatting/build/test/flake gates, then `just perf-check` an
 `just perf-telemetry`; record the telemetry cells named in the MasterPlan's Performance gates
 integration point against their baseline rows. Also execute the direct controlled workloads
 introduced by plans 83 and 84 and record their throughput/allocation evidence; the old synthetic
-overhead benchmark does not satisfy those gates. Run `just test-matrix` on PostgreSQL 17 and 18. Run `cabal check`, `cabal sdist`, and
+overhead benchmark does not satisfy those gates. Run the PostgreSQL 18 test matrix. Run `cabal check`, `cabal sdist`, and
 Hackage Haddock generation for each proposed package without uploading. Inspect each source
 archive for its public modules, migration manifest/payload, changelog, license, and generated
 documentation. Stage newly created files before `nix flake check` so Nix sees them, but do not
@@ -331,7 +341,7 @@ same process and pool, with native `$all`, category/group, and real acknowledgem
 coverage as applicable. Keep append SQL, successful-path round trips, locks, and instrumentation
 unchanged. Keep ordinary checkpoint saves at one monotonic upsert per batch tail.
 
-Run durable PostgreSQL 17/18, matched compiler/RTS/pool/database settings, and fixed payloads,
+Run durable PostgreSQL 18, matched compiler/RTS/pool/database settings, and fixed payloads,
 concurrency, checkpoint frequency, and offered load. Include single/multi-stream, fresh/existing,
 and small/batched writes; test checkpoint batch sizes 1 and 100. Establish live mode before live
 measurements, assert equal delivered work, durable progress, and bounded backlog, and measure
@@ -346,7 +356,7 @@ checkpoint frequency, thresholds, or baselines to pass. Add the controlled gate 
 and record exact commands, revisions, schemas, raw results, and interpretation before completion.
 
 All Kiroku child-plan acceptance tests, ADR/OKF gates, ADR-5 performance gates (including
-the direct EP-3/EP-4 controlled cases), PostgreSQL 17/18 package tests,
+the direct EP-3/EP-4 controlled cases), PostgreSQL 18 package tests,
 migration paths, source archives, Haddocks, and flake checks must pass before publication. Hackage
 source/docs versions, annotated tags, GitHub releases, and peeled commits must agree. A clean
 consumer must resolve only published artifacts and compile the new APIs.

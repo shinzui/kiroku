@@ -33,6 +33,7 @@ import Shibuya.App (ProcessorId (..), defaultAppConfig, mkProcessor, runApp, sto
 import Shibuya.Core.Ack (AckDecision (..))
 import Shibuya.Telemetry.Effect (runTracingNoop)
 import System.Mem (performMajorGC)
+import System.Posix.Unistd qualified as Posix
 import System.Timeout (timeout)
 
 import Kenshou.Core.Bundle (LayerBundle (..))
@@ -280,7 +281,7 @@ measure context workload store event delivered live failures batches members = d
             handled <- readIORef delivered
             now <- getMonotonicTimeNSec
             let limit = min (workload.maxBacklog `div` 2) (max (workload.width * workload.appendBatch) (fromIntegral workload.checkpointBatch * members * 2))
-            when (issued - handled >= max 1 limit && now < end) $ threadDelay 200 >> capacityWait
+            when (issued - handled >= max 1 limit && now < end) $ Posix.nanosleep 200_000 >> capacityWait
         loop i collected = do
             when (workload.offered == 0 && members > 0) $ capacityWait
             now <- getMonotonicTimeNSec
@@ -288,7 +289,7 @@ measure context workload store event delivered live failures batches members = d
             if now >= end || scheduled >= end
                 then pure (collected, ())
                 else do
-                    when (scheduled > now) (threadDelay (fromIntegral ((scheduled - now) `div` 1000)))
+                    waitUntil scheduled
                     atomicModifyIORef' offeredCalls (\n -> (n + 1, ()))
                     actual <- getMonotonicTimeNSec
                     atomicModifyIORef' startedCalls (\n -> (n + 1, ()))
@@ -299,6 +300,16 @@ measure context workload store event delivered live failures batches members = d
                     atomicModifyIORef' appended (\n -> (n + workload.width * workload.appendBatch, ()))
                     Recorder.recordOp (recorders !! writerId) scheduled actual completed (Recorder.OpOk (workload.width * workload.appendBatch))
                     loop (i + 1) (fromIntegral (completed - scheduled) / 1_000_000 : collected)
+
+-- A monotonic deadline avoids RTS timer quantisation becoming append latency.
+-- Recheck after the POSIX wait so neither rounding nor an early wakeup can
+-- start an arrival before its deadline and underflow the unsigned lag counter.
+waitUntil :: Word64 -> IO ()
+waitUntil deadline = do
+    now <- getMonotonicTimeNSec
+    when (deadline > now) $ do
+        Posix.nanosleep (toInteger (deadline - now))
+        waitUntil deadline
 
 secondsBetween :: Word64 -> Word64 -> Double
 secondsBetween start finish = fromIntegral (finish - start) / 1_000_000_000

@@ -77,6 +77,23 @@ adoption path exists.
 
 ## Surprises & Discoveries
 
+- Alpha cell calibration (2026-10-09): all ten sealed/verified control runs
+  delivered and durably checkpointed exactly 6,100 events, with 6,100 HOT
+  checkpoint updates. Five alternating control/control pairs remain inconclusive:
+  relative interval half-widths are 5.35% p50, 4.07% p95, and 34.57% p99.
+  The evidence bundle at
+  `kiroku-store/bench/results/mp12-cell-pg18-calibration-group-fixed-1.json`
+  retains the comparison, resolution verdict, payload identity, per-trial cost
+  summaries and sealed manifests pointing to full raw samples in GCS. Every
+  artifact hash was rechecked locally. No candidate comparison has run.
+  The matched harness now uses POSIX nanosecond waits with monotonic deadline
+  rechecks: the previous microsecond truncation could start an arrival early,
+  underflow unsigned lag, and couple measurements to RTS timer quantisation.
+  Both Linux payload builds pass after the clock correction. Raw samples show
+  roughly 0.62 ms median scheduling lag with the old clock, plus varying
+  service latency; the timer is not claimed to explain all uncertainty. Repeat
+  calibration with longer trials before accepting any candidate evidence.
+
 - Scope correction (2026-10-09): the user explicitly removed PostgreSQL 17
   testing from the remaining work. Use alpha/PostgreSQL 18 for the controlled
   gate. Beta workload diagnostics passed 6,100-event delivery and durable
@@ -110,8 +127,8 @@ adoption path exists.
   metrics are pinned at `mori://shinzui/keiro-runtime-kenshou` revision
   `68f986cd7548e7da64e6eeb0444d8f5524cf5e82`; its 11 registry tests and 32
   measurement tests pass. Seven local checker tests enforce missing-metric,
-  health, control-bias, uncertainty, and zero-regression rejection. Cell trials
-  have not yet run; this is preparation, not performance acceptance.
+  health, control-bias, uncertainty, and zero-regression rejection. Cell trials now have the inconclusive calibration recorded below; this is
+  evidence collection, not performance acceptance.
   The production package directories are unchanged from candidate revision
   `15c21e8a7bd833573ccd117157f2f12e656629e8`.
 

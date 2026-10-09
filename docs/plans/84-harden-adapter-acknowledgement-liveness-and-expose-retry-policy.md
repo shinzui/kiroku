@@ -34,6 +34,11 @@ provenance:
       at: 2026-10-09T16:21:16Z
       mode: "update"
       note: "Audit source at e6ea664; distinguish completed baseline from remaining work, refresh request coverage and performance evidence requirements"
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-09T18:48:29Z
+      mode: "update"
+      note: "Apply user PostgreSQL 18-only testing scope."
 ---
 
 # Harden adapter acknowledgement liveness and expose retry policy
@@ -92,6 +97,11 @@ counts.
 
 
 ## Decision Log
+
+- Decision (2026-10-09): required testing for this cohort uses PostgreSQL 18.
+  The user explicitly removed PostgreSQL 17 testing; preserve already collected
+  PostgreSQL 17 evidence without requiring more trials. ADR-11 and the parent
+  MasterPlan carry this scope correction.
 
 - Decision: Apply ADR-11's write-performance constraint to this child's implementation and release
   evidence, including indirect CPU/GC/pool/checkpoint effects where applicable.
@@ -347,7 +357,7 @@ same process and pool, with native `$all`, category/group, and real acknowledgem
 coverage as applicable. Keep append SQL, successful-path round trips, locks, and instrumentation
 unchanged. Keep ordinary checkpoint saves at one monotonic upsert per batch tail.
 
-Run durable PostgreSQL 17/18, matched compiler/RTS/pool/database settings, and fixed payloads,
+Run durable PostgreSQL 18, matched compiler/RTS/pool/database settings, and fixed payloads,
 concurrency, checkpoint frequency, and offered load. Include single/multi-stream, fresh/existing,
 and small/batched writes; test checkpoint batch sizes 1 and 100. Establish live mode before live
 measurements, assert equal delivered work, durable progress, and bounded backlog, and measure
