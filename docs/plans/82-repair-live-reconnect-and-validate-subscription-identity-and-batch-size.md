@@ -93,14 +93,29 @@ exception type.
   directly. Resize preserves a uniform binding on newly created members, while
   reset leaves metadata intact. Low-level checkpoint provisioning deliberately
   creates unbound rows because it has no target argument.
-- Validation: all six package suites passed on PostgreSQL 18.6. The first local
+- Validation: the initial six package suites passed on PostgreSQL 18.6. The first local
   telemetry invocation used an invalid tasty pattern and was discarded; the
   rerun with an explicit OR expression passed all 11 selected control cells.
   Local timing telemetry is exploratory, with test durability disabled, and is
   distinct from the supplementary durable save comparison.
 
-- Refresh audit (2026-10-09): source, tests, and changelogs confirm the remaining acceptance
-  work is unimplemented; the dated Context audit distinguishes existing baseline from this plan.
+- Focused follow-up (2026-10-09): the quiet checkpoint probe showed a consistent
+  7.6–17.0% per-save cost signal and about 4.2% more WAL per save. Three short
+  mixed pairs showed adverse tail point estimates and about 6% more allocation
+  against the original control. These are retained local diagnostics, not
+  statistical acceptance. Ordinary saves now use fixed-kind prepared statements
+  to avoid encoding constant kind/null fields while still writing both columns.
+- Validation follow-up: the first optimized store run passed 339 of 340 examples.
+  The new dead-letter test cancelled at an observed live state before the first
+  durable save; live is not a delivery barrier when the publisher head lags.
+  The test now waits for the durable checkpoint before cancelling. Production
+  behavior is unchanged by this test correction.
+- Candidate historical telemetry passed 10 of 11 selected cells; the unchanged
+  plain caught-up read on 20,000 streams timed out. Its failed transcript and
+  partial CSV remain retained, without a substituted successful sample.
+
+- Historical refresh audit (2026-10-09, before implementation): source, tests, and changelogs confirmed the acceptance
+  work was unimplemented; the dated Context audit distinguishes existing baseline from this plan.
 - Transfer audit (2026-08-27): `FetchLive` reads from the mutable `posRef`, but
   `LiveFetchError err` becomes `ConnectionLost err`. `Fsm.step` therefore retains the cursor from
   the state value even when successful live batches advanced `posRef` after entering `Live`.
@@ -226,7 +241,7 @@ this child is not yet marked complete and no package has been released.
 
 ## Context and Orientation
 
-Source audit (2026-10-09, `e6ea664`): implementation remains Not Started. `Worker.hs` still
+Historical source audit (2026-10-09, `e6ea664`, before this implementation): implementation was Not Started. `Worker.hs` still
 emits `ConnectionLost err` from `LiveFetchError err`, and `Fsm.hs` still retains the old state
 cursor. `Test/SubscriptionReconnect.hs` injects failures before any successful live delivery,
 so its passing historical scenario does not prove the missing mid-live cursor behavior.
@@ -350,8 +365,10 @@ its bytes on each row's next rewrite, which the ordinary upsert performs.
 
 Introduce one internal encoder from `SubscriptionTarget` to the `(target_kind, target_category)`
 pair and a decoder back that is total over rows satisfying the CHECK. Thread the pair through
-checkpoint initialization in `Subscription/Checkpoint/SQL.hs`, ordinary saves, and
-`insertDeadLetterAndCheckpointStmt` in `SQL.hs`. The pair is additional upsert columns only: no
+checkpoint initialization in `Subscription/Checkpoint/SQL.hs` and
+`insertDeadLetterAndCheckpointStmt` in `SQL.hs`. Ordinary saves select a prepared statement by
+the target constructor: fixed kind/null literals avoid encoding constants per batch, and
+Category binds its category name. All forms write both target columns. The pair is additional upsert columns only: no
 `WHERE` predicate, no returned-row check, and no second statement on an ordinary save, which runs
 once per delivered batch tail. Existing-row initialization must read every row for the
 subscription name, inside the existing `initializeSubscriptionCheckpointSession` checkout and

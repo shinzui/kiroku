@@ -120,11 +120,12 @@ noOpAppendSpec =
                 readIORef delivered `shouldReturn` False
 
         it "keeps ordinary checkpoint saves as one unconditional monotonic upsert" $ do
-            let sql = T.toLower (Statement.toSql SQL.saveCheckpointMemberStmt)
-            T.count "insert into" sql `shouldBe` 1
-            sql `shouldSatisfy` T.isInfixOf "greatest(subscriptions.last_seen, excluded.last_seen)"
-            sql `shouldNotSatisfy` T.isInfixOf "where"
-            sql `shouldNotSatisfy` T.isInfixOf "returning"
+            forM_ [Statement.toSql SQL.saveCheckpointMemberStmt, Statement.toSql SQL.saveAllCheckpointMemberStmt, Statement.toSql SQL.saveCategoryCheckpointMemberStmt] $ \statement -> do
+                let sql = T.toLower statement
+                T.count "insert into" sql `shouldBe` 1
+                sql `shouldSatisfy` T.isInfixOf "greatest(subscriptions.last_seen, excluded.last_seen)"
+                sql `shouldNotSatisfy` T.isInfixOf "where"
+                sql `shouldNotSatisfy` T.isInfixOf "returning"
 
         it "rejects an empty appendToStream batch before pool checkout" $ do
             checkouts <- newIORef (0 :: Int)

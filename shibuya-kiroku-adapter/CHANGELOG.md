@@ -2,10 +2,7 @@
 
 ## Unreleased
 
-- Both adapter configurations use the store’s validated `BatchSize` and `StreamBufferSize` capacities.
-
-
-## Unreleased
+- **Breaking:** Both adapter configurations use the store’s validated `BatchSize` and `StreamBufferSize` capacities.
 
 * **Breaking:** `KirokuConsumerGroupConfig.groupSize` and
   `defaultConsumerGroupConfig` now take validated `ConsumerGroupSize`. Construct

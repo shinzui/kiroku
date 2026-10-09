@@ -61,6 +61,8 @@ module Kiroku.Store.SQL (
     saveCheckpointStmt,
     getCheckpointMemberStmt,
     saveCheckpointMemberStmt,
+    saveAllCheckpointMemberStmt,
+    saveCategoryCheckpointMemberStmt,
 
     -- * Dead-letter statements
     DeadLetterParams (..),
@@ -1269,6 +1271,21 @@ saveCheckpointMemberStmt =
         )
         D.noResult
 
+-- | Bound targets use a fixed kind rather than encoding a constant per save.
+saveAllCheckpointMemberStmt :: Statement (Text, Int32, Int64, Int32) ()
+saveAllCheckpointMemberStmt =
+    preparable
+        (saveCheckpointMemberSQLWith "'all', NULL")
+        (contrazip4 (E.param (E.nonNullable E.text)) (E.param (E.nonNullable E.int4)) (E.param (E.nonNullable E.int8)) (E.param (E.nonNullable E.int4)))
+        D.noResult
+
+saveCategoryCheckpointMemberStmt :: Statement (Text, Int32, Int64, Int32, Text) ()
+saveCategoryCheckpointMemberStmt =
+    preparable
+        (saveCheckpointMemberSQLWith "'category', $5")
+        (contrazip5 (E.param (E.nonNullable E.text)) (E.param (E.nonNullable E.int4)) (E.param (E.nonNullable E.int8)) (E.param (E.nonNullable E.int4)) (E.param (E.nonNullable E.text)))
+        D.noResult
+
 getCheckpointMemberSQL :: Text
 getCheckpointMemberSQL =
     """
@@ -1279,13 +1296,17 @@ getCheckpointMemberSQL =
     """
 
 saveCheckpointMemberSQL :: Text
-saveCheckpointMemberSQL =
-    """
-    INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at, consumer_group_size, target_kind, target_category)
-    VALUES ($1, $2, $3, now(), $4, $5, $6)
-    ON CONFLICT (subscription_name, consumer_group_member)
-    DO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now(), consumer_group_size = EXCLUDED.consumer_group_size, target_kind = EXCLUDED.target_kind, target_category = EXCLUDED.target_category
-    """
+saveCheckpointMemberSQL = saveCheckpointMemberSQLWith "$5, $6"
+
+saveCheckpointMemberSQLWith :: Text -> Text
+saveCheckpointMemberSQLWith binding =
+    "INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at, consumer_group_size, target_kind, target_category) VALUES ($1, $2, $3, now(), $4, "
+        <> binding
+        <> ") "
+        <> """
+           ON CONFLICT (subscription_name, consumer_group_member)
+           DO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now(), consumer_group_size = EXCLUDED.consumer_group_size, target_kind = EXCLUDED.target_kind, target_category = EXCLUDED.target_category
+           """
 
 -- ---------------------------------------------------------------------------
 -- Dead-letter Statements

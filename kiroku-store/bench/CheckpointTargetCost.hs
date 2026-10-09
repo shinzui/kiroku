@@ -62,7 +62,7 @@ measure store = do
             p <- atomicModifyIORef' (if candidate then candidateCounter else controlCounter) (\n -> (n + 1, n + 1))
             let m = fromIntegral (p `mod` 4)
             if candidate
-                then use store $ Session.statement ("target-cost", m, p, 4, "category", Just "performance") SQL.saveCheckpointMemberStmt
+                then use store $ Session.statement ("target-cost", m, p, 4, "performance") SQL.saveCategoryCheckpointMemberStmt
                 else use store $ Session.statement ("target-cost", m, p, 4) controlSave
         trial pair candidate = do
             walBefore <- use store (Session.statement () walPosition)

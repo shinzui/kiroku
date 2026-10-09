@@ -856,8 +856,7 @@ saveCheckpoint pool config position@(GlobalPosition pos) emit = do
         mem = configMember config
     mHook <- readIORef saveCheckpointHookRef
     mapM_ (\hook -> hook config position) mHook
-    let (kind, category) = CheckpointSQL.targetColumns (Just (target config))
-    result <- Pool.use pool (Session.statement (name', mem, pos, configSize config, kind, category) SQL.saveCheckpointMemberStmt)
+    result <- Pool.use pool (CheckpointSQL.saveBoundCheckpointSession (target config) name' mem pos (configSize config))
     case result of
         Left err -> emit (KirokuEventSubscriptionDbError subName SaveCheckpoint err (groupCtxOf config))
         Right () -> pure ()

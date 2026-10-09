@@ -131,7 +131,13 @@ spec = do
         it "persists target binding through an atomic dead-letter save" $
             withTestStore $ \store -> do
                 Right _ <- runStoreIO store $ appendToStream (StreamName "poison-target-1") NoStream [makeEvent "E" (Aeson.object [])]
-                startLive store (cfg "target-dead-letter" (Category (CategoryName "poison")) (\_ -> pure (DeadLetter (DeadLetterPoison "chosen by consumer"))))
+                withSubscription store (cfg "target-dead-letter" (Category (CategoryName "poison")) (\_ -> pure (DeadLetter (DeadLetterPoison "chosen by consumer")))) $ \_ -> do
+                    let awaitDurable = do
+                            persisted <- rows store "target-dead-letter"
+                            if persisted == [(0, "category", Just "poison", 1)]
+                                then pure ()
+                                else threadDelay 1_000 >> awaitDurable
+                    timeout 5_000_000 awaitDurable `shouldReturn` Just ()
                 rows store "target-dead-letter" `shouldReturn` [(0, "category", Just "poison", 1)]
 
 assertHierarchy :: (Exception e, Eq e) => e -> IO ()

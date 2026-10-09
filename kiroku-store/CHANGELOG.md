@@ -2,10 +2,7 @@
 
 ## Unreleased
 
-- Validated `BatchSize` and bridge `StreamBufferSize`; shared `SomeSubscriptionStartupFailure` exception hierarchy; live reconnect retains processed progress. Checkpoints persist target identity, enforce declared legacy adoption, and support atomic `rebindSubscriptionTargetTx`. Resize preserves target bindings.
-
-
-## Unreleased
+- **Breaking:** Validated `BatchSize` and bridge `StreamBufferSize`; shared `SomeSubscriptionStartupFailure` exception hierarchy; live reconnect retains processed progress. Checkpoints persist target identity, enforce declared legacy adoption, and support atomic `rebindSubscriptionTargetTx`. Resize preserves target bindings.
 
 * **Breaking:** `ConsumerGroup` and positive `ConsumerGroupSize` are opaque;
   use `mkConsumerGroupSize` and `mkConsumerGroup`. Invalid membership is an

@@ -10,6 +10,7 @@ module Kiroku.Store.Subscription.Checkpoint.SQL (
     resizeCheckpointMembersStmt,
     resetSubscriptionCheckpointsStmt,
     targetColumns,
+    saveBoundCheckpointSession,
     rebindCheckpointTargetStmt,
 ) where
 
@@ -25,6 +26,7 @@ import Hasql.Session qualified as Session
 import Hasql.Statement (Statement, preparable)
 import Hasql.Transaction qualified as Tx
 import Hasql.Transaction.Sessions qualified as TxSessions
+import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Subscription.Types (
     CheckpointInitialization (..),
     ConsumerGroupSizeMismatch (..),
@@ -272,6 +274,15 @@ resizeCheckpointMembersStmt =
             (E.param (E.nullable E.text))
         )
         D.noResult
+
+{- | Select a fixed-kind statement once for the configured target. Both forms
+write the full binding and retain the same unconditional monotonic upsert.
+-}
+saveBoundCheckpointSession :: SubscriptionTarget -> Text -> Int32 -> Int64 -> Int32 -> Session.Session ()
+saveBoundCheckpointSession AllStreams name member position groupSize =
+    Session.statement (name, member, position, groupSize) SQL.saveAllCheckpointMemberStmt
+saveBoundCheckpointSession (Category (CategoryName category)) name member position groupSize =
+    Session.statement (name, member, position, groupSize, category) SQL.saveCategoryCheckpointMemberStmt
 
 -- | One encoder for every checkpoint target write, including legacy provisioning.
 targetColumns :: Maybe SubscriptionTarget -> (Text, Maybe Text)
