@@ -162,7 +162,8 @@ measure context workload store event delivered live failures batches members = d
                 clock = Measure.measurementPhaseClock measurement
             handle <- Recorder.registerOp (Measure.measurementRecorder measurement) (Recorder.OpName "append")
             recorders <- mapM (Recorder.newWorkerRecorder handle) [0 .. 3]
-            Async.withAsync (sampleBacklog appended delivered backlog sample) $ \_ -> do
+            Async.withAsync (sampleBacklog appended delivered backlog sample (if members == 0 then pure Nothing else Just <$> scalarInt store pendingSQL)) $ \sampler -> do
+                Async.link sampler
                 Phase.enterPhase clock Phase.WarmUp
                 sample
                 void $ Core.withPhase context CorePhase.WarmUp (writers appended (offeredCalls, startedCalls, completedCalls, maxLag) recorders workload.warmupSeconds)
@@ -180,7 +181,12 @@ measure context workload store event delivered live failures batches members = d
                 start <- getMonotonicTimeNSec
                 Phase.enterPhase clock Phase.Steady
                 sample
-                samples <- Core.withPhase context CorePhase.Steady (writers appended (offeredCalls, startedCalls, completedCalls, maxLag) recorders workload.seconds)
+                samples <- Core.withPhase context CorePhase.Steady $ do
+                    result <- writers appended (offeredCalls, startedCalls, completedCalls, maxLag) recorders workload.seconds
+                    -- Capacity includes the outstanding durable work in its
+                    -- elapsed time. Fixed-load latency retains its arrival window.
+                    when (workload.offered == 0 && members > 0) $ await "capacity durable drain" durable
+                    pure result
                 Phase.enterPhase clock Phase.Drain
                 sample
                 finish <- getMonotonicTimeNSec
@@ -206,10 +212,13 @@ measure context workload store event delivered live failures batches members = d
                 durability <- scalar store "SELECT current_setting('fsync') || ',' || current_setting('synchronous_commit') || ',' || current_setting('full_page_writes')"
                 unless (durability == "on,on,on") (fail "cell PostgreSQL durability is disabled")
                 backlogRows <- readIORef backlog
-                let peak = maximum (0 : [max 0 (issued - handled) | (_, issued, handled) <- backlogRows])
-                unless (peak <= workload.maxBacklog) (fail "subscriber backlog exceeded the predeclared limit")
+                unless (length backlogRows >= workload.seconds * 5) (fail "handler backlog sampling is incomplete")
+                when (members > 0) $ unless (length [() | (_, _, _, Just _) <- backlogRows] >= workload.seconds `div` 2) (fail "durable backlog sampling is incomplete")
+                let peak = if members == 0 then 0 else maximum (0 : [max 0 (issued - handled) | (_, issued, handled, _) <- backlogRows])
+                    peakDurable = maximum (0 : [pending | (_, _, _, Just pending) <- backlogRows])
+                unless (peak <= workload.maxBacklog && peakDurable <= fromIntegral workload.maxBacklog) (fail "subscriber backlog exceeded the predeclared limit")
                 unless (workload.offered == 0 || calls == workload.offered * workload.seconds) (fail "fixed-load schedule did not complete every declared arrival")
-                Core.putSummary context Core.Measurements "backlog" (object ["peakHandlerPending" .= peak, "limit" .= workload.maxBacklog, "samples" .= reverse backlogRows])
+                Core.putSummary context Core.Measurements "backlog" (object ["peakHandlerPending" .= peak, "peakDurablePending" .= peakDurable, "limit" .= workload.maxBacklog, "samples" .= reverse backlogRows])
                 let (saves0, hot0) = tables0
                     (saves1, hot1) = tables1
                 when (members > 0) $ do
@@ -244,6 +253,7 @@ measure context workload store event delivered live failures batches members = d
                 pure ((), ())
     pure (passed{outcome = Measure.measuredOutcome report passed.outcome})
   where
+    pendingSQL = "SELECT count(*) FROM kiroku.stream_events se JOIN kiroku.subscriptions s ON s.subscription_name='probe' WHERE se.stream_id=0 AND se.stream_version>s.last_seen" <> if workload.mode `elem` ["group-all", "group-category"] then " AND (((hashtextextended(se.original_stream_id::text,0)%4)+4)%4)=s.consumer_group_member" else ""
     durable = do
         Right inventory <- runStoreIO store subscriptionCheckpointInventory
         unless (Vector.length inventory.checkpoints == members) (fail "durable checkpoint row count does not match the declared subscribers")
@@ -265,7 +275,14 @@ measure context workload store event delivered live failures batches members = d
         Async.mapConcurrently (writer appended counters recorders begin end) [0 .. 3]
     writer appended (offeredCalls, startedCalls, completedCalls, maxLag) recorders begin end writerId = loop 0 []
       where
+        capacityWait = do
+            issued <- readIORef appended
+            handled <- readIORef delivered
+            now <- getMonotonicTimeNSec
+            let limit = min (workload.maxBacklog `div` 2) (max (workload.width * workload.appendBatch) (fromIntegral workload.checkpointBatch * members * 2))
+            when (issued - handled >= max 1 limit && now < end) $ threadDelay 200 >> capacityWait
         loop i collected = do
+            when (workload.offered == 0 && members > 0) $ capacityWait
             now <- getMonotonicTimeNSec
             let scheduled = if workload.offered == 0 then now else begin + (fromIntegral (4 * i + writerId) * 1_000_000_000) `div` fromIntegral workload.offered
             if now >= end || scheduled >= end
@@ -331,18 +348,22 @@ checkpointStatementStats store =
     runSession store $
         Session.statement () $
             preparable
-                "SELECT COALESCE(jsonb_agg(jsonb_build_object('queryid', queryid::text, 'query', query, 'calls', calls, 'exec_ms', total_exec_time, 'wal_bytes', wal_bytes)), '[]'::jsonb) FROM pg_stat_statements WHERE dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND query ILIKE '%INSERT INTO subscriptions%'"
+                "SELECT COALESCE(jsonb_agg(jsonb_build_object('queryid', queryid::text, 'query', query, 'calls', calls, 'exec_ms', total_exec_time, 'wal_bytes', wal_bytes)), '[]'::jsonb) FROM public.pg_stat_statements WHERE dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND query ILIKE '%INSERT INTO subscriptions%'"
                 E.noParams
                 (D.singleRow (D.column (D.nonNullable D.jsonb)))
 
-sampleBacklog :: IORef Int -> IORef Int -> IORef [(Word64, Int, Int)] -> IO () -> IO ()
-sampleBacklog appended delivered rows sample = loop
+-- Handler progress at 10 Hz and durable pending work at 1 Hz. The
+-- durable query uses the declared hash topology, including the old control
+-- whose stored size column was never maintained.
+sampleBacklog :: IORef Int -> IORef Int -> IORef [(Word64, Int, Int, Maybe Int64)] -> IO () -> IO (Maybe Int64) -> IO ()
+sampleBacklog appended delivered rows sample durablePending = loop (0 :: Int)
   where
-    loop = do
+    loop iteration = do
+        pending <- if iteration `mod` 10 == 0 then durablePending else pure Nothing
         now <- getMonotonicTimeNSec
         issued <- readIORef appended
         handled <- readIORef delivered
-        atomicModifyIORef' rows (\values -> ((now, issued, handled) : values, ()))
+        atomicModifyIORef' rows (\values -> ((now, issued, handled, pending) : values, ()))
         sample
         threadDelay 100_000
-        loop
+        loop (iteration + 1)

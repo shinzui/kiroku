@@ -20,17 +20,21 @@ Durability, exact delivery, complete durable drain, checkpoint row count,
 checkpoint frequency, and the declared offered arrival count are assertions.
 Native all/category/group modes and the actual acknowledgement-coupled Shibuya
 adapter use the same process and store. `mp12.offered=0` selects unpaced capacity
-measurement; sustainable-capacity acceptance also requires bounded steady
-backlog and drain evidence.
+measurement with bounded subscriber backpressure. Capacity elapsed time includes
+the final durable drain; fixed-load latency retains the declared arrival window.
+Sustainable-capacity acceptance also requires bounded steady backlog evidence.
 
-Build both Linux payloads, then publish their immutable closures with Kenshou:
+Build both Linux payloads, then publish their immutable closures with Kenshou.
+The publisher needs `nix`, `nix-store`, `zstd`, and authenticated GCS access. If
+`zstd` is absent, run it through `nix shell` using the `zstd` package from this
+flake's pinned nixpkgs (`d5dfd8e6716dde34398bc14bc87c10dece9c8c68`).
 
 ```bash
 nix build ./bench/mp12-cell#packages.x86_64-linux.kenshou-released \
   ./bench/mp12-cell#packages.x86_64-linux.kenshou-head --no-link
-kenshou cell payload publish --cohort released --root bench/mp12-cell \
+kenshou cell payload publish --cohort released --root ./bench/mp12-cell \
   --out /tmp/mp12-released.payload.json
-kenshou cell payload publish --cohort head --root bench/mp12-cell \
+kenshou cell payload publish --cohort head --root ./bench/mp12-cell \
   --out /tmp/mp12-head.payload.json
 ```
 
@@ -39,6 +43,23 @@ revision; check the production package directories against that revision before
 publication. Benchmark/documentation-only commits do not change that source.
 Each payload records its compiled closure digest, cohort identity, and harness
 revision. Never edit a published payload or reuse a trial output directory.
+
+The cell image preloads `pg_stat_statements`, but the extension must also exist
+in each cloned benchmark database. Once per cell, hold an operator lease and
+run the following command (replace `alpha` with `beta` for PostgreSQL 17):
+
+```bash
+kenshou cell debug --cell alpha ssh postgres -- sudo -u postgres psql -X \
+  -v ON_ERROR_STOP=1 -d template1 \
+  -c 'CREATE EXTENSION IF NOT EXISTS pg_stat_statements'
+```
+
+Release that setup lease afterward. Kenshou clones
+`template1` for the isolated migration template, then clones that into the run
+and removes both run databases at cleanup. The benchmark role remains an
+ordinary role. The checkpoint-cost probe qualifies `public.pg_stat_statements`
+because the store connection uses a restricted search path. Confirm the
+sampler sees the extension in the sealed run's logs and statement snapshots.
 
 Start with control/control calibration. The planner's repeated runs are
 replaced by the cell operator's adjacent alternating pairs:

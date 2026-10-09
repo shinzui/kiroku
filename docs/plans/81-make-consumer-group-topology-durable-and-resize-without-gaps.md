@@ -77,6 +77,25 @@ adoption path exists.
 
 ## Surprises & Discoveries
 
+- Cell smoke diagnostics: alpha sealed diagnostic runs
+  `01a121d5-4615-73e2-8e99-0ade6461cd66` and
+  `01a121dc-8992-77b0-880b-16b28bf76bdb` under the results bucket
+  `gs://tan-nb-exp-cells-results/runs/`. They reached live subscriptions and
+  completed warmup, then failed before the measurement window. The first
+  isolated database lacked `pg_stat_statements`; installing the extension in
+  alpha's `template1` under lease made it available to the ordinary benchmark
+  role in cloned run databases. The second failure exposed the store's
+  restricted search path; the cost probe now qualifies
+  `public.pg_stat_statements`. These are harness/setup failures, not Kiroku
+  regressions or accepted performance evidence. The cell reports PostgreSQL
+  18.3, unlike the local 18.6 tests; record the actual cell versions in results.
+- The cell harness now samples durable pending work at 1 Hz and handler
+  backlog at 10 Hz, propagates sampler failures, and refuses incomplete
+  sampling. Capacity writers apply bounded subscriber backpressure and include
+  the final durable drain in elapsed time, so a growing delivery deficit cannot
+  masquerade as sustainable write throughput. Fixed-load measurements keep
+  their declared arrival window. Both revised Linux payloads build.
+
 - Controlled cell preparation (2026-10-09): `bench/mp12-cell` builds matched
   Linux baseline/candidate payloads with the existing Kenshou executor and
   measurement libraries. Both Linux builds pass. The shared scenario and p95
