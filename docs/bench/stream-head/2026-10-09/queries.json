@@ -1,0 +1,5 @@
+{
+  "getStream": "SELECT stream_id, stream_name, stream_version, created_at, deleted_at, truncate_before\n    FROM streams\n    WHERE stream_name = $1",
+  "getStreamWithHead": "SELECT s.stream_id,s.stream_name,s.stream_version,s.created_at,s.deleted_at,s.truncate_before,(SELECT se.stream_version FROM stream_events se WHERE se.stream_id=0 AND se.original_stream_id=s.stream_id ORDER BY se.stream_version DESC LIMIT 1) AS head_global_position FROM streams s WHERE s.stream_name=$1",
+  "versionAndHead": "SELECT s.stream_version,(SELECT se.stream_version FROM stream_events se WHERE se.stream_id=0 AND se.original_stream_id=s.stream_id ORDER BY se.stream_version DESC LIMIT 1) AS head_global_position FROM streams s WHERE s.stream_name=$1"
+}
