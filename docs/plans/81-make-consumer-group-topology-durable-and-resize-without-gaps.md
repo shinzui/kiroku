@@ -72,7 +72,7 @@ adoption path exists.
 - [x] (2026-10-09 16:54 UTC) M1: generate the derived-topology migration and add typed mismatch, upgrade-path, and underestimate-then-resize tests, including the currently lossy skewed size-2 to size-3 scenario.
 - [x] (2026-10-09 16:54 UTC) M2: expose and test idempotent `resizeConsumerGroupTx` in `Kiroku.Store.Subscription.Checkpoint`, rewinding all new members to the old members' minimum checkpoint in one transaction.
 - [x] (2026-10-09 16:54 UTC) M3: rewrite `docs/user/consumer-groups.md` and amend ADR-2 so stop/drain/restart alone is no longer described as safe.
-- [ ] Run the focused and full Kiroku test suites; update living sections and perform ADR distillation.
+- [x] (2026-10-09) Run the focused and full Kiroku test suites on PostgreSQL 17/18; update living sections and amend ADR-2 with the durable resize contract.
 
 
 ## Surprises & Discoveries
@@ -83,6 +83,27 @@ adoption path exists.
   passes the same suite counts. `just perf-check` passes structural invariants
   and all 16 existing controlled cells. These comparisons protect previous
   append/category optimizations, not MP-12 against its original implementation.
+- Local pilot calibration: five alternating control/control pairs on PostgreSQL
+  18.6, each with a 61-second declared window, passed exact 6,100-event delivery,
+  durable drain, and checkpoint-frequency checks. The paired 95% interval
+  half-widths were 7.52% p50, 79.81% p95, and 204.16% p99, exceeding the required
+  1%/3%/3% resolution. This is inconclusive, not candidate regression evidence.
+  Raw results are retained at
+  `kiroku-store/bench/results/mp12-pg18-calibration-group-fixed-1.json`.
+- Cell infrastructure: the user identified
+  `mori://shinzui/keiro-runtime-kenshou` as the benchmark environment. Its
+  `mori://shinzui/keiro-runtime-kenshou/okf/adrs/concepts/ADR-6` requires controlled
+  Linux cells for authoritative Kiroku comparisons. Its operator guide is at
+  project-relative `docs/guides/running-on-gcp.md` (artifact-level URI pending).
+  Cell alpha is available with PostgreSQL 18 and no lease or quarantine.
+  Use its leased resets, health evidence, sealed output, and pairing machinery;
+  preserve matched pool sizes and ADR-11's stricter workload/resolution contract.
+- Telemetry: `just perf-telemetry` completed all 30 historical cells. Category
+  catch-up was 1.37 ms (50% below the historical baseline), checkpoint inventory
+  was 389 microseconds at 100 rows and 38.5 ms at 10,000 rows, and exhausted-category
+  polling was 20.2 microseconds (19% above its historical baseline). These are
+  non-blocking historical observations, not a controlled MP-12 verdict.
+
 - Schema observation: EP-1 adds a checkpoint statement parameter but no new row
   column: the fixed-width `consumer_group_size` already exists. EP-2 adds the
   genuinely new target columns. WAL/HOT and shared-pool effects remain required
@@ -286,7 +307,7 @@ but explicitly does not infer topology; this plan adds that missing contract.
 [ADR-5](../adr/0005-three-tier-performance-regression-gates.md) makes `just perf-check`
 authoritative for performance evidence. The historical cell
 `All.reliability-audit.subscription category catch-up 100 events` exercises the fetch, delivery,
-and checkpoint upsert this plan widens, and `kiroku-store/test/Test/PerformanceStructure.hs` pins
+and checkpoint upsert whose parameter set this plan extends, and `kiroku-store/test/Test/PerformanceStructure.hs` pins
 zero-checkout refusals and production query plans. `kiroku.subscriptions` is indexed only on
 `subscription_id` and the composite `(subscription_name, consumer_group_member)` key, so writing
 `consumer_group_size` keeps the upsert HOT-eligible.

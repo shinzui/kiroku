@@ -463,6 +463,13 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Surprises & Discoveries
 
+- EP-1's local PostgreSQL 18 control/control write calibration exceeded the
+  required precision and is inconclusive. The user directed authoritative
+  measurement onto `mori://shinzui/keiro-runtime-kenshou` infrastructure. Its
+  controlled Linux cells, durable resets, health evidence, and sealed artifacts
+  should be reused across this cohort; its ADR-6 considers local macOS Kiroku
+  performance results exploratory. EP-1 remains In Progress pending that gate.
+
 - EP-1 implementation (2026-10-09): migration `0013.sql` derives legacy topology;
   EP-2 must allocate its target-binding migration after that filename. Worker
   startup now uses `initializeWorkerCheckpointSession`: extend this transaction
