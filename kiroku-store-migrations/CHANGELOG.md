@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+* Migration `0013.sql` derives persisted consumer-group size from existing member
+  rows. Apply with subscription workers stopped; incomplete legacy groups are
+  refused on next startup until explicitly resized to the intended topology.
+
 ## 0.6.0.0 — 2026-09-25
 
 ### Breaking Changes

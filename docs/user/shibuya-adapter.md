@@ -64,7 +64,7 @@ literal so a field added later is inherited at its default automatically.
 | `batchSize :: Int32` | `100` | Events per database fetch during catch-up. |
 | `bufferSize :: Natural` | `256` | `TBQueue` capacity — the backpressure threshold. |
 | `queueCapacity :: Natural` | `16` | Publisher-side capacity in batches for non-group `AllStreams` adapters. Kiroku pauses and resumes losslessly when it fills. |
-| `consumerGroup :: Maybe ConsumerGroup` | `Nothing` | `Nothing` = ordinary subscription. `Just (ConsumerGroup { member, size })` = this adapter is member `member` of a size-`size` consumer group (see below). |
+| `consumerGroup :: Maybe ConsumerGroup` | `Nothing` | `Nothing` = ordinary subscription. `Just membership` built with `mkConsumerGroup` = this adapter is member `member` of a size-`size` consumer group (see below). |
 | `missingCheckpointPolicy :: MissingCheckpointPolicy` | `FromBeginning` | What an absent exact member key means. Use `FromCurrentHead` for future-only processing or `FailIfMissing` for mandatory provisioning; existing rows always win. |
 | `eventTypeFilter :: EventTypeFilter` | `AllEventTypes` | Deliver only chosen event types. Forwarded into the underlying subscription; filtering is worker-side, so a filtered-out event never reaches the Shibuya handler yet the checkpoint still advances past it. |
 | `selector :: Maybe (RecordedEvent -> Bool)` | `Nothing` | Optional opaque per-event predicate for filtering `eventTypeFilter` cannot express; composed with it as a logical AND. Also worker-side. |
@@ -100,10 +100,11 @@ Shibuya processors — one per member, each pinned to the group-level
 ```haskell
 import Shibuya.Adapter.Kiroku (defaultConsumerGroupConfig, kirokuConsumerGroupProcessors)
 
+groupSize <- either (fail . show) pure (mkConsumerGroupSize 4)
 let cfg = defaultConsumerGroupConfig
             (SubscriptionName "my-projection")
             (Category (CategoryName "orders"))
-            4   -- group size
+            groupSize   -- group size
 
 Right processors <- kirokuConsumerGroupProcessors store cfg handler
 Right appHandle  <- runApp IgnoreFailures 100 processors
@@ -119,10 +120,9 @@ member identity rides each processor's `ProcessorId`,
 `"<name>-member-<m>"`).
 
 To run members across separate processes instead, give each process one
-`kirokuAdapter` whose `consumerGroup` is `Just (ConsumerGroup { member = m, size
-= N })` with the same `subscriptionName`. The validity invariant (`size >= 1`,
-`0 <= member < size`) is enforced by the underlying subscription and throws
-`InvalidConsumerGroup` on violation. For the mental model, the
+`kirokuAdapter` whose `consumerGroup` is `Just membership` from `mkConsumerGroup m groupSize` with the same `subscriptionName`. `mkConsumerGroupSize` and `mkConsumerGroup`
+validate size and member indices at construction, returning `Either
+InvalidConsumerGroup`. For the mental model, the
 one-process-per-member operational invariant, the resize procedure, and the hash
 caveat, see [Consumer Groups](consumer-groups.md).
 

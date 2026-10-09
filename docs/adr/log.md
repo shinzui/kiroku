@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-09
+* **Update**: ADR-2: replace stop/drain/restart advice with durable topology validation and transactional minimum-checkpoint equalization
 * **Addition**: ADR-11 records the write-performance acceptance constraint for MasterPlan 12, controlled mixed append/subscription evidence, preserved no-hook fast paths, and opt-in handler-stall diagnostics.
 
 ## 2026-09-25

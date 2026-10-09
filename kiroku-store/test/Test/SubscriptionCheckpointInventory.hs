@@ -161,7 +161,7 @@ readInventory store = do
 
 saveCheckpoint :: KirokuStore -> Text -> Int32 -> Int64 -> IO ()
 saveCheckpoint store name member position = do
-    result <- Pool.use (store ^. #pool) $ Session.statement (name, member, position) SQL.saveCheckpointMemberStmt
+    result <- Pool.use (store ^. #pool) $ Session.statement (name, member, position, max 1 (member + 1)) SQL.saveCheckpointMemberStmt
     case result of
         Left err -> error ("saveCheckpoint failed: " <> show err)
         Right () -> pure ()

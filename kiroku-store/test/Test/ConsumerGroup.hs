@@ -35,7 +35,7 @@ import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Subscription.Stream (subscriptionStream)
 import Kiroku.Test.Postgres (withMigratedTestDatabase)
 import Streamly.Data.Stream qualified as Stream
-import Test.Helpers (makeEvent, waitForPublisher, waitWithTimeout, withTestStore, withTestStoreSettings)
+import Test.Helpers (makeEvent, validConsumerGroup, waitForPublisher, waitWithTimeout, withTestStore, withTestStoreSettings)
 import Test.Hspec
 
 -- | Extract @(originalStreamId, globalPosition)@ as raw 'Int64's from an event.
@@ -83,7 +83,7 @@ memberConfig ::
     Text -> Text -> Int32 -> Int32 -> EventHandler -> SubscriptionConfig
 memberConfig nm cat m n h =
     (defaultSubscriptionConfig (SubscriptionName nm) (Category (CategoryName cat)) h)
-        { consumerGroup = Just (ConsumerGroup{member = m, size = n})
+        { consumerGroup = Just (validConsumerGroup m n)
         }
 
 -- | A size-@n@ @$all@-group config for member @m@ with the given handler.
@@ -91,7 +91,7 @@ memberConfigAll ::
     Text -> Int32 -> Int32 -> EventHandler -> SubscriptionConfig
 memberConfigAll nm m n h =
     (defaultSubscriptionConfig (SubscriptionName nm) AllStreams h)
-        { consumerGroup = Just (ConsumerGroup{member = m, size = n})
+        { consumerGroup = Just (validConsumerGroup m n)
         }
 
 {- | Run a subscription built from the given config-completer, collecting the
@@ -252,7 +252,7 @@ spec = describe "consumer groups" $ do
             -- must ignore it.
             runStmtP store $
                 Session.statement
-                    ("rz-sub" :: Text, 0 :: Int32, 10_000_000 :: Int64)
+                    ("rz-sub" :: Text, 0 :: Int32, 10_000_000 :: Int64, 4 :: Int32)
                     SQL.saveCheckpointMemberStmt
 
             -- Run 2: member 2 restarts and must resume from its OWN checkpoint
@@ -292,7 +292,7 @@ spec = describe "consumer groups" $ do
 
                 let cfg =
                         (defaultSubscriptionConfig (SubscriptionName "guard-sub") (Category (CategoryName "guardcat")) (\_ -> pure Continue))
-                            { consumerGroup = Just (ConsumerGroup{member = 3, size = 4})
+                            { consumerGroup = Just (validConsumerGroup 3 4)
                             , consumerGroupGuard = True
                             , missingCheckpointPolicy = FromBeginning
                             , retryPolicy = defaultRetryPolicy

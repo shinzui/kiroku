@@ -31,6 +31,7 @@ import Test.Causation qualified as Causation
 import Test.Concurrency qualified as Concurrency
 import Test.ConsumerGroup qualified as ConsumerGroup
 import Test.ConsumerGroupEffect qualified as ConsumerGroupEffect
+import Test.ConsumerGroupResize qualified as ConsumerGroupResize
 import Test.ConsumerGroupSql qualified as ConsumerGroupSql
 import Test.EventTypeFilter qualified as EventTypeFilter
 import Test.FailureInjection qualified as FailureInjection
@@ -83,6 +84,7 @@ main = withSharedMigratedPostgres $ hspec $ do
     InterpreterHooks.spec
     Causation.spec
     ConsumerGroupSql.spec
+    ConsumerGroupResize.spec
     ConsumerGroup.spec
     ConsumerGroupEffect.spec
     describe "performance structure" $ do

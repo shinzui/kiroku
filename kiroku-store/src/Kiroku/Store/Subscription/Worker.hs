@@ -246,7 +246,7 @@ runWorker pool liveSource stateVar pubPosVar catGenVar config mHandler stSetting
             -- Optional startup guardrail: when consumerGroupGuard is on, fail fast
             -- if another holder currently holds this (name, member)'s advisory lock.
             case (consumerGroupGuard config, consumerGroup config) of
-                (True, Just (ConsumerGroup m _)) -> guardMember pool subName m
+                (True, Just cg) -> guardMember pool subName (member cg)
                 _ -> pure ()
             resolution <- loadCheckpoint pool config emit
             checkpoint <- case resolution of
@@ -444,7 +444,7 @@ runWorker pool liveSource stateVar pubPosVar catGenVar config mHandler stSetting
 -- The consumer-group context for this config's lifecycle events: 'NonGroup' for
 -- an ordinary subscription, @GroupMember member size@ for a group member.
 groupCtxOf :: SubscriptionConfig -> SubscriptionGroupContext
-groupCtxOf config = maybe NonGroup (\(ConsumerGroup m n) -> GroupMember m n) (consumerGroup config)
+groupCtxOf config = maybe NonGroup (\cg -> GroupMember (member cg) (size cg)) (consumerGroup config)
 
 {- Startup-only conflict probe for the consumer-group guardrail. Uses a
 transaction-scoped advisory lock ('pg_try_advisory_xact_lock') which auto-releases
@@ -487,6 +487,9 @@ classifyStopReason e
 configMember :: SubscriptionConfig -> Int32
 configMember config = maybe 0 member (consumerGroup config)
 
+configSize :: SubscriptionConfig -> Int32
+configSize config = maybe 1 size (consumerGroup config)
+
 -- Resolve the exact checkpoint key through the shared initializer. A database
 -- error is emitted and rethrown so startup fails loudly. A semantic
 -- 'FailIfMissing' result remains typed so the caller can emit the distinct
@@ -502,18 +505,22 @@ loadCheckpoint pool config emit = do
     mHook <- readIORef loadCheckpointHookRef
     injected <- maybe (pure Nothing) (\hook -> hook config) mHook
     result <- case injected of
-        Just hooked -> pure hooked
+        Just hooked -> pure (fmap Right hooked)
         Nothing ->
             Pool.use pool $
-                CheckpointSQL.initializeSubscriptionCheckpointSession
+                CheckpointSQL.initializeWorkerCheckpointSession
                     subName
                     mem
+                    (configSize config)
                     (missingCheckpointPolicy config)
     case result of
         Left err -> do
             emit (KirokuEventSubscriptionDbError subName LoadCheckpoint err (groupCtxOf config))
             throwIO err
-        Right resolution -> pure resolution
+        Right (Left mismatch) -> do
+            emit (KirokuEventSubscriptionGroupSizeMismatch mismatch (groupCtxOf config))
+            throwIO mismatch
+        Right (Right resolution) -> pure resolution
 
 -- How a DB-driven live loop ('liveLoopCategoryNotify' / 'liveLoopDbDriven')
 -- exited. The driver maps these onto FSM inputs: a clean handler stop becomes
@@ -673,10 +680,12 @@ fetchBatch pool config cursor@(GlobalPosition pos) emit stSettings = do
                 (Nothing, Category (CategoryName cat)) -> do
                     result <- Pool.use pool (Session.statement (pos, cat, batchSize config) SQL.readCategoryForwardStmt)
                     handle result
-                (Just (ConsumerGroup m n), AllStreams) -> do
+                (Just cg, AllStreams) -> do
+                    let m = member cg; n = size cg
                     result <- Pool.use pool (Session.statement (pos, m, n, batchSize config) SQL.readAllForwardConsumerGroupStmt)
                     handle result
-                (Just (ConsumerGroup m n), Category (CategoryName cat)) -> do
+                (Just cg, Category (CategoryName cat)) -> do
+                    let m = member cg; n = size cg
                     result <- Pool.use pool (Session.statement (pos, cat, m, n, batchSize config) SQL.readCategoryForwardConsumerGroupStmt)
                     handle result
   where
@@ -802,6 +811,7 @@ writeDeadLetter pool config gp@(GlobalPosition pos) event reason attempt emit = 
             SQL.DeadLetterParams
                 { SQL.dlSubscriptionName = name'
                 , SQL.dlMember = mem
+                , SQL.dlGroupSize = configSize config
                 , SQL.dlGlobalPosition = pos
                 , SQL.dlEventId = uuid
                 , SQL.dlReason = deadLetterReasonJson reason
@@ -831,7 +841,7 @@ saveCheckpoint pool config position@(GlobalPosition pos) emit = do
         mem = configMember config
     mHook <- readIORef saveCheckpointHookRef
     mapM_ (\hook -> hook config position) mHook
-    result <- Pool.use pool (Session.statement (name', mem, pos) SQL.saveCheckpointMemberStmt)
+    result <- Pool.use pool (Session.statement (name', mem, pos, configSize config) SQL.saveCheckpointMemberStmt)
     case result of
         Left err -> emit (KirokuEventSubscriptionDbError subName SaveCheckpoint err (groupCtxOf config))
         Right () -> pure ()

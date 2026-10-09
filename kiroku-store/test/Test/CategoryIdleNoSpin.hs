@@ -47,7 +47,7 @@ import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
 import Data.Text qualified as T
 import Kiroku.Store
-import Test.Helpers (caughtUpEventHandler, makeEvent, waitForPublisher, waitForSubscriptionLive, withTestStoreSettings)
+import Test.Helpers (caughtUpEventHandler, makeEvent, validConsumerGroup, waitForPublisher, waitForSubscriptionLive, withTestStoreSettings)
 import Test.Hspec
 
 -- | Poll an @IO Bool@ predicate until it holds or the microsecond budget runs out.
@@ -142,7 +142,7 @@ spec = describe "live loops do not busy-spin while idle (plan 37)" $ do
                 pure Continue
             memberConfig subName member =
                 (defaultSubscriptionConfig subName (Category (CategoryName "quiet")) deliver)
-                    { consumerGroup = Just ConsumerGroup{member = member, size = 2}
+                    { consumerGroup = Just (validConsumerGroup member 2)
                     }
         withTestStoreSettings (\s -> s & #eventHandler .~ Just obsHandler) $ \store ->
             bracket (subscribe store (memberConfig (names !! 0) 0)) cancel $ \_ ->
@@ -192,7 +192,7 @@ spec = describe "live loops do not busy-spin while idle (plan 37)" $ do
                 -- append advances the global position it gates on.
                 cfg =
                     (defaultSubscriptionConfig subName AllStreams deliver)
-                        { consumerGroup = Just ConsumerGroup{member = 0, size = 3}
+                        { consumerGroup = Just (validConsumerGroup 0 3)
                         }
             bracket (subscribe store cfg) cancel $ \_handle -> do
                 waitForSubscriptionLive liveBarrier

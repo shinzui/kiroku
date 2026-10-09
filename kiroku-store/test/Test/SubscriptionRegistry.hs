@@ -34,7 +34,7 @@ import Data.Maybe (isJust, isNothing)
 import Data.Text (Text)
 import Kiroku.Store
 import Kiroku.Store.Subscription.EventPublisher qualified as Pub
-import Test.Helpers (makeEvent, waitForPublisher, withTestStore)
+import Test.Helpers (makeEvent, validConsumerGroup, waitForPublisher, withTestStore)
 import Test.Hspec
 
 -- | A plain @$all@ subscription config whose handler never stops.
@@ -45,14 +45,14 @@ plainCont nm = defaultSubscriptionConfig (SubscriptionName nm) AllStreams (\_ ->
 groupCont :: Text -> Text -> Int32 -> Int32 -> SubscriptionConfig
 groupCont nm cat m n =
     (defaultSubscriptionConfig (SubscriptionName nm) (Category (CategoryName cat)) (\_ -> pure Continue))
-        { consumerGroup = Just (ConsumerGroup{member = m, size = n})
+        { consumerGroup = Just (validConsumerGroup m n)
         }
 
 -- | A size-@n@ @$all@ group config for member @m@ whose handler never stops.
 groupAllCont :: Text -> Int32 -> Int32 -> SubscriptionConfig
 groupAllCont nm m n =
     (defaultSubscriptionConfig (SubscriptionName nm) AllStreams (\_ -> pure Continue))
-        { consumerGroup = Just (ConsumerGroup{member = m, size = n})
+        { consumerGroup = Just (validConsumerGroup m n)
         }
 
 publisherSubscriberCount :: KirokuStore -> IO Int

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+* **Breaking:** `KirokuConsumerGroupConfig.groupSize` and
+  `defaultConsumerGroupConfig` now take validated `ConsumerGroupSize`. Construct
+  membership with `mkConsumerGroupSize`/`mkConsumerGroup`; non-positive sizes are
+  rejected at construction. Re-export the smart constructors and read-only accessors.
+
 ## 0.5.1.5 — 2026-09-25
 
 ### Other Changes

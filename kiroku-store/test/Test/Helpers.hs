@@ -22,6 +22,7 @@ module Test.Helpers (
 
     -- * Event construction
     makeEvent,
+    validConsumerGroup,
 
     -- * Subscription wait
     waitWithTimeout,
@@ -137,6 +138,7 @@ insertDeadLetterForEvent store subscriptionName event = do
             SQL.DeadLetterParams
                 { SQL.dlSubscriptionName = subscriptionName
                 , SQL.dlMember = 0
+                , SQL.dlGroupSize = 1
                 , SQL.dlGlobalPosition = globalPosition
                 , SQL.dlEventId = eid
                 , SQL.dlReason = Aeson.object [("source", Aeson.String "test")]
@@ -339,3 +341,9 @@ caughtUpEventHandler name barrier passthrough evt = do
     case passthrough of
         Nothing -> pure ()
         Just f -> f evt
+
+{- | Build known-valid membership for test fixtures; invalid cases test the
+smart constructors directly rather than passing a malformed worker config.
+-}
+validConsumerGroup :: Int32 -> Int32 -> ConsumerGroup
+validConsumerGroup m n = either (error . show) Prelude.id (mkConsumerGroupSize n >>= mkConsumerGroup m)

@@ -45,10 +45,11 @@ policy — no manual @[0..N-1]@ wiring.
 main :: IO ()
 main = withStore settings $ \\store ->
     runEff $ runTracingNoop $ do
+        groupSize <- either (fail . show) pure (mkConsumerGroupSize 4)
         let cfg = defaultConsumerGroupConfig
                 (SubscriptionName \"orders-projection\")
                 (Category (CategoryName \"orders\"))
-                4   -- group size
+                groupSize
 
         Right processors <- kirokuConsumerGroupProcessors store cfg handler
         Right appHandle <- runApp defaultAppConfig processors
@@ -130,7 +131,13 @@ module Shibuya.Adapter.Kiroku (
     -- * Re-exports from kiroku-store
     SubscriptionName (..),
     SubscriptionTarget (..),
-    ConsumerGroup (..),
+    ConsumerGroup,
+    ConsumerGroupSize,
+    consumerGroupSizeValue,
+    mkConsumerGroupSize,
+    mkConsumerGroup,
+    member,
+    size,
     EventTypeFilter (..),
     MissingCheckpointPolicy (..),
 ) where
@@ -139,20 +146,25 @@ import Control.Exception (SomeException)
 import Data.Int (Int32)
 import Data.Text qualified as T
 import Effectful (Eff, IOE, liftIO, (:>))
-import Effectful.Exception (catchSync, throwIO)
+import Effectful.Exception (catchSync)
 import GHC.Generics (Generic)
 import Kiroku.Store.Connection (KirokuStore)
 import Kiroku.Store.Subscription.Stream (subscriptionAckStream)
 import Kiroku.Store.Subscription.Types (
-    ConsumerGroup (..),
+    ConsumerGroup,
+    ConsumerGroupSize,
     EventTypeFilter (..),
-    InvalidConsumerGroup (..),
     MissingCheckpointPolicy (..),
     SubscriptionConfig,
     SubscriptionName (..),
     SubscriptionResult (..),
     SubscriptionTarget (..),
+    consumerGroupSizeValue,
     defaultSubscriptionConfig,
+    member,
+    mkConsumerGroup,
+    mkConsumerGroupSize,
+    size,
  )
 import Kiroku.Store.Subscription.Types qualified as Sub
 import Kiroku.Store.Types (RecordedEvent)
@@ -197,15 +209,14 @@ data KirokuAdapterConfig = KirokuAdapterConfig
     , consumerGroup :: !(Maybe ConsumerGroup)
     {- ^ Optional consumer-group membership for this adapter instance.
     'Nothing' (the default) = ordinary single-consumer subscription.
-    @'Just' ('ConsumerGroup' { member = m, size = n })@ = this adapter is
+    @'Just' cg@ (built with 'mkConsumerGroup') = this adapter is
     member @m@ of a group of size @n@, receiving only the events whose
     originating stream hashes to slot @m@ (in global-position order). To run a
     full size-@n@ group, create @n@ adapters with the same 'subscriptionName'
     and distinct 'member' indices, each backed by its own Shibuya processor.
 
-    The validity invariant (@size >= 1@, @0 <= member < size@) is enforced by
-    the underlying 'Kiroku.Store.Subscription.subscribe' call, which throws
-    'Kiroku.Store.Subscription.Types.InvalidConsumerGroup' on violation.
+    'mkConsumerGroupSize' and 'mkConsumerGroup' validate this invariant before
+    an adapter can be configured.
     -}
     , missingCheckpointPolicy :: !MissingCheckpointPolicy
     {- ^ What the underlying Kiroku worker does when this adapter's exact
@@ -343,7 +354,7 @@ kirokuAdapter store KirokuAdapterConfig{subscriptionName = subName, subscription
         envAttrs =
             kirokuEnvelopeAttrs
                 subNameText
-                (fmap (\ConsumerGroup{member = m} -> fromIntegral m) cg)
+                (fmap (fromIntegral . member) cg)
         ingestedStream = fmap (toIngestedAck envAttrs cancelAction) (Stream.morphInner liftIO ioStream)
 
     pure
@@ -378,10 +389,9 @@ data KirokuConsumerGroupConfig = KirokuConsumerGroupConfig
     {- ^ 'AllStreams' or @'Category' categoryName@ — the same source for every
     member; kiroku partitions it across members in SQL.
     -}
-    , groupSize :: !Int32
+    , groupSize :: !ConsumerGroupSize
     {- ^ @N@ members; must be @>= 1@ (enforced by the underlying
-    'Kiroku.Store.Subscription.subscribe', which throws
-    'Kiroku.Store.Subscription.Types.InvalidConsumerGroup' otherwise).
+    'mkConsumerGroupSize' at construction).
     -}
     , batchSize :: !Int32
     -- ^ Events per database fetch during catch-up (per member).
@@ -428,7 +438,7 @@ data KirokuConsumerGroupConfig = KirokuConsumerGroupConfig
 Supply the subscription name, target, and group size.
 -}
 defaultConsumerGroupConfig ::
-    SubscriptionName -> SubscriptionTarget -> Int32 -> KirokuConsumerGroupConfig
+    SubscriptionName -> SubscriptionTarget -> ConsumerGroupSize -> KirokuConsumerGroupConfig
 defaultConsumerGroupConfig name target n =
     KirokuConsumerGroupConfig
         { subscriptionName = name
@@ -476,9 +486,7 @@ kiroku subscription is opened__.
 
 Each processor's 'ProcessorId' is
 @\"\<subscriptionName\>-member-\<m\>\"@ so member identity is readable off the id
-and two members never collide. @groupSize >= 1@ is validated before any
-subscription opens, throwing 'InvalidConsumerGroup' with member 0 when it is
-violated.
+and two members never collide. The group size is validated by 'mkConsumerGroupSize' at construction.
 -}
 kirokuConsumerGroupProcessors ::
     (IOE :> es) =>
@@ -498,7 +506,7 @@ kirokuConsumerGroupProcessors store cfg@KirokuConsumerGroupConfig{subscriptionNa
                 , batchSize = bs
                 , bufferSize = buf
                 , queueCapacity = qCap
-                , consumerGroup = Just (ConsumerGroup{member = m, size = n})
+                , consumerGroup = Just (either (error . show) id (mkConsumerGroup m n))
                 , missingCheckpointPolicy = checkpointPolicy
                 , eventTypeFilter = etf
                 , selector = sel
@@ -525,21 +533,19 @@ kirokuConsumerGroupProcessorsWith
         , memberConcurrency = mc
         }
     handler =
-        if n < 1
-            then throwIO (InvalidConsumerGroup 0 n)
-            else case consumerGroupPolicy mc of
-                Left e -> pure (Left e)
-                Right (ordering, conc) -> do
-                    let SubscriptionName name = subName
-                    acquireAllAndTransfer
-                        n
-                        mkMemberAdapter
-                        (\Adapter{shutdown = shutdownAction} -> shutdownAction)
-                        (\_ _ -> pure ())
-                        ( \adapters ->
-                            pure . Right $
-                                [ let pid = ProcessorId (name <> "-member-" <> T.pack (show m))
-                                   in (pid, QueueProcessor adapter (guardKirokuHandler handler) ordering conc)
-                                | (m, adapter) <- zip [0 .. n - 1] adapters
-                                ]
-                        )
+        case consumerGroupPolicy mc of
+            Left e -> pure (Left e)
+            Right (ordering, conc) -> do
+                let SubscriptionName name = subName
+                acquireAllAndTransfer
+                    (consumerGroupSizeValue n)
+                    mkMemberAdapter
+                    (\Adapter{shutdown = shutdownAction} -> shutdownAction)
+                    (\_ _ -> pure ())
+                    ( \adapters ->
+                        pure . Right $
+                            [ let pid = ProcessorId (name <> "-member-" <> T.pack (show m))
+                               in (pid, QueueProcessor adapter (guardKirokuHandler handler) ordering conc)
+                            | (m, adapter) <- zip [0 .. consumerGroupSizeValue n - 1] adapters
+                            ]
+                    )

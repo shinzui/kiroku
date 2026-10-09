@@ -183,16 +183,16 @@ checkpointSpec = around withTestStore $ do
         let subName = "proj-acct" :: Text
 
         it "stores and reads independent checkpoints per member" $ \store -> do
-            runStmt store $ Session.statement (subName, 0 :: Int32, 7 :: Int64) SQL.saveCheckpointMemberStmt
-            runStmt store $ Session.statement (subName, 1 :: Int32, 13 :: Int64) SQL.saveCheckpointMemberStmt
+            runStmt store $ Session.statement (subName, 0 :: Int32, 7 :: Int64, 2 :: Int32) SQL.saveCheckpointMemberStmt
+            runStmt store $ Session.statement (subName, 1 :: Int32, 13 :: Int64, 2 :: Int32) SQL.saveCheckpointMemberStmt
             m0 <- runStmt store $ Session.statement (subName, 0 :: Int32) SQL.getCheckpointMemberStmt
             m1 <- runStmt store $ Session.statement (subName, 1 :: Int32) SQL.getCheckpointMemberStmt
             m0 `shouldBe` Just 7
             m1 `shouldBe` Just 13
 
         it "never moves a member checkpoint backward (GREATEST monotonicity)" $ \store -> do
-            runStmt store $ Session.statement (subName, 0 :: Int32, 20 :: Int64) SQL.saveCheckpointMemberStmt
-            runStmt store $ Session.statement (subName, 0 :: Int32, 5 :: Int64) SQL.saveCheckpointMemberStmt
+            runStmt store $ Session.statement (subName, 0 :: Int32, 20 :: Int64, 2 :: Int32) SQL.saveCheckpointMemberStmt
+            runStmt store $ Session.statement (subName, 0 :: Int32, 5 :: Int64, 2 :: Int32) SQL.saveCheckpointMemberStmt
             m0 <- runStmt store $ Session.statement (subName, 0 :: Int32) SQL.getCheckpointMemberStmt
             m0 `shouldBe` Just 20
 

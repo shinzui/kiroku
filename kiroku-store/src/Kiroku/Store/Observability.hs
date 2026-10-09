@@ -60,6 +60,7 @@ import Kiroku.Store.HistoryRetention.Types (HistoryRetentionConflict, HistoryRet
 import Kiroku.Store.Subscription.Fsm (DeadLetterReason (..), SubscriptionStopReason (..))
 import Kiroku.Store.Subscription.Types (
     CheckpointInitialization,
+    ConsumerGroupSizeMismatch,
     SubscriptionCheckpointMissing,
     SubscriptionName,
  )
@@ -72,7 +73,8 @@ callbacks should be fast or fan out to an asynchronous worker. See the
 module Haddock for context.
 -}
 data KirokuEvent
-    = {- | The dedicated @LISTEN@ connection encountered a non-async
+    = KirokuEventSubscriptionGroupSizeMismatch !ConsumerGroupSizeMismatch !SubscriptionGroupContext
+    | {- | The dedicated @LISTEN@ connection encountered a non-async
       exception and the listener loop is about to attempt reconnection.
       The 'Int' is the consecutive failure count starting at @1@; it
       drives the exponential-backoff delay (capped at 30 seconds) and

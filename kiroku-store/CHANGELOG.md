@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+* **Breaking:** `ConsumerGroup` and positive `ConsumerGroupSize` are opaque;
+  use `mkConsumerGroupSize` and `mkConsumerGroup`. Invalid membership is an
+  `Either InvalidConsumerGroup` construction error, not a startup exception.
+* Checkpoints persist group size on startup, ordinary saves, and dead-letter saves.
+  `ConsumerGroupSizeMismatch` refuses incompatible restart before delivery and
+  emits `KirokuEventSubscriptionGroupSizeMismatch`.
+* `resizeConsumerGroupTx` explicitly equalizes every new member at the old minimum
+  checkpoint, returning `ConsumerGroupResizeReport` and composing with caller SQL.
+  Stop all members before resize, including same-size hash-assignment changes.
+
 ## 0.9.0.1 — 2026-09-25
 
 ### Bug Fixes

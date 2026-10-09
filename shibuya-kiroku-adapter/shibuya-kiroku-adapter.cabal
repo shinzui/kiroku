@@ -136,3 +136,28 @@ executable lifecycle-live
     , text                    >=2.0      && <2.2
     , time                    >=1.12     && <1.15
     , vector                  >=0.13     && <0.14
+
+-- MP-12: identical durable mixed-workload probe for control/candidate builds.
+benchmark kiroku-mp12-write-probe
+  import:             common
+  type:               exitcode-stdio-1.0
+  main-is:            WriteProbe.hs
+  hs-source-dirs:     bench
+  default-extensions: OverloadedRecordDot
+  ghc-options:        -threaded -rtsopts "-with-rtsopts=-N4 -T -A32m" -O2
+  build-depends:
+    , aeson                   >=2.1   && <2.3
+    , async                   >=2.2   && <2.3
+    , base                    >=4.18  && <5
+    , bytestring              >=0.11  && <0.13
+    , contravariant-extras    >=0.3
+    , effectful-core          >=2.6.1 && <2.7  || >=2.7.1.1 && <2.8
+    , ephemeral-pg            >=0.3.1 && <0.4
+    , hasql                   >=1.10  && <1.11
+    , hasql-pool              >=1.2   && <1.5
+    , kiroku-store
+    , kiroku-test-support
+    , shibuya-core            >=0.10  && <0.11
+    , shibuya-kiroku-adapter
+    , text                    >=2.0   && <2.2
+    , vector                  >=0.13  && <0.14

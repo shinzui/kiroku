@@ -222,6 +222,7 @@ onEvent tracer cell = \case
     -- produces the terminal span.
     KirokuEventSubscriptionCheckpointResolved{} -> pure ()
     KirokuEventSubscriptionCheckpointMissing{} -> pure ()
+    KirokuEventSubscriptionGroupSizeMismatch{} -> pure ()
     KirokuEventSubscriptionStarted name pos grp ->
         withKey cell (keyOf name grp) $ \st -> do
             -- Defensively close a catch-up span left open by a prior episode.

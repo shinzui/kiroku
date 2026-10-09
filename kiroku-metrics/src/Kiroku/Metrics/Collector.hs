@@ -52,6 +52,7 @@ import Kiroku.Store.Subscription.EventPublisher (
  )
 import Kiroku.Store.Subscription.Types (
     CheckpointInitialization (..),
+    ConsumerGroupSizeMismatch (..),
     SubscriptionCheckpointKey (..),
     SubscriptionCheckpointMissing (..),
     SubscriptionName (..),
@@ -178,6 +179,8 @@ applyEvent km = \case
             ExistingCheckpoint (SubscriptionCheckpointKey name _) pos -> recordPosition km name pos
             InitializedCheckpoint _ (SubscriptionCheckpointKey name _) pos -> recordPosition km name pos
     KirokuEventSubscriptionCheckpointMissing (SubscriptionCheckpointMissing (SubscriptionCheckpointKey name _)) _ ->
+        touchSub km name id
+    KirokuEventSubscriptionGroupSizeMismatch (ConsumerGroupSizeMismatch name _ _) _ ->
         touchSub km name id
     KirokuEventSubscriptionStarted name pos _ -> do
         bumpCounters km (\c -> c{subscriptionsStarted = c.subscriptionsStarted + 1})

@@ -34,6 +34,11 @@ provenance:
       at: 2026-10-09T16:21:16Z
       mode: "update"
       note: "Audit source at e6ea664; distinguish completed baseline from remaining work, refresh request coverage and performance evidence requirements"
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-09T16:36:22Z
+      mode: "implement"
+      note: "Implement validated durable topology and explicit gap-free resize; preserve e6ea664 control"
 ---
 
 # Make consumer-group topology durable and resize without gaps
@@ -63,14 +68,51 @@ adoption path exists.
 ## Progress
 
 - [ ] Write-performance gate: establish pre-cohort controls and pass mixed append/subscription throughput, latency, checkpoint/WAL, and GC checks under ADR-11 before completion.
-- [ ] M1: introduce validated `ConsumerGroupSize` and `mkConsumerGroup`; write `consumer_group_size` through initialization, ordinary checkpoint saves, and dead-letter checkpoint saves; read and validate group-wide stored topology at startup.
-- [ ] M1: generate the derived-topology migration and add typed mismatch, upgrade-path, and underestimate-then-resize tests, including the currently lossy skewed size-2 to size-3 scenario.
-- [ ] M2: expose and test idempotent `resizeConsumerGroupTx` in `Kiroku.Store.Subscription.Checkpoint`, rewinding all new members to the old members' minimum checkpoint in one transaction.
-- [ ] M3: rewrite `docs/user/consumer-groups.md` and amend ADR-2 so stop/drain/restart alone is no longer described as safe.
+- [x] (2026-10-09 16:54 UTC) M1: introduce validated `ConsumerGroupSize` and `mkConsumerGroup`; write `consumer_group_size` through initialization, ordinary checkpoint saves, and dead-letter checkpoint saves; read and validate group-wide stored topology at startup.
+- [x] (2026-10-09 16:54 UTC) M1: generate the derived-topology migration and add typed mismatch, upgrade-path, and underestimate-then-resize tests, including the currently lossy skewed size-2 to size-3 scenario.
+- [x] (2026-10-09 16:54 UTC) M2: expose and test idempotent `resizeConsumerGroupTx` in `Kiroku.Store.Subscription.Checkpoint`, rewinding all new members to the old members' minimum checkpoint in one transaction.
+- [x] (2026-10-09 16:54 UTC) M3: rewrite `docs/user/consumer-groups.md` and amend ADR-2 so stop/drain/restart alone is no longer described as safe.
 - [ ] Run the focused and full Kiroku test suites; update living sections and perform ADR distillation.
 
 
 ## Surprises & Discoveries
+
+- Validation: `nix develop .#postgresql17 --command cabal test all
+  --test-show-details=direct` passes every suite (store 326, migrations 23,
+  adapter 38, CLI 22, metrics 20, OpenTelemetry 17 examples). PostgreSQL 18.6
+  passes the same suite counts. `just perf-check` passes structural invariants
+  and all 16 existing controlled cells. These comparisons protect previous
+  append/category optimizations, not MP-12 against its original implementation.
+- Schema observation: EP-1 adds a checkpoint statement parameter but no new row
+  column: the fixed-width `consumer_group_size` already exists. EP-2 adds the
+  genuinely new target columns. WAL/HOT and shared-pool effects remain required
+  measurements for both children.
+
+- Implementation (2026-10-09): `0013.sql` was allocated by the migration
+  scaffolder. The upgrade suite applies migrations through 0012, inserts default-1
+  legacy groups, upgrades through the real ledger, and verifies complete groups
+  derive size 2, incomplete groups derive size 1, and positions do not move.
+- Implementation: validating after initialization could leave a new wrong-size
+  row even on refusal. Startup validates siblings before insertion and uses a
+  transaction-scoped name lock to serialize competing initializers, including
+  absent groups. Startup reads do not take row locks; resize locks the old rows.
+  Ordinary saves and appends never acquire that name lock.
+- Validation on PostgreSQL 18.6: the complete store suite passed 326 examples;
+  adapter 38, metrics 20, and OpenTelemetry 17 examples passed. The initial full
+  run caught two stale migration-tail expectations, corrected to the actual
+  manifest length; the rerun passed all 23 migration examples. Focused group
+  coverage passed 28 examples including the new resize cases.
+- Performance probe preflight: `mori://shinzui/ephemeral-pg/packages/ephemeral-pg` defaults disables
+  durability. The new shared probe explicitly enables fsync, synchronous_commit,
+  and full_page_writes, uses replica WAL and 128 MB shared buffers, and verifies
+  those settings in its JSON. Smoke checks have exercised native all/category/group
+  and the real Shibuya acknowledgement bridge; they are not acceptance trials.
+
+- Implementation preflight (2026-10-09): froze the original production control at
+  `e6ea664` in a detached worktree. The current starting revision `4d9b68e` differs
+  only in documentation. Performance acceptance retains the declared five paired
+  60-second trials, PostgreSQL 17/18, batch sizes 1/100, 1% throughput/p50 and 3%
+  tail-latency resolution; no thresholds or baseline are relaxed.
 
 - Refresh audit (2026-10-09): source, tests, and changelogs confirm the remaining acceptance
   work is unimplemented; the dated Context audit distinguishes existing baseline from this plan.
@@ -88,6 +130,26 @@ adoption path exists.
 
 
 ## Decision Log
+
+- Decision: Keep existing member row identities during resize using an upsert
+  plus deletion of obsolete indices, rather than deleting and recreating the set.
+  Rationale: It produces the same equalized positions while avoiding needless
+  identity churn; repeated resize preserves the row set. Workers must be stopped.
+  Date: 2026-10-09
+
+- Decision: Preserve the existing low-level exact-checkpoint initializer as a
+  size-1 provisioning API; provision complete groups through the explicit resize.
+  Rationale: The public initializer has no topology input. Worker startup uses
+  the new configured-size initializer and validates stored siblings atomically;
+  retroactively guessing a group size from a raw member index would recreate
+  implicit adoption. Plan 82 must extend this same worker session for target binding.
+  Date: 2026-10-09
+
+- Decision: Use read-only accessor functions rather than exported record fields
+  for opaque `ConsumerGroup`.
+  Rationale: Exported record selectors permit record updates even when the data
+  constructor is hidden, allowing an invalid member/size pair to bypass validation.
+  Date: 2026-10-09
 
 - Decision: Apply ADR-11's write-performance constraint to this child's implementation and release
   evidence, including indirect CPU/GC/pool/checkpoint effects where applicable.
@@ -159,11 +221,18 @@ adoption path exists.
 
 ## Outcomes & Retrospective
 
-The 2026-10-09 documentation refresh confirmed that this child remains Not Started at
-`e6ea664`. The Context audit records current implementation evidence and reusable baseline work.
-No runtime or performance suite was rerun for this refresh; implementation acceptance remains
-open. The subsequent write-performance requirement is recorded in ADR-11 and the acceptance below;
-implementation and measured evidence remain outstanding.
+Functional milestones M1–M3 are implemented and validated on PostgreSQL 18.6.
+The topology migration, typed refusal, transaction-composable resize, construction
+validation, and operator documentation are present. ADR-2 is amended and strict
+profile enforcement passes. The new mismatch exception remains a concrete
+`Exception`; plan 82 owns its routing through the shared startup-refusal parent.
+
+Both PostgreSQL 17.10 and 18.6 pass the complete suite; the existing ADR-5
+`just perf-check` passes all 16 controlled cells and the structural checks. This
+child remains In Progress until telemetry and ADR-11 controlled write-performance
+acceptance are satisfied.
+The pre-cohort control remains `e6ea664`; no performance acceptance is inferred
+from functional tests or the probe's smoke checks.
 
 
 ## Context and Orientation
@@ -413,6 +482,40 @@ ordinary checkpoint save must remain a single upsert issued once per batch tail,
 validation must add no pool checkout beyond the initialization session.
 
 
+### Controlled write probe (implementation pilot)
+
+The identical `shibuya-kiroku-adapter/bench/WriteProbe.hs` harness is built in this
+checkout and a detached `e6ea664` checkout. The control uses only
+`-DLEGACY_TOPOLOGY` to construct the original consumer-group representation; its
+production source is unchanged. `scripts/mp12-write-pair.py` preserves alternating
+raw trials, binary hashes, declared workload, durability and delivery assertions,
+and paired 95% log-ratio intervals. Its `complete_matrix: false` output explicitly
+prevents interpreting a single cell as full acceptance. A positive slowdown is
+never allowed by the resolution limits. Existing ADR-5 baselines are untouched.
+
+The pilot uses GHC 9.12.4, `-N4 -T -A32m`, four appenders, one ten-connection pool,
+a 512-character JSON body, `fsync`, `synchronous_commit`, and `full_page_writes`
+on, replica WAL, and 128 MB shared buffers. Subscribers enter live mode before
+the measurement; a two-second warmup is drained before counters reset. The first
+calibration cell is an existing single-stream write of one event, native size-four
+category group, checkpoint batch one, 100 offered append calls/second, five
+alternating pairs, and 61 scheduled seconds per trial. Latency includes scheduled
+arrival-to-completion delay. The candidate/control comparison must wait until
+control/control calibration establishes sufficient precision.
+
+```bash
+control=$(cd /tmp/kiroku-mp12-control-e6ea664 && cabal list-bin shibuya-kiroku-adapter:kiroku-mp12-write-probe)
+python3 scripts/mp12-write-pair.py --control "$control" --candidate "$control" \
+  --calibrate --mode group --checkpoint-batch 1 --offered 100 --pairs 5 --seconds 61 \
+  --output kiroku-store/bench/results/mp12-pg18-calibration-group-fixed-1.json
+```
+
+The pilot records whole-workload WAL, checkpoint update/HOT counts, and Haskell
+allocation/GC. Before full acceptance, add checkpoint latency, contention and
+continuous backlog evidence, all declared write shapes on PostgreSQL 17/18,
+separate sustainable-throughput trials, and integration of the complete gate into
+`just perf-check`. This pilot is evidence collection rather than a completed gate.
+
 ## Idempotence and Recovery
 
 Tests use ephemeral databases and are repeatable. `resizeConsumerGroupTx` must be idempotent and
@@ -471,3 +574,9 @@ implementation or new runtime-test evidence.
 Revision note (2026-10-09, write-performance requirement): Applied ADR-11 and blocking write-path
 acceptance, with per-child ownership and evidence requirements. The user explicitly prioritizes
 write performance. Implementation and benchmark gates remain open.
+
+Revision note (2026-10-09, implementation): Implemented validated membership,
+configured-size checkpoint writes, pre-insertion topology validation, migration
+0013, and transactional minimum-position resize. Updated consumers and tests,
+corrected the user guide and ADR-2, and preserved the pre-cohort control. Runtime
+and performance evidence are recorded above; unfinished acceptance remains open.

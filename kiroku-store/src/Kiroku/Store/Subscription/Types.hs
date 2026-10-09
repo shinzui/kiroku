@@ -52,7 +52,14 @@ module Kiroku.Store.Subscription.Types (
     defaultRetryPolicy,
 
     -- * Consumer groups
-    ConsumerGroup (..),
+    ConsumerGroup,
+    member,
+    size,
+    ConsumerGroupSize,
+    consumerGroupSizeValue,
+    mkConsumerGroupSize,
+    mkConsumerGroup,
+    ConsumerGroupSizeMismatch (..),
     InvalidConsumerGroup (..),
     ConsumerGroupGuardConflict (..),
 ) where
@@ -342,8 +349,7 @@ data SubscriptionConfigM m = SubscriptionConfig
     {- ^ 'Nothing' (the default) = ordinary single-consumer subscription.
     'Just cg' = this worker is member 'member cg' of a group of size
     'size cg'. The invariant @size >= 1@ and @0 <= member < size@ is
-    enforced once at 'Kiroku.Store.Subscription.subscribe' time, which
-    throws 'InvalidConsumerGroup' on violation.
+    enforced at construction by 'mkConsumerGroupSize' and 'mkConsumerGroup'.
     -}
     , consumerGroupGuard :: !Bool
     {- ^ When 'True' (default 'False'), the worker performs a one-shot
@@ -470,24 +476,49 @@ data SubscriptionHandleM m = SubscriptionHandle
 -- | Handle defaulting to 'IO'.
 type SubscriptionHandle = SubscriptionHandleM IO
 
--- | Static consumer-group membership for a subscription.
-data ConsumerGroup = ConsumerGroup
-    { member :: !Int32
-    -- ^ 0-based member index; must satisfy @0 <= member < size@.
-    , size :: !Int32
-    -- ^ total members in the group; must be @>= 1@.
-    }
+-- | A positive group size, validated once before starting any workers.
+newtype ConsumerGroupSize = ConsumerGroupSize Int32
     deriving stock (Eq, Show)
 
-{- | Thrown by 'Kiroku.Store.Subscription.subscribe' when a 'ConsumerGroup'
-violates @size >= 1@ or @0 <= member < size@. Carries the offending values for
-diagnostics.
--}
+consumerGroupSizeValue :: ConsumerGroupSize -> Int32
+consumerGroupSizeValue (ConsumerGroupSize n) = n
+
+mkConsumerGroupSize :: Int32 -> Either InvalidConsumerGroup ConsumerGroupSize
+mkConsumerGroupSize n
+    | n >= 1 = Right (ConsumerGroupSize n)
+    | otherwise = Left (InvalidConsumerGroup 0 n)
+
+-- | Static membership. Use 'mkConsumerGroup'; accessors cannot update the pair.
+data ConsumerGroup = ConsumerGroup !Int32 !ConsumerGroupSize
+    deriving stock (Eq, Show)
+
+member :: ConsumerGroup -> Int32
+member (ConsumerGroup m _) = m
+
+size :: ConsumerGroup -> Int32
+size (ConsumerGroup _ n) = consumerGroupSizeValue n
+
+mkConsumerGroup :: Int32 -> ConsumerGroupSize -> Either InvalidConsumerGroup ConsumerGroup
+mkConsumerGroup m n
+    | m >= 0 && m < consumerGroupSizeValue n = Right (ConsumerGroup m n)
+    | otherwise = Left (InvalidConsumerGroup m (consumerGroupSizeValue n))
+
+-- | Construction error; invalid configuration never reaches a worker.
 data InvalidConsumerGroup = InvalidConsumerGroup
     { invalidMember :: !Int32
     , invalidSize :: !Int32
     }
-    deriving stock (Show)
+    deriving stock (Eq, Show)
+
+{- | Stored topology disagrees with the configured size. Stop all members and
+use 'Kiroku.Store.Subscription.Checkpoint.resizeConsumerGroupTx' before restart.
+-}
+data ConsumerGroupSizeMismatch = ConsumerGroupSizeMismatch
+    { mismatchName :: !SubscriptionName
+    , configuredSize :: !Int32
+    , observedSizes :: !(Vector Int32)
+    }
+    deriving stock (Eq, Show)
     deriving anyclass (Exception)
 
 {- | Thrown at subscription startup when 'consumerGroupGuard' is 'True' and

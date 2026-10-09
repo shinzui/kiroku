@@ -33,6 +33,11 @@ provenance:
       at: 2026-10-09T16:21:16Z
       mode: "update"
       note: "Audit source at e6ea664; distinguish completed baseline from remaining work, refresh request coverage and performance evidence requirements"
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-09T16:36:22Z
+      mode: "implement"
+      note: "Begin EP-1 according to registry order; preserve pre-cohort control for required performance acceptance"
 ---
 
 # Harden the Kiroku event store and subscription machinery surfaced by the 2026-07 Kiroku review
@@ -84,7 +89,9 @@ already complete under [ADR-7](../adr/0007-replay-history-retention-uses-leases-
 ## Decomposition Strategy
 
 The 2026-10-09 source audit at commit `e6ea664` found **0 of 6 children complete**.
-All five implementation children remain Not Started; EP-6 awaits their completion.
+At that audit all five implementation children were Not Started; EP-6 awaits their completion.
+EP-1 is now In Progress: functional topology/resize milestones have landed in the
+working tree, while its full performance acceptance remains open.
 The accepted ADR-8 records the intended API, not evidence that it has shipped. The recent
 lifecycle, category-performance, and publisher-memory fixes are baseline improvements to preserve.
 This update inspected source, tests, migrations, changelogs, and history; it did not rerun the
@@ -133,7 +140,7 @@ decides during implementation whether the latter warrants a record.
 
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
-| 1 | Make consumer-group topology durable and resize without gaps | docs/plans/81-make-consumer-group-topology-durable-and-resize-without-gaps.md | None | EP-2 | Not Started |
+| 1 | Make consumer-group topology durable and resize without gaps | docs/plans/81-make-consumer-group-topology-durable-and-resize-without-gaps.md | None | EP-2 | In Progress |
 | 2 | Repair live reconnect and validate subscription identity and batch size | docs/plans/82-repair-live-reconnect-and-validate-subscription-identity-and-batch-size.md | None | EP-1 | Not Started |
 | 3 | Contain persistent publisher decode-hook failures | docs/plans/83-contain-persistent-publisher-decode-hook-failures.md | None | EP-2 | Not Started |
 | 4 | Harden adapter acknowledgement liveness and expose retry policy | docs/plans/84-harden-adapter-acknowledgement-liveness-and-expose-retry-policy.md | EP-1, EP-2 | EP-3 | Not Started |
@@ -456,6 +463,18 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Surprises & Discoveries
 
+- EP-1 implementation (2026-10-09): migration `0013.sql` derives legacy topology;
+  EP-2 must allocate its target-binding migration after that filename. Worker
+  startup now uses `initializeWorkerCheckpointSession`: extend this transaction
+  for target validation, retaining the one-checkout boundary and the advisory
+  name lock that prevents concurrent incompatible initializers. The original
+  low-level initializer remains size-1 provisioning; whole groups use resize.
+- EP-1 implementation: `ConsumerGroup` accessors are ordinary functions, not
+  exported record fields, because record updates could otherwise bypass the
+  hidden constructor. Adapter `groupSize` now takes `ConsumerGroupSize`; EP-4
+  preserves this surface while adopting validated batch/buffer sizes. Plan 82
+  adds the startup-parent `Exception` instance for `ConsumerGroupSizeMismatch`.
+
 - Refresh audit (2026-10-09): accepted ADR-8 has not yet been implemented; configuration remains
   raw integers, runtime errors remain separate, and resize/rebind/decode-disposition APIs are absent.
 - Refresh audit (2026-10-09): the existing overhead benchmark preloads events and builds a synthetic
@@ -674,6 +693,13 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Outcomes & Retrospective
 
+Implementation update (2026-10-09): EP-1's functional milestones are implemented;
+PostgreSQL 18.6 store, adapter, observability-package and migration checks pass.
+The child stays In Progress because its controlled write-performance gate and
+remaining evidence are mandatory. No child is yet marked Complete, and no
+cohort package has been released.
+
+
 The coordination transfer is complete: Kiroku now contains the authoritative MasterPlan and six
 self-contained child plans under Intention `intention_01m12ed0r5e61aqa9h1rfgvk4a`; the Keiro
 source documents identify these successors and are retired from execution. At the 2026-10-09 audit, none of the six children meets its implementation acceptance.
@@ -721,3 +747,8 @@ contract and per-child gate ownership, preserved the original control for cumula
 changed the planned watchdog default to opt-in, required no-hook fast paths, and recorded ADR-11.
 This follows the user's explicit sensitivity to performance, especially event writes. No benchmark
 result is claimed and no production code has changed.
+
+Revision note (2026-10-09, implementation): Began EP-1 in registry order, recorded
+its functional progress and migration allocation, and documented the worker
+initializer and validated adapter group-size integration for later children.
+EP-1 remains In Progress until all required acceptance evidence is complete.

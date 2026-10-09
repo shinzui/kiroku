@@ -22,7 +22,7 @@ import Kiroku.Store
 import Kiroku.Store.Subscription.Effect qualified as SubEff
 import Kiroku.Store.Subscription.Stream (subscriptionAckStream)
 import Streamly.Data.Stream qualified as Stream
-import Test.Helpers (makeEvent, waitForPublisher, waitWithTimeout, withTestStore, withTestStoreSettings)
+import Test.Helpers (makeEvent, validConsumerGroup, waitForPublisher, waitWithTimeout, withTestStore, withTestStoreSettings)
 import Test.Hspec
 
 spec :: Spec
@@ -121,7 +121,7 @@ spec = describe "subscription checkpoint worker policies" $ do
                         atomically (writeTVar handlerCalled True)
                         pure Continue
                     )
-                        { consumerGroup = Just (ConsumerGroup member 2)
+                        { consumerGroup = Just (validConsumerGroup member 2)
                         , missingCheckpointPolicy = FromCurrentHead
                         }
             handles <- mapM (subscribe store . config) [0, 1]

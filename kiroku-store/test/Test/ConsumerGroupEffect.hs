@@ -52,7 +52,7 @@ import Hasql.Session qualified as Session
 import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Subscription.Effect qualified as SubEff
-import Test.Helpers (makeEvent, waitForPublisher, waitWithTimeout, withTestStore)
+import Test.Helpers (makeEvent, validConsumerGroup, waitForPublisher, waitWithTimeout, withTestStore)
 import Test.Hspec
 
 -- | Extract @(originalStreamId, globalPosition)@ as raw 'Int64's from an event.
@@ -109,7 +109,7 @@ runEffMember store nm cat m n k = do
             pure (if c >= k then Stop else Continue)
         cfg =
             (defaultSubscriptionConfig (SubscriptionName nm) (Category (CategoryName cat)) effHandler)
-                { consumerGroup = Just (ConsumerGroup{member = m, size = n})
+                { consumerGroup = Just (validConsumerGroup m n)
                 }
     runEff $ SubEff.runSubscription store $ do
         handle <- SubEff.subscribe cfg
@@ -193,7 +193,7 @@ spec = describe "consumer groups (effectful)" $ do
                                         pure (if c >= 5 then Stop else Continue)
                                     )
                                 )
-                                    { consumerGroup = Just (ConsumerGroup{member = 0, size = 1})
+                                    { consumerGroup = Just (validConsumerGroup 0 1)
                                     }
                         handle <- SubEff.subscribe cfg
                         liftIO $ do

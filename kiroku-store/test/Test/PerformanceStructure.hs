@@ -2,6 +2,8 @@
 
 module Test.PerformanceStructure (spec) where
 
+import Control.Concurrent (myThreadId)
+import Control.Exception (fromException)
 import Control.Lens ((^.))
 import Control.Monad (forM_, unless)
 import Data.Aeson (Value (..))
@@ -9,7 +11,7 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.ByteString (ByteString)
 import Data.Generics.Labels ()
-import Data.IORef (IORef, modifyIORef', newIORef, readIORef)
+import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
 import Data.Int (Int64)
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -21,8 +23,9 @@ import Hasql.Statement (Statement, unpreparable)
 import Hasql.Statement qualified as Statement
 import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
+import Kiroku.Store.Subscription.Worker (withLoadCheckpointHookForTest)
 import Kiroku.Test.Fixtures.CategoryScaling (categoryScalingFixtureSql, categoryScalingHead)
-import Test.Helpers (makeEvent, withTestStore, withTestStoreSettings)
+import Test.Helpers (makeEvent, validConsumerGroup, waitWithTimeout, withTestStore, withTestStoreSettings)
 import Test.Hspec
 
 spec :: Spec
@@ -34,6 +37,54 @@ spec = do
 noOpAppendSpec :: Spec
 noOpAppendSpec =
     describe "no-op paths use no pooled connection" $ do
+        it "rejects invalid consumer-group values before pool checkout" $ do
+            checkouts <- newIORef (0 :: Int)
+            withObservedStore checkouts $ \_ -> do
+                before <- readIORef checkouts
+                mkConsumerGroupSize 0 `shouldBe` Left (InvalidConsumerGroup 0 0)
+                let Right n = mkConsumerGroupSize 2
+                mkConsumerGroup 2 n `shouldBe` Left (InvalidConsumerGroup 2 2)
+                after <- readIORef checkouts
+                after - before `shouldBe` 0
+
+        it "refuses mismatched topology in exactly one initialization checkout with no handler" $ do
+            workerThread <- newIORef Nothing
+            checkouts <- newIORef (0 :: Int)
+            delivered <- newIORef False
+            let observe (ConnectionObservation _ InUseConnectionStatus) = do
+                    thread <- myThreadId
+                    selected <- readIORef workerThread
+                    if selected == Just thread then modifyIORef' checkouts (+ 1) else pure ()
+                observe _ = pure ()
+            withTestStoreSettings (\settings -> settings{observationHandler = Just observe}) $ \store -> do
+                seeded <- Pool.use (store ^. #pool) (Session.statement ("topology-checkout", 0, 0, 2) SQL.saveCheckpointMemberStmt)
+                seeded `shouldBe` Right ()
+                withLoadCheckpointHookForTest
+                    ( \_ -> do
+                        thread <- myThreadId
+                        writeIORef workerThread (Just thread)
+                        pure Nothing
+                    )
+                    $ do
+                        let cfg =
+                                (defaultSubscriptionConfig (SubscriptionName "topology-checkout") AllStreams (\_ -> writeIORef delivered True >> pure Continue))
+                                    { consumerGroup = Just (validConsumerGroup 0 3)
+                                    }
+                        handle <- subscribe store cfg
+                        waitWithTimeout 5_000_000 handle >>= \case
+                            Right (Left exception) ->
+                                (fromException exception :: Maybe ConsumerGroupSizeMismatch) `shouldSatisfy` maybe False (const True)
+                            other -> expectationFailure ("expected mismatch, got " <> show other)
+                readIORef checkouts `shouldReturn` 1
+                readIORef delivered `shouldReturn` False
+
+        it "keeps ordinary checkpoint saves as one unconditional monotonic upsert" $ do
+            let sql = T.toLower (Statement.toSql SQL.saveCheckpointMemberStmt)
+            T.count "insert into" sql `shouldBe` 1
+            sql `shouldSatisfy` T.isInfixOf "greatest(subscriptions.last_seen, excluded.last_seen)"
+            sql `shouldNotSatisfy` T.isInfixOf "where"
+            sql `shouldNotSatisfy` T.isInfixOf "returning"
+
         it "rejects an empty appendToStream batch before pool checkout" $ do
             checkouts <- newIORef (0 :: Int)
             withObservedStore checkouts $ \store -> do

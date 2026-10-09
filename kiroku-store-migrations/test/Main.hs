@@ -44,7 +44,7 @@ import Test.Hspec
 main :: IO ()
 main = hspec $ do
     describe "native Kiroku migration definition" $ do
-        it "tracks the twelve native files in manifest order" $ do
+        it "tracks the thirteen native files in manifest order" $ do
             directory <- findMigrationsDirectory
             manifest <- Text.lines <$> Text.IO.readFile (directory </> "manifest")
             manifest `shouldBe` Text.pack <$> nativeMigrationFiles
@@ -57,7 +57,7 @@ main = hspec $ do
                 bytes <- ByteString.readFile (directory </> nativeName)
                 lookup legacyName lockEntries `shouldBe` Just (checksumText bytes)
 
-        it "builds component kiroku and a twelve-migration plan" $ do
+        it "builds component kiroku and a thirteen-migration plan" $ do
             component <- requireRight kirokuMigrations
             component `seq` pure ()
             plan <- requirePlan
@@ -93,7 +93,7 @@ main = hspec $ do
                     `shouldReturn` "0007-existing.sql\n"
 
     describe "fresh native databases" $ do
-        it "applies all twelve, verifies strictly, and reports AlreadyApplied on rerun" $ do
+        it "applies all thirteen, verifies strictly, and reports AlreadyApplied on rerun" $ do
             plan <- requirePlan
             result <- withMigratedDatabase plan $ \connection -> do
                 assertSchema connection
@@ -316,6 +316,29 @@ main = hspec $ do
                         length applied `shouldBe` length nativeMigrationFiles
                 withConnection settings assertSchema
 
+        it "derives group topology from legacy rows when 0013 upgrades a populated store" $ do
+            plan <- requirePlan
+            throughPrevious <- planThrough 12
+            withKirokuPg $ \database -> do
+                let settings = Pg.connectionSettings database
+                _ <- runMigrationPlan defaultRunOptions settings throughPrevious >>= requireMigration
+                withConnection settings $ \connection ->
+                    useSession connection (Session.script "INSERT INTO kiroku.subscriptions (subscription_name, consumer_group_member, last_seen) VALUES ('group', 0, 5), ('group', 1, 20), ('incomplete', 0, 8), ('ordinary', 0, 10)")
+                upgraded <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
+                reportOutcomes upgraded `shouldBe` replicate 12 AlreadyApplied <> [AppliedNow]
+                withConnection settings $ \connection -> do
+                    let stmt =
+                            Statement.preparable
+                                "SELECT subscription_name, consumer_group_member, consumer_group_size, last_seen FROM kiroku.subscriptions ORDER BY subscription_name, consumer_group_member"
+                                Encoders.noParams
+                                (Decoders.rowList ((,,,) <$> Decoders.column (Decoders.nonNullable Decoders.text) <*> Decoders.column (Decoders.nonNullable Decoders.int4) <*> Decoders.column (Decoders.nonNullable Decoders.int4) <*> Decoders.column (Decoders.nonNullable Decoders.int8)))
+                    facts <- useSession connection (Session.statement () stmt)
+                    facts `shouldBe` [("group" :: Text, 0 :: Int32, 2 :: Int32, 5 :: Int64), ("group", 1, 2, 20), ("incomplete", 0, 1, 8), ("ordinary", 0, 1, 10)]
+                    directory <- findMigrationsDirectory
+                    sql <- Text.IO.readFile (directory </> "0013.sql")
+                    useSession connection (Session.script sql)
+                    useSession connection (Session.statement () stmt) `shouldReturn` facts
+
         -- BUG-2. 0012 copies each $all row's originating-stream category onto the
         -- junction row so category reads can range-scan an index. A store
         -- written before 0012 has $all rows without it; the backfill must fill
@@ -324,7 +347,7 @@ main = hspec $ do
         -- exist in exactly the shape the category reads rely on.
         it "backfills $all-row categories when 0012 upgrades a populated store" $ do
             plan <- requirePlan
-            let throughCount = length nativeMigrationFiles - 1
+            let throughCount = 11
             throughPrevious <- planThrough throughCount
             withKirokuPg $ \database -> do
                 let settings = Pg.connectionSettings database
@@ -333,7 +356,7 @@ main = hspec $ do
                     useSession connection (Session.script preCategoryFixtureSql)
                 upgraded <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
                 reportOutcomes upgraded
-                    `shouldBe` replicate throughCount AlreadyApplied <> [AppliedNow]
+                    `shouldBe` replicate throughCount AlreadyApplied <> replicate (length nativeMigrationFiles - throughCount) AppliedNow
                 withConnection settings $ \connection -> do
                     facts <- useSession connection (Session.statement () categoryBackfillFactsStatement)
                     facts
@@ -423,14 +446,14 @@ importFixture sourceSchema = do
         pendingIds <-
             traverse
                 (requireRight . migrationId "kiroku")
-                ["0008-schema-management-comment", "0009", "0010", "0011", "0012"]
+                ["0008-schema-management-comment", "0009", "0010", "0011", "0012", "0013"]
         verifiedBeforeCanary <- verifyMigrationPlan defaultRunOptions settings plan >>= requireMigration
         case verifiedBeforeCanary of
             VerificationReport verificationIssues _ _ _ ->
                 verificationIssues
                     `shouldBe` (PendingMigration <$> pendingIds)
         up <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
-        reportOutcomes up `shouldBe` replicate 7 AlreadyApplied <> replicate 5 AppliedNow
+        reportOutcomes up `shouldBe` replicate 7 AlreadyApplied <> replicate (length nativeMigrationFiles - 7) AppliedNow
         verifiedAfterCanary <- verifyMigrationPlan defaultRunOptions settings plan >>= requireMigration
         case verifiedAfterCanary of
             VerificationReport verificationIssues _ _ _ ->
@@ -462,6 +485,7 @@ nativeMigrationFiles =
     , "0010.sql"
     , "0011.sql"
     , "0012.sql"
+    , "0013.sql"
     ]
 
 {- | The plan truncated to its first @count@ migrations, read from the checked-in

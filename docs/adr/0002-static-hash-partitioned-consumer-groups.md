@@ -8,7 +8,7 @@ generated:
 docId: ADR-2
 status: Accepted (recorded retroactively)
 date: 2026-05-20
-timestamp: "2026-05-22T00:00:00Z"
+timestamp: "2026-10-09T16:46:40Z"
 ---
 
 # ADR-0002: Consumer groups are static, hash-partitioned competing consumers
@@ -72,12 +72,13 @@ pattern.
 **Negative**
 
 - **Resizing is a coordinated operator action.** Changing `size` re-buckets every
-  stream, so it requires stop → drain to checkpoints → restart all members with
-  the new size (documented in the user guide). No automatic resize.
+  stream. The original stop/drain/restart advice was insufficient when member
+  checkpoints differed; the 2026-10-09 amendment below replaces that procedure.
+  No automatic resize.
 - Static membership puts the "one process per member index" invariant on the
   operator; mitigated, not eliminated, by the optional advisory lock.
 - `hashtextextended` is stable only within a PostgreSQL installation/version.
-  Benign here (members re-derive at query time on one cluster) but documented.
+  An assignment-changing upgrade requires equalization even at unchanged size.
 
 ## Alternatives Considered
 
@@ -98,3 +99,36 @@ pattern.
 - **Encode the member into the subscription-name string.** Rejected in favor of
   structured columns, which are queryable (operators can see group topology) and
   keep the checkpoint key explicit.
+
+## Amendment: durable topology and explicit equalization (2026-10-09)
+
+[ExecPlan 81](../plans/81-make-consumer-group-topology-durable-and-resize-without-gaps.md)
+corrects the original resize consequence. Draining does not establish equal
+member cursors: a stream can move from a slow member to a fast member and its
+undelivered events then fall behind the new owner's cursor permanently.
+
+Validate group size and membership at construction with opaque `ConsumerGroupSize`
+and `ConsumerGroup` values. Persist configured size on initialization, ordinary
+monotonic saves, and atomic dead-letter saves. Before delivery, validate all rows
+for the name; mismatch refuses startup before inserting a new member. Startup
+and explicit resize serialize on a transaction-scoped advisory name lock, including
+an initially absent group, within the existing one pool checkout. Ordinary saves
+and event appends never take that lock or add verification queries.
+
+With every worker stopped, call the public transaction-composable
+`resizeConsumerGroupTx` in `Kiroku.Store.Subscription.Checkpoint`, then restart
+all new members. It locks the old checkpoint set, rewinds every new member to its
+minimum position (zero when absent), preserves surviving member row identities,
+removes obsolete members, and reports the prior topology and resume position.
+The same-size operation is required after a change in PostgreSQL hash assignment.
+Duplicates are permitted; silent gaps are not. Callers own worker quiescence;
+this operation does not perform dynamic rebalancing or live handoff.
+
+Migration `0013.sql` derives legacy size as `max(consumer_group_member) + 1`.
+Incomplete legacy membership yields an underestimate, refused at the next start
+and corrected by explicit resize rather than implicit adoption. The low-level
+exact-checkpoint initializer remains a size-1 provisioning API; pre-provision
+whole groups through resize so their topology is explicit.
+
+Performance acceptance remains governed by [ADR-11](0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md).
+Functional validation alone does not establish write-performance neutrality.

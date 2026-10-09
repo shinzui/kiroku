@@ -124,7 +124,7 @@ main = do
                                     (Category (CategoryName "example"))
                                     h
                                 )
-                                    { consumerGroup = Just (ConsumerGroup{member = m, size = groupSize})
+                                    { consumerGroup = Just (either (error . show) Prelude.id (mkConsumerGroupSize groupSize >>= mkConsumerGroup m))
                                     }
                         subscribe store cfg
                     )

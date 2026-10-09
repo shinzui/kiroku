@@ -58,17 +58,19 @@ import Control.Lens ((^.))
 import Data.Int (Int32)
 import Kiroku.Store
 import Kiroku.Store.Subscription
-import Kiroku.Store.Subscription.Types (ConsumerGroup (..))
+import Kiroku.Store.Subscription.Types (mkConsumerGroupSize, mkConsumerGroup)
 
 -- Run this with m = 0, 1, 2, 3 — one invocation per member.
 runMember :: KirokuStore -> Int32 -> IO ()
 runMember store m = do
+  groupSize <- either (fail . show) pure (mkConsumerGroupSize 4)
+  membership <- either (fail . show) pure (mkConsumerGroup m groupSize)
   let cfg =
         (defaultSubscriptionConfig
           (SubscriptionName "order-projection")
           (Category (CategoryName "order"))
           handler)
-          { consumerGroup = Just ConsumerGroup { member = m, size = 4 } }
+          { consumerGroup = Just membership }
   withSubscription store cfg $ \h -> do
     result <- wait h        -- block until Stop, cancel, or failure
     print result
@@ -92,15 +94,21 @@ To run a full size-4 group you start four members with the **same**
 
 `consumerGroup` defaults to `Nothing`, which is an ordinary single-consumer
 subscription, so existing callers are unaffected. The validity invariant
-`size >= 1` and `0 <= member < size` is checked once, at `subscribe` time; a
-violation throws `InvalidConsumerGroup` (carrying the offending `member` and
-`size`) before any work starts.
+`size >= 1` and `0 <= member < size` is checked by `mkConsumerGroupSize` and
+`mkConsumerGroup`. They return `Either InvalidConsumerGroup` before a worker can
+be configured. The constructors are hidden; `member` and `size` are read-only
+accessors. Every checkpoint initialization, ordinary save, and dead-letter save
+records the configured size. Startup validates every persisted member row; a
+different size fails through `wait` with `ConsumerGroupSizeMismatch`, before
+delivery or creation of a missing member. The exception reports the name, configured
+size, and sorted observed sizes. `KirokuEventSubscriptionGroupSizeMismatch`
+reports the same refusal to the operational callback.
 
 The two consumer-group fields on `SubscriptionConfig`:
 
 | Field | Default | Meaning |
 | --- | --- | --- |
-| `consumerGroup :: Maybe ConsumerGroup` | `Nothing` | `Nothing` = ordinary subscription. `Just (ConsumerGroup { member, size })` = this worker is member `member` of a group of `size`. |
+| `consumerGroup :: Maybe ConsumerGroup` | `Nothing` | `Nothing` = ordinary subscription. `Just membership` (built with the smart constructors) = this worker is member `member` of a group of `size`. |
 | `consumerGroupGuard :: Bool` | `False` | When `True`, run a startup advisory-lock conflict check so a duplicate member fails fast (see [Operational Invariant](#operational-invariant)). Ignored when `consumerGroup` is `Nothing`. |
 
 ## Operational Invariant
@@ -110,16 +118,18 @@ The one rule you must uphold with static membership:
 > **Exactly one live process runs each member index, and all members use the
 > same `size`.**
 
-If you violate it, the failure is silent corruption, not an error:
+A missing or duplicate member remains an operational error:
 
 - **Two live processes share a member index.** Both read the same slice of
   streams and both save a checkpoint under the same `(name, member)` row, so
   whichever saves last wins; the other replays from there on its next cycle.
   Every event in that slice is processed twice. (Idempotent handlers absorb the
   duplicate work but you still waste it.)
-- **A member index is missing** (you started 3 of a size-4 group), or **members
-  disagree on `size`.** Some streams hash to a slot no live member owns, so
-  their events are never delivered — a permanent gap, not a delay.
+- **A member index is missing** (you started 3 of a size-4 group). Some streams
+  hash to a slot no live member owns; their events wait until that member starts.
+- **Members disagree on `size`.** Stored topology validation now refuses this
+  restart. Correct it through the resize operation below; changing configuration
+  alone is insufficient.
 
 To catch the first case automatically, set `consumerGroupGuard = True`. At
 startup the worker probes a PostgreSQL advisory lock keyed on `(name, member)`;
@@ -141,21 +151,47 @@ because the partitioning formula gives a different result for the same stream id
 at a different size. Therefore a resize is a **coordinated, stop-the-world
 operation**, not a rolling change:
 
-1. **Stop all members.** Either let each member's `wait` resolve (a handler
-   returning `Stop`) or `cancel` each one. Accept that boundary events replay
-   under at-least-once delivery.
-2. **Let in-flight work drain to checkpoints.** Each member's checkpoint is
-   saved per batch; once stopped, every member has a durable position for its
-   slice.
-3. **Restart all members with the new `size`** — and the new member count,
-   `0 .. newSize - 1`.
+1. **Stop all members and wait for them to exit.** Finish or cancel in-flight
+   work. Keep handlers idempotent because boundary events can replay.
+2. **Equalize the checkpoint set in one transaction.** Call
+   `resizeConsumerGroupTx name newSize` from `Kiroku.Store.Subscription.Checkpoint`.
+   It locks the set, reads its minimum `last_seen`, gives every new member that
+   position, and removes obsolete members. A missing group starts at zero.
+3. **Start every new member** with the same validated size and indices
+   `0 .. newSize - 1`. Keep old workers stopped throughout the operation.
 
-Do **not** run old and new `size` values at the same time. While the values are
-mixed, the formula disagrees across members: some streams are claimed by two
-members (the old owner and the new owner), others by none, so you get both
-duplicates and gaps until every member agrees on `size` again. Treat a resize
-exactly like a database migration: stop the world, change the value everywhere
-atomically, restart.
+Draining alone cannot make a resize safe: member checkpoints can remain skewed.
+For example, a stream moving from a member at position 10 to one at position 100
+would lose its undelivered events between those cursors. Equalizing all members
+at the old minimum permits duplicate delivery but prevents that gap. Ordinary
+saves remain monotonic; only explicit reset or resize moves a cursor backward.
+
+```haskell
+import Hasql.Transaction.Sessions qualified as TxSessions
+import Hasql.Pool qualified as Pool
+import Kiroku.Store.Subscription.Checkpoint
+
+newSize <- either (fail . show) pure (mkConsumerGroupSize 8)
+-- pool is the store's Hasql pool; every worker for the name has stopped.
+result <- Pool.use pool $
+  TxSessions.transaction TxSessions.ReadCommitted TxSessions.Write $
+    resizeConsumerGroupTx (SubscriptionName "order-projection") newSize
+print result
+```
+
+`ConsumerGroupResizeReport` contains sorted `previousSizes`, `previousMemberCount`,
+the validated `newSize`, and `resumePosition`. Repeating resize preserves the
+checkpoint members and positions; existing member row identities survive. The
+operation composes with application-owned SQL in the same transaction and rolls
+back with it. After workers have resumed, another resize equalizes their current
+minimum and is a new operator action, so it also requires stopping them.
+
+Migration `0013.sql` derives existing topology as `max(member) + 1` per name.
+Apply it with workers stopped. A legacy group missing its higher member rows
+can derive a smaller size; startup refuses the configured size until you call
+resize with the intended size. There is no silent adoption on first start.
+Use resize to pre-provision a complete group rather than independently creating
+member checkpoints with the low-level size-1 initializer.
 
 ## Ordering And Delivery Guarantees
 
@@ -200,8 +236,9 @@ non-issue — every member queries the same cluster, so the hash is consistent
 across the whole group. Two situations need care:
 
 - **A PostgreSQL major-version upgrade may shift hash values**, re-bucketing
-  some streams. Handle it like a resize: drain and restart the whole group
-  together against the upgraded cluster. Never run members against different
+  some streams. Stop the whole group, call
+  `resizeConsumerGroupTx` with its unchanged size to equalize checkpoints, then
+  restart against the upgraded cluster. Never run members against different
   PostgreSQL major versions of the same logical store at once.
 - **Running the same `SubscriptionName` against two separate clusters is safe.**
   The hash is cluster-local, so independent deployments do not interfere.
@@ -217,14 +254,16 @@ config you pass to the effectful `subscribe` / `withSubscription` from
 
 ```haskell
 import Kiroku.Store.Subscription.Effect (subscribe, withSubscription)
-import Kiroku.Store.Subscription.Types (ConsumerGroup (..))
+import Kiroku.Store.Subscription.Types (mkConsumerGroupSize, mkConsumerGroup)
 
+groupSize <- either (fail . show) pure (mkConsumerGroupSize 4)
+membership <- either (fail . show) pure (mkConsumerGroup m groupSize)
 let cfg =
       (defaultSubscriptionConfig
         (SubscriptionName "order-projection")
         (Category (CategoryName "order"))
         handler)        -- handler :: RecordedEvent -> Eff es SubscriptionResult
-        { consumerGroup = Just ConsumerGroup { member = m, size = 4 } }
+        { consumerGroup = Just membership }
 ```
 
 The handler runs in your `Eff` stack, so it can use any effects in scope
@@ -245,10 +284,11 @@ with no manual `[0 .. N - 1]` wiring:
 ```haskell
 import Shibuya.Adapter.Kiroku (defaultConsumerGroupConfig, kirokuConsumerGroupProcessors)
 
+groupSize <- either (fail . show) pure (mkConsumerGroupSize 4)
 let cfg = defaultConsumerGroupConfig
             (SubscriptionName "order-projection")
             (Category (CategoryName "order"))
-            4   -- group size
+            groupSize
 
 Right processors <- kirokuConsumerGroupProcessors store cfg handler
 Right appHandle  <- runApp IgnoreFailures 100 processors
@@ -257,7 +297,7 @@ Right appHandle  <- runApp IgnoreFailures 100 processors
 The group maps onto Shibuya's `PartitionedInOrder` ordering (each member is
 `Serial`; the group is parallel across members). To run members in **separate**
 processes instead, give each a single `kirokuAdapter` whose `consumerGroup` is
-`Just (ConsumerGroup { member = m, size = 4 })` with the same `subscriptionName`.
+`Just membership` from `mkConsumerGroup m groupSize` with the same `subscriptionName`.
 See [Shibuya Adapter](shibuya-adapter.md) for the full adapter setup.
 
 If a member loses its database connection while live, it enters the
@@ -278,11 +318,11 @@ prints per-member counts plus disjoint and completeness checks. Run it from the
 repository root with no external database:
 
 ```bash
-cabal run kiroku-store:kiroku-consumer-group-example
+cabal run kiroku-jitsurei:kiroku-consumer-group-example
 ```
 
 You should see four member counts that sum to 120, `complete: OK`, and
-`disjoint: OK`. The source lives at `kiroku-store/example/Main.hs` and is the
+`disjoint: OK`. The source lives at `kiroku-jitsurei/app/Main.hs` and is the
 runnable proof of the guarantees described above.
 
 ## See Also

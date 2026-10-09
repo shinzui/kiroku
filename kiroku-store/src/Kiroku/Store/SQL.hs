@@ -1255,14 +1255,15 @@ composite @(subscription_name, consumer_group_member)@ unique index. Uses the
 same @GREATEST(...)@ monotonicity as 'saveCheckpointStmt' so a save never moves
 a member's checkpoint backward.
 -}
-saveCheckpointMemberStmt :: Statement (Text, Int32, Int64) ()
+saveCheckpointMemberStmt :: Statement (Text, Int32, Int64, Int32) ()
 saveCheckpointMemberStmt =
     preparable
         saveCheckpointMemberSQL
-        ( contrazip3
+        ( contrazip4
             (E.param (E.nonNullable E.text))
             (E.param (E.nonNullable E.int4))
             (E.param (E.nonNullable E.int8))
+            (E.param (E.nonNullable E.int4))
         )
         D.noResult
 
@@ -1278,10 +1279,10 @@ getCheckpointMemberSQL =
 saveCheckpointMemberSQL :: Text
 saveCheckpointMemberSQL =
     """
-    INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at)
-    VALUES ($1, $2, $3, now())
+    INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at, consumer_group_size)
+    VALUES ($1, $2, $3, now(), $4)
     ON CONFLICT (subscription_name, consumer_group_member)
-    DO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now()
+    DO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now(), consumer_group_size = EXCLUDED.consumer_group_size
     """
 
 -- ---------------------------------------------------------------------------
@@ -1292,6 +1293,7 @@ saveCheckpointMemberSQL =
 data DeadLetterParams = DeadLetterParams
     { dlSubscriptionName :: !Text
     , dlMember :: !Int32
+    , dlGroupSize :: !Int32
     , dlGlobalPosition :: !Int64
     , dlEventId :: !UUID
     , dlReason :: !Value
@@ -1322,6 +1324,7 @@ deadLetterParamsEncoder =
         <> ((^. #dlReason) >$< E.param (E.nonNullable E.jsonb))
         <> ((^. #dlReasonSummary) >$< E.param (E.nonNullable E.text))
         <> ((^. #dlAttemptCount) >$< E.param (E.nonNullable E.int4))
+        <> ((^. #dlGroupSize) >$< E.param (E.nonNullable E.int4))
 
 {- | Atomically record an event in @kiroku.dead_letters@ and advance the
 subscription's checkpoint past it, in a single statement.
@@ -1350,10 +1353,10 @@ insertDeadLetterAndCheckpointSQL =
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       ON CONFLICT (subscription_name, consumer_group_member, global_position, event_id) DO NOTHING
     )
-    INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at)
-    VALUES ($1, $2, $3, now())
+    INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at, consumer_group_size)
+    VALUES ($1, $2, $3, now(), $8)
     ON CONFLICT (subscription_name, consumer_group_member)
-    DO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now()
+    DO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now(), consumer_group_size = EXCLUDED.consumer_group_size
     """
 
 -- | Read the dead letters recorded for one subscription member, newest first.

@@ -246,7 +246,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                 countVar <- newTVarIO (0 :: Int)
                 runEff $ runTracingNoop $ do
                     let cfg =
-                            defaultConsumerGroupConfig (SubscriptionName "etfg") (Category (CategoryName "etfg")) 4
+                            defaultConsumerGroupConfig (SubscriptionName "etfg") (Category (CategoryName "etfg")) (validGroupSize 4)
                                 & #eventTypeFilter .~ OnlyEventTypes (Set.fromList [EventType "A"])
                         handler ingested = do
                             liftIO $ do
@@ -1027,7 +1027,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             ( \m ->
                                 kirokuAdapter store $
                                     defaultKirokuAdapterConfig (SubscriptionName "cg-shibuya-group") (Category (CategoryName "cg"))
-                                        & #consumerGroup .~ Just (ConsumerGroup{member = m, size = 4})
+                                        & #consumerGroup .~ Just (validConsumerGroup m 4)
                             )
                             [0, 1, 2, 3]
 
@@ -1070,7 +1070,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                         runTracingNoop $
                             kirokuConsumerGroupProcessors
                                 store
-                                ( defaultConsumerGroupConfig (SubscriptionName "cgp-reject") (Category (CategoryName "cgp-reject")) 4
+                                ( defaultConsumerGroupConfig (SubscriptionName "cgp-reject") (Category (CategoryName "cgp-reject")) (validGroupSize 4)
                                     & #memberConcurrency .~ Async 4
                                 )
                                 ( \ingested -> do
@@ -1089,7 +1089,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                                     liftIO $ expectationFailure "factory should not be called for an invalid policy"
                                     pure stubAdapter
                                 )
-                                ( defaultConsumerGroupConfig (SubscriptionName "cgp-reject-with") (Category (CategoryName "cgp-reject-with")) 4
+                                ( defaultConsumerGroupConfig (SubscriptionName "cgp-reject-with") (Category (CategoryName "cgp-reject-with")) (validGroupSize 4)
                                     & #memberConcurrency .~ Async 4
                                 )
                                 ( \ingested -> do
@@ -1100,23 +1100,9 @@ main = withSharedMigratedPostgres $ hspec $ do
                     Left err -> err `shouldBe` InvalidPolicyCombo "StrictInOrder requires Serial concurrency"
                     Right _ -> expectationFailure "expected Left PolicyError for Async member concurrency"
 
-            it "throws InvalidConsumerGroup for non-positive group sizes" $ \store -> do
-                let handler ingested = do
-                        let _ = envelopePayload ingested
-                        pure AckOk
-                    throwsSize n =
-                        runEff
-                            ( runTracingNoop $
-                                kirokuConsumerGroupProcessors
-                                    store
-                                    (defaultConsumerGroupConfig (SubscriptionName ("cgp-invalid-" <> T.pack (show n))) AllStreams n)
-                                    handler
-                            )
-                            `shouldThrow` ( \InvalidConsumerGroup{invalidMember = member, invalidSize = size} ->
-                                                member == 0 && size == n
-                                          )
-                throwsSize 0
-                throwsSize (-1)
+            it "rejects non-positive group sizes at construction" $ \_store -> do
+                mkConsumerGroupSize 0 `shouldBe` Left (InvalidConsumerGroup 0 0)
+                mkConsumerGroupSize (-1) `shouldBe` Left (InvalidConsumerGroup 0 (-1))
 
             it "shuts down every created member and preserves the factory failure when cleanup throws" $ \_store -> do
                 shutdowns <- newIORef ([] :: [Int32])
@@ -1143,7 +1129,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                             runTracingNoop $
                                 kirokuConsumerGroupProcessorsWith
                                     factory
-                                    (defaultConsumerGroupConfig (SubscriptionName "cgp-partial-cleanup") AllStreams 3)
+                                    (defaultConsumerGroupConfig (SubscriptionName "cgp-partial-cleanup") AllStreams (validGroupSize 3))
                                     handler
                 case result of
                     Left (e :: E.SomeException) -> show e `shouldContain` "member 2 failed"
@@ -1195,7 +1181,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                         result <-
                             kirokuConsumerGroupProcessors
                                 store
-                                (defaultConsumerGroupConfig (SubscriptionName "cgp-guard") AllStreams 1)
+                                (defaultConsumerGroupConfig (SubscriptionName "cgp-guard") AllStreams (validGroupSize 1))
                                 ( \_ -> do
                                     n <- liftIO $ atomically $ do
                                         c <- readTVar countVar
@@ -1237,7 +1223,7 @@ main = withSharedMigratedPostgres $ hspec $ do
                         defaultConsumerGroupConfig
                             (SubscriptionName "cgp-shibuya-group")
                             (Category (CategoryName "cgp"))
-                            4
+                            (validGroupSize 4)
 
                 runEff $ runTracingNoop $ do
                     let handler ingested = do
@@ -1428,3 +1414,9 @@ withTestStore :: (KirokuStore -> IO ()) -> IO ()
 withTestStore action =
     withMigratedTestDatabase $ \connStr ->
         withStore (defaultConnectionSettings connStr) action
+
+validGroupSize :: Int32 -> ConsumerGroupSize
+validGroupSize = either (error . show) Prelude.id . mkConsumerGroupSize
+
+validConsumerGroup :: Int32 -> Int32 -> ConsumerGroup
+validConsumerGroup m n = either (error . show) Prelude.id (mkConsumerGroup m (validGroupSize n))
