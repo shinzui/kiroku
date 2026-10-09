@@ -33,6 +33,7 @@ import Hasql.Statement (Statement, preparable)
 import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Subscription.Stream (subscriptionStream)
+import Kiroku.Store.Subscription.Stream qualified as Buffer
 import Kiroku.Test.Postgres (withMigratedTestDatabase)
 import Streamly.Data.Stream qualified as Stream
 import Test.Helpers (makeEvent, validConsumerGroup, waitForPublisher, waitWithTimeout, withTestStore, withTestStoreSettings)
@@ -252,7 +253,7 @@ spec = describe "consumer groups" $ do
             -- must ignore it.
             runStmtP store $
                 Session.statement
-                    ("rz-sub" :: Text, 0 :: Int32, 10_000_000 :: Int64, 4 :: Int32)
+                    ("rz-sub" :: Text, 0 :: Int32, 10_000_000 :: Int64, 4 :: Int32, "category", Just "rz")
                     SQL.saveCheckpointMemberStmt
 
             -- Run 2: member 2 restarts and must resume from its OWN checkpoint
@@ -295,6 +296,7 @@ spec = describe "consumer groups" $ do
                             { consumerGroup = Just (validConsumerGroup 3 4)
                             , consumerGroupGuard = True
                             , missingCheckpointPolicy = FromBeginning
+                            , targetBindingPolicy = AdoptUnbound
                             , retryPolicy = defaultRetryPolicy
                             , eventTypeFilter = AllEventTypes
                             , selector = Nothing
@@ -329,7 +331,7 @@ spec = describe "consumer groups" $ do
             k `shouldSatisfy` (\x -> x > 0 && x < total)
 
             (stream, cancelStream) <-
-                subscriptionStream store (memberConfig "bridge-sub" "bridge" 0 2 (\_ -> pure Continue)) 64
+                subscriptionStream store (memberConfig "bridge-sub" "bridge" 0 2 (\_ -> pure Continue)) (either (error . show) Prelude.id (Buffer.mkStreamBufferSize 64))
             pulled <- Stream.toList (Stream.take k stream)
             cancelStream
             sort (map (snd . pairOf) pulled) `shouldBe` slicePos

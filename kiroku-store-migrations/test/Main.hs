@@ -44,7 +44,7 @@ import Test.Hspec
 main :: IO ()
 main = hspec $ do
     describe "native Kiroku migration definition" $ do
-        it "tracks the thirteen native files in manifest order" $ do
+        it "tracks the fourteen native files in manifest order" $ do
             directory <- findMigrationsDirectory
             manifest <- Text.lines <$> Text.IO.readFile (directory </> "manifest")
             manifest `shouldBe` Text.pack <$> nativeMigrationFiles
@@ -57,7 +57,7 @@ main = hspec $ do
                 bytes <- ByteString.readFile (directory </> nativeName)
                 lookup legacyName lockEntries `shouldBe` Just (checksumText bytes)
 
-        it "builds component kiroku and a thirteen-migration plan" $ do
+        it "builds component kiroku and a fourteen-migration plan" $ do
             component <- requireRight kirokuMigrations
             component `seq` pure ()
             plan <- requirePlan
@@ -93,7 +93,7 @@ main = hspec $ do
                     `shouldReturn` "0007-existing.sql\n"
 
     describe "fresh native databases" $ do
-        it "applies all thirteen, verifies strictly, and reports AlreadyApplied on rerun" $ do
+        it "applies all fourteen, verifies strictly, and reports AlreadyApplied on rerun" $ do
             plan <- requirePlan
             result <- withMigratedDatabase plan $ \connection -> do
                 assertSchema connection
@@ -316,6 +316,22 @@ main = hspec $ do
                         length applied `shouldBe` length nativeMigrationFiles
                 withConnection settings assertSchema
 
+        it "adds unbound target metadata without rewriting legacy rows and drops stream_name" $ do
+            plan <- requirePlan
+            throughPrevious <- planThrough 13
+            withKirokuPg $ \database -> do
+                let settings = Pg.connectionSettings database
+                _ <- runMigrationPlan defaultRunOptions settings throughPrevious >>= requireMigration
+                withConnection settings $ \connection -> do
+                    useSession connection (Session.script "INSERT INTO kiroku.subscriptions (subscription_name, last_seen) VALUES ('legacy-target', 7)")
+                    before <- useSession connection (Session.statement () targetUpgradeFactsStatement)
+                    _ <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
+                    after <- useSession connection (Session.statement () targetUpgradeFactsStatement)
+                    -- Relation filenode and tuple ctid prove no heap rewrite.
+                    after `shouldBe` before
+                    facts <- useSession connection (Session.statement () targetBindingFactsStatement)
+                    facts `shouldBe` ("unbound", Nothing, 7, False)
+
         it "derives group topology from legacy rows when 0013 upgrades a populated store" $ do
             plan <- requirePlan
             throughPrevious <- planThrough 12
@@ -325,7 +341,7 @@ main = hspec $ do
                 withConnection settings $ \connection ->
                     useSession connection (Session.script "INSERT INTO kiroku.subscriptions (subscription_name, consumer_group_member, last_seen) VALUES ('group', 0, 5), ('group', 1, 20), ('incomplete', 0, 8), ('ordinary', 0, 10)")
                 upgraded <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
-                reportOutcomes upgraded `shouldBe` replicate 12 AlreadyApplied <> [AppliedNow]
+                reportOutcomes upgraded `shouldBe` replicate 12 AlreadyApplied <> replicate 2 AppliedNow
                 withConnection settings $ \connection -> do
                     let stmt =
                             Statement.preparable
@@ -446,7 +462,7 @@ importFixture sourceSchema = do
         pendingIds <-
             traverse
                 (requireRight . migrationId "kiroku")
-                ["0008-schema-management-comment", "0009", "0010", "0011", "0012", "0013"]
+                ["0008-schema-management-comment", "0009", "0010", "0011", "0012", "0013", "0014"]
         verifiedBeforeCanary <- verifyMigrationPlan defaultRunOptions settings plan >>= requireMigration
         case verifiedBeforeCanary of
             VerificationReport verificationIssues _ _ _ ->
@@ -486,6 +502,7 @@ nativeMigrationFiles =
     , "0011.sql"
     , "0012.sql"
     , "0013.sql"
+    , "0014.sql"
     ]
 
 {- | The plan truncated to its first @count@ migrations, read from the checked-in
@@ -1224,3 +1241,21 @@ importFactsStatement =
         )
   where
     column = Decoders.column . Decoders.nonNullable
+
+targetUpgradeFactsStatement :: Statement () (Int64, Text)
+targetUpgradeFactsStatement =
+    Statement.preparable
+        "SELECT pg_relation_filenode('kiroku.subscriptions')::bigint, ctid::text FROM kiroku.subscriptions WHERE subscription_name = 'legacy-target'"
+        Encoders.noParams
+        (Decoders.singleRow ((,) <$> Decoders.column (Decoders.nonNullable Decoders.int8) <*> Decoders.column (Decoders.nonNullable Decoders.text)))
+
+targetBindingFactsStatement :: Statement () (Text, Maybe Text, Int64, Bool)
+targetBindingFactsStatement =
+    Statement.preparable
+        """
+        SELECT target_kind, target_category, last_seen,
+          EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'kiroku' AND table_name = 'subscriptions' AND column_name = 'stream_name')
+        FROM kiroku.subscriptions WHERE subscription_name = 'legacy-target'
+        """
+        Encoders.noParams
+        (Decoders.singleRow ((,,,) <$> Decoders.column (Decoders.nonNullable Decoders.text) <*> Decoders.column (Decoders.nullable Decoders.text) <*> Decoders.column (Decoders.nonNullable Decoders.int8) <*> Decoders.column (Decoders.nonNullable Decoders.bool)))

@@ -181,7 +181,7 @@ spec = describe "event-type filter" $ do
                 cfg =
                     (defaultSubscriptionConfig subName AllStreams handler')
                         { eventTypeFilter = OnlyEventTypes (Set.fromList [EventType "A"])
-                        , batchSize = 2000
+                        , batchSize = either (error . show) Prelude.id (mkBatchSize 2000)
                         }
             handle <- subscribe store cfg
             reached <- waitForCheckpoint store subT 1002
@@ -254,7 +254,7 @@ spec = describe "event-type filter" $ do
                 cfg =
                     (defaultSubscriptionConfig subName AllStreams handler')
                         { selector = Just keepOnly
-                        , batchSize = 2000
+                        , batchSize = either (error . show) Prelude.id (mkBatchSize 2000)
                         }
             handle <- subscribe store cfg
             reached <- waitForCheckpoint store subT 1002

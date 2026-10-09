@@ -8,7 +8,7 @@ generated:
 docId: ADR-4
 status: Accepted
 date: 2026-08-11
-timestamp: "2026-08-12T17:03:14Z"
+timestamp: "2026-10-09T22:49:20Z"
 ---
 
 # ADR-0004: Subscription checkpoint initialization is explicit and reset is a separate transaction operation
@@ -103,3 +103,30 @@ with application-owned SQL.
 - **Create rows for absent reset names from configured group size.** Rejected because checkpoint
   rows do not authoritatively encode current topology; invented members could claim work that never
   existed.
+
+## Amendment: target binding and explicit rebind (2026-10-09)
+
+Checkpoint identity includes the target shared by every member of a subscription
+name. Store it as unindexed `target_kind` and `target_category` columns with CHECK
+constraints; uniformly legacy rows remain `unbound` after migration 0014, which
+drops the unused historical `stream_name`. Workers must be stopped for migration
+and explicit reset, resize or rebind. The frozen public checkpoint relation is
+unaffected. Plan 81 and ADR-2 supersede the original decision’s claim that stored
+rows cannot encode topology; resize now owns explicit topology equalization.
+
+Startup validates every sibling in the existing name-locked transaction and pool
+checkout. `AdoptUnbound` atomically binds a uniformly unbound set and emits one
+observable adoption event; `RequireBound` refuses it. Fresh rows are bound to the
+requested target under either policy. Mixed or incompatible bindings refuse
+startup before delivery. A missing exact key under `FailIfMissing` does not
+adopt sibling rows. Ordinary saves remain one monotonic upsert without a
+per-batch validation statement, index or extra checkout.
+
+`rebindSubscriptionTargetTx` deliberately binds every existing member and resets
+every cursor to the supplied position in the caller’s transaction. An absent
+name fails that transaction. The report preserves distinct prior identities as
+optional targets, including legacy or mixed sets, and records member count,
+new target and position. Repeating the operation is idempotent; condemning the
+transaction rolls back both identity and position. Resize preserves the target
+on newly created members, and ordinary reset changes progress alone. Runtime
+semantic startup refusals follow ADR-8’s exception hierarchy.

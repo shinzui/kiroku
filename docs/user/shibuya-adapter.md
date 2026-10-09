@@ -61,8 +61,8 @@ literal so a field added later is inherited at its default automatically.
 | --- | --- | --- |
 | `subscriptionName :: SubscriptionName` | (required) | Unique subscription identifier — the checkpoint key in the `subscriptions` table. Must be unique across active subscriptions. |
 | `subscriptionTarget :: SubscriptionTarget` | (required) | `AllStreams` or `Category categoryName`. |
-| `batchSize :: Int32` | `100` | Events per database fetch during catch-up. |
-| `bufferSize :: Natural` | `256` | `TBQueue` capacity — the backpressure threshold. |
+| `batchSize :: BatchSize` | `defaultBatchSize` | Events per database fetch during catch-up. |
+| `bufferSize :: StreamBufferSize` | `defaultStreamBufferSize` | `TBQueue` capacity — the backpressure threshold. |
 | `queueCapacity :: Natural` | `16` | Publisher-side capacity in batches for non-group `AllStreams` adapters. Kiroku pauses and resumes losslessly when it fills. |
 | `consumerGroup :: Maybe ConsumerGroup` | `Nothing` | `Nothing` = ordinary subscription. `Just membership` built with `mkConsumerGroup` = this adapter is member `member` of a size-`size` consumer group (see below). |
 | `missingCheckpointPolicy :: MissingCheckpointPolicy` | `FromBeginning` | What an absent exact member key means. Use `FromCurrentHead` for future-only processing or `FailIfMissing` for mandatory provisioning; existing rows always win. |
@@ -212,3 +212,7 @@ raw `metadata` JSON regardless of whether the producer uses `kiroku-otel`.
 
 - [Subscriptions](subscriptions.md) — the underlying subscription mechanism.
 - [OpenTelemetry](opentelemetry.md) — populating trace context on append.
+
+Batch and bridge buffer sizes use the store’s validated types. Construct custom
+values with `mkBatchSize` and `mkStreamBufferSize` before updating either adapter
+configuration; see [Subscriptions](subscriptions.md#validating-capacities).

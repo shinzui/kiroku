@@ -13,6 +13,7 @@ import Data.Generics.Labels ()
 import Data.Map.Strict qualified as Map
 import Kiroku.Store
 import Kiroku.Store.Subscription.Stream (AckItem (..), InvalidStreamBufferSize (..), subscriptionAckStream)
+import Kiroku.Store.Subscription.Stream qualified as Buffer
 import Kiroku.Store.Subscription.Worker (withFetchBatchHookForTest)
 import Streamly.Data.Stream qualified as Stream
 import Test.Helpers (makeEvent, waitForPublisher, withTestStore)
@@ -39,15 +40,8 @@ appendOne store streamName (EventType eventType') = do
 
 spec :: Spec
 spec = describe "stream bridge termination" $ do
-    it "rejects a zero-sized bridge buffer" $
-        withTestStore $ \store -> do
-            let cfg = defaultSubscriptionConfig (SubscriptionName "bridge-zero-buffer-sub") AllStreams (\_ -> pure Continue)
-            subscriptionAckStream store cfg 0
-                `shouldThrow` ( \e ->
-                                    case e of
-                                        InvalidStreamBufferSize 0 -> True
-                                        _ -> False
-                              )
+    it "rejects a zero-sized bridge buffer at construction" $
+        Buffer.mkStreamBufferSize 0 `shouldBe` Left (InvalidStreamBufferSize 0)
 
     it "rethrows the worker exception to the consumer when the worker dies" $
         withTestStore $ \store -> do
@@ -56,7 +50,7 @@ spec = describe "stream bridge termination" $ do
             let cfg = defaultSubscriptionConfig (SubscriptionName "bridge-crash-sub") AllStreams (\_ -> pure Continue)
                 injectBoom _ _ = throwIO TestBoom
             withFetchBatchHookForTest injectBoom $ do
-                (stream, cancelStream) <- subscriptionAckStream store cfg 16
+                (stream, cancelStream) <- subscriptionAckStream store cfg (either (error . show) Prelude.id (Buffer.mkStreamBufferSize 16))
                 pulled <- within "stream pull to throw TestBoom" (try (Stream.uncons stream))
                 cancelStream
                 case pulled of
@@ -68,7 +62,7 @@ spec = describe "stream bridge termination" $ do
     it "ends the stream after a clean worker stop" $
         withTestStore $ \store -> do
             let cfg = defaultSubscriptionConfig (SubscriptionName "bridge-clean-stop-sub") AllStreams (\_ -> pure Continue)
-            (stream0, cancelStream) <- subscriptionAckStream store cfg 16
+            (stream0, cancelStream) <- subscriptionAckStream store cfg (either (error . show) Prelude.id (Buffer.mkStreamBufferSize 16))
             finally
                 ( do
                     pos <- appendOne store (StreamName "bridge-clean-stop") (EventType "BridgeCleanStop")
@@ -88,7 +82,7 @@ spec = describe "stream bridge termination" $ do
     it "cancelAction returns promptly even when the bridge queue is full" $
         withTestStore $ \store -> do
             let cfg = defaultSubscriptionConfig (SubscriptionName "bridge-full-cancel-sub") AllStreams (\_ -> pure Continue)
-            (stream0, cancelStream) <- subscriptionAckStream store cfg 1
+            (stream0, cancelStream) <- subscriptionAckStream store cfg (either (error . show) Prelude.id (Buffer.mkStreamBufferSize 1))
             _pos1 <- appendOne store (StreamName "bridge-full-cancel-1") (EventType "BridgeFullCancel1")
             pos2 <- appendOne store (StreamName "bridge-full-cancel-2") (EventType "BridgeFullCancel2")
             waitForPublisher store pos2
@@ -110,7 +104,7 @@ spec = describe "stream bridge termination" $ do
             let subscriptionName = SubscriptionName "bridge-idempotent-cancel-sub"
                 cfg = defaultSubscriptionConfig subscriptionName AllStreams (\_ -> pure Continue)
                 key = (subscriptionName, 0)
-            (_stream, cancelStream) <- subscriptionAckStream store cfg 1
+            (_stream, cancelStream) <- subscriptionAckStream store cfg (either (error . show) Prelude.id (Buffer.mkStreamBufferSize 1))
 
             statesBefore <- subscriptionStates store
             Map.member key statesBefore `shouldBe` True

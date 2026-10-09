@@ -102,10 +102,11 @@ writes junction rows directly, such as a benchmark fixture, must set
 | --- | --- | --- |
 | `subscription_id` | `BIGSERIAL PRIMARY KEY` | Surrogate id for the checkpoint row. |
 | `subscription_name` | `TEXT NOT NULL` | Stable subscription name. With `consumer_group_member` it forms the composite checkpoint key (see below); each consumer-group member persists its own checkpoint under one shared name. |
-| `stream_name` | `TEXT NOT NULL DEFAULT '$all'` | Legacy target column. Current checkpoint writers do not supply it, so the default `$all` is not authoritative target metadata. |
+| `target_kind` | `TEXT NOT NULL DEFAULT 'unbound'` | Checkpoint binding: `unbound` legacy rows, `all`, or `category`. Validated before delivery. |
+| `target_category` | `TEXT` | Required exactly when `target_kind = 'category'`; null otherwise. Neither target column is indexed. |
 | `last_seen` | `BIGINT NOT NULL DEFAULT 0` | Last processed global position. Checkpoint updates use `GREATEST(existing, new)` so the checkpoint does not move backward. |
 | `consumer_group_member` | `INT NOT NULL DEFAULT 0` | Zero-based member index and part of the composite checkpoint key. Member `0` can be either an ordinary subscription or member zero of a group; the row alone cannot distinguish them. |
-| `consumer_group_size` | `INT NOT NULL DEFAULT 1` | Legacy topology column. Current member-aware checkpoint writers do not supply it, so the default `1` is not authoritative group-size metadata. |
+| `consumer_group_size` | `INT NOT NULL DEFAULT 1` | Authoritative configured group size, persisted on initialization and saves. Migration 0013 derives legacy sizes; incompatible restarts require explicit resize. |
 | `created_at` | `TIMESTAMPTZ NOT NULL DEFAULT now()` | Timestamp when the checkpoint row was first created. |
 | `updated_at` | `TIMESTAMPTZ NOT NULL DEFAULT now()` | Timestamp of the latest checkpoint upsert. A lower save refreshes it even though `GREATEST` leaves `last_seen` unchanged, so it is not proof that the position advanced. |
 
@@ -119,8 +120,9 @@ composite index created). See [Consumer Groups](consumer-groups.md).
 Subscriptions use `$all` global positions as their cursor, including category
 subscriptions. The public `subscriptionCheckpointInventory` operation exposes
 only the authoritative name/member key, `last_seen`, and `updated_at`, together
-with a same-statement `$all` position. It deliberately does not expose the
-legacy target or group-size columns as topology facts.
+with a same-statement `$all` position. It does not expose target or group-size columns; use the supported startup and
+checkpoint mutation APIs for identity and topology. Migration 0014 removes the
+unused historical `stream_name` column. See [target identity](subscriptions.md#checkpoint-target-identity).
 
 ## `subscription_checkpoints_v1`
 

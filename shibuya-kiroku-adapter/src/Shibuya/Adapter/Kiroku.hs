@@ -149,7 +149,7 @@ import Effectful (Eff, IOE, liftIO, (:>))
 import Effectful.Exception (catchSync)
 import GHC.Generics (Generic)
 import Kiroku.Store.Connection (KirokuStore)
-import Kiroku.Store.Subscription.Stream (subscriptionAckStream)
+import Kiroku.Store.Subscription.Stream (StreamBufferSize, defaultStreamBufferSize, subscriptionAckStream)
 import Kiroku.Store.Subscription.Types (
     ConsumerGroup,
     ConsumerGroupSize,
@@ -197,9 +197,9 @@ data KirokuAdapterConfig = KirokuAdapterConfig
     -- ^ Unique subscription identifier (checkpoint key)
     , subscriptionTarget :: !SubscriptionTarget
     -- ^ 'AllStreams' or @'Category' categoryName@
-    , batchSize :: !Int32
+    , batchSize :: !Sub.BatchSize
     -- ^ Events per database fetch during catch-up
-    , bufferSize :: !Natural
+    , bufferSize :: !StreamBufferSize
     -- ^ Bridge 'TBQueue' capacity; must be at least 1.
     , queueCapacity :: !Natural
     {- ^ Publisher-side capacity in batches, where each batch contains up to
@@ -249,8 +249,8 @@ data KirokuAdapterConfig = KirokuAdapterConfig
     }
     deriving stock (Generic)
 
-{- | A 'KirokuAdapterConfig' with sensible defaults: @batchSize = 100@,
-@bufferSize = 256@, @queueCapacity = 16@, @consumerGroup = 'Nothing'@
+{- | A 'KirokuAdapterConfig' with sensible defaults: @batchSize = Sub.defaultBatchSize@,
+@bufferSize = defaultStreamBufferSize@, @queueCapacity = 16@, @consumerGroup = 'Nothing'@
 (ordinary single-consumer subscription), @missingCheckpointPolicy =
 'FromBeginning'@, @eventTypeFilter = 'AllEventTypes'@
 (deliver every type), and @selector = 'Nothing'@ (no extra predicate
@@ -273,8 +273,8 @@ defaultKirokuAdapterConfig name target =
     KirokuAdapterConfig
         { subscriptionName = name
         , subscriptionTarget = target
-        , batchSize = 100
-        , bufferSize = 256
+        , batchSize = Sub.defaultBatchSize
+        , bufferSize = defaultStreamBufferSize
         , queueCapacity = 16
         , consumerGroup = Nothing
         , missingCheckpointPolicy = FromBeginning
@@ -393,9 +393,9 @@ data KirokuConsumerGroupConfig = KirokuConsumerGroupConfig
     {- ^ @N@ members; must be @>= 1@ (enforced by the underlying
     'mkConsumerGroupSize' at construction).
     -}
-    , batchSize :: !Int32
+    , batchSize :: !Sub.BatchSize
     -- ^ Events per database fetch during catch-up (per member).
-    , bufferSize :: !Natural
+    , bufferSize :: !StreamBufferSize
     -- ^ Per-member bridge 'TBQueue' capacity; must be at least 1.
     , queueCapacity :: !Natural
     {- ^ Per-member publisher-side capacity in batches. When this fills, Kiroku
@@ -431,8 +431,8 @@ data KirokuConsumerGroupConfig = KirokuConsumerGroupConfig
     deriving stock (Generic)
 
 {- | A 'KirokuConsumerGroupConfig' with sensible defaults: @memberConcurrency =
-'Serial'@ (the only legal per-member concurrency), @batchSize = 100@,
-@bufferSize = 256@, @queueCapacity = 16@, @missingCheckpointPolicy =
+'Serial'@ (the only legal per-member concurrency), @batchSize = Sub.defaultBatchSize@,
+@bufferSize = defaultStreamBufferSize@, @queueCapacity = 16@, @missingCheckpointPolicy =
 'FromBeginning'@, @eventTypeFilter = 'AllEventTypes'@
 (deliver every type), @selector = 'Nothing'@ (no extra predicate filtering).
 Supply the subscription name, target, and group size.
@@ -444,8 +444,8 @@ defaultConsumerGroupConfig name target n =
         { subscriptionName = name
         , subscriptionTarget = target
         , groupSize = n
-        , batchSize = 100
-        , bufferSize = 256
+        , batchSize = Sub.defaultBatchSize
+        , bufferSize = defaultStreamBufferSize
         , queueCapacity = 16
         , memberConcurrency = Serial
         , missingCheckpointPolicy = FromBeginning
@@ -506,7 +506,7 @@ kirokuConsumerGroupProcessors store cfg@KirokuConsumerGroupConfig{subscriptionNa
                 , batchSize = bs
                 , bufferSize = buf
                 , queueCapacity = qCap
-                , consumerGroup = Just (either (error . show) id (mkConsumerGroup m n))
+                , consumerGroup = Just (either (error . show) Prelude.id (mkConsumerGroup m n))
                 , missingCheckpointPolicy = checkpointPolicy
                 , eventTypeFilter = etf
                 , selector = sel

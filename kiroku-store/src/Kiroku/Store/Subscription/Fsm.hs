@@ -245,7 +245,7 @@ data Input
     | -- | The worker drained the stale queue and is ready to recover (re-catch-up).
       QueueDrained
     | -- | The worker lost its database pool while live.
-      ConnectionLost !Pool.UsageError
+      ConnectionLost !GlobalPosition !Pool.UsageError
     | -- | The caller cancelled the worker.
       Cancelled
     deriving stock (Show)
@@ -312,7 +312,7 @@ step st input = case st of
         QueueOverflowed -> (Stopped StopOverflowed, [Halt StopOverflowed])
         QueueBackpressured -> (CatchingUp c n, []) -- defensive: catch-up reads the DB, not the queue
         QueueDrained -> (CatchingUp c n, [])
-        ConnectionLost _ -> (Reconnecting c 1, [EmitReconnecting 1, Backoff 1])
+        ConnectionLost observed _ -> (Reconnecting (max c observed) 1, [EmitReconnecting 1, Backoff 1])
         Cancelled -> (Stopped StopCancelled, [Halt StopCancelled])
     Live c -> case input of
         BatchFetched evs -> (Live (lastPos c evs), [DeliverBatch evs])
@@ -323,7 +323,7 @@ step st input = case st of
         QueueOverflowed -> (Stopped StopOverflowed, [Halt StopOverflowed])
         QueueBackpressured -> (Paused c ResumeOnDrain, [EmitPaused])
         QueueDrained -> (Live c, [RunLive])
-        ConnectionLost _ -> (Reconnecting c 1, [EmitReconnecting 1, Backoff 1])
+        ConnectionLost observed _ -> (Reconnecting (max c observed) 1, [EmitReconnecting 1, Backoff 1])
         Cancelled -> (Stopped StopCancelled, [Halt StopCancelled])
     Paused c rc -> case input of
         -- The worker drained the stale queue and cleared the pause flag; recover
@@ -338,7 +338,7 @@ step st input = case st of
         BatchFetched evs -> (CatchingUp (lastPos c evs) 0, [DeliverBatch evs])
         FetchEmpty -> (Live c, [])
         FetchFailed _ -> (Reconnecting c (n + 1), [EmitReconnecting (n + 1), Backoff (n + 1)])
-        ConnectionLost _ -> (Reconnecting c (n + 1), [EmitReconnecting (n + 1), Backoff (n + 1)])
+        ConnectionLost observed _ -> (Reconnecting (max c observed) (n + 1), [EmitReconnecting (n + 1), Backoff (n + 1)])
         CaughtUp -> (CatchingUp c 0, [])
         HandlerStopped _ -> (Stopped StopHandlerRequested, [Halt StopHandlerRequested])
         Cancelled -> (Stopped StopCancelled, [Halt StopCancelled])

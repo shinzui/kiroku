@@ -35,7 +35,8 @@ import Contravariant.Extras (contrazip2)
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.STM (TBQueue, TVar, atomically, check, orElse, readTBQueue, readTVar, registerDelay, tryReadTBQueue, writeTVar)
-import Control.Exception (SomeException, bracket, fromException, throwIO, try)
+import Control.Exception (SomeException, bracket, fromException, throwIO, toException, try)
+import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Int (Int32)
@@ -422,7 +423,9 @@ runWorker pool liveSource stateVar pubPosVar catGenVar config mHandler stSetting
         -- becomes 'ConnectionLost', driving the FSM into 'Reconnecting'.
         liveExitToInput = \case
             LiveHandlerStopped -> HandlerStopped <$> readIORef posRef
-            LiveFetchError err -> pure (ConnectionLost err)
+            LiveFetchError err -> do
+                position <- readIORef posRef
+                pure (ConnectionLost position err)
 
         -- Read and discard every batch currently in the live queue (non-blocking).
         -- Used when resuming from 'Paused': the discarded events are re-read from
@@ -505,22 +508,31 @@ loadCheckpoint pool config emit = do
     mHook <- readIORef loadCheckpointHookRef
     injected <- maybe (pure Nothing) (\hook -> hook config) mHook
     result <- case injected of
-        Just hooked -> pure (fmap Right hooked)
+        Just hooked -> pure (fmap (either (Left . SomeSubscriptionStartupFailure) (Right . (,False))) hooked)
         Nothing ->
             Pool.use pool $
                 CheckpointSQL.initializeWorkerCheckpointSession
                     subName
                     mem
                     (configSize config)
+                    (target config)
+                    (targetBindingPolicy config)
                     (missingCheckpointPolicy config)
     case result of
         Left err -> do
             emit (KirokuEventSubscriptionDbError subName LoadCheckpoint err (groupCtxOf config))
             throwIO err
-        Right (Left mismatch) -> do
-            emit (KirokuEventSubscriptionGroupSizeMismatch mismatch (groupCtxOf config))
-            throwIO mismatch
-        Right (Right resolution) -> pure resolution
+        Right (Left refusal@(SomeSubscriptionStartupFailure concrete)) ->
+            case fromException (toException concrete) of
+                Just missing -> pure (Left missing)
+                Nothing -> do
+                    case fromException (toException concrete) of
+                        Just mismatch -> emit (KirokuEventSubscriptionGroupSizeMismatch mismatch (groupCtxOf config))
+                        Nothing -> pure ()
+                    throwIO refusal
+        Right (Right (resolution, adopted)) -> do
+            when adopted $ emit (KirokuEventSubscriptionTargetBound subName (target config) (groupCtxOf config))
+            pure (Right resolution)
 
 -- How a DB-driven live loop ('liveLoopCategoryNotify' / 'liveLoopDbDriven')
 -- exited. The driver maps these onto FSM inputs: a clean handler stop becomes
@@ -675,18 +687,18 @@ fetchBatch pool config cursor@(GlobalPosition pos) emit stSettings = do
         Nothing ->
             case (consumerGroup config, target config) of
                 (Nothing, AllStreams) -> do
-                    result <- Pool.use pool (Session.statement (pos, batchSize config) SQL.readAllForwardStmt)
+                    result <- Pool.use pool (Session.statement (pos, batchSizeValue (batchSize config)) SQL.readAllForwardStmt)
                     handle result
                 (Nothing, Category (CategoryName cat)) -> do
-                    result <- Pool.use pool (Session.statement (pos, cat, batchSize config) SQL.readCategoryForwardStmt)
+                    result <- Pool.use pool (Session.statement (pos, cat, batchSizeValue (batchSize config)) SQL.readCategoryForwardStmt)
                     handle result
                 (Just cg, AllStreams) -> do
                     let m = member cg; n = size cg
-                    result <- Pool.use pool (Session.statement (pos, m, n, batchSize config) SQL.readAllForwardConsumerGroupStmt)
+                    result <- Pool.use pool (Session.statement (pos, m, n, batchSizeValue (batchSize config)) SQL.readAllForwardConsumerGroupStmt)
                     handle result
                 (Just cg, Category (CategoryName cat)) -> do
                     let m = member cg; n = size cg
-                    result <- Pool.use pool (Session.statement (pos, cat, m, n, batchSize config) SQL.readCategoryForwardConsumerGroupStmt)
+                    result <- Pool.use pool (Session.statement (pos, cat, m, n, batchSizeValue (batchSize config)) SQL.readCategoryForwardConsumerGroupStmt)
                     handle result
   where
     handle = \case
@@ -806,11 +818,14 @@ writeDeadLetter ::
 writeDeadLetter pool config gp@(GlobalPosition pos) event reason attempt emit = do
     let subName@(SubscriptionName name') = name config
         mem = configMember config
+        (kind, category) = CheckpointSQL.targetColumns (Just (target config))
         EventId uuid = eventId event
         params =
             SQL.DeadLetterParams
                 { SQL.dlSubscriptionName = name'
                 , SQL.dlMember = mem
+                , SQL.dlTargetKind = kind
+                , SQL.dlTargetCategory = category
                 , SQL.dlGroupSize = configSize config
                 , SQL.dlGlobalPosition = pos
                 , SQL.dlEventId = uuid
@@ -841,7 +856,8 @@ saveCheckpoint pool config position@(GlobalPosition pos) emit = do
         mem = configMember config
     mHook <- readIORef saveCheckpointHookRef
     mapM_ (\hook -> hook config position) mHook
-    result <- Pool.use pool (Session.statement (name', mem, pos, configSize config) SQL.saveCheckpointMemberStmt)
+    let (kind, category) = CheckpointSQL.targetColumns (Just (target config))
+    result <- Pool.use pool (Session.statement (name', mem, pos, configSize config, kind, category) SQL.saveCheckpointMemberStmt)
     case result of
         Left err -> emit (KirokuEventSubscriptionDbError subName SaveCheckpoint err (groupCtxOf config))
         Right () -> pure ()

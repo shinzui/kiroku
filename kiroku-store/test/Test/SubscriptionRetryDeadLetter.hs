@@ -80,7 +80,7 @@ spec = describe "subscription dispositions — retry / dead-letter (EP-40)" $ do
                         2 -> pure (DeadLetter (DeadLetterPoison "boom"))
                         3 -> pure Stop
                         _ -> pure Continue
-                cfg = (defaultSubscriptionConfig subName AllStreams handler'){batchSize = 100}
+                cfg = (defaultSubscriptionConfig subName AllStreams handler'){batchSize = defaultBatchSize}
             handle <- subscribe store cfg
             result <- waitWithTimeout 20_000_000 handle
             case result of
@@ -113,7 +113,7 @@ spec = describe "subscription dispositions — retry / dead-letter (EP-40)" $ do
                             if c <= 2 then pure (Retry (RetryDelay 0)) else pure Continue
                         3 -> pure Stop
                         _ -> pure Continue
-                cfg = (defaultSubscriptionConfig subName AllStreams handler'){batchSize = 100}
+                cfg = (defaultSubscriptionConfig subName AllStreams handler'){batchSize = defaultBatchSize}
             handle <- subscribe store cfg
             result <- waitWithTimeout 20_000_000 handle
             case result of
@@ -145,7 +145,7 @@ spec = describe "subscription dispositions — retry / dead-letter (EP-40)" $ do
                         _ -> pure Continue
                 cfg =
                     (defaultSubscriptionConfig subName AllStreams handler')
-                        { batchSize = 100
+                        { batchSize = defaultBatchSize
                         , retryPolicy = RetryPolicy{retryMaxAttempts = 3}
                         }
             handle <- subscribe store cfg

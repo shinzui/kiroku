@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-09
+* **Update**: ADR-4: bind checkpoints to targets with declared legacy adoption and explicit transactional rebind; preserve binding on resize and the existing startup/save boundaries.
 * **Update**: Require proportional performance evidence following the user minimum-evidence correction; preserve original inconclusive statistical reports and unchanged regression policies.
 * **Update**: ADR-11 clarifies bounded evidence of unchanged performance without requiring every path to show a speedup; confirmed adverse changes remain blocking.
 * **Update**: Narrow controlled subscription-hardening performance acceptance to PostgreSQL 18 following the user scope correction; retain all write-performance and precision requirements.

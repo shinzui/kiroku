@@ -107,7 +107,7 @@ runWorkload context = do
             config m =
                 (defaultSubscriptionConfig (SubscriptionName "probe") (workloadTarget workload) handler)
                     { missingCheckpointPolicy = FromCurrentHead
-                    , batchSize = workload.checkpointBatch
+                    , batchSize = configuredCheckpointBatch workload.checkpointBatch
                     , consumerGroup = if workload.mode `elem` ["group-all", "group-category"] then Just (membership m) else Nothing
                     }
             members = if workload.mode `elem` ["group-all", "group-category"] then [0, 1, 2, 3] else [0]
@@ -122,7 +122,7 @@ runWorkload context = do
                     kirokuAdapter store $
                         (defaultKirokuAdapterConfig (SubscriptionName "probe") AllStreams)
                             { Adapter.missingCheckpointPolicy = FromCurrentHead
-                            , Adapter.batchSize = workload.checkpointBatch
+                            , Adapter.batchSize = configuredCheckpointBatch workload.checkpointBatch
                             }
                 app <- runApp defaultAppConfig [(ProcessorId "probe", mkProcessor adapter (\_ -> liftIO (atomicModifyIORef' delivered (\n -> (n + 1, ()))) >> pure AckOk))]
                 case app of
@@ -401,3 +401,12 @@ sampleBacklog appended delivered rows sample durablePending = loop (0 :: Int)
         sample
         threadDelay 100_000
         loop (iteration + 1)
+
+-- Keep the same workload input while each source revision uses its own API.
+#ifdef LEGACY_TOPOLOGY
+configuredCheckpointBatch :: Int32 -> Int32
+configuredCheckpointBatch = Prelude.id
+#else
+configuredCheckpointBatch :: Int32 -> BatchSize
+configuredCheckpointBatch = either (error . show) Prelude.id . mkBatchSize
+#endif

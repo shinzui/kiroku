@@ -138,6 +138,8 @@ insertDeadLetterForEvent store subscriptionName event = do
             SQL.DeadLetterParams
                 { SQL.dlSubscriptionName = subscriptionName
                 , SQL.dlMember = 0
+                , SQL.dlTargetKind = "unbound"
+                , SQL.dlTargetCategory = Nothing
                 , SQL.dlGroupSize = 1
                 , SQL.dlGlobalPosition = globalPosition
                 , SQL.dlEventId = eid

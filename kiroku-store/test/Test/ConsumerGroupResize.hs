@@ -111,7 +111,7 @@ spec = describe "consumer-group resize" $ do
             Right events <- runStoreIO store (readAllForward (GlobalPosition 0) 10)
             let event = Vector.head events
                 EventId eid = event ^. #eventId
-                params = SQL.DeadLetterParams "dead-letter-size" 1 4 1 eid (Aeson.object []) "test" 1
+                params = SQL.DeadLetterParams "dead-letter-size" 1 "unbound" Nothing 4 1 eid (Aeson.object []) "test" 1
             runSession store (Session.statement params SQL.insertDeadLetterAndCheckpointStmt)
             rows store "dead-letter-size" `shouldReturn` [(1, 4, 1)]
             let StreamId sid = event ^. #originalStreamId
@@ -202,7 +202,7 @@ config name m n handler =
         }
 
 seedCheckpoint :: KirokuStore -> Text -> Int32 -> Int32 -> Int64 -> IO ()
-seedCheckpoint store name m n p = runSession store (Session.statement (name, m, p, n) SQL.saveCheckpointMemberStmt)
+seedCheckpoint store name m n p = runSession store (Session.statement (name, m, p, n, "unbound", Nothing) SQL.saveCheckpointMemberStmt)
 
 resize :: KirokuStore -> Text -> Int32 -> IO ConsumerGroupResizeReport
 resize store name n = runSession store $ TxSessions.transaction TxSessions.ReadCommitted TxSessions.Write (resizeConsumerGroupTx (SubscriptionName name) (groupSize n))

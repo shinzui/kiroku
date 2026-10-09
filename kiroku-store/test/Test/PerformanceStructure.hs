@@ -23,6 +23,7 @@ import Hasql.Statement (Statement, unpreparable)
 import Hasql.Statement qualified as Statement
 import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
+import Kiroku.Store.Subscription.Stream qualified as Buffer
 import Kiroku.Store.Subscription.Worker (withLoadCheckpointHookForTest)
 import Kiroku.Test.Fixtures.CategoryScaling (categoryScalingFixtureSql, categoryScalingHead)
 import Test.Helpers (makeEvent, validConsumerGroup, waitWithTimeout, withTestStore, withTestStoreSettings)
@@ -37,6 +38,16 @@ spec = do
 noOpAppendSpec :: Spec
 noOpAppendSpec =
     describe "no-op paths use no pooled connection" $ do
+        it "rejects invalid batch and buffer sizes before pool checkout" $ do
+            checkouts <- newIORef (0 :: Int)
+            withObservedStore checkouts $ \_ -> do
+                before <- readIORef checkouts
+                mkBatchSize 0 `shouldBe` Left (InvalidBatchSize 0)
+                mkBatchSize (-1) `shouldBe` Left (InvalidBatchSize (-1))
+                Buffer.mkStreamBufferSize 0 `shouldBe` Left (Buffer.InvalidStreamBufferSize 0)
+                after <- readIORef checkouts
+                after - before `shouldBe` 0
+
         it "rejects invalid consumer-group values before pool checkout" $ do
             checkouts <- newIORef (0 :: Int)
             withObservedStore checkouts $ \_ -> do
@@ -57,7 +68,7 @@ noOpAppendSpec =
                     if selected == Just thread then modifyIORef' checkouts (+ 1) else pure ()
                 observe _ = pure ()
             withTestStoreSettings (\settings -> settings{observationHandler = Just observe}) $ \store -> do
-                seeded <- Pool.use (store ^. #pool) (Session.statement ("topology-checkout", 0, 0, 2) SQL.saveCheckpointMemberStmt)
+                seeded <- Pool.use (store ^. #pool) (Session.statement ("topology-checkout", 0, 0, 2, "unbound", Nothing) SQL.saveCheckpointMemberStmt)
                 seeded `shouldBe` Right ()
                 withLoadCheckpointHookForTest
                     ( \_ -> do
@@ -74,6 +85,36 @@ noOpAppendSpec =
                         waitWithTimeout 5_000_000 handle >>= \case
                             Right (Left exception) ->
                                 (fromException exception :: Maybe ConsumerGroupSizeMismatch) `shouldSatisfy` maybe False (const True)
+                            other -> expectationFailure ("expected mismatch, got " <> show other)
+                readIORef checkouts `shouldReturn` 1
+                readIORef delivered `shouldReturn` False
+
+        it "refuses mismatched target in exactly one initialization checkout with no handler" $ do
+            workerThread <- newIORef Nothing
+            checkouts <- newIORef (0 :: Int)
+            delivered <- newIORef False
+            let observe (ConnectionObservation _ InUseConnectionStatus) = do
+                    thread <- myThreadId
+                    selected <- readIORef workerThread
+                    if selected == Just thread then modifyIORef' checkouts (+ 1) else pure ()
+                observe _ = pure ()
+            withTestStoreSettings (\settings -> settings{observationHandler = Just observe}) $ \store -> do
+                seeded <- Pool.use (store ^. #pool) (Session.statement ("target-checkout", 0, 0, 1, "all", Nothing) SQL.saveCheckpointMemberStmt)
+                seeded `shouldBe` Right ()
+                withLoadCheckpointHookForTest
+                    ( \_ -> do
+                        thread <- myThreadId
+                        writeIORef workerThread (Just thread)
+                        pure Nothing
+                    )
+                    $ do
+                        let cfg =
+                                (defaultSubscriptionConfig (SubscriptionName "target-checkout") (Category (CategoryName "other")) (\_ -> writeIORef delivered True >> pure Continue))
+
+                        handle <- subscribe store cfg
+                        waitWithTimeout 5_000_000 handle >>= \case
+                            Right (Left exception) ->
+                                (fromException exception :: Maybe SubscriptionTargetMismatch) `shouldSatisfy` maybe False (const True)
                             other -> expectationFailure ("expected mismatch, got " <> show other)
                 readIORef checkouts `shouldReturn` 1
                 readIORef delivered `shouldReturn` False

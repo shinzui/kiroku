@@ -222,6 +222,7 @@ onEvent tracer cell = \case
     -- produces the terminal span.
     KirokuEventSubscriptionCheckpointResolved{} -> pure ()
     KirokuEventSubscriptionCheckpointMissing{} -> pure ()
+    KirokuEventSubscriptionTargetBound{} -> pure ()
     KirokuEventSubscriptionGroupSizeMismatch{} -> pure ()
     KirokuEventSubscriptionStarted name pos grp ->
         withKey cell (keyOf name grp) $ \st -> do

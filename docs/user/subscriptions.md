@@ -69,6 +69,22 @@ The handler returns `SubscriptionResult`:
   with `reason` and **atomically advance the checkpoint past it**, then continue
   with the next event.
 
+## Validating Capacities
+
+Batch and bridge capacities are checked when constructed. Their constructors are
+hidden; zero or negative batches return `InvalidBatchSize`, and a zero bridge
+capacity returns `InvalidStreamBufferSize`. These errors are values, so an
+invalid capacity cannot start a worker or check out a pooled connection.
+
+```haskell
+import Kiroku.Store.Subscription.Stream
+
+batch <- either (fail . show) pure (mkBatchSize 250)
+buffer <- either (fail . show) pure (mkStreamBufferSize 256)
+let cfg = (defaultSubscriptionConfig name target handler){batchSize = batch}
+(stream, cancelStream) <- subscriptionAckStream store cfg buffer
+```
+
 ## Configuration
 
 `SubscriptionConfig` (built by `defaultSubscriptionConfig name target
@@ -79,9 +95,10 @@ handler`):
 | `name :: SubscriptionName` | (required) | Stable name. This is the **checkpoint key** in the `subscriptions` table; reuse the same name across restarts to resume. |
 | `target :: SubscriptionTarget` | (required) | `AllStreams` or `Category categoryName`. |
 | `handler` | (required) | `RecordedEvent -> m SubscriptionResult`, invoked once per event in order. |
-| `batchSize :: Int32` | `100` | Events fetched per database round-trip during catch-up. |
+| `batchSize :: BatchSize` | `defaultBatchSize` | Events fetched per database round-trip during catch-up. |
 | `queueCapacity :: Natural` | `16` | Maximum number of *batches* the publisher may enqueue for this subscriber before applying the overflow policy. Effective event capacity is `queueCapacity * publisherBatchSize`. |
 | `overflowPolicy :: OverflowPolicy` | `PauseAndResume` | What the publisher does when this subscriber's queue is full (see below). |
+| `targetBindingPolicy :: TargetBindingPolicy` | `AdoptUnbound` | Adopt uniformly unbound legacy rows once, or require an existing binding with `RequireBound`. A conflicting or mixed binding refuses startup. |
 | `retryPolicy :: RetryPolicy` | `defaultRetryPolicy` (5 attempts) | Bounds how many times an event for which the handler returned `Retry` is redelivered before it is dead-lettered. Handlers that never return `Retry` are unaffected. |
 | `eventTypeFilter :: EventTypeFilter` | `AllEventTypes` | Restrict delivery to chosen event types. See [Event-Type Filtering](#event-type-filtering). |
 | `selector :: Maybe (RecordedEvent -> Bool)` | `Nothing` | Optional opaque per-event predicate, the escape hatch for filtering the type set cannot express (e.g. metadata). Composed with `eventTypeFilter` as a logical AND. See [Event-Type Filtering](#event-type-filtering). |
@@ -241,6 +258,49 @@ inventory's one-statement snapshot. A target-specific lag calculation may need
 a category head or an event-count query instead. Capturing bounded replay pages
 is a separate proposed capability described by
 [Expose bounded fan-in replay windows](../improvement-requests/expose-bounded-fan-in-replay-windows.md).
+
+## Checkpoint Target Identity
+
+A checkpoint name is bound to `AllStreams` or one specific `Category`, across
+every member. Startup checks target identity and stored group size in the same
+initialization checkout before `Started` or any handler call. Ordinary and
+dead-letter saves persist the target in their existing single upsert.
+
+Migration 0014 adds `target_kind` (`unbound`, `all`, or `category`) and nullable
+`target_category`, with CHECK constraints and no new indexes. Legacy rows are
+`unbound`; the historical `stream_name` default was not reliable identity, so
+that column is removed. Stop workers before this migration and restart them
+with the updated library; the frozen `subscription_checkpoints_v1` relation
+is unchanged.
+
+The default `AdoptUnbound` policy binds a uniformly unbound name to the configured
+target atomically and emits one `KirokuEventSubscriptionTargetBound`. Choose
+`RequireBound` to refuse existing unbound rows. A fresh checkpoint can be created
+with its requested binding under either policy. Any different target or mixture
+of bound and unbound members fails with `SubscriptionTargetMismatch`, without
+delivery or implicit reset. A failed `FailIfMissing` start does not adopt siblings.
+
+For deliberate retargeting, stop every worker with the name and compose
+`rebindSubscriptionTargetTx name newTarget resetPosition` in a Hasql transaction.
+It locks the checkpoint set, rewrites every member's binding and assigns the
+explicit position atomically. The report includes `reboundMemberCount`,
+`previousBindings` (`Nothing` for legacy rows), `reboundTarget`, and
+`reboundPosition`. Repeating the operation is idempotent. An absent name fails
+the transaction; rollback preserves all previous bindings and positions.
+Resizing a bound group preserves its binding on new members. Reset changes
+progress alone and preserves both binding and topology.
+
+Runtime semantic startup refusals share the exception parent
+`SomeSubscriptionStartupFailure`: `SubscriptionCheckpointMissing`,
+`ConsumerGroupGuardConflict`, `ConsumerGroupSizeMismatch`, and
+`SubscriptionTargetMismatch`. Match the parent via `fromException` on a failed
+handle `wait` to handle the family once; concrete exception matches continue to
+work. Operational database and handler errors retain their own exception types.
+
+A database-driven live reconnect resumes from the greatest processed in-memory
+position, even after live batches have advanced past the state machine's
+live-entry cursor. This avoids replay caused only by a stale FSM cursor;
+crash recovery still uses durable checkpoints and retains at-least-once delivery.
 
 ## Choosing A Startup Checkpoint
 
@@ -422,9 +482,9 @@ outlive a torn-down environment.
 with a bounded `TBQueue` providing backpressure:
 
 ```haskell
-import Kiroku.Store.Subscription.Stream (subscriptionStream)
+import Kiroku.Store.Subscription.Stream (subscriptionStream, defaultStreamBufferSize)
 
-(stream, cancelAction) <- subscriptionStream store cfg 256
+(stream, cancelAction) <- subscriptionStream store cfg defaultStreamBufferSize
 ```
 
 It returns `(Stream IO RecordedEvent, IO ())`. The `handler` field in the

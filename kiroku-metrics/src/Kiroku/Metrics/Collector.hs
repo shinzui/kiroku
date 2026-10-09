@@ -180,6 +180,7 @@ applyEvent km = \case
             InitializedCheckpoint _ (SubscriptionCheckpointKey name _) pos -> recordPosition km name pos
     KirokuEventSubscriptionCheckpointMissing (SubscriptionCheckpointMissing (SubscriptionCheckpointKey name _)) _ ->
         touchSub km name id
+    KirokuEventSubscriptionTargetBound name _ _ -> touchSub km name id
     KirokuEventSubscriptionGroupSizeMismatch (ConsumerGroupSizeMismatch name _ _) _ ->
         touchSub km name id
     KirokuEventSubscriptionStarted name pos _ -> do

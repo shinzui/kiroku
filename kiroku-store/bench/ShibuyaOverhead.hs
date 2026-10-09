@@ -29,6 +29,7 @@ import Effectful (Eff, IOE, liftIO, runEff, (:>))
 import EphemeralPg qualified as Pg
 import Kiroku.Store
 import Kiroku.Store.Subscription.Stream (subscriptionStream)
+import Kiroku.Store.Subscription.Stream qualified as Buffer
 import Kiroku.Test.Postgres (ephemeralConfig)
 import Shibuya.Adapter (Adapter (..))
 import Shibuya.App (ProcessorId (..), defaultAppConfig, mkProcessor, runApp, stopApp)
@@ -120,12 +121,13 @@ benchBareSubscribe store n nextId = do
                 { name = subName
                 , target = AllStreams
                 , handler = handler
-                , batchSize = 500
+                , batchSize = either (error . show) Prelude.id (mkBatchSize 500)
                 , queueCapacity = 16
                 , overflowPolicy = DropSubscription
                 , consumerGroup = Nothing
                 , consumerGroupGuard = False
                 , missingCheckpointPolicy = FromBeginning
+                , targetBindingPolicy = AdoptUnbound
                 , retryPolicy = defaultRetryPolicy
                 , eventTypeFilter = AllEventTypes
                 , selector = Nothing
@@ -147,19 +149,20 @@ benchSubscriptionStream store n nextId = do
                 { name = subName
                 , target = AllStreams
                 , handler = \_ -> pure Continue
-                , batchSize = 500
+                , batchSize = either (error . show) Prelude.id (mkBatchSize 500)
                 , queueCapacity = 16
                 , overflowPolicy = DropSubscription
                 , consumerGroup = Nothing
                 , consumerGroupGuard = False
                 , missingCheckpointPolicy = FromBeginning
+                , targetBindingPolicy = AdoptUnbound
                 , retryPolicy = defaultRetryPolicy
                 , eventTypeFilter = AllEventTypes
                 , selector = Nothing
                 }
 
     t0 <- getCurrentTime
-    (stream, cancelStream) <- subscriptionStream store cfg 256
+    (stream, cancelStream) <- subscriptionStream store cfg (either (error . show) Prelude.id (Buffer.mkStreamBufferSize 256))
     Stream.fold Fold.drain (Stream.take n stream)
     cancelStream
     t1 <- getCurrentTime
@@ -179,18 +182,19 @@ benchShibuyaAdapter store n nextId = do
                     { name = subName
                     , target = AllStreams
                     , handler = \_ -> pure Continue
-                    , batchSize = 500
+                    , batchSize = either (error . show) Prelude.id (mkBatchSize 500)
                     , queueCapacity = 16
                     , overflowPolicy = DropSubscription
                     , consumerGroup = Nothing
                     , consumerGroupGuard = False
                     , missingCheckpointPolicy = FromBeginning
+                    , targetBindingPolicy = AdoptUnbound
                     , retryPolicy = defaultRetryPolicy
                     , eventTypeFilter = AllEventTypes
                     , selector = Nothing
                     }
 
-        (ioStream, cancelAction) <- liftIO $ subscriptionStream store cfg 256
+        (ioStream, cancelAction) <- liftIO $ subscriptionStream store cfg (either (error . show) Prelude.id (Buffer.mkStreamBufferSize 256))
 
         let effStream = Stream.morphInner liftIO ioStream
             ingestedStream = fmap (mkIngested cancelAction) effStream

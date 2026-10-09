@@ -21,6 +21,7 @@ import Effectful (runEff)
 import Kiroku.Store
 import Kiroku.Store.Subscription.Effect qualified as SubEff
 import Kiroku.Store.Subscription.Stream (subscriptionAckStream)
+import Kiroku.Store.Subscription.Stream qualified as Buffer
 import Streamly.Data.Stream qualified as Stream
 import Test.Helpers (makeEvent, validConsumerGroup, waitForPublisher, waitWithTimeout, withTestStore, withTestStoreSettings)
 import Test.Hspec
@@ -79,7 +80,7 @@ spec = describe "subscription checkpoint worker policies" $ do
                 config =
                     (defaultSubscriptionConfig name AllStreams handler)
                         { missingCheckpointPolicy = FromCurrentHead
-                        , batchSize = 3
+                        , batchSize = either (error . show) Prelude.id (mkBatchSize 3)
                         }
             subscribeThread <- Async.async (takeMVar gate >> subscribe store config)
             appendThread <- Async.async $ do
@@ -195,7 +196,7 @@ spec = describe "subscription checkpoint worker policies" $ do
                     (defaultSubscriptionConfig name AllStreams (\_ -> pure Continue))
                         { missingCheckpointPolicy = FailIfMissing
                         }
-            (stream, cancelStream) <- subscriptionAckStream store config 1
+            (stream, cancelStream) <- subscriptionAckStream store config (either (error . show) Prelude.id (Buffer.mkStreamBufferSize 1))
             pulled <- finally (try (Stream.uncons stream)) cancelStream
             case pulled of
                 Left err

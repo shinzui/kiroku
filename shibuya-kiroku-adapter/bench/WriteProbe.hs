@@ -84,7 +84,7 @@ main = do
                 config m =
                     (defaultSubscriptionConfig (SubscriptionName "probe") (workloadTarget workload) handler)
                         { missingCheckpointPolicy = FromCurrentHead
-                        , batchSize = workload.checkpointBatch
+                        , batchSize = either (error . show) Prelude.id (mkBatchSize workload.checkpointBatch)
                         , consumerGroup = if workload.mode == "group" then Just (membership m) else Nothing
                         }
                 members = if workload.mode == "group" then [0, 1, 2, 3] else [0]
@@ -96,7 +96,7 @@ main = do
                         kirokuAdapter store $
                             (defaultKirokuAdapterConfig (SubscriptionName "probe") AllStreams)
                                 { Adapter.missingCheckpointPolicy = FromCurrentHead
-                                , Adapter.batchSize = workload.checkpointBatch
+                                , Adapter.batchSize = either (error . show) Prelude.id (mkBatchSize workload.checkpointBatch)
                                 }
                     app <- runApp defaultAppConfig [(ProcessorId "probe", mkProcessor adapter (\_ -> liftIO (atomicModifyIORef' delivered (\n -> (n + 1, ()))) >> pure AckOk))]
                     case app of

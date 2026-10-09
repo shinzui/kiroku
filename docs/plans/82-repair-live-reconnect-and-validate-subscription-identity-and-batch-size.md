@@ -39,6 +39,11 @@ provenance:
       at: 2026-10-09T18:48:29Z
       mode: "update"
       note: "Apply user PostgreSQL 18-only testing scope."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-09T22:40:06Z
+      mode: "implement"
+      note: "Implement reconnect progress, validated capacities, startup hierarchy and durable target identity under proportional ADR-11 evidence."
 ---
 
 # Repair live reconnect and validate subscription identity and batch size
@@ -67,15 +72,32 @@ exception type.
 
 ## Progress
 
-- [ ] Write-performance gate: establish pre-cohort controls and pass mixed append/subscription throughput, latency, checkpoint/WAL, and GC checks under ADR-11 before completion.
-- [ ] M1: carry the current `GlobalPosition` in `ConnectionLost` and reconnect from the maximum of FSM cursor and `posRef`; add the mid-live-fetch regression test.
-- [ ] M1: make `BatchSize` and the ack-stream buffer size validated types built by smart constructors, and route every runtime startup refusal through `SomeSubscriptionStartupFailure`.
-- [ ] M2: add the typed `target_kind`/`target_category` columns and drop `stream_name` in one migration; persist and validate target identity through initialization, ordinary saves, and dead-letter saves.
-- [ ] M2: add `TargetBindingPolicy` with an observable adoption of unbound rows, and expose an explicit transaction-composable target rebind operation.
-- [ ] M3: update checkpoint lifecycle documentation and ADR-4, then run focused and full Kiroku validation and the performance gates.
+- [ ] Write-performance evidence: pass existing ADR-5 gates and collect focused old/new checkpoint-write and named telemetry evidence under amended ADR-11; label local timing uncertainty.
+- [x] (2026-10-09 22:49 UTC) M1: carry the current `GlobalPosition` in `ConnectionLost` and reconnect from the maximum of FSM cursor and `posRef`; add the mid-live-fetch regression test.
+- [x] (2026-10-09 22:49 UTC) M1: make `BatchSize` and the ack-stream buffer size validated types built by smart constructors, and route every runtime startup refusal through `SomeSubscriptionStartupFailure`.
+- [x] (2026-10-09 22:49 UTC) M2: add the typed `target_kind`/`target_category` columns and drop `stream_name` in one migration; persist and validate target identity through initialization, ordinary saves, and dead-letter saves.
+- [x] (2026-10-09 22:49 UTC) M2: add `TargetBindingPolicy` with an observable adoption of unbound rows, and expose an explicit transaction-composable target rebind operation.
+- [x] (2026-10-09 22:49 UTC) M3: update subscriptions, schema, adapter and observability guides and ADR-4; all six package suites pass (339 store examples, 24 migration examples, 38 adapter examples, 17 tracing examples, 20 metrics examples, 22 CLI examples).
+- [ ] M3: finish structural/controlled gates, telemetry and the focused durable checkpoint comparison; finalize source-pinned evidence and completion status.
 
 
 ## Surprises & Discoveries
+
+- Implementation (2026-10-09): plan 81’s name-locked transaction is extended for
+  target checks; no extra pool checkout is introduced. Migration 0014 is allocated
+  by the scaffolder after 0013. The upgrade test checks both relation filenode
+  and tuple ctid to establish that adding defaults and dropping stream_name did
+  not rewrite the existing row.
+- Implementation: both adapter records had to adopt validated batch/buffer types
+  in this child to keep the workspace compiling. Plan 84 consumes those types
+  directly. Resize preserves a uniform binding on newly created members, while
+  reset leaves metadata intact. Low-level checkpoint provisioning deliberately
+  creates unbound rows because it has no target argument.
+- Validation: all six package suites passed on PostgreSQL 18.6. The first local
+  telemetry invocation used an invalid tasty pattern and was discarded; the
+  rerun with an explicit OR expression passed all 11 selected control cells.
+  Local timing telemetry is exploratory, with test durability disabled, and is
+  distinct from the supplementary durable save comparison.
 
 - Refresh audit (2026-10-09): source, tests, and changelogs confirm the remaining acceptance
   work is unimplemented; the dated Context audit distinguishes existing baseline from this plan.
@@ -92,6 +114,21 @@ exception type.
 
 
 ## Decision Log
+
+- Decision (2026-10-09): follow the registry order and land EP-2 before EP-3.
+  The suggested worker order is soft; EP-2 does not edit the delivery primitive’s
+  decode contract. Apply the parent’s final minimum-evidence correction rather
+  than the superseded matrix text. No remote queue is launched for this child.
+- Decision (2026-10-09): report prior rebind identity as all distinct optional
+  targets, because legacy and mixed rows cannot honestly be represented by a
+  single SubscriptionTarget. Reject missing names through Hasql’s singleRow
+  decoder, which fails and rolls back the surrounding transaction. The
+  transaction abstraction has no arbitrary exception-throwing API.
+- Decision (2026-10-09): extend the resize operation to preserve binding on new
+  members and migrate both adapter capacities now for source compatibility.
+  Keep ordinary saves unconditional and monotonic; workers must be stopped for
+  explicit reset, resize, rebind and target-binding migration. ADR-4 records the
+  durable identity and ownership boundaries.
 
 - Decision (2026-10-09): required testing for this cohort uses PostgreSQL 18.
   The user explicitly removed PostgreSQL 17 testing; preserve already collected
@@ -179,11 +216,12 @@ exception type.
 
 ## Outcomes & Retrospective
 
-The 2026-10-09 documentation refresh confirmed that this child remains Not Started at
-`e6ea664`. The Context audit records current implementation evidence and reusable baseline work.
-No runtime or performance suite was rerun for this refresh; implementation acceptance remains
-open. The subsequent write-performance requirement is recorded in ADR-11 and the acceptance below;
-implementation and measured evidence remain outstanding.
+Implementation (2026-10-09): reconnect retains processed live progress, capacities
+are validated at construction, four semantic startup refusals share one parent,
+and migration 0014 persists target identity with declared adoption and explicit
+transactional rebind. All package correctness suites passed. ADR-4 and the guides
+record the final behavior. Structural and performance evidence remains in progress;
+this child is not yet marked complete and no package has been released.
 
 
 ## Context and Orientation
@@ -349,16 +387,16 @@ column names or the kind vocabulary, record the final schema here before complet
 
 ## Concrete Steps
 
-Extend the shared mixed-write harness for target metadata and name-wide startup validation,
-including concurrent subscriber starts while appenders are active. Measure normal healthy writes
-separately from the reconnect scenario so reduced replay cannot conceal an append regression.
-Record WAL/checkpoint changes and startup pool contention; redesign any regressing path while
-preserving the target-identity contract.
+The amended ADR-11 and parent MasterPlan's final scope correction supersede the original
+matrix requirements below. Use existing correctness and structural gates, historical telemetry,
+and a focused old/new checkpoint-upsert comparison. Preserve uncertainty instead of claiming
+statistical equivalence. Additional mixed-write remote trials are not justified for this child
+unless an affected-path comparison identifies a consistent adverse signal. The integrated
+cohort's original-control mixed evidence remains EP-6's responsibility.
 
-Run from the Kiroku repository root. Before changing startup validation, record control timings
-for one member and increasing group sizes, then repeat on the candidate. Record checkpoint-write
-throughput for the wider rows alongside the existing telemetry; preserve the one-checkout startup
-and single-upsert save boundaries. Allocate the migration; do not hand-pick a numeric filename:
+Run from the Kiroku repository root. Inspect and structurally test the shared startup checkout and
+single-upsert save boundaries; measure startup scaling only for a specific unresolved risk.
+Compare the actual changed checkpoint-write path with its previous schema/statement. Allocate the migration; do not hand-pick a numeric filename:
 
 ```bash
 kiroku-store-migrate new \
@@ -422,19 +460,12 @@ same process and pool, with native `$all`, category/group, and real acknowledgem
 coverage as applicable. Keep append SQL, successful-path round trips, locks, and instrumentation
 unchanged. Keep ordinary checkpoint saves at one monotonic upsert per batch tail.
 
-Run durable PostgreSQL 18, matched compiler/RTS/pool/database settings, and fixed payloads,
-concurrency, checkpoint frequency, and offered load. Include single/multi-stream, fresh/existing,
-and small/batched writes; test checkpoint batch sizes 1 and 100. Establish live mode before live
-measurements, assert equal delivered work, durable progress, and bounded backlog, and measure
-throughput separately from fixed-load append p50/p95/p99 including queueing delay. Record checkpoint
-latency, WAL per event/save, allocation/GC/residency, and contention as well as append throughput.
-Warm up, alternate at least five paired trials of at least 60 seconds, and extend inconclusive runs.
-Calibrate variability on control/control first; predeclare uncertainty margins able to resolve
-1% throughput/p50 and 3% p95/p99 changes or better. These are measurement-resolution limits, not
-slowdown budgets. A wide uncertainty interval is inconclusive; any reproducible write regression
-blocks completion until corrected. Do not offset a slow case with a faster one or alter durability,
-checkpoint frequency, thresholds, or baselines to pass. Add the controlled gate to `just perf-check`
-and record exact commands, revisions, schemas, raw results, and interpretation before completion.
+Use PostgreSQL 18. Keep matched inputs, durability and checkpoint work in the focused
+comparison, record exact source identities and results, and investigate a consistent adverse
+signal. Existing thresholds and baselines remain unchanged. Local timing comparisons are
+exploratory; they do not establish production statistical equivalence or satisfy EP-6's
+integrated mixed-workload requirement. No universal matrix, minimum pair count or 1%/3%
+resolution requirement applies after the user's final scope correction in the parent.
 
 The plan is complete when a live database fetch failure resumes at the greatest position already
 processed; no event after the failure is skipped and a completed batch is not replayed merely
@@ -512,8 +543,9 @@ rebindSubscriptionTargetTx ::
     Tx.Transaction SubscriptionTargetRebindReport
 ```
 
-The report contains old and new bindings as `SubscriptionTarget` values, member count, and reset
-position. Use the
+The report contains every distinct prior binding as `Vector (Maybe SubscriptionTarget)`
+(`Nothing` means legacy unbound), the new `SubscriptionTarget`, member count, and reset position.
+A missing name fails the Hasql transaction rather than inventing rows. Use the
 existing `Hasql.Transaction.Transaction` stack located through Mori under
 `mori://hasql/hasql`; add no external package dependency. Plan 81 may extend the same SQL parameter
 tuples with topology, so neither plan may replace the other's fields while integrating.
@@ -544,3 +576,7 @@ implementation or new runtime-test evidence.
 Revision note (2026-10-09, write-performance requirement): Applied ADR-11 and blocking write-path
 acceptance, with per-child ownership and evidence requirements. The user explicitly prioritizes
 write performance. Implementation and benchmark gates remain open.
+
+Revision note (2026-10-09, EP-2 implementation): apply the parent’s final proportional-evidence
+scope to this child, preserve plan 81’s topology and resize binding, and represent prior rebind
+identity honestly for legacy or mixed rows. Migration 0014 follows plan 81’s 0013.

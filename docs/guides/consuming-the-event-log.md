@@ -300,10 +300,10 @@ To consume events as a pull-based stream and compose Streamly combinators, turn 
 subscription into a `Stream` with a bounded `TBQueue` for backpressure:
 
 ```haskell
-import Kiroku.Store.Subscription.Stream (subscriptionStream)
+import Kiroku.Store.Subscription.Stream (subscriptionStream, defaultStreamBufferSize)
 import Streamly.Data.Stream qualified as Stream
 
-(stream, cancelAction) <- subscriptionStream store cfg 256   -- (Stream IO RecordedEvent, IO ())
+(stream, cancelAction) <- subscriptionStream store cfg defaultStreamBufferSize   -- (Stream IO RecordedEvent, IO ())
 ```
 
 The config's `handler` field is ignored — the bridge installs its own. Note

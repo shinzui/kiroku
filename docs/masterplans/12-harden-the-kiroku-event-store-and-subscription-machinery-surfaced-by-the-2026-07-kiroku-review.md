@@ -38,6 +38,11 @@ provenance:
       at: 2026-10-09T16:36:22Z
       mode: "implement"
       note: "Begin EP-1 according to registry order; preserve pre-cohort control for required performance acceptance"
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-09T22:51:42Z
+      mode: "implement"
+      note: "Coordinate EP-2 target identity and validated adapter capacities; retain proportional evidence scope."
 ---
 
 # Harden the Kiroku event store and subscription machinery surfaced by the 2026-07 Kiroku review
@@ -91,7 +96,7 @@ already complete under [ADR-7](../adr/0007-replay-history-retention-uses-leases-
 The 2026-10-09 source audit at commit `e6ea664` found **0 of 6 children complete**.
 At that audit all five implementation children were Not Started; EP-6 awaits their completion.
 EP-1 is now Complete under the user-directed minimum-evidence scope recorded
-below. The other five children remain Not Started; no package is released.
+below. EP-2 is In Progress; the other four children remain Not Started; no package is released.
 The accepted ADR-8 records the intended API, not evidence that it has shipped. The recent
 lifecycle, category-performance, and publisher-memory fixes are baseline improvements to preserve.
 This update inspected source, tests, migrations, changelogs, and history; it did not rerun the
@@ -141,7 +146,7 @@ decides during implementation whether the latter warrants a record.
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
 | 1 | Make consumer-group topology durable and resize without gaps | docs/plans/81-make-consumer-group-topology-durable-and-resize-without-gaps.md | None | EP-2 | Complete |
-| 2 | Repair live reconnect and validate subscription identity and batch size | docs/plans/82-repair-live-reconnect-and-validate-subscription-identity-and-batch-size.md | None | EP-1 | Not Started |
+| 2 | Repair live reconnect and validate subscription identity and batch size | docs/plans/82-repair-live-reconnect-and-validate-subscription-identity-and-batch-size.md | None | EP-1 | In Progress |
 | 3 | Contain persistent publisher decode-hook failures | docs/plans/83-contain-persistent-publisher-decode-hook-failures.md | None | EP-2 | Not Started |
 | 4 | Harden adapter acknowledgement liveness and expose retry policy | docs/plans/84-harden-adapter-acknowledgement-liveness-and-expose-retry-policy.md | EP-1, EP-2 | EP-3 | Not Started |
 | 5 | Make append unique-violation classification exact | docs/plans/86-make-append-unique-violation-classification-exact.md | None | None | Not Started |
@@ -438,6 +443,14 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 
 ## Surprises & Discoveries
+
+- EP-2 implementation (2026-10-09): target binding uses migration 0014 and the
+  existing topology startup transaction. Resize preserves the target on new
+  members. Both adapter capacities now use the validated store types to keep
+  the workspace compiling; EP-4 consumes them without redefining them. The
+  rebind report uses optional prior bindings to represent legacy and mixed
+  sets honestly. All six package correctness suites passed; performance gates
+  and focused evidence remain open.
 
 - Final minimum-evidence correction (2026-10-09): the user rejected the
   five-workload/three-profile protocol as still disproportionate. EP1 now uses

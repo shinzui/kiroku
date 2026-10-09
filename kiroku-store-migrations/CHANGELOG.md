@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Migration 0014 adds checked, unindexed target-binding columns and removes the unused subscription `stream_name`. Stop workers before applying it; constant defaults do not rewrite legacy rows.
+
+
+## Unreleased
+
 * Migration `0013.sql` derives persisted consumer-group size from existing member
   rows. Apply with subscription workers stopped; incomplete legacy groups are
   refused on next startup until explicitly resized to the intended topology.

@@ -1,3 +1,5 @@
+{-# LANGUAGE ExistentialQuantification #-}
+
 {- | Core configuration and result types for subscriptions.
 
 This module defines the user-facing vocabulary for starting a subscription and
@@ -26,6 +28,14 @@ module Kiroku.Store.Subscription.Types (
     SubscriptionCheckpoint (..),
     SubscriptionCheckpointInventory (..),
     SubscriptionTarget (..),
+    TargetBindingPolicy (..),
+    SubscriptionTargetMismatch (..),
+    SomeSubscriptionStartupFailure (..),
+    BatchSize,
+    mkBatchSize,
+    batchSizeValue,
+    defaultBatchSize,
+    InvalidBatchSize (..),
     SubscriptionResult (..),
     OverflowPolicy (..),
     SubscriptionOverflowed (..),
@@ -64,12 +74,13 @@ module Kiroku.Store.Subscription.Types (
     ConsumerGroupGuardConflict (..),
 ) where
 
-import Control.Exception (Exception, SomeException)
+import Control.Exception (Exception (..), SomeException)
 import Data.Int (Int32)
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Time.Clock (UTCTime)
+import Data.Typeable (cast)
 import Data.Vector (Vector)
 import GHC.Generics (Generic)
 import Kiroku.Store.Subscription.Fsm (
@@ -197,7 +208,12 @@ newtype SubscriptionCheckpointMissing = SubscriptionCheckpointMissing
     { checkpointKey :: SubscriptionCheckpointKey
     }
     deriving stock (Eq, Show, Generic)
-    deriving anyclass (Exception)
+
+instance Exception SubscriptionCheckpointMissing where
+    toException = toException . SomeSubscriptionStartupFailure
+    fromException exception = do
+        SomeSubscriptionStartupFailure refusal <- fromException exception
+        cast refusal
 
 -- | One checkpoint row that has been durably persisted by a subscription.
 data SubscriptionCheckpoint = SubscriptionCheckpoint
@@ -325,7 +341,7 @@ data SubscriptionConfigM m = SubscriptionConfig
     { name :: !SubscriptionName
     , target :: !SubscriptionTarget
     , handler :: !(EventHandlerM m)
-    , batchSize :: !Int32
+    , batchSize :: !BatchSize
     -- ^ Number of events to fetch per batch during catch-up (default: 100)
     , queueCapacity :: !Natural
     {- ^ Maximum number of /batches/ the publisher may enqueue for this
@@ -367,6 +383,8 @@ data SubscriptionConfigM m = SubscriptionConfig
     always take precedence, so changing this field never rewinds or advances
     durable progress.
     -}
+    , targetBindingPolicy :: !TargetBindingPolicy
+    -- ^ Adopt legacy unbound checkpoints (default) or require an existing binding.
     , retryPolicy :: !RetryPolicy
     {- ^ Bounds redelivery of an event for which the handler returned
     'Retry' before the worker dead-letters it. Default: 'defaultRetryPolicy'
@@ -433,12 +451,13 @@ defaultSubscriptionConfig name' target' handler' =
         { name = name'
         , target = target'
         , handler = handler'
-        , batchSize = 100
+        , batchSize = defaultBatchSize
         , queueCapacity = 16
         , overflowPolicy = PauseAndResume
         , consumerGroup = Nothing
         , consumerGroupGuard = False
         , missingCheckpointPolicy = FromBeginning
+        , targetBindingPolicy = AdoptUnbound
         , retryPolicy = defaultRetryPolicy
         , eventTypeFilter = AllEventTypes
         , selector = Nothing
@@ -519,7 +538,12 @@ data ConsumerGroupSizeMismatch = ConsumerGroupSizeMismatch
     , observedSizes :: !(Vector Int32)
     }
     deriving stock (Eq, Show)
-    deriving anyclass (Exception)
+
+instance Exception ConsumerGroupSizeMismatch where
+    toException = toException . SomeSubscriptionStartupFailure
+    fromException exception = do
+        SomeSubscriptionStartupFailure refusal <- fromException exception
+        cast refusal
 
 {- | Thrown at subscription startup when 'consumerGroupGuard' is 'True' and
 another holder currently holds the advisory lock for this @(name, member)@.
@@ -531,5 +555,54 @@ data ConsumerGroupGuardConflict = ConsumerGroupGuardConflict
     { conflictName :: !SubscriptionName
     , conflictMember :: !Int32
     }
-    deriving stock (Show)
-    deriving anyclass (Exception)
+    deriving stock (Eq, Show)
+
+instance Exception ConsumerGroupGuardConflict where
+    toException = toException . SomeSubscriptionStartupFailure
+    fromException exception = do
+        SomeSubscriptionStartupFailure refusal <- fromException exception
+        cast refusal
+
+-- | A catchable family of state-dependent startup refusals. Concrete catches work too.
+data SomeSubscriptionStartupFailure = forall e. (Exception e) => SomeSubscriptionStartupFailure e
+
+instance Show SomeSubscriptionStartupFailure where
+    show (SomeSubscriptionStartupFailure e) = show e
+
+instance Exception SomeSubscriptionStartupFailure
+
+-- | Policy for checkpoint rows created before target identity was persisted.
+data TargetBindingPolicy = AdoptUnbound | RequireBound
+    deriving stock (Eq, Show)
+
+-- | Stored bindings differ from the requested target, or strict startup found unbound rows.
+data SubscriptionTargetMismatch = SubscriptionTargetMismatch
+    { targetMismatchName :: !SubscriptionName
+    , configuredTarget :: !SubscriptionTarget
+    , observedTargets :: !(Vector (Maybe SubscriptionTarget))
+    }
+    deriving stock (Eq, Show)
+
+instance Exception SubscriptionTargetMismatch where
+    toException = toException . SomeSubscriptionStartupFailure
+    fromException exception = do
+        SomeSubscriptionStartupFailure refusal <- fromException exception
+        cast refusal
+
+-- | A positive catch-up fetch size. The constructor is deliberately hidden.
+newtype BatchSize = BatchSize Int32
+    deriving stock (Eq, Show)
+
+newtype InvalidBatchSize = InvalidBatchSize Int32
+    deriving stock (Eq, Show)
+
+mkBatchSize :: Int32 -> Either InvalidBatchSize BatchSize
+mkBatchSize n
+    | n >= 1 = Right (BatchSize n)
+    | otherwise = Left (InvalidBatchSize n)
+
+batchSizeValue :: BatchSize -> Int32
+batchSizeValue (BatchSize n) = n
+
+defaultBatchSize :: BatchSize
+defaultBatchSize = BatchSize 100

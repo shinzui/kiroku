@@ -63,6 +63,7 @@ import Kiroku.Store.Subscription.Types (
     ConsumerGroupSizeMismatch,
     SubscriptionCheckpointMissing,
     SubscriptionName,
+    SubscriptionTarget,
  )
 import Kiroku.Store.Types (GlobalPosition, StreamId, StreamName)
 
@@ -73,7 +74,8 @@ callbacks should be fast or fan out to an asynchronous worker. See the
 module Haddock for context.
 -}
 data KirokuEvent
-    = KirokuEventSubscriptionGroupSizeMismatch !ConsumerGroupSizeMismatch !SubscriptionGroupContext
+    = KirokuEventSubscriptionTargetBound !SubscriptionName !SubscriptionTarget !SubscriptionGroupContext
+    | KirokuEventSubscriptionGroupSizeMismatch !ConsumerGroupSizeMismatch !SubscriptionGroupContext
     | {- | The dedicated @LISTEN@ connection encountered a non-async
       exception and the listener loop is about to attempt reconnection.
       The 'Int' is the consecutive failure count starting at @1@; it

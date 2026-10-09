@@ -32,6 +32,10 @@ module Kiroku.Store.Subscription.Stream (
     -- * Ack-coupled pull stream
     AckItem (..),
     InvalidStreamBufferSize (..),
+    StreamBufferSize,
+    mkStreamBufferSize,
+    streamBufferSizeValue,
+    defaultStreamBufferSize,
     subscriptionAckStream,
 )
 where
@@ -54,8 +58,7 @@ import Control.Concurrent.STM (
     writeTBQueue,
     writeTVar,
  )
-import Control.Exception (Exception, SomeException, fromException, mask, onException, throwIO)
-import Control.Monad (when)
+import Control.Exception (SomeException, fromException, mask, onException, throwIO)
 import Data.IORef (atomicModifyIORef', newIORef)
 import Kiroku.Store.Connection (KirokuStore)
 import Kiroku.Store.Subscription (subscribe)
@@ -91,15 +94,28 @@ data AckItem = AckItem
     -- ^ one-shot reply the consumer must fill exactly once
     }
 
-{- | Thrown by 'subscriptionAckStream' when the requested bridge queue capacity
-is zero.
+{- | Construction error from 'mkStreamBufferSize' for a zero capacity.
 
 A zero-capacity 'TBQueue' would make the bridge handler block forever on its
 first delivery, before a stream consumer can ever see the event or reply to it.
 -}
 newtype InvalidStreamBufferSize = InvalidStreamBufferSize Natural
     deriving stock (Eq, Show)
-    deriving anyclass (Exception)
+
+-- | Positive capacity, validated before allocating a bridge or starting a worker.
+newtype StreamBufferSize = StreamBufferSize Natural
+    deriving stock (Eq, Show)
+
+mkStreamBufferSize :: Natural -> Either InvalidStreamBufferSize StreamBufferSize
+mkStreamBufferSize n
+    | n >= 1 = Right (StreamBufferSize n)
+    | otherwise = Left (InvalidStreamBufferSize n)
+
+streamBufferSizeValue :: StreamBufferSize -> Natural
+streamBufferSizeValue (StreamBufferSize n) = n
+
+defaultStreamBufferSize :: StreamBufferSize
+defaultStreamBufferSize = StreamBufferSize 256
 
 data BridgeTermination
     = BridgeClosedCleanly
@@ -141,7 +157,7 @@ subscriptionStream ::
     KirokuStore ->
     SubscriptionConfig ->
     -- | TBQueue capacity for the bridge; must be at least 1.
-    Natural ->
+    StreamBufferSize ->
     IO (Stream IO RecordedEvent, IO ())
 subscriptionStream store config bufferSize = do
     (ackStream, cancelAction) <- subscriptionAckStream store config bufferSize
@@ -174,12 +190,10 @@ subscriptionAckStream ::
     KirokuStore ->
     SubscriptionConfig ->
     -- | TBQueue capacity for the bridge; must be at least 1.
-    Natural ->
+    StreamBufferSize ->
     IO (Stream IO AckItem, IO ())
 subscriptionAckStream store config bufferSize = mask $ \restore -> do
-    when (bufferSize < 1) $
-        throwIO (InvalidStreamBufferSize bufferSize)
-    queue <- newTBQueueIO bufferSize
+    queue <- newTBQueueIO (streamBufferSizeValue bufferSize)
     closedVar <- newTVarIO Nothing
     -- Tracks the previous (eventId, attempt) so a consecutive redelivery of the
     -- same event (the worker's bounded retry) is reported with an incremented

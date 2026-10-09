@@ -1,7 +1,7 @@
 {- | Explicit mutation operations for durable subscription checkpoints.
 
 Ordinary subscription checkpoint saves are monotonic. This module owns the
-separate, deliberately named reset operation for callers that need to move
+separate reset, resize and rebind operations for callers that need to move
 persisted progress backward or forward as part of a larger transaction.
 -}
 module Kiroku.Store.Subscription.Checkpoint (
@@ -9,6 +9,8 @@ module Kiroku.Store.Subscription.Checkpoint (
     resetSubscriptionCheckpointsTx,
     ConsumerGroupResizeReport (..),
     resizeConsumerGroupTx,
+    SubscriptionTargetRebindReport (..),
+    rebindSubscriptionTargetTx,
 ) where
 
 import Data.Int (Int32)
@@ -24,6 +26,7 @@ import Kiroku.Store.Subscription.Types (
     ConsumerGroupSize,
     SubscriptionCheckpointKey (..),
     SubscriptionName (..),
+    SubscriptionTarget,
     consumerGroupSizeValue,
  )
 import Kiroku.Store.Types (GlobalPosition (..))
@@ -98,13 +101,43 @@ resizeConsumerGroupTx ::
 resizeConsumerGroupTx (SubscriptionName name) newSize = do
     Tx.statement name SQL.lockCheckpointNameStmt
     rows <- Tx.statement name SQL.lockCheckpointRowsStmt
-    let position = if Vector.null rows then 0 else Vector.minimum (Vector.map (\(_, _, p) -> p) rows)
-        previousSizes = Vector.fromList . sort . nub $ [n | (_, n, _) <- Vector.toList rows]
-    Tx.statement (name, consumerGroupSizeValue newSize, position) SQL.resizeCheckpointMembersStmt
+    let position = if Vector.null rows then 0 else Vector.minimum (Vector.map (\(_, _, p, _) -> p) rows)
+        previousSizes = Vector.fromList . sort . nub $ [n | (_, n, _, _) <- Vector.toList rows]
+    let binding = if Vector.null rows then Nothing else let (_, _, _, b) = Vector.head rows in b
+        (kind, category) = SQL.targetColumns binding
+    Tx.statement (name, consumerGroupSizeValue newSize, position, kind, category) SQL.resizeCheckpointMembersStmt
     pure
         ConsumerGroupResizeReport
             { previousSizes = previousSizes
             , previousMemberCount = Vector.length rows
             , newSize = newSize
             , resumePosition = GlobalPosition position
+            }
+
+-- | Rebind evidence includes every distinct prior binding; Nothing denotes legacy rows.
+data SubscriptionTargetRebindReport = SubscriptionTargetRebindReport
+    { reboundMemberCount :: !Int
+    , previousBindings :: !(Vector (Maybe SubscriptionTarget))
+    , reboundTarget :: !SubscriptionTarget
+    , reboundPosition :: !GlobalPosition
+    }
+    deriving stock (Eq, Show)
+
+{- | Stop all workers first. Bind every existing member and explicitly reset its
+position in the caller's transaction. A missing name fails the transaction;
+repeating the operation leaves target and progress unchanged.
+-}
+rebindSubscriptionTargetTx ::
+    SubscriptionName -> SubscriptionTarget -> GlobalPosition -> Tx.Transaction SubscriptionTargetRebindReport
+rebindSubscriptionTargetTx (SubscriptionName name) target position@(GlobalPosition pos) = do
+    Tx.statement name SQL.lockCheckpointNameStmt
+    rows <- Tx.statement name SQL.lockCheckpointRowsStmt
+    let (kind, category) = SQL.targetColumns (Just target)
+    count <- Tx.statement (name, kind, category, pos) SQL.rebindCheckpointTargetStmt
+    pure
+        SubscriptionTargetRebindReport
+            { reboundMemberCount = fromIntegral count
+            , previousBindings = Vector.fromList . nub $ [binding | (_, _, _, binding) <- Vector.toList rows]
+            , reboundTarget = target
+            , reboundPosition = position
             }

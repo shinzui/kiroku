@@ -69,7 +69,7 @@ module Kiroku.Store.SQL (
     readDeadLettersStmt,
 ) where
 
-import Contravariant.Extras (contrazip2, contrazip3, contrazip4, contrazip5)
+import Contravariant.Extras (contrazip2, contrazip3, contrazip4, contrazip5, contrazip6)
 import Control.Lens ((^.))
 import Data.Aeson (Value)
 import Data.Functor.Contravariant ((>$<))
@@ -1255,15 +1255,17 @@ composite @(subscription_name, consumer_group_member)@ unique index. Uses the
 same @GREATEST(...)@ monotonicity as 'saveCheckpointStmt' so a save never moves
 a member's checkpoint backward.
 -}
-saveCheckpointMemberStmt :: Statement (Text, Int32, Int64, Int32) ()
+saveCheckpointMemberStmt :: Statement (Text, Int32, Int64, Int32, Text, Maybe Text) ()
 saveCheckpointMemberStmt =
     preparable
         saveCheckpointMemberSQL
-        ( contrazip4
+        ( contrazip6
             (E.param (E.nonNullable E.text))
             (E.param (E.nonNullable E.int4))
             (E.param (E.nonNullable E.int8))
             (E.param (E.nonNullable E.int4))
+            (E.param (E.nonNullable E.text))
+            (E.param (E.nullable E.text))
         )
         D.noResult
 
@@ -1279,10 +1281,10 @@ getCheckpointMemberSQL =
 saveCheckpointMemberSQL :: Text
 saveCheckpointMemberSQL =
     """
-    INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at, consumer_group_size)
-    VALUES ($1, $2, $3, now(), $4)
+    INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at, consumer_group_size, target_kind, target_category)
+    VALUES ($1, $2, $3, now(), $4, $5, $6)
     ON CONFLICT (subscription_name, consumer_group_member)
-    DO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now(), consumer_group_size = EXCLUDED.consumer_group_size
+    DO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now(), consumer_group_size = EXCLUDED.consumer_group_size, target_kind = EXCLUDED.target_kind, target_category = EXCLUDED.target_category
     """
 
 -- ---------------------------------------------------------------------------
@@ -1293,6 +1295,8 @@ saveCheckpointMemberSQL =
 data DeadLetterParams = DeadLetterParams
     { dlSubscriptionName :: !Text
     , dlMember :: !Int32
+    , dlTargetKind :: !Text
+    , dlTargetCategory :: !(Maybe Text)
     , dlGroupSize :: !Int32
     , dlGlobalPosition :: !Int64
     , dlEventId :: !UUID
@@ -1325,6 +1329,8 @@ deadLetterParamsEncoder =
         <> ((^. #dlReasonSummary) >$< E.param (E.nonNullable E.text))
         <> ((^. #dlAttemptCount) >$< E.param (E.nonNullable E.int4))
         <> ((^. #dlGroupSize) >$< E.param (E.nonNullable E.int4))
+        <> ((^. #dlTargetKind) >$< E.param (E.nonNullable E.text))
+        <> ((^. #dlTargetCategory) >$< E.param (E.nullable E.text))
 
 {- | Atomically record an event in @kiroku.dead_letters@ and advance the
 subscription's checkpoint past it, in a single statement.
@@ -1353,10 +1359,10 @@ insertDeadLetterAndCheckpointSQL =
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       ON CONFLICT (subscription_name, consumer_group_member, global_position, event_id) DO NOTHING
     )
-    INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at, consumer_group_size)
-    VALUES ($1, $2, $3, now(), $8)
+    INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at, consumer_group_size, target_kind, target_category)
+    VALUES ($1, $2, $3, now(), $8, $9, $10)
     ON CONFLICT (subscription_name, consumer_group_member)
-    DO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now(), consumer_group_size = EXCLUDED.consumer_group_size
+    DO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now(), consumer_group_size = EXCLUDED.consumer_group_size, target_kind = EXCLUDED.target_kind, target_category = EXCLUDED.target_category
     """
 
 -- | Read the dead letters recorded for one subscription member, newest first.
