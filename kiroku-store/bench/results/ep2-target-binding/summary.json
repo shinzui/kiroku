@@ -61,7 +61,7 @@
   ],
   "artifact_sha256": {
     ".gitattributes": "c1a929a23d1e27a405f7c8f5a67b9196d53b6067d4599068317a14b8f589d296",
-    "README.md": "9bdf8fd18a61ef798714496210729923d2efd8af359dc6d2ae50db4365beb122",
+    "README.md": "2cb346f88ae754ccfa5c4a68ad90ed460abdb15515808a7b293a3c01db262cb9",
     "adr-validation.log": "9f71a5a0a540f81a5fe6fd5c2452aa9180cbd81f747b6da99b3d90856ef6901b",
     "baseline-coverage.log": "b8917ecf8cafd6b5a5038ee6e245acf4877c7c8ef21c55492a696d0ee7aecaff",
     "candidate-telemetry-d2a4032.csv": "cb47a39f0a610b77d05862099f2243e4cc9bd58fb2394df3c81ee6ef0de07ff2",
@@ -149,5 +149,16 @@
     "allocation_change_from_initial_candidate_pct": -3.4656756358127594
   },
   "practical_completion": "not accepted: repeated checkpoint-save cost requires resolution or an explicit change to the gate",
-  "optimized_store_examples": 340
+  "optimized_store_examples": 340,
+  "mixed_workload_detail": {
+    "target": "Category probe",
+    "consumer_group_members": 4,
+    "appenders": 4,
+    "append_width": 1,
+    "append_batch": 1,
+    "checkpoint_batch": 1,
+    "offered_calls_per_second": 100,
+    "warmup_seconds": 2,
+    "measurement_seconds": 15
+  }
 }

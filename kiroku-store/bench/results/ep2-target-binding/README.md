@@ -51,7 +51,7 @@ and stderr, executable SHA-256 values and full work counters. The control is
 `e6ea66433c5320097b6afd3c4ca56cd18ba86bd0`; the candidate is `d2a4032`. The
 harness differs only in validated batch-size construction and the existing
 legacy-topology CPP branch. Each trial runs four appenders, pool size 10,
-512-character JSON and one group member, with batch/checkpoint size 1 and 100
+512-character JSON and four category consumer-group members, with batch/checkpoint size 1 and 100
 events/s. It warms up for two seconds and measures for 15 seconds; three pairs
 alternate arm order. All trials delivered 1,500 events, performed 1,500 checkpoint
 updates and drained durable work. Append SQL, round trips and default
