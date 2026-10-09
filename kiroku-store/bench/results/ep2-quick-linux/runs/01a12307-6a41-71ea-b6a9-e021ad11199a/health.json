@@ -1,0 +1,171 @@
+{
+  "schema": "cell.health/v1",
+  "runId": "01a12307-6a41-71ea-b6a9-e021ad11199a",
+  "windowStart": "2026-10-09T23:46:05Z",
+  "windowEnd": "2026-10-09T23:48:02Z",
+  "passed": true,
+  "gates": [
+    {
+      "name": "host-maintenance",
+      "machine": "cell-alpha-driver-0",
+      "status": "ok",
+      "observed": "NONE",
+      "threshold": "NONE",
+      "at": "2026-10-09T23:48:02Z"
+    },
+    {
+      "name": "background-load",
+      "machine": "cell-alpha-driver-0",
+      "status": "ok",
+      "observed": {
+        "runStealCpuPercent": 0.0,
+        "settleCpuPercent": 0.11092623405435385
+      },
+      "threshold": {
+        "runStealCpuMaxPercent": 2.0,
+        "settleCpuMaxPercent": 5.0
+      },
+      "at": "2026-10-09T23:48:02Z"
+    },
+    {
+      "name": "storage-pressure",
+      "machine": "cell-alpha-driver-0",
+      "status": "ok",
+      "observed": {
+        "outputExceeded": false,
+        "runFreePercent": 92.0,
+        "startFreePercent": 92.0
+      },
+      "threshold": {
+        "outputExceeded": false,
+        "runFreeMinPercent": 5.0,
+        "startFreeMinPercent": 20.0
+      },
+      "at": "2026-10-09T23:48:02Z"
+    },
+    {
+      "name": "incomplete-reset",
+      "machine": "cell-alpha-driver-0",
+      "status": "ok",
+      "observed": true,
+      "threshold": true,
+      "at": "2026-10-09T23:48:02Z"
+    },
+    {
+      "name": "version-mismatch",
+      "machine": "cell-alpha-driver-0",
+      "status": "ok",
+      "observed": true,
+      "threshold": true,
+      "at": "2026-10-09T23:48:02Z"
+    },
+    {
+      "name": "host-maintenance",
+      "machine": "cell-alpha-postgres",
+      "status": "ok",
+      "observed": "NONE",
+      "threshold": "NONE",
+      "at": "2026-10-09T23:48:02Z"
+    },
+    {
+      "name": "background-load",
+      "machine": "cell-alpha-postgres",
+      "status": "ok",
+      "observed": {
+        "runStealCpuPercent": 0.0,
+        "settleCpuPercent": 0.1663662830999584
+      },
+      "threshold": {
+        "runStealCpuMaxPercent": 2.0,
+        "settleCpuMaxPercent": 5.0
+      },
+      "at": "2026-10-09T23:48:02Z"
+    },
+    {
+      "name": "storage-pressure",
+      "machine": "cell-alpha-postgres",
+      "status": "ok",
+      "observed": {
+        "outputExceeded": false,
+        "runFreePercent": 97.0,
+        "startFreePercent": 97.0
+      },
+      "threshold": {
+        "outputExceeded": false,
+        "runFreeMinPercent": 5.0,
+        "startFreeMinPercent": 20.0
+      },
+      "at": "2026-10-09T23:48:02Z"
+    },
+    {
+      "name": "incomplete-reset",
+      "machine": "cell-alpha-postgres",
+      "status": "ok",
+      "observed": true,
+      "threshold": true,
+      "at": "2026-10-09T23:48:02Z"
+    },
+    {
+      "name": "version-mismatch",
+      "machine": "cell-alpha-postgres",
+      "status": "ok",
+      "observed": true,
+      "threshold": true,
+      "at": "2026-10-09T23:48:02Z"
+    },
+    {
+      "name": "host-maintenance",
+      "machine": "cell-alpha-monitoring",
+      "status": "ok",
+      "observed": "NONE",
+      "threshold": "NONE",
+      "at": "2026-10-09T23:48:02Z"
+    },
+    {
+      "name": "background-load",
+      "machine": "cell-alpha-monitoring",
+      "status": "ok",
+      "observed": {
+        "runStealCpuPercent": 0.0,
+        "settleCpuPercent": 0.0
+      },
+      "threshold": {
+        "runStealCpuMaxPercent": 2.0,
+        "settleCpuMaxPercent": 5.0
+      },
+      "at": "2026-10-09T23:48:02Z"
+    },
+    {
+      "name": "storage-pressure",
+      "machine": "cell-alpha-monitoring",
+      "status": "ok",
+      "observed": {
+        "outputExceeded": false,
+        "runFreePercent": 73.0,
+        "startFreePercent": 73.0
+      },
+      "threshold": {
+        "outputExceeded": false,
+        "runFreeMinPercent": 5.0,
+        "startFreeMinPercent": 20.0
+      },
+      "at": "2026-10-09T23:48:02Z"
+    },
+    {
+      "name": "incomplete-reset",
+      "machine": "cell-alpha-monitoring",
+      "status": "ok",
+      "observed": true,
+      "threshold": true,
+      "at": "2026-10-09T23:48:02Z"
+    },
+    {
+      "name": "version-mismatch",
+      "machine": "cell-alpha-monitoring",
+      "status": "ok",
+      "observed": true,
+      "threshold": true,
+      "at": "2026-10-09T23:48:02Z"
+    }
+  ]
+}

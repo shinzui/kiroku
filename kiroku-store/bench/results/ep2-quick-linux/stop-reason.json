@@ -1,0 +1,7 @@
+{
+  "stopped_epoch": 1791589875.048196,
+  "reason": "Final trial needs at least 91 seconds for warmup and measurement, exceeding remaining queue time; stop before the ceiling rather than fill it. No replacement.",
+  "verified_trials_at_stop": 5,
+  "cell_run": "01a12307-6a41-71ea-bf56-ec6f0ed9d969",
+  "queue_remaining_seconds": 60.05016303062439
+}

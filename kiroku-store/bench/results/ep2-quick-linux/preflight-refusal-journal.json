@@ -1,0 +1,122 @@
+{
+  "deadline_epoch": 1791591971,
+  "phase": "stopped",
+  "source": "f7ddbe1",
+  "build_limit_seconds": 600,
+  "scope": "one group-category capacity workload; two alternating pairs; no replacements",
+  "build_pid": 47564,
+  "build_started_epoch": 1791588580.9236639,
+  "build_log_bytes": 4538,
+  "updated_epoch": 1791588964.953296,
+  "build_returncode": 0,
+  "build_seconds": 224.38059997558594,
+  "stages": {
+    "publish": {
+      "started_epoch": 1791588837.252057,
+      "cap_seconds": 180,
+      "command": [
+        "nix",
+        "shell",
+        "github:NixOS/nixpkgs/d5dfd8e6716dde34398bc14bc87c10dece9c8c68#zstd",
+        "-c",
+        "/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kenshou-cli-0.1.0.0/x/kenshou/build/kenshou/kenshou",
+        "cell",
+        "payload",
+        "publish",
+        "--cohort",
+        "head",
+        "--root",
+        "./bench/mp12-cell",
+        "--out",
+        "/tmp/mp12-ep2-quick-linux/head.payload.json"
+      ],
+      "returncode": 0,
+      "seconds": 64.1264078617096
+    }
+  },
+  "log_bytes": 0,
+  "remote_started_epoch": 1791588963.502497,
+  "remote_command": [
+    "/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kenshou-cli-0.1.0.0/x/kenshou/build/kenshou/kenshou",
+    "cell",
+    "pair",
+    "--cell",
+    "alpha",
+    "--start",
+    "--baseline",
+    "/tmp/kiroku-mp12-v5-released.payload.json",
+    "--candidate",
+    "/tmp/mp12-ep2-quick-linux/head.payload.json",
+    "--plan",
+    "/tmp/mp12-ep2-quick-linux/plan.json",
+    "--pairs",
+    "2",
+    "--ordering",
+    "abba",
+    "--max-replacements",
+    "0",
+    "--policy",
+    "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp12-cell/policy.json",
+    "--pg-setting",
+    "shared_buffers=128MB",
+    "--pg-setting",
+    "fsync=on",
+    "--pg-setting",
+    "synchronous_commit=on",
+    "--pg-setting",
+    "full_page_writes=on",
+    "--pg-setting",
+    "wal_level=replica",
+    "--out",
+    "/tmp/mp12-ep2-quick-linux/pair"
+  ],
+  "remote_pid": 56285,
+  "instance_power": [
+    {
+      "name": "cell-alpha-broker",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-driver-0",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-monitoring",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-postgres",
+      "status": "TERMINATED"
+    }
+  ],
+  "remote_returncode": 2,
+  "remote_seconds": 3.451246976852417,
+  "final_instance_power": [
+    {
+      "name": "cell-alpha-broker",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-driver-0",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-monitoring",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-postgres",
+      "status": "TERMINATED"
+    }
+  ],
+  "cleanup": [
+    {
+      "action": "stop-cell",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "finished_epoch": 1791588973.804312,
+  "total_remote_and_cleanup_seconds": 10.301817893981934
+}

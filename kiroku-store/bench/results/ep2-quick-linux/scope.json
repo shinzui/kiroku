@@ -1,0 +1,20 @@
+{
+  "selected_case": "group-category, four appenders/four members, existing streams, append/checkpoint batch 1, capacity load",
+  "pairs": 3,
+  "trials": 6,
+  "warmup_seconds": 30,
+  "measurement_seconds": 61,
+  "drain_limit_seconds": 30,
+  "replacements": 0,
+  "database": "PostgreSQL 18, fsync/synchronous_commit/full_page_writes on, shared_buffers 128MB",
+  "uncertainty_target": "coarse check for approximately 10% or larger append impact; original strict policy remains unchanged and may report inconclusive",
+  "stop_conditions": [
+    "build cap 600 seconds",
+    "publication cap 180 seconds",
+    "remote queue cap 900 seconds including reset/fetch",
+    "overall deadline in journal; reserve cleanup time; no retries"
+  ],
+  "operator_project": "mori://shinzui/keiro-runtime-kenshou",
+  "overall_elapsed_start_epoch": 1791588371,
+  "preflight_refusal": "initial two-pair command refused before machine startup and measurement; transcript retained"
+}

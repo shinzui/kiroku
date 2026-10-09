@@ -1,0 +1,992 @@
+{
+  "schema": "kiroku.ep2-quick-linux/v1",
+  "operator": "mori://shinzui/keiro-runtime-kenshou",
+  "infrastructure": "mori://shinzui/load-testing-infra",
+  "whole_experiment_started_epoch": 1791588371,
+  "controller_finished_epoch": 1791589901.262151,
+  "whole_experiment_seconds": 1530.262151002884,
+  "verified_trials": 5,
+  "replacements": 0,
+  "rows": [
+    {
+      "cell_run": "01a12307-6a41-71ea-a8a2-918244c399e7",
+      "run_id": "01a12301-093f-7116-a87d-06f1c489b65c",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 0,
+        "trial": 0
+      },
+      "grade": "benchmark",
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "released",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "f5416c566f0600afa4390e9cfc2f31ed073d0585fddb3f1980420081d276b4d4",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:d4a91c3eb54aa40d54c5bc060b73ff0cb8ebe5717ebb1df32edd5b986986efa5",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "manifest_sha256": "bcb10b09fdf3888e696f0e659a6594e7ce6cb75c733af1ee0f8077e3f2bb702a",
+      "result_sha256": "884c482d848bd68116b412637444c4dbd86acf03a68c12264dfefa35cf3c00af",
+      "results_uri": "gs://tan-nb-exp-cells-results/runs/01a12307-6a41-71ea-a8a2-918244c399e7",
+      "metrics": {
+        "op.append.error-rate": 0,
+        "op.append.latency.max": 74435001,
+        "op.append.latency.mean": 6699117.3630569745,
+        "op.append.latency.p50": 6549503,
+        "op.append.latency.p90": 7905279,
+        "op.append.latency.p95": 8134655,
+        "op.append.latency.p99": 8683519,
+        "op.append.latency.p999": 15982591,
+        "op.append.service.p99": 8683519,
+        "op.append.throughput": 596.1521914046447,
+        "op.append.units-throughput": 596.1521914046447,
+        "pg.checkpoints-in-window": 0,
+        "pg.wal-bytes-per-op": 1926.9134388220427,
+        "proc.cpu-utilisation": 0.09044147236503901,
+        "proc.rss-max": 324050944,
+        "rts.alloc-bytes-per-op": 187465.8849513763,
+        "rts.alloc-rate": 111758198.12737396,
+        "rts.gc-productivity": 0.9966085539735359,
+        "rts.live-bytes-major-mean": 16468498,
+        "rts.max-live-bytes": 18010728
+      },
+      "events": 36402,
+      "checkpoint_calls": 36402,
+      "checkpoint_statement_us": 36.14723811878433,
+      "checkpoint_statement_wal_bytes_per_call": 155.91239492335586,
+      "checkpoint_hot_updates": 36402,
+      "durable_drained": true,
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "fresh": false,
+        "mode": "group-category",
+        "offered": 0,
+        "seconds": 61,
+        "warmup_seconds": 30,
+        "width": 1
+      },
+      "timings": {
+        "clock": "GHC.Clock.getMonotonicTimeNSec",
+        "durationSeconds": 93.001050627,
+        "endedAt": "2026-10-09T23:40:29.328501901Z",
+        "phases": [
+          {
+            "endedAt": "2026-10-09T23:39:27.431152022Z",
+            "endedMonotonicNs": 113643036007,
+            "name": "warm-up",
+            "startedAt": "2026-10-09T23:38:57.423580672Z",
+            "startedMonotonicNs": 83635464393
+          },
+          {
+            "endedAt": "2026-10-09T23:40:28.769835085Z",
+            "endedMonotonicNs": 174981719326,
+            "name": "steady",
+            "startedAt": "2026-10-09T23:39:27.708429312Z",
+            "startedMonotonicNs": 113920313042
+          },
+          {
+            "endedAt": "2026-10-09T23:40:28.803728874Z",
+            "endedMonotonicNs": 175015613159,
+            "name": "drain",
+            "startedAt": "2026-10-09T23:40:28.770033913Z",
+            "startedMonotonicNs": 174981917663
+          }
+        ],
+        "startedAt": "2026-10-09T23:38:56.327451274Z"
+      },
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit",
+      "peak_durable_pending": 2,
+      "peak_handler_pending": 3
+    },
+    {
+      "cell_run": "01a12307-6a41-71ea-aeaa-51374a12a397",
+      "run_id": "01a12301-093f-7116-a639-d9bd4a5fdbde",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 1,
+        "trial": 0
+      },
+      "grade": "benchmark",
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "head",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "7bd37df3de809c04b323146a8c5a3d6bc1325023",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "7bd37df3de809c04b323146a8c5a3d6bc1325023",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "7bd37df3de809c04b323146a8c5a3d6bc1325023",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "7bd37df3de809c04b323146a8c5a3d6bc1325023",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "7bd37df3de809c04b323146a8c5a3d6bc1325023",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "7bd37df3de809c04b323146a8c5a3d6bc1325023",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "d35c632c8007150c48c03514e4f5804a7ed7ae68d7f5d40ff96994dbf92c8ae0",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:0378683241de1c5263e61745c640769bba9075a1e20204dbe018194a80d5926d",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "manifest_sha256": "5aa2c823ac75a2e94cf4f6fefb6b56ed000b299e94b70eec66fb4ab58c856128",
+      "result_sha256": "9097dae27e9097a64c460e29dab60b3e8cf0204b87e212b89d8290b5691c002b",
+      "results_uri": "gs://tan-nb-exp-cells-results/runs/01a12307-6a41-71ea-aeaa-51374a12a397",
+      "metrics": {
+        "op.append.error-rate": 0,
+        "op.append.latency.max": 36221800,
+        "op.append.latency.mean": 6873547.037712449,
+        "op.append.latency.p50": 6717439,
+        "op.append.latency.p90": 8224767,
+        "op.append.latency.p95": 8470527,
+        "op.append.latency.p99": 9076735,
+        "op.append.latency.p999": 16572415,
+        "op.append.service.p99": 9076735,
+        "op.append.throughput": 580.9014932298145,
+        "op.append.units-throughput": 580.9014932298145,
+        "pg.checkpoints-in-window": 0,
+        "pg.wal-bytes-per-op": 1941.0590490149102,
+        "proc.cpu-utilisation": 0.08595881618581487,
+        "proc.rss-max": 330235904,
+        "rts.alloc-bytes-per-op": 198043.91239888384,
+        "rts.alloc-rate": 115044004.43758619,
+        "rts.gc-productivity": 0.9965060509974618,
+        "rts.live-bytes-major-mean": 16126882,
+        "rts.max-live-bytes": 17819000
+      },
+      "events": 35479,
+      "checkpoint_calls": 35479,
+      "checkpoint_statement_us": 62.398968375658704,
+      "checkpoint_statement_wal_bytes_per_call": 164.1009611319372,
+      "checkpoint_hot_updates": 35477,
+      "durable_drained": true,
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "fresh": false,
+        "mode": "group-category",
+        "offered": 0,
+        "seconds": 61,
+        "warmup_seconds": 30,
+        "width": 1
+      },
+      "timings": {
+        "clock": "GHC.Clock.getMonotonicTimeNSec",
+        "durationSeconds": 92.753353998,
+        "endedAt": "2026-10-09T23:43:00.647563005Z",
+        "phases": [
+          {
+            "endedAt": "2026-10-09T23:41:58.83967519Z",
+            "endedMonotonicNs": 265051559063,
+            "name": "warm-up",
+            "startedAt": "2026-10-09T23:41:28.832766779Z",
+            "startedMonotonicNs": 235044650524
+          },
+          {
+            "endedAt": "2026-10-09T23:43:00.194946482Z",
+            "endedMonotonicNs": 326406830842,
+            "name": "steady",
+            "startedAt": "2026-10-09T23:41:59.119377085Z",
+            "startedMonotonicNs": 265331260828
+          },
+          {
+            "endedAt": "2026-10-09T23:43:00.222326682Z",
+            "endedMonotonicNs": 326434210874,
+            "name": "drain",
+            "startedAt": "2026-10-09T23:43:00.195146884Z",
+            "startedMonotonicNs": 326407030630
+          }
+        ],
+        "startedAt": "2026-10-09T23:41:27.894209007Z"
+      },
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit",
+      "peak_durable_pending": 2,
+      "peak_handler_pending": 3
+    },
+    {
+      "cell_run": "01a12307-6a41-71ea-b150-db448a0467f2",
+      "run_id": "01a12301-093f-7116-a18f-1acaebdaeed2",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 2,
+        "trial": 1
+      },
+      "grade": "benchmark",
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "head",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "7bd37df3de809c04b323146a8c5a3d6bc1325023",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "7bd37df3de809c04b323146a8c5a3d6bc1325023",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "7bd37df3de809c04b323146a8c5a3d6bc1325023",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "7bd37df3de809c04b323146a8c5a3d6bc1325023",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "7bd37df3de809c04b323146a8c5a3d6bc1325023",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "7bd37df3de809c04b323146a8c5a3d6bc1325023",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "d35c632c8007150c48c03514e4f5804a7ed7ae68d7f5d40ff96994dbf92c8ae0",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:0378683241de1c5263e61745c640769bba9075a1e20204dbe018194a80d5926d",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "manifest_sha256": "829c95716687a9dc3d38303e95fc316e05827a735e5d7b4d2aae23a13bc4a5fa",
+      "result_sha256": "22fed0b49c9d52f9968eb78dde64026203c405ea45fa98fe88a82f2ceb3d1d96",
+      "results_uri": "gs://tan-nb-exp-cells-results/runs/01a12307-6a41-71ea-b150-db448a0467f2",
+      "metrics": {
+        "op.append.error-rate": 0,
+        "op.append.latency.max": 47533063,
+        "op.append.latency.mean": 6593759.357614104,
+        "op.append.latency.p50": 6422527,
+        "op.append.latency.p90": 7897087,
+        "op.append.latency.p95": 8126463,
+        "op.append.latency.p99": 8724479,
+        "op.append.latency.p999": 16859135,
+        "op.append.service.p99": 8724479,
+        "op.append.throughput": 605.6564637425987,
+        "op.append.units-throughput": 605.6564637425987,
+        "pg.checkpoints-in-window": 0,
+        "pg.wal-bytes-per-op": 1935.4381624486264,
+        "proc.cpu-utilisation": 0.09227974727421435,
+        "proc.rss-max": 328278016,
+        "rts.alloc-bytes-per-op": 194037.59312134978,
+        "rts.alloc-rate": 117520122.4830019,
+        "rts.gc-productivity": 0.9963698869947608,
+        "rts.live-bytes-major-mean": 16551468,
+        "rts.max-live-bytes": 18147288
+      },
+      "events": 36984,
+      "checkpoint_calls": 36984,
+      "checkpoint_statement_us": 61.79519140709499,
+      "checkpoint_statement_wal_bytes_per_call": 163.98761626649363,
+      "checkpoint_hot_updates": 36982,
+      "durable_drained": true,
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "fresh": false,
+        "mode": "group-category",
+        "offered": 0,
+        "seconds": 61,
+        "warmup_seconds": 30,
+        "width": 1
+      },
+      "timings": {
+        "clock": "GHC.Clock.getMonotonicTimeNSec",
+        "durationSeconds": 92.673399507,
+        "endedAt": "2026-10-09T23:45:31.085738591Z",
+        "phases": [
+          {
+            "endedAt": "2026-10-09T23:44:29.280951266Z",
+            "endedMonotonicNs": 415492835276,
+            "name": "warm-up",
+            "startedAt": "2026-10-09T23:43:59.274825042Z",
+            "startedMonotonicNs": 385486708799
+          },
+          {
+            "endedAt": "2026-10-09T23:45:30.628398777Z",
+            "endedMonotonicNs": 476840283022,
+            "name": "steady",
+            "startedAt": "2026-10-09T23:44:29.564290117Z",
+            "startedMonotonicNs": 415776174060
+          },
+          {
+            "endedAt": "2026-10-09T23:45:30.65664765Z",
+            "endedMonotonicNs": 476868531723,
+            "name": "drain",
+            "startedAt": "2026-10-09T23:45:30.628617403Z",
+            "startedMonotonicNs": 476840501144
+          }
+        ],
+        "startedAt": "2026-10-09T23:43:58.412339084Z"
+      },
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit",
+      "peak_durable_pending": 2,
+      "peak_handler_pending": 1
+    },
+    {
+      "cell_run": "01a12307-6a41-71ea-b6a9-e021ad11199a",
+      "run_id": "01a12301-093f-7116-ac85-94ad84fed7e4",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 3,
+        "trial": 1
+      },
+      "grade": "benchmark",
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "released",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "f5416c566f0600afa4390e9cfc2f31ed073d0585fddb3f1980420081d276b4d4",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:d4a91c3eb54aa40d54c5bc060b73ff0cb8ebe5717ebb1df32edd5b986986efa5",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "manifest_sha256": "ec008d954d3af51b8dc98e83fb37ce331ee60501efbcbcc00f51a08bb5831d93",
+      "result_sha256": "fcc75d568fa3de8080963bd3194b2b8ec704aa42ce26dcc0f1c7aab189b376eb",
+      "results_uri": "gs://tan-nb-exp-cells-results/runs/01a12307-6a41-71ea-b6a9-e021ad11199a",
+      "metrics": {
+        "op.append.error-rate": 0,
+        "op.append.latency.max": 28215337,
+        "op.append.latency.mean": 6746442.458680315,
+        "op.append.latency.p50": 6696959,
+        "op.append.latency.p90": 7909375,
+        "op.append.latency.p95": 8105983,
+        "op.append.latency.p99": 8617983,
+        "op.append.latency.p999": 17022975,
+        "op.append.service.p99": 8617983,
+        "op.append.throughput": 591.8028741974222,
+        "op.append.units-throughput": 591.8028741974222,
+        "pg.checkpoints-in-window": 0,
+        "pg.wal-bytes-per-op": 1946.7834831926962,
+        "proc.cpu-utilisation": 0.08722727382173928,
+        "proc.rss-max": 318312448,
+        "rts.alloc-bytes-per-op": 188643.32792917415,
+        "rts.alloc-rate": 111639663.6666521,
+        "rts.gc-productivity": 0.9965443052441415,
+        "rts.live-bytes-major-mean": 16343742,
+        "rts.max-live-bytes": 18019064
+      },
+      "events": 36145,
+      "checkpoint_calls": 36145,
+      "checkpoint_statement_us": 36.480756840503254,
+      "checkpoint_statement_wal_bytes_per_call": 155.92192557753492,
+      "checkpoint_hot_updates": 36145,
+      "durable_drained": true,
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "fresh": false,
+        "mode": "group-category",
+        "offered": 0,
+        "seconds": 61,
+        "warmup_seconds": 30,
+        "width": 1
+      },
+      "timings": {
+        "clock": "GHC.Clock.getMonotonicTimeNSec",
+        "durationSeconds": 92.742241782,
+        "endedAt": "2026-10-09T23:48:00.122724112Z",
+        "phases": [
+          {
+            "endedAt": "2026-10-09T23:46:58.303741226Z",
+            "endedMonotonicNs": 564515625247,
+            "name": "warm-up",
+            "startedAt": "2026-10-09T23:46:28.297834658Z",
+            "startedMonotonicNs": 534509718462
+          },
+          {
+            "endedAt": "2026-10-09T23:47:59.658254267Z",
+            "endedMonotonicNs": 625870138462,
+            "name": "steady",
+            "startedAt": "2026-10-09T23:46:58.582364694Z",
+            "startedMonotonicNs": 564794248433
+          },
+          {
+            "endedAt": "2026-10-09T23:47:59.687003388Z",
+            "endedMonotonicNs": 625898887454,
+            "name": "drain",
+            "startedAt": "2026-10-09T23:47:59.658441768Z",
+            "startedMonotonicNs": 625870325498
+          }
+        ],
+        "startedAt": "2026-10-09T23:46:27.38048233Z"
+      },
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit",
+      "peak_durable_pending": 2,
+      "peak_handler_pending": 5
+    },
+    {
+      "cell_run": "01a12307-6a41-71ea-b9bb-9f00e4513e27",
+      "run_id": "01a12301-093f-7116-aef2-eda061f4a689",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 4,
+        "trial": 2
+      },
+      "grade": "benchmark",
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "released",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "f5416c566f0600afa4390e9cfc2f31ed073d0585fddb3f1980420081d276b4d4",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:d4a91c3eb54aa40d54c5bc060b73ff0cb8ebe5717ebb1df32edd5b986986efa5",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "manifest_sha256": "4eddbd213521075dacf374fd90b7bfad0859cf6b1dfa05316f97d29f1f952dc2",
+      "result_sha256": "cc3377c682bf57b9612533760a80f5d680de0b95cffb5e3ccaa9480ee725b0b1",
+      "results_uri": "gs://tan-nb-exp-cells-results/runs/01a12307-6a41-71ea-b9bb-9f00e4513e27",
+      "metrics": {
+        "op.append.error-rate": 0,
+        "op.append.latency.max": 26731754,
+        "op.append.latency.mean": 6695225.085355809,
+        "op.append.latency.p50": 6582271,
+        "op.append.latency.p90": 7958527,
+        "op.append.latency.p95": 8171519,
+        "op.append.latency.p99": 8790015,
+        "op.append.latency.p999": 16244735,
+        "op.append.service.p99": 8790015,
+        "op.append.throughput": 596.4407698489139,
+        "op.append.units-throughput": 596.4407698489139,
+        "pg.checkpoints-in-window": 0,
+        "pg.wal-bytes-per-op": 1933.4444322424774,
+        "proc.cpu-utilisation": 0.08768779712664546,
+        "proc.rss-max": 325914624,
+        "rts.alloc-bytes-per-op": 186507.87524708983,
+        "rts.alloc-rate": 111240900.69525945,
+        "rts.gc-productivity": 0.996386315882939,
+        "rts.live-bytes-major-mean": 16564770,
+        "rts.max-live-bytes": 18120200
+      },
+      "events": 36424,
+      "checkpoint_calls": 36424,
+      "checkpoint_statement_us": 36.330937870634884,
+      "checkpoint_statement_wal_bytes_per_call": 155.92046452888206,
+      "checkpoint_hot_updates": 36424,
+      "durable_drained": true,
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "fresh": false,
+        "mode": "group-category",
+        "offered": 0,
+        "seconds": 61,
+        "warmup_seconds": 30,
+        "width": 1
+      },
+      "timings": {
+        "clock": "GHC.Clock.getMonotonicTimeNSec",
+        "durationSeconds": 92.740596028,
+        "endedAt": "2026-10-09T23:50:30.92303707Z",
+        "phases": [
+          {
+            "endedAt": "2026-10-09T23:49:29.116173044Z",
+            "endedMonotonicNs": 715328057271,
+            "name": "warm-up",
+            "startedAt": "2026-10-09T23:48:59.109330422Z",
+            "startedMonotonicNs": 685321214172
+          },
+          {
+            "endedAt": "2026-10-09T23:50:30.468044302Z",
+            "endedMonotonicNs": 776679928696,
+            "name": "steady",
+            "startedAt": "2026-10-09T23:49:29.39931806Z",
+            "startedMonotonicNs": 715611201776
+          },
+          {
+            "endedAt": "2026-10-09T23:50:30.502617692Z",
+            "endedMonotonicNs": 776714502137,
+            "name": "drain",
+            "startedAt": "2026-10-09T23:50:30.468248493Z",
+            "startedMonotonicNs": 776680132205
+          }
+        ],
+        "startedAt": "2026-10-09T23:48:58.182441042Z"
+      },
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit",
+      "peak_durable_pending": 2,
+      "peak_handler_pending": 4
+    }
+  ],
+  "effects": {
+    "op.append.throughput": {
+      "paired_percent_changes": [
+        -2.558188730112143,
+        2.340912852774535
+      ],
+      "geometric_mean_percent_change": -0.13867657902737474,
+      "descriptive_95_percent_interval": {
+        "low": -26.877468823851814,
+        "high": 36.37771771556169
+      }
+    },
+    "op.append.latency.p50": {
+      "paired_percent_changes": [
+        2.564102955598302,
+        -4.0978599391156445
+      ],
+      "geometric_mean_percent_change": -0.8228001662340167,
+      "descriptive_95_percent_interval": {
+        "low": -35.26929301529387,
+        "high": 51.954418931199406
+      }
+    },
+    "op.append.latency.p95": {
+      "paired_percent_changes": [
+        4.128902823782932,
+        0.25265288614595427
+      ],
+      "geometric_mean_percent_change": 2.172397203001619,
+      "descriptive_95_percent_interval": {
+        "low": -19.709611019580777,
+        "high": 30.018036813270243
+      }
+    },
+    "op.append.latency.p99": {
+      "paired_percent_changes": [
+        4.528302408274798,
+        1.2357415882579437
+      ],
+      "geometric_mean_percent_change": 2.868849567123033,
+      "descriptive_95_percent_interval": {
+        "low": -16.058721900464022,
+        "high": 26.064320806688833
+      }
+    },
+    "pg.wal-bytes-per-op": {
+      "paired_percent_changes": [
+        0.7341071948470557,
+        -0.5827726011658818
+      ],
+      "geometric_mean_percent_change": 0.07350119691347246,
+      "descriptive_95_percent_interval": {
+        "low": -7.952545156324908,
+        "high": 8.799375917744756
+      }
+    },
+    "rts.alloc-bytes-per-op": {
+      "paired_percent_changes": [
+        5.642641299909679,
+        2.859504892853093
+      ],
+      "geometric_mean_percent_change": 4.241785190402347,
+      "descriptive_95_percent_interval": {
+        "low": -12.021054427340406,
+        "high": 23.510798054606585
+      }
+    }
+  },
+  "complete_pairs": 2,
+  "performance_acceptance": "inconclusive",
+  "uncertainty_target_met": false,
+  "checkpoint_only_tradeoff": "accepted by the user; event-append regression gate retained",
+  "planned_trials": [
+    {
+      "run_id": "01a12301-093f-7116-a87d-06f1c489b65c",
+      "cell_run": "01a12307-6a41-71ea-a8a2-918244c399e7",
+      "state": "verified"
+    },
+    {
+      "run_id": "01a12301-093f-7116-a639-d9bd4a5fdbde",
+      "cell_run": "01a12307-6a41-71ea-aeaa-51374a12a397",
+      "state": "verified"
+    },
+    {
+      "run_id": "01a12301-093f-7116-a18f-1acaebdaeed2",
+      "cell_run": "01a12307-6a41-71ea-b150-db448a0467f2",
+      "state": "verified"
+    },
+    {
+      "run_id": "01a12301-093f-7116-ac85-94ad84fed7e4",
+      "cell_run": "01a12307-6a41-71ea-b6a9-e021ad11199a",
+      "state": "verified"
+    },
+    {
+      "run_id": "01a12301-093f-7116-aef2-eda061f4a689",
+      "cell_run": "01a12307-6a41-71ea-b9bb-9f00e4513e27",
+      "state": "verified"
+    },
+    {
+      "run_id": "01a12301-093f-7116-af78-2029fa47c51b",
+      "cell_run": "01a12307-6a41-71ea-bf56-ec6f0ed9d969",
+      "state": "submitted"
+    }
+  ],
+  "interval_method": "descriptive Student t interval on paired log ratios; df=pairs-1; not the unchanged Kenshou policy acceptance report",
+  "evidence_sha256": {
+    "policy.json": "d63f377e961400536f0bbb3550477ad359a3b11cd1000af7a854e5da1dbaa5b9",
+    "session.json": "8729debb7db903a51ae4438b77c17d1013bce788c8859025f1d73199d2061673",
+    "head.payload.json": "2ec2b7a3bb4a2920bbb4203c228a079293de192f9267cc5184089191865cdeb3",
+    "plan.json": "6dd56ba2a2b1152f94e94b63d16f9e74a9dc1ac636ff9069826fa4bdb9ff2660",
+    "scope.json": "7fac9b58c6ec3adc182aa4c854dec655a5352fd4189afc869761c5eda8e129d6",
+    "control.payload.json": "dd215b23c44f15120e7443fbb211e146e74f74127fd689e00f12a0c03bd91897",
+    "pair-plan.json": "65663b0b163c0cfac3c83c8244126424de7e5828a4c592778307e02e8d6cb3cd",
+    "journal.json": "5fb50c71e010ffcfc8d2d22df28c9258f7ef881e48f22c2649dbac6f5822aab5",
+    "stop-reason.json": "245a78ff8d514fba86d57516540ed01357322804acb6b075287e16556b96ea27",
+    "remote-valid.log": "031cf42df44b32f30e54e5ae5da215bac2312139df640ffb7fd0d00875b1d594",
+    "preflight-refusal-journal.json": "c218f1e91290e8dec84a199fa3609dd5e3f564ac33890dde0397dffc593f7425",
+    "remote-driver-initial.py": "0fd0d51b18a7bda0748cb1dc29d2eb86404ae4d054da4dba63b73b342ba05ab0",
+    "remote-preflight-refusal.log": "063d9819987d330470545232e75878f09450239a329a2862e906c3941fd5a819",
+    "build.log": "65389e7b7f2d82c0ca5c4f2d24330c7bd36777192c194143cb5d8be92bfc6201",
+    "controller/mp12-ep2-quick-stage.py": "e5f473cd1da441f0eefccb0c860226dd19cd074f602f4edbeb009fbec00e16c9",
+    "controller/mp12-ep2-quick-remote.py": "a4ba15d6dc3f13e6393d0920c5e00a51cb2d8465888e0cc0821f04e64feb9fa2",
+    "controller/mp12-ep2-quick-build.py": "604800b3c33ddeb8d9897276424188fd0dcb9f2c6f9ea4de58f7a6a31cdd4eae",
+    "controller/mp12-ep2-quick-collect.py": "c47155b2f53bf10990da9f6ccd83d0c411e06dcbca90a93edcfa21f6eda4e5de",
+    "runs/01a12307-6a41-71ea-b150-db448a0467f2/health.json": "8d3be97182e8b0ced9347cee69641fdbc8b6b3845faa64ebddb9409aad4397b9",
+    "runs/01a12307-6a41-71ea-b150-db448a0467f2/cell-manifest.json": "829c95716687a9dc3d38303e95fc316e05827a735e5d7b4d2aae23a13bc4a5fa",
+    "runs/01a12307-6a41-71ea-b150-db448a0467f2/cell-run.json": "dfee30ff6f3299485828171d0ca57b6d706e306a1053ecfc7c02be42fc199aff",
+    "runs/01a12307-6a41-71ea-b150-db448a0467f2/reset-evidence.json": "9ce8218d1fb5cca84c214b5eed22db8e68d5d6b4dedddd68899e1ac89cb6cd20",
+    "runs/01a12307-6a41-71ea-b150-db448a0467f2/run-manifest.json": "398fcfc9bda8b9553ac218b281c163d3b3ed7ff9f283f533799c06fb3c9abc9d",
+    "runs/01a12307-6a41-71ea-b150-db448a0467f2/run-spec.json": "a051535b6697cc4d6545998cd5ac4807c3c72c61a07e71073e200dff410e175e",
+    "runs/01a12307-6a41-71ea-b150-db448a0467f2/run-result.json": "22fed0b49c9d52f9968eb78dde64026203c405ea45fa98fe88a82f2ceb3d1d96",
+    "runs/01a12307-6a41-71ea-b9bb-9f00e4513e27/health.json": "08aa34dd53a052fdea0314b14c01b8275b6cd8678e13e4ff9cb817677027fa4a",
+    "runs/01a12307-6a41-71ea-b9bb-9f00e4513e27/cell-manifest.json": "4eddbd213521075dacf374fd90b7bfad0859cf6b1dfa05316f97d29f1f952dc2",
+    "runs/01a12307-6a41-71ea-b9bb-9f00e4513e27/cell-run.json": "174640a9476ccca7f4d95ca5d61256162cbc9f6a15fbfdbf74c4e4766c99f4b7",
+    "runs/01a12307-6a41-71ea-b9bb-9f00e4513e27/reset-evidence.json": "232d687c50bf8bfd5684faee49267e47c44eda45bf5bce9ee852c8dc0bf1d670",
+    "runs/01a12307-6a41-71ea-b9bb-9f00e4513e27/run-manifest.json": "a56ba2fa391faa32b45fe8b46c1a557da7008c5115a7e84f8f253c01a854d795",
+    "runs/01a12307-6a41-71ea-b9bb-9f00e4513e27/run-spec.json": "02ce24cd5cde8b9b450d43c517b7d53e4a9f3b4f5541fecc78f84f93a558a150",
+    "runs/01a12307-6a41-71ea-b9bb-9f00e4513e27/run-result.json": "cc3377c682bf57b9612533760a80f5d680de0b95cffb5e3ccaa9480ee725b0b1",
+    "runs/01a12307-6a41-71ea-b6a9-e021ad11199a/health.json": "6ceaf946481e06e2c0dc06c951b64821eb1f45e62948490825b8082d40a1462f",
+    "runs/01a12307-6a41-71ea-b6a9-e021ad11199a/cell-manifest.json": "ec008d954d3af51b8dc98e83fb37ce331ee60501efbcbcc00f51a08bb5831d93",
+    "runs/01a12307-6a41-71ea-b6a9-e021ad11199a/cell-run.json": "8768b82ad0a66cd7799603764b9b4ae9fc42e7a760a30a72f03d89d79731e489",
+    "runs/01a12307-6a41-71ea-b6a9-e021ad11199a/reset-evidence.json": "4361217d1fe0b46dc011fbd74d8ed9afa96df39734baecdf136e752f63313084",
+    "runs/01a12307-6a41-71ea-b6a9-e021ad11199a/run-manifest.json": "c6907e44710a33969c853537c2c34e66878ad02e1b73ecdfd21d17775eefb807",
+    "runs/01a12307-6a41-71ea-b6a9-e021ad11199a/run-spec.json": "91d35fa87771818bffcde349c42a02749fefcd13e9b06d5901e69dccc8e8769a",
+    "runs/01a12307-6a41-71ea-b6a9-e021ad11199a/run-result.json": "fcc75d568fa3de8080963bd3194b2b8ec704aa42ce26dcc0f1c7aab189b376eb",
+    "runs/01a12307-6a41-71ea-aeaa-51374a12a397/health.json": "be76f14a7c83f677233cf4b60263fd86255939c8f33bd7ac9c55516ad01844e6",
+    "runs/01a12307-6a41-71ea-aeaa-51374a12a397/cell-manifest.json": "5aa2c823ac75a2e94cf4f6fefb6b56ed000b299e94b70eec66fb4ab58c856128",
+    "runs/01a12307-6a41-71ea-aeaa-51374a12a397/cell-run.json": "eef31051e6c1ba742040ac7dc1b83e4bf73337f7698ca73fdc118da488343882",
+    "runs/01a12307-6a41-71ea-aeaa-51374a12a397/reset-evidence.json": "42fd6fe5c90b441b13307922170627a8d6d1dc75d54f996fd869422b4d9c42b1",
+    "runs/01a12307-6a41-71ea-aeaa-51374a12a397/run-manifest.json": "8436e9a6f679b685ec3196d50ddb85930aab0b3be5ca506a6cacdb5072f7eb55",
+    "runs/01a12307-6a41-71ea-aeaa-51374a12a397/run-spec.json": "57ad7988738398c350ba7d86f39ba01eb25726b04733e95904fcb8c21b321788",
+    "runs/01a12307-6a41-71ea-aeaa-51374a12a397/run-result.json": "9097dae27e9097a64c460e29dab60b3e8cf0204b87e212b89d8290b5691c002b",
+    "runs/01a12307-6a41-71ea-a8a2-918244c399e7/health.json": "e7a44ece4a627a5fac91da76bb610d666fca85b5bb996d604a8b7017cccec982",
+    "runs/01a12307-6a41-71ea-a8a2-918244c399e7/cell-manifest.json": "bcb10b09fdf3888e696f0e659a6594e7ce6cb75c733af1ee0f8077e3f2bb702a",
+    "runs/01a12307-6a41-71ea-a8a2-918244c399e7/cell-run.json": "0e21af3ff206cc6ae5e1cad6f97da6425fc4911d883cab8518394cac15e9536c",
+    "runs/01a12307-6a41-71ea-a8a2-918244c399e7/reset-evidence.json": "f9d18d3403b7b84e8336618489cfe05ca655a9d889184697c0417d714067cdaa",
+    "runs/01a12307-6a41-71ea-a8a2-918244c399e7/run-manifest.json": "a8836393e59de17746b2eaeddd695484ed55baef637c2f035eedf8f81e9d59d1",
+    "runs/01a12307-6a41-71ea-a8a2-918244c399e7/run-spec.json": "d9f3d56c9577b01aaa4a66ef66aad25c3e595faa72e08155cfb33c2fd97b9cf9",
+    "runs/01a12307-6a41-71ea-a8a2-918244c399e7/run-result.json": "884c482d848bd68116b412637444c4dbd86acf03a68c12264dfefa35cf3c00af"
+  }
+}

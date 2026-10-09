@@ -8,7 +8,7 @@ generated:
 docId: ADR-11
 status: Accepted
 date: 2026-10-09
-timestamp: "2026-10-09T22:21:00Z"
+timestamp: "2026-10-09T23:45:00Z"
 originatingPlan: docs/masterplans/12-harden-the-kiroku-event-store-and-subscription-machinery-surfaced-by-the-2026-07-kiroku-review.md
 ---
 
@@ -38,7 +38,7 @@ monotonic upsert per batch tail, without extra verification statements or indexe
 metadata. Correctness requirements remain mandatory; performance cannot be recovered by dropping
 acknowledgements, weakening checkpoint durability, or silently skipping events.
 
-The cohort has no intentional default write-regression budget. Select the minimum useful
+The cohort has no intentional default event-append regression budget. Select the minimum useful
 evidence for each actual change: existing ADR-5 controls, structural invariants, and a focused
 pre-change comparison of the affected path. Reuse valid results when production source and
 measurement inputs have not changed. A checkpoint metadata change does not require a full
@@ -47,7 +47,15 @@ Broaden measurements only to resolve a specific affected-path risk or a consiste
 signal. The user explicitly required this proportional scope on 2026-10-09 after rejecting
 the agent's oversized experiment. This supersedes the earlier universal precision requirement.
 
-Reproducible write regressions block completion and release. Reports distinguish practical
+On 2026-10-09 the user accepted the measured checkpoint-only save cost after clarifying that
+it is a subscription checkpoint operation, outside the event-append transaction. This is a
+specific EP-2 trade-off, not permission to slow event appends. Checkpoint saves are synchronous
+between subscriber batches and use the shared store pool, so small batches can reduce subscriber
+throughput and shared resource contention can indirectly affect appends. Retain those measured
+costs and assess the integrated event-append path in EP-6. Report server statement execution
+separately from client-observed save latency; neither is event-append latency.
+
+Reproducible event-append regressions block completion and release. Reports distinguish practical
 acceptance from statistical equivalence: noisy or undersampled comparisons remain statistically
 inconclusive, and absence of significance is not proof of no regression. Retain the original
 comparison policy, observed effects and uncertainty; do not tune a threshold after seeing results

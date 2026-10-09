@@ -72,7 +72,8 @@ exception type.
 
 ## Progress
 
-- [ ] Write-performance acceptance: resolve the retained, repeated checkpoint-save cost and inconclusive append comparison before completing this child under ADR-11. Functional implementation and evidence collection are complete; the performance gate is open.
+- [ ] Event-append acceptance: the user accepts the checkpoint-only save cost. Five verified Linux trials supply two complete pairs; append throughput changes -0.14% and p99 +2.87%, with wide intervals. The sixth trial stopped during reset under the bounded queue. Event-append acceptance remains inconclusive; no more trials are queued and no release is claimed.
+- [x] (2026-10-09) Quick Linux verification: retain five sealed, benchmark-grade, durably drained trials, two matched pairs, the unmatched control and the interrupted sixth submission. Preparation through cleanup took 25 minutes 30 seconds; all artifact hashes were checked, the lease is absent and all four cell instances are TERMINATED.
 - [x] (2026-10-09 22:49 UTC) M1: carry the current `GlobalPosition` in `ConnectionLost` and reconnect from the maximum of FSM cursor and `posRef`; add the mid-live-fetch regression test.
 - [x] (2026-10-09 22:49 UTC) M1: make `BatchSize` and the ack-stream buffer size validated types built by smart constructors, and route every runtime startup refusal through `SomeSubscriptionStartupFailure`.
 - [x] (2026-10-09 22:49 UTC) M2: add the typed `target_kind`/`target_category` columns and drop `stream_name` in one migration; persist and validate target identity through initialization, ordinary saves, and dead-letter saves.
@@ -83,6 +84,18 @@ exception type.
 
 
 ## Surprises & Discoveries
+
+- Quick verification (2026-10-09): the existing matched Linux harness avoids
+  rebuilding the generic operator or creating a matrix. Build/publication cost
+  224.38/64.13 seconds, but reset/fetch overhead still costs roughly a minute
+  per trial. The selected 15-minute queue ceiling did not fit six trials; five
+  completed and the sixth stopped during reset without a timing sample. Keep
+  this failed scope estimate and the initial two-pair preflight refusal visible.
+  Two matched pairs reverse throughput direction (-2.56%, +2.34%) while p99
+  rises (+4.53%, +1.24%). The approximately 10% uncertainty target was not met.
+  PostgreSQL checkpoint execution rises 36.31 to 62.10 microseconds/save versus
+  the original pre-cohort control, excluding the client round trip. This is a
+  cumulative EP1+EP2 checkpoint cost, not an isolated EP2 append cost.
 
 - Implementation (2026-10-09): plan 81’s name-locked transaction is extended for
   target checks; no extra pool checkout is introduced. Migration 0014 is allocated
@@ -130,6 +143,16 @@ exception type.
 
 
 ## Decision Log
+
+- Decision (2026-10-09, user clarification): accept the checkpoint-only save
+  overhead after distinguishing it from event appends. A save runs synchronously
+  between subscriber batches, outside the append transaction, through the shared
+  store pool. Subscriber throughput and indirect append contention remain risks;
+  this does not accept an event-append regression. ADR-11 records the distinction.
+  Use the existing matched Linux harness for one bounded category-group workload,
+  three alternating pairs, 30 seconds warmup and 61 seconds measurement, without
+  replacements or further calibration. The entire experiment, including setup
+  and cleanup, must stay below the user's one-hour ceiling; quick is the goal.
 
 - Decision (2026-10-09): follow the registry order and land EP-2 before EP-3.
   The suggested worker order is soft; EP-2 does not edit the delivery primitive’s
@@ -241,14 +264,15 @@ package suites passed, the optimized store suite passes 340 examples, 20
 structural examples pass, and all 16 controlled append comparisons remain valid
 because their paths were not changed by the checkpoint optimization.
 
-**This child remains In Progress.** All evidence is retained in
+Historical local evidence before the user accepted the checkpoint-only cost is retained in
 `kiroku-store/bench/results/ep2-target-binding/README.md` and `summary.json`.
 The first quiet category-save comparison showed +7.6–17.0% latency and about
 +4.2% WAL per save. Fixed-kind statements remove constant parameter encoding,
 but the follow-up still shows +25.6–26.5% category-save latency locally. Control
 and candidate table columns/indexes were checked against the bootstrap and
 migration 0013; neither has subscription triggers. Do not call this equivalent
-performance or accept the candidate on correctness alone.
+performance. The user subsequently accepted this checkpoint-only trade-off;
+the event-append regression gate remains in force.
 
 All twelve mixed trials (six initial, six optimized) delivered exactly 1,500
 events and 1,500 checkpoint updates apiece and durably drained. Against the
@@ -258,12 +282,29 @@ in the third pair; descriptive 95% intervals are very wide (p50 -18.08/+61.00%,
 p95 -57.16/+527.96%, p99 -82.28/+2371.79%). Allocation’s interval is -0.413/+5.160%.
 The initial +6.01% allocation point increase was reduced, but append-performance
 acceptance remains inconclusive, with material adverse signals retained. These
-are local diagnostics, not benchmark-grade Linux results. No policy was weakened,
-no package was released and no remote run or lease was started.
+are local diagnostics, not benchmark-grade Linux results. At that historical
+stopping point no remote run or lease had started; the follow-up below now
+provides Linux evidence. No policy was weakened and no package was released.
 
-The next work must resolve the affected checkpoint cost under the existing gate,
-or record an explicit user-approved change to that trade-off. EP3 is independently
-ready, but this turn has not begun it or marked EP2 complete.
+The user accepted checkpoint-only overhead after distinguishing it from event
+appends. The bounded Linux follow-up is retained in
+`kiroku-store/bench/results/ep2-quick-linux/README.md` and `summary.json`.
+Five trials passed delivery/durability checks and sealed artifact verification;
+181434 events correspond to exactly 181434 deliveries and checkpoint calls.
+Two complete pairs show throughput -0.14%, p50 -0.82%, p95 +2.17%, p99 +2.87%,
+WAL/append +0.074% and allocation/append +4.24%. Descriptive 95% intervals remain
+wide: throughput -26.88/+36.38%, p99 -16.06/+26.06%. This does not meet the
+approximately 10% uncertainty target or prove equivalence. The unchanged
+five-pair policy is retained; interruption produced no strict acceptance report.
+
+The full experiment through cleanup took 25 minutes 30 seconds. Five trials
+completed; the sixth stopped during reset when its minimum measurement time
+could not fit the remaining queue budget. It supplied no timing sample; no
+replacement was launched. The owned lease is absent, all four alpha VMs are
+TERMINATED, and no remote execution remains active. **This child remains In
+Progress solely because event-append acceptance is inconclusive, not because
+checkpoint-only cost is unaccepted.** No further experiments are queued. EP3
+is independently ready, but has not begun; no release is claimed.
 
 
 ## Context and Orientation
@@ -630,3 +671,10 @@ scope to this child, preserve plan 81’s topology and resize binding, and repre
 identity honestly for legacy or mixed rows. Migration 0014 follows plan 81’s 0013.
 
 Revision note (2026-10-09, focused evidence): retain both implementations and all adverse/failed results; reduce constant parameter encoding and fix the new dead-letter fixture’s durable barrier. Functional and structural work is complete, but EP2 remains In Progress under the unchanged write-performance gate. No next child or release is claimed.
+
+Revision note (2026-10-09, quick Linux verification): distinguish the accepted
+checkpoint-only trade-off from unresolved event-append acceptance. Retain five
+verified trials, two complete pairs, the unmatched control and the sixth reset
+interrupted before timing, without replacements. Preparation through cleanup
+took 25 minutes 30 seconds; uncertainty remains wider than the intended coarse
+target. Lease absent, all four VMs stopped, no further experiment queued.

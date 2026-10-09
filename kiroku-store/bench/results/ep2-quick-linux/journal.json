@@ -1,0 +1,146 @@
+{
+  "deadline_epoch": 1791591971,
+  "phase": "stopped",
+  "source": "f7ddbe1",
+  "build_limit_seconds": 600,
+  "scope": "one group-category capacity workload; three alternating pairs; no replacements",
+  "build_pid": 47564,
+  "build_started_epoch": 1791588580.9236639,
+  "build_log_bytes": 4538,
+  "updated_epoch": 1791589874.435174,
+  "build_returncode": 0,
+  "build_seconds": 224.38059997558594,
+  "stages": {
+    "publish": {
+      "started_epoch": 1791588837.252057,
+      "cap_seconds": 180,
+      "command": [
+        "nix",
+        "shell",
+        "github:NixOS/nixpkgs/d5dfd8e6716dde34398bc14bc87c10dece9c8c68#zstd",
+        "-c",
+        "/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kenshou-cli-0.1.0.0/x/kenshou/build/kenshou/kenshou",
+        "cell",
+        "payload",
+        "publish",
+        "--cohort",
+        "head",
+        "--root",
+        "./bench/mp12-cell",
+        "--out",
+        "/tmp/mp12-ep2-quick-linux/head.payload.json"
+      ],
+      "returncode": 0,
+      "seconds": 64.1264078617096
+    }
+  },
+  "log_bytes": 0,
+  "remote_started_epoch": 1791589035.09836,
+  "remote_command": [
+    "/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kenshou-cli-0.1.0.0/x/kenshou/build/kenshou/kenshou",
+    "cell",
+    "pair",
+    "--cell",
+    "alpha",
+    "--start",
+    "--baseline",
+    "/tmp/kiroku-mp12-v5-released.payload.json",
+    "--candidate",
+    "/tmp/mp12-ep2-quick-linux/head.payload.json",
+    "--plan",
+    "/tmp/mp12-ep2-quick-linux/plan.json",
+    "--pairs",
+    "3",
+    "--ordering",
+    "abba",
+    "--max-replacements",
+    "0",
+    "--policy",
+    "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp12-cell/policy.json",
+    "--pg-setting",
+    "shared_buffers=128MB",
+    "--pg-setting",
+    "fsync=on",
+    "--pg-setting",
+    "synchronous_commit=on",
+    "--pg-setting",
+    "full_page_writes=on",
+    "--pg-setting",
+    "wal_level=replica",
+    "--out",
+    "/tmp/mp12-ep2-quick-linux/pair"
+  ],
+  "remote_pid": 56678,
+  "instance_power": [
+    {
+      "name": "cell-alpha-broker",
+      "status": "RUNNING"
+    },
+    {
+      "name": "cell-alpha-driver-0",
+      "status": "RUNNING"
+    },
+    {
+      "name": "cell-alpha-monitoring",
+      "status": "RUNNING"
+    },
+    {
+      "name": "cell-alpha-postgres",
+      "status": "RUNNING"
+    }
+  ],
+  "final_instance_power": [
+    {
+      "name": "cell-alpha-broker",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-driver-0",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-monitoring",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-postgres",
+      "status": "TERMINATED"
+    }
+  ],
+  "total_remote_and_cleanup_seconds": 866.1637909412384,
+  "preflight_refusal": "preflight-refusal-journal.json",
+  "verified_trials": 5,
+  "owned_lease": "01a12307-6558-70a1-b17a-6a61930f273a",
+  "current_run": "01a12307-6a41-71ea-bf56-ec6f0ed9d969",
+  "status_lookup_error": "ERROR: (gcloud.storage.cat) The following URLs matched no objects or files:\ngs://tan-nb-exp-cells-control/cells/alpha/submissions/01a12307-6a41-71ea-bf56-ec6f0ed9d969/status.json\n",
+  "remote_status": {
+    "schema": "cell.status/v1",
+    "runId": "01a12307-6a41-71ea-b9bb-9f00e4513e27",
+    "phase": "running",
+    "leaseSequence": 5,
+    "updatedAt": "2026-10-09T23:48:57Z",
+    "phaseStartedAt": "2026-10-09T23:48:57Z",
+    "logChunks": {
+      "stdout": 0,
+      "stderr": 0
+    }
+  },
+  "remote_phase": "running",
+  "remote_returncode": -2,
+  "remote_seconds": 841.3379290103912,
+  "cleanup": [
+    {
+      "action": "release-owned-lease",
+      "returncode": 4,
+      "stdout": "",
+      "stderr": "kenshou cell: cell has no matching lease\n"
+    },
+    {
+      "action": "stop-cell",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "Stopping instance(s) cell-alpha-postgres, cell-alpha-driver-0, cell-alpha-monitoring, cell-alpha-broker...\n................................................................................done.\nUpdated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-postgres].\nUpdated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-driver-0].\nUpdated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-monitoring].\nUpdated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-broker].\n"
+    }
+  ],
+  "finished_epoch": 1791589901.262151
+}

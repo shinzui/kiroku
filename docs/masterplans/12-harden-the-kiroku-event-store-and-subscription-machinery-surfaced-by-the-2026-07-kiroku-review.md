@@ -54,7 +54,7 @@ If durable project context changes, update or create ADRs in docs/adr/ in the sa
 
 ## Vision & Scope
 
-Write performance is a hard acceptance constraint for this initiative. Preserve successful
+Event-append performance is a hard acceptance constraint for this initiative. Preserve successful
 append throughput and latency, including when subscriptions share the application process and
 database. Confirmed regressions block implementation completion and release; correctness remains
 mandatory. [ADR-11](../adr/0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md)
@@ -342,7 +342,10 @@ required. ADR-5's structural and controlled workload gates remain authoritative.
 Reuse valid results when source and inputs are unchanged. Keep append SQL,
 round trips and default per-event instrumentation unchanged, and keep checkpoint
 saves to one monotonic upsert per batch tail. Correctness and durable progress
-remain mandatory; a reproducible regression blocks completion and release.
+remain mandatory; a reproducible event-append regression blocks completion and
+release. The user accepts EP2's measured checkpoint-only overhead outside the
+append transaction, with synchronous subscriber-batch and shared-pool costs
+retained. This specific trade-off is recorded in ADR-11.
 
 EP1 is accepted on its full correctness suites, 18 structural checks, 16 existing
 controlled workloads, historical telemetry and three completed affected-path
@@ -436,7 +439,8 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 - [x] (2026-10-09) EP-1: amend ADR-2 and the consumer-group guide; expose the transaction surface needed for downstream adoption.
 - [x] (2026-10-09) EP-2 functional scope: reconnect database-driven live subscriptions from `posRef` and reject `batchSize < 1` before a worker starts.
 - [x] (2026-10-09) EP-2 functional scope: bind every checkpoint to its target in typed columns under a declared binding policy, drop `stream_name`, validate batch and buffer sizes at construction, introduce the startup-refusal parent exception, and document deliberate retarget operations.
-- [ ] EP-2 acceptance: resolve the repeated local checkpoint-save cost and inconclusive append-performance evidence. EP2 remains In Progress; correctness and structural gates pass, but no performance acceptance or release is claimed.
+- [x] (2026-10-09) EP-2 bounded Linux verification: five benchmark-grade trials verified in 25 minutes 30 seconds including preparation and cleanup; two complete pairs, one unmatched control and a sixth submission stopped during reset. Lease absent, all four VMs TERMINATED, no replacement or expanded queue.
+- [ ] EP-2 event-append acceptance: checkpoint-only cost is accepted by the user. The two Linux pairs show throughput -0.14% and p99 +2.87% with wide intervals; event-append acceptance remains inconclusive. EP2 remains In Progress, with no further experiment queued or release claimed.
 - [ ] EP-3: prove the current apparent-live stall, then make decode failure a typed per-event outcome that each subscriber disposes of through an optional callback, stopping by default, and that fails reads with a typed error.
 - [ ] EP-4: expose retry policy on single and consumer-group adapter configs; provide a guarded processor path and a worker-level handler-stall event the adapter configures.
 - [ ] EP-5: distinguish `stream_events_pkey` duplicates and `ux_stream_events_stream_version` corruption with deterministic mapping tests.
@@ -444,6 +448,16 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 
 ## Surprises & Discoveries
+
+- EP2 quick Linux evidence (2026-10-09): two complete pairs reverse throughput
+  direction, while p99 and allocation rise modestly. The approximately 10%
+  uncertainty target was not met. Reliable timings and durable work are verified,
+  but event-append equivalence remains unproven. Reset/fetch overhead prevented
+  six trials fitting the selected 15-minute queue; five were retained and the
+  sixth stopped during reset, without a timing sample or replacement. The full
+  preparation/cleanup experiment took 25 minutes 30 seconds. See
+  `kiroku-store/bench/results/ep2-quick-linux/README.md`; EP6 must retain this
+  uncertainty and distinguish cumulative checkpoint costs from append costs.
 
 - EP-2 implementation (2026-10-09): target binding uses migration 0014 and the
   existing topology startup transaction. Resize preserves the target on new
@@ -573,6 +587,14 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 
 ## Decision Log
+
+- Decision (2026-10-09, checkpoint cost clarification): the user accepts the
+  checkpoint-only save overhead because it is outside the event-append
+  transaction. Retain the subscriber-batch and shared-pool implications, and keep
+  the event-append regression gate. ADR-11 records this specific trade-off.
+  Verify the indirect append risk with one quick, bounded Linux workload using
+  existing infrastructure, with no matrix or replacement trials. The user's
+  one-hour ceiling includes setup, recovery and cleanup; it is not a target.
 
 - Decision (2026-10-09, final user correction): accept EP1 with the minimum
   existing evidence and explicitly stated uncertainty. Remove the mandatory
@@ -779,13 +801,20 @@ is stopped and alpha VMs are shut down.
 
 EP2’s functional implementation is complete at `6612523`, including migration
 0014, target binding/rebind, typed capacities and live reconnect progress. Its
-correctness and structural/controlled checks pass. The retained focused probes
-show a repeated local category-checkpoint cost; the optimized mixed comparison
-has adverse median/tail point estimates with wide intervals and no statistical
-acceptance. EP2 remains In Progress under the existing gate. Four children remain
-Not Started, no package has been released, and plan 82 remains the active child.
-EP3 (plan 83) is the next independent registry child once this stopping point is
-resolved; it has not been started.
+correctness and structural/controlled checks pass. The user accepted the measured
+checkpoint-only cost after distinguishing it from event appends. The quick Linux
+follow-up retained five verified, benchmark-grade, durably drained trials and
+two complete pairs: throughput -0.14%, p99 +2.87%, allocation/append +4.24%,
+WAL/append +0.074%, with wide descriptive intervals. The sixth submission stopped
+during reset because it could not finish within the queue ceiling. The full
+experiment through cleanup took 25 minutes 30 seconds; lease absent and all four
+alpha VMs TERMINATED. No replacement or additional experiment is queued.
+`kiroku-store/bench/results/ep2-quick-linux/README.md` preserves inputs, raw result
+identities, uncertainty and the missed scope estimate. EP2 remains In Progress
+because event-append acceptance is still inconclusive; its checkpoint-only
+trade-off is resolved. Four children remain Not Started, no package has been
+released, and plan 82 remains the active child. EP3 (plan 83) is independently
+ready; it has not been started.
 
 
 
@@ -852,3 +881,10 @@ Revision note (2026-10-09, focused assurance): Replaced redundant EP-1 combinati
 Revision note (2026-10-09, final scope correction): Applied the user's minimum-evidence instruction, amended ADR-11 for proportional assurance, removed the default matrix prerequisite and marked EP1 Complete with the original strict comparison still inconclusive. No later child or release is claimed.
 
 Revision note (2026-10-09, EP2 evidence): record functional completion, constant-parameter optimization and retained passing checks plus adverse/failed local diagnostics. Keep EP2 In Progress because the checkpoint cost is unresolved under the write gate. Preserve the distinction between implementation, verified durable work and accepted performance.
+
+Revision note (2026-10-09, quick Linux verification): record the user's acceptance
+of checkpoint-only overhead, clarify ADR-11, and retain five verified Linux
+trials, two complete pairs and the sixth reset interrupted under the queue
+ceiling. Preparation through cleanup took 25 minutes 30 seconds. Event-append
+acceptance remains inconclusive with wide intervals; EP2 remains In Progress,
+all remote resources are released and no further experiment is queued.
