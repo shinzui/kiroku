@@ -1,5 +1,21 @@
 # MP-12 matched cell payloads
 
+EP1 is complete under the user-directed minimum-evidence scope. The extended
+matrix below is optional and is not part of `just perf-check`. Its original
+precision policy remains intact for anyone explicitly choosing that experiment.
+Earlier requirements for a full matrix are superseded by amended ADR-11.
+
+The retained [evidence](evidence/ep1-minimum-evidence.json) and
+[original-policy comparison](evidence/ep1-three-pair-comparison.json) cover three
+complete alternating pairs of the changed frequent group-checkpoint path. All
+six trials are hash-verified, benchmark-grade and durably drained. Point estimates
+are throughput +0.76%, p50 −1.19%, p95 −2.74%, p99 +1.26%; the strict comparison
+remains inconclusive with fewer than five pairs and wide intervals. Practical
+completion does not certify statistical equivalence or absence of a small regression.
+See plan 81 for adverse bounds and the complete correctness/structural evidence.
+No further EP1 trials are required.
+
+
 This isolated flake builds the same write/subscription workload against the
 pre-cohort control `e6ea66433c5320097b6afd3c4ca56cd18ba86bd0` and the current
 Kiroku implementation. It adds no production package dependency. The one CPP
@@ -96,8 +112,8 @@ slowdown or require unchanged code to demonstrate a statistically significant
 speedup. Lack of significance alone is insufficient.
 
 This package and its checker are evidence-collection machinery. A single cell
-is explicitly `complete_matrix: false`; full ADR-11 coverage and integration
-into `just perf-check` remain required by plan 81. Existing ADR-5 baselines and
+is explicitly `complete_matrix: false`; the extended matrix is optional, outside
+`just perf-check`, following the final user-directed scope in plan 81. Existing ADR-5 baselines and
 thresholds are untouched. Validate the checker with:
 
 ```bash
@@ -105,7 +121,7 @@ python3 bench/mp12-cell/test-comparison.py
 ```
 
 
-## Focused plan 81 matrix
+## Optional extended matrix (superseded EP1 requirement)
 
 `matrix.json` declares five workloads, each measured at sustainable capacity,
 20% of the slowest control pilot capacity, and 90% of that capacity: 15 A/B

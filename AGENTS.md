@@ -1,5 +1,11 @@
 # Performance experiments
 
+- Start with the minimum evidence needed for the actual change: existing valid
+  correctness tests, structural invariants and a focused comparison of an affected
+  path. Do not turn a small metadata or startup change into a statistical study.
+  Increase coverage or precision only to answer a specific unresolved regression
+  risk or investigate a consistent adverse signal. A runtime budget is a ceiling,
+  not a target to fill. Honor the user's smaller evidence scope.
 - Select coverage from the code paths changed and the regression risk. Reuse
   existing benchmark infrastructure and valid evidence. Do not default to a
   full configuration or database-version matrix.

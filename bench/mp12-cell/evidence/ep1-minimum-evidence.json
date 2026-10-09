@@ -1,0 +1,1838 @@
+{
+  "scope": "EP1 practical acceptance using existing correctness/structural controls and three retained affected-path pairs, as directed by the user; not statistical equivalence",
+  "complete_matrix": false,
+  "originalJournalSha256": "0b700d9d933a84cc8374023eab05752b403055c68fdc79450377c43e8595c2ca",
+  "verifiedTrials": 6,
+  "completedPairs": 3,
+  "comparisonPolicyChanged": false,
+  "strictVerdict": "inconclusive",
+  "controlRevision": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+  "candidateRevision": "15c21e8a7bd833573ccd117157f2f12e656629e8",
+  "operatorRevision": "7a451b5f5f4b51986e872879a3bfe10f5943af6b",
+  "note": "The comparison harnessRevision records the analysis checkout; measured payload identities and harness revisions are in each retained cohort. Original ten-slice journal is preserved; only its first six verified slices are analyzed. Slice 6 was interrupted and slices 7-9 were never submitted. No replacement trials. Alpha lease released and VMs stopped.",
+  "rows": [
+    {
+      "runId": "01a1224d-ab32-7581-a490-70c623cd6a8f",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 0,
+        "trial": 0
+      },
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "released",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "f5416c566f0600afa4390e9cfc2f31ed073d0585fddb3f1980420081d276b4d4",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:d4a91c3eb54aa40d54c5bc060b73ff0cb8ebe5717ebb1df32edd5b986986efa5",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "fingerprint": {
+        "cell": {
+          "broker": null,
+          "capabilities": {
+            "broker": "none",
+            "fault-hook": false,
+            "otlp.file": true,
+            "otlp.null": true,
+            "postgres.control-hook": false,
+            "postgres.major": "18",
+            "postgres.pg_partman": true,
+            "postgres.second-server": false
+          },
+          "cell": "alpha",
+          "cellRun": "01a122a9-42de-7731-ac07-979ea078d962",
+          "clock": {
+            "skewBoundMicros": null
+          },
+          "driver": {
+            "count": 1,
+            "index": 0
+          },
+          "faultHook": false,
+          "leaseId": "01a122a9-3ccc-772a-8f34-56a94da0fa38",
+          "otlpSink": "null",
+          "payload": {
+            "bundleSha256": "0197f49615f02705bc8db94ea5f56932b874c49fb6e159b118666444e1210400",
+            "cohort": "released",
+            "harness": {
+              "dirty": false,
+              "revision": "6f67012011fd329c258553f1fe758a170e5a1cb1"
+            },
+            "narHash": "sha256-GZa7utgbSbxLbPaMLX8oY1J1GmTlj71QNYlphN9z+7w=",
+            "storePath": "/nix/store/9l90s8ccciy3l0lvrimpm4rs4zl7fpm9-kiroku-mp12-released"
+          },
+          "postgres": {
+            "extensions": {
+              "pg_partman": {
+                "available": true,
+                "version": "5.4.3"
+              }
+            },
+            "extraPostgres": "shared-server",
+            "host": "10.0.0.2",
+            "major": 18,
+            "placement": "cell-server",
+            "port": 5432
+          },
+          "schema": "kenshou.cell-context/v1"
+        },
+        "extraPostgres": {},
+        "host": {
+          "arch": "x86_64",
+          "cpuModel": "Intel(R) Xeon(R) CPU @ 2.80GHz",
+          "hostname": "cell-driver",
+          "kernel": "6.18.28",
+          "logicalCores": 4,
+          "memoryBytes": 33657585664,
+          "os": "linux"
+        },
+        "kenshou": {
+          "dirty": false,
+          "executableSha256": "sha256:c9b85436b1c3141c0673d83eef80dc57342e41513f39f140088d938a19f8355a",
+          "revision": "6f67012011fd329c258553f1fe758a170e5a1cb1",
+          "version": "0.1.0.0"
+        },
+        "machineProfile": "gcp/us-west1-a/shape-f8ed9373b60a5a28/pg18",
+        "placement": "cell",
+        "postgres": {
+          "collation": "en_US.UTF-8",
+          "encoding": "UTF8",
+          "serverVersion": "18.3",
+          "serverVersionNum": 180003,
+          "settings": {
+            "autovacuum": "on",
+            "checkpoint_completion_target": "0.9",
+            "checkpoint_timeout": "30min",
+            "effective_cache_size": "24GB",
+            "fsync": "on",
+            "full_page_writes": "on",
+            "max_connections": "500",
+            "max_wal_size": "16GB",
+            "random_page_cost": "1.1",
+            "shared_buffers": "128MB",
+            "shared_preload_libraries": "pg_stat_statements,auto_explain",
+            "synchronous_commit": "on",
+            "wal_buffers": "4MB",
+            "wal_level": "replica",
+            "work_mem": "16MB"
+          },
+          "superuser": false
+        },
+        "runtime": {
+          "capabilities": 4,
+          "ghc": "Version {versionBranch = [9,12], versionTags = []}",
+          "rtsStats": true,
+          "threaded": true
+        }
+      },
+      "manifestSha256": "fdf11494d4a35ae9523a5d91dec10fa6fa2d533d72d883ba8665e84671dfc189",
+      "resultSha256": "1e66c8e0a868b588501698b0d2f8cd08722e2da8ba80df36b51ccf6dbcc89dac",
+      "rawPrefix": "gs://tan-nb-exp-cells-results/runs/01a122a9-42de-7731-ac07-979ea078d962/",
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 39047725
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 4670176.023676801
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 4562943
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 5246975
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 5545983
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 6344703
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 14450687
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 6340607
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 854.2997898881292
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 854.2997898881292
+        },
+        "pg.checkpoints-in-window": {
+          "unit": "count",
+          "value": 0
+        },
+        "pg.wal-bytes-per-op": {
+          "unit": "bytes/op",
+          "value": 1921.905810010919
+        },
+        "proc.cpu-utilisation": {
+          "unit": "ratio",
+          "value": 0.11934144048731266
+        },
+        "proc.rss-max": {
+          "unit": "bytes",
+          "value": 335708160
+        },
+        "rts.alloc-bytes-per-op": {
+          "unit": "bytes/op",
+          "value": 176613.72580119915
+        },
+        "rts.alloc-rate": {
+          "unit": "bytes/s",
+          "value": 150881068.84332412
+        },
+        "rts.gc-productivity": {
+          "unit": "ratio",
+          "value": 0.9954566409251573
+        },
+        "rts.live-bytes-major-mean": {
+          "unit": "bytes",
+          "value": 19006620
+        },
+        "rts.max-live-bytes": {
+          "unit": "bytes",
+          "value": 21760104
+        }
+      },
+      "grade": "benchmark",
+      "gradeReasons": [],
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "fresh": false,
+        "mode": "group-category",
+        "offered": 0,
+        "seconds": 61,
+        "warmup_seconds": 60,
+        "width": 1
+      },
+      "durability": "on,on,on",
+      "durableDrained": true,
+      "calls": 52203,
+      "events": 52203,
+      "delivered": 52203,
+      "checkpointUpdates": 52203,
+      "checkpointHotUpdates": 52201,
+      "checkpointStatementDeltas": [
+        {
+          "calls": 52203,
+          "exec_ms": 1410.3631949999751,
+          "wal_bytes": 8136940
+        }
+      ],
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit"
+    },
+    {
+      "runId": "01a1224d-ab32-7581-af2f-29af173937e6",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 1,
+        "trial": 0
+      },
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "head",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "15c21e8a7bd833573ccd117157f2f12e656629e8",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "15c21e8a7bd833573ccd117157f2f12e656629e8",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "15c21e8a7bd833573ccd117157f2f12e656629e8",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "15c21e8a7bd833573ccd117157f2f12e656629e8",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "15c21e8a7bd833573ccd117157f2f12e656629e8",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "15c21e8a7bd833573ccd117157f2f12e656629e8",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "5cd07f5d11ce25498e54f9c84cf2493fa8cd303cf0810d70dd44b5f74e13b919",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:4ee4a7c513c7c0892f67892a1e65eca1742f6d6a57d896b698450b09b2d5979c",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "fingerprint": {
+        "cell": {
+          "broker": null,
+          "capabilities": {
+            "broker": "none",
+            "fault-hook": false,
+            "otlp.file": true,
+            "otlp.null": true,
+            "postgres.control-hook": false,
+            "postgres.major": "18",
+            "postgres.pg_partman": true,
+            "postgres.second-server": false
+          },
+          "cell": "alpha",
+          "cellRun": "01a122a9-42de-7731-b2bd-b5a7792a189d",
+          "clock": {
+            "skewBoundMicros": null
+          },
+          "driver": {
+            "count": 1,
+            "index": 0
+          },
+          "faultHook": false,
+          "leaseId": "01a122a9-3ccc-772a-8f34-56a94da0fa38",
+          "otlpSink": "null",
+          "payload": {
+            "bundleSha256": "926b596464faaf67b84ebeb6b9ef06db606951e810ae9752716f60cc0e32f9a6",
+            "cohort": "head",
+            "harness": {
+              "dirty": false,
+              "revision": "6f67012011fd329c258553f1fe758a170e5a1cb1"
+            },
+            "narHash": "sha256-arKiI/AOkBYGSebnZUTM1PO5+MioquYHKc+qFL25IK4=",
+            "storePath": "/nix/store/182xzssfjcza19nnqz54f9fg44ys2cmv-kiroku-mp12-head"
+          },
+          "postgres": {
+            "extensions": {
+              "pg_partman": {
+                "available": true,
+                "version": "5.4.3"
+              }
+            },
+            "extraPostgres": "shared-server",
+            "host": "10.0.0.2",
+            "major": 18,
+            "placement": "cell-server",
+            "port": 5432
+          },
+          "schema": "kenshou.cell-context/v1"
+        },
+        "extraPostgres": {},
+        "host": {
+          "arch": "x86_64",
+          "cpuModel": "Intel(R) Xeon(R) CPU @ 2.80GHz",
+          "hostname": "cell-driver",
+          "kernel": "6.18.28",
+          "logicalCores": 4,
+          "memoryBytes": 33657585664,
+          "os": "linux"
+        },
+        "kenshou": {
+          "dirty": false,
+          "executableSha256": "sha256:e0973470a6c2aa208fc791e9e97261747adf53997b5fb480817fad3226f8646c",
+          "revision": "6f67012011fd329c258553f1fe758a170e5a1cb1",
+          "version": "0.1.0.0"
+        },
+        "machineProfile": "gcp/us-west1-a/shape-f8ed9373b60a5a28/pg18",
+        "placement": "cell",
+        "postgres": {
+          "collation": "en_US.UTF-8",
+          "encoding": "UTF8",
+          "serverVersion": "18.3",
+          "serverVersionNum": 180003,
+          "settings": {
+            "autovacuum": "on",
+            "checkpoint_completion_target": "0.9",
+            "checkpoint_timeout": "30min",
+            "effective_cache_size": "24GB",
+            "fsync": "on",
+            "full_page_writes": "on",
+            "max_connections": "500",
+            "max_wal_size": "16GB",
+            "random_page_cost": "1.1",
+            "shared_buffers": "128MB",
+            "shared_preload_libraries": "pg_stat_statements,auto_explain",
+            "synchronous_commit": "on",
+            "wal_buffers": "4MB",
+            "wal_level": "replica",
+            "work_mem": "16MB"
+          },
+          "superuser": false
+        },
+        "runtime": {
+          "capabilities": 4,
+          "ghc": "Version {versionBranch = [9,12], versionTags = []}",
+          "rtsStats": true,
+          "threaded": true
+        }
+      },
+      "manifestSha256": "a289831ae10151b123be03195b08cba33473abd529182d9df99ec6ffa7289432",
+      "resultSha256": "42c040223c86a9a948b3a34defda5cebaa2f7531479057acd21aff36d47c88d3",
+      "rawPrefix": "gs://tan-nb-exp-cells-results/runs/01a122a9-42de-7731-b2bd-b5a7792a189d/",
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 211924192
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 4536249.608272552
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 4452351
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 4956159
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 5144575
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 6041599
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 14622719
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 6041599
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 879.4520343620114
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 879.4520343620114
+        },
+        "pg.checkpoints-in-window": {
+          "unit": "count",
+          "value": 0
+        },
+        "pg.wal-bytes-per-op": {
+          "unit": "bytes/op",
+          "value": 1928.1136871092588
+        },
+        "proc.cpu-utilisation": {
+          "unit": "ratio",
+          "value": 0.1198642853472338
+        },
+        "proc.rss-max": {
+          "unit": "bytes",
+          "value": 339705856
+        },
+        "rts.alloc-bytes-per-op": {
+          "unit": "bytes/op",
+          "value": 174434.62950282823
+        },
+        "rts.alloc-rate": {
+          "unit": "bytes/s",
+          "value": 153406889.77944604
+        },
+        "rts.gc-productivity": {
+          "unit": "ratio",
+          "value": 0.9951228527849993
+        },
+        "rts.live-bytes-major-mean": {
+          "unit": "bytes",
+          "value": 19173972
+        },
+        "rts.max-live-bytes": {
+          "unit": "bytes",
+          "value": 22221352
+        }
+      },
+      "grade": "benchmark",
+      "gradeReasons": [],
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "fresh": false,
+        "mode": "group-category",
+        "offered": 0,
+        "seconds": 61,
+        "warmup_seconds": 60,
+        "width": 1
+      },
+      "durability": "on,on,on",
+      "durableDrained": true,
+      "calls": 53744,
+      "events": 53744,
+      "delivered": 53744,
+      "checkpointUpdates": 53744,
+      "checkpointHotUpdates": 53744,
+      "checkpointStatementDeltas": [
+        {
+          "calls": 53744,
+          "exec_ms": 1412.3413249999726,
+          "wal_bytes": 8387559
+        }
+      ],
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit"
+    },
+    {
+      "runId": "01a1224d-ab32-7581-a955-3fc0eee7f937",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 2,
+        "trial": 1
+      },
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "head",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "15c21e8a7bd833573ccd117157f2f12e656629e8",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "15c21e8a7bd833573ccd117157f2f12e656629e8",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "15c21e8a7bd833573ccd117157f2f12e656629e8",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "15c21e8a7bd833573ccd117157f2f12e656629e8",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "15c21e8a7bd833573ccd117157f2f12e656629e8",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "15c21e8a7bd833573ccd117157f2f12e656629e8",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "5cd07f5d11ce25498e54f9c84cf2493fa8cd303cf0810d70dd44b5f74e13b919",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:4ee4a7c513c7c0892f67892a1e65eca1742f6d6a57d896b698450b09b2d5979c",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "fingerprint": {
+        "cell": {
+          "broker": null,
+          "capabilities": {
+            "broker": "none",
+            "fault-hook": false,
+            "otlp.file": true,
+            "otlp.null": true,
+            "postgres.control-hook": false,
+            "postgres.major": "18",
+            "postgres.pg_partman": true,
+            "postgres.second-server": false
+          },
+          "cell": "alpha",
+          "cellRun": "01a122a9-42de-7731-b416-ee8f4244850d",
+          "clock": {
+            "skewBoundMicros": null
+          },
+          "driver": {
+            "count": 1,
+            "index": 0
+          },
+          "faultHook": false,
+          "leaseId": "01a122a9-3ccc-772a-8f34-56a94da0fa38",
+          "otlpSink": "null",
+          "payload": {
+            "bundleSha256": "926b596464faaf67b84ebeb6b9ef06db606951e810ae9752716f60cc0e32f9a6",
+            "cohort": "head",
+            "harness": {
+              "dirty": false,
+              "revision": "6f67012011fd329c258553f1fe758a170e5a1cb1"
+            },
+            "narHash": "sha256-arKiI/AOkBYGSebnZUTM1PO5+MioquYHKc+qFL25IK4=",
+            "storePath": "/nix/store/182xzssfjcza19nnqz54f9fg44ys2cmv-kiroku-mp12-head"
+          },
+          "postgres": {
+            "extensions": {
+              "pg_partman": {
+                "available": true,
+                "version": "5.4.3"
+              }
+            },
+            "extraPostgres": "shared-server",
+            "host": "10.0.0.2",
+            "major": 18,
+            "placement": "cell-server",
+            "port": 5432
+          },
+          "schema": "kenshou.cell-context/v1"
+        },
+        "extraPostgres": {},
+        "host": {
+          "arch": "x86_64",
+          "cpuModel": "Intel(R) Xeon(R) CPU @ 2.80GHz",
+          "hostname": "cell-driver",
+          "kernel": "6.18.28",
+          "logicalCores": 4,
+          "memoryBytes": 33657585664,
+          "os": "linux"
+        },
+        "kenshou": {
+          "dirty": false,
+          "executableSha256": "sha256:e0973470a6c2aa208fc791e9e97261747adf53997b5fb480817fad3226f8646c",
+          "revision": "6f67012011fd329c258553f1fe758a170e5a1cb1",
+          "version": "0.1.0.0"
+        },
+        "machineProfile": "gcp/us-west1-a/shape-f8ed9373b60a5a28/pg18",
+        "placement": "cell",
+        "postgres": {
+          "collation": "en_US.UTF-8",
+          "encoding": "UTF8",
+          "serverVersion": "18.3",
+          "serverVersionNum": 180003,
+          "settings": {
+            "autovacuum": "on",
+            "checkpoint_completion_target": "0.9",
+            "checkpoint_timeout": "30min",
+            "effective_cache_size": "24GB",
+            "fsync": "on",
+            "full_page_writes": "on",
+            "max_connections": "500",
+            "max_wal_size": "16GB",
+            "random_page_cost": "1.1",
+            "shared_buffers": "128MB",
+            "shared_preload_libraries": "pg_stat_statements,auto_explain",
+            "synchronous_commit": "on",
+            "wal_buffers": "4MB",
+            "wal_level": "replica",
+            "work_mem": "16MB"
+          },
+          "superuser": false
+        },
+        "runtime": {
+          "capabilities": 4,
+          "ghc": "Version {versionBranch = [9,12], versionTags = []}",
+          "rtsStats": true,
+          "threaded": true
+        }
+      },
+      "manifestSha256": "25ed0390f0c809f4ea5472c3d58b73ccfeca91c4f8dd7e6216d9f55a85eee8a1",
+      "resultSha256": "5667e327d365a4af978920e64bfd344245642d5891db2b1fa91596b83b7555dc",
+      "rawPrefix": "gs://tan-nb-exp-cells-results/runs/01a122a9-42de-7731-b416-ee8f4244850d/",
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 211901083
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 4591944.378861573
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 4485119
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 4988927
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 5177343
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 6504447
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 15310847
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 6504447
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 861.1171367646692
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 861.1171367646692
+        },
+        "pg.checkpoints-in-window": {
+          "unit": "count",
+          "value": 0
+        },
+        "pg.wal-bytes-per-op": {
+          "unit": "bytes/op",
+          "value": 1915.1329178857773
+        },
+        "proc.cpu-utilisation": {
+          "unit": "ratio",
+          "value": 0.11652746906194392
+        },
+        "proc.rss-max": {
+          "unit": "bytes",
+          "value": 349057024
+        },
+        "rts.alloc-bytes-per-op": {
+          "unit": "bytes/op",
+          "value": 175152.7744043774
+        },
+        "rts.alloc-rate": {
+          "unit": "bytes/s",
+          "value": 150827055.5914855
+        },
+        "rts.gc-productivity": {
+          "unit": "ratio",
+          "value": 0.9952905864061877
+        },
+        "rts.live-bytes-major-mean": {
+          "unit": "bytes",
+          "value": 19025578
+        },
+        "rts.max-live-bytes": {
+          "unit": "bytes",
+          "value": 22595656
+        }
+      },
+      "grade": "benchmark",
+      "gradeReasons": [],
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "fresh": false,
+        "mode": "group-category",
+        "offered": 0,
+        "seconds": 61,
+        "warmup_seconds": 60,
+        "width": 1
+      },
+      "durability": "on,on,on",
+      "durableDrained": true,
+      "calls": 52634,
+      "events": 52634,
+      "delivered": 52634,
+      "checkpointUpdates": 52634,
+      "checkpointHotUpdates": 52634,
+      "checkpointStatementDeltas": [
+        {
+          "calls": 52634,
+          "exec_ms": 1367.3783289999803,
+          "wal_bytes": 8213601
+        }
+      ],
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit"
+    },
+    {
+      "runId": "01a1224d-ab32-7581-ad82-bcedf9b6e5d2",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 3,
+        "trial": 1
+      },
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "released",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "f5416c566f0600afa4390e9cfc2f31ed073d0585fddb3f1980420081d276b4d4",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:d4a91c3eb54aa40d54c5bc060b73ff0cb8ebe5717ebb1df32edd5b986986efa5",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "fingerprint": {
+        "cell": {
+          "broker": null,
+          "capabilities": {
+            "broker": "none",
+            "fault-hook": false,
+            "otlp.file": true,
+            "otlp.null": true,
+            "postgres.control-hook": false,
+            "postgres.major": "18",
+            "postgres.pg_partman": true,
+            "postgres.second-server": false
+          },
+          "cell": "alpha",
+          "cellRun": "01a122a9-42de-7731-b860-312ac58e7b18",
+          "clock": {
+            "skewBoundMicros": null
+          },
+          "driver": {
+            "count": 1,
+            "index": 0
+          },
+          "faultHook": false,
+          "leaseId": "01a122a9-3ccc-772a-8f34-56a94da0fa38",
+          "otlpSink": "null",
+          "payload": {
+            "bundleSha256": "0197f49615f02705bc8db94ea5f56932b874c49fb6e159b118666444e1210400",
+            "cohort": "released",
+            "harness": {
+              "dirty": false,
+              "revision": "6f67012011fd329c258553f1fe758a170e5a1cb1"
+            },
+            "narHash": "sha256-GZa7utgbSbxLbPaMLX8oY1J1GmTlj71QNYlphN9z+7w=",
+            "storePath": "/nix/store/9l90s8ccciy3l0lvrimpm4rs4zl7fpm9-kiroku-mp12-released"
+          },
+          "postgres": {
+            "extensions": {
+              "pg_partman": {
+                "available": true,
+                "version": "5.4.3"
+              }
+            },
+            "extraPostgres": "shared-server",
+            "host": "10.0.0.2",
+            "major": 18,
+            "placement": "cell-server",
+            "port": 5432
+          },
+          "schema": "kenshou.cell-context/v1"
+        },
+        "extraPostgres": {},
+        "host": {
+          "arch": "x86_64",
+          "cpuModel": "Intel(R) Xeon(R) CPU @ 2.80GHz",
+          "hostname": "cell-driver",
+          "kernel": "6.18.28",
+          "logicalCores": 4,
+          "memoryBytes": 33657585664,
+          "os": "linux"
+        },
+        "kenshou": {
+          "dirty": false,
+          "executableSha256": "sha256:c9b85436b1c3141c0673d83eef80dc57342e41513f39f140088d938a19f8355a",
+          "revision": "6f67012011fd329c258553f1fe758a170e5a1cb1",
+          "version": "0.1.0.0"
+        },
+        "machineProfile": "gcp/us-west1-a/shape-f8ed9373b60a5a28/pg18",
+        "placement": "cell",
+        "postgres": {
+          "collation": "en_US.UTF-8",
+          "encoding": "UTF8",
+          "serverVersion": "18.3",
+          "serverVersionNum": 180003,
+          "settings": {
+            "autovacuum": "on",
+            "checkpoint_completion_target": "0.9",
+            "checkpoint_timeout": "30min",
+            "effective_cache_size": "24GB",
+            "fsync": "on",
+            "full_page_writes": "on",
+            "max_connections": "500",
+            "max_wal_size": "16GB",
+            "random_page_cost": "1.1",
+            "shared_buffers": "128MB",
+            "shared_preload_libraries": "pg_stat_statements,auto_explain",
+            "synchronous_commit": "on",
+            "wal_buffers": "4MB",
+            "wal_level": "replica",
+            "work_mem": "16MB"
+          },
+          "superuser": false
+        },
+        "runtime": {
+          "capabilities": 4,
+          "ghc": "Version {versionBranch = [9,12], versionTags = []}",
+          "rtsStats": true,
+          "threaded": true
+        }
+      },
+      "manifestSha256": "970da9a6c5144ab36d1abe194aa8f7465750d91a8153d30a6962db6b8259d68a",
+      "resultSha256": "04f56a75364c052713505e562f173c6351d55271d45b9837eb939159d7d7aa62",
+      "rawPrefix": "gs://tan-nb-exp-cells-results/runs/01a122a9-42de-7731-b860-312ac58e7b18/",
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 26851745
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 4657130.341585866
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 4587519
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 5107711
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 5292031
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 6111231
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 14393343
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 6111231
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 854.2062883422122
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 854.2062883422122
+        },
+        "pg.checkpoints-in-window": {
+          "unit": "count",
+          "value": 0
+        },
+        "pg.wal-bytes-per-op": {
+          "unit": "bytes/op",
+          "value": 1922.7381864867973
+        },
+        "proc.cpu-utilisation": {
+          "unit": "ratio",
+          "value": 0.12092225798352227
+        },
+        "proc.rss-max": {
+          "unit": "bytes",
+          "value": 340295680
+        },
+        "rts.alloc-bytes-per-op": {
+          "unit": "bytes/op",
+          "value": 171370.72042310197
+        },
+        "rts.alloc-rate": {
+          "unit": "bytes/s",
+          "value": 146385947.0231489
+        },
+        "rts.gc-productivity": {
+          "unit": "ratio",
+          "value": 0.9952940962118443
+        },
+        "rts.live-bytes-major-mean": {
+          "unit": "bytes",
+          "value": 18213220
+        },
+        "rts.max-live-bytes": {
+          "unit": "bytes",
+          "value": 20456824
+        }
+      },
+      "grade": "benchmark",
+      "gradeReasons": [],
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "fresh": false,
+        "mode": "group-category",
+        "offered": 0,
+        "seconds": 61,
+        "warmup_seconds": 60,
+        "width": 1
+      },
+      "durability": "on,on,on",
+      "durableDrained": true,
+      "calls": 52186,
+      "events": 52186,
+      "delivered": 52186,
+      "checkpointUpdates": 52186,
+      "checkpointHotUpdates": 52184,
+      "checkpointStatementDeltas": [
+        {
+          "calls": 52186,
+          "exec_ms": 1397.454799999973,
+          "wal_bytes": 8142463
+        }
+      ],
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit"
+    },
+    {
+      "runId": "01a1224d-ab32-7581-ab0e-463230d7a9b4",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 4,
+        "trial": 2
+      },
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "released",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "f5416c566f0600afa4390e9cfc2f31ed073d0585fddb3f1980420081d276b4d4",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:d4a91c3eb54aa40d54c5bc060b73ff0cb8ebe5717ebb1df32edd5b986986efa5",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "fingerprint": {
+        "cell": {
+          "broker": null,
+          "capabilities": {
+            "broker": "none",
+            "fault-hook": false,
+            "otlp.file": true,
+            "otlp.null": true,
+            "postgres.control-hook": false,
+            "postgres.major": "18",
+            "postgres.pg_partman": true,
+            "postgres.second-server": false
+          },
+          "cell": "alpha",
+          "cellRun": "01a122a9-42de-7731-bed3-3f4ee97eeccd",
+          "clock": {
+            "skewBoundMicros": null
+          },
+          "driver": {
+            "count": 1,
+            "index": 0
+          },
+          "faultHook": false,
+          "leaseId": "01a122a9-3ccc-772a-8f34-56a94da0fa38",
+          "otlpSink": "null",
+          "payload": {
+            "bundleSha256": "0197f49615f02705bc8db94ea5f56932b874c49fb6e159b118666444e1210400",
+            "cohort": "released",
+            "harness": {
+              "dirty": false,
+              "revision": "6f67012011fd329c258553f1fe758a170e5a1cb1"
+            },
+            "narHash": "sha256-GZa7utgbSbxLbPaMLX8oY1J1GmTlj71QNYlphN9z+7w=",
+            "storePath": "/nix/store/9l90s8ccciy3l0lvrimpm4rs4zl7fpm9-kiroku-mp12-released"
+          },
+          "postgres": {
+            "extensions": {
+              "pg_partman": {
+                "available": true,
+                "version": "5.4.3"
+              }
+            },
+            "extraPostgres": "shared-server",
+            "host": "10.0.0.2",
+            "major": 18,
+            "placement": "cell-server",
+            "port": 5432
+          },
+          "schema": "kenshou.cell-context/v1"
+        },
+        "extraPostgres": {},
+        "host": {
+          "arch": "x86_64",
+          "cpuModel": "Intel(R) Xeon(R) CPU @ 2.80GHz",
+          "hostname": "cell-driver",
+          "kernel": "6.18.28",
+          "logicalCores": 4,
+          "memoryBytes": 33657585664,
+          "os": "linux"
+        },
+        "kenshou": {
+          "dirty": false,
+          "executableSha256": "sha256:c9b85436b1c3141c0673d83eef80dc57342e41513f39f140088d938a19f8355a",
+          "revision": "6f67012011fd329c258553f1fe758a170e5a1cb1",
+          "version": "0.1.0.0"
+        },
+        "machineProfile": "gcp/us-west1-a/shape-f8ed9373b60a5a28/pg18",
+        "placement": "cell",
+        "postgres": {
+          "collation": "en_US.UTF-8",
+          "encoding": "UTF8",
+          "serverVersion": "18.3",
+          "serverVersionNum": 180003,
+          "settings": {
+            "autovacuum": "on",
+            "checkpoint_completion_target": "0.9",
+            "checkpoint_timeout": "30min",
+            "effective_cache_size": "24GB",
+            "fsync": "on",
+            "full_page_writes": "on",
+            "max_connections": "500",
+            "max_wal_size": "16GB",
+            "random_page_cost": "1.1",
+            "shared_buffers": "128MB",
+            "shared_preload_libraries": "pg_stat_statements,auto_explain",
+            "synchronous_commit": "on",
+            "wal_buffers": "4MB",
+            "wal_level": "replica",
+            "work_mem": "16MB"
+          },
+          "superuser": false
+        },
+        "runtime": {
+          "capabilities": 4,
+          "ghc": "Version {versionBranch = [9,12], versionTags = []}",
+          "rtsStats": true,
+          "threaded": true
+        }
+      },
+      "manifestSha256": "6d4b392b7b7229bcf81892d55743cfe65aa763690ddf35e92e4fc554e21ec03d",
+      "resultSha256": "892c3869df780dbb795445047779783bec8a105c44665e1ba94f6f1e29717958",
+      "rawPrefix": "gs://tan-nb-exp-cells-results/runs/01a122a9-42de-7731-bed3-3f4ee97eeccd/",
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 84698925
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 4436122.9982294105
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 4354047
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 4841471
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 5009407
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 5865471
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 14893055
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 5865471
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 896.6609830103813
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 896.6609830103813
+        },
+        "pg.checkpoints-in-window": {
+          "unit": "count",
+          "value": 0
+        },
+        "pg.wal-bytes-per-op": {
+          "unit": "bytes/op",
+          "value": 1941.094699182243
+        },
+        "proc.cpu-utilisation": {
+          "unit": "ratio",
+          "value": 0.11763928912432674
+        },
+        "proc.rss-max": {
+          "unit": "bytes",
+          "value": 345022464
+        },
+        "rts.alloc-bytes-per-op": {
+          "unit": "bytes/op",
+          "value": 171257.1648656542
+        },
+        "rts.alloc-rate": {
+          "unit": "bytes/s",
+          "value": 153559617.79600844
+        },
+        "rts.gc-productivity": {
+          "unit": "ratio",
+          "value": 0.994959850917793
+        },
+        "rts.live-bytes-major-mean": {
+          "unit": "bytes",
+          "value": 19585906
+        },
+        "rts.max-live-bytes": {
+          "unit": "bytes",
+          "value": 22410680
+        }
+      },
+      "grade": "benchmark",
+      "gradeReasons": [],
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "fresh": false,
+        "mode": "group-category",
+        "offered": 0,
+        "seconds": 61,
+        "warmup_seconds": 60,
+        "width": 1
+      },
+      "durability": "on,on,on",
+      "durableDrained": true,
+      "calls": 54784,
+      "events": 54784,
+      "delivered": 54784,
+      "checkpointUpdates": 54784,
+      "checkpointHotUpdates": 54782,
+      "checkpointStatementDeltas": [
+        {
+          "calls": 54784,
+          "exec_ms": 1412.578299000016,
+          "wal_bytes": 8548865
+        }
+      ],
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit"
+    },
+    {
+      "runId": "01a1224d-ab32-7581-a135-b732094d799d",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 5,
+        "trial": 2
+      },
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "head",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "15c21e8a7bd833573ccd117157f2f12e656629e8",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "15c21e8a7bd833573ccd117157f2f12e656629e8",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "15c21e8a7bd833573ccd117157f2f12e656629e8",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "15c21e8a7bd833573ccd117157f2f12e656629e8",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "15c21e8a7bd833573ccd117157f2f12e656629e8",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "15c21e8a7bd833573ccd117157f2f12e656629e8",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "5cd07f5d11ce25498e54f9c84cf2493fa8cd303cf0810d70dd44b5f74e13b919",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:4ee4a7c513c7c0892f67892a1e65eca1742f6d6a57d896b698450b09b2d5979c",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "fingerprint": {
+        "cell": {
+          "broker": null,
+          "capabilities": {
+            "broker": "none",
+            "fault-hook": false,
+            "otlp.file": true,
+            "otlp.null": true,
+            "postgres.control-hook": false,
+            "postgres.major": "18",
+            "postgres.pg_partman": true,
+            "postgres.second-server": false
+          },
+          "cell": "alpha",
+          "cellRun": "01a122a9-42de-7732-8021-e59f86484efb",
+          "clock": {
+            "skewBoundMicros": null
+          },
+          "driver": {
+            "count": 1,
+            "index": 0
+          },
+          "faultHook": false,
+          "leaseId": "01a122a9-3ccc-772a-8f34-56a94da0fa38",
+          "otlpSink": "null",
+          "payload": {
+            "bundleSha256": "926b596464faaf67b84ebeb6b9ef06db606951e810ae9752716f60cc0e32f9a6",
+            "cohort": "head",
+            "harness": {
+              "dirty": false,
+              "revision": "6f67012011fd329c258553f1fe758a170e5a1cb1"
+            },
+            "narHash": "sha256-arKiI/AOkBYGSebnZUTM1PO5+MioquYHKc+qFL25IK4=",
+            "storePath": "/nix/store/182xzssfjcza19nnqz54f9fg44ys2cmv-kiroku-mp12-head"
+          },
+          "postgres": {
+            "extensions": {
+              "pg_partman": {
+                "available": true,
+                "version": "5.4.3"
+              }
+            },
+            "extraPostgres": "shared-server",
+            "host": "10.0.0.2",
+            "major": 18,
+            "placement": "cell-server",
+            "port": 5432
+          },
+          "schema": "kenshou.cell-context/v1"
+        },
+        "extraPostgres": {},
+        "host": {
+          "arch": "x86_64",
+          "cpuModel": "Intel(R) Xeon(R) CPU @ 2.80GHz",
+          "hostname": "cell-driver",
+          "kernel": "6.18.28",
+          "logicalCores": 4,
+          "memoryBytes": 33657585664,
+          "os": "linux"
+        },
+        "kenshou": {
+          "dirty": false,
+          "executableSha256": "sha256:e0973470a6c2aa208fc791e9e97261747adf53997b5fb480817fad3226f8646c",
+          "revision": "6f67012011fd329c258553f1fe758a170e5a1cb1",
+          "version": "0.1.0.0"
+        },
+        "machineProfile": "gcp/us-west1-a/shape-f8ed9373b60a5a28/pg18",
+        "placement": "cell",
+        "postgres": {
+          "collation": "en_US.UTF-8",
+          "encoding": "UTF8",
+          "serverVersion": "18.3",
+          "serverVersionNum": 180003,
+          "settings": {
+            "autovacuum": "on",
+            "checkpoint_completion_target": "0.9",
+            "checkpoint_timeout": "30min",
+            "effective_cache_size": "24GB",
+            "fsync": "on",
+            "full_page_writes": "on",
+            "max_connections": "500",
+            "max_wal_size": "16GB",
+            "random_page_cost": "1.1",
+            "shared_buffers": "128MB",
+            "shared_preload_libraries": "pg_stat_statements,auto_explain",
+            "synchronous_commit": "on",
+            "wal_buffers": "4MB",
+            "wal_level": "replica",
+            "work_mem": "16MB"
+          },
+          "superuser": false
+        },
+        "runtime": {
+          "capabilities": 4,
+          "ghc": "Version {versionBranch = [9,12], versionTags = []}",
+          "rtsStats": true,
+          "threaded": true
+        }
+      },
+      "manifestSha256": "c9c0a13958d8526968acb4c82fa8b2e7c01671cdf150379bdeab3c7025f89225",
+      "resultSha256": "4f6fca9f63a98bd090d0b91a8590b82c46810f10b244c9cec5ee7cdbc18ec897",
+      "rawPrefix": "gs://tan-nb-exp-cells-results/runs/01a122a9-42de-7732-8021-e59f86484efb/",
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 32263555
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 4484988.617291493
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 4403199
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 4894719
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 5079039
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 6008831
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 14598143
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 6008831
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 883.8131407007505
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 883.8131407007505
+        },
+        "pg.checkpoints-in-window": {
+          "unit": "count",
+          "value": 0
+        },
+        "pg.wal-bytes-per-op": {
+          "unit": "bytes/op",
+          "value": 1950.2373785059706
+        },
+        "proc.cpu-utilisation": {
+          "unit": "ratio",
+          "value": 0.1212042180827698
+        },
+        "proc.rss-max": {
+          "unit": "bytes",
+          "value": 344461312
+        },
+        "rts.alloc-bytes-per-op": {
+          "unit": "bytes/op",
+          "value": 175983.79694529297
+        },
+        "rts.alloc-rate": {
+          "unit": "bytes/s",
+          "value": 155536792.29066253
+        },
+        "rts.gc-productivity": {
+          "unit": "ratio",
+          "value": 0.9949040379359824
+        },
+        "rts.live-bytes-major-mean": {
+          "unit": "bytes",
+          "value": 19195652
+        },
+        "rts.max-live-bytes": {
+          "unit": "bytes",
+          "value": 22297016
+        }
+      },
+      "grade": "benchmark",
+      "gradeReasons": [],
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "fresh": false,
+        "mode": "group-category",
+        "offered": 0,
+        "seconds": 61,
+        "warmup_seconds": 60,
+        "width": 1
+      },
+      "durability": "on,on,on",
+      "durableDrained": true,
+      "calls": 54015,
+      "events": 54015,
+      "delivered": 54015,
+      "checkpointUpdates": 54015,
+      "checkpointHotUpdates": 54013,
+      "checkpointStatementDeltas": [
+        {
+          "calls": 54015,
+          "exec_ms": 1417.5841089999833,
+          "wal_bytes": 8428001
+        }
+      ],
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit"
+    }
+  ],
+  "analysisCommand": [
+    "kenshou",
+    "compare",
+    "--policy",
+    "/tmp/kiroku-mp12-final-bounded-diagnostic/policy.json",
+    "--vary",
+    "cohort",
+    "--out",
+    "/tmp/kiroku-mp12-final-bounded-diagnostic/completed-comparison.json",
+    "--baseline",
+    "/tmp/kiroku-mp12-final-bounded-diagnostic/pair/01a122a9-42de-7731-ac07-979ea078d962/tree/output/01a1224d-ab32-7581-a490-70c623cd6a8f",
+    "--candidate",
+    "/tmp/kiroku-mp12-final-bounded-diagnostic/pair/01a122a9-42de-7731-b2bd-b5a7792a189d/tree/output/01a1224d-ab32-7581-af2f-29af173937e6",
+    "--baseline",
+    "/tmp/kiroku-mp12-final-bounded-diagnostic/pair/01a122a9-42de-7731-b860-312ac58e7b18/tree/output/01a1224d-ab32-7581-ad82-bcedf9b6e5d2",
+    "--candidate",
+    "/tmp/kiroku-mp12-final-bounded-diagnostic/pair/01a122a9-42de-7731-b416-ee8f4244850d/tree/output/01a1224d-ab32-7581-a955-3fc0eee7f937",
+    "--baseline",
+    "/tmp/kiroku-mp12-final-bounded-diagnostic/pair/01a122a9-42de-7731-bed3-3f4ee97eeccd/tree/output/01a1224d-ab32-7581-ab0e-463230d7a9b4",
+    "--candidate",
+    "/tmp/kiroku-mp12-final-bounded-diagnostic/pair/01a122a9-42de-7732-8021-e59f86484efb/tree/output/01a1224d-ab32-7581-a135-b732094d799d"
+  ],
+  "operatorProject": "mori://shinzui/keiro-runtime-kenshou"
+}

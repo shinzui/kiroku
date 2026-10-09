@@ -157,7 +157,7 @@ perf-workload-gate:
     cabal bench kiroku-store:kiroku-store-bench-workload-gate \
         --benchmark-options="--stdev 5"
 
-# Check the sealed original-control matrix collected with bench/mp12-cell/run-matrix.py
+# Optional extended original-control matrix; outside the default performance check
 [group('benchmarks')]
 perf-mixed-write-gate:
     python3 bench/mp12-cell/check-matrix.py "${MP12_CELL_MATRIX:-kiroku-store/bench/results/mp12-cell-matrix}"
@@ -165,7 +165,6 @@ perf-mixed-write-gate:
 # Run the authoritative structural and controlled workload gates
 [group('benchmarks')]
 perf-check:
-    just perf-mixed-write-gate
     just perf-structure
     just perf-workload-gate
 

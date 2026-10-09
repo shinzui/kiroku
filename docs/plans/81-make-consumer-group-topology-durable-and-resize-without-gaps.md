@@ -67,8 +67,8 @@ adoption path exists.
 
 ## Progress
 
-- [x] (2026-10-09) Prepare the matched Linux harness, predeclare the focused 15-cell matrix with two method calibrations, and wire fail-closed evidence verification into `just perf-check`.
-- [ ] Write-performance gate: establish pre-cohort controls and pass mixed append/subscription throughput, latency, checkpoint/WAL, and GC checks under ADR-11 before completion.
+- [x] (2026-10-09) Prepare the matched Linux harness. The attempted 15-cell matrix and default gate were superseded by the user-directed minimum-evidence scope below; the matrix remains optional.
+- [x] (2026-10-09) Complete proportional performance acceptance under amended ADR-11: reuse passing ADR-5 controls and structural checks, review all three completed affected-path A/B pairs, retain the strict comparison as inconclusive, and stop further trials.
 - [x] (2026-10-09 16:54 UTC) M1: introduce validated `ConsumerGroupSize` and `mkConsumerGroup`; write `consumer_group_size` through initialization, ordinary checkpoint saves, and dead-letter checkpoint saves; read and validate group-wide stored topology at startup.
 - [x] (2026-10-09 16:54 UTC) M1: generate the derived-topology migration and add typed mismatch, upgrade-path, and underestimate-then-resize tests, including the currently lossy skewed size-2 to size-3 scenario.
 - [x] (2026-10-09 16:54 UTC) M2: expose and test idempotent `resizeConsumerGroupTx` in `Kiroku.Store.Subscription.Checkpoint`, rewinding all new members to the old members' minimum checkpoint in one transaction.
@@ -77,6 +77,17 @@ adoption path exists.
 
 
 ## Surprises & Discoveries
+
+- Final scope correction (2026-10-09): the user explicitly rejected further trials
+  and requested minimum evidence for this small change. The earlier five-workload,
+  three-profile and 1%/3% precision requirements were agent overreach and are
+  superseded. Six verified trials form three complete alternating pairs on
+  durable PostgreSQL 18.3 with one checkpoint save per event. Artifact hashes,
+  exact delivery and durable drain pass in every trial. No replacement samples
+  were run. The operator was interrupted, its lease released and all alpha VMs
+  stopped. The unchanged policy correctly reports statistical inconclusiveness.
+  See `bench/mp12-cell/evidence/ep1-minimum-evidence.json` and the original-policy
+  comparison beside it. Earlier entries below are historical observations.
 
 - Bounded-work correction (2026-10-09): the user's postmortem request revealed
   another recovery defect in `mori://shinzui/keiro-runtime-kenshou`: held-session
@@ -325,6 +336,17 @@ adoption path exists.
 
 ## Decision Log
 
+- Decision (2026-10-09, final user correction): finish EP1 using the completed
+  correctness tests, structural checks, existing controlled workloads and the
+  three retained mixed-workload pairs. Remove the new mandatory matrix from
+  `just perf-check`; preserve its tools as optional. Do not run more benchmarks
+  or change the original comparison policy. Practical acceptance is sufficient
+  for this change; strict statistical equivalence is not established. This
+  supersedes the earlier agent-selected five-workload/three-profile design and
+  precision requirements, including the decision labelled user-directed below.
+  Reason: the user repeatedly asked for minimum evidence and rejected the
+  disproportionate time and scope. ADR-11 now records proportional evidence.
+
 - Decision (2026-10-09): use an explicit whole-experiment runtime estimate and
   a default one-hour wall-clock budget, including setup, recovery and repeats.
   Select changed-path coverage before submission; do not renew the budget by
@@ -439,13 +461,39 @@ validation, and operator documentation are present. ADR-2 is amended and strict
 profile enforcement passes. The new mismatch exception remains a concrete
 `Exception`; plan 82 owns its routing through the shared startup-refusal parent.
 
-Both PostgreSQL 17.10 and 18.6 pass the complete suite. Before integrating the
-new matrix gate, the existing ADR-5 controls passed all 16 cells and the structural
-checks; historical telemetry also completed. `just perf-check` now intentionally
-fails until full ADR-11 matrix evidence is available. This child remains In
-Progress pending that controlled write-performance acceptance.
-The pre-cohort control remains `e6ea664`; no performance acceptance is inferred
-from functional tests or the probe's smoke checks.
+EP1 is Complete under the user's minimum-evidence scope. Both PostgreSQL 17.10
+and 18.6 passed the full suites (store 326, migrations 23, adapter 38, CLI 22,
+metrics 20, OpenTelemetry 17). PostgreSQL 17 work is historical; it was not rerun.
+The unchanged production candidate passes 18 structural checks, all 16 ADR-5
+controlled workload cells, and the 30-cell historical telemetry run. Restoring
+`just perf-check` to its existing structural/workload recipe does not invalidate
+those results; only the extra matrix prerequisite was removed.
+
+The retained group-category, checkpoint-batch-one comparison uses pre-cohort
+`e6ea66433c5320097b6afd3c4ca56cd18ba86bd0` and production candidate
+`15c21e8a7bd833573ccd117157f2f12e656629e8`, with matched Linux payloads,
+compiler, RTS, pool, durability and instrumentation. All six trials are
+benchmark-grade, deliver every committed event and drain durably. Checkpoint
+statement calls equal events; WAL/save is approximately 156 bytes in both arms,
+and server execution cost is 25.8–27.0 microseconds/save across both arms.
+
+The three paired point estimates are throughput +0.76%, append p50 −1.19%,
+p95 −2.74%, and p99 +1.26%. Throughput's ratio is inverted here from Kenshou's
+adverse-oriented report. The 95% intervals permit throughput to be 4.54% lower,
+p50 3.87% higher, p95 8.70% higher and p99 16.54% higher. No consistent adverse
+signal is established. This is indicative assurance alongside structural and
+correctness evidence, not proof of zero regression or a strict 1%/3% pass.
+The original minimum-five-pair policy remains unchanged and inconclusive.
+
+Evidence: `bench/mp12-cell/evidence/ep1-minimum-evidence.json` contains source
+identities, six verified result/manifest hashes, metrics, checkpoint costs and
+sealed GCS prefixes; `ep1-three-pair-comparison.json` retains the existing CLI's
+original-policy report. Local original journal and raw trees remain under
+`/tmp/kiroku-mp12-final-bounded-diagnostic`; sealed remote trees are durable.
+Only verified complete pairs were analyzed, with no replacement trials. The
+remaining operator was stopped, alpha's lease released and its VMs shut down.
+No package release or later child implementation is claimed.
+
 
 
 ## Context and Orientation
@@ -461,8 +509,10 @@ The newer lifetime member guard is owned separately by
 It prevents duplicate active members; it does not persist sizes or equalize checkpoints.
 Coordinate edits to startup and preserve its guard behavior if it lands first. Preserve the
 category index and group wakeups from [ADR-10](../adr/0010-category-reads-use-a-denormalized-category-index-on-all-rows.md).
-One initialization checkout still permits extra SQL and group-wide work: measure startup cost
-across group sizes, and retain checkpoint-write measurements for the wider rows.
+One initialization checkout still permits extra SQL and group-wide work: inspect
+the query shape and retain focused checkpoint-write evidence. Group-size timing
+is optional unless a specific startup-cost risk remains unresolved. The metadata
+column already exists; this plan does not widen checkpoint rows.
 
 The database table `kiroku.subscriptions` is created by
 `kiroku-store-migrations/migrations/0001-kiroku-bootstrap.sql`. Its key is
@@ -664,26 +714,19 @@ just perf-telemetry
 
 ## Validation and Acceptance
 
-Write-performance acceptance (2026-10-09): [ADR-11](../adr/0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md) makes write performance
-blocking. Before production changes, freeze a pre-cohort control (initially `e6ea664`) and this
-child's workload specification. Compare append-only and simultaneous appends/subscriptions in the
-same process and pool, with native `$all`, category/group, and real acknowledgement-coupled adapter
-coverage as applicable. Keep append SQL, successful-path round trips, locks, and instrumentation
-unchanged. Keep ordinary checkpoint saves at one monotonic upsert per batch tail.
-
-Run durable PostgreSQL 18, matched compiler/RTS/pool/database settings, and fixed payloads,
-concurrency, checkpoint frequency, and offered load. Include single/multi-stream, fresh/existing,
-and small/batched writes; test checkpoint batch sizes 1 and 100. Establish live mode before live
-measurements, assert equal delivered work, durable progress, and bounded backlog, and measure
-throughput separately from fixed-load append p50/p95/p99 including queueing delay. Record checkpoint
-latency, WAL per event/save, allocation/GC/residency, and contention as well as append throughput.
-Warm up, alternate at least five paired trials of at least 60 seconds, and extend inconclusive runs.
-Calibrate variability on control/control first; predeclare uncertainty margins able to resolve
-1% throughput/p50 and 3% p95/p99 changes or better. These are measurement-resolution limits, not
-slowdown budgets. A wide uncertainty interval is inconclusive; any reproducible write regression
-blocks completion until corrected. Do not offset a slow case with a faster one or alter durability,
-checkpoint frequency, thresholds, or baselines to pass. Add the controlled gate to `just perf-check`
-and record exact commands, revisions, schemas, raw results, and interpretation before completion.
+Write-performance acceptance (2026-10-09, final user correction):
+[ADR-11](../adr/0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md)
+requires proportional evidence for this checkpoint change. Preserve unchanged
+append SQL/round trips/locks and one monotonic checkpoint upsert per batch tail.
+Reuse the passing full correctness suites, ADR-5 controls and structural checks
+when production source has not changed. Review the completed affected-path
+control/candidate pairs for a consistent adverse signal, equal durable work and
+checkpoint statement/WAL costs; retain their original statistical verdict and
+uncertainty. A confirmed regression remains blocking. No full matrix, additional
+calibration, five-pair minimum or 1%/3% equivalence proof is required for this
+child's practical completion. These were disproportionate agent-added requirements
+and are explicitly superseded by the user's repeated minimum-evidence instruction.
+No further benchmark trials are needed for EP1.
 
 The work is complete only when an invalid member/size pair cannot be constructed, a mis-sized
 startup fails before handler delivery, all checkpoint write paths store topology, the migration
@@ -695,7 +738,7 @@ ordinary checkpoint save must remain a single upsert issued once per batch tail,
 validation must add no pool checkout beyond the initialization session.
 
 
-### Controlled write probe (implementation pilot)
+### Historical controlled write probe (superseded acceptance protocol)
 
 The identical `shibuya-kiroku-adapter/bench/WriteProbe.hs` harness is built in this
 checkout and a detached `e6ea664` checkout. The control uses only
@@ -724,10 +767,9 @@ python3 scripts/mp12-write-pair.py --control "$control" --candidate "$control" \
 ```
 
 The pilot records whole-workload WAL, checkpoint update/HOT counts, and Haskell
-allocation/GC. Before full acceptance, add checkpoint latency, contention and
-continuous backlog evidence, all declared write shapes on PostgreSQL 18,
-separate sustainable-throughput trials, and integration of the complete gate into
-`just perf-check`. This pilot is evidence collection rather than a completed gate.
+allocation/GC. Its earlier full-matrix follow-up requirement is superseded by the
+final minimum-evidence acceptance above. The original calibration remains
+inconclusive and is retained for history, not relabelled as a passed gate.
 
 ## Idempotence and Recovery
 
@@ -800,3 +842,5 @@ and implemented the representative matrix collector and fail-closed gate.
 Functional acceptance remains satisfied; performance acceptance remains open.
 
 Revision note (2026-10-09, focused assurance): Reduced timing coverage to affected checkpoint paths, replaced per-cell A/A repeats with two method calibrations, cancelled the unused full queue, and corrected the unintended requirement to demonstrate a speedup on unchanged paths. The performance gate remains open.
+
+Revision note (2026-10-09, final scope correction): Applied the user's minimum-evidence instruction, stopped all extra trials, preserved the original inconclusive three-pair report, restored the ADR-5 default gate and completed EP1 with explicit statistical limitations. Earlier matrix requirements are superseded.

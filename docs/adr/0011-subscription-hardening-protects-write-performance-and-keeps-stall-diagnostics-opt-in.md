@@ -1,14 +1,14 @@
 ---
 type: Architecture Decision Record
 title: Subscription hardening protects write performance and keeps stall diagnostics opt-in
-description: "Require controlled append and mixed-workload evidence for subscription hardening, preserve cheap default paths, and make handler-stall diagnostics opt-in."
+description: "Require performance evidence proportional to subscription changes, preserve cheap default paths, and make handler-stall diagnostics opt-in."
 generated:
   by: openai/gpt-6-astra
   at: "2026-10-09T16:25:55Z"
 docId: ADR-11
 status: Accepted
 date: 2026-10-09
-timestamp: "2026-10-09T19:43:21Z"
+timestamp: "2026-10-09T22:21:00Z"
 originatingPlan: docs/masterplans/12-harden-the-kiroku-event-store-and-subscription-machinery-surfaced-by-the-2026-07-kiroku-review.md
 ---
 
@@ -38,20 +38,24 @@ monotonic upsert per batch tail, without extra verification statements or indexe
 metadata. Correctness requirements remain mandatory; performance cannot be recovered by dropping
 acknowledgements, weakening checkpoint durability, or silently skipping events.
 
-The cohort has no intentional default write-regression budget. Its acceptance requires controlled
-append-only and mixed append/subscription comparisons against the pre-cohort implementation,
-including PostgreSQL 18, real acknowledgements, sustainable throughput, append latency
-percentiles, durable subscriber progress, and checkpoint write cost. Reproducible write regressions
-block completion and release. Noisy evidence is inconclusive and requires better measurement;
-lack of statistical significance is not proof of equivalence. Acceptance can use a tightly
-bounded interval containing equality as evidence of unchanged performance at the declared
-measurement resolution; it does not require every unchanged path to demonstrate a speedup.
-An interval wholly on the adverse side still blocks, even below that resolution. Reports retain
-the possible adverse bound and must not claim proof of mathematical zero cost. Detailed workload controls and
-measurement resolution belong in the active MasterPlan and child evidence, not a new global
-replacement for ADR-5's existing thresholds. On 2026-10-09 the user explicitly
-narrowed the required database-version scope to PostgreSQL 18; PostgreSQL 17
-performance testing is excluded from this cohort's acceptance requirement.
+The cohort has no intentional default write-regression budget. Select the minimum useful
+evidence for each actual change: existing ADR-5 controls, structural invariants, and a focused
+pre-change comparison of the affected path. Reuse valid results when production source and
+measurement inputs have not changed. A checkpoint metadata change does not require a full
+write-shape, subscription-mode or load matrix, repeated calibration, or proof at 1%/3% resolution.
+Broaden measurements only to resolve a specific affected-path risk or a consistent adverse
+signal. The user explicitly required this proportional scope on 2026-10-09 after rejecting
+the agent's oversized experiment. This supersedes the earlier universal precision requirement.
+
+Reproducible write regressions block completion and release. Reports distinguish practical
+acceptance from statistical equivalence: noisy or undersampled comparisons remain statistically
+inconclusive, and absence of significance is not proof of no regression. Retain the original
+comparison policy, observed effects and uncertainty; do not tune a threshold after seeing results
+to manufacture a pass. A child may complete on the agreed minimum evidence with these limitations
+stated. The integrated cohort needs original-control evidence selected for the paths it actually
+changes, including real acknowledgement and opt-in diagnostic costs where applicable.
+PostgreSQL 18 is the required performance scope; the user's earlier correction excludes
+PostgreSQL 17 performance trials.
 
 Handler-stall diagnostics are opt-in: `handlerStallWarnAfter = Nothing` in the store and both
 adapter defaults. The disabled path creates no watchdog thread, tracking cell, timer, per-delivery
@@ -68,10 +72,10 @@ hooks are selected outside the per-event delivery loop where feasible.
 
 ## Consequences
 
-Implementation and release require more evidence than isolated subscription benchmarks. Both
-individual changes and the integrated cohort are compared with the original control to expose
-cumulative small costs. A faster reconnect cannot offset slower healthy appends in acceptance;
-each workload is assessed separately.
+Evidence effort follows the changed paths and the user's scope. Existing correctness and
+structural checks plus a focused mixed-workload comparison can suffice for a small checkpoint
+change. The integrated cohort is assessed against the original control for cumulative costs.
+A faster reconnect cannot offset a confirmed slowdown in healthy appends.
 
 Operators must explicitly enable stall warnings and choose their threshold. Documentation and
 tests must show both enabled behavior and the inactive default. Correctness fixes still ship by
@@ -84,9 +88,10 @@ performance objective is complete.
 Keeping `Just 60` as the default was rejected because it charges every existing subscriber for
 clock reads, STM updates, and watchdog scheduling before the caller has requested that diagnostic.
 
-Relying on unchanged append SQL or aggregate benchmark averages was rejected because shared
-CPU, GC, pool contention, and checkpoint WAL can affect appends indirectly. Faster cases must not
-hide a slower write scenario.
+Relying solely on unchanged append SQL was rejected because shared CPU, GC, pool contention,
+and checkpoint WAL can affect appends indirectly. Requiring a broad matrix and tight statistical
+precision for every small change was also rejected as disproportionate; focused evidence retains
+its uncertainty rather than being relabelled as a strict statistical pass.
 
 Making correctness checks optional was rejected: the cohort must preserve both its safety
 contracts and the user's write-performance requirement.

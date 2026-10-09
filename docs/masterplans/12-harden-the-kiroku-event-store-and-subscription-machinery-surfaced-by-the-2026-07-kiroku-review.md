@@ -90,8 +90,8 @@ already complete under [ADR-7](../adr/0007-replay-history-retention-uses-leases-
 
 The 2026-10-09 source audit at commit `e6ea664` found **0 of 6 children complete**.
 At that audit all five implementation children were Not Started; EP-6 awaits their completion.
-EP-1 is now In Progress: functional topology/resize milestones have landed in the
-working tree, while its full performance acceptance remains open.
+EP-1 is now Complete under the user-directed minimum-evidence scope recorded
+below. The other five children remain Not Started; no package is released.
 The accepted ADR-8 records the intended API, not evidence that it has shipped. The recent
 lifecycle, category-performance, and publisher-memory fixes are baseline improvements to preserve.
 This update inspected source, tests, migrations, changelogs, and history; it did not rerun the
@@ -140,7 +140,7 @@ decides during implementation whether the latter warrants a record.
 
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
-| 1 | Make consumer-group topology durable and resize without gaps | docs/plans/81-make-consumer-group-topology-durable-and-resize-without-gaps.md | None | EP-2 | In Progress |
+| 1 | Make consumer-group topology durable and resize without gaps | docs/plans/81-make-consumer-group-topology-durable-and-resize-without-gaps.md | None | EP-2 | Complete |
 | 2 | Repair live reconnect and validate subscription identity and batch size | docs/plans/82-repair-live-reconnect-and-validate-subscription-identity-and-batch-size.md | None | EP-1 | Not Started |
 | 3 | Contain persistent publisher decode-hook failures | docs/plans/83-contain-persistent-publisher-decode-hook-failures.md | None | EP-2 | Not Started |
 | 4 | Harden adapter acknowledgement liveness and expose retry policy | docs/plans/84-harden-adapter-acknowledgement-liveness-and-expose-retry-policy.md | EP-1, EP-2 | EP-3 | Not Started |
@@ -310,9 +310,10 @@ and with an explicit opt-in `Just 60`, including idle-worker timer/thread behavi
 controls and acceptance bounds before measuring, following ADR-5, and integrate the new controlled
 cases into an authoritative gate. No bound is claimed as already passed. Avoid interpreting an
 unchanged database round-trip count or the old synthetic benchmark as proof of unchanged CPU,
-allocation, or scheduling cost. EP-1/EP-2 also record startup validation cost as group size grows:
-one pool checkout does not imply one statement or constant work. Wider checkpoint rows can increase
-write volume even when the upsert remains HOT-eligible.
+allocation, or scheduling cost. EP-1/EP-2 inspect the startup query shape; measure
+startup cost across sizes only for a specific unresolved risk. One checkout does
+not imply one statement or constant work. Checkpoint changes can affect write
+volume even when the upsert remains HOT-eligible; EP1 retained focused WAL/save data.
 
 EP-5 changes only the error path after PostgreSQL has rolled back the failed statement, so it
 needs no gate beyond EP-6's. EP-6 runs `just perf-check`, the new EP-3/EP-4 controlled cases, and
@@ -329,78 +330,41 @@ EP-1's downstream shard-count seam belongs to `mori://shinzui/keiro`, while Kiro
 source of truth for checkpoint topology and resize semantics.
 
 
-### Write-performance acceptance contract (2026-10-09)
+### Write-performance acceptance contract (2026-10-09, final scope correction)
 
-EP-1 owns the shared mixed-workload harness, checkpoint-write control, and structural write-path
-assertions. EP-2 extends it for target metadata and reconnect. EP-3 adds decode/no-hook and live
-fan-out cases. EP-4 owns the real adapter arm in the adapter package and opt-in watchdog cases.
-The first of these children implemented establishes the common harness so the others need not wait
-for EP-1; preserve one shared workload specification. EP-6 runs the integrated matrix against the
-original pre-cohort control as well as recording per-child results. Record exact control/candidate
-commits, schemas, commands, fixtures, and raw results in the responsible child's Outcomes.
+Use the minimum evidence justified by each actual change, as the user explicitly
+required. ADR-5's structural and controlled workload gates remain authoritative.
+Reuse valid results when source and inputs are unchanged. Keep append SQL,
+round trips and default per-event instrumentation unchanged, and keep checkpoint
+saves to one monotonic upsert per batch tail. Correctness and durable progress
+remain mandatory; a reproducible regression blocks completion and release.
 
-The control is the implementation immediately before MP-12 production changes, initially the
-`e6ea664` audit baseline, not the pre-category-index implementation and not merely the preceding
-child. Keep its matching schema and all already-shipped correctness fixes. New migrations may make
-the control and candidate schema differ; isolate the databases and record that difference.
-Prefer same-process controls where both real implementations can coexist; otherwise alternate
-matched control/candidate executables on the same quiet host and PostgreSQL instance, never run
-them concurrently against a shared resource and call that an A/B comparison. Fix compiler, RTS,
-CPU allocation, pool limits, database durability settings, payloads, event counts, and instrumentation.
+EP1 is accepted on its full correctness suites, 18 structural checks, 16 existing
+controlled workloads, historical telemetry and three completed affected-path
+A/B pairs against the original `e6ea664` control. All six mixed trials are sealed,
+benchmark-grade and durably drained, with checkpoint calls equal events. The
+original policy still reports statistical inconclusiveness. Plan 81 records
+point estimates and adverse confidence bounds; completion does not claim zero
+regression or precision at 1%/3%.
 
-Measure successful single-stream and multi-stream appends, both fresh and existing streams, with
-small and batched payloads. Include append-only, idle subscriptions, actively consuming native
-`$all` and category/group subscriptions, and the production acknowledgement-coupled Shibuya adapter.
-Cover shared-process CPU/GC and shared-pool contention; a separate subscriber process alone misses
-the former. Use no hook/default-disabled diagnostics for the default matrix, then separate
-successful-hook and opt-in watchdog arms. Use one and several workers and checkpoint batch sizes
-1 and 100 to expose checkpoint write amplification. Freeze representative payload sizes,
-concurrency, and scenario combinations before measuring; avoid a huge arbitrary Cartesian product.
+This supersedes the agent-added 15-cell child matrix, mandatory repeated
+calibration, minimum five-pair acceptance and universal 1%/3% resolution target.
+The user rejected that scope as overengineering; the matrix is now an optional
+extended diagnostic behind `just perf-mixed-write-gate`, outside `just perf-check`.
+No further EP1 benchmark trials are required. Existing thresholds and the
+retained comparison policy were not tuned to pass observed results.
 
-Individual children use a risk-based subset selected before viewing candidate results;
-EP-6 selects the broader integrated coverage described above. EP-1 uses five
-workloads (append-only, ordinary category saves, grouped saves at batches 1/100,
-and the real adapter), each at capacity and below/near-capacity offered load.
-Unchanged idle/fetch paths and duplicate target/write-shape combinations are
-omitted from EP-1 performance reruns. Calibrate the method on frequent group
-checkpoint writes at capacity and below capacity, then require adequate paired
-uncertainty separately in every A/B cell. Do not replay A/A for every unchanged
-combination. Broaden a child's subset when its changes affect an omitted path.
-
-For latency, drive fixed offered loads below saturation and near the control's sustainable limit;
-retain request arrival times so queueing delay is included. Separately measure maximum sustainable
-throughput. Measure only after workers reach live mode for live cases. Assert equal delivered work,
-correct acknowledgements, durable checkpoint progress, and bounded backlog throughout the window
-and after draining. A faster append result obtained by doing less subscriber work, allowing backlog
-to grow without bound, dropping events, or deferring checkpoint writes is a failed run.
-
-Run PostgreSQL 18 with durable writes enabled. The user narrowed the performance
-validation scope to PostgreSQL 18 on 2026-10-09; PostgreSQL 17 performance trials
-are not required. Warm both arms, alternate at least five
-paired steady-state trials, and use windows of at least 60 seconds, extending runs when necessary
-for stable tail-latency estimates. Report committed events/second, append p50/p95/p99 latency,
-checkpoint saves/second and latency, WAL bytes per committed event and per checkpoint save,
-process allocation/GC and residency, and pool/lock waits. Collect expensive diagnostic profiles
-separately from primary timing runs with identical instrumentation in control and candidate. Record
-checkpoint write amplification and HOT-update behavior; HOT eligibility alone is not evidence of
-unchanged write cost.
-
-There is no intentional write-regression allowance. Before viewing candidate results, measure
-control-versus-control variability and predeclare equivalence margins and sample-size rules that
-can resolve a 1% throughput/p50 change and a 3% p95/p99 change or better. These are maximum
-measurement-uncertainty targets, not permitted slowdowns. Use paired uncertainty intervals; a wide
-interval crossing the target is inconclusive, not a pass. Any reproducible adverse change, including
-one below those targets, requires investigation and blocks acceptance until corrected. Assess each
-scenario separately; never average a regression away with reconnect improvements or faster reads.
-Do not widen margins, reduce durability, change checkpoint frequency, or refresh baselines to pass.
-
-Wire the authoritative mixed-write comparisons into `just perf-check` (including the production
-adapter gate without creating a store-to-adapter library dependency cycle). Record exact runnable
-commands once the harness exists; until then the associated child gate is unchecked. Existing
-append pipeline/category gates remain necessary but are insufficient: both sides of an existing
-algorithm comparison could slow down together. EP-6 must present the original-control comparison
-and separately quantify opt-in diagnostic cost. A confirmed regression requires redesign and
-remeasurement, not automatic release or silent acceptance of a tradeoff.
+EP2 reuses the shared harness for target/checkpoint changes where useful. EP3
+checks its no-hook and successful-hook paths; EP4 checks real acknowledgement
+and opt-in stall diagnostics. Select focused cases before launching new work,
+and expand only for a specific affected-path risk or a consistent adverse signal.
+EP6 assesses the integrated changed paths against the original control for
+cumulative cost and separately records opt-in diagnostic cost. Avoid blanket
+write-shape, mode, load or database-version matrices. PostgreSQL 18 is sufficient
+for performance evidence; PostgreSQL 17 trials remain excluded by the user.
+Record exact source identities, workload inputs, durable work, results and
+uncertainty. Statistical inconclusiveness must remain labelled as such, even
+when the agreed practical acceptance scope is satisfied.
 
 
 ## Improvement-Request Alignment
@@ -455,7 +419,7 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 ## Progress
 
 - [x] (2026-10-09) Adopted the user's write-performance priority as a hard gate, made stall warnings opt-in, and recorded ADR-11.
-- [ ] Establish the mixed append/subscription control and per-scenario write/GC/WAL measurements before production changes; keep each child and the integrated release gated on them.
+- [x] (2026-10-09) Establish the original-control mixed harness and complete EP1 with proportional evidence under amended ADR-11. Future children and the release select measurements for their actual changed paths; no universal matrix is required.
 - [x] (2026-10-09) Audited all six children against source, tests, migrations, changelogs, and local history at `e6ea664`; no child implementation is complete.
 - [x] (2026-10-09) Recorded adjacent lifecycle/category/heap fixes as baseline, mapped IR-15/IR-16/IR-17 to their actual scope, and corrected the synthetic benchmark's coverage claims.
 - [x] (2026-08-27) Baseline: hard delete serializes against affected streams under ADR-7; the July orphan window is closed by released Kiroku 0.7 evidence.
@@ -463,8 +427,8 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 - [x] (2026-09-09) Performance review: verified against source that no child adds a hot-path round trip; ADR-5 gate ownership and hot-path boundaries recorded in Integration Points and cascaded to plans 81 through 85.
 - [x] (2026-09-09) Design review: five API concerns resolved as recorded decisions and cascaded to plans 81 through 85.
 - [x] (2026-09-09) Design review, second pass: undecodable events dispose through a consumer callback rather than automatic dead-lettering; construction-time validation, the `stream_name` drop, checkpoint-module consolidation, landing order, and ADR-8 recorded.
-- [ ] EP-1: derive stored topology by migration, persist and validate it, refuse unsafe restarts, validate group configuration at construction, and expose an idempotent gap-free resize operation in the checkpoint module.
-- [ ] EP-1: amend ADR-2 and the consumer-group guide; expose the transaction surface needed for downstream adoption.
+- [x] (2026-10-09) EP-1: derive stored topology by migration, persist and validate it, refuse unsafe restarts, validate group configuration at construction, and expose an idempotent gap-free resize operation in the checkpoint module.
+- [x] (2026-10-09) EP-1: amend ADR-2 and the consumer-group guide; expose the transaction surface needed for downstream adoption.
 - [ ] EP-2: reconnect database-driven live subscriptions from `posRef` and reject `batchSize < 1` before a worker starts.
 - [ ] EP-2: bind every checkpoint to its target in typed columns under a declared binding policy, drop `stream_name`, validate batch and buffer sizes at construction, introduce the startup-refusal parent exception, and document deliberate retarget operations.
 - [ ] EP-3: prove the current apparent-live stall, then make decode failure a typed per-event outcome that each subscriber disposes of through an optional callback, stopping by default, and that fails reads with a typed error.
@@ -474,6 +438,14 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 
 ## Surprises & Discoveries
+
+- Final minimum-evidence correction (2026-10-09): the user rejected the
+  five-workload/three-profile protocol as still disproportionate. EP1 now uses
+  already passing correctness/structural/workload checks and all three completed
+  affected-path pairs, retaining the strict report as inconclusive. No more
+  trials were launched, the active operator was interrupted and alpha shut down.
+  The earlier discoveries and decisions below are historical and superseded
+  where they require more EP1 measurement. EP1 is Complete; five children remain.
 
 - Scope refinement (2026-10-09): the user delegated selection of necessary
   tests and explicitly asked to avoid over-engineering. EP-1 now has five
@@ -583,6 +555,16 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 
 ## Decision Log
+
+- Decision (2026-10-09, final user correction): accept EP1 with the minimum
+  existing evidence and explicitly stated uncertainty. Remove the mandatory
+  matrix from `just perf-check`, keep the original comparison policy unchanged,
+  stop extra trials and mark EP1 Complete. Future measurements follow actual
+  changed paths and specific risks. This supersedes the earlier agent-selected
+  five-workload design, universal precision requirements and associated decisions
+  labelled user-directed below. ADR-11 records the durable proportionality rule.
+  Reason: the user repeatedly requested minimum evidence; the agent's experiment
+  and infrastructure expansion were disproportionate and wasted the user's day.
 
 - Decision (2026-10-09, bounded benchmark work): report the complete experiment
   scope, trial count and runtime estimate before submission, use a one-hour
@@ -768,17 +750,22 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Outcomes & Retrospective
 
-Implementation update (2026-10-09): EP-1's functional milestones are implemented;
-PostgreSQL 18.6 store, adapter, observability-package and migration checks pass.
-The child stays In Progress because its controlled write-performance gate and
-remaining evidence are mandatory. No child is yet marked Complete, and no
-cohort package has been released.
+Implementation update (2026-10-09): **1 of 6 children is Complete**. EP1
+implements durable topology, typed startup refusal, migration-derived legacy
+sizes and transactional gap-free resize, with updated guide and ADR-2. Full
+correctness suites and existing ADR-5 gates passed. Its six retained mixed trials
+show no consistent adverse signal; the three-pair strict statistical report stays
+inconclusive. The user's minimum-evidence scope is satisfied with that limitation
+recorded in plan 81 and `bench/mp12-cell/evidence/`. The extra benchmark queue
+is stopped and alpha VMs are shut down. The other five children remain Not
+Started and no package has been released. The next registry child is plan 82.
+
 
 
 The coordination transfer is complete: Kiroku now contains the authoritative MasterPlan and six
 self-contained child plans under Intention `intention_01m12ed0r5e61aqa9h1rfgvk4a`; the Keiro
 source documents identify these successors and are retired from execution. At the 2026-10-09 audit, none of the six children meets its implementation acceptance.
-EP-1, EP-2, EP-3, and EP-5 can begin; the suggested shared-worker sequence is EP-3 then EP-2,
+EP-2, EP-3, and EP-5 can begin; the suggested shared-worker sequence is EP-3 then EP-2,
 with EP-1 completed before EP-4's validated adapter surface. EP-5 is a small independent error-path
 fix. EP-6 remains gated on all five. The source audit confirms useful adjacent fixes but does not
 substitute for the outstanding runtime and performance acceptance runs. At completion, review every child Decision Log and update ADR-2,
@@ -834,3 +821,5 @@ matrix, and integrated authoritative evidence checks into `just perf-check`.
 The performance gate remains open.
 
 Revision note (2026-10-09, focused assurance): Replaced redundant EP-1 combinations and per-cell A/A repeats with change-based coverage and two method calibrations. Clarified bounded equivalence without requiring a speedup or accepting a confirmed slowdown.
+
+Revision note (2026-10-09, final scope correction): Applied the user's minimum-evidence instruction, amended ADR-11 for proportional assurance, removed the default matrix prerequisite and marked EP1 Complete with the original strict comparison still inconclusive. No later child or release is claimed.
