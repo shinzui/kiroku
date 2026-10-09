@@ -7,7 +7,7 @@ branch constructs membership using the old or validated API; all workload,
 measurement, compiler, RTS, and non-Kiroku dependencies are shared.
 
 Use the operator from `mori://shinzui/keiro-runtime-kenshou` at
-`31275c01a5e011d13465f4ef9a9c6abfd4b5e9df` or later. Its operator guide is
+`7a451b5f5f4b51986e872879a3bfe10f5943af6b` or later, including the saved-session recovery fixes. Its operator guide is
 project-relative `docs/guides/running-on-gcp.md` (artifact-level URI pending).
 The scenario contract is copied from that pinned project into both builds;
 its historical general-purpose executables refuse this dedicated scenario.
@@ -157,8 +157,39 @@ round-trip latency. Startup-to-live time is recorded outside primary timing for 
 Full activity/lock, CPU, RTS, raw arrival and service samples
 remain in the sealed trees.
 
-Use the freshly built operator at the pinned Kenshou revision. Collect stages
-sequentially on an idle cell, with a new payload pair built from a clean checkout:
+Use the freshly built operator from
+`mori://shinzui/keiro-runtime-kenshou` at revision
+`7a451b5f5f4b51986e872879a3bfe10f5943af6b` or later, with resume startup and lease cleanup fixes.
+Estimate the whole experiment before submission. The initial focused design
+contains 185 trials and 27,935 planned seconds (about 7.8 hours), before reset,
+startup and collection overhead, replacements or calibration escalation. The
+one-minute steady window is not the total experiment duration. Frozen loads
+and calibration can increase this estimate.
+
+```bash
+python3 bench/mp12-cell/run-matrix.py estimate --root /tmp/mp12-matrix
+python3 bench/mp12-cell/run-matrix.py run --operator kenshou --cell alpha \
+  --control /tmp/mp12-released.payload.json --candidate /tmp/mp12-head.payload.json \
+  --root /tmp/mp12-matrix --max-wall-seconds 3600
+```
+
+`run` shares one hard deadline across pilots, calibration, comparison and final
+verification. The default budget is one hour. It refuses an over-budget plan
+before submitting trials, and checks the remaining budget before each larger
+calibration design. The current full matrix therefore refuses the default
+budget. Report this scope/precision/runtime conflict and select a useful bounded
+experiment before committing to a long queue; do not silently relax acceptance
+limits or extend the budget. A timeout remains inconclusive and retains evidence.
+
+For targeted recovery, individual stages are available below. Pass the remaining
+experiment budget with `--max-wall-seconds`; chaining stages must not reset the
+clock. The runner interrupts an operator with no log progress for five minutes,
+or the expected long measurement window plus 150 seconds for longer paired
+trials, and interrupts it at the hard wall deadline regardless of activity.
+SIGINT allows journal preservation and owned-lease cleanup. The watchdog is a
+failure detector; verified sealed trials remain the progress evidence.
+
+Collect stages sequentially on an idle cell:
 
 ```bash
 python3 bench/mp12-cell/run-matrix.py pilot --operator kenshou --cell alpha \
@@ -172,8 +203,11 @@ MP12_CELL_MATRIX=/tmp/mp12-matrix just perf-check
 python3 bench/mp12-cell/test-matrix.py
 ```
 
-All cell commands request startup so automatic idle stopping cannot strand the
-next submission. The operator holds and renews leases, resets PostgreSQL and
+All execution and recovery commands request startup, including
+`cell resume --start`. Resume releases both newly acquired and reattached held
+leases on exit; detached-session leases remain until terminal collection.
+A fully verified pilot is collected locally without reopening its lease.
+The operator holds and renews leases, resets PostgreSQL and
 verifies seals. The collector rechecks every artifact hash before saving evidence.
 Completed pilot/calibration cells can be reused with identical frozen inputs;
 an interrupted cell session must be inspected/resumed through its operator

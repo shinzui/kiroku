@@ -6,6 +6,8 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+from unittest.mock import Mock
+import signal
 
 HERE = Path(__file__).resolve().parent
 
@@ -122,21 +124,57 @@ class MatrixContract(unittest.TestCase):
                 session = base / 'session'
                 session.mkdir(parents=True)
                 matrix.write(session / 'session.json', {'cell': 'alpha', 'payloads': {'default': payload},
+                             'slices': [{'state': 'submitted'}],
                              'planSha256': 'changed' if changed else matrix.digest(base.with_suffix('.plan.json'))})
                 args = argparse.Namespace(root=root, control=root / 'control.json', operator='operator', cell='alpha')
                 trials = [{'writeProbe': {'calls': 6100, 'elapsed': 61}}] * 3
                 spec = dict(matrix.SPEC, configurations=[config])
-                with patch.object(matrix, 'SPEC', spec), patch.object(matrix, 'production_fingerprint', return_value='source'), patch.object(matrix, 'planned') as plan, patch.object(matrix, 'collect', return_value=trials), patch.object(matrix.subprocess, 'run') as execute:
-                    execute.return_value.returncode = 0
+                with patch.object(matrix, 'SPEC', spec), patch.object(matrix, 'production_fingerprint', return_value='source'), patch.object(matrix, 'planned') as plan, patch.object(matrix, 'collect', return_value=trials), patch.object(matrix, 'command', return_value=0) as execute:
                     if changed:
                         with self.assertRaisesRegex(ValueError, 'saved pilot session differs'):
                             matrix.pilot(args)
                         execute.assert_not_called()
                     else:
                         matrix.pilot(args)
-                        self.assertEqual(execute.call_args.args[0], ['operator', 'cell', 'resume', '--session', str(session)])
+                        self.assertEqual(execute.call_args.args[0], ['operator', 'cell', 'resume', '--start', '--session', session])
                         self.assertTrue((root / 'frozen-loads.json').exists())
                     plan.assert_not_called()
+
+    def test_estimate_exposes_the_full_first_pass_before_submission(self):
+        with tempfile.TemporaryDirectory() as temp:
+            forecast = matrix.estimate(Path(temp))
+            self.assertEqual(forecast['stages']['compare']['trials'], 150)
+            self.assertEqual(forecast['totalPlannedSeconds'], 185 * 151)
+            self.assertFalse(forecast['loadsFrozen'])
+
+    def test_over_budget_matrix_never_invokes_operator(self):
+        for stage in ['compare', 'run']:
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as temp, patch.object(matrix, 'DEADLINE', None), patch.object(matrix.sys, 'argv', ['runner', stage, '--root', temp, '--operator', 'unused', '--control', '/unused']), patch.object(matrix, 'command') as execute:
+                self.assertEqual(matrix.main(), 2)
+                execute.assert_not_called()
+
+    def test_live_but_silent_operator_is_interrupted_at_progress_deadline(self):
+        with tempfile.TemporaryDirectory() as temp:
+            log = Path(temp) / 'operator.log'
+            log.write_text('phase: Running\n')
+            process = Mock()
+            process.poll.return_value = None
+            with patch.object(matrix, 'DEADLINE', None), patch.object(matrix.time, 'monotonic', side_effect=[0, 301]):
+                with self.assertRaisesRegex(ValueError, 'progress deadline'):
+                    matrix.supervise(process, log, 300)
+            process.send_signal.assert_called_once_with(signal.SIGINT)
+            process.wait.assert_called_once_with(timeout=30)
+
+    def test_stage_wall_budget_applies_even_if_operator_is_active(self):
+        with tempfile.TemporaryDirectory() as temp:
+            log = Path(temp) / 'operator.log'
+            log.write_text('phase: Fetching\n')
+            process = Mock()
+            process.poll.return_value = None
+            with patch.object(matrix, 'DEADLINE', 0), patch.object(matrix.time, 'monotonic', return_value=1):
+                with self.assertRaisesRegex(ValueError, 'wall-clock'):
+                    matrix.supervise(process, log, 300)
+            process.send_signal.assert_called_once_with(signal.SIGINT)
 
 
 if __name__ == '__main__':

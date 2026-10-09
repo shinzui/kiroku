@@ -78,6 +78,29 @@ adoption path exists.
 
 ## Surprises & Discoveries
 
+- Bounded-work correction (2026-10-09): the user's postmortem request revealed
+  another recovery defect in `mori://shinzui/keiro-runtime-kenshou`: held-session
+  resume released a newly acquired lease but leaked a reattached lease. After
+  the third configuration completed, that stale owned lease refused the next
+  pilot. Nine completed pilot trials are preserved, the controller has exited,
+  and the owned lease was released. No further benchmark queue is running.
+  The operator fix adds `resume --start` and cleanup of reattached held leases;
+  30 CLI contract examples, including simulated stopped-VM recovery and lease
+  cleanup, pass without running new performance trials. Fourteen remote-session
+  examples also pass, covering completed journals under a prior lease without
+  resubmission.
+  The rebuilt operator resumed the already verified third pilot session with
+  exit 0, retained its three original run IDs, and left alpha with no lease or
+  quarantine. This recovery check submitted no new performance trial.
+  The matrix runner now estimates all stages, defaults to a 3,600-second budget,
+  supervises operator progress, checks escalation against remaining time and
+  offers one `run` command sharing its deadline across all stages. Thirteen
+  matrix tests and ten comparison tests pass. The first-pass plan from scratch
+  is 185 trials / 27,935 planned seconds before setup/reset/collection or
+  calibration escalation. Remaining first-pass work is 26,576 planned seconds
+  (about 7.4 hours). This cannot fit the default budget; acceptance remains open,
+  and no automatic long queue or tolerance relaxation is justified by this fix.
+
 - Recovery startup correction (2026-10-09): the interrupted controller's lease
   expired and the PostgreSQL, monitoring and driver VMs shut down at
   20:19–20:21 UTC. The resume operator renewed the lease and submitted the next
@@ -301,6 +324,15 @@ adoption path exists.
 
 
 ## Decision Log
+
+- Decision (2026-10-09): use an explicit whole-experiment runtime estimate and
+  a default one-hour wall-clock budget, including setup, recovery and repeats.
+  Select changed-path coverage before submission; do not renew the budget by
+  chaining stages or silently expand a noisy calibration. Persist this operating
+  rule in root `AGENTS.md` and enforce bounded execution in the matrix runner.
+  Reason: the oversized initial design and undetected infrastructure waiting
+  wasted the user's day without candidate-regression evidence. A budget refusal
+  is inconclusive, not a performance pass or a reason to weaken ADR-11.
 
 - Decision (2026-10-09, user-directed scope): use risk-based child performance
   coverage, not exhaustive target/write-shape combinations. EP-1 requires five

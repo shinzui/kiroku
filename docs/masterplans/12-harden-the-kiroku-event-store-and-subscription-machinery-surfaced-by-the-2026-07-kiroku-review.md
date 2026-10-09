@@ -584,6 +584,15 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Decision Log
 
+- Decision (2026-10-09, bounded benchmark work): report the complete experiment
+  scope, trial count and runtime estimate before submission, use a one-hour
+  whole-experiment budget by default and stop when progress or time deadlines
+  expire. Reuse verified evidence; verify VM startup and owned-lease release on
+  recovery. Root `AGENTS.md` records these rules. EP-1's full first-pass design
+  still exceeds that budget, even after reducing coverage, so further automatic
+  queueing is stopped while performance acceptance remains unresolved. Do not
+  turn this operational correction into a relaxed regression threshold.
+
 - Decision (2026-10-09, user-directed scope): use risk-based child performance
   coverage, not exhaustive target/write-shape combinations. EP-1 requires five
   workloads at three profiles and two method calibrations, with precise paired

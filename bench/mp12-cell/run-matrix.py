@@ -12,14 +12,59 @@ import json
 import math
 import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
+import time
 
 HERE = Path(__file__).resolve().parent
 SPEC = json.loads((HERE / 'matrix.json').read_text())
 REPO = HERE.parent.parent
 SETTINGS = ['shared_buffers=128MB', 'fsync=on', 'synchronous_commit=on',
             'full_page_writes=on', 'wal_level=replica']
+DEADLINE = None
+
+
+def remaining_budget():
+    return math.inf if DEADLINE is None else max(0, DEADLINE - time.monotonic())
+
+
+def require_budget(seconds):
+    if seconds > remaining_budget():
+        raise ValueError(f'planned work needs at least {seconds:.0f}s; '
+                         f'only {remaining_budget():.0f}s remain in the wall-clock budget. '
+                         'No new trials submitted; acceptance remains inconclusive.')
+
+
+def stop_operator(process):
+    # SIGINT lets Kenshou release its lease and preserve its journal. Terminate
+    # only this process if normal cleanup cannot finish; never kill the cell.
+    process.send_signal(signal.SIGINT)
+    try:
+        process.wait(timeout=30)
+    except subprocess.TimeoutExpired:
+        process.terminate()
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+
+
+def supervise(process, log, progress_seconds):
+    last_size = log.stat().st_size
+    last_progress = time.monotonic()
+    while process.poll() is None:
+        now = time.monotonic()
+        size = log.stat().st_size
+        if size != last_size:
+            last_size, last_progress = size, now
+        if remaining_budget() <= 0 or now - last_progress > progress_seconds:
+            stop_operator(process)
+            raise ValueError('operator exceeded its wall-clock or progress deadline; '
+                             f'inspect the retained journal and {log}. Acceptance remains inconclusive.')
+        time.sleep(1)
+    return process.returncode
 
 
 def read(path):
@@ -48,16 +93,24 @@ def production_fingerprint():
     return hashlib.sha256(json.dumps(records, sort_keys=True).encode()).hexdigest()
 
 
-def command(args, log=None, cohort_file=None):
+def command(args, log=None, cohort_file=None, progress_seconds=300, append=False):
     print(' '.join(map(str, args)), flush=True)
     environment = os.environ.copy()
     if cohort_file is not None:
         environment['KENSHOU_COHORT_IDENTITY'] = str(cohort_file.resolve())
+    require_budget(1)
     if log is None:
-        return subprocess.run(list(map(str, args)), check=True, env=environment).returncode
-    with log.open('x') as output:
-        return subprocess.run(list(map(str, args)), stdout=output,
-                              stderr=subprocess.STDOUT, env=environment).returncode
+        return subprocess.run(list(map(str, args)), check=True, env=environment,
+                              timeout=min(120, remaining_budget())).returncode
+    with log.open('a' if append else 'x') as output:
+        process = subprocess.Popen(list(map(str, args)), stdout=output,
+                                   stderr=subprocess.STDOUT, env=environment)
+        try:
+            return supervise(process, log, progress_seconds)
+        except BaseException:
+            if process.poll() is None:
+                stop_operator(process)
+            raise
 
 
 def collect(session_file):
@@ -168,13 +221,16 @@ def pilot(args):
                 raise ValueError('saved pilot session differs from its frozen inputs')
             # Resume the same submitted trials; never replace an interrupted
             # pilot with a fresh sample or overwrite its original operator log.
-            with base.with_suffix('.log').open('a') as log:
-                code = subprocess.run([str(args.operator), 'cell', 'resume',
-                                       '--session', str(output)], stdout=log,
-                                      stderr=subprocess.STDOUT).returncode
+            if all(s['state'] == 'verified' for s in journal['slices']):
+                code = 0
+            else:
+                require_budget(3 * (60 + 61 + 30))
+                code = command([args.operator, 'cell', 'resume', '--start', '--session', output],
+                               base.with_suffix('.log'), cohort_file=cohort_file, append=True)
         else:
             if plan.exists():
                 raise ValueError('pilot plan exists without a session; inspect its log')
+            require_budget(3 * (60 + 61 + 30))
             planned(args.operator, config, plan, 0, 61, cohort_file)
             code = command(prefix + ['run'] + common + ['--payload', args.control, '--plan', plan,
                            '--granularity', 'run', '--cache-policy', 'cold', '--out', output],
@@ -208,6 +264,50 @@ def trial_tag(seconds, pairs):
 def initial_duration(case, profile):
     offered = 0 if profile == 'capacity' else case[profile + 'Offered']
     return 61 if not offered else max(61, math.ceil(SPEC['minimumFixedLoadCalls'] / offered))
+
+
+def estimate(root):
+    """First-pass plan, excluding reset/startup, replacements and escalation."""
+    frozen_path = root / 'frozen-loads.json'
+    frozen = read(frozen_path) if frozen_path.exists() else None
+    cases = frozen['cases'] if frozen else [{'configuration': c} for c in SPEC['configurations']]
+    stages = {}
+    for stage in ['pilot', 'calibrate', 'compare']:
+        trials, seconds = 0, 0
+        for case in cases:
+            config = case['configuration']
+            if stage == 'pilot':
+                if (root / (config['id'] + '.pilot.json')).exists():
+                    continue
+                remaining = 3
+                journal = root / config['id'] / 'session/session.json'
+                if journal.exists():
+                    remaining -= sum(s['state'] == 'verified' for s in read(journal)['slices'])
+                trials += remaining
+                seconds += remaining * (60 + 61 + 30)
+                continue
+            if stage == 'calibrate' and config['id'] != SPEC['calibrationConfiguration']:
+                continue
+            profiles = SPEC['calibrationProfiles'] if stage == 'calibrate' else SPEC['profiles']
+            for profile in profiles:
+                directory = 'calibration' if stage == 'calibrate' else 'comparison'
+                if (root / directory / (config['id'] + '-' + profile) / 'accepted.json').exists():
+                    continue
+                duration = initial_duration(case, profile) if frozen else 61
+                count = SPEC['minimumPairs']
+                if stage == 'compare':
+                    anchor_profile = 'capacity' if profile == 'capacity' else 'below'
+                    anchor = root / 'calibration' / (SPEC['calibrationConfiguration'] + '-' + anchor_profile) / 'accepted.json'
+                    if anchor.exists():
+                        design = read(anchor)
+                        duration, count = max(duration, design['seconds']), design['pairs']
+                trials += 2 * count
+                seconds += 2 * count * (60 + duration + 30)
+        stages[stage] = {'trials': trials, 'plannedSeconds': seconds}
+    return {'schema': 'kiroku.mp12.runtime-estimate/v1', 'stages': stages,
+            'totalPlannedSeconds': sum(s['plannedSeconds'] for s in stages.values()),
+            'loadsFrozen': frozen is not None,
+            'note': 'First pass with warmup/drain allowances; excludes startup/reset, collection, replacements and calibration escalation. Not an ETA.'}
 
 
 def calibration_anchor(frozen, profile):
@@ -302,6 +402,7 @@ def pairs(args, calibrate):
                 seconds = duration * window['durationMultiplier']
                 pairs_count = window['pairs']
                 tag = trial_tag(seconds, pairs_count)
+                require_budget(2 * pairs_count * (60 + seconds + 30))
                 plan = directory / f'{tag}.plan.json'
                 planned(args.operator, config, plan, offered, seconds, cohort_file)
                 prefix, common = cell_args(args.operator, args.cell)
@@ -309,7 +410,8 @@ def pairs(args, calibrate):
                 code = command(prefix + ['pair'] + common + ['--baseline', args.control,
                        '--candidate', target, '--plan', plan, '--pairs', pairs_count,
                        '--max-replacements', '2', '--policy', policy_file, '--out', output],
-                       directory / f'{tag}.log', cohort_file=cohort_file)
+                       directory / f'{tag}.log', cohort_file=cohort_file,
+                       progress_seconds=max(300, seconds + 150))
                 if code not in (0, 3):
                     raise ValueError(f'cell pair failed ({code}); inspect {output}')
                 verdict = resolution(output / 'comparison.json', calibrate, profile)
@@ -332,20 +434,46 @@ def pairs(args, calibrate):
 
 
 def main():
+    global DEADLINE
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('stage', choices=['pilot', 'calibrate', 'compare'])
-    parser.add_argument('--operator', required=True)
+    parser.add_argument('stage', choices=['estimate', 'run', 'pilot', 'calibrate', 'compare'])
+    parser.add_argument('--operator')
     parser.add_argument('--cell', default='alpha')
-    parser.add_argument('--control', type=Path, required=True)
+    parser.add_argument('--control', type=Path)
     parser.add_argument('--candidate', type=Path)
     parser.add_argument('--root', type=Path, required=True)
+    parser.add_argument('--max-wall-seconds', type=int, default=3600,
+                        help='Hard invocation budget including all stages, setup and retries (default: 3600)')
     args = parser.parse_args()
     try:
-        if args.stage == 'pilot':
+        forecast = estimate(args.root)
+        print(json.dumps(forecast, indent=2), flush=True)
+        if args.stage == 'estimate':
+            return 0
+        if not args.operator or not args.control or args.max_wall_seconds <= 0:
+            raise ValueError('execution needs --operator, --control and a positive wall-clock budget')
+        DEADLINE = time.monotonic() + args.max_wall_seconds
+        require_budget(forecast['totalPlannedSeconds'] if args.stage == 'run'
+                       else forecast['stages'][args.stage]['plannedSeconds'])
+        if args.stage == 'run':
+            if not args.candidate:
+                raise ValueError('run requires --candidate')
+            if not (args.root / 'frozen-loads.json').exists():
+                pilot(args)
+            pairs(args, True)
+            pairs(args, False)
+            spec = importlib.util.spec_from_file_location('final_gate', HERE / 'check-matrix.py')
+            gate = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(gate)
+            require_budget(1)
+            count = gate.verify(args.root)
+            require_budget(1)
+            print(f'ADR-11 matrix: all {count} comparisons accepted')
+        elif args.stage == 'pilot':
             pilot(args)
         else:
             pairs(args, args.stage == 'calibrate')
-    except (ValueError, KeyError, OSError, subprocess.CalledProcessError) as error:
+    except (ValueError, KeyError, OSError, subprocess.SubprocessError) as error:
         print(f'MP-12 gate unfinished: {error}', file=sys.stderr)
         return 2
     return 0
