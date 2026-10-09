@@ -10,6 +10,7 @@ import hashlib
 import importlib.util
 import json
 import math
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -47,13 +48,16 @@ def production_fingerprint():
     return hashlib.sha256(json.dumps(records, sort_keys=True).encode()).hexdigest()
 
 
-def command(args, log=None):
+def command(args, log=None, cohort_file=None):
     print(' '.join(map(str, args)), flush=True)
+    environment = os.environ.copy()
+    if cohort_file is not None:
+        environment['KENSHOU_COHORT_IDENTITY'] = str(cohort_file.resolve())
     if log is None:
-        return subprocess.run(list(map(str, args)), check=True).returncode
+        return subprocess.run(list(map(str, args)), check=True, env=environment).returncode
     with log.open('x') as output:
         return subprocess.run(list(map(str, args)), stdout=output,
-                              stderr=subprocess.STDOUT).returncode
+                              stderr=subprocess.STDOUT, env=environment).returncode
 
 
 def collect(session_file):
@@ -96,7 +100,7 @@ def collect(session_file):
     return rows
 
 
-def planned(operator, configuration, path, offered, seconds):
+def planned(operator, configuration, path, offered, seconds, cohort_file):
     args = [operator, 'plan', '--all', '--select',
             'kiroku/append/benchmark/subscription-hardening', '--placement', 'cell',
             '--seed', '7', '--dim', 'pg.durability=durable', '--dim', 'pg.version=18']
@@ -105,7 +109,7 @@ def planned(operator, configuration, path, offered, seconds):
                        ('append-batch', configuration['appendBatch']),
                        ('checkpoint-batch', configuration['checkpointBatch']), ('offered', offered)]:
         args += ['--set', f'mp12.{key}={value}']
-    command(args + ['--out', path])
+    command(args + ['--out', path], cohort_file=cohort_file)
     plan = read(path)
     for run in plan['runs']:
         run['spec']['phases'] = {'warmUpSeconds': 60, 'steadySeconds': seconds, 'drainSeconds': 30}
@@ -139,6 +143,12 @@ def pilot(args):
         write(args.root / 'inputs.json', inputs)
     if (args.root / 'frozen-loads.json').exists():
         raise ValueError('offered loads are already frozen')
+    cohort_file = args.root / 'operator-cohort.json'
+    if cohort_file.exists():
+        if read(cohort_file) != payload['cohortIdentity']:
+            raise ValueError('operator cohort differs from the compiled control')
+    else:
+        write(cohort_file, payload['cohortIdentity'])
     rows = []
     for config in SPEC['configurations']:
         base = args.root / config['id']
@@ -147,12 +157,12 @@ def pilot(args):
             rows.append(read(accepted))
             continue
         plan = base.with_suffix('.plan.json')
-        planned(args.operator, config, plan, 0, 61)
+        planned(args.operator, config, plan, 0, 61, cohort_file)
         prefix, common = cell_args(args.operator, args.cell)
         output = base / 'session'
         code = command(prefix + ['run'] + common + ['--payload', args.control, '--plan', plan,
                        '--granularity', 'run', '--cache-policy', 'cold', '--out', output],
-                       base.with_suffix('.log'))
+                       base.with_suffix('.log'), cohort_file=cohort_file)
         if code:
             raise ValueError(f'capacity pilot failed: {config["id"]}; inspect its log')
         trials = collect(output / 'session.json')
@@ -209,6 +219,9 @@ def pairs(args, calibrate):
         raise ValueError('production source changed after the measurement inputs were frozen')
     if frozen['control'] != read(args.control):
         raise ValueError('control payload differs from capacity pilot')
+    cohort_file = args.root / 'operator-cohort.json'
+    if read(cohort_file) != frozen['control']['cohortIdentity']:
+        raise ValueError('operator cohort differs from the compiled control')
     if not calibrate and not args.candidate:
         raise ValueError('compare requires --candidate')
     stage = 'calibration' if calibrate else 'comparison'
@@ -253,13 +266,13 @@ def pairs(args, calibrate):
                 pairs_count = window['pairs']
                 tag = trial_tag(seconds, pairs_count)
                 plan = directory / f'{tag}.plan.json'
-                planned(args.operator, config, plan, offered, seconds)
+                planned(args.operator, config, plan, offered, seconds, cohort_file)
                 prefix, common = cell_args(args.operator, args.cell)
                 output = directory / tag
                 code = command(prefix + ['pair'] + common + ['--baseline', args.control,
                        '--candidate', target, '--plan', plan, '--pairs', pairs_count,
                        '--max-replacements', '2', '--policy', policy_file, '--out', output],
-                       directory / f'{tag}.log')
+                       directory / f'{tag}.log', cohort_file=cohort_file)
                 if code not in (0, 3):
                     raise ValueError(f'cell pair failed ({code}); inspect {output}')
                 verdict = resolution(output / 'comparison.json', calibrate, profile)

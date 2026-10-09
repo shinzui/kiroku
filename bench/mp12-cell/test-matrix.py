@@ -56,9 +56,10 @@ class MatrixContract(unittest.TestCase):
     def test_candidate_cannot_start_before_the_whole_calibration(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            payload = {'harness': {'dirty': False, 'revision': 'clean'}}
+            payload = {'harness': {'dirty': False, 'revision': 'clean'}, 'cohortIdentity': {'compiled': 'control'}}
             matrix.write(root / 'control.json', payload)
             matrix.write(root / 'candidate.json', payload)
+            matrix.write(root / 'operator-cohort.json', payload['cohortIdentity'])
             matrix.write(root / 'frozen-loads.json', {'matrixSha256': matrix.digest(HERE / 'matrix.json'),
                          'productionSha256': 'source', 'control': payload,
                          'cases': [{'configuration': c} for c in matrix.SPEC['configurations']]})
@@ -67,6 +68,15 @@ class MatrixContract(unittest.TestCase):
                 with self.assertRaises(FileNotFoundError):
                     matrix.pairs(args, False)
                 execute.assert_not_called()
+
+    def test_operator_uses_the_compiled_cohort_in_any_working_directory(self):
+        with tempfile.TemporaryDirectory() as temp:
+            cohort = Path(temp) / 'operator-cohort.json'
+            matrix.write(cohort, {'compiled': 'control'})
+            with patch.object(matrix.subprocess, 'run') as execute:
+                execute.return_value.returncode = 0
+                matrix.command(['operator', 'plan'], cohort_file=cohort)
+                self.assertEqual(execute.call_args.kwargs['env']['KENSHOU_COHORT_IDENTITY'], str(cohort.resolve()))
 
     def test_corrupted_sealed_sample_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:

@@ -89,7 +89,7 @@ adoption path exists.
   before A/B, and extends calibration using five pairs at the initial window,
   five at tenfold duration, then twenty at that longer duration. Candidate duration
   and pair count are fixed by calibration. Throughput gates capacity; p50/p95/p99
-  gate fixed-load cells. Eight interval tests and six matrix/evidence tests pass.
+  gate fixed-load cells. Eight interval tests and seven matrix/evidence tests pass.
   The harness metadata is pinned to
   `mori://shinzui/keiro-runtime-kenshou` revision
   `31275c01a5e011d13465f4ef9a9c6abfd4b5e9df`; its registry tests and operator
