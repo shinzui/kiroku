@@ -78,6 +78,18 @@ adoption path exists.
 
 ## Surprises & Discoveries
 
+- Recovery startup correction (2026-10-09): the interrupted controller's lease
+  expired and the PostgreSQL, monitoring and driver VMs shut down at
+  20:19–20:21 UTC. The resume operator renewed the lease and submitted the next
+  slice but did not start these stopped VMs, causing approximately 45 minutes
+  of additional waiting with no new measurements. A live controller/heartbeat
+  alone is insufficient progress evidence. At 21:12 UTC the three existing
+  alpha instances were started; the queued slice reached `fetching` at
+  21:13:22 UTC. Future interruption recovery must check instance power state
+  and start the cell before resuming, then verify the submitted slice's remote
+  phase using its current journal run ID. The CLI regenerates IDs for previously
+  unsubmitted slices during resume, so the original planned IDs are stale.
+
 - Controller recovery (2026-10-09): the local focused controller exited after
   six verified pilot trials, leaving its status file stale. The next submitted
   trial sealed successfully on the cell at 20:17:31 UTC. `cell resume` collected
