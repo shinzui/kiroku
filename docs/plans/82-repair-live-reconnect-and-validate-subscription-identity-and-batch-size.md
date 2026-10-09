@@ -29,6 +29,11 @@ provenance:
       at: 2026-09-10T01:21:50Z
       mode: "update"
       note: "Design review, second pass: mkBatchSize and mkStreamBufferSize; stream_name dropped in the same migration; hierarchy narrowed to runtime refusals"
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-09T16:21:16Z
+      mode: "update"
+      note: "Audit source at e6ea664; distinguish completed baseline from remaining work, refresh request coverage and performance evidence requirements"
 ---
 
 # Repair live reconnect and validate subscription identity and batch size
@@ -57,6 +62,7 @@ exception type.
 
 ## Progress
 
+- [ ] Write-performance gate: establish pre-cohort controls and pass mixed append/subscription throughput, latency, checkpoint/WAL, and GC checks under ADR-11 before completion.
 - [ ] M1: carry the current `GlobalPosition` in `ConnectionLost` and reconnect from the maximum of FSM cursor and `posRef`; add the mid-live-fetch regression test.
 - [ ] M1: make `BatchSize` and the ack-stream buffer size validated types built by smart constructors, and route every runtime startup refusal through `SomeSubscriptionStartupFailure`.
 - [ ] M2: add the typed `target_kind`/`target_category` columns and drop `stream_name` in one migration; persist and validate target identity through initialization, ordinary saves, and dead-letter saves.
@@ -66,6 +72,8 @@ exception type.
 
 ## Surprises & Discoveries
 
+- Refresh audit (2026-10-09): source, tests, and changelogs confirm the remaining acceptance
+  work is unimplemented; the dated Context audit distinguishes existing baseline from this plan.
 - Transfer audit (2026-08-27): `FetchLive` reads from the mutable `posRef`, but
   `LiveFetchError err` becomes `ConnectionLost err`. `Fsm.step` therefore retains the cursor from
   the state value even when successful live batches advanced `posRef` after entering `Live`.
@@ -79,6 +87,12 @@ exception type.
 
 
 ## Decision Log
+
+- Decision: Apply ADR-11's write-performance constraint to this child's implementation and release
+  evidence, including indirect CPU/GC/pool/checkpoint effects where applicable.
+  Rationale: The user explicitly prioritizes performance, especially writes. A confirmed regression
+  requires correction; unchanged append SQL alone is insufficient evidence.
+  Date: 2026-10-09
 
 - Decision: Put `GlobalPosition` on `ConnectionLost` and reconnect from `max stateCursor
   observedPosition`.
@@ -155,15 +169,32 @@ exception type.
 
 ## Outcomes & Retrospective
 
-Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
-Compare the result against the original purpose. Before marking the plan complete,
-distill durable project context from the Decision Log, Surprises & Discoveries, and
-this section into docs/adr/. Keep task-local execution details here.
-
-(To be filled during and after implementation.)
+The 2026-10-09 documentation refresh confirmed that this child remains Not Started at
+`e6ea664`. The Context audit records current implementation evidence and reusable baseline work.
+No runtime or performance suite was rerun for this refresh; implementation acceptance remains
+open. The subsequent write-performance requirement is recorded in ADR-11 and the acceptance below;
+implementation and measured evidence remain outstanding.
 
 
 ## Context and Orientation
+
+Source audit (2026-10-09, `e6ea664`): implementation remains Not Started. `Worker.hs` still
+emits `ConnectionLost err` from `LiveFetchError err`, and `Fsm.hs` still retains the old state
+cursor. `Test/SubscriptionReconnect.hs` injects failures before any successful live delivery,
+so its passing historical scenario does not prove the missing mid-live cursor behavior.
+Batch sizes remain `Int32`, ack-stream buffer validation still throws at runtime, and the
+binding policy, columns, rebind operation, and common exception parent are absent. The manifest
+ends at `0012.sql`; allocate a fresh migration.
+
+[IR-16](../improvement-requests/retry-publisher-pool-errors-before-the-safety-poll.md) explicitly
+cites this plan for category replay observed during its network-partition experiment. This plan
+fixes that replay, but does not satisfy IR-16's requested prompt publisher pool-error retry.
+Preserve the category index and category-specific group wakeups from
+[ADR-10](../adr/0010-category-reads-use-a-denormalized-category-index-on-all-rows.md), and the
+ack-stream masked ownership transfer and joined monitor shutdown already present since store
+0.8.0.2. Coordinate startup exception changes with the separate lifetime-guard plan 93.
+Measure group-wide startup validation as well as the existing per-batch checkpoint-write cells;
+one pool checkout is not proof of constant startup cost.
 
 `kiroku-store/src/Kiroku/Store/Subscription/Fsm.hs` defines the pure subscription state machine.
 Its `ConnectionLost` event currently contains only `Pool.UsageError`; reconnect transitions retain
@@ -308,7 +339,16 @@ column names or the kind vocabulary, record the final schema here before complet
 
 ## Concrete Steps
 
-Run from the Kiroku repository root. Allocate the migration; do not hand-pick a numeric filename:
+Extend the shared mixed-write harness for target metadata and name-wide startup validation,
+including concurrent subscriber starts while appenders are active. Measure normal healthy writes
+separately from the reconnect scenario so reduced replay cannot conceal an append regression.
+Record WAL/checkpoint changes and startup pool contention; redesign any regressing path while
+preserving the target-identity contract.
+
+Run from the Kiroku repository root. Before changing startup validation, record control timings
+for one member and increasing group sizes, then repeat on the candidate. Record checkpoint-write
+throughput for the wider rows alongside the existing telemetry; preserve the one-checkout startup
+and single-upsert save boundaries. Allocate the migration; do not hand-pick a numeric filename:
 
 ```bash
 kiroku-store-migrate new \
@@ -364,6 +404,27 @@ just perf-telemetry
 
 
 ## Validation and Acceptance
+
+Write-performance acceptance (2026-10-09): [ADR-11](../adr/0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md) makes write performance
+blocking. Before production changes, freeze a pre-cohort control (initially `e6ea664`) and this
+child's workload specification. Compare append-only and simultaneous appends/subscriptions in the
+same process and pool, with native `$all`, category/group, and real acknowledgement-coupled adapter
+coverage as applicable. Keep append SQL, successful-path round trips, locks, and instrumentation
+unchanged. Keep ordinary checkpoint saves at one monotonic upsert per batch tail.
+
+Run durable PostgreSQL 17/18, matched compiler/RTS/pool/database settings, and fixed payloads,
+concurrency, checkpoint frequency, and offered load. Include single/multi-stream, fresh/existing,
+and small/batched writes; test checkpoint batch sizes 1 and 100. Establish live mode before live
+measurements, assert equal delivered work, durable progress, and bounded backlog, and measure
+throughput separately from fixed-load append p50/p95/p99 including queueing delay. Record checkpoint
+latency, WAL per event/save, allocation/GC/residency, and contention as well as append throughput.
+Warm up, alternate at least five paired trials of at least 60 seconds, and extend inconclusive runs.
+Calibrate variability on control/control first; predeclare uncertainty margins able to resolve
+1% throughput/p50 and 3% p95/p99 changes or better. These are measurement-resolution limits, not
+slowdown budgets. A wide uncertainty interval is inconclusive; any reproducible write regression
+blocks completion until corrected. Do not offset a slow case with a faster one or alter durability,
+checkpoint frequency, thresholds, or baselines to pass. Add the controlled gate to `just perf-check`
+and record exact commands, revisions, schemas, raw results, and interpretation before completion.
 
 The plan is complete when a live database fetch failure resumes at the greatest position already
 processed; no event after the failure is skipped and a completed batch is not replayed merely
@@ -464,3 +525,12 @@ Revision note (2026-09-09): Design review, second pass. Batch size and ack-strea
 become validated types built by smart constructors following the retention-limit precedent, so
 their errors are values rather than exceptions and the parent hierarchy covers only runtime
 refusals; the migration drops `stream_name` in the same statement because nothing reads it.
+
+Revision note (2026-10-09): Audited current source, tests, migrations, and related records at
+`e6ea664`; retained unfinished milestones, documented existing baseline and actual request
+coverage, and refreshed integration/performance context. This is a documentation update, not
+implementation or new runtime-test evidence.
+
+Revision note (2026-10-09, write-performance requirement): Applied ADR-11 and blocking write-path
+acceptance, with per-child ownership and evidence requirements. The user explicitly prioritizes
+write performance. Implementation and benchmark gates remain open.

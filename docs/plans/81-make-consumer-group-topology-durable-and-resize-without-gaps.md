@@ -29,6 +29,11 @@ provenance:
       at: 2026-09-10T01:21:50Z
       mode: "update"
       note: "Design review, second pass: ConsumerGroupSize and mkConsumerGroup; resize moved to the Checkpoint module with Report naming"
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-09T16:21:16Z
+      mode: "update"
+      note: "Audit source at e6ea664; distinguish completed baseline from remaining work, refresh request coverage and performance evidence requirements"
 ---
 
 # Make consumer-group topology durable and resize without gaps
@@ -57,6 +62,7 @@ adoption path exists.
 
 ## Progress
 
+- [ ] Write-performance gate: establish pre-cohort controls and pass mixed append/subscription throughput, latency, checkpoint/WAL, and GC checks under ADR-11 before completion.
 - [ ] M1: introduce validated `ConsumerGroupSize` and `mkConsumerGroup`; write `consumer_group_size` through initialization, ordinary checkpoint saves, and dead-letter checkpoint saves; read and validate group-wide stored topology at startup.
 - [ ] M1: generate the derived-topology migration and add typed mismatch, upgrade-path, and underestimate-then-resize tests, including the currently lossy skewed size-2 to size-3 scenario.
 - [ ] M2: expose and test idempotent `resizeConsumerGroupTx` in `Kiroku.Store.Subscription.Checkpoint`, rewinding all new members to the old members' minimum checkpoint in one transaction.
@@ -66,6 +72,8 @@ adoption path exists.
 
 ## Surprises & Discoveries
 
+- Refresh audit (2026-10-09): source, tests, and changelogs confirm the remaining acceptance
+  work is unimplemented; the dated Context audit distinguishes existing baseline from this plan.
 - Transfer audit (2026-08-27): Kiroku 0.5 added atomic checkpoint initialization in
   `kiroku-store/src/Kiroku/Store/Subscription/Checkpoint/SQL.hs`. Topology must be threaded through
   that path as well as the older save statements; changing only `saveCheckpointMemberStmt` would
@@ -80,6 +88,12 @@ adoption path exists.
 
 
 ## Decision Log
+
+- Decision: Apply ADR-11's write-performance constraint to this child's implementation and release
+  evidence, including indirect CPU/GC/pool/checkpoint effects where applicable.
+  Rationale: The user explicitly prioritizes performance, especially writes. A confirmed regression
+  requires correction; unchanged append SQL alone is insufficient evidence.
+  Date: 2026-10-09
 
 - Decision: Persist and validate topology, then require an explicit equalizing resize; do not add
   dynamic rebalancing.
@@ -145,10 +159,28 @@ adoption path exists.
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+The 2026-10-09 documentation refresh confirmed that this child remains Not Started at
+`e6ea664`. The Context audit records current implementation evidence and reusable baseline work.
+No runtime or performance suite was rerun for this refresh; implementation acceptance remains
+open. The subsequent write-performance requirement is recorded in ADR-11 and the acceptance below;
+implementation and measured evidence remain outstanding.
 
 
 ## Context and Orientation
+
+Source audit (2026-10-09, `e6ea664`): implementation remains Not Started. Initialization in
+`kiroku-store/src/Kiroku/Store/Subscription/Checkpoint/SQL.hs` and both checkpoint upserts in
+`kiroku-store/src/Kiroku/Store/SQL.hs` still omit `consumer_group_size`; `ConsumerGroup` is still
+publicly constructible, and the resize API is absent. The migration manifest ends at `0012.sql`;
+allocate a fresh filename. Completed checkpoint inventory/reset work does not establish topology.
+
+The newer lifetime member guard is owned separately by
+[plan 93](93-hold-the-consumer-group-member-guard-for-the-worker-s-lifetime.md) for IR-15.
+It prevents duplicate active members; it does not persist sizes or equalize checkpoints.
+Coordinate edits to startup and preserve its guard behavior if it lands first. Preserve the
+category index and group wakeups from [ADR-10](../adr/0010-category-reads-use-a-denormalized-category-index-on-all-rows.md).
+One initialization checkout still permits extra SQL and group-wide work: measure startup cost
+across group sizes, and retain checkpoint-write measurements for the wider rows.
 
 The database table `kiroku.subscriptions` is created by
 `kiroku-store-migrations/migrations/0001-kiroku-bootstrap.sql`. Its key is
@@ -298,6 +330,13 @@ profile validation.
 
 ## Concrete Steps
 
+This child owns the shared checkpoint-write/mixed-append harness; if another MP-12 child starts
+first it establishes that harness and this child extends the same specification. Measure wider
+checkpoint rows, WAL per save, observed HOT-update behavior, checkpoint batch sizes 1 and 100,
+and pool contention during concurrent appends. Extra metadata may increase bytes written; quantify
+it and prove it does not cause a reproducible append throughput/latency regression. If it does,
+redesign the metadata-write path while preserving topology correctness.
+
 Run from the Kiroku repository root:
 
 ```bash
@@ -342,6 +381,27 @@ just perf-telemetry
 
 
 ## Validation and Acceptance
+
+Write-performance acceptance (2026-10-09): [ADR-11](../adr/0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md) makes write performance
+blocking. Before production changes, freeze a pre-cohort control (initially `e6ea664`) and this
+child's workload specification. Compare append-only and simultaneous appends/subscriptions in the
+same process and pool, with native `$all`, category/group, and real acknowledgement-coupled adapter
+coverage as applicable. Keep append SQL, successful-path round trips, locks, and instrumentation
+unchanged. Keep ordinary checkpoint saves at one monotonic upsert per batch tail.
+
+Run durable PostgreSQL 17/18, matched compiler/RTS/pool/database settings, and fixed payloads,
+concurrency, checkpoint frequency, and offered load. Include single/multi-stream, fresh/existing,
+and small/batched writes; test checkpoint batch sizes 1 and 100. Establish live mode before live
+measurements, assert equal delivered work, durable progress, and bounded backlog, and measure
+throughput separately from fixed-load append p50/p95/p99 including queueing delay. Record checkpoint
+latency, WAL per event/save, allocation/GC/residency, and contention as well as append throughput.
+Warm up, alternate at least five paired trials of at least 60 seconds, and extend inconclusive runs.
+Calibrate variability on control/control first; predeclare uncertainty margins able to resolve
+1% throughput/p50 and 3% p95/p99 changes or better. These are measurement-resolution limits, not
+slowdown budgets. A wide uncertainty interval is inconclusive; any reproducible write regression
+blocks completion until corrected. Do not offset a slow case with a faster one or alter durability,
+checkpoint frequency, thresholds, or baselines to pass. Add the controlled gate to `just perf-check`
+and record exact commands, revisions, schemas, raw results, and interpretation before completion.
 
 The work is complete only when an invalid member/size pair cannot be constructed, a mis-sized
 startup fails before handler delivery, all checkpoint write paths store topology, the migration
@@ -402,3 +462,12 @@ Revision note (2026-09-09): Design review, second pass. Consumer-group configura
 at construction through `ConsumerGroupSize` and `mkConsumerGroup`, the resize operation moves
 into `Kiroku.Store.Subscription.Checkpoint` beside reset and rebind, takes the validated size, and
 returns a `...Report` type matching the existing reset report.
+
+Revision note (2026-10-09): Audited current source, tests, migrations, and related records at
+`e6ea664`; retained unfinished milestones, documented existing baseline and actual request
+coverage, and refreshed integration/performance context. This is a documentation update, not
+implementation or new runtime-test evidence.
+
+Revision note (2026-10-09, write-performance requirement): Applied ADR-11 and blocking write-path
+acceptance, with per-child ownership and evidence requirements. The user explicitly prioritizes
+write performance. Implementation and benchmark gates remain open.

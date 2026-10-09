@@ -13,6 +13,12 @@ provenance:
       at: 2026-09-09T23:32:21Z
       verdict: "approved"
       note: "Perf review: error-path only, mapUsageError runs only on Left; no hot-path impact, no gate needed beyond EP-6"
+  revisions:
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-09T16:21:16Z
+      mode: "update"
+      note: "Audit source at e6ea664; distinguish completed baseline from remaining work, refresh request coverage and performance evidence requirements"
 ---
 
 # Make append unique-violation classification exact
@@ -46,6 +52,8 @@ reported deterministically without disguising an invariant failure as an expecte
 
 ## Surprises & Discoveries
 
+- Refresh audit (2026-10-09): source, tests, and changelogs confirm the remaining acceptance
+  work is unimplemented; the dated Context audit distinguishes existing baseline from this plan.
 - Transfer audit (2026-08-27): link-specific and transaction-generic mappers already test
   `stream_events_pkey` explicitly, but `mapUniqueViolation` still starts with the substring
   `events_pkey`. The primary append path therefore depends on branch text rather than an exact
@@ -55,6 +63,12 @@ reported deterministically without disguising an invariant failure as an expecte
 
 
 ## Decision Log
+
+- Decision: Apply ADR-11's write-performance constraint to this child's implementation and release
+  evidence, including indirect CPU/GC/pool/checkpoint effects where applicable.
+  Rationale: The user explicitly prioritizes performance, especially writes. A confirmed regression
+  requires correction; unchanged append SQL alone is insufficient evidence.
+  Date: 2026-10-09
 
 - Decision: Extract one normalized constraint name from PostgreSQL's quoted message first, using
   detail only as a compatibility fallback, and compare names for equality.
@@ -79,15 +93,23 @@ reported deterministically without disguising an invariant failure as an expecte
 
 ## Outcomes & Retrospective
 
-Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
-Compare the result against the original purpose. Before marking the plan complete,
-distill durable project context from the Decision Log, Surprises & Discoveries, and
-this section into docs/adr/. Keep task-local execution details here.
-
-(To be filled during and after implementation.)
+The 2026-10-09 documentation refresh confirmed that this child remains Not Started at
+`e6ea664`. The Context audit records current implementation evidence and reusable baseline work.
+No runtime or performance suite was rerun for this refresh; implementation acceptance remains
+open. The subsequent write-performance requirement is recorded in ADR-11 and the acceptance below;
+implementation and measured evidence remain outstanding.
 
 
 ## Context and Orientation
+
+Source audit (2026-10-09, `e6ea664`): implementation remains Not Started.
+`kiroku-store/src/Kiroku/Store/Error.hs:mapUniqueViolation` still tests `events_pkey` using
+`Text.isInfixOf`, then stream-name uniqueness, then `WrongExpectedVersion`. It has no exact
+`stream_events_pkey` branch and no `ux_stream_events_stream_version` invariant branch. The
+existing duplicate-event and transient-transaction coverage does not replace the planned
+constraint-collision table. No dedicated current BUG/IR record covers these two remaining
+mapping defects. IR-7 concerns append lock ordering and is outside this plan. This remains an
+independent error-path fix with no new success-path database or handler work.
 
 `kiroku-store/src/Kiroku/Store/Error.hs` defines `StoreError` and maps Hasql
 `UsageError` values through `mapUsageError`, `mapServerError`, and `mapUniqueViolation`. The
@@ -172,6 +194,12 @@ cabal test kiroku-store:kiroku-store-test --test-show-details=direct
 
 ## Validation and Acceptance
 
+[ADR-11](../adr/0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md) forbids added successful-append work for this error-only change.
+Verify that constraint extraction remains exclusively on the failed-statement path: no success-path
+string parsing, queries, instrumentation, or retry changes. Run the existing append performance
+gates. The integrated release in plan 85 also compares mixed write workloads against the original
+pre-cohort control; exact error classification cannot be used to waive that gate.
+
 Every owned constraint name must map by equality, regardless of branch order. A
 `stream_events_pkey` message must never be parsed through the scalar `events_pkey` branch. A
 repeated caller event id must return `DuplicateEvent` carrying that id and leave database counts
@@ -205,3 +233,12 @@ ux_stream_events_stream_version
 
 Use the existing Hasql error types and `text` dependency. No external package or migration is
 required.
+
+Revision note (2026-10-09): Audited current source, tests, migrations, and related records at
+`e6ea664`; retained unfinished milestones, documented existing baseline and actual request
+coverage, and refreshed integration/performance context. This is a documentation update, not
+implementation or new runtime-test evidence.
+
+Revision note (2026-10-09, write-performance requirement): Applied ADR-11 and blocking write-path
+acceptance, with per-child ownership and evidence requirements. The user explicitly prioritizes
+write performance. Implementation and benchmark gates remain open.

@@ -28,6 +28,11 @@ provenance:
       at: 2026-09-10T01:21:50Z
       mode: "update"
       note: "Design review, second pass: undecodable-handler callback replaces automatic dead-lettering; construction-time validation, stream_name drop, checkpoint-module consolidation, landing order, ADR-8"
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-09T16:21:16Z
+      mode: "update"
+      note: "Audit source at e6ea664; distinguish completed baseline from remaining work, refresh request coverage and performance evidence requirements"
 ---
 
 # Harden the Kiroku event store and subscription machinery surfaced by the 2026-07 Kiroku review
@@ -38,6 +43,12 @@ If durable project context changes, update or create ADRs in docs/adr/ in the sa
 
 
 ## Vision & Scope
+
+Write performance is a hard acceptance constraint for this initiative. Preserve successful
+append throughput and latency, including when subscriptions share the application process and
+database. Confirmed regressions block implementation completion and release; correctness remains
+mandatory. [ADR-11](../adr/0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md)
+records the durable default-path and opt-in diagnostic rules adopted on 2026-10-09.
 
 This initiative is the Kiroku-owned successor to
 `mori://shinzui/keiro/masterplans/20-harden-the-kiroku-event-store-and-subscription-machinery-surfaced-by-the-2026-07-kiroku-review`.
@@ -56,8 +67,8 @@ After the remaining initiative is complete, a consumer group records the topolog
 each checkpoint was written and can be resized without gaps; a live database-driven subscription
 reconnects from its real progress; invalid batch sizes and checkpoint retargeting fail before
 delivery, and every startup refusal is catchable through one parent exception; an event the
-store-wide decode hook cannot decode is dead-lettered per subscriber instead of stalling every
-`$all` subscriber; append unique-violation mapping distinguishes duplicate caller event ids from
+store-wide decode hook cannot decode is offered to each subscriber's optional disposition callback,
+with a retry-then-stop default instead of stalling every `$all` subscriber; append unique-violation mapping distinguishes duplicate caller event ids from
 store corruption; the store reports a handler that has held one event too long for every
 subscriber kind; and the Shibuya adapter exposes retry policy. The final child plan releases the
 affected Kiroku packages and proves downstream Keiro adoption. This cohort is a deliberately
@@ -71,6 +82,13 @@ already complete under [ADR-7](../adr/0007-replay-history-retention-uses-leases-
 
 
 ## Decomposition Strategy
+
+The 2026-10-09 source audit at commit `e6ea664` found **0 of 6 children complete**.
+All five implementation children remain Not Started; EP-6 awaits their completion.
+The accepted ADR-8 records the intended API, not evidence that it has shipped. The recent
+lifecycle, category-performance, and publisher-memory fixes are baseline improvements to preserve.
+This update inspected source, tests, migrations, changelogs, and history; it did not rerun the
+runtime or performance suites and makes no new measured-performance claim.
 
 Five implementation plans are separated by functional ownership, followed by one release and
 downstream-adoption plan. EP-1 owns consumer-group topology and safe resize. EP-2 owns the worker
@@ -98,12 +116,11 @@ identity and separates ordinary monotonic saves from explicit reset; and
 the hard-delete lock order that superseded the source plan's proposed single-row locking change.
 [ADR-5](../adr/0005-three-tier-performance-regression-gates.md) governs performance evidence: the
 structural and controlled-workload tiers behind `just perf-check` are authoritative, and the
-historical CSV behind `just perf-telemetry` is corroborating telemetry. Every implementation child
-touches a measured path (the per-batch checkpoint upsert, the shared publisher loop, or the adapter
-acknowledgement bridge), so the Performance gates integration point below assigns each child the
-gates it must run and the hot-path boundary it must keep.
+historical CSV behind `just perf-telemetry` is corroborating telemetry. EP-1 through EP-4 change checkpoint, publisher, or delivery paths, so the Performance gates
+integration point below assigns existing and missing measurements and the hot-path boundaries
+each child must keep. EP-5 changes only error classification.
 [ADR-8](../adr/0008-subscription-configuration-validates-at-construction-and-runtime-refusals-share-one-parent.md),
-accepted by this revision, records the subscription API conventions the cohort establishes toward
+accepted in September, records the subscription API conventions the cohort establishes toward
 1.0: construction-time validation, declared startup policies, one exception parent for runtime
 refusals, and never skipping an event on a consumer's behalf. The completed checkpoint lifecycle
 request `mori://shinzui/kiroku/okf/improvement-requests/concepts/IR-3` is adjacent but does not bind
@@ -119,23 +136,63 @@ decides during implementation whether the latter warrants a record.
 | 1 | Make consumer-group topology durable and resize without gaps | docs/plans/81-make-consumer-group-topology-durable-and-resize-without-gaps.md | None | EP-2 | Not Started |
 | 2 | Repair live reconnect and validate subscription identity and batch size | docs/plans/82-repair-live-reconnect-and-validate-subscription-identity-and-batch-size.md | None | EP-1 | Not Started |
 | 3 | Contain persistent publisher decode-hook failures | docs/plans/83-contain-persistent-publisher-decode-hook-failures.md | None | EP-2 | Not Started |
-| 4 | Harden adapter acknowledgement liveness and expose retry policy | docs/plans/84-harden-adapter-acknowledgement-liveness-and-expose-retry-policy.md | None | EP-2, EP-3 | Not Started |
+| 4 | Harden adapter acknowledgement liveness and expose retry policy | docs/plans/84-harden-adapter-acknowledgement-liveness-and-expose-retry-policy.md | EP-1, EP-2 | EP-3 | Not Started |
 | 5 | Make append unique-violation classification exact | docs/plans/86-make-append-unique-violation-classification-exact.md | None | None | Not Started |
 | 6 | Release the subscription hardening cohort and coordinate downstream adoption | docs/plans/85-release-the-subscription-hardening-cohort-and-coordinate-downstream-adoption.md | EP-1, EP-2, EP-3, EP-4, EP-5 | None | Not Started |
 
 
+### Source evidence for the registry (2026-10-09)
+
+
+EP-1: `kiroku-store/src/Kiroku/Store/Subscription/Checkpoint/SQL.hs` initializes only
+name, member, position, and timestamp. The ordinary and dead-letter upserts in
+`kiroku-store/src/Kiroku/Store/SQL.hs` still omit `consumer_group_size`.
+`ConsumerGroup` remains publicly constructible; no `ConsumerGroupSize`, size-mismatch refusal,
+or `resizeConsumerGroupTx` exists.
+
+EP-2: `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs` still converts
+`LiveFetchError err` to `ConnectionLost err`; `Subscription/Fsm.hs` carries no observed position.
+`Subscription/Types.hs` still uses `Int32` batch sizes and `Subscription/Stream.hs` checks a raw
+`Natural` buffer at runtime. No target-binding columns, policy, rebind operation, or common
+startup-refusal parent exists. The existing reconnect test injects errors before live delivery
+has advanced, so it does not establish the missing mid-live progress guarantee.
+
+EP-3: `kiroku-store/src/Kiroku/Store/Settings.hs` still has
+`decodeHook :: Maybe (RecordedEvent -> IO RecordedEvent)` and the no-hook `pure xs` fast path.
+`Test/PublisherCallbackResilience.hs` tests a one-shot throw and observability exceptions;
+there is no typed persistent-failure disposition. The publisher's strict idle-position fix
+addresses heap retention, not this decode contract.
+
+EP-4: `shibuya-kiroku-adapter/src/Shibuya/Adapter/Kiroku.hs` has the existing handler guards
+and exception-safe group acquisition, but no `kirokuProcessor`, configurable `retryPolicy`,
+or `handlerStallWarnAfter`. The store has no handler-stall event. Existing acknowledgement,
+retry, cancellation, and cleanup tests are reusable baseline coverage; the remaining helper,
+warning, and custom-policy acceptance cases are still absent.
+
+EP-5: `kiroku-store/src/Kiroku/Store/Error.hs:mapUniqueViolation` still tests
+`events_pkey` with `Text.isInfixOf`, then stream-name uniqueness, then the generic
+`WrongExpectedVersion` fallback. Neither exact link-key classification nor the explicit
+stream-version invariant branch has landed.
+
+EP-6: checked-in package versions are store `0.9.0.1`, migrations `0.6.0.0`, and adapter
+`0.5.1.5`; the manifest ends at `0012.sql`. These identify the audited checkout, not the latest
+Hackage state. Their changelogs describe separate fixes, not this cohort's missing APIs.
+Release selection and registry/tag verification remain EP-6 work.
+
+
 ## Dependency Graph
 
-EP-1 through EP-5 have no hard dependencies. EP-1 and EP-2 both change checkpoint reads and
-writes, so their dependency is integration-only: whichever lands second must preserve both
+EP-1, EP-2, EP-3, and EP-5 have no hard dependencies. EP-4 hard-depends on EP-1
+and EP-2 for the validated types used by its final adapter configuration. EP-1 and EP-2 both
+change checkpoint reads and writes, so their dependency is integration-only: whichever lands second must preserve both
 topology and target-binding fields. EP-2, EP-3, and EP-4 all edit `Worker.hs`: EP-2 owns
 reconnect and validation, EP-3 owns the `DecodedEvent` walk and the undecodable-event
-disposition in `processEvents`, and EP-4 owns the stall cell around the handler call. Each change
-is a few lines in a distinct place, so none is a hard dependency, but the recommended landing
-order is EP-3, then EP-2, then EP-4, so that the delivery primitive is merged serially rather than
-three ways; EP-1 and EP-5 can land at any point. EP-4 also consumes plan 82's `BatchSize` and
+disposition in `processEvents`, and EP-4 owns the stall cell around the handler call. Their worker
+changes have integration dependencies; the recommended landing order is EP-3, then EP-2, then EP-4, so that the delivery primitive is merged serially rather than
+three ways; EP-5 can land at any point; EP-1 can proceed independently but must finish before EP-4. EP-4 also consumes plan 82's `BatchSize` and
 `StreamBufferSize` types and plan 81's `mkConsumerGroup` in its adapter configs, so it should
-land after both as well.
+land after both as well. Its acknowledgement characterization can be prepared earlier, but
+the complete child cannot land independently of those APIs.
 
 EP-6 hard-depends on all five implementation plans because package versions, PVP impact,
 migration manifests, release order, and downstream Keiro bounds can be selected truthfully only
@@ -151,7 +208,7 @@ future version number.
 values for existing groups in a migration. EP-2 owns target binding through two new typed
 columns, `target_kind` and `target_category`, added by a separate additive migration that also
 drops the historical `stream_name` column, since nothing reads it. The current migration manifest
-has advanced beyond the source plan's claimed `0009`, so neither child may reuse that number. Each
+ends at `0012.sql` in the audited checkout; neither child may reuse an existing number. Each
 plan creates its migration with the standard `kiroku-store-migrate new --manifest ...` scaffolder,
 lets the manifest allocate the filename, and does not merge the two.
 
@@ -199,40 +256,132 @@ with workers stopped. Topology validation (EP-1) and target validation (EP-2) bo
 for the subscription name; both run inside the existing `initializeSubscriptionCheckpointSession`
 pool checkout in `kiroku-store/src/Kiroku/Store/Subscription/Checkpoint/SQL.hs` rather than as
 separate `Pool.use` calls, so startup stays at one checkout per member. Whichever plan lands second
-extends that session; it does not add another. The consumer-group and category fetch statements are
-not changed by any child, so the query plans pinned by
-`kiroku-store/test/Test/PerformanceStructure.hs` are unaffected.
+extends that session; it does not add another. The consumer-group and category fetch statements
+remain outside these children's scope.
+Preserve the category index and category-specific group wakeups already landed under
+[ADR-10](../adr/0010-category-reads-use-a-denormalized-category-index-on-all-rows.md) and plan 91,
+including the 20,000-stream caught-up-poll buffer budget in
+`kiroku-store/test/Test/PerformanceStructure.hs`. Do not restore the older LATERAL queries.
 
 EP-3 owns `decodeEvents` and the publisher loop in
-`kiroku-store/src/Kiroku/Store/Subscription/EventPublisher.hs`. The hook already runs once per
-surfaced event, so making its result typed changes no call count. The queue element becomes
-`Vector DecodedEvent`, one constructor per event beside its JSON payload, because each element now
-carries its own decode outcome; there is no control signal in the queue, no failure counter, and
+`kiroku-store/src/Kiroku/Store/Subscription/EventPublisher.hs`. With a hook configured it already
+runs once per surfaced event, so the intended successful path adds no hook calls. Today's no-hook
+`decodeEvents` returns the original vector without traversal. The earlier proposed uniform
+per-event wrapping would add traversal/allocation and possible read-side unwrapping. The revised
+batch representation below avoids that cost on the no-hook path; successful-hook overhead still
+requires measurement. The queue element becomes
+`DecodedBatch`: an `UnchangedBatch` retains the original vector when no hook exists, while a
+`TransformedBatch` carries `Vector DecodedEvent` when a hook runs. Reads keep their no-hook
+passthrough. Only the transformed batch needs a constructor per event; there is no control signal in the queue, no failure counter, and
 no terminal state, and `SubscriberStatus` is unchanged. A decode retry re-applies the hook in the
 worker for one event after the callback's or the default one-second delay; it performs no
 database work unless a consumer callback chooses to dead-letter, which is the existing single
 statement. EP-4 owns the handler-stall cell in `Worker.hs`. `processEvents` delivers one event at
-a time, so the cell is one `TVar` per worker written before and cleared after the handler call,
-one monotonic clock read and two STM writes per event, and the watchdog parks on STM until an item
+a time, so an enabled watchdog has one `TVar` per worker written before and cleared after the handler call,
+one monotonic clock read and two STM writes per event, plus watchdog wakeup and timer
+bookkeeping. These are opt-in costs to measure; `handlerStallWarnAfter` now defaults to
+`Nothing` in the store and both adapter configs, superseding the proposed `Just 60` default. The watchdog parks on STM until an item
 is pending and then waits the full threshold; it never polls. When the threshold is `Nothing` no
-thread starts and the cell is never written.
+thread, tracking cell, or timer is created, and no per-delivery clock read or tracking STM write occurs.
 
 Gate ownership: EP-1 and EP-2 run `just perf-check` and `just perf-telemetry` and must report the
 `All.reliability-audit.subscription category catch-up 100 events`, `All.category.*`, and
 `All.subscription-checkpoint-inventory.*` cells before and after. EP-2 adds the `InvalidBatchSize`
 refusal to the "no-op paths use no pooled connection" block of
 `kiroku-store/test/Test/PerformanceStructure.hs`, and EP-1 adds the topology-mismatch refusal there
-as an exactly-one-checkout path. EP-3 and EP-4 run `cabal bench
-kiroku-store:kiroku-shibuya-overhead` before and after their change: its bare-subscribe layer is the
-publisher-fed `$all` path EP-3 changes and the delivery primitive EP-4 instruments, and its adapter
-layer is the bridge EP-4 configures. EP-5 changes only the error path after PostgreSQL has rolled
-back the failed statement, so it needs no gate beyond EP-6's. EP-6 runs `just perf-check` and `just
-perf-telemetry` as part of its release gate and records the transcripts in its Outcomes.
+as an exactly-one-checkout path. EP-3 and EP-4 retain `cabal bench
+kiroku-store:kiroku-shibuya-overhead` as supplementary before/after evidence, but it is not a
+live publisher or production adapter acceptance gate. `ShibuyaOverhead.hs` pre-appends events
+before subscribing, so it primarily measures catch-up, and its Shibuya layer constructs a
+synthetic adapter over `subscriptionStream` with a no-op finalizer for normal acknowledgements;
+it never calls the production `kirokuAdapter`.
+
+EP-3 must add controlled coverage of no-hook and successful-hook reads, catch-up, and confirmed
+live publisher fan-out, recording throughput and allocation per event. EP-4 must measure the
+production acknowledgement-coupled `kirokuAdapter` and bare workers with stall tracking disabled
+and with an explicit opt-in `Just 60`, including idle-worker timer/thread behavior. Define
+controls and acceptance bounds before measuring, following ADR-5, and integrate the new controlled
+cases into an authoritative gate. No bound is claimed as already passed. Avoid interpreting an
+unchanged database round-trip count or the old synthetic benchmark as proof of unchanged CPU,
+allocation, or scheduling cost. EP-1/EP-2 also record startup validation cost as group size grows:
+one pool checkout does not imply one statement or constant work. Wider checkpoint rows can increase
+write volume even when the upsert remains HOT-eligible.
+
+EP-5 changes only the error path after PostgreSQL has rolled back the failed statement, so it
+needs no gate beyond EP-6's. EP-6 runs `just perf-check`, the new EP-3/EP-4 controlled cases, and
+`just perf-telemetry` as part of its release gate and records the transcripts in its Outcomes.
+The reconnect correction should remove redundant replay; the decoder and opt-in watchdog are
+the main healthy-delivery regression risks. The no-hook read passthrough and a no-hook subscription
+batch fast path must avoid mandatory per-event wrapping; EP-3 may adjust its internal representation
+to meet that requirement while preserving the typed failure semantics. No remaining change has measured regression evidence
+yet because its implementation has not landed.
 
 Cross-repository work in Keiro must use canonical references. The transferred source remains
 `mori://shinzui/keiro/masterplans/20-harden-the-kiroku-event-store-and-subscription-machinery-surfaced-by-the-2026-07-kiroku-review`;
 EP-1's downstream shard-count seam belongs to `mori://shinzui/keiro`, while Kiroku remains the
 source of truth for checkpoint topology and resize semantics.
+
+
+### Write-performance acceptance contract (2026-10-09)
+
+EP-1 owns the shared mixed-workload harness, checkpoint-write control, and structural write-path
+assertions. EP-2 extends it for target metadata and reconnect. EP-3 adds decode/no-hook and live
+fan-out cases. EP-4 owns the real adapter arm in the adapter package and opt-in watchdog cases.
+The first of these children implemented establishes the common harness so the others need not wait
+for EP-1; preserve one shared workload specification. EP-6 runs the integrated matrix against the
+original pre-cohort control as well as recording per-child results. Record exact control/candidate
+commits, schemas, commands, fixtures, and raw results in the responsible child's Outcomes.
+
+The control is the implementation immediately before MP-12 production changes, initially the
+`e6ea664` audit baseline, not the pre-category-index implementation and not merely the preceding
+child. Keep its matching schema and all already-shipped correctness fixes. New migrations may make
+the control and candidate schema differ; isolate the databases and record that difference.
+Prefer same-process controls where both real implementations can coexist; otherwise alternate
+matched control/candidate executables on the same quiet host and PostgreSQL instance, never run
+them concurrently against a shared resource and call that an A/B comparison. Fix compiler, RTS,
+CPU allocation, pool limits, database durability settings, payloads, event counts, and instrumentation.
+
+Measure successful single-stream and multi-stream appends, both fresh and existing streams, with
+small and batched payloads. Include append-only, idle subscriptions, actively consuming native
+`$all` and category/group subscriptions, and the production acknowledgement-coupled Shibuya adapter.
+Cover shared-process CPU/GC and shared-pool contention; a separate subscriber process alone misses
+the former. Use no hook/default-disabled diagnostics for the default matrix, then separate
+successful-hook and opt-in watchdog arms. Use one and several workers and checkpoint batch sizes
+1 and 100 to expose checkpoint write amplification. Freeze representative payload sizes,
+concurrency, and scenario combinations before measuring; avoid a huge arbitrary Cartesian product.
+
+For latency, drive fixed offered loads below saturation and near the control's sustainable limit;
+retain request arrival times so queueing delay is included. Separately measure maximum sustainable
+throughput. Measure only after workers reach live mode for live cases. Assert equal delivered work,
+correct acknowledgements, durable checkpoint progress, and bounded backlog throughout the window
+and after draining. A faster append result obtained by doing less subscriber work, allowing backlog
+to grow without bound, dropping events, or deferring checkpoint writes is a failed run.
+
+Run PostgreSQL 17 and 18 with durable writes enabled. Warm both arms, alternate at least five
+paired steady-state trials, and use windows of at least 60 seconds, extending runs when necessary
+for stable tail-latency estimates. Report committed events/second, append p50/p95/p99 latency,
+checkpoint saves/second and latency, WAL bytes per committed event and per checkpoint save,
+process allocation/GC and residency, and pool/lock waits. Collect expensive diagnostic profiles
+separately from primary timing runs with identical instrumentation in control and candidate. Record
+checkpoint write amplification and HOT-update behavior; HOT eligibility alone is not evidence of
+unchanged write cost.
+
+There is no intentional write-regression allowance. Before viewing candidate results, measure
+control-versus-control variability and predeclare equivalence margins and sample-size rules that
+can resolve a 1% throughput/p50 change and a 3% p95/p99 change or better. These are maximum
+measurement-uncertainty targets, not permitted slowdowns. Use paired uncertainty intervals; a wide
+interval crossing the target is inconclusive, not a pass. Any reproducible adverse change, including
+one below those targets, requires investigation and blocks acceptance until corrected. Assess each
+scenario separately; never average a regression away with reconnect improvements or faster reads.
+Do not widen margins, reduce durability, change checkpoint frequency, or refresh baselines to pass.
+
+Wire the authoritative mixed-write comparisons into `just perf-check` (including the production
+adapter gate without creating a store-to-adapter library dependency cycle). Record exact runnable
+commands once the harness exists; until then the associated child gate is unchecked. Existing
+append pipeline/category gates remain necessary but are insufficient: both sides of an existing
+algorithm comparison could slow down together. EP-6 must present the original-control comparison
+and separately quantify opt-in diagnostic cost. A confirmed regression requires redesign and
+remeasurement, not automatic release or silent acceptance of a tradeoff.
 
 
 ## Improvement-Request Alignment
@@ -253,17 +402,43 @@ completed requests must not be retroactively broadened to imply that it does.
 - `mori://shinzui/kiroku/okf/improvement-requests/concepts/IR-7` asks for fresh-stream append lock
   ordering and is unrelated to the released hard-delete guard or the remaining subscription work.
 
-No current improvement request covers reconnect progress, invalid batch size, target binding,
-the decode hook's failure contract, handler-stall observability, adapter retry configuration, or
-the exact append unique-violation mapping. These are corrections to behavior Kiroku already
-provides, so this MasterPlan is their authoritative coordination record. Each implementation child
-must decide during execution whether a focused Kiroku bug report or a new improvement request is
-needed for durable OKF tracking; it must not edit completed IR-2, IR-3, or IR-5 to manufacture
-coverage after the fact.
+The 2026-10-09 bundle audit found no dedicated current bug report or improvement request
+whose acceptance is fully delivered by EP-1 through EP-5. Their authority remains the transferred
+July review and these children. The newer records require these distinctions:
+
+[IR-16](../improvement-requests/retry-publisher-pool-errors-before-the-safety-poll.md) explicitly
+cites plan 82 for the separate category replay observed in its network-partition experiment.
+EP-2 addresses that replay symptom, but IR-16 requests prompt bounded retry after publisher pool
+errors. EP-2 changes a worker cursor and EP-3 changes decode disposition; neither changes the
+publisher's pool-error retry cadence, so neither completes IR-16.
+
+[IR-15](../improvement-requests/hold-the-consumer-group-member-guard-for-the-workers-lifetime.md)
+and [IR-17](../improvement-requests/expose-the-lifetime-member-guard-in-the-shibuya-adapter.md)
+are accepted and owned by plans 93 and 92 respectively. Lifetime member exclusivity is distinct
+from EP-1's stored topology, and the adapter guard field is distinct from EP-4's retry/stall
+fields. Those plans remain outside this registry. Reconcile edits to worker startup, startup
+exceptions, and adapter records with their owners; do not duplicate their implementation.
+
+[BUG-2](../bug-reports/partitioned-category-read-scans-every-stream-in-the-category.md),
+[BUG-3](../bug-reports/publisher-position-thunk-retains-append-results-without-all-subscribers.md),
+and [BUG-4](../bug-reports/partial-consumer-group-acquisition-strands-members.md) are marked fixed.
+The changelogs identify category indexing in store 0.9.0.0, idle publisher retention in store
+0.9.0.1, and acquisition cleanup in adapter 0.5.1.3. BUG-2's `fixedVersion` still says
+`unreleased`; use its implementation, plan 91, and changelog evidence for this audit rather than
+propagating that stale field. These fixes are baseline constraints, not completed MP-12 children.
+IR-6's replay-retention work is also completed baseline. IR-2, IR-3, and IR-5 remain narrower
+completed prerequisites; IR-7 remains an excluded append-lock-order request.
+
+Each implementation child should add focused OKF tracking only where it provides durable
+traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 through this plan.
 
 
 ## Progress
 
+- [x] (2026-10-09) Adopted the user's write-performance priority as a hard gate, made stall warnings opt-in, and recorded ADR-11.
+- [ ] Establish the mixed append/subscription control and per-scenario write/GC/WAL measurements before production changes; keep each child and the integrated release gated on them.
+- [x] (2026-10-09) Audited all six children against source, tests, migrations, changelogs, and local history at `e6ea664`; no child implementation is complete.
+- [x] (2026-10-09) Recorded adjacent lifecycle/category/heap fixes as baseline, mapped IR-15/IR-16/IR-17 to their actual scope, and corrected the synthetic benchmark's coverage claims.
 - [x] (2026-08-27) Baseline: hard delete serializes against affected streams under ADR-7; the July orphan window is closed by released Kiroku 0.7 evidence.
 - [x] (2026-08-27) Baseline: `40001`/`40P01` surface as retryable `TransientTransactionFailure` in Kiroku 0.8 and Keiro classifies the constructor as transient.
 - [x] (2026-09-09) Performance review: verified against source that no child adds a hot-path round trip; ADR-5 gate ownership and hot-path boundaries recorded in Integration Points and cascaded to plans 81 through 85.
@@ -281,6 +456,15 @@ coverage after the fact.
 
 ## Surprises & Discoveries
 
+- Refresh audit (2026-10-09): accepted ADR-8 has not yet been implemented; configuration remains
+  raw integers, runtime errors remain separate, and resize/rebind/decode-disposition APIs are absent.
+- Refresh audit (2026-10-09): the existing overhead benchmark preloads events and builds a synthetic
+  non-acknowledgement-coupled adapter. Earlier claims that it proves the live publisher and real
+  adapter bridge were incorrect. EP-3/EP-4 now require direct controlled coverage.
+- Refresh audit (2026-10-09): preserving round-trip counts does not prove performance neutrality.
+  EP-3 originally proposed replacing the no-hook vector passthrough with per-event wrapping; EP-4 originally proposed default per-event
+  tracking and a watchdog; the later write-performance requirement makes that diagnostic opt-in. The later ADR-11 revision also adds a no-hook batch fast path. Both changes still require
+  measured allocation and throughput evidence.
 - Transfer audit (2026-08-27): the source plan's proposed Kiroku 0.4/adaptor 0.5 release train is
   obsolete. Current source is `kiroku-store` 0.8.0.0 and `shibuya-kiroku-adapter` 0.5.1.1; release
   versions must be chosen from final PVP impact and authoritative registry/tag state.
@@ -324,6 +508,26 @@ coverage after the fact.
 
 ## Decision Log
 
+- Decision: Preserve write performance as a hard acceptance constraint, use mixed workloads against
+  the original control, make `handlerStallWarnAfter` default to `Nothing`, and preserve no-hook
+  fast paths. No intentional default write slowdown is budgeted.
+  Rationale: The user explicitly prioritizes performance, especially writes; unchanged append SQL
+  cannot exclude shared CPU/GC/pool/WAL contention. Optional diagnostics must not charge every user.
+  The September proposal for default-enabled stall warnings is superseded. Recorded in ADR-11.
+  Date: 2026-10-09
+
+- Decision: Retain all six children as Not Started after the source audit, and treat later
+  lifecycle, category-index, and publisher-memory fixes as baseline to preserve.
+  Rationale: Related names and newer releases do not establish the missing acceptance contracts.
+  Date: 2026-10-09
+
+- Decision: Reflect EP-4's existing validated-type requirements as hard dependencies on EP-1/EP-2,
+  and require direct controlled measurements for EP-3/EP-4 instead of relying on the synthetic
+  overhead benchmark. Keep the newer request owners outside this registry.
+  Rationale: This corrects coordination and validation coverage without changing the accepted API
+  design or expanding the cohort. ADR-5 and ADR-8 already govern these constraints; no new ADR is
+  needed for this status refresh.
+  Date: 2026-10-09
 - Decision: Transfer execution ownership from Keiro MasterPlan 20 to this Kiroku MasterPlan and
   retire the Keiro parent and children as historical transfer records.
   Rationale: Kiroku owns the remaining implementation, migrations, public contracts, tests,
@@ -472,8 +676,11 @@ coverage after the fact.
 
 The coordination transfer is complete: Kiroku now contains the authoritative MasterPlan and six
 self-contained child plans under Intention `intention_01m12ed0r5e61aqa9h1rfgvk4a`; the Keiro
-source documents identify these successors and are retired from execution. Implementation remains
-open for EP-1 through EP-6. At completion, review every child Decision Log and update ADR-2,
+source documents identify these successors and are retired from execution. At the 2026-10-09 audit, none of the six children meets its implementation acceptance.
+EP-1, EP-2, EP-3, and EP-5 can begin; the suggested shared-worker sequence is EP-3 then EP-2,
+with EP-1 completed before EP-4's validated adapter surface. EP-5 is a small independent error-path
+fix. EP-6 remains gated on all five. The source audit confirms useful adjacent fixes but does not
+substitute for the outstanding runtime and performance acceptance runs. At completion, review every child Decision Log and update ADR-2,
 ADR-4, or new ADRs where the implemented contracts require durable memory.
 
 
@@ -500,3 +707,17 @@ dropped `stream_name` in EP-2's migration; consolidated reset, resize, and rebin
 checkpoint module with `...Report` naming; recorded a landing order through `Worker.hs`; widened
 EP-6's Keiro scope; accepted ADR-8 for the resulting API conventions; and recorded the
 `SubscriptionConfig` regrouping as a deliberate exclusion. Cascaded to plans 81 through 85.
+
+Revision note (2026-10-09): Refreshed against `e6ea664`, all six children, implementation and test
+sources, migrations through `0012`, package changelogs, relevant ADRs, and current local OKF
+records. Kept unimplemented children open, recorded shipped baseline fixes, corrected the stale
+automatic-dead-letter summary and benchmark coverage claims, documented performance risks and
+required direct measurements, mapped adjacent requests to their owners, and cascaded the evidence
+and validation changes into plans 81–86. No production code, package versions, or ADR decisions
+changed, and no runtime/performance test result is claimed by this documentation-only refresh.
+
+Revision note (2026-10-09, write-performance requirement): Added a blocking mixed-write acceptance
+contract and per-child gate ownership, preserved the original control for cumulative comparisons,
+changed the planned watchdog default to opt-in, required no-hook fast paths, and recorded ADR-11.
+This follows the user's explicit sensitivity to performance, especially event writes. No benchmark
+result is claimed and no production code has changed.

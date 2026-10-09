@@ -29,6 +29,11 @@ provenance:
       at: 2026-09-10T01:21:50Z
       mode: "update"
       note: "Design review, second pass: undecodableHandler callback with retry-then-StopUndecodable default replaces automatic dead-lettering; RetryPolicy unchanged"
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-09T16:21:16Z
+      mode: "update"
+      note: "Audit source at e6ea664; distinguish completed baseline from remaining work, refresh request coverage and performance evidence requirements"
 ---
 
 # Contain persistent publisher decode-hook failures
@@ -57,14 +62,18 @@ dead-letter that continues with the rest of the batch, and the typed read failur
 
 ## Progress
 
+- [ ] Write-performance gate: establish pre-cohort controls and pass mixed append/subscription throughput, latency, checkpoint/WAL, and GC checks under ADR-11 before completion.
+- [ ] Before implementation: define controlled no-hook/successful-hook read, catch-up, and confirmed live publisher workloads, throughput/allocation measurements, and ADR-5 acceptance bounds.
 - [ ] M1: add a deterministic persistent-`decodeHook` regression that proves the current repeated same-position loop and apparent-live subscriber state.
-- [ ] M2: introduce `DecodeFailure`, change `decodeHook` to return `Either DecodeFailure RecordedEvent`, make `decodeEvents` produce `DecodedEvent` values, and decode per event in the publisher and the worker catch-up path.
+- [ ] M2: introduce `DecodeFailure`, change `decodeHook` to return `Either DecodeFailure RecordedEvent`, make `decodeEvents` produce batches with a no-hook fast path and typed `DecodedEvent` values when a hook runs, and decode per event in the publisher and the worker catch-up path.
 - [ ] M2: add `undecodableHandler` to `SubscriptionConfigM`; deliver `Undecodable` to it, or apply the default retry-then-`StopUndecodable`; map read-path failures to `EventDecodeFailed`.
 - [ ] M3: document the hook contract, create its ADR, and run focused plus full Kiroku tests and the performance gates.
 
 
 ## Surprises & Discoveries
 
+- Refresh audit (2026-10-09): source, tests, and changelogs confirm the remaining acceptance
+  work is unimplemented; the dated Context audit distinguishes existing baseline from this plan.
 - Transfer audit (2026-08-27): `Test.PublisherCallbackResilience` intentionally proves that one
   thrown `decodeHook` emits `KirokuEventPublisherLoopError` and the publisher later delivers
   another event. A fix that crashes on the first failure would regress released behavior.
@@ -88,6 +97,18 @@ dead-letter that continues with the rest of the batch, and the typed read failur
 
 
 ## Decision Log
+
+- Decision: Apply ADR-11's write-performance constraint to this child's implementation and release
+  evidence, including indirect CPU/GC/pool/checkpoint effects where applicable.
+  Rationale: The user explicitly prioritizes performance, especially writes. A confirmed regression
+  requires correction; unchanged append SQL alone is insufficient evidence.
+  Date: 2026-10-09
+
+- Decision: Require direct controlled performance evidence for no-hook/successful-hook read, catch-up, and confirmed live publisher workloads.
+  Rationale: The 2026-10-09 audit found that the named overhead benchmark measures primarily
+  catch-up and uses a synthetic adapter; it cannot establish the broader performance claims.
+  This applies ADR-5 without changing the planned public API.
+  Date: 2026-10-09
 
 - Decision: Allow four consecutive failures at one publisher position and fail terminally on the
   fifth; reset the count after a successful decoded batch or position advance.
@@ -128,6 +149,8 @@ dead-letter that continues with the rest of the batch, and the typed read failur
 
 - Decision: Give `decodeHook` a typed result, `RecordedEvent -> IO (Either DecodeFailure
   RecordedEvent)`, and make `decodeEvents` return `Vector DecodedEvent`.
+  Amended on 2026-10-09: use `DecodedBatch` with an unchanged-vector no-hook arm, preserving the
+  read passthrough, to avoid per-event allocation when no hook is configured (ADR-11).
   Rationale: An exception is the wrong failure channel for a per-event transformation. It fails
   the whole batch, it carries no event identity, and it forces the store to choose between
   retrying forever and failing every subscriber. A typed result lets one bad event be handled as
@@ -170,15 +193,31 @@ dead-letter that continues with the rest of the batch, and the typed read failur
 
 ## Outcomes & Retrospective
 
-Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
-Compare the result against the original purpose. Before marking the plan complete,
-distill durable project context from the Decision Log, Surprises & Discoveries, and
-this section into docs/adr/. Keep task-local execution details here.
-
-(To be filled during and after implementation.)
+The 2026-10-09 documentation refresh confirmed that this child remains Not Started at
+`e6ea664`. The Context audit records current implementation evidence and reusable baseline work.
+No runtime or performance suite was rerun for this refresh; implementation acceptance remains
+open. The subsequent write-performance requirement is recorded in ADR-11 and the acceptance below;
+implementation and measured evidence remain outstanding.
 
 
 ## Context and Orientation
+
+Source audit (2026-10-09, `e6ea664`): implementation remains Not Started. `Settings.hs` still
+exposes an exception-only hook returning `IO RecordedEvent`, and `decodeEvents` returns the
+original vector with `pure xs` when no hook exists. `Test/PublisherCallbackResilience.hs` covers
+one thrown hook and throwing observability callbacks, not persistent typed failures. Preserve
+the strict idle-position update in `EventPublisher.hs` and the heap regression for
+[BUG-3](../bug-reports/publisher-position-thunk-retains-append-results-without-all-subscribers.md),
+fixed in store 0.9.0.1. That fix does not implement this decode contract.
+
+`ShibuyaOverhead.hs` preloads events before subscribing; its bare layer primarily measures
+catch-up, not confirmed live publisher fan-out. The earlier uniform per-event wrappers would replace the
+current no-hook, no-traversal fast path, including reads. The subsequent ADR-11 revision below
+retains read passthrough and uses a batch-level no-hook arm; successful-hook allocation and
+read-side unwrapping still need measurement even when hook-call counts and SQL round trips stay
+the same. Direct controlled coverage is required below. This plan does not implement
+[IR-16](../improvement-requests/retry-publisher-pool-errors-before-the-safety-poll.md): pool-error
+retry scheduling is distinct from per-event decode failure.
 
 `kiroku-store/src/Kiroku/Store/Settings.hs` defines `StoreSettings` with
 `decodeHook :: Maybe (RecordedEvent -> IO RecordedEvent)` and `decodeEvents`, which applies the
@@ -213,8 +252,8 @@ throwing observability handler. No existing ADR records the decode hook's failur
 plan creates one. ADR-4 is not changed because publisher position is independent of durable
 subscription checkpoints. [ADR-5](../adr/0005-three-tier-performance-regression-gates.md) makes
 `just perf-check` authoritative for performance evidence, and the bare-subscribe layer of the
-`kiroku-shibuya-overhead` benchmark in `kiroku-store/bench/ShibuyaOverhead.hs` measures the
-publisher-fed `$all` path this plan changes.
+`kiroku-shibuya-overhead` benchmark in `kiroku-store/bench/ShibuyaOverhead.hs` supplies
+supplementary catch-up evidence. It does not establish live publisher coverage.
 
 
 ## Plan of Work
@@ -233,15 +272,19 @@ tick-and-poll cadence provides.
 
 In `Settings.hs`, add `DecodeFailure` (event id plus operator-facing detail), change the hook
 field to `Maybe (RecordedEvent -> IO (Either DecodeFailure RecordedEvent))`, and change
-`decodeEvents` to return `Vector DecodedEvent`, where `DecodedEvent` is either
+`decodeEvents` to return `DecodedBatch`, with `UnchangedBatch (Vector RecordedEvent)` for no hook
+and `TransformedBatch (Vector DecodedEvent)` when a hook runs. Within a transformed batch,
+`DecodedEvent` is either
 `Decoded RecordedEvent` or `Undecodable RecordedEvent DecodeFailure`. `Undecodable` carries the
 raw event so its position and id are available and the worker can re-apply the hook on retry.
-Keep applying the hook once per surfaced event; with no hook configured, wrap without traversing
-the hook. An exception escaping the hook is a programming error and is still caught at the
+Keep applying the hook once per surfaced event. With no hook configured, retain the original
+vector inside one batch constructor; do not traverse it to allocate a wrapper for each event.
+Keep the no-hook read interpreter on its existing `pure xs` path so reads do not wrap then unwrap. An exception escaping the hook is a programming error
+and is still caught at the
 existing loop boundary as `KirokuEventPublisherLoopError`; it is not converted into an
 `Undecodable`.
 
-In `EventPublisher.hs`, broadcast `Vector DecodedEvent` through the subscriber queues and advance
+In `EventPublisher.hs`, broadcast `DecodedBatch` through the subscriber queues and advance
 the publisher position over undecodable events exactly as over decoded ones. Emit
 `KirokuEventPublisherDecodeFailed` once per undecodable event at broadcast time. The loop's
 exception boundary and its wake cadence are unchanged; there is no failure counter and no terminal
@@ -249,7 +292,8 @@ state, and `SubscriberStatus` is unchanged.
 
 Add `undecodableHandler :: Maybe (RecordedEvent -> DecodeFailure -> m SubscriptionResult)` to
 `SubscriptionConfigM`, defaulting to `Nothing`. In `Worker.hs`, make `fetchBatch` return
-`Vector DecodedEvent` and make `processEvents` walk that type. A `Decoded` event follows the
+`DecodedBatch`. Dispatch once per batch: an `UnchangedBatch` uses the ordinary event walk and a
+`TransformedBatch` walks the per-event outcomes. A `Decoded` event follows the
 existing path. For an `Undecodable` event the worker consults the callback. When it is set, call
 it with the raw event and the failure and honor its `SubscriptionResult` exactly as the ordinary
 handler's: `Continue` skips the event, `Retry` re-applies the hook after the requested delay and
@@ -287,6 +331,14 @@ contract, add it to the ADR bundle log, and validate the strict profile.
 
 
 ## Concrete Steps
+
+Extend the shared write harness with no-hook and successful-hook read/subscription load,
+confirmed live fan-out, and several subscribers sharing the appender's process. Record allocation,
+GC pauses/residency, and write-tail latency, not only delivery throughput. Preserve `pure xs` for
+no-hook reads and avoid per-event wrapper allocation on the no-hook subscription path.
+
+Define the direct read/catch-up/live controls described in Validation and Acceptance before
+milestone 2; record the eventual controlled-gate command here.
 
 Run from the Kiroku repository root:
 
@@ -327,6 +379,36 @@ just perf-check
 
 
 ## Validation and Acceptance
+
+Write-performance acceptance (2026-10-09): [ADR-11](../adr/0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md) makes write performance
+blocking. Before production changes, freeze a pre-cohort control (initially `e6ea664`) and this
+child's workload specification. Compare append-only and simultaneous appends/subscriptions in the
+same process and pool, with native `$all`, category/group, and real acknowledgement-coupled adapter
+coverage as applicable. Keep append SQL, successful-path round trips, locks, and instrumentation
+unchanged. Keep ordinary checkpoint saves at one monotonic upsert per batch tail.
+
+Run durable PostgreSQL 17/18, matched compiler/RTS/pool/database settings, and fixed payloads,
+concurrency, checkpoint frequency, and offered load. Include single/multi-stream, fresh/existing,
+and small/batched writes; test checkpoint batch sizes 1 and 100. Establish live mode before live
+measurements, assert equal delivered work, durable progress, and bounded backlog, and measure
+throughput separately from fixed-load append p50/p95/p99 including queueing delay. Record checkpoint
+latency, WAL per event/save, allocation/GC/residency, and contention as well as append throughput.
+Warm up, alternate at least five paired trials of at least 60 seconds, and extend inconclusive runs.
+Calibrate variability on control/control first; predeclare uncertainty margins able to resolve
+1% throughput/p50 and 3% p95/p99 changes or better. These are measurement-resolution limits, not
+slowdown budgets. A wide uncertainty interval is inconclusive; any reproducible write regression
+blocks completion until corrected. Do not offset a slow case with a faster one or alter durability,
+checkpoint frequency, thresholds, or baselines to pass. Add the controlled gate to `just perf-check`
+and record exact commands, revisions, schemas, raw results, and interpretation before completion.
+
+Before milestone 2, define controlled workload cases and acceptance bounds under ADR-5 for
+no-hook reads, successful-hook reads, catch-up, and live `$all` fan-out. Establish live mode before
+appending the measured events and test multiple subscribers; do not infer fan-out coverage from
+preloaded catch-up. Record throughput and allocation per event for control and candidate. Preserve
+the no-hook read fast path, and account explicitly for wrapping/unwrapping costs.
+Integrate these cases into an authoritative controlled gate and record the exact invocation and
+results here before completion. The old overhead benchmark and an unchanged SQL statement count
+alone are insufficient. Preserve BUG-3's strict idle-position/heap regression.
 
 A hook that returns `Left` once must recover on the next retry and deliver the event normally
 without any callback configured. A hook that always returns `Left` for one event must never reach
@@ -370,7 +452,11 @@ data DecodedEvent
     | Undecodable !RecordedEvent !DecodeFailure
 
 decodeHook :: Maybe (RecordedEvent -> IO (Either DecodeFailure RecordedEvent))
-decodeEvents :: StoreSettings -> Vector RecordedEvent -> IO (Vector DecodedEvent)
+data DecodedBatch
+    = UnchangedBatch !(Vector RecordedEvent)
+    | TransformedBatch !(Vector DecodedEvent)
+
+decodeEvents :: StoreSettings -> Vector RecordedEvent -> IO DecodedBatch
 ```
 
 `Kiroku.Store.Subscription.Types.SubscriptionConfigM` gains:
@@ -389,7 +475,7 @@ KirokuEventPublisherDecodeFailed
     :: GlobalPosition -> EventId -> DecodeFailure -> KirokuEvent
 ```
 
-The publisher queue element type becomes `Vector DecodedEvent`; `SubscriberStatus` is unchanged.
+The publisher queue element type becomes `DecodedBatch`; `SubscriberStatus` is unchanged.
 Use existing `async`, STM, and exception dependencies; add no new external package. Plan 84 adds
 `KirokuEventSubscriptionHandlerStalled` to the same observability type, so both must preserve each
 other's constructors during integration. Plans 82 and 84 also edit `Worker.hs`: plan 82 owns
@@ -417,3 +503,12 @@ ordinary `SubscriptionResult`, and without one the worker retries briefly and st
 `StopUndecodable`, so the store never skips an event on a consumer's behalf. `decodeRetryDelay`
 is withdrawn and `RetryPolicy` is unchanged. The earlier dead-letter decision is marked
 superseded.
+
+Revision note (2026-10-09): Audited current source, tests, migrations, and related records at
+`e6ea664`; retained unfinished milestones, documented existing baseline and actual request
+coverage, and refreshed integration/performance context. This is a documentation update, not
+implementation or new runtime-test evidence.
+
+Revision note (2026-10-09, write-performance requirement): Applied ADR-11 and blocking write-path
+acceptance, with per-child ownership and evidence requirements. The user explicitly prioritizes
+write performance. Implementation and benchmark gates remain open.

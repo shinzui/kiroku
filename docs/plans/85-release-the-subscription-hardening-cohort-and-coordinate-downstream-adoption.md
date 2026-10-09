@@ -29,6 +29,11 @@ provenance:
       at: 2026-09-10T01:21:50Z
       mode: "update"
       note: "Design review, second pass: wider Keiro adoption scope, Checkpoint-module resize, ConsumerGroupSize, ADR-8"
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-09T16:21:16Z
+      mode: "update"
+      note: "Audit source at e6ea664; distinguish completed baseline from remaining work, refresh request coverage and performance evidence requirements"
 ---
 
 # Release the subscription hardening cohort and coordinate downstream adoption
@@ -55,6 +60,7 @@ user's explicit release-time confirmation.
 
 ## Progress
 
+- [ ] Write-performance gate: establish pre-cohort controls and pass mixed append/subscription throughput, latency, checkpoint/WAL, and GC checks under ADR-11 before completion.
 - [ ] Gate: plans 81, 82, 83, 84, and 86 are complete, their living sections are current, and required ADR/OKF validation passes.
 - [ ] M1: determine changed packages and PVP impact from commits since authoritative tags; verify Hackage and upstream tags rather than trusting local registry versions.
 - [ ] M1: present exact package versions, bounds, and changelogs for user confirmation before editing release metadata.
@@ -66,6 +72,8 @@ user's explicit release-time confirmation.
 
 ## Surprises & Discoveries
 
+- Refresh audit (2026-10-09): source, tests, and changelogs confirm the remaining acceptance
+  work is unimplemented; the dated Context audit distinguishes existing baseline from this plan.
 - Transfer audit (2026-08-27): the July source plan forecast `kiroku-store` 0.4 and adapter 0.5.
   Current source is already `kiroku-store` 0.8.0.0 and `shibuya-kiroku-adapter` 0.5.1.1. No
   forecast version from the transferred plan is usable release evidence.
@@ -79,6 +87,12 @@ user's explicit release-time confirmation.
 
 
 ## Decision Log
+
+- Decision: Apply ADR-11's write-performance constraint to this child's implementation and release
+  evidence, including indirect CPU/GC/pool/checkpoint effects where applicable.
+  Rationale: The user explicitly prioritizes performance, especially writes. A confirmed regression
+  requires correction; unchanged append SQL alone is insufficient evidence.
+  Date: 2026-10-09
 
 - Decision: Do not choose package versions until every implementation plan is complete and current
   Hackage versions plus upstream tags have been verified.
@@ -106,15 +120,30 @@ user's explicit release-time confirmation.
 
 ## Outcomes & Retrospective
 
-Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
-Compare the result against the original purpose. Before marking the plan complete,
-distill durable project context from the Decision Log, Surprises & Discoveries, and
-this section into docs/adr/. Keep task-local execution details here.
-
-(To be filled during and after implementation.)
+The 2026-10-09 documentation refresh confirmed that this child remains Not Started at
+`e6ea664`. The Context audit records current implementation evidence and reusable baseline work.
+No runtime or performance suite was rerun for this refresh; implementation acceptance remains
+open. The subsequent write-performance requirement is recorded in ADR-11 and the acceptance below;
+implementation and measured evidence remain outstanding.
 
 
 ## Context and Orientation
+
+Source audit (2026-10-09, `e6ea664`): the gate remains unmet; all five implementation children
+are Not Started. Checked-in versions are store 0.9.0.1, migrations 0.6.0.0, adapter 0.5.1.5,
+otel 0.2.0.10, metrics 0.1.0.10, and CLI 0.2.0.8. The migration manifest ends at `0012.sql`.
+These are checkout observations, not fresh Hackage/tag verification or a proposed next cohort.
+The releases recorded in their changelogs contain lifecycle cleanup, category indexing, and
+publisher heap fixes, not the missing resize/rebind/typed-decode/stall APIs. None completes this
+release plan or establishes downstream adoption of those absent APIs.
+
+Preserve the existing migration-0012 cutover constraints in
+[ADR-10](../adr/0010-category-reads-use-a-denormalized-category-index-on-all-rows.md). EP-3 and
+EP-4 must supply new direct controlled performance evidence for reads/live publisher fan-out
+and the real acknowledgement-coupled adapter: the old overhead benchmark is synthetic and
+primarily catch-up. Run those gates in the integrated release, alongside `just test-matrix`
+for PostgreSQL 17 and 18 and the existing ADR-5 gates. Recheck the independently owned member-guard
+plans 93/92 and their release state before selecting the final package diff.
 
 Kiroku's repository release instructions are in `.agents/skills/release/SKILL.md`. Publishable
 packages, in dependency order, are `kiroku-store`, `kiroku-store-migrations`, `kiroku-otel`,
@@ -180,7 +209,9 @@ including that plan 82's column addition rewrites no rows.
 
 Run repository-wide formatting/build/test/flake gates, then `just perf-check` and
 `just perf-telemetry`; record the telemetry cells named in the MasterPlan's Performance gates
-integration point against their baseline rows. Run `cabal check`, `cabal sdist`, and
+integration point against their baseline rows. Also execute the direct controlled workloads
+introduced by plans 83 and 84 and record their throughput/allocation evidence; the old synthetic
+overhead benchmark does not satisfy those gates. Run `just test-matrix` on PostgreSQL 17 and 18. Run `cabal check`, `cabal sdist`, and
 Hackage Haddock generation for each proposed package without uploading. Inspect each source
 archive for its public modules, migration manifest/payload, changelog, license, and generated
 documentation. Stage newly created files before `nix flake check` so Nix sees them, but do not
@@ -234,6 +265,12 @@ this plan.
 
 ## Concrete Steps
 
+Run the whole integrated cohort against the original pre-cohort control, not only each child's
+immediate predecessor, to expose cumulative costs. Present each write scenario separately with
+uncertainty and raw results. Default-path regressions or inconclusive measurements keep this
+release gate open; do not proceed to publication by relaxing the performance contract. Separately
+report opt-in watchdog cost and preserve the existing structural/controlled append gates.
+
 Run release preparation from the Kiroku repository root:
 
 ```bash
@@ -242,6 +279,7 @@ git tag --list '*-v*' --sort=-version:refname
 nix fmt
 cabal build all
 cabal test all --test-show-details=direct
+just test-matrix
 nix flake check
 just perf-check
 just perf-telemetry
@@ -286,7 +324,29 @@ cabal test keiro:keiro-test --test-show-details=direct
 
 ## Validation and Acceptance
 
-All Kiroku child-plan acceptance tests, ADR/OKF gates, ADR-5 performance gates, package tests,
+Write-performance acceptance (2026-10-09): [ADR-11](../adr/0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md) makes write performance
+blocking. Before production changes, freeze a pre-cohort control (initially `e6ea664`) and this
+child's workload specification. Compare append-only and simultaneous appends/subscriptions in the
+same process and pool, with native `$all`, category/group, and real acknowledgement-coupled adapter
+coverage as applicable. Keep append SQL, successful-path round trips, locks, and instrumentation
+unchanged. Keep ordinary checkpoint saves at one monotonic upsert per batch tail.
+
+Run durable PostgreSQL 17/18, matched compiler/RTS/pool/database settings, and fixed payloads,
+concurrency, checkpoint frequency, and offered load. Include single/multi-stream, fresh/existing,
+and small/batched writes; test checkpoint batch sizes 1 and 100. Establish live mode before live
+measurements, assert equal delivered work, durable progress, and bounded backlog, and measure
+throughput separately from fixed-load append p50/p95/p99 including queueing delay. Record checkpoint
+latency, WAL per event/save, allocation/GC/residency, and contention as well as append throughput.
+Warm up, alternate at least five paired trials of at least 60 seconds, and extend inconclusive runs.
+Calibrate variability on control/control first; predeclare uncertainty margins able to resolve
+1% throughput/p50 and 3% p95/p99 changes or better. These are measurement-resolution limits, not
+slowdown budgets. A wide uncertainty interval is inconclusive; any reproducible write regression
+blocks completion until corrected. Do not offset a slow case with a faster one or alter durability,
+checkpoint frequency, thresholds, or baselines to pass. Add the controlled gate to `just perf-check`
+and record exact commands, revisions, schemas, raw results, and interpretation before completion.
+
+All Kiroku child-plan acceptance tests, ADR/OKF gates, ADR-5 performance gates (including
+the direct EP-3/EP-4 controlled cases), PostgreSQL 17/18 package tests,
 migration paths, source archives, Haddocks, and flake checks must pass before publication. Hackage
 source/docs versions, annotated tags, GitHub releases, and peeled commits must agree. A clean
 consumer must resolve only published artifacts and compile the new APIs.
@@ -358,3 +418,12 @@ Revision note (2026-09-09): Design review, second pass. Widened the Keiro adopti
 cover validated configuration constructors, the new store error classification, the undecodable
 handler choice, the startup-refusal parent, and any typed decode hook; corrected the resize
 module and report names; cited ADR-8.
+
+Revision note (2026-10-09): Audited current source, tests, migrations, and related records at
+`e6ea664`; retained unfinished milestones, documented existing baseline and actual request
+coverage, and refreshed integration/performance context. This is a documentation update, not
+implementation or new runtime-test evidence.
+
+Revision note (2026-10-09, write-performance requirement): Applied ADR-11 and blocking write-path
+acceptance, with per-child ownership and evidence requirements. The user explicitly prioritizes
+write performance. Implementation and benchmark gates remain open.
