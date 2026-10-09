@@ -78,6 +78,18 @@ adoption path exists.
 
 ## Surprises & Discoveries
 
+- Controller recovery (2026-10-09): the local focused controller exited after
+  six verified pilot trials, leaving its status file stale. The next submitted
+  trial sealed successfully on the cell at 20:17:31 UTC. `cell resume` collected
+  that same trial and continued the remaining saved slices. Pilot restart now
+  verifies the saved plan hash, payload and cell before resuming its journal;
+  completed evidence and original logs are preserved. Nine matrix tests pass,
+  including refusal of a changed saved plan. The detached recovery controller
+  is `/tmp/kiroku-mp12-focused-pipeline-v3.py`, with log
+  `/tmp/kiroku-mp12-focused-pipeline-v3.log` and the existing state file below.
+  It waits for the active resume operator before continuing the focused stages.
+  Candidate comparison and performance acceptance remain open.
+
 - Focused assurance (2026-10-09): following the user's instruction to avoid
   unnecessary testing, `matrix.json` now selects five workloads / 15 A/B cells:
   append-only fan-out; default category checkpoint rows; four-member group

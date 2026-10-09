@@ -157,12 +157,28 @@ def pilot(args):
             rows.append(read(accepted))
             continue
         plan = base.with_suffix('.plan.json')
-        planned(args.operator, config, plan, 0, 61, cohort_file)
         prefix, common = cell_args(args.operator, args.cell)
         output = base / 'session'
-        code = command(prefix + ['run'] + common + ['--payload', args.control, '--plan', plan,
-                       '--granularity', 'run', '--cache-policy', 'cold', '--out', output],
-                       base.with_suffix('.log'), cohort_file=cohort_file)
+        journal_path = output / 'session.json'
+        if journal_path.exists():
+            journal = read(journal_path)
+            if (journal['planSha256'].removeprefix('sha256:') != digest(plan)
+                    or journal['payloads'] != {'default': payload}
+                    or journal['cell'] != args.cell):
+                raise ValueError('saved pilot session differs from its frozen inputs')
+            # Resume the same submitted trials; never replace an interrupted
+            # pilot with a fresh sample or overwrite its original operator log.
+            with base.with_suffix('.log').open('a') as log:
+                code = subprocess.run([str(args.operator), 'cell', 'resume',
+                                       '--session', str(output)], stdout=log,
+                                      stderr=subprocess.STDOUT).returncode
+        else:
+            if plan.exists():
+                raise ValueError('pilot plan exists without a session; inspect its log')
+            planned(args.operator, config, plan, 0, 61, cohort_file)
+            code = command(prefix + ['run'] + common + ['--payload', args.control, '--plan', plan,
+                           '--granularity', 'run', '--cache-policy', 'cold', '--out', output],
+                           base.with_suffix('.log'), cohort_file=cohort_file)
         if code:
             raise ValueError(f'capacity pilot failed: {config["id"]}; inspect its log')
         trials = collect(output / 'session.json')

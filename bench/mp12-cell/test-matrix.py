@@ -105,6 +105,39 @@ class MatrixContract(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'corrupt artifact'):
                 matrix.collect(root / 'session.json')
 
+    def test_interrupted_pilot_resumes_same_session_and_refuses_changed_plan(self):
+        for changed in [False, True]:
+            with self.subTest(changed=changed), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                config = matrix.SPEC['configurations'][0]
+                payload = {'harness': {'dirty': False}, 'cohort': 'released',
+                           'cohortIdentity': {'components': [{'packages': [{
+                               'name': 'kiroku-store', 'source': {
+                                   'rev': 'e6ea66433c5320097b6afd3c4ca56cd18ba86bd0'}}]}]}}
+                matrix.write(root / 'control.json', payload)
+                matrix.write(root / 'inputs.json', {'matrixSha256': matrix.digest(HERE / 'matrix.json'),
+                             'control': payload, 'productionSha256': 'source'})
+                base = root / config['id']
+                matrix.write(base.with_suffix('.plan.json'), {'saved': True})
+                session = base / 'session'
+                session.mkdir(parents=True)
+                matrix.write(session / 'session.json', {'cell': 'alpha', 'payloads': {'default': payload},
+                             'planSha256': 'changed' if changed else matrix.digest(base.with_suffix('.plan.json'))})
+                args = argparse.Namespace(root=root, control=root / 'control.json', operator='operator', cell='alpha')
+                trials = [{'writeProbe': {'calls': 6100, 'elapsed': 61}}] * 3
+                spec = dict(matrix.SPEC, configurations=[config])
+                with patch.object(matrix, 'SPEC', spec), patch.object(matrix, 'production_fingerprint', return_value='source'), patch.object(matrix, 'planned') as plan, patch.object(matrix, 'collect', return_value=trials), patch.object(matrix.subprocess, 'run') as execute:
+                    execute.return_value.returncode = 0
+                    if changed:
+                        with self.assertRaisesRegex(ValueError, 'saved pilot session differs'):
+                            matrix.pilot(args)
+                        execute.assert_not_called()
+                    else:
+                        matrix.pilot(args)
+                        self.assertEqual(execute.call_args.args[0], ['operator', 'cell', 'resume', '--session', str(session)])
+                        self.assertTrue((root / 'frozen-loads.json').exists())
+                    plan.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()
