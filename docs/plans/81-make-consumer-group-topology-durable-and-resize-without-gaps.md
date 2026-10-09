@@ -78,6 +78,25 @@ adoption path exists.
 
 ## Surprises & Discoveries
 
+- Published/queued validation (2026-10-09 19:33 UTC): both clean Linux
+  payloads use harness revision `6f67012011fd329c258553f1fe758a170e5a1cb1`.
+  Control bundle SHA-256 is
+  `0197f49615f02705bc8db94ea5f56932b874c49fb6e159b118666444e1210400`;
+  candidate bundle SHA-256 is
+  `926b596464faaf67b84ebeb6b9ef06db606951e810ae9752716f60cc0e32f9a6`.
+  Production source remains identical to `15c21e8`; only benchmark tooling and
+  documentation changed. The planner is explicitly bound to the compiled
+  control identity and works from this checkout. The owned background pipeline
+  `/tmp/kiroku-mp12-matrix-pipeline.py` waits for the earlier long A/A job, then
+  runs pilot, full calibration, comparison and verification sequentially into
+  `/tmp/kiroku-mp12-matrix-v5`. Its operator log is
+  `/tmp/kiroku-mp12-matrix-pipeline.log`, status is
+  `/tmp/kiroku-mp12-matrix-pipeline-state.json`. These are execution artifacts,
+  not accepted evidence. A Darwin fixture-smoke build failed because its
+  executable derivation retained a forbidden compiler reference; local smoke
+  coverage is unverified. Required performance validation uses the published
+  Linux payloads on PostgreSQL 18. No candidate comparison has started.
+
 - Shared matrix implementation (2026-10-09): `bench/mp12-cell/matrix.json`
   freezes 14 complementary configurations and three profiles (capacity, 20% and
   90% of the slowest control pilot capacity). Across the matrix all eight write
