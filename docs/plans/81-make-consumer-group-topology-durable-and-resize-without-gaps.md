@@ -93,8 +93,16 @@ adoption path exists.
   precision limit. Tight intervals around equality can pass without requiring
   unchanged paths to prove a speedup; any confirmed slowdown still blocks even
   below those limits. Ten interval tests and eight matrix tests pass.
-  The running 610-second diagnostic remains in progress; no candidate comparison
-  has started. Its evidence is not substituted for the matched method calibrations.
+  The superseded 610-second diagnostic stopped after its fifth
+  verified trial (operator exit 130), preserving completed raw samples without
+  treating incomplete pairs as accepted calibration. The owned focused pipeline is
+  `/tmp/kiroku-mp12-focused-pipeline-v2.py`; it verified lease release and absence
+  of quarantine, then started capacity pilots before two method calibrations, fifteen comparisons
+  and the final gate into `/tmp/kiroku-mp12-ep1-matrix-v5`. Status and log are
+  `/tmp/kiroku-mp12-focused-pipeline-state.json` and
+  `/tmp/kiroku-mp12-focused-pipeline-v2.log`. Existing clean payloads are reused
+  because only selection and acceptance tooling changed. No candidate comparison
+  has started; performance acceptance remains open.
 
 - Published/queued validation (2026-10-09 19:33 UTC; original queue subsequently cancelled): both clean Linux
   payloads use harness revision `6f67012011fd329c258553f1fe758a170e5a1cb1`.
