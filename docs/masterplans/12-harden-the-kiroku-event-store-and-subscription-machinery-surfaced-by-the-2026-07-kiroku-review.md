@@ -364,7 +364,9 @@ correct acknowledgements, durable checkpoint progress, and bounded backlog throu
 and after draining. A faster append result obtained by doing less subscriber work, allowing backlog
 to grow without bound, dropping events, or deferring checkpoint writes is a failed run.
 
-Run PostgreSQL 17 and 18 with durable writes enabled. Warm both arms, alternate at least five
+Run PostgreSQL 18 with durable writes enabled. The user narrowed the performance
+validation scope to PostgreSQL 18 on 2026-10-09; PostgreSQL 17 performance trials
+are not required. Warm both arms, alternate at least five
 paired steady-state trials, and use windows of at least 60 seconds, extending runs when necessary
 for stable tail-latency estimates. Report committed events/second, append p50/p95/p99 latency,
 checkpoint saves/second and latency, WAL bytes per committed event and per checkpoint save,
@@ -463,10 +465,14 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Surprises & Discoveries
 
+- Scope correction (2026-10-09): the user explicitly removed PostgreSQL 17
+  testing from the remaining work. Authoritative performance acceptance uses
+  PostgreSQL 18 on alpha. Previously completed PostgreSQL 17 functional tests
+  remain evidence; beta diagnostics are not acceptance measurements.
+
 - EP-1 controlled benchmark preparation: matched Linux payloads build under
   `bench/mp12-cell`, reusing `mori://shinzui/keiro-runtime-kenshou` at revision
-  `68f986cd7548e7da64e6eeb0444d8f5524cf5e82`. Alpha (PostgreSQL 18) and beta
-  (PostgreSQL 17) are available. The workload and fail-closed checker are reusable
+  `68f986cd7548e7da64e6eeb0444d8f5524cf5e82`. Alpha (PostgreSQL 18) is the selected measurement cell. The workload and fail-closed checker are reusable
   by later children; cell calibration and complete ADR-11 coverage remain open.
 
 - EP-1's local PostgreSQL 18 control/control write calibration exceeded the

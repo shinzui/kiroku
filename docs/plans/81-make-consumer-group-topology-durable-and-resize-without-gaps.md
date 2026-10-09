@@ -77,6 +77,14 @@ adoption path exists.
 
 ## Surprises & Discoveries
 
+- Scope correction (2026-10-09): the user explicitly removed PostgreSQL 17
+  testing from the remaining work. Use alpha/PostgreSQL 18 for the controlled
+  gate. Beta workload diagnostics passed 6,100-event delivery and durable
+  progress, but its old role agent rejects the new driver lease-sequence field;
+  those runs are excluded from acceptance. The PostgreSQL 17 image rebuild was
+  cancelled, with no active beta lease or quarantine. Completed functional
+  PostgreSQL 17 results remain recorded.
+
 - Cell smoke diagnostics: alpha sealed diagnostic runs
   `01a121d5-4615-73e2-8e99-0ade6461cd66` and
   `01a121dc-8992-77b0-880b-16b28bf76bdb` under the results bucket
@@ -162,7 +170,7 @@ adoption path exists.
 - Implementation preflight (2026-10-09): froze the original production control at
   `e6ea664` in a detached worktree. The current starting revision `4d9b68e` differs
   only in documentation. Performance acceptance retains the declared five paired
-  60-second trials, PostgreSQL 17/18, batch sizes 1/100, 1% throughput/p50 and 3%
+  60-second trials, PostgreSQL 18, batch sizes 1/100, 1% throughput/p50 and 3%
   tail-latency resolution; no thresholds or baseline are relaxed.
 
 - Refresh audit (2026-10-09): source, tests, and changelogs confirm the remaining acceptance
@@ -509,7 +517,7 @@ same process and pool, with native `$all`, category/group, and real acknowledgem
 coverage as applicable. Keep append SQL, successful-path round trips, locks, and instrumentation
 unchanged. Keep ordinary checkpoint saves at one monotonic upsert per batch tail.
 
-Run durable PostgreSQL 17/18, matched compiler/RTS/pool/database settings, and fixed payloads,
+Run durable PostgreSQL 18, matched compiler/RTS/pool/database settings, and fixed payloads,
 concurrency, checkpoint frequency, and offered load. Include single/multi-stream, fresh/existing,
 and small/batched writes; test checkpoint batch sizes 1 and 100. Establish live mode before live
 measurements, assert equal delivered work, durable progress, and bounded backlog, and measure
@@ -563,7 +571,7 @@ python3 scripts/mp12-write-pair.py --control "$control" --candidate "$control" \
 
 The pilot records whole-workload WAL, checkpoint update/HOT counts, and Haskell
 allocation/GC. Before full acceptance, add checkpoint latency, contention and
-continuous backlog evidence, all declared write shapes on PostgreSQL 17/18,
+continuous backlog evidence, all declared write shapes on PostgreSQL 18,
 separate sustainable-throughput trials, and integration of the complete gate into
 `just perf-check`. This pilot is evidence collection rather than a completed gate.
 

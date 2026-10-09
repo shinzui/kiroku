@@ -8,7 +8,7 @@ generated:
 docId: ADR-11
 status: Accepted
 date: 2026-10-09
-timestamp: "2026-10-09T16:25:55Z"
+timestamp: "2026-10-09T18:45:40Z"
 originatingPlan: docs/masterplans/12-harden-the-kiroku-event-store-and-subscription-machinery-surfaced-by-the-2026-07-kiroku-review.md
 ---
 
@@ -40,12 +40,14 @@ acknowledgements, weakening checkpoint durability, or silently skipping events.
 
 The cohort has no intentional default write-regression budget. Its acceptance requires controlled
 append-only and mixed append/subscription comparisons against the pre-cohort implementation,
-including PostgreSQL 17 and 18, real acknowledgements, sustainable throughput, append latency
+including PostgreSQL 18, real acknowledgements, sustainable throughput, append latency
 percentiles, durable subscriber progress, and checkpoint write cost. Reproducible write regressions
 block completion and release. Noisy evidence is inconclusive and requires better measurement;
 lack of statistical significance is not proof of equivalence. Detailed workload controls and
 measurement resolution belong in the active MasterPlan and child evidence, not a new global
-replacement for ADR-5's existing thresholds.
+replacement for ADR-5's existing thresholds. On 2026-10-09 the user explicitly
+narrowed the required database-version scope to PostgreSQL 18; PostgreSQL 17
+performance testing is excluded from this cohort's acceptance requirement.
 
 Handler-stall diagnostics are opt-in: `handlerStallWarnAfter = Nothing` in the store and both
 adapter defaults. The disabled path creates no watchdog thread, tracking cell, timer, per-delivery
