@@ -1,0 +1,7 @@
+started 4 instances for cell alpha
+phase: Resetting
+phase: Fetching
+phase: Running
+phase: Publishing
+phase: Sealed
+session 01a123f0-564b-7516-bbeb-452883499ed4 verified; journal /tmp/mp12-ep6-diagnosis/remote-calibration/session.json

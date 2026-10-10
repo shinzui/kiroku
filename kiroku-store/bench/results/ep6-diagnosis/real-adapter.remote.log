@@ -1,0 +1,33 @@
+phase: Resetting
+phase: Fetching
+phase: Running
+phase: Publishing
+phase: Sealed
+phase: Resetting
+phase: Fetching
+phase: Running
+phase: Publishing
+phase: Sealed
+phase: Resetting
+phase: Fetching
+phase: Running
+phase: Publishing
+phase: Sealed
+phase: Resetting
+phase: Fetching
+phase: Running
+phase: Publishing
+phase: Sealed
+phase: Resetting
+phase: Fetching
+phase: Running
+phase: Publishing
+phase: Sealed
+phase: Accepted
+phase: Resetting
+phase: Fetching
+phase: Running
+phase: Publishing
+phase: Sealed
+session 01a123f3-4958-7387-82f7-0fcaf13d1003 verified; journal /tmp/mp12-ep6-diagnosis/remote-real-adapter/round-0/session.json
+comparison VerdictInconclusive; valid pairs 3/3

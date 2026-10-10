@@ -1,0 +1,513 @@
+{
+  "started_epoch": 1791603060.0,
+  "deadline_epoch": 1791606660.0,
+  "cleanup_reserve_seconds": 180,
+  "authorization": "user follow-up: got it. go ahead then; previous experiment remains stopped and retained",
+  "phase": "stopped",
+  "build_limit_seconds": 300,
+  "build_pid": 36600,
+  "build_started_epoch": 1791603768.859745,
+  "build_log_bytes": 3128,
+  "updated_epoch": 1791606479.598162,
+  "build_returncode": 0,
+  "build_seconds": 126.21916794776917,
+  "remote_started_epoch": 1791604297.725077,
+  "jobs": [
+    {
+      "name": "calibration",
+      "command": [
+        "/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kenshou-cli-0.1.0.0/x/kenshou/build/kenshou/kenshou",
+        "cell",
+        "run",
+        "--cell",
+        "alpha",
+        "--start",
+        "--payload",
+        "/tmp/mp12-ep6-diagnosis/control.payload.json",
+        "--plan",
+        "/tmp/mp12-ep6-diagnosis/calibration.plan.json",
+        "--out",
+        "/tmp/mp12-ep6-diagnosis/remote-calibration",
+        "--pg-setting",
+        "shared_buffers=128MB",
+        "--pg-setting",
+        "fsync=on",
+        "--pg-setting",
+        "synchronous_commit=on",
+        "--pg-setting",
+        "full_page_writes=on",
+        "--pg-setting",
+        "wal_level=replica",
+        "--pg-setting",
+        "checkpoint_timeout=30min",
+        "--pg-setting",
+        "max_wal_size=16GB"
+      ],
+      "started_epoch": 1791604297.7258198,
+      "verified_trials": 1,
+      "returncode": 0,
+      "seconds": 203.9874701499939,
+      "independently_verified_trials": 1,
+      "post_calibration_status": {
+        "returncode": 0,
+        "stdout": "cell alpha project=tan-nb-exp zone=us-west1-a pg=18\nlease none\nquarantine none\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "real-adapter",
+      "command": [
+        "/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kenshou-cli-0.1.0.0/x/kenshou/build/kenshou/kenshou",
+        "cell",
+        "pair",
+        "--cell",
+        "alpha",
+        "--start",
+        "--baseline",
+        "/tmp/mp12-ep6-diagnosis/control.payload.json",
+        "--candidate",
+        "/tmp/mp12-ep6-diagnosis/head.payload.json",
+        "--plan",
+        "/tmp/mp12-ep6-diagnosis/real-adapter.plan.json",
+        "--pairs",
+        "3",
+        "--ordering",
+        "abba",
+        "--max-replacements",
+        "0",
+        "--policy",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp12-cell/policy.json",
+        "--out",
+        "/tmp/mp12-ep6-diagnosis/remote-real-adapter",
+        "--pg-setting",
+        "shared_buffers=128MB",
+        "--pg-setting",
+        "fsync=on",
+        "--pg-setting",
+        "synchronous_commit=on",
+        "--pg-setting",
+        "full_page_writes=on",
+        "--pg-setting",
+        "wal_level=replica",
+        "--pg-setting",
+        "checkpoint_timeout=30min",
+        "--pg-setting",
+        "max_wal_size=16GB"
+      ],
+      "started_epoch": 1791604502.692223,
+      "verified_trials": 6,
+      "returncode": 3,
+      "seconds": 914.1005599498749,
+      "independently_verified_trials": 6,
+      "comparison": {
+        "algorithm": {
+          "confidenceLevel": 0.95,
+          "generator": "splitmix",
+          "iterations": 10000,
+          "name": "paired-bootstrap-t-envelope",
+          "seed": 20261009,
+          "version": 1
+        },
+        "baselineRuns": [
+          "01a12301-093f-7116-a87d-06f1c489b65c",
+          "01a12301-093f-7116-ac85-94ad84fed7e4",
+          "01a12301-093f-7116-aef2-eda061f4a689"
+        ],
+        "candidateRuns": [
+          "01a12301-093f-7116-a639-d9bd4a5fdbde",
+          "01a12301-093f-7116-a18f-1acaebdaeed2",
+          "01a12301-093f-7116-af78-2029fa47c51b"
+        ],
+        "comparisonId": "01a12401-197e-70d6-a0c0-b53f01cdd3d8",
+        "design": "abba",
+        "exitCode": 3,
+        "finishedAt": "2026-10-10T04:10:14.507852Z",
+        "harnessDirty": false,
+        "harnessRevision": "f7273083f1d719ac701500c898152c04dadd5170",
+        "metrics": {
+          "op.append.latency.p50": {
+            "absoluteFloor": 0,
+            "baselineCv": 0.04136367313077825,
+            "delta": {
+              "estimate": -208896,
+              "high": 78200.038924355,
+              "low": -495992.038924355
+            },
+            "message": "confidence interval crosses a policy limit or is too wide",
+            "metric": "op.append.latency.p50",
+            "pairs": [
+              {
+                "baseline": 5529599,
+                "candidate": 5337087
+              },
+              {
+                "baseline": 5394431,
+                "candidate": 5062655
+              },
+              {
+                "baseline": 5844991,
+                "candidate": 5742591
+              }
+            ],
+            "ratio": {
+              "estimate": 0.961883462462463,
+              "high": 1.0186792676439582,
+              "low": 0.9082542707467304
+            },
+            "relativeLimit": 0,
+            "status": "inconclusive",
+            "unit": "ns"
+          },
+          "op.append.latency.p95": {
+            "absoluteFloor": 0,
+            "baselineCv": 0.037005418512385646,
+            "delta": {
+              "estimate": -294912,
+              "high": -98383.70672403718,
+              "low": -491440.2932759628
+            },
+            "message": "confidence interval crosses a policy limit or is too wide",
+            "metric": "op.append.latency.p95",
+            "pairs": [
+              {
+                "baseline": 6537215,
+                "candidate": 6172671
+              },
+              {
+                "baseline": 6287359,
+                "candidate": 5976063
+              },
+              {
+                "baseline": 6770687,
+                "candidate": 6561791
+              }
+            ],
+            "ratio": {
+              "estimate": 0.9545652977819158,
+              "high": 0.9872151676517505,
+              "low": 0.9229952472234606
+            },
+            "relativeLimit": 0,
+            "status": "inconclusive",
+            "unit": "ns"
+          },
+          "op.append.latency.p99": {
+            "absoluteFloor": 0,
+            "baselineCv": 0.008391928899921733,
+            "delta": {
+              "estimate": 352256,
+              "high": 3981241.21775376,
+              "low": -3276729.21775376
+            },
+            "message": "confidence interval crosses a policy limit or is too wide",
+            "metric": "op.append.latency.p99",
+            "pairs": [
+              {
+                "baseline": 7503871,
+                "candidate": 6848511
+              },
+              {
+                "baseline": 7565311,
+                "candidate": 9592831
+              },
+              {
+                "baseline": 7630847,
+                "candidate": 7315455
+              }
+            ],
+            "ratio": {
+              "estimate": 1.035221145364946,
+              "high": 1.6084217871862592,
+              "low": 0.6662946425797247
+            },
+            "relativeLimit": 0,
+            "status": "inconclusive",
+            "unit": "ns"
+          },
+          "op.append.throughput": {
+            "absoluteFloor": 0,
+            "baselineCv": 0.03802607895560347,
+            "delta": {
+              "estimate": -27.8057507640746,
+              "high": 4.297083377726455,
+              "low": -59.90858490587566
+            },
+            "message": "confidence interval crosses a policy limit or is too wide",
+            "metric": "op.append.throughput",
+            "pairs": [
+              {
+                "baseline": 705.4762046332501,
+                "candidate": 736.1382651379486
+              },
+              {
+                "baseline": 725.7309776811329,
+                "candidate": 764.7916903081244
+              },
+              {
+                "baseline": 672.86994724889,
+                "candidate": 686.5644264094237
+              }
+            ],
+            "ratio": {
+              "estimate": 0.9623545497099811,
+              "high": 1.0027165064029575,
+              "low": 0.9236172671274666
+            },
+            "relativeLimit": 0,
+            "status": "inconclusive",
+            "unit": "ops/s"
+          }
+        },
+        "pairCount": 3,
+        "policy": {
+          "bootstrapIterations": 10000,
+          "confidenceLevel": 0.95,
+          "maxCheckpointAsymmetry": 0,
+          "maxCiRelativeWidth": 0.06,
+          "metrics": [
+            {
+              "absoluteFloor": 0,
+              "direction": "higher-is-better",
+              "match": "op.append.throughput",
+              "relativeLimit": 0
+            },
+            {
+              "absoluteFloor": 0,
+              "direction": "lower-is-better",
+              "match": "op.append.latency.p50",
+              "relativeLimit": 0
+            },
+            {
+              "absoluteFloor": 0,
+              "direction": "lower-is-better",
+              "match": "op.append.latency.p95",
+              "relativeLimit": 0
+            },
+            {
+              "absoluteFloor": 0,
+              "direction": "lower-is-better",
+              "match": "op.append.latency.p99",
+              "relativeLimit": 0
+            }
+          ],
+          "minimumPairs": 5,
+          "name": "mp12-zero-write-regression",
+          "requireGrade": "benchmark",
+          "requireInterleaving": true,
+          "resamplingSeed": 20261009,
+          "schema": "kenshou.comparison-policy/v1"
+        },
+        "reasons": [
+          "fewer than the required number of pairs"
+        ],
+        "schema": "kenshou.comparison/v1",
+        "startedAt": "2026-10-10T04:10:14.269956Z",
+        "variedFactors": [
+          "cohort"
+        ],
+        "verdict": "inconclusive"
+      }
+    },
+    {
+      "name": "diagnostic",
+      "command": [
+        "/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kenshou-cli-0.1.0.0/x/kenshou/build/kenshou/kenshou",
+        "cell",
+        "run",
+        "--cell",
+        "alpha",
+        "--start",
+        "--payload",
+        "diagnostic=/tmp/mp12-ep6-diagnosis/diagnostic.payload.json",
+        "--plan",
+        "/tmp/mp12-ep6-diagnosis/diagnostic.plan.json",
+        "--out",
+        "/tmp/mp12-ep6-diagnosis/remote-diagnostic",
+        "--pg-setting",
+        "shared_buffers=128MB",
+        "--pg-setting",
+        "fsync=on",
+        "--pg-setting",
+        "synchronous_commit=on",
+        "--pg-setting",
+        "full_page_writes=on",
+        "--pg-setting",
+        "wal_level=replica",
+        "--pg-setting",
+        "checkpoint_timeout=30min",
+        "--pg-setting",
+        "max_wal_size=16GB"
+      ],
+      "started_epoch": 1791605416.926753,
+      "verified_trials": 0,
+      "returncode": 0,
+      "seconds": 167.2821807861328,
+      "independently_verified_trials": 1
+    },
+    {
+      "name": "live-hook-fanout",
+      "command": [
+        "/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kenshou-cli-0.1.0.0/x/kenshou/build/kenshou/kenshou",
+        "cell",
+        "pair",
+        "--cell",
+        "alpha",
+        "--start",
+        "--baseline",
+        "/tmp/mp12-ep6-diagnosis/control.payload.json",
+        "--candidate",
+        "/tmp/mp12-ep6-diagnosis/head.payload.json",
+        "--plan",
+        "/tmp/mp12-ep6-diagnosis/live-hook-fanout.plan.json",
+        "--pairs",
+        "3",
+        "--ordering",
+        "abba",
+        "--max-replacements",
+        "0",
+        "--policy",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp12-cell/policy.json",
+        "--out",
+        "/tmp/mp12-ep6-diagnosis/remote-live-hook-fanout",
+        "--pg-setting",
+        "shared_buffers=128MB",
+        "--pg-setting",
+        "fsync=on",
+        "--pg-setting",
+        "synchronous_commit=on",
+        "--pg-setting",
+        "full_page_writes=on",
+        "--pg-setting",
+        "wal_level=replica",
+        "--pg-setting",
+        "checkpoint_timeout=30min",
+        "--pg-setting",
+        "max_wal_size=16GB"
+      ],
+      "started_epoch": 1791605584.2130601,
+      "verified_trials": 5
+    }
+  ],
+  "remote_pid": 64054,
+  "instance_power": [
+    {
+      "name": "cell-alpha-broker",
+      "status": "RUNNING"
+    },
+    {
+      "name": "cell-alpha-driver-0",
+      "status": "RUNNING"
+    },
+    {
+      "name": "cell-alpha-monitoring",
+      "status": "RUNNING"
+    },
+    {
+      "name": "cell-alpha-postgres",
+      "status": "RUNNING"
+    }
+  ],
+  "preflight_attempts": [
+    {
+      "evidence": "/tmp/mp12-ep6-diagnosis/preflight-label-refusal",
+      "no_trial_submitted": true,
+      "cleanup_final_power": [
+        {
+          "name": "cell-alpha-broker",
+          "status": "TERMINATED"
+        },
+        {
+          "name": "cell-alpha-driver-0",
+          "status": "TERMINATED"
+        },
+        {
+          "name": "cell-alpha-monitoring",
+          "status": "TERMINATED"
+        },
+        {
+          "name": "cell-alpha-postgres",
+          "status": "TERMINATED"
+        }
+      ],
+      "lease": "none",
+      "quarantine": "none"
+    }
+  ],
+  "owned_lease": "01a12403-c811-737e-9f4b-b3329026a9d7",
+  "current_run": "01a12403-cdbf-73ea-b54e-1ffb7ad66f30",
+  "status_lookup_error": "ERROR: (gcloud.storage.cat) The following URLs matched no objects or files:\ngs://tan-nb-exp-cells-control/cells/alpha/submissions/01a12403-cdbf-73ea-b54e-1ffb7ad66f30/status.json\n",
+  "remote_status": {
+    "schema": "cell.status/v1",
+    "runId": "01a12403-cdbf-73ea-b54e-1ffb7ad66f30",
+    "phase": "running",
+    "leaseSequence": 6,
+    "updatedAt": "2026-10-10T04:26:29Z",
+    "phaseStartedAt": "2026-10-10T04:26:29Z",
+    "logChunks": {
+      "stdout": 0,
+      "stderr": 0
+    }
+  },
+  "remote_phase": "running",
+  "remote_error": "TimeoutError('whole experiment remote deadline reached; no replacement')",
+  "final_instance_power": [
+    {
+      "name": "cell-alpha-broker",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-driver-0",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-monitoring",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-postgres",
+      "status": "TERMINATED"
+    }
+  ],
+  "final_cell_status": {
+    "returncode": 0,
+    "stdout": "cell alpha project=tan-nb-exp zone=us-west1-a pg=18\nlease none\nquarantine none\n",
+    "stderr": ""
+  },
+  "cleanup": [
+    {
+      "action": "release-owned-lease",
+      "lease": "01a123f0-4f37-7310-87f3-2cf09e22b1f6",
+      "returncode": 4,
+      "stdout": "",
+      "stderr": "kenshou cell: cell has no matching lease\n"
+    },
+    {
+      "action": "release-owned-lease",
+      "lease": "01a12403-c811-737e-9f4b-b3329026a9d7",
+      "returncode": 4,
+      "stdout": "",
+      "stderr": "kenshou cell: cell has no matching lease\n"
+    },
+    {
+      "action": "release-owned-lease",
+      "lease": "01a12401-3a7f-76ec-9f70-5a0eea3277b7",
+      "returncode": 4,
+      "stdout": "",
+      "stderr": "kenshou cell: cell has no matching lease\n"
+    },
+    {
+      "action": "release-owned-lease",
+      "lease": "01a123f3-4348-72c5-b376-c4d228bbba62",
+      "returncode": 4,
+      "stdout": "",
+      "stderr": "kenshou cell: cell has no matching lease\n"
+    },
+    {
+      "action": "stop-cell",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "Stopping instance(s) cell-alpha-postgres, cell-alpha-driver-0, cell-alpha-monitoring, cell-alpha-broker...\n................................................................................done.\nUpdated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-postgres].\nUpdated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-driver-0].\nUpdated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-monitoring].\nUpdated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-broker].\n"
+    }
+  ],
+  "finished_epoch": 1791606512.680386
+}

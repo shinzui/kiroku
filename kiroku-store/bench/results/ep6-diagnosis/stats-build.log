@@ -1,0 +1,45 @@
+Loaded package environment from /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/tmp/environment.-7408/.ghc.environment.aarch64-darwin-9.12.4
+[1 of 2] Compiling Main             ( /tmp/mp12-ep6-diagnosis/StatsProbe.hs, /tmp/mp12-ep6-diagnosis/StatsProbe.o )
+/tmp/mp12-ep6-diagnosis/StatsProbe.hs:6:1: error: [GHC-45102]
+    Ambiguous module name ‘Data.Aeson’.
+    it was found in multiple packages: aeson-2.2.5.1 aeson-2.3.2.0
+  |
+6 | import Data.Aeson (encode, object, (.=))
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/tmp/mp12-ep6-diagnosis/StatsProbe.hs:11:1: error: [GHC-45102]
+    Ambiguous module name ‘Hasql.Pool’.
+    it was found in multiple packages:
+    hasql-pool-1.4.2.3 hasql-pool-1.4.2.3
+   |
+11 | import Hasql.Pool qualified as Pool
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/tmp/mp12-ep6-diagnosis/StatsProbe.hs:12:1: error: [GHC-45102]
+    Ambiguous module name ‘Hasql.Session’.
+    it was found in multiple packages: hasql-1.10.3.7 hasql-1.10.3.7
+   |
+12 | import Hasql.Session qualified as S
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/tmp/mp12-ep6-diagnosis/StatsProbe.hs:13:1: error: [GHC-45102]
+    Ambiguous module name ‘Hasql.Encoders’.
+    it was found in multiple packages: hasql-1.10.3.7 hasql-1.10.3.7
+   |
+13 | import Hasql.Encoders qualified as E
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/tmp/mp12-ep6-diagnosis/StatsProbe.hs:14:1: error: [GHC-45102]
+    Ambiguous module name ‘Hasql.Decoders’.
+    it was found in multiple packages: hasql-1.10.3.7 hasql-1.10.3.7
+   |
+14 | import Hasql.Decoders qualified as D
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/tmp/mp12-ep6-diagnosis/StatsProbe.hs:15:1: error: [GHC-45102]
+    Ambiguous module name ‘Hasql.Statement’.
+    it was found in multiple packages: hasql-1.10.3.7 hasql-1.10.3.7
+   |
+15 | import Hasql.Statement (preparable)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

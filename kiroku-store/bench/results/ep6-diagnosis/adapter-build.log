@@ -1,0 +1,15 @@
+Loaded package environment from /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/tmp/environment.-17544/.ghc.environment.aarch64-darwin-9.12.4
+[1 of 2] Compiling Main             ( /tmp/mp12-ep6-diagnosis/AdapterProbe.hs, /tmp/mp12-ep6-diagnosis/AdapterProbe.o )
+/tmp/mp12-ep6-diagnosis/AdapterProbe.hs:49:178: error: [GHC-39999]
+    • No instance for ‘GHC.Internal.Records.HasField
+                         "show" ([Char] -> a0) (InvalidBatchSize -> BatchSize)’
+        arising from selecting the field ‘show’
+        (maybe you haven't applied a function to enough arguments?)
+    • In the first argument of ‘either’, namely ‘(error.show)’
+      In the expression: either (error.show) id (mkBatchSize 1)
+      In an equation for ‘batchSize’:
+          batchSize = either (error.show) id (mkBatchSize 1)
+   |
+49 |    adapter <- kirokuAdapter store $ (defaultKirokuAdapterConfig (SubscriptionName "probe") AllStreams){Adapter.missingCheckpointPolicy=FromCurrentHead,Adapter.batchSize=either (error.show) Prelude.id (mkBatchSize 1)}
+   |                                                                                                                                                                                  ^^^^^^^^^^
+

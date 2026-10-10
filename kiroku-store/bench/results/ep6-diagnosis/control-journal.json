@@ -1,0 +1,29 @@
+{
+  "started_epoch": 1791603060.0,
+  "deadline_epoch": 1791606660.0,
+  "cleanup_reserve_seconds": 180,
+  "authorization": "user follow-up: got it. go ahead then; previous experiment remains stopped and retained",
+  "phase": "publish-control-finished",
+  "stages": {
+    "publish-control": {
+      "started_epoch": 1791603961.746872,
+      "cap_seconds": 360,
+      "command": [
+        "/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kenshou-cli-0.1.0.0/x/kenshou/build/kenshou/kenshou",
+        "cell",
+        "payload",
+        "publish",
+        "--cohort",
+        "released",
+        "--root",
+        "./bench/mp12-cell",
+        "--out",
+        "/tmp/mp12-ep6-diagnosis/control.payload.json"
+      ],
+      "returncode": 0,
+      "seconds": 112.1831362247467
+    }
+  },
+  "log_bytes": 0,
+  "updated_epoch": 1791604071.925382
+}

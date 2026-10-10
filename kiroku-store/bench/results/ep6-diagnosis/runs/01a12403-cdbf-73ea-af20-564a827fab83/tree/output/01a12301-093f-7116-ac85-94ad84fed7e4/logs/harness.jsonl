@@ -1,0 +1,5 @@
+{"fields":{},"level":"debug","msg":"measurement phase setup","process":"10821","runId":"01a12301-093f-7116-ac85-94ad84fed7e4","ts":"2026-10-10T04:21:32.938957808Z"}
+{"fields":{},"level":"debug","msg":"measurement phase warm-up","process":"10821","runId":"01a12301-093f-7116-ac85-94ad84fed7e4","ts":"2026-10-10T04:21:32.950403618Z"}
+{"fields":{},"level":"debug","msg":"measurement phase steady","process":"10821","runId":"01a12301-093f-7116-ac85-94ad84fed7e4","ts":"2026-10-10T04:22:03.188712587Z"}
+{"fields":{},"level":"debug","msg":"measurement phase drain","process":"10821","runId":"01a12301-093f-7116-ac85-94ad84fed7e4","ts":"2026-10-10T04:23:04.196245316Z"}
+{"fields":{},"level":"debug","msg":"measurement phase done","process":"10821","runId":"01a12301-093f-7116-ac85-94ad84fed7e4","ts":"2026-10-10T04:23:04.471032297Z"}

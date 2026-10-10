@@ -1,0 +1,31 @@
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.9.0.1 (bench:kiroku-store-bench) (ephemeral targets)
+Preprocessing benchmark 'kiroku-store-bench' for kiroku-store-0.9.0.1...
+Building benchmark 'kiroku-store-bench' for kiroku-store-0.9.0.1...
+Running 1 benchmarks...
+Benchmark kiroku-store-bench: RUNNING...
+option --pattern: Could not parse: '/NoStream is not a valid pattern
+
+Usage: kiroku-store-bench [(-p|--pattern PATTERN)] [-t|--timeout DURATION] 
+                          [--hide-progress] [-l|--list-tests] 
+                          [-j|--num-threads NUMBER] [-q|--quiet] 
+                          [--hide-successes] [--min-duration-to-report DURATION]
+                          [--color never|always|auto] [--ansi-tricks ARG] 
+                          [--baseline ARG] [--csv ARG] [--svg ARG] [--stdev ARG]
+                          [--fail-if-slower ARG] [--fail-if-faster ARG] 
+                          [--time-mode ARG]
+
+--- Pre-populating category data (100 cats × 10 streams × 100 events) ---
+  Setup time: 4.341695s (100K events)
+
+--- B9: Pool saturation (64 writers × 100 appends, pool size 10) ---
+  Total appends: 6400
+  Elapsed: 4.888055s
+  Throughput: 1309 ops/s
+  Avg latency: 0.7637585937499999 ms
+---
+Benchmark kiroku-store-bench: ERROR
+Error: [Cabal-7125]
+Benchmarks failed for bench:kiroku-store-bench from kiroku-store-0.9.0.1.
+

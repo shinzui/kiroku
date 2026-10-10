@@ -75,7 +75,8 @@ user's explicit release-time confirmation.
 
 ## Progress
 
-- [ ] Integrated performance gate: select the minimum useful cumulative comparison against original control and finish the whole experiment within one hour, retaining uncertainty and regression policy under ADR-11.
+- [x] (2026-10-10) Diagnose live-batch checkpoint accounting and complete the authorized bounded follow-up: 13 valid benchmark trials, three adapter pairs and two fan-out pairs; retain the cancelled final candidate, all adverse evidence and zero replacements. Cleanup and collection finish within the fixed one-hour budget.
+- [ ] Integrated performance acceptance: assess the retained minimum evidence and unresolved p99 uncertainty under ADR-11. The original zero-regression policy remains inconclusive; no strict pass or release readiness is claimed.
 - [x] (2026-10-10) Gate: plans 81, 82, 83, 84, and 86 are Complete; current living sections, strict ADR validation and the configured capability gate pass. The lifetime member-guard plans 93/92 remain outside this cohort and unimplemented.
 - [x] (2026-10-10) M1: verify all six current Hackage versions and upstream peeled tags, audit changed APIs and discover registered dependents. Exact proposed Cabal/bound/changelog patch is retained in `kiroku-store/bench/results/ep6-release/proposal/`; metadata approval is deferred until the unresolved evidence is assessed.
 - [ ] M1: present exact package versions, bounds, and changelogs for user confirmation before editing release metadata.
@@ -206,6 +207,22 @@ benchmark trials or matched pairs exist, with no replacements. Cleanup completed
 no lease or quarantine. Original statistical policy remains unchanged and the
 gate is inconclusive. Historical telemetry failed two of 30 cases with 100-second
 timeouts; the full adverse output is retained.
+
+The separately authorized follow-up corrected a proven invalid batching
+assumption and obtained 13 valid trials before its fixed cleanup cutoff. It has
+three adapter pairs and two successful-hook fan-out pairs, plus calibration,
+one descriptive diagnostic run and an unmatched fan-out baseline. The final
+candidate scenario passed, but the cell was cancelled after the cutoff; all
+sealed artifacts are verified and excluded from acceptance. Zero replacements
+were used. All VMs are stopped, with no lease or quarantine; collection finished
+within the 03:31–04:31 UTC budget. Adapter throughput +3.91% (95% -0.27% to
++8.27%), p99 +3.52% (-33.37% to +60.84%); fan-out throughput +3.23%
+(-18.30% to +30.44%), p99 -6.59% (-31.64% to +27.66%). No candidate-specific
+slowdown is confirmed, but zero regression and tail-latency safety remain
+inconclusive. The original statistical policy is unchanged. The focused repeat
+of both CPU telemetry timeout cases passed in 96.00 seconds without replacing
+the original failure. Full evidence: `kiroku-store/bench/results/ep6-diagnosis/`.
+Version approval remains deferred while this evidence is assessed.
 
 Authoritative release scope and the exact proposed metadata patch are retained in
 `kiroku-store/bench/results/ep6-release/`. Package metadata remains unchanged
@@ -531,3 +548,5 @@ original invariant and no-replacement rule. Approval, final archives, publicatio
 and Keiro adoption remain outstanding.
 
 Revision note (2026-10-10): Defer release approval; diagnose live publisher batching with six exact local adapter checks and retain the focused CPU telemetry repeat. The follow-up uses one fixed 03:31–04:31 UTC budget. Remote evidence remains pending.
+
+Revision note (2026-10-10): Close the authorized follow-up within one hour, retain 13 valid trials and the cancelled final candidate, report five matched pairs plus descriptive diagnostic cost, and keep p99/statistical acceptance and release open. All remote resources are stopped.

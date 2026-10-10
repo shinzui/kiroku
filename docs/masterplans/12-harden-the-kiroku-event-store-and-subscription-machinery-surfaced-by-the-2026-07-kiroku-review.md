@@ -1010,3 +1010,18 @@ is inconclusive and publication remains gated. The exact independently versioned
 metadata proposal awaits the release skill confirmation. EP6 remains In Progress.
 
 Revision note (2026-10-10): The user authorizes diagnosing the unresolved EP6 evidence before release. Defer metadata approval, prove the live-batch accounting correction locally and retain the separate focused telemetry repeat; EP6 remains In Progress.
+
+EP6 follow-up outcome (2026-10-10): Correct live-batch checkpoint accounting and
+retain 13 valid benchmark trials: three adapter pairs, two successful-hook fan-out
+pairs, calibration, one descriptive diagnostic trial and an unmatched baseline.
+The final candidate scenario passed but its cell sealed cancelled after the
+fixed 04:28 cleanup cutoff; it is excluded, with no replacements. Cleanup and
+artifact collection finish within the 03:31–04:31 UTC whole-work budget. All four
+VMs are TERMINATED, with no lease or quarantine. Adapter throughput +3.91%, p99
++3.52%; fan-out throughput +3.23%, p99 -6.59%, with wide retained intervals.
+No candidate-specific slowdown is confirmed; statistical equivalence and tail
+safety remain inconclusive. Both historical CPU telemetry timeout cases pass a
+focused unchanged-settings repeat; the original full failure remains retained.
+See `kiroku-store/bench/results/ep6-diagnosis/README.md`. Five implementation
+children remain Complete; EP6 remains In Progress. Performance acceptance,
+metadata approval, publication and downstream adoption remain outstanding.

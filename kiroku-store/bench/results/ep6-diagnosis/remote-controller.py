@@ -23,6 +23,9 @@ def verify(session_path):
    if result['outcome']!='passed':raise RuntimeError('failed benchmark '+run+': '+str(result.get('reason')))
    m=result['summaries']['measurements'];w=m['write-probe']
    if result['outcome']!='passed' or m['measurements']['grade']!='benchmark' or not w['durable_drained']:raise RuntimeError('failed durable benchmark '+run)
+   before={row['queryid']:row['calls'] for row in w['checkpoint_sql_before']}
+   calls=sum(row['calls']-before.get(row['queryid'],0) for row in w['checkpoint_sql_after'])
+   if calls!=w['delivery_batches']:raise RuntimeError('checkpoint SQL calls differ from delivery batches '+run)
    expected=w.get('expected_delivered',w['events'])
    if w['delivered']!=expected or w['checkpoint_updates']!=w['delivery_batches'] or w['durability']!='on,on,on':raise RuntimeError('incorrect delivered/checkpoint work '+run)
   reset=json.loads((tree/'cell/reset-evidence.json').read_text())
@@ -35,7 +38,7 @@ try:
   out=folder/('remote-'+name)
   if name=='calibration':
    source=json.loads((folder/'real-adapter.plan.json').read_text());payload=json.loads((folder/'control.payload.json').read_text());source['cohort']={'name':'released','planHash':payload['cohortIdentity']['planHash']};source['runs'][0]['spec']['cohortExpectation']=source['cohort'];plan=folder/'calibration.plan.json';plan.write_text(json.dumps(source,indent=2)+'\n')
-   cmd=[operator,'cell','run','--cell','alpha','--start','--payload','control='+str(folder/'control.payload.json'),'--plan',str(plan),'--out',str(out)]+pgargs
+   cmd=[operator,'cell','run','--cell','alpha','--start','--payload',str(folder/'control.payload.json'),'--plan',str(plan),'--out',str(out)]+pgargs
   elif name=='diagnostic':
    source=json.loads((folder/'remote-real-adapter/pair-plan.json').read_text());last=source['runs'][-1]
    if last['trial']['arm']!='candidate':raise RuntimeError('diagnostic must follow final disabled head trial')
@@ -77,7 +80,8 @@ try:
   if name not in ['calibration','diagnostic']:
    comparison=out/'comparison.json'
    if not comparison.exists():raise RuntimeError('pair command did not produce comparison report')
-   record['comparison']=json.loads(comparison.read_text())
+   record['comparison']=json.loads(comparison.read_text());save()
+   if record['comparison'].get('verdict')=='regression':raise RuntimeError('confirmed regression; retain comparison and stop queue')
   elif p.returncode!=0:raise RuntimeError('diagnostic command failed')
   if name=='calibration':
    status=bounded([operator,'cell','status','--cell','alpha'],30);record['post_calibration_status']={'returncode':status.returncode,'stdout':status.stdout,'stderr':status.stderr}
@@ -106,8 +110,11 @@ finally:
  env=os.environ.copy();env['CLOUDSDK_CORE_PROJECT']='tan-nb-exp';env['LTI_GCP_PROJECT']='tan-nb-exp'
  try:
   result=bounded(['bash',str(owner/'scripts/cell/stop.sh'),'alpha'],110,env);cleanup.append({'action':'stop-cell','returncode':result.returncode,'stdout':result.stdout,'stderr':result.stderr})
+ except Exception as error:cleanup.append({'action':'stop-cell','error':str(error)})
+ try:
   result=bounded(['gcloud','compute','instances','list','--project=tan-nb-exp','--filter=name~cell-alpha','--format=json(name,status)'],15)
   if result.returncode==0:state['final_instance_power']=json.loads(result.stdout)
- except Exception as error:cleanup.append({'action':'stop-cell','error':str(error)})
+  status=bounded([operator,'cell','status','--cell','alpha'],20);state['final_cell_status']={'returncode':status.returncode,'stdout':status.stdout,'stderr':status.stderr}
+ except Exception as error:cleanup.append({'action':'verify-cleanup','error':str(error)})
  state['cleanup']=cleanup;state['phase']='stopped' if failure else 'completed';state['finished_epoch']=time.time();save();print(json.dumps({'phase':state['phase'],'error':failure,'finished_epoch':state['finished_epoch'],'jobs':[{k:j.get(k) for k in ['name','returncode','verified_trials','independently_verified_trials','seconds']} for j in state['jobs']],'cleanup':cleanup,'final_instance_power':state.get('final_instance_power')}),flush=True)
 raise SystemExit(1 if failure else 0)

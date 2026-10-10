@@ -1,0 +1,20 @@
+
+--- Pre-populating category data (100 cats × 10 streams × 100 events) ---
+  Setup time: 4.884653s (100K events)
+
+--- B9: Pool saturation (64 writers × 100 appends, pool size 10) ---
+  Total appends: 6400
+  Elapsed: 5.522395s
+  Throughput: 1159 ops/s
+  Avg latency: 0.86287421875 ms
+---
+All
+  append
+    single-event
+      NoStream (new stream): OK
+        125  μs ± 7.0 μs, 32% less than baseline
+  category
+    exhausted-category:      OK
+      17.9 μs ± 872 ns,       same as baseline
+
+All 2 tests passed (96.00s)

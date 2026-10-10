@@ -1,0 +1,11 @@
+{
+  "cell": "alpha",
+  "entryExitCode": 0,
+  "entrySignal": null,
+  "leaseId": "01a12403-c811-737e-9f4b-b3329026a9d7",
+  "leaseSequence": 3,
+  "outcome": "completed",
+  "reasons": [],
+  "runId": "01a12403-cdbf-73ea-a9b1-c50d5667ab0e",
+  "schema": "cell.run-result/v1"
+}

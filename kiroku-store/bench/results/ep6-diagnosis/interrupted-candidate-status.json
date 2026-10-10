@@ -1,0 +1,1 @@
+{"schema":"cell.status/v1","runId":"01a12403-cdbf-73ea-b54e-1ffb7ad66f30","phase":"sealed","leaseSequence":6,"updatedAt":"2026-10-10T04:28:05Z","phaseStartedAt":"2026-10-10T04:28:05Z","logChunks":{"stdout":0,"stderr":0},"outcome":"cancelled","manifestSha256":"d656db0554c955ab381b077a2da0ab9b7c1c989a462def0833106a96f7dbae7f","reasons":["lease-lost","health-unavailable"]}

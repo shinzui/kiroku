@@ -1,0 +1,116 @@
+warning: Git tree '/private/tmp/mp12-ep6-diagnosis/diagnostic-publisher' has uncommitted changes
+warning: creating lock file "/private/tmp/mp12-ep6-diagnosis/diagnostic-publisher/flake.lock": 
+• Added input 'mp12':
+    'git+file:///Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku?dir=bench/mp12-cell&ref=refs/heads/master&rev=f7273083f1d719ac701500c898152c04dadd5170' (2026-10-10)
+• Added input 'mp12/control':
+    'github:shinzui/kiroku/e6ea664' (2026-10-09)
+• Added input 'mp12/kenshou':
+    'github:shinzui/keiro-runtime-kenshou/31275c0' (2026-10-09)
+• Added input 'mp12/kenshou/flake-parts':
+    follows 'mp12/kenshou/haskell-nix-dev/flake-parts'
+• Added input 'mp12/kenshou/haskell-nix':
+    'github:shinzui/haskell-nix/7b696dc' (2026-09-11)
+• Added input 'mp12/kenshou/haskell-nix/baikai-src':
+    'github:shinzui/baikai/4a9547b' (2026-09-08)
+• Added input 'mp12/kenshou/haskell-nix/haskell-nix-dev':
+    follows 'mp12/kenshou/haskell-nix-dev'
+• Added input 'mp12/kenshou/haskell-nix/keiki-src':
+    'github:shinzui/keiki/97d8b07' (2026-08-27)
+• Added input 'mp12/kenshou/haskell-nix/keiro-src':
+    'github:shinzui/keiro/240e720' (2026-09-08)
+• Added input 'mp12/kenshou/haskell-nix/kioku-src':
+    'github:shinzui/kioku/1fb4fa3' (2026-09-08)
+• Added input 'mp12/kenshou/haskell-nix/kiroku-src':
+    'github:shinzui/kiroku/b89670c' (2026-08-17)
+• Added input 'mp12/kenshou/haskell-nix/nixpkgs':
+    follows 'mp12/kenshou/nixpkgs'
+• Added input 'mp12/kenshou/haskell-nix/okf-src':
+    'github:shinzui/okf/3ee33e7' (2026-08-19)
+• Added input 'mp12/kenshou/haskell-nix/openapi-hs-src':
+    'github:shinzui/openapi-hs/06fc117' (2026-07-21)
+• Added input 'mp12/kenshou/haskell-nix/pg-migrate-src':
+    'github:shinzui/pg-migrate/f39d64e' (2026-07-13)
+• Added input 'mp12/kenshou/haskell-nix/pgmq-hs-src':
+    'github:shinzui/pgmq-hs/9ee9a2f' (2026-08-08)
+• Added input 'mp12/kenshou/haskell-nix/relay-pagination-src':
+    'github:shinzui/relay-pagination/634ef07' (2026-07-16)
+• Added input 'mp12/kenshou/haskell-nix/servant-openapi-hs-src':
+    'github:shinzui/servant-openapi-hs/5eef3d4' (2026-07-21)
+• Added input 'mp12/kenshou/haskell-nix/settei-src':
+    'github:shinzui/settei/1bf62b0' (2026-07-20)
+• Added input 'mp12/kenshou/haskell-nix/shibuya-src':
+    'github:shinzui/shibuya/daa1e0c' (2026-08-10)
+• Added input 'mp12/kenshou/haskell-nix/shikumi-src':
+    'github:shinzui/shikumi/59d38bc' (2026-09-08)
+• Added input 'mp12/kenshou/haskell-nix-dev':
+    'github:shinzui/haskell-nix-dev/206ecd2' (2026-09-11)
+• Added input 'mp12/kenshou/haskell-nix-dev/flake-parts':
+    'github:hercules-ci/flake-parts/31729ca' (2026-09-03)
+• Added input 'mp12/kenshou/haskell-nix-dev/flake-parts/nixpkgs-lib':
+    follows 'mp12/kenshou/haskell-nix-dev/nixpkgs'
+• Added input 'mp12/kenshou/haskell-nix-dev/flake-utils':
+    'github:numtide/flake-utils/11707dc' (2024-11-13)
+• Added input 'mp12/kenshou/haskell-nix-dev/flake-utils/systems':
+    'github:nix-systems/default/da67096' (2023-04-09)
+• Added input 'mp12/kenshou/haskell-nix-dev/nixpkgs':
+    'github:nixos/nixpkgs/d5dfd8e' (2026-09-10)
+• Added input 'mp12/kenshou/haskell-nix-dev/pre-commit-hooks':
+    'github:cachix/git-hooks.nix/27555e2' (2026-09-01)
+• Added input 'mp12/kenshou/haskell-nix-dev/pre-commit-hooks/flake-compat':
+    'github:NixOS/flake-compat/5edf11c' (2025-12-29)
+• Added input 'mp12/kenshou/haskell-nix-dev/pre-commit-hooks/nixpkgs':
+    follows 'mp12/kenshou/haskell-nix-dev/nixpkgs'
+• Added input 'mp12/kenshou/haskell-nix-dev/treefmt-nix':
+    'github:numtide/treefmt-nix/27b3b12' (2026-08-16)
+• Added input 'mp12/kenshou/haskell-nix-dev/treefmt-nix/nixpkgs':
+    'github:nixos/nixpkgs/4533d92' (2026-02-03)
+• Added input 'mp12/kenshou/nixpkgs':
+    follows 'mp12/kenshou/haskell-nix-dev/nixpkgs'
+• Added input 'mp12/kenshou/pre-commit-hooks':
+    follows 'mp12/kenshou/haskell-nix-dev/pre-commit-hooks'
+• Added input 'mp12/kenshou/redpanda-container':
+    'github:shinzui/redpanda-container/c2ccecf' (2026-09-14)
+• Added input 'mp12/kenshou/redpanda-container/home-manager':
+    'github:nix-community/home-manager/7834e82' (2026-08-06)
+• Added input 'mp12/kenshou/redpanda-container/home-manager/nixpkgs':
+    follows 'mp12/kenshou/redpanda-container/nixpkgs'
+• Added input 'mp12/kenshou/redpanda-container/nixpkgs':
+    follows 'mp12/kenshou/nixpkgs'
+• Added input 'mp12/kenshou/treefmt-nix':
+    follows 'mp12/kenshou/haskell-nix-dev/treefmt-nix'
+• Added input 'mp12/kiroku':
+    'path:../..'
+• Added input 'mp12/kiroku/flake-parts':
+    'github:hercules-ci/flake-parts/f7c1a2d' (2026-05-13)
+• Added input 'mp12/kiroku/flake-parts/nixpkgs-lib':
+    follows 'mp12/kiroku/nixpkgs'
+• Added input 'mp12/kiroku/haskell-nix':
+    'github:shinzui/haskell-nix/4747cb8' (2026-04-24)
+• Added input 'mp12/kiroku/haskell-nix/nixpkgs':
+    follows 'mp12/kiroku/nixpkgs'
+• Added input 'mp12/kiroku/haskell-nix-dev':
+    'github:shinzui/haskell-nix-dev/af29a48' (2026-06-03)
+• Added input 'mp12/kiroku/haskell-nix-dev/flake-utils':
+    'github:numtide/flake-utils/11707dc' (2024-11-13)
+• Added input 'mp12/kiroku/haskell-nix-dev/flake-utils/systems':
+    'github:nix-systems/default/da67096' (2023-04-09)
+• Added input 'mp12/kiroku/haskell-nix-dev/nixpkgs':
+    'github:nixos/nixpkgs/4df1b88' (2026-06-01)
+• Added input 'mp12/kiroku/haskell-nix-dev/treefmt-nix':
+    'github:numtide/treefmt-nix/db94781' (2026-05-31)
+• Added input 'mp12/kiroku/haskell-nix-dev/treefmt-nix/nixpkgs':
+    'github:nixos/nixpkgs/4533d92' (2026-02-03)
+• Added input 'mp12/kiroku/nixpkgs':
+    follows 'mp12/kiroku/haskell-nix-dev/nixpkgs'
+• Added input 'mp12/kiroku/pre-commit-hooks':
+    'github:cachix/git-hooks.nix/8baab58' (2026-03-07)
+• Added input 'mp12/kiroku/pre-commit-hooks/flake-compat':
+    'github:NixOS/flake-compat/5edf11c' (2025-12-29)
+• Added input 'mp12/kiroku/pre-commit-hooks/gitignore':
+    'github:hercules-ci/gitignore.nix/637db32' (2024-02-28)
+• Added input 'mp12/kiroku/pre-commit-hooks/gitignore/nixpkgs':
+    follows 'mp12/kiroku/pre-commit-hooks/nixpkgs'
+• Added input 'mp12/kiroku/pre-commit-hooks/nixpkgs':
+    follows 'mp12/kiroku/nixpkgs'
+• Added input 'mp12/kiroku/treefmt-nix':
+    follows 'mp12/kiroku/haskell-nix-dev/treefmt-nix'

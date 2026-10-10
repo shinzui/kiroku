@@ -1,0 +1,14 @@
+{
+  "cell": "alpha",
+  "entryExitCode": null,
+  "entrySignal": null,
+  "leaseId": "01a12403-c811-737e-9f4b-b3329026a9d7",
+  "leaseSequence": 6,
+  "outcome": "cancelled",
+  "reasons": [
+    "lease-lost",
+    "health-unavailable"
+  ],
+  "runId": "01a12403-cdbf-73ea-b54e-1ffb7ad66f30",
+  "schema": "cell.run-result/v1"
+}

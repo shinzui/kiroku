@@ -1,0 +1,262 @@
+{
+  "schema": "cell.artifact-manifest/v1",
+  "layout": 1,
+  "runId": "01a123f3-4958-7387-88c2-963c653f642f",
+  "cell": "alpha",
+  "leaseId": "01a123f3-4348-72c5-b376-c4d228bbba62",
+  "leaseSequence": 2,
+  "sealedAt": "2026-10-10T03:59:53Z",
+  "agentVersion": "0.1.0",
+  "payload": {
+    "kind": "nix-nar-bundle",
+    "sha256": "3cec5528861003c33f66d082c4bfb171bff010a8253689f1883df0738584aa65",
+    "storePath": "/nix/store/ghgz5wl02g7r4sxr6gp0nk80wbwg7nk7-kiroku-mp12-head"
+  },
+  "outcome": "completed",
+  "retention": {
+    "policy": "bucket-retention",
+    "retentionSeconds": 34560000
+  },
+  "artifacts": [
+    {
+      "path": "cell/environment.json",
+      "sha256": "0bdd0438938fdb83d6d6b28a6aa724cd15f652c603e1178e4cc79c37f8018f61",
+      "bytes": 744,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/health.json",
+      "sha256": "463d64f70acab02c50fc9e290876cfb23d38aebc15ca2a1f4504e9c165520f65",
+      "bytes": 4227,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/observations/driver.json",
+      "sha256": "752d67748bbe8a3fafdd1ef83040fd120a166546aa371a8a58550ac3481555bb",
+      "bytes": 20533,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/observations/monitoring.json",
+      "sha256": "9bd7ae650841075ac492c9212eee77a1b5da1173be40940b6d29004705b19226",
+      "bytes": 20726,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/observations/postgres.json",
+      "sha256": "157182fe994ef57cd250195a94f9c0d84b6b9efa1f181251f1023578a8ee8392",
+      "bytes": 20720,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/reset-evidence.json",
+      "sha256": "375d1d7ede8f2e6aa07c7b9a3730c048bfd7c812999c881645bb3a4e695a37db",
+      "bytes": 2046,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/result.json",
+      "sha256": "e0d87f4ddd0db61229bcc3a40386b639d5cea6e0d0e8f53146630566fc6ba0ed",
+      "bytes": 269,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "logs/entry-exit.json",
+      "sha256": "1b0f348c77578cae66fdcb884abfb4a24544e49ea4a9e11acc237915a6bb7ffd",
+      "bytes": 29,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "logs/stderr.log",
+      "sha256": "59fca5483c3ae658392f51d1d58bec0f9b5d6e20c7c4b8556f3db050c3286949",
+      "bytes": 162,
+      "mediaType": "text/plain"
+    },
+    {
+      "path": "logs/stdout.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "mediaType": "text/plain"
+    },
+    {
+      "path": "metrics/export.jsonl.zst",
+      "sha256": "92f990581f5405360720c68d2f733ca78df8fb8a8714b9f2336591cbe95aa805",
+      "bytes": 118086,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "metrics/window.json",
+      "sha256": "d49dca6ed36ceacc68da5651c6b15732c9134283449a4fbb06375fd705a6a04b",
+      "bytes": 192,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/health-notices.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "mediaType": "application/x-ndjson"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/logs/harness.jsonl",
+      "sha256": "2f6a89dec166f0e458611d168e4d3823732bb0d3496a8fb60751ddf02495b080",
+      "bytes": 821,
+      "mediaType": "application/x-ndjson"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/manifest.json",
+      "sha256": "25ca1ba1016bb52f90db86b529a4aacca42a5d1af2dd74bd28aa32dd2c505b18",
+      "bytes": 3143,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/run-result.json",
+      "sha256": "baeb58b34984dbfcbb8b9415d390a12f02cfaa31af6b6af15915dc29d169c9d4",
+      "bytes": 35832,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/run-spec.json",
+      "sha256": "ac04eba0e58080d2e5c08f63247e729d835011e2cbab5493816fd217a6a9231c",
+      "bytes": 1270,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/samples/append.hist",
+      "sha256": "4b25c6d3731a2acf64a248342463a0a9da93d3d456a181e54300ffa812fc7619",
+      "bytes": 1563,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/samples/append.meta.json",
+      "sha256": "067cec5793e49c4fd3a43d34f9598a0e61a78d73f10f45e24a475b69b203e895",
+      "bytes": 783,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/samples/append.raw",
+      "sha256": "a02cb688daccf41b58a0124006a6ba667b2d7f3cdecb1eac623d409d42d7ddb5",
+      "bytes": 796731,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/samples/append.service.hist",
+      "sha256": "fec885c7d86cfea1d2e049183eb3741ab00ecede991c7e57fe15bd45d009cf4c",
+      "bytes": 1556,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/series/host.csv",
+      "sha256": "24f5b54cc754e006b9130cc3178eddab413530a813b5a0f4a53e78229c21e331",
+      "bytes": 8338,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/series/load.csv",
+      "sha256": "8927d51bcd62219c5ae95e6a21031bdef788397a3a3b2612af55788f3fd684f6",
+      "bytes": 54481,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/series/pg-activity.csv",
+      "sha256": "72e2c33a7e40963c66388e01d96e3e750eac3df79d590bb30b947838d05c30a0",
+      "bytes": 32949,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/series/pg-checkpointer.csv",
+      "sha256": "948a692ccb0a1e3f8ebf4031077ffec0019729c5f531882b1cdbcce1017d60f0",
+      "bytes": 7184,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/series/pg-database.csv",
+      "sha256": "84ece73386e07fcf721594cf023b893140e14e8c6c5a5df4747e2f9e0486c987",
+      "bytes": 6805,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/series/pg-relations.csv",
+      "sha256": "c28e6cc4e67846438d5145d9402c7a0ac3a7756841959709d3002f99aa131549",
+      "bytes": 18046,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/series/pg-statements.csv",
+      "sha256": "e8fdddfbe2f84281e99c91f7112ee46a6f016bf03ea98a39a2b5371cd95e10c1",
+      "bytes": 16754,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/series/pg-wal.csv",
+      "sha256": "183bc7efd21d644417879c6c8804ee172b41461ef9750271d828bcdb160d26ca",
+      "bytes": 6757,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/series/proc.csv",
+      "sha256": "099a6bf2c70ad1b223384a0713db9cc2b57534f78dc9da832789bb9fc0319380",
+      "bytes": 9576,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/series/rts.csv",
+      "sha256": "9c78c163b6c104957dd3aa9b3db85228ad5213bce44bbe82a7c622bb7dd69d6e",
+      "bytes": 19715,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "output/01a12301-093f-7116-a639-d9bd4a5fdbde/series/sampler.csv",
+      "sha256": "52511a0dca2ebd9ebefaa45a808ddf29f07b3bff846b04c65d17cbbd7efbe561",
+      "bytes": 6051,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "output/kenshou-cell/context.json",
+      "sha256": "17943ac868c893a5c3ee5a20b34e052f5bd5c413ca8f1e47fd1656ad0a948bf4",
+      "bytes": 965,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "output/kenshou-cell/health-notices.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "mediaType": "application/x-ndjson"
+    },
+    {
+      "path": "output/kenshou-cell/plan.resolved.json",
+      "sha256": "a8d8b6b0d223a67c47513f9f7dfa6f3ff44ed4ce95e9389862dc44f890b3b659",
+      "bytes": 2155,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "output/plan-summary.json",
+      "sha256": "e000569225e64d6a76933a9b7f93bbea9a0f75b22b9d8489ebf9a8ddbe6e57de",
+      "bytes": 460,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "output/run-plan.json",
+      "sha256": "a8d8b6b0d223a67c47513f9f7dfa6f3ff44ed4ce95e9389862dc44f890b3b659",
+      "bytes": 2155,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "output/specs/0002.json",
+      "sha256": "178bf6f40a07b2f6171796df3b214ef37244adb81f31005b8262997dbe53b5e6",
+      "bytes": 1269,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "submission/submission.json",
+      "sha256": "bbdb3cdc57ff87c63e77c0f3d07b783260f38acd68b74de719d7a153339f65e9",
+      "bytes": 4579,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "submission/work",
+      "sha256": "a8d8b6b0d223a67c47513f9f7dfa6f3ff44ed4ce95e9389862dc44f890b3b659",
+      "bytes": 2155,
+      "mediaType": "application/octet-stream"
+    }
+  ]
+}

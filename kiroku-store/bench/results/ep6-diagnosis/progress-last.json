@@ -1,0 +1,178 @@
+{
+  "phase": "live-hook-fanout",
+  "current_run": "01a12403-cdbf-73ea-b54e-1ffb7ad66f30",
+  "remote_phase": "fetching",
+  "remaining_minutes": 4.5,
+  "independently_verified_trials": 13,
+  "trials": [
+    {
+      "case": "calibration",
+      "comparison": {
+        "arm": "arm-0",
+        "group": "kiroku/append/benchmark/subscription-hardening",
+        "position": 1,
+        "trial": 0
+      },
+      "events": 40203,
+      "batches": 40176,
+      "eps": 658.97,
+      "p99_ms": 7.848
+    },
+    {
+      "case": "real-adapter",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 0,
+        "trial": 0
+      },
+      "events": 43039,
+      "batches": 43014,
+      "eps": 705.48,
+      "p99_ms": 7.504
+    },
+    {
+      "case": "real-adapter",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 1,
+        "trial": 0
+      },
+      "events": 44910,
+      "batches": 44888,
+      "eps": 736.14,
+      "p99_ms": 6.849
+    },
+    {
+      "case": "real-adapter",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 2,
+        "trial": 1
+      },
+      "events": 46659,
+      "batches": 46632,
+      "eps": 764.79,
+      "p99_ms": 9.593
+    },
+    {
+      "case": "real-adapter",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 3,
+        "trial": 1
+      },
+      "events": 44275,
+      "batches": 44235,
+      "eps": 725.73,
+      "p99_ms": 7.565
+    },
+    {
+      "case": "real-adapter",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 4,
+        "trial": 2
+      },
+      "events": 41051,
+      "batches": 41022,
+      "eps": 672.87,
+      "p99_ms": 7.631
+    },
+    {
+      "case": "real-adapter",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 5,
+        "trial": 2
+      },
+      "events": 41887,
+      "batches": 41859,
+      "eps": 686.56,
+      "p99_ms": 7.315
+    },
+    {
+      "case": "diagnostic",
+      "comparison": {
+        "arm": "diagnostic",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 5,
+        "trial": 2
+      },
+      "events": 42439,
+      "batches": 42411,
+      "eps": 695.63,
+      "p99_ms": 7.561
+    },
+    {
+      "case": "live-hook-fanout",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 0,
+        "trial": 0
+      },
+      "events": 41993,
+      "batches": 83914,
+      "eps": 688.32,
+      "p99_ms": 7.688
+    },
+    {
+      "case": "live-hook-fanout",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 1,
+        "trial": 0
+      },
+      "events": 42559,
+      "batches": 85052,
+      "eps": 697.59,
+      "p99_ms": 7.361
+    },
+    {
+      "case": "live-hook-fanout",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 2,
+        "trial": 1
+      },
+      "events": 43697,
+      "batches": 87318,
+      "eps": 716.24,
+      "p99_ms": 7.041
+    },
+    {
+      "case": "live-hook-fanout",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 3,
+        "trial": 1
+      },
+      "events": 41557,
+      "batches": 83060,
+      "eps": 681.18,
+      "p99_ms": 7.725
+    },
+    {
+      "case": "live-hook-fanout",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 4,
+        "trial": 2
+      },
+      "events": 43393,
+      "batches": 86724,
+      "eps": 711.26,
+      "p99_ms": 10.576
+    }
+  ]
+}

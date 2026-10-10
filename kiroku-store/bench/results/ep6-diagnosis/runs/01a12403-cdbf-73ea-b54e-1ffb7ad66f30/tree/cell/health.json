@@ -1,0 +1,59 @@
+{
+  "schema": "cell.health/v1",
+  "runId": "01a12403-cdbf-73ea-b54e-1ffb7ad66f30",
+  "windowStart": "2026-10-10T04:26:08Z",
+  "windowEnd": "2026-10-10T04:28:03Z",
+  "passed": false,
+  "gates": [
+    {
+      "name": "host-maintenance",
+      "machine": "alpha",
+      "status": "tripped",
+      "observed": {
+        "error": "observations-unavailable"
+      },
+      "threshold": null,
+      "at": "2026-10-10T04:28:03Z"
+    },
+    {
+      "name": "background-load",
+      "machine": "alpha",
+      "status": "tripped",
+      "observed": {
+        "error": "observations-unavailable"
+      },
+      "threshold": null,
+      "at": "2026-10-10T04:28:03Z"
+    },
+    {
+      "name": "storage-pressure",
+      "machine": "alpha",
+      "status": "tripped",
+      "observed": {
+        "error": "observations-unavailable"
+      },
+      "threshold": null,
+      "at": "2026-10-10T04:28:03Z"
+    },
+    {
+      "name": "incomplete-reset",
+      "machine": "alpha",
+      "status": "tripped",
+      "observed": {
+        "error": "observations-unavailable"
+      },
+      "threshold": null,
+      "at": "2026-10-10T04:28:03Z"
+    },
+    {
+      "name": "version-mismatch",
+      "machine": "alpha",
+      "status": "tripped",
+      "observed": {
+        "error": "observations-unavailable"
+      },
+      "threshold": null,
+      "at": "2026-10-10T04:28:03Z"
+    }
+  ]
+}
