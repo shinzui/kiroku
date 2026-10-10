@@ -16,6 +16,11 @@ provenance:
       at: 2026-10-10T15:41:06Z
       mode: "update"
       note: "Correct current APIs, integration ownership and bounded observer work; runtime acceptance remains pending."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-10T15:58:37Z
+      mode: "implement"
+      note: "Coordinate EP-1 implementation and validation"
   reviews:
     - model: "gpt-6-astra"
       harness: "codex-cli"
@@ -186,7 +191,7 @@ Integration Points.
 
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
-| 1 | Add configurable CORS support to kiroku-metrics (IR-11) | docs/plans/90-add-configurable-cors-support-to-kiroku-metrics.md | None | None | Not Started |
+| 1 | Add configurable CORS support to kiroku-metrics (IR-11) | docs/plans/90-add-configurable-cors-support-to-kiroku-metrics.md | None | None | In Progress |
 | 2 | Serve durable subscription checkpoints over HTTP (IR-10) | docs/plans/87-serve-durable-subscription-checkpoints-over-http.md | EP-1 | None | Not Started |
 | 3 | Expose a REST read API for browsing streams, categories, and events (IR-8) | docs/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md | EP-2 | EP-4 | Not Started |
 | 4 | Expose a public dead-letter read API (IR-9) | docs/plans/89-expose-a-public-dead-letter-read-api.md | EP-2 | EP-3 | Not Started |
@@ -442,7 +447,7 @@ rule suffices.
 - [x] (2026-09-30) Coordination: MasterPlan created; plans 87, 88, 89, and 90 adopted with
       coordination notes and the stale version, record, and envelope decisions withdrawn;
       plans 94, 95, and 96 created; IR-8 and IR-12 moved to `accepted`.
-- [ ] EP-1: `Kiroku.Metrics.Cors`, the `cors` configuration field, the shared error envelope
+- [x] (2026-10-10) EP-1: `Kiroku.Metrics.Cors`, the `cors` configuration field, the shared error envelope
       helpers, and database-free CORS tests.
 - [ ] EP-1: middleware wired at the composition point; real-server HTTP and WebSocket origin
       tests; documentation, example step, CAP-17, changelog, IR-11 evidence.

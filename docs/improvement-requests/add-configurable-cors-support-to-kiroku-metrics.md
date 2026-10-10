@@ -8,9 +8,9 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-09-30T23:40:00Z"
+timestamp: "2026-10-10T15:58:37Z"
 requestId: IR-11
-status: accepted
+status: in_progress
 origin: mori://shinzui/keiro-ui
 ---
 
@@ -38,9 +38,12 @@ Since 2026-09-30 that plan is EP-1 of
 which coordinates IR-8 through IR-12 as one cohort and lands this plan first because every
 browser consumer depends on it. The release moved out of plan 90: the request moves to
 `in_progress` when plan 90's first milestone starts and to `completed` once the cohort release
-(a `kiroku-metrics` major, forecast 0.2.0.0), performed by
+(a `kiroku-metrics` major, forecast 0.3.0.0), performed by
 [ExecPlan 96](../plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md),
 is published.
+
+Implementation began on 2026-10-10. Local implementation evidence remains separate from
+the cohort release and completion in plan 96.
 
 ## Context
 

@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-10-10
+* **Update**: IR-11 moves to `in_progress`; plan 90 implements and tests the default-off CORS foundation under MasterPlan 13. Release and completion remain with plan 96.
+
 ## 2026-10-09
 * **Update**: PR #1 merged IR-18. Its SQL feasibility evaluation records approximately 20-33% extra read latency when the head probe is added to every `getStream`, recommends an opt-in combined metadata/head operation, and checks in reproducible PostgreSQL 18.6 evidence. The existing origin index needs no schema or append/link changes; `0012` retained it. The request now scopes the freshness guarantee to origin-only streams with retained history and documents the linked-stream and reserved `$all` caveats. Status remains `proposed` pending implementation and release.
 

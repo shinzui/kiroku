@@ -37,6 +37,7 @@ import Network.WebSockets qualified as WS
 
 import Kiroku.Metrics.Collector (KirokuMetrics)
 import Kiroku.Metrics.Config (MetricsServerConfig (..))
+import Kiroku.Metrics.Cors (corsMiddleware)
 import Kiroku.Metrics.Health (
     DependencyCheck,
     LivenessStatus (..),
@@ -160,7 +161,7 @@ withMetricsServerSubscriptions cfg m deps provider =
         (startMetricsServerWith' cfg m deps (Just provider) stubWebSocketApp)
         stopMetricsServer
 
--- | The combined WAI app: WebSocket upgrades to @wsApp@, everything else to the HTTP router.
+-- | Apply the host's CORS policy at the WAI layer before HTTP or WebSocket dispatch.
 combinedApp ::
     MetricsServerConfig ->
     KirokuMetrics ->
@@ -169,7 +170,8 @@ combinedApp ::
     WS.ServerApp ->
     Application
 combinedApp cfg m deps mProvider wsApp =
-    WaiWS.websocketsOr WS.defaultConnectionOptions wsApp (httpApp cfg m deps mProvider)
+    corsMiddleware cfg.cors $
+        WaiWS.websocketsOr WS.defaultConnectionOptions wsApp (httpApp cfg m deps mProvider)
 
 {- | The EP-2 WebSocket stub: reject the upgrade with a clear message. EP-3
 replaces this with the real event-streaming app.
@@ -177,7 +179,9 @@ replaces this with the real event-streaming app.
 stubWebSocketApp :: WS.ServerApp
 stubWebSocketApp pending = WS.rejectRequest pending "WebSocket endpoint not yet implemented"
 
--- | HTTP router. Matches @/metrics/prometheus@ before @/metrics/\<name\>@.
+{- | Unwrapped HTTP router. Matches @/metrics/prometheus@ before @/metrics/\<name\>@.
+Hosts mounting this directly apply @corsMiddleware cfg.cors@ themselves.
+-}
 httpApp ::
     MetricsServerConfig ->
     KirokuMetrics ->

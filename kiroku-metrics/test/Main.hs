@@ -4,6 +4,7 @@ import Test.Hspec (hspec)
 
 import Kiroku.Test.Postgres (withSharedMigratedPostgres)
 import Test.CollectorSpec qualified as CollectorSpec
+import Test.CorsSpec qualified as CorsSpec
 import Test.IntegrationSpec qualified as IntegrationSpec
 import Test.ServerSpec qualified as ServerSpec
 import Test.SubscriptionsSpec qualified as SubscriptionsSpec
@@ -11,6 +12,7 @@ import Test.WebSocketSpec qualified as WebSocketSpec
 
 main :: IO ()
 main = withSharedMigratedPostgres $ hspec $ do
+    CorsSpec.spec
     CollectorSpec.spec
     IntegrationSpec.spec
     ServerSpec.spec

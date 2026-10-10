@@ -7,6 +7,8 @@ module Kiroku.Metrics.Config (
 import Data.Int (Int64)
 import Numeric.Natural (Natural)
 
+import Kiroku.Metrics.Cors (CorsPolicy, corsDisabled)
+
 {- | Configuration for the metrics web server. The @ws*@ fields are consumed by
 the WebSocket endpoint (EP-3); they exist here so that plan needs no config
 change. @readinessMaxLag@ is the Kiroku analogue of Marten's @maxEventLag@; it
@@ -36,6 +38,8 @@ data MetricsServerConfig = MetricsServerConfig
     -- ^ A subscription lagging beyond this fails readiness (default: 10_000).
     , livenessTimeoutUs :: !Int
     -- ^ Timeout for the liveness snapshot in microseconds (default: 1_000_000 = 1s).
+    , cors :: !CorsPolicy
+    -- ^ Explicit browser origins; disabled by default for HTTP and WebSocket alike.
     }
     deriving stock (Eq, Show)
 
@@ -52,4 +56,5 @@ defaultConfig =
         , wsEventQueueCap = 256
         , readinessMaxLag = 10_000
         , livenessTimeoutUs = 1_000_000
+        , cors = corsDisabled
         }

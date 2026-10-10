@@ -22,6 +22,11 @@ provenance:
       at: 2026-10-10T15:41:06Z
       mode: "update"
       note: "Correct current APIs, integration ownership and bounded observer work; runtime acceptance remains pending."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-10T15:58:37Z
+      mode: "implement"
+      note: "Implement and validate the CORS foundation and shared sanitized errors"
   reviews:
     - model: "gpt-6-astra"
       harness: "codex-cli"
@@ -131,13 +136,13 @@ access: authentication and TLS remain the host's responsibility.
 - [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
 - [ ] Implement and execute the focused correctness and performance acceptance added by this review.
 
-- [ ] Milestone 1: `Kiroku.Metrics.Cors` module (validated `AllowedOrigin`, `CorsPolicy`,
+- [x] (2026-10-10) Milestone 1: `Kiroku.Metrics.Cors` module (validated `AllowedOrigin`, `CorsPolicy`,
       `corsMiddleware`), the `cors` field on `MetricsServerConfig` defaulting to
       `corsDisabled`, umbrella re-export, changelog `Unreleased` entry, and the standalone
       (database-free) `Test.CorsSpec` examples for configuration validation, preflight, actual
       requests, disallowed and absent origins, matching rules, credentials, and the WebSocket
       upgrade refusal at the WAI layer; IR-11 set to `in_progress`.
-- [ ] Milestone 2: middleware wired into `combinedApp` so every starter honours `cfg.cors`; the
+- [x] (2026-10-10) Milestone 2: middleware wired into `combinedApp` so every starter honours `cfg.cors`; the
       shared `errorEnvelope`/`errorResponse` helpers in `Kiroku.Metrics.JSON` (created in
       Milestone 1); real-server examples proving
       `GET /metrics` is decorated through `startMetricsServerWithStore`, `/ws/metrics` upgrades
@@ -157,7 +162,12 @@ access: authentication and TLS remain the host's responsibility.
 
 - 2026-10-10 source review: The proposed origin parser accepted malformed authorities and default-port mismatches; enabled no-origin/disallowed responses omitted Vary, allowing cache-dependent browser failures. Network header equality also included volatile Warp headers. No runtime acceptance is inferred from this finding.
 
-(None yet.)
+Implementation baseline: `cabal build kiroku-metrics` passed and the existing suite
+reported 23 examples, zero failures. After wiring the middleware, `cabal test kiroku-metrics
+--test-show-details=direct` reported 43 examples, zero failures. The initial standalone
+checks exposed an empty requested-header list accepted by `ByteString.split`; explicit
+nonempty validation corrected it. The real refused handshake is `MalformedResponse`,
+as expected for HTTP 403. No append, publisher or subscription module changed.
 
 
 ## Decision Log

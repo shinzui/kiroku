@@ -1,5 +1,21 @@
 # Revision history for kiroku-metrics
 
+## Unreleased
+
+### Breaking Changes
+
+* `MetricsServerConfig` gains `cors`, defaulting to `corsDisabled`. Use
+  `defaultConfig` record updates; complete or positional construction must supply it.
+
+### New Features
+
+* `Kiroku.Metrics.Cors` provides validated `AllowedOrigin`, `CorsPolicy` and
+  `corsMiddleware`: explicit default-off browser access with cache-correct
+  HTTP/preflight handling and WebSocket origin refusal before upgrade.
+* Shared `errorEnvelope`, `errorResponse` and sanitized `storeErrorResponse`
+  helpers for new inspection routes. CORS refusals use `origin_not_allowed`,
+  `cors_method_not_allowed` and `invalid_cors_request` codes.
+
 ## 0.2.0.0 — 2026-10-10
 
 ### Breaking Changes
