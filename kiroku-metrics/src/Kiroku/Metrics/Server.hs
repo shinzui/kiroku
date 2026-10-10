@@ -1,7 +1,9 @@
 {- | The combined metrics web server.
 
 Builds a single WAI 'Application' with 'WaiWS.websocketsOr': WebSocket upgrades
-go to a 'WS.ServerApp' seam, everything else to the HTTP router. EP-2 supplies a
+go to a 'WS.ServerApp' seam, everything else to the HTTP router. The host's
+CORS policy wraps that dispatch, covering HTTP and refusing upgrade origins
+before WebSocket framing starts. EP-2 supplies a
 rejecting stub for the seam ('stubWebSocketApp'); EP-3 replaces it with the real
 event-streaming app via 'startMetricsServerWith' without changing this module.
 

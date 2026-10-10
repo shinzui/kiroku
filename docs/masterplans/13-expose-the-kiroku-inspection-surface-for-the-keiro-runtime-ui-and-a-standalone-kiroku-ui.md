@@ -191,7 +191,7 @@ Integration Points.
 
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
-| 1 | Add configurable CORS support to kiroku-metrics (IR-11) | docs/plans/90-add-configurable-cors-support-to-kiroku-metrics.md | None | None | In Progress |
+| 1 | Add configurable CORS support to kiroku-metrics (IR-11) | docs/plans/90-add-configurable-cors-support-to-kiroku-metrics.md | None | None | Complete |
 | 2 | Serve durable subscription checkpoints over HTTP (IR-10) | docs/plans/87-serve-durable-subscription-checkpoints-over-http.md | EP-1 | None | Not Started |
 | 3 | Expose a REST read API for browsing streams, categories, and events (IR-8) | docs/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md | EP-2 | EP-4 | Not Started |
 | 4 | Expose a public dead-letter read API (IR-9) | docs/plans/89-expose-a-public-dead-letter-read-api.md | EP-2 | EP-3 | Not Started |
@@ -427,9 +427,10 @@ onto existing configuration fields only: there is no bind-address option, becaus
 `MetricsServerConfig` has no host field and `startMetricsServerWith'` hard-codes
 `Warp.setHost "*"` (see the Decision Log).
 
-**ADR candidates.** EP-1's distillation pass decides whether to record the CORS posture
-(default-off explicit origins applied at the WAI layer to HTTP and WebSocket alike, wildcard
-unrepresentable) as a record future sister packages follow. EP-6 writes the record for the
+**ADR distillation.** EP-1 recorded the CORS posture in
+[ADR-16](../adr/0016-browser-inspection-access-is-explicit-and-default-off.md): default-off
+explicit origins applied at the WAI layer to HTTP and WebSocket alike, with validated
+authorities, cache variation and wildcard grants unrepresentable. Future composition preserves it. EP-6 writes the record for the
 composition boundary: the server never holds the store, store-backed routes enter through the
 additive `ServerProviders` record, the exported application is the prefix-mountable unit, and
 the surface is self-hosting and self-describing. Plan 88's planned Milestone 4 ADR on browse
@@ -449,7 +450,7 @@ rule suffices.
       plans 94, 95, and 96 created; IR-8 and IR-12 moved to `accepted`.
 - [x] (2026-10-10) EP-1: `Kiroku.Metrics.Cors`, the `cors` configuration field, the shared error envelope
       helpers, and database-free CORS tests.
-- [ ] EP-1: middleware wired at the composition point; real-server HTTP and WebSocket origin
+- [x] (2026-10-10) EP-1: middleware wired at the composition point; real-server HTTP and WebSocket origin
       tests; documentation, example step, CAP-17, changelog, IR-11 evidence.
 - [ ] EP-2: `Kiroku.Metrics.Checkpoints` and the pure codec test.
 - [ ] EP-2: `ServerProviders`, the four general starters, the reserved `/subscription-checkpoints`
@@ -484,6 +485,15 @@ rule suffices.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-10 EP-1 implementation: Default-off CORS and shared sanitized JSON errors
+  are available. `CorsPolicy` remains the planned record; application construction
+  captures its Set once, and disabled construction returns the original app.
+  Later provider-based composition must preserve the outer wrap.
+- 2026-10-10 EP-1 validation: `http-types` exports differ between the Cabal and Nix
+  closures; typed header literals keep both builds working. Strict request metadata
+  required recorded reviews on eleven existing documents; metadata-only `comments`
+  reviews repair authoring validation without technical acceptance claims.
 
 - 2026-10-10 review: Hackage and upstream tags already contain store 0.10.0.0 and metrics
   0.2.0.0. The new tentative targets are 0.11.0.0 / 0.3.0.0, re-derived at release.
@@ -669,6 +679,15 @@ rule suffices.
 
 ## Outcomes & Retrospective
 
+2026-10-10 implementation: EP-1 is complete (one of seven children). Validated CORS,
+shared structured/sanitized errors, real HTTP/WebSocket tests, the guide/example and
+ADR-16 are committed. Six test suites passed (574 examples); final metrics checks,
+Nix build and strict bundle validation passed. IR-11 remains `in_progress` until the
+cohort ships. Local middleware evidence is in plan 90; cumulative performance,
+release evidence and the other six child implementations remain outstanding.
+EP-2 (plan 87) is now the next ready child.
+
+
 2026-10-10 review validation: `git diff --check`, local Markdown-link/fence checks across
 all 11 changed Markdown files, `just adr-validate`, and strict profiled/log-enforced ADR
 validation passed (15 concepts). Mori reports an existing manifest/embedded-schema hash
@@ -684,3 +703,9 @@ and the cumulative original-control comparison remain explicit implementation ga
 ## API and performance review revision (2026-10-10)
 
 Reviewed against repository HEAD `f1a0209` and the released typed-decoding implementation. Corrected integration contracts and made focused performance evidence a completion gate. Existing authorship history is preserved; this revision records no implemented milestone or accepted performance result. The active requirements above supersede incompatible September design decisions, not published wire contracts.
+
+## Implementation revision (2026-10-10)
+
+EP-1 is Complete; its correctness, affected-path, build and documentation evidence
+is recorded in plan 90. ADR-16 captures the inherited CORS posture. EP-2 is next.
+No cohort release or cumulative append performance acceptance is claimed.

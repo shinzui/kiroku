@@ -134,7 +134,7 @@ access: authentication and TLS remain the host's responsibility.
 ## Progress
 
 - [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
-- [ ] Implement and execute the focused correctness and performance acceptance added by this review.
+- [x] (2026-10-10) Executed focused correctness, disabled-identity/structural checks and the local middleware comparison. Cumulative append-under-observer acceptance remains with plan 96.
 
 - [x] (2026-10-10) Milestone 1: `Kiroku.Metrics.Cors` module (validated `AllowedOrigin`, `CorsPolicy`,
       `corsMiddleware`), the `cors` field on `MetricsServerConfig` defaulting to
@@ -148,17 +148,33 @@ access: authentication and TLS remain the host's responsibility.
       `GET /metrics` is decorated through `startMetricsServerWithStore`, `/ws/metrics` upgrades
       for an allowed origin, is refused for a disallowed one, ignores an absent `Origin`, and
       stays open to any origin when CORS is disabled; whole suite green.
-- [ ] Milestone 3: `docs/user/metrics.md` CORS section with transcripts, the WebSocket origin
+- [x] (2026-10-10) Milestone 3: `docs/user/metrics.md` CORS section with transcripts, the WebSocket origin
       rule, the credentials rule, and the reverse-proxy alternative; config table row and
       deployment note; example extended with a CORS step and the quoted transcript updated;
       CAP-17 updated with log entry; changelog finalized; IR-11 body updated with implementation
       evidence; all repository validations green.
-- [ ] Milestone 4: ADR distillation pass performed (the CORS-posture record decided with
+- [x] (2026-10-10) Milestone 4: ADR distillation pass performed (the CORS-posture record decided with
       evidence in hand) and Outcomes written. (The release, the clean-consumer check, and
       IR-11's `completed` status moved to plan 96, EP-7 of MasterPlan 13, on 2026-09-30.)
 
 
 ## Surprises & Discoveries
+
+- 2026-10-10 implementation: The Nix-pinned `http-types` umbrella does not export
+  `hOrigin`/`hVary`, although the Cabal closure does. Typed header literals preserve
+  the supported dependency range without adding a dependency or moving bounds.
+- 2026-10-10 implementation: Strict improvement-request validation initially failed
+  on eleven pre-existing absent review records. Empty lists are treated as absent.
+  Performed and recorded authoring-metadata reviews with outcome `comments` on those
+  records, explicitly excluding source/implementation/release acceptance. Strict
+  validation now passes all 18 concepts; no fabricated technical approvals were added.
+- 2026-10-10 implementation: The targeted example flag form
+  `cabal run --constraint='kiroku-metrics +example' kiroku-metrics-example` works.
+  All seven checks pass; the actual curl excerpts match the guide (port 64830).
+- 2026-10-10 dependency check: Hackage preferred releases and the upstream tag both
+  identify `case-insensitive` 1.2.1.0, already in the Cabal closure. Its source
+  confirms `foldedCase`; the new test-only bound remains within the existing 1.2
+  series. No library dependency or bound changed.
 
 - 2026-10-10 source review: The proposed origin parser accepted malformed authorities and default-port mismatches; enabled no-origin/disallowed responses omitted Vary, allowing cache-dependent browser failures. Network header equality also included volatile Warp headers. No runtime acceptance is inferred from this finding.
 
@@ -171,6 +187,17 @@ as expected for HTTP 403. No append, publisher or subscription module changed.
 
 
 ## Decision Log
+
+- Decision (2026-10-10 implementation): Keep the parser dependency-free, fully
+  validating DNS/IPv4/IPv6 authorities, normalizing default ports, and bounding numeric
+  accumulation at the maximum port. Request normalization never trims or strips a slash.
+  Rationale: this satisfies the reviewed origin contract without expanding dependencies.
+- Decision (2026-10-10 implementation): Promote the CORS composition/cache/security
+  posture to ADR-16 and preserve source-level disabled identity. Use a small local
+  affected-path comparison rather than a database experiment for this middleware-only
+  change. Cumulative append neutrality still requires plan 96's evidence.
+  Rationale: no store/publisher path changed, and disabled middleware returns the
+  existing application directly; a remote experiment here would not answer a new risk.
 
 - Decision (2026-10-10): the reviewed Context and Plan of Work supersede incompatible September choices on dependencies, routes, decoding, method handling, bounds and performance. Implementation remains pending; durable constraints are in ADR-15.
   Rationale: the released APIs changed and the original sketches contained correctness and shared-resource hazards.
@@ -309,9 +336,47 @@ as expected for HTTP 403. No append, publisher or subscription module changed.
 
 ## Outcomes & Retrospective
 
+Completed on 2026-10-10. Every existing starter now inherits explicit-origin CORS at
+combined WAI dispatch. Validated origins, cache-correct grants, preflight refusals,
+credentials/max-age, raw upgrade preservation and the shared sanitized error helpers
+are implemented. The default is the original application. Existing published bodies,
+frames and endpoint dispatch remain unchanged. ADR-16 records the durable posture.
+
+Validation passed: `cabal build all`; `cabal test all` (six suites, 574 examples,
+zero failures); final affected-package rerun (43 examples, zero failures);
+`nix build .#kiroku-metrics`; the seven-step example; `nix fmt` (zero changes);
+`just capabilities-validate`; `just adr-validate`; strict profiled/log-enforced ADR
+and improvement-request checks (16 and 18 concepts respectively); and diff checks.
+No version or dependency bound changed. IR-11 remains `in_progress`; publication,
+clean-consumer evidence and cumulative performance acceptance belong to plan 96.
+
+The local CPU-time smoke check compiled an O2 standalone WAI harness against the
+built library. Each case warmed 2,000 requests, then ran three trials of 50,000
+requests, consuming response headers. Request origins varied ports from 443 to 698
+so parsing could not be hoisted as a constant response. Cases were an unwrapped
+control, disabled CORS, one configured origin and 4,096 configured origins. No DB,
+remote lease, extra server thread or append path participated. Final observations
+in microseconds/request were:
+
+```text
+control:       0.01718, 0.02094, 0.05814
+disabled:      0.03708, 0.03124, 0.02770
+one origin:    1.71948, 1.52770, 1.53206
+4096 origins:  1.58668, 1.59562, 1.59936
+```
+
+This coarse comparison supports the construction-time set invariant and found no
+linear request-time allowlist rebuild. It is not a tight neutrality estimate: the
+submicrosecond control/disabled samples are noisy, and enabled browser access has
+measurable optional work. Disabled identity is established structurally and by
+response tests. Original-control append-under-inspection evidence remains pending
+for the cohort. The harness and raw logs are in `/tmp/mp13-cors-probe.hs` and
+`/tmp/mp13-cors-probe-final.log` for this session.
+
+
 2026-10-10 review: implementation and performance acceptance remain pending. Static review does not prove zero runtime regression. Earlier planning-time observations and dated decisions are historical where this revision explicitly replaces them.
 
-(To be filled during and after implementation.)
+
 
 
 ## Context and Orientation
@@ -1123,3 +1188,9 @@ changes in this plan; plan 96 assigns the cohort's versions.
 ## API and performance review revision (2026-10-10)
 
 Reviewed against repository HEAD `f1a0209` and the released typed-decoding implementation. Corrected integration contracts and made focused performance evidence a completion gate. Existing authorship history is preserved; this revision records no implemented milestone or accepted performance result. The active requirements above supersede incompatible September design decisions, not published wire contracts.
+
+## Implementation revision (2026-10-10)
+
+Completed milestones 1–4 with correctness, local affected-path and build evidence.
+Recorded ADR-16, request implementation evidence and the strict-authoring metadata
+repair. Release/completion and cumulative database performance stay with plan 96.

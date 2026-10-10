@@ -9,10 +9,24 @@ description: >-
 generated:
   by: anthropic/claude-fable-5-1
   at: "2026-09-24T18:40:00Z"
-timestamp: "2026-09-30T22:20:00Z"
+timestamp: "2026-10-10T16:10:46Z"
 requestId: IR-15
 status: accepted
 origin: mori://shinzui/notification-hub
+reviews:
+  - kind: model
+    reviewer: codex
+    reviewed_at: "2026-10-10T16:10:46Z"
+    document_timestamp: "2026-10-10T16:10:46Z"
+    scope: authoring-metadata
+    outcome: comments
+    provider: openai
+    model: gpt-6.1-sol
+    context: >-
+      Checked the required title, description, request identity, lifecycle, origin and
+      timestamp metadata against the bundle profile. This is an authoring-metadata
+      review only; source claims, implementation acceptance and release evidence were
+      not reviewed here.
 ---
 
 # Improvement Request: Hold the Consumer-Group Member Guard for the Worker's Lifetime

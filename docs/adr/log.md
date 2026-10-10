@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-10
+* **Addition**: ADR-16 records explicit, default-off CORS at the HTTP/WebSocket composition boundary, cache variation and the trusted-network/proxy posture.
 * **Decision**: Record inspection compatibility, bounded observer work, and focused performance acceptance for MasterPlan 13.
 * **Update**: Record published topology and validated configuration contracts in ADR-2/ADR-8 and existing publication authorization with retained practical-performance limits in ADR-11.
 * **Update**: ADR-11: Record explicit EP6 practical acceptance with statistical uncertainty, rejected pooling and adverse telemetry preserved; proceed to version review.

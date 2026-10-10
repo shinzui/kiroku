@@ -8,10 +8,24 @@ description: >-
 generated:
   by: openai/gpt-5
   at: "2026-08-22T13:40:36Z"
-timestamp: "2026-08-22T13:40:36Z"
+timestamp: "2026-10-10T16:10:46Z"
 requestId: IR-14
 status: proposed
 origin: mori://shinzui/mori
+reviews:
+  - kind: model
+    reviewer: codex
+    reviewed_at: "2026-10-10T16:10:46Z"
+    document_timestamp: "2026-10-10T16:10:46Z"
+    scope: authoring-metadata
+    outcome: comments
+    provider: openai
+    model: gpt-6.1-sol
+    context: >-
+      Checked the required title, description, request identity, lifecycle, origin and
+      timestamp metadata against the bundle profile. This is an authoring-metadata
+      review only; source claims, implementation acceptance and release evidence were
+      not reviewed here.
 ---
 
 # Improvement Request: Add Manifest-Driven Selective Event Compaction

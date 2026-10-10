@@ -8,11 +8,25 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-09-10T03:20:08Z"
+timestamp: "2026-10-10T16:10:46Z"
 requestId: IR-13
 status: completed
 completedAt: "2026-09-10T03:20:08Z"
 origin: mori://shinzui/keiro-ui
+reviews:
+  - kind: model
+    reviewer: codex
+    reviewed_at: "2026-10-10T16:10:46Z"
+    document_timestamp: "2026-10-10T16:10:46Z"
+    scope: authoring-metadata
+    outcome: comments
+    provider: openai
+    model: gpt-6.1-sol
+    context: >-
+      Checked the required title, description, request identity, lifecycle, origin and
+      timestamp metadata against the bundle profile. This is an authoring-metadata
+      review only; source claims, implementation acceptance and release evidence were
+      not reviewed here.
 ---
 
 # Improvement Request: Record HTTP and WebSocket Wire-Format Stability in an ADR

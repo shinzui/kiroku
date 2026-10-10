@@ -23,4 +23,5 @@ okf_version: "0.2"
 - [Handler stall diagnostics are worker-owned and advisory](0013-handler-stall-diagnostics-are-worker-owned-and-advisory.md) - Keep acknowledgement ownership with consumers and use opt-in scoped worker diagnostics for pending ordinary handlers.
 - [Unique constraint names define error classification](0014-unique-constraint-names-define-error-classification.md) - Classify owned unique constraints by exact names and distinguish duplicate event IDs from internal stream-version invariant failures.
 - [Inspection observers preserve wire contracts and bound shared work](0015-inspection-observers-preserve-wire-contracts-and-bound-shared-work.md) - Keep inspection composition compatible, preserve typed decoding, and require bounded observer work with focused write-performance evidence.
+- [Browser inspection access is explicit and default off](0016-browser-inspection-access-is-explicit-and-default-off.md) - Apply validated explicit-origin CORS at the composed WAI boundary, preserving disabled behavior and enforcing origin policy before WebSocket upgrades.
 

@@ -8,10 +8,24 @@ description: >-
 generated:
   by: anthropic/claude-opus-5
   at: "2026-08-16T00:00:00Z"
-timestamp: "2026-08-16T00:00:00Z"
+timestamp: "2026-10-10T16:10:46Z"
 requestId: IR-7
 status: proposed
 origin: mori://shinzui/kiroku
+reviews:
+  - kind: model
+    reviewer: codex
+    reviewed_at: "2026-10-10T16:10:46Z"
+    document_timestamp: "2026-10-10T16:10:46Z"
+    scope: authoring-metadata
+    outcome: comments
+    provider: openai
+    model: gpt-6.1-sol
+    context: >-
+      Checked the required title, description, request identity, lifecycle, origin and
+      timestamp metadata against the bundle profile. This is an authoring-metadata
+      review only; source claims, implementation acceptance and release evidence were
+      not reviewed here.
 ---
 
 # Improvement Request: Order Multi-Stream Append Locks Ahead of the `$all` Row
@@ -53,7 +67,7 @@ multi-stream transaction the real acquisition sequence interleaves them:
 Each holds what the other wants. Reproduced deterministically against the real schema with two
 sessions on PostgreSQL 18.4:
 
-```
+```text
 ERROR:  40P01: deadlock detected
 CONTEXT:  while inserting index tuple (0,4) in relation "streams"
 ```

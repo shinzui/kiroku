@@ -26,7 +26,7 @@ import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
-import Network.HTTP.Types (HeaderName, RequestHeaders, ResponseHeaders, hOrigin, hVary, methodOptions, status204, status400, status403)
+import Network.HTTP.Types (HeaderName, RequestHeaders, ResponseHeaders, methodOptions, status204, status400, status403)
 import Network.Wai (Middleware, Request, mapResponseHeaders, requestHeaders, requestMethod, responseLBS)
 import Network.Wai.Handler.WebSockets (isWebSocketsReq)
 import Numeric (showHex)
@@ -106,7 +106,15 @@ portSuffix suffix = do
 decimal :: Text -> Maybe Integer
 decimal digits = do
     guard (not (T.null digits) && T.all (\c -> c >= '0' && c <= '9') digits)
-    pure (T.foldl' (\n c -> n * 10 + fromIntegral (ord c - ord '0')) 0 digits)
+    -- Both uses are bounded (ports and IPv4 octets). Stop growing the number
+    -- once it cannot be a port, even for a very long untrusted header.
+    T.foldl' step (Just 0) digits
+  where
+    step number c = do
+        n <- number
+        let next = n * 10 + fromIntegral (ord c - ord '0')
+        guard (next <= 65535)
+        pure next
 
 validHost :: Text -> Bool
 validHost host
@@ -198,13 +206,19 @@ requestOrigin raw = either (const Nothing) (either (const Nothing) Just . parseO
 originAllowed :: CorsPolicy -> ByteString -> Bool
 originAllowed policy raw = maybe False (`Set.member` originSet policy) (requestOrigin raw)
 
+-- Header literals work across the supported http-types range, including older
+-- umbrella modules which do not re-export the named constants.
+originHeader, varyHeader :: HeaderName
+originHeader = "Origin"
+varyHeader = "Vary"
+
 headerValues :: HeaderName -> RequestHeaders -> [ByteString]
 headerValues name = map snd . filter ((== name) . fst)
 
 isPreflight :: Request -> Bool
 isPreflight req =
     requestMethod req == methodOptions
-        && not (null (headerValues hOrigin (requestHeaders req)))
+        && not (null (headerValues originHeader (requestHeaders req)))
         && not (null (headerValues "Access-Control-Request-Method" (requestHeaders req)))
 
 {- | Disabled policy returns the application itself. Enabled policy captures one
@@ -217,7 +231,7 @@ corsMiddleware policy
     | otherwise =
         let !origins = originSet policy
          in \app req respond ->
-                let values = headerValues hOrigin (requestHeaders req)
+                let values = headerValues originHeader (requestHeaders req)
                     grant = case values of
                         [raw] | maybe False (`Set.member` origins) (requestOrigin raw) -> Just raw
                         _ -> Nothing
@@ -244,6 +258,7 @@ requestedHeaders :: RequestHeaders -> Maybe (Maybe ByteString)
 requestedHeaders headers = case headerValues "Access-Control-Request-Headers" headers of
     [] -> Just Nothing
     values -> do
+        guard (all (not . BS.null . trimOWS) values)
         let tokens = map trimOWS (concatMap (BS.split ',') values)
         guard (not (null tokens) && all (\t -> not (BS.null t) && BS.all tokenChar t) tokens)
         pure (Just (BS.intercalate ", " tokens))
@@ -272,9 +287,9 @@ decorateHeaders policy grant keys headers =
 
 mergeVary :: [ByteString] -> ResponseHeaders -> ResponseHeaders
 mergeVary keys headers =
-    (hVary, BS.intercalate ", " tokens) : filter ((/= hVary) . fst) headers
+    (varyHeader, BS.intercalate ", " tokens) : filter ((/= varyHeader) . fst) headers
   where
-    existing = filter (not . BS.null) (map trimOWS (concatMap (BS.split ',' . snd) (filter ((== hVary) . fst) headers)))
+    existing = filter (not . BS.null) (map trimOWS (concatMap (BS.split ',' . snd) (filter ((== varyHeader) . fst) headers)))
     tokens
         | "*" `elem` existing = ["*"]
         | otherwise = nubBy (\a b -> BS.map toLower a == BS.map toLower b) (existing <> keys)

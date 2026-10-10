@@ -17,7 +17,7 @@ import Data.IORef (modifyIORef', newIORef, readIORef, writeIORef)
 import Data.Text (Text)
 import Data.UUID qualified as UUID
 import Network.HTTP.Client qualified as HTTP
-import Network.HTTP.Types
+import Network.HTTP.Types hiding (hOrigin, hVary)
 import Network.Wai qualified as Wai
 import Network.Wai.Handler.Warp qualified as Warp
 import Network.Wai.Internal (Response (ResponseRaw), ResponseReceived (..))
@@ -32,6 +32,10 @@ import Kiroku.Store.Error (StoreError (..))
 import Kiroku.Store.Settings (DecodeFailure (..))
 import Kiroku.Store.Types (EventId (..), GlobalPosition (..))
 import Kiroku.Test.Postgres (withMigratedTestDatabase)
+
+hOrigin, hVary :: HeaderName
+hOrigin = "Origin"
+hVary = "Vary"
 
 ops, evil :: ByteString
 ops = "https://ops.example.com"
@@ -99,6 +103,8 @@ spec = do
                 (s, _, b) <- capture (corsMiddleware policy baseApp) "OPTIONS" (preflight ops "GET" <> [("Access-Control-Request-Headers", header)])
                 s `shouldBe` status400
                 errorCode b `shouldBe` Just (String "invalid_cors_request")
+            (emptyStatus, _, _) <- capture (corsMiddleware policy baseApp) "OPTIONS" (preflight ops "GET" <> [("Access-Control-Request-Headers", ""), ("Access-Control-Request-Headers", "Authorization")])
+            emptyStatus `shouldBe` status400
             (s, _, _) <- capture (corsMiddleware policy baseApp) "OPTIONS" (preflight ops "GET" <> [("Access-Control-Request-Method", "HEAD")])
             s `shouldBe` status400
         it "passes plain OPTIONS and disallowed preflights through without grants" $ do

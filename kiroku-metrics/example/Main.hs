@@ -34,9 +34,12 @@ import Network.HTTP.Client (
     Manager,
     defaultManagerSettings,
     httpLbs,
+    method,
     newManager,
     parseRequest,
+    requestHeaders,
     responseBody,
+    responseHeaders,
     responseStatus,
  )
 import Network.HTTP.Types (statusCode)
@@ -49,6 +52,8 @@ import Kiroku.Metrics (
     MetricsServer (..),
     MetricsSnapshot (..),
     StoreGauges (..),
+    allowedOrigin,
+    corsAllowOrigins,
     defaultConfig,
     metricsEventHandler,
     metricsObservationHandler,
@@ -75,7 +80,7 @@ import Kiroku.Test.Postgres (withMigratedTestDatabase)
 
 main :: IO ()
 main = withMigratedTestDatabase $ \connStr -> do
-    step "[1/6] ephemeral postgres ready"
+    step "[1/7] ephemeral postgres ready"
 
     -- The collector must observe events from the first append, so its callbacks
     -- go on ConnectionSettings BEFORE withStore. But snapshots read store-level
@@ -90,14 +95,15 @@ main = withMigratedTestDatabase $ \connStr -> do
 
     withStore settings $ \store -> do
         atomically (writeTVar storeVar (Just store))
-        withMetricsServerWithStore (defaultConfig{port = 0}) metrics store [postgresPing store] $ \srv -> do
+        origin <- either (fail . show) pure (allowedOrigin "https://ops.example.com")
+        withMetricsServerWithStore (defaultConfig{port = 0, cors = corsAllowOrigins [origin]}) metrics store [postgresPing store] $ \srv -> do
             threadDelay 300_000
             let port = srv.serverPort
                 base = "http://127.0.0.1:" <> show port
-            step ("[2/6] store + collector + metrics server on port " <> show port)
+            step ("[2/7] store + collector + metrics server on port " <> show port)
 
             appendEvents store (StreamName "orders-1") ["OrderCreated", "OrderPaid", "OrderShipped"]
-            step "[3/6] appended 3 events to orders-1"
+            step "[3/7] appended 3 events to orders-1"
 
             mgr <- newManager defaultManagerSettings
 
@@ -116,7 +122,21 @@ main = withMigratedTestDatabase $ \connStr -> do
             check "GET /health/live is 200" (sLive == 200)
             (sReady, _) <- httpGet mgr (base <> "/health/ready")
             check "GET /health/ready is 200" (sReady == 200)
-            step "[4/6] HTTP /metrics, /prometheus, /health/live, /health/ready all OK"
+            step "[4/7] HTTP /metrics, /prometheus, /health/live, /health/ready all OK"
+
+            -- Browser preflight and ordinary reads share the host's allowlist.
+            request <- parseRequest (base <> "/metrics")
+            let ops = "https://ops.example.com"
+                evil = "https://evil.example.com"
+            preflight <- httpLbs (request{method = "OPTIONS", requestHeaders = [("Origin", ops), ("Access-Control-Request-Method", "GET")]}) mgr
+            check "CORS preflight is 204" (statusCode (responseStatus preflight) == 204)
+            check "CORS preflight echoes origin" (lookup "Access-Control-Allow-Origin" (responseHeaders preflight) == Just ops)
+            allowed <- httpLbs (request{requestHeaders = [("Origin", ops)]}) mgr
+            check "CORS GET echoes origin" (lookup "Access-Control-Allow-Origin" (responseHeaders allowed) == Just ops)
+            denied <- httpLbs (request{requestHeaders = [("Origin", evil)]}) mgr
+            check "CORS denied GET is unchanged" (statusCode (responseStatus denied) == 200)
+            check "CORS denied GET grants nothing" (all (\(name, _) -> name `notElem` ["Access-Control-Allow-Origin", "Access-Control-Allow-Credentials", "Access-Control-Allow-Methods", "Access-Control-Allow-Headers", "Access-Control-Max-Age"]) (responseHeaders denied))
+            step "[5/7] CORS: preflight and GET from https://ops.example.com allowed; https://evil.example.com undecorated"
 
             -- WebSocket: subscribe to the live event tail, then append one more
             -- event and assert it arrives over the socket as a JSON event message.
@@ -131,10 +151,10 @@ main = withMigratedTestDatabase $ \connStr -> do
                             wait appendThread
                             pure (eventTypeOf ev)
             check ("WebSocket event eventType == OrderRefunded (got " <> T.unpack evType <> ")") (evType == "OrderRefunded")
-            step ("[5/6] WebSocket /ws/events received event eventType=" <> T.unpack evType)
+            step ("[6/7] WebSocket /ws/events received event eventType=" <> T.unpack evType)
 
             snap <- snapshotMetrics metrics
-            step ("[6/6] kiroku-metrics-example: all checks passed (snapshot global position = " <> show snap.store.globalPosition <> ")")
+            step ("[7/7] kiroku-metrics-example: all checks passed (snapshot global position = " <> show snap.store.globalPosition <> ")")
 
 --------------------------------------------------------------------------------
 -- Helpers

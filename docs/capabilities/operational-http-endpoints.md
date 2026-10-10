@@ -1,7 +1,7 @@
 ---
 title: "Operational HTTP endpoints: metrics, health, and event streaming"
 type: Capability
-description: "Serve in-process metrics as JSON and Prometheus exposition, liveness/readiness/detailed health, a subscription-status endpoint, and a WebSocket channel for live metrics and events, without pulling a web framework into the core library."
+description: "Serve in-process metrics as JSON and Prometheus exposition, liveness/readiness/detailed health, a subscription-status endpoint, and a WebSocket channel for live metrics and events, with host-configured default-off browser CORS, without pulling a web framework into the core library."
 generated:
   by: anthropic/claude-sonnet-4.5
   at: "2026-08-08T00:00:00Z"
@@ -15,12 +15,16 @@ packages:
 interface:
   - Kiroku.Metrics.Server
   - Kiroku.Metrics.Collector
+  - Kiroku.Metrics.Cors
   - Kiroku.Metrics.Health
   - Kiroku.Metrics.WebSocket
 requires:
   - CAP-14
   - CAP-11
 evidence:
+  - kind: test
+    resource: kiroku-metrics/test/Test/CorsSpec.hs
+    proves: Disabled application identity, validated origins, cache-correct HTTP grants and preflights, and real WebSocket origin refusal before upgrade.
   - kind: test
     resource: kiroku-metrics/test/Test/IntegrationSpec.hs
     proves: The collector wired into a real ephemeral-Postgres-backed store with a live $all subscription produces a snapshot that reflects real store activity, not scripted inputs.
@@ -44,12 +48,15 @@ liveness/readiness/detailed health (with a built-in `postgresPing`), a `/subscri
 reporting live [subscription](live-subscriptions.md) status, and a WebSocket channel for live
 metrics and events (with optional replay).
 
+The unreleased inspection cohort adds explicit, default-off CORS across HTTP, preflight
+and WebSocket upgrades. Hosts configure validated origins with `Kiroku.Metrics.Cors`;
+this is browser access policy, not authentication.
+
 ## Usage
 
 ```haskell
-let settings = defaultConnectionSettings connString
-      & #eventHandler .~ metricsEventHandler collector
-withMetricsServerWithStore settings store port $ \_ -> runApp
+let cfg = defaultConfig{port = 9091}
+withMetricsServerWithStore cfg collector store [postgresPing store] $ \_ -> runApp
 ```
 
 ## Limits

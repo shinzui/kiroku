@@ -13,10 +13,11 @@ described in [Observability](observability.md)) plus a couple of public read
 accessors.
 
 > **Deployment assumption — no built-in auth or TLS.** The server has no
-> authentication, TLS, or rate limiting. Bind it to an internal interface, or run
-> it behind a sidecar/ingress that terminates TLS and authentication. Treat
+> authentication, TLS, or rate limiting. It binds all interfaces; use network
+> isolation or a sidecar/ingress that terminates TLS and authentication. Treat
 > `/metrics`, `/health`, `/subscriptions`, and the WebSocket as you would any
-> internal scrape/admin surface.
+> internal scrape/admin surface. CORS only tells browsers which pages may read
+> responses; it does not replace the trusted-network or authenticating-proxy assumption.
 
 ## Contents
 
@@ -28,6 +29,7 @@ accessors.
 - [Interpreting the metrics](#interpreting-the-metrics)
 - [The WebSocket protocol](#the-websocket-protocol)
 - [Subscription status over HTTP](#subscription-status-over-http)
+- [Cross-origin browser access (CORS)](#cross-origin-browser-access-cors)
 - [Try it](#try-it)
 - [See Also](#see-also)
 
@@ -104,6 +106,7 @@ port 9091:
 | `wsEventQueueCap` | `256` | Per-connection event-tail broadcast queue capacity (batches). |
 | `readinessMaxLag` | `10_000` | A subscription lagging beyond this fails readiness. |
 | `livenessTimeoutUs` | `1_000_000` | Snapshot time budget for the liveness probe (µs). |
+| `cors` | `corsDisabled` | Allowed browser origins for HTTP, preflight, and WebSocket upgrades. Disabled sends no CORS headers and leaves upgrades open. |
 
 Lifecycle: `withMetricsServerWithStore cfg metrics store deps` (bracketed,
 recommended) or `startMetricsServerWithStore … >>= … ; stopMetricsServer`. The
@@ -400,6 +403,100 @@ kiroku subscriptions status --remote-url http://worker:9091 --format json
 KIROKU_REMOTE_URL=http://worker:9091 kiroku subscriptions status
 ```
 
+## Cross-origin browser access (CORS)
+
+CORS is the browser protocol that allows a page to read responses from another origin
+(scheme, host and port). Without an explicit grant, a dashboard served elsewhere cannot
+read this server's `/metrics` response.
+
+```haskell
+import Kiroku.Metrics
+
+origin <- either (fail . show) pure (allowedOrigin "https://ops.example.com")
+let cfg = defaultConfig{port = 9091, cors = corsAllowOrigins [origin]}
+withMetricsServerWithStore cfg metrics store [postgresPing store] $ \server -> runApp server
+```
+
+`allowedOrigin` accepts explicit HTTP(S) origins with ASCII DNS, IPv4 or bracketed IPv6
+hosts and ports from 0 to 65535. It rejects `*`, `null`, user information, malformed
+hosts/ports, raw Unicode hosts, and paths, queries or fragments. Configuration trims
+surrounding whitespace, tolerates one trailing slash, normalizes scheme/host case and
+default ports, and compares equivalent IPv6 representations. Supply internationalized
+names in their ASCII form. Request origins must be single valid origins with no trailing
+slash or surrounding whitespace; duplicate Origin headers never receive a grant.
+
+The following excerpts show requests to the running server (transport headers omitted):
+
+```text
+$ curl -si -X OPTIONS http://localhost:9091/metrics \
+    -H 'Origin: https://ops.example.com' -H 'Access-Control-Request-Method: GET'
+HTTP/1.1 204 No Content
+Vary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers
+Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+Access-Control-Allow-Origin: https://ops.example.com
+
+$ curl -si http://localhost:9091/metrics -H 'Origin: https://ops.example.com'
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: application/json
+Access-Control-Allow-Origin: https://ops.example.com
+
+$ curl -si http://localhost:9091/metrics -H 'Origin: https://evil.example.com'
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: application/json
+```
+
+With an enabled policy, ordinary responses always vary on Origin, including responses
+without an Origin or with an unlisted/malformed one. Only allowed origins receive
+`Access-Control-Allow-Origin`, echoing their request value once. Existing Vary tokens
+are preserved without duplicates; `Vary: *` stays intact. Allowed GET/HEAD preflights
+receive 204 with `GET, HEAD, OPTIONS` and validated requested header names. Plain OPTIONS
+and disallowed preflights reach the ordinary router. A requested method other than GET
+or HEAD receives 403 `cors_method_not_allowed`; malformed header names or duplicate
+requested methods receive 400 `invalid_cors_request`. These new errors use the structured
+`{"error":{"code":"...","message":"..."}}` envelope; existing route errors keep their
+published string shape.
+
+Configure `allowCredentials = True` when authenticated browser requests must include
+credentials, for example through an authenticating proxy. It adds
+`Access-Control-Allow-Credentials: true` for allowed origins. Wildcard grants are
+unrepresentable, and authentication remains the host's responsibility. `maxAgeSeconds`
+adds `Access-Control-Max-Age` on successful preflights when nonnegative; Nothing or a
+negative value emits no max-age header. For example:
+
+```haskell
+let policy = (corsAllowOrigins [origin]){allowCredentials = True, maxAgeSeconds = Just 3600}
+```
+
+Browsers do not enforce HTTP CORS on WebSockets. When origins are configured, this
+middleware checks them before upgrade: unlisted, malformed or duplicate origins receive
+HTTP 403 `origin_not_allowed` before any frame. Allowed origins and nonbrowser clients
+with no Origin can connect. Under the default disabled policy every application response
+is unchanged and upgrades remain open to any origin. Every server starter applies the
+policy to HTTP and WebSocket dispatch. Hosts mounting the exported bare `httpApp` apply
+`corsMiddleware cfg.cors` themselves.
+
+A single-origin deployment needs no CORS policy. Serve the UI and proxy the API from the
+same origin; this illustrative Caddyfile strips `/kiroku` before forwarding, including
+WebSockets (configure authentication separately):
+
+```caddyfile
+ops.example.com {
+    handle_path /kiroku/* {
+        reverse_proxy 127.0.0.1:9091
+    }
+    handle {
+        root * /srv/kiroku-ui
+        file_server
+    }
+}
+```
+
+The new structured error keys become published when released, following
+[Wire-format stability](#wire-format-stability). Header values reflect host configuration.
+This CORS implementation is currently unreleased and ships with the inspection cohort.
+
 ## Try it
 
 The package ships a self-verifying example that boots an ephemeral store, starts
@@ -411,12 +508,13 @@ cabal run kiroku-metrics-example
 ```
 
 ```text
-[1/6] ephemeral postgres ready
-[2/6] store + collector + metrics server on port 57277
-[3/6] appended 3 events to orders-1
-[4/6] HTTP /metrics, /prometheus, /health/live, /health/ready all OK
-[5/6] WebSocket /ws/events received event eventType=OrderRefunded
-[6/6] kiroku-metrics-example: all checks passed (snapshot global position = 4)
+[1/7] ephemeral postgres ready
+[2/7] store + collector + metrics server on port 65133
+[3/7] appended 3 events to orders-1
+[4/7] HTTP /metrics, /prometheus, /health/live, /health/ready all OK
+[5/7] CORS: preflight and GET from https://ops.example.com allowed; https://evil.example.com undecorated
+[6/7] WebSocket /ws/events received event eventType=OrderRefunded
+[7/7] kiroku-metrics-example: all checks passed (snapshot global position = 4)
 ```
 
 The source is `kiroku-metrics/example/Main.hs`; it is the authoritative,

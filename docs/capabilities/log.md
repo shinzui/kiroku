@@ -1,6 +1,7 @@
 # Capability Catalog Log
 
 ## 2026-10-10
+* **Update**: CAP-17 adds unreleased host-configured, default-off CORS, its public module and test evidence for HTTP/preflight and WebSocket access.
 * **Update**: Document typed decode failure outcomes and no-hook unchanged-vector batch semantics.
 
 ## 2026-09-25

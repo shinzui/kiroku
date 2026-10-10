@@ -8,10 +8,24 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-10-10T15:58:37Z"
+timestamp: "2026-10-10T16:10:46Z"
 requestId: IR-11
 status: in_progress
 origin: mori://shinzui/keiro-ui
+reviews:
+  - kind: model
+    reviewer: codex
+    reviewed_at: "2026-10-10T16:10:46Z"
+    document_timestamp: "2026-10-10T16:10:46Z"
+    scope: authoring-metadata
+    outcome: comments
+    provider: openai
+    model: gpt-6.1-sol
+    context: >-
+      Checked the required title, description, request identity, lifecycle, origin and
+      timestamp metadata against the bundle profile. This is an authoring-metadata
+      review only; source claims, implementation acceptance and release evidence were
+      not reviewed here.
 ---
 
 # Improvement Request: Add Configurable CORS Support to kiroku-metrics
@@ -109,3 +123,23 @@ The `MetricsConfig` extension and its application across HTTP routes, preflight 
 the WebSocket upgrade path; tests covering the acceptance transcripts above; documentation in
 `docs/user/metrics.md` including the reverse-proxy alternative; changelog entries and
 PVP-appropriate version bumps, at kiroku's discretion.
+
+## Implementation Evidence
+
+Plan 90 implements `Kiroku.Metrics.Cors`, the `cors` field in
+`MetricsServerConfig`, and one wrap around combined HTTP/WebSocket dispatch.
+Configuration validates explicit HTTP(S) origins; disabled middleware is the original
+application. Enabled responses vary on Origin even without a grant, allowed GET/HEAD
+preflights validate requested headers, and disallowed upgrade origins are refused with
+HTTP 403 `origin_not_allowed` before framing. Shared JSON helpers sanitize store failures
+for the next inspection routes without changing published legacy errors.
+
+`kiroku-metrics/test/Test/CorsSpec.hs` covers configuration, WAI response identity,
+cache variation, preflight validation, credentials/max-age and real store-backed HTTP
+and WebSocket behavior. The metrics suite reports 43 examples, zero failures.
+The seven-step `kiroku-metrics-example` verifies preflight and allowed/disallowed GET
+behavior alongside existing metrics, health and event-tail checks. The guide documents
+the single-origin proxy alternative and the trusted-network/authenticating-proxy posture.
+[ADR-16](../adr/0016-browser-inspection-access-is-explicit-and-default-off.md) records the
+composition invariant. This is local implementation evidence; IR-11 remains `in_progress`
+until plan 96 publishes and verifies the cohort.
