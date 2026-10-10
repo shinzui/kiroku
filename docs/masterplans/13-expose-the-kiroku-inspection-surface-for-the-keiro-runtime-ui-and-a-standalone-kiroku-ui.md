@@ -454,7 +454,8 @@ rule suffices.
 ## Progress
 
 - [x] (2026-10-10) EP-3: prepare the same-payload index-layout comparison, TypeID catalog/fresh fixtures, active category browsing and stream HOT/WAL snapshots; compile the Linux payload and verify paired-input/deadline invariants.
-- [ ] EP-3: prove remote submission, sealed verification and lease release, then collect the bounded fresh/existing write comparison; statistical acceptance remains open.
+- [x] (2026-10-10) EP-3: verify remote lifecycle proof and second category-only control, sealed hashes, stream counters and owned lease release.
+- [ ] EP-3: finish five fresh pairs and three active-observer diagnostic pairs inside the original deadline; unchanged five-pair acceptance remains open.
 - [x] (2026-10-10) EP-3: research Kenshou coverage and a disposable category/name index replacement; retain three completed 96-case runs, initial setup error, layout sizes and benchmark source/run inventory. No append-cost acceptance.
 - [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
 - [ ] Implement and execute the focused correctness and performance acceptance added by this review.
@@ -504,6 +505,15 @@ rule suffices.
 
 ## Surprises & Discoveries
 
+- 2026-10-10 remote checkpoint: UUIDv4 plan IDs were rejected before execution;
+  corrected to UUIDv7 and retained the rejection. Missing `zstd` publication
+  tooling was supplied by the established pinned shell. The corrected proof
+  and second control verified. The proof's 41,830 inserts/updates included
+  41,280 HOT updates. Actual journals took 151.7s/132.2s per control, so the
+  original two five-pair queues no longer fit the remaining hour. Before
+  second-case submission, retain five fresh pairs and choose three observer
+  diagnostic pairs. Its unchanged five-pair acceptance remains inconclusive;
+  no deadline or policy was reset.
 - 2026-10-10 matched harness preparation: Kenshou's `cell pair` shortcut varies
   payload identities, not knobs. The dedicated controller submits explicit AB/BA
   specs through the same executable and compares only `mp13.index-layout`. The
@@ -800,6 +810,11 @@ rule suffices.
 
 ## Outcomes & Retrospective
 
+2026-10-10 remote checkpoint: functional lifecycle and measurement instrumentation
+are verified with two complete controls and released owned leases. The paired
+queue is active; no replacement write cost or performance acceptance is reported
+yet. Retain the zero-execution rejection and original deadline. The smaller
+second-case coverage is explicitly diagnostic under the unchanged policy.
 2026-10-10 matched harness checkpoint: benchmark-only preparation is complete
 and Linux compilation passed. Paired-input and persistent-deadline checks passed;
 remote proof and measured write cost remain pending. No production migration or
@@ -921,3 +936,11 @@ Prepared a current-source, same-payload index comparison with TypeID fixtures,
 stream HOT/WAL observations and active category browsing. Recorded the selected
 small protocol, unchanged comparison policy and persistent whole-experiment budget.
 Linux compilation and controller input invariants passed; remote evidence is pending.
+
+
+## Remote proof and coverage revision (2026-10-10)
+
+Recorded verified lifecycle/counter/cleanup evidence, preserved setup failures,
+and reduced only the second-case sample count before its submission because
+measured reset overhead exceeded the initial estimate. Policy and deadline
+remain unchanged; paired cost evidence is still running.

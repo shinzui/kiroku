@@ -98,3 +98,25 @@ The single-trial lifecycle proof runs before any larger queue. All completed
 slices are sealed/hash-verified, then summaries are recomputed from retained raw
 samples before comparison. A partial session preserves every completed sample
 and remains incomplete until the journal and results establish otherwise.
+
+## 2026-10-10 execution checkpoint
+
+The first controller plan was rejected because it generated UUIDv4 IDs; no
+benchmark work ran. IDs now use UUIDv7 and the identifier/matched-plan tests
+pass. The rejected plan/logs and source-hash recovery record are retained.
+Publication first failed because `zstd` was absent; the established pinned
+Nix shell supplied it. Both recoveries preserved the original deadline.
+
+The corrected proof and second category-only control are sealed/hash-verified
+and durably complete, and owned lease release is verified. The proof measured
+41,830 fresh stream inserts and 41,830 stream updates, of which 41,280 were HOT.
+These are control instrumentation checks, not replacement cost. Proof/calibration
+journals took 151.7s / 132.2s, exposing reset/submission overhead beyond the
+initial 30s/trial allowance. Before second-case submission, coverage was
+explicitly revised to five fresh pairs and three active-observer diagnostic
+pairs. The unchanged policy still requires five pairs for acceptance. The
+second comparison therefore remains inconclusive for acceptance; no slowdown
+allowance, phase change, favorable replacement or new budget is introduced.
+`protocol-revision-coverage.json` supersedes the original target pair count
+for that case and binds its unsubmitted plan hash. The paired queue is active;
+no replacement cost or production promotion is accepted at this checkpoint.
