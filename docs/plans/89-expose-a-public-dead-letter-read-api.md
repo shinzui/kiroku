@@ -17,6 +17,17 @@ provenance:
       at: 2026-09-30T22:56:43Z
       mode: "update"
       note: "Adopted as a child of MasterPlan 13: settled ServerProviders record, errorEnvelope/errorResponse ownership, resolved-name encoder, versions deferred to plan 96, release milestone moved"
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-10T15:41:06Z
+      mode: "update"
+      note: "Correct current APIs, integration ownership and bounded observer work; runtime acceptance remains pending."
+  reviews:
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-10T15:41:06Z
+      verdict: "comments"
+      note: "Source review corrections applied; SQL promotion and focused performance gates require implementation evidence."
 ---
 
 # Expose a public dead-letter read API
@@ -50,8 +61,8 @@ structured error envelope is plan 90's (EP-1, lands first) `errorEnvelope`/`erro
 in `Kiroku.Metrics.JSON`, whose details-carrying shape is the one this plan asked for; plan 88
 may land before or after this plan, and whichever is second appends to the shared changelog
 heading, example step list, and guide; and no `.cabal` version or dependency bound changes here,
-because plan 96 (EP-7) assigns the cohort's versions (`kiroku-store` 0.10.0.0 and
-`kiroku-metrics` 0.2.0.0 are the forecast; the 0.9.0.0 in this plan's older text is stale,
+because plan 96 (EP-7) assigns the cohort's versions (`kiroku-store` 0.11.0.0 and
+`kiroku-metrics` 0.3.0.0 are the forecast; the 0.9.0.0 in this plan's older text is stale,
 since `kiroku-store` 0.9.0.1 shipped on 2026-09-25). Commits carry this plan's Intention
 trailer and a `MasterPlan:` trailer naming the MasterPlan file.
 
@@ -107,6 +118,9 @@ retry-policy change, and no change to how dead letters are written or cleaned up
 
 ## Progress
 
+- [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
+- [ ] Implement and execute the focused correctness and performance acceptance added by this review.
+
 - [ ] M0: set IR-9 to `accepted` with its Status section citing this plan, add the bundle log
       entry, and validate the improvement-request bundle (done at plan creation, see Revision
       Notes).
@@ -124,7 +138,7 @@ retry-policy change, and no change to how dead letters are written or cleaned up
       `insertDeadLetterWith` helper, and the three structural-gate cases in
       `kiroku-store/test/Test/PerformanceStructure.hs`; register everything; store suite green.
 - [ ] M1: this plan's bullets under the one `## Unreleased` heading of
-      `kiroku-store/CHANGELOG.md` (no `version:` or bound edits; plan 96 assigns 0.10.0.0);
+      `kiroku-store/CHANGELOG.md` (no `version:` or bound edits; plan 96 assigns 0.11.0.0);
       `cabal build all` warning-free.
 - [ ] M2: create `kiroku-metrics/src/Kiroku/Metrics/DeadLetters.hs` (provider type, canonical
       store provider, wire types and hand-written JSON codec, cursor text codec, query-parameter
@@ -147,10 +161,15 @@ retry-policy change, and no change to how dead letters are written or cleaned up
 
 ## Surprises & Discoveries
 
+- 2026-10-10 source review: The all-member top-N query could scan every historical row. The maxBound first-page sentinel excluded a legal boundary pair; parsing directly into Int64 could wrap. DeadLetterParams gained topology fields. No runtime acceptance is inferred from this finding.
+
 (None yet.)
 
 
 ## Decision Log
+
+- Decision (2026-10-10): the reviewed Context and Plan of Work supersede incompatible September choices on dependencies, routes, decoding, method handling, bounds and performance. Implementation remains pending; durable constraints are in ADR-15.
+  Rationale: the released APIs changed and the original sketches contained correctness and shared-resource hazards.
 
 - Decision: The public row type, cursor, query, page, and limit types live in
   `Kiroku.Store.Subscription.Types`; the wrapper `subscriptionDeadLetters` lives in
@@ -189,19 +208,16 @@ retry-policy change, and no change to how dead letters are written or cleaned up
   a member filter is the drill-down. The member-scoped statement is index-ordered by
   `ix_dead_letters_subscription_position` with no sort, and the structural gate pins that. A
   single `IS NULL OR` statement would let PostgreSQL's generic prepared-statement plan lose the
-  member equality from the index condition. The all-members statement uses the same index by its
-  `subscription_name` prefix and then a bounded top-N sort, which is acceptable for a table
+  member equality from the index condition. The original all-members proposal used the index by its subscription_name prefix and a
+  top-N sort; this was superseded on 2026-10-10 because it still scans history. The old rationale assumed a table
   whose size is the number of parked events; adding a new index would require a migration and a
   `kiroku-store-migrations` release that IR-9 does not ask for.
   Date: 2026-09-10
 
-- Decision: "No cursor" is passed to SQL as the pair `(maxBound, maxBound)` rather than as a
-  nullable parameter.
-  Rationale: The row comparison `(global_position, dead_letter_id) < ($n, $m)` is then a single
-  index-usable predicate in both statements, and the interpreter already maps the "from the
-  newest" cursor `0` to `maxBound` for the backward readers in `Kiroku.Store.Read`, so the idiom
-  is familiar in this codebase.
-  Date: 2026-09-10
+- Decision (revised 2026-10-10): no cursor selects first-page statement variants without a
+  cursor predicate; all-member reads limit each historical member before merging.
+  Rationale: a maxBound sentinel loses a legal boundary row, while a flat top-N sort can
+  read the subscription's entire history. Existing per-member indexes are retained.
 
 - Decision: The page size is a validated newtype, `SubscriptionDeadLetterLimit`, built by
   `mkSubscriptionDeadLetterLimit :: Int32 -> Either SubscriptionDeadLetterLimitOutOfRange
@@ -227,7 +243,7 @@ retry-policy change, and no change to how dead letters are written or cleaned up
   1000). Any other method on that path answers HTTP 405 with code `method_not_allowed`.
   Rationale: It is the route IR-9 proposes, it reads as "the dead letters of this
   subscription", and plan 87 already verified it does not collide with the reserved
-  `/subscriptions/checkpoints` segment (three segments versus two). Refusing non-GET methods
+  `/subscription-checkpoints` segment (three segments versus two). Refusing non-GET methods
   explicitly matters here more than on other routes: redrive and delete are the obvious things
   a client might POST or DELETE to this path, and IR-9's Boundaries section says those need
   separate safety semantics; a 405 states the read-only boundary on the wire instead of
@@ -291,8 +307,8 @@ retry-policy change, and no change to how dead letters are written or cleaned up
   Date: 2026-09-10
   Superseded on 2026-09-30: the cohort release this decision hoped for is now plan 96 (EP-7 of
   MasterPlan 13). This plan edits no `.cabal` version or bound; it writes bullets under one
-  `## Unreleased` heading per changelog, and plan 96 assigns `kiroku-store` 0.10.0.0 and
-  `kiroku-metrics` 0.2.0.0 (forecast) and moves the bounds.
+  `## Unreleased` heading per changelog, and plan 96 assigns `kiroku-store` 0.11.0.0 and
+  `kiroku-metrics` 0.3.0.0 (forecast) and moves the bounds.
 
 - Decision: IR-9's `status` moves from `proposed` to `accepted` when this plan is created (its
   Status section links the plan and the bundle log records it), to `in_progress` when
@@ -320,10 +336,51 @@ retry-policy change, and no change to how dead letters are written or cleaned up
 
 ## Outcomes & Retrospective
 
+2026-10-10 review: implementation and performance acceptance remain pending. Static review does not prove zero runtime regression. Earlier planning-time observations and dated decisions are historical where this revision explicitly replaces them.
+
 (To be filled during and after implementation.)
 
 
 ## Context and Orientation
+
+### Review baseline and acceptance boundaries (2026-10-10)
+
+This plan is reviewed against `f1a0209`. Hackage preferred-version JSON and upstream tags
+both identify `kiroku-store-0.10.0.0` and `kiroku-metrics-0.2.0.0` as already released.
+The inspection forecast is now store 0.11.0.0 / metrics 0.3.0.0, not a reservation;
+plan 96 must re-query releases and compute every dependent's version from its actual diff.
+September source-version observations are historical, not current API authority.
+
+[ADR-15](../adr/0015-inspection-observers-preserve-wire-contracts-and-bound-shared-work.md)
+requires compatibility and bounded shared work. [ADR-12](../adr/0012-decode-failures-are-per-event-outcomes-with-independent-subscription-dispositions.md)
+requires typed decode failures and the no-hook fast path. Re-read the named implementation
+before coding: public reads use `decodeReadEvents`; publisher queues carry `DecodedBatch`,
+not `Vector RecordedEvent`. Successful hooks return `Right`; a typed failure must never
+turn into partial successful data. New HTTP store failures use sanitized messages:
+`ConnectionError` gives 503 with the route's unavailable code, `EventDecodeFailed` gives
+500 `event_decode_failed`, and other store errors give 500 `store_error`.
+Never expose `show err`, connection strings or payloads; never catch asynchronous cancellation
+as an expected store failure. Existing published error bodies remain unchanged.
+
+All new read paths support GET and HEAD, returning identical status and headers with no HEAD
+body. Other methods give 405 `method_not_allowed` and `Allow: GET, HEAD`. Implement this
+in the WAI apps themselves, not only by relying on Warp. Query numbers are parsed from ASCII
+digits into `Integer`, range-checked, and only then narrowed; reject signed/empty/overflowing
+values and duplicate recognized parameters with 400 `invalid_query_parameter`.
+Decode UTF-8 totally. Ignore unknown parameters as documented. Limits cap the page before
+over-fetching one row, and integer narrowing must not wrap. Clients handling Int64 JSON fields
+must use lossless integer parsing rather than silently rounding positions above 2^53.
+
+No new append SQL, index, lock, checkpoint write, pool checkout, or per-event publisher work
+is justified by a read-only label. New DB reads contend for shared resources. Use existing
+correctness tests, structural invariants and a focused affected-path check per child.
+Plan 96 owns the cumulative original-control comparison on PostgreSQL 18; the existing
+pipeline-versus-sequential ratio and historical Shibuya catch-up results do not prove this
+cohort neutral. Before any remote run, report cases, trial count, warmup, measurement and
+setup/recovery time, uncertainty target and stopping conditions within a single 60-minute
+ceiling. Preserve samples and lease cleanup; do not silently weaken a gate, repeat until
+favorable, or expand to a full matrix. Reproducible append regressions block acceptance;
+unmeasured or noisy evidence is explicitly pending or inconclusive.
 
 ### Terms used in this plan
 
@@ -421,11 +478,13 @@ The write path is `writeDeadLetter` in `kiroku-store/src/Kiroku/Store/Subscripti
 reason` and `dlReasonSummary = deadLetterSummary reason` and runs
 `SQL.insertDeadLetterAndCheckpointStmt`. The reason vocabulary is `DeadLetterReason` in
 `kiroku-store/src/Kiroku/Store/Subscription/Fsm.hs`: `DeadLetterPoison Text`,
-`DeadLetterInvalid Text`, `DeadLetterMaxAttempts Int`, and `DeadLetterOther Text Value`, with
+`DeadLetterInvalid Text`, `DeadLetterMaxAttempts Int`, `DeadLetterDecodeFailure DecodeFailure`,
+and `DeadLetterOther Text Value`, with
 `deadLetterReasonJson` producing `{"kind":"poison","detail":…}`,
 `{"kind":"invalid_payload","detail":…}`, `{"kind":"max_attempts_exceeded","attempts":n}`, or
 `{"kind":"other","summary":…,"detail":…}` and `deadLetterSummary` producing the text column
 (`"poison: …"`, `"invalid payload: …"`, `"max retry attempts exceeded (n)"`, or the summary).
+The newer decode-failure reason carries `kind`, `event_id`, and `detail` (ADR-12).
 The read API serves the stored JSON as-is and never re-derives it. The only other touch of the
 table is the hard-delete transaction in `runStorePool`, which runs
 `SQL.deleteDeadLettersForOrphanedEventsStmt` so a hard-deleted stream leaves no dangling rows.
@@ -585,7 +644,7 @@ are:
    route ordering are shared with plan 88, which may land before or after this plan: append this
    plan's step and section after whatever exists, and place the
    `["subscriptions", _, "dead-letters"]` arm together with the other `/subscriptions` arms
-   (after plan 87's reserved `["subscriptions", "checkpoints"]` arm). Both plans use the identical
+   (after plan 87's reserved `["subscription-checkpoints"]` arm). Both plans use the identical
    `invalid_query_parameter` details shape `{"parameter", "value", "reason"}`, and both add
    `time` and `vector` to the metrics test suite if absent.
 
@@ -694,6 +753,37 @@ additive column there would not affect them either.
 
 
 ## Plan of Work
+
+### Read-work and current-API corrections
+
+The all-member query below first enumerates historical members using ordered index probes,
+then takes at most `limit + 1` candidates per member before the final merge. The existing
+index starts with subscription name and member, so a flat global top-N query can scan every
+historical row despite LIMIT. Never use the live topology registry to enumerate historical
+members. Work is O(member count * page size), not independent of member count; disclose that
+cost and recommend member-scoped polling for large groups.
+
+Define first-page variants `listSubscriptionDeadLettersFromStartStmt :: Statement (Text, Int32) (Vector SubscriptionDeadLetter)`
+and `listSubscriptionMemberDeadLettersFromStartStmt :: Statement (Text, Int32, Int32) (Vector SubscriptionDeadLetter)`.
+They use the same bounded strategy but omit the cursor predicate and renumber parameters.
+Do not emulate an absent cursor with `(maxBound, maxBound)`: that drops a legal boundary row.
+The cursored statements retain their signatures below. Export the first-page variants through
+the same SQL module if the cursored statements are exported.
+
+Use EXPLAIN ANALYZE with BUFFERS for member-scoped and all-member first/later pages, generic
+and custom plans. Seed several members with a large history and a small page. Assert member
+enumeration uses ordered seeks, each lateral scan stops at the fetch bound with its tuple
+cursor in Index Cond, and only bounded candidates reach the merge. Increase history at fixed
+member count to catch full-history work. Test same-position ties, deleted cursor rows,
+maxBound positions/ids, and historical members absent from the live registry.
+Retain this gate in `Test.PerformanceStructure`; a top-N Sort label alone does not pass it.
+
+Seed `SQL.DeadLetterParams` with the released fields `dlTargetKind = "unbound"`,
+`dlTargetCategory = Nothing` and a consistent `dlGroupSize` in addition to the original
+fields. Copy the current worker/test constructor, not the old incomplete record. Add
+decode-failure reason round trips without interpreting or changing the stored JSON.
+Add HTTP overflow cases such as 18446744073709551616 as well as signed/empty values.
+The read never invokes the event decode hook and never writes a checkpoint.
 
 ### Milestone 1: the public library operation in `kiroku-store`
 
@@ -814,13 +904,30 @@ listSubscriptionDeadLettersStmt :: Statement (Text, Int64, Int64, Int32) (Vector
 listSubscriptionDeadLettersStmt =
     preparable
         """
-        SELECT dead_letter_id, subscription_name, consumer_group_member, global_position,
-               event_id, reason, reason_summary, attempt_count, created_at
-        FROM dead_letters
-        WHERE subscription_name = $1
-          AND (global_position, dead_letter_id) < ($2, $3)
-        ORDER BY global_position DESC, dead_letter_id DESC
-        LIMIT $4
+        WITH RECURSIVE members(member) AS (
+          SELECT (SELECT consumer_group_member FROM dead_letters
+                  WHERE subscription_name = $1
+                  ORDER BY consumer_group_member LIMIT 1)
+          UNION ALL
+          SELECT (SELECT consumer_group_member FROM dead_letters
+                  WHERE subscription_name = $1 AND consumer_group_member > m.member
+                  ORDER BY consumer_group_member LIMIT 1)
+          FROM members m WHERE m.member IS NOT NULL
+        )
+        SELECT d.dead_letter_id, d.subscription_name, d.consumer_group_member,
+               d.global_position, d.event_id, d.reason, d.reason_summary,
+               d.attempt_count, d.created_at
+        FROM members m
+        CROSS JOIN LATERAL (
+          SELECT dead_letter_id, subscription_name, consumer_group_member, global_position,
+                 event_id, reason, reason_summary, attempt_count, created_at
+          FROM dead_letters
+          WHERE subscription_name = $1 AND consumer_group_member = m.member
+            AND (global_position, dead_letter_id) < ($2, $3)
+          ORDER BY global_position DESC, dead_letter_id DESC LIMIT $4
+        ) d
+        WHERE m.member IS NOT NULL
+        ORDER BY d.global_position DESC, d.dead_letter_id DESC LIMIT $4
         """
         ( contrazip4
             (E.param (E.nonNullable E.text))
@@ -866,14 +973,17 @@ listSubscriptionDeadLettersSession query = do
     let SubscriptionName name = query ^. #subscriptionName
         pageSize = subscriptionDeadLetterLimitValue (query ^. #limit)
         fetch = pageSize + 1
-        (cursorPosition, cursorId) = case query ^. #after of
-            Nothing -> (maxBound, maxBound)
-            Just cursor ->
-                let GlobalPosition position = cursor ^. #cursorGlobalPosition
-                 in (position, cursor ^. #cursorDeadLetterId)
-    rows <- case query ^. #consumerGroupMember of
-        Nothing -> Session.statement (name, cursorPosition, cursorId, fetch) listSubscriptionDeadLettersStmt
-        Just member -> Session.statement (name, member, cursorPosition, cursorId, fetch) listSubscriptionMemberDeadLettersStmt
+    rows <- case (query ^. #consumerGroupMember, query ^. #after) of
+        (Nothing, Nothing) ->
+            Session.statement (name, fetch) listSubscriptionDeadLettersFromStartStmt
+        (Just member, Nothing) ->
+            Session.statement (name, member, fetch) listSubscriptionMemberDeadLettersFromStartStmt
+        (Nothing, Just cursor) ->
+            let GlobalPosition position = cursor ^. #cursorGlobalPosition
+             in Session.statement (name, position, cursor ^. #cursorDeadLetterId, fetch) listSubscriptionDeadLettersStmt
+        (Just member, Just cursor) ->
+            let GlobalPosition position = cursor ^. #cursorGlobalPosition
+             in Session.statement (name, member, position, cursor ^. #cursorDeadLetterId, fetch) listSubscriptionMemberDeadLettersStmt
     pure (paginate pageSize rows)
 
 paginate :: Int32 -> Vector SubscriptionDeadLetter -> SubscriptionDeadLetterPage
@@ -889,8 +999,7 @@ paginate pageSize rows
 `contrazip<N>` form). The row comparison `(global_position, dead_letter_id) < ($2, $3)` is
 PostgreSQL row-wise comparison; because both columns are consecutive `DESC` columns of
 `ix_dead_letters_subscription_position`, the planner can use it as an index condition and walk
-the index in its own order, which is what the structural gate checks. `maxBound :: Int64`
-makes the predicate true for every row when there is no cursor. `D.jsonb` decodes the column to
+the index in its own order, which is what the structural gate checks. The first-page variants omit this predicate entirely, including rows at the Int64 boundary. `D.jsonb` decodes the column to
 an aeson `Value` unchanged.
 
 **Effect** (`kiroku-store/src/Kiroku/Store/Effect.hs`). Import the new types from
@@ -995,49 +1104,15 @@ over-fetch rule) and counts calls; assert that `subscriptionDeadLetters` returns
 page, that a second call with the returned cursor returns the rest, and that each wrapper call
 dispatched exactly once. This proves IR-9 acceptance 4.
 
-**Structural gate** (`kiroku-store/test/Test/PerformanceStructure.hs`). In `noOpAppendSpec`
-add `mkSubscriptionDeadLetterLimit 0 `shouldSatisfy` either (const True) (const False)` and
-`mkSubscriptionDeadLetterLimit 1001 …` to the zero-checkout case (import them from
-`Kiroku.Store`). In `queryPlanSpec` add, importing the statements from
-`Kiroku.Store.Subscription.DeadLetter.SQL` (add it to the test stanza's reachable modules by
-exposing it, or, since it is an `other-module`, re-export the two statements from
-`Kiroku.Store.SQL`'s dead-letter group; choose the re-export so the module stays internal):
-
-```haskell
-            it "member-scoped dead-letter pages use ix_dead_letters_subscription_position without Sort" $ \store -> do
-                plan <-
-                    explainProductionStatement
-                        store
-                        SQL.listSubscriptionMemberDeadLettersStmt
-                        [ ("$5", "50::int4")
-                        , ("$4", "9223372036854775807::bigint")
-                        , ("$3", "9223372036854775807::bigint")
-                        , ("$2", "0::int4")
-                        , ("$1", "'performance-read'::text")
-                        ]
-                expectIndex "ix_dead_letters_subscription_position" plan
-                expectNoNodeType "Sort" plan
-
-            it "all-member dead-letter pages use ix_dead_letters_subscription_position" $ \store -> do
-                plan <-
-                    explainProductionStatement
-                        store
-                        SQL.listSubscriptionDeadLettersStmt
-                        [ ("$4", "50::int4")
-                        , ("$3", "9223372036854775807::bigint")
-                        , ("$2", "9223372036854775807::bigint")
-                        , ("$1", "'performance-read'::text")
-                        ]
-                expectIndex "ix_dead_letters_subscription_position" plan
-```
-
-Replacement order matters: `$5` is substituted before `$1` so that `$1` does not also match the
-prefix of `$10`-style placeholders; the existing cases do the same. The second case allows a
-`Sort` node deliberately (see the Decision Log); it is a bounded top-N sort under `LIMIT`. If
-the first case shows a `Sort`, or the row comparison appears as a `Filter` rather than in
-`Index Cond`, rewrite both predicates as
-`(global_position < $n OR (global_position = $n AND dead_letter_id < $m))`, re-run, and record
-the evidence in Surprises & Discoveries.
+**Structural gate** (`kiroku-store/test/Test/PerformanceStructure.hs`). Keep invalid-limit
+zero-checkout assertions. Re-export all four page statements from Kiroku.Store.SQL so the
+implementation module stays internal. Add the first/later-page, generic/custom and history
+scaling cases specified in Read-work and current-API corrections above. Use the existing
+explainProductionStatement helper for shape checks, plus a focused EXPLAIN ANALYZE BUFFERS
+fixture for rows visited. Member-specific scans must use the existing index without a Sort.
+All-member merging may sort only the already bounded lateral candidates; assert inner
+limits/seeks and candidate counts rather than merely finding an index name somewhere.
+Retain all failing plans; do not replace the tuple comparison speculatively or delete a gate.
 
 Register `Test.SubscriptionDeadLetters` and `Test.SubscriptionDeadLettersMock` in
 `kiroku-store/test/Main.hs` (import and call after `SubscriptionRetryDeadLetter.spec`) and in
@@ -1045,7 +1120,7 @@ the cabal test stanza's `other-modules`.
 
 **Changelog only.** Do not edit `version:` in any `.cabal` file and do not touch any
 dependency bound; plan 96 (EP-7 of MasterPlan 13) assigns the cohort's versions (forecast:
-`kiroku-store` 0.10.0.0, because the closed `Store` GADT gains constructors) and moves every
+`kiroku-store` 0.11.0.0, because the closed `Store` GADT gains constructors) and moves every
 dependant's bound in one release commit. Under the one `## Unreleased` heading at the top of
 `kiroku-store/CHANGELOG.md` (create it only if plans 88 and 94 have not) add a
 `### Breaking Changes` bullet (the `Store` effect gains `ListSubscriptionDeadLetters`;
@@ -1132,8 +1207,8 @@ as `Nothing`. `UTCTime` encodes through aeson as an RFC 3339 UTC string; `UUID` 
 The cursor codec is two total functions: `renderDeadLetterCursor (SubscriptionDeadLetterCursor
 (GlobalPosition p) i) = T.pack (show p) <> ":" <> T.pack (show i)` and
 `parseDeadLetterCursor`, which splits on the first `:`, requires both halves to be non-empty
-strings of ASCII digits that parse as `Int64` without overflow (use `Data.Text.Read.decimal`
-and check that the remainder is empty), and returns `Nothing` otherwise.
+strings of ASCII digits parsed as `Integer` (use `Data.Text.Read.decimal`, check the empty
+remainder and range 0..maxBound Int64, then convert; parsing directly as Int64 can wrap), and returns `Nothing` otherwise.
 
 Query parsing is one pure function over the WAI query string:
 
@@ -1151,35 +1226,19 @@ parseDeadLetterRequest :: Query -> Either (Status, Text, Text, Maybe Value) Dead
 Rules: `limit` must be a decimal integer accepted by `mkSubscriptionDeadLetterLimit` (so 1
 through 1000), defaulting to `defaultSubscriptionDeadLetterLimit`; `member` must be a decimal
 integer in `[0, maxBound :: Int32]`; `from` must satisfy `parseDeadLetterCursor`; a parameter
-given without a value (`?limit`) is treated as invalid; repeated parameters use the first
-occurrence; unknown parameters are ignored. Any violation is HTTP 400 with code
+given without a value (`?limit`) is treated as invalid; duplicate recognized parameters are rejected; unknown parameters are ignored. Any violation is HTTP 400 with code
 `invalid_query_parameter` and `details` `{"parameter": "<name>", "value": "<raw>", "reason": "<what was expected>"}`
 (the same code and details shape plan 88 uses, so a UI handles one vocabulary).
 
 The application:
 
-```haskell
-deadLettersApp :: DeadLetterProvider -> Application
-deadLettersApp provider req respond =
-    case pathInfo req of
-        ["subscriptions", name, "dead-letters"]
-            | requestMethod req /= methodGet ->
-                respond (errorResponse status405 "method_not_allowed"
-                    "Dead letters are read-only over HTTP; only GET is supported." Nothing)
-            | otherwise ->
-                case parseDeadLetterRequest (queryString req) of
-                    Left (status, code, message, details) -> respond (errorResponse status code message details)
-                    Right parsed -> do
-                        result <- provider (toQuery name parsed)
-                        respond $ case result of
-                            Right page -> jsonResponse status200 (encode (deadLetterPageResponse page))
-                            Left (ConnectionError message) ->
-                                errorResponse status503 "dead_letters_unavailable"
-                                    ("could not read dead letters: " <> message) Nothing
-                            Left other ->
-                                errorResponse status500 "store_error" (T.pack (show other)) Nothing
-        _ -> respond (errorResponse status404 "not_found" "Not found" Nothing)
-```
+Implement `deadLettersApp :: DeadLetterProvider -> Application` on the exact relative
+path ["subscriptions", name, "dead-letters"]. Other paths give structured 404 not_found.
+GET/HEAD parse with parseDeadLetterRequest before calling the provider once. Invalid queries
+use errorResponse with the parsed status/code/details. Right pages encode via
+deadLetterPageResponse with status200; Left uses `storeErrorResponse "dead_letters_unavailable"`.
+HEAD preserves GET status/headers without a body; other methods give 405 and Allow: GET, HEAD.
+Do not interpolate a ConnectionError or other Show value into the response.
 
 where `toQuery name parsed = SubscriptionDeadLetterQuery (SubscriptionName name)
 (requestMember parsed) (requestAfter parsed) (requestLimit parsed)`. `errorResponse` is the
@@ -1617,6 +1676,10 @@ belong to plan 96.
 
 ## Validation and Acceptance
 
+The reviewed API, lifecycle and performance obligations in Context and Plan of Work are
+mandatory in addition to the route-specific cases below. Historical transcripts are examples,
+not evidence that the new tests have run; update counts from actual output at implementation.
+
 The plan is complete when every item below is observed, mapped to IR-9's acceptance list:
 
 1. For a subscription with parked dead letters,
@@ -1657,15 +1720,12 @@ store, so repeating a request or a test is always safe. Tests use a fresh migrat
 example and OS-assigned ports, so reruns cannot collide. The seeding statement is
 `ON CONFLICT DO NOTHING` on the natural key, so a repeated seed is a no-op.
 
-If `cabal build all` fails after Milestone 1 with an incomplete-patterns error in a package
-other than `kiroku-store`, that package has an exhaustive `Store` interpreter; add the arm and
-record it. If plan 88 or plan 94 has already opened the `## Unreleased` heading in a changelog,
-add bullets under it rather than a second heading. If the structural-gate case for the
-member-scoped statement reports a `Sort`, or the row comparison lands in a `Filter` instead of
-the `Index Cond`, rewrite the predicate as the expanded disjunction given in Milestone 1 and
-re-run; if the all-member case reports no index at all (the planner chose a sequential scan for
-the fixture's ten-percent selectivity), record the plan in Surprises & Discoveries and keep only
-the member-scoped assertion as the gate, since the documented index promise is per member.
+If `cabal build all` reports an incomplete interpreter, add the new constructor arm.
+Preserve one Unreleased heading. If either query's structural gate fails, retain the failing
+EXPLAIN and fix the query or leave acceptance inconclusive; do not remove the all-member
+assertion, substitute a favorable fixture, or weaken the gate. An expanded disjunction is
+not presumed better than a tuple comparison: verify the actual index conditions.
+
 
 If `Server.hs` has changed under you because plan 88 landed mid-implementation, re-read the
 "Coordinating with plans 87, 88, 90, and 96" rules, rebase this plan's field and route arm onto
@@ -1687,7 +1747,7 @@ and IR-9 stays `in_progress` with its evidence.
 ## Interfaces and Dependencies
 
 At the end of Milestone 1, `kiroku-store` (its `.cabal` version unchanged in-tree; plan 96
-releases it as 0.10.0.0) exports:
+releases it as 0.11.0.0) exports:
 
 ```haskell
 -- Kiroku.Store.Subscription.Types (re-exported by Kiroku.Store.Subscription and Kiroku.Store)
@@ -1791,3 +1851,8 @@ sources through `mori registry show <project> --full` (for example `hasql/hasql`
   bullets with plan 96 assigning the versions, and the release milestone and IR-9's `completed`
   transition moved to plan 96. The library operation, the route, its wire shape, and the tests
   are unchanged.
+
+
+## API and performance review revision (2026-10-10)
+
+Reviewed against repository HEAD `f1a0209` and the released typed-decoding implementation. Corrected integration contracts and made focused performance evidence a completion gate. Existing authorship history is preserved; this revision records no implemented milestone or accepted performance result. The active requirements above supersede incompatible September design decisions, not published wire contracts.

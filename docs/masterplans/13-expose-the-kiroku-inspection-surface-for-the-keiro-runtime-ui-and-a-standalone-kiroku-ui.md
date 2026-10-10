@@ -10,6 +10,18 @@ provenance:
     model: "claude-fable-5-1"
     harness: "claude-code"
     at: 2026-09-30T22:35:14Z
+  revisions:
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-10T15:41:06Z
+      mode: "update"
+      note: "Correct current APIs, integration ownership and bounded observer work; runtime acceptance remains pending."
+  reviews:
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-10T15:41:06Z
+      verdict: "comments"
+      note: "Source review corrections applied; SQL promotion and focused performance gates require implementation evidence."
 ---
 
 # Expose the Kiroku inspection surface for the keiro runtime UI and a standalone Kiroku UI
@@ -56,8 +68,8 @@ live event tail whose frames carry resolved stream names and stable error codes.
 from a different origin can call all of it once the host lists that origin. A team without a
 Haskell host program runs `kiroku-inspect --database-url ...` and gets the same surface from a
 database URL. A UI asks `GET /capabilities` to learn which route families a server provides.
-The whole cohort ships as one coordinated Hackage release (`kiroku-store` 0.10.0.0,
-`kiroku-metrics` 0.2.0.0, and patch releases of the packages whose bounds move), proven from a
+The whole cohort ships as one coordinated Hackage release (`kiroku-store` 0.11.0.0,
+`kiroku-metrics` 0.3.0.0, and patch releases of the packages whose bounds move), proven from a
 clean external consumer, after which IR-8 through IR-12 are `completed`.
 
 In scope: the four `kiroku-store` read primitives beneath the endpoints (`listStreams`,
@@ -98,22 +110,19 @@ Wave one is the enabling and foundation work. EP-1 (plan 90, CORS) touches only
 other child, and is the request without which no browser reaches any endpoint; it lands first
 so that every later route inherits the policy. EP-2 (plan 87, durable checkpoints) is the
 smallest route plan, wraps a library operation that shipped long ago, and is therefore the right
-owner of the two artifacts every later route needs: the `ServerProviders` record through which
-store-backed behaviour enters the server, and the structured error envelope helper. Making the
+owner of the providers record and server lifecycle. EP-1 owns the shared structured error
+helpers; EP-2 hard-depends on EP-1 and reuses them. Making the
 smallest plan the owner keeps the foundation reviewable and lets the two larger route plans
 start from a settled server API.
 
 Wave two is the routes and the protocol. EP-3 (plan 88, browse) and EP-4 (plan 89, dead
 letters) each add library primitives to `kiroku-store` and a route family to `kiroku-metrics`;
 they are independent of each other, both hard-depend on EP-2 for the record and envelope, and
-can be implemented in parallel by different sessions. EP-5 (plan 94, WebSocket convergence) is
-independent of the routes and can run at any time; its one shared artifact with EP-3, the
-resolved-name event encoder, is an integration dependency resolved by the "whoever lands first
-creates it" rule with the name and type fixed here.
+can be implemented in parallel by different sessions. EP-5 (plan 94, WebSocket convergence) hard-depends on EP-3, the sole owner of the
+resolved-name event encoder. No first-arrival ownership rule remains.
 
 Wave three is the independent-UI enablers and the release. EP-6 (plan 95) adds the standalone
-executable, the discovery route, and the UI-builder guide; it hard-depends on the four route and
-CORS plans because the executable serves the complete surface and the discovery route reports
+executable, the discovery route, and the UI-builder guide; it hard-depends on all five route, CORS and protocol plans because the executable serves the complete surface and the discovery route reports
 the complete provider record. EP-7 (plan 96) assigns versions, releases the cohort, proves it
 from a clean consumer, and completes the five requests; it hard-depends on everything.
 
@@ -162,11 +171,11 @@ heading and is not relevant):
 
 Cross-repository decisions, cited by the canonical handles the keiro-ui bundle publishes:
 `mori://shinzui/keiro-ui/okf/adrs/concepts/ADR-1` (every inspection endpoint lives in the
-project that owns the concept; store views are Kiroku's), `ADR-2` (the WebSocket convention and
-its frozen-dialect rule), `ADR-3` (push is a hint, poll is truth), `ADR-4` (inspection surfaces
-live in sister packages that export a bare WAI `Application`), `ADR-5` (no backend-for-frontend:
+project that owns the concept; store views are Kiroku's), `mori://shinzui/keiro-ui/okf/adrs/concepts/ADR-2` (the WebSocket convention and
+its frozen-dialect rule), `mori://shinzui/keiro-ui/okf/adrs/concepts/ADR-3` (push is a hint, poll is truth), `mori://shinzui/keiro-ui/okf/adrs/concepts/ADR-4` (inspection surfaces
+live in sister packages that export a bare WAI `Application`), `mori://shinzui/keiro-ui/okf/adrs/concepts/ADR-5` (no backend-for-frontend:
 the UI consumes these endpoints directly, so the published version set is the contract), and
-`ADR-7` (read-only first). The shared wire conventions are `mori://shinzui/keiro-ui`,
+`mori://shinzui/keiro-ui/okf/adrs/concepts/ADR-7` (read-only first). The shared wire conventions are `mori://shinzui/keiro-ui`,
 `docs/architecture/inspection-api-conventions.md` (artifact-level URI pending). Keiro's composed
 mount, `mori://shinzui/keiro/okf/improvement-requests/concepts/IR-31`, will mount this package's
 exported application behind a path prefix, which constrains EP-2, EP-5, and EP-6 as recorded in
@@ -178,11 +187,11 @@ Integration Points.
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
 | 1 | Add configurable CORS support to kiroku-metrics (IR-11) | docs/plans/90-add-configurable-cors-support-to-kiroku-metrics.md | None | None | Not Started |
-| 2 | Serve durable subscription checkpoints over HTTP (IR-10) | docs/plans/87-serve-durable-subscription-checkpoints-over-http.md | None | EP-1 | Not Started |
-| 3 | Expose a REST read API for browsing streams, categories, and events (IR-8) | docs/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md | EP-2 | EP-4, EP-5 | Not Started |
+| 2 | Serve durable subscription checkpoints over HTTP (IR-10) | docs/plans/87-serve-durable-subscription-checkpoints-over-http.md | EP-1 | None | Not Started |
+| 3 | Expose a REST read API for browsing streams, categories, and events (IR-8) | docs/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md | EP-2 | EP-4 | Not Started |
 | 4 | Expose a public dead-letter read API (IR-9) | docs/plans/89-expose-a-public-dead-letter-read-api.md | EP-2 | EP-3 | Not Started |
-| 5 | Converge the kiroku-metrics WebSocket protocol with the cross-project convention (IR-12) | docs/plans/94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention.md | None | EP-3 | Not Started |
-| 6 | Serve the Kiroku inspection surface standalone and make it self-describing | docs/plans/95-serve-the-kiroku-inspection-surface-standalone-and-make-it-self-describing.md | EP-1, EP-2, EP-3, EP-4 | EP-5 | Not Started |
+| 5 | Converge the kiroku-metrics WebSocket protocol with the cross-project convention (IR-12) | docs/plans/94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention.md | EP-3 | None | Not Started |
+| 6 | Serve the Kiroku inspection surface standalone and make it self-describing | docs/plans/95-serve-the-kiroku-inspection-surface-standalone-and-make-it-self-describing.md | EP-1, EP-2, EP-3, EP-4, EP-5 | None | Not Started |
 | 7 | Release the inspection surface cohort and complete the keiro-ui requests | docs/plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md | EP-1, EP-2, EP-3, EP-4, EP-5, EP-6 | None | Not Started |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
@@ -198,49 +207,54 @@ adopted by this MasterPlan on 2026-09-30. Commits under those four plans carry t
 
 ## Dependency Graph
 
-EP-1 has no dependencies and lands first. Its only shared artifact is the composition point in
-`kiroku-metrics/src/Kiroku/Metrics/Server.hs`, where it wraps the application handed to Warp in
-`corsMiddleware cfg.cors`. It also introduces the structured error envelope helper because its
-refused-upgrade response is the first structured body to ship.
+EP-1 creates CORS and error helpers. EP-2 hard-depends on it and owns the providers
+record, readiness, cancellation and mount behavior. EP-3 and EP-4 hard-depend on EP-2;
+they can proceed independently but must preserve each other's Store interpreter arms,
+structural tests and documentation. Their shared-file coordination is a soft dependency.
 
-EP-2 has no hard dependency, but it must be implemented after EP-1 or, if it starts first,
-preserve the invariant EP-1 establishes: the value passed to `Warp.runSettings` and
-`Warp.runSettingsSocket` is the CORS-wrapped composition. That is why EP-1 is a soft dependency.
-EP-2 owns the `ServerProviders` record and the four general starters, which is why EP-3 and EP-4
-hard-depend on it: their route arms are fields on that record, and their tests start servers
-through `withMetricsServerWithProviders` and `storeServerProviders`.
+EP-5 hard-depends on EP-3 because it consumes the event encoder EP-3 owns.
+EP-6 hard-depends on EP-1 through EP-5 so its complete-surface guide, capability tests
+and standalone tail behavior refer to the implemented protocol. EP-7 hard-depends on all
+six and owns release truth and cumulative performance acceptance.
 
-EP-3 and EP-4 are independent of each other and may proceed in parallel once EP-2 is complete.
-Their soft dependency on each other is textual: both add bullets under one unreleased heading
-in `kiroku-store/CHANGELOG.md` and `kiroku-metrics/CHANGELOG.md`, both add `time` and `vector`
-to the metrics test suite if absent, both append a step to `kiroku-metrics/example/Main.hs` and
-a section to `docs/user/metrics.md`, and both use the identical `invalid_query_parameter`
-details shape. Whichever lands second appends after what exists.
+```text
+EP-1 -> EP-2 -> EP-3 -> EP-5 -> EP-6 -> EP-7
+             \-> EP-4 ---------^
+```
 
-EP-5 has no hard dependency. Its soft dependency on EP-3 is the resolved-name event encoder
-`recordedEventToJSONResolved`, owned by EP-3; if EP-5 lands first it introduces the function
-with the fixed name, type, and module and EP-3 reuses it. EP-5 also changes `kiroku-store`
-(the publisher's drop counter, see Integration Points), so it shares the store changelog's
-unreleased heading with EP-3 and EP-4, but it touches no file those plans edit. EP-5 may
-otherwise run in parallel with anything.
-
-EP-6 hard-depends on EP-1 through EP-4 because the standalone executable exposes the CORS
-options and serves every route family through `storeServerProviders`, and because the
-discovery route reports the presence of every field of the finished record. It soft-depends on
-EP-5 so that the UI-builder guide can link the conformance mapping; without EP-5 the guide links
-the existing protocol section instead.
-
-EP-7 hard-depends on all six because version numbers, dependency bounds, changelog dating,
-release order, the clean-consumer proof, and request completion can be chosen truthfully only
-from the integrated code. This MasterPlan deliberately forecasts but does not pin the version
-numbers; EP-7 re-queries Hackage, upstream tags, and Mori dependents at execution time.
-
-The recommended landing order is therefore EP-1, EP-2, then EP-3, EP-4, and EP-5 in any order or
-in parallel, then EP-6, then EP-7. The longest serial chain is five plans deep (EP-1, EP-2, one
-of EP-3 or EP-4, EP-6, EP-7).
+The longest serial chain has six plans. Registry dependencies and child prerequisites
+must match this graph. Do not create shared artifacts out of order merely to parallelize.
 
 
 ## Integration Points
+
+**Reviewed implementation constraints (2026-10-10).**
+[ADR-15](../adr/0015-inspection-observers-preserve-wire-contracts-and-bound-shared-work.md)
+records compatibility and bounded observer work; ADR-12 governs current typed decoding.
+The September plans were checked against source at `f1a0209`; no feature or performance
+milestone was implemented during review.
+
+EP-2 owns readiness-before-return and propagates bind/server failures, preserving old starter
+signatures. It normalizes mount-relative WebSocket dispatch as well as HTTP paths and enforces
+enableWebSocket=False before upgrade dispatch. EP-6 tests capability truth against that
+behavior; its callback is exactly `Int -> Capabilities -> IO ()`. Capabilities uses the
+Haskell selector corsIsEnabled and ProviderPresence uses presentWebSocketChannels to avoid
+conflicting umbrella exports. The JSON cors.enabled spelling is unchanged.
+
+EP-3 owns validated BrowseLimits and same-query cursor/prefix correctness. Its nullable/prefix
+SQL is a prototype requiring sparse-prefix generic/custom EXPLAIN proof before promotion.
+EP-4 bounds all-member candidates by member count times page size using existing per-member
+index scans, including historical members. No child adds an append index or changes collation
+to hide read costs without a separate reviewed design. Inventory is explicitly unpaginated;
+clients must avoid overlapping polls. No child may claim LIMIT alone bounds query work.
+
+EP-7 selects focused cumulative PostgreSQL 18 evidence against a pre-inspection control,
+including disabled observers and representative active polling/tailing beside appends.
+Existing pipeline ratios and another cohort's practical acceptance do not prove neutrality.
+Correctness, structural invariants and child-specific focused checks come first; no default
+full performance matrix or tight universal precision. Remote runs require the user's scoped
+preflight details and one total 60-minute ceiling including setup/recovery/repeats.
+Confirmed regressions block release; uncertainty is retained, not renamed a pass.
 
 **The server composition record and starters** (owner: EP-2, plan 87; consumers: EP-3, EP-4,
 EP-6; constraint on EP-1). Shared artifact: `kiroku-metrics/src/Kiroku/Metrics/Server.hs`. Plans
@@ -254,9 +268,10 @@ adding a field, never a second record or a second starter:
 data ServerProviders = ServerProviders
     { webSocketServer :: !WS.ServerApp
     , subscriptionStatus :: !(Maybe SubscriptionStatusProvider)      -- GET /subscriptions (live, process-local)
-    , checkpointInventory :: !(Maybe CheckpointInventoryProvider)    -- GET /subscriptions/checkpoints        (EP-2)
+    , checkpointInventory :: !(Maybe CheckpointInventoryProvider)    -- GET /subscription-checkpoints        (EP-2)
     , browser :: !(Maybe StoreBrowser)                               -- /streams, /categories, /events        (EP-3 adds)
     , deadLetters :: !(Maybe DeadLetterProvider)                     -- GET /subscriptions/<name>/dead-letters (EP-4 adds)
+    , webSocketChannels :: !WebSocketChannels                        -- declared channels (EP-6 adds)
     }
 
 defaultServerProviders :: ServerProviders      -- stubWebSocketApp, every provider Nothing
@@ -300,6 +315,7 @@ helper pair with the details-carrying shape plan 89 asked for:
 errorEnvelope :: Text -> Text -> Maybe Value -> Value
 -- {"error":{"code":"<snake_case>","message":"<sentence>"}} plus "details" only when Just
 errorResponse :: Status -> Text -> Text -> Maybe Value -> Response
+storeErrorResponse :: Text -> StoreError -> Response  -- sanitized unavailable code / typed 500 mapping
 ```
 
 Plan 87's two-argument `errorEnvelope` and plan 88's `browseErrorResponse` are replaced by
@@ -309,7 +325,9 @@ untouched. Shared code vocabulary across route families: `invalid_query_paramete
 `details` `{"parameter","value","reason"}`), `method_not_allowed` (405), `not_found` (404,
 structured, only on paths under a new route family), `<family>_not_configured` (404 when the
 provider is absent), `<family>_unavailable` or `store_unavailable` (503 on `ConnectionError`),
-and `store_error` (500 on any other `StoreError`). Each child documents its own codes in
+`event_decode_failed` (500 on EventDecodeFailed), and `store_error` (500 on other StoreError).
+Never include raw error text, connection strings or payloads. New read routes implement
+GET/HEAD and 405 with Allow: GET, HEAD; old route method behavior remains unchanged. Each child documents its own codes in
 `docs/user/metrics.md`; EP-6's guide collects them.
 
 **The resolved-name event object** (owner: EP-3, plan 88; consumer: EP-5, plan 94). Shared
@@ -319,8 +337,7 @@ emits the published camelCase event object plus exactly one snake_case key,
 `original_stream_name` (string, or `null` when unresolvable). EP-3 uses it for every REST item;
 EP-5 uses it for `event` frames with a per-connection cache so unseen ids cost one batched
 `lookupStreamNames` round trip per delivered batch. Plan 88's `recordedEventToBrowseJSON` in
-`Kiroku.Metrics.Browse` is renamed and relocated to this. If EP-5 lands before EP-3, EP-5
-introduces the function with this exact name, type, and module and EP-3 reuses it. The
+`Kiroku.Metrics.Browse` is renamed and relocated to this. EP-5 hard-depends on EP-3 and never introduces a competing definition. The
 justification is ADR-1: names are not carried on `RecordedEvent` because the batch lookup is
 cheaper than a join on `$all` pages, and a browser has no other resolver.
 
@@ -329,8 +346,8 @@ cheaper than a join on `$all` pages, and a browser has no other resolver.
 `defaultConfig{cors = corsDisabled}`; this is the cohort's one configuration change and the
 reason `kiroku-metrics` takes a PVP major bump. No other child adds a configuration field: EP-3
 keeps browse limits on `StoreBrowser`, and EP-6 maps its command-line options onto existing
-fields. If EP-6 finds a host bind option trivial and additive it records the decision; otherwise
-`Warp.setHost "*"` stays as it is and the executable documents it.
+fields. There is no new bind option in this cohort; the executable documents the starter's
+actual bind behavior and trusted-network requirements.
 
 **Version numbers, bounds, and changelogs** (owner: EP-7, plan 96; constraint on every other
 child). No child edits a `.cabal` `version:` line or a dependency bound. Each child writes its
@@ -338,11 +355,11 @@ bullets under one `## Unreleased` heading at the top of the affected package cha
 (`kiroku-store/CHANGELOG.md` for EP-3, EP-4, and EP-5; `kiroku-metrics/CHANGELOG.md` for all
 six), grouped as the release skill expects (`### Breaking Changes`, `### New Features`,
 `### Other Changes`). Plans 87, 88, and 89 previously specified in-tree bumps to
-`kiroku-store` 0.9.0.0 and `kiroku-metrics` 0.2.0.0 or 0.1.1.0; those numbers are stale
-(`kiroku-store` 0.9.0.1 and `kiroku-metrics` 0.1.0.10 are already released) and are withdrawn.
-EP-7's forecast, to be re-derived from the diffs: `kiroku-store` 0.10.0.0 (the closed `Store`
+`kiroku-store` 0.9.0.0 and `kiroku-metrics` 0.3.0.0 or 0.1.1.0; those numbers are stale
+(`kiroku-store` 0.10.0.0 and `kiroku-metrics` 0.2.0.0 are already released as verified on 2026-10-10) and are withdrawn.
+EP-7's forecast, to be re-derived from the diffs: `kiroku-store` 0.11.0.0 (the closed `Store`
 GADT gains four constructors and the exported `Subscriber` record gains a field),
-`kiroku-metrics` 0.2.0.0 (the configuration field, the record, new modules, a new executable,
+`kiroku-metrics` 0.3.0.0 (the configuration field, the record, new modules, a new executable,
 and two new library dependencies, `effectful-core` and `optparse-applicative`), and patch bumps
 of `kiroku-otel`, `kiroku-cli`, and `shibuya-kiroku-adapter` to move their `kiroku-store`
 bound, plus `kiroku-metrics`'s `kiroku-cli` bound. `kiroku-store-migrations` is outside the
@@ -358,10 +375,13 @@ batches, but the publisher sets the `Overflowed` status only under `DropSubscrip
 `DropOldest`, the tail's policy, it drops silently. EP-5 adds `subDropped :: TVar Word64` to
 `Subscriber`, incremented only inside the existing `DropOldest` branch of `deliverBatchSTM`, a
 `subscribePublisherWith` returning a `PublisherSubscription` that exposes the counter, and keeps
-`subscribePublisher` as a wrapper returning today's triple. The ordinary not-full delivery path
-is untouched, so under [ADR-5](../adr/0005-three-tier-performance-regression-gates.md) EP-5's
-gate is `cabal bench kiroku-store:kiroku-shibuya-overhead` before and after, recorded in its
-plan; EP-7 runs the full gates for the cohort. No other child edits this file.
+`subscribePublisher` as a wrapper returning today's triple. The queue remains TBQueue DecodedBatch and retains the no-hook UnchangedBatch fast path.
+Counter writes occur only on actual drops. EP-5 samples queue/counter/status together and
+notifies BEFORE sending survivors; the client recovers from its last contiguous pre-notice
+cursor. Name enrichment has one batched lookup at most and a 4096-entry per-tail FIFO cache.
+The existing Shibuya benchmark alone does not cover that resolver: EP-5 adds focused
+tail/cache checks, and EP-7 owns cumulative append-under-observer evidence.
+No other child edits the publisher.
 
 **The `kiroku-store` `Store` effect** (EP-3 and EP-4 both extend it; owner of each constructor
 is the plan that adds it). Shared artifact: `kiroku-store/src/Kiroku/Store/Effect.hs`. EP-3 adds
@@ -416,6 +436,9 @@ rule suffices.
 
 ## Progress
 
+- [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
+- [ ] Implement and execute the focused correctness and performance acceptance added by this review.
+
 - [x] (2026-09-30) Coordination: MasterPlan created; plans 87, 88, 89, and 90 adopted with
       coordination notes and the stale version, record, and envelope decisions withdrawn;
       plans 94, 95, and 96 created; IR-8 and IR-12 moved to `accepted`.
@@ -424,7 +447,7 @@ rule suffices.
 - [ ] EP-1: middleware wired at the composition point; real-server HTTP and WebSocket origin
       tests; documentation, example step, CAP-17, changelog, IR-11 evidence.
 - [ ] EP-2: `Kiroku.Metrics.Checkpoints` and the pure codec test.
-- [ ] EP-2: `ServerProviders`, the four general starters, the reserved `/subscriptions/checkpoints`
+- [ ] EP-2: `ServerProviders`, the four general starters, the reserved `/subscription-checkpoints`
       segment, legacy starters as delegations.
 - [ ] EP-2: end-to-end checkpoint tests; documentation, example step, CAP-17, changelog, IR-10
       evidence.
@@ -457,11 +480,17 @@ rule suffices.
 
 ## Surprises & Discoveries
 
+- 2026-10-10 review: Hackage and upstream tags already contain store 0.10.0.0 and metrics
+  0.2.0.0. The new tentative targets are 0.11.0.0 / 0.3.0.0, re-derived at release.
+  Current queues carry DecodedBatch and checkpoint seeding takes six parameters.
+  LIMIT did not establish bounded SQL work, and unchanged append SQL did not establish
+  observer neutrality. No runtime result was produced by this documentation review.
+
 - Adoption audit (2026-09-30): plans 87, 88, and 89 all target an in-tree `kiroku-store` bump
-  to 0.9.0.0 and `kiroku-metrics` bumps to 0.2.0.0 or 0.1.1.0, but `kiroku-store` 0.9.0.0 and
+  to 0.9.0.0 and `kiroku-metrics` bumps to 0.3.0.0 or 0.1.1.0, but `kiroku-store` 0.9.0.0 and
   0.9.0.1 shipped on 2026-09-25 (migration `0012`, the category index, and the idle-publisher
   retention fix) and `kiroku-metrics` is at 0.1.0.10. The next `kiroku-store` major is
-  0.10.0.0, and the numbers are now assigned only by EP-7.
+  0.11.0.0, and the numbers are now assigned only by EP-7.
 - Adoption audit (2026-09-30): plans 87 and 88 designed incompatible providers records
   (`MetricsProviders`, a breaking positional replacement, versus `ServerProviders`, an additive
   record beside the legacy starters) and plan 89 wrote a precedence rule to cope. With the
@@ -502,6 +531,13 @@ rule suffices.
 
 
 ## Decision Log
+
+- Decision (2026-10-10): use the hard-dependency graph above, single owners for shared helpers,
+  the nonshadowing checkpoint route, typed decoding, bounded tail state and proportional
+  original-control performance gates. These supersede conflicting September decisions.
+  Rationale: source review found mismatched SQL arguments, obsolete queue/decode APIs,
+  full-history read risks, cache growth, late loss notices and a bind readiness race.
+  Durable constraints are recorded in ADR-15; all implementation statuses remain Not Started.
 
 - Decision: Adopt plans 87, 88, 89, and 90 as children of this MasterPlan rather than
   rewriting them, adding `master_plan` to their frontmatter, a coordination note, targeted
@@ -628,4 +664,18 @@ rule suffices.
 
 ## Outcomes & Retrospective
 
+2026-10-10 review validation: `git diff --check`, local Markdown-link/fence checks across
+all 11 changed Markdown files, `just adr-validate`, and strict profiled/log-enforced ADR
+validation passed (15 concepts). Mori reports an existing manifest/embedded-schema hash
+warning while validating successfully; this review does not change that unrelated manifest.
+No source implementation or runtime/performance test was run. Sparse-prefix SQL promotion
+and the cumulative original-control comparison remain explicit implementation gates.
+
+2026-10-10 review: implementation and performance acceptance remain pending. Static review does not prove zero runtime regression. Earlier planning-time observations and dated decisions are historical where this revision explicitly replaces them.
+
 (To be filled during and after implementation.)
+
+
+## API and performance review revision (2026-10-10)
+
+Reviewed against repository HEAD `f1a0209` and the released typed-decoding implementation. Corrected integration contracts and made focused performance evidence a completion gate. Existing authorship history is preserved; this revision records no implemented milestone or accepted performance result. The active requirements above supersede incompatible September design decisions, not published wire contracts.

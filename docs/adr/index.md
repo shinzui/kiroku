@@ -22,4 +22,5 @@ okf_version: "0.2"
 - [Decode failures are per-event outcomes with independent subscription dispositions](0012-decode-failures-are-per-event-outcomes-with-independent-subscription-dispositions.md) - Represent expected decode failures explicitly, advance the shared publisher, and preserve failed-event checkpoints by default.
 - [Handler stall diagnostics are worker-owned and advisory](0013-handler-stall-diagnostics-are-worker-owned-and-advisory.md) - Keep acknowledgement ownership with consumers and use opt-in scoped worker diagnostics for pending ordinary handlers.
 - [Unique constraint names define error classification](0014-unique-constraint-names-define-error-classification.md) - Classify owned unique constraints by exact names and distinguish duplicate event IDs from internal stream-version invariant failures.
+- [Inspection observers preserve wire contracts and bound shared work](0015-inspection-observers-preserve-wire-contracts-and-bound-shared-work.md) - Keep inspection composition compatible, preserve typed decoding, and require bounded observer work with focused write-performance evidence.
 

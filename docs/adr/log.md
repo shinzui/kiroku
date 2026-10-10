@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-10
+* **Decision**: Record inspection compatibility, bounded observer work, and focused performance acceptance for MasterPlan 13.
 * **Update**: Record published topology and validated configuration contracts in ADR-2/ADR-8 and existing publication authorization with retained practical-performance limits in ADR-11.
 * **Update**: ADR-11: Record explicit EP6 practical acceptance with statistical uncertainty, rejected pooling and adverse telemetry preserved; proceed to version review.
 * **Update**: Correct the historical implementation status: plan 84 implements the inactive diagnostic default and opt-in watchdog; performance policy is unchanged.

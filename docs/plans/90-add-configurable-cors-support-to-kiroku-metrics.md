@@ -17,6 +17,17 @@ provenance:
       at: 2026-09-30T22:56:43Z
       mode: "update"
       note: "Adopted as a child of MasterPlan 13: settled ServerProviders record, errorEnvelope/errorResponse ownership, resolved-name encoder, versions deferred to plan 96, release milestone moved"
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-10T15:41:06Z
+      mode: "update"
+      note: "Correct current APIs, integration ownership and bounded observer work; runtime acceptance remains pending."
+  reviews:
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-10T15:41:07Z
+      verdict: "comments"
+      note: "Source review corrections applied; SQL promotion and focused performance gates require implementation evidence."
 ---
 
 # Add configurable CORS support to kiroku-metrics
@@ -103,7 +114,7 @@ Content-Type: application/json
 ```
 
 The same list governs the WebSocket: with origins configured, a browser page on
-`https://ops.example.com` can open `ws://localhost:9091/ws/events`, a page on
+`https://ops.example.com` can open `wss://api.example.com/ws/events` through the host's TLS proxy, a page on
 `https://evil.example.com` is refused with HTTP 403 before the WebSocket protocol starts, and a
 non-browser client that sends no `Origin` header connects exactly as it does today. With the
 default configuration nothing changes anywhere: every response is byte-for-byte what it is today,
@@ -111,10 +122,14 @@ which is the behaviour the request's first acceptance item demands.
 
 The forbidden CORS combination, a wildcard origin together with credentialed requests, cannot be
 expressed: the only way to build an allowed origin is a validating constructor that refuses `*`
-(and the opaque `null` origin), so a credentials flag is always safe to turn on.
+(and the opaque `null` origin). This prevents wildcard credential grants, not unauthorized
+access: authentication and TLS remain the host's responsibility.
 
 
 ## Progress
+
+- [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
+- [ ] Implement and execute the focused correctness and performance acceptance added by this review.
 
 - [ ] Milestone 1: `Kiroku.Metrics.Cors` module (validated `AllowedOrigin`, `CorsPolicy`,
       `corsMiddleware`), the `cors` field on `MetricsServerConfig` defaulting to
@@ -140,10 +155,15 @@ expressed: the only way to build an allowed origin is a validating constructor t
 
 ## Surprises & Discoveries
 
+- 2026-10-10 source review: The proposed origin parser accepted malformed authorities and default-port mismatches; enabled no-origin/disallowed responses omitted Vary, allowing cache-dependent browser failures. Network header equality also included volatile Warp headers. No runtime acceptance is inferred from this finding.
+
 (None yet.)
 
 
 ## Decision Log
+
+- Decision (2026-10-10): the reviewed Context and Plan of Work supersede incompatible September choices on dependencies, routes, decoding, method handling, bounds and performance. Implementation remains pending; durable constraints are in ADR-15.
+  Rationale: the released APIs changed and the original sketches contained correctness and shared-resource hazards.
 
 - Decision: Implement CORS as a hand-written WAI middleware in a new module
   `Kiroku.Metrics.Cors`, using only libraries the package already depends on (`wai`,
@@ -166,8 +186,9 @@ expressed: the only way to build an allowed origin is a validating constructor t
   origins, default empty", and CORS is server-wide policy that must apply to every starter,
   unlike the per-route data sources that plans 87 and 88 route through provider records. Every
   documented caller (the user guide, both test suites, the example) builds the record with
-  `defaultConfig{port = ...}`, which stays source-compatible; only positional construction
-  breaks, which is a PVP major bump this plan accepts and records in the changelog. Plan 88
+  `defaultConfig{port = ...}`, which stays source-compatible; positional and explicit complete
+  construction must account for the new field. This is a PVP major change regardless of local
+  usage, and belongs in the changelog. Plan 88
   declined to add config fields for its browse limits because a limit is route-local; this
   field is not. A sub-record rather than three flat fields lets the middleware take exactly the
   policy it needs and lets future CORS knobs be added without touching `MetricsServerConfig`
@@ -178,7 +199,7 @@ expressed: the only way to build an allowed origin is a validating constructor t
   newtype whose only constructor function `allowedOrigin :: Text -> Either OriginError
   AllowedOrigin` refuses `*`, `null`, values without `scheme://`, values with an empty host, and
   values carrying a path, query, or fragment (one trailing `/` is tolerated and stripped), and
-  lowercases what it accepts. Consequently `allowCredentials = True` is always a safe setting.
+  lowercases what it accepts. This prevents wildcard grants with credentials, but does not authenticate callers.
   Rationale: The cross-project conventions require that "no wildcard origin with credentials"
   be unrepresentable, and IR-11 acceptance 6 asks that the combination fail at configuration
   time or be unrepresentable; refusing the wildcard outright is the simplest way to satisfy both
@@ -201,33 +222,12 @@ expressed: the only way to build an allowed origin is a validating constructor t
   exchanged.
   Date: 2026-09-10
 
-- Decision: Only responses to requests from an allowed origin are touched. A request with no
-  `Origin` header, a request from a disallowed origin, and every request when the policy is
-  disabled receive exactly the response the router produces today, with no `Vary` header added.
-  `Vary: Origin` is added only alongside `Access-Control-Allow-Origin`.
-  Rationale: IR-11 acceptance items 1, 3, and 5 are phrased as byte-for-byte or "no CORS
-  headers" comparisons, and the narrowest reading is the one a test can pin exactly. Adding
-  `Vary: Origin` to decorated responses is what a shared cache needs to avoid serving one
-  origin's decorated response to another; the reverse case (an undecorated response cached and
-  served to an allowed origin) fails closed and is not a security problem, and the routes send
-  no freshness headers, so shared caches do not store them in practice.
-  Date: 2026-09-10
-
-- Decision: A preflight (method `OPTIONS` with an `Access-Control-Request-Method` header) from
-  an allowed origin is answered by the middleware with `204 No Content`,
-  `Access-Control-Allow-Methods: GET, HEAD, OPTIONS`, an `Access-Control-Allow-Headers` that
-  echoes the request's `Access-Control-Request-Headers` when present, `Access-Control-Max-Age`
-  when configured, and `Access-Control-Allow-Credentials: true` when configured; it is not
-  forwarded to the router. A preflight from a disallowed origin is forwarded untouched, which
-  today yields the router's `404 {"error":"Not found"}`.
-  Rationale: The router dispatches on path only and every route is a read, so `GET` (plus `HEAD`,
-  whose body Warp strips, and `OPTIONS` itself) is the complete method list the server actually
-  supports, as IR-11 acceptance 2 requires; a plan that adds a mutating route must extend the
-  constant. The server reads no request headers, so echoing the requested header names is both
-  honest and credential-compatible (a literal `*` would not be). Passing a disallowed preflight
-  through keeps the "no CORS headers" promise without inventing a new error body for a request
-  the browser will block anyway.
-  Date: 2026-09-10
+- Decision (revised 2026-10-10): Disabled CORS is exactly the identity; enabled HTTP
+  responses always vary on Origin, while only allowed origins receive grants. Preflight
+  validates methods/header names and includes their Vary keys when reflected.
+  Rationale: Cached responses without grants also vary by origin. Lack of explicit freshness
+  is not a sufficient cache-correctness argument. The Milestone 1 tests replace the
+  September no-Vary assertions for enabled policies.
 
 - Decision: The WebSocket `Origin` check is enforced only when CORS is enabled. With the
   default `corsDisabled`, upgrades from any origin succeed exactly as today.
@@ -241,7 +241,7 @@ expressed: the only way to build an allowed origin is a validating constructor t
 - Decision: The refused upgrade answers with the structured error envelope
   `{"error":{"code":"origin_not_allowed","message":"..."}}` and HTTP 403, built with an
   `errorEnvelope` helper in `Kiroku.Metrics.JSON` that is byte-for-byte the helper plan 87
-  specifies; whichever plan lands first creates it and the other reuses it.
+  specifies; this plan creates it and plan 87 hard-depends on this plan.
   Amended on 2026-09-30: this plan lands first and owns the helper, and the shape is the
   details-carrying pair `errorEnvelope :: Text -> Text -> Maybe Value -> Value` plus
   `errorResponse :: Status -> Text -> Text -> Maybe Value -> Response` (the `details` key is
@@ -266,7 +266,7 @@ expressed: the only way to build an allowed origin is a validating constructor t
   Date: 2026-09-10
 
 - Decision: The release is a PVP major bump of `kiroku-metrics` computed against whatever
-  version is current when Milestone 4 runs (0.1.0.8 at planning time, so 0.2.0.0 unless plan 87
+  version is current when Milestone 4 runs (0.1.0.8 at planning time, so 0.3.0.0 unless plan 87
   or plan 88 has shipped first, in which case the next major after theirs). `kiroku-store` and
   `kiroku-cli` are unchanged and unreleased by this plan.
   Rationale: Adding a field to a record whose constructor is exported changes the datatype
@@ -276,7 +276,7 @@ expressed: the only way to build an allowed origin is a validating constructor t
   Date: 2026-09-10
   Superseded on 2026-09-30: this plan releases nothing and edits no `version:` line or bound.
   Plan 96 (EP-7 of MasterPlan 13) assigns the cohort's versions; the `cors` field is still what
-  makes `kiroku-metrics`'s next release a PVP major (0.2.0.0 is the forecast).
+  makes `kiroku-metrics`'s next release a PVP major (0.3.0.0 is the forecast).
 
 - Decision: Land first among the MasterPlan's children, and treat the CORS wrap around the
   composed application as an invariant of the composition point that plan 87 preserves when it
@@ -299,10 +299,51 @@ expressed: the only way to build an allowed origin is a validating constructor t
 
 ## Outcomes & Retrospective
 
+2026-10-10 review: implementation and performance acceptance remain pending. Static review does not prove zero runtime regression. Earlier planning-time observations and dated decisions are historical where this revision explicitly replaces them.
+
 (To be filled during and after implementation.)
 
 
 ## Context and Orientation
+
+### Review baseline and acceptance boundaries (2026-10-10)
+
+This plan is reviewed against `f1a0209`. Hackage preferred-version JSON and upstream tags
+both identify `kiroku-store-0.10.0.0` and `kiroku-metrics-0.2.0.0` as already released.
+The inspection forecast is now store 0.11.0.0 / metrics 0.3.0.0, not a reservation;
+plan 96 must re-query releases and compute every dependent's version from its actual diff.
+September source-version observations are historical, not current API authority.
+
+[ADR-15](../adr/0015-inspection-observers-preserve-wire-contracts-and-bound-shared-work.md)
+requires compatibility and bounded shared work. [ADR-12](../adr/0012-decode-failures-are-per-event-outcomes-with-independent-subscription-dispositions.md)
+requires typed decode failures and the no-hook fast path. Re-read the named implementation
+before coding: public reads use `decodeReadEvents`; publisher queues carry `DecodedBatch`,
+not `Vector RecordedEvent`. Successful hooks return `Right`; a typed failure must never
+turn into partial successful data. New HTTP store failures use sanitized messages:
+`ConnectionError` gives 503 with the route's unavailable code, `EventDecodeFailed` gives
+500 `event_decode_failed`, and other store errors give 500 `store_error`.
+Never expose `show err`, connection strings or payloads; never catch asynchronous cancellation
+as an expected store failure. Existing published error bodies remain unchanged.
+
+All new read paths support GET and HEAD, returning identical status and headers with no HEAD
+body. Other methods give 405 `method_not_allowed` and `Allow: GET, HEAD`. Implement this
+in the WAI apps themselves, not only by relying on Warp. Query numbers are parsed from ASCII
+digits into `Integer`, range-checked, and only then narrowed; reject signed/empty/overflowing
+values and duplicate recognized parameters with 400 `invalid_query_parameter`.
+Decode UTF-8 totally. Ignore unknown parameters as documented. Limits cap the page before
+over-fetching one row, and integer narrowing must not wrap. Clients handling Int64 JSON fields
+must use lossless integer parsing rather than silently rounding positions above 2^53.
+
+No new append SQL, index, lock, checkpoint write, pool checkout, or per-event publisher work
+is justified by a read-only label. New DB reads contend for shared resources. Use existing
+correctness tests, structural invariants and a focused affected-path check per child.
+Plan 96 owns the cumulative original-control comparison on PostgreSQL 18; the existing
+pipeline-versus-sequential ratio and historical Shibuya catch-up results do not prove this
+cohort neutral. Before any remote run, report cases, trial count, warmup, measurement and
+setup/recovery time, uncertainty target and stopping conditions within a single 60-minute
+ceiling. Preserve samples and lease cleanup; do not silently weaken a gate, repeat until
+favorable, or expand to a full matrix. Reproducible append regressions block acceptance;
+unmeasured or noisy evidence is explicitly pending or inconclusive.
 
 ### Terms used in this plan
 
@@ -334,12 +375,12 @@ or transform the inner response (`type Middleware = Application -> Application` 
 server answers with status `101 Switching Protocols` and then speaks the WebSocket framing on the
 same socket; in this package `wai-websockets`' `websocketsOr` recognises such requests and hands
 them to a `websockets` `ServerApp`. **PVP** is the Haskell Package Versioning Policy: a change to
-an exported datatype's definition is a major bump (`0.1.x.y` to `0.2.0.0`); an addition is a
+an exported datatype's definition is a major bump (`0.1.x.y` to `0.3.0.0`); an addition is a
 minor bump.
 
 ### The metrics server today
 
-Everything below is under `kiroku-metrics/`, version 0.1.0.8 in `kiroku-metrics.cabal`. The
+Everything below is under `kiroku-metrics/`, version 0.2.0.0 at the 2026-10-10 review. The
 package's `common` stanza enables `DuplicateRecordFields`, `OverloadedRecordDot`,
 `OverloadedStrings`, `RecordWildCards`, `LambdaCase`, `DerivingStrategies`, `DeriveAnyClass`, and
 builds with `-Wall -Werror=incomplete-patterns`. The library depends on `aeson`, `async`, `base`,
@@ -383,8 +424,7 @@ combinedApp cfg m deps mProvider wsApp =
 `httpApp` pattern-matches on `pathInfo req` only (never on the method) for `/metrics`,
 `/metrics/prometheus`, `/metrics/<name>`, `/subscriptions`, `/subscriptions/<name>`, `/health`,
 `/health/live`, `/health/ready`, and `/ws`, and answers `404 {"error":"Not found"}` otherwise.
-Plans 87, 88, and 89 (all unimplemented at planning time; plan 89's file is an untracked
-skeleton) restructure the starters and the router around provider records but keep `combinedApp`
+Plans 87, 88, and 89 (all unimplemented at planning time; plan 89 is a checked-in child) restructure the starters and the router around provider records but keep `combinedApp`
 or a successor as the place where the WebSocket app and the router are composed; this plan only
 wraps that composition and never changes the router's cases or any starter's signature.
 
@@ -414,8 +454,8 @@ its "Try it" section; it starts the server with `withMetricsServerWithStore (def
 
 ### Library facts this plan relies on (verified from source)
 
-Sources were read from the Mori corpus (`yesodweb/wai` at
-`/Users/shinzui/Keikaku/hub/haskell/wai-project/wai`) and, for packages not in the corpus, from
+Sources were read from the Mori corpus (`mori://yesodweb/wai`, project-relative
+`wai/Network/Wai.hs` and `wai-websockets/Network/Wai/Handler/WebSockets.hs`; artifact URIs pending) and, for packages not in the corpus, from
 the exact versions in `dist-newstyle/cache/plan.json` unpacked from the cabal package cache.
 
 - `wai` 3.2.5, `Network.Wai`: `type Middleware = Application -> Application`;
@@ -502,293 +542,110 @@ retained.
 
 ## Plan of Work
 
-### Milestone 1: the CORS module, the configuration field, and database-free tests
+### Milestone 1: validated policy, cache-correct middleware, and database-free tests
 
-Scope: create `kiroku-metrics/src/Kiroku/Metrics/Cors.hs`, add the `cors` field to
-`MetricsServerConfig`, re-export the module, and prove the middleware's behaviour with tests
-that mount it over a trivial application on a free port. At the end of this milestone the
-package compiles with the new field, `defaultConfig` behaves exactly as before, and every HTTP
-acceptance item of IR-11 is pinned by a test that needs no database. Nothing in `Server.hs`
-changes yet.
+Create `kiroku-metrics/src/Kiroku/Metrics/Cors.hs` and register/re-export it in the cabal
+file and `Kiroku.Metrics`. Move IR-11 to in_progress when implementation actually starts,
+maintain its bundle log, and keep release completion owned by plan 96.
+Expose abstract `AllowedOrigin`, `OriginError(..)`, `allowedOrigin :: Text -> Either OriginError AllowedOrigin`
+and `renderAllowedOrigin :: AllowedOrigin -> Text`. Keep the existing proposed error
+constructors WildcardOrigin, OpaqueOrigin, MissingScheme, EmptyHost, HasPathQueryOrFragment
+and NotAnOrigin, each detailed constructor carrying Text.
 
-First move IR-11 from `accepted` to `in_progress`: in
-`docs/improvement-requests/add-configurable-cors-support-to-kiroku-metrics.md` set
-`status: in_progress`, advance `timestamp` to the current UTC time, and under `## Status`
-change the acceptance paragraph (which already links this plan) to say implementation is under
-way. Add a dated `**Implementation**` entry to `docs/improvement-requests/log.md` and run the
-strict bundle validation from Concrete Steps.
+Validate an actual HTTP(S) origin, not merely a string containing `://`. Accept an ASCII
+DNS host, IPv4 host or bracketed IPv6 literal with optional decimal port 0..65535. Validate
+the authority fully; reject empty scheme/host, unsupported schemes, userinfo, wildcard hosts,
+unbracketed IPv6, invalid ports, whitespace/control characters, percent-escaped authority,
+query/fragment/path, and raw Unicode hostnames (callers supply their ASCII form).
+Normalize scheme and DNS case, default ports 80/443 and IPv6 literal representation.
+Configuration may trim surrounding whitespace and strip one trailing slash; recheck host
+nonemptiness afterward. Request origins must be a single valid serialized origin, with no
+trailing slash or multiple header values. Do not lowercase arbitrary Unicode into acceptance.
+If using a URI/IP parsing dependency, locate its source with Mori and verify the released
+API and bounds before choosing it. The origin contract and adversarial tests are mandatory,
+not the earlier hand-written split-and-lowercase algorithm.
 
-Write the new module. Its header comment should say what it is and why it exists:
-
-```haskell
-{- | Cross-Origin Resource Sharing (CORS) for the metrics server (IR-11).
-
-Browsers refuse to let a page read a response from another origin unless the
-server opts in with @Access-Control-*@ headers, and they send the page's
-@Origin@ on every WebSocket handshake. This module holds the host-configured
-policy (an explicit allowed-origins list, disabled by default) and the WAI
-middleware that applies it to HTTP responses, answers preflight requests, and
-refuses WebSocket upgrades from origins that are not listed. With
-'corsDisabled' the middleware is the identity: every response is byte-for-byte
-what the router produced.
--}
-module Kiroku.Metrics.Cors (
-    -- * Allowed origins
-    AllowedOrigin,
-    allowedOrigin,
-    renderAllowedOrigin,
-    OriginError (..),
-
-    -- * Policy
-    CorsPolicy (..),
-    corsDisabled,
-    corsAllowOrigins,
-    corsEnabled,
-    corsAllowedMethods,
-
-    -- * Middleware
-    corsMiddleware,
-    originAllowed,
-    isPreflight,
-) where
-```
-
-Define the validated origin. The constructor is not exported; the stored value is the
-normalized form (lowercased ASCII, one trailing slash removed), so equality with a request's
-`Origin` header is a byte comparison after the same normalization:
+Retain the small public policy and defaults:
 
 ```haskell
--- | A validated, normalized origin: lowercase @scheme://host[:port]@ with no
--- path, query, fragment, or trailing slash. Build one with 'allowedOrigin'.
-newtype AllowedOrigin = AllowedOrigin ByteString
-    deriving stock (Eq, Show)
-
--- | Why a value was refused by 'allowedOrigin'.
-data OriginError
-    = -- | The wildcard @*@ is never accepted: it cannot be combined with credentials
-      -- and an explicit list is the whole point of the policy.
-      WildcardOrigin
-    | -- | The opaque origin @null@ (sandboxed frames, @file://@ pages) identifies nothing.
-      OpaqueOrigin
-    | -- | No @scheme://@ separator.
-      MissingScheme Text
-    | -- | Nothing after @scheme://@.
-      EmptyHost Text
-    | -- | A path, query, or fragment follows the host (one trailing @/@ is tolerated).
-      HasPathQueryOrFragment Text
-    | -- | Whitespace or a control character.
-      NotAnOrigin Text
-    deriving stock (Eq, Show)
-
-allowedOrigin :: Text -> Either OriginError AllowedOrigin
-renderAllowedOrigin :: AllowedOrigin -> Text
-```
-
-Implement `allowedOrigin` as a sequence of checks on the trimmed input: exactly `*` is
-`WildcardOrigin`; exactly `null` (case-insensitively) is `OpaqueOrigin`; any character that is a
-space or a control character is `NotAnOrigin`; no `://` is `MissingScheme`; an empty remainder
-after `://` is `EmptyHost`; strip one trailing `/` from the remainder, and if the remainder still
-contains `/`, `?`, or `#` it is `HasPathQueryOrFragment`; otherwise lowercase the whole value
-(`Data.Text.toLower` is fine here since valid origins are ASCII) and wrap it as UTF-8 bytes.
-`renderAllowedOrigin` decodes the bytes back to `Text`.
-
-Define the policy and its constructors:
-
-```haskell
--- | The host-configured CORS policy. An empty 'allowedOrigins' list means CORS is
--- disabled and the middleware changes nothing.
 data CorsPolicy = CorsPolicy
     { allowedOrigins :: ![AllowedOrigin]
-    -- ^ Origins that may read responses and open WebSockets (default: none).
     , allowCredentials :: !Bool
-    -- ^ Emit @Access-Control-Allow-Credentials: true@ for allowed origins (default: False).
-    -- Always safe: the wildcard origin is unrepresentable.
     , maxAgeSeconds :: !(Maybe Int)
-    -- ^ @Access-Control-Max-Age@ on preflight responses (default: none, so browsers
-    -- use their own short default).
     }
-    deriving stock (Eq, Show)
-
 corsDisabled :: CorsPolicy
-corsDisabled = CorsPolicy{allowedOrigins = [], allowCredentials = False, maxAgeSeconds = Nothing}
-
 corsAllowOrigins :: [AllowedOrigin] -> CorsPolicy
-corsAllowOrigins origins = corsDisabled{allowedOrigins = origins}
-
 corsEnabled :: CorsPolicy -> Bool
-corsEnabled policy = not (null policy.allowedOrigins)
-
--- | The methods the router serves: every route is a read, HEAD is answered by
--- Warp, and OPTIONS is the preflight itself. Extend this when a mutating route ships.
-corsAllowedMethods :: ByteString
-corsAllowedMethods = "GET, HEAD, OPTIONS"
-```
-
-Implement the matching and the middleware:
-
-```haskell
--- | Is this request 'Origin' header value on the policy's list? The value is
--- normalized the same way 'allowedOrigin' normalizes configuration.
+corsAllowedMethods :: ByteString  -- "GET, HEAD, OPTIONS"
 originAllowed :: CorsPolicy -> ByteString -> Bool
-originAllowed policy raw = AllowedOrigin (normalizeOriginBytes raw) `elem` policy.allowedOrigins
-
--- | A CORS preflight: @OPTIONS@ carrying @Access-Control-Request-Method@.
 isPreflight :: Request -> Bool
-isPreflight req =
-    requestMethod req == methodOptions
-        && isJust (lookup "Access-Control-Request-Method" (requestHeaders req))
-
 corsMiddleware :: CorsPolicy -> Middleware
-corsMiddleware policy app req respond
-    | not (corsEnabled policy) = app req respond
-    | otherwise = case lookup hOrigin (requestHeaders req) of
-        Nothing -> app req respond
-        Just origin
-            | originAllowed policy origin ->
-                if isPreflight req
-                    then respond (preflightResponse policy origin req)
-                    else app req (respond . mapResponseHeaders (allowHeaders policy origin <>))
-            | WaiWS.isWebSocketsReq req -> respond (refusedUpgrade origin)
-            | otherwise -> app req respond
 ```
 
-`allowHeaders policy origin` is `[("Access-Control-Allow-Origin", origin), (hVary, "Origin")]`
-followed by `("Access-Control-Allow-Credentials", "true")` when `policy.allowCredentials`. The
-origin is echoed exactly as the request sent it (not the normalized form) because the browser
-compares the header to the origin it serialized. `preflightResponse` is
-`responseLBS status204 headers ""` with the allow headers, then
-`("Access-Control-Allow-Methods", corsAllowedMethods)`, then
-`("Access-Control-Allow-Headers", requested)` when the request carried
-`Access-Control-Request-Headers`, then `("Access-Control-Max-Age", show n)` when
-`policy.maxAgeSeconds` is `Just n`. `refusedUpgrade` is
-`errorResponse status403 "origin_not_allowed" msg Nothing` where `msg` names the refused origin
-and says it is not in the configured allowed-origins list; it imports `errorResponse` from
-`Kiroku.Metrics.JSON`. This plan owns the structured error envelope for the whole cohort (plans
-87, 88, 89, and 95 reuse it and never add a variant), so add and export both helpers to
-`kiroku-metrics/src/Kiroku/Metrics/JSON.hs` now:
+An empty list disables CORS. Credentials default False and max-age defaults Nothing.
+For compatibility with the record-shaped policy, a negative maxAgeSeconds is treated as
+absent and documented/tested, never serialized as a negative header.
+Wildcard origins cannot be constructed, but that is not authentication or a claim that
+credentials are universally safe.
+
+Choose disabled identity at middleware construction (`corsMiddleware corsDisabled app = app`
+in observable behavior); precompute the normalized origin Set once for an enabled policy.
+No request-time rebuild, database access or extra thread is permitted.
+For enabled ordinary HTTP responses, merge `Origin` into Vary even for absent, malformed
+or disallowed origins. Preserve existing Vary tokens, matching case-insensitively, without
+duplicates; preserve `Vary: *`. Those origins get no Access-Control-Allow-* grant.
+An allowed request gets exactly its serialized origin echoed once, plus credentials only
+when enabled. Do not concatenate duplicate grant headers.
+
+A preflight is OPTIONS with Origin and Access-Control-Request-Method. An allowed origin
+requesting GET or HEAD gets 204 and the declared allow-methods; reject an unsupported method
+with 403 `cors_method_not_allowed`. Validate requested header names as HTTP tokens before
+reflecting them; malformed input gets 400 `invalid_cors_request`. A reflected preflight
+varies also on Access-Control-Request-Method and Access-Control-Request-Headers.
+Disallowed preflights pass through without grants (plus Vary); their status is whatever the
+legacy router produces, not necessarily 404. Plain OPTIONS is not a preflight.
+Reject malformed/duplicate/disallowed Origin on an upgrade with 403
+`origin_not_allowed` before `websocketsOr`. An absent Origin remains allowed for nonbrowser
+clients. Disabled CORS retains existing upgrade behavior. Allowed upgrades are raw WAI
+responses, not JSON/HTTP bodies to rewrite.
+
+This plan owns the shared JSON helper pair in `kiroku-metrics/src/Kiroku/Metrics/JSON.hs`:
 
 ```haskell
--- | The structured error body used by every response added under the
--- cross-project inspection conventions: @{"error":{"code":"...","message":"..."}}@,
--- plus a @"details"@ object only when one is given. @code@ is a stable snake_case
--- token a client may switch on; @message@ is a sentence and not a contract.
--- Existing endpoints keep their published @{"error":"<string>"}@ bodies; do not
--- migrate them.
 errorEnvelope :: Text -> Text -> Maybe Value -> Value
-errorEnvelope code message details =
-    object
-        [ "error"
-            .= object
-                ( ["code" .= code, "message" .= message]
-                    <> maybe [] (\d -> ["details" .= d]) details
-                )
-        ]
-
--- | 'errorEnvelope' as an @application/json@ response with the given status.
 errorResponse :: Status -> Text -> Text -> Maybe Value -> Response
-errorResponse status code message details =
-    jsonResponse status (encode (errorEnvelope code message details))
+storeErrorResponse :: Text -> StoreError -> Response
 ```
 
-`Kiroku.Metrics.JSON` already imports `Data.Aeson` and `Network.HTTP.Types`; add
-`Data.Aeson (Value)` and `Data.Text (Text)` to its imports if missing.
+The envelope is `{"error":{"code":"...","message":"...","details":...}}`, omitting details
+when Nothing. The response is application/json. `storeErrorResponse unavailableCode`
+maps ConnectionError to sanitized 503 with that code, EventDecodeFailed to sanitized
+500 event_decode_failed, and other errors to sanitized 500 store_error. It does not catch
+exceptions. Import the existing public StoreError type; never leak its Show text.
+Every new route reuses these definitions; published legacy string errors stay unchanged.
 
-`normalizeOriginBytes` lowercases ASCII letters with `Data.ByteString.Char8.map toLower` and
-strips one trailing `/`. The module needs `Data.ByteString`, `Data.ByteString.Char8`,
-`Data.Char (toLower)`, `Data.Maybe (isJust)`, `Data.Text`, `Data.Text.Encoding`,
-`Network.HTTP.Types` (`hOrigin`, `hVary`, `methodOptions`, `status204`, `status403`),
-`Network.Wai`, `Network.Wai.Handler.WebSockets qualified as WaiWS`, and `Data.Aeson (encode)`;
-all are already library dependencies.
+Append `cors :: !CorsPolicy` to `MetricsServerConfig`, defaulting to corsDisabled.
+Config imports Cors; Cors must not import Config. Update umbrella exports and compile a
+consumer importing all of `Kiroku.Metrics`. Constructor additions are source-breaking:
+only existing defaultConfig record-update callers are automatically compatible.
+Add Unreleased changelog bullets; no version edits here.
 
-Then edit `kiroku-metrics/src/Kiroku/Metrics/Config.hs`: import `Kiroku.Metrics.Cors (CorsPolicy,
-corsDisabled)`, append the field with Haddock, and set it in `defaultConfig`:
+Create/register `kiroku-metrics/test/Test/CorsSpec.hs`. Use a trivial instrumented WAI app
+and a real Warp/WebSocket integration fixture. Test disabled identity at the WAI level or
+exclude volatile Warp-generated Date headers from network comparisons. Check GET and HEAD,
+allowed/disallowed/absent origins, duplicate Origin, allowed and unsupported preflight methods,
+invalid requested headers, preserved Vary tokens and *, no duplicate grants, credentials and
+negative/positive max-age, malformed authorities, default ports, IPv4 and IPv6, uppercase
+configuration, and an explicit distinction between a configuration trailing slash and an
+invalid request trailing slash. Sequential allowed and disallowed requests must not receive
+a cached grant from the other origin; no-origin cached responses must not suppress an allowed
+grant. No database is needed.
 
-```haskell
-    , cors :: !CorsPolicy
-    {- ^ Cross-origin browser access (default: 'corsDisabled', which sends no CORS
-    headers and leaves WebSocket upgrades open to any origin, exactly as before this
-    field existed). Configure with @corsAllowOrigins@; see the user guide.
-    -}
-```
+The standards basis is the [Fetch CORS protocol and HTTP caches](https://fetch.spec.whatwg.org/#cors-protocol-and-http-caches)
+and [RFC 6454 origin serialization](https://www.rfc-editor.org/rfc/rfc6454.html#section-6).
+Acceptance: `cabal build kiroku-metrics` and `cabal test kiroku-metrics-test --test-options='--match Cors'`
+pass; middleware tests prove grants and cache variation independently of volatile headers.
 
-Extend the record's own Haddock to mention that adding the field was a PVP-major change and that
-`defaultConfig{...}` record update is the supported construction idiom. `Kiroku.Metrics.Cors`
-must not import `Kiroku.Metrics.Config` (Config imports Cors).
-
-Register the module: add `Kiroku.Metrics.Cors` to `exposed-modules` in
-`kiroku-metrics/kiroku-metrics.cabal`, and add `module Kiroku.Metrics.Cors` to the export list
-and an `import Kiroku.Metrics.Cors` to `kiroku-metrics/src/Kiroku/Metrics.hs`. Add an
-`## Unreleased` section at the top of `kiroku-metrics/CHANGELOG.md` (or extend one that plan 87
-or 88 already opened) with a `### Breaking Changes` bullet (the new `cors` field on
-`MetricsServerConfig`; positional constructions must add it; `defaultConfig{...}` callers are
-unaffected) and a `### New Features` bullet (the module, the policy, the middleware, the
-WebSocket origin check, all default-off).
-
-Create `kiroku-metrics/test/Test/CorsSpec.hs`, register it in `kiroku-metrics/test/Main.hs`
-(import it and call `CorsSpec.spec` inside the `hspec` block) and in the test-suite
-`other-modules`, and add `wai >=3.2 && <3.3` and `case-insensitive >=1.2 && <1.3` to the
-test-suite `build-depends`. Write a helper `trivialApp :: Application` that answers every
-request with `200` and body `{"ok":true}` plus a marker header `X-Trivial: 1`, a helper
-`withCors :: CorsPolicy -> (Int -> IO a) -> IO a` that is
-`Warp.testWithApplication (pure (corsMiddleware policy trivialApp))`, a request helper
-`send :: Manager -> Int -> Method -> String -> RequestHeaders -> IO (Int, ResponseHeaders, ByteString)`
-that sets `method` and `requestHeaders` on the parsed request and never throws on non-2xx, a
-predicate `corsHeadersOf :: ResponseHeaders -> [(HeaderName, ByteString)]` keeping headers whose
-`CI.foldedCase` name starts with `access-control-`, and `ops = "https://ops.example.com"`,
-`evil = "https://evil.example.com"`. Let `opsPolicy` be
-`corsAllowOrigins [either (error . show) id (allowedOrigin "https://ops.example.com")]`.
-
-Write these database-free examples under `describe "Kiroku.Metrics.Cors (configuration)"`:
-
-1. `allowedOrigin "https://Ops.Example.com/"` is `Right o` with `renderAllowedOrigin o ==
-   "https://ops.example.com"`; `allowedOrigin "http://localhost:5173"` is `Right` and renders
-   unchanged.
-2. `allowedOrigin` returns `Left WildcardOrigin` for `"*"`, `Left OpaqueOrigin` for `"null"`
-   and `"NULL"`, `Left (HasPathQueryOrFragment _)` for `"https://ops.example.com/metrics"`,
-   `"https://ops.example.com?x=1"`, and `"https://ops.example.com#f"`.
-3. `Left (MissingScheme _)` for `"ops.example.com"` and `""`; `Left (EmptyHost _)` for
-   `"https://"`; `Left (NotAnOrigin _)` for `"https://ops.example .com"`.
-
-And under `describe "Kiroku.Metrics.Cors (middleware, standalone)"`:
-
-4. Disabled (`corsDisabled`): a `GET /metrics` with `Origin: ops` and one with no `Origin`
-   return identical status, identical header lists, and identical bodies; `corsHeadersOf` is
-   empty for both and neither carries `Vary`. An `OPTIONS` preflight with `Origin: ops` and
-   `Access-Control-Request-Method: GET` reaches the trivial app (status 200, `X-Trivial`
-   present) with no CORS headers (IR-11 acceptance 1).
-5. Enabled (`opsPolicy`): the same preflight returns 204, `access-control-allow-origin` equal
-   to `ops`, `vary` equal to `Origin`, `access-control-allow-methods` equal to
-   `GET, HEAD, OPTIONS`, no `access-control-allow-credentials`, no `access-control-max-age`,
-   no `X-Trivial` (the router was not reached), and an empty body. With
-   `Access-Control-Request-Headers: x-requested-with, content-type` added, the response's
-   `access-control-allow-headers` echoes that value exactly (acceptance 2, preflight).
-6. Enabled: `GET /metrics` with `Origin: ops` returns 200, the trivial body, `X-Trivial`,
-   `access-control-allow-origin` equal to `ops`, `vary` equal to `Origin`, and exactly one
-   CORS header (acceptance 2, actual request).
-7. Enabled: `GET /metrics` and the preflight with `Origin: evil` return responses whose status,
-   headers, and body equal the no-`Origin` responses; `corsHeadersOf` is empty; no `vary`
-   (acceptance 3).
-8. Enabled: a `GET /metrics` with no `Origin` equals byte-for-byte the disabled configuration's
-   no-`Origin` response (acceptance 5).
-9. Matching: `Origin: https://OPS.example.com` and `Origin: https://ops.example.com/` are
-   decorated; `Origin: https://ops.example.com:8443` and `Origin: http://ops.example.com` are
-   not.
-10. Credentials and max-age: with `opsPolicy{allowCredentials = True, maxAgeSeconds = Just 600}`
-    the preflight carries `access-control-allow-credentials: true` and
-    `access-control-max-age: 600`, and the `GET` carries the credentials header; the plain
-    `opsPolicy` carries neither (acceptance 6's positive half; the negative half is example 2).
-11. WebSocket upgrade at the WAI layer: a `GET /ws/metrics` with `Upgrade: websocket`,
-    `Connection: Upgrade`, and `Origin: evil` returns 403 with `Content-Type: application/json`
-    and a body that decodes to `{"error":{"code":"origin_not_allowed","message":<string>}}`
-    (assert the `code` and that `message` is a non-empty string; this pins the new envelope's
-    keys as ADR-9 asks); the same request with `Origin: ops` reaches the trivial app (200,
-    `X-Trivial`), and so does the same request with no `Origin` under `opsPolicy` and under
-    `corsDisabled`. The real upgrade is proven in Milestone 2.
-
-Acceptance for Milestone 1: `cabal build kiroku-metrics` succeeds and
-`cabal test kiroku-metrics --test-options='--match Cors'` reports the eleven examples passing.
-Every pre-existing test compiles unchanged because none constructs `MetricsServerConfig`
-positionally (verified at planning time: they all use `defaultConfig{port = 0}`).
 
 ### Milestone 2: wire the middleware into every starter and prove the WebSocket rule
 
@@ -826,7 +683,8 @@ private to the sibling spec). Write a helper
 `wsSnapshot :: Int -> RequestHeaders -> IO (Either WS.HandshakeException Text)` that runs
 `WS.runClientWith "127.0.0.1" port "/ws/metrics" WS.defaultConnectionOptions headers` under
 `timeout 15_000_000`, receives one text frame, decodes it with aeson, and returns its `type`
-field, catching `WS.HandshakeException` with `try`.
+field, catching `WS.HandshakeException` with `try`. Unwrap timeout explicitly: Nothing fails
+the test as a timeout, while Just result returns the Either in the stated signature.
 
 12. With `serverCfg = defaultConfig{port = 0, cors = opsPolicy}`: `GET /metrics` with
     `Origin: ops` through `http-client` returns 200 with `access-control-allow-origin` equal to
@@ -842,7 +700,7 @@ field, catching `WS.HandshakeException` with `try`.
     behaviour (acceptance 1 for the WebSocket).
 
 Acceptance for Milestone 2: `cabal test kiroku-metrics` passes with every pre-existing example
-plus the fourteen new ones, and `nix fmt` leaves the tree unchanged. Behaviourally, in a
+plus every revised configuration, cache and integration case, and `nix fmt` leaves the tree unchanged. Behaviourally, in a
 `cabal repl kiroku-metrics` session start `withMetricsServerWithStore (defaultConfig{port =
 9091, cors = opsPolicy}) m store []` against any migrated store and reproduce the three `curl`
 transcripts from Purpose from another shell (there is no `curl` in the Nix dev shell, as plan 52
@@ -875,13 +733,14 @@ In `docs/user/metrics.md`:
   the middleware does (allowed origin: `Access-Control-Allow-Origin` echoed plus `Vary: Origin`,
   and `Access-Control-Allow-Credentials: true` when enabled; preflight: `204` with
   `GET, HEAD, OPTIONS`, echoed request headers, and `Access-Control-Max-Age` when set;
-  disallowed origin or no `Origin`: untouched); the WebSocket rule (with origins configured, a
+  disallowed origin or no `Origin`: no grant, unchanged body/status, but Vary includes Origin);
+  the WebSocket rule (with origins configured, a
   handshake whose `Origin` is not listed is answered `403` with the
   `{"error":{"code":"origin_not_allowed", ...}}` envelope before any frame is exchanged; a
   handshake with no `Origin` is never affected; with the default configuration upgrades stay
   open to any origin exactly as before); the credentials rule (set `allowCredentials = True`
   when the page sends cookies or an `Authorization` header through an authenticating proxy;
-  the wildcard is unrepresentable so this is always safe); the reverse-proxy alternative as a
+  wildcard grants are unrepresentable, but authentication is still required); the reverse-proxy alternative as a
   paragraph plus an illustrative Caddyfile that serves the UI at `/` and proxies `/kiroku/*` to
   `127.0.0.1:9091` with `handle_path` (which strips the prefix), noting that WebSockets proxy
   through unchanged and that with a single origin no CORS configuration is needed; and a
@@ -1001,8 +860,8 @@ Kiroku.Metrics.Cors (middleware, standalone)
   leaves every response byte-for-byte untouched when no origin is configured [✔]
   answers a preflight from an allowed origin with 204 and the allow headers [✔]
   decorates an actual response from an allowed origin with allow-origin and Vary [✔]
-  leaves responses to a disallowed origin untouched [✔]
-  leaves requests without an Origin header untouched in every configuration [✔]
+  adds Vary without granting a disallowed origin [✔]
+  varies enabled no-Origin responses and preserves disabled identity [✔]
   matches origins case-insensitively, tolerates a trailing slash, and is port-sensitive [✔]
   adds credentials and max-age headers only when configured [✔]
   refuses a WebSocket upgrade from a disallowed origin with a 403 envelope and passes others through [✔]
@@ -1104,6 +963,15 @@ clean-consumer check, and `docs(improvement-requests): complete IR-11` belong to
 
 
 ## Validation and Acceptance
+
+The reviewed API, lifecycle and performance obligations in Context and Plan of Work are
+mandatory in addition to the route-specific cases below. Historical transcripts are examples,
+not evidence that the new tests have run; update counts from actual output at implementation.
+
+The revised Milestone 1 cache, parser and method tests are mandatory. Network identity
+comparisons exclude Warp-generated Date headers; disabled application responses remain exact.
+Enabled responses without a grant still carry Vary: Origin. Test default-off construction
+and fixed precomputed policy state; no per-request origin-list rebuild or DB call is accepted.
 
 The plan is accepted when all of the following are observable:
 
@@ -1211,7 +1079,9 @@ upgrade body
 with HTTP 403 and `Content-Type: application/json`. Response headers emitted for an allowed
 origin are `Access-Control-Allow-Origin` (echo), `Vary: Origin`, and optionally
 `Access-Control-Allow-Credentials: true`; preflights add `Access-Control-Allow-Methods`,
-optionally `Access-Control-Allow-Headers` (echo), and optionally `Access-Control-Max-Age`.
+optionally `Access-Control-Allow-Headers` (validated echo), and optionally `Access-Control-Max-Age`.
+Enabled ordinary responses without a grant still vary on Origin; reflected preflights also
+vary on the requested method and header names. Disabled responses are unchanged.
 
 Dependencies: no new library dependency. The library already depends on `aeson`, `bytestring`,
 `text`, `http-types`, `wai`, `wai-websockets`, `warp`, and `websockets`; the test suite gains
@@ -1238,3 +1108,8 @@ changes in this plan; plan 96 assigns the cohort's versions.
   Milestone 4 is now the distillation pass. Milestones 1, 2, 3, and 4, the Progress list, the
   Decision Log, Concrete Steps, Validation, Idempotence, and Interfaces were updated; the CORS
   behaviour, the wire shape, and the tests are unchanged.
+
+
+## API and performance review revision (2026-10-10)
+
+Reviewed against repository HEAD `f1a0209` and the released typed-decoding implementation. Corrected integration contracts and made focused performance evidence a completion gate. Existing authorship history is preserved; this revision records no implemented milestone or accepted performance result. The active requirements above supersede incompatible September design decisions, not published wire contracts.

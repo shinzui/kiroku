@@ -11,6 +11,18 @@ provenance:
     model: "claude-fable-5-1"
     harness: "claude-code"
     at: 2026-09-30T22:35:20Z
+  revisions:
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-10T15:41:07Z
+      mode: "update"
+      note: "Correct current APIs, integration ownership and bounded observer work; runtime acceptance remains pending."
+  reviews:
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-10T15:41:07Z
+      verdict: "comments"
+      note: "Source review corrections applied; SQL promotion and focused performance gates require implementation evidence."
 ---
 
 # Serve the Kiroku inspection surface standalone and make it self-describing
@@ -71,7 +83,7 @@ curl -s http://localhost:9091/capabilities | jq .
 ```json
 {
   "package": "kiroku-metrics",
-  "version": "0.2.0.0",
+  "version": "0.3.0.0",
   "routes": {
     "metrics": true,
     "prometheus": true,
@@ -84,7 +96,7 @@ curl -s http://localhost:9091/capabilities | jq .
     "websocket_events": true
   },
   "cors": { "enabled": true },
-  "process_local": ["metrics", "health", "subscriptions_live", "websocket_metrics"]
+  "process_local": ["metrics", "prometheus", "health", "subscriptions_live", "websocket_metrics"]
 }
 ```
 
@@ -97,6 +109,9 @@ keiro mounts behind a path prefix stays a plain value with relative paths.
 
 
 ## Progress
+
+- [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
+- [ ] Implement and execute the focused correctness and performance acceptance added by this review.
 
 - [ ] M0: verify every hard dependency is complete in the working tree (`ServerProviders` with
       `webSocketServer`, `subscriptionStatus`, `checkpointInventory`, `browser`, `deadLetters`;
@@ -134,10 +149,15 @@ keiro mounts behind a path prefix stays a plain value with relative paths.
 
 ## Surprises & Discoveries
 
+- 2026-10-10 source review: The onListening sketches disagreed on arity and could run before bind success. Exported record selectors collided across the umbrella module; a Bool credentials switch could not override an environment True with False. No runtime acceptance is inferred from this finding.
+
 (None yet.)
 
 
 ## Decision Log
+
+- Decision (2026-10-10): the reviewed Context and Plan of Work supersede incompatible September choices on dependencies, routes, decoding, method handling, bounds and performance. Implementation remains pending; durable constraints are in ADR-15.
+  Rationale: the released APIs changed and the original sketches contained correctness and shared-resource hazards.
 
 - Decision: The discovery route is `GET /capabilities`, served by a new module
   `Kiroku.Metrics.Capabilities`, mounted in the router ahead of the catch-all, and answered
@@ -233,7 +253,7 @@ keiro mounts behind a path prefix stays a plain value with relative paths.
   configuration change would couple it to every sibling that constructs the record.
   Date: 2026-09-30
 
-- Decision: `runInspect` takes an `InspectHooks` record with `onListening :: Int -> IO ()`
+- Decision: `runInspect` takes an `InspectHooks` record with `onListening :: Int -> Capabilities -> IO ()`
   (called once with the bound port) and `waitForShutdown :: IO ()` (returns when the process
   should stop); `app-inspect/Main.hs` supplies a hook that waits for `SIGINT` or `SIGTERM`
   through the `unix` package, and the test supplies `MVar`-based hooks.
@@ -247,7 +267,7 @@ keiro mounts behind a path prefix stays a plain value with relative paths.
 
 - Decision: A standalone process runs no subscriptions and says so on startup and in the
   documentation: `/subscriptions` answers `200 []`, `/metrics` has an empty `subscriptions`
-  map, readiness reflects only the PostgreSQL ping, while `/subscriptions/checkpoints`, the
+  map, readiness reflects only the PostgreSQL ping, while `/subscription-checkpoints`, the
   dead-letter route, the browse routes, and the `/ws/events` tail are authoritative because they
   read the database. `storeServerProviders` is used so `/subscriptions` answers `200 []` rather
   than the configured `404`.
@@ -266,7 +286,7 @@ keiro mounts behind a path prefix stays a plain value with relative paths.
   Date: 2026-09-30
 
 - Decision: This plan bumps no version and publishes nothing. `kiroku-metrics` keeps its
-  `## Unreleased` changelog section, which plan 96 dates and releases as 0.2.0.0 for the whole
+  `## Unreleased` changelog section, which plan 96 dates and releases as 0.3.0.0 for the whole
   cohort.
   Rationale: The MasterPlan releases the cohort once so the keiro runtime UI pins one version
   set, and a PVP major is already forced by the siblings' `MetricsServerConfig` and
@@ -287,10 +307,51 @@ keiro mounts behind a path prefix stays a plain value with relative paths.
 
 ## Outcomes & Retrospective
 
+2026-10-10 review: implementation and performance acceptance remain pending. Static review does not prove zero runtime regression. Earlier planning-time observations and dated decisions are historical where this revision explicitly replaces them.
+
 (To be filled during and after implementation.)
 
 
 ## Context and Orientation
+
+### Review baseline and acceptance boundaries (2026-10-10)
+
+This plan is reviewed against `f1a0209`. Hackage preferred-version JSON and upstream tags
+both identify `kiroku-store-0.10.0.0` and `kiroku-metrics-0.2.0.0` as already released.
+The inspection forecast is now store 0.11.0.0 / metrics 0.3.0.0, not a reservation;
+plan 96 must re-query releases and compute every dependent's version from its actual diff.
+September source-version observations are historical, not current API authority.
+
+[ADR-15](../adr/0015-inspection-observers-preserve-wire-contracts-and-bound-shared-work.md)
+requires compatibility and bounded shared work. [ADR-12](../adr/0012-decode-failures-are-per-event-outcomes-with-independent-subscription-dispositions.md)
+requires typed decode failures and the no-hook fast path. Re-read the named implementation
+before coding: public reads use `decodeReadEvents`; publisher queues carry `DecodedBatch`,
+not `Vector RecordedEvent`. Successful hooks return `Right`; a typed failure must never
+turn into partial successful data. New HTTP store failures use sanitized messages:
+`ConnectionError` gives 503 with the route's unavailable code, `EventDecodeFailed` gives
+500 `event_decode_failed`, and other store errors give 500 `store_error`.
+Never expose `show err`, connection strings or payloads; never catch asynchronous cancellation
+as an expected store failure. Existing published error bodies remain unchanged.
+
+All new read paths support GET and HEAD, returning identical status and headers with no HEAD
+body. Other methods give 405 `method_not_allowed` and `Allow: GET, HEAD`. Implement this
+in the WAI apps themselves, not only by relying on Warp. Query numbers are parsed from ASCII
+digits into `Integer`, range-checked, and only then narrowed; reject signed/empty/overflowing
+values and duplicate recognized parameters with 400 `invalid_query_parameter`.
+Decode UTF-8 totally. Ignore unknown parameters as documented. Limits cap the page before
+over-fetching one row, and integer narrowing must not wrap. Clients handling Int64 JSON fields
+must use lossless integer parsing rather than silently rounding positions above 2^53.
+
+No new append SQL, index, lock, checkpoint write, pool checkout, or per-event publisher work
+is justified by a read-only label. New DB reads contend for shared resources. Use existing
+correctness tests, structural invariants and a focused affected-path check per child.
+Plan 96 owns the cumulative original-control comparison on PostgreSQL 18; the existing
+pipeline-versus-sequential ratio and historical Shibuya catch-up results do not prove this
+cohort neutral. Before any remote run, report cases, trial count, warmup, measurement and
+setup/recovery time, uncertainty target and stopping conditions within a single 60-minute
+ceiling. Preserve samples and lease cleanup; do not silently weaken a gate, repeat until
+favorable, or expand to a full matrix. Reproducible append regressions block acceptance;
+unmeasured or noisy evidence is explicitly pending or inconclusive.
 
 ### Terms used in this plan
 
@@ -327,9 +388,8 @@ what they add. Milestone 0 verifies each of these in the working tree before any
   `kiroku-metrics/src/Kiroku/Metrics/Checkpoints.hs` (`CheckpointInventoryProvider`,
   `storeCheckpointInventory`, `checkpointsApp`) and, in
   `kiroku-metrics/src/Kiroku/Metrics/Server.hs`, the providers record and the general starters
-  that every later route builds on. It also added `errorEnvelope :: Text -> Text -> Maybe Value ->
-  Value` and `errorResponse :: Status -> Text -> Text -> Maybe Value -> Response` to
-  `kiroku-metrics/src/Kiroku/Metrics/JSON.hs`.
+  that every later route builds on. It reuses plan 90's errorEnvelope, errorResponse and sanitized storeErrorResponse helpers
+  in kiroku-metrics/src/Kiroku/Metrics/JSON.hs.
 - Plan 88 (`docs/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md`,
   IR-8) added `kiroku-metrics/src/Kiroku/Metrics/Browse.hs` (`StoreBrowser(..)` with a
   rank-2 `runStoreRead` field and `limits`, `storeBrowser`, `defaultBrowseLimits`, `browseApp`)
@@ -345,7 +405,7 @@ restates so it can be checked and must not redesign, is:
 data ServerProviders = ServerProviders
     { webSocketServer :: !WS.ServerApp
     , subscriptionStatus :: !(Maybe SubscriptionStatusProvider)      -- GET /subscriptions (live, process-local)
-    , checkpointInventory :: !(Maybe CheckpointInventoryProvider)    -- GET /subscriptions/checkpoints
+    , checkpointInventory :: !(Maybe CheckpointInventoryProvider)    -- GET /subscription-checkpoints
     , browser :: !(Maybe StoreBrowser)                               -- /streams, /categories, /events
     , deadLetters :: !(Maybe DeadLetterProvider)                     -- /subscriptions/<name>/dead-letters
     }
@@ -371,8 +431,8 @@ published `404 {"error":"subscription status not configured"}`. The catch-all an
 envelope `{"error":{"code":"<snake_case>","message":"<sentence>","details":{...}}}`.
 
 Plan 94 (`docs/plans/94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention.md`,
-IR-12) is a soft dependency: if its conformance mapping exists in `docs/user/metrics.md` when
-Milestone 3 runs, the guide links it; otherwise the guide links the WebSocket section as it is.
+IR-12) is also a hard dependency: the complete-surface guide and standalone tests must
+exercise the implemented four-code protocol, loss notification ordering and bounded name cache.
 
 ### The package as it stands
 
@@ -560,6 +620,43 @@ The MasterPlan records the standalone-UI requirement as the user's own.
 
 ## Plan of Work
 
+### Reviewed startup, options, and capability obligations
+
+Plan 87 owns the readiness barrier and server-failure propagation. Its bracket returns only
+after listening and keeps unexpected server failure linked to the owning scope, so the
+runInspect wait cannot hide a failed Warp worker. Call onListening exactly once after that
+barrier, passing both actual port and computed capabilities. A hook failure or shutdown
+must release server, collector, store pool and notifier. Test occupied port, early shutdown,
+hook exception and unexpected server-worker failure with bounded waits. Test the real
+executable's SIGINT and SIGTERM exit 0 and a bind failure exit 1; no success banner on failure.
+Use tryPutMVar for signal notifications so a second signal cannot block.
+
+Parse numeric CLI/environment input into Integer, check bounds, then narrow to Int;
+do not use `option auto` inferred as Int. Pool size and WebSocket connection limit must be
+positive and <= maxBound Int, port 0..65535, schema and explicitly supplied URL nonempty.
+An explicit valid flag overrides even a malformed environment value without parsing it.
+Use Maybe Bool for credentials and mutually exclusive positive/negative flags so False
+can override environment True. Reject malformed booleans. Do not derive an unredacted Show
+instance for InspectOptions/InspectRuntime or print a raw caught exception containing the URL.
+Catch synchronous runtime failures at the executable boundary without swallowing asynchronous
+cancellation; usage errors exit 2. Preserve the API types in Interfaces and Dependencies.
+
+Capabilities are computed once without DB access. Include prometheus among process-local
+answers; health reflects this process's connection checks, not another process's workers.
+Every advertised true route must be reachable through the same configured app; in particular
+enableWebSocket=False must refuse upgrades, not merely report false. Test default providers,
+store providers, legacy store starters and a custom declared WebSocket app both enabled
+and disabled. Do not infer channels by inspecting the opaque function.
+
+Enable NoFieldSelectors explicitly in the new Capabilities and Standalone modules: their
+record labels (for example deadLetters, port and cors) otherwise conflict with selectors
+from re-exported existing modules. Record construction and OverloadedRecordDot remain the
+supported access syntax. Compile an external consumer importing the entire Kiroku.Metrics umbrella. Use distinct
+selector names across re-exported modules (corsIsEnabled and presentWebSocketChannels);
+do not rely on qualified local imports to resolve conflicting exports.
+No bind/host option is added in this cohort: document the starter's actual bind behavior
+and trusted-network posture. CORS is not authentication; use a controlled network/proxy.
+
 ### Milestone 0: confirm the dependencies landed
 
 Scope: no edits. Read `kiroku-metrics/src/Kiroku/Metrics/Server.hs` and confirm it exports
@@ -623,6 +720,8 @@ probing for @404@s. It is served regardless of the @enable*@ flags it reports.
 Every value is relative to this server; nothing is an absolute URL, so the body
 is correct when the application is mounted behind a path prefix.
 -}
+{-# LANGUAGE NoFieldSelectors #-}
+
 module Kiroku.Metrics.Capabilities (
     -- * Declarations the server makes
     WebSocketChannels (..),
@@ -650,7 +749,7 @@ import Network.HTTP.Types (methodGet, status200, status404, status405)
 import Network.Wai (Application, pathInfo, requestMethod)
 
 import Kiroku.Metrics.Config (MetricsServerConfig (..))
-import Kiroku.Metrics.Cors (corsEnabled)
+import Kiroku.Metrics.Cors qualified as Cors
 import Kiroku.Metrics.JSON (errorResponse, jsonResponse)
 import Paths_kiroku_metrics qualified as Paths
 
@@ -674,7 +773,7 @@ data ProviderPresence = ProviderPresence
     , hasCheckpointInventory :: !Bool
     , hasBrowser :: !Bool
     , hasDeadLetters :: !Bool
-    , webSocketChannels :: !WebSocketChannels
+    , presentWebSocketChannels :: !WebSocketChannels
     }
     deriving stock (Eq, Show)
 
@@ -695,7 +794,7 @@ data Capabilities = Capabilities
     { package :: !Text
     , version :: !Text
     , routes :: !RouteAvailability
-    , corsEnabled :: !Bool
+    , corsIsEnabled :: !Bool
     , processLocal :: ![Text]
     }
     deriving stock (Eq, Show)
@@ -705,7 +804,7 @@ kirokuMetricsVersion = T.pack (showVersion Paths.version)
 
 -- | Route keys whose answers describe only the answering process.
 processLocalRoutes :: [Text]
-processLocalRoutes = ["metrics", "health", "subscriptions_live", "websocket_metrics"]
+processLocalRoutes = ["metrics", "prometheus", "health", "subscriptions_live", "websocket_metrics"]
 
 capabilitiesFor :: MetricsServerConfig -> ProviderPresence -> Capabilities
 capabilitiesFor cfg presence =
@@ -721,10 +820,10 @@ capabilitiesFor cfg presence =
                 , subscriptionsCheckpoints = presence.hasCheckpointInventory
                 , deadLetters = presence.hasDeadLetters
                 , browse = presence.hasBrowser
-                , websocketMetrics = cfg.enableWebSocket && presence.webSocketChannels.metricsChannel
-                , websocketEvents = cfg.enableWebSocket && presence.webSocketChannels.eventsChannel
+                , websocketMetrics = cfg.enableWebSocket && presence.presentWebSocketChannels.metricsChannel
+                , websocketEvents = cfg.enableWebSocket && presence.presentWebSocketChannels.eventsChannel
                 }
-        , corsEnabled = Kiroku.Metrics.Cors.corsEnabled cfg.cors
+        , corsIsEnabled = Cors.corsEnabled cfg.cors
         , processLocal = processLocalRoutes
         }
 ```
@@ -734,25 +833,18 @@ Write the `ToJSON` and `FromJSON` instances by hand with exactly these keys: top
 `metrics`, `prometheus`, `health`, `subscriptions_live`, `subscriptions_checkpoints`,
 `dead_letters`, `browse`, `websocket_metrics`, `websocket_events`; inside `cors` the key
 `enabled`. The `FromJSON` instance exists so tests round-trip and a Haskell client can decode.
-(The field name `corsEnabled` on the record clashes with the function `corsEnabled` from
-`Kiroku.Metrics.Cors` only if both are unqualified in one scope; import the function qualified
-as shown, or name the record field `corsIsEnabled`; either is fine, but the JSON key stays
-`cors.enabled`.)
+The Haskell field is `corsIsEnabled`, not `corsEnabled`: qualifying an import does not
+resolve conflicting umbrella-module exports of two distinct selectors/functions. Likewise
+ProviderPresence uses `presentWebSocketChannels`, distinct from ServerProviders.webSocketChannels.
+The JSON key remains cors.enabled.
 
 The application matches the exact path and refuses other methods:
 
-```haskell
-capabilitiesPath :: [Text]
-capabilitiesPath = ["capabilities"]
-
-capabilitiesApp :: Capabilities -> Application
-capabilitiesApp caps req respond
-    | pathInfo req /= capabilitiesPath =
-        respond (errorResponse status404 "not_found" "Not found" Nothing)
-    | requestMethod req /= methodGet =
-        respond (errorResponse status405 "method_not_allowed" "Only GET is supported on /capabilities." Nothing)
-    | otherwise = respond (jsonResponse status200 (encode caps))
-```
+Define `capabilitiesPath = ["capabilities"]` and
+`capabilitiesApp :: Capabilities -> Application`. An unmatched path gives structured
+404 not_found. GET returns the encoded capabilities with status200; HEAD returns the same
+status and headers with no body. Other methods return structured 405 method_not_allowed and
+Allow: GET, HEAD. This behavior must hold in direct WAI tests as well as over Warp.
 
 The body is computed once per server, not per request: `Capabilities` is a pure function of the
 configuration and the providers, both fixed at start.
@@ -785,7 +877,7 @@ providerPresence providers =
         , hasCheckpointInventory = isJust providers.checkpointInventory
         , hasBrowser = isJust providers.browser
         , hasDeadLetters = isJust providers.deadLetters
-        , webSocketChannels = providers.webSocketChannels
+        , presentWebSocketChannels = providers.webSocketChannels
         }
 ```
 
@@ -803,14 +895,14 @@ module header comment (the server reports its wiring at `/capabilities`) and the
 and `Kiroku.Metrics.Capabilities` to `exposed-modules`. Add to `kiroku-metrics/CHANGELOG.md`
 under `## Unreleased`, `### New Features`: the route, the module, `webSocketChannels`, and
 `kirokuMetricsVersion`. Because `ServerProviders` gains a field, add a `### Breaking Changes`
-bullet only if the record is constructed positionally anywhere documented; with the
+bullet regardless of whether local code constructs the record positionally; with the
 `defaultServerProviders{...}` idiom the addition is source-compatible for record-update callers,
 and the cohort is already a PVP major.
 
 Create `kiroku-metrics/test/Test/CapabilitiesSpec.hs`, register it in `test/Main.hs` and in the
 test-suite `other-modules`. Examples under `describe "Kiroku.Metrics.Capabilities"`:
 
-1. Codec pin: build `Capabilities` with every route `True`, `corsEnabled = True`, and assert
+1. Codec pin: build `Capabilities` with every route `True`, `corsIsEnabled = True`, and assert
    `toJSON` equals the literal `object [ "package" .= ("kiroku-metrics" :: Text), "version" .=
    kirokuMetricsVersion, "routes" .= object [ "metrics" .= True, "prometheus" .= True, "health"
    .= True, "subscriptions_live" .= True, "subscriptions_checkpoints" .= True, "dead_letters" .=
@@ -824,14 +916,14 @@ test-suite `other-modules`. Examples under `describe "Kiroku.Metrics.Capabilitie
    nine `True`; `capabilitiesFor defaultConfig{enableJSON = False} presenceAll` yields `metrics`
    and `health` `False`; `capabilitiesFor defaultConfig{enableWebSocket = False} presenceAll`
    yields both websocket flags `False`; `capabilitiesFor defaultConfig{cors = corsAllowOrigins
-   [o]} presenceNone` yields `corsEnabled = True`.
+   [o]} presenceNone` yields `corsIsEnabled = True`.
 3. Standalone mount: `Warp.testWithApplication (pure (capabilitiesApp caps))`; `GET
    /capabilities` is 200 with the pinned body; `GET /capabilities/x` is 404 with
    `error.code == "not_found"`; `POST /capabilities` is 405 with `method_not_allowed`.
 4. Plain server: `startMetricsServer (defaultConfig{port = 0}) m []` (no store); decode
    `/capabilities` into `Capabilities`; assert `subscriptionsLive`, `subscriptionsCheckpoints`,
    `deadLetters`, `browse`, `websocketMetrics`, `websocketEvents` are all `False`, `metrics`
-   `True`, `corsEnabled` `False`.
+   `True`, `corsIsEnabled` `False`.
 5. Store-backed server: inside `withMigratedTestDatabase` and `withStore`, build providers
    with `storeServerProviders` and start `startMetricsServerWithProviders`; assert all nine
    routes `True`. Also `withMetricsServerWithStore`: assert `subscriptionsLive` is `False` and
@@ -868,6 +960,8 @@ pointed at an event store with no host program. This process runs no
 subscriptions: @GET /subscriptions@ answers an empty list and the per-subscription
 metrics are empty, while every route that reads the database is authoritative.
 -}
+{-# LANGUAGE NoFieldSelectors #-}
+
 module Kiroku.Metrics.Standalone (
     -- * Options
     InspectOptions (..),
@@ -885,16 +979,17 @@ module Kiroku.Metrics.Standalone (
 ) where
 
 -- | Parsed command-line options; 'Nothing' means "not given, consult the environment".
+-- Do not derive Show: the database URL can contain credentials.
 data InspectOptions = InspectOptions
     { databaseUrl :: !(Maybe Text)
     , schema :: !(Maybe Text)
     , poolSize :: !(Maybe Int)
     , port :: !(Maybe Int)
     , corsOrigins :: ![Text]
-    , corsAllowCredentials :: !Bool
+    , corsAllowCredentials :: !(Maybe Bool)
     , wsMaxConnections :: !(Maybe Int)
     }
-    deriving stock (Eq, Show)
+    deriving stock (Eq)
 
 -- | Everything 'runInspect' needs, fully resolved and validated.
 data InspectRuntime = InspectRuntime
@@ -905,25 +1000,23 @@ data InspectRuntime = InspectRuntime
     , cors :: !CorsPolicy
     , wsMaxConnections :: !Int
     }
-    deriving stock (Eq, Show)
+    deriving stock (Eq)
 
 data InspectHooks = InspectHooks
-    { onListening :: !(Int -> IO ())
+    { onListening :: !(Int -> Capabilities -> IO ())
     -- ^ Called once with the bound port after the server is up.
     , waitForShutdown :: !(IO ())
     -- ^ Returns when the server should stop; the store and server are then released.
     }
 ```
 
-`inspectOptionsParser :: Parser InspectOptions` uses `optional (strOption (long "database-url"
-<> metavar "URL" <> help "..."))`, `optional (strOption (long "schema" ...))`, `optional (option
-auto (long "pool-size" <> metavar "N" ...))`, `optional (option auto (long "port" <> metavar "N"
-<> help "TCP port; 0 binds an OS-assigned port and prints it (default 9091)"))`, `many (strOption
-(long "cors-origin" <> metavar "ORIGIN" <> help "Allow this browser origin; repeatable. Refuses
-'*'."))`, `switch (long "cors-allow-credentials" ...)`, and `optional (option auto (long
-"ws-max-connections" ...))`. `inspectParserInfo` wraps it with `helper`, `fullDesc`, a
-`progDesc` that says the server opens its own store and runs no subscriptions, and `header
-"kiroku-inspect - standalone inspection server for Kiroku event stores"`.
+Build `inspectOptionsParser :: Parser InspectOptions` from optional text options for
+database-url/schema, repeated cors-origin, and bounded numeric readers for pool-size, port
+and ws-max-connections. Each reader parses Integer and checks its field's range before
+converting to Int. The optional credential choice uses flag' True for
+cors-allow-credentials or flag' False for no-cors-allow-credentials; conflicting flags fail.
+`inspectParserInfo` includes helper, fullDesc and the standalone/read-only purpose.
+There are eight option spellings, including the negative credential flag.
 
 `resolveInspectOptions :: [(String, String)] -> InspectOptions -> Either Text InspectRuntime`
 applies, in order: `databaseUrl` from the flag, else `DATABASE_URL`, else
@@ -934,8 +1027,8 @@ else `KIROKU_INSPECT_POOL_SIZE` parsed with `Text.Read.readMaybe` (a non-integer
 9091, must be in `[0, 65535]`; origins are the flag list if non-empty, else
 `KIROKU_INSPECT_CORS_ORIGINS` split on `,` and trimmed, each passed through `allowedOrigin`, any
 `Left` becoming `Left` with the offending value and the rendered `OriginError` (so
-`--cors-origin '*'` fails with a message that names the wildcard); `corsAllowCredentials` is the
-switch or `KIROKU_INSPECT_CORS_ALLOW_CREDENTIALS` equal to `true`/`1` case-insensitively;
+`--cors-origin '*'` fails with a message that names the wildcard); `corsAllowCredentials` is the explicit optional flag value (including False), else the
+environment value parsed strictly as true/false/1/0, else False;
 `wsMaxConnections` from the flag, else `KIROKU_INSPECT_WS_MAX_CONNECTIONS`, default 100. The
 policy is `corsDisabled` when no origins resolved, else
 `(corsAllowOrigins origins){allowCredentials = ...}`. Empty environment values count as unset.
@@ -959,7 +1052,7 @@ runInspect hooks rt = do
         atomically (writeTVar storeVar (Just store))
         providers <- storeServerProviders cfg metrics store
         withMetricsServerWithProviders cfg metrics [postgresPing store] providers $ \server -> do
-            hooks.onListening server.serverPort
+            hooks.onListening server.serverPort (capabilitiesFor cfg (providerPresence providers))
             hooks.waitForShutdown
 ```
 
@@ -1003,20 +1096,20 @@ main = do
         Left err -> TIO.hPutStrLn stderr err >> exitWith (ExitFailure 2)
         Right rt -> do
             done <- newEmptyMVar
-            for_ [sigINT, sigTERM] $ \s -> installHandler s (CatchOnce (putMVar done ())) Nothing
+            for_ [sigINT, sigTERM] $ \s -> installHandler s (CatchOnce (void (tryPutMVar done ()))) Nothing
             let hooks = InspectHooks
-                    { onListening = \port -> mapM_ TIO.putStrLn (renderStartupBanner rt port caps) >> hFlush stdout
+                    { onListening = \port caps -> mapM_ TIO.putStrLn (renderStartupBanner rt port caps) >> hFlush stdout
                     , waitForShutdown = takeMVar done >> TIO.putStrLn "kiroku-inspect: shutting down"
                     }
-            result <- try (runInspect hooks rt)
+            result <- tryJust synchronousException (runInspect hooks rt)
             case result of
-                Left (err :: SomeException) -> TIO.hPutStrLn stderr ("kiroku-inspect: " <> T.pack (show err)) >> exitFailure
+                Left (_err :: SomeException) -> TIO.hPutStrLn stderr "kiroku-inspect: startup or server failure (details redacted)" >> exitFailure
                 Right () -> pure ()
 ```
 
-(`caps` reaches the banner through the hook signature you settle on in the library; the
-simplest is `onListening :: Int -> Capabilities -> IO ()`. Choose one shape, use it in both
-`Main` and the test, and record it in Interfaces and Dependencies.) Installing a `SIGINT`
+Define synchronousException to return Nothing for SomeAsyncException and Just for other
+exceptions; cancellation must propagate. Supply only redacted diagnostics. The hook type is fixed as `Int -> Capabilities -> IO ()`, in the library, executable,
+documentation and tests; do not leave `caps` free in the banner closure. Installing a `SIGINT`
 handler replaces the RTS default that throws `UserInterrupt`; that is intended, so both signals
 take the same clean path. Exit code 2 for a usage or resolution error, 1 for a runtime failure
 (unreachable database, bind failure), 0 after a signalled shutdown.
@@ -1047,8 +1140,8 @@ Under `describe "Kiroku.Metrics.Standalone (end to end)"`, one example inside
    Through a second `withStore (defaultConnectionSettings connStr)` handle append three events
    to `orders-1`. Then assert over `http-client`: `/capabilities` decodes with `browse`,
    `subscriptionsCheckpoints`, `deadLetters`, `subscriptionsLive`, `websocketEvents` all `True`
-   and `corsEnabled` `True`; `/streams` is 200 and its `items` contain `name == "orders-1"`;
-   `/subscriptions` is 200 with body `[]`; `/subscriptions/checkpoints` is 200 with
+   and `corsIsEnabled` `True`; `/streams` is 200 and its `items` contain `name == "orders-1"`;
+   `/subscriptions` is 200 with body `[]`; `/subscription-checkpoints` is 200 with
    `store_position >= 3` and empty `checkpoints`; `/health/ready` is 200; `/metrics` with
    `Origin: http://localhost:5173` carries `access-control-allow-origin` equal to that origin, and
    with `Origin: http://evil.example` carries no `access-control-` header; a `/ws/events` client
@@ -1089,7 +1182,7 @@ frames in global-position order, the overflow `error` frame, and the rule that p
 and the read routes are truth: on overflow or reconnect, re-read from the last seen
 `globalPosition` with `GET /events?from=`; cite
 `mori://shinzui/keiro-ui/okf/adrs/concepts/ADR-3`), the subscriptions dashboard (`GET
-/subscriptions/checkpoints` as the cross-process truth with `store_position`, `GET
+/subscription-checkpoints` as the cross-process truth with `store_position`, `GET
 /subscriptions` as this process's live annotation, `store_position - checkpoint_position` called
 a position distance and never lag, `GET /subscriptions/<name>/dead-letters` with its opaque
 `next_cursor` and JSON `reason`), and health and metrics (`/health/live`, `/health/ready`,
@@ -1290,7 +1383,7 @@ cabal build all
 cabal run kiroku-metrics:exe:kiroku-inspect -- --help
 cabal run kiroku-metrics:exe:kiroku-inspect ; echo "exit=$?"
 cabal test kiroku-metrics --test-options='--match Standalone'
-cabal check --cabal-file kiroku-metrics/kiroku-metrics.cabal
+(cd kiroku-metrics && cabal check)
 cabal sdist kiroku-metrics --list-only | grep app-inspect
 nix build .#kiroku-metrics && ./result/bin/kiroku-inspect --help | head -3
 ```
@@ -1350,13 +1443,18 @@ just adr-validate
 okf validate docs/adr --strict --profile docs/adr/profile.dhall --profile-enforce --log-enforce
 ```
 
-Expected last line of the strict run: `OK: 11 concepts (okf_version 0.2)` if the handle was
-`ADR-11` (one more than the count before). Commit as `docs(adr): record the composable,
+Expected last line of the strict run: `OK: <actual count> concepts (okf_version 0.2)`.
+Do not assume a handle or count: ADR-15 already records the reviewed inspection constraints;
+amend it if it covers the durable outcome instead of creating a duplicate. Commit as `docs(adr): record the composable,
 self-hosting, self-describing inspection surface` with the three trailers, then update this
 plan's living sections and record the provenance revision.
 
 
 ## Validation and Acceptance
+
+The reviewed API, lifecycle and performance obligations in Context and Plan of Work are
+mandatory in addition to the route-specific cases below. Historical transcripts are examples,
+not evidence that the new tests have run; update counts from actual output at implementation.
 
 The plan is complete when every item below is observable:
 
@@ -1367,10 +1465,10 @@ The plan is complete when every item below is observable:
    is `false`; on `startMetricsServer` every store-backed flag is `false`; on
    `storeServerProviders` every flag is `true`; the route answers even with `enableJSON = False`
    (`CapabilitiesSpec`).
-2. `kiroku-inspect --help` lists the seven options; a run without a database exits 2 with the
+2. `kiroku-inspect --help` lists the eight options; a run without a database exits 2 with the
    guidance line; `--cors-origin '*'` exits 2 naming the wildcard; a run against a migrated
    database prints the three-line banner and serves `/capabilities`, `/streams`,
-   `/subscriptions` (`[]`), `/subscriptions/checkpoints`, `/subscriptions/<name>/dead-letters`,
+   `/subscriptions` (`[]`), `/subscription-checkpoints`, `/subscriptions/<name>/dead-letters`,
    `/health/ready`, and `/ws/events`, decorating responses for a configured origin
    (`StandaloneSpec`).
 3. `SIGINT` or `SIGTERM` ends the process with exit 0 after `kiroku-inspect: shutting down`, and
@@ -1419,13 +1517,13 @@ data WebSocketChannels = WebSocketChannels { metricsChannel :: !Bool, eventsChan
 noWebSocketChannels, storeWebSocketChannels :: WebSocketChannels
 data ProviderPresence = ProviderPresence
     { hasSubscriptionStatus, hasCheckpointInventory, hasBrowser, hasDeadLetters :: !Bool
-    , webSocketChannels :: !WebSocketChannels }
+    , presentWebSocketChannels :: !WebSocketChannels }
 data RouteAvailability = RouteAvailability
     { metrics, prometheus, health, subscriptionsLive, subscriptionsCheckpoints
     , deadLetters, browse, websocketMetrics, websocketEvents :: !Bool }
 data Capabilities = Capabilities
     { package :: !Text, version :: !Text, routes :: !RouteAvailability
-    , corsEnabled :: !Bool, processLocal :: ![Text] }
+    , corsIsEnabled :: !Bool, processLocal :: ![Text] }
 -- ToJSON/FromJSON: package, version, routes{metrics, prometheus, health, subscriptions_live,
 -- subscriptions_checkpoints, dead_letters, browse, websocket_metrics, websocket_events},
 -- cors{enabled}, process_local
@@ -1445,9 +1543,10 @@ At the end of Milestone 2:
 
 ```haskell
 -- Kiroku.Metrics.Standalone (new module)
+-- Do not derive Show: the database URL can contain credentials.
 data InspectOptions = InspectOptions
     { databaseUrl :: !(Maybe Text), schema :: !(Maybe Text), poolSize :: !(Maybe Int)
-    , port :: !(Maybe Int), corsOrigins :: ![Text], corsAllowCredentials :: !Bool
+    , port :: !(Maybe Int), corsOrigins :: ![Text], corsAllowCredentials :: !(Maybe Bool)
     , wsMaxConnections :: !(Maybe Int) }
 inspectOptionsParser :: Options.Applicative.Parser InspectOptions
 inspectParserInfo :: Options.Applicative.ParserInfo InspectOptions
@@ -1469,7 +1568,8 @@ Command line and environment (flag wins):
 --pool-size N               KIROKU_INSPECT_POOL_SIZE                10
 --port N                    KIROKU_INSPECT_PORT                     9091 (0 = OS-assigned, printed)
 --cors-origin ORIGIN ...    KIROKU_INSPECT_CORS_ORIGINS (comma)     none (CORS disabled)
---cors-allow-credentials    KIROKU_INSPECT_CORS_ALLOW_CREDENTIALS   false
+--cors-allow-credentials / --no-cors-allow-credentials
+                           KIROKU_INSPECT_CORS_ALLOW_CREDENTIALS   false
 --ws-max-connections N      KIROKU_INSPECT_WS_MAX_CONNECTIONS       100
 ```
 
@@ -1490,3 +1590,8 @@ PostgreSQL with the existing Kiroku migrations. Locate dependency sources throug
 
 Dependency direction is unchanged: `kiroku-metrics` depends on `kiroku-cli` and `kiroku-store`;
 nothing depends on `kiroku-metrics`. Plan 96 releases the result as part of the cohort.
+
+
+## API and performance review revision (2026-10-10)
+
+Reviewed against repository HEAD `f1a0209` and the released typed-decoding implementation. Corrected integration contracts and made focused performance evidence a completion gate. Existing authorship history is preserved; this revision records no implemented milestone or accepted performance result. The active requirements above supersede incompatible September design decisions, not published wire contracts.

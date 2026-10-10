@@ -17,6 +17,17 @@ provenance:
       at: 2026-09-30T22:56:42Z
       mode: "update"
       note: "Adopted as a child of MasterPlan 13: settled ServerProviders record, errorEnvelope/errorResponse ownership, resolved-name encoder, versions deferred to plan 96, release milestone moved"
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-10T15:41:07Z
+      mode: "update"
+      note: "Correct current APIs, integration ownership and bounded observer work; runtime acceptance remains pending."
+  reviews:
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-10T15:41:07Z
+      verdict: "comments"
+      note: "Source review corrections applied; SQL promotion and focused performance gates require implementation evidence."
 ---
 
 # Serve durable subscription checkpoints over HTTP
@@ -46,8 +57,7 @@ plan 88 proposed, carrying the WebSocket app) introduced by this plan through fo
 breaking `MetricsProviders` replacement first written here; the structured error envelope is the
 details-carrying `errorEnvelope`/`errorResponse` pair that plan 90 (EP-1, which lands first)
 creates in `Kiroku.Metrics.JSON`, which this plan reuses; and no version is bumped and nothing is
-released here, because plan 96 (EP-7) releases the whole cohort. This plan has no hard
-dependency, but plan 90 lands before it and establishes an invariant this plan must preserve:
+released here, because plan 96 (EP-7) releases the whole cohort. This plan hard-depends on plan 90, which lands before it and establishes an invariant this plan must preserve:
 the application handed to Warp is wrapped in `corsMiddleware cfg.cors`. Commits carry this
 plan's Intention trailer and a `MasterPlan:` trailer naming the MasterPlan file.
 
@@ -65,14 +75,14 @@ live status provider answers 404. The durable answer already exists in Haskell
 browser speaks neither.
 
 After this plan, any `kiroku-metrics` server started from a `KirokuStore` answers
-`GET /subscriptions/checkpoints` with the durable inventory: the captured store position plus
+`GET /subscription-checkpoints` with the durable inventory: the captured store position plus
 one row per persisted checkpoint (subscription name, consumer-group member, exact persisted
 position, last-update timestamp), in ascending (name, member) order, identical no matter which
 process is asked. The existing live endpoint is untouched, so a UI can render "live cursor" and
 "durable checkpoint" side by side and truthfully. Seeing it work is one request:
 
 ```bash
-curl -s http://localhost:9091/subscriptions/checkpoints | jq .
+curl -s http://localhost:9091/subscription-checkpoints | jq .
 ```
 
 ```json
@@ -96,12 +106,15 @@ process that shares the database: the durable body is the same.
 
 ## Progress
 
+- [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
+- [ ] Implement and execute the focused correctness and performance acceptance added by this review.
+
 - [ ] Milestone 1: `Kiroku.Metrics.Checkpoints` module with the provider type, the canonical
       store-backed provider, the wire types and their hand-written JSON codec, the
       `checkpointsApp` WAI application, and the pure codec test; IR-10 set to `in_progress`.
 - [ ] Milestone 2: `ServerProviders` record and the four `...WithProviders` functions added to
       `Kiroku.Metrics.Server` with every legacy starter delegating unchanged;
-      `/subscriptions/checkpoints` matched as a reserved segment ahead of the by-name live route;
+      `/subscription-checkpoints` matched as a reserved segment ahead of the by-name live route;
       structured not-configured envelope; store-backed starters serve the durable route
       automatically; the CORS wrap from plan 90 preserved at the composition point; umbrella
       re-exports; existing suites green.
@@ -118,25 +131,21 @@ process that shares the database: the durable body is the same.
 
 ## Surprises & Discoveries
 
+- 2026-10-10 source review: The previous route shadowed a valid live subscription named checkpoints; released checkpoint seeds now take six parameters. The server async returned before Warp readiness, and raw WebSocket dispatch did not share HTTP's mount-relative path. No runtime acceptance is inferred from this finding.
+
 (None yet.)
 
 
 ## Decision Log
 
-- Decision: The route is `GET /subscriptions/checkpoints`, matched in the router as a reserved
-  literal segment before the live by-name route `GET /subscriptions/<name>`.
-  Rationale: It is the path the request suggests and the path the keiro-ui audit expects
-  (`mori://shinzui/keiro-ui/plans/2-audit-kiroku-and-file-ui-endpoint-improvement-requests`
-  names it), and it reads as "the checkpoints of subscriptions". The router already reserves a
-  literal segment under a name-parameterised prefix: `/metrics/prometheus` is matched before
-  `/metrics/<name>` in `kiroku-metrics/src/Kiroku/Metrics/Server.hs`. The cost is that a
-  subscription literally named `checkpoints` cannot be filtered by name on the live route; it
-  still appears in the full `GET /subscriptions` listing, and the documentation states the
-  reservation. Top-level `/checkpoints` and `/subscription-checkpoints` were considered and
-  rejected as less discoverable and inconsistent with the request's wording. The future
-  dead-letter route proposed by IR-9 (`/subscriptions/<name>/dead-letters`) has three segments
-  and does not collide.
-  Date: 2026-09-10
+- Decision (2026-10-10): the reviewed Context and Plan of Work supersede incompatible September choices on dependencies, routes, decoding, method handling, bounds and performance. Implementation remains pending; durable constraints are in ADR-15.
+  Rationale: the released APIs changed and the original sketches contained correctness and shared-resource hazards.
+
+- Decision (revised 2026-10-10): the new route is `GET /subscription-checkpoints`.
+  Rationale: the previously proposed `/subscriptions/checkpoints` would shadow a valid live
+  subscription name and violate ADR-9. The unreleased path can change; the published live
+  route cannot. Tell the consumer about this choice in the release handoff. The three-segment
+  dead-letter path remains unambiguous.
 
 - Decision: The response is a JSON object, not an array: `{"store_position": N,
   "checkpoints": [ {"subscription", "member", "checkpoint_position", "updated_at"}, ... ]}`,
@@ -171,7 +180,7 @@ process that shares the database: the durable body is the same.
   Superseded on 2026-09-30 in the record's shape only: the provider closure and its canonical
   implementation stand, but the record is `ServerProviders` as decided below.
 
-- Decision: The change is a PVP major bump: `kiroku-metrics` 0.1.0.8 becomes 0.2.0.0.
+- Decision: The change is a PVP major bump: `kiroku-metrics` 0.1.0.8 becomes 0.3.0.0.
   Rationale: `startMetricsServerWith'`, `combinedApp`, and `httpApp` are exported and their
   argument types change. No in-repository code outside `Server.hs` calls them, so the
   in-repository migration is internal; external callers adapt by replacing `Nothing`/`Just p`
@@ -179,7 +188,7 @@ process that shares the database: the durable body is the same.
   bound `^>=0.8` already admits it), and `kiroku-cli` does not change.
   Date: 2026-09-10
   Superseded on 2026-09-30: this plan changes no exported signature and bumps no version; plan
-  96 assigns the cohort's versions (`kiroku-metrics` 0.2.0.0 is still the forecast, driven by
+  96 assigns the cohort's versions (`kiroku-metrics` 0.3.0.0 is still the forecast, driven by
   plan 90's configuration field).
 
 - Decision: The composition record is `ServerProviders { webSocketServer :: WS.ServerApp,
@@ -272,10 +281,51 @@ process that shares the database: the durable body is the same.
 
 ## Outcomes & Retrospective
 
+2026-10-10 review: implementation and performance acceptance remain pending. Static review does not prove zero runtime regression. Earlier planning-time observations and dated decisions are historical where this revision explicitly replaces them.
+
 (To be filled during and after implementation.)
 
 
 ## Context and Orientation
+
+### Review baseline and acceptance boundaries (2026-10-10)
+
+This plan is reviewed against `f1a0209`. Hackage preferred-version JSON and upstream tags
+both identify `kiroku-store-0.10.0.0` and `kiroku-metrics-0.2.0.0` as already released.
+The inspection forecast is now store 0.11.0.0 / metrics 0.3.0.0, not a reservation;
+plan 96 must re-query releases and compute every dependent's version from its actual diff.
+September source-version observations are historical, not current API authority.
+
+[ADR-15](../adr/0015-inspection-observers-preserve-wire-contracts-and-bound-shared-work.md)
+requires compatibility and bounded shared work. [ADR-12](../adr/0012-decode-failures-are-per-event-outcomes-with-independent-subscription-dispositions.md)
+requires typed decode failures and the no-hook fast path. Re-read the named implementation
+before coding: public reads use `decodeReadEvents`; publisher queues carry `DecodedBatch`,
+not `Vector RecordedEvent`. Successful hooks return `Right`; a typed failure must never
+turn into partial successful data. New HTTP store failures use sanitized messages:
+`ConnectionError` gives 503 with the route's unavailable code, `EventDecodeFailed` gives
+500 `event_decode_failed`, and other store errors give 500 `store_error`.
+Never expose `show err`, connection strings or payloads; never catch asynchronous cancellation
+as an expected store failure. Existing published error bodies remain unchanged.
+
+All new read paths support GET and HEAD, returning identical status and headers with no HEAD
+body. Other methods give 405 `method_not_allowed` and `Allow: GET, HEAD`. Implement this
+in the WAI apps themselves, not only by relying on Warp. Query numbers are parsed from ASCII
+digits into `Integer`, range-checked, and only then narrowed; reject signed/empty/overflowing
+values and duplicate recognized parameters with 400 `invalid_query_parameter`.
+Decode UTF-8 totally. Ignore unknown parameters as documented. Limits cap the page before
+over-fetching one row, and integer narrowing must not wrap. Clients handling Int64 JSON fields
+must use lossless integer parsing rather than silently rounding positions above 2^53.
+
+No new append SQL, index, lock, checkpoint write, pool checkout, or per-event publisher work
+is justified by a read-only label. New DB reads contend for shared resources. Use existing
+correctness tests, structural invariants and a focused affected-path check per child.
+Plan 96 owns the cumulative original-control comparison on PostgreSQL 18; the existing
+pipeline-versus-sequential ratio and historical Shibuya catch-up results do not prove this
+cohort neutral. Before any remote run, report cases, trial count, warmup, measurement and
+setup/recovery time, uncertainty target and stopping conditions within a single 60-minute
+ceiling. Preserve samples and lease cleanup; do not silently weaken a gate, repeat until
+favorable, or expand to a full matrix. Reproducible append regressions block acceptance;
+unmeasured or noisy evidence is explicitly pending or inconclusive.
 
 ### Terms used in this plan
 
@@ -303,7 +353,7 @@ from a request to a response. `kiroku-metrics` builds one router application fro
 per-route applications and mounts it on Warp. A **provider closure** is an `IO` action the host
 supplies so the server can fetch store-backed data without holding the `KirokuStore` itself.
 **PVP** is the Haskell Package Versioning Policy: a change to an exported function's type is a
-major bump (`0.1.x` to `0.2.0.0`); an addition is a minor bump.
+major bump (`0.1.x` to `0.3.0.0`); an addition is a minor bump.
 
 ### The library API this endpoint wraps (unchanged)
 
@@ -342,14 +392,14 @@ useful for a failing test provider). `SubscriptionName` is a newtype over `Text`
 The store-level behaviour is proven by `kiroku-store/test/Test/SubscriptionCheckpointInventory.hs`.
 That file also shows how a test seeds checkpoint rows without running a worker:
 `Kiroku.Store.SQL` is an exposed module and
-`saveCheckpointMemberStmt :: Statement (Text, Int32, Int64) ()` is executed with
-`Pool.use store.pool (Session.statement (name, member, position) SQL.saveCheckpointMemberStmt)`.
+`saveCheckpointMemberStmt :: Statement (Text, Int32, Int64, Int32, Text, Maybe Text) ()` is executed with
+`Pool.use store.pool (Session.statement (name, member, position, max 1 (member + 1), "unbound", Nothing) SQL.saveCheckpointMemberStmt)`.
 The `pool` field is public on `KirokuStore` (the metrics health check in
 `kiroku-metrics/src/Kiroku/Metrics/Health.hs` uses `store.pool` the same way).
 
 ### The metrics server today (where the route mounts)
 
-Everything below is under `kiroku-metrics/`, version 0.1.0.8 in `kiroku-metrics.cabal`. The
+Everything below is under `kiroku-metrics/`, version 0.2.0.0 at the 2026-10-10 review. The
 package's `common` stanza enables `DuplicateRecordFields`, `OverloadedRecordDot`,
 `OverloadedStrings`, `RecordWildCards`, `LambdaCase`, `DerivingStrategies`, and builds with
 `-Wall -Werror=incomplete-patterns`.
@@ -480,10 +530,48 @@ commits (plan 69 recorded the same); per repository policy the canonical URIs ar
 
 ## Plan of Work
 
+### Composition and inventory corrections
+
+Plan 90 is a hard dependency: it owns `errorEnvelope`, `errorResponse`, and CORS.
+This plan alone owns the providers record, route composition, and server readiness.
+The inventory path is `/subscription-checkpoints`; it must not consume the existing
+`/subscriptions/checkpoints` live-name path. Add a live provider fixture with a subscription
+named `checkpoints` and prove its legacy route/body still works.
+
+The SQL inventory already returns head and rows from one snapshot. Two sequential HTTP
+responses are comparable for equality only while the fixture is quiescent: stop the worker
+and prevent appends/checkpoint updates first. Do not claim cross-request snapshot identity.
+The existing inventory is unpaginated and costs O(checkpoint rows); call it once per HTTP
+request, do not add background polling, and document nonoverlapping client polls.
+
+Before returning `MetricsServer`, wait for Warp's `setBeforeMainLoop` readiness signal
+or the server async's failure, whichever occurs first. Apply this to fixed and ephemeral
+ports. Mask resource acquisition, close an acquired socket on setup failure, and ensure
+bracketed server lifetime propagates unexpected server termination to its owner.
+Keep the existing exported signatures. Test occupied-port failure, callback failure and
+cancellation during startup; all must release sockets and workers, never hang.
+
+`combinedAppWithProviders` alone wraps CORS. Honor `enableWebSocket = False` before
+calling `websocketsOr`, including through legacy delegations; an instrumented custom
+WebSocket app must not be invoked when disabled. For mounted applications the HTTP router
+uses relative `pathInfo`. wai-websockets constructs its request head from `rawPathInfo`
+and `rawQueryString`, so normalize the dispatch request's raw path from the mount-relative
+segments before passing it to `websocketsOr`, retaining the query string. Locate the
+http-types path encoder with Mori before using it; do not concatenate unescaped segments.
+Test a host that strips only the `/kiroku` prefix from `pathInfo`: both
+`/kiroku/subscription-checkpoints` and `/kiroku/ws/events` must work through the composed app.
+Do not wrap CORS twice or rewrite request state outside this application.
+
+Compile a consumer using each old starter and the new explicit providers binding.
+Extend `Test.CheckpointsSpec` with HEAD/405, sanitized typed failures, live-name collision,
+quiescent inventory equality, mount and lifecycle cases. Seed checkpoints using the current
+six-parameter helper in `kiroku-store/test/Test/SubscriptionCheckpointInventory.hs`;
+the old three-parameter statement was superseded by the released topology metadata.
+
 ### Milestone 1: the durable checkpoints module and its wire codec
 
 Scope: create `kiroku-metrics/src/Kiroku/Metrics/Checkpoints.hs`, a self-contained module that
-turns a provider closure into a WAI application serving `GET /subscriptions/checkpoints`, and
+turns a provider closure into a WAI application serving `GET /subscription-checkpoints`, and
 prove its JSON shape with a pure test. At the end of this milestone the module compiles, is
 exported from the package, can be mounted standalone with `Warp.testWithApplication`, and the
 exact wire keys are locked by a test. Nothing in the router changes yet.
@@ -517,7 +605,7 @@ Write the new module. The provider type and canonical provider mirror
 unavailable:
 
 ```haskell
-{- | The @GET /subscriptions/checkpoints@ HTTP endpoint (IR-10).
+{- | The @GET /subscription-checkpoints@ HTTP endpoint (IR-10).
 
 Serves the __durable__ subscription checkpoint inventory: the captured store
 position and every persisted @(subscription, member)@ checkpoint row, read
@@ -576,30 +664,16 @@ library's row order; do not sort in the mapping.
 
 The application matches the exact path and delegates everything else to a structured 404:
 
-```haskell
-checkpointsPath :: [Text]
-checkpointsPath = ["subscriptions", "checkpoints"]
+Define `checkpointsPath = ["subscription-checkpoints"]` and
+`checkpointsApp :: CheckpointInventoryProvider -> Application`. Match that exact path,
+otherwise return structured 404 not_found. For the matched path, reject methods other than
+GET/HEAD with 405 and Allow: GET, HEAD; on GET/HEAD invoke the provider once. Encode
+Right inventory with checkpointInventoryResponse and status200; map Left through
+`storeErrorResponse "checkpoint_inventory_unavailable"`. Emit no body on HEAD, preserving
+the GET status/headers. The response adapter must behave this way in direct WAI tests too.
 
-checkpointsApp :: CheckpointInventoryProvider -> Application
-checkpointsApp provider req respond
-    | pathInfo req == checkpointsPath = do
-        result <- provider
-        respond $ case result of
-            Right inventory ->
-                jsonResponse status200 (encode (checkpointInventoryResponse inventory))
-            Left err ->
-                errorResponse
-                    status503
-                    "checkpoint_inventory_unavailable"
-                    ("could not read the durable checkpoint inventory: " <> T.pack (show err))
-                    Nothing
-    | otherwise =
-        respond (errorResponse status404 "not_found" "Not found" Nothing)
-```
-
-Do not restrict the HTTP method; the sibling applications do not, and adding method checks to
-one route would be an inconsistent surface. Exceptions thrown by a provider propagate to Warp
-exactly as they do for the sibling routes; only a returned `Left` is mapped to 503.
+New read methods follow the reviewed GET/HEAD contract; legacy methods are untouched.
+Thrown exceptions propagate rather than being disguised as expected provider errors.
 
 Register the module: add `Kiroku.Metrics.Checkpoints` to `exposed-modules` in
 `kiroku-metrics/kiroku-metrics.cabal` (the library already depends on `aeson`, `text`, `time`,
@@ -619,7 +693,7 @@ map it, and assert `Aeson.toJSON` equals the literal
 above and `"updated_at" .= ("2026-09-10T00:00:00Z" :: Text)`, then assert
 `Aeson.eitherDecode (Aeson.encode response) == Right response`. A second pure test mounts
 `checkpointsApp (pure (Right inventory))` with `Warp.testWithApplication` and checks a GET on
-`/subscriptions/checkpoints` returns 200 with the same body, and a GET on `/definitely/not`
+`/subscription-checkpoints` returns 200 with the same body, and a GET on `/definitely/not`
 returns 404 with `{"error":{"code":"not_found","message":"Not found"}}`.
 
 Acceptance for Milestone 1: `cabal build kiroku-metrics` succeeds, and
@@ -633,7 +707,7 @@ functions, turn every legacy starter and application function into a one-line de
 its exact signature, match the reserved segment ahead of the by-name live route, answer a
 structured 404 when no durable provider is configured, and make store-backed starters serve the
 route automatically. At the end a server started with `withMetricsServerWithStore` answers
-`/subscriptions/checkpoints` while `/subscriptions` still answers its configured 404, and every
+`/subscription-checkpoints` while `/subscriptions` still answers its configured 404, and every
 pre-existing test passes with no edits at all, because no exported signature changes.
 
 In `kiroku-metrics/src/Kiroku/Metrics/Server.hs` add and export:
@@ -650,7 +724,7 @@ data ServerProviders = ServerProviders
     , subscriptionStatus :: !(Maybe SubscriptionStatusProvider)
     -- ^ Backs @GET /subscriptions@ (live, process-local registry).
     , checkpointInventory :: !(Maybe CheckpointInventoryProvider)
-    -- ^ Backs @GET /subscriptions/checkpoints@ (durable, cross-process inventory).
+    -- ^ Backs @GET /subscription-checkpoints@ (durable, cross-process inventory).
     }
 
 -- | The rejecting WebSocket stub and no providers.
@@ -697,7 +771,7 @@ insert the reserved segment match immediately before the two live matches, and a
 next to `subscriptionsRoute`:
 
 ```haskell
-        ["subscriptions", "checkpoints"] -> checkpointsRoute
+        ["subscription-checkpoints"] -> checkpointsRoute
         ["subscriptions"] -> subscriptionsRoute
         ["subscriptions", _] -> subscriptionsRoute
   ...
@@ -723,7 +797,12 @@ deliberately leaving `subscriptionStatus` at `Nothing`, so `withMetricsServerWit
 inherits the route and `GET /subscriptions` keeps its published 404 there. Update the module
 header comment and the Haddocks of the changed functions to describe the record; say in the
 Haddock of `storeServerProviders` that it is the path for a host that wants every route
-(`withMetricsServerWithProviders cfg m deps =<< storeServerProviders cfg m store`). Everything
+by binding the providers first, then passing the continuation:
+
+```haskell
+providers <- storeServerProviders cfg m store
+withMetricsServerWithProviders cfg m deps providers $ \server -> useServer server
+``` Everything
 is in `Kiroku.Metrics.Server`, which the umbrella module already re-exports wholesale.
 
 No in-repository code outside `Server.hs` calls `startMetricsServerWith'`, `combinedApp`, or
@@ -737,7 +816,7 @@ committing in case that has changed.
 Add a `### New Features` bullet to the `## Unreleased` changelog section (plan 90 opened it;
 open it if it is missing): `ServerProviders`, `defaultServerProviders`, `storeServerProviders`,
 and the four `...WithProviders` functions; store-backed starters now also serve
-`/subscriptions/checkpoints`; every pre-existing starter keeps its signature and behaviour.
+`/subscription-checkpoints`; every pre-existing starter keeps its signature and behaviour.
 
 Acceptance for Milestone 2: `cabal build kiroku-metrics` and `cabal test kiroku-metrics` pass
 (the pre-existing example counts plus the two Milestone 1 examples). Behaviourally, in a
@@ -746,8 +825,8 @@ Acceptance for Milestone 2: `cabal build kiroku-metrics` and `cabal test kiroku-
 and from another shell observe:
 
 ```bash
-curl -s -i http://localhost:9091/subscriptions/checkpoints | head -1
-curl -s http://localhost:9091/subscriptions/checkpoints
+curl -s -i http://localhost:9091/subscription-checkpoints | head -1
+curl -s http://localhost:9091/subscription-checkpoints
 curl -s -i http://localhost:9091/subscriptions | head -1
 ```
 
@@ -781,7 +860,7 @@ short `threadDelay 200_000` after start as the sibling specs do:
    `waitUntilPhase` for `live`; `cancel handle`, `wait handle`, then `waitUntilAbsent`. Start
    `startMetricsServerWithProviders cfg m [] =<< storeServerProviders cfg m store` with
    `cfg = defaultConfig{port = 0}`.
-   Assert `GET /subscriptions` is 200 with body `[]`, and `GET /subscriptions/checkpoints` is 200
+   Assert `GET /subscriptions` is 200 with body `[]`, and `GET /subscription-checkpoints` is 200
    with `storePosition == 3` and rows `[("durable-vs-live", 0, 3)]`. The checkpoint equals the
    store position because the worker persists each batch's checkpoint before it publishes the
    `live` transition (plan 69 recorded this ordering); if the persisted value differs, record the
@@ -800,11 +879,11 @@ short `threadDelay 200_000` after start as the sibling specs do:
    `updatedAt`, so this proves identical rows, not merely identical keys).
 4. No status provider (acceptance 4). `withMetricsServerWithStore (defaultConfig{port = 0}) m
    store []`: `GET /subscriptions` is 404 with the published body
-   `{"error":"subscription status not configured"}`; `GET /subscriptions/checkpoints` is 200.
+   `{"error":"subscription status not configured"}`; `GET /subscription-checkpoints` is 200.
 5. Empty store (acceptance 5). A fresh migrated database with no appends and no seeds:
-   `GET /subscriptions/checkpoints` returns exactly `{"store_position":0,"checkpoints":[]}`.
+   `GET /subscription-checkpoints` returns exactly `{"store_position":0,"checkpoints":[]}`.
 6. Not configured. `startMetricsServer (defaultConfig{port = 0}) m []`:
-   `GET /subscriptions/checkpoints` is 404 and the decoded body's `error.code` is
+   `GET /subscription-checkpoints` is 404 and the decoded body's `error.code` is
    `checkpoint_inventory_not_configured`.
 7. Provider failure. Mount `checkpointsApp (pure (Left (ConnectionError "simulated outage")))`
    with `Warp.testWithApplication`: the response is 503 and `error.code` is
@@ -814,7 +893,7 @@ short `threadDelay 200_000` after start as the sibling specs do:
    with no assertion changes.
 
 Acceptance for Milestone 3: `cabal test kiroku-metrics` is green with the new examples listed
-under `Kiroku.Metrics.Checkpoints (/subscriptions/checkpoints)`, and `nix fmt` leaves the tree
+under `Kiroku.Metrics.Checkpoints (/subscription-checkpoints)`, and `nix fmt` leaves the tree
 unchanged.
 
 ### Milestone 4: documentation, example, capability, changelog, and request evidence
@@ -823,11 +902,12 @@ Scope: make the endpoint discoverable and its semantics unambiguous, and record 
 evidence in the bundles that track this work. At the end, a reader of `docs/user/metrics.md` can
 wire, call, and interpret the route without reading code, and every repository validation passes.
 
-In `docs/user/metrics.md`: add `/subscriptions/checkpoints` to the deployment-assumption note
+In `docs/user/metrics.md`: add `/subscription-checkpoints` to the deployment-assumption note
 (the surface has no authentication; conventions section 8); add a Contents entry "Durable
 subscription checkpoints over HTTP"; in "Wiring the collector" and "Starting the server" mention
 that store-backed starters serve the durable route automatically and show
-`withMetricsServerWithProviders cfg metrics deps =<< storeServerProviders cfg metrics store`
+`providers <- storeServerProviders cfg metrics store`, followed by
+`withMetricsServerWithProviders cfg metrics deps providers $ \server -> useServer server`
 for a worker that wants both routes; in "HTTP endpoints" list the new route; and add a new section after "Subscription
 status over HTTP" containing: the request and the response transcript from Purpose (copied from a
 real test run, with a real timestamp); a field-by-field description (`store_position` is the
@@ -836,8 +916,9 @@ is the exact persisted position; `updated_at` is the last successful checkpoint 
 of advance; `member` zero is ambiguous between an ungrouped subscription and member zero of a
 group); an explicit live-versus-durable explanation (values are exact persisted checkpoints,
 stopped subscriptions remain present, a live worker's cursor may be ahead, the answer is
-identical from every process, and no status provider is required); the reserved-segment note (a
-subscription named `checkpoints` cannot be filtered by name on the live route); the error
+independent of the answering process for the same database snapshot, and no status provider
+is required); the noncollision note (a subscription named `checkpoints` remains accessible
+through its existing live route); the error
 vocabulary (`checkpoint_inventory_not_configured` 404, `checkpoint_inventory_unavailable` 503,
 `not_found` 404 when mounted standalone) and the statement that this route uses the structured
 envelope while older routes keep their string errors; the vocabulary rule that
@@ -851,10 +932,10 @@ before IR-13 records the ADR.
 In `docs/user/subscriptions.md` "Reading Durable Checkpoints", extend the list of surfaces with
 the HTTP route and link to the new section. In `docs/user/operator-cli.md`, where the guide says
 the remote client reports live cursors rather than durable checkpoints, add one sentence pointing
-at `GET /subscriptions/checkpoints` for the durable view.
+at `GET /subscription-checkpoints` for the durable view.
 
 Extend `kiroku-metrics/example/Main.hs`: after the health checks, GET
-`/subscriptions/checkpoints`, check status 200, decode the body, and check `store_position >= 3`
+`/subscription-checkpoints`, check status 200, decode the body, and check `store_position >= 3`
 and an empty `checkpoints` array (the example runs no subscription, so the store has no
 checkpoint rows; say so in the step text). Renumber the transcript steps and update the quoted
 transcript in the "Try it" section of `docs/user/metrics.md`. The executable is behind the
@@ -953,7 +1034,7 @@ cabal test kiroku-metrics --test-options='--match Checkpoints'
 Expected tail of the focused run:
 
 ```text
-Kiroku.Metrics.Checkpoints (/subscriptions/checkpoints)
+Kiroku.Metrics.Checkpoints (/subscription-checkpoints)
   encodes the documented snake_case shape and decodes it back [✔]
   serves the inventory and a structured 404 when mounted standalone [✔]
 
@@ -987,7 +1068,7 @@ cabal test kiroku-metrics
 Expected: every pre-existing example plus the two new ones pass with no test edits. Commit:
 
 ```text
-feat(kiroku-metrics): serve GET /subscriptions/checkpoints through ServerProviders
+feat(kiroku-metrics): serve GET /subscription-checkpoints through ServerProviders
 
 Introduce ServerProviders and the ...WithProviders starters; every legacy
 starter keeps its signature and delegates.
@@ -1009,7 +1090,7 @@ cabal test kiroku-metrics
 Expected focused tail:
 
 ```text
-Kiroku.Metrics.Checkpoints (/subscriptions/checkpoints)
+Kiroku.Metrics.Checkpoints (/subscription-checkpoints)
   encodes the documented snake_case shape and decodes it back [✔]
   serves the inventory and a structured 404 when mounted standalone [✔]
   keeps a stopped subscription in the durable inventory after it leaves the live registry [✔]
@@ -1056,7 +1137,7 @@ Expected example transcript (port varies):
 [2/7] store + collector + metrics server on port 57277
 [3/7] appended 3 events to orders-1
 [4/7] HTTP /metrics, /prometheus, /health/live, /health/ready all OK
-[5/7] GET /subscriptions/checkpoints store_position=3 with no durable checkpoints (this example runs no subscription)
+[5/7] GET /subscription-checkpoints store_position=3 with no durable checkpoints (this example runs no subscription)
 [6/7] WebSocket /ws/events received event eventType=OrderRefunded
 [7/7] kiroku-metrics-example: all checks passed (snapshot global position = 4)
 ```
@@ -1080,9 +1161,13 @@ belong to plan 96.
 
 ## Validation and Acceptance
 
+The reviewed API, lifecycle and performance obligations in Context and Plan of Work are
+mandatory in addition to the route-specific cases below. Historical transcripts are examples,
+not evidence that the new tests have run; update counts from actual output at implementation.
+
 The plan is accepted when all of the following are observable:
 
-1. With one subscription checkpointed and its worker stopped, `GET /subscriptions/checkpoints`
+1. With one subscription checkpointed and its worker stopped, `GET /subscription-checkpoints`
    returns HTTP 200 with that subscription's row while `GET /subscriptions` returns `[]`
    (test 1 in Milestone 3; IR-10 acceptance 1).
 2. The body carries `store_position` from the same snapshot as the rows, and rows are in
@@ -1094,11 +1179,11 @@ The plan is accepted when all of the following are observable:
 5. An empty store returns `{"store_position":0,"checkpoints":[]}` (test 5; acceptance 5).
 6. Every pre-existing endpoint, WebSocket frame, and JSON body is unchanged: the existing specs
    pass without assertion edits, and `git diff` shows no change under
-   `kiroku-metrics/src/Kiroku/Metrics/{Subscriptions,WebSocket,Prometheus,Health,Types,Collector,Config}.hs`
+   `kiroku-metrics/src/Kiroku/Metrics/{Subscriptions,Prometheus,Health,Types,Collector,Config}.hs`
    (acceptance 6).
 7. A server with no durable provider answers 404 with the structured envelope code
-   `checkpoint_inventory_not_configured`, and a failing provider answers 503 with
-   `checkpoint_inventory_unavailable` (tests 6 and 7).
+   `checkpoint_inventory_not_configured`, and a connection-failing provider answers 503 with
+   `checkpoint_inventory_unavailable`; typed decoding and other failures use the review's 500 mapping (tests 6 and 7).
 8. `docs/user/metrics.md` contains the request/response transcript, the live-versus-durable
    explanation, the error vocabulary, and the position-distance wording; CAP-17 and IR-10 are
    updated and their bundles validate; the example prints the seven-step transcript.
@@ -1150,7 +1235,7 @@ data CheckpointInventoryResponse = CheckpointInventoryResponse
 -- checkpoint_position, updated_at
 
 checkpointInventoryResponse :: SubscriptionCheckpointInventory -> CheckpointInventoryResponse
-checkpointsPath :: [Text]              -- ["subscriptions", "checkpoints"]
+checkpointsPath :: [Text]              -- ["subscription-checkpoints"]
 checkpointsApp :: CheckpointInventoryProvider -> Network.Wai.Application
 ```
 
@@ -1228,3 +1313,8 @@ nothing depends on `kiroku-metrics`.
   bumps no version and edits no bound. Milestones 1, 2, 4, and 5, the Progress list, the
   Decision Log, Concrete Steps, Validation, and Interfaces were updated accordingly; the route,
   its wire shape, and its tests are unchanged.
+
+
+## API and performance review revision (2026-10-10)
+
+Reviewed against repository HEAD `f1a0209` and the released typed-decoding implementation. Corrected integration contracts and made focused performance evidence a completion gate. Existing authorship history is preserved; this revision records no implemented milestone or accepted performance result. The active requirements above supersede incompatible September design decisions, not published wire contracts.

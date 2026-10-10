@@ -11,6 +11,18 @@ provenance:
     model: "claude-fable-5-1"
     harness: "claude-code"
     at: 2026-09-30T22:35:20Z
+  revisions:
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-10T15:41:06Z
+      mode: "update"
+      note: "Correct current APIs, integration ownership and bounded observer work; runtime acceptance remains pending."
+  reviews:
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-10T15:41:06Z
+      verdict: "comments"
+      note: "Source review corrections applied; SQL promotion and focused performance gates require implementation evidence."
 ---
 
 # Converge the kiroku-metrics WebSocket protocol with the cross-project convention
@@ -102,6 +114,9 @@ convention, the kiroku frame that realises it or the recorded deviation.
 
 ## Progress
 
+- [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
+- [ ] Implement and execute the focused correctness and performance acceptance added by this review.
+
 - [ ] M1: IR-12 moved from `accepted` to `in_progress` (timestamp advanced, bundle log entry,
       strict validation green).
 - [ ] M1: `kiroku-store`: `Subscriber` gains `subDropped :: TVar Word64`; the `DropOldest` branch
@@ -112,7 +127,7 @@ convention, the kiroku frame that realises it or the recorded deviation.
       (cap 1, two batches, counter 1, queue holds the newest batch); registered; store suite
       green; `cabal bench kiroku-store:kiroku-shibuya-overhead` recorded before and after.
 - [ ] M2: `Kiroku.Metrics.WebSocket`: `UnsubscribeMetrics` client frame, `CodedError` server frame
-      with the three codes, `recordedEventToJSONResolved` (or reuse of plan 88's), per-connection
+      with the four codes, reuse of plan 88's `recordedEventToJSONResolved`, per-connection
       stream-name cache in the tail, overflow detection from the drop counter,
       `overflowNotice` exported for testing; changelog bullets under `## Unreleased`.
 - [ ] M2: `kiroku-metrics/test/Test/WebSocketConvergenceSpec.hs` (frame shapes pinned,
@@ -129,6 +144,8 @@ convention, the kiroku frame that realises it or the recorded deviation.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-10 source review: Publisher queues now contain DecodedBatch. The proposed name Map grew for the lifetime of the tail, and notices followed survivors, allowing loss of the client's safe recovery cursor. Separate counter/encoder tests did not prove delivery ordering. No runtime acceptance is inferred from this finding.
 
 - Planning (2026-09-30): the overflow `error` frame documented in `docs/user/metrics.md`
   ("a slow client loses the oldest undelivered batches and is told in-band by an `error` frame")
@@ -152,6 +169,9 @@ convention, the kiroku frame that realises it or the recorded deviation.
 
 ## Decision Log
 
+- Decision (2026-10-10): the reviewed Context and Plan of Work supersede incompatible September choices on dependencies, routes, decoding, method handling, bounds and performance. Implementation remains pending; durable constraints are in ADR-15.
+  Rationale: the released APIs changed and the original sketches contained correctness and shared-resource hazards.
+
 - Decision: Every change is additive at the wire and, where possible, at the Haskell API. No
   published frame, field, path, status, or documented semantic is renamed, removed, re-typed, or
   given a new meaning; `dispatchPath`, `recordedEventToJSON`, `wsEventQueueCap`, `DropOldest`,
@@ -166,7 +186,7 @@ convention, the kiroku frame that realises it or the recorded deviation.
 - Decision: Error codes are carried by a new `ServerMessage` constructor
   `CodedError !Text !Text` (code, message) encoding to `{"type":"error","code":c,"message":m}`;
   the existing `ErrorMsg !Text` constructor and its encoding stay exactly as they are, and the
-  three places that build error frames today switch to `CodedError` with the codes
+  four places that build error frames today switch to `CodedError` with the codes
   `replay_failed`, `category_read_failed`, and `event_stream_overflowed`.
   Rationale: Adding a constructor is additive for Haskell callers that only construct or encode
   frames (pattern matches on `ServerMessage` in this repository are the `ToJSON` instance alone),
@@ -181,7 +201,7 @@ convention, the kiroku frame that realises it or the recorded deviation.
   `Subscriber`, incremented inside the existing `DropOldest` branch of `deliverBatchSTM`; a new
   `subscribePublisherWith` returns a `PublisherSubscription` record that exposes the counter, and
   `subscribePublisher` becomes a wrapper that returns the same triple it returns today. The
-  WebSocket tail reads the counter after every batch and emits one `event_stream_overflowed`
+  WebSocket tail samples the counter with dequeue before every delivered batch and emits one `event_stream_overflowed`
   error per observed increase.
   Rationale: The convention (area 5) requires overflow to be signalled in-band, ADR-9 lists that
   signal among the published delivery semantics, and the user guide has promised it since the
@@ -242,7 +262,7 @@ convention, the kiroku frame that realises it or the recorded deviation.
   `## Unreleased` in `kiroku-metrics/CHANGELOG.md` and under the unreleased heading of
   `kiroku-store/CHANGELOG.md`; MasterPlan 13's release plan
   (`docs/plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md`)
-  assigns `kiroku-metrics` 0.2.0.0 and `kiroku-store` 0.10.0.0 for the whole cohort and moves
+  assigns `kiroku-metrics` 0.3.0.0 and `kiroku-store` 0.11.0.0 for the whole cohort and moves
   IR-12 to `completed`.
   Rationale: Four sibling plans change the same two packages in the same window; one cohort
   release with one version set is what the keiro-ui initiative pins against, and publishing is
@@ -259,10 +279,51 @@ convention, the kiroku frame that realises it or the recorded deviation.
 
 ## Outcomes & Retrospective
 
+2026-10-10 review: implementation and performance acceptance remain pending. Static review does not prove zero runtime regression. Earlier planning-time observations and dated decisions are historical where this revision explicitly replaces them.
+
 (To be filled during and after implementation.)
 
 
 ## Context and Orientation
+
+### Review baseline and acceptance boundaries (2026-10-10)
+
+This plan is reviewed against `f1a0209`. Hackage preferred-version JSON and upstream tags
+both identify `kiroku-store-0.10.0.0` and `kiroku-metrics-0.2.0.0` as already released.
+The inspection forecast is now store 0.11.0.0 / metrics 0.3.0.0, not a reservation;
+plan 96 must re-query releases and compute every dependent's version from its actual diff.
+September source-version observations are historical, not current API authority.
+
+[ADR-15](../adr/0015-inspection-observers-preserve-wire-contracts-and-bound-shared-work.md)
+requires compatibility and bounded shared work. [ADR-12](../adr/0012-decode-failures-are-per-event-outcomes-with-independent-subscription-dispositions.md)
+requires typed decode failures and the no-hook fast path. Re-read the named implementation
+before coding: public reads use `decodeReadEvents`; publisher queues carry `DecodedBatch`,
+not `Vector RecordedEvent`. Successful hooks return `Right`; a typed failure must never
+turn into partial successful data. New HTTP store failures use sanitized messages:
+`ConnectionError` gives 503 with the route's unavailable code, `EventDecodeFailed` gives
+500 `event_decode_failed`, and other store errors give 500 `store_error`.
+Never expose `show err`, connection strings or payloads; never catch asynchronous cancellation
+as an expected store failure. Existing published error bodies remain unchanged.
+
+All new read paths support GET and HEAD, returning identical status and headers with no HEAD
+body. Other methods give 405 `method_not_allowed` and `Allow: GET, HEAD`. Implement this
+in the WAI apps themselves, not only by relying on Warp. Query numbers are parsed from ASCII
+digits into `Integer`, range-checked, and only then narrowed; reject signed/empty/overflowing
+values and duplicate recognized parameters with 400 `invalid_query_parameter`.
+Decode UTF-8 totally. Ignore unknown parameters as documented. Limits cap the page before
+over-fetching one row, and integer narrowing must not wrap. Clients handling Int64 JSON fields
+must use lossless integer parsing rather than silently rounding positions above 2^53.
+
+No new append SQL, index, lock, checkpoint write, pool checkout, or per-event publisher work
+is justified by a read-only label. New DB reads contend for shared resources. Use existing
+correctness tests, structural invariants and a focused affected-path check per child.
+Plan 96 owns the cumulative original-control comparison on PostgreSQL 18; the existing
+pipeline-versus-sequential ratio and historical Shibuya catch-up results do not prove this
+cohort neutral. Before any remote run, report cases, trial count, warmup, measurement and
+setup/recovery time, uncertainty target and stopping conditions within a single 60-minute
+ceiling. Preserve samples and lease cleanup; do not silently weaken a gate, repeat until
+favorable, or expand to a full matrix. Reproducible append regressions block acceptance;
+unmeasured or noisy evidence is explicitly pending or inconclusive.
 
 ### Terms used in this plan
 
@@ -286,7 +347,7 @@ exported datatype's definition is a major bump; an addition is a minor bump.
 
 ### The WebSocket surface as it exists
 
-Everything below is under `kiroku-metrics/`, version 0.1.0.10 in `kiroku-metrics.cabal`. The
+Everything below is under `kiroku-metrics/`, version 0.2.0.0 at the 2026-10-10 review. The
 package's `common` stanza enables `DuplicateRecordFields`, `OverloadedRecordDot`,
 `OverloadedStrings`, `RecordWildCards`, `LambdaCase`, `DerivingStrategies`, and `DeriveAnyClass`,
 and builds with `-Wall -Werror=incomplete-patterns`. The library depends on `aeson`, `async`,
@@ -356,9 +417,10 @@ status `TVar` reads `Overflowed`, sends `ErrorMsg "event stream overflowed; some
 `sendEvents` maps `recordedEventToJSON` over a batch and sends one `Event` frame per event.
 `categoryLoop` sends `ErrorMsg "category read error: …"` and stops on a read failure.
 
-The three `ErrorMsg` sites and their intended codes under this plan are therefore: replay failure
-(`replay_failed`), category read failure (`category_read_failed`), and overflow
-(`event_stream_overflowed`).
+The four current error sites gain replay_failed, category_read_failed,
+event_stream_overflowed and live_decode_failed respectively. The live path resolves
+DecodedBatch and terminates on an applicable typed decode failure; preserve that behavior
+while adding its code and sanitizing the human-readable detail.
 
 ### Why the overflow frame never fires today
 
@@ -368,7 +430,7 @@ The three `ErrorMsg` sites and their intended codes under this plan are therefor
 
 ```haskell
 data Subscriber = Subscriber
-    { subQueue :: !(TBQueue (Vector RecordedEvent))
+    { subQueue :: !(TBQueue DecodedBatch)
     , subStatus :: !(TVar SubscriberStatus)
     , subPolicy :: !OverflowPolicy
     }
@@ -376,8 +438,7 @@ data Subscriber = Subscriber
 data SubscriberStatus = Active | Paused | Overflowed
 ```
 
-and `subscribePublisher :: EventPublisher -> Natural -> OverflowPolicy -> STM (TBQueue (Vector
-RecordedEvent), TVar SubscriberStatus, IO ())` creates one, registers it in
+and `subscribePublisher :: EventPublisher -> Natural -> OverflowPolicy -> STM (TBQueue DecodedBatch, TVar SubscriberStatus, IO ())` creates one, registers it in
 `subscribers :: TVar (IntMap Subscriber)` under a fresh id, and returns the queue, the status
 variable, and an `unsubscribe` action. The publisher loop delivers each batch to every
 subscriber through `deliverBatchSTM`:
@@ -487,12 +548,10 @@ run:
 grep -n "recordedEventToJSONResolved" kiroku-metrics/src/Kiroku/Metrics/WebSocket.hs
 ```
 
-If it prints a definition, plan 88 has landed: import nothing new, use the function, and do not
-redefine it. If it prints nothing, define it in this plan exactly as specified in Milestone 2,
-export it, and add a one-line note to plan 88's Revision Notes saying the encoder now exists and
-plan 88 must reuse it. Record which branch applied in Surprises & Discoveries. No other sibling
-plan touches `WebSocket.hs` or `EventPublisher.hs`; plan 90 (CORS) wraps the composed application
-in `Server.hs` and is unaffected by frame changes; plans 87 and 89 add HTTP routes only.
+Plan 88 is a hard prerequisite. Verify its completed encoder and reuse it; if absent,
+do not start this plan by creating a second owner. Plan 87 owns lifecycle/mount changes
+in Server.hs and plan 90 owns CORS; coordinate shared docs and tests without weakening
+their gates.
 
 The two changelogs are shared. `kiroku-metrics/CHANGELOG.md` has (or will have, from whichever
 sibling lands first) a `## Unreleased` section; add this plan's bullets there under
@@ -566,6 +625,22 @@ both paths. Bounded drop-oldest queues: met (`wsEventQueueCap`, `DropOldest`).
 
 ## Plan of Work
 
+### Current API and performance obligations
+
+Plan 88 is a hard dependency and the sole owner of recordedEventToJSONResolved; reuse it.
+The released queue element is DecodedBatch. Import it from the actual Settings module and
+update every signature and fixture without converting the shared queue back to vectors.
+No-hook delivery retains one UnchangedBatch wrapper per shared batch and no per-event
+wrapper or copy; hook-enabled TransformedBatch preserves Undecodable outcomes.
+The drop counter adds one cell per subscription but no increment on successful nonfull
+delivery. Do not claim this constructor addition source-compatible for all users.
+
+In addition to the existing focused publisher check, compare actual tail delivery using
+warm names and a bounded batch of distinct names. Record lookup count, retained cache size,
+tail latency and append contention for the cumulative gate. The Shibuya catch-up benchmark
+does not exercise the new WebSocket resolver; it cannot establish that enrichment is free.
+Do not launch a broad remote experiment for this child.
+
 ### Milestone 1: count dropped batches in the publisher
 
 Scope: make the overflow signal observable at the library level. At the end, `kiroku-store`
@@ -587,7 +662,7 @@ Add `Data.Word (Word64)` to the imports and a fourth field to `Subscriber`, with
 
 ```haskell
 data Subscriber = Subscriber
-    { subQueue :: !(TBQueue (Vector RecordedEvent))
+    { subQueue :: !(TBQueue DecodedBatch)
     , subStatus :: !(TVar SubscriberStatus)
     , subPolicy :: !OverflowPolicy
     , subDropped :: !(TVar Word64)
@@ -606,7 +681,7 @@ wrapper so `Kiroku.Store.Subscription` and any external caller compile and behav
 -- increments under 'DropOldest', and the action that deregisters the
 -- subscriber (idempotent).
 data PublisherSubscription = PublisherSubscription
-    { subscriptionQueue :: !(TBQueue (Vector RecordedEvent))
+    { subscriptionQueue :: !(TBQueue DecodedBatch)
     , subscriptionStatus :: !(TVar SubscriberStatus)
     , subscriptionDropped :: !(TVar Word64)
     , unsubscribe :: !(IO ())
@@ -623,7 +698,7 @@ subscribePublisherWith ::
 -- Equivalent to 'subscribePublisherWith' with the counter discarded.
 subscribePublisher ::
     EventPublisher -> Natural -> OverflowPolicy ->
-    STM (TBQueue (Vector RecordedEvent), TVar SubscriberStatus, IO ())
+    STM (TBQueue DecodedBatch, TVar SubscriberStatus, IO ())
 subscribePublisher pub cap policy = do
     s <- subscribePublisherWith pub cap policy
     pure (subscriptionQueue s, subscriptionStatus s, unsubscribe s)
@@ -733,135 +808,54 @@ Extend `FromJSON ClientMessage` with `"unsubscribe_metrics" -> pure UnsubscribeM
         object ["type" .= ("error" :: Text), "code" .= code, "message" .= msg]
 ```
 
-Every other `toJSON` equation is untouched. Define the three codes as named constants next to
+Every other `toJSON` equation is untouched. Define the four codes as named constants next to
 the instance so the tests and the guide use one spelling:
 
 ```haskell
 -- | @code@ values carried by 'CodedError' frames. Published once shipped (ADR-9).
-errorCodeReplayFailed, errorCodeCategoryReadFailed, errorCodeEventStreamOverflowed :: Text
+errorCodeReplayFailed, errorCodeCategoryReadFailed, errorCodeEventStreamOverflowed, errorCodeLiveDecodeFailed :: Text
 errorCodeReplayFailed = "replay_failed"
 errorCodeCategoryReadFailed = "category_read_failed"
 errorCodeEventStreamOverflowed = "event_stream_overflowed"
+errorCodeLiveDecodeFailed = "live_decode_failed"
 ```
 
-Export the three constants. Switch the three error sites: `replayHistory` sends
-`CodedError errorCodeReplayFailed (T.pack ("replay error: " <> show err))`; `categoryLoop` sends
-`CodedError errorCodeCategoryReadFailed (T.pack ("category read error: " <> show err))`; the
-overflow site is rewritten below. Keep the message texts unchanged so the existing spec's
-`T.isInfixOf "replay error"` assertion holds.
+Export all four constants. Change replay, category, overflow and live-decode error sites.
+Use fixed sanitized messages retaining the "replay error" and "category read error" phrases
+required by existing assertions, but no Show-rendered database or decode details. Preserve
+the terminal behavior of replay/category/live typed failures.
 
-**Metrics channel lifecycle.** Rewrite `handleMetrics` so the push loop is tracked like the
-events tail:
+**Metrics channel lifecycle.** Track the single push worker so unsubscribe cancels and joins
+it and subscribe resumes it after sending a fresh snapshot. Keep the immediate snapshot on
+connect and existing ping behavior. Do not leave an async acquisition gap: install the
+cleanup scope before the initial start, mask async creation/registration, restore the worker's
+body to normal masking state, and register the handle before unmasking. Propagate unexpected
+worker failure to the connection owner. Cancel and join on disconnect and every exception;
+a best-effort goodbye must not prevent cleanup. Test repeated subscribe/unsubscribe creates
+at most one worker and cancellation during startup leaves none. A naked async/link/writeTVar
+sequence outside the cleanup scope is not acceptable.
 
-```haskell
-handleMetrics cfg m pending = do
-    conn <- WS.acceptRequest pending
-    WS.withPingThread conn 30 (pure ()) $ do
-        sendMsg conn . Snapshot =<< snapshotMetrics m
-        pushVar <- newTVarIO Nothing
-        let stopPush = do
-                mt <- atomically (readTVar pushVar)
-                for_ mt cancel
-                atomically (writeTVar pushVar Nothing)
-            startPush = do
-                running <- atomically (readTVar pushVar)
-                case running of
-                    Just _ -> pure ()
-                    Nothing -> do
-                        t <- async (metricsPushLoop cfg m conn)
-                        link t
-                        atomically (writeTVar pushVar (Just t))
-        startPush
-        finally
-            ( forever $ do
-                cmd <- recvMsg conn
-                case cmd of
-                    Just Ping -> sendMsg conn Pong
-                    Just SubscribeMetrics -> do
-                        sendMsg conn . Snapshot =<< snapshotMetrics m
-                        startPush
-                    Just UnsubscribeMetrics -> stopPush
-                    _ -> pure ()
-            )
-            (stopPush >> sendMsg conn Goodbye)
-```
+**Resolved event encoder and the name cache.** Reuse plan 88's
+`recordedEventToJSONResolved :: Map StreamId StreamName -> RecordedEvent -> Value`.
+It adds only original_stream_name to recordedEventToJSON, as a string or null.
+This plan changes its call sites, not its ownership or contract.
 
-`metricsPushLoop` is unchanged. `metricsReceiveLoop` is folded into the handler above (delete it
-if nothing else uses it). The observable behaviour for an existing client is identical: a
-snapshot on connect, one every `wsPushIntervalUs`, `pong` for `ping`, a snapshot for
-`subscribe_metrics`. The only new behaviour is that `unsubscribe_metrics` silences the periodic
-push and a later `subscribe_metrics` resumes it. Because `link` is applied to each started push
-thread, a push-loop crash still propagates as before.
+Use a per-tail bounded FIFO cache: a Map from StreamId to StreamName plus a Sequence
+of inserted IDs. The capacity is 4096 names; no duplicate IDs in the sequence. Build distinct
+wanted IDs with Set, subtract cached IDs, and issue at most one lookupStreamNames call for
+that batch (none for empty input or all hits). Retain only successfully found names. Merge
+the found names with hits for encoding this entire batch, then evict oldest entries until
+both stored structures are within capacity. Do not encode using the evicted map: names found
+for the current batch must still be present in the temporary result even if that batch
+exceeds capacity. Discard that result after sending. Missing names stay null; typed lookup
+errors use the existing fallback, while asynchronous cancellation propagates.
 
-**Resolved event encoder and the name cache.** If the coordination check in Context and
-Orientation found no `recordedEventToJSONResolved`, define and export it beside
-`recordedEventToJSON`:
+Allocate once for the active tail, thread it through replay, broadcast and category paths,
+and discard on unsubscribe, resubscribe or disconnect. IDs are immutable identity; an evicted
+name may be fetched again. No lifetime-once lookup promise or unbounded Map is made.
+Do not run lookups in publisher STM or for all subscribers in the shared publisher.
 
-```haskell
-{- | 'recordedEventToJSON' plus one additional snake_case key,
-@original_stream_name@: the source stream's name resolved from the map (a JSON
-string), or @null@ when the map has no entry. The camelCase keys are the frozen
-published shape; the new key is optional and clients must tolerate its absence.
-Shared by the REST browse pages and the WebSocket event tail.
--}
-recordedEventToJSONResolved :: Map StreamId StreamName -> RecordedEvent -> Value
-recordedEventToJSONResolved names e =
-    case recordedEventToJSON e of
-        Object o -> Object (KM.insert "original_stream_name" name o)
-        other -> other
-  where
-    name = maybe Null (\(StreamName n) -> String n) (Map.lookup e.originalStreamId names)
-```
-
-with `Data.Aeson.KeyMap qualified as KM`, `Data.Map.Strict (Map)` and `qualified as Map`, and
-`StreamName (..)` imported. Then give the tail a cache. Change `sendEvents` to take the resolver
-state and to resolve before sending:
-
-```haskell
--- | Per-connection cache of resolved stream names for the event tail.
-type NameCache = TVar (Map StreamId StreamName)
-
-{- | Resolve the source stream names of a batch through the public batch lookup,
-consulting and extending the per-connection cache so an id costs one round trip
-the first time it is seen on this connection and none afterwards. A lookup
-failure leaves the cache unchanged and the batch is sent with @null@ names
-rather than dropped; the store remains the source of truth (a client that needs
-the name can fetch the stream page).
--}
-resolveNames :: KirokuStore -> NameCache -> Vector RecordedEvent -> IO (Map StreamId StreamName)
-resolveNames store cacheVar evs = do
-    cached <- readTVarIO cacheVar
-    let wanted = filter (`Map.notMember` cached) (nub (map (.originalStreamId) (V.toList evs)))
-    if null wanted
-        then pure cached
-        else do
-            res <- runStoreIO store (lookupStreamNames wanted)
-            case res of
-                Left _ -> pure cached
-                Right found -> do
-                    let merged = Map.union cached found
-                    atomically (writeTVar cacheVar merged)
-                    pure merged
-
-sendEvents :: KirokuStore -> NameCache -> WS.Connection -> Vector RecordedEvent -> IO ()
-sendEvents store cacheVar conn evs
-    | V.null evs = pure ()
-    | otherwise = do
-        names <- resolveNames store cacheVar evs
-        V.mapM_ (sendMsg conn . Event . recordedEventToJSONResolved names) evs
-```
-
-`nub` comes from `Data.List`; a batch has at most a few hundred events and typically a handful of
-distinct ids, so the quadratic `nub` is fine (or use `Map.keys . Map.fromList` with unit values).
-Allocate the cache once per tail, in `eventTail`
-(`cacheVar <- newTVarIO Map.empty` at the top), and thread `store cacheVar` through
-`replayHistory`, `broadcastLoop`, `categoryLoop`, and their `sendEvents` calls. The cache is
-per-connection so a hard-deleted stream that is later re-created with the same name under a new
-id is never confused: ids, not names, are the keys. `lookupStreamNames` is called with the
-already-filtered id list; on an empty list it returns without a round trip, and `resolveNames`
-skips the call entirely.
-
-**Overflow detection.** Subscribe with the counter and check it after every batch:
+**Overflow detection.** Atomically sample the counter with dequeue and notify before survivors:
 
 ```haskell
 {- | Compare the dropped-batch counter with the value seen at the previous
@@ -870,7 +864,7 @@ without forcing a real overflow.
 -}
 overflowNotice :: Word64 -> Word64 -> Maybe ServerMessage
 overflowNotice previous current
-    | current > previous =
+    | current /= previous =
         Just $
             CodedError
                 errorCodeEventStreamOverflowed
@@ -881,40 +875,32 @@ overflowNotice previous current
     | otherwise = Nothing
 ```
 
-In `eventTail`'s no-category branch replace the `subscribePublisher` call with
-`subscribePublisherWith store.publisher cfg.wsEventQueueCap DropOldest` and use the record's
-fields (`subscriptionQueue`, `subscriptionStatus`, `subscriptionDropped`, `unsubscribe`). Give
-`broadcastLoop` the counter and a `seen` accumulator:
+In the no-category tail use subscribePublisherWith and retain the current DecodedBatch
+resolver from WebSocket.hs: UnchangedBatch filters original events without wrapper rebuilding;
+TransformedBatch filters via decodedEventRecorded and fails on an applicable Undecodable.
+Replace its existing live ErrorMsg with CodedError errorCodeLiveDecodeFailed, a fixed
+sanitized message, and the same terminal behavior. Do not send raw failed events, partial
+successful vectors or continue past the typed failure. Replay and category typed errors also
+retain their current terminal behavior and gain the corresponding coded error.
 
-```haskell
-broadcastLoop store cacheVar conn queue statusVar droppedVar keep = go 0
-  where
-    go seen = do
-        batch <- atomically (readTBQueue queue)
-        sendEvents store cacheVar conn (V.filter keep batch)
-        status <- atomically (readTVar statusVar)
-        case status of
-            Overflowed -> sendMsg conn (CodedError errorCodeEventStreamOverflowed "event stream overflowed; some events dropped")
-            _ -> pure ()
-        dropped <- readTVarIO droppedVar
-        for_ (overflowNotice seen dropped) (sendMsg conn)
-        go dropped
-```
+For each delivery, atomically dequeue the batch and read both subscriptionStatus and
+subscriptionDropped in the same STM transaction. Compare with the previous count, initially
+zero. Send the overflow notice BEFORE resolving/sending that batch's surviving events.
+Only then update the seen count and continue the loop. Retain the defensive Overflowed
+status handling without emitting a duplicate notice for the same sampled drop.
+Word64 subtraction is modulo 2^64; use inequality rather than greater-than so a single
+wraparound still reports the correct delta. Test the wrap boundary.
 
-The `Overflowed` arm is kept as the defensive path the module always had, now coded. Because the
-notice is sent after the batch that follows the drop, the client learns of the loss no later than
-the next delivered batch, which is the earliest moment it could act on it; an idle connection with
-nothing to deliver after the drop learns of it on the next batch, and the message states the count
-so a client can size its re-read. Update the module header (the drop-oldest sentence now says the
-tail is told in-band through the counter) and the Haddocks of `eventTail`, `broadcastLoop`, and
-`sendEvents`. Export `overflowNotice`, `NameCache` is internal.
+A UI must retain its pre-notice last contiguous cursor, mark subsequent live events as hints,
+and recover by re-reading from that saved cursor. A notice after the survivor batch lets a
+client advance past the gap and is incorrect. The queue/counter snapshot ensures drops that
+occur after dequeue are notified before the later batch they affect.
 
 **Changelog.** In `kiroku-metrics/CHANGELOG.md` under `## Unreleased`, `### New Features`: the
 `unsubscribe_metrics` client frame and the resume semantics of `subscribe_metrics`; the `code`
-field on `error` frames with the three codes; the `original_stream_name` key on `event` frames;
+field on `error` frames with the four codes; the `original_stream_name` key on `event` frames;
 and the now-delivered overflow notice (name the previous unreachability plainly, so a reader
-understands why a client may start seeing a frame it never saw before). If this plan introduced
-`recordedEventToJSONResolved`, list it as a new export.
+understands why a client may start seeing a frame it never saw before). The encoder export belongs to plan 88's changelog; avoid duplicate bullets.
 
 **Tests.** Create `kiroku-metrics/test/Test/WebSocketConvergenceSpec.hs`, register it in
 `kiroku-metrics/test/Main.hs` (import and call `WebSocketConvergenceSpec.spec`) and in the
@@ -932,8 +918,8 @@ Under `describe "Kiroku.Metrics.WebSocket (frames)"`, database-free:
    `{"type":"event","event":{"k":1}}` (for `Snapshot`, assert `look ["type"]` is `"snapshot"`
    and `look ["metrics"]` is present, using a snapshot taken from a fresh `newKirokuMetrics`).
 2. `toJSON (CodedError "replay_failed" "boom")` equals
-   `{"type":"error","code":"replay_failed","message":"boom"}`, and the three constants spell
-   `replay_failed`, `category_read_failed`, `event_stream_overflowed`.
+   `{"type":"error","code":"replay_failed","message":"boom"}`, and the four constants spell
+   `replay_failed`, `category_read_failed`, `event_stream_overflowed`, `live_decode_failed`.
 3. `eitherDecode "{\"type\":\"unsubscribe_metrics\"}"` is `Right UnsubscribeMetrics`, and every
    previously accepted client frame still decodes to its constructor.
 4. `recordedEventToJSONResolved` adds exactly one key: build a `RecordedEvent` by hand
@@ -958,31 +944,32 @@ Under `describe "Kiroku.Metrics.WebSocket (convergence, real server)"`, each boo
 7. `original_stream_name` on the live path: subscribe to `/ws/events` with no options, append
    two events to `conv-live-1` and one to `conv-live-2`, and assert the three `event` frames
    carry `original_stream_name` `"conv-live-1"`, `"conv-live-1"`, `"conv-live-2"` in that order.
-8. `original_stream_name` on the replay and category paths: append two events to `conv-cat-1`
+8. `original_stream_name` on the replay and category paths: append two events to `convcat-1`
    before connecting; subscribe with `from_position` 0 and assert both replayed frames name
-   `conv-cat-1`; then, on a new connection, subscribe with `category` `"conv-cat"`, append one
-   event to `conv-cat-2`, and assert the frame names `conv-cat-2`.
+   `convcat-1`; then, on a new connection, subscribe with `category` `"convcat"`, append one
+   event to `convcat-2`, and assert the frame names `convcat-2`.
 9. `replay_failed` end to end: repeat the fourth `WebSocketSpec` example (rename `events`
    before subscribing with `from_position`) and assert the `error` frame's `code` is
    `replay_failed` and its `message` still contains `replay error`.
-10. `category_read_failed` end to end: subscribe with a category, then rename the `events`
-    table, append one event (the append fails, so instead trigger the read by appending
-    before the rename to a stream in the category and renaming immediately after the publisher
-    position advances; if the read has already drained, send `subscribe_events` again with the
-    category to force a fresh `readCategory` from the cursor), and assert an `error` frame with
-    `code` `category_read_failed` arrives; if this proves impossible to make deterministic,
-    record why in Surprises & Discoveries and rely on the encoder test plus a direct assertion
-    that the category branch constructs `CodedError errorCodeCategoryReadFailed` (a
-    `grep`-level structural check is acceptable evidence for a code constant).
+10. `category_read_failed` end to end: append a matching event and wait for the published
+    position, then make the read fail before starting a fresh category subscription with
+    from_position 0. Alternatively use an injected failing store-read runner in the production
+    category loop. Assert the actual coded frame and termination. The fixture category is
+    `convcat` for `convcat-1`, because categoryName splits at the first dash. Never append
+    to a renamed events table or replace this test with grep if a timing race occurs.
 11. Existing frames still flow: after all of the above, `waitForSubscriberCount store 0` holds
     (tails deregister), proving the drop-counter subscription's `unsubscribe` is wired into the
     `finally` as before.
 
-The overflow frame's end-to-end emission is not asserted on a real socket: forcing the
-broadcast loop to fall behind the publisher depends on socket buffering and thread scheduling,
-and a conditional assertion would be flaky. The deterministic proof is split across Milestone 1
-(the counter increments exactly when a batch is dropped) and example 5 (the counter increase
-produces the coded frame); Milestone 3's guide says so.
+Add a deterministic integrated delivery test with a gated frame writer passed to the
+production broadcast helper. Stop its first send, publish enough independently observed
+batches to overflow a capacity-one queue, then release the writer. Assert the actual captured
+coded notice precedes the first survivor and that replay from the last pre-notice cursor
+recovers every dropped event exactly once after deduplication. Separate counter and encoder
+tests alone do not prove wiring/order. No socket-buffer timing assumption is needed.
+Also test no notice on an unchanged counter, both DecodedBatch constructors, terminal typed
+failure, a warm-cache batch with zero lookups, a cold batch with one lookup, and more than
+4096 distinct IDs with bounded retained state and correct current-batch names.
 
 Acceptance for Milestone 2: `cabal test kiroku-metrics-test` passes in full, with
 `kiroku-metrics/test/Test/WebSocketSpec.hs` unchanged (`git diff --stat -- kiroku-metrics/test/Test/WebSocketSpec.hs`
@@ -1134,7 +1121,7 @@ Intention: intention_01m3t7a7jaeewbf71vqrzk4zd8
 Milestone 2 edits and checks:
 
 ```bash
-grep -n "recordedEventToJSONResolved" kiroku-metrics/src/Kiroku/Metrics/WebSocket.hs   # decides the coordination branch
+grep -n "recordedEventToJSONResolved" kiroku-metrics/src/Kiroku/Metrics/WebSocket.hs   # verifies the hard prerequisite
 # edit kiroku-metrics/src/Kiroku/Metrics/WebSocket.hs   (UnsubscribeMetrics, CodedError, codes, handleMetrics, encoder, cache, overflowNotice, broadcastLoop)
 # edit kiroku-metrics/CHANGELOG.md                       (## Unreleased / ### New Features)
 # write kiroku-metrics/test/Test/WebSocketConvergenceSpec.hs
@@ -1152,7 +1139,7 @@ Expected focused tail (the exact example titles are yours to word; the counts ar
 ```text
 Kiroku.Metrics.WebSocket (frames)
   keeps every pre-existing server frame byte-identical [✔]
-  encodes coded error frames and spells the three codes [✔]
+  encodes coded error frames and spells the four codes [✔]
   decodes unsubscribe_metrics and every existing client frame [✔]
   adds exactly original_stream_name to the resolved event object [✔]
   emits an overflow notice only when the drop counter grew [✔]
@@ -1208,6 +1195,10 @@ bun agents/skills/exec-plan/record-provenance.ts revision \
 
 
 ## Validation and Acceptance
+
+The reviewed API, lifecycle and performance obligations in Context and Plan of Work are
+mandatory in addition to the route-specific cases below. Historical transcripts are examples,
+not evidence that the new tests have run; update counts from actual output at implementation.
 
 The plan is accepted when every item below is observed, mapped to IR-12's acceptance list:
 
@@ -1266,14 +1257,14 @@ At the end of Milestone 1, `kiroku-store` (`Kiroku.Store.Subscription.EventPubli
 
 ```haskell
 data Subscriber = Subscriber
-    { subQueue :: !(TBQueue (Vector RecordedEvent))
+    { subQueue :: !(TBQueue DecodedBatch)
     , subStatus :: !(TVar SubscriberStatus)
     , subPolicy :: !OverflowPolicy
     , subDropped :: !(TVar Word64)          -- new
     }
 
 data PublisherSubscription = PublisherSubscription   -- new
-    { subscriptionQueue :: !(TBQueue (Vector RecordedEvent))
+    { subscriptionQueue :: !(TBQueue DecodedBatch)
     , subscriptionStatus :: !(TVar SubscriberStatus)
     , subscriptionDropped :: !(TVar Word64)
     , unsubscribe :: !(IO ())
@@ -1281,12 +1272,12 @@ data PublisherSubscription = PublisherSubscription   -- new
 
 subscribePublisherWith :: EventPublisher -> Natural -> OverflowPolicy -> STM PublisherSubscription   -- new
 subscribePublisher :: EventPublisher -> Natural -> OverflowPolicy
-                   -> STM (TBQueue (Vector RecordedEvent), TVar SubscriberStatus, IO ())            -- unchanged
+                   -> STM (TBQueue DecodedBatch, TVar SubscriberStatus, IO ())            -- unchanged
 ```
 
 with the semantics that `subDropped` increments by one for each batch discarded under
 `DropOldest` and never changes under `PauseAndResume` or `DropSubscription`. This is a PVP-major
-change (record definition), absorbed by the cohort's `kiroku-store` 0.10.0.0 in plan 96.
+change (record definition), absorbed by the cohort's `kiroku-store` 0.11.0.0 in plan 96.
 
 At the end of Milestone 2, `kiroku-metrics` (`Kiroku.Metrics.WebSocket`) exposes, in addition to
 today's exports:
@@ -1294,8 +1285,8 @@ today's exports:
 ```haskell
 data ClientMessage = ... | UnsubscribeMetrics
 data ServerMessage = ... | CodedError !Text !Text
-errorCodeReplayFailed, errorCodeCategoryReadFailed, errorCodeEventStreamOverflowed :: Text
-recordedEventToJSONResolved :: Map StreamId StreamName -> RecordedEvent -> Value   -- owned by plan 88; introduced here only if absent
+errorCodeReplayFailed, errorCodeCategoryReadFailed, errorCodeEventStreamOverflowed, errorCodeLiveDecodeFailed :: Text
+recordedEventToJSONResolved :: Map StreamId StreamName -> RecordedEvent -> Value   -- owned by prerequisite plan 88; reused here
 overflowNotice :: Word64 -> Word64 -> Maybe ServerMessage
 ```
 
@@ -1305,6 +1296,7 @@ Wire contract owned by this plan (published once shipped, per ADR-9):
 {"type":"unsubscribe_metrics"}
 {"type":"error","code":"replay_failed","message":"replay error: ..."}
 {"type":"error","code":"category_read_failed","message":"category read error: ..."}
+{"type":"error","code":"live_decode_failed","message":"live event decoding failed"}
 {"type":"error","code":"event_stream_overflowed","message":"event stream overflowed; N undelivered batch(es) dropped ..."}
 {"type":"event","event":{"eventId":"...","eventType":"...","streamVersion":1,"globalPosition":43,"originalStreamId":9,"originalVersion":1,"payload":{},"metadata":null,"causationId":null,"correlationId":null,"createdAt":"...","original_stream_name":"orders-7"}}
 ```
@@ -1312,7 +1304,7 @@ Wire contract owned by this plan (published once shipped, per ADR-9):
 The `message` texts are not contract; the `code` values and the `original_stream_name` key are.
 
 Dependencies: no new library dependency in either package. `Data.Word`, `Data.Map.Strict`,
-`Data.Aeson.KeyMap`, and `Data.List` come from `base`, `containers`, and `aeson`, all already
+`Data.Set`, `Data.Sequence`, and `Data.Aeson.KeyMap` come from `base`, `containers`, and `aeson`, all already
 present. The only runtime service is PostgreSQL with the existing Kiroku migrations. Locate
 dependency sources through `mori registry show <project> --full` (for example `haskell/aeson`,
 `haskell/stm`, `haskell/containers`) when behaviour is uncertain; for `websockets`, which is not in
@@ -1325,3 +1317,8 @@ nothing depends on `kiroku-metrics`. Sibling plans this plan coordinates with, b
 shared encoder, and plan 96
 (`docs/plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md`) for
 the release that completes IR-12.
+
+
+## API and performance review revision (2026-10-10)
+
+Reviewed against repository HEAD `f1a0209` and the released typed-decoding implementation. Corrected integration contracts and made focused performance evidence a completion gate. Existing authorship history is preserved; this revision records no implemented milestone or accepted performance result. The active requirements above supersede incompatible September design decisions, not published wire contracts.
