@@ -36,7 +36,7 @@
 -  Typed failures no longer stall the shared publisher. Default bounded retries
 -  end with `StopUndecodable` / `SubscriptionUndecodable` and preserve the checkpoint
 -  before the failed event. Explicit callbacks can skip, stop, retry, or record
-+## 0.10.0.0 — 2026-10-09
++## 0.10.0.0 — 2026-10-10
 +
 +### Breaking Changes
 +
@@ -118,7 +118,7 @@
 -* Migration `0013.sql` derives persisted consumer-group size from existing member
 -  rows. Apply with subscription workers stopped; incomplete legacy groups are
 -  refused on next startup until explicitly resized to the intended topology.
-+## 0.7.0.0 — 2026-10-09
++## 0.7.0.0 — 2026-10-10
 +
 +### Breaking Changes
 +
@@ -169,7 +169,7 @@
  # kiroku-otel changelog
  
 -## Unreleased
-+## 0.2.0.11 — 2026-10-09
++## 0.2.0.11 — 2026-10-10
  
 -* Handle the advisory `KirokuEventSubscriptionHandlerStalled` event without
 -  changing subscription span state. Stall counts are available in `kiroku-metrics`.
@@ -221,7 +221,7 @@
  # Changelog
 +
 +
-+## 0.2.0.9 — 2026-10-09
++## 0.2.0.9 — 2026-10-10
 +
 +### Other Changes
 +
@@ -278,7 +278,7 @@
  # Revision history for kiroku-metrics
  
 -## Unreleased
-+## 0.2.0.0 — 2026-10-09
++## 0.2.0.0 — 2026-10-10
  
 -* **Breaking:** `LifecycleCounters` adds `subscriptionHandlerStalls`.
 -  JSON adds `subscription_handler_stalls`; Prometheus adds
@@ -360,7 +360,7 @@
 -  `defaultConsumerGroupConfig` now take validated `ConsumerGroupSize`. Construct
 -  membership with `mkConsumerGroupSize`/`mkConsumerGroup`; non-positive sizes are
 -  rejected at construction. Re-export the smart constructors and read-only accessors.
-+## 0.6.0.0 — 2026-10-09
++## 0.6.0.0 — 2026-10-10
 +
 +### Breaking Changes
 +

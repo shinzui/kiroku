@@ -376,6 +376,8 @@ Record exact source identities, workload inputs, durable work, results and
 uncertainty. Statistical inconclusiveness must remain labelled as such, even
 when the agreed practical acceptance scope is satisfied.
 
+The user explicitly accepted the cumulative EP6 evidence practically on 2026-10-10 and authorized version review. All inconclusive/rejected comparisons and adverse telemetry remain retained; this does not claim statistical equivalence or authorize metadata edits or publication. See `kiroku-store/bench/results/ep6-release/practical-acceptance.md`.
+
 
 ## Improvement-Request Alignment
 
@@ -428,7 +430,8 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Progress
 
-- [x] (2026-10-10) EP6 tail repeat: retain 12 new valid trials/six pairs, independent artifact/work verification, the rejected pooled comparisons, adverse historical telemetry and focused diagnostic. Cleanup and collection complete within the conservative one-hour clock; all VMs stopped and no lease. Performance acceptance and release remain open.
+- [x] (2026-10-10) EP6 practical performance acceptance: user explicitly accepts the bounded cumulative evidence with uncertainty, rejected pooling and telemetry failures preserved; proceed to version review without new experiments.
+- [x] (2026-10-10) EP6 tail repeat: retain 12 new valid trials/six pairs, independent artifact/work verification, the rejected pooled comparisons, adverse historical telemetry and focused diagnostic. Cleanup and collection complete within the conservative one-hour clock; all VMs stopped and no lease. Practical performance acceptance is now explicitly approved; metadata and publication remain open.
 
 - [x] (2026-10-09) Adopted the user's write-performance priority as a hard gate, made stall warnings opt-in, and recorded ADR-11.
 - [x] (2026-10-09) Establish the original-control mixed harness and complete EP1 with proportional evidence under amended ADR-11. Future children and the release select measurements for their actual changed paths; no universal matrix is required.
@@ -636,6 +639,8 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 
 ## Decision Log
+
+- Decision (2026-10-10, explicit user acceptance): the user replied “accept let's continue” to the recommendation to accept the bounded cumulative evidence practically and proceed to version review. Close EP6's practical performance decision under ADR-11, preserving the inconclusive separate policies, rejected cross-session pooling, adverse telemetry and statistical uncertainty. No threshold, fingerprint, raw result or durability contract changes. This supersedes the prior inconclusive-measurement release block for this retained evidence; a reproducible append regression still blocks release. Metadata confirmation and later publication confirmation remain separate gates. Evidence and scope: `kiroku-store/bench/results/ep6-release/practical-acceptance.md`.
 
 - Decision (2026-10-10): the user's continuation authorizes a bounded tail repeat
   using the prior verified payloads and recovery evidence. Retain every prior
@@ -872,6 +877,8 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Outcomes & Retrospective
 
+On 2026-10-10 the user explicitly accepted the retained bounded evidence practically and authorized continuation to version review. The practical performance decision is complete; statistical equivalence remains inconclusive, pooled operator comparisons remain rejected and full telemetry failures remain retained. No additional experiment is queued. EP6 remains In Progress for metadata approval, final artifacts, publication, clean-consumer verification and downstream adoption. See `kiroku-store/bench/results/ep6-release/practical-acceptance.md`.
+
 The user-authorized tail repeat completed 12 additional valid trials, three
 adapter pairs and three successful-hook fan-out pairs, without replacements.
 Cleanup completed in 37.50 minutes from the conservative fixed 04:43:41–05:43:41
@@ -892,8 +899,7 @@ The unchanged full historical telemetry repeat passed 29/30 cases but timed out
 seconds through setup/cleanup without replacing the full failure. Exhausted-category
 reads were 28% above the historical baseline; this adverse CPU-time telemetry is
 retained. No further experiment is queued. Source and release metadata are
-unchanged; performance acceptance, release approval and downstream adoption
-remain open. Evidence: `kiroku-store/bench/results/ep6-tail-repeat/README.md`.
+unchanged; practical performance acceptance is now approved by the user; metadata approval, publication and downstream adoption remain open. Evidence: `kiroku-store/bench/results/ep6-tail-repeat/README.md`.
 
 Implementation update (2026-10-09): **5 of 6 children are Complete**. EP1
 implements durable topology, typed startup refusal, migration-derived legacy
@@ -936,8 +942,7 @@ server error. All 423 store examples, 20 structural checks and 16 controlled
 workloads pass; ADR-14 and unchanged success-path source identities are retained
 with `kiroku-store/bench/results/ep5-unique-violation/`. EP6 is In Progress,
 with integrated correctness passing and retained cumulative default/opt-in
-measurements. Performance acceptance, metadata approval, publication and
-downstream adoption remain outstanding. No package is released.
+measurements. Practical performance acceptance is now explicitly approved; metadata approval, publication and downstream adoption remain outstanding. No package is released.
 
 
 
@@ -1070,3 +1075,5 @@ children remain Complete; EP6 remains In Progress. Performance acceptance,
 metadata approval, publication and downstream adoption remain outstanding.
 
 Revision note (2026-10-10, tail repeat): retain twelve new valid trials and all failed/inconclusive comparisons, record cross-session fingerprint rejection and historical timeout diagnostics, correct current EP6 status and ADR-11 implementation wording. Performance and publication remain open; no additional experiment is queued.
+
+Revision note (2026-10-10, explicit practical acceptance): record the user’s approval to close the cumulative performance decision and proceed to version review. Preserve all strict verdicts, rejected pooling, adverse telemetry and uncertainty; package metadata and publication still require their own confirmations.

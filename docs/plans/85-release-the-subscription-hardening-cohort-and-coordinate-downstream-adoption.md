@@ -77,9 +77,9 @@ user's explicit release-time confirmation.
 
 - [x] (2026-10-10) Complete the user-authorized tail repeat with 12 valid trials, six new pairs and zero replacements; retain separate inconclusive reports, pooled fingerprint rejections and the failed full telemetry command plus focused diagnostic. Cleanup and collection finish within one hour; all VMs stopped and no lease.
 - [x] (2026-10-10) Diagnose live-batch checkpoint accounting and complete the authorized bounded follow-up: 13 valid benchmark trials, three adapter pairs and two fan-out pairs; retain the cancelled final candidate, all adverse evidence and zero replacements. Cleanup and collection finish within the fixed one-hour budget.
-- [ ] Integrated performance acceptance: assess the retained minimum evidence and unresolved p99 uncertainty under ADR-11. The original zero-regression policy remains inconclusive; no strict pass or release readiness is claimed.
+- [x] (2026-10-10) Integrated practical performance acceptance: the user explicitly approves the bounded evidence and continuation to version review under ADR-11. Original zero-regression comparisons remain inconclusive and pooling rejected; adverse telemetry and uncertainty are preserved. Metadata and publication remain gated.
 - [x] (2026-10-10) Gate: plans 81, 82, 83, 84, and 86 are Complete; current living sections, strict ADR validation and the configured capability gate pass. The lifetime member-guard plans 93/92 remain outside this cohort and unimplemented.
-- [x] (2026-10-10) M1: verify all six current Hackage versions and upstream peeled tags, audit changed APIs and discover registered dependents. Exact proposed Cabal/bound/changelog patch is retained in `kiroku-store/bench/results/ep6-release/proposal/`; metadata approval is deferred until the unresolved evidence is assessed.
+- [x] (2026-10-10) M1: verify all six current Hackage versions and upstream peeled tags, audit changed APIs and discover registered dependents. Exact proposed Cabal/bound/changelog patch is retained in `kiroku-store/bench/results/ep6-release/proposal/`; practical performance acceptance is approved; metadata confirmation is the next gate.
 - [ ] M1: present exact package versions, bounds, and changelogs for user confirmation before editing release metadata.
 - [ ] M2: update approved versions/bounds/changelogs and pass formatting, build, test, ADR-5 performance, migration, sdist, Haddock, and flake gates.
 - [ ] M3: after a second explicit publication confirmation, commit, tag, push, publish Hackage/docs and GitHub releases in dependency order; verify clean-consumer resolution.
@@ -159,6 +159,8 @@ user's explicit release-time confirmation.
 
 ## Decision Log
 
+- Decision (2026-10-10, explicit user acceptance): the user replied “accept let's continue” to the recommendation to accept the bounded cumulative evidence practically and proceed to version review. Close EP6's practical performance decision under ADR-11, preserving the inconclusive separate policies, rejected cross-session pooling, adverse telemetry and statistical uncertainty. No threshold, fingerprint, raw result or durability contract changes. This supersedes the prior inconclusive-measurement release block for this retained evidence; a reproducible append regression still blocks release. Metadata confirmation and later publication confirmation remain separate gates. Evidence and scope: `kiroku-store/bench/results/ep6-release/practical-acceptance.md`.
+
 - Decision (2026-10-10): continue with a bounded repeat of the two affected paths
   after the user's instruction, reusing verified builds and calibration. Keep
   the original policy, rejected pooling and all adverse samples; do not count
@@ -209,6 +211,8 @@ user's explicit release-time confirmation.
 
 ## Outcomes & Retrospective
 
+On 2026-10-10 the user explicitly accepted the retained bounded evidence practically and authorized continuation to version review. The practical performance decision is complete; statistical equivalence remains inconclusive, pooled operator comparisons remain rejected and full telemetry failures remain retained. No additional experiment is queued. EP6 remains In Progress for metadata approval, final artifacts, publication, clean-consumer verification and downstream adoption. See `kiroku-store/bench/results/ep6-release/practical-acceptance.md`.
+
 The user-authorized tail repeat completed 12 additional valid trials, three
 adapter pairs and three successful-hook fan-out pairs, without replacements.
 Cleanup completed in 37.50 minutes from the conservative fixed 04:43:41–05:43:41
@@ -229,8 +233,7 @@ The unchanged full historical telemetry repeat passed 29/30 cases but timed out
 seconds through setup/cleanup without replacing the full failure. Exhausted-category
 reads were 28% above the historical baseline; this adverse CPU-time telemetry is
 retained. No further experiment is queued. Source and release metadata are
-unchanged; performance acceptance, release approval and downstream adoption
-remain open. Evidence: `kiroku-store/bench/results/ep6-tail-repeat/README.md`.
+unchanged; practical performance acceptance is now approved by the user; metadata approval, publication and downstream adoption remain open. Evidence: `kiroku-store/bench/results/ep6-tail-repeat/README.md`.
 
 EP6 is In Progress. All five implementation children are Complete. Integrated
 `cabal build all` and `cabal test all --test-show-details=direct` pass (554 examples
@@ -258,7 +261,7 @@ slowdown is confirmed, but zero regression and tail-latency safety remain
 inconclusive. The original statistical policy is unchanged. The focused repeat
 of both CPU telemetry timeout cases passed in 96.00 seconds without replacing
 the original failure. Full evidence: `kiroku-store/bench/results/ep6-diagnosis/`.
-Version approval remains deferred while this evidence is assessed.
+Version review now proceeds on the explicit practical acceptance recorded above.
 
 Authoritative release scope and the exact proposed metadata patch are retained in
 `kiroku-store/bench/results/ep6-release/`. Package metadata remains unchanged
@@ -412,9 +415,7 @@ this plan.
 
 Run the whole integrated cohort against the original pre-cohort control, not only each child's
 immediate predecessor, to expose cumulative costs. Present each write scenario separately with
-uncertainty and raw results. Default-path regressions or inconclusive measurements keep this
-release gate open; do not proceed to publication by relaxing the performance contract. Separately
-report opt-in watchdog cost and preserve the existing structural/controlled append gates.
+uncertainty and raw results. Reproducible default-path append regressions keep the release gate open. The user’s explicit practical acceptance on 2026-10-10 closes the evidence decision for the retained cumulative results despite statistical inconclusiveness, without changing the comparison policy or claiming equivalence. Proceed to metadata review; publication still requires its own approval and artifact checks. Separately report opt-in watchdog cost and preserve the existing structural/controlled append gates.
 
 Run release preparation from the Kiroku repository root:
 
@@ -489,7 +490,7 @@ requires expanding a queue. Preserve the original statistical policy and all
 unmatched, interrupted, inconclusive and adverse evidence. Report uncertainty
 honestly; a reproducible append regression still blocks release. If useful
 precision cannot fit, report the conflict before launching or keep acceptance
-inconclusive. Never change durability or post-hoc thresholds to manufacture a pass.
+inconclusive. Never change durability or post-hoc thresholds to manufacture a pass. For the retained EP6 results, the user explicitly approved practical acceptance on 2026-10-10 with these limitations preserved; no further experiment is required to proceed to metadata review.
 
 All Kiroku child-plan acceptance tests, ADR/OKF gates, ADR-5 performance gates (with
 focused integrated coverage selected above), PostgreSQL 18 package tests,
@@ -588,3 +589,5 @@ Revision note (2026-10-10): Defer release approval; diagnose live publisher batc
 Revision note (2026-10-10): Close the authorized follow-up within one hour, retain 13 valid trials and the cancelled final candidate, report five matched pairs plus descriptive diagnostic cost, and keep p99/statistical acceptance and release open. All remote resources are stopped.
 
 Revision note (2026-10-10, tail repeat): preserve 12 new valid trials/six pairs, cross-session fingerprint rejections, adverse full telemetry and its focused diagnostic; narrow the non-reproduced adapter tail signal without claiming strict acceptance. Performance, metadata approval and publication remain outstanding.
+
+Revision note (2026-10-10, explicit practical acceptance): record the user’s approval to close the cumulative performance decision and proceed to version review. Preserve all strict verdicts, rejected pooling, adverse telemetry and uncertainty; package metadata and publication still require their own confirmations.

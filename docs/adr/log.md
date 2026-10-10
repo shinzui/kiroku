@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-10
+* **Update**: ADR-11: Record explicit EP6 practical acceptance with statistical uncertainty, rejected pooling and adverse telemetry preserved; proceed to version review.
 * **Update**: Correct the historical implementation status: plan 84 implements the inactive diagnostic default and opt-in watchdog; performance policy is unchanged.
 * **Decision**: ADR-14: classify exact unique constraint names and preserve stream-version invariant failures as unexpected server errors.
 * **update**: ADR-8: document optional stall-duration startup validation exception

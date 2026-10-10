@@ -8,7 +8,7 @@ generated:
 docId: ADR-11
 status: Accepted
 date: 2026-10-09
-timestamp: "2026-10-10T05:09:00Z"
+timestamp: "2026-10-10T13:52:05Z"
 originatingPlan: docs/masterplans/12-harden-the-kiroku-event-store-and-subscription-machinery-surfaced-by-the-2026-07-kiroku-review.md
 ---
 
@@ -72,6 +72,8 @@ append comparison for the completed cohort in EP-6 before release, using a
 focused experiment within the one-hour whole-experiment ceiling. Do not require
 another remote mixed-write benchmark for each child or relabel an inconclusive
 comparison as a statistical pass.
+
+On 2026-10-10 the user explicitly accepted EP-6's bounded cumulative evidence practically and authorized version review. The retained 25 valid trials include six adapter and five successful-hook pairs across two sessions. The latest adapter p99 estimate is +0.06% (95% -4.17% to +4.47%); the earlier large tail increase did not reproduce. Separate statistical policies remain inconclusive; the operator rejects pooling because reported host memory differs by 4096 bytes across boots. Full historical telemetry retains its timeouts and adverse exhausted-category result despite focused passes. No raw result, fingerprint, threshold or durability requirement changes. This is practical acceptance of this cohort's evidence, not a statistical equivalence claim or permission for reproducible append regressions. Release metadata and publication require their own approvals. The complete decision and evidence links are in `kiroku-store/bench/results/ep6-release/practical-acceptance.md`.
 
 Handler-stall diagnostics are opt-in: `handlerStallWarnAfter = Nothing` in the store and both
 adapter defaults. The disabled path creates no watchdog thread, tracking cell, timer, per-delivery
