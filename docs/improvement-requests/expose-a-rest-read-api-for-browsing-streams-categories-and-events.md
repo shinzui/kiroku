@@ -9,9 +9,9 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-10-10T16:10:46Z"
+timestamp: "2026-10-10T18:13:05Z"
 requestId: IR-8
-status: accepted
+status: in_progress
 origin: mori://shinzui/keiro-ui
 reviews:
   - kind: model
@@ -51,6 +51,17 @@ independently verifiable milestones, as EP-3 of
 which coordinates IR-8 through IR-12 as one cohort and releases them together. The request
 moves to `in_progress` when that plan's first milestone starts and to `completed` once the
 cohort release is published.
+
+## Implementation Status (2026-10-10)
+
+EP-3 implementation started with its SQL promotion milestone. The focused
+PostgreSQL 18.6 check rejected the prefix prototype: absent-prefix work scales
+with the stream inventory under generic plans and under ICU custom plans.
+[Evidence and reproduction](../../kiroku-store/bench/results/mp13-ep3-prefix/README.md)
+retain full plans, exact inputs and owned-server cleanup. No core browse API or
+HTTP route has landed; a reviewed prefix design must resolve the read/write
+trade-off before promotion. This is a feasibility result, not implementation or
+release acceptance. Status is `in_progress`; completion remains with plan 96.
 
 ## Context
 

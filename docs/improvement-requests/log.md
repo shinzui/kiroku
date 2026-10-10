@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-10
+* **Implementation**: IR-8 moves to `in_progress`; plan 88 executes its required PostgreSQL 18 SQL promotion check and rejects inventory-proportional prefix scans. Evidence is retained; production browse APIs and routes await a reviewed read/write design.
 * **Implementation**: IR-10 moves to `in_progress`; plan 87 adds durable checkpoint inventory and the provider-based inspection composition under MasterPlan 13. Release remains with plan 96.
 * **Update**: IR-7 through IR-18 gain recorded authoring-metadata reviews where absent. These reviews check profile metadata only and record comments; they provide no technical acceptance or release evidence. Empty lists did not satisfy the existing strict requirement.
 * **Update**: IR-11 moves to `in_progress`; plan 90 implements and tests the default-off CORS foundation under MasterPlan 13. Release and completion remain with plan 96.

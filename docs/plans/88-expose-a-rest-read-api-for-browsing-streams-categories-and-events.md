@@ -22,6 +22,11 @@ provenance:
       at: 2026-10-10T15:41:07Z
       mode: "update"
       note: "Correct current APIs, integration ownership and bounded observer work; runtime acceptance remains pending."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-10T18:08:46Z
+      mode: "implement"
+      note: "Begin EP-3 with the required sparse-prefix SQL promotion check"
   reviews:
     - model: "gpt-6-astra"
       harness: "codex-cli"
@@ -93,7 +98,9 @@ dependency.
 ## Progress
 
 - [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
-- [ ] Implement and execute the focused correctness and performance acceptance added by this review.
+- [x] (2026-10-10) M0: execute the focused existing-index SQL prototype check on PostgreSQL 18.6; retain 80 initial and 152 expanded EXPLAIN cases, migration hashes and verified owned-server cleanup.
+- [ ] M0 remaining: revise and review the prefix design after the failed promotion gate. No production browse SQL or HTTP route may be promoted yet.
+- [ ] Implement and execute the remaining focused correctness and performance acceptance added by this review.
 
 - [ ] M1: add `listStreamsStmt`, `listCategoriesStmt`, and `getEventStmt` to `kiroku-store/src/Kiroku/Store/SQL.hs` with encoders and SQL text.
 - [ ] M1: add `ListStreams`, `ListCategories`, and `GetEvent` constructors to the `Store` effect in `kiroku-store/src/Kiroku/Store/Effect.hs` and interpret them in `runStorePool` (with the read `decodeReadEvents` path applied to `GetEvent`).
@@ -113,12 +120,36 @@ dependency.
 
 ## Surprises & Discoveries
 
+- 2026-10-10 implementation: the prefix prototype fails Milestone 0. An absent
+  prefix examines 1,003 / 20,003 rows at 1K / 20K noise inventory under generic
+  plans in both C and English ICU collations (page limit 11). A mandatory cursor
+  becomes an Index Cond but examines 502 / 19,502 rows; LIKE is no remedy for
+  generic plans. ICU custom plans also scan inventory. Category nullable-cursor
+  generic plans have the same scaling defect; first/mandatory-cursor variants
+  reduce the after-last-category case to zero examined rows and 1 / 2 buffers.
+  [Retained evidence](../../kiroku-store/bench/results/mp13-ep3-prefix/README.md)
+  contains exact SQL, full plans, migration hashes and cleanup. No append
+  regression or observer neutrality was measured. No production primitive has
+  landed, and the gate has not passed.
+
 - 2026-10-10 source review: The proposed Hasql interpreter swapped cursor and prefix; GetEvent treated DecodedBatch as a vector. LIMIT did not prove sparse-prefix query work bounded, and an exported unvalidated limit could overflow during over-fetch. No runtime acceptance is inferred from this finding.
 
-(None yet.)
 
 
 ## Decision Log
+
+- Decision (2026-10-10 implementation): reject the nullable/prefix prototype and
+  hold Milestones 1–4 pending a reviewed prefix redesign. Splitting cursor
+  predicates is necessary for category queries, but insufficient for generic
+  prefix queries. Do not force C collation, silently replace literal-prefix
+  semantics, or add an index as an incidental implementation change.
+  Rationale: measured work grows with inventory despite response LIMIT, violating
+  this plan's explicit promotion gate and ADR-15. A prefix index would require
+  a separate read/write design and append-cost review; retaining no migration
+  leaves no demonstrated general solution. Use a local psql diagnostic over
+  the actual migration SQL to reject the prototype before adding production
+  statements or Hasql APIs; migrate any approved query shape into the existing
+  PerformanceStructure tests when implementation resumes.
 
 - Decision (2026-10-10): the reviewed Context and Plan of Work supersede incompatible September choices on dependencies, routes, decoding, method handling, bounds and performance. Implementation remains pending; durable constraints are in ADR-15.
   Rationale: the released APIs changed and the original sketches contained correctness and shared-resource hazards.
@@ -274,9 +305,18 @@ dependency.
 
 ## Outcomes & Retrospective
 
+2026-10-10 implementation stopping point: Milestone 0 was executed and rejected
+its stream-prefix prototype. The initial and expanded local runs took 3.62 and
+4.97 seconds, including setup and cleanup; both owned clusters were verified
+stopped. EP-3 is In Progress, not Complete. The core primitives, HTTP routes,
+wire tests, example and documentation remain unimplemented; no release or
+cumulative append-under-observer acceptance is claimed. Existing-index category
+cursor splitting is viable, but does not resolve prefix filtering. ADR distillation
+found this stop already covered by ADR-15; no new architectural decision was
+made. Resume by reviewing an explicit prefix read/write design before M1.
+
 2026-10-10 review: implementation and performance acceptance remain pending. Static review does not prove zero runtime regression. Earlier planning-time observations and dated decisions are historical where this revision explicitly replaces them.
 
-(To be filled during and after implementation.)
 
 
 ## Context and Orientation
@@ -535,6 +575,13 @@ follow-up.
 ## Plan of Work
 
 ### Milestone 0 — prove read work before promoting the SQL
+
+**Current state (2026-10-10): executed, promotion rejected.** Run the retained
+[diagnostic](../../scripts/mp13-browse-sql-prototype.py) as described in the
+[evidence README](../../kiroku-store/bench/results/mp13-ep3-prefix/README.md).
+Exit 2 is the expected rejection, not a passing performance gate. Do not begin
+M1 with the SQL sketch below. Resolve the no-migration/prefix/collation conflict
+through an explicit reviewed design first; leave the remaining milestones open.
 
 Add focused cases to `kiroku-store/test/Test/PerformanceStructure.hs` using the existing
 EXPLAIN machinery. Check first and later pages under both forced generic and custom plans.
@@ -1287,3 +1334,10 @@ this plan.
 ## API and performance review revision (2026-10-10)
 
 Reviewed against repository HEAD `f1a0209` and the released typed-decoding implementation. Corrected integration contracts and made focused performance evidence a completion gate. Existing authorship history is preserved; this revision records no implemented milestone or accepted performance result. The active requirements above supersede incompatible September design decisions, not published wire contracts.
+
+## SQL promotion implementation revision (2026-10-10)
+
+Executed M0 against the current fourteen migrations on PostgreSQL 18.6. Retained
+the failed prefix plans and viable category cursor variants, added a bounded
+reproduction script, and recorded the stop before production implementation.
+The rejection changes no API, migration, index, version or published wire shape.

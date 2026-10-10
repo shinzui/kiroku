@@ -26,6 +26,11 @@ provenance:
       at: 2026-10-10T17:30:29Z
       mode: "implement"
       note: "Coordinate EP-2 implementation and validation"
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-10T18:08:46Z
+      mode: "implement"
+      note: "Coordinate EP-3 SQL promotion and implementation"
   reviews:
     - model: "gpt-6-astra"
       harness: "codex-cli"
@@ -198,7 +203,7 @@ Integration Points.
 |---|-------|------|-----------|-----------|--------|
 | 1 | Add configurable CORS support to kiroku-metrics (IR-11) | docs/plans/90-add-configurable-cors-support-to-kiroku-metrics.md | None | None | Complete |
 | 2 | Serve durable subscription checkpoints over HTTP (IR-10) | docs/plans/87-serve-durable-subscription-checkpoints-over-http.md | EP-1 | None | Complete |
-| 3 | Expose a REST read API for browsing streams, categories, and events (IR-8) | docs/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md | EP-2 | EP-4 | Not Started |
+| 3 | Expose a REST read API for browsing streams, categories, and events (IR-8) | docs/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md | EP-2 | EP-4 | In Progress |
 | 4 | Expose a public dead-letter read API (IR-9) | docs/plans/89-expose-a-public-dead-letter-read-api.md | EP-2 | EP-3 | Not Started |
 | 5 | Converge the kiroku-metrics WebSocket protocol with the cross-project convention (IR-12) | docs/plans/94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention.md | EP-3 | None | Not Started |
 | 6 | Serve the Kiroku inspection surface standalone and make it self-describing | docs/plans/95-serve-the-kiroku-inspection-surface-standalone-and-make-it-self-describing.md | EP-1, EP-2, EP-3, EP-4, EP-5 | None | Not Started |
@@ -252,7 +257,8 @@ Haskell selector corsIsEnabled and ProviderPresence uses presentWebSocketChannel
 conflicting umbrella exports. The JSON cors.enabled spelling is unchanged.
 
 EP-3 owns validated BrowseLimits and same-query cursor/prefix correctness. Its nullable/prefix
-SQL is a prototype requiring sparse-prefix generic/custom EXPLAIN proof before promotion.
+SQL failed the sparse-prefix generic/custom EXPLAIN promotion check on 2026-10-10;
+a reviewed prefix redesign is required before production implementation.
 EP-4 bounds all-member candidates by member count times page size using existing per-member
 index scans, including historical members. No child adds an append index or changes collation
 to hide read costs without a separate reviewed design. Inventory is explicitly unpaginated;
@@ -462,6 +468,8 @@ rule suffices.
       segment, legacy starters as delegations.
 - [x] (2026-10-10) EP-2: end-to-end checkpoint tests; documentation, example step, CAP-17, changelog, IR-10
       evidence.
+- [x] (2026-10-10) EP-3: execute M0 existing-index prototype diagnostics; reject inventory-proportional prefix work and retain evidence.
+- [ ] EP-3: review and resolve the prefix read/write design before promoting browse SQL.
 - [ ] EP-3: `listStreams`, `listCategories`, `getEvent` in `kiroku-store` with database, mock,
       and structural tests.
 - [ ] EP-3: `Kiroku.Metrics.Browse`, `recordedEventToJSONResolved`, the `browser` field and
@@ -490,6 +498,15 @@ rule suffices.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-10 EP-3 implementation: M0 rejects the stream-prefix SQL prototype.
+  Generic absent-prefix plans examine 20,003 rows for an eleven-row limit;
+  mandatory cursors still examine 19,502 rows. ICU custom plans also scan.
+  Category mandatory-cursor variants solve their seek problem, but not prefix
+  filtering. [Retained evidence](../../kiroku-store/bench/results/mp13-ep3-prefix/README.md)
+  records the two local runs, exact inputs, plans and stopped owned clusters.
+  EP-3 remains In Progress awaiting a reviewed prefix design; consequently
+  EP-5, EP-6 and EP-7 remain blocked on it. EP-4 is independently eligible.
 
 - 2026-10-10 EP-2 implementation: one provider composition now preserves CORS,
   mount-relative HTTP/WebSocket dispatch and the disabled WebSocket gate. All
@@ -558,6 +575,14 @@ rule suffices.
 
 
 ## Decision Log
+
+- Decision (2026-10-10 EP-3): retain EP-3 as In Progress and hold its production
+  milestones after the measured prefix promotion failure. EP-5, EP-6 and EP-7
+  retain their hard dependency on completed EP-3; EP-4 remains independent.
+  Rationale: shipping inventory-proportional observer work or silently adding a
+  write-cost-bearing index would bypass the reviewed constraints. ADR-15 already
+  governs the required prefix read/write redesign; no new ADR is needed for this
+  task-local rejection.
 
 - Decision (2026-10-10): use the hard-dependency graph above, single owners for shared helpers,
   the nonshadowing checkpoint route, typed decoding, bounded tail state and proportional
@@ -691,6 +716,14 @@ rule suffices.
 
 ## Outcomes & Retrospective
 
+2026-10-10 EP-3 stopping point: two of seven children remain Complete. EP-3 is
+In Progress with its required SQL promotion gate rejected, not performance
+accepted. No core browse primitive or route was installed. The no-migration,
+literal-prefix and database-collation constraints need a reviewed design before
+implementation continues; ADR-15 already governs this stop. EP-4 remains
+independently eligible. Publication and cumulative observer evidence remain
+outstanding with EP-7.
+
 2026-10-10 EP-2 implementation: two of seven children are now Complete. The durable
 inventory, compatible provider composition, readiness and supervised cleanup are
 implemented, with 19 new metrics cases. All six repository suites passed (593 examples);
@@ -732,3 +765,10 @@ EP-1 and EP-2 are Complete; their focused correctness, affected-path, build and
 documentation evidence is in plans 90 and 87. ADR-16 captures CORS, and ADR-15
 records supervised callback/server cleanup. EP-3 is next. No cohort release or
 cumulative append performance acceptance is claimed.
+
+## EP-3 SQL promotion implementation revision (2026-10-10)
+
+Started EP-3 and retained the failing M0 evidence. Its registry status is
+In Progress. The prototype was held as required; no production API, index,
+migration or version change was made. A reviewed prefix redesign is the next
+EP-3 step. No performance gate was weakened.
