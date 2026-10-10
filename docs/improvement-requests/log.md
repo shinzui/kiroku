@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-10
+* **Update**: IR-8 retains category-first existing-index evidence requested by the user. Category equality is useful, while ordered pages and prefix filtering still scale with selected-category size. Arbitrary prefix search remains required; no new index or production API was added and status remains `in_progress`.
 * **Implementation**: IR-8 moves to `in_progress`; plan 88 executes its required PostgreSQL 18 SQL promotion check and rejects inventory-proportional prefix scans. Evidence is retained; production browse APIs and routes await a reviewed read/write design.
 * **Implementation**: IR-10 moves to `in_progress`; plan 87 adds durable checkpoint inventory and the provider-based inspection composition under MasterPlan 13. Release remains with plan 96.
 * **Update**: IR-7 through IR-18 gain recorded authoring-metadata reviews where absent. These reviews check profile metadata only and record comments; they provide no technical acceptance or release evidence. Empty lists did not satisfy the existing strict requirement.

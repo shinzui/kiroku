@@ -99,7 +99,8 @@ dependency.
 
 - [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
 - [x] (2026-10-10) M0: execute the focused existing-index SQL prototype check on PostgreSQL 18.6; retain 80 initial and 152 expanded EXPLAIN cases, migration hashes and verified owned-server cleanup.
-- [ ] M0 remaining: revise and review the prefix design after the failed promotion gate. No production browse SQL or HTTP route may be promoted yet.
+- [x] (2026-10-10) M0 follow-up: evaluate category-scoped stream paging and prefix filtering with existing indexes; retain 192 correct-result EXPLAIN cases and verified server cleanup.
+- [ ] M0 remaining: resolve ordered paging within large categories and the general prefix design after the failed promotion gates. No production browse SQL or HTTP route may be promoted yet.
 - [ ] Implement and execute the remaining focused correctness and performance acceptance added by this review.
 
 - [ ] M1: add `listStreamsStmt`, `listCategoriesStmt`, and `getEventStmt` to `kiroku-store/src/Kiroku/Store/SQL.hs` with encoders and SQL text.
@@ -120,6 +121,18 @@ dependency.
 
 ## Surprises & Discoveries
 
+- 2026-10-10 category follow-up: category equality does use the existing category
+  index. Applying category/cursor/prefix filters in a materialized CTE before
+  ordering kept a 1,001-stream category at 1,001 examined rows / 27 buffers when
+  unrelated streams grew from 1K to 20K. Growing that category to 20,001 streams
+  raised work to 20,001 rows / 439 buffers for an eleven-row page. Direct LIMIT
+  plans sometimes scanned unrelated inventory through the name index instead.
+  All 192 cases returned correct results; C and English ICU, generic and custom
+  modes agreed on these counts. Late cursors were cheap in some direct plans,
+  while prefix filtering continued to scan the selected category. See the
+  [category evidence](../../kiroku-store/bench/results/mp13-ep3-category/README.md).
+  No index, migration or production API was added; no gate was relaxed.
+
 - 2026-10-10 implementation: the prefix prototype fails Milestone 0. An absent
   prefix examines 1,003 / 20,003 rows at 1K / 20K noise inventory under generic
   plans in both C and English ICU collations (page limit 11). A mandatory cursor
@@ -137,6 +150,17 @@ dependency.
 
 
 ## Decision Log
+
+- Decision (2026-10-10 user-directed follow-up): investigate category-scoped
+  stream browsing first with the existing schema, because users normally browse
+  streams inside a category. Keep arbitrary prefix search as a valid UI
+  requirement; neither global search nor literal prefix semantics is dropped.
+  Rationale: category is already a generated, indexed column, so an explicit
+  category predicate should be evaluated before any index proposal. The measured
+  category-first variant removes unrelated-inventory scaling in these fixtures,
+  but still has category-sized sort/filter work; it is not approved for promotion.
+  The API signature and route query parameters remain proposals pending this
+  design decision. The user's no-new-index constraint applies to this experiment.
 
 - Decision (2026-10-10 implementation): reject the nullable/prefix prototype and
   hold Milestones 1–4 pending a reviewed prefix redesign. Splitting cursor
@@ -304,6 +328,16 @@ dependency.
 
 
 ## Outcomes & Retrospective
+
+2026-10-10 category follow-up: completed the user's requested no-new-index
+prototype in 15.97 seconds with correct results in 192 cases and a verified
+stopped cluster. Category equality is useful for the primary UI workflow;
+materialization contained work to the selected category in the tested fixtures.
+The remaining scaling risk is inside a large category, plus the earlier global
+prefix issue. EP-3 remains In Progress with all production milestones open.
+Arbitrary prefix search remains required. ADR-15 already covers the bounded-work
+obligation; this investigation selects no new architecture or index, so no ADR
+revision is needed.
 
 2026-10-10 implementation stopping point: Milestone 0 was executed and rejected
 its stream-prefix prototype. The initial and expanded local runs took 3.62 and
@@ -579,6 +613,12 @@ follow-up.
 **Current state (2026-10-10): executed, promotion rejected.** Run the retained
 [diagnostic](../../scripts/mp13-browse-sql-prototype.py) as described in the
 [evidence README](../../kiroku-store/bench/results/mp13-ep3-prefix/README.md).
+The user-directed category follow-up is retained in
+[its evidence README](../../kiroku-store/bench/results/mp13-ep3-category/README.md).
+Run the same diagnostic with `--scope category-streams` to reproduce it. It
+proves category equality can use the existing index while category-sized work
+remains. Category-first browsing is the investigation priority, and arbitrary
+prefix search remains a valid requirement. No API shape or new index is selected.
 Exit 2 is the expected rejection, not a passing performance gate. Do not begin
 M1 with the SQL sketch below. Resolve the no-migration/prefix/collation conflict
 through an explicit reviewed design first; leave the remaining milestones open.
@@ -1341,3 +1381,10 @@ Executed M0 against the current fourteen migrations on PostgreSQL 18.6. Retained
 the failed prefix plans and viable category cursor variants, added a bounded
 reproduction script, and recorded the stop before production implementation.
 The rejection changes no API, migration, index, version or published wire shape.
+
+## Category-first prototype revision (2026-10-10)
+
+Evaluated the user-requested category-first workflow using existing indexes.
+Retained correct-result and EXPLAIN evidence for category and unrelated-inventory
+scaling; kept arbitrary prefix search required and all production milestones open.
+No new index, migration, collation, API signature or acceptance threshold was added.

@@ -56,4 +56,9 @@ it is not authorized implicitly by this failed prototype.
 
 PostgreSQL's [B-tree documentation](https://www.postgresql.org/docs/18/indexes-types.html)
 and [operator-class documentation](https://www.postgresql.org/docs/18/indexes-opclass.html)
-explain the locale-dependent pattern-index restriction. The measured plans,+rather than that documentation alone, determine this rejection.
+explain the locale-dependent pattern-index restriction. The measured plans,
+rather than that documentation alone, determine this rejection.
+
+The subsequent user-directed category-scoped experiment is retained in
+[its README](../mp13-ep3-category/README.md). It evaluates the existing category
+index without adding an index or removing the arbitrary-prefix requirement.

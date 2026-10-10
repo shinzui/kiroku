@@ -56,9 +56,86 @@ def nodes(plan):
         yield from nodes(child)
 
 
+def category_streams_probe(sql, database, evidence, save):
+    """Measure category equality without changing indexes or planner settings."""
+    queries = {
+        "first": ("text,integer", "category = $1", "$2"),
+        "after": ("text,text,integer", "category = $1 AND stream_name > $2", "$3"),
+        "prefix_first": ("text,text,integer", "category = $1 AND starts_with(stream_name,$2)", "$3"),
+        "prefix_after": ("text,text,text,integer",
+                         "category = $1 AND stream_name > $2 AND starts_with(stream_name,$3)", "$4"),
+    }
+    for target_size, noise_size in [(1000, 1000), (1000, 20000), (20000, 20000)]:
+        seed = ("SET search_path TO kiroku, pg_catalog;\n"
+                f"INSERT INTO streams(stream_name) SELECT 'noise-' || lpad(n::text,6,'0') "
+                f"FROM generate_series(1,{noise_size}) n ON CONFLICT DO NOTHING;\n"
+                f"INSERT INTO streams(stream_name) SELECT 'orders-' || lpad(n::text,6,'0') "
+                f"FROM generate_series(1,{target_size}) n ON CONFLICT DO NOTHING;\n"
+                "INSERT INTO streams(stream_name) VALUES ('orders') ON CONFLICT DO NOTHING;\n"
+                "ANALYZE streams;")
+        sql(seed, database)
+        evidence.setdefault("fixtures", []).append({"database": database, "sql": seed})
+        # The first two fixtures vary unrelated inventory only; the third varies
+        # the selected category. This separates global and within-category work.
+        cases = [
+            ("first", "'orders',11", None, None),
+            ("first", "'missing',11", None, None),
+            ("after", f"'orders','orders-{target_size-10:06}',11", f"orders-{target_size-10:06}", None),
+            ("after", "'orders','orders-999999',11", "orders-999999", None),
+            ("prefix_first", "'orders','ord',11", None, "ord"),
+            ("prefix_first", "'orders','orders-00099',11", None, "orders-00099"),
+            ("prefix_first", "'orders','absent-',11", None, "absent-"),
+            ("prefix_after", "'orders','orders-000995','orders-00099',11", "orders-000995", "orders-00099"),
+        ]
+        for mode in ["force_generic_plan", "force_custom_plan"]:
+            for variant, parameters, cursor, prefix in cases:
+                types, where, limit = queries[variant]
+                for shape in ["direct", "materialized"]:
+                    matching = f"SELECT {COLUMNS} FROM streams WHERE stream_id <> 0 AND {where}"
+                    query = (matching + f" ORDER BY stream_name LIMIT {limit}" if shape == "direct" else
+                             f"WITH matching AS MATERIALIZED ({matching}) "
+                             f"SELECT * FROM matching ORDER BY stream_name LIMIT {limit}")
+                    settings = ("SET search_path TO kiroku, pg_catalog;\n"
+                                f"SET plan_cache_mode = {mode};\n"
+                                "SET statement_timeout = '10s';\n"
+                                f"PREPARE probe({types}) AS {query};\n")
+                    execute = f"EXECUTE probe({parameters})"
+                    transcript = settings + "EXPLAIN (ANALYZE,BUFFERS,COSTS OFF,TIMING OFF,FORMAT JSON) " + execute + ";"
+                    plan = json.loads(sql(transcript, database))
+                    top = plan[0]["Plan"]
+                    scans = [n for n in nodes(top) if n.get("Relation Name") == "streams"]
+                    examined = sum((n.get("Actual Rows", 0) + n.get("Rows Removed by Filter", 0)
+                                    + n.get("Rows Removed by Index Recheck", 0))
+                                   * n.get("Actual Loops", 1) for n in scans)
+                    buffers = top.get("Shared Hit Blocks", 0) + top.get("Shared Read Blocks", 0)
+                    # Check membership, ordering and exclusive cursors independently
+                    # against the exact predicate, outside the timed EXPLAIN statement.
+                    actual = sql(settings + execute + ";", database).splitlines()
+                    actual_names = [row.split("|")[1] for row in actual]
+                    is_missing = parameters.startswith("'missing'")
+                    category = "missing" if is_missing else "orders"
+                    expected_sql = f"SELECT stream_name FROM kiroku.streams WHERE stream_id <> 0 AND category = '{category}'"
+                    if cursor is not None:
+                        expected_sql += f" AND stream_name > '{cursor}'"
+                    if prefix is not None:
+                        expected_sql += f" AND starts_with(stream_name,'{prefix}')"
+                    expected = sql(expected_sql + " ORDER BY stream_name LIMIT 11;", database).splitlines()
+                    if actual_names != expected:
+                        raise RuntimeError("category query failed result equivalence")
+                    evidence["cases"].append({
+                        "database": database, "target_streams": target_size + 1,
+                        "noise_streams": noise_size, "mode": mode, "variant": variant, "shape": shape,
+                        "category": category, "cursor": cursor, "prefix": prefix,
+                        "sql": transcript, "plan": plan, "rows_examined": examined, "buffers": buffers,
+                        "items": actual_names, "correct_results": True,
+                        "within_budget": examined <= 64 and buffers <= 64})
+                    save()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--scope", choices=["prefix", "category-streams"], default="prefix")
     args = parser.parse_args()
     if args.output.exists():
         parser.error("output exists; preserve prior evidence and choose a new path")
@@ -78,6 +155,8 @@ def main():
 
     evidence = {"started_at": datetime.now(timezone.utc).isoformat(),
                 "scope": "local SQL prototype; no production/append acceptance",
+                "query_scope": args.scope,
+                "script_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 "page_limit": 11, "row_budget": 64, "buffer_budget": 64,
                 "cases": [], "migrations": [], "status": "running"}
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -114,6 +193,12 @@ def main():
                         if database == "postgres":
                             evidence["migrations"].append({"path": str(migration.relative_to(ROOT)),
                                                            "sha256": hashlib.sha256(raw).hexdigest()})
+                    evidence.setdefault("indexes", {})[database] = json.loads(sql(
+                        "SELECT json_agg(indexdef ORDER BY indexname) FROM pg_indexes "
+                        "WHERE schemaname='kiroku' AND tablename='streams';", database))
+                    if args.scope == "category-streams":
+                        category_streams_probe(sql, database, evidence, save)
+                        continue
                     for size in [1000, 20000]:
                         sql("SET search_path TO kiroku, pg_catalog;\n"
                             f"INSERT INTO streams(stream_name) SELECT 'noise-' || lpad(n::text,6,'0') "
@@ -178,9 +263,14 @@ def main():
                                         "rows_examined": examined, "buffers": buffers,
                                         "within_budget": examined <= 64 and buffers <= 64})
                                     save()
+                required_cases = [r for r in evidence["cases"]
+                                  if args.scope == "category-streams" or r["variant"] == "nullable"]
+                if not required_cases:
+                    raise RuntimeError("no required SQL cases were evaluated")
                 evidence["status"] = "passes_focused_check" if all(
-                    r["within_budget"] for r in evidence["cases"] if r["variant"] == "nullable"
-                ) else "rejected_prefix_prototype"
+                    r["within_budget"] for r in required_cases
+                ) else ("category_streams_requires_design" if args.scope == "category-streams"
+                        else "rejected_prefix_prototype")
             finally:
                 # Stop even when startup, migration or a query fails. No owned cluster survives.
                 stopped = subprocess.run(["pg_ctl", "-D", data, "-w", "-m", "immediate", "stop"],
@@ -197,7 +287,7 @@ def main():
         evidence["elapsed_seconds"] = time.monotonic() - started
         save()
     print(json.dumps({k: evidence[k] for k in ["status", "server", "cluster_stopped", "elapsed_seconds"]}, indent=2))
-    return 2 if evidence["status"] == "rejected_prefix_prototype" else 0
+    return 0 if evidence["status"] == "passes_focused_check" else 2
 
 
 if __name__ == "__main__":

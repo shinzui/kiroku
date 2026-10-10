@@ -469,7 +469,8 @@ rule suffices.
 - [x] (2026-10-10) EP-2: end-to-end checkpoint tests; documentation, example step, CAP-17, changelog, IR-10
       evidence.
 - [x] (2026-10-10) EP-3: execute M0 existing-index prototype diagnostics; reject inventory-proportional prefix work and retain evidence.
-- [ ] EP-3: review and resolve the prefix read/write design before promoting browse SQL.
+- [x] (2026-10-10) EP-3: evaluate user-directed category-scoped stream browsing with existing indexes; retain category-size scaling and correctness evidence.
+- [ ] EP-3: resolve ordered paging within large categories and arbitrary prefix filtering before promoting browse SQL.
 - [ ] EP-3: `listStreams`, `listCategories`, `getEvent` in `kiroku-store` with database, mock,
       and structural tests.
 - [ ] EP-3: `Kiroku.Metrics.Browse`, `recordedEventToJSONResolved`, the `browser` field and
@@ -498,6 +499,15 @@ rule suffices.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-10 EP-3 category follow-up: the existing category index is useful.
+  Materializing category filters before sorting avoided unrelated-inventory
+  scaling in the tested fixtures, but an eleven-row page examined all 20,001
+  streams in a large selected category. All 192 diagnostic cases were correct;
+  bounded page work remains unproved. The user's usual UI workflow is category
+  browsing; arbitrary prefix search remains valid. No new index is added.
+  [Category evidence](../../kiroku-store/bench/results/mp13-ep3-category/README.md)
+  records query plans, exact inputs and cleanup. EP-3 remains In Progress.
 
 - 2026-10-10 EP-3 implementation: M0 rejects the stream-prefix SQL prototype.
   Generic absent-prefix plans examine 20,003 rows for an eleven-row limit;
@@ -575,6 +585,14 @@ rule suffices.
 
 
 ## Decision Log
+
+- Decision (2026-10-10 user-directed follow-up): prioritize category-scoped
+  browsing investigation with existing indexes, preserving arbitrary prefix
+  search as a UI requirement. Do not treat this as a migration authorization or
+  silently accept category-sized work as page-bounded work.
+  Rationale: the category column and index already express the usual browsing
+  workflow. Its measured sort/filter cost still needs resolution; current API
+  and dependency contracts remain unchanged until a design is selected.
 
 - Decision (2026-10-10 EP-3): retain EP-3 as In Progress and hold its production
   milestones after the measured prefix promotion failure. EP-5, EP-6 and EP-7
@@ -716,6 +734,13 @@ rule suffices.
 
 ## Outcomes & Retrospective
 
+2026-10-10 category follow-up: the requested no-new-index experiment is complete.
+Category equality helps, while sorted/prefix-filtered pages still scale with
+selected-category size. Correct results and server cleanup are verified; no
+production browse milestone or performance acceptance is claimed. EP-3 remains
+In Progress and arbitrary prefix search remains in scope. The two completed
+children and the dependency graph are unchanged.
+
 2026-10-10 EP-3 stopping point: two of seven children remain Complete. EP-3 is
 In Progress with its required SQL promotion gate rejected, not performance
 accepted. No core browse primitive or route was installed. The no-migration,
@@ -772,3 +797,9 @@ Started EP-3 and retained the failing M0 evidence. Its registry status is
 In Progress. The prototype was held as required; no production API, index,
 migration or version change was made. A reviewed prefix redesign is the next
 EP-3 step. No performance gate was weakened.
+
+## Category-first investigation revision (2026-10-10)
+
+Recorded the user-directed existing-index experiment and its category-sized
+work limitation. Category browsing is the priority workflow, arbitrary prefix
+search remains required, and the original promotion gate remains in force.

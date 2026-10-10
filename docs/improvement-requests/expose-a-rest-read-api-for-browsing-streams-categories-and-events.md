@@ -9,7 +9,7 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-10-10T18:13:05Z"
+timestamp: "2026-10-10T19:09:15Z"
 requestId: IR-8
 status: in_progress
 origin: mori://shinzui/keiro-ui
@@ -62,6 +62,14 @@ retain full plans, exact inputs and owned-server cleanup. No core browse API or
 HTTP route has landed; a reviewed prefix design must resolve the read/write
 trade-off before promotion. This is a feasibility result, not implementation or
 release acceptance. Status is `in_progress`; completion remains with plan 96.
+
+The user-directed category-first follow-up uses the existing category index.
+[Its evidence](../../kiroku-store/bench/results/mp13-ep3-category/README.md)
+shows that materializing the category before ordering contained work to that
+category in the tested fixtures, but still examined 20,001 selected streams for
+an eleven-row page. All 192 cases returned correct results, and server cleanup
+was verified. No index or API was added. Category browsing is the primary
+workflow; arbitrary prefix search remains a valid requirement and is not removed.
 
 ## Context
 
