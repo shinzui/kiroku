@@ -1,0 +1,10 @@
+{
+  "baseline": "250d44693136ed5fb89a2b524248ffca7d027c0b",
+  "implementation": "5805117",
+  "unchanged_sha256": {
+    "kiroku-store/src/Kiroku/Store/Effect.hs": "6ca088f440679fadcae206c30f7247d7a71c79b00688fb8285a5f1f46af16ad3",
+    "kiroku-store/src/Kiroku/Store/SQL.hs": "bca04bf7937f4fde20f5e941a1bd124e1d9ee091321b79e981001323b536fe3c",
+    "kiroku-store/src/Kiroku/Store/Subscription/EventPublisher.hs": "bc3e52f4d6974112beaa7df4eee0ab2f6dda58307a1cdb3f2f461d225cad9cee",
+    "kiroku-store/src/Kiroku/Store/Subscription/Worker.hs": "f2fbe240da594b1716404c11fde8f249a2df76562229fc0c39d29611dacc547b"
+  }
+}

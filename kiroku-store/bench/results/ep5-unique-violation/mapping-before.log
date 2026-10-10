@@ -1,0 +1,257 @@
+Resolving dependencies...
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.9.0.1 (lib) (configuration changed)
+ - kiroku-store-0.9.0.1 (test:kiroku-store-test) (configuration changed)
+Configuring library for kiroku-store-0.9.0.1...
+Preprocessing library for kiroku-store-0.9.0.1...
+Building library for kiroku-store-0.9.0.1...
+Configuring test suite 'kiroku-store-test' for kiroku-store-0.9.0.1...
+Preprocessing test suite 'kiroku-store-test' for kiroku-store-0.9.0.1...
+Building test suite 'kiroku-store-test' for kiroku-store-0.9.0.1...
+[42 of 45] Compiling Test.UniqueViolationMapping ( test/Test/UniqueViolationMapping.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/UniqueViolationMapping.o )
+[45 of 45] Compiling Main             ( test/Main.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Main.o ) [Source file changed]
+[46 of 46] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test [Objects changed]
+Running 1 test suites...
+Test suite kiroku-store-test: RUNNING...
+
+unique violation mapping
+  classifies the exact message constraint "events_pkey" [✔]
+  classifies a detail-only constraint "events_pkey" [✔]
+  classifies the exact message constraint "stream_events_pkey" [✘]
+  classifies a detail-only constraint "stream_events_pkey" [✘]
+  classifies the exact message constraint "ix_streams_stream_name" [✔]
+  classifies a detail-only constraint "ix_streams_stream_name" [✔]
+  classifies the exact message constraint "ux_stream_events_stream_version" [✘]
+  classifies a detail-only constraint "ux_stream_events_stream_version" [✘]
+  classifies the exact message constraint "unknown_constraint" [✔]
+  classifies a detail-only constraint "unknown_constraint" [✔]
+  does not match stream_events_pkey as events_pkey [✘]
+  rejects the message lookalike "prefix_events_pkey" [✘]
+  rejects the detail lookalike "prefix_events_pkey" [✘]
+  rejects the message lookalike "events_pkey_suffix" [✘]
+  rejects the detail lookalike "events_pkey_suffix" [✘]
+  rejects the message lookalike "events_pkey$suffix" [✘]
+  rejects the detail lookalike "events_pkey$suffix" [✘]
+  rejects the message lookalike "prefix_stream_events_pkey" [✘]
+  rejects the detail lookalike "prefix_stream_events_pkey" [✘]
+  rejects the message lookalike "stream_events_pkey_suffix" [✘]
+  rejects the detail lookalike "stream_events_pkey_suffix" [✘]
+  rejects the message lookalike "stream_events_pkey$suffix" [✘]
+  rejects the detail lookalike "stream_events_pkey$suffix" [✘]
+  rejects the message lookalike "prefix_ix_streams_stream_name" [✘]
+  rejects the detail lookalike "prefix_ix_streams_stream_name" [✘]
+  rejects the message lookalike "ix_streams_stream_name_suffix" [✘]
+  rejects the detail lookalike "ix_streams_stream_name_suffix" [✘]
+  rejects the message lookalike "ix_streams_stream_name$suffix" [✘]
+  rejects the detail lookalike "ix_streams_stream_name$suffix" [✘]
+  rejects the message lookalike "prefix_ux_stream_events_stream_version" [✔]
+  rejects the detail lookalike "prefix_ux_stream_events_stream_version" [✔]
+  rejects the message lookalike "ux_stream_events_stream_version_suffix" [✔]
+  rejects the detail lookalike "ux_stream_events_stream_version_suffix" [✔]
+  rejects the message lookalike "ux_stream_events_stream_version$suffix" [✔]
+  rejects the detail lookalike "ux_stream_events_stream_version$suffix" [✔]
+  uses the message constraint ahead of misleading detail tokens [✘]
+  retains an unknown message constraint even when detail names a known constraint [✘]
+  does not fabricate an event id for ("events_pkey",Nothing) [✔]
+  does not fabricate an event id for ("events_pkey",Just "unparseable localized detail") [✔]
+  does not fabricate an event id for ("stream_events_pkey",Nothing) [✔]
+  does not fabricate an event id for ("stream_events_pkey",Just "unparseable localized detail") [✔]
+  maps a composite duplicate inside a transaction with its event id [✘]
+  preserves the link-specific duplicate classification [✔]
+
+Failures:
+
+  test/Test/UniqueViolationMapping.hs:32:59: 
+  1) unique violation mapping classifies the exact message constraint "stream_events_pkey"
+       expected: DuplicateEvent (Just (EventId 01234567-89ab-7def-8012-34567890abcd))
+        but got: DuplicateEvent Nothing
+
+  To rerun use: --match "/unique violation mapping/classifies the exact message constraint \"stream_events_pkey\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:35:17: 
+  2) unique violation mapping classifies a detail-only constraint "stream_events_pkey"
+       expected: DuplicateEvent (Just (EventId 01234567-89ab-7def-8012-34567890abcd))
+        but got: DuplicateEvent Nothing
+
+  To rerun use: --match "/unique violation mapping/classifies a detail-only constraint \"stream_events_pkey\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:32:59: 
+  3) unique violation mapping classifies the exact message constraint "ux_stream_events_stream_version"
+       expected: UnexpectedServerError "23505" "duplicate key value violates unique constraint \"ux_stream_events_stream_version\""
+        but got: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+
+  To rerun use: --match "/unique violation mapping/classifies the exact message constraint \"ux_stream_events_stream_version\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:35:17: 
+  4) unique violation mapping classifies a detail-only constraint "ux_stream_events_stream_version"
+       expected: UnexpectedServerError "23505" "detail-only error"
+        but got: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+
+  To rerun use: --match "/unique violation mapping/classifies a detail-only constraint \"ux_stream_events_stream_version\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:39:13: 
+  5) unique violation mapping does not match stream_events_pkey as events_pkey
+       expected: DuplicateEvent (Just (EventId 01234567-89ab-7def-8012-34567890abcd))
+        but got: DuplicateEvent Nothing
+
+  To rerun use: --match "/unique violation mapping/does not match stream_events_pkey as events_pkey/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:43:81: 
+  6) unique violation mapping rejects the message lookalike "prefix_events_pkey"
+       expected: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+        but got: DuplicateEvent (Just (EventId 01234567-89ab-7def-8012-34567890abcd))
+
+  To rerun use: --match "/unique violation mapping/rejects the message lookalike \"prefix_events_pkey\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:45:94: 
+  7) unique violation mapping rejects the detail lookalike "prefix_events_pkey"
+       expected: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+        but got: DuplicateEvent (Just (EventId 01234567-89ab-7def-8012-34567890abcd))
+
+  To rerun use: --match "/unique violation mapping/rejects the detail lookalike \"prefix_events_pkey\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:43:81: 
+  8) unique violation mapping rejects the message lookalike "events_pkey_suffix"
+       expected: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+        but got: DuplicateEvent (Just (EventId 01234567-89ab-7def-8012-34567890abcd))
+
+  To rerun use: --match "/unique violation mapping/rejects the message lookalike \"events_pkey_suffix\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:45:94: 
+  9) unique violation mapping rejects the detail lookalike "events_pkey_suffix"
+       expected: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+        but got: DuplicateEvent (Just (EventId 01234567-89ab-7def-8012-34567890abcd))
+
+  To rerun use: --match "/unique violation mapping/rejects the detail lookalike \"events_pkey_suffix\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:43:81: 
+  10) unique violation mapping rejects the message lookalike "events_pkey$suffix"
+       expected: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+        but got: DuplicateEvent (Just (EventId 01234567-89ab-7def-8012-34567890abcd))
+
+  To rerun use: --match "/unique violation mapping/rejects the message lookalike \"events_pkey$suffix\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:45:94: 
+  11) unique violation mapping rejects the detail lookalike "events_pkey$suffix"
+       expected: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+        but got: DuplicateEvent (Just (EventId 01234567-89ab-7def-8012-34567890abcd))
+
+  To rerun use: --match "/unique violation mapping/rejects the detail lookalike \"events_pkey$suffix\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:43:81: 
+  12) unique violation mapping rejects the message lookalike "prefix_stream_events_pkey"
+       expected: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+        but got: DuplicateEvent (Just (EventId 01234567-89ab-7def-8012-34567890abcd))
+
+  To rerun use: --match "/unique violation mapping/rejects the message lookalike \"prefix_stream_events_pkey\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:45:94: 
+  13) unique violation mapping rejects the detail lookalike "prefix_stream_events_pkey"
+       expected: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+        but got: DuplicateEvent (Just (EventId 01234567-89ab-7def-8012-34567890abcd))
+
+  To rerun use: --match "/unique violation mapping/rejects the detail lookalike \"prefix_stream_events_pkey\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:43:81: 
+  14) unique violation mapping rejects the message lookalike "stream_events_pkey_suffix"
+       expected: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+        but got: DuplicateEvent (Just (EventId 01234567-89ab-7def-8012-34567890abcd))
+
+  To rerun use: --match "/unique violation mapping/rejects the message lookalike \"stream_events_pkey_suffix\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:45:94: 
+  15) unique violation mapping rejects the detail lookalike "stream_events_pkey_suffix"
+       expected: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+        but got: DuplicateEvent (Just (EventId 01234567-89ab-7def-8012-34567890abcd))
+
+  To rerun use: --match "/unique violation mapping/rejects the detail lookalike \"stream_events_pkey_suffix\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:43:81: 
+  16) unique violation mapping rejects the message lookalike "stream_events_pkey$suffix"
+       expected: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+        but got: DuplicateEvent (Just (EventId 01234567-89ab-7def-8012-34567890abcd))
+
+  To rerun use: --match "/unique violation mapping/rejects the message lookalike \"stream_events_pkey$suffix\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:45:94: 
+  17) unique violation mapping rejects the detail lookalike "stream_events_pkey$suffix"
+       expected: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+        but got: DuplicateEvent (Just (EventId 01234567-89ab-7def-8012-34567890abcd))
+
+  To rerun use: --match "/unique violation mapping/rejects the detail lookalike \"stream_events_pkey$suffix\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:43:81: 
+  18) unique violation mapping rejects the message lookalike "prefix_ix_streams_stream_name"
+       expected: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+        but got: StreamAlreadyExists (StreamName "orders-1")
+
+  To rerun use: --match "/unique violation mapping/rejects the message lookalike \"prefix_ix_streams_stream_name\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:45:94: 
+  19) unique violation mapping rejects the detail lookalike "prefix_ix_streams_stream_name"
+       expected: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+        but got: StreamAlreadyExists (StreamName "orders-1")
+
+  To rerun use: --match "/unique violation mapping/rejects the detail lookalike \"prefix_ix_streams_stream_name\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:43:81: 
+  20) unique violation mapping rejects the message lookalike "ix_streams_stream_name_suffix"
+       expected: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+        but got: StreamAlreadyExists (StreamName "orders-1")
+
+  To rerun use: --match "/unique violation mapping/rejects the message lookalike \"ix_streams_stream_name_suffix\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:45:94: 
+  21) unique violation mapping rejects the detail lookalike "ix_streams_stream_name_suffix"
+       expected: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+        but got: StreamAlreadyExists (StreamName "orders-1")
+
+  To rerun use: --match "/unique violation mapping/rejects the detail lookalike \"ix_streams_stream_name_suffix\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:43:81: 
+  22) unique violation mapping rejects the message lookalike "ix_streams_stream_name$suffix"
+       expected: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+        but got: StreamAlreadyExists (StreamName "orders-1")
+
+  To rerun use: --match "/unique violation mapping/rejects the message lookalike \"ix_streams_stream_name$suffix\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:45:94: 
+  23) unique violation mapping rejects the detail lookalike "ix_streams_stream_name$suffix"
+       expected: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+        but got: StreamAlreadyExists (StreamName "orders-1")
+
+  To rerun use: --match "/unique violation mapping/rejects the detail lookalike \"ix_streams_stream_name$suffix\"/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:49:13: 
+  24) unique violation mapping uses the message constraint ahead of misleading detail tokens
+       expected: UnexpectedServerError "23505" "duplicate key value violates unique constraint \"ux_stream_events_stream_version\""
+        but got: DuplicateEvent (Just (EventId 01234567-89ab-7def-8012-34567890abcd))
+
+  To rerun use: --match "/unique violation mapping/uses the message constraint ahead of misleading detail tokens/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:52:13: 
+  25) unique violation mapping retains an unknown message constraint even when detail names a known constraint
+       expected: WrongExpectedVersion (StreamName "orders-1") AnyVersion (StreamVersion 0)
+        but got: DuplicateEvent (Just (EventId 01234567-89ab-7def-8012-34567890abcd))
+
+  To rerun use: --match "/unique violation mapping/retains an unknown message constraint even when detail names a known constraint/" --seed 1844117395
+
+  test/Test/UniqueViolationMapping.hs:59:13: 
+  26) unique violation mapping maps a composite duplicate inside a transaction with its event id
+       expected: DuplicateEvent (Just (EventId 01234567-89ab-7def-8012-34567890abcd))
+        but got: DuplicateEvent Nothing
+
+  To rerun use: --match "/unique violation mapping/maps a composite duplicate inside a transaction with its event id/" --seed 1844117395
+
+Randomized with seed 1844117395
+
+Finished in 0.0041 seconds
+43 examples, 26 failures
+Test suite kiroku-store-test: FAIL
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/test/kiroku-store-0.9.0.1-kiroku-store-test.log
+0 of 1 test suites (0 of 1 test cases) passed.
+Error: [Cabal-7125]
+Tests failed for test:kiroku-store-test from kiroku-store-0.9.0.1.
+

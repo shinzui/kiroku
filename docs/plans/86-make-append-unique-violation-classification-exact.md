@@ -35,11 +35,11 @@ If durable project context changes, update or create ADRs in docs/adr/ in the sa
 
 ## Purpose / Big Picture
 
-Kiroku classifies PostgreSQL `23505` failures by constraint name. The append mapper tests
-`events_pkey` before `stream_events_pkey`, so the latter matches the former as a substring and is
-classified accidentally. It also lets the invariant constraint
-`ux_stream_events_stream_version` fall through to `WrongExpectedVersion` even though that
-violation does not represent a caller precondition mismatch.
+Kiroku classifies PostgreSQL `23505` failures by constraint name. Before this
+implementation, substring matching classified `stream_events_pkey` as `events_pkey`
+and lost the composite event ID. The invariant constraint
+`ux_stream_events_stream_version` also became `WrongExpectedVersion`, disguising an
+internal invariant failure as a caller precondition mismatch.
 
 After this plan, exact constraint classification distinguishes a duplicate caller event id from
 an already-linked pair and from internal stream-version corruption. Pure mapping tests pin every
@@ -52,7 +52,7 @@ reported deterministically without disguising an invariant failure as an expecte
 - [x] (2026-10-10) M1: add table-driven mapping tests for `events_pkey`, `stream_events_pkey`, `ux_stream_events_stream_version`, stream-name, and unknown unique constraints.
 - [x] (2026-10-10) M2: make append constraint matching exact and order-independent, retaining event-id extraction where valid.
 - [x] (2026-10-10) M2: map the stream-version invariant constraint to `UnexpectedServerError "23505"` and add a real append duplicate regression.
-- [ ] Update error Haddocks/changelog, run focused and full store tests, and perform ADR distillation.
+- [x] (2026-10-10) Update error Haddocks/changelog, run focused and full store tests, and perform ADR distillation. All 423 store examples, 20 structural cases and 16 controlled workloads pass; strict ADR validation and formatting pass.
 
 
 ## Surprises & Discoveries
@@ -126,13 +126,21 @@ reported deterministically without disguising an invariant failure as an expecte
 Implementation (2026-10-10): exact constraint extraction and the stream-version
 invariant branch are implemented, with one extractor shared by every existing
 unique-constraint mapper. All 49 mapping cases and both duplicate-append cases
-pass. The initial 43-case pre-change table had 26 failures. Full store and
-ADR-5 acceptance is running; this child remains In Progress until those checks
-finish. ADR-14 records the durable constraint-name and error-taxonomy contract.
+pass. The initial 43-case pre-change table had 26 failures. The full store suite
+passes 423 examples; `just perf-check` passes 20 structural checks and all 16
+controlled workloads (117.74 seconds). Formatting and strict ADR validation
+pass. This child is Complete. ADR-14 records the durable constraint-name and
+error-taxonomy contract. Retained transcripts and SHA-256 identities are in
+`kiroku-store/bench/results/ep5-unique-violation/`. These existing gates do not
+prove cumulative cohort performance neutrality; EP6 retains that comparison.
 No schema, public type, success-path query or retry behavior changes.
 
 
 ## Context and Orientation
+
+Current implementation (2026-10-10, `5805117`): the shared exact-name extractor
+and all four append branches are implemented and accepted by the focused/full
+suites and existing ADR-5 gates. The following source audit is historical.
 
 Historical source audit (2026-10-09, `e6ea664`): implementation was Not Started.
 `kiroku-store/src/Kiroku/Store/Error.hs:mapUniqueViolation` still tests `events_pkey` using
@@ -283,3 +291,8 @@ Revision note (2026-10-10, implementation): completed exact extraction and focus
 regressions; corrected the literal Hspec pipe filter, shared extraction across the
 existing mappers and distilled the durable boundary into ADR-14. Full acceptance
 checks remain in progress.
+
+Revision note (2026-10-10, acceptance): complete EP5 after 423 passing store
+examples, 20 structural checks, 16 controlled workload cases and strict ADR
+validation. Preserve the failed pre-change and zero-example filter transcripts;
+reserve cumulative original-control acceptance and release for EP6.

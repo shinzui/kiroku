@@ -1,0 +1,19 @@
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.9.0.1 (test:kiroku-store-test) (first run)
+Preprocessing test suite 'kiroku-store-test' for kiroku-store-0.9.0.1...
+Building test suite 'kiroku-store-test' for kiroku-store-0.9.0.1...
+Running 1 test suites...
+Test suite kiroku-store-test: RUNNING...
+
+appendToStream
+  duplicate event ID
+    returns the caller event id on same-stream retry and leaves one stored event [✔]
+    rejects duplicate event IDs [✔]
+
+Finished in 0.2643 seconds
+2 examples, 0 failures
+Test suite kiroku-store-test: PASS
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/test/kiroku-store-0.9.0.1-kiroku-store-test.log
+1 of 1 test suites (1 of 1 test cases) passed.

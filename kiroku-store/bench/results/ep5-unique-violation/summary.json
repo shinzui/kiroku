@@ -1,0 +1,39 @@
+{
+  "implementation": "5805117",
+  "pre_ep5": "250d44693136ed5fb89a2b524248ffca7d027c0b",
+  "environment": {
+    "postgresql": "18.6",
+    "ghc": "9.12.4",
+    "cabal": "3.16.1.0",
+    "optimization": "O1",
+    "host": "aarch64 macOS"
+  },
+  "results": {
+    "pre_change_examples": 43,
+    "pre_change_failures": 26,
+    "mapping_examples": 49,
+    "duplicate_append_examples": 2,
+    "store_examples": 423,
+    "structural_examples": 20,
+    "controlled_workloads": 16,
+    "controlled_seconds": 117.74
+  },
+  "excluded_acceptance_logs": [
+    "focused.log"
+  ],
+  "logs_sha256": {
+    "duplicate-append.log": "0f7ca49d4148b64b5c210421c84fd9cea39bf9ed73beb93929c5e4b3a495b14c",
+    "focused.log": "94bb4477375f41f1a3eabe9eaa48b1cdb2c4b0f7fec541af8190d8bfdc216e7f",
+    "format.log": "8b2f45c3195d9f0a0cf5fddb8480e24e1d2cf9c5589667636285bb0df6f70e71",
+    "mapping-after.log": "25668abedbdbc9ad251fb4f813c2383e671d291882ecf1ab0a741d9f9afb9210",
+    "mapping-before.log": "9b26e0f2b086ea4707ecb27bde41c27960c0d2046933d9b5aa55b89857e5973f",
+    "perf-check.log": "acda06398faafacccf0e3bfdefe9ca133d833c10a942671c0ddb48c9de49de2b",
+    "store-tests.log": "6ab3d5e0ee06b0fece38503e723aeffa571ab74d7b1c6d5cec0dfc03734f0692"
+  },
+  "source_sha256": {
+    "kiroku-store/src/Kiroku/Store/Error.hs": "c83e7fdc9749ecf4971a84167edd3708e72e798b4453c1554fe409f2fc764483",
+    "kiroku-store/test/Test/UniqueViolationMapping.hs": "3eb45531148dde02e8dbccf48d4e5d089d5b4ff670661c999de15d763f9b9491",
+    "kiroku-store/test/Main.hs": "9141647693a3a62100f517fe12f8222cc61e9ac6f8dc47a2f41a28c241977fe2",
+    "kiroku-store/kiroku-store.cabal": "696febeadd7c6e982dae42866191d7094e67b7cef649c45185e38bb6febc9fb5"
+  }
+}

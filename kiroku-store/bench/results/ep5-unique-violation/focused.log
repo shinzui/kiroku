@@ -1,0 +1,284 @@
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.9.0.1 (lib) (file src/Kiroku/Store/Error.hs changed)
+ - kiroku-store-0.9.0.1 (test:kiroku-store-test) (dependency rebuilt)
+Preprocessing library for kiroku-store-0.9.0.1...
+Building library for kiroku-store-0.9.0.1...
+[18 of 30] Compiling Kiroku.Store.Error ( src/Kiroku/Store/Error.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Error.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Error.dyn_o ) [Source file changed]
+[19 of 30] Compiling Kiroku.Store.Effect ( src/Kiroku/Store/Effect.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Effect.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Effect.dyn_o ) [Kiroku.Store.Error changed]
+[20 of 30] Compiling Kiroku.Store.Transaction ( src/Kiroku/Store/Transaction.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Transaction.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Transaction.dyn_o ) [Kiroku.Store.Effect changed]
+[21 of 30] Compiling Kiroku.Store.Subscription ( src/Kiroku/Store/Subscription.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription.dyn_o ) [Kiroku.Store.Effect changed]
+src/Kiroku/Store/Subscription.hs:271:51: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store.Subscription.Types’ at src/Kiroku/Store/Subscription.hs:37:1-38
+    |
+271 | initializeSubscriptionCheckpoint subscriptionName member policy =
+    |                                                   ^^^^^^
+
+[24 of 30] Compiling Kiroku.Store.Read ( src/Kiroku/Store/Read.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Read.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Read.dyn_o ) [Kiroku.Store.Effect changed]
+[25 of 30] Compiling Kiroku.Store.Link ( src/Kiroku/Store/Link.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Link.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Link.dyn_o ) [Kiroku.Store.Effect changed]
+[26 of 30] Compiling Kiroku.Store.Lifecycle ( src/Kiroku/Store/Lifecycle.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Lifecycle.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Lifecycle.dyn_o ) [Kiroku.Store.Effect changed]
+[27 of 30] Compiling Kiroku.Store.HistoryRetention ( src/Kiroku/Store/HistoryRetention.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/HistoryRetention.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/HistoryRetention.dyn_o ) [Kiroku.Store.Effect changed]
+[28 of 30] Compiling Kiroku.Store.Causation ( src/Kiroku/Store/Causation.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Causation.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Causation.dyn_o ) [Kiroku.Store.Effect changed]
+[29 of 30] Compiling Kiroku.Store.Append ( src/Kiroku/Store/Append.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Append.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Append.dyn_o ) [Kiroku.Store.Effect changed]
+[30 of 30] Compiling Kiroku.Store     ( src/Kiroku/Store.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store.dyn_o ) [Kiroku.Store.Effect changed]
+Preprocessing test suite 'kiroku-store-test' for kiroku-store-0.9.0.1...
+Building test suite 'kiroku-store-test' for kiroku-store-0.9.0.1...
+[ 3 of 45] Compiling Test.HandlerStall ( test/Test/HandlerStall.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/HandlerStall.o ) [Kiroku.Store.Effect changed]
+[ 4 of 45] Compiling Test.FailureInjection ( test/Test/FailureInjection.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/FailureInjection.o ) [Kiroku.Store.Effect changed]
+[ 5 of 45] Compiling Test.EventTypeFilter ( test/Test/EventTypeFilter.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/EventTypeFilter.o ) [Kiroku.Store.Effect changed]
+[ 6 of 45] Compiling Test.ConsumerGroupSql ( test/Test/ConsumerGroupSql.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/ConsumerGroupSql.o ) [Kiroku.Store.Effect changed]
+test/Test/ConsumerGroupSql.hs:85:28: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Test/ConsumerGroupSql.hs:32:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+   |
+85 | runMemberOf store streamId size = runStmt store (Session.statement (streamId, size) stmt)
+   |                            ^^^^
+
+test/Test/ConsumerGroupSql.hs:118:13: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Test/ConsumerGroupSql.hs:32:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+118 |             size = 4 :: Int32
+    |             ^^^^
+
+test/Test/ConsumerGroupSql.hs:223:13: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Test/ConsumerGroupSql.hs:32:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+223 |             size = 4 :: Int32
+    |             ^^^^
+
+[ 7 of 45] Compiling Test.ConsumerGroupResize ( test/Test/ConsumerGroupResize.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/ConsumerGroupResize.o ) [Kiroku.Store.Effect changed]
+test/Test/ConsumerGroupResize.hs:48:54: warning: [GHC-02256] [-Wambiguous-fields]
+    Ambiguous record update with parent type constructor ‘ConnectionSettingsM’.
+    This type-directed disambiguation mechanism will not be supported by -XDuplicateRecordFields in future releases of GHC.
+    Consider disambiguating using module qualification instead.
+   |
+48 |         withTestStoreSettings (\settings -> settings{eventHandler = Just observe}) $ \store -> do
+   |                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+[ 8 of 45] Compiling Test.ConsumerGroupEffect ( test/Test/ConsumerGroupEffect.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/ConsumerGroupEffect.o ) [Kiroku.Store.Effect changed]
+[ 9 of 45] Compiling Test.ConsumerGroup ( test/Test/ConsumerGroup.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/ConsumerGroup.o ) [Kiroku.Store.Effect changed]
+[10 of 45] Compiling Test.Concurrency ( test/Test/Concurrency.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/Concurrency.o ) [Kiroku.Store.Effect changed]
+[11 of 45] Compiling Test.Causation   ( test/Test/Causation.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/Causation.o ) [Kiroku.Store.Effect changed]
+[12 of 45] Compiling Test.CategoryIdleNoSpin ( test/Test/CategoryIdleNoSpin.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/CategoryIdleNoSpin.o ) [Kiroku.Store.Effect changed]
+test/Test/CategoryIdleNoSpin.hs:143:34: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Test/CategoryIdleNoSpin.hs:49:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+143 |             memberConfig subName member =
+    |                                  ^^^^^^
+
+[13 of 45] Compiling Test.CatchupDbErrorNoPrematureSwitch ( test/Test/CatchupDbErrorNoPrematureSwitch.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/CatchupDbErrorNoPrematureSwitch.o ) [Kiroku.Store.Effect changed]
+[14 of 45] Compiling Test.HistoryRetention ( test/Test/HistoryRetention.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/HistoryRetention.o ) [Kiroku.Store.Effect changed]
+[15 of 45] Compiling Test.HistoryRetentionMock ( test/Test/HistoryRetentionMock.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/HistoryRetentionMock.o ) [Kiroku.Store.Effect changed]
+[16 of 45] Compiling Test.InterpreterHooks ( test/Test/InterpreterHooks.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/InterpreterHooks.o ) [Kiroku.Store.Effect changed]
+[17 of 45] Compiling Test.NotifyGuard ( test/Test/NotifyGuard.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/NotifyGuard.o ) [Kiroku.Store.Effect changed]
+[18 of 45] Compiling Test.PerformanceStructure ( test/Test/PerformanceStructure.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/PerformanceStructure.o ) [Kiroku.Store.Effect changed]
+test/Test/PerformanceStructure.hs:44:17: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘before’ shadows the existing binding
+      imported from ‘Test.Hspec’ at test/Test/PerformanceStructure.hs:30:1-17
+      (and originally defined in ‘hspec-core-2.11.18:Test.Hspec.Core.Hooks’)
+   |
+44 |                 before <- readIORef checkouts
+   |                 ^^^^^^
+
+test/Test/PerformanceStructure.hs:48:17: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘after’ shadows the existing binding
+      imported from ‘Test.Hspec’ at test/Test/PerformanceStructure.hs:30:1-17
+      (and originally defined in ‘hspec-core-2.11.18:Test.Hspec.Core.Hooks’)
+   |
+48 |                 after <- readIORef checkouts
+   |                 ^^^^^
+
+test/Test/PerformanceStructure.hs:54:17: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘before’ shadows the existing binding
+      imported from ‘Test.Hspec’ at test/Test/PerformanceStructure.hs:30:1-17
+      (and originally defined in ‘hspec-core-2.11.18:Test.Hspec.Core.Hooks’)
+   |
+54 |                 before <- readIORef checkouts
+   |                 ^^^^^^
+
+test/Test/PerformanceStructure.hs:56:21: warning: [GHC-62161] [-Wincomplete-uni-patterns]
+    Pattern match(es) are non-exhaustive
+    In a pattern binding:
+        Patterns of type ‘Either
+                            InvalidConsumerGroup ConsumerGroupSize’ not matched:
+            Left _
+   |
+56 |                 let Right n = mkConsumerGroupSize 2
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test/Test/PerformanceStructure.hs:58:17: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘after’ shadows the existing binding
+      imported from ‘Test.Hspec’ at test/Test/PerformanceStructure.hs:30:1-17
+      (and originally defined in ‘hspec-core-2.11.18:Test.Hspec.Core.Hooks’)
+   |
+58 |                 after <- readIORef checkouts
+   |                 ^^^^^
+
+test/Test/PerformanceStructure.hs:257:29: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Test/PerformanceStructure.hs:24:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+257 |                     groupAt member =
+    |                             ^^^^^^
+
+[19 of 45] Compiling Test.Properties  ( test/Test/Properties.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/Properties.o ) [Kiroku.Store.Effect changed]
+[20 of 45] Compiling Test.PublisherCallbackResilience ( test/Test/PublisherCallbackResilience.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/PublisherCallbackResilience.o ) [Kiroku.Store.Effect changed]
+[21 of 45] Compiling Test.PublisherIdleAdvance ( test/Test/PublisherIdleAdvance.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/PublisherIdleAdvance.o ) [Kiroku.Store.Effect changed]
+[22 of 45] Compiling Test.PublisherRestartNoRebroadcast ( test/Test/PublisherRestartNoRebroadcast.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/PublisherRestartNoRebroadcast.o ) [Kiroku.Store.Effect changed]
+[23 of 45] Compiling Test.ReadStream  ( test/Test/ReadStream.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/ReadStream.o ) [Kiroku.Store.Effect changed]
+[24 of 45] Compiling Test.StartupFailureSurfacing ( test/Test/StartupFailureSurfacing.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/StartupFailureSurfacing.o ) [Kiroku.Store.Effect changed]
+[25 of 45] Compiling Test.StreamBridgeTermination ( test/Test/StreamBridgeTermination.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/StreamBridgeTermination.o ) [Kiroku.Store.Effect changed]
+[26 of 45] Compiling Test.StreamHistoryGuard ( test/Test/StreamHistoryGuard.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/StreamHistoryGuard.o ) [Kiroku.Store.Effect changed]
+[27 of 45] Compiling Test.StreamNameLookup ( test/Test/StreamNameLookup.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/StreamNameLookup.o ) [Kiroku.Store.Effect changed]
+[28 of 45] Compiling Test.SubscriptionCheckpointInitialization ( test/Test/SubscriptionCheckpointInitialization.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/SubscriptionCheckpointInitialization.o ) [Kiroku.Store.Effect changed]
+test/Test/SubscriptionCheckpointInitialization.hs:101:58: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Test/SubscriptionCheckpointInitialization.hs:14:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+101 | assertExisting store key@(SubscriptionCheckpointKey name member) policy =
+    |                                                          ^^^^^^
+
+test/Test/SubscriptionCheckpointInitialization.hs:111:23: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Test/SubscriptionCheckpointInitialization.hs:14:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+111 | initialize store name member policy = do
+    |                       ^^^^^^
+
+test/Test/SubscriptionCheckpointInitialization.hs:127:35: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Test/SubscriptionCheckpointInitialization.hs:14:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+127 |     | SubscriptionCheckpoint name member position _ <- V.toList rows
+    |                                   ^^^^^^
+
+[29 of 45] Compiling Test.SubscriptionCheckpointInitializationMock ( test/Test/SubscriptionCheckpointInitializationMock.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/SubscriptionCheckpointInitializationMock.o ) [Kiroku.Store.Effect changed]
+[30 of 45] Compiling Test.SubscriptionCheckpointInventory ( test/Test/SubscriptionCheckpointInventory.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/SubscriptionCheckpointInventory.o ) [Kiroku.Store.Effect changed]
+test/Test/SubscriptionCheckpointInventory.hs:163:27: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Test/SubscriptionCheckpointInventory.hs:24:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+163 | saveCheckpoint store name member position = do
+    |                           ^^^^^^
+
+test/Test/SubscriptionCheckpointInventory.hs:206:54: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Test/SubscriptionCheckpointInventory.hs:24:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+206 |     | SubscriptionCheckpoint (SubscriptionName name) member (GlobalPosition position) _ <- V.toList rows
+    |                                                      ^^^^^^
+
+test/Test/SubscriptionCheckpointInventory.hs:219:33: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Test/SubscriptionCheckpointInventory.hs:24:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+219 |                                 member
+    |                                 ^^^^^^
+
+[31 of 45] Compiling Test.SubscriptionCheckpointInventoryMock ( test/Test/SubscriptionCheckpointInventoryMock.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/SubscriptionCheckpointInventoryMock.o ) [Kiroku.Store.Effect changed]
+[32 of 45] Compiling Test.SubscriptionCheckpointReset ( test/Test/SubscriptionCheckpointReset.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/SubscriptionCheckpointReset.o ) [Kiroku.Store.Effect changed]
+test/Test/SubscriptionCheckpointReset.hs:122:23: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Test/SubscriptionCheckpointReset.hs:20:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+122 |     initialize (name, member) = do
+    |                       ^^^^^^
+
+test/Test/SubscriptionCheckpointReset.hs:154:54: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Test/SubscriptionCheckpointReset.hs:20:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+154 |     | SubscriptionCheckpoint (SubscriptionName name) member (GlobalPosition position) _ <-
+    |                                                      ^^^^^^
+
+test/Test/SubscriptionCheckpointReset.hs:168:27: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Test/SubscriptionCheckpointReset.hs:20:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+168 | saveCheckpoint store name member position = do
+    |                           ^^^^^^
+
+[33 of 45] Compiling Test.SubscriptionCheckpointWorker ( test/Test/SubscriptionCheckpointWorker.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/SubscriptionCheckpointWorker.o ) [Kiroku.Store.Effect changed]
+test/Test/SubscriptionCheckpointWorker.hs:120:24: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Test/SubscriptionCheckpointWorker.hs:21:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+120 |             let config member =
+    |                        ^^^^^^
+
+test/Test/SubscriptionCheckpointWorker.hs:222:39: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Test/SubscriptionCheckpointWorker.hs:21:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+222 |         | SubscriptionCheckpoint name member position _ <- V.toList rows
+    |                                       ^^^^^^
+
+[34 of 45] Compiling Test.SubscriptionPauseResume ( test/Test/SubscriptionPauseResume.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/SubscriptionPauseResume.o ) [Kiroku.Store.Effect changed]
+[35 of 45] Compiling Test.SubscriptionReconnect ( test/Test/SubscriptionReconnect.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/SubscriptionReconnect.o ) [Kiroku.Store.Effect changed]
+[36 of 45] Compiling Test.SubscriptionRegistry ( test/Test/SubscriptionRegistry.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/SubscriptionRegistry.o ) [Kiroku.Store.Effect changed]
+[37 of 45] Compiling Test.SubscriptionRetryDeadLetter ( test/Test/SubscriptionRetryDeadLetter.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/SubscriptionRetryDeadLetter.o ) [Kiroku.Store.Effect changed]
+[38 of 45] Compiling Test.SubscriptionState ( test/Test/SubscriptionState.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/SubscriptionState.o ) [Kiroku.Store.Effect changed]
+[39 of 45] Compiling Test.SubscriptionTarget ( test/Test/SubscriptionTarget.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/SubscriptionTarget.o ) [Kiroku.Store.Effect changed]
+test/Test/SubscriptionTarget.hs:67:44: warning: [GHC-02256] [-Wambiguous-fields]
+    Ambiguous record update with parent type constructor ‘ConnectionSettingsM’.
+    This type-directed disambiguation mechanism will not be supported by -XDuplicateRecordFields in future releases of GHC.
+    Consider disambiguating using module qualification instead.
+   |
+67 |             withTestStoreSettings (\s -> s{eventHandler = Just observe}) $ \store -> do
+   |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test/Test/SubscriptionTarget.hs:184:27: warning: [GHC-62161] [-Wincomplete-uni-patterns]
+    Pattern match(es) are non-exhaustive
+    In a pattern binding:
+        Patterns of type ‘Either
+                            InvalidConsumerGroup ConsumerGroupSize’ not matched:
+            Left _
+    |
+184 | resize store name n = let Right size = mkConsumerGroupSize n in runSession store $ TxSessions.transaction TxSessions.ReadCommitted TxSessions.Write (resizeConsumerGroupTx (SubscriptionName name) size)
+    |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+test/Test/SubscriptionTarget.hs:184:33: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Test/SubscriptionTarget.hs:23:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+184 | resize store name n = let Right size = mkConsumerGroupSize n in runSession store $ TxSessions.transaction TxSessions.ReadCommitted TxSessions.Write (resizeConsumerGroupTx (SubscriptionName name) size)
+    |                                 ^^^^
+
+[40 of 45] Compiling Test.Transaction ( test/Test/Transaction.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/Transaction.o ) [Kiroku.Store.Effect changed]
+[41 of 45] Compiling Test.TruncateBefore ( test/Test/TruncateBefore.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/TruncateBefore.o ) [Kiroku.Store.Effect changed]
+[42 of 45] Compiling Test.UniqueViolationMapping ( test/Test/UniqueViolationMapping.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/UniqueViolationMapping.o ) [Kiroku.Store.Error changed]
+[43 of 45] Compiling Test.VisibleGlobalHeadPosition ( test/Test/VisibleGlobalHeadPosition.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/VisibleGlobalHeadPosition.o ) [Kiroku.Store.Effect changed]
+[44 of 45] Compiling Test.VisibleGlobalHeadPositionMock ( test/Test/VisibleGlobalHeadPositionMock.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/VisibleGlobalHeadPositionMock.o ) [Kiroku.Store.Effect changed]
+[45 of 45] Compiling Main             ( test/Main.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Main.o ) [Source file changed]
+[46 of 46] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test [Objects changed]
+Running 1 test suites...
+Test suite kiroku-store-test: RUNNING...
+
+
+Finished in 0.0001 seconds
+0 examples, 0 failures
+Test suite kiroku-store-test: PASS
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/test/kiroku-store-0.9.0.1-kiroku-store-test.log
+1 of 1 test suites (1 of 1 test cases) passed.

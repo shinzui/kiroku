@@ -102,7 +102,7 @@ The 2026-10-09 source audit at commit `e6ea664` found **0 of 6 children complete
 At that audit all five implementation children were Not Started; EP-6 awaits their completion.
 EP-1 is now Complete under the user-directed minimum-evidence scope recorded
 below. EP-2 is Complete on user-approved practical acceptance; EP-3 is Complete after focused correctness and existing ADR-5 verification.
-EP-4 is also Complete; EP-5 is In Progress and EP-6 remains Not Started. No package is released.
+EP-4 and EP-5 are also Complete; EP-6 remains Not Started. No package is released.
 The accepted ADR-8 records the intended API, not evidence that it has shipped. The recent
 lifecycle, category-performance, and publisher-memory fixes are baseline improvements to preserve.
 This update inspected source, tests, migrations, changelogs, and history; it did not rerun the
@@ -158,7 +158,7 @@ records exact unique-constraint identity and the append invariant-failure bounda
 | 2 | Repair live reconnect and validate subscription identity and batch size | docs/plans/82-repair-live-reconnect-and-validate-subscription-identity-and-batch-size.md | None | EP-1 | Complete |
 | 3 | Contain persistent publisher decode-hook failures | docs/plans/83-contain-persistent-publisher-decode-hook-failures.md | None | EP-2 | Complete |
 | 4 | Harden adapter acknowledgement liveness and expose retry policy | docs/plans/84-harden-adapter-acknowledgement-liveness-and-expose-retry-policy.md | EP-1, EP-2 | EP-3 | Complete |
-| 5 | Make append unique-violation classification exact | docs/plans/86-make-append-unique-violation-classification-exact.md | None | None | In Progress |
+| 5 | Make append unique-violation classification exact | docs/plans/86-make-append-unique-violation-classification-exact.md | None | None | Complete |
 | 6 | Release the subscription hardening cohort and coordinate downstream adoption | docs/plans/85-release-the-subscription-hardening-cohort-and-coordinate-downstream-adoption.md | EP-1, EP-2, EP-3, EP-4, EP-5 | None | Not Started |
 
 
@@ -322,8 +322,8 @@ statistical uncertainty and adverse results. Confirmed regressions block release
 The reconnect correction should remove redundant replay; the decoder and opt-in watchdog are
 the main healthy-delivery regression risks. The no-hook read passthrough and a no-hook subscription
 batch fast path must avoid mandatory per-event wrapping; EP-3 may adjust its internal representation
-to meet that requirement while preserving the typed failure semantics. No remaining change has measured regression evidence
-yet because its implementation has not landed.
+to meet that requirement while preserving the typed failure semantics. The implemented boundaries and existing checks do not establish cumulative
+cohort performance neutrality; EP6 retains the original-control comparison.
 
 Cross-repository work in Keiro must use canonical references. The transferred source remains
 `mori://shinzui/keiro/masterplans/20-harden-the-kiroku-event-store-and-subscription-machinery-surfaced-by-the-2026-07-kiroku-review`;
@@ -439,11 +439,19 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 - [x] (2026-10-09) EP-2 practical acceptance: the user approves completion on passing correctness/structural checks and the bounded Linux evidence. The checkpoint-only cost is accepted; throughput -0.14% and p99 +2.87% retain wide intervals. Statistical equivalence remains inconclusive and cumulative append acceptance belongs to EP6; no further EP2 benchmark or release is claimed.
 - [x] (2026-10-09) EP-3: prove the current apparent-live stall, then make decode failure a typed per-event outcome that each subscriber disposes of through an optional callback, stopping by default, and that fails reads with a typed error.
 - [x] (2026-10-09) EP-4: expose retry policy on single and consumer-group adapter configs; provide a guarded processor path and a worker-level handler-stall event the adapter configures.
-- [ ] EP-5: distinguish `stream_events_pkey` duplicates and `ux_stream_events_stream_version` corruption with deterministic mapping tests.
+- [x] (2026-10-10) EP-5: distinguish `stream_events_pkey` duplicates and `ux_stream_events_stream_version` corruption with deterministic mapping tests.
 - [ ] EP-6: run integrated PostgreSQL 18 correctness, existing ADR-5 gates and the focused cumulative comparison, release the affected package cohort with current authoritative versions, and prove downstream Keiro shard-count adoption without private Kiroku SQL.
 
 
 ## Surprises & Discoveries
+
+- EP5 (2026-10-10): the transaction mapper shared the append substring collision.
+  Exact extraction is now common to append, transaction, link and multi-stream
+  attribution, preserving their distinct constructors and fallbacks. The initial
+  table fails 26 of 43 cases before the change; final verification passes 49
+  mapping cases, both duplicate-append cases and all 423 store examples.
+  Hspec's pipe filter selected zero tests and was corrected to separate commands;
+  that transcript is retained and excluded from acceptance.
 
 - EP4 (2026-10-09): four real-adapter acknowledgement cases pass, distinguishing the
   resolved Shibuya standard runner's immediate finalized retry from the new helper's
@@ -603,6 +611,12 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 
 ## Decision Log
+
+- Decision (2026-10-10): close EP5 on its full correctness suite, existing ADR-5
+  gates and unchanged success-path source identities. ADR-14 records stable exact
+  constraint names and the duplicate/invariant failure distinction. No additional
+  remote error-path experiment is justified; cumulative original-control evidence
+  and publication remain EP6 responsibilities.
 
 - Decision (2026-10-09): retain consumer acknowledgement ownership and keep stall events
   advisory across all ordinary worker paths. Preserve `mkProcessor`'s actual `Unordered`,
@@ -827,7 +841,7 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Outcomes & Retrospective
 
-Implementation update (2026-10-09): **4 of 6 children are Complete**. EP1
+Implementation update (2026-10-09): **5 of 6 children are Complete**. EP1
 implements durable topology, typed startup refusal, migration-derived legacy
 sizes and transactional gap-free resize, with updated guide and ADR-2. Full
 correctness suites and existing ADR-5 gates passed. Its six retained mixed trials
@@ -862,15 +876,20 @@ cases pass. ADR-12 records the contract. Evidence is in
 handler diagnostics land with 504 passing workspace examples, 20 structural checks,
 16 controlled workload cases (116.73 seconds), and ADR-13. Evidence:
 `kiroku-store/bench/results/ep4-acknowledgement-liveness/README.md`.
-EP5 is In Progress with passing focused mapping and duplicate-append tests; full acceptance is running. EP6 waits on EP5 and remains Not Started.
+EP5 is Complete at `5805117`: exact constraint classification preserves composite
+caller IDs and surfaces internal stream-version uniqueness as an unexpected
+server error. All 423 store examples, 20 structural checks and 16 controlled
+workloads pass; ADR-14 and unchanged success-path source identities are retained
+with `kiroku-store/bench/results/ep5-unique-violation/`. EP6 is now implementable
+and remains Not Started.
 No package is released; cumulative default/opt-in timing remains EP6 work.
 
 
 
 The coordination transfer is complete: Kiroku now contains the authoritative MasterPlan and six
 self-contained child plans under Intention `intention_01m12ed0r5e61aqa9h1rfgvk4a`; the Keiro
-source documents identify these successors and are retired from execution. At the 2026-10-09 audit, none of the six children meets its implementation acceptance.
-EP-2, EP-3, and EP-5 can begin; the suggested shared-worker sequence is EP-3 then EP-2,
+source documents identify these successors and are retired from execution. At the historical 2026-10-09 audit, none of the six children met its implementation acceptance.
+EP-2, EP-3, and EP-5 could begin; the suggested shared-worker sequence is EP-3 then EP-2,
 with EP-1 completed before EP-4's validated adapter surface. EP-5 is a small independent error-path
 fix. EP-6 remains gated on all five. The source audit confirms useful adjacent fixes but does not
 substitute for the outstanding runtime and performance acceptance runs. At completion, review every child Decision Log and update ADR-2,
@@ -956,3 +975,9 @@ EP6 retains cumulative original-control timing and release ownership.
 Revision note (2026-10-10, EP5): began exact append unique-constraint
 classification, reused extraction in the existing transaction/link/attribution
 mappers and recorded ADR-14. Focused tests pass; full acceptance is running.
+
+Revision note (2026-10-10, EP5 acceptance): mark EP5 Complete on full store,
+structural and controlled workload checks; retain exact source/transcript evidence
+and ADR-14. Five children are complete. EP6 is the sole remaining child, with
+cumulative performance, current-version release selection and downstream adoption
+still outstanding; no package has been published.

@@ -1,0 +1,71 @@
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.9.0.1 (lib) (file src/Kiroku/Store/Error.hs changed)
+ - kiroku-store-0.9.0.1 (test:kiroku-store-test) (dependency rebuilt)
+Preprocessing library for kiroku-store-0.9.0.1...
+Building library for kiroku-store-0.9.0.1...
+[18 of 30] Compiling Kiroku.Store.Error ( src/Kiroku/Store/Error.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Error.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Error.dyn_o ) [Source file changed]
+Preprocessing test suite 'kiroku-store-test' for kiroku-store-0.9.0.1...
+Building test suite 'kiroku-store-test' for kiroku-store-0.9.0.1...
+[42 of 45] Compiling Test.UniqueViolationMapping ( test/Test/UniqueViolationMapping.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/UniqueViolationMapping.o ) [Source file changed]
+[46 of 46] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test [Objects changed]
+Running 1 test suites...
+Test suite kiroku-store-test: RUNNING...
+
+unique violation mapping
+  classifies the exact message constraint "events_pkey" [✔]
+  classifies a detail-only constraint "events_pkey" [✔]
+  classifies the exact message constraint "stream_events_pkey" [✔]
+  classifies a detail-only constraint "stream_events_pkey" [✔]
+  classifies the exact message constraint "ix_streams_stream_name" [✔]
+  classifies a detail-only constraint "ix_streams_stream_name" [✔]
+  classifies the exact message constraint "ux_stream_events_stream_version" [✔]
+  classifies a detail-only constraint "ux_stream_events_stream_version" [✔]
+  classifies the exact message constraint "unknown_constraint" [✔]
+  classifies a detail-only constraint "unknown_constraint" [✔]
+  does not match stream_events_pkey as events_pkey [✔]
+  rejects the message lookalike "prefix_events_pkey" [✔]
+  rejects the detail lookalike "prefix_events_pkey" [✔]
+  rejects the message lookalike "events_pkey_suffix" [✔]
+  rejects the detail lookalike "events_pkey_suffix" [✔]
+  rejects the message lookalike "events_pkey$suffix" [✔]
+  rejects the detail lookalike "events_pkey$suffix" [✔]
+  rejects the message lookalike "prefix_stream_events_pkey" [✔]
+  rejects the detail lookalike "prefix_stream_events_pkey" [✔]
+  rejects the message lookalike "stream_events_pkey_suffix" [✔]
+  rejects the detail lookalike "stream_events_pkey_suffix" [✔]
+  rejects the message lookalike "stream_events_pkey$suffix" [✔]
+  rejects the detail lookalike "stream_events_pkey$suffix" [✔]
+  rejects the message lookalike "prefix_ix_streams_stream_name" [✔]
+  rejects the detail lookalike "prefix_ix_streams_stream_name" [✔]
+  rejects the message lookalike "ix_streams_stream_name_suffix" [✔]
+  rejects the detail lookalike "ix_streams_stream_name_suffix" [✔]
+  rejects the message lookalike "ix_streams_stream_name$suffix" [✔]
+  rejects the detail lookalike "ix_streams_stream_name$suffix" [✔]
+  rejects the message lookalike "prefix_ux_stream_events_stream_version" [✔]
+  rejects the detail lookalike "prefix_ux_stream_events_stream_version" [✔]
+  rejects the message lookalike "ux_stream_events_stream_version_suffix" [✔]
+  rejects the detail lookalike "ux_stream_events_stream_version_suffix" [✔]
+  rejects the message lookalike "ux_stream_events_stream_version$suffix" [✔]
+  rejects the detail lookalike "ux_stream_events_stream_version$suffix" [✔]
+  uses the message constraint ahead of misleading detail tokens [✔]
+  retains an unknown message constraint even when detail names a known constraint [✔]
+  does not fabricate an event id for ("events_pkey",Nothing) [✔]
+  does not fabricate an event id for ("events_pkey",Just "unparseable localized detail") [✔]
+  does not fabricate an event id for ("stream_events_pkey",Nothing) [✔]
+  does not fabricate an event id for ("stream_events_pkey",Just "unparseable localized detail") [✔]
+  maps a composite duplicate inside a transaction with its event id [✔]
+  preserves the link-specific duplicate classification [✔]
+  accepts a quoted constraint in legacy detail [✔]
+  keeps an unnamed unique violation on the conservative fallback [✔]
+  does not classify a transaction constraint lookalike as a duplicate [✔]
+  does not classify a link constraint lookalike as already linked [✔]
+  attributes a multi-stream name violation to the named operation [✔]
+  does not attribute a multi-stream constraint lookalike to a later operation [✔]
+
+Finished in 0.0010 seconds
+49 examples, 0 failures
+Test suite kiroku-store-test: PASS
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/test/kiroku-store-0.9.0.1-kiroku-store-test.log
+1 of 1 test suites (1 of 1 test cases) passed.
