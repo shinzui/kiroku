@@ -1,10 +1,10 @@
 ---
 title: "Interpreter-level event enrich and decode hooks"
 type: Capability
-description: "Transform every event on the write path (enrichEvent) and the read/subscription path (decodeHook) through interpreter-level hooks wired once on ConnectionSettings, with an allocation-free fast path when absent."
+description: "Transform every event on the write path (enrichEvent) and the read/subscription path (decodeHook) through interpreter-level hooks wired once on ConnectionSettings, with unchanged vectors and no per-event wrappers when absent."
 generated:
-  by: anthropic/claude-sonnet-4.5
-  at: "2026-08-08T00:00:00Z"
+  by: openai/gpt-6.1-sol
+  at: "2026-10-10T00:16:23Z"
 capabilityId: CAP-7
 provider: mori://shinzui/kiroku
 status: shipped
@@ -32,7 +32,10 @@ Wire `StoreSettings { enrichEvent, decodeHook }` onto `ConnectionSettings.storeS
 transform events uniformly: `enrichEvent` runs on the [append](append-with-optimistic-concurrency.md)
 path before encoding, and `decodeHook` runs after decoding on the
 [read](reading-events.md) and subscription paths. Both default to `Nothing` with a `pure` fast
-path that adds no traversal or allocation.
+path that adds no traversal; subscriptions add one batch constructor.
+`decodeHook` returns `Either DecodeFailure RecordedEvent`: typed failures stop
+reads with `EventDecodeFailed` and use per-subscription retry/disposition without
+stalling the publisher. See [undecodable events](../user/subscriptions.md#undecodable-events).
 
 ## Usage
 
@@ -50,4 +53,4 @@ defaultStoreSettings
   `appendToStreamTx` and the other direct `Tx`-level building blocks, which bypass `enrichEvent`
   (apply `enrichEventsIO` manually) — see transactional append composition (CAP-6).
 - `enrichEvent` and `decodeHook` are `IO` actions run inline on the store's hot paths; a slow hook
-  slows every append/read/delivery.
+  slows the append or read/delivery path on which it runs.

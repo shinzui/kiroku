@@ -370,6 +370,35 @@ rows for missing names. Because it is a `Hasql.Transaction.Transaction`
 combinator, `Tx.condemn` rolls it back together with the caller's projection
 fence and target-table writes.
 
+## Undecodable Events
+
+`StoreSettings.decodeHook` returns `IO (Either DecodeFailure RecordedEvent)`.
+Return `Right` for a decoded event and `Left (DecodeFailure eventId reason)` for
+an expected decode failure. A thrown exception remains a programming failure.
+The shared publisher reports `KirokuEventPublisherDecodeFailed` and advances
+past typed failures; each subscriber chooses its own disposition.
+
+`defaultSubscriptionConfig` sets `undecodableHandler = Nothing`. An affected
+subscriber re-applies the hook to the original raw event once per second, up to
+`retryMaxAttempts` total attempts (five by default). On exhaustion it emits
+`StopUndecodable failure`, and `wait` returns `Left (SubscriptionUndecodable
+failure)`. It neither dead-letters nor checkpoints past the bad event. Fix the
+hook and restart with the same subscription name to replay from its durable
+checkpoint; earlier events in an incomplete batch can replay too.
+
+An optional `undecodableHandler :: RecordedEvent -> DecodeFailure -> m
+SubscriptionResult` receives the raw event and failure. `Continue` explicitly
+skips it, `Stop` saves its position and stops cleanly, `Retry delay` re-applies
+the hook and invokes the ordinary handler if decoding recovers, and
+`DeadLetter (DeadLetterDecodeFailure failure)` durably records the failure and
+advances the checkpoint atomically. Explicit callback retries use the existing
+retry limit and `DeadLetterMaxAttempts` exhaustion contract. Events excluded
+by the subscription's filter or selector do not invoke this callback.
+
+Live non-group all-stream subscribers share one decoded batch. Subscriber
+retries re-run the hook independently; category/group and catch-up reads decode
+in their own worker. A typed failure stops only the affected subscriber.
+
 ## Lifecycle And Failure Modes
 
 `SubscriptionHandle` carries `cancel :: m ()`,
@@ -381,6 +410,7 @@ resolves with one of:
 | `Right ()` | The handler returned `Stop`; the worker exited cleanly, checkpoint saved at that event. |
 | `Left AsyncCancelled` | The caller invoked `cancel`. No checkpoint advance is guaranteed; in-flight events replay on the next start. |
 | `Left SubscriptionOverflowed` | The publisher dropped this subscriber under the (non-default) `DropSubscription` policy. Under the default `PauseAndResume` the worker recovers rather than failing. |
+| `Left SubscriptionUndecodable` | Default decode retries exhausted; checkpoint remains before the failed event. |
 | `Left SubscriptionCheckpointMissing` | The exact checkpoint key was absent under `FailIfMissing`. No row was inserted and the handler did not run. |
 | `Left e` (any other) | The handler threw. Exceptions are **not** caught — the worker thread dies and the exception propagates. A throwing handler signals the subscription cannot proceed safely. |
 

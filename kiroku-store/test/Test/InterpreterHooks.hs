@@ -22,7 +22,7 @@ import Data.Generics.Labels ()
 import Data.IORef (modifyIORef', newIORef, readIORef)
 import Data.Vector qualified as V
 import Kiroku.Store
-import Test.Helpers (makeEvent, waitForPublisher, waitWithTimeout, withTestStore, withTestStoreSettings)
+import Test.Helpers (caughtUpEventHandler, makeEvent, waitForPublisher, waitForSubscriptionLive, waitWithTimeout, withTestStore, withTestStoreSettings)
 import Test.Hspec
 
 spec :: Spec
@@ -88,9 +88,15 @@ appendHookFiresSpec = do
 
 readHookFiresSpec :: Spec
 readHookFiresSpec = do
+    it "retains the no-hook batch without evaluating its events" $ do
+        batch <- decodeEvents defaultStoreSettings (V.replicate 100 (error "no-hook decoding traversed the vector"))
+        case batch of
+            UnchangedBatch events -> V.length events `shouldBe` 100
+            TransformedBatch _ -> expectationFailure "default decoding allocated per-event outcomes"
+
     it "applies decodeHook to readAllForward results" $ do
         let marker = Aeson.object [("decoded", Aeson.String "yes")]
-            inject re = pure $ re & #metadata .~ Just marker
+            inject re = pure $ Right (re & #metadata .~ Just marker)
             tweak cs =
                 cs
                     & #storeSettings
@@ -113,13 +119,15 @@ readHookFiresSpec = do
                 (re ^. #metadata) `shouldBe` Just marker
 
     it "applies decodeHook to subscription handlers across catch-up and live phases" $ do
+        caughtUp <- newEmptyMVar
         let marker = Aeson.object [("sub", Aeson.String "tagged")]
-            inject re = pure $ re & #metadata .~ Just marker
+            inject re = pure $ Right (re & #metadata .~ Just marker)
             subName = SubscriptionName "hook-sub-1"
             tweak cs =
                 cs
                     & #storeSettings
                         .~ defaultStoreSettings{decodeHook = Just inject}
+                    & #eventHandler .~ Just (caughtUpEventHandler subName caughtUp Nothing)
         withTestStoreSettings tweak $ \store -> do
             -- Pre-append one event so the worker's catch-up path runs
             -- before live mode kicks in.
@@ -141,6 +149,7 @@ readHookFiresSpec = do
                         else pure Continue
                 config = defaultSubscriptionConfig subName AllStreams handlerFn
             sub <- subscribe store config
+            waitForSubscriptionLive caughtUp
             -- Append a second event to land in live mode.
             Right _ <-
                 runStoreIO store $

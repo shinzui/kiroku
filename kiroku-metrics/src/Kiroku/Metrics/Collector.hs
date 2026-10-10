@@ -91,6 +91,7 @@ emptyCounters =
         , notifierReconnected = 0
         , publisherPoolErrors = 0
         , publisherLoopErrors = 0
+        , publisherDecodeFailures = 0
         , subscriptionDbErrorsLoad = 0
         , subscriptionDbErrorsFetch = 0
         , subscriptionDbErrorsSave = 0
@@ -105,6 +106,7 @@ emptyCounters =
         , subscriptionsStoppedCancelled = 0
         , subscriptionsStoppedOverflow = 0
         , subscriptionsStoppedCrashed = 0
+        , subscriptionsStoppedUndecodable = 0
         , liveFetches = 0
         , batchesDelivered = 0
         , eventsDelivered = 0
@@ -169,6 +171,8 @@ applyEvent km = \case
         bumpCounters km (\c -> c{notifierReconnected = c.notifierReconnected + 1})
     KirokuEventPublisherPoolError _ ->
         bumpCounters km (\c -> c{publisherPoolErrors = c.publisherPoolErrors + 1})
+    KirokuEventPublisherDecodeFailed{} ->
+        bumpCounters km (\c -> c{publisherDecodeFailures = c.publisherDecodeFailures + 1})
     KirokuEventPublisherLoopError _ ->
         bumpCounters km (\c -> c{publisherLoopErrors = c.publisherLoopErrors + 1})
     KirokuEventSubscriptionDbError name phase _ _ -> do
@@ -244,6 +248,7 @@ bumpStopReason reason c = case reason of
     StopCancelled -> c{subscriptionsStoppedCancelled = c.subscriptionsStoppedCancelled + 1}
     StopOverflowed -> c{subscriptionsStoppedOverflow = c.subscriptionsStoppedOverflow + 1}
     StopWorkerCrashed _ -> c{subscriptionsStoppedCrashed = c.subscriptionsStoppedCrashed + 1}
+    StopUndecodable _ -> c{subscriptionsStoppedUndecodable = c.subscriptionsStoppedUndecodable + 1}
 
 stopReasonText :: SubscriptionStopReason -> Text
 stopReasonText = \case
@@ -251,6 +256,7 @@ stopReasonText = \case
     StopCancelled -> "cancelled"
     StopOverflowed -> "overflow"
     StopWorkerCrashed _ -> "crashed"
+    StopUndecodable _ -> "undecodable"
 
 -- | Apply a single pool 'Observation' to the collector state.
 applyObservation :: KirokuMetrics -> Observation -> STM ()

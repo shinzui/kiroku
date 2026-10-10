@@ -251,6 +251,7 @@ Metric names, types, and label names are a published contract for dashboards
 | `kiroku_pool_terminated_total` | counter | — | Pool connections terminated. |
 | `kiroku_notifier_reconnecting_total` | counter | — | Notifier reconnection attempts started. |
 | `kiroku_notifier_reconnected_total` | counter | — | Notifier reconnections completed. |
+| `kiroku_publisher_decode_failures_total` | counter | — | Typed publisher hook failures; excludes subscriber retry attempts. |
 | `kiroku_publisher_pool_errors_total` | counter | — | EventPublisher read-query pool errors. |
 | `kiroku_subscription_db_errors_by_phase_total` | counter | `phase="load\|fetch\|save"` | Subscription database errors by phase. |
 | `kiroku_subscriptions_started_total` | counter | — | Subscription workers started. |
@@ -260,7 +261,7 @@ Metric names, types, and label names are a published contract for dashboards
 | `kiroku_subscriptions_reconnecting_total` | counter | — | Subscription live-fetch reconnects. |
 | `kiroku_subscriptions_retrying_total` | counter | — | Subscription event redeliveries. |
 | `kiroku_subscriptions_dead_lettered_total` | counter | — | Events written to dead letters. |
-| `kiroku_subscriptions_stopped_total` | counter | `reason="handler\|cancelled\|overflow\|crashed"` | Subscription stops by reason. |
+| `kiroku_subscriptions_stopped_total` | counter | `reason="handler\|cancelled\|overflow\|crashed\|undecodable"` | Subscription stops by reason. |
 | `kiroku_live_fetches_total` | counter | — | Live-mode database fetches. |
 | `kiroku_batches_delivered_total` | counter | — | Non-empty batches delivered to handlers. |
 | `kiroku_events_delivered_total` | counter | — | Events delivered to handlers. |
@@ -432,3 +433,7 @@ compiling reference for the wiring pattern above.
 - [ADR-9](../adr/0009-published-http-and-websocket-wire-shapes-are-frozen-and-served-only-by-sister-packages.md)
   — the wire-format stability contract and the sister-package ownership boundary
   behind everything on this page.
+
+Lifecycle JSON adds `publisher_decode_failures` and
+`subscriptions_stopped_undecodable`; decode failures are separate from publisher
+programming errors and worker crashes.

@@ -39,6 +39,7 @@ module Kiroku.Store.Subscription.Types (
     SubscriptionResult (..),
     OverflowPolicy (..),
     SubscriptionOverflowed (..),
+    SubscriptionUndecodable (..),
     EventHandlerM,
     EventHandler,
     SubscriptionConfigM (..),
@@ -83,6 +84,7 @@ import Data.Time.Clock (UTCTime)
 import Data.Typeable (cast)
 import Data.Vector (Vector)
 import GHC.Generics (Generic)
+import Kiroku.Store.Settings (DecodeFailure)
 import Kiroku.Store.Subscription.Fsm (
     DeadLetterReason (..),
     RetryDelay (..),
@@ -330,6 +332,16 @@ newtype SubscriptionOverflowed = SubscriptionOverflowed
     deriving stock (Show)
     deriving anyclass (Exception)
 
+{- | Default decode retries exhausted. Wait returns this exception and the
+stopped event carries StopUndecodable; the durable checkpoint is still before
+the failed event. Fix the hook and restart to replay it.
+-}
+newtype SubscriptionUndecodable = SubscriptionUndecodable
+    { subscriptionDecodeFailure :: DecodeFailure
+    }
+    deriving stock (Eq, Show)
+    deriving anyclass (Exception)
+
 -- | Handler callback invoked for each event, parameterized by monad.
 type EventHandlerM m = RecordedEvent -> m SubscriptionResult
 
@@ -341,6 +353,11 @@ data SubscriptionConfigM m = SubscriptionConfig
     { name :: !SubscriptionName
     , target :: !SubscriptionTarget
     , handler :: !(EventHandlerM m)
+    , undecodableHandler :: !(Maybe (RecordedEvent -> DecodeFailure -> m SubscriptionResult))
+    {- ^ Optional disposition of a raw undecodable event. Default Nothing:
+    retry at one-second spacing and then stop without skipping the event.
+    A callback uses the ordinary Continue/Stop/Retry/DeadLetter vocabulary.
+    -}
     , batchSize :: !BatchSize
     -- ^ Number of events to fetch per batch during catch-up (default: 100)
     , queueCapacity :: !Natural
@@ -451,6 +468,7 @@ defaultSubscriptionConfig name' target' handler' =
         { name = name'
         , target = target'
         , handler = handler'
+        , undecodableHandler = Nothing
         , batchSize = defaultBatchSize
         , queueCapacity = 16
         , overflowPolicy = PauseAndResume

@@ -1,5 +1,8 @@
 # Capability Catalog Log
 
+## 2026-10-10
+* **Update**: Document typed decode failure outcomes and no-hook unchanged-vector batch semantics.
+
 ## 2026-09-25
 * **Update**: CAP-1 now records the twelve-entry native manifest and migration `0012`, which puts the source stream's category on `$all` junction rows and indexes it for category reads (plan 91).
 * **Update**: CAP-13 notes that consumer-group category members now wake only on appends to their category (plan 91), while $all group members still wake on every global advance.

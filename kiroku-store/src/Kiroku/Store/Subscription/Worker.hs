@@ -61,7 +61,7 @@ import Kiroku.Store.Observability (
     emitOrDrop,
  )
 import Kiroku.Store.SQL qualified as SQL
-import Kiroku.Store.Settings (StoreSettings, decodeEvents)
+import Kiroku.Store.Settings (DecodedBatch (..), DecodedEvent (..), StoreSettings, decodeEvent, decodeEvents, decodedBatchLastEvent, decodedBatchLength, decodedEventRecorded, filterDecodedBatch)
 import Kiroku.Store.Subscription.Checkpoint.SQL qualified as CheckpointSQL
 import Kiroku.Store.Subscription.EventPublisher (SubscriberStatus)
 import Kiroku.Store.Subscription.EventPublisher qualified as Pub
@@ -174,7 +174,7 @@ data LiveSource
     = {- | Non-group AllStreams: read the publisher's bounded queue; the status
       TVar carries Paused/Overflowed backpressure signals.
       -}
-      LiveFromPublisherQueue !(TBQueue (Vector RecordedEvent)) !(TVar SubscriberStatus)
+      LiveFromPublisherQueue !(TBQueue DecodedBatch) !(TVar SubscriberStatus)
     | {- | Category, plain or consumer-group member: wake on the named
       category's NOTIFY generation counter and re-query the database (with the
       partition predicate, for a member).
@@ -315,7 +315,7 @@ runWorker pool liveSource stateVar pubPosVar catGenVar config mHandler stSetting
                         case fetchResult of
                             Left err -> pure (FetchFailed err)
                             Right events
-                                | V.null events -> pure CaughtUp
+                                | decodedBatchLength events == 0 -> pure CaughtUp
                                 | otherwise -> pure (BatchFetched events)
             Live c -> case liveSource of
                 LiveFromPublisherQueue liveQueue statusVar -> do
@@ -332,8 +332,8 @@ runWorker pool liveSource stateVar pubPosVar catGenVar config mHandler stSetting
                                 -- in the queue. Drop those stale entries so live
                                 -- mode cannot replay them or rewind the checkpoint.
                                 events <- readTBQueue liveQueue
-                                let fresh = V.filter ((> c) . globalPosition) events
-                                pure (if V.null fresh then FetchEmpty else BatchFetched fresh)
+                                let fresh = filterDecodedBatch ((> c) . globalPosition) events
+                                pure (if decodedBatchLength fresh == 0 then FetchEmpty else BatchFetched fresh)
                 LiveFromCategoryNotify cat ->
                     liveExitToInput =<< liveLoopCategoryNotify pool config stateVar catGenVar cat emit posRef c stSettings
                 LiveFromGroupPolling ->
@@ -367,7 +367,7 @@ runWorker pool liveSource stateVar pubPosVar catGenVar config mHandler stSetting
                 case fetchResult of
                     Left err -> pure (FetchFailed err)
                     Right events
-                        | V.null events -> pure FetchEmpty
+                        | decodedBatchLength events == 0 -> pure FetchEmpty
                         | otherwise -> pure (BatchFetched events)
             -- Defensive totality: 'Retrying' is a surfaced observability state
             -- that the delivery primitive writes into the state TVar and then
@@ -406,7 +406,7 @@ runWorker pool liveSource stateVar pubPosVar catGenVar config mHandler stSetting
                 FetchHistory _ -> go es
                 RunLive -> go es
                 DeliverBatch events -> do
-                    result <- processEvents pool config stateVar events emit posRef
+                    result <- processEvents pool config stateVar events emit posRef stSettings
                     case result of
                         Nothing -> pure (Just (HandlerStopped (lastPosOf events)))
                         Just _ -> go es
@@ -415,8 +415,9 @@ runWorker pool liveSource stateVar pubPosVar catGenVar config mHandler stSetting
                     StopOverflowed -> throwIO (SubscriptionOverflowed subName)
                     StopCancelled -> throwIO Async.AsyncCancelled
                     StopWorkerCrashed ex -> throwIO ex
+                    StopUndecodable failure -> throwIO (SubscriptionUndecodable failure)
 
-        lastPosOf events = globalPosition (V.last events)
+        lastPosOf events = globalPosition (decodedBatchLastEvent events)
 
         -- Map a DB-driven live loop's exit onto the next FSM input: a clean stop
         -- becomes 'HandlerStopped' (at the last processed position); a fetch error
@@ -480,6 +481,7 @@ classifyStopReason :: SomeException -> SubscriptionStopReason
 classifyStopReason e
     | Just (_ :: SubscriptionOverflowed) <- fromException e = StopOverflowed
     | Just (_ :: Async.AsyncCancelled) <- fromException e = StopCancelled
+    | Just (SubscriptionUndecodable failure) <- fromException e = StopUndecodable failure
     | otherwise = StopWorkerCrashed e
 
 -- The consumer-group member index for this config, or 0 for a non-group
@@ -603,11 +605,11 @@ liveLoopCategoryNotify pool config stateVar catGenVar cat emit posRef startPos s
             case fetchResult of
                 Left err -> pure (Left err)
                 Right events -> do
-                    emit (KirokuEventSubscriptionFetched (name config) (V.length events) (groupCtxOf config))
-                    if V.null events
+                    emit (KirokuEventSubscriptionFetched (name config) (decodedBatchLength events) (groupCtxOf config))
+                    if decodedBatchLength events == 0
                         then pure (Right (Just c))
                         else do
-                            result <- processEvents pool config stateVar events emit posRef
+                            result <- processEvents pool config stateVar events emit posRef stSettings
                             case result of
                                 Nothing -> pure (Right Nothing) -- handler said Stop
                                 Just newPos -> drainTo newPos
@@ -655,11 +657,11 @@ liveLoopDbDriven pool config stateVar pubPosVar emit posRef startPos stSettings 
                 case fetchResult of
                     Left err -> pure (Left err)
                     Right events -> do
-                        emit (KirokuEventSubscriptionFetched (name config) (V.length events) (groupCtxOf config))
-                        if V.null events
+                        emit (KirokuEventSubscriptionFetched (name config) (decodedBatchLength events) (groupCtxOf config))
+                        if decodedBatchLength events == 0
                             then pure (Right (Just c))
                             else do
-                                result <- processEvents pool config stateVar events emit posRef
+                                result <- processEvents pool config stateVar events emit posRef stSettings
                                 case result of
                                     Nothing -> pure (Right Nothing) -- handler said Stop
                                     Just newPos -> drainTo newPos
@@ -678,7 +680,7 @@ fetchBatch ::
     GlobalPosition ->
     (KirokuEvent -> IO ()) ->
     StoreSettings ->
-    IO (Either Pool.UsageError (Vector RecordedEvent))
+    IO (Either Pool.UsageError DecodedBatch)
 fetchBatch pool config cursor@(GlobalPosition pos) emit stSettings = do
     mHook <- readIORef fetchBatchHookRef
     injected <- maybe (pure Nothing) (\hook -> hook config cursor) mHook
@@ -732,73 +734,94 @@ processEvents ::
     Pool ->
     SubscriptionConfig ->
     TVar SubscriptionState ->
-    Vector RecordedEvent ->
+    DecodedBatch ->
     (KirokuEvent -> IO ()) ->
     IORef GlobalPosition ->
+    StoreSettings ->
     IO (Maybe GlobalPosition)
-processEvents pool config stateVar events emit posRef = do
-    -- The state the driver wrote for this batch (CatchingUp / Live); restored
-    -- after each retry so the observable state does not stick on 'Retrying'.
+processEvents pool config stateVar batch emit posRef stSettings = do
     driving <- atomically (readTVar stateVar)
-    -- Emit one centralized per-batch delivery event for *every* target and both
-    -- phases. This is the single delivery primitive, so this one emit uniformly
-    -- covers catch-up for every target, AllStreams live, and the DB-driven live
-    -- loops (which still also emit KirokuEventSubscriptionFetched per fetch).
     let phase = case driving of
             CatchingUp{} -> DeliveredCatchUp
             _ -> DeliveredLive
-    emit (KirokuEventSubscriptionDelivered subName (V.length events) phase groupCtx)
-    go driving 0
+    emit (KirokuEventSubscriptionDelivered subName (decodedBatchLength batch) phase groupCtx)
+    -- Choose the vector representation once per batch. The unchanged arm walks
+    -- RecordedEvent directly, with no per-event Decoded/Undecodable allocation.
+    case batch of
+        UnchangedBatch events -> walk events id (\event pos -> deliver driving event pos 1)
+        TransformedBatch events -> walk events decodedEventRecorded (\event pos -> dispatch driving event pos 1)
   where
     subName = name config
     groupCtx = groupCtxOf config
     maxAttempts = retryMaxAttempts (retryPolicy config)
 
-    go driving i
-        | i >= V.length events = do
-            let lastEvent = V.last events
-                newPos = globalPosition lastEvent
-            writeIORef posRef newPos
-            saveCheckpoint pool config newPos emit
-            pure (Just newPos)
-        | otherwise = do
-            let event = events V.! i
-                evtPos = globalPosition event
-            writeIORef posRef evtPos
-            if shouldDeliver (eventTypeFilter config) (selector config) event
-                then deliver driving i event evtPos 1
-                else -- Filtered out by the type filter or the selector: skip the
-                -- handler entirely (so a non-matching event never reaches the
-                -- bridge and is never retried or dead-lettered), but keep walking
-                -- the batch so the batch-tail checkpoint advances the cursor past
-                -- it. The subscription never stalls on a long run of filtered-out
-                -- events.
-                    go driving (i + 1)
+    walk :: Vector a -> (a -> RecordedEvent) -> (a -> GlobalPosition -> IO Bool) -> IO (Maybe GlobalPosition)
+    walk events rawOf consume = go 0
+      where
+        go i
+            | i >= V.length events = do
+                let newPos = globalPosition (rawOf (V.last events))
+                writeIORef posRef newPos
+                saveCheckpoint pool config newPos emit
+                pure (Just newPos)
+            | otherwise = do
+                let item = events V.! i
+                    event = rawOf item
+                    evtPos = globalPosition event
+                keepGoing <-
+                    if shouldDeliver (eventTypeFilter config) (selector config) event
+                        then consume item evtPos
+                        else pure True
+                if keepGoing
+                    then writeIORef posRef evtPos >> go (i + 1)
+                    else pure Nothing
 
-    -- Deliver one event; @attempt@ is the 1-based delivery attempt (1 = first).
-    deliver driving i event evtPos attempt = do
+    deliver driving event evtPos attempt = do
+        writeIORef posRef evtPos
         result <- handler config event
-        case result of
-            Continue -> go driving (i + 1)
-            Stop -> do
-                -- Save checkpoint up to the event we just processed
-                saveCheckpoint pool config evtPos emit
-                pure Nothing
-            DeadLetter reason -> do
-                writeDeadLetter pool config evtPos event reason attempt emit
-                go driving (i + 1)
-            Retry delay
-                -- Exhausted the retry budget: dead-letter and advance past it.
-                | attempt >= maxAttempts -> do
-                    writeDeadLetter pool config evtPos event (DeadLetterMaxAttempts attempt) attempt emit
-                    go driving (i + 1)
-                -- Redeliver the same event after the requested delay.
+        resolve driving event evtPos attempt result (deliver driving event evtPos (attempt + 1))
+
+    dispatch driving outcome evtPos attempt = case outcome of
+        Decoded event -> deliver driving event evtPos attempt
+        Undecodable raw failure -> case undecodableHandler config of
+            Nothing
+                | attempt >= maxAttempts -> throwIO (SubscriptionUndecodable failure)
                 | otherwise -> do
-                    atomically (writeTVar stateVar (Retrying evtPos attempt))
-                    emit (KirokuEventSubscriptionRetrying subName evtPos attempt groupCtx)
-                    threadDelay (retryDelayMicros delay)
-                    atomically (writeTVar stateVar driving)
-                    deliver driving i event evtPos (attempt + 1)
+                    pause driving evtPos attempt (RetryDelay 1)
+                    retryDecode driving raw evtPos (attempt + 1)
+            Just callback -> do
+                result <- callback raw failure
+                resolve driving raw evtPos attempt result (retryDecode driving raw evtPos (attempt + 1))
+
+    retryDecode driving raw evtPos attempt = do
+        outcome <- decodeEvent stSettings raw
+        case outcome of
+            Decoded event | not (shouldDeliver (eventTypeFilter config) (selector config) event) -> pure True
+            _ -> dispatch driving outcome evtPos attempt
+
+    -- Ordinary and explicitly chosen undecodable dispositions share exactly
+    -- one checkpoint/dead-letter/retry resolver. The absent callback never
+    -- enters its exhausted-Retry dead-letter branch.
+    resolve driving event evtPos attempt result retry = case result of
+        Continue -> pure True
+        Stop -> do
+            writeIORef posRef evtPos
+            saveCheckpoint pool config evtPos emit
+            pure False
+        DeadLetter reason -> do
+            writeDeadLetter pool config evtPos event reason attempt emit
+            pure True
+        Retry delay
+            | attempt >= maxAttempts -> do
+                writeDeadLetter pool config evtPos event (DeadLetterMaxAttempts attempt) attempt emit
+                pure True
+            | otherwise -> pause driving evtPos attempt delay >> retry
+
+    pause driving evtPos attempt delay = do
+        atomically (writeTVar stateVar (Retrying evtPos attempt))
+        emit (KirokuEventSubscriptionRetrying subName evtPos attempt groupCtx)
+        threadDelay (retryDelayMicros delay)
+        atomically (writeTVar stateVar driving)
 
 -- Atomically record an event in @kiroku.dead_letters@ and advance the
 -- subscription's checkpoint past it (one statement; the checkpoint does not

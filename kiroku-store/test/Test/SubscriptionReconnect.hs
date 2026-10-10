@@ -100,6 +100,7 @@ spec = describe "subscription FSM — worker-level live reconnect (EP-41 M3)" $ 
                     , consumerGroupGuard = False
                     , missingCheckpointPolicy = FromBeginning
                     , targetBindingPolicy = AdoptUnbound
+                    , undecodableHandler = Nothing
                     , retryPolicy = defaultRetryPolicy
                     , eventTypeFilter = AllEventTypes
                     , selector = Nothing

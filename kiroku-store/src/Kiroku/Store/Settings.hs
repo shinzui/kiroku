@@ -10,8 +10,8 @@ or mutate structured JSON. Plumbing it at the encoder layer would force
 hooks to operate on opaque bytes.
 
 Both fields default to 'Nothing'. With the defaults, the helpers below
-take a 'pure' fast path that allocates nothing extra; no traversal of
-the events list or vector occurs.
+retain the original event list/vector without traversal. Subscription
+decoding adds one batch constructor, with no per-event wrappers.
 
 A typical use case is enriching every appended event with an
 OpenTelemetry trace context drawn from the calling thread:
@@ -22,7 +22,7 @@ storeSettings = 'defaultStoreSettings'
       ctx <- captureCurrentSpan        -- OpenTelemetry, OTLP, whatever
       pure (ed & #metadata %~ injectTraceContext ctx)
   , 'decodeHook' = Just $ \\re ->
-      pure (re & #metadata %~ Just . redactPII)
+      pure (Right (re & #metadata %~ Just . redactPII))
   }
 @
 
@@ -41,13 +41,66 @@ module Kiroku.Store.Settings (
     StoreSettings (..),
     defaultStoreSettings,
     enrichEvents,
+    DecodeFailure (..),
+    DecodedEvent (..),
+    DecodedBatch (..),
     decodeEvents,
+    decodeEvent,
+    decodedEventRecorded,
+    decodedBatchLength,
+    decodedBatchLastEvent,
+    filterDecodedBatch,
 ) where
 
+import Data.Text (Text)
 import Data.Vector (Vector)
 import Data.Vector qualified as V
 import GHC.Generics (Generic)
-import Kiroku.Store.Types (EventData, RecordedEvent)
+import Kiroku.Store.Types (EventData, EventId, RecordedEvent)
+
+{- | A hook could not decode this event. Return it through 'Left'; throwing
+from the hook remains a programming error. Default retry exhaustion is surfaced
+by SubscriptionUndecodable, carrying this failure.
+-}
+data DecodeFailure = DecodeFailure
+    { decodeFailureEventId :: !EventId
+    , decodeFailureReason :: !Text
+    }
+    deriving stock (Eq, Show, Generic)
+
+-- | A transformed event, or its raw value retained for retry and disposition.
+data DecodedEvent
+    = Decoded !RecordedEvent
+    | Undecodable !RecordedEvent !DecodeFailure
+    deriving stock (Eq, Show)
+
+{- | No hook means no traversal or per-event wrappers. Hook results are shared
+by all live publisher subscribers, whose retry/disposition is independent.
+-}
+data DecodedBatch
+    = UnchangedBatch !(Vector RecordedEvent)
+    | TransformedBatch !(Vector DecodedEvent)
+    deriving stock (Eq, Show)
+
+decodedEventRecorded :: DecodedEvent -> RecordedEvent
+decodedEventRecorded = \case
+    Decoded event -> event
+    Undecodable event _ -> event
+
+decodedBatchLength :: DecodedBatch -> Int
+decodedBatchLength = \case
+    UnchangedBatch events -> V.length events
+    TransformedBatch events -> V.length events
+
+decodedBatchLastEvent :: DecodedBatch -> RecordedEvent
+decodedBatchLastEvent = \case
+    UnchangedBatch events -> V.last events
+    TransformedBatch events -> decodedEventRecorded (V.last events)
+
+filterDecodedBatch :: (RecordedEvent -> Bool) -> DecodedBatch -> DecodedBatch
+filterDecodedBatch predicate = \case
+    UnchangedBatch events -> UnchangedBatch (V.filter predicate events)
+    TransformedBatch events -> TransformedBatch (V.filter (predicate . decodedEventRecorded) events)
 
 {- | Interpreter-level hooks for cross-cutting concerns at the
 event-data boundary. All fields default to 'Nothing' (no-op).
@@ -61,14 +114,20 @@ event-data boundary. All fields default to 'Nothing' (no-op).
   the caller. Used to decrypt payloads, redact PII, or attach derived
   metadata.
 
-When a field is 'Nothing', the interpreter takes a @pure@ fast path
-that does not allocate or traverse.
+When a field is 'Nothing', reads and enrichment return their input directly.
+Subscription decoding retains the vector in one batch constructor without
+traversal or per-event wrappers.
 -}
 data StoreSettings = StoreSettings
     { enrichEvent :: !(Maybe (EventData -> IO EventData))
     -- ^ Append-path hook. Runs once per appended event before encoding.
-    , decodeHook :: !(Maybe (RecordedEvent -> IO RecordedEvent))
-    -- ^ Read- and subscription-path hook. Runs once per surfaced event.
+    , decodeHook :: !(Maybe (RecordedEvent -> IO (Either DecodeFailure RecordedEvent)))
+    {- ^ Read- and subscription-path hook. Return 'Left' for an undecodable
+    event: reads fail with a typed store error, subscriptions use their
+    optional undecodable handler or retry and stop by default. Exceptions
+    remain programming failures. Runs once per surfaced event; an undecodable
+    event's retry re-applies the hook to its original value.
+    -}
     }
     deriving stock (Generic)
 
@@ -89,9 +148,18 @@ enrichEvents ss xs = case enrichEvent ss of
     Just f -> traverse f xs
 
 {- | Apply 'decodeHook' to a vector of events. When the hook is
-'Nothing', returns the vector unchanged with no traversal.
+'Nothing', retains the vector unchanged without traversal or per-event wrappers.
 -}
-decodeEvents :: StoreSettings -> Vector RecordedEvent -> IO (Vector RecordedEvent)
+decodeEvents :: StoreSettings -> Vector RecordedEvent -> IO DecodedBatch
 decodeEvents ss xs = case decodeHook ss of
-    Nothing -> pure xs
-    Just f -> V.mapM f xs
+    Nothing -> pure (UnchangedBatch xs)
+    Just f -> TransformedBatch <$> V.mapM (applyDecode f) xs
+
+-- | Re-apply the hook to one raw undecodable event on a subscriber retry.
+decodeEvent :: StoreSettings -> RecordedEvent -> IO DecodedEvent
+decodeEvent ss event = case decodeHook ss of
+    Nothing -> pure (Decoded event)
+    Just f -> applyDecode f event
+
+applyDecode :: (RecordedEvent -> IO (Either DecodeFailure RecordedEvent)) -> RecordedEvent -> IO DecodedEvent
+applyDecode f event = either (Undecodable event) Decoded <$> f event

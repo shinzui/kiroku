@@ -96,7 +96,7 @@ already complete under [ADR-7](../adr/0007-replay-history-retention-uses-leases-
 The 2026-10-09 source audit at commit `e6ea664` found **0 of 6 children complete**.
 At that audit all five implementation children were Not Started; EP-6 awaits their completion.
 EP-1 is now Complete under the user-directed minimum-evidence scope recorded
-below. EP-2 is Complete on user-approved practical acceptance; EP-3 is now In Progress.
+below. EP-2 is Complete on user-approved practical acceptance; EP-3 is Complete after focused correctness and existing ADR-5 verification.
 The other three children remain Not Started; no package is released.
 The accepted ADR-8 records the intended API, not evidence that it has shipped. The recent
 lifecycle, category-performance, and publisher-memory fixes are baseline improvements to preserve.
@@ -137,9 +137,9 @@ accepted in September, records the subscription API conventions the cohort estab
 1.0: construction-time validation, declared startup policies, one exception parent for runtime
 refusals, and never skipping an event on a consumer's behalf. The completed checkpoint lifecycle
 request `mori://shinzui/kiroku/okf/improvement-requests/concepts/IR-3` is adjacent but does not bind
-a checkpoint to a subscription target or define group topology. No existing ADR covers the decode
-hook's failure contract or handler-stall observability; EP-3 creates one for the former, and EP-4
-decides during implementation whether the latter warrants a record.
+a checkpoint to a subscription target or define group topology. [ADR-12](../adr/0012-decode-failures-are-per-event-outcomes-with-independent-subscription-dispositions.md)
+now covers the decode hook's failure contract. EP4 decides during implementation
+whether handler-stall observability warrants its own record.
 
 
 ## Exec-Plan Registry
@@ -148,7 +148,7 @@ decides during implementation whether the latter warrants a record.
 |---|-------|------|-----------|-----------|--------|
 | 1 | Make consumer-group topology durable and resize without gaps | docs/plans/81-make-consumer-group-topology-durable-and-resize-without-gaps.md | None | EP-2 | Complete |
 | 2 | Repair live reconnect and validate subscription identity and batch size | docs/plans/82-repair-live-reconnect-and-validate-subscription-identity-and-batch-size.md | None | EP-1 | Complete |
-| 3 | Contain persistent publisher decode-hook failures | docs/plans/83-contain-persistent-publisher-decode-hook-failures.md | None | EP-2 | In Progress |
+| 3 | Contain persistent publisher decode-hook failures | docs/plans/83-contain-persistent-publisher-decode-hook-failures.md | None | EP-2 | Complete |
 | 4 | Harden adapter acknowledgement liveness and expose retry policy | docs/plans/84-harden-adapter-acknowledgement-liveness-and-expose-retry-policy.md | EP-1, EP-2 | EP-3 | Not Started |
 | 5 | Make append unique-violation classification exact | docs/plans/86-make-append-unique-violation-classification-exact.md | None | None | Not Started |
 | 6 | Release the subscription hardening cohort and coordinate downstream adoption | docs/plans/85-release-the-subscription-hardening-cohort-and-coordinate-downstream-adoption.md | EP-1, EP-2, EP-3, EP-4, EP-5 | None | Not Started |
@@ -297,33 +297,16 @@ bookkeeping. These are opt-in costs to measure; `handlerStallWarnAfter` now defa
 is pending and then waits the full threshold; it never polls. When the threshold is `Nothing` no
 thread, tracking cell, or timer is created, and no per-delivery clock read or tracking STM write occurs.
 
-Gate ownership: EP-1 and EP-2 run `just perf-check` and `just perf-telemetry` and must report the
-`All.reliability-audit.subscription category catch-up 100 events`, `All.category.*`, and
-`All.subscription-checkpoint-inventory.*` cells before and after. EP-2 adds the `InvalidBatchSize`
-refusal to the "no-op paths use no pooled connection" block of
-`kiroku-store/test/Test/PerformanceStructure.hs`, and EP-1 adds the topology-mismatch refusal there
-as an exactly-one-checkout path. EP-3 and EP-4 retain `cabal bench
-kiroku-store:kiroku-shibuya-overhead` as supplementary before/after evidence, but it is not a
-live publisher or production adapter acceptance gate. `ShibuyaOverhead.hs` pre-appends events
-before subscribing, so it primarily measures catch-up, and its Shibuya layer constructs a
-synthetic adapter over `subscriptionStream` with a no-op finalizer for normal acknowledgements;
-it never calls the production `kirokuAdapter`.
+Gate ownership (user-approved focused scope, 2026-10-09): implementation children
+run relevant correctness and existing ADR-5 structural/controlled checks. EP3
+pins no-hook vector passthrough, shared live fan-out and typed failure safety;
+EP4 pins real acknowledgements, default no-diagnostic work and opt-in stall
+behavior. No additional per-child benchmark queue or synthetic overhead
+before/after run is required. Cumulative append throughput/tail latency and
+real adapter/diagnostic costs belong to one focused EP6 experiment within the
+user's one-hour whole-experiment ceiling. Preserve retained baseline data,
+statistical uncertainty and adverse results. Confirmed regressions block release.
 
-EP-3 must add controlled coverage of no-hook and successful-hook reads, catch-up, and confirmed
-live publisher fan-out, recording throughput and allocation per event. EP-4 must measure the
-production acknowledgement-coupled `kirokuAdapter` and bare workers with stall tracking disabled
-and with an explicit opt-in `Just 60`, including idle-worker timer/thread behavior. Define
-controls and acceptance bounds before measuring, following ADR-5, and integrate the new controlled
-cases into an authoritative gate. No bound is claimed as already passed. Avoid interpreting an
-unchanged database round-trip count or the old synthetic benchmark as proof of unchanged CPU,
-allocation, or scheduling cost. EP-1/EP-2 inspect the startup query shape; measure
-startup cost across sizes only for a specific unresolved risk. One checkout does
-not imply one statement or constant work. Checkpoint changes can affect write
-volume even when the upsert remains HOT-eligible; EP1 retained focused WAL/save data.
-
-EP-5 changes only the error path after PostgreSQL has rolled back the failed statement, so it
-needs no gate beyond EP-6's. EP-6 runs `just perf-check`, the new EP-3/EP-4 controlled cases, and
-`just perf-telemetry` as part of its release gate and records the transcripts in its Outcomes.
 The reconnect correction should remove redundant replay; the decoder and opt-in watchdog are
 the main healthy-delivery regression risks. The no-hook read passthrough and a no-hook subscription
 batch fast path must avoid mandatory per-event wrapping; EP-3 may adjust its internal representation
@@ -442,13 +425,21 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 - [x] (2026-10-09) EP-2 functional scope: bind every checkpoint to its target in typed columns under a declared binding policy, drop `stream_name`, validate batch and buffer sizes at construction, introduce the startup-refusal parent exception, and document deliberate retarget operations.
 - [x] (2026-10-09) EP-2 bounded Linux verification: five benchmark-grade trials verified in 25 minutes 30 seconds including preparation and cleanup; two complete pairs, one unmatched control and a sixth submission stopped during reset. Lease absent, all four VMs TERMINATED, no replacement or expanded queue.
 - [x] (2026-10-09) EP-2 practical acceptance: the user approves completion on passing correctness/structural checks and the bounded Linux evidence. The checkpoint-only cost is accepted; throughput -0.14% and p99 +2.87% retain wide intervals. Statistical equivalence remains inconclusive and cumulative append acceptance belongs to EP6; no further EP2 benchmark or release is claimed.
-- [ ] EP-3: prove the current apparent-live stall, then make decode failure a typed per-event outcome that each subscriber disposes of through an optional callback, stopping by default, and that fails reads with a typed error.
+- [x] (2026-10-09) EP-3: prove the current apparent-live stall, then make decode failure a typed per-event outcome that each subscriber disposes of through an optional callback, stopping by default, and that fails reads with a typed error.
 - [ ] EP-4: expose retry policy on single and consumer-group adapter configs; provide a guarded processor path and a worker-level handler-stall event the adapter configures.
 - [ ] EP-5: distinguish `stream_events_pkey` duplicates and `ux_stream_events_stream_version` corruption with deterministic mapping tests.
 - [ ] EP-6: run the integrated test matrix and the ADR-5 performance gates, release the affected package cohort with current authoritative versions, and prove downstream Keiro shard-count adoption without private Kiroku SQL.
 
 
 ## Surprises & Discoveries
+
+- EP3 implementation (2026-10-09): the metrics WebSocket directly consumes
+  publisher queues and needed the typed batch migration. It reports a kept
+  undecodable event with its existing error frame and terminates the tail.
+  Reads map the hook directly to successful vectors to avoid intermediate
+  wrappers; default subscriber exhaustion uses a distinct terminal exception.
+  EP4 inherits one shared disposition resolver and both unlifted callbacks.
+
 
 - EP2 quick Linux evidence (2026-10-09): two complete pairs reverse throughput
   direction, while p99 and allocation rise modestly. The approximately 10%
@@ -588,6 +579,15 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 
 ## Decision Log
+
+- Decision: Mark EP3 Complete on focused correctness and existing ADR-5 gates;
+  preserve cumulative timing concerns for EP6 and cascade that scope to EP4/EP6.
+  Rationale: Typed failure, checkpoint safety, independent live fan-out, replay,
+  cancellation and direct WebSocket handling now pass; another per-child
+  benchmark queue is outside the user's approved scope. ADR-12 distills the
+  durable contract; no cumulative performance-neutrality claim is made.
+  Date: 2026-10-09
+
 
 - Decision (2026-10-09, user approval): close EP2 on practical acceptance and
   begin EP3. Keep strict statistical results inconclusive and retain adverse tail
@@ -798,7 +798,7 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Outcomes & Retrospective
 
-Implementation update (2026-10-09): **2 of 6 children are Complete**. EP1
+Implementation update (2026-10-09): **3 of 6 children are Complete**. EP1
 implements durable topology, typed startup refusal, migration-derived legacy
 sizes and transactional gap-free resize, with updated guide and ADR-2. Full
 correctness suites and existing ADR-5 gates passed. Its six retained mixed trials
@@ -820,8 +820,17 @@ alpha VMs TERMINATED. No replacement or additional experiment is queued.
 `kiroku-store/bench/results/ep2-quick-linux/README.md` preserves inputs, raw result
 identities, uncertainty and the missed scope estimate. The user now approves
 EP2 Complete on practical acceptance with that uncertainty retained. Cumulative
-event-append acceptance remains an EP6 release concern. EP3 (plan 83) is now the
-active child; the other three children are Not Started and no package is released.
+event-append acceptance remains an EP6 release concern.
+
+EP3 is Complete: typed hook outcomes preserve failed-event checkpoints by
+default, independent subscribers can choose explicit dispositions, and the
+publisher advances past typed failures. Reads fail atomically with a store error;
+the metrics WebSocket emits its existing error frame and ends its tail.
+Final verification passes 360 store tests, 22 metrics tests and the four other
+package suites; all components build and the 20 structural/16 controlled ADR-5
+cases pass. ADR-12 records the contract. Evidence is in
+`kiroku-store/bench/results/ep3-decode-contract/README.md`. EP4 is the next
+implementable child; EP4, EP5 and EP6 remain Not Started. No package is released.
 
 
 
@@ -899,3 +908,5 @@ all remote resources are released and no further experiment is queued.
 Revision note (2026-10-09, practical acceptance): the user approved closing EP2
 with uncertainty preserved and starting EP3. Update the registry/progress and
 reserve cumulative append measurement for EP6; do not relabel existing evidence.
+
+Revision note (2026-10-09): Complete EP3 with typed decode contracts, retained correctness/build/ADR-5 evidence and ADR-12; mark three of six children complete and cascade focused assurance plus one-hour EP6 cumulative timing ownership to the remaining affected children.

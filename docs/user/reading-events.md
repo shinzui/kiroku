@@ -232,3 +232,13 @@ with no database round trip.
 - [Causation And Correlation](causation-correlation.md) — query events by their
   causal links and shared workflow id.
 - [Subscriptions](subscriptions.md) — read continuously as new events arrive.
+
+## Decode Hook Failures
+
+`StoreSettings.decodeHook` returns `Either DecodeFailure RecordedEvent` in IO.
+If any event returns `Left`, the read returns `Left (EventDecodeFailed failure)`
+and exposes no partial vector. Earlier hook calls can already have run, so
+hooks should be safe to repeat. Thrown exceptions propagate as programming
+failures. With no hook, reads return the original vector without traversal.
+See [undecodable subscriptions](subscriptions.md#undecodable-events) for retry
+and recovery behavior.

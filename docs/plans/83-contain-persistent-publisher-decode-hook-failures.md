@@ -61,7 +61,7 @@ exception, so one event the hook cannot decode fails its whole batch, and a perm
 hook retries the same publisher position forever while every `$all` subscriber continues to
 appear live and makes no progress.
 
-After this plan, the hook returns a typed per-event result. The publisher never stalls: it
+After this plan, the hook returns a typed per-event result. The publisher advances past typed failures: it
 broadcasts an undecodable event as such and moves on. Each subscriber decides what an undecodable
 event means through an optional callback that uses the ordinary disposition vocabulary; without
 one, the worker retries briefly and then stops that subscription with a typed reason, so the store
@@ -72,15 +72,26 @@ dead-letter that continues with the rest of the batch, and the typed read failur
 
 ## Progress
 
-- [ ] Focused verification: pass correctness and ADR-5 structural/controlled checks, preserve no-hook read/vector passthrough and shared live fan-out, and document successful-hook wrapper costs. The user reserves cumulative append measurement for EP6; no additional benchmark queue is required here.
+- [x] (2026-10-09) Focused verification: pass correctness and ADR-5 structural/controlled checks, preserve no-hook read/vector passthrough and shared live fan-out, and document successful-hook wrapper costs. The user reserves cumulative append measurement for EP6; no additional benchmark queue is required here.
 - [x] (2026-10-09) Before implementation: select existing InterpreterHooks read/catch-up/live cases, publisher idle-position/heap regression, and explicit two-subscriber live decode-failure tests. Pin no-hook non-traversal/vector passthrough structurally; run the existing ADR-5 gates after production changes. Preserve original-cohort evidence for EP6 without launching another benchmark now.
-- [ ] M1: add a deterministic persistent-`decodeHook` regression that proves the current repeated same-position loop and apparent-live subscriber state.
-- [ ] M2: introduce `DecodeFailure`, change `decodeHook` to return `Either DecodeFailure RecordedEvent`, make `decodeEvents` produce batches with a no-hook fast path and typed `DecodedEvent` values when a hook runs, and decode per event in the publisher and the worker catch-up path.
-- [ ] M2: add `undecodableHandler` to `SubscriptionConfigM`; deliver `Undecodable` to it, or apply the default retry-then-`StopUndecodable`; map read-path failures to `EventDecodeFailed`.
-- [ ] M3: document the hook contract, create its ADR, and run focused plus full Kiroku tests and the performance gates.
+- [x] (2026-10-09) M1: add a deterministic persistent-`decodeHook` regression that proves the current repeated same-position loop and apparent-live subscriber state.
+- [x] (2026-10-09) M2: introduce `DecodeFailure`, change `decodeHook` to return `Either DecodeFailure RecordedEvent`, make `decodeEvents` produce batches with a no-hook fast path and typed `DecodedEvent` values when a hook runs, and decode per event in the publisher and the worker catch-up path.
+- [x] (2026-10-09) M2: add `undecodableHandler` to `SubscriptionConfigM`; deliver `Undecodable` to it, or apply the default retry-then-`StopUndecodable`; map read-path failures to `EventDecodeFailed`.
+- [x] (2026-10-09) M3: document the hook contract, create its ADR, and run focused plus full Kiroku tests and the performance gates.
 
 
 ## Surprises & Discoveries
+
+- Implementation (2026-10-09): `kiroku-metrics` consumes `subscribePublisher`
+  directly for WebSocket event tails. Its broadcast loop must consume typed
+  batches too; an undecodable kept event sends the existing error frame and
+  ends the tail, without sending raw data or silently skipping the failure.
+- Implementation (2026-10-09): reads need successful values or one store error,
+  so the read interpreter maps the hook directly rather than allocating and
+  unwrapping an intermediate outcome vector. Subscriber terminal exhaustion
+  uses `SubscriptionUndecodable`; `DecodeFailure` remains ordinary data so hook
+  programming exceptions cannot be confused with a supported typed outcome.
+
 
 - Refresh audit (2026-10-09): source, tests, and changelogs confirm the remaining acceptance
   work is unimplemented; the dated Context audit distinguishes existing baseline from this plan.
@@ -107,6 +118,20 @@ dead-letter that continues with the rest of the batch, and the typed read failur
 
 
 ## Decision Log
+
+- Decision: Keep one delivery resolver for ordinary and explicitly chosen
+  undecodable dispositions; default failure exhaustion stops outside its
+  automatic dead-letter branch. Use a batch-level representation switch to
+  walk no-hook vectors directly and share transformed live batches.
+  Rationale: Preserve acknowledgement/checkpoint semantics and EP4's single
+  delivery seam while avoiding mandatory per-event wrapper allocation.
+  Date: 2026-10-09
+- Decision: Publish the durable decode contract in ADR-12, including direct
+  read mapping and the WebSocket consumer boundary.
+  Rationale: Typed failures are consumer decisions and must not stall the
+  shared publisher or expose raw undecodable data through a sister package.
+  Date: 2026-10-09
+
 
 - Decision (2026-10-09, user approval): begin this child after practical EP2
   acceptance. Use focused correctness and structural/controlled checks now;
@@ -214,9 +239,31 @@ dead-letter that continues with the rest of the batch, and the typed read failur
 
 ## Outcomes & Retrospective
 
-Implementation is now In Progress after the user approved practical EP2
-completion and continuation. Focused verification replaces the obsolete
-per-child matrix; the typed hook implementation is still outstanding.
+Complete (2026-10-09) under the user-approved focused assurance scope. M1's
+pre-change characterization confirmed the persistent same-position publisher
+loop with an apparently live subscriber. M2 replaces expected hook failures
+with typed per-event outcomes, shared live batches, independent dispositions
+and bounded default retries that stop without checkpointing past the failure.
+Reads return typed errors without partial vectors. Hook programming exceptions
+retain their prior behavior. M3 documents the source-breaking API, replay and
+metrics contract and distills durable decisions in ADR-12.
+
+Final verification: PostgreSQL 18.6 and GHC 9.12.4; 360 store tests (including
+21 publisher callback resilience cases), 22 metrics, 38 adapter, 24 migration,
+22 CLI and 17 OpenTelemetry tests pass. All build components pass. Existing
+ADR-5 checks pass: 20 structural tests and all 16 controlled workload cases
+(115.37 seconds for the workload gate). Strict ADR validation passes 12 concepts
+and capability validation passes 21. The final metrics tests pin additive JSON
+keys, the Prometheus name/stop label and WebSocket typed-error termination.
+Replay after repairing the hook and bracket cancellation during a pending
+100-attempt decode retry are covered explicitly. Evidence is retained in
+`kiroku-store/bench/results/ep3-decode-contract/README.md`.
+
+No new remote experiment or workload matrix ran. Successful-hook wrapper
+allocation and cumulative append/real-adapter costs remain EP6 measurement
+concerns. Existing controlled SQL comparisons are not a proof of cumulative
+performance neutrality. Original EP1/EP2 results, adverse observations and
+statistical uncertainty remain retained. No package was released.
 
 The 2026-10-09 documentation refresh confirmed that this child remains Not Started at
 `e6ea664`. The Context audit records current implementation evidence and reusable baseline work.
@@ -238,9 +285,9 @@ fixed in store 0.9.0.1. That fix does not implement this decode contract.
 `ShibuyaOverhead.hs` preloads events before subscribing; its bare layer primarily measures
 catch-up, not confirmed live publisher fan-out. The earlier uniform per-event wrappers would replace the
 current no-hook, no-traversal fast path, including reads. The subsequent ADR-11 revision below
-retains read passthrough and uses a batch-level no-hook arm; successful-hook allocation and
-read-side unwrapping still need measurement even when hook-call counts and SQL round trips stay
-the same. Direct controlled coverage is required below. This plan does not implement
+retains read passthrough and uses a batch-level no-hook arm; hook-enabled
+delivery allocation still needs release-stage measurement even when hook-call counts and SQL round trips stay
+the same. Focused correctness is required now; direct cost measurement belongs to EP6. This plan does not implement
 [IR-16](../improvement-requests/retry-publisher-pool-errors-before-the-safety-poll.md): pool-error
 retry scheduling is distinct from per-event decode failure.
 
@@ -357,13 +404,10 @@ contract, add it to the ADR bundle log, and validate the strict profile.
 
 ## Concrete Steps
 
-Extend the shared write harness with no-hook and successful-hook read/subscription load,
-confirmed live fan-out, and several subscribers sharing the appender's process. Record allocation,
-GC pauses/residency, and write-tail latency, not only delivery throughput. Preserve `pure xs` for
-no-hook reads and avoid per-event wrapper allocation on the no-hook subscription path.
-
-Define the direct read/catch-up/live controls described in Validation and Acceptance before
-milestone 2; record the eventual controlled-gate command here.
+Use the existing focused hook/subscription suites to prove read failure, retry safety,
+confirmed live fan-out and DB-driven delivery. Preserve direct no-hook reads and
+avoid per-event wrappers on the no-hook subscription path. Do not extend the
+benchmark harness or launch a new queue here; integrated costs belong to EP6.
 
 Run from the Kiroku repository root:
 
@@ -441,12 +485,21 @@ retained release-stage evidence, without silently calling it a pass. Focused, fu
 Tests are deterministic and repeatable; use bounded waits, not wall-clock sleeps. A subscription
 stopped by `StopUndecodable` has moved nothing: its checkpoint still precedes the event, so after
 the hook is fixed the operator restarts it and the event is delivered normally. A consumer whose
-callback dead-lettered uses the existing dead-letter replay procedure. The publisher never needs
-restarting because it never stops. Reverting the change restores the exception-based hook without
+callback dead-lettered uses the existing dead-letter replay procedure. A typed failure does not stop the publisher; hook programming exceptions retain
+the prior loop-error behavior. Reverting the change restores the exception-based hook without
 a schema change.
 
 
 ## Interfaces and Dependencies
+
+The implemented terminal exception is `SubscriptionUndecodable { subscriptionDecodeFailure :: DecodeFailure }`;
+`wait` returns it on default exhaustion and observability classifies it as
+`StopUndecodable`. `DecodeFailure` itself is data, not an exception. Read decoding
+maps the hook directly into a successful vector and throws `EventDecodeFailed`
+through the store error effect, avoiding an intermediate `DecodedBatch`.
+The metrics WebSocket's direct publisher consumer also accepts `DecodedBatch`;
+on an undecodable kept event it emits the existing error frame and ends the tail.
+
 
 `Kiroku.Store.Settings` exposes:
 
@@ -475,7 +528,7 @@ decodeEvents :: StoreSettings -> Vector RecordedEvent -> IO DecodedBatch
 undecodableHandler :: Maybe (RecordedEvent -> DecodeFailure -> m SubscriptionResult)
 ```
 
-`RetryPolicy` is unchanged. `StopReason` gains `StopUndecodable DecodeFailure`. `DeadLetterReason`
+`RetryPolicy` is unchanged. `SubscriptionStopReason` gains `StopUndecodable DecodeFailure`. `DeadLetterReason`
 gains `DeadLetterDecodeFailure DecodeFailure`. `Kiroku.Store.Error.StoreError` gains
 `EventDecodeFailed DecodeFailure`. `Kiroku.Store.Observability.KirokuEvent` gains:
 
@@ -526,3 +579,5 @@ Revision note (2026-10-09, begin implementation): apply the user-approved
 practical scope, select focused correctness/structural checks and reserve
 cumulative append measurements for EP6. Preserve the original statistical
 policy and prior evidence; do not launch another benchmark queue.
+
+Revision note (2026-10-09): Implement typed hook outcomes and independent subscription dispositions, adapt the direct WebSocket publisher consumer, publish ADR-12 and retain focused correctness/no-hook evidence without another remote queue.

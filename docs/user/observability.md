@@ -57,6 +57,7 @@ regression. Keep a catch-all branch if you only care about specific events.
 | --- | --- | --- |
 | `KirokuEventNotifierReconnecting !Int !SomeException` | The dedicated `LISTEN` connection failed and the listener is about to reconnect. The `Int` is the consecutive failure count (drives backoff, capped at 30s). | Alert on a sustained / rising count — subscriptions are on the safety poll until reconnect. |
 | `KirokuEventNotifierReconnected` | The `LISTEN` connection was re-established; the failure counter resets. | Pairs with the reconnecting event; clear the alert. |
+| `KirokuEventPublisherDecodeFailed !GlobalPosition !EventId !DecodeFailure` | One publisher hook result returned `Left`; the publisher still advances. Subscriber retries are independent. | Investigate the decode reason and each affected subscription disposition. |
 | `KirokuEventPublisherPoolError !UsageError` | The publisher's read query returned a pool error; it retries on the next tick or the 30s poll. | Sustained emissions indicate pool exhaustion or a persistent server error. |
 | `KirokuEventSubscriptionDbError !SubscriptionName !SubscriptionDbPhase !UsageError !SubscriptionGroupContext` | A subscription worker hit a database error in a specific phase. Checkpoint initialization errors fail startup, fetch-batch errors retry at the same cursor with capped backoff, and save errors preserve at-least-once replay. | Investigate the phase (below), especially if emissions are sustained. |
 | `KirokuEventSubscriptionCheckpointResolved !CheckpointInitialization !SubscriptionGroupContext` | Startup found an existing exact member row or durably initialized one according to its missing-checkpoint policy. | Distinguish resume, zero seed, and current-head seed before `Started`. |
@@ -245,3 +246,7 @@ counters and server, use the `kiroku-metrics` sister package — see
 - [Stream Lifecycle](lifecycle.md) — the hard-delete audit pattern.
 - [Replay-History Retention](history-retention.md) — lease and guard behavior,
   renewal, inventory, and SQLSTATE `KR001`.
+
+`StopUndecodable failure` distinguishes default decode retry exhaustion from a
+worker crash. The checkpoint remains before the failed event; fix the hook and
+restart the same subscription.

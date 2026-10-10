@@ -30,6 +30,7 @@ import GHC.Generics (Generic)
 import Hasql.Errors qualified as Errors
 import Hasql.Pool (UsageError (..))
 import Kiroku.Store.HistoryRetention.Types (HistoryRetentionConflict)
+import Kiroku.Store.Settings (DecodeFailure)
 import Kiroku.Store.Types
 
 {- | Errors that can occur during store operations.
@@ -161,6 +162,8 @@ data StoreError
       prefer the specific constructors.
       -}
       ConnectionError !Text
+    | -- | A decode hook refused an event; the read returns no partial result.
+      EventDecodeFailed !DecodeFailure
     deriving stock (Eq, Show, Generic)
     deriving anyclass (Exception)
 

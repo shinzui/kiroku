@@ -107,6 +107,11 @@ returned handle resolves with one of:
   Investigate the slow handler and either fix the slowness, raise
   'queueCapacity', or switch to 'Kiroku.Store.Subscription.Types.DropOldest'
   if the consumer can tolerate event loss.
+* @Left e@ where @e@ is
+  'Kiroku.Store.Subscription.Types.SubscriptionUndecodable' — the default
+  decode retry policy exhausted. The exception carries 'DecodeFailure';
+  the checkpoint remains before the failed event. Fix the hook and restart
+  the same subscription to replay it.
 * @Left e@ where @e@ is a 'Hasql.Pool.UsageError' from checkpoint load —
   startup could not read the saved checkpoint. The worker stops rather than
   silently replaying from global position 0.

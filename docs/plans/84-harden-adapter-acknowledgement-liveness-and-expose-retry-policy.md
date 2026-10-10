@@ -39,6 +39,11 @@ provenance:
       at: 2026-10-09T18:48:29Z
       mode: "update"
       note: "Apply user PostgreSQL 18-only testing scope."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-10T00:17:55Z
+      mode: "implement"
+      note: "Cascade focused assurance and EP6 cumulative benchmark ownership."
 ---
 
 # Harden adapter acknowledgement liveness and expose retry policy
@@ -74,13 +79,13 @@ counts.
 
 ## Progress
 
-- [ ] Write-performance gate: establish pre-cohort controls and pass mixed append/subscription throughput, latency, checkpoint/WAL, and GC checks under ADR-11 before completion.
-- [ ] Before implementation: define controlled real-adapter acknowledgement and watchdog enabled/disabled workloads, throughput/allocation measurements, and ADR-5 acceptance bounds.
+- [ ] Focused verification: pass correctness and existing ADR-5 checks; reserve cumulative append and real-adapter diagnostic cost comparison for EP6 under ADR-11. No new per-child benchmark queue.
+- [ ] Before implementation: select bounded real-acknowledgement and stall enabled/disabled correctness tests, and structural checks that the default has no clock reads, timers or per-event diagnostic writes.
 - [ ] M1: reproduce the resolved Shibuya Core exception/finalization behavior and the raw-source pending-ack case with bounded integration tests.
 - [ ] M2: export `kirokuProcessor` as the recommended guarded single-processor path and correct module/user documentation.
 - [ ] M2: add `handlerStallWarnAfter` to `SubscriptionConfigM` with a single-cell, parked watchdog in the store worker emitting `KirokuEventSubscriptionHandlerStalled`; forward the field from both adapter configs.
 - [ ] M3: expose and thread `retryPolicy` through single and consumer-group configs, adopt plan 82's validated size types on both configs, and prove default and custom delivery counts.
-- [ ] Run adapter and store suites plus the overhead benchmark; update living sections and perform ADR distillation.
+- [ ] Run adapter and store suites plus existing ADR-5 checks; update living sections and perform ADR distillation.
 
 
 ## Surprises & Discoveries
@@ -192,7 +197,7 @@ The current `kiroku-shibuya-overhead` benchmark builds a synthetic adapter over
 `subscriptionStream` with no-op normal finalization, not the production `kirokuAdapter`, and
 preloads its events. Opt-in stall tracking adds clock/STM work plus watchdog scheduling
 and timer bookkeeping on the healthy path. Direct real-adapter and enabled/disabled measurements
-are required below; no performance-neutrality claim follows from the existing benchmark.
+are release-stage concerns; no performance-neutrality claim follows from the existing benchmark.
 
 `shibuya-kiroku-adapter/src/Shibuya/Adapter/Kiroku.hs` defines `KirokuAdapterConfig`,
 `KirokuConsumerGroupConfig`, defaults, `kirokuAdapter`, `guardKirokuHandler`, and the
@@ -302,7 +307,7 @@ charging it to default callers or weakening acknowledgement/checkpoint semantics
 
 Complete plans 81 and 82 before landing the final adapter API. Define the direct production-adapter
 and enabled/disabled watchdog controls described in Validation and Acceptance before coding;
-record the eventual benchmark command here.
+record the selected correctness/structural checks here; reserve benchmark commands for EP6.
 
 Run from the Kiroku repository root:
 
@@ -339,48 +344,28 @@ cabal test shibuya-kiroku-adapter-test --test-show-details=direct
 cabal test kiroku-store:kiroku-store-test --test-show-details=direct
 ```
 
-Run the overhead benchmark once on the unchanged tree before milestone 2 and once after milestone
-3, and record the adapter-versus-`subscriptionStream` overhead and the bare-subscribe figure from
-both runs in Surprises & Discoveries.
-
-```bash
-cabal bench kiroku-store:kiroku-shibuya-overhead
-```
+Run existing correctness and ADR-5 checks. Additional overhead measurements are
+reserved for the focused cumulative EP6 release experiment.
 
 
 ## Validation and Acceptance
 
-Write-performance acceptance (2026-10-09): [ADR-11](../adr/0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md) makes write performance
-blocking. Before production changes, freeze a pre-cohort control (initially `e6ea664`) and this
-child's workload specification. Compare append-only and simultaneous appends/subscriptions in the
-same process and pool, with native `$all`, category/group, and real acknowledgement-coupled adapter
-coverage as applicable. Keep append SQL, successful-path round trips, locks, and instrumentation
-unchanged. Keep ordinary checkpoint saves at one monotonic upsert per batch tail.
+Focused implementation acceptance (user direction, 2026-10-09):
+[ADR-11](../adr/0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md)
+requires correctness and existing structural/controlled checks now. Keep append
+SQL/round trips and ordinary checkpoint frequency unchanged. Keep stall tracking
+`Nothing` by default with no diagnostic clock reads, timers or per-event writes.
+Test real acknowledgement finalization, catch-up/confirmed live delivery, retry
+counts, cancellation and enabled/disabled stall behavior. Record the explicit
+opt-in timer/wakeup cost as a release measurement concern. The synthetic
+`kiroku-shibuya-overhead` cannot prove real adapter cost; running it before/after
+is optional evidence rather than required acceptance.
 
-Run durable PostgreSQL 18, matched compiler/RTS/pool/database settings, and fixed payloads,
-concurrency, checkpoint frequency, and offered load. Include single/multi-stream, fresh/existing,
-and small/batched writes; test checkpoint batch sizes 1 and 100. Establish live mode before live
-measurements, assert equal delivered work, durable progress, and bounded backlog, and measure
-throughput separately from fixed-load append p50/p95/p99 including queueing delay. Record checkpoint
-latency, WAL per event/save, allocation/GC/residency, and contention as well as append throughput.
-Warm up, alternate at least five paired trials of at least 60 seconds, and extend inconclusive runs.
-Calibrate variability on control/control first; predeclare uncertainty margins able to resolve
-1% throughput/p50 and 3% p95/p99 changes or better. These are measurement-resolution limits, not
-slowdown budgets. A wide uncertainty interval is inconclusive; any reproducible write regression
-blocks completion until corrected. Do not offset a slow case with a faster one or alter durability,
-checkpoint frequency, thresholds, or baselines to pass. Add the controlled gate to `just perf-check`
-and record exact commands, revisions, schemas, raw results, and interpretation before completion.
-
-Before implementation, define ADR-5 controls and acceptance bounds for bare subscriptions and
-the production `kirokuAdapter`, comparing stall tracking disabled (`Nothing`) with an explicit
-opt-in (`Just 60`) and the pre-change behavior, retaining `Nothing` as the default. Exercise both
-catch-up and confirmed live delivery;
-record throughput and allocation per event, plus idle-worker thread/timer behavior as worker count
-grows. Use real acknowledgement finalization. Place a real-adapter benchmark in the adapter package
-if needed to avoid a store-to-adapter dependency cycle, and record its exact command and controlled
-results here before completion. `kiroku-shibuya-overhead` remains supplementary because its
-synthetic finalizer bypasses that path. A parked watchdog avoids idle polling but does not eliminate
-per-delivery wakeup/timer cost; investigate corroborated regressions before completing the feature, and document the opt-in cost separately.
+Do not launch another per-child benchmark queue or require a full workload
+matrix. EP6 owns a focused cumulative comparison against original `e6ea664`,
+including real acknowledgements and opt-in diagnostic costs as applicable, within
+the user's one-hour whole-experiment ceiling. Retain inconclusive/adverse results
+and the original policy; confirmed event-append regressions still block release.
 
 The standard current Shibuya pipeline must never be claimed to wedge on a synchronous handler
 exception; its regression test must demonstrate finalization. The new `kirokuProcessor` path must
@@ -469,3 +454,5 @@ implementation or new runtime-test evidence.
 Revision note (2026-10-09, write-performance requirement): Applied ADR-11 and blocking write-path
 acceptance, with per-child ownership and evidence requirements. The user explicitly prioritizes
 write performance. Implementation and benchmark gates remain open.
+
+Revision note (2026-10-09): Cascade user-approved focused implementation assurance and EP6 cumulative performance ownership from the MasterPlan; remove obsolete mandatory per-child benchmark matrices.

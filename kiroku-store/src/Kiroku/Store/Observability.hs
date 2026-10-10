@@ -57,6 +57,7 @@ import Data.Int (Int32)
 import Data.Time.Clock (UTCTime)
 import Hasql.Pool (UsageError)
 import Kiroku.Store.HistoryRetention.Types (HistoryRetentionConflict, HistoryRetentionLeaseId, HistoryRetentionLeaseOwner, HistoryRetentionPruneResult)
+import Kiroku.Store.Settings (DecodeFailure)
 import Kiroku.Store.Subscription.Fsm (DeadLetterReason (..), SubscriptionStopReason (..))
 import Kiroku.Store.Subscription.Types (
     CheckpointInitialization,
@@ -65,7 +66,7 @@ import Kiroku.Store.Subscription.Types (
     SubscriptionName,
     SubscriptionTarget,
  )
-import Kiroku.Store.Types (GlobalPosition, StreamId, StreamName)
+import Kiroku.Store.Types (EventId, GlobalPosition, StreamId, StreamName)
 
 {- | A structured operational event emitted by 'Kiroku.Store' itself.
 
@@ -104,6 +105,8 @@ data KirokuEvent
       failing callback is stalling live broadcast until it is fixed.
       -}
       KirokuEventPublisherLoopError !SomeException
+    | -- | Typed hook failure at broadcast time; publisher still advances.
+      KirokuEventPublisherDecodeFailed !GlobalPosition !EventId !DecodeFailure
     | {- | A subscription's worker thread encountered a 'UsageError' in
       the database phase identified by 'SubscriptionDbPhase'. Checkpoint-load
       errors fail startup loudly, fetch-batch errors are retried at the same

@@ -40,7 +40,7 @@ countingSettings counter settings =
                 { decodeHook =
                     Just $ \event -> do
                         atomicModifyIORef' counter (\n -> (n + 1, ()))
-                        pure event
+                        pure (Right event)
                 }
 
 appendEvents :: KirokuStore -> Int -> String -> IO GlobalPosition

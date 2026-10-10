@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+* **Breaking:** `decodeHook` now returns `Either DecodeFailure RecordedEvent` in
+  IO. Return `Right` for existing successful hooks. `decodeEvents` now returns
+  `DecodedBatch`, with an unchanged-vector fast path when no hook is installed.
+* **Breaking:** `SubscriptionConfigM` adds `undecodableHandler` (default `Nothing`).
+  Typed failures no longer stall the shared publisher. Default bounded retries
+  end with `StopUndecodable` / `SubscriptionUndecodable` and preserve the checkpoint
+  before the failed event. Explicit callbacks can skip, stop, retry, or record
+  `DeadLetterDecodeFailure`; reads return `EventDecodeFailed` without partial data.
+* Observers must account for `KirokuEventPublisherDecodeFailed` and
+  `StopUndecodable`. Hook exceptions remain programming failures.
+
+
 - **Breaking:** Validated `BatchSize` and bridge `StreamBufferSize`; shared `SomeSubscriptionStartupFailure` exception hierarchy; live reconnect retains processed progress. Checkpoints persist target identity, enforce declared legacy adoption, and support atomic `rebindSubscriptionTargetTx`. Resize preserves target bindings.
 
 * **Breaking:** `ConsumerGroup` and positive `ConsumerGroupSize` are opaque;

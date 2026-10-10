@@ -88,6 +88,7 @@ import Kiroku.Store (
     readCategory,
     runStoreIO,
  )
+import Kiroku.Store.Settings (DecodedBatch (..), DecodedEvent (..), decodedEventRecorded)
 import Kiroku.Store.Subscription.EventPublisher (
     SubscriberStatus (..),
     publisherPosition,
@@ -409,17 +410,28 @@ surfaces an @Overflowed@ status (not set under 'DropOldest', but handled).
 broadcastLoop ::
     WS.Connection ->
     -- | broadcast queue
-    TBQueue (Vector RecordedEvent) ->
+    TBQueue DecodedBatch ->
     TVar SubscriberStatus ->
     (RecordedEvent -> Bool) ->
     IO ()
-broadcastLoop conn queue statusVar keep = forever $ do
-    batch <- atomically (readTBQueue queue)
-    sendEvents conn (V.filter keep batch)
-    status <- atomically (readTVar statusVar)
-    case status of
-        Overflowed -> sendMsg conn (ErrorMsg "event stream overflowed; some events dropped")
-        _ -> pure ()
+broadcastLoop conn queue statusVar keep = go
+  where
+    go = do
+        batch <- atomically (readTBQueue queue)
+        let decoded = case batch of
+                UnchangedBatch events -> Right (V.filter keep events)
+                TransformedBatch events -> V.mapM unwrap (V.filter (keep . decodedEventRecorded) events)
+            unwrap (Decoded event) = Right event
+            unwrap (Undecodable _ failure) = Left failure
+        case decoded of
+            Left failure -> sendMsg conn (ErrorMsg (T.pack ("live decode error: " <> show failure)))
+            Right events -> do
+                sendEvents conn events
+                status <- atomically (readTVar statusVar)
+                case status of
+                    Overflowed -> sendMsg conn (ErrorMsg "event stream overflowed; some events dropped")
+                    _ -> pure ()
+                go
 
 {- | DB-driven category live loop. Mirrors the subscription worker's
 @liveLoopDbDriven@: gate on the publisher advancing past the /last observed/

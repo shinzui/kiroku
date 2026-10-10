@@ -8,9 +8,14 @@ module Test.CollectorSpec (spec) where
 import Control.Concurrent.STM (STM)
 import Control.Exception (SomeException, toException)
 import Control.Monad (forM_)
+import Data.Aeson (Value (..), toJSON)
+import Data.Aeson.KeyMap qualified as KM
+import Data.ByteString.Lazy.Char8 qualified as LBS
+import Data.List (isInfixOf)
 import Data.Map.Strict qualified as Map
 import Data.UUID (UUID, fromWords)
 import Hasql.Pool (UsageError (..))
+import Kiroku.Metrics.Prometheus (renderPrometheus)
 import Test.Hspec
 
 import Kiroku.Metrics (
@@ -34,13 +39,14 @@ import Kiroku.Store (
     SubscriptionStopReason (..),
  )
 import Kiroku.Store.Observability (SubscriptionDeliveryPhase (..))
+import Kiroku.Store.Settings (DecodeFailure (..))
 import Kiroku.Store.Subscription.Types (
     CheckpointInitialization (..),
     MissingCheckpointPolicy (..),
     SubscriptionCheckpointKey (..),
     SubscriptionName (..),
  )
-import Kiroku.Store.Types (GlobalPosition (..))
+import Kiroku.Store.Types (EventId (..), GlobalPosition (..))
 
 {- | A collector whose fake store readers report the given global position and
 active-subscriber count, fed the given scripted events and observations.
@@ -98,6 +104,31 @@ spec = describe "Kiroku.Metrics.Collector" $ do
                 []
         snap.counters.publisherPoolErrors `shouldBe` 1
         snap.counters.publisherLoopErrors `shouldBe` 2
+
+    it "counts typed decode failures and undecodable stops separately from programming errors" $ do
+        let eid = EventId (uuidN 3)
+            failure = DecodeFailure eid "cannot decrypt"
+        snap <-
+            runScript
+                (pure (GlobalPosition 4))
+                (pure 0)
+                [ KirokuEventPublisherDecodeFailed (GlobalPosition 3) eid failure
+                , KirokuEventSubscriptionStopped sub (GlobalPosition 2) (StopUndecodable failure) NonGroup
+                ]
+                []
+        case toJSON snap.counters of
+            Object fields -> do
+                KM.lookup "publisher_decode_failures" fields `shouldBe` Just (Number 1)
+                KM.lookup "subscriptions_stopped_undecodable" fields `shouldBe` Just (Number 1)
+            other -> expectationFailure ("expected lifecycle object, got " <> show other)
+        let exposition = LBS.unpack (renderPrometheus snap)
+        exposition `shouldSatisfy` isInfixOf "kiroku_publisher_decode_failures_total 1"
+        exposition `shouldSatisfy` isInfixOf "kiroku_subscriptions_stopped_total{reason=\"undecodable\"} 1"
+        snap.counters.publisherDecodeFailures `shouldBe` 1
+        snap.counters.publisherLoopErrors `shouldBe` 0
+        snap.counters.subscriptionsStoppedUndecodable `shouldBe` 1
+        snap.counters.subscriptionsStoppedCrashed `shouldBe` 0
+        (Map.lookup "p" snap.subscriptions >>= (.lastStopReason)) `shouldBe` Just "undecodable"
 
     it "records subscription position and derives lag from the global position" $ do
         snap <-

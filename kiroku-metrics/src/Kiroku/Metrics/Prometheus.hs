@@ -64,6 +64,7 @@ counterSection c =
         [ metric "kiroku_notifier_reconnecting_total" "counter" "Notifier reconnection attempts started." c.notifierReconnecting
         , metric "kiroku_notifier_reconnected_total" "counter" "Notifier reconnections completed." c.notifierReconnected
         , metric "kiroku_publisher_pool_errors_total" "counter" "EventPublisher read-query pool errors." c.publisherPoolErrors
+        , metric "kiroku_publisher_decode_failures_total" "counter" "Typed undecodable events broadcast by the publisher." c.publisherDecodeFailures
         , metric "kiroku_publisher_loop_errors_total" "counter" "EventPublisher callback or broadcast loop errors." c.publisherLoopErrors
         , help "kiroku_subscription_db_errors_by_phase_total" "Subscription database errors by phase."
         , typ "kiroku_subscription_db_errors_by_phase_total" "counter"
@@ -83,6 +84,7 @@ counterSection c =
         , labelled "kiroku_subscriptions_stopped_total" "reason" "cancelled" c.subscriptionsStoppedCancelled
         , labelled "kiroku_subscriptions_stopped_total" "reason" "overflow" c.subscriptionsStoppedOverflow
         , labelled "kiroku_subscriptions_stopped_total" "reason" "crashed" c.subscriptionsStoppedCrashed
+        , labelled "kiroku_subscriptions_stopped_total" "reason" "undecodable" c.subscriptionsStoppedUndecodable
         , metric "kiroku_live_fetches_total" "counter" "Live-mode database fetches." c.liveFetches
         , metric "kiroku_batches_delivered_total" "counter" "Non-empty batches delivered to handlers." c.batchesDelivered
         , metric "kiroku_events_delivered_total" "counter" "Events delivered to handlers." c.eventsDelivered

@@ -60,10 +60,9 @@ import Data.Aeson (Value, object, (.=))
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time (NominalDiffTime)
-import Data.Vector (Vector)
-import Data.Vector qualified as V
 import Hasql.Pool qualified as Pool
-import Kiroku.Store.Types (GlobalPosition (..), RecordedEvent (..))
+import Kiroku.Store.Settings (DecodeFailure (..), DecodedBatch, decodedBatchLastEvent, decodedBatchLength)
+import Kiroku.Store.Types (EventId (..), GlobalPosition (..), RecordedEvent (..))
 
 {- | Why a subscription's worker thread stopped.
 
@@ -92,6 +91,8 @@ data SubscriptionStopReason
       exception). The 'SomeException' carries the cause.
       -}
       StopWorkerCrashed !SomeException
+    | -- | Default undecodable-event retries exhausted; checkpoint remains before it.
+      StopUndecodable !DecodeFailure
     deriving stock (Show)
 
 {- | How long to wait before redelivering a retried event.
@@ -126,6 +127,8 @@ data DeadLetterReason
       DeadLetterMaxAttempts !Int
     | -- | A custom reason: a summary plus structured JSON detail.
       DeadLetterOther !Text !Value
+    | -- | A consumer explicitly chose to skip an undecodable event.
+      DeadLetterDecodeFailure !DecodeFailure
     deriving stock (Eq, Show)
 
 -- | The short operator-facing summary stored in @dead_letters.reason_summary@.
@@ -135,6 +138,7 @@ deadLetterSummary = \case
     DeadLetterInvalid detail -> "invalid payload: " <> detail
     DeadLetterMaxAttempts n -> "max retry attempts exceeded (" <> T.pack (show n) <> ")"
     DeadLetterOther summary _ -> summary
+    DeadLetterDecodeFailure failure -> "decode failure: " <> decodeFailureReason failure
 
 -- | The structured JSON detail stored in @dead_letters.reason@ (JSONB).
 deadLetterReasonJson :: DeadLetterReason -> Value
@@ -143,6 +147,7 @@ deadLetterReasonJson = \case
     DeadLetterInvalid detail -> object ["kind" .= ("invalid_payload" :: Text), "detail" .= detail]
     DeadLetterMaxAttempts n -> object ["kind" .= ("max_attempts_exceeded" :: Text), "attempts" .= n]
     DeadLetterOther summary detail -> object ["kind" .= ("other" :: Text), "summary" .= summary, "detail" .= detail]
+    DeadLetterDecodeFailure failure -> object ["kind" .= ("decode_failure" :: Text), "event_id" .= (case decodeFailureEventId failure of EventId eid -> show eid), "detail" .= decodeFailureReason failure]
 
 {- | What unblocks a 'Paused' worker.
 
@@ -225,7 +230,7 @@ a constructor here forces a compile error in every driving-state clause of
 -}
 data Input
     = -- | A non-empty history\/live batch arrived.
-      BatchFetched !(Vector RecordedEvent)
+      BatchFetched !DecodedBatch
     | -- | A fetch returned no rows (catch-up is complete).
       FetchEmpty
     | -- | A fetch hit a database error.
@@ -262,7 +267,7 @@ data Effect
     | -- | Obtain the next live batch via the active live strategy.
       RunLive
     | -- | Call the handler per event, checkpointing at the batch tail.
-      DeliverBatch !(Vector RecordedEvent)
+      DeliverBatch !DecodedBatch
     | {- | Persist the checkpoint at this position. (Named 'Checkpoint' rather
       than @SaveCheckpoint@ to avoid clashing with the
       'Kiroku.Store.Observability.SubscriptionDbPhase' constructor of that name.)
@@ -287,10 +292,10 @@ data Effect
 -- The last event's position in a batch, falling back to the given cursor when
 -- the batch is empty (the driver never feeds 'step' an empty 'BatchFetched',
 -- so the fallback is defensive).
-lastPos :: GlobalPosition -> Vector RecordedEvent -> GlobalPosition
+lastPos :: GlobalPosition -> DecodedBatch -> GlobalPosition
 lastPos fallback evs
-    | V.null evs = fallback
-    | otherwise = globalPosition (V.last evs)
+    | decodedBatchLength evs == 0 = fallback
+    | otherwise = globalPosition (decodedBatchLastEvent evs)
 
 {- | The single transition function. Given the current state and an input,
 return the next state and the effects to perform.

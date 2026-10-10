@@ -39,6 +39,11 @@ provenance:
       at: 2026-10-09T18:48:29Z
       mode: "update"
       note: "Apply user PostgreSQL 18-only testing scope."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-10T00:17:55Z
+      mode: "implement"
+      note: "Reserve focused cumulative release comparison within user one-hour ceiling."
 ---
 
 # Release the subscription hardening cohort and coordinate downstream adoption
@@ -65,7 +70,7 @@ user's explicit release-time confirmation.
 
 ## Progress
 
-- [ ] Write-performance gate: establish pre-cohort controls and pass mixed append/subscription throughput, latency, checkpoint/WAL, and GC checks under ADR-11 before completion.
+- [ ] Integrated performance gate: select the minimum useful cumulative comparison against original control and finish the whole experiment within one hour, retaining uncertainty and regression policy under ADR-11.
 - [ ] Gate: plans 81, 82, 83, 84, and 86 are complete, their living sections are current, and required ADR/OKF validation passes.
 - [ ] M1: determine changed packages and PVP impact from commits since authoritative tags; verify Hackage and upstream tags rather than trusting local registry versions.
 - [ ] M1: present exact package versions, bounds, and changelogs for user confirmation before editing release metadata.
@@ -149,10 +154,10 @@ release plan or establishes downstream adoption of those absent APIs.
 
 Preserve the existing migration-0012 cutover constraints in
 [ADR-10](../adr/0010-category-reads-use-a-denormalized-category-index-on-all-rows.md). EP-3 and
-EP-4 must supply new direct controlled performance evidence for reads/live publisher fan-out
-and the real acknowledgement-coupled adapter: the old overhead benchmark is synthetic and
-primarily catch-up. Run those gates in the integrated release, alongside `just test-matrix`
-for PostgreSQL 18 and the existing ADR-5 gates. Recheck the independently owned member-guard
+EP-4 supply focused correctness and structural evidence for reads/live fan-out and
+real acknowledgements; the synthetic overhead benchmark does not measure the real
+adapter. Select the integrated release comparison from these changed paths and
+remaining risks, alongside `just test-pg 18` and the existing ADR-5 gates. Recheck the independently owned member-guard
 plans 93/92 and their release state before selecting the final package diff.
 
 Kiroku's repository release instructions are in `.agents/skills/release/SKILL.md`. Publishable
@@ -219,9 +224,9 @@ including that plan 82's column addition rewrites no rows.
 
 Run repository-wide formatting/build/test/flake gates, then `just perf-check` and
 `just perf-telemetry`; record the telemetry cells named in the MasterPlan's Performance gates
-integration point against their baseline rows. Also execute the direct controlled workloads
-introduced by plans 83 and 84 and record their throughput/allocation evidence; the old synthetic
-overhead benchmark does not satisfy those gates. Run the PostgreSQL 18 test matrix. Run `cabal check`, `cabal sdist`, and
+integration point against their baseline rows. Select and run the bounded cumulative comparison specified below, reusing valid
+child evidence. The synthetic overhead benchmark does not establish real adapter
+cost. Run the PostgreSQL 18 tests. Run `cabal check`, `cabal sdist`, and
 Hackage Haddock generation for each proposed package without uploading. Inspect each source
 archive for its public modules, migration manifest/payload, changelog, license, and generated
 documentation. Stage newly created files before `nix flake check` so Nix sees them, but do not
@@ -289,7 +294,7 @@ git tag --list '*-v*' --sort=-version:refname
 nix fmt
 cabal build all
 cabal test all --test-show-details=direct
-just test-matrix
+just test-pg 18
 nix flake check
 just perf-check
 just perf-telemetry
@@ -334,29 +339,30 @@ cabal test keiro:keiro-test --test-show-details=direct
 
 ## Validation and Acceptance
 
-Write-performance acceptance (2026-10-09): [ADR-11](../adr/0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md) makes write performance
-blocking. Before production changes, freeze a pre-cohort control (initially `e6ea664`) and this
-child's workload specification. Compare append-only and simultaneous appends/subscriptions in the
-same process and pool, with native `$all`, category/group, and real acknowledgement-coupled adapter
-coverage as applicable. Keep append SQL, successful-path round trips, locks, and instrumentation
-unchanged. Keep ordinary checkpoint saves at one monotonic upsert per batch tail.
+Integrated write-performance acceptance (user direction, 2026-10-09):
+[ADR-11](../adr/0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md)
+reserves one focused cumulative append comparison for this release stage. Reuse
+retained valid evidence and original control `e6ea664`; select cases from actual
+changed paths and unresolved risks, including confirmed live hook fan-out and
+real adapter acknowledgements with diagnostic tracking disabled/enabled where
+applicable. PostgreSQL 18, durability, compiler/RTS/pool settings and delivered
+work must match. Keep append SQL/round trips and checkpoint frequency unchanged.
 
-Run durable PostgreSQL 18, matched compiler/RTS/pool/database settings, and fixed payloads,
-concurrency, checkpoint frequency, and offered load. Include single/multi-stream, fresh/existing,
-and small/batched writes; test checkpoint batch sizes 1 and 100. Establish live mode before live
-measurements, assert equal delivered work, durable progress, and bounded backlog, and measure
-throughput separately from fixed-load append p50/p95/p99 including queueing delay. Record checkpoint
-latency, WAL per event/save, allocation/GC/residency, and contention as well as append throughput.
-Warm up, alternate at least five paired trials of at least 60 seconds, and extend inconclusive runs.
-Calibrate variability on control/control first; predeclare uncertainty margins able to resolve
-1% throughput/p50 and 3% p95/p99 changes or better. These are measurement-resolution limits, not
-slowdown budgets. A wide uncertainty interval is inconclusive; any reproducible write regression
-blocks completion until corrected. Do not offset a slow case with a faster one or alter durability,
-checkpoint frequency, thresholds, or baselines to pass. Add the controlled gate to `just perf-check`
-and record exact commands, revisions, schemas, raw results, and interpretation before completion.
+Before any remote run, declare cases, trial count, warmup/measurement durations,
+setup/reset/recovery overhead, uncertainty target and stop conditions. The entire
+experiment must finish within the user's one-hour ceiling, including cleanup;
+pass the remaining budget forward and never restart it. Prove submission/result
+verification/lease release with a small run or reuse a verified recovery check.
+Use a bounded persistent controller with retained results and release its lease
+on every exit. No universal matrix, five-pair minimum or 1%/3% resolution mandate
+requires expanding a queue. Preserve the original statistical policy and all
+unmatched, interrupted, inconclusive and adverse evidence. Report uncertainty
+honestly; a reproducible append regression still blocks release. If useful
+precision cannot fit, report the conflict before launching or keep acceptance
+inconclusive. Never change durability or post-hoc thresholds to manufacture a pass.
 
-All Kiroku child-plan acceptance tests, ADR/OKF gates, ADR-5 performance gates (including
-the direct EP-3/EP-4 controlled cases), PostgreSQL 18 package tests,
+All Kiroku child-plan acceptance tests, ADR/OKF gates, ADR-5 performance gates (with
+focused integrated coverage selected above), PostgreSQL 18 package tests,
 migration paths, source archives, Haddocks, and flake checks must pass before publication. Hackage
 source/docs versions, annotated tags, GitHub releases, and peeled commits must agree. A clean
 consumer must resolve only published artifacts and compile the new APIs.
@@ -437,3 +443,5 @@ implementation or new runtime-test evidence.
 Revision note (2026-10-09, write-performance requirement): Applied ADR-11 and blocking write-path
 acceptance, with per-child ownership and evidence requirements. The user explicitly prioritizes
 write performance. Implementation and benchmark gates remain open.
+
+Revision note (2026-10-09): EP6 owns the cumulative append comparison within the one-hour whole-experiment ceiling; supersede obsolete mandatory matrices and unbounded precision escalation while retaining original evidence and regression policy.

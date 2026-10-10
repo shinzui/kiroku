@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-10
+* **Decision**: ADR-12: accepted typed per-event decode outcomes, independent subscriber dispositions and checkpoint-safe default exhaustion.
 * **Update**: ADR-11: record user-approved EP2 practical completion and reserve cumulative append measurement for the integrated release gate.
 
 ## 2026-10-09

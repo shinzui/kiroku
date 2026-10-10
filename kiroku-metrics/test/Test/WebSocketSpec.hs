@@ -62,12 +62,14 @@ import Kiroku.Store (
     EventType (..),
     ExpectedVersion (..),
     KirokuStore (..),
+    RecordedEvent (..),
     StreamName (..),
     appendToStream,
     defaultConnectionSettings,
     runStoreIO,
     withStore,
  )
+import Kiroku.Store.Settings (DecodeFailure (..))
 import Kiroku.Store.Subscription.EventPublisher (EventPublisher (..), publisherPosition, subscribePublisher)
 import Kiroku.Store.Subscription.Types (OverflowPolicy (..))
 import Kiroku.Store.Types (GlobalPosition (..))
@@ -119,6 +121,30 @@ spec = describe "Kiroku.Metrics.WebSocket (endpoints)" $ do
 
                 stopMetricsServer srv
 
+    it "reports a typed live decode failure and releases the publisher queue" $
+        withMigratedTestDatabase $ \connStr -> do
+            storeVar <- newTVarIO Nothing
+            km <- newKirokuMetricsWith (readPosition storeVar) (readSubscribers storeVar)
+            let settings =
+                    defaultConnectionSettings connStr
+                        & #storeSettings . #decodeHook .~ Just (\event -> pure (Left (DecodeFailure event.eventId "cannot decrypt")))
+            withStore settings $ \store -> do
+                atomically (writeTVar storeVar (Just store))
+                srv <- startMetricsServerWithStore (defaultConfig{port = 0}) km store []
+                result <- requireJust "ws decode failure timed out" $
+                    timeout 15_000_000 $
+                        WS.runClient "127.0.0.1" srv.serverPort "/ws/events" $ \conn -> do
+                            sendJSON conn (object ["type" .= ("subscribe_events" :: Text)])
+                            _ <- waitForType conn "event_stream_started"
+                            appendStoreEvents store (StreamName "ws-decode") 1
+                            waitForType conn "error"
+                case result of
+                    Object fields -> KM.lookup "type" fields `shouldBe` Just (String "error")
+                    other -> expectationFailure ("expected error frame, got " <> show other)
+                waitForSubscriberCount store 0 5_000_000
+                waitForPublisherPosition store 1 5_000_000
+                stopMetricsServer srv
+
     it "replays history from a position then continues live without duplicating the boundary" $
         withMigratedTestDatabase $ \connStr -> do
             storeVar <- newTVarIO Nothing
@@ -168,7 +194,7 @@ spec = describe "Kiroku.Metrics.WebSocket (endpoints)" $ do
                         tid <- myThreadId
                         when (tid == asyncThreadId (publisherThread s.publisher)) $
                             atomically (readTVar gateVar >>= check)
-                    pure e
+                    pure (Right e)
                 settings =
                     defaultConnectionSettings connStr
                         & #storeSettings . #decodeHook .~ Just publisherGate

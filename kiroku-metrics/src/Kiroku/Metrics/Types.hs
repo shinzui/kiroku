@@ -66,6 +66,7 @@ data LifecycleCounters = LifecycleCounters
     , notifierReconnected :: !Int64
     , publisherPoolErrors :: !Int64
     , publisherLoopErrors :: !Int64
+    , publisherDecodeFailures :: !Int64
     , subscriptionDbErrorsLoad :: !Int64
     , subscriptionDbErrorsFetch :: !Int64
     , subscriptionDbErrorsSave :: !Int64
@@ -80,6 +81,7 @@ data LifecycleCounters = LifecycleCounters
     , subscriptionsStoppedCancelled :: !Int64
     , subscriptionsStoppedOverflow :: !Int64
     , subscriptionsStoppedCrashed :: !Int64
+    , subscriptionsStoppedUndecodable :: !Int64
     , liveFetches :: !Int64
     -- ^ Count of live-mode DB fetches ('KirokuEventSubscriptionFetched').
     , batchesDelivered :: !Int64
@@ -129,6 +131,7 @@ instance ToJSON LifecycleCounters where
             , "notifier_reconnected" .= c.notifierReconnected
             , "publisher_pool_errors" .= c.publisherPoolErrors
             , "publisher_loop_errors" .= c.publisherLoopErrors
+            , "publisher_decode_failures" .= c.publisherDecodeFailures
             , "subscription_db_errors_load" .= c.subscriptionDbErrorsLoad
             , "subscription_db_errors_fetch" .= c.subscriptionDbErrorsFetch
             , "subscription_db_errors_save" .= c.subscriptionDbErrorsSave
@@ -143,6 +146,7 @@ instance ToJSON LifecycleCounters where
             , "subscriptions_stopped_cancelled" .= c.subscriptionsStoppedCancelled
             , "subscriptions_stopped_overflow" .= c.subscriptionsStoppedOverflow
             , "subscriptions_stopped_crashed" .= c.subscriptionsStoppedCrashed
+            , "subscriptions_stopped_undecodable" .= c.subscriptionsStoppedUndecodable
             , "live_fetches" .= c.liveFetches
             , "batches_delivered" .= c.batchesDelivered
             , "events_delivered" .= c.eventsDelivered

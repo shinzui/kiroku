@@ -58,14 +58,13 @@ import Data.Foldable (for_)
 import Data.Int (Int32)
 import Data.IntMap.Strict (IntMap)
 import Data.IntMap.Strict qualified as IntMap
-import Data.Vector (Vector)
 import Data.Vector qualified as V
 import Hasql.Pool (Pool)
 import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Kiroku.Store.Observability (KirokuEvent (..), emitOrDrop)
 import Kiroku.Store.SQL qualified as SQL
-import Kiroku.Store.Settings (StoreSettings, decodeEvents)
+import Kiroku.Store.Settings (DecodedBatch (..), DecodedEvent (..), StoreSettings, decodeEvents)
 import Kiroku.Store.Subscription.Types (OverflowPolicy (..))
 import Kiroku.Store.Types (GlobalPosition (..), RecordedEvent (..))
 import Numeric.Natural (Natural)
@@ -91,7 +90,7 @@ the publisher flips 'subStatus' to 'Overflowed' and the worker
 terminates the subscription with 'SubscriptionOverflowed'.
 -}
 data Subscriber = Subscriber
-    { subQueue :: !(TBQueue (Vector RecordedEvent))
+    { subQueue :: !(TBQueue DecodedBatch)
     , subStatus :: !(TVar SubscriberStatus)
     , subPolicy :: !OverflowPolicy
     }
@@ -183,7 +182,7 @@ subscribePublisher ::
     -- | Queue capacity (number of batches)
     Natural ->
     OverflowPolicy ->
-    STM (TBQueue (Vector RecordedEvent), TVar SubscriberStatus, IO ())
+    STM (TBQueue DecodedBatch, TVar SubscriberStatus, IO ())
 subscribePublisher pub cap policy = do
     queue <- newTBQueue cap
     status <- newTVar Active
@@ -271,7 +270,12 @@ publisherLoop pool tickChan subsVar posVar mHandler stSettings = loop
                     -- observes the same transformed view, and the cost is
                     -- paid in one place instead of per-subscriber.
                     events <- decodeEvents stSettings rawEvents
-                    let lastEvent = V.last events
+                    case events of
+                        UnchangedBatch _ -> pure ()
+                        TransformedBatch decoded -> for_ decoded $ \case
+                            Decoded _ -> pure ()
+                            Undecodable event failure -> emitOrDrop mHandler (KirokuEventPublisherDecodeFailed (globalPosition event) (eventId event) failure)
+                    let lastEvent = V.last rawEvents
                         newPos = globalPosition lastEvent
                     -- Snapshot the current subscriber set, then deliver outside
                     -- the snapshot's STM transaction. Each delivery is its own
@@ -291,7 +295,7 @@ publisherLoop pool tickChan subsVar posVar mHandler stSettings = loop
                         for_ (IntMap.elems (subs' `IntMap.difference` subs)) (deliverBatchSTM events)
                         writeTVar posVar newPos
                     -- If we got a full batch, there may be more — loop immediately
-                    if V.length events >= fromIntegral publisherBatchSize
+                    if V.length rawEvents >= fromIntegral publisherBatchSize
                         then fullFetch
                         else pure ()
 

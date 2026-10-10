@@ -56,7 +56,7 @@ import Kiroku.Store.HistoryRetention.Internal qualified as HistoryRetention
 import Kiroku.Store.HistoryRetention.Types
 import Kiroku.Store.Observability (KirokuEvent (..), emitOrDrop)
 import Kiroku.Store.SQL qualified as SQL
-import Kiroku.Store.Settings (decodeEvents, enrichEvents)
+import Kiroku.Store.Settings (StoreSettings (..), enrichEvents)
 import Kiroku.Store.Subscription.Checkpoint.SQL qualified as CheckpointSQL
 import Kiroku.Store.Subscription.CheckpointInventory.SQL qualified as CheckpointInventorySQL
 import Kiroku.Store.Subscription.Types (
@@ -237,24 +237,24 @@ runStorePool store = interpret_ $ \case
         evs <-
             usePool (store ^. #pool) $
                 Session.statement (name, startVer, limit) SQL.readStreamForwardStmt
-        liftIO $ decodeEvents (store ^. #storeSettings) evs
+        decodeReadEvents (store ^. #storeSettings) evs
     ReadStreamBackward (StreamName name) (StreamVersion startVer) limit -> do
         let cursor = if startVer == 0 then maxBound else startVer
         evs <-
             usePool (store ^. #pool) $
                 Session.statement (name, cursor, limit) SQL.readStreamBackwardStmt
-        liftIO $ decodeEvents (store ^. #storeSettings) evs
+        decodeReadEvents (store ^. #storeSettings) evs
     ReadAllForward (GlobalPosition startPos) limit -> do
         evs <-
             usePool (store ^. #pool) $
                 Session.statement (startPos, limit) SQL.readAllForwardStmt
-        liftIO $ decodeEvents (store ^. #storeSettings) evs
+        decodeReadEvents (store ^. #storeSettings) evs
     ReadAllBackward (GlobalPosition startPos) limit -> do
         let cursor = if startPos == 0 then maxBound else startPos
         evs <-
             usePool (store ^. #pool) $
                 Session.statement (cursor, limit) SQL.readAllBackwardStmt
-        liftIO $ decodeEvents (store ^. #storeSettings) evs
+        decodeReadEvents (store ^. #storeSettings) evs
     GetVisibleGlobalHeadPosition ->
         usePool (store ^. #pool) $
             Session.statement () SQL.visibleGlobalHeadPositionStmt
@@ -291,7 +291,7 @@ runStorePool store = interpret_ $ \case
         evs <-
             usePool (store ^. #pool) $
                 Session.statement (startPos, cat, limit) SQL.readCategoryForwardStmt
-        liftIO $ decodeEvents (store ^. #storeSettings) evs
+        decodeReadEvents (store ^. #storeSettings) evs
     AppendMultiStream [] ->
         pure []
     AppendMultiStream ops -> do
@@ -350,7 +350,7 @@ runStorePool store = interpret_ $ \case
             FilterCausationAncestors (EventId eid) ->
                 usePool (store ^. #pool) $
                     Session.statement eid SQL.findCausationAncestorsStmt
-        liftIO $ decodeEvents (store ^. #storeSettings) evs
+        decodeReadEvents (store ^. #storeSettings) evs
     SoftDeleteStream (StreamName name) -> do
         rejectInvalidApplicationStream name
         usePool (store ^. #pool) $
@@ -667,3 +667,10 @@ These bindings are intentionally exposed so that
 packing, or per-version dispatch. They are not part of the supported
 public surface and may change without notice.
 -}
+
+-- No hook preserves the direct read passthrough. Successful hooks map directly
+-- into a result vector, avoiding the subscription-specific wrapper/unwrapper.
+decodeReadEvents :: (IOE :> es, Error StoreError :> es) => StoreSettings -> Vector RecordedEvent -> Eff es (Vector RecordedEvent)
+decodeReadEvents settings events = case decodeHook settings of
+    Nothing -> pure events
+    Just hook -> V.mapM (\event -> liftIO (hook event) >>= either (throwError . EventDecodeFailed) pure) events

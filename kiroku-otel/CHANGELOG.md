@@ -1,5 +1,10 @@
 # kiroku-otel changelog
 
+## Unreleased
+
+* Handle the typed publisher decode-failure event and distinguish
+  `StopUndecodable` in subscription stop attributes.
+
 ## 0.2.0.10 — 2026-09-25
 
 ### Other Changes

@@ -1,5 +1,11 @@
 # Revision history for kiroku-metrics
 
+## Unreleased
+
+* **Breaking:** `LifecycleCounters` adds `publisherDecodeFailures` and
+  `subscriptionsStoppedUndecodable`. JSON and Prometheus distinguish typed decode
+  failures and `undecodable` subscription stops from programming errors/crashes.
+
 ## 0.1.0.10 -- 2026-09-25
 
 ### Other Changes

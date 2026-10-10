@@ -368,6 +368,7 @@ onEvent tracer cell = \case
     KirokuEventNotifierReconnected -> pure ()
     KirokuEventPublisherPoolError{} -> pure ()
     KirokuEventPublisherLoopError{} -> pure ()
+    KirokuEventPublisherDecodeFailed{} -> pure ()
     KirokuEventHardDeleteIssued{} -> pure ()
     KirokuEventHistoryRetentionLeaseAcquired{} -> pure ()
     KirokuEventHistoryRetentionLeaseRenewed{} -> pure ()
