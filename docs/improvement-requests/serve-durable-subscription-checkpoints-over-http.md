@@ -9,15 +9,15 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-10-10T16:10:46Z"
+timestamp: "2026-10-10T17:39:38Z"
 requestId: IR-10
-status: accepted
+status: in_progress
 origin: mori://shinzui/keiro-ui
 reviews:
   - kind: model
     reviewer: codex
     reviewed_at: "2026-10-10T16:10:46Z"
-    document_timestamp: "2026-10-10T16:10:46Z"
+    document_timestamp: "2026-10-10T17:32:47Z"
     scope: authoring-metadata
     outcome: comments
     provider: openai
@@ -42,10 +42,10 @@ library-level capability this endpoint wraps already shipped:
 asks only for the missing HTTP surface. Implementation is kiroku's own downstream work under
 kiroku's plans.
 
-Accepted by kiroku on 2026-09-10. Implementation is planned by
+Implementation is in progress under the plan accepted by kiroku on 2026-09-10:
 [ExecPlan 87, Serve durable subscription checkpoints over HTTP](../plans/87-serve-durable-subscription-checkpoints-over-http.md)
 (`mori://shinzui/kiroku/plans/87-serve-durable-subscription-checkpoints-over-http`), which
-finalizes the route as `GET /subscriptions/checkpoints` and keeps the live `GET /subscriptions`
+finalizes the route as `GET /subscription-checkpoints` and keeps the live `GET /subscriptions`
 route unchanged.
 
 Since 2026-09-30 that plan is EP-2 of
@@ -53,10 +53,9 @@ Since 2026-09-30 that plan is EP-2 of
 (`mori://shinzui/kiroku/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui`),
 which coordinates IR-8 through IR-12 as one cohort; plan 87 also introduces the server
 composition record every other route in the cohort extends. The release moved out of plan 87:
-the request moves to `in_progress` when plan 87's first milestone starts and to `completed` once
-the cohort release (forecast `kiroku-metrics` 0.2.0.0), performed by
+the request remains `in_progress` until the cohort release, performed by
 [ExecPlan 96](../plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md),
-is published.
+is published; only then does it move to `completed`.
 
 ## Context
 
@@ -124,3 +123,20 @@ freshness verdicts, or projection semantics; consumers derive what they need fro
 The `kiroku-metrics` route with tests and `docs/user/metrics.md` documentation including a
 request/response transcript and an explicit live-versus-durable explanation; changelog entries
 and PVP-appropriate version bumps, at kiroku's discretion.
+
+
+## Implementation Evidence
+
+The unreleased source serves `GET /subscription-checkpoints` through
+`Kiroku.Metrics.Checkpoints` and the shared `ServerProviders` composition in
+`Kiroku.Metrics.Server`. Its object carries `store_position` and ordered `checkpoints`
+rows with `subscription`, `member`, `checkpoint_position`, and `updated_at`.
+Store-backed legacy starters wire durable reads while preserving the live configured-404.
+The new route leaves `/subscriptions/checkpoints` available for that live subscription name.
+
+`kiroku-metrics/test/Test/CheckpointsSpec.hs` pins the codec, retained stopped-worker rows,
+quiescent cross-handle equality, no-live-provider behavior, method handling, sanitized errors,
+CORS, prefix mounts, readiness and resource cleanup. The guide is
+[Durable subscription checkpoints over HTTP](../user/metrics.md#durable-subscription-checkpoints-over-http);
+`kiroku-metrics/example/Main.hs` verifies an empty checkpoint array with real HTTP.
+Release and cumulative append-under-observer performance acceptance remain with plan 96.

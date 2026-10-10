@@ -79,7 +79,9 @@ CLI does not invent a `"stopped"` row. `global_position` is the worker
 finite-state-machine cursor, a cheap live-progress signal, not a durable
 checkpoint guarantee. See [Observability](observability.md#snapshotting-every-live-subscription)
 for the full registry model and [Metrics And Event Streaming](metrics.md) for the
-HTTP endpoint that exposes it.
+HTTP endpoint that exposes it. For committed progress, use
+[`GET /subscription-checkpoints`](metrics.md#durable-subscription-checkpoints-over-http),
+which includes stopped workers and is independent of the live registry.
 
 ## Embedding In A Host CLI
 

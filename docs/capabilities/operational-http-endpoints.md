@@ -1,7 +1,7 @@
 ---
 title: "Operational HTTP endpoints: metrics, health, and event streaming"
 type: Capability
-description: "Serve in-process metrics as JSON and Prometheus exposition, liveness/readiness/detailed health, a subscription-status endpoint, and a WebSocket channel for live metrics and events, with host-configured default-off browser CORS, without pulling a web framework into the core library."
+description: "Serve in-process metrics as JSON and Prometheus exposition, liveness/readiness/detailed health, a subscription-status endpoint, durable cross-process checkpoint inventory, and a WebSocket channel for live metrics and events, with host-configured default-off browser CORS, without pulling a web framework into the core library."
 generated:
   by: anthropic/claude-sonnet-4.5
   at: "2026-08-08T00:00:00Z"
@@ -14,6 +14,7 @@ packages:
   - kiroku-metrics
 interface:
   - Kiroku.Metrics.Server
+  - Kiroku.Metrics.Checkpoints
   - Kiroku.Metrics.Collector
   - Kiroku.Metrics.Cors
   - Kiroku.Metrics.Health
@@ -22,6 +23,9 @@ requires:
   - CAP-14
   - CAP-11
 evidence:
+  - kind: test
+    resource: kiroku-metrics/test/Test/CheckpointsSpec.hs
+    proves: Durable rows survive stopped workers, quiescent inventories agree across store handles, live responses remain compatible, mounted WebSockets work, and supervised lifetimes clean up listeners.
   - kind: test
     resource: kiroku-metrics/test/Test/CorsSpec.hs
     proves: Disabled application identity, validated origins, cache-correct HTTP grants and preflights, and real WebSocket origin refusal before upgrade.
@@ -50,7 +54,11 @@ metrics and events (with optional replay).
 
 The unreleased inspection cohort adds explicit, default-off CORS across HTTP, preflight
 and WebSocket upgrades. Hosts configure validated origins with `Kiroku.Metrics.Cors`;
-this is browser access policy, not authentication.
+this is browser access policy, not authentication. It also adds
+`GET /subscription-checkpoints`, exact persisted checkpoints with a same-snapshot
+append frontier, independently of the process-local live registry. `ServerProviders`
+and the four `...WithProviders` functions provide the common composition boundary;
+legacy starter signatures remain available.
 
 ## Usage
 
@@ -67,4 +75,5 @@ withMetricsServerWithStore cfg collector store [postgresPing store] $ \_ -> runA
 - The self-verifying `kiroku-metrics-example` executable is gated behind the `-fexample` flag
   (default **off**) because its `ephemeral-pg` / `kiroku-test-support` dependencies are not on
   Hackage.
+- Durable checkpoint inventory is unpaginated and proportional to checkpoint row count; avoid overlapping client polls.
 - The collector is STM-only and non-blocking; snapshots are point-in-time.

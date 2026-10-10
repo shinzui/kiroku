@@ -2,7 +2,7 @@
 
 The `kiroku-metrics` package exposes a running Kiroku store's operational metrics
 over HTTP (JSON and Prometheus), Kubernetes-style health probes, a live
-subscription-status endpoint, and a WebSocket that pushes live metrics **and
+subscription-status endpoint, a durable checkpoint inventory, and a WebSocket that pushes live metrics **and
 streams events out of the store** to any network client.
 
 Like [`kiroku-otel`](opentelemetry.md), it is a **sister package** to
@@ -15,7 +15,7 @@ accessors.
 > **Deployment assumption — no built-in auth or TLS.** The server has no
 > authentication, TLS, or rate limiting. It binds all interfaces; use network
 > isolation or a sidecar/ingress that terminates TLS and authentication. Treat
-> `/metrics`, `/health`, `/subscriptions`, and the WebSocket as you would any
+> `/metrics`, `/health`, `/subscriptions`, `/subscription-checkpoints`, and the WebSocket as you would any
 > internal scrape/admin surface. CORS only tells browsers which pages may read
 > responses; it does not replace the trusted-network or authenticating-proxy assumption.
 
@@ -29,6 +29,7 @@ accessors.
 - [Interpreting the metrics](#interpreting-the-metrics)
 - [The WebSocket protocol](#the-websocket-protocol)
 - [Subscription status over HTTP](#subscription-status-over-http)
+- [Durable subscription checkpoints over HTTP](#durable-subscription-checkpoints-over-http)
 - [Cross-origin browser access (CORS)](#cross-origin-browser-access-cors)
 - [Try it](#try-it)
 - [See Also](#see-also)
@@ -90,6 +91,10 @@ If you do not need the live event/metrics WebSocket, use `withMetricsServer`
 (or `startMetricsServer`/`stopMetricsServer`) instead of the
 `…WithStore` variant; it takes the same arguments minus the `KirokuStore`.
 
+The store-backed starter also serves the durable checkpoint inventory, independently
+of the live status provider. For both live and durable reads, use the provider binding
+shown below.
+
 ## Starting the server
 
 `MetricsServerConfig` controls the server. `defaultConfig` enables everything on
@@ -112,6 +117,31 @@ Lifecycle: `withMetricsServerWithStore cfg metrics store deps` (bracketed,
 recommended) or `startMetricsServerWithStore … >>= … ; stopMetricsServer`. The
 `deps :: [DependencyCheck]` list drives readiness; `postgresPing store` is the
 built-in PostgreSQL ping.
+
+Every starter waits for Warp readiness before returning and propagates bind or setup
+failure. Bracketed starters supervise unexpected server termination and release the
+server when the callback ends or fails. The callback runs in a supervised thread.
+
+New hosts wanting every store-backed route bind the providers explicitly:
+
+```haskell
+let cfg = defaultConfig{port = 9091}
+providers <- storeServerProviders cfg metrics store
+withMetricsServerWithProviders cfg metrics [postgresPing store] providers $ \server ->
+  useServer server
+```
+
+`ServerProviders` contains `webSocketServer`, optional `subscriptionStatus` and
+optional `checkpointInventory`. `defaultServerProviders` rejects upgrades and leaves
+both read providers absent. Record updates allow custom sources. The legacy store
+starter wires the WebSocket and durable inventory while keeping the live route's
+published unconfigured 404; it does not opt into the live registry automatically.
+
+`combinedAppWithProviders cfg metrics deps providers` is the CORS-wrapped, prefix-mountable
+WAI application. A host strips its prefix from `pathInfo`; the composition also escapes
+that relative path for WebSocket dispatch and retains the query string. The bare
+`httpAppWithProviders` router requires the host to apply CORS. `enableWebSocket = False`
+prevents upgrade dispatch, including through legacy starters.
 
 ## Wire-format stability
 
@@ -239,6 +269,11 @@ when not, with a JSON body.
 Add your own dependency check by appending an `IO DependencyStatus` action to the
 `deps` list. It runs on every readiness check; an unhealthy result (or one beyond
 `readinessMaxLag`) flips `/health/ready` to 503.
+
+### `GET /subscription-checkpoints`
+
+The durable, cross-process checkpoint inventory. Store-backed starters wire this route;
+see [Durable subscription checkpoints over HTTP](#durable-subscription-checkpoints-over-http).
 
 ## Prometheus metric reference
 
@@ -403,6 +438,71 @@ kiroku subscriptions status --remote-url http://worker:9091 --format json
 KIROKU_REMOTE_URL=http://worker:9091 kiroku subscriptions status
 ```
 
+## Durable subscription checkpoints over HTTP
+
+`GET /subscription-checkpoints` returns one object with the authoritative append frontier
+and every persisted checkpoint, ordered by subscription name then numeric member.
+This example was captured from the real PostgreSQL route test:
+
+```bash
+curl -s localhost:9091/subscription-checkpoints | jq .
+```
+
+```json
+{
+  "store_position": 20,
+  "checkpoints": [
+    {"subscription": "alpha", "member": 2, "checkpoint_position": 5, "updated_at": "2026-10-10T17:35:35.395016Z"},
+    {"subscription": "alpha", "member": 10, "checkpoint_position": 3, "updated_at": "2026-10-10T17:35:35.394805Z"},
+    {"subscription": "zeta", "member": 2, "checkpoint_position": 7, "updated_at": "2026-10-10T17:35:35.394296Z"}
+  ]
+}
+```
+
+`store_position` is the greatest global position ever allocated, including deleted events;
+it is captured in the same SQL statement snapshot as the rows. `checkpoint_position`
+is the exact committed position of that member. `updated_at` is the last successful
+checkpoint write time, which does not prove the position advanced. Member zero can mean
+an ungrouped worker or member zero of a consumer group; a row cannot distinguish them.
+An empty store returns `{"store_position":0,"checkpoints":[]}`.
+
+The live `/subscriptions` registry describes only workers in the answering process;
+stopped workers disappear and their live cursors may be ahead of persisted progress.
+Durable rows remain after a worker stops and do not require a live status provider.
+Processes sharing a database observe the same durable facts for the same snapshot;
+separate requests can observe intervening commits. `/subscriptions/checkpoints` still
+addresses a live subscription named `checkpoints`.
+
+This read is unpaginated and proportional to the number of checkpoint rows. The server
+performs one inventory read per GET or HEAD, with no background polling. Clients should
+wait for each request to finish before polling again. Unknown query parameters are ignored.
+Decode the Int64 positions losslessly: JavaScript `Number` rounds integers above 2^53.
+`store_position - checkpoint_position` is a **position distance**, not lag or an exact
+backlog for category, filtered, or grouped consumers.
+
+GET and HEAD return the same status and headers; HEAD has no body. Other methods return
+405 with `Allow: GET, HEAD`. Errors on this new route use the structured envelope:
+
+```json
+{"error":{"code":"checkpoint_inventory_unavailable","message":"The event store is unavailable."}}
+```
+
+| Status | Code | Meaning |
+|--------|------|---------|
+| 404 | `checkpoint_inventory_not_configured` | No inventory provider was wired. |
+| 503 | `checkpoint_inventory_unavailable` | A typed connection failure occurred. |
+| 500 | `event_decode_failed` | A typed decode failure occurred. |
+| 500 | `store_error` | Another typed store operation failed. |
+| 405 | `method_not_allowed` | Use GET or HEAD. |
+| 404 | `not_found` | Unknown path when `checkpointsApp` is mounted standalone. |
+
+Messages omit connection strings, raw errors and event payloads. Thrown exceptions propagate
+through the host's normal exception handling. Older routes retain their string error bodies.
+This route is currently unreleased; after the inspection cohort ships, ADR-9 freezes its
+fields and types, with additions limited to optional fields. See the
+[Haskell inventory API](subscriptions.md#reading-durable-checkpoints) and
+[public SQL relation](schema.md#subscription_checkpoints_v1) for the same durable facts.
+
 ## Cross-origin browser access (CORS)
 
 CORS is the browser protocol that allows a page to read responses from another origin
@@ -504,17 +604,18 @@ the server, appends events, and checks every endpoint over real HTTP and a real
 WebSocket. Running it is a test that the documented behavior holds:
 
 ```bash
-cabal run kiroku-metrics-example
+cabal run -fexample kiroku-metrics-example
 ```
 
 ```text
-[1/7] ephemeral postgres ready
-[2/7] store + collector + metrics server on port 65133
-[3/7] appended 3 events to orders-1
-[4/7] HTTP /metrics, /prometheus, /health/live, /health/ready all OK
-[5/7] CORS: preflight and GET from https://ops.example.com allowed; https://evil.example.com undecorated
-[6/7] WebSocket /ws/events received event eventType=OrderRefunded
-[7/7] kiroku-metrics-example: all checks passed (snapshot global position = 4)
+[1/8] ephemeral postgres ready
+[2/8] store + collector + metrics server on port 59196
+[3/8] appended 3 events to orders-1
+[4/8] HTTP /metrics, /prometheus, /health/live, /health/ready all OK
+[5/8] CORS: preflight and GET from https://ops.example.com allowed; https://evil.example.com undecorated
+[6/8] GET /subscription-checkpoints store_position=3 with no durable checkpoints (this example runs no subscription)
+[7/8] WebSocket /ws/events received event eventType=OrderRefunded
+[8/8] kiroku-metrics-example: all checks passed (snapshot global position = 4)
 ```
 
 The source is `kiroku-metrics/example/Main.hs`; it is the authoritative,

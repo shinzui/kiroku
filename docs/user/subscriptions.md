@@ -187,6 +187,11 @@ lifecycle events instead.
 
 ## Reading Durable Checkpoints
 
+Browser clients can read the same inventory through
+[`GET /subscription-checkpoints`](metrics.md#durable-subscription-checkpoints-over-http)
+in the unreleased inspection cohort. Store-backed metrics starters serve it without a
+live status provider; stopped workers' persisted rows remain visible.
+
 `subscriptionStates` answers which workers are live in this process. To answer
 which checkpoints have actually been committed to PostgreSQL, use the mockable
 `Store` operation `subscriptionCheckpointInventory`:

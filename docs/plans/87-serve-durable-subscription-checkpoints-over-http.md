@@ -22,6 +22,11 @@ provenance:
       at: 2026-10-10T15:41:07Z
       mode: "update"
       note: "Correct current APIs, integration ownership and bounded observer work; runtime acceptance remains pending."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-10T17:30:29Z
+      mode: "implement"
+      note: "Implement durable checkpoint reads and supervised provider-based server composition"
   reviews:
     - model: "gpt-6-astra"
       harness: "codex-cli"
@@ -109,16 +114,16 @@ process that shares the database: the durable body is the same.
 - [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
 - [ ] Implement and execute the focused correctness and performance acceptance added by this review.
 
-- [ ] Milestone 1: `Kiroku.Metrics.Checkpoints` module with the provider type, the canonical
+- [x] (2026-10-10) Milestone 1: `Kiroku.Metrics.Checkpoints` module with the provider type, the canonical
       store-backed provider, the wire types and their hand-written JSON codec, the
       `checkpointsApp` WAI application, and the pure codec test; IR-10 set to `in_progress`.
-- [ ] Milestone 2: `ServerProviders` record and the four `...WithProviders` functions added to
+- [x] (2026-10-10) Milestone 2: `ServerProviders` record and the four `...WithProviders` functions added to
       `Kiroku.Metrics.Server` with every legacy starter delegating unchanged;
       `/subscription-checkpoints` matched as a reserved segment ahead of the by-name live route;
       structured not-configured envelope; store-backed starters serve the durable route
       automatically; the CORS wrap from plan 90 preserved at the composition point; umbrella
       re-exports; existing suites green.
-- [ ] Milestone 3: end-to-end `Test.CheckpointsSpec` coverage for every IR-10 acceptance item
+- [x] (2026-10-10) Milestone 3: end-to-end `Test.CheckpointsSpec` coverage for every IR-10 acceptance item
       (stopped-worker retention versus live absence, ordering, two handles over one database,
       no live provider, empty store, not configured, provider failure, standalone 404).
 - [ ] Milestone 4: `docs/user/metrics.md` section with transcript and the live-versus-durable
@@ -133,10 +138,32 @@ process that shares the database: the durable body is the same.
 
 - 2026-10-10 source review: The previous route shadowed a valid live subscription named checkpoints; released checkpoint seeds now take six parameters. The server async returned before Warp readiness, and raw WebSocket dispatch did not share HTTP's mount-relative path. No runtime acceptance is inferred from this finding.
 
-(None yet.)
+- 2026-10-10 implementation: Warp's supplied-socket entry point leaves cleanup to
+  its caller. A direct `network` dependency supplies `Socket.close` in the masked
+  acquisition/finalizer; Hackage and upstream tags agree on 3.2.9.0, admitted by
+  `>=3.1 && <3.3`. Mori lookup found no network/http-types corpus, so upstream
+  sources were fetched after lookup; existing Mori WAI/async sources supplied
+  readiness, raw-path and supervision behavior.
+- 2026-10-10 validation: a loopback listener on macOS can coexist with a wildcard
+  listener using SO_REUSEADDR. The occupied-port fixture now listens on both
+  wildcard address families; acquisition raises before invoking the callback.
+  This was a test-fixture correction, not a production retry or acceptance change.
+- 2026-10-10 validation: 19 focused checkpoint/composition examples pass.
+  The two-handle fixture first observes different real live registries, then
+  stops the worker before comparing durable bodies across sequential requests.
+
 
 
 ## Decision Log
+
+- Decision (2026-10-10 implementation): explicitly depend on `network` for
+  supplied-socket cleanup; retain all existing version lines and dependency bounds.
+  This corrects the September "no new library dependency" forecast, rather than
+  leaving a leaked socket to avoid declaring the dependency.
+- Decision (2026-10-10 implementation): bracketed callbacks run in a supervised
+  thread raced against the Warp thread. Either failure propagates and cancels the
+  other lifetime; normal unexpected Warp return is an error. Unbracketed starters
+  retain the caller-owned `Async` lifecycle and now return only after readiness.
 
 - Decision (2026-10-10): the reviewed Context and Plan of Work supersede incompatible September choices on dependencies, routes, decoding, method handling, bounds and performance. Implementation remains pending; durable constraints are in ADR-15.
   Rationale: the released APIs changed and the original sketches contained correctness and shared-resource hazards.
@@ -456,8 +483,7 @@ subscribes with `defaultSubscriptionConfig name AllStreams (\_ -> pure Continue)
 `live` phase by polling `subscriptionStates`, starts a server on `port = 0`, and issues raw
 `http-client` GETs. Existing test dependencies already include `aeson`, `hasql`, `hasql-pool`,
 `http-client`, `http-types`, `lens`, `generic-lens`, `kiroku-cli`, `kiroku-store`,
-`kiroku-test-support`, `warp`, `text`, `containers`; they do not include `time` or `vector`,
-which Milestone 3 adds.
+`kiroku-test-support`, `warp`, `text`, `containers`; the suite gains `time`, `vector`, and `network` for this plan.
 
 `example/Main.hs` is the self-verifying example (`cabal run kiroku-metrics-example`, cabal flag
 `example`, off by default for the published package) whose transcript `docs/user/metrics.md`
@@ -1285,7 +1311,7 @@ Error bodies on this route: `404 {"error":{"code":"checkpoint_inventory_not_conf
 `503 {"error":{"code":"checkpoint_inventory_unavailable","message":"..."}}`, and, standalone
 only, `404 {"error":{"code":"not_found","message":"Not found"}}`.
 
-Dependencies: no new library dependency. The library already depends on `aeson`, `text`, `time`,
+Dependencies: add `network >=3.1 && <3.3` for explicit socket cleanup. The library already depends on `aeson`, `text`, `time`,
 `vector`, `wai`, `http-types`, `kiroku-store`, and `kiroku-cli`; the test suite gains `time` and
 `vector`. No `.cabal` `version:` line and no dependency bound changes in this plan;
 `kiroku-store` and `kiroku-cli` are untouched. The only runtime service is PostgreSQL with the
@@ -1318,3 +1344,12 @@ nothing depends on `kiroku-metrics`.
 ## API and performance review revision (2026-10-10)
 
 Reviewed against repository HEAD `f1a0209` and the released typed-decoding implementation. Corrected integration contracts and made focused performance evidence a completion gate. Existing authorship history is preserved; this revision records no implemented milestone or accepted performance result. The active requirements above supersede incompatible September design decisions, not published wire contracts.
+
+
+## Implementation revision (2026-10-10)
+
+Milestones 1–3 are implemented. The focused 19-example run passed; the original
+43-example suite passed unchanged after initial composition. Legacy/new-starter
+consumer compilation passed using exact Cabal plan package IDs to avoid duplicate
+installed Wai/WebSockets modules. Full final suite, example, builds and bundle
+checks remain for Milestone 4. Cumulative performance and publication are EP-7 work.

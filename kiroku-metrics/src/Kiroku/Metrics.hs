@@ -6,6 +6,7 @@ types into scope.
 module Kiroku.Metrics (
     module Kiroku.Metrics.Types,
     module Kiroku.Metrics.Collector,
+    module Kiroku.Metrics.Checkpoints,
     module Kiroku.Metrics.Config,
     module Kiroku.Metrics.Cors,
     module Kiroku.Metrics.Health,
@@ -14,6 +15,7 @@ module Kiroku.Metrics (
     module Kiroku.Metrics.WebSocket,
 ) where
 
+import Kiroku.Metrics.Checkpoints
 import Kiroku.Metrics.Collector
 import Kiroku.Metrics.Config
 import Kiroku.Metrics.Cors

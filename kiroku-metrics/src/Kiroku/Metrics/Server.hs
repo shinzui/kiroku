@@ -1,19 +1,16 @@
-{- | The combined metrics web server.
-
-Builds a single WAI 'Application' with 'WaiWS.websocketsOr': WebSocket upgrades
-go to a 'WS.ServerApp' seam, everything else to the HTTP router. The host's
-CORS policy wraps that dispatch, covering HTTP and refusing upgrade origins
-before WebSocket framing starts. EP-2 supplies a
-rejecting stub for the seam ('stubWebSocketApp'); EP-3 replaces it with the real
-event-streaming app via 'startMetricsServerWith' without changing this module.
-
-The server takes 'KirokuMetrics' plus a list of 'DependencyCheck's and a
-'WS.ServerApp' — it does /not/ take the 'KirokuStore' directly. Everything
-store-specific is captured in caller-built closures ('postgresPing' over the
-pool, and EP-3's WebSocket app over the store), keeping the server store-agnostic.
+{- | The shared inspection composition. Store-backed behavior enters through
+provider closures; HTTP and WebSocket dispatch share a mount-relative path and
+one outer CORS policy. Legacy starters retain their signatures.
 -}
 module Kiroku.Metrics.Server (
     MetricsServer (..),
+    ServerProviders (..),
+    defaultServerProviders,
+    storeServerProviders,
+    startMetricsServerWithProviders,
+    withMetricsServerWithProviders,
+    combinedAppWithProviders,
+    httpAppWithProviders,
     startMetricsServer,
     startMetricsServerWith,
     startMetricsServerWith',
@@ -27,16 +24,22 @@ module Kiroku.Metrics.Server (
     stubWebSocketApp,
 ) where
 
-import Control.Concurrent.Async (Async, async, cancel)
-import Control.Exception (bracket)
+import Control.Concurrent.Async (Async, asyncWithUnmask, cancel, race, wait, waitCatchSTM)
+import Control.Concurrent.STM (atomically, newEmptyTMVarIO, orElse, putTMVar, readTMVar)
+import Control.Exception (bracket, finally, mask, onException, throwIO)
 import Data.Aeson (encode, object, (.=))
+import Data.ByteString.Builder (toLazyByteString)
+import Data.ByteString.Lazy qualified as LBS
 import Data.Text (Text)
 import Network.HTTP.Types (status200, status404, status503)
-import Network.Wai (Application, pathInfo)
+import Network.HTTP.Types.URI (encodePathSegments)
+import Network.Socket qualified as Socket
+import Network.Wai (Application, pathInfo, rawPathInfo)
 import Network.Wai.Handler.Warp qualified as Warp
 import Network.Wai.Handler.WebSockets qualified as WaiWS
 import Network.WebSockets qualified as WS
 
+import Kiroku.Metrics.Checkpoints (CheckpointInventoryProvider, checkpointsApp, checkpointsNotConfiguredApp, storeCheckpointInventory)
 import Kiroku.Metrics.Collector (KirokuMetrics)
 import Kiroku.Metrics.Config (MetricsServerConfig (..))
 import Kiroku.Metrics.Cors (corsMiddleware)
@@ -50,7 +53,7 @@ import Kiroku.Metrics.Health (
  )
 import Kiroku.Metrics.JSON (jsonApp, jsonResponse)
 import Kiroku.Metrics.Prometheus (prometheusApp)
-import Kiroku.Metrics.Subscriptions (SubscriptionStatusProvider, subscriptionsApp)
+import Kiroku.Metrics.Subscriptions (SubscriptionStatusProvider, storeSubscriptionStatus, subscriptionsApp)
 import Kiroku.Metrics.WebSocket (newWebSocketState, websocketApp)
 import Kiroku.Store (KirokuStore)
 
@@ -60,141 +63,127 @@ data MetricsServer = MetricsServer
     , serverPort :: !Int
     }
 
-{- | Start the server with the rejecting WebSocket stub. Use this until EP-3's
-real WebSocket app is wired via 'startMetricsServerWith'.
--}
-startMetricsServer :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> IO MetricsServer
-startMetricsServer cfg m deps = startMetricsServerWith' cfg m deps Nothing stubWebSocketApp
+-- | Optional data sources for the shared inspection application.
+data ServerProviders = ServerProviders
+    { webSocketServer :: !WS.ServerApp
+    , subscriptionStatus :: !(Maybe SubscriptionStatusProvider)
+    , checkpointInventory :: !(Maybe CheckpointInventoryProvider)
+    }
 
-{- | Start the server with an explicit WebSocket app (the IP-3 seam) and no
-subscription-status provider. When @cfg.port == 0@ an OS-assigned free port is
-used and reported in 'serverPort'.
--}
-startMetricsServerWith ::
-    MetricsServerConfig ->
-    KirokuMetrics ->
-    [DependencyCheck] ->
-    WS.ServerApp ->
-    IO MetricsServer
-startMetricsServerWith cfg m deps = startMetricsServerWith' cfg m deps Nothing
+-- | Reject upgrades and leave all optional providers unconfigured.
+defaultServerProviders :: ServerProviders
+defaultServerProviders = ServerProviders stubWebSocketApp Nothing Nothing
 
-{- | Start the server with an explicit WebSocket app (the IP-3 seam) /and/ an
-optional subscription-status provider (the IP-5 seam, EP-5). The provider, when
-@Just@, serves @GET /subscriptions@; when @Nothing@, that route returns a
-configured-404. All EP-2/EP-3 starters delegate here with @Nothing@.
+{- | Build every store-backed provider, including the process-local live registry.
+Bind this action first, then use 'withMetricsServerWithProviders'.
 -}
-startMetricsServerWith' ::
-    MetricsServerConfig ->
-    KirokuMetrics ->
-    [DependencyCheck] ->
-    Maybe SubscriptionStatusProvider ->
-    WS.ServerApp ->
-    IO MetricsServer
-startMetricsServerWith' cfg m deps mProvider wsApp = do
-    let app = combinedApp cfg m deps mProvider wsApp
+storeServerProviders :: MetricsServerConfig -> KirokuMetrics -> KirokuStore -> IO ServerProviders
+storeServerProviders cfg m store = do
+    wsState <- newWebSocketState cfg.wsMaxConnections
+    pure $ ServerProviders (websocketApp cfg m store wsState) (Just (storeSubscriptionStatus store)) (Just (storeCheckpointInventory store))
+
+{- | Return only after Warp is ready; bind/setup failures are rethrown.
+Ephemeral sockets are explicitly closed on every exit, including cancellation.
+-}
+startMetricsServerWithProviders :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> ServerProviders -> IO MetricsServer
+startMetricsServerWithProviders cfg m deps providers = mask $ \restore -> do
+    ready <- newEmptyTMVarIO
+    let app = combinedAppWithProviders cfg m deps providers
+        settings port = Warp.setBeforeMainLoop (atomically $ putTMVar ready ()) $ Warp.setHost "*" $ Warp.setPort port Warp.defaultSettings
+        await thread port = do
+            result <- restore (atomically $ (Left <$> waitCatchSTM thread) `orElse` (Right <$> readTMVar ready)) `onException` cancel thread
+            case result of
+                Left (Left err) -> throwIO err
+                Left (Right ()) -> fail "Metrics server terminated before readiness."
+                Right () -> pure (MetricsServer thread port)
     if cfg.port == 0
         then do
-            (actualPort, sock) <- Warp.openFreePort
-            let settings = Warp.setPort actualPort Warp.defaultSettings
-            thread <- async (Warp.runSettingsSocket settings sock app)
-            pure (MetricsServer thread actualPort)
+            (port, sock) <- Warp.openFreePort
+            thread <- asyncWithUnmask (\unmask -> unmask (Warp.runSettingsSocket (settings port) sock app) `finally` Socket.close sock) `onException` Socket.close sock
+            await thread port
         else do
-            let settings = Warp.setHost "*" (Warp.setPort cfg.port Warp.defaultSettings)
-            thread <- async (Warp.runSettings settings app)
-            pure (MetricsServer thread cfg.port)
+            thread <- asyncWithUnmask (\unmask -> unmask $ Warp.runSettings (settings cfg.port) app)
+            await thread cfg.port
 
-{- | Start the server with the real WebSocket app (EP-3), which streams live
-metrics and events out of the given 'KirokuStore'. This is the recommended entry
-point once event streaming is wanted: it allocates one shared connection-limiting
-state (bounded by @cfg.wsMaxConnections@) and wires
-'Kiroku.Metrics.WebSocket.websocketApp'. EP-2's 'startMetricsServer' (stub) is
-unchanged for callers who do not want the WebSocket.
+{- | Supervise the callback and the server together, then release both.
+Unexpected server termination cancels the callback and is rethrown to the owner.
 -}
-startMetricsServerWithStore ::
-    MetricsServerConfig ->
-    KirokuMetrics ->
-    KirokuStore ->
-    [DependencyCheck] ->
-    IO MetricsServer
-startMetricsServerWithStore cfg m store deps = do
-    wsState <- newWebSocketState cfg.wsMaxConnections
-    startMetricsServerWith cfg m deps (websocketApp cfg m store wsState)
+withMetricsServerWithProviders :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> ServerProviders -> (MetricsServer -> IO a) -> IO a
+withMetricsServerWithProviders cfg m deps providers action =
+    withRunningServer (startMetricsServerWithProviders cfg m deps providers) action
 
--- | Stop the server by cancelling its Warp thread.
+withRunningServer :: IO MetricsServer -> (MetricsServer -> IO a) -> IO a
+withRunningServer acquire action = bracket acquire stopMetricsServer $ \server -> do
+    result <- race (wait server.serverThread) (action server)
+    either (\() -> fail "Metrics server terminated unexpectedly.") pure result
+
+-- | Start with the rejecting WebSocket stub and no optional providers.
+startMetricsServer :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> IO MetricsServer
+startMetricsServer cfg m deps = startMetricsServerWithProviders cfg m deps defaultServerProviders
+
+-- | Start with a caller-supplied WebSocket app and no optional providers.
+startMetricsServerWith :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> WS.ServerApp -> IO MetricsServer
+startMetricsServerWith cfg m deps = startMetricsServerWith' cfg m deps Nothing
+
+-- | Legacy binding of a WebSocket app and optional live status provider.
+startMetricsServerWith' :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> Maybe SubscriptionStatusProvider -> WS.ServerApp -> IO MetricsServer
+startMetricsServerWith' cfg m deps mProvider wsApp =
+    startMetricsServerWithProviders cfg m deps defaultServerProviders{webSocketServer = wsApp, subscriptionStatus = mProvider}
+
+{- | Serve the real WebSocket and durable inventory; the legacy live route stays
+unconfigured. New hosts wanting every provider use 'storeServerProviders'.
+-}
+startMetricsServerWithStore :: MetricsServerConfig -> KirokuMetrics -> KirokuStore -> [DependencyCheck] -> IO MetricsServer
+startMetricsServerWithStore cfg m store deps = do
+    providers <- storeServerProviders cfg m store
+    startMetricsServerWithProviders cfg m deps providers{subscriptionStatus = Nothing}
+
 stopMetricsServer :: MetricsServer -> IO ()
 stopMetricsServer server = cancel server.serverThread
 
--- | Run an action with a running server, tearing it down afterwards.
-withMetricsServer ::
-    MetricsServerConfig ->
-    KirokuMetrics ->
-    [DependencyCheck] ->
-    (MetricsServer -> IO a) ->
-    IO a
-withMetricsServer cfg m deps =
-    bracket (startMetricsServer cfg m deps) stopMetricsServer
+withMetricsServer :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> (MetricsServer -> IO a) -> IO a
+withMetricsServer cfg m deps = withMetricsServerWithProviders cfg m deps defaultServerProviders
 
-{- | Run an action with a running store-aware server (EP-3 WebSocket), tearing
-it down afterwards.
--}
-withMetricsServerWithStore ::
-    MetricsServerConfig ->
-    KirokuMetrics ->
-    KirokuStore ->
-    [DependencyCheck] ->
-    (MetricsServer -> IO a) ->
-    IO a
-withMetricsServerWithStore cfg m store deps =
-    bracket (startMetricsServerWithStore cfg m store deps) stopMetricsServer
+withMetricsServerWithStore :: MetricsServerConfig -> KirokuMetrics -> KirokuStore -> [DependencyCheck] -> (MetricsServer -> IO a) -> IO a
+withMetricsServerWithStore cfg m store deps = withRunningServer (startMetricsServerWithStore cfg m store deps)
 
-{- | Run an action with a server that serves @GET /subscriptions@ from the given
-provider (EP-5), using the rejecting WebSocket stub. The common case for a worker
-that wants remote subscription introspection but not the event-streaming socket.
--}
-withMetricsServerSubscriptions ::
-    MetricsServerConfig ->
-    KirokuMetrics ->
-    [DependencyCheck] ->
-    SubscriptionStatusProvider ->
-    (MetricsServer -> IO a) ->
-    IO a
+withMetricsServerSubscriptions :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> SubscriptionStatusProvider -> (MetricsServer -> IO a) -> IO a
 withMetricsServerSubscriptions cfg m deps provider =
-    bracket
-        (startMetricsServerWith' cfg m deps (Just provider) stubWebSocketApp)
-        stopMetricsServer
+    withMetricsServerWithProviders cfg m deps defaultServerProviders{subscriptionStatus = Just provider}
 
--- | Apply the host's CORS policy at the WAI layer before HTTP or WebSocket dispatch.
-combinedApp ::
-    MetricsServerConfig ->
-    KirokuMetrics ->
-    [DependencyCheck] ->
-    Maybe SubscriptionStatusProvider ->
-    WS.ServerApp ->
-    Application
+-- | Legacy composition binding. CORS is applied once by the general composition.
+combinedApp :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> Maybe SubscriptionStatusProvider -> WS.ServerApp -> Application
 combinedApp cfg m deps mProvider wsApp =
-    corsMiddleware cfg.cors $
-        WaiWS.websocketsOr WS.defaultConnectionOptions wsApp (httpApp cfg m deps mProvider)
+    combinedAppWithProviders cfg m deps defaultServerProviders{webSocketServer = wsApp, subscriptionStatus = mProvider}
 
-{- | The EP-2 WebSocket stub: reject the upgrade with a clear message. EP-3
-replaces this with the real event-streaming app.
+{- | Mountable composition. Respect the WebSocket switch before upgrade dispatch.
+Normalize only the dispatch copy's raw path; keep its original query string.
 -}
+combinedAppWithProviders :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> ServerProviders -> Application
+combinedAppWithProviders cfg m deps providers = corsMiddleware cfg.cors dispatch
+  where
+    http = httpAppWithProviders cfg m deps providers
+    dispatch req respond
+        | cfg.enableWebSocket =
+            let relativePath = LBS.toStrict $ toLazyByteString $ encodePathSegments (pathInfo req)
+             in WaiWS.websocketsOr WS.defaultConnectionOptions providers.webSocketServer http (req{rawPathInfo = relativePath}) respond
+        | otherwise = http req respond
+
 stubWebSocketApp :: WS.ServerApp
 stubWebSocketApp pending = WS.rejectRequest pending "WebSocket endpoint not yet implemented"
 
-{- | Unwrapped HTTP router. Matches @/metrics/prometheus@ before @/metrics/\<name\>@.
-Hosts mounting this directly apply @corsMiddleware cfg.cors@ themselves.
--}
-httpApp ::
-    MetricsServerConfig ->
-    KirokuMetrics ->
-    [DependencyCheck] ->
-    Maybe SubscriptionStatusProvider ->
-    Application
-httpApp cfg m deps mProvider req respond =
+-- | Legacy unwrapped HTTP binding.
+httpApp :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> Maybe SubscriptionStatusProvider -> Application
+httpApp cfg m deps mProvider = httpAppWithProviders cfg m deps defaultServerProviders{subscriptionStatus = mProvider}
+
+-- | Unwrapped HTTP router, matching paths relative to the host's mount.
+httpAppWithProviders :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> ServerProviders -> Application
+httpAppWithProviders cfg m deps providers req respond =
     case pathInfo req of
         ["metrics", "prometheus"] | cfg.enablePrometheus -> prometheusApp m req respond
         ["metrics"] | cfg.enableJSON -> jsonApp m req respond
         ["metrics", _] | cfg.enableJSON -> jsonApp m req respond
+        ["subscription-checkpoints"] -> checkpointsRoute
         ["subscriptions"] -> subscriptionsRoute
         ["subscriptions", _] -> subscriptionsRoute
         ["health"] | cfg.enableJSON -> do
@@ -219,7 +208,10 @@ httpApp cfg m deps mProvider req respond =
             respond (jsonResponse status404 (encode (object ["error" .= ("Not found" :: Text)])))
   where
     statusFor ok = if ok then status200 else status503
-    subscriptionsRoute = case mProvider of
+    checkpointsRoute = case providers.checkpointInventory of
+        Just provider -> checkpointsApp provider req respond
+        Nothing -> checkpointsNotConfiguredApp req respond
+    subscriptionsRoute = case providers.subscriptionStatus of
         Just provider -> subscriptionsApp provider req respond
         Nothing ->
             respond $

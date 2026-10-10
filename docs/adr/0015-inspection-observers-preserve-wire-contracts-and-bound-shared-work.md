@@ -8,7 +8,7 @@ generated:
 docId: ADR-15
 status: Accepted
 date: 2026-10-10
-timestamp: "2026-10-10T15:29:20Z"
+timestamp: "2026-10-10T17:40:29Z"
 originatingPlan: docs/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md
 ---
 
@@ -37,6 +37,11 @@ hosts. Path-prefix mounting must work for HTTP and WebSocket dispatch; the latte
 the raw path in wai-websockets. Capability flags describe actual dispatch, including the
 WebSocket enable switch, not merely configuration intent. A starter reports readiness only
 after Warp is listening and propagates bind failures with resource cleanup.
+Caller-supplied sockets have explicit finalizers, including cancellation before readiness.
+Bracketed server lifetimes supervise the callback and Warp together: a failure or
+unexpected Warp termination cancels the callback and propagates to the owner;
+callback completion releases the server. The callback runs in a supervised thread.
+Unbracketed starters retain caller ownership of the returned server Async.
 
 Disabled CORS is the identity application. Enabled CORS varies every ordinary HTTP response
 on Origin, including nonmatching and absent origins, without granting those requests access.

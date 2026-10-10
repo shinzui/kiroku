@@ -21,6 +21,11 @@ provenance:
       at: 2026-10-10T15:58:37Z
       mode: "implement"
       note: "Coordinate EP-1 implementation and validation"
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-10T17:30:29Z
+      mode: "implement"
+      note: "Coordinate EP-2 implementation and validation"
   reviews:
     - model: "gpt-6-astra"
       harness: "codex-cli"
@@ -192,7 +197,7 @@ Integration Points.
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
 | 1 | Add configurable CORS support to kiroku-metrics (IR-11) | docs/plans/90-add-configurable-cors-support-to-kiroku-metrics.md | None | None | Complete |
-| 2 | Serve durable subscription checkpoints over HTTP (IR-10) | docs/plans/87-serve-durable-subscription-checkpoints-over-http.md | EP-1 | None | Not Started |
+| 2 | Serve durable subscription checkpoints over HTTP (IR-10) | docs/plans/87-serve-durable-subscription-checkpoints-over-http.md | EP-1 | None | In Progress |
 | 3 | Expose a REST read API for browsing streams, categories, and events (IR-8) | docs/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md | EP-2 | EP-4 | Not Started |
 | 4 | Expose a public dead-letter read API (IR-9) | docs/plans/89-expose-a-public-dead-letter-read-api.md | EP-2 | EP-3 | Not Started |
 | 5 | Converge the kiroku-metrics WebSocket protocol with the cross-project convention (IR-12) | docs/plans/94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention.md | EP-3 | None | Not Started |
@@ -365,7 +370,7 @@ six), grouped as the release skill expects (`### Breaking Changes`, `### New Fea
 EP-7's forecast, to be re-derived from the diffs: `kiroku-store` 0.11.0.0 (the closed `Store`
 GADT gains four constructors and the exported `Subscriber` record gains a field),
 `kiroku-metrics` 0.3.0.0 (the configuration field, the record, new modules, a new executable,
-and two new library dependencies, `effectful-core` and `optparse-applicative`), and patch bumps
+and new library dependencies `network`, `effectful-core` and `optparse-applicative`), and patch bumps
 of `kiroku-otel`, `kiroku-cli`, and `shibuya-kiroku-adapter` to move their `kiroku-store`
 bound, plus `kiroku-metrics`'s `kiroku-cli` bound. `kiroku-store-migrations` is outside the
 cohort: it does not depend on `kiroku-store` (the release skill's dependents list says
@@ -452,8 +457,8 @@ rule suffices.
       helpers, and database-free CORS tests.
 - [x] (2026-10-10) EP-1: middleware wired at the composition point; real-server HTTP and WebSocket origin
       tests; documentation, example step, CAP-17, changelog, IR-11 evidence.
-- [ ] EP-2: `Kiroku.Metrics.Checkpoints` and the pure codec test.
-- [ ] EP-2: `ServerProviders`, the four general starters, the reserved `/subscription-checkpoints`
+- [x] (2026-10-10) EP-2: `Kiroku.Metrics.Checkpoints` and the pure codec test.
+- [x] (2026-10-10) EP-2: `ServerProviders`, the four general starters, the reserved `/subscription-checkpoints`
       segment, legacy starters as delegations.
 - [ ] EP-2: end-to-end checkpoint tests; documentation, example step, CAP-17, changelog, IR-10
       evidence.
@@ -485,6 +490,13 @@ rule suffices.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-10 EP-2 implementation: one provider composition now preserves CORS,
+  mount-relative HTTP/WebSocket dispatch and the disabled WebSocket gate. All
+  legacy signatures compile. Store-backed starters wire durable reads while
+  retaining the published live configured-404; new all-provider hosts opt in.
+  `network` is declared directly for ephemeral socket finalizers. Bracketed
+  callbacks run in a supervised thread; ADR-15 records that lifecycle constraint.
 
 - 2026-10-10 EP-1 implementation: Default-off CORS and shared sanitized JSON errors
   are available. `CorsPolicy` remains the planned record; application construction
