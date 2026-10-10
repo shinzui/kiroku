@@ -21,7 +21,7 @@ import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Hasql.Statement (preparable)
 import Kenshou.Core.Knob
-import Kiroku.Store (CategoryName (..), KirokuStore (..), StreamInfo (..), StreamName (..), mkBrowsePageSize)
+import Kiroku.Store (CategoryName (..), KirokuStore (..), StreamInfo (name), StreamName (..), mkBrowsePageSize)
 import Kiroku.Store.SQL qualified as SQL
 
 -- These knobs are recorded in compatibility inputs. Both arms use one payload.
