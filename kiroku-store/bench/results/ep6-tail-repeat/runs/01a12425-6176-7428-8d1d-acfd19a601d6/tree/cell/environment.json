@@ -1,0 +1,34 @@
+{
+  "broker": null,
+  "cell": "alpha",
+  "drivers": [
+    {
+      "host": "10.0.0.3",
+      "index": 0
+    }
+  ],
+  "leaseId": "01a12425-5c41-72cb-9625-054ac839b0cf",
+  "metrics": {
+    "victoriaMetricsUrl": "http://10.0.0.4:8428"
+  },
+  "otlp": {
+    "file": {
+      "grpc": "http://10.0.0.4:4327",
+      "http": "http://10.0.0.4:4328"
+    },
+    "null": {
+      "grpc": "http://10.0.0.4:4317",
+      "http": "http://10.0.0.4:4318"
+    }
+  },
+  "postgres": {
+    "connectionString": "host=10.0.0.2 port=5432 dbname=postgres user=benchmark",
+    "database": "postgres",
+    "host": "10.0.0.2",
+    "major": 18,
+    "port": 5432,
+    "user": "benchmark"
+  },
+  "runId": "01a12425-6176-7428-8d1d-acfd19a601d6",
+  "schema": "cell.environment/v1"
+}

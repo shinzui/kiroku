@@ -1,0 +1,90 @@
+{
+  "cases": [
+    "live-hook-fanout",
+    "real-adapter"
+  ],
+  "pairs_per_case": 3,
+  "ordering": "abba",
+  "warmup_seconds": 30,
+  "measurement_seconds": 61,
+  "drain_max_seconds": 30,
+  "max_replacements": 0,
+  "diagnostic_trial": "reuse prior valid evidence; no additional diagnostic trial",
+  "strict_policy": "unchanged bench/mp12-cell/policy.json; <5 pairs can remain inconclusive",
+  "descriptive_uncertainty_target_percent": 10,
+  "estimate_whole_minutes": [
+    45,
+    55
+  ],
+  "deadline_epoch": 1791611021.0,
+  "source_control": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+  "candidate_source": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+  "harness_source": "f7273083f1d719ac701500c898152c04dadd5170",
+  "settings": [
+    "shared_buffers=128MB",
+    "fsync=on",
+    "synchronous_commit=on",
+    "full_page_writes=on",
+    "wal_level=replica",
+    "checkpoint_timeout=30min",
+    "max_wal_size=16GB"
+  ],
+  "stop_conditions": [
+    "fixed deadline with 180-second cleanup reserve",
+    "240 seconds without remote phase or verified-trial progress",
+    "failed slice, wrong durable work, reset or artifact verification: stop without replacement",
+    "confirmed regression retains open release gate"
+  ],
+  "calibration_trials": 0,
+  "planned_total_trials": 12,
+  "started_epoch": 1791607421.0,
+  "budget_includes": "diagnosis, local probes, build, publication, calibration, reset/setup, remote trials, fetch, verification, cleanup",
+  "calibration_reuse": "prior verified calibration and owned lease release at identical payload identities",
+  "reason": "Resolve whether the adapter p99 increase reproduces; corroborate live-hook tail with unchanged inputs",
+  "cleanup_reserve_seconds": 240,
+  "local_telemetry_followup": {
+    "command": [
+      "nix",
+      "develop",
+      "-c",
+      "just",
+      "perf-telemetry"
+    ],
+    "purpose": "Resolve historical command-level failures under unchanged baseline/default time mode/timeout. Original failures retained.",
+    "timeout_seconds": 720,
+    "finished": {
+      "command": [
+        "nix",
+        "develop",
+        "-c",
+        "just",
+        "perf-telemetry"
+      ],
+      "started_epoch": 1791608072.59448,
+      "timeout_seconds": 720,
+      "reason": "Resolve the retained 2/30 historical telemetry command failure; unchanged baseline and default settings; original failures retained",
+      "returncode": 1,
+      "finished_epoch": 1791608458.2627258,
+      "seconds": 385.6682457923889
+    },
+    "result": "29/30 pass; AnyVersion (new stream) times out after 100 seconds; exhausted-category is 28% above historical baseline; command remains failed"
+  },
+  "cross_session_pooling": "Descriptive only; exact reported driver memory differs by 4096 bytes across VM boots, and the original operator refuses the combined fingerprint. Preserve infrastructure-failure; no input rewriting.",
+  "focused_telemetry_diagnostic": {
+    "command": [
+      "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/b/kiroku-store-bench/build/kiroku-store-bench/kiroku-store-bench",
+      "--baseline",
+      "kiroku-store/bench/results/baseline.csv",
+      "--pattern",
+      "/AnyVersion (new stream)/"
+    ],
+    "started_epoch": 1791609405.170986,
+    "wrapper_timeout_seconds": 150,
+    "test_timeout_seconds": 100,
+    "purpose": "Single unchanged-method diagnostic of the newly timed-out full-suite case; not a replacement or performance-acceptance trial",
+    "returncode": 0,
+    "finished_epoch": 1791609463.878659,
+    "seconds": 58.70767307281494,
+    "postgres_version": "postgres (PostgreSQL) 18.6"
+  }
+}

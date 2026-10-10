@@ -1,0 +1,200 @@
+{
+  "prior": {
+    "cell": {
+      "broker": null,
+      "capabilities": {
+        "broker": "none",
+        "fault-hook": false,
+        "otlp.file": true,
+        "otlp.null": true,
+        "postgres.control-hook": false,
+        "postgres.major": "18",
+        "postgres.pg_partman": true,
+        "postgres.second-server": false
+      },
+      "cell": "alpha",
+      "cellRun": "01a123f3-4958-7387-865d-90a7abb03320",
+      "clock": {
+        "skewBoundMicros": null
+      },
+      "driver": {
+        "count": 1,
+        "index": 0
+      },
+      "faultHook": false,
+      "leaseId": "01a123f3-4348-72c5-b376-c4d228bbba62",
+      "otlpSink": "null",
+      "payload": {
+        "bundleSha256": "4f2900914f42218aa6fc31b0cc3eb219c83da6ca9f709d9b0a4da22c3e7cc8a8",
+        "cohort": "released",
+        "harness": {
+          "dirty": false,
+          "revision": "f7273083f1d719ac701500c898152c04dadd5170"
+        },
+        "narHash": "sha256-2ZykhS4ife6F0YIoPZL+MWfpGAwcCaKiXpeIg2B6V/c=",
+        "storePath": "/nix/store/pnrnkarisaz7inqwiad4qjnhp9kw2cay-kiroku-mp12-released"
+      },
+      "postgres": {
+        "extensions": {
+          "pg_partman": {
+            "available": true,
+            "version": "5.4.3"
+          }
+        },
+        "extraPostgres": "shared-server",
+        "host": "10.0.0.2",
+        "major": 18,
+        "placement": "cell-server",
+        "port": 5432
+      },
+      "schema": "kenshou.cell-context/v1"
+    },
+    "extraPostgres": {},
+    "host": {
+      "arch": "x86_64",
+      "cpuModel": "Intel(R) Xeon(R) CPU @ 2.80GHz",
+      "hostname": "cell-driver",
+      "kernel": "6.18.28",
+      "logicalCores": 4,
+      "memoryBytes": 33657581568,
+      "os": "linux"
+    },
+    "kenshou": {
+      "dirty": false,
+      "executableSha256": "sha256:a1dbd16b6afe7ea08ccea28893b013cd0a7a874cd1d7e844804a9e1490625240",
+      "revision": "f7273083f1d719ac701500c898152c04dadd5170",
+      "version": "0.1.0.0"
+    },
+    "machineProfile": "gcp/us-west1-a/shape-f8ed9373b60a5a28/pg18",
+    "placement": "cell",
+    "postgres": {
+      "collation": "en_US.UTF-8",
+      "encoding": "UTF8",
+      "serverVersion": "18.3",
+      "serverVersionNum": 180003,
+      "settings": {
+        "autovacuum": "on",
+        "checkpoint_completion_target": "0.9",
+        "checkpoint_timeout": "30min",
+        "effective_cache_size": "24GB",
+        "fsync": "on",
+        "full_page_writes": "on",
+        "max_connections": "500",
+        "max_wal_size": "16GB",
+        "random_page_cost": "1.1",
+        "shared_buffers": "128MB",
+        "shared_preload_libraries": "pg_stat_statements,auto_explain",
+        "synchronous_commit": "on",
+        "wal_buffers": "4MB",
+        "wal_level": "replica",
+        "work_mem": "16MB"
+      },
+      "superuser": false
+    },
+    "runtime": {
+      "capabilities": 4,
+      "ghc": "Version {versionBranch = [9,12], versionTags = []}",
+      "rtsStats": true,
+      "threaded": true
+    }
+  },
+  "new": {
+    "cell": {
+      "broker": null,
+      "capabilities": {
+        "broker": "none",
+        "fault-hook": false,
+        "otlp.file": true,
+        "otlp.null": true,
+        "postgres.control-hook": false,
+        "postgres.major": "18",
+        "postgres.pg_partman": true,
+        "postgres.second-server": false
+      },
+      "cell": "alpha",
+      "cellRun": "01a12425-6176-7428-8d1d-acfd19a601d6",
+      "clock": {
+        "skewBoundMicros": null
+      },
+      "driver": {
+        "count": 1,
+        "index": 0
+      },
+      "faultHook": false,
+      "leaseId": "01a12425-5c41-72cb-9625-054ac839b0cf",
+      "otlpSink": "null",
+      "payload": {
+        "bundleSha256": "4f2900914f42218aa6fc31b0cc3eb219c83da6ca9f709d9b0a4da22c3e7cc8a8",
+        "cohort": "released",
+        "harness": {
+          "dirty": false,
+          "revision": "f7273083f1d719ac701500c898152c04dadd5170"
+        },
+        "narHash": "sha256-2ZykhS4ife6F0YIoPZL+MWfpGAwcCaKiXpeIg2B6V/c=",
+        "storePath": "/nix/store/pnrnkarisaz7inqwiad4qjnhp9kw2cay-kiroku-mp12-released"
+      },
+      "postgres": {
+        "extensions": {
+          "pg_partman": {
+            "available": true,
+            "version": "5.4.3"
+          }
+        },
+        "extraPostgres": "shared-server",
+        "host": "10.0.0.2",
+        "major": 18,
+        "placement": "cell-server",
+        "port": 5432
+      },
+      "schema": "kenshou.cell-context/v1"
+    },
+    "extraPostgres": {},
+    "host": {
+      "arch": "x86_64",
+      "cpuModel": "Intel(R) Xeon(R) CPU @ 2.80GHz",
+      "hostname": "cell-driver",
+      "kernel": "6.18.28",
+      "logicalCores": 4,
+      "memoryBytes": 33657577472,
+      "os": "linux"
+    },
+    "kenshou": {
+      "dirty": false,
+      "executableSha256": "sha256:a1dbd16b6afe7ea08ccea28893b013cd0a7a874cd1d7e844804a9e1490625240",
+      "revision": "f7273083f1d719ac701500c898152c04dadd5170",
+      "version": "0.1.0.0"
+    },
+    "machineProfile": "gcp/us-west1-a/shape-f8ed9373b60a5a28/pg18",
+    "placement": "cell",
+    "postgres": {
+      "collation": "en_US.UTF-8",
+      "encoding": "UTF8",
+      "serverVersion": "18.3",
+      "serverVersionNum": 180003,
+      "settings": {
+        "autovacuum": "on",
+        "checkpoint_completion_target": "0.9",
+        "checkpoint_timeout": "30min",
+        "effective_cache_size": "24GB",
+        "fsync": "on",
+        "full_page_writes": "on",
+        "max_connections": "500",
+        "max_wal_size": "16GB",
+        "random_page_cost": "1.1",
+        "shared_buffers": "128MB",
+        "shared_preload_libraries": "pg_stat_statements,auto_explain",
+        "synchronous_commit": "on",
+        "wal_buffers": "4MB",
+        "wal_level": "replica",
+        "work_mem": "16MB"
+      },
+      "superuser": false
+    },
+    "runtime": {
+      "capabilities": 4,
+      "ghc": "Version {versionBranch = [9,12], versionTags = []}",
+      "rtsStats": true,
+      "threaded": true
+    }
+  }
+}

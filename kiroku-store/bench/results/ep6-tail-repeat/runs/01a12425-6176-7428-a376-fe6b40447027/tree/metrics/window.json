@@ -1,0 +1,8 @@
+{
+  "schema": "cell.metrics-window/v1",
+  "startedAt": "2026-10-10T05:03:29Z",
+  "finishedAt": "2026-10-10T05:05:23Z",
+  "selector": "{__name__!=\"\"}",
+  "series": 10977,
+  "samples": 85567
+}

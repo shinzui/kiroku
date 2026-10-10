@@ -75,6 +75,7 @@ user's explicit release-time confirmation.
 
 ## Progress
 
+- [x] (2026-10-10) Complete the user-authorized tail repeat with 12 valid trials, six new pairs and zero replacements; retain separate inconclusive reports, pooled fingerprint rejections and the failed full telemetry command plus focused diagnostic. Cleanup and collection finish within one hour; all VMs stopped and no lease.
 - [x] (2026-10-10) Diagnose live-batch checkpoint accounting and complete the authorized bounded follow-up: 13 valid benchmark trials, three adapter pairs and two fan-out pairs; retain the cancelled final candidate, all adverse evidence and zero replacements. Cleanup and collection finish within the fixed one-hour budget.
 - [ ] Integrated performance acceptance: assess the retained minimum evidence and unresolved p99 uncertainty under ADR-11. The original zero-regression policy remains inconclusive; no strict pass or release readiness is claimed.
 - [x] (2026-10-10) Gate: plans 81, 82, 83, 84, and 86 are Complete; current living sections, strict ADR validation and the configured capability gate pass. The lifetime member-guard plans 93/92 remain outside this cohort and unimplemented.
@@ -87,6 +88,12 @@ user's explicit release-time confirmation.
 
 
 ## Surprises & Discoveries
+
+- (2026-10-10) Cross-session pooling is rejected for a 4096-byte reported driver
+  memory difference across VM boots; no input or policy is rewritten. The new
+  three-pair adapter p99 interval narrows to -4.17%..+4.47%, but strict acceptance
+  remains inconclusive. Full historical telemetry times out AnyVersion new-stream
+  append while its focused unchanged-method diagnostic passes; retain both.
 
 - (2026-10-10) Follow-up diagnosis proves the checkpoint gate assumed the wrong
   batching unit. AllStreams live delivery consumes publisher batches (maximum
@@ -152,6 +159,12 @@ user's explicit release-time confirmation.
 
 ## Decision Log
 
+- Decision (2026-10-10): continue with a bounded repeat of the two affected paths
+  after the user's instruction, reusing verified builds and calibration. Keep
+  the original policy, rejected pooling and all adverse samples; do not count
+  focused telemetry diagnostics as accepted replacement trials. No further
+  queue or release action follows automatically from these results.
+
 - Decision (2026-10-10): Defer version approval and publication while diagnosing
   the cumulative measurement failure. The user authorized this follow-up after
   the premature release proposal was corrected. Preserve the closed experiment
@@ -195,6 +208,29 @@ user's explicit release-time confirmation.
 
 
 ## Outcomes & Retrospective
+
+The user-authorized tail repeat completed 12 additional valid trials, three
+adapter pairs and three successful-hook fan-out pairs, without replacements.
+Cleanup completed in 37.50 minutes from the conservative fixed 04:43:41–05:43:41
+UTC clock; collection finished in 38.82 minutes. All four VMs are TERMINATED,
+with no lease or quarantine. The new adapter throughput estimate is +0.39%
+(95% -2.88% to +3.77%) and p99 +0.06% (-4.17% to +4.47%); new fan-out throughput
++1.60% (+0.89% to +2.31%), p99 -1.12% (-5.23% to +3.17%). The earlier +26.80%
+adapter p99 increase did not reproduce and remains retained. Separate session
+policies remain inconclusive. Pooling six adapter/five fan-out pairs is rejected
+by the unchanged operator because reported driver memory differs by 4096 bytes
+across VM boots; raw fingerprints and both infrastructure-failure reports are
+preserved. Pooled estimates are descriptive only: adapter throughput +2.13%,
+p99 +1.77% (95% -9.72% to +14.74%); fan-out throughput +2.25%, p99 -3.34%
+(-7.76% to +1.29%). No strict pass or zero-regression proof is claimed.
+
+The unchanged full historical telemetry repeat passed 29/30 cases but timed out
+`AnyVersion (new stream)` after 100 seconds. Its focused repeat passed in 58.71
+seconds through setup/cleanup without replacing the full failure. Exhausted-category
+reads were 28% above the historical baseline; this adverse CPU-time telemetry is
+retained. No further experiment is queued. Source and release metadata are
+unchanged; performance acceptance, release approval and downstream adoption
+remain open. Evidence: `kiroku-store/bench/results/ep6-tail-repeat/README.md`.
 
 EP6 is In Progress. All five implementation children are Complete. Integrated
 `cabal build all` and `cabal test all --test-show-details=direct` pass (554 examples
@@ -550,3 +586,5 @@ and Keiro adoption remain outstanding.
 Revision note (2026-10-10): Defer release approval; diagnose live publisher batching with six exact local adapter checks and retain the focused CPU telemetry repeat. The follow-up uses one fixed 03:31–04:31 UTC budget. Remote evidence remains pending.
 
 Revision note (2026-10-10): Close the authorized follow-up within one hour, retain 13 valid trials and the cancelled final candidate, report five matched pairs plus descriptive diagnostic cost, and keep p99/statistical acceptance and release open. All remote resources are stopped.
+
+Revision note (2026-10-10, tail repeat): preserve 12 new valid trials/six pairs, cross-session fingerprint rejections, adverse full telemetry and its focused diagnostic; narrow the non-reproduced adapter tail signal without claiming strict acceptance. Performance, metadata approval and publication remain outstanding.

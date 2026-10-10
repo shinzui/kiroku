@@ -1,0 +1,603 @@
+{
+  "started_epoch": 1791607421.0,
+  "deadline_epoch": 1791611021.0,
+  "cleanup_reserve_seconds": 240,
+  "phase": "completed",
+  "authorisation": "User: let\u2019s continue then; focused unresolved tail follow-up",
+  "prior_evidence": "kiroku-store/bench/results/ep6-diagnosis",
+  "no_replacements": true,
+  "preflight_cell_status": "lease none; quarantine none",
+  "updated_epoch": 1791609636.6963048,
+  "remote_started_epoch": 1791607777.3011642,
+  "jobs": [
+    {
+      "name": "real-adapter",
+      "command": [
+        "/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kenshou-cli-0.1.0.0/x/kenshou/build/kenshou/kenshou",
+        "cell",
+        "pair",
+        "--cell",
+        "alpha",
+        "--start",
+        "--baseline",
+        "/tmp/mp12-ep6-tail-repeat/control.payload.json",
+        "--candidate",
+        "/tmp/mp12-ep6-tail-repeat/head.payload.json",
+        "--plan",
+        "/tmp/mp12-ep6-tail-repeat/real-adapter.plan.json",
+        "--pairs",
+        "3",
+        "--ordering",
+        "abba",
+        "--max-replacements",
+        "0",
+        "--policy",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp12-cell/policy.json",
+        "--out",
+        "/tmp/mp12-ep6-tail-repeat/remote-real-adapter",
+        "--pg-setting",
+        "shared_buffers=128MB",
+        "--pg-setting",
+        "fsync=on",
+        "--pg-setting",
+        "synchronous_commit=on",
+        "--pg-setting",
+        "full_page_writes=on",
+        "--pg-setting",
+        "wal_level=replica",
+        "--pg-setting",
+        "checkpoint_timeout=30min",
+        "--pg-setting",
+        "max_wal_size=16GB"
+      ],
+      "started_epoch": 1791607777.301198,
+      "verified_trials": 6,
+      "returncode": 3,
+      "seconds": 958.7966668605804,
+      "independently_verified_trials": 6,
+      "comparison": {
+        "algorithm": {
+          "confidenceLevel": 0.95,
+          "generator": "splitmix",
+          "iterations": 10000,
+          "name": "paired-bootstrap-t-envelope",
+          "seed": 20261009,
+          "version": 1
+        },
+        "baselineRuns": [
+          "01a12425-01c3-77e2-a874-4e709e0e6e49",
+          "01a12425-01c3-77e2-acc3-4e3ae38f7d7a",
+          "01a12425-01c3-77e2-a2dc-aab28ef678a4"
+        ],
+        "candidateRuns": [
+          "01a12425-01c3-77e2-a424-b350cb80c2e4",
+          "01a12425-01c3-77e2-a4c7-e53f0221a08a",
+          "01a12425-01c3-77e2-af6a-e3537d6e5472"
+        ],
+        "comparisonId": "01a12433-c121-734f-8af7-e8eea125a157",
+        "design": "abba",
+        "exitCode": 3,
+        "finishedAt": "2026-10-10T05:05:34.179973Z",
+        "harnessDirty": true,
+        "harnessRevision": "f77c564abde7e496591ee465abe0611afa835bc8",
+        "metrics": {
+          "op.append.latency.p50": {
+            "absoluteFloor": 0,
+            "baselineCv": 0.010361693732597646,
+            "delta": {
+              "estimate": -8192,
+              "high": 109161.61902107374,
+              "low": -125545.61902107374
+            },
+            "message": "confidence interval crosses a policy limit or is too wide",
+            "metric": "op.append.latency.p50",
+            "pairs": [
+              {
+                "baseline": 4509695,
+                "candidate": 4554751
+              },
+              {
+                "baseline": 4562943,
+                "candidate": 4517887
+              },
+              {
+                "baseline": 4603903,
+                "candidate": 4579327
+              }
+            ],
+            "ratio": {
+              "estimate": 0.9982234329527075,
+              "high": 1.0243596958224637,
+              "low": 0.9727540298194122
+            },
+            "relativeLimit": 0,
+            "status": "inconclusive",
+            "unit": "ns"
+          },
+          "op.append.latency.p95": {
+            "absoluteFloor": 0,
+            "baselineCv": 0.020835206622323275,
+            "delta": {
+              "estimate": -72362.66666666667,
+              "high": 141652.9676893506,
+              "low": -286378.30102268397
+            },
+            "message": "confidence interval crosses a policy limit or is too wide",
+            "metric": "op.append.latency.p95",
+            "pairs": [
+              {
+                "baseline": 5062655,
+                "candidate": 5079039
+              },
+              {
+                "baseline": 5124095,
+                "candidate": 5046271
+              },
+              {
+                "baseline": 5271551,
+                "candidate": 5115903
+              }
+            ],
+            "ratio": {
+              "estimate": 0.9860830647079094,
+              "high": 1.027697342270124,
+              "low": 0.9461538631167968
+            },
+            "relativeLimit": 0,
+            "status": "inconclusive",
+            "unit": "ns"
+          },
+          "op.append.latency.p99": {
+            "absoluteFloor": 0,
+            "baselineCv": 0.03575047532723784,
+            "delta": {
+              "estimate": 4096,
+              "high": 254181.85933146867,
+              "low": -245989.85933146867
+            },
+            "message": "confidence interval crosses a policy limit or is too wide",
+            "metric": "op.append.latency.p99",
+            "pairs": [
+              {
+                "baseline": 5709823,
+                "candidate": 5787647
+              },
+              {
+                "baseline": 5816319,
+                "candidate": 5705727
+              },
+              {
+                "baseline": 6115327,
+                "candidate": 6160383
+              }
+            ],
+            "ratio": {
+              "estimate": 1.0005605976553866,
+              "high": 1.0447319396647698,
+              "low": 0.9582568231825489
+            },
+            "relativeLimit": 0,
+            "status": "inconclusive",
+            "unit": "ns"
+          },
+          "op.append.throughput": {
+            "absoluteFloor": 0,
+            "baselineCv": 0.013039109680515007,
+            "delta": {
+              "estimate": -3.3127337226527893,
+              "high": 25.405027650869904,
+              "low": -32.030495096175486
+            },
+            "message": "confidence interval crosses a policy limit or is too wide",
+            "metric": "op.append.throughput",
+            "pairs": [
+              {
+                "baseline": 874.4078278474611,
+                "candidate": 865.2072610817689
+              },
+              {
+                "baseline": 859.9406150807969,
+                "candidate": 873.533122781797
+              },
+              {
+                "baseline": 852.2678837379481,
+                "candidate": 857.8141439705985
+              }
+            ],
+            "ratio": {
+              "estimate": 0.9961436293553004,
+              "high": 1.0296723509150099,
+              "low": 0.96370668730043
+            },
+            "relativeLimit": 0,
+            "status": "inconclusive",
+            "unit": "ops/s"
+          }
+        },
+        "pairCount": 3,
+        "policy": {
+          "bootstrapIterations": 10000,
+          "confidenceLevel": 0.95,
+          "maxCheckpointAsymmetry": 0,
+          "maxCiRelativeWidth": 0.06,
+          "metrics": [
+            {
+              "absoluteFloor": 0,
+              "direction": "higher-is-better",
+              "match": "op.append.throughput",
+              "relativeLimit": 0
+            },
+            {
+              "absoluteFloor": 0,
+              "direction": "lower-is-better",
+              "match": "op.append.latency.p50",
+              "relativeLimit": 0
+            },
+            {
+              "absoluteFloor": 0,
+              "direction": "lower-is-better",
+              "match": "op.append.latency.p95",
+              "relativeLimit": 0
+            },
+            {
+              "absoluteFloor": 0,
+              "direction": "lower-is-better",
+              "match": "op.append.latency.p99",
+              "relativeLimit": 0
+            }
+          ],
+          "minimumPairs": 5,
+          "name": "mp12-zero-write-regression",
+          "requireGrade": "benchmark",
+          "requireInterleaving": true,
+          "resamplingSeed": 20261009,
+          "schema": "kenshou.comparison-policy/v1"
+        },
+        "reasons": [
+          "fewer than the required number of pairs"
+        ],
+        "schema": "kenshou.comparison/v1",
+        "startedAt": "2026-10-10T05:05:33.985482Z",
+        "variedFactors": [
+          "cohort"
+        ],
+        "verdict": "inconclusive"
+      }
+    },
+    {
+      "name": "live-hook-fanout",
+      "command": [
+        "/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kenshou-cli-0.1.0.0/x/kenshou/build/kenshou/kenshou",
+        "cell",
+        "pair",
+        "--cell",
+        "alpha",
+        "--start",
+        "--baseline",
+        "/tmp/mp12-ep6-tail-repeat/control.payload.json",
+        "--candidate",
+        "/tmp/mp12-ep6-tail-repeat/head.payload.json",
+        "--plan",
+        "/tmp/mp12-ep6-tail-repeat/live-hook-fanout.plan.json",
+        "--pairs",
+        "3",
+        "--ordering",
+        "abba",
+        "--max-replacements",
+        "0",
+        "--policy",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp12-cell/policy.json",
+        "--out",
+        "/tmp/mp12-ep6-tail-repeat/remote-live-hook-fanout",
+        "--pg-setting",
+        "shared_buffers=128MB",
+        "--pg-setting",
+        "fsync=on",
+        "--pg-setting",
+        "synchronous_commit=on",
+        "--pg-setting",
+        "full_page_writes=on",
+        "--pg-setting",
+        "wal_level=replica",
+        "--pg-setting",
+        "checkpoint_timeout=30min",
+        "--pg-setting",
+        "max_wal_size=16GB"
+      ],
+      "started_epoch": 1791608736.141054,
+      "verified_trials": 6,
+      "returncode": 3,
+      "seconds": 902.5656430721283,
+      "independently_verified_trials": 6,
+      "comparison": {
+        "algorithm": {
+          "confidenceLevel": 0.95,
+          "generator": "splitmix",
+          "iterations": 10000,
+          "name": "paired-bootstrap-t-envelope",
+          "seed": 20261009,
+          "version": 1
+        },
+        "baselineRuns": [
+          "01a12425-01c3-77e2-ae76-7179f4e05a0c",
+          "01a12425-01c3-77e2-a879-dce431641aa1",
+          "01a12425-01c3-77e2-afcc-6da9eeeb1241"
+        ],
+        "candidateRuns": [
+          "01a12425-01c3-77e2-a5f8-bb02d7cab456",
+          "01a12425-01c3-77e2-a8ac-cc73ea2d316e",
+          "01a12425-01c3-77e2-a6cd-14039bc377fd"
+        ],
+        "comparisonId": "01a12441-85fd-7107-a88e-bfd15519c4b1",
+        "design": "abba",
+        "exitCode": 3,
+        "finishedAt": "2026-10-10T05:20:36.522943Z",
+        "harnessDirty": true,
+        "harnessRevision": "f77c564abde7e496591ee465abe0611afa835bc8",
+        "metrics": {
+          "op.append.latency.p50": {
+            "absoluteFloor": 0,
+            "baselineCv": 0.004954611018907195,
+            "delta": {
+              "estimate": -69632,
+              "high": -28928.602794836625,
+              "low": -110335.39720516338
+            },
+            "message": "within policy limits",
+            "metric": "op.append.latency.p50",
+            "pairs": [
+              {
+                "baseline": 4694015,
+                "candidate": 4607999
+              },
+              {
+                "baseline": 4726783,
+                "candidate": 4657151
+              },
+              {
+                "baseline": 4681727,
+                "candidate": 4628479
+              }
+            ],
+            "ratio": {
+              "estimate": 0.9851860564212023,
+              "high": 0.9938605492959104,
+              "low": 0.9765872752010988
+            },
+            "relativeLimit": 0,
+            "status": "pass",
+            "unit": "ns"
+          },
+          "op.append.latency.p95": {
+            "absoluteFloor": 0,
+            "baselineCv": 0.015987059914939986,
+            "delta": {
+              "estimate": -133802.66666666666,
+              "high": 70053.23214350425,
+              "low": -337658.56547683757
+            },
+            "message": "confidence interval crosses a policy limit or is too wide",
+            "metric": "op.append.latency.p95",
+            "pairs": [
+              {
+                "baseline": 5378047,
+                "candidate": 5337087
+              },
+              {
+                "baseline": 5533695,
+                "candidate": 5369855
+              },
+              {
+                "baseline": 5525503,
+                "candidate": 5328895
+              }
+            ],
+            "ratio": {
+              "estimate": 0.9756576581136819,
+              "high": 1.0128052973410806,
+              "low": 0.93987251877031
+            },
+            "relativeLimit": 0,
+            "status": "inconclusive",
+            "unit": "ns"
+          },
+          "op.append.latency.p99": {
+            "absoluteFloor": 0,
+            "baselineCv": 0.010483558329715295,
+            "delta": {
+              "estimate": -68266.66666666667,
+              "high": 189432.23833745276,
+              "low": -325965.57167078607
+            },
+            "message": "confidence interval crosses a policy limit or is too wide",
+            "metric": "op.append.latency.p99",
+            "pairs": [
+              {
+                "baseline": 6029311,
+                "candidate": 6078463
+              },
+              {
+                "baseline": 6143999,
+                "candidate": 6037503
+              },
+              {
+                "baseline": 6135807,
+                "candidate": 5988351
+              }
+            ],
+            "ratio": {
+              "estimate": 0.9888322543986791,
+              "high": 1.0317522074254601,
+              "low": 0.9476977323644983
+            },
+            "relativeLimit": 0,
+            "status": "inconclusive",
+            "unit": "ns"
+          },
+          "op.append.throughput": {
+            "absoluteFloor": 0,
+            "baselineCv": 0.0053079031687421644,
+            "delta": {
+              "estimate": -13.328057536125433,
+              "high": -7.502228819179095,
+              "low": -19.15388625307177
+            },
+            "message": "within policy limits",
+            "metric": "op.append.throughput",
+            "pairs": [
+              {
+                "baseline": 836.5685015998126,
+                "candidate": 850.8015654810372
+              },
+              {
+                "baseline": 828.1429227728553,
+                "candidate": 843.2286474092731
+              },
+              {
+                "baseline": 834.6847371298394,
+                "candidate": 845.3501212205733
+              }
+            ],
+            "ratio": {
+              "estimate": 0.9842520796223864,
+              "high": 0.9911561304623763,
+              "low": 0.9773961200129666
+            },
+            "relativeLimit": 0,
+            "status": "pass",
+            "unit": "ops/s"
+          }
+        },
+        "pairCount": 3,
+        "policy": {
+          "bootstrapIterations": 10000,
+          "confidenceLevel": 0.95,
+          "maxCheckpointAsymmetry": 0,
+          "maxCiRelativeWidth": 0.06,
+          "metrics": [
+            {
+              "absoluteFloor": 0,
+              "direction": "higher-is-better",
+              "match": "op.append.throughput",
+              "relativeLimit": 0
+            },
+            {
+              "absoluteFloor": 0,
+              "direction": "lower-is-better",
+              "match": "op.append.latency.p50",
+              "relativeLimit": 0
+            },
+            {
+              "absoluteFloor": 0,
+              "direction": "lower-is-better",
+              "match": "op.append.latency.p95",
+              "relativeLimit": 0
+            },
+            {
+              "absoluteFloor": 0,
+              "direction": "lower-is-better",
+              "match": "op.append.latency.p99",
+              "relativeLimit": 0
+            }
+          ],
+          "minimumPairs": 5,
+          "name": "mp12-zero-write-regression",
+          "requireGrade": "benchmark",
+          "requireInterleaving": true,
+          "resamplingSeed": 20261009,
+          "schema": "kenshou.comparison-policy/v1"
+        },
+        "reasons": [
+          "fewer than the required number of pairs"
+        ],
+        "schema": "kenshou.comparison/v1",
+        "startedAt": "2026-10-10T05:20:36.348855Z",
+        "variedFactors": [
+          "cohort"
+        ],
+        "verdict": "inconclusive"
+      }
+    }
+  ],
+  "remote_pid": 22724,
+  "instance_power": [
+    {
+      "name": "cell-alpha-broker",
+      "status": "RUNNING"
+    },
+    {
+      "name": "cell-alpha-driver-0",
+      "status": "RUNNING"
+    },
+    {
+      "name": "cell-alpha-monitoring",
+      "status": "RUNNING"
+    },
+    {
+      "name": "cell-alpha-postgres",
+      "status": "RUNNING"
+    }
+  ],
+  "owned_lease": "01a12433-dcf0-70b7-bcc4-6ec76e2c3dcc",
+  "current_run": null,
+  "status_lookup_error": "ERROR: (gcloud.storage.cat) The following URLs matched no objects or files:\ngs://tan-nb-exp-cells-control/cells/alpha/submissions/01a12433-e1b1-7218-84c6-bc8ae427c858/status.json\n",
+  "remote_status": {
+    "schema": "cell.status/v1",
+    "runId": "01a12433-e1b1-7218-84c6-bc8ae427c858",
+    "phase": "running",
+    "leaseSequence": 6,
+    "updatedAt": "2026-10-10T05:18:52Z",
+    "phaseStartedAt": "2026-10-10T05:18:52Z",
+    "logChunks": {
+      "stdout": 0,
+      "stderr": 0
+    }
+  },
+  "remote_phase": "running",
+  "final_instance_power": [
+    {
+      "name": "cell-alpha-broker",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-driver-0",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-monitoring",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-postgres",
+      "status": "TERMINATED"
+    }
+  ],
+  "final_cell_status": {
+    "returncode": 0,
+    "stdout": "cell alpha project=tan-nb-exp zone=us-west1-a pg=18\nlease none\nquarantine none\n",
+    "stderr": ""
+  },
+  "cleanup": [
+    {
+      "action": "release-owned-lease",
+      "lease": "01a12433-dcf0-70b7-bcc4-6ec76e2c3dcc",
+      "returncode": 4,
+      "stdout": "",
+      "stderr": "kenshou cell: cell has no matching lease\n"
+    },
+    {
+      "action": "release-owned-lease",
+      "lease": "01a12425-5c41-72cb-9625-054ac839b0cf",
+      "returncode": 4,
+      "stdout": "",
+      "stderr": "kenshou cell: cell has no matching lease\n"
+    },
+    {
+      "action": "stop-cell",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "Stopping instance(s) cell-alpha-postgres, cell-alpha-driver-0, cell-alpha-monitoring, cell-alpha-broker...\n..........................................................................................................done.\nUpdated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-postgres].\nUpdated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-driver-0].\nUpdated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-monitoring].\nUpdated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-broker].\n"
+    }
+  ],
+  "finished_epoch": 1791609671.260638
+}

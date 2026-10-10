@@ -8,7 +8,7 @@ generated:
 docId: ADR-11
 status: Accepted
 date: 2026-10-09
-timestamp: "2026-10-10T00:01:00Z"
+timestamp: "2026-10-10T05:09:00Z"
 originatingPlan: docs/masterplans/12-harden-the-kiroku-event-store-and-subscription-machinery-surfaced-by-the-2026-07-kiroku-review.md
 ---
 
@@ -76,9 +76,10 @@ comparison as a statistical pass.
 Handler-stall diagnostics are opt-in: `handlerStallWarnAfter = Nothing` in the store and both
 adapter defaults. The disabled path creates no watchdog thread, tracking cell, timer, per-delivery
 clock read, or tracking STM write. Enabling a duration such as `Just 60` retains the advisory
-warning behavior and requires separate documented cost measurements. This changes the planned
-default in plan 84; the feature is not yet implemented. It does not make topology, identity, or
-decode correctness checks optional.
+warning behavior and requires separate documented cost measurements. Plan 84 now implements
+this inactive default and the opt-in watchdog, as recorded in
+[ADR-13](0013-handler-stall-diagnostics-are-worker-owned-and-advisory.md). This does not make
+topology, identity, or decode correctness checks optional.
 
 The absent-decode-hook read path must retain its no-traversal/no-copy behavior. A typed subscription
 decode representation must not impose per-event wrapper allocation on the no-hook path merely for

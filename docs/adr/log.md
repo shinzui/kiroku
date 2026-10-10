@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-10
+* **Update**: Correct the historical implementation status: plan 84 implements the inactive diagnostic default and opt-in watchdog; performance policy is unchanged.
 * **Decision**: ADR-14: classify exact unique constraint names and preserve stream-version invariant failures as unexpected server errors.
 * **update**: ADR-8: document optional stall-duration startup validation exception
 * **create**: ADR-13: record worker-owned advisory handler diagnostics and adapter acknowledgement ownership

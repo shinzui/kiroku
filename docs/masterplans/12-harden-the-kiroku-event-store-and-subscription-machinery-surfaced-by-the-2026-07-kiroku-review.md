@@ -102,9 +102,13 @@ The 2026-10-09 source audit at commit `e6ea664` found **0 of 6 children complete
 At that audit all five implementation children were Not Started; EP-6 awaits their completion.
 EP-1 is now Complete under the user-directed minimum-evidence scope recorded
 below. EP-2 is Complete on user-approved practical acceptance; EP-3 is Complete after focused correctness and existing ADR-5 verification.
-EP-4 and EP-5 are also Complete; EP-6 is In Progress with integrated tests passing,
-a proposed independently versioned cohort awaiting approval, and a bounded
-cumulative comparison stopped with no valid matched pair. No package is released.
+EP-4 and EP-5 are also Complete; EP-6 is In Progress with integrated tests passing
+and a proposed independently versioned cohort awaiting approval. The first cumulative
+comparison stopped without a valid pair; its authorized follow-up retained 13 valid
+trials and five matched pairs, with tail-latency acceptance still inconclusive.
+The subsequent user-authorized tail repeat retained 12 additional valid trials and
+six pairs; separate policies remain inconclusive and pooled comparisons are rejected
+for a 4096-byte memory fingerprint difference across VM boots. No package is released.
 The accepted ADR-8 records the intended API, not evidence that it has shipped. The recent
 lifecycle, category-performance, and publisher-memory fixes are baseline improvements to preserve.
 This update inspected source, tests, migrations, changelogs, and history; it did not rerun the
@@ -424,6 +428,8 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Progress
 
+- [x] (2026-10-10) EP6 tail repeat: retain 12 new valid trials/six pairs, independent artifact/work verification, the rejected pooled comparisons, adverse historical telemetry and focused diagnostic. Cleanup and collection complete within the conservative one-hour clock; all VMs stopped and no lease. Performance acceptance and release remain open.
+
 - [x] (2026-10-09) Adopted the user's write-performance priority as a hard gate, made stall warnings opt-in, and recorded ADR-11.
 - [x] (2026-10-09) Establish the original-control mixed harness and complete EP1 with proportional evidence under amended ADR-11. Future children and the release select measurements for their actual changed paths; no universal matrix is required.
 - [x] (2026-10-09) Audited all six children against source, tests, migrations, changelogs, and local history at `e6ea664`; no child implementation is complete.
@@ -446,6 +452,13 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 
 ## Surprises & Discoveries
+
+- (2026-10-10) The bounded tail repeat did not reproduce the earlier large adapter
+  p99 increase. The operator refuses cross-session pooling for a 4096-byte
+  reported-memory difference across VM boots; preserve the original fingerprints
+  and infrastructure-failure verdicts. Full historical telemetry now times out a
+  different append case; its focused repeat passes under unchanged settings.
+  This does not prove the timeout cause or clear the full command failure.
 
 - (2026-10-10) EP6 follow-up: the failed checkpoint assertion incorrectly treated
   the subscription fetch limit as the live publisher batch size. Both source
@@ -623,6 +636,12 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 
 ## Decision Log
+
+- Decision (2026-10-10): the user's continuation authorizes a bounded tail repeat
+  using the prior verified payloads and recovery evidence. Retain every prior
+  sample, zero replacements and the original policy. Do not rewrite fingerprints
+  or treat a focused telemetry pass as replacing a full-suite failure. Completion
+  of this evidence collection does not authorize metadata edits or publication.
 
 - Decision (2026-10-10): close EP5 on its full correctness suite, existing ADR-5
   gates and unchanged success-path source identities. ADR-14 records stable exact
@@ -853,6 +872,29 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Outcomes & Retrospective
 
+The user-authorized tail repeat completed 12 additional valid trials, three
+adapter pairs and three successful-hook fan-out pairs, without replacements.
+Cleanup completed in 37.50 minutes from the conservative fixed 04:43:41–05:43:41
+UTC clock; collection finished in 38.82 minutes. All four VMs are TERMINATED,
+with no lease or quarantine. The new adapter throughput estimate is +0.39%
+(95% -2.88% to +3.77%) and p99 +0.06% (-4.17% to +4.47%); new fan-out throughput
++1.60% (+0.89% to +2.31%), p99 -1.12% (-5.23% to +3.17%). The earlier +26.80%
+adapter p99 increase did not reproduce and remains retained. Separate session
+policies remain inconclusive. Pooling six adapter/five fan-out pairs is rejected
+by the unchanged operator because reported driver memory differs by 4096 bytes
+across VM boots; raw fingerprints and both infrastructure-failure reports are
+preserved. Pooled estimates are descriptive only: adapter throughput +2.13%,
+p99 +1.77% (95% -9.72% to +14.74%); fan-out throughput +2.25%, p99 -3.34%
+(-7.76% to +1.29%). No strict pass or zero-regression proof is claimed.
+
+The unchanged full historical telemetry repeat passed 29/30 cases but timed out
+`AnyVersion (new stream)` after 100 seconds. Its focused repeat passed in 58.71
+seconds through setup/cleanup without replacing the full failure. Exhausted-category
+reads were 28% above the historical baseline; this adverse CPU-time telemetry is
+retained. No further experiment is queued. Source and release metadata are
+unchanged; performance acceptance, release approval and downstream adoption
+remain open. Evidence: `kiroku-store/bench/results/ep6-tail-repeat/README.md`.
+
 Implementation update (2026-10-09): **5 of 6 children are Complete**. EP1
 implements durable topology, typed startup refusal, migration-derived legacy
 sizes and transactional gap-free resize, with updated guide and ADR-2. Full
@@ -892,9 +934,10 @@ EP5 is Complete at `5805117`: exact constraint classification preserves composit
 caller IDs and surfaces internal stream-version uniqueness as an unexpected
 server error. All 423 store examples, 20 structural checks and 16 controlled
 workloads pass; ADR-14 and unchanged success-path source identities are retained
-with `kiroku-store/bench/results/ep5-unique-violation/`. EP6 is now implementable
-and remains Not Started.
-No package is released; cumulative default/opt-in timing remains EP6 work.
+with `kiroku-store/bench/results/ep5-unique-violation/`. EP6 is In Progress,
+with integrated correctness passing and retained cumulative default/opt-in
+measurements. Performance acceptance, metadata approval, publication and
+downstream adoption remain outstanding. No package is released.
 
 
 
@@ -1025,3 +1068,5 @@ focused unchanged-settings repeat; the original full failure remains retained.
 See `kiroku-store/bench/results/ep6-diagnosis/README.md`. Five implementation
 children remain Complete; EP6 remains In Progress. Performance acceptance,
 metadata approval, publication and downstream adoption remain outstanding.
+
+Revision note (2026-10-10, tail repeat): retain twelve new valid trials and all failed/inconclusive comparisons, record cross-session fingerprint rejection and historical timeout diagnostics, correct current EP6 status and ADR-11 implementation wording. Performance and publication remain open; no additional experiment is queued.

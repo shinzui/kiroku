@@ -1,0 +1,82 @@
+{
+  "schema": "cell.reset-evidence/v1",
+  "runId": "01a12425-6176-7428-918d-8acf7ffcddc4",
+  "cell": "alpha",
+  "cachePolicy": "cold",
+  "startedAt": "2026-10-10T04:53:27.55751592Z",
+  "finishedAt": "2026-10-10T04:53:33.401809204Z",
+  "verified": true,
+  "steps": [
+    {
+      "name": "reset-settings",
+      "startedAt": "2026-10-10T04:53:27.557526294Z",
+      "finishedAt": "2026-10-10T04:53:28.193303003Z",
+      "status": "ok"
+    },
+    {
+      "name": "restart-postgres",
+      "startedAt": "2026-10-10T04:53:28.193303644Z",
+      "finishedAt": "2026-10-10T04:53:32.005126955Z",
+      "status": "ok"
+    },
+    {
+      "name": "recreate-databases",
+      "startedAt": "2026-10-10T04:53:32.435202545Z",
+      "finishedAt": "2026-10-10T04:53:32.615842606Z",
+      "status": "ok"
+    },
+    {
+      "name": "verify-postgres",
+      "startedAt": "2026-10-10T04:53:32.615843866Z",
+      "finishedAt": "2026-10-10T04:53:33.401806266Z",
+      "status": "ok"
+    }
+  ],
+  "postgres": {
+    "version": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit",
+    "databases": [
+      "postgres"
+    ],
+    "settings": [
+      {
+        "name": "checkpoint_timeout",
+        "setting": "1800",
+        "source": "configuration file"
+      },
+      {
+        "name": "fsync",
+        "setting": "on",
+        "source": "configuration file"
+      },
+      {
+        "name": "full_page_writes",
+        "setting": "on",
+        "source": "configuration file"
+      },
+      {
+        "name": "max_wal_size",
+        "setting": "16384",
+        "source": "configuration file"
+      },
+      {
+        "name": "shared_buffers",
+        "setting": "16384",
+        "source": "configuration file"
+      },
+      {
+        "name": "synchronous_commit",
+        "setting": "on",
+        "source": "configuration file"
+      },
+      {
+        "name": "wal_level",
+        "setting": "replica",
+        "source": "configuration file"
+      }
+    ],
+    "walLsn": "6/691F11B0",
+    "checkpoint": {
+      "performed": true
+    }
+  }
+}

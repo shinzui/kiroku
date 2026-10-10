@@ -1,0 +1,457 @@
+{
+  "schema": "kiroku.ep6-combined-evidence/v1",
+  "input_summaries": {
+    "diagnosis": {
+      "path": "kiroku-store/bench/results/ep6-diagnosis/summary.json",
+      "sha256": "f87ccee5a8647f0c2df6945a31f07d104d51d4274ac406cc9440220857216742"
+    },
+    "tail-repeat": {
+      "path": "kiroku-store/bench/results/ep6-tail-repeat/summary.json",
+      "sha256": "94627775552504c67128d0c6ddc45798955a3851a1788d172f8cd0d948032470"
+    }
+  },
+  "verified_valid_trials": 23,
+  "complete_pairs": {
+    "real-adapter": 6,
+    "live-hook-fanout": 5
+  },
+  "pairs": {
+    "real-adapter": [
+      {
+        "baseline": {
+          "experiment": "diagnosis",
+          "cell_run": "01a123f3-4958-7387-865d-90a7abb03320",
+          "run_id": "01a12301-093f-7116-a87d-06f1c489b65c",
+          "seed": 1018072381569525,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-diagnosis/runs/01a123f3-4958-7387-865d-90a7abb03320/tree/output/01a12301-093f-7116-a87d-06f1c489b65c",
+          "result_sha256": "ccec376edf9409bd2c78f963adfe378d9f6918534a771333a19639e4220f32e0",
+          "manifest_sha256": "d35e29fd183950d47113d3949c9660d17bfaf0f00ca9197fd5f2c56e56b71b9a"
+        },
+        "candidate": {
+          "experiment": "diagnosis",
+          "cell_run": "01a123f3-4958-7387-88c2-963c653f642f",
+          "run_id": "01a12301-093f-7116-a639-d9bd4a5fdbde",
+          "seed": 1018072381569525,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-diagnosis/runs/01a123f3-4958-7387-88c2-963c653f642f/tree/output/01a12301-093f-7116-a639-d9bd4a5fdbde",
+          "result_sha256": "baeb58b34984dbfcbb8b9415d390a12f02cfaa31af6b6af15915dc29d169c9d4",
+          "manifest_sha256": "f37ae3a5e90ac7373182ef209d0ce8d88618fe625ed321c5012bc0783603f8e7"
+        }
+      },
+      {
+        "baseline": {
+          "experiment": "diagnosis",
+          "cell_run": "01a123f3-4958-7387-9295-4aa019713d8a",
+          "run_id": "01a12301-093f-7116-ac85-94ad84fed7e4",
+          "seed": 1104433992311195,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-diagnosis/runs/01a123f3-4958-7387-9295-4aa019713d8a/tree/output/01a12301-093f-7116-ac85-94ad84fed7e4",
+          "result_sha256": "dc6609d4b7551d325b0e27c8fbccc5adf091ed29bf0109be0cc515578609b185",
+          "manifest_sha256": "cd6e42adbf5e57538add13edcdb2e1f32db11a4bcb1e1fb6480970880a843efd"
+        },
+        "candidate": {
+          "experiment": "diagnosis",
+          "cell_run": "01a123f3-4958-7387-8e70-9e7e63747a8a",
+          "run_id": "01a12301-093f-7116-a18f-1acaebdaeed2",
+          "seed": 1104433992311195,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-diagnosis/runs/01a123f3-4958-7387-8e70-9e7e63747a8a/tree/output/01a12301-093f-7116-a18f-1acaebdaeed2",
+          "result_sha256": "8e6f0ccf75727aaed51da465b59e5f1f8d6aa0a1df2536366f8b3ec933db98c6",
+          "manifest_sha256": "ea2f02f614b42199809a317d714ff1f81424f1dfed90ef6efaa4272b15c83188"
+        }
+      },
+      {
+        "baseline": {
+          "experiment": "diagnosis",
+          "cell_run": "01a123f3-4958-7387-9791-bc267e63612f",
+          "run_id": "01a12301-093f-7116-aef2-eda061f4a689",
+          "seed": 983625136585698,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-diagnosis/runs/01a123f3-4958-7387-9791-bc267e63612f/tree/output/01a12301-093f-7116-aef2-eda061f4a689",
+          "result_sha256": "b3240633774cfae7157818388c8dadafbc71803dbcc754ac3f31ef40fc4d4eef",
+          "manifest_sha256": "38e37df7b6f3b2279ff9bf16c03cdbb3fa7885778a7c6e3e73440f5e9dc80887"
+        },
+        "candidate": {
+          "experiment": "diagnosis",
+          "cell_run": "01a123f3-4958-7387-9ada-90f9782b223f",
+          "run_id": "01a12301-093f-7116-af78-2029fa47c51b",
+          "seed": 983625136585698,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-diagnosis/runs/01a123f3-4958-7387-9ada-90f9782b223f/tree/output/01a12301-093f-7116-af78-2029fa47c51b",
+          "result_sha256": "e02b105040af9af6fbda4daab1eab092692d6272b7d522c973792176ce43cafa",
+          "manifest_sha256": "9f1fb76cfca152558f35265e5ab9d75be8b25a86e12485d8949af888d3133191"
+        }
+      },
+      {
+        "baseline": {
+          "experiment": "tail-repeat",
+          "cell_run": "01a12425-6176-7428-8d1d-acfd19a601d6",
+          "run_id": "01a12425-01c3-77e2-a874-4e709e0e6e49",
+          "seed": 1018072381569525,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-tail-repeat/runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49",
+          "result_sha256": "f9bfc1009282e5f2d9f70d41489586e05d8a63886158e7e0efeb57f9f0fa4821",
+          "manifest_sha256": "a860ba82e6ef28c9ed45a4b440ab71f17d1de94264a9f8379d1dd0a978dddd2a"
+        },
+        "candidate": {
+          "experiment": "tail-repeat",
+          "cell_run": "01a12425-6176-7428-918d-8acf7ffcddc4",
+          "run_id": "01a12425-01c3-77e2-a424-b350cb80c2e4",
+          "seed": 1018072381569525,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-tail-repeat/runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4",
+          "result_sha256": "68dae0aba2cf13735bbad187a354ffb8280d42763e8bfd69b733a49ae90266eb",
+          "manifest_sha256": "bcfcb1e9db87a544e59e127cb59cba485017385e31d418a4070be092f1873fbd"
+        }
+      },
+      {
+        "baseline": {
+          "experiment": "tail-repeat",
+          "cell_run": "01a12425-6176-7428-9ac0-9c190f2ade50",
+          "run_id": "01a12425-01c3-77e2-acc3-4e3ae38f7d7a",
+          "seed": 1104433992311195,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-tail-repeat/runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a",
+          "result_sha256": "5ecbd035160358aa1d29c9762aa3c5be14f2cc058ff631069c4504afea54a07e",
+          "manifest_sha256": "b4e5d3900f546929d9818dba9c8751ba2e5c5904b1ad71111869f4bd31e49d33"
+        },
+        "candidate": {
+          "experiment": "tail-repeat",
+          "cell_run": "01a12425-6176-7428-9694-4492fca17d7a",
+          "run_id": "01a12425-01c3-77e2-a4c7-e53f0221a08a",
+          "seed": 1104433992311195,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-tail-repeat/runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a",
+          "result_sha256": "a719651eeb9b84cc01990e95ed5be603c5c315ac3c6b12b9eaf3be35f69f2462",
+          "manifest_sha256": "1c26eb0cfc8b5ec64b626b1d2b05eb3b36bbeacae8f5107b761b7e3f1c20dd5e"
+        }
+      },
+      {
+        "baseline": {
+          "experiment": "tail-repeat",
+          "cell_run": "01a12425-6176-7428-9e1d-d1fd7dbf2bae",
+          "run_id": "01a12425-01c3-77e2-a2dc-aab28ef678a4",
+          "seed": 983625136585698,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-tail-repeat/runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4",
+          "result_sha256": "4bba14fa62c3bd6e56498cdf2063c816e57750ab9c60b73f32eb3b35fc94128d",
+          "manifest_sha256": "b8337063c01ab3c3c4f4842f555e1d5024bfd86b5381e389147cc5c71cc712cb"
+        },
+        "candidate": {
+          "experiment": "tail-repeat",
+          "cell_run": "01a12425-6176-7428-a376-fe6b40447027",
+          "run_id": "01a12425-01c3-77e2-af6a-e3537d6e5472",
+          "seed": 983625136585698,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-tail-repeat/runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472",
+          "result_sha256": "239358917d5b74662e4e5566ec84943fc1254c87843c82f1ec6be31f7155dcac",
+          "manifest_sha256": "051a611bac204a225e4e0fc2e772bdbcb8a31c37ffce5399d710689a93429e7f"
+        }
+      }
+    ],
+    "live-hook-fanout": [
+      {
+        "baseline": {
+          "experiment": "diagnosis",
+          "cell_run": "01a12403-cdbf-73ea-a3a1-fa244116591b",
+          "run_id": "01a12301-093f-7116-a87d-06f1c489b65c",
+          "seed": 1018072381569525,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-diagnosis/runs/01a12403-cdbf-73ea-a3a1-fa244116591b/tree/output/01a12301-093f-7116-a87d-06f1c489b65c",
+          "result_sha256": "c51ef401d459de2f8179a3cb4f71e669d9a32553f199703e6c49c63521707d0b",
+          "manifest_sha256": "ec6e050b58b7ae8dd649328581420fa6ebb342778f49c4f2dd23be54d1185f42"
+        },
+        "candidate": {
+          "experiment": "diagnosis",
+          "cell_run": "01a12403-cdbf-73ea-a456-a8269de68e4a",
+          "run_id": "01a12301-093f-7116-a639-d9bd4a5fdbde",
+          "seed": 1018072381569525,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-diagnosis/runs/01a12403-cdbf-73ea-a456-a8269de68e4a/tree/output/01a12301-093f-7116-a639-d9bd4a5fdbde",
+          "result_sha256": "55ffa1dbdd3e261cd12b09309e608a9dcf9ec7c77690d311a069174361ba72e3",
+          "manifest_sha256": "b99828daf38a7a64bd5d5c22a6d3432a925b74fbeaea97373dd59596b94442a9"
+        }
+      },
+      {
+        "baseline": {
+          "experiment": "diagnosis",
+          "cell_run": "01a12403-cdbf-73ea-af20-564a827fab83",
+          "run_id": "01a12301-093f-7116-ac85-94ad84fed7e4",
+          "seed": 1104433992311195,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-diagnosis/runs/01a12403-cdbf-73ea-af20-564a827fab83/tree/output/01a12301-093f-7116-ac85-94ad84fed7e4",
+          "result_sha256": "030a75e946a47771c2ed2d1d889fccee6dd798cc997d64d04dedad4a0ae0a894",
+          "manifest_sha256": "b99fe7de3b9c039fa7c6699b1feecd2bfaca8ccd303a38b7eba697583c5d5471"
+        },
+        "candidate": {
+          "experiment": "diagnosis",
+          "cell_run": "01a12403-cdbf-73ea-a9b1-c50d5667ab0e",
+          "run_id": "01a12301-093f-7116-a18f-1acaebdaeed2",
+          "seed": 1104433992311195,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-diagnosis/runs/01a12403-cdbf-73ea-a9b1-c50d5667ab0e/tree/output/01a12301-093f-7116-a18f-1acaebdaeed2",
+          "result_sha256": "8867e583c1ec9ae594d7c37061cde0b41fd9f30c20d555f013ea41742dc11eb3",
+          "manifest_sha256": "19fa0da239409582098a4eeb91e376a71e89a3c5de19ec727b5248cfcc6c5620"
+        }
+      },
+      {
+        "baseline": {
+          "experiment": "tail-repeat",
+          "cell_run": "01a12433-e1b1-7217-b163-84b3ee8fc425",
+          "run_id": "01a12425-01c3-77e2-ae76-7179f4e05a0c",
+          "seed": 1018072381569525,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-tail-repeat/runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c",
+          "result_sha256": "63e991d889bf0cbc889eb562026f10c05e9aef40a0d256dc6c20205143ed349e",
+          "manifest_sha256": "b6b1f68e43664191e85e8d4172bbdf9cde2b8d0e2bbb79f095888efc22ca2751"
+        },
+        "candidate": {
+          "experiment": "tail-repeat",
+          "cell_run": "01a12433-e1b1-7217-b738-a1de9c8fe0c6",
+          "run_id": "01a12425-01c3-77e2-a5f8-bb02d7cab456",
+          "seed": 1018072381569525,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-tail-repeat/runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456",
+          "result_sha256": "1d4d56ea67505003731c157acac45661228982b493fbdd40b086d3061c8eb70e",
+          "manifest_sha256": "ddf2fba6682e86b437db69280cf07713d3cf6dd3ada48165236d77193887dddb"
+        }
+      },
+      {
+        "baseline": {
+          "experiment": "tail-repeat",
+          "cell_run": "01a12433-e1b1-7217-bf89-6a087c881c23",
+          "run_id": "01a12425-01c3-77e2-a879-dce431641aa1",
+          "seed": 1104433992311195,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-tail-repeat/runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1",
+          "result_sha256": "06456a30235366c594b1753b64092126bb9d062188c9be7d8a0aff227fe364e4",
+          "manifest_sha256": "1d6f05489b1ed34dd53e4d3b0ce46c7ec5d7b95ccdf8254ebb63f37809607357"
+        },
+        "candidate": {
+          "experiment": "tail-repeat",
+          "cell_run": "01a12433-e1b1-7217-ba0e-b11d5830d586",
+          "run_id": "01a12425-01c3-77e2-a8ac-cc73ea2d316e",
+          "seed": 1104433992311195,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-tail-repeat/runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e",
+          "result_sha256": "0897c3862cc95691e0382c4d5aeacacd90d0095c0a2c8536affd0da302e507c2",
+          "manifest_sha256": "eccd18e3bddb30f5af9ab6b31477d9bdba9a1f74a9b526a413c6ef8b3f0a1e14"
+        }
+      },
+      {
+        "baseline": {
+          "experiment": "tail-repeat",
+          "cell_run": "01a12433-e1b1-7218-83d5-8032e599566c",
+          "run_id": "01a12425-01c3-77e2-afcc-6da9eeeb1241",
+          "seed": 983625136585698,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-tail-repeat/runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241",
+          "result_sha256": "e0de2e9b1906daee85ee512e71ae47a8a72f7cd06f9f8ee625fc6ddc553010dd",
+          "manifest_sha256": "1aa9653c86ed28543e81a400551ef75f1fc58ed49e0dfd55ba0b9d4764b51183"
+        },
+        "candidate": {
+          "experiment": "tail-repeat",
+          "cell_run": "01a12433-e1b1-7218-84c6-bc8ae427c858",
+          "run_id": "01a12425-01c3-77e2-a6cd-14039bc377fd",
+          "seed": 983625136585698,
+          "run_directory": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-tail-repeat/runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd",
+          "result_sha256": "634a2488d031fb8828941f0690c38b9334bc5150f946bae988e14da766cb7d22",
+          "manifest_sha256": "a5d39c05e2d4c0cb8e2dacdd295c214cc38c15bf22d18fce75e2d8ed5943b4f2"
+        }
+      }
+    ]
+  },
+  "effects": {
+    "real-adapter": {
+      "op.append.throughput": {
+        "pairs": 6,
+        "paired_percent_changes": [
+          4.346292660662954,
+          5.382257865276596,
+          2.0352341810665253,
+          -1.0522054438077633,
+          1.580633297535683,
+          0.6507648989804826
+        ],
+        "geometric_mean_percent_change": 2.134264825127241,
+        "descriptive_95_percent_interval": {
+          "low": -0.3210857530332678,
+          "high": 4.650097065906333
+        }
+      },
+      "op.append.latency.p50": {
+        "pairs": 6,
+        "paired_percent_changes": [
+          -3.4814821110897953,
+          -6.1503428257771775,
+          -1.7519274195631818,
+          0.9990919563296341,
+          -0.9874328914474706,
+          -0.5338079451282951
+        ],
+        "geometric_mean_percent_change": -2.011500062521787,
+        "descriptive_95_percent_interval": {
+          "low": -4.635799658283968,
+          "high": 0.6850168678758095
+        }
+      },
+      "op.append.latency.p95": {
+        "pairs": 6,
+        "paired_percent_changes": [
+          -5.576441955786981,
+          -4.951140852621904,
+          -3.0852999112202406,
+          0.3236246593931513,
+          -1.5187852684230063,
+          -2.9526035127043215
+        ],
+        "geometric_mean_percent_change": -2.980379597701499,
+        "descriptive_95_percent_interval": {
+          "low": -5.231913199554761,
+          "high": -0.6753532671098239
+        }
+      },
+      "op.append.latency.p99": {
+        "pairs": 6,
+        "paired_percent_changes": [
+          -8.733625618031017,
+          26.800220109920136,
+          -4.133119167505262,
+          1.3629844567861316,
+          -1.901408777613467,
+          0.7367717212832581
+        ],
+        "geometric_mean_percent_change": 1.7743331057415546,
+        "descriptive_95_percent_interval": {
+          "low": -9.7247899045383,
+          "high": 14.738197431668553
+        }
+      },
+      "pg.wal-bytes-per-op": {
+        "pairs": 6,
+        "paired_percent_changes": [
+          0.16418434023137696,
+          0.2223976633651814,
+          -0.3417078210647073,
+          1.027744133130315,
+          -0.5782645972192579,
+          -0.385310781996806
+        ],
+        "geometric_mean_percent_change": 0.01673609537331533,
+        "descriptive_95_percent_interval": {
+          "low": -0.5974525385373131,
+          "high": 0.6347196790881027
+        }
+      },
+      "rts.alloc-bytes-per-op": {
+        "pairs": 6,
+        "paired_percent_changes": [
+          -1.083174769613704,
+          2.0396079605787376,
+          0.2466668009266204,
+          0.4501187960502806,
+          1.222548312689331,
+          1.8043548397556952
+        ],
+        "geometric_mean_percent_change": 0.7744635215917617,
+        "descriptive_95_percent_interval": {
+          "low": -0.4358849657217223,
+          "high": 1.9995255777471632
+        }
+      }
+    },
+    "live-hook-fanout": {
+      "op.append.throughput": {
+        "pairs": 5,
+        "paired_percent_changes": [
+          1.3464850253849248,
+          5.14792246600988,
+          1.701362632468939,
+          1.8216329840635037,
+          1.2777739446162784
+        ],
+        "geometric_mean_percent_change": 2.248765380050455,
+        "descriptive_95_percent_interval": {
+          "low": 0.2632390407675045,
+          "high": 4.273611363120122
+        }
+      },
+      "op.append.latency.p50": {
+        "pairs": 5,
+        "paired_percent_changes": [
+          -0.36179456463729665,
+          -4.022989211332684,
+          -1.8324611233666688,
+          -1.4731372267353882,
+          -1.1373580732067512
+        ],
+        "geometric_mean_percent_change": -1.7732947070864369,
+        "descriptive_95_percent_interval": {
+          "low": -3.474266674822968,
+          "high": -0.04234829071992907
+        }
+      },
+      "op.append.latency.p95": {
+        "pairs": 5,
+        "paired_percent_changes": [
+          -5.0535084624058975,
+          -9.144894437434825,
+          -0.7616147646162252,
+          -2.9607703351919423,
+          -3.558191896737728
+        ],
+        "geometric_mean_percent_change": -4.336971338462458,
+        "descriptive_95_percent_interval": {
+          "low": -8.167024833843485,
+          "high": -0.34717881958863384
+        }
+      },
+      "op.append.latency.p99": {
+        "pairs": 5,
+        "paired_percent_changes": [
+          -4.2621209592737745,
+          -8.854720128206207,
+          0.8152175265133899,
+          -1.7333336154514378,
+          -2.403204664031966
+        ],
+        "geometric_mean_percent_change": -3.3421409438090466,
+        "descriptive_95_percent_interval": {
+          "low": -7.760226413291759,
+          "high": 1.2875612551673354
+        }
+      },
+      "pg.wal-bytes-per-op": {
+        "pairs": 5,
+        "paired_percent_changes": [
+          1.4730771450283564,
+          0.45963301642701904,
+          0.6303370240739126,
+          0.7103402149316373,
+          0.03704631018861537
+        ],
+        "geometric_mean_percent_change": 0.6610030501198461,
+        "descriptive_95_percent_interval": {
+          "low": 0.01493634073901351,
+          "high": 1.3112431580773576
+        }
+      },
+      "rts.alloc-bytes-per-op": {
+        "pairs": 5,
+        "paired_percent_changes": [
+          3.4122971382711365,
+          2.677872021239791,
+          2.0208537051343844,
+          2.7965780598856016,
+          2.7595257123748107
+        ],
+        "geometric_mean_percent_change": 2.7324745991555766,
+        "descriptive_95_percent_interval": {
+          "low": 2.120691942640529,
+          "high": 3.3479223113189294
+        }
+      }
+    }
+  },
+  "operator_verdicts": {
+    "real-adapter": {
+      "verdict": "infrastructure-failure",
+      "pairCount": 6,
+      "reasons": [
+        "machine profiles differ"
+      ],
+      "exitCode": 4
+    },
+    "live-hook-fanout": {
+      "verdict": "infrastructure-failure",
+      "pairCount": 5,
+      "reasons": [
+        "machine profiles differ"
+      ],
+      "exitCode": 4
+    }
+  },
+  "interval_method": "descriptive 95% Student t on paired log ratios, df=n-1; original Kenshou policy and operator comparisons retained separately",
+  "replacements": 0,
+  "verified_at_utc": "2026-10-10T05:22:31Z"
+}

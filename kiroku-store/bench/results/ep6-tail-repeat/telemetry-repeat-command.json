@@ -1,0 +1,15 @@
+{
+  "command": [
+    "nix",
+    "develop",
+    "-c",
+    "just",
+    "perf-telemetry"
+  ],
+  "started_epoch": 1791608072.59448,
+  "timeout_seconds": 720,
+  "reason": "Resolve the retained 2/30 historical telemetry command failure; unchanged baseline and default settings; original failures retained",
+  "returncode": 1,
+  "finished_epoch": 1791608458.2627258,
+  "seconds": 385.6682457923889
+}

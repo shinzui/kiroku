@@ -1,0 +1,221 @@
+{
+  "rows": [
+    {
+      "case": "real-adapter",
+      "cell_run": "01a12425-6176-7428-8d1d-acfd19a601d6",
+      "run_id": "01a12425-01c3-77e2-a874-4e709e0e6e49",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 0,
+        "trial": 0
+      },
+      "throughput": 874.4078278474611,
+      "p99_ns": 5709823,
+      "events": 53345,
+      "delivered": 53345,
+      "batch_count": 53300,
+      "checkpoint_calls": 53300,
+      "verified_epoch": 1791608042.578084
+    },
+    {
+      "case": "real-adapter",
+      "cell_run": "01a12425-6176-7428-918d-8acf7ffcddc4",
+      "run_id": "01a12425-01c3-77e2-a424-b350cb80c2e4",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 1,
+        "trial": 0
+      },
+      "throughput": 865.2072610817689,
+      "p99_ns": 5787647,
+      "events": 52784,
+      "delivered": 52784,
+      "batch_count": 52768,
+      "checkpoint_calls": 52768,
+      "verified_epoch": 1791608144.933328
+    },
+    {
+      "case": "real-adapter",
+      "cell_run": "01a12425-6176-7428-9694-4492fca17d7a",
+      "run_id": "01a12425-01c3-77e2-a4c7-e53f0221a08a",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 2,
+        "trial": 1
+      },
+      "throughput": 873.533122781797,
+      "p99_ns": 5705727,
+      "events": 53293,
+      "delivered": 53293,
+      "batch_count": 53232,
+      "checkpoint_calls": 53232,
+      "verified_epoch": 1791608296.730717
+    },
+    {
+      "case": "real-adapter",
+      "cell_run": "01a12425-6176-7428-9ac0-9c190f2ade50",
+      "run_id": "01a12425-01c3-77e2-acc3-4e3ae38f7d7a",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 3,
+        "trial": 1
+      },
+      "throughput": 859.9406150807969,
+      "p99_ns": 5816319,
+      "events": 52463,
+      "delivered": 52463,
+      "batch_count": 52422,
+      "checkpoint_calls": 52422,
+      "verified_epoch": 1791608479.92609
+    },
+    {
+      "case": "real-adapter",
+      "cell_run": "01a12425-6176-7428-9e1d-d1fd7dbf2bae",
+      "run_id": "01a12425-01c3-77e2-a2dc-aab28ef678a4",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 4,
+        "trial": 2
+      },
+      "throughput": 852.2678837379481,
+      "p99_ns": 6115327,
+      "events": 51995,
+      "delivered": 51995,
+      "batch_count": 51950,
+      "checkpoint_calls": 51950,
+      "verified_epoch": 1791608596.081142
+    },
+    {
+      "case": "real-adapter",
+      "cell_run": "01a12425-6176-7428-a376-fe6b40447027",
+      "run_id": "01a12425-01c3-77e2-af6a-e3537d6e5472",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 5,
+        "trial": 2
+      },
+      "throughput": 857.8141439705985,
+      "p99_ns": 6160383,
+      "events": 52333,
+      "delivered": 52333,
+      "batch_count": 52281,
+      "checkpoint_calls": 52281,
+      "verified_epoch": 1791608765.072124
+    },
+    {
+      "case": "live-hook-fanout",
+      "cell_run": "01a12433-e1b1-7217-b163-84b3ee8fc425",
+      "run_id": "01a12425-01c3-77e2-ae76-7179f4e05a0c",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 0,
+        "trial": 0
+      },
+      "throughput": 836.5685015998126,
+      "p99_ns": 6029311,
+      "events": 51038,
+      "delivered": 102076,
+      "batch_count": 101972,
+      "checkpoint_calls": 101972,
+      "verified_epoch": 1791608936.5795572
+    },
+    {
+      "case": "live-hook-fanout",
+      "cell_run": "01a12433-e1b1-7217-b738-a1de9c8fe0c6",
+      "run_id": "01a12425-01c3-77e2-a5f8-bb02d7cab456",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 1,
+        "trial": 0
+      },
+      "throughput": 850.8015654810372,
+      "p99_ns": 6078463,
+      "events": 51904,
+      "delivered": 103808,
+      "batch_count": 103700,
+      "checkpoint_calls": 103700,
+      "verified_epoch": 1791609068.929909
+    },
+    {
+      "case": "live-hook-fanout",
+      "cell_run": "01a12433-e1b1-7217-ba0e-b11d5830d586",
+      "run_id": "01a12425-01c3-77e2-a8ac-cc73ea2d316e",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 2,
+        "trial": 1
+      },
+      "throughput": 843.2286474092731,
+      "p99_ns": 6037503,
+      "events": 51443,
+      "delivered": 102886,
+      "batch_count": 102796,
+      "checkpoint_calls": 102796,
+      "verified_epoch": 1791609216.7658482
+    },
+    {
+      "case": "live-hook-fanout",
+      "cell_run": "01a12433-e1b1-7217-bf89-6a087c881c23",
+      "run_id": "01a12425-01c3-77e2-a879-dce431641aa1",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 3,
+        "trial": 1
+      },
+      "throughput": 828.1429227728553,
+      "p99_ns": 6143999,
+      "events": 50523,
+      "delivered": 101046,
+      "batch_count": 100974,
+      "checkpoint_calls": 100974,
+      "verified_epoch": 1791609355.5733
+    },
+    {
+      "case": "live-hook-fanout",
+      "cell_run": "01a12433-e1b1-7218-83d5-8032e599566c",
+      "run_id": "01a12425-01c3-77e2-afcc-6da9eeeb1241",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 4,
+        "trial": 2
+      },
+      "throughput": 834.6847371298394,
+      "p99_ns": 6135807,
+      "events": 50922,
+      "delivered": 101844,
+      "batch_count": 101722,
+      "checkpoint_calls": 101722,
+      "verified_epoch": 1791609537.8313081
+    },
+    {
+      "case": "live-hook-fanout",
+      "cell_run": "01a12433-e1b1-7218-84c6-bc8ae427c858",
+      "run_id": "01a12425-01c3-77e2-a6cd-14039bc377fd",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 5,
+        "trial": 2
+      },
+      "throughput": 845.3501212205733,
+      "p99_ns": 5988351,
+      "events": 51572,
+      "delivered": 103144,
+      "batch_count": 103028,
+      "checkpoint_calls": 103028,
+      "verified_epoch": 1791609671.7589262
+    }
+  ],
+  "updated_epoch": 1791609671.758931
+}

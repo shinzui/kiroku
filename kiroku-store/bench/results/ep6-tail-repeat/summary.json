@@ -1,0 +1,2996 @@
+{
+  "schema": "kiroku.ep6-tail-repeat/v1",
+  "operator": "mori://shinzui/keiro-runtime-kenshou",
+  "infrastructure": "mori://shinzui/load-testing-infra",
+  "whole_experiment_started_epoch": 1791607421.0,
+  "whole_experiment_deadline_epoch": 1791611021.0,
+  "controller_finished_epoch": 1791609671.260638,
+  "whole_experiment_seconds": 2250.260637998581,
+  "final_cell_status": {
+    "returncode": 0,
+    "stdout": "cell alpha project=tan-nb-exp zone=us-west1-a pg=18\nlease none\nquarantine none\n",
+    "stderr": ""
+  },
+  "within_one_hour": true,
+  "verified_trials": 12,
+  "replacements": 0,
+  "rows": [
+    {
+      "case": "real-adapter",
+      "valid": true,
+      "cell_run": "01a12425-6176-7428-8d1d-acfd19a601d6",
+      "run_id": "01a12425-01c3-77e2-a874-4e709e0e6e49",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 0,
+        "trial": 0
+      },
+      "grade": "benchmark",
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "released",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "f5416c566f0600afa4390e9cfc2f31ed073d0585fddb3f1980420081d276b4d4",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:d4a91c3eb54aa40d54c5bc060b73ff0cb8ebe5717ebb1df32edd5b986986efa5",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "manifest_sha256": "a860ba82e6ef28c9ed45a4b440ab71f17d1de94264a9f8379d1dd0a978dddd2a",
+      "result_sha256": "f9bfc1009282e5f2d9f70d41489586e05d8a63886158e7e0efeb57f9f0fa4821",
+      "results_uri": "gs://tan-nb-exp-cells-results/runs/01a12425-6176-7428-8d1d-acfd19a601d6",
+      "metrics": {
+        "op.append.error-rate": 0,
+        "op.append.latency.max": 50314789,
+        "op.append.latency.mean": 4565707.977392445,
+        "op.append.latency.p50": 4509695,
+        "op.append.latency.p90": 4886527,
+        "op.append.latency.p95": 5062655,
+        "op.append.latency.p99": 5709823,
+        "op.append.latency.p999": 12271615,
+        "op.append.service.p99": 5709823,
+        "op.append.throughput": 874.4078278474611,
+        "op.append.units-throughput": 874.4078278474611,
+        "pg.checkpoints-in-window": 0,
+        "pg.wal-bytes-per-op": 1928.5965320086232,
+        "proc.cpu-utilisation": 0.0969151051110341,
+        "proc.rss-max": 324980736,
+        "rts.alloc-bytes-per-op": 127587.99662573812,
+        "rts.alloc-rate": 111563942.98892087,
+        "rts.gc-productivity": 0.9968558449214049,
+        "rts.live-bytes-major-mean": 12156446,
+        "rts.max-live-bytes": 14263352
+      },
+      "events": 53345,
+      "expected_delivered": 53345,
+      "delivered": 53345,
+      "checkpoint_calls": 53300,
+      "delivery_batches": 53300,
+      "checkpoint_updates": 53300,
+      "checkpoint_statement_us": 29.22253240150037,
+      "checkpoint_statement_wal_bytes_per_call": 155.75332082551594,
+      "checkpoint_hot_updates": 53299,
+      "durable_drained": true,
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "diagnostics": false,
+        "fresh": false,
+        "hook": false,
+        "mode": "adapter",
+        "offered": 0,
+        "seconds": 61,
+        "subscribers": 1,
+        "warmup_seconds": 30,
+        "width": 1
+      },
+      "timings": {
+        "clock": "GHC.Clock.getMonotonicTimeNSec",
+        "durationSeconds": 92.726715837,
+        "endedAt": "2026-10-10T04:52:47.455720851Z",
+        "phases": [
+          {
+            "endedAt": "2026-10-10T04:51:45.75472233Z",
+            "endedMonotonicNs": 110157179432,
+            "name": "warm-up",
+            "startedAt": "2026-10-10T04:51:15.750555595Z",
+            "startedMonotonicNs": 80153012540
+          },
+          {
+            "endedAt": "2026-10-10T04:52:46.995948858Z",
+            "endedMonotonicNs": 171398405983,
+            "name": "steady",
+            "startedAt": "2026-10-10T04:51:45.989119587Z",
+            "startedMonotonicNs": 110391576496
+          },
+          {
+            "endedAt": "2026-10-10T04:52:46.997555085Z",
+            "endedMonotonicNs": 171400012115,
+            "name": "drain",
+            "startedAt": "2026-10-10T04:52:46.996121591Z",
+            "startedMonotonicNs": 171398578483
+          }
+        ],
+        "startedAt": "2026-10-10T04:51:14.729005014Z"
+      },
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit",
+      "peak_durable_pending": 2,
+      "peak_handler_pending": 1
+    },
+    {
+      "case": "real-adapter",
+      "valid": true,
+      "cell_run": "01a12425-6176-7428-918d-8acf7ffcddc4",
+      "run_id": "01a12425-01c3-77e2-a424-b350cb80c2e4",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 1,
+        "trial": 0
+      },
+      "grade": "benchmark",
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "head",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "15ed073254c912e8f19b4fe9978f6aee871198ed0a1b8ad46a0713781c78114f",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:3368747c415ea616402dedf750b249230eb70634e9061c69284e74da9a1867a2",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "manifest_sha256": "bcfcb1e9db87a544e59e127cb59cba485017385e31d418a4070be092f1873fbd",
+      "result_sha256": "68dae0aba2cf13735bbad187a354ffb8280d42763e8bfd69b733a49ae90266eb",
+      "results_uri": "gs://tan-nb-exp-cells-results/runs/01a12425-6176-7428-918d-8acf7ffcddc4",
+      "metrics": {
+        "op.append.error-rate": 0,
+        "op.append.latency.max": 45187653,
+        "op.append.latency.mean": 4615935.59766217,
+        "op.append.latency.p50": 4554751,
+        "op.append.latency.p90": 4923391,
+        "op.append.latency.p95": 5079039,
+        "op.append.latency.p99": 5787647,
+        "op.append.latency.p999": 13705215,
+        "op.append.service.p99": 5787647,
+        "op.append.throughput": 865.2072610817689,
+        "op.append.units-throughput": 865.2072610817689,
+        "pg.checkpoints-in-window": 0,
+        "pg.wal-bytes-per-op": 1948.4175697180965,
+        "proc.cpu-utilisation": 0.10211884731243219,
+        "proc.rss-max": 314019840,
+        "rts.alloc-bytes-per-op": 128162.29418005457,
+        "rts.alloc-rate": 110886947.52148095,
+        "rts.gc-productivity": 0.9965919845963118,
+        "rts.live-bytes-major-mean": 12163620,
+        "rts.max-live-bytes": 14177504
+      },
+      "events": 52784,
+      "expected_delivered": 52784,
+      "delivered": 52784,
+      "checkpoint_calls": 52768,
+      "delivery_batches": 52768,
+      "checkpoint_updates": 52768,
+      "checkpoint_statement_us": 50.310947581867886,
+      "checkpoint_statement_wal_bytes_per_call": 163.8230556397817,
+      "checkpoint_hot_updates": 52767,
+      "durable_drained": true,
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "diagnostics": false,
+        "fresh": false,
+        "hook": false,
+        "mode": "adapter",
+        "offered": 0,
+        "seconds": 61,
+        "subscribers": 1,
+        "warmup_seconds": 30,
+        "width": 1
+      },
+      "timings": {
+        "clock": "GHC.Clock.getMonotonicTimeNSec",
+        "durationSeconds": 92.568449133,
+        "endedAt": "2026-10-10T04:55:20.853687116Z",
+        "phases": [
+          {
+            "endedAt": "2026-10-10T04:54:19.149393847Z",
+            "endedMonotonicNs": 263551851137,
+            "name": "warm-up",
+            "startedAt": "2026-10-10T04:53:49.145954255Z",
+            "startedMonotonicNs": 233548411148
+          },
+          {
+            "endedAt": "2026-10-10T04:55:20.391354384Z",
+            "endedMonotonicNs": 324793811684,
+            "name": "steady",
+            "startedAt": "2026-10-10T04:54:19.384185047Z",
+            "startedMonotonicNs": 263786641957
+          },
+          {
+            "endedAt": "2026-10-10T04:55:20.393191993Z",
+            "endedMonotonicNs": 324795649083,
+            "name": "drain",
+            "startedAt": "2026-10-10T04:55:20.391539451Z",
+            "startedMonotonicNs": 324793996389
+          }
+        ],
+        "startedAt": "2026-10-10T04:53:48.285237983Z"
+      },
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit",
+      "peak_durable_pending": 2,
+      "peak_handler_pending": 2
+    },
+    {
+      "case": "real-adapter",
+      "valid": true,
+      "cell_run": "01a12425-6176-7428-9694-4492fca17d7a",
+      "run_id": "01a12425-01c3-77e2-a4c7-e53f0221a08a",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 2,
+        "trial": 1
+      },
+      "grade": "benchmark",
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "head",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "15ed073254c912e8f19b4fe9978f6aee871198ed0a1b8ad46a0713781c78114f",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:3368747c415ea616402dedf750b249230eb70634e9061c69284e74da9a1867a2",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "manifest_sha256": "1c26eb0cfc8b5ec64b626b1d2b05eb3b36bbeacae8f5107b761b7e3f1c20dd5e",
+      "result_sha256": "a719651eeb9b84cc01990e95ed5be603c5c315ac3c6b12b9eaf3be35f69f2462",
+      "results_uri": "gs://tan-nb-exp-cells-results/runs/01a12425-6176-7428-9694-4492fca17d7a",
+      "metrics": {
+        "op.append.error-rate": 0,
+        "op.append.latency.max": 42210369,
+        "op.append.latency.mean": 4568152.515865123,
+        "op.append.latency.p50": 4517887,
+        "op.append.latency.p90": 4882431,
+        "op.append.latency.p95": 5046271,
+        "op.append.latency.p99": 5705727,
+        "op.append.latency.p999": 13344767,
+        "op.append.service.p99": 5701631,
+        "op.append.throughput": 873.533122781797,
+        "op.append.units-throughput": 873.533122781797,
+        "pg.checkpoints-in-window": 0,
+        "pg.wal-bytes-per-op": 1932.1208976788696,
+        "proc.cpu-utilisation": 0.10330517152969951,
+        "proc.rss-max": 312795136,
+        "rts.alloc-bytes-per-op": 127364.67033193853,
+        "rts.alloc-rate": 111257258.20713237,
+        "rts.gc-productivity": 0.9966357585138663,
+        "rts.live-bytes-major-mean": 12192298,
+        "rts.max-live-bytes": 14210208
+      },
+      "events": 53293,
+      "expected_delivered": 53293,
+      "delivered": 53293,
+      "checkpoint_calls": 53232,
+      "delivery_batches": 53232,
+      "checkpoint_updates": 53232,
+      "checkpoint_statement_us": 50.574158626389995,
+      "checkpoint_statement_wal_bytes_per_call": 163.83025247971145,
+      "checkpoint_hot_updates": 53231,
+      "durable_drained": true,
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "diagnostics": false,
+        "fresh": false,
+        "hook": false,
+        "mode": "adapter",
+        "offered": 0,
+        "seconds": 61,
+        "subscribers": 1,
+        "warmup_seconds": 30,
+        "width": 1
+      },
+      "timings": {
+        "clock": "GHC.Clock.getMonotonicTimeNSec",
+        "durationSeconds": 92.553848483,
+        "endedAt": "2026-10-10T04:57:52.119003313Z",
+        "phases": [
+          {
+            "endedAt": "2026-10-10T04:56:50.402777424Z",
+            "endedMonotonicNs": 414805234624,
+            "name": "warm-up",
+            "startedAt": "2026-10-10T04:56:20.399192481Z",
+            "startedMonotonicNs": 384801649419
+          },
+          {
+            "endedAt": "2026-10-10T04:57:51.646542923Z",
+            "endedMonotonicNs": 476049014346,
+            "name": "steady",
+            "startedAt": "2026-10-10T04:56:50.638184813Z",
+            "startedMonotonicNs": 415040641799
+          },
+          {
+            "endedAt": "2026-10-10T04:57:51.648152274Z",
+            "endedMonotonicNs": 476050609409,
+            "name": "drain",
+            "startedAt": "2026-10-10T04:57:51.646752147Z",
+            "startedMonotonicNs": 476049209069
+          }
+        ],
+        "startedAt": "2026-10-10T04:56:19.56515483Z"
+      },
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit",
+      "peak_durable_pending": 2,
+      "peak_handler_pending": 2
+    },
+    {
+      "case": "real-adapter",
+      "valid": true,
+      "cell_run": "01a12425-6176-7428-9ac0-9c190f2ade50",
+      "run_id": "01a12425-01c3-77e2-acc3-4e3ae38f7d7a",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 3,
+        "trial": 1
+      },
+      "grade": "benchmark",
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "released",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "f5416c566f0600afa4390e9cfc2f31ed073d0585fddb3f1980420081d276b4d4",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:d4a91c3eb54aa40d54c5bc060b73ff0cb8ebe5717ebb1df32edd5b986986efa5",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "manifest_sha256": "b4e5d3900f546929d9818dba9c8751ba2e5c5904b1ad71111869f4bd31e49d33",
+      "result_sha256": "5ecbd035160358aa1d29c9762aa3c5be14f2cc058ff631069c4504afea54a07e",
+      "results_uri": "gs://tan-nb-exp-cells-results/runs/01a12425-6176-7428-9ac0-9c190f2ade50",
+      "metrics": {
+        "op.append.error-rate": 0,
+        "op.append.latency.max": 214037706,
+        "op.append.latency.mean": 4642981.601376208,
+        "op.append.latency.p50": 4562943,
+        "op.append.latency.p90": 4952063,
+        "op.append.latency.p95": 5124095,
+        "op.append.latency.p99": 5816319,
+        "op.append.latency.p999": 13959167,
+        "op.append.service.p99": 5816319,
+        "op.append.throughput": 859.9406150807969,
+        "op.append.units-throughput": 859.9406150807969,
+        "pg.checkpoints-in-window": 0,
+        "pg.wal-bytes-per-op": 1943.3586527648056,
+        "proc.cpu-utilisation": 0.1018723847802671,
+        "proc.rss-max": 317259776,
+        "rts.alloc-bytes-per-op": 125826.38202161524,
+        "rts.alloc-rate": 108203216.34905912,
+        "rts.gc-productivity": 0.9966457467191377,
+        "rts.live-bytes-major-mean": 12201818,
+        "rts.max-live-bytes": 14305904
+      },
+      "events": 52463,
+      "expected_delivered": 52463,
+      "delivered": 52463,
+      "checkpoint_calls": 52422,
+      "delivery_batches": 52422,
+      "checkpoint_updates": 52422,
+      "checkpoint_statement_us": 29.59049168288173,
+      "checkpoint_statement_wal_bytes_per_call": 155.74512609209873,
+      "checkpoint_hot_updates": 52421,
+      "durable_drained": true,
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "diagnostics": false,
+        "fresh": false,
+        "hook": false,
+        "mode": "adapter",
+        "offered": 0,
+        "seconds": 61,
+        "subscribers": 1,
+        "warmup_seconds": 30,
+        "width": 1
+      },
+      "timings": {
+        "clock": "GHC.Clock.getMonotonicTimeNSec",
+        "durationSeconds": 92.547800852,
+        "endedAt": "2026-10-10T05:00:22.332922722Z",
+        "phases": [
+          {
+            "endedAt": "2026-10-10T04:59:20.626473454Z",
+            "endedMonotonicNs": 565028930740,
+            "name": "warm-up",
+            "startedAt": "2026-10-10T04:58:50.62195656Z",
+            "startedMonotonicNs": 535024413486
+          },
+          {
+            "endedAt": "2026-10-10T05:00:21.871301882Z",
+            "endedMonotonicNs": 626273759198,
+            "name": "steady",
+            "startedAt": "2026-10-10T04:59:20.86377958Z",
+            "startedMonotonicNs": 565266236489
+          },
+          {
+            "endedAt": "2026-10-10T05:00:21.872701206Z",
+            "endedMonotonicNs": 626275158168,
+            "name": "drain",
+            "startedAt": "2026-10-10T05:00:21.871483288Z",
+            "startedMonotonicNs": 626273940186
+          }
+        ],
+        "startedAt": "2026-10-10T04:58:49.78512187Z"
+      },
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit",
+      "peak_durable_pending": 2,
+      "peak_handler_pending": 2
+    },
+    {
+      "case": "real-adapter",
+      "valid": true,
+      "cell_run": "01a12425-6176-7428-9e1d-d1fd7dbf2bae",
+      "run_id": "01a12425-01c3-77e2-a2dc-aab28ef678a4",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 4,
+        "trial": 2
+      },
+      "grade": "benchmark",
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "released",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "f5416c566f0600afa4390e9cfc2f31ed073d0585fddb3f1980420081d276b4d4",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:d4a91c3eb54aa40d54c5bc060b73ff0cb8ebe5717ebb1df32edd5b986986efa5",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "manifest_sha256": "b8337063c01ab3c3c4f4842f555e1d5024bfd86b5381e389147cc5c71cc712cb",
+      "result_sha256": "4bba14fa62c3bd6e56498cdf2063c816e57750ab9c60b73f32eb3b35fc94128d",
+      "results_uri": "gs://tan-nb-exp-cells-results/runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae",
+      "metrics": {
+        "op.append.error-rate": 0,
+        "op.append.latency.max": 42459188,
+        "op.append.latency.mean": 4685283.18817194,
+        "op.append.latency.p50": 4603903,
+        "op.append.latency.p90": 5062655,
+        "op.append.latency.p95": 5271551,
+        "op.append.latency.p99": 6115327,
+        "op.append.latency.p999": 13647871,
+        "op.append.service.p99": 6115327,
+        "op.append.throughput": 852.2678837379481,
+        "op.append.units-throughput": 852.2678837379481,
+        "pg.checkpoints-in-window": 0,
+        "pg.wal-bytes-per-op": 1935.3628618136358,
+        "proc.cpu-utilisation": 0.09634011898585998,
+        "proc.rss-max": 325861376,
+        "rts.alloc-bytes-per-op": 127556.46704490816,
+        "rts.alloc-rate": 108712280.22545318,
+        "rts.gc-productivity": 0.9966550937336869,
+        "rts.live-bytes-major-mean": 12275944,
+        "rts.max-live-bytes": 14347304
+      },
+      "events": 51995,
+      "expected_delivered": 51995,
+      "delivered": 51995,
+      "checkpoint_calls": 51950,
+      "delivery_batches": 51950,
+      "checkpoint_updates": 51950,
+      "checkpoint_statement_us": 29.43362011549609,
+      "checkpoint_statement_wal_bytes_per_call": 155.7576708373436,
+      "checkpoint_hot_updates": 51949,
+      "durable_drained": true,
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "diagnostics": false,
+        "fresh": false,
+        "hook": false,
+        "mode": "adapter",
+        "offered": 0,
+        "seconds": 61,
+        "subscribers": 1,
+        "warmup_seconds": 30,
+        "width": 1
+      },
+      "timings": {
+        "clock": "GHC.Clock.getMonotonicTimeNSec",
+        "durationSeconds": 92.556180194,
+        "endedAt": "2026-10-10T05:02:53.488703451Z",
+        "phases": [
+          {
+            "endedAt": "2026-10-10T05:01:51.79613021Z",
+            "endedMonotonicNs": 716198587369,
+            "name": "warm-up",
+            "startedAt": "2026-10-10T05:01:21.792081804Z",
+            "startedMonotonicNs": 686194538713
+          },
+          {
+            "endedAt": "2026-10-10T05:02:53.041907939Z",
+            "endedMonotonicNs": 777444365182,
+            "name": "steady",
+            "startedAt": "2026-10-10T05:01:52.034277532Z",
+            "startedMonotonicNs": 716436734443
+          },
+          {
+            "endedAt": "2026-10-10T05:02:53.044014432Z",
+            "endedMonotonicNs": 777446471427,
+            "name": "drain",
+            "startedAt": "2026-10-10T05:02:53.042088154Z",
+            "startedMonotonicNs": 777444545059
+          }
+        ],
+        "startedAt": "2026-10-10T05:01:20.932523257Z"
+      },
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit",
+      "peak_durable_pending": 2,
+      "peak_handler_pending": 2
+    },
+    {
+      "case": "real-adapter",
+      "valid": true,
+      "cell_run": "01a12425-6176-7428-a376-fe6b40447027",
+      "run_id": "01a12425-01c3-77e2-af6a-e3537d6e5472",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 5,
+        "trial": 2
+      },
+      "grade": "benchmark",
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "head",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "15ed073254c912e8f19b4fe9978f6aee871198ed0a1b8ad46a0713781c78114f",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:3368747c415ea616402dedf750b249230eb70634e9061c69284e74da9a1867a2",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "manifest_sha256": "051a611bac204a225e4e0fc2e772bdbcb8a31c37ffce5399d710689a93429e7f",
+      "result_sha256": "239358917d5b74662e4e5566ec84943fc1254c87843c82f1ec6be31f7155dcac",
+      "results_uri": "gs://tan-nb-exp-cells-results/runs/01a12425-6176-7428-a376-fe6b40447027",
+      "metrics": {
+        "op.append.error-rate": 0,
+        "op.append.latency.max": 41606846,
+        "op.append.latency.mean": 4652656.993980854,
+        "op.append.latency.p50": 4579327,
+        "op.append.latency.p90": 4939775,
+        "op.append.latency.p95": 5115903,
+        "op.append.latency.p99": 6160383,
+        "op.append.latency.p999": 14458879,
+        "op.append.service.p99": 6160383,
+        "op.append.throughput": 857.8141439705985,
+        "op.append.units-throughput": 857.8141439705985,
+        "pg.checkpoints-in-window": 0,
+        "pg.wal-bytes-per-op": 1927.905700036306,
+        "proc.cpu-utilisation": 0.0961768767268738,
+        "proc.rss-max": 312692736,
+        "rts.alloc-bytes-per-op": 129858.03833145434,
+        "rts.alloc-rate": 111394061.98899767,
+        "rts.gc-productivity": 0.9967025325295532,
+        "rts.live-bytes-major-mean": 11892902,
+        "rts.max-live-bytes": 13969112
+      },
+      "events": 52333,
+      "expected_delivered": 52333,
+      "delivered": 52333,
+      "checkpoint_calls": 52281,
+      "delivery_batches": 52281,
+      "checkpoint_updates": 52281,
+      "checkpoint_statement_us": 50.155311814999344,
+      "checkpoint_statement_wal_bytes_per_call": 163.83751267190758,
+      "checkpoint_hot_updates": 52280,
+      "durable_drained": true,
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "diagnostics": false,
+        "fresh": false,
+        "hook": false,
+        "mode": "adapter",
+        "offered": 0,
+        "seconds": 61,
+        "subscribers": 1,
+        "warmup_seconds": 30,
+        "width": 1
+      },
+      "timings": {
+        "clock": "GHC.Clock.getMonotonicTimeNSec",
+        "durationSeconds": 92.569649259,
+        "endedAt": "2026-10-10T05:05:23.493457518Z",
+        "phases": [
+          {
+            "endedAt": "2026-10-10T05:04:21.793078065Z",
+            "endedMonotonicNs": 866195535149,
+            "name": "warm-up",
+            "startedAt": "2026-10-10T05:03:51.788863618Z",
+            "startedMonotonicNs": 836191320554
+          },
+          {
+            "endedAt": "2026-10-10T05:05:23.037266774Z",
+            "endedMonotonicNs": 927439724106,
+            "name": "steady",
+            "startedAt": "2026-10-10T05:04:22.030064134Z",
+            "startedMonotonicNs": 866432521030
+          },
+          {
+            "endedAt": "2026-10-10T05:05:23.038923583Z",
+            "endedMonotonicNs": 927441380592,
+            "name": "drain",
+            "startedAt": "2026-10-10T05:05:23.037450288Z",
+            "startedMonotonicNs": 927439907190
+          }
+        ],
+        "startedAt": "2026-10-10T05:03:50.923808259Z"
+      },
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit",
+      "peak_durable_pending": 2,
+      "peak_handler_pending": 3
+    },
+    {
+      "case": "live-hook-fanout",
+      "valid": true,
+      "cell_run": "01a12433-e1b1-7217-b163-84b3ee8fc425",
+      "run_id": "01a12425-01c3-77e2-ae76-7179f4e05a0c",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 0,
+        "trial": 0
+      },
+      "grade": "benchmark",
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "released",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "f5416c566f0600afa4390e9cfc2f31ed073d0585fddb3f1980420081d276b4d4",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:d4a91c3eb54aa40d54c5bc060b73ff0cb8ebe5717ebb1df32edd5b986986efa5",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "manifest_sha256": "b6b1f68e43664191e85e8d4172bbdf9cde2b8d0e2bbb79f095888efc22ca2751",
+      "result_sha256": "63e991d889bf0cbc889eb562026f10c05e9aef40a0d256dc6c20205143ed349e",
+      "results_uri": "gs://tan-nb-exp-cells-results/runs/01a12433-e1b1-7217-b163-84b3ee8fc425",
+      "metrics": {
+        "op.append.error-rate": 0,
+        "op.append.latency.max": 45982343,
+        "op.append.latency.mean": 4773682.936478702,
+        "op.append.latency.p50": 4694015,
+        "op.append.latency.p90": 5185535,
+        "op.append.latency.p95": 5378047,
+        "op.append.latency.p99": 6029311,
+        "op.append.latency.p999": 14622719,
+        "op.append.service.p99": 6029311,
+        "op.append.throughput": 836.5685015998126,
+        "op.append.units-throughput": 836.5685015998126,
+        "pg.checkpoints-in-window": 0,
+        "pg.wal-bytes-per-op": 2131.8854187076295,
+        "proc.cpu-utilisation": 0.10031347681709418,
+        "proc.rss-max": 324575232,
+        "rts.alloc-bytes-per-op": 138695.59042282222,
+        "rts.alloc-rate": 116028362.25852169,
+        "rts.gc-productivity": 0.9962956863663018,
+        "rts.live-bytes-major-mean": 12629076,
+        "rts.max-live-bytes": 14663856
+      },
+      "events": 51038,
+      "expected_delivered": 102076,
+      "delivered": 102076,
+      "checkpoint_calls": 101972,
+      "delivery_batches": 101972,
+      "checkpoint_updates": 101972,
+      "checkpoint_statement_us": 33.988388714548485,
+      "checkpoint_statement_wal_bytes_per_call": 155.92465578786334,
+      "checkpoint_hot_updates": 101970,
+      "durable_drained": true,
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "diagnostics": false,
+        "fresh": false,
+        "hook": true,
+        "mode": "all",
+        "offered": 0,
+        "seconds": 61,
+        "subscribers": 2,
+        "warmup_seconds": 30,
+        "width": 1
+      },
+      "timings": {
+        "clock": "GHC.Clock.getMonotonicTimeNSec",
+        "durationSeconds": 92.538919871,
+        "endedAt": "2026-10-10T05:07:54.188284033Z",
+        "phases": [
+          {
+            "endedAt": "2026-10-10T05:06:52.481166676Z",
+            "endedMonotonicNs": 1016883623828,
+            "name": "warm-up",
+            "startedAt": "2026-10-10T05:06:22.477263832Z",
+            "startedMonotonicNs": 986879720753
+          },
+          {
+            "endedAt": "2026-10-10T05:07:53.724808903Z",
+            "endedMonotonicNs": 1078127266095,
+            "name": "steady",
+            "startedAt": "2026-10-10T05:06:52.716245471Z",
+            "startedMonotonicNs": 1017118702411
+          },
+          {
+            "endedAt": "2026-10-10T05:07:53.727257106Z",
+            "endedMonotonicNs": 1078129714188,
+            "name": "drain",
+            "startedAt": "2026-10-10T05:07:53.724979206Z",
+            "startedMonotonicNs": 1078127436117
+          }
+        ],
+        "startedAt": "2026-10-10T05:06:21.649364162Z"
+      },
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit",
+      "peak_durable_pending": 4,
+      "peak_handler_pending": 4
+    },
+    {
+      "case": "live-hook-fanout",
+      "valid": true,
+      "cell_run": "01a12433-e1b1-7217-b738-a1de9c8fe0c6",
+      "run_id": "01a12425-01c3-77e2-a5f8-bb02d7cab456",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 1,
+        "trial": 0
+      },
+      "grade": "benchmark",
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "head",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "15ed073254c912e8f19b4fe9978f6aee871198ed0a1b8ad46a0713781c78114f",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:3368747c415ea616402dedf750b249230eb70634e9061c69284e74da9a1867a2",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "manifest_sha256": "ddf2fba6682e86b437db69280cf07713d3cf6dd3ada48165236d77193887dddb",
+      "result_sha256": "1d4d56ea67505003731c157acac45661228982b493fbdd40b086d3061c8eb70e",
+      "results_uri": "gs://tan-nb-exp-cells-results/runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6",
+      "metrics": {
+        "op.append.error-rate": 0,
+        "op.append.latency.max": 40805482,
+        "op.append.latency.mean": 4693050.58748844,
+        "op.append.latency.p50": 4607999,
+        "op.append.latency.p90": 5124095,
+        "op.append.latency.p95": 5337087,
+        "op.append.latency.p99": 6078463,
+        "op.append.latency.p999": 13844479,
+        "op.append.service.p99": 6074367,
+        "op.append.throughput": 850.8015654810372,
+        "op.append.units-throughput": 850.8015654810372,
+        "pg.checkpoints-in-window": 0,
+        "pg.wal-bytes-per-op": 2145.323481812577,
+        "proc.cpu-utilisation": 0.09855588032627036,
+        "proc.rss-max": 326742016,
+        "rts.alloc-bytes-per-op": 141498.42540073983,
+        "rts.alloc-rate": 120387081.84405121,
+        "rts.gc-productivity": 0.9963161254078341,
+        "rts.live-bytes-major-mean": 12810186,
+        "rts.max-live-bytes": 14580312
+      },
+      "events": 51904,
+      "expected_delivered": 103808,
+      "delivered": 103808,
+      "checkpoint_calls": 103700,
+      "delivery_batches": 103700,
+      "checkpoint_updates": 103700,
+      "checkpoint_statement_us": 55.04713149469601,
+      "checkpoint_statement_wal_bytes_per_call": 164.0070298939248,
+      "checkpoint_hot_updates": 103696,
+      "durable_drained": true,
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "diagnostics": false,
+        "fresh": false,
+        "hook": true,
+        "mode": "all",
+        "offered": 0,
+        "seconds": 61,
+        "subscribers": 2,
+        "warmup_seconds": 30,
+        "width": 1
+      },
+      "timings": {
+        "clock": "GHC.Clock.getMonotonicTimeNSec",
+        "durationSeconds": 92.589101971,
+        "endedAt": "2026-10-10T05:10:24.603444863Z",
+        "phases": [
+          {
+            "endedAt": "2026-10-10T05:09:22.892357388Z",
+            "endedMonotonicNs": 1167294814620,
+            "name": "warm-up",
+            "startedAt": "2026-10-10T05:08:52.888844478Z",
+            "startedMonotonicNs": 1137291301415
+          },
+          {
+            "endedAt": "2026-10-10T05:10:24.140779873Z",
+            "endedMonotonicNs": 1228543236994,
+            "name": "steady",
+            "startedAt": "2026-10-10T05:09:23.134950822Z",
+            "startedMonotonicNs": 1167537407716
+          },
+          {
+            "endedAt": "2026-10-10T05:10:24.14286671Z",
+            "endedMonotonicNs": 1228545323738,
+            "name": "drain",
+            "startedAt": "2026-10-10T05:10:24.140945835Z",
+            "startedMonotonicNs": 1228543402744
+          }
+        ],
+        "startedAt": "2026-10-10T05:08:52.014342892Z"
+      },
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit",
+      "peak_durable_pending": 4,
+      "peak_handler_pending": 10
+    },
+    {
+      "case": "live-hook-fanout",
+      "valid": true,
+      "cell_run": "01a12433-e1b1-7217-ba0e-b11d5830d586",
+      "run_id": "01a12425-01c3-77e2-a8ac-cc73ea2d316e",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 2,
+        "trial": 1
+      },
+      "grade": "benchmark",
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "head",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "15ed073254c912e8f19b4fe9978f6aee871198ed0a1b8ad46a0713781c78114f",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:3368747c415ea616402dedf750b249230eb70634e9061c69284e74da9a1867a2",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "manifest_sha256": "eccd18e3bddb30f5af9ab6b31477d9bdba9a1f74a9b526a413c6ef8b3f0a1e14",
+      "result_sha256": "0897c3862cc95691e0382c4d5aeacacd90d0095c0a2c8536affd0da302e507c2",
+      "results_uri": "gs://tan-nb-exp-cells-results/runs/01a12433-e1b1-7217-ba0e-b11d5830d586",
+      "metrics": {
+        "op.append.error-rate": 0,
+        "op.append.latency.max": 44170245,
+        "op.append.latency.mean": 4736191.979219719,
+        "op.append.latency.p50": 4657151,
+        "op.append.latency.p90": 5156863,
+        "op.append.latency.p95": 5369855,
+        "op.append.latency.p99": 6037503,
+        "op.append.latency.p999": 13549567,
+        "op.append.service.p99": 6037503,
+        "op.append.throughput": 843.2286474092731,
+        "op.append.units-throughput": 843.2286474092731,
+        "pg.checkpoints-in-window": 0,
+        "pg.wal-bytes-per-op": 2146.7291176642107,
+        "proc.cpu-utilisation": 0.10150444956713106,
+        "proc.rss-max": 324210688,
+        "rts.alloc-bytes-per-op": 143290.92440176505,
+        "rts.alloc-rate": 120827012.36932476,
+        "rts.gc-productivity": 0.9963788129167924,
+        "rts.live-bytes-major-mean": 12969794,
+        "rts.max-live-bytes": 14811432
+      },
+      "events": 51443,
+      "expected_delivered": 102886,
+      "delivered": 102886,
+      "checkpoint_calls": 102796,
+      "delivery_batches": 102796,
+      "checkpoint_updates": 102796,
+      "checkpoint_statement_us": 54.5941919919053,
+      "checkpoint_statement_wal_bytes_per_call": 164.0150589517102,
+      "checkpoint_hot_updates": 102792,
+      "durable_drained": true,
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "diagnostics": false,
+        "fresh": false,
+        "hook": true,
+        "mode": "all",
+        "offered": 0,
+        "seconds": 61,
+        "subscribers": 2,
+        "warmup_seconds": 30,
+        "width": 1
+      },
+      "timings": {
+        "clock": "GHC.Clock.getMonotonicTimeNSec",
+        "durationSeconds": 92.533048032,
+        "endedAt": "2026-10-10T05:12:55.287442816Z",
+        "phases": [
+          {
+            "endedAt": "2026-10-10T05:11:53.579845904Z",
+            "endedMonotonicNs": 1317982302998,
+            "name": "warm-up",
+            "startedAt": "2026-10-10T05:11:23.576026332Z",
+            "startedMonotonicNs": 1287978483229
+          },
+          {
+            "endedAt": "2026-10-10T05:12:54.825902652Z",
+            "endedMonotonicNs": 1379228359752,
+            "name": "steady",
+            "startedAt": "2026-10-10T05:11:53.818911267Z",
+            "startedMonotonicNs": 1318221368215
+          },
+          {
+            "endedAt": "2026-10-10T05:12:54.827636463Z",
+            "endedMonotonicNs": 1379230093534,
+            "name": "drain",
+            "startedAt": "2026-10-10T05:12:54.826074048Z",
+            "startedMonotonicNs": 1379228530954
+          }
+        ],
+        "startedAt": "2026-10-10T05:11:22.754394784Z"
+      },
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit",
+      "peak_durable_pending": 4,
+      "peak_handler_pending": 8
+    },
+    {
+      "case": "live-hook-fanout",
+      "valid": true,
+      "cell_run": "01a12433-e1b1-7217-bf89-6a087c881c23",
+      "run_id": "01a12425-01c3-77e2-a879-dce431641aa1",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 3,
+        "trial": 1
+      },
+      "grade": "benchmark",
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "released",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "f5416c566f0600afa4390e9cfc2f31ed073d0585fddb3f1980420081d276b4d4",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:d4a91c3eb54aa40d54c5bc060b73ff0cb8ebe5717ebb1df32edd5b986986efa5",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "manifest_sha256": "1d6f05489b1ed34dd53e4d3b0ce46c7ec5d7b95ccdf8254ebb63f37809607357",
+      "result_sha256": "06456a30235366c594b1753b64092126bb9d062188c9be7d8a0aff227fe364e4",
+      "results_uri": "gs://tan-nb-exp-cells-results/runs/01a12433-e1b1-7217-bf89-6a087c881c23",
+      "metrics": {
+        "op.append.error-rate": 0,
+        "op.append.latency.max": 40791980,
+        "op.append.latency.mean": 4823583.651544841,
+        "op.append.latency.p50": 4726783,
+        "op.append.latency.p90": 5308415,
+        "op.append.latency.p95": 5533695,
+        "op.append.latency.p99": 6143999,
+        "op.append.latency.p999": 14090239,
+        "op.append.service.p99": 6143999,
+        "op.append.throughput": 828.1429227728553,
+        "op.append.units-throughput": 828.1429227728553,
+        "pg.checkpoints-in-window": 0,
+        "pg.wal-bytes-per-op": 2131.5875937691744,
+        "proc.cpu-utilisation": 0.09765179150919949,
+        "proc.rss-max": 328704000,
+        "rts.alloc-bytes-per-op": 139392.69877085683,
+        "rts.alloc-rate": 115437076.97329357,
+        "rts.gc-productivity": 0.9964923269752483,
+        "rts.live-bytes-major-mean": 12601140,
+        "rts.max-live-bytes": 14592896
+      },
+      "events": 50523,
+      "expected_delivered": 101046,
+      "delivered": 101046,
+      "checkpoint_calls": 100974,
+      "delivery_batches": 100974,
+      "checkpoint_updates": 100974,
+      "checkpoint_statement_us": 30.556244052924747,
+      "checkpoint_statement_wal_bytes_per_call": 155.83385822092816,
+      "checkpoint_hot_updates": 100970,
+      "durable_drained": true,
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "diagnostics": false,
+        "fresh": false,
+        "hook": true,
+        "mode": "all",
+        "offered": 0,
+        "seconds": 61,
+        "subscribers": 2,
+        "warmup_seconds": 30,
+        "width": 1
+      },
+      "timings": {
+        "clock": "GHC.Clock.getMonotonicTimeNSec",
+        "durationSeconds": 92.516729364,
+        "endedAt": "2026-10-10T05:15:24.963344343Z",
+        "phases": [
+          {
+            "endedAt": "2026-10-10T05:14:23.27291472Z",
+            "endedMonotonicNs": 1467675371864,
+            "name": "warm-up",
+            "startedAt": "2026-10-10T05:13:53.268847025Z",
+            "startedMonotonicNs": 1437671303955
+          },
+          {
+            "endedAt": "2026-10-10T05:15:24.517668655Z",
+            "endedMonotonicNs": 1528920125854,
+            "name": "steady",
+            "startedAt": "2026-10-10T05:14:23.51025162Z",
+            "startedMonotonicNs": 1467912708521
+          },
+          {
+            "endedAt": "2026-10-10T05:15:24.519378522Z",
+            "endedMonotonicNs": 1528921835480,
+            "name": "drain",
+            "startedAt": "2026-10-10T05:15:24.517836908Z",
+            "startedMonotonicNs": 1528920293815
+          }
+        ],
+        "startedAt": "2026-10-10T05:13:52.446614979Z"
+      },
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit",
+      "peak_durable_pending": 4,
+      "peak_handler_pending": 4
+    },
+    {
+      "case": "live-hook-fanout",
+      "valid": true,
+      "cell_run": "01a12433-e1b1-7218-83d5-8032e599566c",
+      "run_id": "01a12425-01c3-77e2-afcc-6da9eeeb1241",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 4,
+        "trial": 2
+      },
+      "grade": "benchmark",
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "released",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "f5416c566f0600afa4390e9cfc2f31ed073d0585fddb3f1980420081d276b4d4",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:d4a91c3eb54aa40d54c5bc060b73ff0cb8ebe5717ebb1df32edd5b986986efa5",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "manifest_sha256": "1aa9653c86ed28543e81a400551ef75f1fc58ed49e0dfd55ba0b9d4764b51183",
+      "result_sha256": "e0de2e9b1906daee85ee512e71ae47a8a72f7cd06f9f8ee625fc6ddc553010dd",
+      "results_uri": "gs://tan-nb-exp-cells-results/runs/01a12433-e1b1-7218-83d5-8032e599566c",
+      "metrics": {
+        "op.append.error-rate": 0,
+        "op.append.latency.max": 35700774,
+        "op.append.latency.mean": 4785120.588056243,
+        "op.append.latency.p50": 4681727,
+        "op.append.latency.p90": 5283839,
+        "op.append.latency.p95": 5525503,
+        "op.append.latency.p99": 6135807,
+        "op.append.latency.p999": 13901823,
+        "op.append.service.p99": 6135807,
+        "op.append.throughput": 834.6847371298394,
+        "op.append.units-throughput": 834.6847371298394,
+        "pg.checkpoints-in-window": 0,
+        "pg.wal-bytes-per-op": 2125.456973410314,
+        "proc.cpu-utilisation": 0.09343118890931394,
+        "proc.rss-max": 326483968,
+        "rts.alloc-bytes-per-op": 138796.3915007266,
+        "rts.alloc-rate": 115851229.55435425,
+        "rts.gc-productivity": 0.9964703577020447,
+        "rts.live-bytes-major-mean": 12673132,
+        "rts.max-live-bytes": 14801760
+      },
+      "events": 50922,
+      "expected_delivered": 101844,
+      "delivered": 101844,
+      "checkpoint_calls": 101722,
+      "delivery_batches": 101722,
+      "checkpoint_updates": 101722,
+      "checkpoint_statement_us": 33.7139333084288,
+      "checkpoint_statement_wal_bytes_per_call": 155.92159021647234,
+      "checkpoint_hot_updates": 101720,
+      "durable_drained": true,
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "diagnostics": false,
+        "fresh": false,
+        "hook": true,
+        "mode": "all",
+        "offered": 0,
+        "seconds": 61,
+        "subscribers": 2,
+        "warmup_seconds": 30,
+        "width": 1
+      },
+      "timings": {
+        "clock": "GHC.Clock.getMonotonicTimeNSec",
+        "durationSeconds": 92.511139382,
+        "endedAt": "2026-10-10T05:17:54.627219371Z",
+        "phases": [
+          {
+            "endedAt": "2026-10-10T05:16:52.933241415Z",
+            "endedMonotonicNs": 1617335698558,
+            "name": "warm-up",
+            "startedAt": "2026-10-10T05:16:22.928837892Z",
+            "startedMonotonicNs": 1587331294810
+          },
+          {
+            "endedAt": "2026-10-10T05:17:54.178156123Z",
+            "endedMonotonicNs": 1678580613357,
+            "name": "steady",
+            "startedAt": "2026-10-10T05:16:53.170884699Z",
+            "startedMonotonicNs": 1617573341605
+          },
+          {
+            "endedAt": "2026-10-10T05:17:54.180467042Z",
+            "endedMonotonicNs": 1678582924129,
+            "name": "drain",
+            "startedAt": "2026-10-10T05:17:54.178345238Z",
+            "startedMonotonicNs": 1678580802135
+          }
+        ],
+        "startedAt": "2026-10-10T05:16:22.116079989Z"
+      },
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit",
+      "peak_durable_pending": 10,
+      "peak_handler_pending": 2
+    },
+    {
+      "case": "live-hook-fanout",
+      "valid": true,
+      "cell_run": "01a12433-e1b1-7218-84c6-bc8ae427c858",
+      "run_id": "01a12425-01c3-77e2-a6cd-14039bc377fd",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/subscription-hardening/config-0",
+        "position": 5,
+        "trial": 2
+      },
+      "grade": "benchmark",
+      "cohort": {
+        "arch": "x86_64",
+        "cabalVersion": "nix",
+        "cohort": "head",
+        "compiler": "ghc-9.12.4",
+        "components": [
+          {
+            "id": "kiroku",
+            "moriUri": "mori://shinzui/kiroku",
+            "packages": [
+              {
+                "name": "kiroku-store",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-store",
+                  "type": "git"
+                },
+                "version": "0.9.0.1"
+              },
+              {
+                "name": "kiroku-store-migrations",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-store-migrations",
+                  "type": "git"
+                },
+                "version": "0.6.0.0"
+              },
+              {
+                "name": "kiroku-otel",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-otel",
+                  "type": "git"
+                },
+                "version": "0.2.0.10"
+              },
+              {
+                "name": "kiroku-metrics",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-metrics",
+                  "type": "git"
+                },
+                "version": "0.1.0.10"
+              },
+              {
+                "name": "kiroku-cli",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "kiroku-cli",
+                  "type": "git"
+                },
+                "version": "0.2.0.8"
+              },
+              {
+                "name": "shibuya-kiroku-adapter",
+                "source": {
+                  "location": "https://github.com/shinzui/kiroku.git",
+                  "rev": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+                  "subdir": "shibuya-kiroku-adapter",
+                  "type": "git"
+                },
+                "version": "0.5.1.5"
+              }
+            ]
+          }
+        ],
+        "descriptorSha256": "15ed073254c912e8f19b4fe9978f6aee871198ed0a1b8ad46a0713781c78114f",
+        "indexState": "2026-09-20T13:44:47Z",
+        "os": "linux",
+        "planHash": "sha256:3368747c415ea616402dedf750b249230eb70634e9061c69284e74da9a1867a2",
+        "resolver": "nix",
+        "schema": "kenshou.cohort-identity/v1"
+      },
+      "manifest_sha256": "a5d39c05e2d4c0cb8e2dacdd295c214cc38c15bf22d18fce75e2d8ed5943b4f2",
+      "result_sha256": "634a2488d031fb8828941f0690c38b9334bc5150f946bae988e14da766cb7d22",
+      "results_uri": "gs://tan-nb-exp-cells-results/runs/01a12433-e1b1-7218-84c6-bc8ae427c858",
+      "metrics": {
+        "op.append.error-rate": 0,
+        "op.append.latency.max": 211719706,
+        "op.append.latency.mean": 4723940.301074226,
+        "op.append.latency.p50": 4628479,
+        "op.append.latency.p90": 5124095,
+        "op.append.latency.p95": 5328895,
+        "op.append.latency.p99": 5988351,
+        "op.append.latency.p999": 13541375,
+        "op.append.service.p99": 5988351,
+        "op.append.throughput": 845.3501212205733,
+        "op.append.units-throughput": 845.3501212205733,
+        "pg.checkpoints-in-window": 0,
+        "pg.wal-bytes-per-op": 2126.244376793609,
+        "proc.cpu-utilisation": 0.0986367477399519,
+        "proc.rss-max": 318464000,
+        "rts.alloc-bytes-per-op": 142626.51361203755,
+        "rts.alloc-rate": 120569340.57120368,
+        "rts.gc-productivity": 0.9964780524793211,
+        "rts.live-bytes-major-mean": 12758290,
+        "rts.max-live-bytes": 14844672
+      },
+      "events": 51572,
+      "expected_delivered": 103144,
+      "delivered": 103144,
+      "checkpoint_calls": 103028,
+      "delivery_batches": 103028,
+      "checkpoint_updates": 103028,
+      "checkpoint_statement_us": 50.98228698994449,
+      "checkpoint_statement_wal_bytes_per_call": 163.8984547889894,
+      "checkpoint_hot_updates": 103026,
+      "durable_drained": true,
+      "workload": {
+        "append_batch": 1,
+        "checkpoint_batch": 1,
+        "diagnostics": false,
+        "fresh": false,
+        "hook": true,
+        "mode": "all",
+        "offered": 0,
+        "seconds": 61,
+        "subscribers": 2,
+        "warmup_seconds": 30,
+        "width": 1
+      },
+      "timings": {
+        "clock": "GHC.Clock.getMonotonicTimeNSec",
+        "durationSeconds": 92.541936285,
+        "endedAt": "2026-10-10T05:20:25.400819041Z",
+        "phases": [
+          {
+            "endedAt": "2026-10-10T05:19:23.696060835Z",
+            "endedMonotonicNs": 1768098518013,
+            "name": "warm-up",
+            "startedAt": "2026-10-10T05:18:53.691388402Z",
+            "startedMonotonicNs": 1738093845330
+          },
+          {
+            "endedAt": "2026-10-10T05:20:24.94183995Z",
+            "endedMonotonicNs": 1829344297040,
+            "name": "steady",
+            "startedAt": "2026-10-10T05:19:23.935341545Z",
+            "startedMonotonicNs": 1768337798443
+          },
+          {
+            "endedAt": "2026-10-10T05:20:24.943499835Z",
+            "endedMonotonicNs": 1829345956937,
+            "name": "drain",
+            "startedAt": "2026-10-10T05:20:24.942017308Z",
+            "startedMonotonicNs": 1829344474231
+          }
+        ],
+        "startedAt": "2026-10-10T05:18:52.858882756Z"
+      },
+      "server": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit",
+      "peak_durable_pending": 4,
+      "peak_handler_pending": 2
+    }
+  ],
+  "errors": [],
+  "effects": {
+    "real-adapter": {
+      "op.append.throughput": {
+        "paired_percent_changes": [
+          -1.0522054438077633,
+          1.580633297535683,
+          0.6507648989804826
+        ],
+        "geometric_mean_percent_change": 0.38712998116501307,
+        "descriptive_95_percent_interval": {
+          "low": -2.8814679947973043,
+          "high": 3.76573510517495
+        }
+      },
+      "op.append.latency.p50": {
+        "paired_percent_changes": [
+          0.9990919563296341,
+          -0.9874328914474706,
+          -0.5338079451282951
+        ],
+        "geometric_mean_percent_change": -0.17765670472924544,
+        "descriptive_95_percent_interval": {
+          "low": -2.7243941140196237,
+          "high": 2.435755914371507
+        }
+      },
+      "op.append.latency.p95": {
+        "paired_percent_changes": [
+          0.3236246593931513,
+          -1.5187852684230063,
+          -2.9526035127043215
+        ],
+        "geometric_mean_percent_change": -1.3916935292090593,
+        "descriptive_95_percent_interval": {
+          "low": -5.3842980567128995,
+          "high": 2.7693913941026382
+        }
+      },
+      "op.append.latency.p99": {
+        "paired_percent_changes": [
+          1.3629844567861316,
+          -1.901408777613467,
+          0.7367717212832581
+        ],
+        "geometric_mean_percent_change": 0.05605976553866299,
+        "descriptive_95_percent_interval": {
+          "low": -4.17398359342851,
+          "high": 4.47282973059604
+        }
+      },
+      "pg.wal-bytes-per-op": {
+        "paired_percent_changes": [
+          1.027744133130315,
+          -0.5782645972192579,
+          -0.385310781996806
+        ],
+        "geometric_mean_percent_change": 0.01883534529409925,
+        "descriptive_95_percent_interval": {
+          "low": -2.1307381176145945,
+          "high": 2.21562144661005
+        }
+      },
+      "rts.alloc-bytes-per-op": {
+        "paired_percent_changes": [
+          0.4501187960502806,
+          1.222548312689331,
+          1.8043548397556952
+        ],
+        "geometric_mean_percent_change": 1.1574855824610486,
+        "descriptive_95_percent_interval": {
+          "low": -0.5168931578149571,
+          "high": 2.8600454306143774
+        }
+      }
+    },
+    "live-hook-fanout": {
+      "op.append.throughput": {
+        "paired_percent_changes": [
+          1.701362632468939,
+          1.8216329840635037,
+          1.2777739446162784
+        ],
+        "geometric_mean_percent_change": 1.5999885297327099,
+        "descriptive_95_percent_interval": {
+          "low": 0.8923350610727354,
+          "high": 2.3126054421607423
+        }
+      },
+      "op.append.latency.p50": {
+        "paired_percent_changes": [
+          -1.8324611233666688,
+          -1.4731372267353882,
+          -1.1373580732067512
+        ],
+        "geometric_mean_percent_change": -1.4813943578797728,
+        "descriptive_95_percent_interval": {
+          "low": -2.3412033878549288,
+          "high": -0.6140153844517604
+        }
+      },
+      "op.append.latency.p95": {
+        "paired_percent_changes": [
+          -0.7616147646162252,
+          -2.9607703351919423,
+          -3.558191896737728
+        ],
+        "geometric_mean_percent_change": -2.434234188631812,
+        "descriptive_95_percent_interval": {
+          "low": -6.012464683863927,
+          "high": 1.2802243014502723
+        }
+      },
+      "op.append.latency.p99": {
+        "paired_percent_changes": [
+          0.8152175265133899,
+          -1.7333336154514378,
+          -2.403204664031966
+        ],
+        "geometric_mean_percent_change": -1.1167745601320944,
+        "descriptive_95_percent_interval": {
+          "low": -5.229901792958092,
+          "high": 3.1748669504406246
+        }
+      },
+      "pg.wal-bytes-per-op": {
+        "paired_percent_changes": [
+          0.6303370240739126,
+          0.7103402149316373,
+          0.03704631018861537
+        ],
+        "geometric_mean_percent_change": 0.4587916884259968,
+        "descriptive_95_percent_interval": {
+          "low": -0.45167056567353425,
+          "high": 1.3775809684118512
+        }
+      },
+      "rts.alloc-bytes-per-op": {
+        "paired_percent_changes": [
+          2.0208537051343844,
+          2.7965780598856016,
+          2.7595257123748107
+        ],
+        "geometric_mean_percent_change": 2.5250289973853812,
+        "descriptive_95_percent_interval": {
+          "low": 1.4424946270492622,
+          "high": 3.6191155349593718
+        }
+      }
+    }
+  },
+  "complete_pairs": {
+    "real-adapter": 3,
+    "live-hook-fanout": 3
+  },
+  "diagnostic_cost": null,
+  "performance_acceptance": "inconclusive; separate sessions retained, pooled operator comparisons reject fingerprint differences; full historical telemetry command remains failed",
+  "planned_trials": [
+    {
+      "case": "real-adapter",
+      "run_ids": [
+        "01a12425-01c3-77e2-a874-4e709e0e6e49"
+      ],
+      "cell_run": "01a12425-6176-7428-8d1d-acfd19a601d6",
+      "state": "verified",
+      "cell_outcome": "completed",
+      "entry_exit_code": 0
+    },
+    {
+      "case": "real-adapter",
+      "run_ids": [
+        "01a12425-01c3-77e2-a424-b350cb80c2e4"
+      ],
+      "cell_run": "01a12425-6176-7428-918d-8acf7ffcddc4",
+      "state": "verified",
+      "cell_outcome": "completed",
+      "entry_exit_code": 0
+    },
+    {
+      "case": "real-adapter",
+      "run_ids": [
+        "01a12425-01c3-77e2-a4c7-e53f0221a08a"
+      ],
+      "cell_run": "01a12425-6176-7428-9694-4492fca17d7a",
+      "state": "verified",
+      "cell_outcome": "completed",
+      "entry_exit_code": 0
+    },
+    {
+      "case": "real-adapter",
+      "run_ids": [
+        "01a12425-01c3-77e2-acc3-4e3ae38f7d7a"
+      ],
+      "cell_run": "01a12425-6176-7428-9ac0-9c190f2ade50",
+      "state": "verified",
+      "cell_outcome": "completed",
+      "entry_exit_code": 0
+    },
+    {
+      "case": "real-adapter",
+      "run_ids": [
+        "01a12425-01c3-77e2-a2dc-aab28ef678a4"
+      ],
+      "cell_run": "01a12425-6176-7428-9e1d-d1fd7dbf2bae",
+      "state": "verified",
+      "cell_outcome": "completed",
+      "entry_exit_code": 0
+    },
+    {
+      "case": "real-adapter",
+      "run_ids": [
+        "01a12425-01c3-77e2-af6a-e3537d6e5472"
+      ],
+      "cell_run": "01a12425-6176-7428-a376-fe6b40447027",
+      "state": "verified",
+      "cell_outcome": "completed",
+      "entry_exit_code": 0
+    },
+    {
+      "case": "live-hook-fanout",
+      "run_ids": [
+        "01a12425-01c3-77e2-ae76-7179f4e05a0c"
+      ],
+      "cell_run": "01a12433-e1b1-7217-b163-84b3ee8fc425",
+      "state": "verified",
+      "cell_outcome": "completed",
+      "entry_exit_code": 0
+    },
+    {
+      "case": "live-hook-fanout",
+      "run_ids": [
+        "01a12425-01c3-77e2-a5f8-bb02d7cab456"
+      ],
+      "cell_run": "01a12433-e1b1-7217-b738-a1de9c8fe0c6",
+      "state": "verified",
+      "cell_outcome": "completed",
+      "entry_exit_code": 0
+    },
+    {
+      "case": "live-hook-fanout",
+      "run_ids": [
+        "01a12425-01c3-77e2-a8ac-cc73ea2d316e"
+      ],
+      "cell_run": "01a12433-e1b1-7217-ba0e-b11d5830d586",
+      "state": "verified",
+      "cell_outcome": "completed",
+      "entry_exit_code": 0
+    },
+    {
+      "case": "live-hook-fanout",
+      "run_ids": [
+        "01a12425-01c3-77e2-a879-dce431641aa1"
+      ],
+      "cell_run": "01a12433-e1b1-7217-bf89-6a087c881c23",
+      "state": "verified",
+      "cell_outcome": "completed",
+      "entry_exit_code": 0
+    },
+    {
+      "case": "live-hook-fanout",
+      "run_ids": [
+        "01a12425-01c3-77e2-afcc-6da9eeeb1241"
+      ],
+      "cell_run": "01a12433-e1b1-7218-83d5-8032e599566c",
+      "state": "verified",
+      "cell_outcome": "completed",
+      "entry_exit_code": 0
+    },
+    {
+      "case": "live-hook-fanout",
+      "run_ids": [
+        "01a12425-01c3-77e2-a6cd-14039bc377fd"
+      ],
+      "cell_run": "01a12433-e1b1-7218-84c6-bc8ae427c858",
+      "state": "verified",
+      "cell_outcome": "completed",
+      "entry_exit_code": 0
+    }
+  ],
+  "stop_reason": "completed declared queue",
+  "controller_error": null,
+  "interrupted_trials": [],
+  "declared_trials": 12,
+  "verified_sealed_results": 12,
+  "interval_method": "descriptive Student t interval on paired log ratios; df=pairs-1; not the unchanged Kenshou policy acceptance report",
+  "final_instance_power": [
+    {
+      "name": "cell-alpha-broker",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-driver-0",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-monitoring",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-postgres",
+      "status": "TERMINATED"
+    }
+  ],
+  "evidence_sha256": {
+    "focused-anyversion-command.json": "9aaac32be3dca33fea233205764ea27f3794256f9a54a0789a89dfffcf9b6afd",
+    "policy.json": "d63f377e961400536f0bbb3550477ad359a3b11cd1000af7a854e5da1dbaa5b9",
+    "collect.py": "8443d69c9570e9778451409a14c43f74c739bec7b1316adb76e31126d765b4ec",
+    "live-hook-fanout.plan.json": "5618d9454dcbd7a7e74c2c14581f49264d25fbf42ec7c3828274de362945e3fa",
+    "head.payload.json": "60e4399a67cdd05ea0e90622a3223cb804101ba28a29b8293a68ce8ff79132aa",
+    "combine.py": "bc462364b42948617825d30d2dd8efe0361f94dffadf76ddab3a3537b168478b",
+    "scope.json": "ac7ff6d73ca1a79f1842f4e0a97a429864bb516c5bd076ca0556e527ae38341f",
+    "adapter-six-pair-preliminary-command.json": "c328948c76875246877686998c23469f3db97d60cde64a15ca713be042c15f9e",
+    "control.payload.json": "fc4708fd6f4e0e648645111c77afce6552b7d7aefd3ed66ce6d017f48302ae5d",
+    "live-hook-fanout.remote.log": "7e07731c701b3d700f85d01c4f94b63809a22850d3d60591fa7f1f1ba7b60081",
+    "real-adapter.remote.log": "a7f0b74883f171416a95a57fbc9b698a45ebb137e6ca270009d13d64333d62d1",
+    "remote-controller.py": "c3cab9c173e4c0cd40a470fda29d8e829b7fe791e9b86145a4217768939114a8",
+    "journal.json": "6d88a5262cabcff22fdd9e4919f80e838f45c02b621e12d9e2af9689e227fa1a",
+    "real-adapter.plan.json": "7171af5103665fea1979934a6eb2c9a9e4a36c946f3b77b699beb88d69ad80a7",
+    "telemetry-full-repeat.log": "d21f4f63f5ce0284880c2d746a9312961ea031310ff1c8c7b98f2716316d67a5",
+    "telemetry-repeat-command.json": "f0be552a81d3cd2deaa93bcae00abd6d1358c7e40f078c9c7e521a90b31c0224",
+    "cross-session-fingerprint-diff.json": "1b96f3418a40ba891febec3d1ccf605d3a105922a80d7d83c823e417503ee1d8",
+    "progress.py": "b2b97c048435107a2642fcfd86a7c89b04c7b5ddd597d9f2c4822a6ba6c7504b",
+    "focused-anyversion.log": "eee082e13251c60cc6fc4bac0ae9d41809cf1cfa67dcb4955c327e93a4dd1c40",
+    "adapter-six-pair-preliminary.json": "7a2c94ed1752382b3b9cd1ab49c636eccc992302e786f1f0b3d8b5799a757e2f",
+    "controller.log": "faea639638eb28415b3a78d2a7ce30f0167cfefdf616ed39e062d171fa71183a",
+    "focused-telemetry.py": "94f976d5652c01eef1a4815bebf38c1129572e74727fad1319445c54beea39ea",
+    "verified-progress.json": "8518fd94eded759598ed7ac9b3be8f88f92813c11552fe09c8614e7771385b2d",
+    "live-hook-fanout/comparison.json": "d2075cf4a8b4579938c263335786012a840896333c8b9d884f78f88f64653280",
+    "live-hook-fanout/pair-plan.json": "49cf14785ce3db7f523486e41e1dfea3f55ff1a4642fd568b9bc716fc1d6cccb",
+    "real-adapter/comparison.json": "c4ec797ebc67eabce6218ff128c284fece5dcb09c49481b253e6170a62a8f8b5",
+    "real-adapter/pair-plan.json": "d59c6941373665108d95618ce433a7759afbad51d60233bad271bdaa41b75494",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/health.json": "ec8ad969588443b51266e5438ad211c9fde1fcb65887c9e6fb1072d38c2c89e5",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/cell-manifest.json": "051a611bac204a225e4e0fc2e772bdbcb8a31c37ffce5399d710689a93429e7f",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/cell-run.json": "a1bfcc26f824406526c18d53c09d3b43bf6325072c336e040fdaa9ff7b43b229",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/reset-evidence.json": "d90fdbf3b2ed32eaf201d4e57ee46b510534d69a5c85ba4d96fcd5240ed9380f",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/run-manifest.json": "45ec67a0004138408d7d628fbddb844fc6a7cdb1ef40dabc5d0d783f98e8938c",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/run-spec.json": "6a4b9dc6eec0d8d9aeeb9bcc558ef609440c8907868fcec10864cf5f5a4e54fb",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/run-result.json": "239358917d5b74662e4e5566ec84943fc1254c87843c82f1ec6be31f7155dcac",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/health.json": "52bc13a89936ec431f24ee01f61630fcfddffcc1a3890b20be0fbaf8b98a8085",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/cell-manifest.json": "a5d39c05e2d4c0cb8e2dacdd295c214cc38c15bf22d18fce75e2d8ed5943b4f2",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/cell-run.json": "9d02099586ac7d98ce20c6f6be234d7f428f23bece90495144943b08216d804b",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/reset-evidence.json": "f79285d9d69753a1838867efba2e67aaf800b9a70405051ed48a193c6cd3947d",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/run-manifest.json": "9c54b0a5344dbd428a9ba39858aa2e14eb04cb18cdd0431159f7197a1eddfa85",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/run-spec.json": "06341139bd45be3111b04043d75261fc1b24c412fc95266487416ae45699682d",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/run-result.json": "634a2488d031fb8828941f0690c38b9334bc5150f946bae988e14da766cb7d22",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/health.json": "43831352f3460d75bfbb7c495d684688b30b4e5238abd60a5c4d1544c536fca1",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/cell-manifest.json": "b8337063c01ab3c3c4f4842f555e1d5024bfd86b5381e389147cc5c71cc712cb",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/cell-run.json": "ed1b18e8434fe260135376e3d81c2161066de6184c69c8823d931c8acb5350c5",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/reset-evidence.json": "a5578ff68208e515e220d557db11e91dde3da226483e8d15a8b071c187996c76",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/run-manifest.json": "686271e52cdf6a92f9600e5d7c375a662d25b9fd5f901ba07868c4f7ce015dd8",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/run-spec.json": "62cb78f08c295b30ee0f5e69eebb98a679762d3fe1bebc0d2c8bdc71073a1111",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/run-result.json": "4bba14fa62c3bd6e56498cdf2063c816e57750ab9c60b73f32eb3b35fc94128d",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/health.json": "f362a7c25fef8d7f6b7bd4b358965907c56c2c4c225c54b5dd53b66e56a578a3",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/cell-manifest.json": "b4e5d3900f546929d9818dba9c8751ba2e5c5904b1ad71111869f4bd31e49d33",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/cell-run.json": "352afb6017fa4c03661eeff8483de56262455ad24d3c46e852bd6932bb9a1588",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/reset-evidence.json": "2608d96d7cd39cce4768401ad18753d1ca01a9944cd5c6de8182d979b71b9373",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/run-manifest.json": "3435ccc7032a409402174d9c32e1c706c0ee6ed2285101f0b3a39f1d6297bfe4",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/run-spec.json": "3324a7bee96b911a35d10cbb283beb87be2534a8e0f07ca6278aa02bd7070d5f",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/run-result.json": "5ecbd035160358aa1d29c9762aa3c5be14f2cc058ff631069c4504afea54a07e",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/health.json": "5f85314df0b22eb0d9fa5518a462101f9610504150f245fa6fd967769d4b0aba",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/cell-manifest.json": "ddf2fba6682e86b437db69280cf07713d3cf6dd3ada48165236d77193887dddb",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/cell-run.json": "22936b814babf2d52e3b2daacd031dd7f2c52079b2a70f6210ce3121c29cbabc",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/reset-evidence.json": "68fd0e995cbcf1485006eec5a015f04d53847a9731d398d2f223ac3ad5194618",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/run-manifest.json": "a72b5e4efaec0afc42833d36b626ede05f507ebf829418928969308f59daf24a",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/run-spec.json": "0d82453d0cc52cc1c7fd4be449f1d3275c018e6c80bd8a4861858be30fcdd3ac",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/run-result.json": "1d4d56ea67505003731c157acac45661228982b493fbdd40b086d3061c8eb70e",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/health.json": "131f1b86af5ab4fb2bec4fa57e4b8fc96cfc0fd960709d606561d10d860d32ab",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/cell-manifest.json": "a860ba82e6ef28c9ed45a4b440ab71f17d1de94264a9f8379d1dd0a978dddd2a",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/cell-run.json": "5f623d76b252ecf846a98e21f93639d9685dbc7ecf6a8e17f36d63916c5868af",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/reset-evidence.json": "957d1ae20b9f2c7658e6d42dbf0595f233d797982adec921871d5fb9ffe51486",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/run-manifest.json": "932008813374d2535b27848559232a92df13599ece6d806656da3075cf84f7c7",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/run-spec.json": "9693825feffaffb7ff28a0b93813f23715b7f9e891d96e231fb89d19c4dab585",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/run-result.json": "f9bfc1009282e5f2d9f70d41489586e05d8a63886158e7e0efeb57f9f0fa4821",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/health.json": "3fbf41a7308a2dd7e9d7c0e70cdefdeb8bd0a7e935615e19e1caef564062b1d2",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/cell-manifest.json": "b6b1f68e43664191e85e8d4172bbdf9cde2b8d0e2bbb79f095888efc22ca2751",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/cell-run.json": "d5ccff8045240a92e8e6d26f855ea75e61a76021eff80f26e2d3b69e61a759d1",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/reset-evidence.json": "4c69087a35a48c8ea3191e1a8102985e520786155b2bff9d479a45392073b155",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/run-manifest.json": "697de9c84efbdbea90ac5675ce2a080fc1a99fd21f83a39e94193433f94c4b08",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/run-spec.json": "b78e527b6458c4fe93791d3abf28be789a9685b5f2bb23c87e9971072bb72310",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/run-result.json": "63e991d889bf0cbc889eb562026f10c05e9aef40a0d256dc6c20205143ed349e",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/health.json": "42565a613b4a0452dad6719d1630bef90f28a8fdb5fa62b9342f5a00bb144e55",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/cell-manifest.json": "1c26eb0cfc8b5ec64b626b1d2b05eb3b36bbeacae8f5107b761b7e3f1c20dd5e",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/cell-run.json": "cb0ec92b7a3b1d10e93adc936bbfd561da411ce08f335d8ac3a3c3fa568dd402",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/reset-evidence.json": "adab8d6287c2c714a16e58718ceb9e0f449eacd2a32a4afcbf50595fcd801f29",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/run-manifest.json": "edf815858e52bb844eb3390fcc67fb53aa57dcf6b27758cfa13c29d664965cfa",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/run-spec.json": "0edba8dd3a23a129b9c5f9cfc3a7471db063ea09fc2fe9ec672be463ad745f38",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/run-result.json": "a719651eeb9b84cc01990e95ed5be603c5c315ac3c6b12b9eaf3be35f69f2462",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/health.json": "9ee1faa7686ae7b161f52d17a88a8d22b6ce9cd36accf1e493524081a596524d",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/cell-manifest.json": "eccd18e3bddb30f5af9ab6b31477d9bdba9a1f74a9b526a413c6ef8b3f0a1e14",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/cell-run.json": "52a5be6d353e169d02a5b86b1cd23ebb2d84a5713e19a857821a95f57883b5c3",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/reset-evidence.json": "dbce75da8d2dda929c9b558ec713884b01005e4537f74a93ec05c728d24d108c",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/run-manifest.json": "a59b447ae3d14bdac762a2ed0f2ebca97772c411769b65c2c616e770005c182d",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/run-spec.json": "992b81d9f6f08bd00f020c5c423c291a800112a19f58e38d6e27a802da65db45",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/run-result.json": "0897c3862cc95691e0382c4d5aeacacd90d0095c0a2c8536affd0da302e507c2",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/health.json": "6702879605309880c22aaf860b927be957d70f3578de66dec6920e6962e2b252",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/cell-manifest.json": "1aa9653c86ed28543e81a400551ef75f1fc58ed49e0dfd55ba0b9d4764b51183",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/cell-run.json": "4058c306b7b9914a766cfd36668dfc4ef26b327938ea64c79bbdfd950190ca38",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/reset-evidence.json": "42af169e1c501f0c4c8abbdeabf86f5fa614625177af7f4eeb328e38e8d60154",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/run-manifest.json": "de4f0f26017e50538d1c02ab967e27576cedf742ed2b08719481589bd1c1e7c9",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/run-spec.json": "f713f4a773641c2353277d1bbfcf51900c673dc9cb31ea804c120237c92fdc22",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/run-result.json": "e0de2e9b1906daee85ee512e71ae47a8a72f7cd06f9f8ee625fc6ddc553010dd",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/health.json": "30403eb519ca3e7529062c28ae1e93b16a037570d8d1de01bd45a59d4c5bced6",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/cell-manifest.json": "1d6f05489b1ed34dd53e4d3b0ce46c7ec5d7b95ccdf8254ebb63f37809607357",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/cell-run.json": "5e0f5d76e694bf4c4c640f17250c01d18edaafea84c6ad9781f509e14fac20f8",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/reset-evidence.json": "65ca9ce8fd1c99e7e4f0815593409e6385b6e4c9f61d64414462a98cc866f8e8",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/run-manifest.json": "cc56e14e36a433a74e7822798893f578498f41d9953e390581c44cc200aaf45a",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/run-spec.json": "513583ce208cfb5ad37925b385c8014b2a9e8007fe0f636282323916a4010aef",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/run-result.json": "06456a30235366c594b1753b64092126bb9d062188c9be7d8a0aff227fe364e4",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/health.json": "5f05da37c9239d8fec4633caa0b4f5781906dfde692caf11c72c5b183e10b04d",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/cell-manifest.json": "bcfcb1e9db87a544e59e127cb59cba485017385e31d418a4070be092f1873fbd",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/cell-run.json": "a66371dbb2733762bbae355bb0cc744f6faecf938aa083cd2e05ec831cdb8ce0",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/reset-evidence.json": "5370386b01773b85178e3a14168ac379c4253bc6fcf3136e32b529f9898c26eb",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/run-manifest.json": "2b41f1c9d5795f80529a219b0c1336dc5ca6fb6aa2da8a165b72966a654e3f9f",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/run-spec.json": "7cf2c3cfb14f8ddc5e3cc0df8aca58aff4f5b19293254f664153d02975c55b75",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/run-result.json": "68dae0aba2cf13735bbad187a354ffb8280d42763e8bfd69b733a49ae90266eb",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/metrics/export.jsonl.zst": "eadd62b3a857d8d76a2505b6033541f2add3b5675070111d3778e2261549da7b",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/metrics/window.json": "7bfcec3030576ff8b831265e8fdeb7c3d77dffd2a254cf3e38807302cc2d0478",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/plan-summary.json": "62e647d2e4b1237163c92bedede8a18e233f2cdcd2bcc0a818ad1c471f4fa051",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/run-plan.json": "639a86d08baaa89d093ac3e869d5e8a02b60c56a9edc21556e1b81223d68641e",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/cell/result.json": "3254e2de381df415791b9d2a68cee9aeb2116500d135b6bd14128f8dbbfd9346",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/cell/health.json": "5f05da37c9239d8fec4633caa0b4f5781906dfde692caf11c72c5b183e10b04d",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/cell/reset-evidence.json": "5370386b01773b85178e3a14168ac379c4253bc6fcf3136e32b529f9898c26eb",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/cell/environment.json": "be88435feddf3a1b98dc3a522367a78e06d3b55f5e9f115dedfcbd3f079758ec",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/logs/stderr.log": "59fca5483c3ae658392f51d1d58bec0f9b5d6e20c7c4b8556f3db050c3286949",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/logs/entry-exit.json": "1b0f348c77578cae66fdcb884abfb4a24544e49ea4a9e11acc237915a6bb7ffd",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/logs/stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/submission/work": "639a86d08baaa89d093ac3e869d5e8a02b60c56a9edc21556e1b81223d68641e",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/submission/submission.json": "5e3e3b84f7e3045c825b63b4cf67d804af50ddbf87004259c6a4bf42dcc69c71",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/cell/observations/postgres.json": "a03c88cbf0755fc0529f1ae50dc3ccd5f4d0292daf30b7a3864ac6e21487be7e",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/cell/observations/driver.json": "fb27ab5e14e6eada1927880d50215a4fc509d6d2b2c7b4cd7f3b3b32b6319683",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/cell/observations/monitoring.json": "a515701969da121fc7384fdb7c44e1cdcba8dca4ecdb2fb6917b464efb71be01",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/kenshou-cell/plan.resolved.json": "639a86d08baaa89d093ac3e869d5e8a02b60c56a9edc21556e1b81223d68641e",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/kenshou-cell/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/kenshou-cell/context.json": "f6dc19971f1ecb11ee7adfaca5111513bb379301b5dd51b72c1302ceda417f3b",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/specs/0002.json": "eec83a05f6e85ec7e818abd04364f1182a06844900acda9e5f13f18324597bdd",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/manifest.json": "2b41f1c9d5795f80529a219b0c1336dc5ca6fb6aa2da8a165b72966a654e3f9f",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/run-spec.json": "7cf2c3cfb14f8ddc5e3cc0df8aca58aff4f5b19293254f664153d02975c55b75",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/run-result.json": "68dae0aba2cf13735bbad187a354ffb8280d42763e8bfd69b733a49ae90266eb",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/series/pg-activity.csv": "ae373579ee681a0ad963ca033902438d73b2d51cb43172f992c89f8f7e2dad5f",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/series/pg-statements.csv": "5633fe4832cbe4dd001583fec7c7484b79eb4393ad9e196ffc47fdc5cf38d66c",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/series/sampler.csv": "8ffbcba4adcdf5dc9d472ec783bcfeeae9130ca12057e0ed76988bd04e458b84",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/series/proc.csv": "26f81268d672fa97da687d26d0b79530fc31f93b133a542d76e1a8c4afabcc6b",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/series/pg-database.csv": "fd39e1c5a56649b2bd529a721e5b3252b5512ad7e938c536685cc2389b05a100",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/series/pg-wal.csv": "116b078753cbdb5c35fcabb963c61753b9c639909fb1d45b8856ec374370575e",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/series/rts.csv": "090faa8352c62f5661e52dacb66a71c1ee1d79df054ca28e7b2fc8b27d850061",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/series/load.csv": "7441947944f32febdcb1561de7dbe4d3491f778cfcbc05f5a195d88f091d195b",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/series/pg-relations.csv": "9e81aae95b866f812d04a52d6209a9f1acc3d2824a1157764b4fb5e2511ba7e4",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/series/pg-checkpointer.csv": "768ca8619fa09f72fc41d2bd773f1892a70923cc5dfab652cfa5ccd35e76ce9e",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/series/host.csv": "583a6db1f259123213831e2f19858eef3ecd641c7ebe14a631d91d386bc1e030",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/samples/append.meta.json": "51f835beb3d0d542192972ab1de12296838ec15307bea6378057ed1e2ca4627f",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/samples/append.raw": "1196b972841e5154ed57a874714d006564c6a337ad50ac3a2b92af2cf9340212",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/samples/append.hist": "506cb34e210ae22b4105af24c16acd5f2a05aba38280db73e288b84083cd26a3",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/samples/append.service.hist": "883fdddd6492aaeb288f325a5c86f80c9c8fe9c4ee9573e2a36e5f1eac0b2932",
+    "runs/01a12425-6176-7428-918d-8acf7ffcddc4/tree/output/01a12425-01c3-77e2-a424-b350cb80c2e4/logs/harness.jsonl": "94f94e6f85213edc363ffc353f388b44515731edceb3dfd7f5c8c24fc2de694a",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/metrics/export.jsonl.zst": "32035b6b1691514a13f974a10b18d99207b75ffcb6f86c52aec913237b94c76a",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/metrics/window.json": "63c2aec4b34a31d962c07e3513590386990f798bef66b6d38722f899969d5ee6",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/plan-summary.json": "349cfd7583a8e3f35b35c9bd59204f0c2d6300b31b0d121b66964b7bd867b09e",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/run-plan.json": "d8b2e06591a02ebabc66b3e3542dce46aac1b185cd98f6b9201c7cac65a09db4",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/cell/result.json": "d6e8e7df7fad422b2add812913983df8af7e5bc82c81a6ce4b97fca9832ae651",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/cell/health.json": "30403eb519ca3e7529062c28ae1e93b16a037570d8d1de01bd45a59d4c5bced6",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/cell/reset-evidence.json": "65ca9ce8fd1c99e7e4f0815593409e6385b6e4c9f61d64414462a98cc866f8e8",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/cell/environment.json": "a2deb028570a69774ee15e1930be15dd299daad69833fdacd8c250bce1bb735c",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/logs/stderr.log": "59fca5483c3ae658392f51d1d58bec0f9b5d6e20c7c4b8556f3db050c3286949",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/logs/entry-exit.json": "1b0f348c77578cae66fdcb884abfb4a24544e49ea4a9e11acc237915a6bb7ffd",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/logs/stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/submission/work": "d8b2e06591a02ebabc66b3e3542dce46aac1b185cd98f6b9201c7cac65a09db4",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/submission/submission.json": "9b0892a365b95681c7f44c75d92a5ec5da4583462bea2febf271e37d8cfc53fd",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/cell/observations/postgres.json": "7d29f4c1bd8183d049c3a81aa084dedb593d8b4cca5ab870ee7858d29a685dc7",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/cell/observations/driver.json": "11950057b75874f223fb20e0ac6592baa7ea29440be70289a63a93be7a7ff911",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/cell/observations/monitoring.json": "7e87e57164afce63462d7e68b72691daa524a2a784f0bedf647af546755b0172",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/kenshou-cell/plan.resolved.json": "d8b2e06591a02ebabc66b3e3542dce46aac1b185cd98f6b9201c7cac65a09db4",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/kenshou-cell/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/kenshou-cell/context.json": "4e312fc5b3edace9bfa105dca3db96cb6e0c3851f05d13c6657ddd1802525ec3",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/specs/0004.json": "f24bf742e5746a82c16709e60ed6f21308849708ecdd865bb63a00e44312d945",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/manifest.json": "cc56e14e36a433a74e7822798893f578498f41d9953e390581c44cc200aaf45a",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/run-spec.json": "513583ce208cfb5ad37925b385c8014b2a9e8007fe0f636282323916a4010aef",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/run-result.json": "06456a30235366c594b1753b64092126bb9d062188c9be7d8a0aff227fe364e4",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/series/pg-activity.csv": "9361b9793fd7da3f6f634a1b6e9b462eb39cbd6de9f79b175dea554438024a16",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/series/pg-statements.csv": "a7236d786194c17c6a78ac904a011c1d8b74c1f252a4f8d8e325e070a36695d7",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/series/sampler.csv": "60d6e3af7b6cae50e412731a656c534c0197d7030ef98ae2de96417def48529a",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/series/proc.csv": "3e4a9b0f480075ccc5ea77c968b132c636af2dbb389e2376b0644e64db455ace",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/series/pg-database.csv": "0f3b9d9ec33dc963576427e7542887d6152745327556d55117b6f8157ee16a6d",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/series/pg-wal.csv": "31f061e1d9c7e5693f5e6a26e8a74c12c8cb7f15119c63beaa305121b1d5f228",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/series/rts.csv": "5ee6d1c3b29f7783972dc5e495371e07b75657260b3b5be4b630d5ef4a3adc03",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/series/load.csv": "3ece8981ab0e3ca9b5271f110334b84e51c5e294970ac310a7f56f2b528139f5",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/series/pg-relations.csv": "e40144972a2015d75f05b5ddd546c9cdadc417a048d790480110a45fc9ca1b5a",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/series/pg-checkpointer.csv": "47b92ad5907af1f6f83cc1777636a84853f2b9f0f9e869c3ea6f2ef67da61af2",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/series/host.csv": "a605760bb036ec81ab3e565e6849489bedf8f0aa1f862a1c8b451941c920539d",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/samples/append.meta.json": "13b9e0fe3489a9b97021930e3217ac70d40ec8e2b7831f3b8d702c04f4f691dd",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/samples/append.raw": "07e53ae12dba4061555635a9cc2d2d7d682ea0ae9c468ee1df912fa194f0955c",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/samples/append.hist": "9ae1d8526d6833908721f8cf82e31f5816b1cb08c0a7d6ffdef1bab873dd0e16",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/samples/append.service.hist": "51a528cde7b8ec59a8434933df3b6017b12ed4269b5b271e129dd007ad166ae7",
+    "runs/01a12433-e1b1-7217-bf89-6a087c881c23/tree/output/01a12425-01c3-77e2-a879-dce431641aa1/logs/harness.jsonl": "42fa45954d8075bd90ad0d4c0dda8aff5f7a4d5900035d4be364c30d978388c8",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/metrics/export.jsonl.zst": "a4d543de6561380091509ad3ed9a40c10817b3b8c8e5d71f594dbd342bf3a33d",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/metrics/window.json": "71da7dff4d042a6f2289a1efa7acfca84ee18c99e86f4204375a7b184a84d61a",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/plan-summary.json": "bf27e1cdbf16cdf68497cbdcd1730d2d6d9776f32c9b5fb7fe24b5d3e45b1c67",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/run-plan.json": "9883ec2f4a554ba1630b8255f2630f57eb41b3be6a47e70db448fe263000b91b",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/cell/result.json": "f6c41f58b0ad0119f6775bf204ac2d1f4ff6b88884afac3007c1ce991f196c05",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/cell/health.json": "6702879605309880c22aaf860b927be957d70f3578de66dec6920e6962e2b252",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/cell/reset-evidence.json": "42af169e1c501f0c4c8abbdeabf86f5fa614625177af7f4eeb328e38e8d60154",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/cell/environment.json": "363ac346dab4dc249caa62c8b912b3a64488fe1e0258daca997341b4a5fec247",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/logs/stderr.log": "59fca5483c3ae658392f51d1d58bec0f9b5d6e20c7c4b8556f3db050c3286949",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/logs/entry-exit.json": "1b0f348c77578cae66fdcb884abfb4a24544e49ea4a9e11acc237915a6bb7ffd",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/logs/stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/submission/work": "9883ec2f4a554ba1630b8255f2630f57eb41b3be6a47e70db448fe263000b91b",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/submission/submission.json": "480206ca6c77462957ef6b3a863f04edf1b2b78016967c499a1b8362dc0e439b",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/cell/observations/postgres.json": "f4a352e3b509e9a0244814c23163a90d7bdcc6ccb87d8aea29b20075a62fec41",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/cell/observations/driver.json": "ec0582440248cc7f846e5e23915b44f3ae18fce9f24f097317c4bdd69b4204f1",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/cell/observations/monitoring.json": "8aaa54151dda99b0925c8520639f8210a984374718256956debb46a48194192a",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/manifest.json": "de4f0f26017e50538d1c02ab967e27576cedf742ed2b08719481589bd1c1e7c9",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/run-spec.json": "f713f4a773641c2353277d1bbfcf51900c673dc9cb31ea804c120237c92fdc22",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/run-result.json": "e0de2e9b1906daee85ee512e71ae47a8a72f7cd06f9f8ee625fc6ddc553010dd",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/kenshou-cell/plan.resolved.json": "9883ec2f4a554ba1630b8255f2630f57eb41b3be6a47e70db448fe263000b91b",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/kenshou-cell/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/kenshou-cell/context.json": "a5e5d9c40cdf8a0594c9ed04702bc7ed451fd7323636f6613041bb7cab499f0b",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/specs/0005.json": "d14155693f9d20dd23f4df40a45ddadae8de3cd348949b43f4d049dee996f21f",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/series/pg-activity.csv": "90853f6f477ece25dca55e67bb962063692c2b2765e3e3fede104c1ae5621fdb",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/series/pg-statements.csv": "c0d2d0ab48a93c308ce412eac50174c877089f84a4f9b0f3d6074f6171db6ddd",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/series/sampler.csv": "56190ca9a9e5dd75591370d5dd7fbafbf7ace2c84b27fbc5ec6ed2c0a11d13b4",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/series/proc.csv": "e6f262ef195ba0f297248d69210c2c0957a350dd71aee7b7c846c4d22c901bc1",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/series/pg-database.csv": "a4fd782550968b07bff99e9c16321910a6a5eb183ea73d201948995aeb104175",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/series/pg-wal.csv": "2e72b25e928970d3b831ca1806342e3131f5d5f9da182fc1b9f86bb1ddd51e26",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/series/rts.csv": "a3b62accf71d878ce9cb1a98010f1d788bd2bcd0778519fbf91d3744a1e81cb3",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/series/load.csv": "41bc06b78a81e41e34ebf570cd7470feccb547d14c47a58a726908123aed9f27",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/series/pg-relations.csv": "ef952990414bb441133ea42c71c59195dc14e2aae24ce92209e5406e2af731c1",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/series/pg-checkpointer.csv": "92337d1d2d462c7beb62d37787195c3d8bb24f02ea8645947e7014bc0205cd1a",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/series/host.csv": "2062fa4fe3c2be91acd0f909e906244f7d90bfa86ee70a498fe7a72179fac099",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/samples/append.meta.json": "49da7df6b8bdf09a4ccbc9a84f316d2c58d14efbf4d34c980b0d55682a655764",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/samples/append.raw": "d0eec58d911b669e3ee993d6ec82e460511e6995c38bc94cf13cc2e75567bb05",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/samples/append.hist": "1982b290f28a10c068431a5548d3930c54f950ae99422dc744c94aa7df0423f0",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/samples/append.service.hist": "ab01f6c37f4892bb6c122e28108b593329ad135cd89793e8f16bba77c61aeb74",
+    "runs/01a12433-e1b1-7218-83d5-8032e599566c/tree/output/01a12425-01c3-77e2-afcc-6da9eeeb1241/logs/harness.jsonl": "41c53882e9c7f080f49ea80cf9155455f6744537297070cc8f9ef97429c178ad",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/metrics/export.jsonl.zst": "0e0265b0e1935503e6cdbe801cf6e3855d62ba20ad700b200ca1aa2135a2fa3d",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/metrics/window.json": "5d04b7c19c0d1134fb764bafdc209f92ad858a0ba900a142891568d2c4f294d7",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/plan-summary.json": "78d9dbcaebdbc2efdd7eb862541d52d0ac0fe3825688e167fd10d303c02da020",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/run-plan.json": "919cbf59b7482e0d153c3e086d4b31d2cce67c728dc05f9b6f6b53f4ebf8551e",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/cell/result.json": "253c70156fdc3c02cbe14f1541e39c9104be4d28add2002a9a4252c12e585935",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/cell/health.json": "9ee1faa7686ae7b161f52d17a88a8d22b6ce9cd36accf1e493524081a596524d",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/cell/reset-evidence.json": "dbce75da8d2dda929c9b558ec713884b01005e4537f74a93ec05c728d24d108c",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/cell/environment.json": "d6951379b979fcee462e7f52d5a4d21cc04cf877d7c26fc20840e4753ed611a0",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/logs/stderr.log": "59fca5483c3ae658392f51d1d58bec0f9b5d6e20c7c4b8556f3db050c3286949",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/logs/entry-exit.json": "1b0f348c77578cae66fdcb884abfb4a24544e49ea4a9e11acc237915a6bb7ffd",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/logs/stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/submission/work": "919cbf59b7482e0d153c3e086d4b31d2cce67c728dc05f9b6f6b53f4ebf8551e",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/submission/submission.json": "723f000ceedfaae7c0f263c68cef5f286c7ca90c65981835f8ea426d9617ce55",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/cell/observations/postgres.json": "15ec9a8cef291f786e28770155b93258d3aa907aa0b0fd3515507ba305e513f6",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/cell/observations/driver.json": "398a8332a6cf3de142ff6e38c9b446a4b72e7dd3db33b9042e36299ba6d2ad6a",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/cell/observations/monitoring.json": "804540b900c9cf0ef0e7718cf7fe8e9cddf57fe58f43cf6de06bfa3bdf7f09b7",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/kenshou-cell/plan.resolved.json": "919cbf59b7482e0d153c3e086d4b31d2cce67c728dc05f9b6f6b53f4ebf8551e",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/kenshou-cell/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/kenshou-cell/context.json": "0a059f0003a5603e7abf5510f4841608f9061d17806fd8bc505816f2ec28c7f1",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/specs/0003.json": "1194655f1054e96b3a40a299c104742b38a5dd9b9436550bc0b08a8f7a960213",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/manifest.json": "a59b447ae3d14bdac762a2ed0f2ebca97772c411769b65c2c616e770005c182d",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/run-spec.json": "992b81d9f6f08bd00f020c5c423c291a800112a19f58e38d6e27a802da65db45",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/run-result.json": "0897c3862cc95691e0382c4d5aeacacd90d0095c0a2c8536affd0da302e507c2",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/series/pg-activity.csv": "b42f8e26531a303ed3e210f93e4993c85ddedfc54004294642a2bb9d269454ee",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/series/pg-statements.csv": "bef0676fc4744b06ecf1c1dbb46f6a937b47a7ccb9283065b90cac35e3205bde",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/series/sampler.csv": "2b697bf58a7703b75107205a89ef3fa82a6e266102fb6f6026223807b8101192",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/series/proc.csv": "faf4b3012392fa0f21d20cce7935966cc14df21f23509cc6dfe2caa64984d299",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/series/pg-database.csv": "f4c8a086f01431695a711fb7a77f76c9a68c63017ac48cb08dcdf2e347c3c75a",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/series/pg-wal.csv": "06f84c45ab0819b198283085200b93f071ec7f97c9041f991a968cef83b9c6fe",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/series/rts.csv": "95b64bb0a9a16d20d43b6249d767b48a4fdc66677270582f8ddbe8329ff08df2",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/series/load.csv": "703c828546c88a0e5e276cc9171f52d6d0a274105feacbadc2cdf7583c8b35d7",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/series/pg-relations.csv": "d6eba0061bfde856119a3356fc95d49891497c804d8bc831f9d9c5e808866aea",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/series/pg-checkpointer.csv": "1fc1e226733e762c179d57d841899f6ff0e6534a0b08b30d76c606c2b5288973",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/series/host.csv": "bc4f5dbb011834a0c7271dedc88802d5348d7e6d189400fb8a9e09072f5bfaa8",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/samples/append.meta.json": "a200ef3e25bac87dcdec30b3bab63aa20cb529281c36f5daf31935605c614a4a",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/samples/append.raw": "6c67a4f8a2943e9b8fa3cc4b024faa4097650ae9525db9055e57e7f830a60d8c",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/samples/append.hist": "26b4e3651a55660cc475df9e1b6e6ddb3c509d38054c2146c602f98625d662fd",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/samples/append.service.hist": "b7d103b2640d56a2b8501890a2e6072b07989a31f2bec6c9165f79814004172e",
+    "runs/01a12433-e1b1-7217-ba0e-b11d5830d586/tree/output/01a12425-01c3-77e2-a8ac-cc73ea2d316e/logs/harness.jsonl": "8b0bb4a8c1a047c5b4e2e259373a3cc473453be8c2635cdde6a73eb214fab9ff",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/metrics/export.jsonl.zst": "c27d6cb4038a61fe3066507b1bb973702304e07d628afcf0ce0c1de5ada8eee5",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/metrics/window.json": "976a853a8f6b004522b36721d2db65861b94fe59b894003c0bb27fd7b296121f",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/plan-summary.json": "eaf2a23a6e1c7c334224a63f8f61332564ca0f545373a395d00ee0b77bedbfb4",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/run-plan.json": "66864805128ee40f93cf7c347bd2f3ddbac145804308422e4ff47345ff3b39dd",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/cell/result.json": "ad94296d60a84a181fb0cdc6aba647d8e5488f2a57b022dc34f25802294c1563",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/cell/health.json": "42565a613b4a0452dad6719d1630bef90f28a8fdb5fa62b9342f5a00bb144e55",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/cell/reset-evidence.json": "adab8d6287c2c714a16e58718ceb9e0f449eacd2a32a4afcbf50595fcd801f29",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/cell/environment.json": "72feb1e6f03ad98bbc8ef89ce557f2ac58edd045a6c7a830a93d3adb90d8d3d5",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/logs/stderr.log": "59fca5483c3ae658392f51d1d58bec0f9b5d6e20c7c4b8556f3db050c3286949",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/logs/entry-exit.json": "1b0f348c77578cae66fdcb884abfb4a24544e49ea4a9e11acc237915a6bb7ffd",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/logs/stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/submission/work": "66864805128ee40f93cf7c347bd2f3ddbac145804308422e4ff47345ff3b39dd",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/submission/submission.json": "11d156152122ae62151adc4fbb29555f1237200a808bed575a955e74046ad35c",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/cell/observations/postgres.json": "770a44d1c6b43abf3f53c889a824a2aa85c81fdfcc9a5391075a6de843f262f4",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/cell/observations/driver.json": "eb975f934c0e38a020646dae648bac561a33105ee7ee805887e36072dc3736ea",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/cell/observations/monitoring.json": "a86b01338ab97ad1cc4c973ff58fb191cda19e6da64e5f5b6ac62b6a5c8595fe",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/kenshou-cell/plan.resolved.json": "66864805128ee40f93cf7c347bd2f3ddbac145804308422e4ff47345ff3b39dd",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/kenshou-cell/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/kenshou-cell/context.json": "80f19d00d07747e0a7f5a44b950dc8cb6f831e913e2900d2a22500851b555606",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/specs/0003.json": "bf5380305bbd3d04faae73b1a79726ee34563e4b8fe391a2d0a99e23d0e5ba75",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/manifest.json": "edf815858e52bb844eb3390fcc67fb53aa57dcf6b27758cfa13c29d664965cfa",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/run-spec.json": "0edba8dd3a23a129b9c5f9cfc3a7471db063ea09fc2fe9ec672be463ad745f38",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/run-result.json": "a719651eeb9b84cc01990e95ed5be603c5c315ac3c6b12b9eaf3be35f69f2462",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/series/pg-activity.csv": "9721da1206617ef785a9fdc66543912801ddc7583d26ecfee66b85e69847c622",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/series/pg-statements.csv": "5496c6d11c98be2016d5ed1a7791ec3c72ab9d373302395a69551159c185e64e",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/series/sampler.csv": "617f05250cd49eb166c7edea5f1b7501bbe90e59a97db9e01d7a697665f9862e",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/series/proc.csv": "4102356ed6a51704f1f1b3fd8c4511b0e4bda5e5de3e4bda63f81d669c5cb9e1",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/series/pg-database.csv": "14149850ae344941d52e7eee419a40eed7e1ebac629483f9c5371de0e2ab3b2f",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/series/pg-wal.csv": "3951c5625ba8662e443fb03758c748b12af4120afbbaf180d9aa7b3d03da4c15",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/series/rts.csv": "c4bf55b64d56b40efbe6fe2663c9c33395b29f4f7248f8e06c07b2474769d509",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/series/load.csv": "b676f8a5cc30da9f281e84a57432722c95f890741ac6dfd11e90d9c0ded308ae",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/series/pg-relations.csv": "ef0ab4b42e0aa4d316bdcf818c1fa1a8d7f89877b453083e06dda49f2c5e1324",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/series/pg-checkpointer.csv": "17a9b6b93977413faa535570cef68656814c28f0d1000d014ef5cfb274049e05",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/series/host.csv": "beb4ea6a363732aae17b56023ad1807604f1a60089196ebfee0ab8c96dc64a15",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/samples/append.meta.json": "368fc555930060dd992ea157da40fa1bdaf4f7e41975871f50d51bbf8b884f5a",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/samples/append.raw": "d6efa98b7b536ce476830b9cea7488d32b275949ace6cf3160f1d8e4bb78ede4",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/samples/append.hist": "8dbe922ac770cec7f38bf44d2a7d9caa343acffe0df55ba4e5519fcf20f1b1cf",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/samples/append.service.hist": "4ea1dba9b5cf714879d1abf003df78e5ef494002c073a3dc6ff5ce507b518d73",
+    "runs/01a12425-6176-7428-9694-4492fca17d7a/tree/output/01a12425-01c3-77e2-a4c7-e53f0221a08a/logs/harness.jsonl": "3078b83111bffd5b8885bf290de6a3102a2c4f841caa74170bbfed8f033fa227",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/metrics/export.jsonl.zst": "97a7a79b3aab07d77bf1e365fdda691ac2151d699277a783e058fccee8f5a854",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/metrics/window.json": "c3ca2dc5a7732170334d4399f948db7795ba191dd73b96880deb9caf47746bc3",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/plan-summary.json": "f0da22cbf413695a2f0e62ddd9af5b07fae7937c65df20ad5eedb89308baabf5",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/run-plan.json": "4735561b8c6233fa8e4f83dfe0b6db258f7a44589729247601e0f20dd0b50244",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/cell/result.json": "e4231e94c9016c43d774688f023d6cf41566d95f86de7c29c3337c061a42f746",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/cell/health.json": "3fbf41a7308a2dd7e9d7c0e70cdefdeb8bd0a7e935615e19e1caef564062b1d2",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/cell/reset-evidence.json": "4c69087a35a48c8ea3191e1a8102985e520786155b2bff9d479a45392073b155",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/cell/environment.json": "8723468ea10c45bcf0e046f0003c13c061e9237140af0bbdbd958a9dbf6c7d97",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/logs/stderr.log": "59fca5483c3ae658392f51d1d58bec0f9b5d6e20c7c4b8556f3db050c3286949",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/logs/entry-exit.json": "1b0f348c77578cae66fdcb884abfb4a24544e49ea4a9e11acc237915a6bb7ffd",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/logs/stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/submission/work": "4735561b8c6233fa8e4f83dfe0b6db258f7a44589729247601e0f20dd0b50244",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/submission/submission.json": "ed9828226159eba4900d2a093e733df20e209ba0786d24e64c8aa5560662d651",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/cell/observations/postgres.json": "a37f474fcdc0ddbea59a362771ab85239e4e96b2d6412caee3d93ae5a7ceaf91",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/cell/observations/driver.json": "9ef1bbe3e26585ee36e3c2cd4733e7f476b4b35473717d2de91466acb81762cd",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/cell/observations/monitoring.json": "717abcb6fa98072ac6555354ed92bf4a3caafd29a7ed4598d95326e3b28b6b5b",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/manifest.json": "697de9c84efbdbea90ac5675ce2a080fc1a99fd21f83a39e94193433f94c4b08",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/run-spec.json": "b78e527b6458c4fe93791d3abf28be789a9685b5f2bb23c87e9971072bb72310",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/run-result.json": "63e991d889bf0cbc889eb562026f10c05e9aef40a0d256dc6c20205143ed349e",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/kenshou-cell/plan.resolved.json": "4735561b8c6233fa8e4f83dfe0b6db258f7a44589729247601e0f20dd0b50244",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/kenshou-cell/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/kenshou-cell/context.json": "6b0a9e89e5462c1a8c19ec10401578c9d84c72847211074438c0e7791df707fa",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/specs/0001.json": "856361044c21f0c09400de164ee6a4f9b21af8aed4f88b1041ea0ae6685af3ca",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/series/pg-activity.csv": "3d80854efdbef0e4700b29b009d8d52af71f3b966b8e38985406dc7c4f8daa37",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/series/pg-statements.csv": "05854e341d674864a92fa93d3b22c0af8f90248c97211b84239d73f66d2093db",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/series/sampler.csv": "e2d83ee1fe55b8878b9188053cc143c7d876d71ddab2d547a130e6ccb56eb6f9",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/series/proc.csv": "be28c6bd039206696ad24edc7a29841115a9e58c04d0be785e6f18df2e0ff23a",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/series/pg-database.csv": "bcaeddfd5f80eb550eeae1570d09dfe1a5efabca6b52ec995b15b68d608c095b",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/series/pg-wal.csv": "98429e4fe8e26246e447ad0fac4dc76554ab487a6c4103d6daea40bc417f925c",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/series/rts.csv": "73d1a9bfc4d6af3e3e752dbdb690bfbf08bcd00d1c342d313c80bd9627955d08",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/series/load.csv": "54ce6c8f56d96d6f85e4c6bf6e808625a6f0bd1d5c8c4413c337bbb3d4403d26",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/series/pg-relations.csv": "6468673b6df78ccd07bdde42f783ea89c2dcc3e048e601bcc7287a297ad81ba6",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/series/pg-checkpointer.csv": "745319d24ff83e4281c56fab3e9328cdb27353aababdc6579eed0ae70c13542a",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/series/host.csv": "68101facfefbbaf2465f1e5eb507c6c1f271c34ffd0dfae3f1db2174faaddfe6",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/samples/append.meta.json": "22d9da3fa67560e5ed7bb719ce311bf16a8318450c83fa70b4c2a4c7b08b4def",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/samples/append.raw": "81d6688ba1821ac5df5c006861d83bdac390b45556256b582698cb523a16ec0f",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/samples/append.hist": "cbba4cc85b0870d89b47ed888ea2301e72920987f672d2f8f92f8f3a05fd0f62",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/samples/append.service.hist": "0a67af7efd3fbf55fa8d40e3cfa52a6820b5360f717a3aaa270b90e88b41c8ea",
+    "runs/01a12433-e1b1-7217-b163-84b3ee8fc425/tree/output/01a12425-01c3-77e2-ae76-7179f4e05a0c/logs/harness.jsonl": "2f26e99be3c0ebcb0545b658e44e6b07e56bb3f6e2399cb04c75f52a958daec0",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/metrics/export.jsonl.zst": "0803ff77c3b4593c030d574cc5bab9ef1ffec473fa514e3b202eef933fba4bdf",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/metrics/window.json": "58c43de1399dee846b1556d9a1766cdc65e810e88fc7b010333689da977557c5",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/plan-summary.json": "14099e1ece94ec292703defec804e0c3bf9ca6d78445e1720ac20e533954c6b7",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/run-plan.json": "2741c5361e788bc66c58464f961ac522e3dd062750b0e9dbb02cd9006c92cbb9",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/cell/result.json": "8d32fbb142a4650aa445b268700e85ac50d8e940dc6ba0c7fc74083ea0a683a2",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/cell/health.json": "131f1b86af5ab4fb2bec4fa57e4b8fc96cfc0fd960709d606561d10d860d32ab",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/cell/reset-evidence.json": "957d1ae20b9f2c7658e6d42dbf0595f233d797982adec921871d5fb9ffe51486",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/cell/environment.json": "2f66602883c4e13abe112e6992a19a521de644d867d39bbdd447938eb0a64913",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/logs/stderr.log": "59fca5483c3ae658392f51d1d58bec0f9b5d6e20c7c4b8556f3db050c3286949",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/logs/entry-exit.json": "1b0f348c77578cae66fdcb884abfb4a24544e49ea4a9e11acc237915a6bb7ffd",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/logs/stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/submission/work": "2741c5361e788bc66c58464f961ac522e3dd062750b0e9dbb02cd9006c92cbb9",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/submission/submission.json": "d247f003ac3cf6d2ca79a6615b55ed9ca68c0483f36979ef92a15ad041399f0c",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/cell/observations/postgres.json": "b7ab8cd1a6045bdac34a2dc338b38c622942d0ac47b7e71af35230225bc2c518",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/cell/observations/driver.json": "7e09137d4679317884b2a4d3a5c85a2a152b2be18e7fd29cd54be83e733d8932",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/cell/observations/monitoring.json": "da1c23cd26fb071dcea48522f2022270ceda4d61f7d7c5fe32768d8328d5cbe6",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/kenshou-cell/plan.resolved.json": "2741c5361e788bc66c58464f961ac522e3dd062750b0e9dbb02cd9006c92cbb9",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/kenshou-cell/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/kenshou-cell/context.json": "c7158b8f7a10ea25a6618aa4a0625eec9d2fe32e50fcb0f401903c05d891005a",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/specs/0001.json": "3a0bbde6ef49d964cb3c223e22e091edbbc3922338d8217570f67dfe311b9cc5",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/manifest.json": "932008813374d2535b27848559232a92df13599ece6d806656da3075cf84f7c7",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/run-spec.json": "9693825feffaffb7ff28a0b93813f23715b7f9e891d96e231fb89d19c4dab585",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/run-result.json": "f9bfc1009282e5f2d9f70d41489586e05d8a63886158e7e0efeb57f9f0fa4821",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/series/pg-activity.csv": "5e023d99022e549d627350f8d6abeafb7b4ddd0f0fac2ab811fc6d3fa203354f",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/series/pg-statements.csv": "1b4025c1a74c840b494f5158d040b47730195cb0054a7994c671de53a5c492d1",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/series/sampler.csv": "2da5a377dfe707fff2ff883fb36f250b0dc2f8dbb729a2053f7407994327de83",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/series/proc.csv": "e52c7f9da9e07c5ea92b344bfc7a0313b14c29edd1cd75a9f24e81db6d44cfd4",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/series/pg-database.csv": "b0a78cdbe5e1095bc5943ab0b09450023955a0769f1a53e601d548a06640f0f1",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/series/pg-wal.csv": "2426ffccd4c375762722012e24ecb35302331be9e781663e31c1e0d84968b60d",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/series/rts.csv": "6df919c92631357141e082b70dff6ac4b077c52c3c118c2849b5d29e03d7f27e",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/series/load.csv": "6529c6f73202788842534f55826b16b73190f7425b481d5a6f4f7de39f75459f",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/series/pg-relations.csv": "64610db06a579b6a60f01fa49360c39b8b0ed20e43bd32e6cf8e0c600d84d17a",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/series/pg-checkpointer.csv": "1eb9ea19e201827caa52c5e7035ca4a3c05477921f487cc018491bca2f411311",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/series/host.csv": "f5212cf67a0fd7551e7c72cf97cd3f0b9c254f9f496642c9eb8d0259333faf4b",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/samples/append.meta.json": "028b47eb15e51c006077bb6d948c94872c88eeafa99b764e0168047b650a47cb",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/samples/append.raw": "71643a17b4e3efa314117c1e04ad0dcf9d5ef7fb10a1a0b8e6bfb9f98cc62c5e",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/samples/append.hist": "b007de31b6b536e6defd0912171abb0d255978dbe67410192e308dcc67e85086",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/samples/append.service.hist": "f68c52eee16386df0983c5aac502a5e0199176d592c07c8039c585e873968f3a",
+    "runs/01a12425-6176-7428-8d1d-acfd19a601d6/tree/output/01a12425-01c3-77e2-a874-4e709e0e6e49/logs/harness.jsonl": "1626c873d8972570ba3e06b10e75135835c315e94aef8eae3641030445b831d8",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/metrics/export.jsonl.zst": "a2350d7c99547aba7f326b7637efba05eb9fb418b66e9e99cbf6bf76a40ab2f6",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/metrics/window.json": "42233957ec299d6804777c12b26d92497dbb4fb531b23d6ac7ee1fd57fce0852",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/plan-summary.json": "a8903b12db823b5b19c3afad0e345b93a09f7ff5e3121467c49e1839546b6758",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/run-plan.json": "2ccc1b377d4ee074182774ddc5a6ff747084e3db4bc0873ad32dd12b3fd7e779",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/cell/result.json": "9132889e9148724832f92d99e5f717a6c124e9f59424c54457801c20c61852df",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/cell/health.json": "5f85314df0b22eb0d9fa5518a462101f9610504150f245fa6fd967769d4b0aba",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/cell/reset-evidence.json": "68fd0e995cbcf1485006eec5a015f04d53847a9731d398d2f223ac3ad5194618",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/cell/environment.json": "71ae73d11d3e2a48b00b4fc53b8675e9b79925c50989c8e7031804f848994320",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/logs/stderr.log": "59fca5483c3ae658392f51d1d58bec0f9b5d6e20c7c4b8556f3db050c3286949",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/logs/entry-exit.json": "1b0f348c77578cae66fdcb884abfb4a24544e49ea4a9e11acc237915a6bb7ffd",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/logs/stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/submission/work": "2ccc1b377d4ee074182774ddc5a6ff747084e3db4bc0873ad32dd12b3fd7e779",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/submission/submission.json": "d831e419df70b821a7ce4ce8ad81d82105a326077cb8b7db22026e6fa4c4cd13",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/cell/observations/postgres.json": "44777f84f2283dd44c22f5fc4001f46dc4623e9e78ca3a18094d64d3421df0d9",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/cell/observations/driver.json": "4c44226b5ad2792d26a75e1f6b1a5fcc490afd69c5cf60588ed13940e957f2e5",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/cell/observations/monitoring.json": "f205a7db66fb8cbea815903f71b66033e41038b655d5b83085cb00e16e156655",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/kenshou-cell/plan.resolved.json": "2ccc1b377d4ee074182774ddc5a6ff747084e3db4bc0873ad32dd12b3fd7e779",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/kenshou-cell/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/kenshou-cell/context.json": "1cbfdf8a541b8e40cc7a1e392251a9f3ff518a3e339e511c3505ede1dcbf2cc2",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/specs/0002.json": "4fc3937f9079fbf71fe3ae8f12fe8d58a80c4bc4a992b651c796c804e2ac85d6",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/manifest.json": "a72b5e4efaec0afc42833d36b626ede05f507ebf829418928969308f59daf24a",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/run-spec.json": "0d82453d0cc52cc1c7fd4be449f1d3275c018e6c80bd8a4861858be30fcdd3ac",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/run-result.json": "1d4d56ea67505003731c157acac45661228982b493fbdd40b086d3061c8eb70e",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/series/pg-activity.csv": "fa625a79346ceac725b3691e4403ee97a402cfb22c805f8444d89aafb68141ef",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/series/pg-statements.csv": "6fedeaca0b0f203e31a559d89ad21e2e01ca41068906998419f999acf2c99b27",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/series/sampler.csv": "53ebaa9defe7b7f8c7058b758474867923f01269f16411abb47471d7fcc74f95",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/series/proc.csv": "16832ad5b8f099f75bf81093ff4f9156018a1ffcb01ba293736f11302064ee0a",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/series/pg-database.csv": "b7112e0d4fd56b3f031277b2210c05eb62150da3007dab849cd3a3657f45be42",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/series/pg-wal.csv": "15961fe34e5edbcf69abd46b80186debbb9351c4a6dff9765589acc007a22f17",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/series/rts.csv": "ce1865e0d89aa37ce1778223db806b6f1d4de9f1baa737313bd54b851c58b7e7",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/series/load.csv": "b8d4324ca7b3751516380677f7afb163e71e65f509fa6defd637eb1cd923085f",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/series/pg-relations.csv": "d4599d789c224d60c9707e1ed04a753132681342e2d2eafbad5e2e08e4982142",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/series/pg-checkpointer.csv": "7ee299b983c59a1e1df211ce2f75cf20e642aa5c5b3e3ce5f72bf7f5123bee86",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/series/host.csv": "869d9866b59004a354d8a4dcf1bc585011c6188543b069951a791fc820be9686",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/samples/append.meta.json": "cb27819a23eea589556707de77c684c842eb725531f6f88a98d3d427d0562f0e",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/samples/append.raw": "ba74370a3a9bbe103c2574cbadb948dd0eac2616f6dd94d25fc24129d4c36f8c",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/samples/append.hist": "14192fbc2cc6617261b049a7f6981e0429aa349478c3cf0bd631907df6876239",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/samples/append.service.hist": "20f57202bd044aec80ff0533ed279fa8cc494f0808be1c391872acd49fbe39b3",
+    "runs/01a12433-e1b1-7217-b738-a1de9c8fe0c6/tree/output/01a12425-01c3-77e2-a5f8-bb02d7cab456/logs/harness.jsonl": "3602c825cae08264fee54877181f57c1259569d491cfd348bd12dddba79fb1f4",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/metrics/export.jsonl.zst": "230159fe300d8210cf0027b7f6105ef2d7c609cc38f7bbacc92525550513343e",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/metrics/window.json": "11e605ac28e60939055b42613be4aed3e5b9783d526ed4588ab511bdd691c025",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/plan-summary.json": "f2a175afdb9e4cbfbab7dcbe7df1d2c497207124d7b2af0d161b4e4de6706980",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/run-plan.json": "21076056b2a0d7e6b3c47c43ede7a7ac1b3ec6e912ab61df02cf0db2a31afd0b",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/cell/result.json": "e47361a532019320b7eba1d71a951b7e83c7b0069e892d4ee1d2bbab1fef31fe",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/cell/health.json": "f362a7c25fef8d7f6b7bd4b358965907c56c2c4c225c54b5dd53b66e56a578a3",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/cell/reset-evidence.json": "2608d96d7cd39cce4768401ad18753d1ca01a9944cd5c6de8182d979b71b9373",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/cell/environment.json": "29fafd331039414d168f840d3c71d54f3a5c49e3805632ccd8632e3c7880427e",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/logs/stderr.log": "59fca5483c3ae658392f51d1d58bec0f9b5d6e20c7c4b8556f3db050c3286949",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/logs/entry-exit.json": "1b0f348c77578cae66fdcb884abfb4a24544e49ea4a9e11acc237915a6bb7ffd",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/logs/stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/submission/work": "21076056b2a0d7e6b3c47c43ede7a7ac1b3ec6e912ab61df02cf0db2a31afd0b",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/submission/submission.json": "8973abd4d60cbccd0d4762df581b58593a8475089e1b7662df57d7ed08a39f8c",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/cell/observations/postgres.json": "2f3da77dd263fe987937f0971ea09b3b0cbcc0f2b16a4c792e16e27f900ba504",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/cell/observations/driver.json": "64effc782685c102e26c0fbad5e153136f9fd45f98fbbaef4d0a27eef45da2d2",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/cell/observations/monitoring.json": "8e19d31259b5cb36a41f377faf52166258bf71f7e9bde6123039244ef9f29c7a",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/kenshou-cell/plan.resolved.json": "21076056b2a0d7e6b3c47c43ede7a7ac1b3ec6e912ab61df02cf0db2a31afd0b",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/kenshou-cell/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/kenshou-cell/context.json": "9d6a1546ff8c82a0d60485c1b16f9eb4c847d1dbf79510393fdf3218269571f3",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/specs/0004.json": "0bfa814cb83e98d5b1d8a0100b70c523f2fae6e424980a45842eadaa5bf4fda7",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/manifest.json": "3435ccc7032a409402174d9c32e1c706c0ee6ed2285101f0b3a39f1d6297bfe4",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/run-spec.json": "3324a7bee96b911a35d10cbb283beb87be2534a8e0f07ca6278aa02bd7070d5f",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/run-result.json": "5ecbd035160358aa1d29c9762aa3c5be14f2cc058ff631069c4504afea54a07e",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/series/pg-activity.csv": "08582d8e8dca5d470877b4b888f5ac647c893f722afb4520e504d701e2f22888",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/series/pg-statements.csv": "f736945d6443c43deee97e18f5c25455c57017b3ae5d95285d65404388a17977",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/series/sampler.csv": "4640baf748ae005d1030e4a93c5194ed8db906c64d4c488d059bb7270974e023",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/series/proc.csv": "81b35a05c51aae3ad3c3178a99e3f88fc40ac64db642dbef157ed7f2d1bc6346",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/series/pg-database.csv": "7bfe294faffc85a515b12efe01c9c53cf0cfb72503efde6431c71f0807bb86ec",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/series/pg-wal.csv": "c37fda6130e1dad0efe4f4800dbdbb32b092cf71c62f71d945136914198bca6c",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/series/rts.csv": "db22a4bcaacde5f468ea96fee048e0f10e126695955d8e7772690c1d93394c0c",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/series/load.csv": "228b8803e8a4bb3f9055c5001c5650db7c14eda845fa92587dab79084584ae8e",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/series/pg-relations.csv": "bff7270093837abf8ec38910bd6661991149090ffc30de12e1d4e64028a1b1f6",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/series/pg-checkpointer.csv": "e842848ae9dd35391b35786ebbf2b2c4ca8f8968db76207eef26e2a67e799a6b",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/series/host.csv": "e7a02ae31eb899e81f9cbdafc74f372895b3427cb245aa71f3018e21e1a17f53",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/samples/append.meta.json": "bb7208269feddf53a4de796fb86c57355798dc5a2dcbbf90b93fa8cd1a98f881",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/samples/append.raw": "c03807a88699111e4bed8638712513705c6e7f3a1e49847c0b6238d34d0c5e26",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/samples/append.hist": "7029373a0cd7ce65ac9fe43be2dfc7783a4250e7d270177bfcf651471ca49b28",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/samples/append.service.hist": "e1079dfff3c43848cf6d3a82417d1efe85d5f97bcf1cc337b3d7fa311ffdd736",
+    "runs/01a12425-6176-7428-9ac0-9c190f2ade50/tree/output/01a12425-01c3-77e2-acc3-4e3ae38f7d7a/logs/harness.jsonl": "bb048e43594f8aa1378cf7ccc84f09df10ccdf4043342c35d4e19476b701a466",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/metrics/export.jsonl.zst": "43c4883d9cf7e721a9832ec1bd1762e7506f9a04833bba81193cd21e52373c90",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/metrics/window.json": "7f565b0aa03233ad99ee7804af81e93974455f23d46264c42ff230ce42de1c55",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/plan-summary.json": "9e76fd1bc7b2dddf90cc48bb45f6a5d516d417e2d606ce2269e95476297ec3f6",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/run-plan.json": "cc1ce220a7f86f0b4a10606763f1b9ca63fe077cf5085a4f8b8c14fe0372849c",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/cell/result.json": "b5d268f5fa803709381c05e688749ec88a2fff9d4c95216249a2d184299d366d",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/cell/health.json": "43831352f3460d75bfbb7c495d684688b30b4e5238abd60a5c4d1544c536fca1",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/cell/reset-evidence.json": "a5578ff68208e515e220d557db11e91dde3da226483e8d15a8b071c187996c76",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/cell/environment.json": "d0ded38821a0b88631f9226df4ed98b4282370f8df66c288b4d973a1858f7192",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/logs/stderr.log": "59fca5483c3ae658392f51d1d58bec0f9b5d6e20c7c4b8556f3db050c3286949",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/logs/entry-exit.json": "1b0f348c77578cae66fdcb884abfb4a24544e49ea4a9e11acc237915a6bb7ffd",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/logs/stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/submission/work": "cc1ce220a7f86f0b4a10606763f1b9ca63fe077cf5085a4f8b8c14fe0372849c",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/submission/submission.json": "72439694606de1c28457855cb76df3705246cb5d00b41c432b8160775d3a5989",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/cell/observations/postgres.json": "5d59b64c8da06e4851290243bb76d9c0ea444edd95f8e6af74e9eddd3943bb34",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/cell/observations/driver.json": "c1d1d2484b2b277d3c3e603b27f8fd5c3dd2d1fa84ddc0f737607d3105ee1400",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/cell/observations/monitoring.json": "6a544a13ae592c2c450f991d1c1ca63461b57b01c6c39f02ab2748be8af5c044",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/manifest.json": "686271e52cdf6a92f9600e5d7c375a662d25b9fd5f901ba07868c4f7ce015dd8",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/run-spec.json": "62cb78f08c295b30ee0f5e69eebb98a679762d3fe1bebc0d2c8bdc71073a1111",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/run-result.json": "4bba14fa62c3bd6e56498cdf2063c816e57750ab9c60b73f32eb3b35fc94128d",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/kenshou-cell/plan.resolved.json": "cc1ce220a7f86f0b4a10606763f1b9ca63fe077cf5085a4f8b8c14fe0372849c",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/kenshou-cell/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/kenshou-cell/context.json": "f2db74b3ef04c6d698f3ab78720a2a79dbb60c23047087d22e6d70e19d542b1b",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/specs/0005.json": "81fc0f94ea8cf373304f3d6147bdd79b3749befb2eccb223dfaf59dfc253fab8",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/series/pg-activity.csv": "0843094e5c91f8016f6611c1d51051fb51ae075a1904b302789be07f960caea9",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/series/pg-statements.csv": "dec8637bed130a689cfb7f12e3480051481c5f692acbf28f70628c86d4cd7313",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/series/sampler.csv": "4dc372ee9b9056a6301ed044365fd29a9f9c5ea5f16044c8d60a9565adcab2e1",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/series/proc.csv": "44908823241e073fa9bd8945b80f2f32ed3ef622002367d4b3acf6102b90c342",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/series/pg-database.csv": "b5ac82c96f1b36c46e4aca348bf4f9a7c42f4e492c42344999a3375d74e9c5e2",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/series/pg-wal.csv": "30f317ad6751d05d21a379498aba09fb31cd8ddaffc500add5b9221be975c9e7",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/series/rts.csv": "7550f3884b0b8fa95ce48d2ef38359d97d69876cf7dbdeae0af6da640e2ebab2",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/series/load.csv": "b0b26e55089af64fc3bdfc27c6c57ab7c29f34d322a63a62a0297ceca94d4061",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/series/pg-relations.csv": "d9a0272a0071898a4ec6536cc0b71506677fc1b0df26764dcf3e6246882b6ad0",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/series/pg-checkpointer.csv": "b11d67d71edeeaae07a914c995dab33d71ad33eb076eb54357053489cc2adf81",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/series/host.csv": "37c0c6b4692725b4253b73cef82c68c948c06edb2fd526ee2ed05087f6946aac",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/samples/append.meta.json": "c611503af772a73cebcad3bca99aaaa0f9109b4d3124f9c96feb397cbc82bf89",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/samples/append.raw": "d60f5b84fa6ece723c20fadb065c2f41c2b9e7d32447f02785a8eb1953a8eb33",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/samples/append.hist": "c53dc38468888b5db563e0ea262b4029d94d9cae43691bc05bc4ea6ea890932e",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/samples/append.service.hist": "6718aa049ecec48468df715138b079b4229665750b3b545049db0cfdbf2f23bb",
+    "runs/01a12425-6176-7428-9e1d-d1fd7dbf2bae/tree/output/01a12425-01c3-77e2-a2dc-aab28ef678a4/logs/harness.jsonl": "5c71c572279d873cc5f3622c7049f0c8a82b6e360952c6eb7f2921e2d9f9ae85",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/metrics/export.jsonl.zst": "9bf2d79905dce27b7bc6956dc9eaa1d04199f99b55b18246907cafbeba9e3af7",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/metrics/window.json": "06757a7a241ef96a325bb464b0a9775f683154222c430e65259c4da9c1e32eca",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/plan-summary.json": "a0fc6b7ad429f22c0aba6acee62a5bf5f67bcdeec2d2b0a7ff8743b72120d1d6",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/run-plan.json": "154e157ef0e5e2f184ec5196173d0d0e9e02bad6ecc9a13041becc229a102aab",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/cell/result.json": "a7214cd678e4af56c2c08139cf0add5ef626a020902eb67c7edca778cbebb318",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/cell/health.json": "52bc13a89936ec431f24ee01f61630fcfddffcc1a3890b20be0fbaf8b98a8085",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/cell/reset-evidence.json": "f79285d9d69753a1838867efba2e67aaf800b9a70405051ed48a193c6cd3947d",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/cell/environment.json": "f49760fc6276e3f214e917079ae57e60488fab57ddfbc1c0d669b890404df022",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/logs/stderr.log": "59fca5483c3ae658392f51d1d58bec0f9b5d6e20c7c4b8556f3db050c3286949",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/logs/entry-exit.json": "1b0f348c77578cae66fdcb884abfb4a24544e49ea4a9e11acc237915a6bb7ffd",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/logs/stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/submission/work": "154e157ef0e5e2f184ec5196173d0d0e9e02bad6ecc9a13041becc229a102aab",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/submission/submission.json": "980b6016dddcbc3e6a5bfce305e7d8afd1322c3903b31afaa9ae1322387d7e67",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/cell/observations/postgres.json": "74a5aeac6daed6f67cdc6b16ce89615a555cab825d7dabd8817dfdfe3f45e28b",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/cell/observations/driver.json": "3bd93e656cece0a554b752734a96cd509319d1084b384948c71f23c67f615462",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/cell/observations/monitoring.json": "5a7f90b35bd9955fa8855deb2a9c7416c56d2b5add195a44d89d46e75efaf85a",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/kenshou-cell/plan.resolved.json": "154e157ef0e5e2f184ec5196173d0d0e9e02bad6ecc9a13041becc229a102aab",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/kenshou-cell/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/kenshou-cell/context.json": "c8d4518c34180547448205931f64a15ca7d9192e73d02100847e9243b8ca1711",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/specs/0006.json": "f36f270f3af6d8efcb7f17228255fceb5a01c1fa4298141fa23784cfa6f009ef",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/manifest.json": "9c54b0a5344dbd428a9ba39858aa2e14eb04cb18cdd0431159f7197a1eddfa85",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/run-spec.json": "06341139bd45be3111b04043d75261fc1b24c412fc95266487416ae45699682d",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/run-result.json": "634a2488d031fb8828941f0690c38b9334bc5150f946bae988e14da766cb7d22",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/series/pg-activity.csv": "4e2b2287cc915847c6d3bf9332fcb96cc267773cf6616f15d44c7d3e0c5dada2",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/series/pg-statements.csv": "984cac935a76bddfa5767bab7c44584a83bda5b4f9facac33880dd5095ecadae",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/series/sampler.csv": "5a3855005b212f7a9d13faf1a333629eb39f2fb224a0fdc4d782c3406349af19",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/series/proc.csv": "f1f76d436da50f668daf31915279e317e1214726306cc9d939a3b1fc2666cb16",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/series/pg-database.csv": "0a99df6ebd456fcf358b661a4bb918606730fb46ed910f316f682901b24567aa",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/series/pg-wal.csv": "93df3f4557c9ea6e1731ec6f7184be8902021a3056f24c0077e3537ea393991a",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/series/rts.csv": "e4ad0a13bedd7bdbce0be29910fbfde1b3ab292f57448faf5f4270e6e8726025",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/series/load.csv": "8bb95c5f440c0365bd9763a4d0f5e68f93e6754d1a23781be0bb8bb85c44ea99",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/series/pg-relations.csv": "affb5585e86c4f368bfcfc1052d951d7bad9e17516305d6b99e65cd2c280d2eb",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/series/pg-checkpointer.csv": "162957a87a0ddf5f689179931a45d84776ca3e8125b1a22a2b0041e07a54b98f",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/series/host.csv": "278349e3e47781ef57392c556c060f79e94d4ec196662dce9622ca8208a27d25",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/samples/append.meta.json": "30de8df8faa03046efe449691e47f6be75519181e74620295282f3b8851205e5",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/samples/append.raw": "6ffc73db1d1b7835d7824a6807658ba8dd3a17a090027b60490e613020bf9ce2",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/samples/append.hist": "e87edcc463e02f13d27717f52105a760e7a33dfe54fdf86e5c3ea6f7bc613be4",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/samples/append.service.hist": "7944d8d618e04ab0a906744a19c9afe30cd4b51a5fdb4461f288565718261580",
+    "runs/01a12433-e1b1-7218-84c6-bc8ae427c858/tree/output/01a12425-01c3-77e2-a6cd-14039bc377fd/logs/harness.jsonl": "b96c588630f27f260ce838fa26d0f80ef0ce52ff3894ceb879d8c6c30d17a72d",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/metrics/export.jsonl.zst": "bf446c885939202c28e493c0c692cfb5ba858a4c1235a16663de1b1f56345af8",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/metrics/window.json": "4319b77f5ccb4c340aafece4fc212ad4e0169fd3b7493969a9748d4b78d8e53a",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/plan-summary.json": "162a88f30661d3215874692f1d99c423f58ede89ae0dbf00725b8aa68028dd76",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/run-plan.json": "6eebee5c043f680bee5b08a2b4ab4edcbea339b67d5a82a61b903d650b5c04cd",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/cell/result.json": "9191e81ee238ebd125b464b6b44479c00b21119892f2251d915f8ff24ed44380",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/cell/health.json": "ec8ad969588443b51266e5438ad211c9fde1fcb65887c9e6fb1072d38c2c89e5",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/cell/reset-evidence.json": "d90fdbf3b2ed32eaf201d4e57ee46b510534d69a5c85ba4d96fcd5240ed9380f",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/cell/environment.json": "370d33ab3198447c09758d0a33b52ff0f26410d291733dfa5b6ccccc688615a9",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/logs/stderr.log": "59fca5483c3ae658392f51d1d58bec0f9b5d6e20c7c4b8556f3db050c3286949",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/logs/entry-exit.json": "1b0f348c77578cae66fdcb884abfb4a24544e49ea4a9e11acc237915a6bb7ffd",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/logs/stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/submission/work": "6eebee5c043f680bee5b08a2b4ab4edcbea339b67d5a82a61b903d650b5c04cd",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/submission/submission.json": "61868db1cbaaabd41ebaf9dd2e286c704a1a2c69b60d34fdc4fced76f42e700b",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/cell/observations/postgres.json": "42f59bee4726833fc945bbe1476c4caff05baaea10a479cab574490f8cf615d2",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/cell/observations/driver.json": "48b9a181ba73fc4e5507a9c7e24f39748f262c147ac544ccc6bc0a7c3d843dff",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/cell/observations/monitoring.json": "641b0e72d43b4d03641a8336669428d0e22b8d59665fcfa93360d0f29e72f69a",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/manifest.json": "45ec67a0004138408d7d628fbddb844fc6a7cdb1ef40dabc5d0d783f98e8938c",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/run-spec.json": "6a4b9dc6eec0d8d9aeeb9bcc558ef609440c8907868fcec10864cf5f5a4e54fb",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/run-result.json": "239358917d5b74662e4e5566ec84943fc1254c87843c82f1ec6be31f7155dcac",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/kenshou-cell/plan.resolved.json": "6eebee5c043f680bee5b08a2b4ab4edcbea339b67d5a82a61b903d650b5c04cd",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/kenshou-cell/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/kenshou-cell/context.json": "b262fc35cebae2cc49a59334d319eec13f6f1a40484e7f6e49e40dea8efacf9c",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/specs/0006.json": "503eaee9a6ecdeccb41c3b3ad92d429598ce5545fb393835a91d8a4c8f08c757",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/series/pg-activity.csv": "64e9622b6a50e465a77e48299069a5e4cdecd4c738189f0fd8b6917b28623a59",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/series/pg-statements.csv": "3d11152163295039d022d88e2f2c85091003e85fe2567902b23123cf81b5915e",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/series/sampler.csv": "3ea29a32433c7cc51bcd9d7f8e68f137c318a88cf5ef0f2462fe1885b1503483",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/series/proc.csv": "a585058918bcdbe3aa51ce55bc8cb80ce2e1df032dda1574cc000b1609200d74",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/series/pg-database.csv": "61cdcac584c7f47d64c37a79c00f8f8868b59ad958b7267540b0dca575e7d7bb",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/series/pg-wal.csv": "2cf6bfbd2f4262ed65a533bb10d068bc8df932617d0f1d452aa16a880760698b",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/series/rts.csv": "a9db4059c3ab5ea20d0aa03c53df9ac79edf4cb706b2473181d9863cdbc71bb3",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/series/load.csv": "2666445a7f4152869d3b189c6dc8f9d6ddb70be0422d5abe5f1f3614d52e24c8",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/series/pg-relations.csv": "72e247fbc047ebe8310c70577fe9d7c6cefa392d9208c312db1673ea2741f9cf",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/series/pg-checkpointer.csv": "e15304f2980f7e1f8c4efa058aca2f3588dd859960f0a64835479dfba10fa254",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/series/host.csv": "3f3dfc94f2b4e5a630e6f97c24d77ebe7d330506e464b9617c612ee95d2faa59",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/samples/append.meta.json": "9e90d400bf1b901e9ed03572ea8233e2f2ef5fb7756da7f60b5440fa47697713",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/samples/append.raw": "3ec5bcba55e872076e505ca4c09de4e2bb9b67f5c51d15418216491ce4eeef9e",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/samples/append.hist": "caebe804d9151fbbfa13b13699cbff07b4918e62acd8c3a75284bd51863acef5",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/samples/append.service.hist": "8d7c8f3c7938b784266462f32800747f82c0b10b29e4b6a7fd34abbbb65343c1",
+    "runs/01a12425-6176-7428-a376-fe6b40447027/tree/output/01a12425-01c3-77e2-af6a-e3537d6e5472/logs/harness.jsonl": "535680c40ca2b2e51e0aca324152682b608003552a086187f7541d6962fa63d9",
+    "real-adapter/round-0/session.json": "06eddd8bc0146efbe26805e05b6a57afbec3a55e97aac99399a843cecc4d6df0",
+    "live-hook-fanout/round-0/session.json": "d2bef6cabcebddcfa445ff719e22de350eaad4a4780a9bf95837dc00dee5caa6"
+  },
+  "collection_finished_epoch": 1791609750.025098,
+  "collection_whole_experiment_seconds": 2329.0250980854034,
+  "collection_within_one_hour": true
+}

@@ -1,0 +1,16 @@
+{
+  "command": [
+    "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/b/kiroku-store-bench/build/kiroku-store-bench/kiroku-store-bench",
+    "--baseline",
+    "kiroku-store/bench/results/baseline.csv",
+    "--pattern",
+    "/AnyVersion (new stream)/"
+  ],
+  "started_epoch": 1791609405.170986,
+  "wrapper_timeout_seconds": 150,
+  "test_timeout_seconds": 100,
+  "purpose": "Single unchanged-method diagnostic of the newly timed-out full-suite case; not a replacement or performance-acceptance trial",
+  "returncode": 0,
+  "finished_epoch": 1791609463.878659,
+  "seconds": 58.70767307281494
+}

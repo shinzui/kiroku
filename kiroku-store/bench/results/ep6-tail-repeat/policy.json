@@ -1,0 +1,38 @@
+{
+  "schema": "kenshou.comparison-policy/v1",
+  "name": "mp12-zero-write-regression",
+  "minimumPairs": 5,
+  "confidenceLevel": 0.95,
+  "bootstrapIterations": 10000,
+  "resamplingSeed": 20261009,
+  "requireInterleaving": true,
+  "requireGrade": "benchmark",
+  "maxCiRelativeWidth": 0.06,
+  "maxCheckpointAsymmetry": 0.0,
+  "metrics": [
+    {
+      "match": "op.append.throughput",
+      "direction": "higher-is-better",
+      "relativeLimit": 0.0,
+      "absoluteFloor": 0.0
+    },
+    {
+      "match": "op.append.latency.p50",
+      "direction": "lower-is-better",
+      "relativeLimit": 0.0,
+      "absoluteFloor": 0.0
+    },
+    {
+      "match": "op.append.latency.p95",
+      "direction": "lower-is-better",
+      "relativeLimit": 0.0,
+      "absoluteFloor": 0.0
+    },
+    {
+      "match": "op.append.latency.p99",
+      "direction": "lower-is-better",
+      "relativeLimit": 0.0,
+      "absoluteFloor": 0.0
+    }
+  ]
+}
