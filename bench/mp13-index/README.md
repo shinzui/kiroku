@@ -8,7 +8,7 @@ The workload refuses populated stores. No production migration is installed.
 
 `bench/mp12-cell/src/IndexResearch.hs` supplies the optional research path;
 `unchanged` is the default and preserves the ordinary MP12 fixture/workload.
-The extended scenario is revision 4. The separate flake/cohort here pins the
+The corrected scenario is revision 5 (original retained runs are revision 4). The separate flake/cohort here pins the
 current runtime packages, rather than using the historical MP12 control.
 The recorded source revision predates only benchmark/documentation changes;
 verify package directories against it before publication.
@@ -127,3 +127,41 @@ All 18 samples, failed setup/grade checks and diagnostic recomputation are
 retained in [the completed report](evidence/2026-10-10/README.md). The owned
 lease is released and all four cell instances are stopped. No production
 promotion is accepted.
+
+
+## Corrected observer experiment
+
+Sparse observer timing samples now live in the `browse-diagnostics` summary,
+with phase, page shape, monotonic start, duration and row count for every query.
+They are not registered as primary operations. The append recorder and its
+minimum-sample, health and benchmark-grade requirements remain unchanged.
+This preserves the real 1 Hz load without letting sparse diagnostic samples
+invalidate primary write evidence. Browse latency is descriptive, not a
+separately accepted latency benchmark. The controller verifies page coverage,
+empty absent pages, realistic scheduling and primary operation isolation.
+
+Run only the corrected observer case, keeping prior fresh/control evidence:
+
+```bash
+python3 bench/mp13-index/run.py --operator kenshou \
+  --payload /tmp/mp13-observer-corrected.payload.json \
+  --root /tmp/mp13-observer-corrected --case existing-category-browse \
+  --no-calibration
+```
+
+The proof uses the selected observer case, verifies grade, sealed hashes, raw
+recomputation and lease release before five AB/BA pairs. There are eleven trials,
+with unchanged 10/61/10-second phases. Allow 150 seconds per trial including
+observed reset overhead (27.5 minutes), 5–8 minutes for build/publication and
+3–5 minutes for verification/cleanup: roughly 35–40 minutes within one persisted
+60-minute build-to-cleanup budget. No pair-count reduction or extra repeats.
+Target useful 95% cost bounds near ±3% throughput and ±5–6% tail latency;
+precision is not guaranteed, and wider bounds stay unresolved. Stop on invalid
+proof/grade, hashes, workload/schedule checks, power/phase stagnation, deadline
+or confirmed regression. Retain every sample and release the owned lease on exit;
+stop the idle cell using its owner script after release.
+
+`cost-estimates.json` reports candidate changes and upper slowdown bounds,
+separately from the unchanged zero-slowdown policy verdict. No new acceptable
+regression allowance is selected or retrospectively applied. Distinct scenario
+revisions are not pooled into a single statistical comparison.

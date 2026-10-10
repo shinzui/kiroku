@@ -453,6 +453,8 @@ rule suffices.
 
 ## Progress
 
+- [x] (2026-10-10) EP-3: correct sparse observer recording, preserve primary append grade requirements, compile the Linux payload and verify diagnostic schedule/grade/cost-bound checks.
+- [ ] EP-3: run the corrected observer proof, then five matched pairs; report valid cost bounds separately from the unchanged zero-slowdown verdict and verify cell cleanup.
 - [x] (2026-10-10) EP-3: verify all ten fresh-stream trials and recompute raw metrics; five-pair append acceptance is inconclusive (throughput -0.677%, 95% interval -2.687% to +1.374%).
 - [x] (2026-10-10) EP-3: prepare the same-payload index-layout comparison, TypeID catalog/fresh fixtures, active category browsing and stream HOT/WAL snapshots; compile the Linux payload and verify paired-input/deadline invariants.
 - [x] (2026-10-10) EP-3: verify remote lifecycle proof and second category-only control, sealed hashes, stream counters and owned lease release.
@@ -506,6 +508,12 @@ rule suffices.
 
 ## Surprises & Discoveries
 
+- 2026-10-10 corrected observer preparation: Kenshou grades each registered
+  operation. Sparse browse timings now live in raw summary diagnostics, while
+  the primary recorder contains only appends. Query shapes, 1 Hz browse load,
+  subscriber, database durability and append minimum samples are unchanged.
+  Scenario revision 5 identifies this measurement correction; old revision 4
+  artifacts remain immutable. Linux compilation and controller checks passed.
 - 2026-10-10 observer-grade failure: all six observer runs sealed, but 1 Hz
   browsing produced 185–186 samples per run, below the 1,000-sample operation
   minimum. The whole-run grade is exploratory. The controller caught this only
@@ -646,6 +654,15 @@ rule suffices.
 
 ## Decision Log
 
+- Decision (2026-10-10 user-authorized follow-up): rerun only the broken
+  observer case. Use one corrected observer proof followed by five matched
+  pairs, retaining the valid fresh-write evidence and earlier calibration.
+  Separate sparse browser diagnostics from primary append grading; never
+  weaken the primary sample/health rules. Emit percent cost estimates and
+  confidence bounds independently of the unchanged zero-slowdown verdict.
+  This is a distinct experiment with one new 60-minute build-to-cleanup
+  deadline, estimated 35–40 minutes including overhead, no extra repeats.
+  Verify the proof grade/raw summaries/lease before queue expansion.
 - Decision (2026-10-10 measured evidence): retain the replacement candidate,
   without production promotion. Fresh five-pair acceptance is inconclusive,
   and observer evidence is exploratory and below the minimum pair count.
@@ -835,6 +852,11 @@ rule suffices.
 
 ## Outcomes & Retrospective
 
+2026-10-10 corrected observer preparation: benchmark-only correction compiled
+and input, schedule, grade and cost-bound checks passed. Remote proof and five
+matched pairs are pending. No production migration or browse milestone is
+promoted; shared prefix/namespace design remains open under ADR-15.
+
 2026-10-10 matched experiment completion: all 18 trials sealed; workload and
 artifact checks completed, owned lease released and all four instances stopped
 within the original hour. Fresh throughput estimate is -0.677% with an interval
@@ -982,3 +1004,10 @@ Recorded completed samples, fresh uncertainty/WAL cost, the observer grade failu
 explicit diagnostic recovery, early guard correction and verified cell cleanup.
 The original policy and hour were preserved; no performance acceptance or
 production migration is claimed. General prefix and shared namespace access remain open.
+
+
+## Corrected observer experiment revision (2026-10-10)
+
+Prepared independent sparse browse diagnostics and an observer-only controller
+path with a corrected proof, five pairs and explicit cost estimates. Preserved
+all earlier evidence, primary grading requirements and the zero-slowdown policy.

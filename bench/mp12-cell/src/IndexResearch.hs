@@ -1,5 +1,5 @@
 -- Disposable index comparison; never used by the default MP12 workload.
-module IndexResearch (Config (..), knobs, configuration, setup, streamName, snapshot, newBrowser, withBrowser) where
+module IndexResearch (Config (..), knobs, configuration, setup, streamName, snapshot, newBrowser, withBrowser, browserSummary) where
 
 import Contravariant.Extras (contrazip2)
 import Control.Concurrent (threadDelay)
@@ -8,10 +8,12 @@ import Control.Monad (unless, when)
 import Data.Aeson (object, (.=))
 import Data.Aeson qualified as Json
 import Data.Bits (shiftL, shiftR, (.&.), (.|.))
+import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef)
 import Data.Int (Int64)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Text (Text)
 import Data.Text qualified as Text
+import Data.Word (Word64)
 import GHC.Clock (getMonotonicTimeNSec)
 import Hasql.Decoders qualified as D
 import Hasql.Encoders qualified as E
@@ -19,8 +21,6 @@ import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Hasql.Statement (preparable)
 import Kenshou.Core.Knob
-import Kenshou.Measure.Recorder qualified as Recorder
-import Kenshou.Measure.Session qualified as Measure
 import Kiroku.Store (KirokuStore (..), StreamName (..))
 
 -- These knobs are recorded in compatibility inputs. Both arms use one payload.
@@ -91,15 +91,31 @@ snapshot store =
             <> "'append_statements',(SELECT COALESCE(jsonb_agg(jsonb_build_object('queryid',queryid::text,'query',query,'calls',calls,'exec_ms',total_exec_time,'wal_bytes',wal_bytes)), '[]'::jsonb) FROM public.pg_stat_statements WHERE dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND (query ILIKE '%UPDATE streams%' OR query ILIKE '%INSERT INTO streams%'))) "
             <> "FROM pg_stat_user_tables s WHERE schemaname='kiroku' AND relname='streams'"
 
--- Register once: raw sample paths cannot be reopened for each phase.
-newBrowser :: Maybe Config -> Measure.Measurement -> IO (Maybe Recorder.WorkerRecorder)
-newBrowser Nothing _ = pure Nothing
-newBrowser (Just config) measurement
-    | config.browseHz == 0 = pure Nothing
-    | otherwise = Just <$> (Recorder.registerOp (Measure.measurementRecorder measurement) (Recorder.OpName "browse") >>= (`Recorder.newWorkerRecorder` 0))
+-- Sparse observer timings are diagnostics, not append-recorder operations.
+-- Keeping the realistic 1 Hz load must not lower the primary evidence grade.
+data BrowseSample = BrowseSample !Text !Text !Word64 !Word64 !Int
+newtype Browser = Browser (IORef [BrowseSample])
 
-withBrowser :: Maybe Config -> Maybe Recorder.WorkerRecorder -> KirokuStore -> IO a -> IO a
-withBrowser (Just config) (Just recorder) store action = do
+newBrowser :: Maybe Config -> IO (Maybe Browser)
+newBrowser Nothing = pure Nothing
+newBrowser (Just config)
+    | config.browseHz == 0 = pure Nothing
+    | otherwise = Just . Browser <$> newIORef []
+
+browserSummary :: Maybe Browser -> IO (Maybe Json.Value)
+browserSummary Nothing = pure Nothing
+browserSummary (Just (Browser samples)) = do
+    rows <- reverse <$> readIORef samples
+    pure $
+        Just $
+            object
+                [ "schema" .= ("mp13.browse-diagnostics/v1" :: Text)
+                , "classification" .= ("sparse observer diagnostics; excluded from primary append grade" :: Text)
+                , "samples" .= [object ["phase" .= phase, "page" .= page, "started_ns" .= started, "duration_ns" .= elapsed, "rows" .= count] | BrowseSample phase page started elapsed count <- rows]
+                ]
+
+withBrowser :: Maybe Config -> Maybe Browser -> Text -> KirokuStore -> IO a -> IO a
+withBrowser (Just config) (Just (Browser samples)) phase store action = do
     begin <- getMonotonicTimeNSec
     Async.withAsync (loop begin 0) $ \reader -> Async.link reader >> action
   where
@@ -111,10 +127,10 @@ withBrowser (Just config) (Just recorder) store action = do
         forPages
         loop begin (iteration + 1)
     forPages = do
-        page "probe" Nothing
-        page "probe" (Just late)
-        page "missing" Nothing
-    page category cursor = do
+        page "first" "probe" Nothing
+        page "late" "probe" (Just late)
+        page "absent" "missing" Nothing
+    page shape category cursor = do
         started <- getMonotonicTimeNSec
         rows <- case cursor of
             Nothing ->
@@ -131,8 +147,8 @@ withBrowser (Just config) (Just recorder) store action = do
         finished <- getMonotonicTimeNSec
         unless (length rows <= 11 && all (Text.isPrefixOf (category <> "-")) rows) (fail "browse returned invalid category page")
         when (category == "missing") $ unless (null rows) (fail "absent category returned rows")
-        Recorder.recordOp recorder started started finished (Recorder.OpOk (length rows))
-withBrowser _ _ _ action = action
+        atomicModifyIORef' samples (\rows0 -> (BrowseSample phase shape started (finished - started) (length rows) : rows0, ()))
+withBrowser _ _ _ _ action = action
 
 session :: KirokuStore -> Session.Session a -> IO a
 session store request = Pool.use store.pool request >>= either (fail . show) pure

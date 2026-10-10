@@ -44,3 +44,42 @@ except ValueError as error:
 else:
     raise AssertionError('exploratory browse evidence must stop queue expansion')
 print('early evidence-grade rejection check passed')
+
+observer = copy.deepcopy(valid)
+section = observer['summaries']['measurements']
+section['measurements']['ops'] = {'append': {'count': 2000}}
+section['write-probe'] = {'workload': {'mode': 'category'}}
+section['browse-diagnostics'] = {
+    'schema': 'mp13.browse-diagnostics/v1',
+    'samples': [{'phase': 'steady', 'page': shape, 'started_ns': i * 1_000_000_000,
+                 'duration_ns': 1000, 'rows': 0 if shape == 'absent' else 11}
+                for i in range(61) for shape in ['first', 'late', 'absent']]}
+controller.validate_browser_diagnostics(observer)
+for change in ['missing', 'primary', 'short', 'absent', 'accelerated']:
+    broken = copy.deepcopy(observer)
+    section = broken['summaries']['measurements']
+    if change == 'missing':
+        section.pop('browse-diagnostics')
+    elif change == 'primary':
+        section['measurements']['ops']['browse'] = {'count': 183}
+    elif change == 'short':
+        section['browse-diagnostics']['samples'] = section['browse-diagnostics']['samples'][:9]
+    elif change == 'absent':
+        section['browse-diagnostics']['samples'][2]['rows'] = 1
+    else:
+        for row in section['browse-diagnostics']['samples']:
+            row['started_ns'] //= 10
+    try:
+        controller.validate_browser_diagnostics(broken)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(f'bad observer evidence accepted: {change}')
+comparison = {'verdict': 'inconclusive', 'pairCount': 5, 'policy': {'confidenceLevel': 0.95},
+              'metrics': {'op.append.throughput': {'ratio': {'estimate': 1.0, 'low': 0.98, 'high': 1.02}},
+                          'op.append.latency.p99': {'ratio': {'estimate': 1.01, 'low': 0.99, 'high': 1.03}}}}
+estimates = controller.cost_estimates(comparison)
+assert abs(estimates['metrics']['op.append.throughput']['upperSlowdownBoundPercent'] - 1.9607843137254943) < 1e-9
+assert abs(estimates['metrics']['op.append.latency.p99']['upperSlowdownBoundPercent'] - 3) < 1e-9
+assert comparison['verdict'] == 'inconclusive'
+print('separate sparse diagnostics, realistic observer schedule and cost-bound conversion checks passed')

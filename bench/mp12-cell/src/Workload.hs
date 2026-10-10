@@ -76,7 +76,7 @@ scenario :: Scenario
 scenario =
     Hardening.scenario
         { run = runWorkload
-        , revision = 4
+        , revision = 5
         , knobs =
             Hardening.scenario.knobs
                 <> Index.knobs
@@ -246,13 +246,13 @@ measure context workload store event delivered live failures batches members sta
                 clock = Measure.measurementPhaseClock measurement
             handle <- Recorder.registerOp (Measure.measurementRecorder measurement) (Recorder.OpName "append")
             recorders <- mapM (Recorder.newWorkerRecorder handle) [0 .. 3]
-            browser <- Index.newBrowser workload.indexResearch measurement
-            let withBrowse = Index.withBrowser workload.indexResearch browser store
+            browser <- Index.newBrowser workload.indexResearch
+            let withBrowse phase = Index.withBrowser workload.indexResearch browser phase store
             Async.withAsync (sampleBacklog appended delivered backlog sample (if members == 0 then pure Nothing else Just <$> scalarInt store pendingSQL)) $ \sampler -> do
                 Async.link sampler
                 Phase.enterPhase clock Phase.WarmUp
                 sample
-                void $ Core.withPhase context CorePhase.WarmUp (withBrowse (writers appended (offeredCalls, startedCalls, completedCalls, maxLag) recorders workload.warmupSeconds 0))
+                void $ Core.withPhase context CorePhase.WarmUp (withBrowse "warmup" (writers appended (offeredCalls, startedCalls, completedCalls, maxLag) recorders workload.warmupSeconds 0))
                 when (members > 0) $ await "warmup checkpoint drain" durable
                 flushStats store
                 writeIORef appended 0
@@ -268,7 +268,7 @@ measure context workload store event delivered live failures batches members sta
                 start <- getMonotonicTimeNSec
                 Phase.enterPhase clock Phase.Steady
                 sample
-                samples <- Core.withPhase context CorePhase.Steady $ withBrowse do
+                samples <- Core.withPhase context CorePhase.Steady $ withBrowse "steady" do
                     result <- writers appended (offeredCalls, startedCalls, completedCalls, maxLag) recorders workload.seconds 1
                     -- Capacity includes the outstanding durable work in its
                     -- elapsed time. Fixed-load latency retains its arrival window.
@@ -294,6 +294,7 @@ measure context workload store event delivered live failures batches members sta
                 walBytes <- scalarInt store ("SELECT pg_wal_lsn_diff('" <> wal1 <> "'::pg_lsn, '" <> wal0 <> "'::pg_lsn)::bigint")
                 tables1 <- tableStats store
                 when (hasIndexResearch workload) $ Index.snapshot store >>= Core.putSummary context Core.Measurements "streams-after"
+                Index.browserSummary browser >>= mapM_ (Core.putSummary context Core.Measurements "browse-diagnostics")
                 count <- readIORef delivered
                 batchCount <- readIORef batches
                 server <- scalar store "SELECT version()"

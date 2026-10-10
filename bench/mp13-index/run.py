@@ -63,6 +63,44 @@ def validate_evidence_grade(result):
         raise ValueError(f"completed trial failed the measurement contract: {result['outcome']}; {measure['grade']}; {measure['gradeReasons']}")
 
 
+def validate_browser_diagnostics(result):
+    summary = result['summaries']['measurements']
+    if summary['write-probe']['workload']['mode'] != 'category':
+        return
+    diagnostic = summary.get('browse-diagnostics')
+    if not diagnostic or diagnostic['schema'] != 'mp13.browse-diagnostics/v1':
+        raise ValueError('missing separate browser diagnostics')
+    if set(summary['measurements']['ops']) != {'append'}:
+        raise ValueError('sparse browser must not be a primary measured operation')
+    rows = diagnostic['samples']
+    for shape in ['first', 'late', 'absent']:
+        selected = [x for x in rows if x['phase'] == 'steady' and x['page'] == shape]
+        if len(selected) < 60:
+            raise ValueError('observer load did not cover the steady window')
+        if any(x['duration_ns'] < 0 or not 0 <= x['rows'] <= 11 for x in selected):
+            raise ValueError('invalid browser diagnostic sample')
+        if shape == 'absent' and any(x['rows'] for x in selected):
+            raise ValueError('absent browser page was not empty')
+        if any(b['started_ns'] - a['started_ns'] < 500_000_000 for a, b in zip(selected, selected[1:])):
+            raise ValueError('browser load exceeded the declared one-cycle-per-second schedule')
+
+
+def cost_estimates(comparison):
+    metrics = {}
+    for name, row in comparison['metrics'].items():
+        ratio = row['ratio']
+        throughput = name.endswith('throughput')
+        percent = lambda value: (1 / value - 1) * 100 if throughput else (value - 1) * 100
+        lower = percent(ratio['high'] if throughput else ratio['low'])
+        upper = percent(ratio['low'] if throughput else ratio['high'])
+        metrics[name] = {'candidateChangePercent': percent(ratio['estimate']),
+                         'confidenceIntervalPercent': [lower, upper],
+                         'upperSlowdownBoundPercent': max(0, -lower if throughput else upper)}
+    return {'purpose': 'cost estimation; distinct from the unchanged zero-slowdown policy verdict',
+            'confidenceLevel': comparison['policy']['confidenceLevel'],
+            'pairs': comparison['pairCount'], 'policyVerdict': comparison['verdict'], 'metrics': metrics}
+
+
 def verified(session_file):
     """Verify every completed slice; never hide failed or unfinished slices."""
     session = read(session_file)
@@ -86,6 +124,7 @@ def verified(session_file):
             measure = summary['measurements']
             probe = summary['write-probe']
             validate_evidence_grade(result)
+            validate_browser_diagnostics(result)
             if probe['durability'] != 'on,on,on' or not probe['durable_drained']:
                 raise ValueError('trial lacks durable progress')
             before, after = summary['streams-before'], summary['streams-after']
@@ -107,6 +146,7 @@ def verified(session_file):
                          'comparison': result['comparison'], 'compatibility': result['compatibility'],
                          'cohort': result['cohort'], 'fingerprint': result['fingerprint'],
                          'measurements': measure, 'writeProbe': probe, 'indexSetup': summary['index-setup'],
+                         'browseDiagnostics': summary.get('browse-diagnostics'),
                          'streamsBefore': before, 'streamsAfter': after, 'streamDeltas': counters})
     return rows
 
@@ -128,7 +168,7 @@ def plan(template, case, pairs, calibration=False, proof=False):
             group = 'mp13-index/' + ('calibration' if calibration else name)
             entry['trial'] = {'group': group, 'arm': arm, 'index': pair, 'of': pairs}
             spec = entry['spec']
-            spec.update(runId=identifier, scenarioRevision=4, seed=7 + pair,
+            spec.update(runId=identifier, scenarioRevision=5, seed=7 + pair,
                         phases={'warmUpSeconds': 10, 'steadySeconds': 61, 'drainSeconds': 10},
                         timeoutSeconds=180,
                         comparison={'group': group, 'arm': arm, 'trial': pair, 'position': position})
@@ -149,7 +189,9 @@ def audit(operator, root, session_file, descriptor):
     for trial in slices:
         if trial['state'] == 'verified' and trial.get('fetchedPath'):
             for result_file in Path(trial['fetchedPath']).glob('output/*/run-result.json'):
-                validate_evidence_grade(read(result_file))
+                result = read(result_file)
+                validate_evidence_grade(result)
+                validate_browser_diagnostics(result)
     active = next((x for x in slices if x['state'] not in ['verified', 'failed', 'rejected']), None)
     status = None
     if active and active.get('submission'):
@@ -243,7 +285,10 @@ def main():
     parser.add_argument('--operator', required=True)
     parser.add_argument('--payload', type=Path, required=True)
     parser.add_argument('--cell', default='alpha')
+    parser.add_argument('--case', choices=['all'] + [x[0] for x in CASES], default='all')
+    parser.add_argument('--no-calibration', action='store_true', help='reuse prior calibration; retain the corrected first-trial proof')
     args = parser.parse_args()
+    cases = CASES if args.case == 'all' else [x for x in CASES if x[0] == args.case]
     root = args.root.resolve()
     root.mkdir(exist_ok=True)
     if not (root / 'budget.json').exists():
@@ -252,7 +297,7 @@ def main():
     if payload['harness']['dirty']:
         raise ValueError('requires a clean immutable payload')
     inputs = {'payloadSha256': digest(args.payload), 'policySha256': digest(POLICY), 'cell': args.cell,
-              'cases': CASES, 'pairs': 5, 'phases': [10, 61, 10], 'settings': SETTINGS,
+              'cases': cases, 'pairs': 5, 'calibration': not args.no_calibration, 'phases': [10, 61, 10], 'settings': SETTINGS,
               'controllerSha256': digest(__file__)}
     inputs = json.loads(json.dumps(inputs))
     if (root / 'inputs.json').exists():
@@ -275,17 +320,21 @@ def main():
     template = read(template_file)
     # One verified trial proves the entire lifecycle before expanding coverage.
     proof_file = root / 'proof/plan.json'
-    proof = read(proof_file) if proof_file.exists() else plan(template, CASES[0], 1, calibration=True, proof=True)
-    execute(args.operator, root, args.payload, args.cell, 'proof', proof, descriptor)
+    proof = read(proof_file) if proof_file.exists() else plan(template, cases[0], 1, calibration=True, proof=True)
+    proof_rows = execute(args.operator, root, args.payload, args.cell, 'proof', proof, descriptor)
+    for row in proof_rows:
+        if command([args.operator, 'summarize', row['path'], '--verify'], root / 'proof-recomputation.log', timeout=min(120, remaining(root))):
+            raise ValueError('corrected proof raw measurement verification failed')
     release = subprocess.run([args.operator, 'cell', 'status', '--cell', args.cell, '--json'], capture_output=True, text=True, timeout=30, check=True)
     if json.loads(release.stdout)['lease'] is not None:
         raise ValueError('proof lease was not released')
     write(root / 'proof-lease-release.json', json.loads(release.stdout))
-    # A second identical control gives a small calibration, not equivalence proof.
-    calibration_file = root / 'calibration/plan.json'
-    calibration = read(calibration_file) if calibration_file.exists() else plan(template, CASES[0], 1, calibration=True, proof=True)
-    execute(args.operator, root, args.payload, args.cell, 'calibration', calibration, descriptor)
-    for case in CASES:
+    if not args.no_calibration:
+        # A second identical control gives a small calibration, not equivalence proof.
+        calibration_file = root / 'calibration/plan.json'
+        calibration = read(calibration_file) if calibration_file.exists() else plan(template, cases[0], 1, calibration=True, proof=True)
+        execute(args.operator, root, args.payload, args.cell, 'calibration', calibration, descriptor)
+    for case in cases:
         path = root / case[0] / 'plan.json'
         document = read(path) if path.exists() else plan(template, case, 5)
         rows = execute(args.operator, root, args.payload, args.cell, case[0], document, descriptor)
@@ -301,7 +350,9 @@ def main():
         if code not in [0, 2, 3] or not comparison_file.exists():
             raise ValueError('paired comparison failed')
         result = read(comparison_file)
-        print(json.dumps({'case': case[0], 'verdict': result['verdict'], 'pairs': result['pairCount']}), flush=True)
+        estimates = cost_estimates(result)
+        write(root / case[0] / 'cost-estimates.json', estimates)
+        print(json.dumps({'case': case[0], 'verdict': result['verdict'], 'pairs': result['pairCount'], 'costEstimates': estimates}), flush=True)
         if result['verdict'] == 'regression':
             raise ValueError('confirmed write regression; no further cases submitted')
     write(root / 'completion.json', {'status': 'functional-complete', 'performance': 'see individual comparisons', 'remaining_seconds': remaining(root)})
