@@ -2,7 +2,9 @@
 """Check EP-3's SQL promotion gate on a disposable PostgreSQL 18 cluster.
 
 No production SQL is installed. Exit 2 means the prefix prototype is rejected;
-exit 0 means only this focused check passed, not cumulative observer acceptance.
+exit 0 means the selected check completed; index-layout research completion
+does not imply promotion or cumulative observer acceptance.
+The index-layout scope changes indexes only inside the disposable research DB.
 Retain complete EXPLAIN plans and exact inputs; never overwrite an evidence file.
 """
 
@@ -285,10 +287,82 @@ def range_streams_case(sql, database, evidence, save, mode, stage, label,
     save()
 
 
+def index_layout_probe(sql, database, evidence, save):
+    """Research replacement footprint/read plans; no timed append workload."""
+    evidence["write_cost_measured"] = False
+    for size in [1000, 20000]:
+        # Restore the control before extending the fixture. Both measured
+        # category indexes are freshly built, avoiding a bulk-build advantage.
+        sql("DROP INDEX IF EXISTS kiroku.ix_streams_category_name; "
+            "CREATE INDEX IF NOT EXISTS ix_streams_category ON kiroku.streams(category);", database)
+        names = [category + "-" + fixture_typeid(n)
+                 for category in ["orders", "noise"] for n in range(1, size + 1)]
+        names += ["orders", "orders-", "orders-%literal", "orders-_literal", "orders-éclair", "orders-漢字"]
+        seed = ("INSERT INTO kiroku.streams(stream_name) SELECT value FROM unnest(ARRAY["
+                + ",".join(sql_text(name) for name in names)
+                + "]) AS input(value) ON CONFLICT DO NOTHING; ANALYZE kiroku.streams;")
+        sql(seed, database)
+        evidence.setdefault("fixtures", []).append({"database": database, "typeid_streams_per_category": size, "sql": seed})
+        for layout in ["category_only", "category_name"]:
+            ddl = ("REINDEX INDEX kiroku.ix_streams_category;" if layout == "category_only" else
+                   "CREATE INDEX ix_streams_category_name ON kiroku.streams(category,stream_name); "
+                   "DROP INDEX kiroku.ix_streams_category;")
+            sql(ddl, database)
+            definitions = json.loads(sql("SELECT json_agg(json_build_object('name',indexname,'definition',indexdef,"
+                                         "'bytes',pg_relation_size((schemaname||'.'||indexname)::regclass)) "
+                                         "ORDER BY indexname) FROM pg_indexes "
+                                         "WHERE schemaname='kiroku' AND tablename='streams';", database))
+            evidence.setdefault("layouts", []).append({
+                "database": database, "typeid_streams_per_category": size,
+                "layout": layout, "ddl": ddl, "indexes": definitions,
+                "table_bytes": int(sql("SELECT pg_relation_size('kiroku.streams');", database)),
+                "stream_event_indexes": json.loads(sql("SELECT json_agg(indexdef ORDER BY indexname) "
+                    "FROM pg_indexes WHERE schemaname='kiroku' AND tablename='stream_events';", database))})
+            for mode in ["force_generic_plan", "force_custom_plan"]:
+                for label, category, cursor in [
+                    ("first", "orders", None), ("missing", "missing", None),
+                    ("late", "orders", "orders-" + fixture_typeid(size - 10)),
+                    ("end", "orders", "orders-漢字")]:
+                    seek = " AND stream_name > $2" if cursor is not None else ""
+                    query = (f"SELECT {COLUMNS} FROM streams WHERE stream_id <> 0 "
+                             "AND category = $1" + seek + " ORDER BY stream_name LIMIT $5")
+                    parameters = ",".join([sql_text(category), "NULL" if cursor is None else sql_text(cursor),
+                                           "NULL", "NULL", "11", "NULL"])
+                    reference = "category = " + sql_text(category)
+                    range_streams_case(sql, database, evidence, save, mode, str(size), label,
+                                       size, size, category, cursor, None, None, None,
+                                       layout, query, parameters, reference)
+                for variant, cursor in [("category_first", None), ("category_after", "orders")]:
+                    query = CATEGORY_VARIANTS[variant]
+                    settings = ("SET search_path TO kiroku,pg_catalog; "
+                                f"SET plan_cache_mode={mode}; SET statement_timeout='10s'; "
+                                f"PREPARE probe(text,integer) AS {query}; ")
+                    execute = "EXECUTE probe(" + ("NULL" if cursor is None else sql_text(cursor)) + ",11);"
+                    transcript = settings + "EXPLAIN (ANALYZE,BUFFERS,COSTS OFF,TIMING OFF,FORMAT JSON) " + execute
+                    plan = json.loads(sql(transcript, database))
+                    top = plan[0]["Plan"]
+                    actual = sql(settings + execute, database).splitlines()
+                    reference = "SELECT DISTINCT category FROM kiroku.streams WHERE stream_id<>0"
+                    if cursor is not None:
+                        reference += " AND category>" + sql_text(cursor)
+                    expected = sql(reference + " ORDER BY category LIMIT 11;", database).splitlines()
+                    assert actual == expected, "index replacement changed category enumeration"
+                    examined = sum((n.get("Actual Rows", 0) + n.get("Rows Removed by Filter", 0))
+                                   * n.get("Actual Loops", 1) for n in nodes(top)
+                                   if n.get("Relation Name") == "streams")
+                    buffers = top.get("Shared Hit Blocks", 0) + top.get("Shared Read Blocks", 0)
+                    evidence["cases"].append({"database": database, "stage": str(size), "mode": mode,
+                        "variant": variant, "shape": layout, "sql": transcript, "plan": plan,
+                        "rows_examined": examined, "buffers": buffers, "items": actual,
+                        "expected_items": expected, "correct_results": True,
+                        "within_budget": examined <= 64 and buffers <= 64})
+                    save()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--scope", choices=["prefix", "category-streams", "range-streams"], default="prefix")
+    parser.add_argument("--scope", choices=["prefix", "category-streams", "range-streams", "index-layout"], default="prefix")
     args = parser.parse_args()
     if args.output.exists():
         parser.error("output exists; preserve prior evidence and choose a new path")
@@ -355,6 +429,9 @@ def main():
                     if args.scope == "range-streams":
                         range_streams_probe(sql, database, evidence, save)
                         continue
+                    if args.scope == "index-layout":
+                        index_layout_probe(sql, database, evidence, save)
+                        continue
                     for size in [1000, 20000]:
                         sql("SET search_path TO kiroku, pg_catalog;\n"
                             f"INSERT INTO streams(stream_name) SELECT 'noise-' || lpad(n::text,6,'0') "
@@ -420,12 +497,17 @@ def main():
                                         "within_budget": examined <= 64 and buffers <= 64})
                                     save()
                 required_cases = [r for r in evidence["cases"]
-                                  if args.scope in ["category-streams", "range-streams"] or r["variant"] == "nullable"]
+                                  if args.scope in ["category-streams", "range-streams", "index-layout"] or r["variant"] == "nullable"]
                 if not required_cases:
                     raise RuntimeError("no required SQL cases were evaluated")
-                evidence["status"] = "passes_focused_check" if all(
-                    r["within_budget"] for r in required_cases
-                ) else {"category-streams": "category_streams_requires_design",
+                if args.scope == "index-layout":
+                    candidate = [r for r in required_cases if r["shape"] == "category_name"]
+                    evidence["candidate_read_cases_pass"] = bool(candidate) and all(r["within_budget"] for r in candidate)
+                    evidence["status"] = "index_layout_research_complete"
+                else:
+                    evidence["status"] = "passes_focused_check" if all(
+                        r["within_budget"] for r in required_cases
+                    ) else {"category-streams": "category_streams_requires_design",
                         "range-streams": "range_streams_requires_design",
                         "prefix": "rejected_prefix_prototype"}[args.scope]
             finally:
@@ -444,7 +526,7 @@ def main():
         evidence["elapsed_seconds"] = time.monotonic() - started
         save()
     print(json.dumps({k: evidence[k] for k in ["status", "server", "cluster_stopped", "elapsed_seconds"]}, indent=2))
-    return 0 if evidence["status"] == "passes_focused_check" else 2
+    return 0 if evidence["status"] in ["passes_focused_check", "index_layout_research_complete"] else 2
 
 
 if __name__ == "__main__":

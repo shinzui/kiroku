@@ -1,0 +1,4074 @@
+{
+  "project": "mori://shinzui/keiro-runtime-kenshou",
+  "revision": "7a451b5f5f4b51986e872879a3bfe10f5943af6b",
+  "artifact_uris": "Pending; paths are relative to the canonical project above.",
+  "scope": "Local runs/*/run-result.json with kiroku/*/benchmark/* scenarios; not an inventory of all remote evidence.",
+  "sources": [
+    {
+      "path": "cohort/released.json",
+      "sha256": "5c08f30a78a7d36ab707cde925813987356bdc46d0c3626b2882814db685cf56"
+    },
+    {
+      "path": "docs/guides/measuring-and-comparing.md",
+      "sha256": "8c673e79fa27cdc0d6a35b19dbd0340be967fbeb79137954ea7826ec42e239c5"
+    },
+    {
+      "path": "kenshou-kiroku/src/Kenshou/Suite/Kiroku/Bench/Append.hs",
+      "sha256": "c882bb79864d840a83c240e33da7ef6f2cc7f4723390b841c364e151e23f19d1"
+    },
+    {
+      "path": "kenshou-kiroku/src/Kenshou/Suite/Kiroku/Bench/Subscription.hs",
+      "sha256": "76e422c80a8d62b38ef90f7e2dc5cc0a8835a3191850a2e9b1e0c7f577c3d2cf"
+    },
+    {
+      "path": "kenshou-kiroku/src/Kenshou/Suite/Kiroku/Bench/Read.hs",
+      "sha256": "fbbc515615f745492edb0e4f07bf1892ba3b327d639825a8aea81388a0ca59df"
+    },
+    {
+      "path": "kenshou-kiroku/src/Kenshou/Suite/Kiroku/Bench/Hardening.hs",
+      "sha256": "776e5862ecfcfdaa3ab81874069ab7dc6d72ad10af0ab55b0fcc1ce638af32c4"
+    },
+    {
+      "path": "kenshou-measure/src/Kenshou/Measure/Sampler/Postgres.hs",
+      "sha256": "ee98f6916cc5a3801e657dddf6d7d084c7c4a932d9a89962519ad5ce91cba66c"
+    },
+    {
+      "path": "kenshou-measure/src/Kenshou/Measure/Compare/Compatibility.hs",
+      "sha256": "78b779c9f4f66d8a28508845104d05eef27de62ecc91bea92f4688dcd0153ee5"
+    }
+  ],
+  "runs": [
+    {
+      "path": "runs/01a0cbed-3ff6-7248-9e77-74e41efe5e3b/run-result.json",
+      "sha256": "2a15bae71416ec6fa080d9d7183a6d57a6c0e942bf3d034c72a78ed4809afdac",
+      "run_id": "01a0cbed-3ff6-7248-9e77-74e41efe5e3b",
+      "scenario": "kiroku/append/benchmark/append-only",
+      "scenario_revision": 1,
+      "outcome": "infrastructure-failure",
+      "grade": "exploratory",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cbed-a0b7-7372-a40a-aee7d0823fb0/run-result.json",
+      "sha256": "584540a52f3662559ea6b5f25996092fd67d60ad8b1d629122feb2b041c0dbc2",
+      "run_id": "01a0cbed-a0b7-7372-a40a-aee7d0823fb0",
+      "scenario": "kiroku/append/benchmark/append-only",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cbee-3f8c-75b1-9c94-8861bacb4eae/run-result.json",
+      "sha256": "b11f85bdb38f9dde9306d3b73e4c3b4bd1043ea6a47cd67e3c5874243cb0fe7a",
+      "run_id": "01a0cbee-3f8c-75b1-9c94-8861bacb4eae",
+      "scenario": "kiroku/append/benchmark/append-only",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cbef-b763-74a0-afd8-b202bf38881f/run-result.json",
+      "sha256": "5260fd4e9b896c1782a79a3bb9fc082b26f008fe79a8f5154f89b17068452e87",
+      "run_id": "01a0cbef-b763-74a0-afd8-b202bf38881f",
+      "scenario": "kiroku/append/benchmark/hot-stream",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cbf2-c9d9-732d-b160-2f21e0a9948f/run-result.json",
+      "sha256": "ec01afa2e362f72c0cd1f41aa275e03683937295bd53a01f50aeea2c22198e1f",
+      "run_id": "01a0cbf2-c9d9-732d-b160-2f21e0a9948f",
+      "scenario": "kiroku/append/benchmark/expected-version-conflict",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc2d-da91-733b-be37-25a737b49638/run-result.json",
+      "sha256": "0c1090bc67b0b901d099c28ad86fb230c55859698c52e26edbca4eddb1cb3171",
+      "run_id": "01a0cc2d-da91-733b-be37-25a737b49638",
+      "scenario": "kiroku/read/benchmark/read-targets",
+      "scenario_revision": 1,
+      "outcome": "infrastructure-failure",
+      "grade": "exploratory",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc2e-3534-73d4-9829-744db9280327/run-result.json",
+      "sha256": "0f394da913cfd708c080df6e061999c7ac5abffc01f1800f8b4dd75245f8fafc",
+      "run_id": "01a0cc2e-3534-73d4-9829-744db9280327",
+      "scenario": "kiroku/read/benchmark/read-targets",
+      "scenario_revision": 1,
+      "outcome": "inconclusive",
+      "grade": "exploratory",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc2e-90cc-74fc-aee1-c33884f39ccd/run-result.json",
+      "sha256": "902415342c10ab905aed077e821aa7b6236b8906b421a77693d8da3ed7034372",
+      "run_id": "01a0cc2e-90cc-74fc-aee1-c33884f39ccd",
+      "scenario": "kiroku/read/benchmark/read-targets",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc2f-73fc-7594-95ec-077f1fe7da9b/run-result.json",
+      "sha256": "6d3d4d2162b8e59db418767e3a883ce0ddb0e54495762e63f4fd9a94052eec5d",
+      "run_id": "01a0cc2f-73fc-7594-95ec-077f1fe7da9b",
+      "scenario": "kiroku/read/benchmark/read-targets",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc2f-b71f-7427-aa67-11ab74352574/run-result.json",
+      "sha256": "493eda6d77fcc8360b5cc76b2fe4aa542ae8b96017c3765a8d6ccf9a6d3402b7",
+      "run_id": "01a0cc2f-b71f-7427-aa67-11ab74352574",
+      "scenario": "kiroku/read/benchmark/read-targets",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc30-02bc-776e-a752-cf9877fb0a6a/run-result.json",
+      "sha256": "b0c9f9b48e6ad81cf33b76f6ed53be37422f78b300334ef9de1f4403875b5479",
+      "run_id": "01a0cc30-02bc-776e-a752-cf9877fb0a6a",
+      "scenario": "kiroku/read/benchmark/read-targets",
+      "scenario_revision": 1,
+      "outcome": "infrastructure-failure",
+      "grade": "exploratory",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc30-b91b-7761-b6c8-5b8389de7cc2/run-result.json",
+      "sha256": "b27eab4efcbbda2a5e6fdf243845e42fd75c05c421e28eb848b0a0d0df9190a5",
+      "run_id": "01a0cc30-b91b-7761-b6c8-5b8389de7cc2",
+      "scenario": "kiroku/read/benchmark/read-targets",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc32-a418-7244-93f4-a92c3b1b477d/run-result.json",
+      "sha256": "98ebb22691c86ac8623cfed780970d4737b518244a3bea03cfac92f495bce637",
+      "run_id": "01a0cc32-a418-7244-93f4-a92c3b1b477d",
+      "scenario": "kiroku/read/benchmark/read-targets",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc36-149a-77be-add6-91a4a9f75ead/run-result.json",
+      "sha256": "ec2ad91971546426024b620e1c4ebd8d6a20b5db79ac0aba6b22264d4821df93",
+      "run_id": "01a0cc36-149a-77be-add6-91a4a9f75ead",
+      "scenario": "kiroku/transaction/benchmark/lock-hold-contention",
+      "scenario_revision": 1,
+      "outcome": "inconclusive",
+      "grade": "exploratory",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc36-96dd-7617-9eeb-0c5abbed8a23/run-result.json",
+      "sha256": "cc8e41cc1b773caba28dbacf788267a76c095efcf1a8bed17fd395c1373f90d5",
+      "run_id": "01a0cc36-96dd-7617-9eeb-0c5abbed8a23",
+      "scenario": "kiroku/transaction/benchmark/lock-hold-contention",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc3b-5db8-72d1-b6a9-da4de221c127/run-result.json",
+      "sha256": "973e75dd220c4dc5060a09c694451787fcec5d9d6a7a11fd6aba6604336a755e",
+      "run_id": "01a0cc3b-5db8-72d1-b6a9-da4de221c127",
+      "scenario": "kiroku/append/benchmark/layer-ladder",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc3b-ac4c-7197-8719-16e0622f7746/run-result.json",
+      "sha256": "84f39459b566a0454de41737d17923c0ec3903f61d1b52a4321053590b0a06ce",
+      "run_id": "01a0cc3b-ac4c-7197-8719-16e0622f7746",
+      "scenario": "kiroku/append/benchmark/layer-ladder",
+      "scenario_revision": 1,
+      "outcome": "failed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc3c-21d8-7191-b237-24c76734bd7c/run-result.json",
+      "sha256": "80bfcc171bab26514922d2ad16dc34b4caf43b2209d489331144c6c45eb742b8",
+      "run_id": "01a0cc3c-21d8-7191-b237-24c76734bd7c",
+      "scenario": "kiroku/append/benchmark/layer-ladder",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc3c-6d5a-766c-8a10-fe09ffb5b22b/run-result.json",
+      "sha256": "117f3d92d9715f74f2cea58f7aad611ae42a728524efeda85885acfcc050f4ad",
+      "run_id": "01a0cc3c-6d5a-766c-8a10-fe09ffb5b22b",
+      "scenario": "kiroku/append/benchmark/layer-ladder",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc3c-ba27-7601-8578-2b950956275f/run-result.json",
+      "sha256": "cde416d60d7e01d097967cb33c66201afd117b3e9b2e5ecc220230eddfd5d835",
+      "run_id": "01a0cc3c-ba27-7601-8578-2b950956275f",
+      "scenario": "kiroku/append/benchmark/layer-ladder",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc3f-92ac-71f2-9f1c-1ec6cefaec09/run-result.json",
+      "sha256": "eff39562c02b8b74cc99514db13246e11b9e3b14d4c7481475c060132d4281db",
+      "run_id": "01a0cc3f-92ac-71f2-9f1c-1ec6cefaec09",
+      "scenario": "kiroku/append/benchmark/append-only",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc3f-dee5-737d-a51f-1280a91a7567/run-result.json",
+      "sha256": "f6a25ed7cbd68367d8a6831ea5aea49bee2c89abb913e330eba377727d58e505",
+      "run_id": "01a0cc3f-dee5-737d-a51f-1280a91a7567",
+      "scenario": "kiroku/append/benchmark/append-only",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc40-2f13-76d7-ba98-50a2ea1a1af5/run-result.json",
+      "sha256": "2ab69b7f55c83daa240b02b59a11d288286338fad19d485597fe66978bafe8a9",
+      "run_id": "01a0cc40-2f13-76d7-ba98-50a2ea1a1af5",
+      "scenario": "kiroku/append/benchmark/append-only",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc40-8165-712e-a3b7-c1bd28e0ecfc/run-result.json",
+      "sha256": "c2b2f5f18597bd6cc0b46d2f8bec35691ad21c785c2d735b291307a82ca0b2ab",
+      "run_id": "01a0cc40-8165-712e-a3b7-c1bd28e0ecfc",
+      "scenario": "kiroku/append/benchmark/append-only",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc40-d2ee-75da-8ab7-8a608cd8ada7/run-result.json",
+      "sha256": "3b980f9e4506bd9895d522758d5d7f4e79282030bcf0978d80eeb4792300614f",
+      "run_id": "01a0cc40-d2ee-75da-8ab7-8a608cd8ada7",
+      "scenario": "kiroku/append/benchmark/append-only",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc41-1c61-70b7-90c0-ae31dc1f5c4b/run-result.json",
+      "sha256": "ae24a9a7339d54afbdc845ac8e35d1d1607251247fdc7f9d05c38ea75c4267ee",
+      "run_id": "01a0cc41-1c61-70b7-90c0-ae31dc1f5c4b",
+      "scenario": "kiroku/append/benchmark/append-only",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc7d-c3c7-72b5-b1af-d58e1c7c2fa9/run-result.json",
+      "sha256": "186dc60abe70abc1291c13cc20c68147b74ed94a0cb117157fb88c888af98934",
+      "run_id": "01a0cc7d-c3c7-72b5-b1af-d58e1c7c2fa9",
+      "scenario": "kiroku/subscription/benchmark/catch-up",
+      "scenario_revision": 1,
+      "outcome": "inconclusive",
+      "grade": "exploratory",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc7f-4252-7633-8c83-37d766000740/run-result.json",
+      "sha256": "75ecc537be34aa2e6c6519c44436b6bc6a2e339e8b25df184823485a529f63a8",
+      "run_id": "01a0cc7f-4252-7633-8c83-37d766000740",
+      "scenario": "kiroku/subscription/benchmark/catch-up",
+      "scenario_revision": 1,
+      "outcome": "failed",
+      "grade": "exploratory",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc80-1d66-709e-81e9-a4b4f0ff6b59/run-result.json",
+      "sha256": "fcdbf3e1f3717b74d3fd9f71c9245ec943fba74731cd74d56d8e195e6235d175",
+      "run_id": "01a0cc80-1d66-709e-81e9-a4b4f0ff6b59",
+      "scenario": "kiroku/subscription/benchmark/catch-up",
+      "scenario_revision": 1,
+      "outcome": "inconclusive",
+      "grade": "exploratory",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc80-b616-77b2-bc12-e510e7476cbe/run-result.json",
+      "sha256": "32d22b7246a3227a126b9cc99abdbd2b126c8f0412fc9992bc83055dc58c9404",
+      "run_id": "01a0cc80-b616-77b2-bc12-e510e7476cbe",
+      "scenario": "kiroku/subscription/benchmark/catch-up",
+      "scenario_revision": 1,
+      "outcome": "inconclusive",
+      "grade": "exploratory",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc82-1b92-76ff-b345-1e000e1f34c1/run-result.json",
+      "sha256": "5b533c22d6780a5a2a901e83e326e872dcbc8ef3c2b29c70819e56584bbbae11",
+      "run_id": "01a0cc82-1b92-76ff-b345-1e000e1f34c1",
+      "scenario": "kiroku/subscription/benchmark/catch-up",
+      "scenario_revision": 1,
+      "outcome": "inconclusive",
+      "grade": "exploratory",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc89-092e-72a9-88e9-d2c1a8671094/run-result.json",
+      "sha256": "10a0978750c624d3cbd380029c0b3ce5102d6c9ffc6556e22171f2eadc34be87",
+      "run_id": "01a0cc89-092e-72a9-88e9-d2c1a8671094",
+      "scenario": "kiroku/subscription/benchmark/append-to-handler-latency",
+      "scenario_revision": 1,
+      "outcome": "inconclusive",
+      "grade": "exploratory",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc89-8e61-7154-9661-8d4b9047e66e/run-result.json",
+      "sha256": "1624737a5e33a575e3fac495ec1e1de7b976b757c7acd2271dd4e272e57269a8",
+      "run_id": "01a0cc89-8e61-7154-9661-8d4b9047e66e",
+      "scenario": "kiroku/subscription/benchmark/append-to-handler-latency",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc8a-0b25-73cf-8afe-c8d37b7c684e/run-result.json",
+      "sha256": "678a4a824a7cf688a2ac86f805e8429f462c3a4f6011599a14ede8ea78f02e46",
+      "run_id": "01a0cc8a-0b25-73cf-8afe-c8d37b7c684e",
+      "scenario": "kiroku/subscription/benchmark/append-to-handler-latency",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc8b-9eda-7552-bab7-43bd7d520d16/run-result.json",
+      "sha256": "e45ca5dc41b54089be0395928c4f3ecdaa51baf92c4cfda80d4814085a099dc6",
+      "run_id": "01a0cc8b-9eda-7552-bab7-43bd7d520d16",
+      "scenario": "kiroku/subscription/benchmark/append-to-handler-latency",
+      "scenario_revision": 1,
+      "outcome": "failed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc8f-f5be-7354-88ad-e4c051d9e3e3/run-result.json",
+      "sha256": "54ac9644322379922a9e1627dc1a4d4525295cfcf5340ffed6aab1487fa77795",
+      "run_id": "01a0cc8f-f5be-7354-88ad-e4c051d9e3e3",
+      "scenario": "kiroku/subscription/benchmark/append-to-handler-latency",
+      "scenario_revision": 1,
+      "outcome": "failed",
+      "grade": "exploratory",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc94-4004-73d6-919a-49022b55fa06/run-result.json",
+      "sha256": "131f8748d62c76aabb9a5d7a74916811799f99aa58d63af598990111a6c66fc2",
+      "run_id": "01a0cc94-4004-73d6-919a-49022b55fa06",
+      "scenario": "kiroku/subscription/benchmark/append-to-handler-latency",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc98-f3c3-7357-82f5-a54a45bff1d7/run-result.json",
+      "sha256": "1c70462180b50d422fd57e4a192b37b6fd5f02a13521e238bf715dcb184d351d",
+      "run_id": "01a0cc98-f3c3-7357-82f5-a54a45bff1d7",
+      "scenario": "kiroku/subscription/benchmark/append-to-handler-latency",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc99-5d1b-70ea-961b-e67529d296b2/run-result.json",
+      "sha256": "6ea9b68dc5738f0be8864271609707941836f30051324d85a86c67a3d5d72e28",
+      "run_id": "01a0cc99-5d1b-70ea-961b-e67529d296b2",
+      "scenario": "kiroku/subscription/benchmark/append-to-handler-latency",
+      "scenario_revision": 1,
+      "outcome": "failed",
+      "grade": "exploratory",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc9d-499d-74a6-a2b7-675c58a55724/run-result.json",
+      "sha256": "d656377e75479a111159a929ef30c40140323dca19cb6d9754eb8f3afcd91190",
+      "run_id": "01a0cc9d-499d-74a6-a2b7-675c58a55724",
+      "scenario": "kiroku/subscription/benchmark/append-to-handler-latency",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cc9d-f9d9-778d-9590-aa01e6677c9e/run-result.json",
+      "sha256": "2b19833c3d1eae9992f8e70a1baf6f5e8a63a58a1889384d3bb164c68494441f",
+      "run_id": "01a0cc9d-f9d9-778d-9590-aa01e6677c9e",
+      "scenario": "kiroku/subscription/benchmark/append-to-handler-latency",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cca4-bcce-7695-9002-3f8a398c4b18/run-result.json",
+      "sha256": "ea0a41722045544df576c6e7db7adf4e400ad902b810cdccf11c0dc24de5c85c",
+      "run_id": "01a0cca4-bcce-7695-9002-3f8a398c4b18",
+      "scenario": "kiroku/subscription/benchmark/fan-out",
+      "scenario_revision": 1,
+      "outcome": "inconclusive",
+      "grade": "exploratory",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cca5-9005-74d1-9110-e873c9fb37a8/run-result.json",
+      "sha256": "da111cd35c6e295f257be844e038de169a53ccf27799677baed2fa0e4f11c461",
+      "run_id": "01a0cca5-9005-74d1-9110-e873c9fb37a8",
+      "scenario": "kiroku/subscription/benchmark/fan-out",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cca6-f39e-75de-b2a5-31229a0a31ef/run-result.json",
+      "sha256": "a000a96ce1933a09f362bdc4d9d920cd06e6a56972676a6c33241da405670092",
+      "run_id": "01a0cca6-f39e-75de-b2a5-31229a0a31ef",
+      "scenario": "kiroku/subscription/benchmark/fan-out",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0cca9-9947-73be-bb60-930b55cdf100/run-result.json",
+      "sha256": "f7317b899c443283e832ec71ac30e2fbfbc0e3d25f4df0e6d11ab76665934d14",
+      "run_id": "01a0cca9-9947-73be-bb60-930b55cdf100",
+      "scenario": "kiroku/subscription/benchmark/fan-out",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0ccaa-3e34-7627-ba33-65da094b2651/run-result.json",
+      "sha256": "c93061cc9fbe5d2ed7c1b92343f3270d8b8e43fa261cd16eae195007a84fc5ed",
+      "run_id": "01a0ccaa-3e34-7627-ba33-65da094b2651",
+      "scenario": "kiroku/subscription/benchmark/fan-out",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0ccaa-9c3a-7682-b674-725568455576/run-result.json",
+      "sha256": "aeae11739547971bf9828a04c4becc5312939c381f57ea471f02fc7c06ed2946",
+      "run_id": "01a0ccaa-9c3a-7682-b674-725568455576",
+      "scenario": "kiroku/subscription/benchmark/fan-out",
+      "scenario_revision": 1,
+      "outcome": "inconclusive",
+      "grade": "exploratory",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0ccaf-1773-708e-afe2-ab0688ac8916/run-result.json",
+      "sha256": "a104450aca2ba00c595e2eebb9f7a77cdb440e6fa362a95c7696af3f1ff9f04a",
+      "run_id": "01a0ccaf-1773-708e-afe2-ab0688ac8916",
+      "scenario": "kiroku/otel/benchmark/event-handler-arms",
+      "scenario_revision": 1,
+      "outcome": "failed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0ccaf-ee67-70a7-bd4b-129c9b5be43e/run-result.json",
+      "sha256": "24e0ec8bad02d2c437d6195c2a25f72286ef329995ad8177dcc8e7cfb23841a4",
+      "run_id": "01a0ccaf-ee67-70a7-bd4b-129c9b5be43e",
+      "scenario": "kiroku/otel/benchmark/event-handler-arms",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0ccb0-6133-771e-818d-2005314482ba/run-result.json",
+      "sha256": "74aee933ec86b206092956c3ae41820a8394daaa6f262ece589862845208032a",
+      "run_id": "01a0ccb0-6133-771e-818d-2005314482ba",
+      "scenario": "kiroku/otel/benchmark/event-handler-arms",
+      "scenario_revision": 1,
+      "outcome": "failed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0ccb1-d9a0-7582-bedc-865ea2eeaaa6/run-result.json",
+      "sha256": "1bf04060f896c2036623fb1749209c0d0cdf95b0ed1a1d1e123a50cd132e7ae3",
+      "run_id": "01a0ccb1-d9a0-7582-bedc-865ea2eeaaa6",
+      "scenario": "kiroku/otel/benchmark/event-handler-arms",
+      "scenario_revision": 1,
+      "outcome": "failed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0ccb3-0a65-76af-9fc4-805e0a3ec1e0/run-result.json",
+      "sha256": "655354ca097b64a3ee907fae8cda9cf6fe63dc13800ba32dee5e7d69332761e2",
+      "run_id": "01a0ccb3-0a65-76af-9fc4-805e0a3ec1e0",
+      "scenario": "kiroku/otel/benchmark/event-handler-arms",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0ccb3-8916-773e-bb9f-588dd0398a0c/run-result.json",
+      "sha256": "84a36a04820266c1415ba8aea03a78e7e2933569994cc4d5c67e75ccf3d58047",
+      "run_id": "01a0ccb3-8916-773e-bb9f-588dd0398a0c",
+      "scenario": "kiroku/otel/benchmark/event-handler-arms",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0ccb6-7f9f-70df-b812-9887cabf08db/run-result.json",
+      "sha256": "27bf8b4b75d2397eef107c80aea0ab1860b9da5ade6a9589e3f15479758d1006",
+      "run_id": "01a0ccb6-7f9f-70df-b812-9887cabf08db",
+      "scenario": "kiroku/metrics/benchmark/server-arms",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0ccb7-a16e-767d-8a03-1c5facc7148f/run-result.json",
+      "sha256": "cf8a992f1e4568755d57ac09fa320b11e0f23df5a4fcd6b3ff74210cf07bda07",
+      "run_id": "01a0ccb7-a16e-767d-8a03-1c5facc7148f",
+      "scenario": "kiroku/metrics/benchmark/server-arms",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0ccb8-57b8-7451-822e-00fbde9787d0/run-result.json",
+      "sha256": "fbb26592247ca988db47f3b21917d4b2eb6c154efc4c1d2db282967e44f0c613",
+      "run_id": "01a0ccb8-57b8-7451-822e-00fbde9787d0",
+      "scenario": "kiroku/metrics/benchmark/server-arms",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0ccb8-b470-72b4-bc1c-3e484cf58048/run-result.json",
+      "sha256": "7f7ec966d0251dde4b605599c1f44695d54e8a3f0133450bdfa1cf3947001c94",
+      "run_id": "01a0ccb8-b470-72b4-bc1c-3e484cf58048",
+      "scenario": "kiroku/metrics/benchmark/server-arms",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0d9e7-fab5-769e-bbdb-293879ff3813/run-result.json",
+      "sha256": "dc02a19a27ab0e639fe3103b569ddd99aabb41fd78f2baa9febaa3ee6df9abcb",
+      "run_id": "01a0d9e7-fab5-769e-bbdb-293879ff3813",
+      "scenario": "kiroku/append/benchmark/layer-ladder",
+      "scenario_revision": 1,
+      "outcome": "failed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0d9ea-bb68-7395-afc7-ca97172ebd67/run-result.json",
+      "sha256": "15d425c8be8c1c8a8e477689b0c85c1938e132383248c2482144fcfb048e41f6",
+      "run_id": "01a0d9ea-bb68-7395-afc7-ca97172ebd67",
+      "scenario": "kiroku/append/benchmark/layer-ladder",
+      "scenario_revision": 1,
+      "outcome": "inconclusive",
+      "grade": "exploratory",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0d9ed-671f-7143-8332-444a18cbd96f/run-result.json",
+      "sha256": "39b463de2e4e9d2767093eaa0d00c37f0b4f7e9cac7b59cf461aca1d5b9b8a2e",
+      "run_id": "01a0d9ed-671f-7143-8332-444a18cbd96f",
+      "scenario": "kiroku/append/benchmark/layer-ladder",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0d9ef-fc5e-7010-a63a-b6fe628a76e8/run-result.json",
+      "sha256": "062263ff01930198ea14c79f87f01be8b07171b9d7776b4f8b5990fbcf2153d6",
+      "run_id": "01a0d9ef-fc5e-7010-a63a-b6fe628a76e8",
+      "scenario": "kiroku/read/benchmark/read-targets",
+      "scenario_revision": 1,
+      "outcome": "infrastructure-failure",
+      "grade": "exploratory",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0d9f2-b501-72f1-8819-6812af8954db/run-result.json",
+      "sha256": "98c225d22f9ead6b26bb2e527f680af3b764857a596e92f08647e87e1b7487ed",
+      "run_id": "01a0d9f2-b501-72f1-8819-6812af8954db",
+      "scenario": "kiroku/read/benchmark/read-targets",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    },
+    {
+      "path": "runs/01a0d9f5-7ff8-73ad-8f40-cc7b0f1af768/run-result.json",
+      "sha256": "16de20b6da2911ee6a9539db381bc1d24b529a77d760a76574e0aef61f402962",
+      "run_id": "01a0d9f5-7ff8-73ad-8f40-cc7b0f1af768",
+      "scenario": "kiroku/transaction/benchmark/lock-hold-contention",
+      "scenario_revision": 1,
+      "outcome": "passed",
+      "grade": "benchmark",
+      "authoritative": false,
+      "reasons": [
+        "local-placement",
+        "macos-fsync-does-not-flush"
+      ],
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "sha256": "c56c8fa889e07fe7f075c3233976695699e406b185020b8b86f93de3969d6373",
+            "type": "hackage"
+          },
+          "version": "0.8.0.1"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "sha256": "c5b99bb82aafc1194ef4f40adf4685958d2551979fc152c025f49fa972164370",
+            "type": "hackage"
+          },
+          "version": "0.4.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "sha256": "ba94e93d9e6396a1dc83fe09c2a4555e4ebf8d9639e5ffa9ff81785507393c1f",
+            "type": "hackage"
+          },
+          "version": "0.2.0.8"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "sha256": "52a124ae7cf2f2c2eb3986d72f0124286e720c658b7f0d0ca1e7748476d5a13b",
+            "type": "hackage"
+          },
+          "version": "0.1.0.8"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "sha256": "9a496509212705aafa9640df7c3f87dec7deb801e78b58d35467290b86d0b327",
+            "type": "hackage"
+          },
+          "version": "0.2.0.6"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "sha256": "e7dcd2560bec0e196bc2687df360486358f75eeb2859b06061abb76914974949",
+            "type": "hackage"
+          },
+          "version": "0.5.1.2"
+        }
+      ]
+    }
+  ]
+}

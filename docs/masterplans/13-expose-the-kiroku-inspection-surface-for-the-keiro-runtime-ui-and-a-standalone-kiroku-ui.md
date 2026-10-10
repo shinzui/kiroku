@@ -453,6 +453,7 @@ rule suffices.
 
 ## Progress
 
+- [x] (2026-10-10) EP-3: research Kenshou coverage and a disposable category/name index replacement; retain three completed 96-case runs, initial setup error, layout sizes and benchmark source/run inventory. No append-cost acceptance.
 - [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
 - [ ] Implement and execute the focused correctness and performance acceptance added by this review.
 
@@ -500,6 +501,18 @@ rule suffices.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-10 index research: replacing the category-only index with
+  `(category, stream_name)` in disposable databases gave correct results within
+  the existing budget in all 48 replacement cases across C/ICU and generic/custom
+  plans, including category enumeration. At 40,007 streams its compact footprint
+  was 2,672 KiB versus 288 KiB; total stream-index bytes rose 53.7%. Current
+  subscriptions use a separate unchanged `stream_events` index. Writer/cache
+  effects remain unmeasured, as do this candidate's optional prefix filters.
+  Kenshou's local historical runs use store 0.8.0.1; reuse the dedicated matched
+  workload, not that historical control. Stream HOT counters and realistic fresh
+  TypeID fixtures are missing from the existing payload. See the
+  [index/benchmark research](../../kiroku-store/bench/results/mp13-ep3-index-research/README.md).
 
 - 2026-10-10 EP-3 range follow-up: ordinary TypeID category pages can use the
   name index for eleven examined rows, but generated-category generic plans can
@@ -596,6 +609,15 @@ rule suffices.
 
 
 ## Decision Log
+
+- Decision (2026-10-10 research): retain the category/name replacement as a
+  candidate, not a selected migration or complete browse access design. Reuse
+  the existing matched append/subscriber harness with current-source arms that
+  differ only by recorded layout. Measure stream HOT/update behavior and fresh
+  inserts; benchmark placement/grade and historical hardening acceptance do not
+  establish this index's write cost. Report whole-experiment scope and runtime
+  before remote execution; no remote queue or lease was started. ADR-15 remains
+  authoritative for plan 54 coordination and cumulative original-control cost.
 
 - Decision (2026-10-10 range follow-up): hold EP-3 after the name-range
   experiment. Useful ordinary TypeID seeks do not override ICU correctness
@@ -761,6 +783,17 @@ rule suffices.
 
 ## Outcomes & Retrospective
 
+2026-10-10 index research: completed the authorized source/benchmark research
+and local footprint/read diagnosis. Three 96-case runs, the zero-case setup error
+and the unchanged prefix regression result are retained, with all five owned
+clusters stopped. The replacement bounded the tested category pages/enumeration
+while increasing index footprint;
+event-append and active-observer cost remain unmeasured. EP-3 remains In Progress
+because general prefix access and complete promotion evidence are unresolved.
+No production index, route or primitive was added. The research report records
+the smallest useful matched comparison and its missing instrumentation; no
+remote benchmark was launched. ADR distillation found no new durable decision.
+
 2026-10-10 range follow-up: completed the authorized existing-index range
 experiment and retained both runs. EP-3 remains In Progress because correctness
 under ICU and bounded planner work are unresolved. The useful TypeID cases do
@@ -851,3 +884,11 @@ approved. Plan 88 also records the application's TypeID naming convention and it
 EP-3 remains In Progress after 624 retained range cases. Ordinary TypeID pages can
 seek cheaply, but ICU membership and planner-work failures prevent promotion. No
 index or cumulative append acceptance is claimed; plan 54 coordination still applies.
+
+
+## Index and benchmark research revision (2026-10-10)
+
+Recorded disposable replacement footprint/read evidence and verified cleanup,
+Kenshou source/run coverage, matched-harness instrumentation gaps, and the
+unchanged shared access/cumulative write-cost obligation. No migration or
+performance acceptance is selected; production milestones remain open.

@@ -12,8 +12,8 @@ Two completed runs are retained as losslessly compressed JSON:
 Both owned clusters were verified stopped. Each case has one EXPLAIN execution;
 there is no timing precision claim. JSON includes exact fixture/query SQL, full
 plans, returned and reference names, index definitions, database locale metadata,
-migration/script hashes and server logs. The refined run matches the current
-diagnostic source. The initial run retains the earlier statement shapes before
+migration/script hashes and server logs. The refined run matches the diagnostic source at commit
+`6089675` (before the later index-layout research scope). The initial run retains the earlier statement shapes before
 adding the computed category predicate and combined category/prefix cases.
 
 The fixtures use `<category>-order_<uuidv7-base32>` names with deterministic,

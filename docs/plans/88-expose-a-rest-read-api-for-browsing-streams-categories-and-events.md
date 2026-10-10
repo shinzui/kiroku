@@ -97,6 +97,7 @@ dependency.
 
 ## Progress
 
+- [x] (2026-10-10) M0: research Kenshou coverage and a disposable category/name index replacement; retain three completed 96-case runs, initial setup error, layout sizes and benchmark source/run inventory. No append-cost acceptance.
 - [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
 - [x] (2026-10-10) M0: execute the focused existing-index SQL prototype check on PostgreSQL 18.6; retain 80 initial and 152 expanded EXPLAIN cases, migration hashes and verified owned-server cleanup.
 - [x] (2026-10-10) M0 follow-up: evaluate category-scoped stream paging and prefix filtering with existing indexes; retain 192 correct-result EXPLAIN cases and verified server cleanup.
@@ -121,6 +122,18 @@ dependency.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-10 index research: replacing the category-only index with
+  `(category, stream_name)` in disposable databases gave correct results within
+  the existing budget in all 48 replacement cases across C/ICU and generic/custom
+  plans, including category enumeration. At 40,007 streams its compact footprint
+  was 2,672 KiB versus 288 KiB; total stream-index bytes rose 53.7%. Current
+  subscriptions use a separate unchanged `stream_events` index. Writer/cache
+  effects remain unmeasured, as do this candidate's optional prefix filters.
+  Kenshou's local historical runs use store 0.8.0.1; reuse the dedicated matched
+  workload, not that historical control. Stream HOT counters and realistic fresh
+  TypeID fixtures are missing from the existing payload. See the
+  [index/benchmark research](../../kiroku-store/bench/results/mp13-ep3-index-research/README.md).
 
 - 2026-10-10 range follow-up: splitting bare-name and prefix-range branches can
   reduce ordinary TypeID category pages to eleven examined rows. Replacing the
@@ -165,6 +178,15 @@ dependency.
 
 
 ## Decision Log
+
+- Decision (2026-10-10 research): retain the category/name replacement as a
+  candidate, not a selected migration or complete browse access design. Reuse
+  the existing matched append/subscriber harness with current-source arms that
+  differ only by recorded layout. Measure stream HOT/update behavior and fresh
+  inserts; benchmark placement/grade and historical hardening acceptance do not
+  establish this index's write cost. Report whole-experiment scope and runtime
+  before remote execution; no remote queue or lease was started. ADR-15 remains
+  authoritative for plan 54 coordination and cumulative original-control cost.
 
 - Decision (2026-10-10 range implementation): retain the improved name-range
   candidate as diagnostic evidence and reject production promotion. Neither
@@ -360,6 +382,17 @@ dependency.
 
 
 ## Outcomes & Retrospective
+
+2026-10-10 index research: completed the authorized source/benchmark research
+and local footprint/read diagnosis. Three 96-case runs, the zero-case setup error
+and the unchanged prefix regression result are retained, with all five owned
+clusters stopped. The replacement bounded the tested category pages/enumeration
+while increasing index footprint;
+event-append and active-observer cost remain unmeasured. EP-3 remains In Progress
+because general prefix access and complete promotion evidence are unresolved.
+No production index, route or primitive was added. The research report records
+the smallest useful matched comparison and its missing instrumentation; no
+remote benchmark was launched. ADR distillation found no new durable decision.
 
 2026-10-10 range follow-up: completed the authorized existing-index experiment
 in 23.48 seconds initially and 39.24 seconds after a focused planner/prefix
@@ -1458,3 +1491,11 @@ approved. Plan 88 also records the application's TypeID naming convention and it
 Recorded the completed TypeID/name-range experiment, retained both runs and their
 correctness/planner failures, and kept the production gate rejected. Clarified that
 proposed stream-index write cost remains unmeasured and can affect event appends.
+
+
+## Index and benchmark research revision (2026-10-10)
+
+Recorded disposable replacement footprint/read evidence and verified cleanup,
+Kenshou source/run coverage, matched-harness instrumentation gaps, and the
+unchanged shared access/cumulative write-cost obligation. No migration or
+performance acceptance is selected; production milestones remain open.

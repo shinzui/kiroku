@@ -73,6 +73,7 @@ unchanged; this plan verifies that and adds no adapter code.
 
 ## Progress
 
+- [x] (2026-10-10) Shared research: inspect Kenshou benchmark coverage and plan 88's disposable category/name replacement evidence; retain footprint and harness gaps. M0 semantics and M2 migration remain open.
 Use a checklist to summarize granular steps. Every stopping point must be documented here,
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
@@ -103,6 +104,16 @@ This section must always reflect the actual current state of the work.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-10 shared index research: current category subscriptions use the
+  denormalized `stream_events` category/version index, not `streams.category`.
+  A default-opclass `(category, stream_name)` replacement preserved tested
+  category enumeration and bounded category pages, but its compact footprint
+  grew from 288 KiB to 2,672 KiB at 40,007 streams. This is not proof of namespace
+  event-order access or append cost. Kenshou's historical local store 0.8.0.1
+  results cannot measure this current candidate. Reuse the matched payload with
+  current-source arms and stream HOT/update observations; see the
+  [shared research](../../kiroku-store/bench/results/mp13-ep3-index-research/README.md).
 
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
@@ -173,6 +184,12 @@ working tree:
 
 
 ## Decision Log
+
+- Decision (2026-10-10 research): keep namespace semantics and supporting
+  physical design open. The replacement candidate was tested only in disposable
+  databases, not installed as a migration. Do not infer namespace-prefix support
+  from ordinary category paging or reuse older benchmark writer-cost acceptance.
+  ADR-15's shared design and original-control cumulative cost rules still apply.
 
 Record every decision made while working on the plan.
 
@@ -384,6 +401,12 @@ Record every decision made while working on the plan.
 
 
 ## Outcomes & Retrospective
+
+2026-10-10 shared research stopping point: benchmark and footprint research
+is complete; no prefix target, migration or append acceptance was implemented.
+Current subscriptions retain their event-index path. General namespace/prefix
+access and matched writer evidence remain open; the older source/schema claims
+below remain historical pending M0 refresh. ADR-15 already covers these findings.
 
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
@@ -1068,3 +1091,11 @@ Following review feedback, three points were resolved and propagated:
 Recorded the user's requirement to coordinate browsing and prefix-subscription physical
 access and cumulative writer cost under ADR-15. No index or implementation milestone is
 approved. Plan 88 also records the application's TypeID naming convention and its limits.
+
+
+## Index and benchmark research revision (2026-10-10)
+
+Recorded disposable replacement footprint/read evidence and verified cleanup,
+Kenshou source/run coverage, matched-harness instrumentation gaps, and the
+unchanged shared access/cumulative write-cost obligation. No migration or
+performance acceptance is selected; production milestones remain open.
