@@ -1,0 +1,43 @@
+{
+  "implementation_commit": "96c7d4f",
+  "pre_ep4_commit": "6733239",
+  "original_cohort_control": "e6ea664",
+  "environment": {
+    "postgresql": "18.6",
+    "ghc": "9.12.4",
+    "cabal": "3.16.1.0",
+    "platform": "aarch64 macOS",
+    "optimization": "O1"
+  },
+  "correctness_examples": {
+    "kiroku-store": 373,
+    "shibuya-kiroku-adapter": 45,
+    "kiroku-metrics": 23,
+    "kiroku-otel": 17,
+    "kiroku-store-migrations": 24,
+    "kiroku-cli": 22
+  },
+  "correctness_total": 504,
+  "structural_checks": 20,
+  "controlled_workload_cases": 16,
+  "controlled_workload_seconds": 116.73,
+  "cumulative_performance_acceptance": "Reserved for EP6; these existing SQL-control gates do not compare EP4 or the cohort against its predecessor.",
+  "new_remote_trials": 0,
+  "fixture_corrections": [
+    "Read dead letters for both member keys, not only member zero.",
+    "Expect native normal progress to save at the batch boundary, not per event."
+  ],
+  "sha256": {
+    "ack-verified.log": "b88a18e431e396688452bbabccdc3a647f29663a8f68d97ebf87910e3a0e90d0",
+    "adr-validation.log": "db499631037004f5b550c948fddaa7303ec024770e4ca77bb3ccf589d7a5f34c",
+    "build-final.log": "6fb857e0c208ccbf1b826148b7e122fe294d41e90eb0b6c5a41984ec1fb23848",
+    "build-verified.log": "e9e741b8a752b8a2d869be4648148a26baa730599519980984163ab5b3d5cfc5",
+    "capability-validation.log": "90741eb3a563bb3a6e92a28a1dc6ef45b3453c531e4da178d42bb82cbbc58895",
+    "format.log": "fd2ad8c5531df42b2d91b49526ed350c836be9c31d62a49b86ec64ee1964e690",
+    "perf-check.log": "f3cc770d58d503b6f2bf995b13c1077ddb9f1de175a296717dbee05b906a0fd8",
+    "retry-fixture-failure.log": "85dfbee4ea2b92e75b755b7f168e2134fa3efe0b7a5688f6cbbd45d156733b96",
+    "retry-verified.log": "4ce3ec367a416afe2c19a68f8c5edaf77f9a8bbc25afbf177bb5afe28708704e",
+    "stall-fixture-failure.log": "b70d3e89378c6bb619a712e25b5e2f5fc4025a675ab137701c5bb6471181fcfd",
+    "tests-verified.log": "e5cb27318d195dd59f6e5aa68e31a18a27020d1253e11204b6dbea4914b0bfd0"
+  }
+}

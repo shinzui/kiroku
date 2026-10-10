@@ -1,0 +1,33 @@
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - shibuya-kiroku-adapter-0.5.1.5 (test:shibuya-kiroku-adapter-test) (first run)
+Preprocessing test suite 'shibuya-kiroku-adapter-test' for shibuya-kiroku-adapter-0.5.1.5...
+Building test suite 'shibuya-kiroku-adapter-test' for shibuya-kiroku-adapter-0.5.1.5...
+Running 1 test suites...
+Test suite shibuya-kiroku-adapter-test: RUNNING...
+
+retry policy
+  honors single-adapter total delivery limit Nothing [✔]
+  honors single-adapter total delivery limit Just 2 [✔]
+  forwards two attempts and stall policy to both consumer-group members [✘]
+
+Failures:
+
+  test/Main.hs:1546:9: 
+  1) retry policy forwards two attempts and stall policy to both consumer-group members
+       uncaught exception: IOException of type UserError
+       user error (Timed out waiting for all group dead letters)
+
+  To rerun use: --match "/retry policy/forwards two attempts and stall policy to both consumer-group members/" --seed 1770078147
+
+Randomized with seed 1770078147
+
+Finished in 10.4661 seconds
+3 examples, 1 failure
+Test suite shibuya-kiroku-adapter-test: FAIL
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.5.1.5/t/shibuya-kiroku-adapter-test/test/shibuya-kiroku-adapter-0.5.1.5-shibuya-kiroku-adapter-test.log
+0 of 1 test suites (0 of 1 test cases) passed.
+Error: [Cabal-7125]
+Tests failed for test:shibuya-kiroku-adapter-test from shibuya-kiroku-adapter-0.5.1.5.
+

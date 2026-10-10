@@ -1,0 +1,60 @@
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.9.0.1 (lib) (file src/Kiroku/Store/Subscription/Worker.hs changed)
+ - shibuya-kiroku-adapter-0.5.1.5 (lib) (dependency rebuilt)
+ - shibuya-kiroku-adapter-0.5.1.5 (test:shibuya-kiroku-adapter-test) (dependency rebuilt)
+Preprocessing library for kiroku-store-0.9.0.1...
+Building library for kiroku-store-0.9.0.1...
+[12 of 30] Compiling Kiroku.Store.Subscription.Worker ( src/Kiroku/Store/Subscription/Worker.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/Worker.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/Worker.dyn_o ) [Source file changed]
+Preprocessing library for shibuya-kiroku-adapter-0.5.1.5...
+Building library for shibuya-kiroku-adapter-0.5.1.5...
+Preprocessing test suite 'shibuya-kiroku-adapter-test' for shibuya-kiroku-adapter-0.5.1.5...
+Building test suite 'shibuya-kiroku-adapter-test' for shibuya-kiroku-adapter-0.5.1.5...
+[1 of 1] Compiling Main             ( test/Main.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.5.1.5/t/shibuya-kiroku-adapter-test/build/shibuya-kiroku-adapter-test/shibuya-kiroku-adapter-test-tmp/Main.o ) [Source file changed]
+test/Main.hs:1159:43: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Main.hs:32:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+     |
+1159 |                                         (\member -> liftIO $ modifyIORef' shutdowns (<> [member]))
+     |                                           ^^^^^^
+
+test/Main.hs:1160:44: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Main.hs:32:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+     |
+1160 |                                         ( \member _ -> liftIO $ do
+     |                                            ^^^^^^
+
+test/Main.hs:1372:47: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Main.hs:32:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+     |
+1372 |                 | SubscriptionCheckpoint name member position _ <- toList checkpoints
+     |                                               ^^^^^^
+
+test/Main.hs:1383:47: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Main.hs:32:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+     |
+1383 |                 | SubscriptionCheckpoint name member position _ <- toList checkpoints
+     |                                               ^^^^^^
+
+[2 of 2] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.5.1.5/t/shibuya-kiroku-adapter-test/build/shibuya-kiroku-adapter-test/shibuya-kiroku-adapter-test [Objects changed]
+Running 1 test suites...
+Test suite shibuya-kiroku-adapter-test: RUNNING...
+
+retry policy
+  honors single-adapter total delivery limit Nothing [✔]
+  honors single-adapter total delivery limit Just 2 [✔]
+  forwards two attempts and stall policy to both consumer-group members [✔]
+
+Finished in 0.4770 seconds
+3 examples, 0 failures
+Test suite shibuya-kiroku-adapter-test: PASS
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.5.1.5/t/shibuya-kiroku-adapter-test/test/shibuya-kiroku-adapter-0.5.1.5-shibuya-kiroku-adapter-test.log
+1 of 1 test suites (1 of 1 test cases) passed.

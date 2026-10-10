@@ -1,0 +1,62 @@
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - shibuya-kiroku-adapter-0.5.1.5 (test:shibuya-kiroku-adapter-test) (file test/Main.hs changed)
+Preprocessing test suite 'shibuya-kiroku-adapter-test' for shibuya-kiroku-adapter-0.5.1.5...
+Building test suite 'shibuya-kiroku-adapter-test' for shibuya-kiroku-adapter-0.5.1.5...
+[1 of 1] Compiling Main             ( test/Main.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.5.1.5/t/shibuya-kiroku-adapter-test/build/shibuya-kiroku-adapter-test/shibuya-kiroku-adapter-test-tmp/Main.o ) [Source file changed]
+test/Main.hs:1160:43: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Main.hs:32:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+     |
+1160 |                                         (\member -> liftIO $ modifyIORef' shutdowns (<> [member]))
+     |                                           ^^^^^^
+
+test/Main.hs:1161:44: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Main.hs:32:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+     |
+1161 |                                         ( \member _ -> liftIO $ do
+     |                                            ^^^^^^
+
+test/Main.hs:1370:47: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Main.hs:32:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+     |
+1370 |                 | SubscriptionCheckpoint name member position _ <- toList checkpoints
+     |                                               ^^^^^^
+
+test/Main.hs:1381:47: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at test/Main.hs:32:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+     |
+1381 |                 | SubscriptionCheckpoint name member position _ <- toList checkpoints
+     |                                               ^^^^^^
+
+test/Main.hs:1496:43: warning: [GHC-02256] [-Wambiguous-fields]
+    Ambiguous record update with parent type constructor ‘AdapterConfig.KirokuAdapterConfig’.
+    This type-directed disambiguation mechanism will not be supported by -XDuplicateRecordFields in future releases of GHC.
+    Consider disambiguating using module qualification instead.
+     |
+1496 |                                         { AdapterConfig.handlerStallWarnAfter = warnAfter
+     |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+[2 of 2] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.5.1.5/t/shibuya-kiroku-adapter-test/build/shibuya-kiroku-adapter-test/shibuya-kiroku-adapter-test [Objects changed]
+Running 1 test suites...
+Test suite shibuya-kiroku-adapter-test: RUNNING...
+
+acknowledgement liveness
+  standard Shibuya handler exceptions are finalized [✔]
+  guarded single processor retries with pacing and continues [✔]
+  keeps a raw unfinalized item pending and forwards warning policy Nothing [✔]
+  keeps a raw unfinalized item pending and forwards warning policy Just 0.05s [✔]
+
+Finished in 2.0347 seconds
+4 examples, 0 failures
+Test suite shibuya-kiroku-adapter-test: PASS
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.5.1.5/t/shibuya-kiroku-adapter-test/test/shibuya-kiroku-adapter-0.5.1.5-shibuya-kiroku-adapter-test.log
+1 of 1 test suites (1 of 1 test cases) passed.

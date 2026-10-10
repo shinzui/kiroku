@@ -1,0 +1,50 @@
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.9.0.1 (test:kiroku-store-test) (file test/Main.hs changed)
+Preprocessing test suite 'kiroku-store-test' for kiroku-store-0.9.0.1...
+Building test suite 'kiroku-store-test' for kiroku-store-0.9.0.1...
+[ 3 of 44] Compiling Test.HandlerStall ( test/Test/HandlerStall.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/HandlerStall.o ) [Source file changed]
+[ 4 of 44] Compiling Test.FailureInjection ( test/Test/FailureInjection.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/FailureInjection.o ) [Source file changed]
+[22 of 44] Compiling Test.PublisherRestartNoRebroadcast ( test/Test/PublisherRestartNoRebroadcast.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/PublisherRestartNoRebroadcast.o ) [Source file changed]
+[35 of 44] Compiling Test.SubscriptionReconnect ( test/Test/SubscriptionReconnect.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/SubscriptionReconnect.o ) [Source file changed]
+[38 of 44] Compiling Test.SubscriptionState ( test/Test/SubscriptionState.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/SubscriptionState.o ) [Source file changed]
+[44 of 44] Compiling Main             ( test/Main.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Main.o ) [Source file changed]
+[45 of 45] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test [Objects changed]
+Running 1 test suites...
+Test suite kiroku-store-test: RUNNING...
+
+handler stall
+  warns without acknowledging or checkpointing a blocked handler for (AllStreams,Nothing,False) [✔]
+  warns without acknowledging or checkpointing a blocked handler for (AllStreams,Nothing,True) [✔]
+  warns without acknowledging or checkpointing a blocked handler for (Category (CategoryName "stall"),Nothing,True) [✔]
+  warns without acknowledging or checkpointing a blocked handler for (AllStreams,Just (ConsumerGroup 0 (ConsumerGroupSize 1)),True) [✔]
+  warns without acknowledging or checkpointing a blocked handler for (Category (CategoryName "stall"),Just (ConsumerGroup 0 (ConsumerGroupSize 1)),False) [✔]
+  warns periodically while pending and joins the watchdog on cancellation [✔]
+  warns for the current invocation after replacing a quick handler [✘]
+  contains a throwing diagnostic callback and still completes the handler [✔]
+  clears tracking and joins the watchdog when a handler throws [✔]
+  emits nothing when the handler completes before the threshold [✔]
+  keeps warnings disabled by default even when a handler is blocked [✔]
+  refuses a nonpositive warning interval before checkpoint initialization: 0s [✔]
+  refuses a nonpositive warning interval before checkpoint initialization: -1s [✔]
+
+Failures:
+
+  test/Test/HandlerStall.hs:148:30: 
+  1) handler stall warns for the current invocation after replacing a quick handler
+       expected: GlobalPosition 1
+        but got: GlobalPosition 0
+
+  To rerun use: --match "/handler stall/warns for the current invocation after replacing a quick handler/" --seed 1087611259
+
+Randomized with seed 1087611259
+
+Finished in 3.1575 seconds
+13 examples, 1 failure
+Test suite kiroku-store-test: FAIL
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/test/kiroku-store-0.9.0.1-kiroku-store-test.log
+0 of 1 test suites (0 of 1 test cases) passed.
+Error: [Cabal-7125]
+Tests failed for test:kiroku-store-test from kiroku-store-0.9.0.1.
+
