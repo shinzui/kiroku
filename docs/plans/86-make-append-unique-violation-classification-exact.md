@@ -19,6 +19,11 @@ provenance:
       at: 2026-10-09T16:21:16Z
       mode: "update"
       note: "Audit source at e6ea664; distinguish completed baseline from remaining work, refresh request coverage and performance evidence requirements"
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-10T01:28:35Z
+      mode: "implement"
+      note: "Implement exact constraint classification and focused append regression coverage."
 ---
 
 # Make append unique-violation classification exact
@@ -44,13 +49,28 @@ reported deterministically without disguising an invariant failure as an expecte
 
 ## Progress
 
-- [ ] M1: add table-driven mapping tests for `events_pkey`, `stream_events_pkey`, `ux_stream_events_stream_version`, stream-name, and unknown unique constraints.
-- [ ] M2: make append constraint matching exact and order-independent, retaining event-id extraction where valid.
-- [ ] M2: map the stream-version invariant constraint to `UnexpectedServerError "23505"` and add a real append duplicate regression.
+- [x] (2026-10-10) M1: add table-driven mapping tests for `events_pkey`, `stream_events_pkey`, `ux_stream_events_stream_version`, stream-name, and unknown unique constraints.
+- [x] (2026-10-10) M2: make append constraint matching exact and order-independent, retaining event-id extraction where valid.
+- [x] (2026-10-10) M2: map the stream-version invariant constraint to `UnexpectedServerError "23505"` and add a real append duplicate regression.
 - [ ] Update error Haddocks/changelog, run focused and full store tests, and perform ADR distillation.
 
 
 ## Surprises & Discoveries
+
+- (2026-10-10) The corrected focused runs pass 49 mapping cases and both
+  duplicate-append cases. Same-stream retry is checked with AnyVersion,
+  StreamExists and ExactVersion 1; each rollback preserves one event, one
+  original link, one global link and stream version 1.
+
+- (2026-10-10) Hspec treats the plan's combined pipe filter literally and
+  selected zero examples. Focused groups now run separately; the zero-example
+  transcript is retained as `focused.log` and is not validation evidence.
+
+- (2026-10-10) The pre-change mapping table runs 43 examples with 26 failures,
+  including the composite UUID, invariant SQLSTATE, lookalike constraints and
+  message precedence. The transaction mapper shares the substring bug; all
+  unique-constraint mappers now share one extractor. The retained transcript is
+  `kiroku-store/bench/results/ep5-unique-violation/mapping-before.log`.
 
 - Refresh audit (2026-10-09): source, tests, and changelogs confirm the remaining acceptance
   work is unimplemented; the dated Context audit distinguishes existing baseline from this plan.
@@ -63,6 +83,16 @@ reported deterministically without disguising an invariant failure as an expecte
 
 
 ## Decision Log
+
+- Decision (2026-10-10): share exact extraction with the opaque transaction,
+  link and multi-stream attribution mappers while preserving their distinct
+  constructors and unknown-error fallbacks. The transaction mapper has the
+  identical composite-key collision; one parser prevents future drift.
+- Decision (2026-10-10): verify stream-version invariant classification with
+  synthetic Hasql errors, not a real corrupted-store fixture. Normal append
+  serialization prevents the violation; manufacturing it would require inconsistent
+  rows or an artificial trigger and would test the fixture rather than append.
+  Same-stream retries are tested through three real append expectations.
 
 - Decision: Apply ADR-11's write-performance constraint to this child's implementation and release
   evidence, including indirect CPU/GC/pool/checkpoint effects where applicable.
@@ -93,16 +123,18 @@ reported deterministically without disguising an invariant failure as an expecte
 
 ## Outcomes & Retrospective
 
-The 2026-10-09 documentation refresh confirmed that this child remains Not Started at
-`e6ea664`. The Context audit records current implementation evidence and reusable baseline work.
-No runtime or performance suite was rerun for this refresh; implementation acceptance remains
-open. The subsequent write-performance requirement is recorded in ADR-11 and the acceptance below;
-implementation and measured evidence remain outstanding.
+Implementation (2026-10-10): exact constraint extraction and the stream-version
+invariant branch are implemented, with one extractor shared by every existing
+unique-constraint mapper. All 49 mapping cases and both duplicate-append cases
+pass. The initial 43-case pre-change table had 26 failures. Full store and
+ADR-5 acceptance is running; this child remains In Progress until those checks
+finish. ADR-14 records the durable constraint-name and error-taxonomy contract.
+No schema, public type, success-path query or retry behavior changes.
 
 
 ## Context and Orientation
 
-Source audit (2026-10-09, `e6ea664`): implementation remains Not Started.
+Historical source audit (2026-10-09, `e6ea664`): implementation was Not Started.
 `kiroku-store/src/Kiroku/Store/Error.hs:mapUniqueViolation` still tests `events_pkey` using
 `Text.isInfixOf`, then stream-name uniqueness, then `WrongExpectedVersion`. It has no exact
 `stream_events_pkey` branch and no `ux_stream_events_stream_version` invariant branch. The
@@ -113,8 +145,8 @@ independent error-path fix with no new success-path database or handler work.
 
 `kiroku-store/src/Kiroku/Store/Error.hs` defines `StoreError` and maps Hasql
 `UsageError` values through `mapUsageError`, `mapServerError`, and `mapUniqueViolation`. The
-unique mapper currently recognizes `events_pkey` and `ix_streams_stream_name` by `Text.isInfixOf`;
-everything else becomes `WrongExpectedVersion` with a placeholder actual version.
+unique mapper now extracts a single exact name and distinguishes all four owned constraints.
+Unknown constraints retain `WrongExpectedVersion` with a placeholder actual version.
 
 The bootstrap and later performance migrations define three relevant event constraints.
 `events_pkey` is the primary key on caller-supplied `event_id`.
@@ -125,8 +157,9 @@ change.
 
 Existing append/error tests are in `kiroku-store/test/Main.hs`; link-specific coverage is in the
 same suite. Add a narrowly named `Test.UniqueViolationMapping` module if that makes the table
-clearer, and register it in the test main/cabal stanza. No Kiroku ADR governs this local taxonomy
-detail, and the change does not alter ADR-7's hard-delete lock order.
+clearer, and register it in the test main/cabal stanza. [ADR-14](../adr/0014-unique-constraint-names-define-error-classification.md)
+records exact constraint identity and the caller-duplication/internal-invariant boundary;
+the change does not alter ADR-7's hard-delete lock order.
 
 
 ## Plan of Work
@@ -172,7 +205,10 @@ Run from the Kiroku repository root:
 cabal build kiroku-store:kiroku-store-test
 cabal test kiroku-store:kiroku-store-test \
   --test-show-details=direct \
-  --test-options='--match "unique violation mapping|duplicate event"'
+  --test-options='--match "unique violation mapping"'
+cabal test kiroku-store:kiroku-store-test \
+  --test-show-details=direct \
+  --test-options='--match "duplicate event ID"'
 ```
 
 The transcript must include examples equivalent to:
@@ -242,3 +278,8 @@ implementation or new runtime-test evidence.
 Revision note (2026-10-09, write-performance requirement): Applied ADR-11 and blocking write-path
 acceptance, with per-child ownership and evidence requirements. The user explicitly prioritizes
 write performance. Implementation and benchmark gates remain open.
+
+Revision note (2026-10-10, implementation): completed exact extraction and focused
+regressions; corrected the literal Hspec pipe filter, shared extraction across the
+existing mappers and distilled the durable boundary into ADR-14. Full acceptance
+checks remain in progress.

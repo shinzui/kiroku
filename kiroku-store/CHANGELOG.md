@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+* Append unique violations now compare exact constraint names. Both `events_pkey`
+  and `stream_events_pkey` return `DuplicateEvent` with the caller ID when parseable;
+  `ux_stream_events_stream_version` returns `UnexpectedServerError "23505"` with
+  the original message because it indicates an internal invariant failure.
+  Transaction, link and multi-stream attribution share the same name extraction.
+  Unknown append unique constraints retain the existing expected-version fallback.
+
 * **Breaking:** subscription configs add `handlerStallWarnAfter`, disabled by
   default. A positive `Just seconds` enables a scoped handler watchdog and the
   advisory `KirokuEventSubscriptionHandlerStalled` event. Nonpositive intervals

@@ -139,6 +139,7 @@ test-suite kiroku-store-test
     Test.SubscriptionTarget
     Test.Transaction
     Test.TruncateBefore
+    Test.UniqueViolationMapping
     Test.VisibleGlobalHeadPosition
     Test.VisibleGlobalHeadPositionMock
 

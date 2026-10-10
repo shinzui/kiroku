@@ -19,8 +19,11 @@ module Kiroku.Store.Error (
     extractStreamNameFromDetail,
 ) where
 
+import Control.Applicative ((<|>))
 import Control.Exception (Exception)
 import Data.ByteString qualified as BS
+import Data.Char (isAlphaNum)
+import Data.List (find)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
@@ -98,6 +101,9 @@ data StoreError
       StreamAlreadyExists !StreamName
     | {- | A caller-supplied @event_id@ collides with an existing event.
 
+      Append maps both @events_pkey@ and the composite
+      @stream_events_pkey@ to this constructor.
+
       The constructor carries 'Just' the id when the PostgreSQL detail
       string could be parsed, 'Nothing' otherwise. A 'Nothing' payload
       is rare in practice; it occurs when the server's locale changes
@@ -148,9 +154,9 @@ data StoreError
       -}
       TransientTransactionFailure !Text !Text
     | {- | PostgreSQL raised a server error whose @SQLSTATE@ code is
-      outside the set this store recognises (currently @23505@
-      unique violation, @23503@ foreign key violation, and the
-      class-40 codes carried by 'TransientTransactionFailure'). The
+      outside the set this store recognises, or an append violated
+      @ux_stream_events_stream_version@ (@23505@), indicating an
+      internal stream-version invariant failure. The
       first 'Text' is the @SQLSTATE@ code, the second is the
       human-readable message. This is *not* generally retryable —
       investigate.
@@ -187,13 +193,17 @@ Pattern matches on the error hierarchy:
 
 PostgreSQL error code mapping:
   23505 (unique_violation) + events_pkey            -> 'DuplicateEvent'
+  23505 (unique_violation) + stream_events_pkey     -> 'DuplicateEvent'
+  23505 + ux_stream_events_stream_version          -> 'UnexpectedServerError'
   23505 (unique_violation) + ix_streams_stream_name -> 'StreamAlreadyExists'
   23505 (unique_violation) + other                  -> 'WrongExpectedVersion'
   23503 (foreign_key_violation)                     -> 'StreamNotFound'
+  40001 / 40P01                                    -> 'TransientTransactionFailure'
   any other server code                             -> 'UnexpectedServerError'
 
-The constraint-name matching depends on the literal strings @events_pkey@
-and @ix_streams_stream_name@. If a future schema migration renames a
+Constraint names are compared exactly, with the quoted message taking
+precedence over a delimiter-aware detail fallback. Matching depends on the
+four literal names above. If a future schema migration renames a
 constraint, the @23505@ branch falls through to the generic
 'WrongExpectedVersion' mapping; keep the names stable in
 @kiroku-store-migrations/migrations@.
@@ -217,15 +227,12 @@ mapTransactionUsageError :: UsageError -> StoreError
 mapTransactionUsageError usageErr =
     case extractServerError usageErr of
         Just (Errors.ServerError "23505" message detail _ _)
-            | containsConstraint "events_pkey" message detail ->
+            | uniqueConstraintName message detail == Just "events_pkey" ->
                 DuplicateEvent (EventId <$> (detail >>= extractUuidFromDetail))
-            | containsConstraint "stream_events_pkey" message detail ->
+            | uniqueConstraintName message detail == Just "stream_events_pkey" ->
                 DuplicateEvent (EventId <$> (detail >>= extractFirstUuidFromCompositeDetail))
         _ ->
             mapGenericUsageError usageErr
-  where
-    containsConstraint name message detail =
-        name `T.isInfixOf` message || maybe False (T.isInfixOf name) detail
 
 -- | Generic, non-append-shaped mapping for hasql pool usage errors.
 mapGenericUsageError :: UsageError -> StoreError
@@ -249,16 +256,13 @@ mapLinkUsageError :: StreamName -> UsageError -> StoreError
 mapLinkUsageError target usageErr =
     case extractServerError usageErr of
         Just (Errors.ServerError "23505" message detail _ _)
-            | containsConstraint "stream_events_pkey" message detail ->
+            | uniqueConstraintName message detail == Just "stream_events_pkey" ->
                 EventAlreadyLinked target (extractCompositeEventId detail)
         Just (Errors.ServerError "23502" _ _ _ _) ->
             LinkSourceEventMissing target
         _ ->
             mapGenericUsageError usageErr
   where
-    containsConstraint name message detail =
-        name `T.isInfixOf` message || maybe False (T.isInfixOf name) detail
-
     extractCompositeEventId (Just d) = EventId <$> extractFirstUuidFromCompositeDetail d
     extractCompositeEventId Nothing = Nothing
 
@@ -289,27 +293,47 @@ PostgreSQL reports constraint violations with:
   - message: "duplicate key value violates unique constraint \"events_pkey\""
   - detail: "Key (event_id)=(uuid-value) already exists."
 
-We check both message and detail for the constraint name.
+We extract one constraint name, preferring the quoted message over detail,
+then compare it exactly. Composite link keys use their first UUID. A
+stream-version index violation is an invariant failure, not a precondition
+conflict, and preserves the SQLSTATE and original message.
 
 When the events_pkey case fires but the detail string cannot be parsed
 (e.g., the server's locale produced an unexpected format), the
 'DuplicateEvent' constructor carries 'Nothing' rather than a fabricated
-all-zeroes UUID — see 'extractEventId'.
+all-zeroes UUID.
 -}
 mapUniqueViolation :: Text -> ExpectedVersion -> Text -> Maybe Text -> StoreError
-mapUniqueViolation streamName expected message detail
-    | containsConstraint "events_pkey" = DuplicateEvent (extractEventId detail)
-    | containsConstraint "ix_streams_stream_name" = StreamAlreadyExists (StreamName streamName)
-    | otherwise =
-        -- Generic unique violation — treat as version conflict
-        WrongExpectedVersion (StreamName streamName) expected (StreamVersion 0)
-  where
-    containsConstraint name =
-        name `T.isInfixOf` message || maybe False (T.isInfixOf name) detail
+mapUniqueViolation streamName expected message detail =
+    case uniqueConstraintName message detail of
+        Just "events_pkey" -> DuplicateEvent (EventId <$> (detail >>= extractUuidFromDetail))
+        Just "stream_events_pkey" -> DuplicateEvent (EventId <$> (detail >>= extractFirstUuidFromCompositeDetail))
+        Just "ix_streams_stream_name" -> StreamAlreadyExists (StreamName streamName)
+        Just "ux_stream_events_stream_version" -> UnexpectedServerError "23505" message
+        _ ->
+            -- Generic unique violation — treat as version conflict
+            WrongExpectedVersion (StreamName streamName) expected (StreamVersion 0)
 
-    -- Try to extract event_id from detail like "Key (event_id)=(uuid) already exists."
-    extractEventId (Just d) = EventId <$> extractUuidFromDetail d
-    extractEventId Nothing = Nothing
+{- | PostgreSQL's quoted constraint wins even when it is unknown. Legacy
+detail-only errors may name an owned constraint as a complete identifier;
+underscores and dollar signs are identifier characters, not delimiters.
+This helper is used only after a failed statement has returned SQLSTATE 23505.
+-}
+uniqueConstraintName :: Text -> Maybe Text -> Maybe Text
+uniqueConstraintName message detail =
+    quotedConstraint message <|> (detail >>= fromDetail)
+  where
+    quotedConstraint input =
+        case T.breakOn "unique constraint \"" input of
+            (_, rest)
+                | not (T.null rest) ->
+                    let (name, closing) = T.breakOn "\"" (T.drop (T.length "unique constraint \"") rest)
+                     in if T.null name || T.null closing then Nothing else Just name
+            _ -> Nothing
+    fromDetail input =
+        quotedConstraint input <|> find (`elem` ownedConstraints) (T.split (not . identifierChar) input)
+    identifierChar c = isAlphaNum c || c == '_' || c == '$'
+    ownedConstraints = ["events_pkey", "stream_events_pkey", "ix_streams_stream_name", "ux_stream_events_stream_version"]
 
 {- | Append-precondition failures observable inside a
 'Hasql.Transaction.Transaction' body.
@@ -479,8 +503,7 @@ attributeMultiStreamError [] usageErr =
 attributeMultiStreamError ops@((StreamName firstName, firstExpected) : _) usageErr =
     case extractServerError usageErr of
         Just (Errors.ServerError "23505" message (Just detail) _ _)
-            | "ix_streams_stream_name" `T.isInfixOf` message
-                || "ix_streams_stream_name" `T.isInfixOf` detail
+            | uniqueConstraintName message (Just detail) == Just "ix_streams_stream_name"
             , Just sn <- extractStreamNameFromDetail detail
             , Just (StreamName name, expected) <- lookupStream sn ops ->
                 mapUsageError name expected usageErr

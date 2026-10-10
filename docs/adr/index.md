@@ -21,4 +21,5 @@ okf_version: "0.2"
 - [Subscription hardening protects write performance and keeps stall diagnostics opt-in](0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md) - Require performance evidence proportional to subscription changes, preserve cheap default paths, and make handler-stall diagnostics opt-in.
 - [Decode failures are per-event outcomes with independent subscription dispositions](0012-decode-failures-are-per-event-outcomes-with-independent-subscription-dispositions.md) - Represent expected decode failures explicitly, advance the shared publisher, and preserve failed-event checkpoints by default.
 - [Handler stall diagnostics are worker-owned and advisory](0013-handler-stall-diagnostics-are-worker-owned-and-advisory.md) - Keep acknowledgement ownership with consumers and use opt-in scoped worker diagnostics for pending ordinary handlers.
+- [Unique constraint names define error classification](0014-unique-constraint-names-define-error-classification.md) - Classify owned unique constraints by exact names and distinguish duplicate event IDs from internal stream-version invariant failures.
 

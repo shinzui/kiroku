@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-10
+* **Decision**: ADR-14: classify exact unique constraint names and preserve stream-version invariant failures as unexpected server errors.
 * **update**: ADR-8: document optional stall-duration startup validation exception
 * **create**: ADR-13: record worker-owned advisory handler diagnostics and adapter acknowledgement ownership
 * **Decision**: ADR-12: accepted typed per-event decode outcomes, independent subscriber dispositions and checkpoint-safe default exhaustion.

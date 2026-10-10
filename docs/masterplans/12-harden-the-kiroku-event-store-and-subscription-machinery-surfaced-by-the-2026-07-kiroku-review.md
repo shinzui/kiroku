@@ -43,6 +43,11 @@ provenance:
       at: 2026-10-09T22:51:42Z
       mode: "implement"
       note: "Coordinate EP-2 target identity and validated adapter capacities; retain proportional evidence scope."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-10T01:28:35Z
+      mode: "implement"
+      note: "Coordinate EP5 error classification; preserve cumulative release evidence for EP6."
 ---
 
 # Harden the Kiroku event store and subscription machinery surfaced by the 2026-07 Kiroku review
@@ -97,7 +102,7 @@ The 2026-10-09 source audit at commit `e6ea664` found **0 of 6 children complete
 At that audit all five implementation children were Not Started; EP-6 awaits their completion.
 EP-1 is now Complete under the user-directed minimum-evidence scope recorded
 below. EP-2 is Complete on user-approved practical acceptance; EP-3 is Complete after focused correctness and existing ADR-5 verification.
-The other three children remain Not Started; no package is released.
+EP-4 is also Complete; EP-5 is In Progress and EP-6 remains Not Started. No package is released.
 The accepted ADR-8 records the intended API, not evidence that it has shipped. The recent
 lifecycle, category-performance, and publisher-memory fixes are baseline improvements to preserve.
 This update inspected source, tests, migrations, changelogs, and history; it did not rerun the
@@ -141,6 +146,8 @@ a checkpoint to a subscription target or define group topology. [ADR-12](../adr/
 now covers the decode hook's failure contract.
 [ADR-13](../adr/0013-handler-stall-diagnostics-are-worker-owned-and-advisory.md)
 records opt-in worker ownership, advisory acknowledgement diagnostics and adapter retry policy.
+[ADR-14](../adr/0014-unique-constraint-names-define-error-classification.md)
+records exact unique-constraint identity and the append invariant-failure boundary.
 
 
 ## Exec-Plan Registry
@@ -151,7 +158,7 @@ records opt-in worker ownership, advisory acknowledgement diagnostics and adapte
 | 2 | Repair live reconnect and validate subscription identity and batch size | docs/plans/82-repair-live-reconnect-and-validate-subscription-identity-and-batch-size.md | None | EP-1 | Complete |
 | 3 | Contain persistent publisher decode-hook failures | docs/plans/83-contain-persistent-publisher-decode-hook-failures.md | None | EP-2 | Complete |
 | 4 | Harden adapter acknowledgement liveness and expose retry policy | docs/plans/84-harden-adapter-acknowledgement-liveness-and-expose-retry-policy.md | EP-1, EP-2 | EP-3 | Complete |
-| 5 | Make append unique-violation classification exact | docs/plans/86-make-append-unique-violation-classification-exact.md | None | None | Not Started |
+| 5 | Make append unique-violation classification exact | docs/plans/86-make-append-unique-violation-classification-exact.md | None | None | In Progress |
 | 6 | Release the subscription hardening cohort and coordinate downstream adoption | docs/plans/85-release-the-subscription-hardening-cohort-and-coordinate-downstream-adoption.md | EP-1, EP-2, EP-3, EP-4, EP-5 | None | Not Started |
 
 
@@ -855,7 +862,7 @@ cases pass. ADR-12 records the contract. Evidence is in
 handler diagnostics land with 504 passing workspace examples, 20 structural checks,
 16 controlled workload cases (116.73 seconds), and ADR-13. Evidence:
 `kiroku-store/bench/results/ep4-acknowledgement-liveness/README.md`.
-EP5 is the next implementable child; EP6 waits on EP5. Both remain Not Started.
+EP5 is In Progress with passing focused mapping and duplicate-append tests; full acceptance is running. EP6 waits on EP5 and remains Not Started.
 No package is released; cumulative default/opt-in timing remains EP6 work.
 
 
@@ -945,3 +952,7 @@ context. Final local verification passes; EP6 owns cumulative timing.
 Revision note (2026-10-09, EP4 completion): mark the fourth child Complete after full
 workspace build/tests, existing ADR-5 gates and strict ADR validation. EP5 is next ready;
 EP6 retains cumulative original-control timing and release ownership.
+
+Revision note (2026-10-10, EP5): began exact append unique-constraint
+classification, reused extraction in the existing transaction/link/attribution
+mappers and recorded ADR-14. Focused tests pass; full acceptance is running.

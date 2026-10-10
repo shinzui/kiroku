@@ -66,11 +66,13 @@ import Test.SubscriptionState qualified as SubscriptionState
 import Test.SubscriptionTarget qualified as SubscriptionTarget
 import Test.Transaction qualified as Transaction
 import Test.TruncateBefore qualified as TruncateBefore
+import Test.UniqueViolationMapping qualified as UniqueViolationMapping
 import Test.VisibleGlobalHeadPosition qualified as VisibleGlobalHeadPosition
 import Test.VisibleGlobalHeadPositionMock qualified as VisibleGlobalHeadPositionMock
 
 main :: IO ()
 main = withSharedMigratedPostgres $ hspec $ do
+    UniqueViolationMapping.spec
     SubscriptionTarget.spec
     Category.spec
     Properties.spec
@@ -267,6 +269,22 @@ main = withSharedMigratedPostgres $ hspec $ do
                     (r3 ^. #globalPosition) `shouldBe` GlobalPosition 3
 
             describe "duplicate event ID" $ do
+                it "returns the caller event id on same-stream retry and leaves one stored event" $ \store -> do
+                    let eid = EventId (UUID.fromWords 0x01234567 0x89ab7def 0x80123456 0x7890abcd)
+                        event = makeEvent "Created" (Aeson.object []) & #eventId .~ Just eid
+                        stream = StreamName "same-stream-duplicate"
+                    Right _ <- runStoreIO store $ appendToStream stream NoStream [event]
+                    forM_ [AnyVersion, StreamExists, ExactVersion (StreamVersion 1)] $ \expected -> do
+                        result <- runStoreIO store $ appendToStream stream expected [event]
+                        result `shouldBe` Left (DuplicateEvent (Just eid))
+                        countEvents store `shouldReturn` 1
+                        Right stored <- runStoreIO store $ readStreamForward stream (StreamVersion 0) 100
+                        Right global <- runStoreIO store $ readAllForward (GlobalPosition 0) 100
+                        map (\e -> e ^. #eventId) (V.toList stored) `shouldBe` [eid]
+                        map (\e -> e ^. #eventId) (V.toList global) `shouldBe` [eid]
+                        Right info <- runStoreIO store $ getStream stream
+                        fmap (\s -> s ^. #version) info `shouldBe` Just (StreamVersion 1)
+
                 it "rejects duplicate event IDs" $ \store -> do
                     let eid = EventId (case UUID.fromString "01234567-89ab-7def-8012-34567890abcd" of Just u -> u; Nothing -> error "bad uuid")
                     let event1 =
