@@ -112,7 +112,10 @@ process that shares the database: the durable body is the same.
 ## Progress
 
 - [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
-- [ ] Implement and execute the focused correctness and performance acceptance added by this review.
+- [x] (2026-10-10) Execute focused route correctness and shared-work checks: one
+  inventory read per GET/HEAD, none on legacy metrics reads; unchanged store/SQL
+  source and existing structural tests pass. Cumulative append-under-observer
+  performance acceptance remains explicitly assigned to EP-7.
 
 - [x] (2026-10-10) Milestone 1: `Kiroku.Metrics.Checkpoints` module with the provider type, the canonical
       store-backed provider, the wire types and their hand-written JSON codec, the
@@ -126,11 +129,11 @@ process that shares the database: the durable body is the same.
 - [x] (2026-10-10) Milestone 3: end-to-end `Test.CheckpointsSpec` coverage for every IR-10 acceptance item
       (stopped-worker retention versus live absence, ordering, two handles over one database,
       no live provider, empty store, not configured, provider failure, standalone 404).
-- [ ] Milestone 4: `docs/user/metrics.md` section with transcript and the live-versus-durable
+- [x] (2026-10-10) Milestone 4: `docs/user/metrics.md` section with transcript and the live-versus-durable
       explanation, cross-links from `docs/user/subscriptions.md` and `docs/user/operator-cli.md`,
       the self-verifying example extended, CAP-17 updated, changelog `Unreleased` entry, IR-10
       body updated with implementation evidence, all repository validations green.
-- [ ] Milestone 5: ADR distillation pass performed and Outcomes written. (The release and the
+- [x] (2026-10-10) Milestone 5: ADR distillation pass performed and Outcomes written. (The release and the
       `completed` status of IR-10 moved to plan 96, EP-7 of MasterPlan 13, on 2026-09-30.)
 
 
@@ -142,8 +145,10 @@ process that shares the database: the durable body is the same.
   its caller. A direct `network` dependency supplies `Socket.close` in the masked
   acquisition/finalizer; Hackage and upstream tags agree on 3.2.9.0, admitted by
   `>=3.1 && <3.3`. Mori lookup found no network/http-types corpus, so upstream
-  sources were fetched after lookup; existing Mori WAI/async sources supplied
-  readiness, raw-path and supervision behavior.
+  sources were fetched after lookup. The registered sources
+  `mori://yesodweb/wai/packages/warp`, `mori://yesodweb/wai/packages/wai-websockets`
+  and `mori://simonmar/async/packages/async` supplied readiness, raw-path and
+  supervision behavior.
 - 2026-10-10 validation: a loopback listener on macOS can coexist with a wildcard
   listener using SO_REUSEADDR. The occupied-port fixture now listens on both
   wildcard address families; acquisition raises before invoking the callback.
@@ -307,6 +312,36 @@ process that shares the database: the durable body is the same.
 
 
 ## Outcomes & Retrospective
+
+2026-10-10 implementation: EP-2 is complete. `Kiroku.Metrics.Checkpoints` wraps the
+existing public inventory without changing store code, SQL, migrations or append paths.
+The provider record and four general bindings preserve every legacy signature, live
+route/body and outer CORS composition. Readiness, failure propagation, explicit socket
+cleanup, the WebSocket switch and prefix mounts are implemented and tested.
+
+Validation passed: `cabal build all`, `cabal test all` (six suites, 593 examples,
+zero failures, including 19 new checkpoint/composition examples),
+`cabal run -fexample kiroku-metrics-example` (all eight steps),
+`nix build .#kiroku-metrics`, capability/request validation, strict ADR validation,
+local Markdown link/fence checks and whitespace checks. A compile-only consumer uses
+all legacy starters plus the explicit provider binding; exact package IDs from the
+Cabal plan avoid duplicate installed Wai/WebSockets modules.
+
+Focused affected-path evidence pins one inventory call on each GET/HEAD, no calls
+on rejected methods or twenty legacy metrics reads, and no inventory background thread.
+Existing store correctness/structural checks run in the full suite. Cancellation probes
+cover entry/readiness lifetime boundaries at three delays; they are boundary checks,
+not a claim of exhaustive scheduling coverage. No remote benchmark was launched and
+no cumulative append-performance neutrality is claimed; EP-7 retains that gate.
+
+ADR distillation: ADR-15 already owns the nonshadowing path, read methods, compatible
+composition and unpaginated-work constraints. Its lifecycle paragraph now records the
+supervised callback thread and explicit socket finalizers. No duplicate routing ADR
+is needed; EP-6 still owns the complete composition/self-hosting ADR. CAP-17 and IR-10
+record the implemented evidence, while IR-10 remains `in_progress` until EP-7 releases.
+The practical lesson is that bind-failure tests must reserve wildcard IPv4 and IPv6
+listeners on macOS, where a loopback listener can coexist with a wildcard bind.
+
 
 2026-10-10 review: implementation and performance acceptance remain pending. Static review does not prove zero runtime regression. Earlier planning-time observations and dated decisions are historical where this revision explicitly replaces them.
 
@@ -791,8 +826,8 @@ already wrapped the composition in `corsMiddleware cfg.cors`; keep that wrap on
 `httpAppWithProviders` unwrapped. Then make the legacy functions one-line delegations that keep
 their exact types: `startMetricsServerWith' cfg m deps mProvider wsApp` calls
 `startMetricsServerWithProviders cfg m deps defaultServerProviders{webSocketServer = wsApp, subscriptionStatus = mProvider}`;
-`combinedApp` and `httpApp` build the same record; `withMetricsServerWithProviders` is
-`bracket (startMetricsServerWithProviders ...) stopMetricsServer`. In `httpAppWithProviders`
+`combinedApp` and `httpApp` build the same record; `withMetricsServerWithProviders` brackets acquisition/cleanup and supervises the
+callback against the Warp thread as required by the composition corrections. In `httpAppWithProviders`
 insert the reserved segment match immediately before the two live matches, and add its handler
 next to `subscriptionsRoute`:
 
@@ -878,8 +913,7 @@ Decode durable bodies with `Aeson.eitherDecode` into `CheckpointInventoryRespons
 projected triples `(subscription, member, checkpointPosition)`.
 
 Write these examples, each inside `withMigratedTestDatabase` and `withStore
-(defaultConnectionSettings connStr)` unless stated otherwise, each server on `port = 0` with a
-short `threadDelay 200_000` after start as the sibling specs do:
+(defaultConnectionSettings connStr)` unless stated otherwise, each server on `port = 0`. Readiness-aware starters need no post-start sleep:
 
 1. Durable versus live (acceptance 1). Append three events to one stream; subscribe with
    `defaultSubscriptionConfig (SubscriptionName "durable-vs-live") AllStreams (\_ -> pure Continue)`;
@@ -918,7 +952,8 @@ short `threadDelay 200_000` after start as the sibling specs do:
    `SubscriptionsSpec`, `WebSocketSpec`, `IntegrationSpec`, and `CollectorSpec` keep passing
    with no assertion changes.
 
-Acceptance for Milestone 3: `cabal test kiroku-metrics` is green with the new examples listed
+Acceptance for Milestone 3: `cabal test kiroku-metrics` is green (actual final result:
+62 examples, zero failures) with the new examples listed
 under `Kiroku.Metrics.Checkpoints (/subscription-checkpoints)`, and `nix fmt` leaves the tree
 unchanged.
 
@@ -1156,16 +1191,17 @@ git diff --check
 git status --short
 ```
 
-Expected example transcript (port varies):
+Actual passing example transcript (the OS-assigned port varies):
 
 ```text
-[1/7] ephemeral postgres ready
-[2/7] store + collector + metrics server on port 57277
-[3/7] appended 3 events to orders-1
-[4/7] HTTP /metrics, /prometheus, /health/live, /health/ready all OK
-[5/7] GET /subscription-checkpoints store_position=3 with no durable checkpoints (this example runs no subscription)
-[6/7] WebSocket /ws/events received event eventType=OrderRefunded
-[7/7] kiroku-metrics-example: all checks passed (snapshot global position = 4)
+[1/8] ephemeral postgres ready
+[2/8] store + collector + metrics server on port 59196
+[3/8] appended 3 events to orders-1
+[4/8] HTTP /metrics, /prometheus, /health/live, /health/ready all OK
+[5/8] CORS: preflight and GET from https://ops.example.com allowed; https://evil.example.com undecorated
+[6/8] GET /subscription-checkpoints store_position=3 with no durable checkpoints (this example runs no subscription)
+[7/8] WebSocket /ws/events received event eventType=OrderRefunded
+[8/8] kiroku-metrics-example: all checks passed (snapshot global position = 4)
 ```
 
 Commit as `docs(kiroku-metrics): document durable subscription checkpoints over HTTP` with the
@@ -1212,7 +1248,7 @@ The plan is accepted when all of the following are observable:
    `checkpoint_inventory_unavailable`; typed decoding and other failures use the review's 500 mapping (tests 6 and 7).
 8. `docs/user/metrics.md` contains the request/response transcript, the live-versus-durable
    explanation, the error vocabulary, and the position-distance wording; CAP-17 and IR-10 are
-   updated and their bundles validate; the example prints the seven-step transcript.
+   updated and their bundles validate; the example prints the eight-step transcript.
 9. Outcomes & Retrospective is written and the MasterPlan registry shows EP-2 complete. (The
    Hackage release, the clean-consumer check, and IR-10's `completed` status are plan 96's
    acceptance, not this plan's.)
@@ -1263,6 +1299,7 @@ data CheckpointInventoryResponse = CheckpointInventoryResponse
 checkpointInventoryResponse :: SubscriptionCheckpointInventory -> CheckpointInventoryResponse
 checkpointsPath :: [Text]              -- ["subscription-checkpoints"]
 checkpointsApp :: CheckpointInventoryProvider -> Network.Wai.Application
+checkpointsNotConfiguredApp :: Network.Wai.Application
 ```
 
 At the end of Milestone 2, `Kiroku.Metrics.Server` additionally exposes (no existing
@@ -1312,8 +1349,8 @@ Error bodies on this route: `404 {"error":{"code":"checkpoint_inventory_not_conf
 only, `404 {"error":{"code":"not_found","message":"Not found"}}`.
 
 Dependencies: add `network >=3.1 && <3.3` for explicit socket cleanup. The library already depends on `aeson`, `text`, `time`,
-`vector`, `wai`, `http-types`, `kiroku-store`, and `kiroku-cli`; the test suite gains `time` and
-`vector`. No `.cabal` `version:` line and no dependency bound changes in this plan;
+`vector`, `wai`, `http-types`, `kiroku-store`, and `kiroku-cli`; the test suite gains `time`,
+`vector`, and `network`. No `.cabal` `version:` line and no dependency bound changes in this plan;
 `kiroku-store` and `kiroku-cli` are untouched. The only runtime service is PostgreSQL with the
 existing Kiroku migrations. Locate
 dependency sources through `mori registry show <project> --full` (for example `hasql/hasql`,
@@ -1348,8 +1385,8 @@ Reviewed against repository HEAD `f1a0209` and the released typed-decoding imple
 
 ## Implementation revision (2026-10-10)
 
-Milestones 1–3 are implemented. The focused 19-example run passed; the original
-43-example suite passed unchanged after initial composition. Legacy/new-starter
-consumer compilation passed using exact Cabal plan package IDs to avoid duplicate
-installed Wai/WebSockets modules. Full final suite, example, builds and bundle
-checks remain for Milestone 4. Cumulative performance and publication are EP-7 work.
+All five milestones are complete. The final six-suite run passed 593 examples,
+including all 43 original metrics examples unchanged and 19 new cases. The eight-step
+example, Cabal/Nix builds, bundle checks and legacy/new-starter consumer compilation
+passed. ADR-15 records the lifecycle outcome. The MasterPlan marks EP-2 Complete;
+IR-10 remains `in_progress`. Cumulative performance and publication are EP-7 work.

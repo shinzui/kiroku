@@ -197,7 +197,7 @@ Integration Points.
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
 | 1 | Add configurable CORS support to kiroku-metrics (IR-11) | docs/plans/90-add-configurable-cors-support-to-kiroku-metrics.md | None | None | Complete |
-| 2 | Serve durable subscription checkpoints over HTTP (IR-10) | docs/plans/87-serve-durable-subscription-checkpoints-over-http.md | EP-1 | None | In Progress |
+| 2 | Serve durable subscription checkpoints over HTTP (IR-10) | docs/plans/87-serve-durable-subscription-checkpoints-over-http.md | EP-1 | None | Complete |
 | 3 | Expose a REST read API for browsing streams, categories, and events (IR-8) | docs/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md | EP-2 | EP-4 | Not Started |
 | 4 | Expose a public dead-letter read API (IR-9) | docs/plans/89-expose-a-public-dead-letter-read-api.md | EP-2 | EP-3 | Not Started |
 | 5 | Converge the kiroku-metrics WebSocket protocol with the cross-project convention (IR-12) | docs/plans/94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention.md | EP-3 | None | Not Started |
@@ -460,7 +460,7 @@ rule suffices.
 - [x] (2026-10-10) EP-2: `Kiroku.Metrics.Checkpoints` and the pure codec test.
 - [x] (2026-10-10) EP-2: `ServerProviders`, the four general starters, the reserved `/subscription-checkpoints`
       segment, legacy starters as delegations.
-- [ ] EP-2: end-to-end checkpoint tests; documentation, example step, CAP-17, changelog, IR-10
+- [x] (2026-10-10) EP-2: end-to-end checkpoint tests; documentation, example step, CAP-17, changelog, IR-10
       evidence.
 - [ ] EP-3: `listStreams`, `listCategories`, `getEvent` in `kiroku-store` with database, mock,
       and structural tests.
@@ -691,6 +691,16 @@ rule suffices.
 
 ## Outcomes & Retrospective
 
+2026-10-10 EP-2 implementation: two of seven children are now Complete. The durable
+inventory, compatible provider composition, readiness and supervised cleanup are
+implemented, with 19 new metrics cases. All six repository suites passed (593 examples);
+the eight-step example, Cabal/Nix builds and strict bundle checks passed. ADR-15
+captures the finalizer/supervision constraints. IR-10 stays `in_progress`; EP-7 still
+owns publication and cumulative append-under-observer performance acceptance.
+The next ready child is EP-3 (plan 88, streams/categories/events browsing); EP-4
+is also unblocked but follows EP-3 in registry order.
+
+
 2026-10-10 implementation: EP-1 is complete (one of seven children). Validated CORS,
 shared structured/sanitized errors, real HTTP/WebSocket tests, the guide/example and
 ADR-16 are committed. Six test suites passed (574 examples); final metrics checks,
@@ -718,6 +728,7 @@ Reviewed against repository HEAD `f1a0209` and the released typed-decoding imple
 
 ## Implementation revision (2026-10-10)
 
-EP-1 is Complete; its correctness, affected-path, build and documentation evidence
-is recorded in plan 90. ADR-16 captures the inherited CORS posture. EP-2 is next.
-No cohort release or cumulative append performance acceptance is claimed.
+EP-1 and EP-2 are Complete; their focused correctness, affected-path, build and
+documentation evidence is in plans 90 and 87. ADR-16 captures CORS, and ADR-15
+records supervised callback/server cleanup. EP-3 is next. No cohort release or
+cumulative append performance acceptance is claimed.
