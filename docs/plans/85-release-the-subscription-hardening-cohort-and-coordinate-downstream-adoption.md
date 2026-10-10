@@ -76,8 +76,8 @@ user's explicit release-time confirmation.
 ## Progress
 
 - [ ] Integrated performance gate: select the minimum useful cumulative comparison against original control and finish the whole experiment within one hour, retaining uncertainty and regression policy under ADR-11.
-- [x] (2026-10-10) Gate: plans 81, 82, 83, 84, and 86 are Complete; current living sections and strict ADR/capability validation pass. The lifetime member-guard plans 93/92 remain outside this cohort and unimplemented.
-- [ ] M1: determine changed packages and PVP impact from commits since authoritative tags; verify Hackage and upstream tags rather than trusting local registry versions.
+- [x] (2026-10-10) Gate: plans 81, 82, 83, 84, and 86 are Complete; current living sections, strict ADR validation and the configured capability gate pass. The lifetime member-guard plans 93/92 remain outside this cohort and unimplemented.
+- [x] (2026-10-10) M1: verify all six current Hackage versions and upstream peeled tags, audit changed APIs and discover registered dependents. Exact proposed Cabal/bound/changelog patch is retained in `kiroku-store/bench/results/ep6-release/proposal/`; metadata approval is pending.
 - [ ] M1: present exact package versions, bounds, and changelogs for user confirmation before editing release metadata.
 - [ ] M2: update approved versions/bounds/changelogs and pass formatting, build, test, ADR-5 performance, migration, sdist, Haddock, and flake gates.
 - [ ] M3: after a second explicit publication confirmation, commit, tag, push, publish Hackage/docs and GitHub releases in dependency order; verify clean-consumer resolution.
@@ -86,6 +86,20 @@ user's explicit release-time confirmation.
 
 
 ## Surprises & Discoveries
+
+- (2026-10-10) The initial real-adapter control errored on the unchanged
+  checkpoint-frequency invariant after 44,545 steady deliveries. Sampler table
+  counters lag observed load totals, consistent with cumulative-statistics lag,
+  but exact failed locals were missing and the cause remains unproven. Stop the
+  queue, retain the cancelled candidate, and add pre-failure diagnostic snapshots
+  without relaxing the assertion or retrying a trial. Historical telemetry also
+  timed out its NoStream new-stream append and exhausted-category cases.
+
+- (2026-10-10) Payload publication requires a `./` or absolute flake root; the
+  initial relative root failed before upload. The queue also requires integer
+  `estimateMinutes`; a fractional planning estimate refused before creating a
+  remote session. Both preparation failures are retained and corrected without
+  replacing a performance trial or restarting the original clock.
 
 - (2026-10-10) All six Hackage preferred-version responses match the latest
   upstream package-specific peeled tags. The migration package has no direct
@@ -155,17 +169,34 @@ user's explicit release-time confirmation.
 
 ## Outcomes & Retrospective
 
-The 2026-10-09 documentation refresh confirmed that this child remains Not Started at
-`e6ea664`. The Context audit records current implementation evidence and reusable baseline work.
-No runtime or performance suite was rerun for this refresh; implementation acceptance remains
-open. The subsequent write-performance requirement is recorded in ADR-11 and the acceptance below;
-implementation and measured evidence remain outstanding.
+EP6 is In Progress. All five implementation children are Complete. Integrated
+`cabal build all` and `cabal test all --test-show-details=direct` pass (554 examples
+across six suites), as do all six current-version `cabal check` runs and native
+Nix formatting/pre-commit checks. The cumulative comparison stopped under its predeclared failure rule: its first
+baseline adapter trial errored on checkpoint frequency, and the next candidate
+was cancelled. Both sealed artifacts are independently hash-verified; zero valid
+benchmark trials or matched pairs exist, with no replacements. Cleanup completed
+25.14 minutes after the original clock began; all four VMs are TERMINATED, with
+no lease or quarantine. Original statistical policy remains unchanged and the
+gate is inconclusive. Historical telemetry failed two of 30 cases with 100-second
+timeouts; the full adverse output is retained.
+
+Authoritative release scope and the exact proposed metadata patch are retained in
+`kiroku-store/bench/results/ep6-release/`. Package metadata remains unchanged
+pending version confirmation. No release commit, tag, push, upload or downstream
+change has occurred. Final archives, publication, clean-consumer proof and Keiro
+adoption remain outstanding.
 
 
 ## Context and Orientation
 
-Source audit (2026-10-09, `e6ea664`): the gate remains unmet; all five implementation children
-are Not Started. Checked-in versions are store 0.9.0.1, migrations 0.6.0.0, adapter 0.5.1.5,
+Current audit (2026-10-10, production commit `5805117`): all five implementation
+children are Complete; migrations 0013 and 0014 and the resize, rebind, typed
+decode and opt-in stall APIs are implemented. Current Hackage/tag truth, proposed
+versions and exact edits are retained under `kiroku-store/bench/results/ep6-release/`.
+
+Historical source audit (2026-10-09, `e6ea664`): at that point all five
+implementation children were Not Started. Checked-in versions are store 0.9.0.1, migrations 0.6.0.0, adapter 0.5.1.5,
 otel 0.2.0.10, metrics 0.1.0.10, and CLI 0.2.0.8. The migration manifest ends at `0012.sql`.
 These are checkout observations, not fresh Hackage/tag verification or a proposed next cohort.
 The releases recorded in their changelogs contain lifecycle cleanup, category indexing, and
@@ -465,3 +496,10 @@ acceptance, with per-child ownership and evidence requirements. The user explici
 write performance. Implementation and benchmark gates remain open.
 
 Revision note (2026-10-09): EP6 owns the cumulative append comparison within the one-hour whole-experiment ceiling; supersede obsolete mandatory matrices and unbounded precision escalation while retaining original evidence and regression policy.
+
+Revision note (2026-10-10): Retain authoritative scope and exact metadata proposal,
+passing integrated correctness/packaging/document checks, failed historical
+telemetry and the stopped cumulative experiment. No matched performance result
+is available; diagnostic capture improves future failures while preserving the
+original invariant and no-replacement rule. Approval, final archives, publication
+and Keiro adoption remain outstanding.

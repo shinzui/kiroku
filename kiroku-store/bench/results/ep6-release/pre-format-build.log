@@ -1,0 +1,6 @@
+warning: Git tree '/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku' has uncommitted changes
+shutting down[Kerror: interrupted by the user
+warning: unable to export OpenTelemetry traces: error:
+       … during upload of 'http://localhost:10428/insert/opentelemetry/v1/traces'
+
+       error: cannot enqueue download request because the download thread is shutting down

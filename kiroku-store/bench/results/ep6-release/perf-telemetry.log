@@ -1,0 +1,106 @@
+just bench-baseline-check
+cabal build kiroku-store:kiroku-store-bench
+Up to date
+kiroku-store/bench/check-baseline-coverage.sh
+baseline coverage OK: 30 historical benchmarks match exactly
+cabal bench kiroku-store:kiroku-store-bench --benchmark-options="--baseline $PWD/kiroku-store/bench/results/baseline.csv"
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.9.0.1 (bench:kiroku-store-bench) (ephemeral targets)
+Preprocessing benchmark 'kiroku-store-bench' for kiroku-store-0.9.0.1...
+Building benchmark 'kiroku-store-bench' for kiroku-store-0.9.0.1...
+Running 1 benchmarks...
+Benchmark kiroku-store-bench: RUNNING...
+
+--- Pre-populating category data (100 cats × 10 streams × 100 events) ---
+  Setup time: 4.333396s (100K events)
+
+--- B9: Pool saturation (64 writers × 100 appends, pool size 10) ---
+  Total appends: 6400
+  Elapsed: 5.181126s
+  Throughput: 1235 ops/s
+  Avg latency: 0.8095509375 ms
+---
+All
+  append
+    single-event
+      NoStream (new stream):                     TIMEOUT
+        Timed out after 100s
+        Use -p '/NoStream (new stream)/' to rerun this test only.
+      AnyVersion (new stream):                   OK
+        127  μs ±  11 μs, 34% less than baseline
+    batch-10
+      NoStream:                                  OK
+        177  μs ± 5.2 μs, 51% less than baseline
+    batch-100
+      NoStream:                                  OK
+        597  μs ±  25 μs, 64% less than baseline
+    sequential
+      10 appends to same stream:                 OK
+        1.21 ms ±  68 μs, 29% less than baseline
+  raw-append-shape
+    AnyVersion
+      scalar singleton (new stream):             OK
+        105  μs ± 8.8 μs, 31% less than baseline
+      production arrays/unnest (new stream):     OK
+        116  μs ±  10 μs, 33% less than baseline
+      two-roundtrip (new stream):                OK
+        125  μs ± 8.3 μs, 34% less than baseline
+      two-roundtrip + BEGIN/COMMIT (new stream): OK
+        166  μs ± 6.1 μs, 24% less than baseline
+      scalar singleton (hot stream):             OK
+        111  μs ±  10 μs, 30% less than baseline
+      production arrays/unnest (hot stream):     OK
+        133  μs ± 7.8 μs, 20% less than baseline
+      two-roundtrip (hot stream):                OK
+        151  μs ±  14 μs, 18% less than baseline
+      two-roundtrip + BEGIN/COMMIT (hot stream): OK
+        200  μs ±  13 μs,  7% less than baseline
+  read
+    stream forward (100-event page):             OK
+      820  μs ±  27 μs, 29% less than baseline
+    $all forward (100-event page):               OK
+      781  μs ±  60 μs, 26% less than baseline
+  category
+    category forward (100-event page):           OK
+      781  μs ±  61 μs,       same as baseline
+    exhausted-category:                          TIMEOUT
+      Timed out after 100s
+      Use -p '/exhausted-category/' to rerun this test only.
+    $all forward (100-event page baseline):      OK
+      796  μs ±  46 μs,       same as baseline
+  concurrent
+    8 writers x 10 appends:                      OK
+      11.3 ms ± 813 μs, 27% less than baseline
+    32 writers x 10 appends:                     OK
+      763  ms ± 7.9 ms,       same as baseline
+  reliability-audit
+    hot invoice-payment 10 AnyVersion appends:   OK
+      1.33 ms ±  43 μs, 21% less than baseline
+    appendMultiStream 3 existing streams:        OK
+      230  μs ± 8.3 μs, 39% less than baseline
+    subscription category catch-up 100 events:   OK
+      1.51 ms ± 112 μs, 45% less than baseline
+  category-scaling
+    plain caught-up poll (200 streams):          OK
+      191  μs ±  17 μs, 11% more than baseline
+    plain caught-up poll (20000 streams):        OK
+      190  μs ±  13 μs,  9% more than baseline
+    group caught-up poll (20000 streams):        OK
+      201  μs ± 9.5 μs, 13% more than baseline
+    plain page from 0 (20000 streams):           OK
+      6.66 ms ± 535 μs,       same as baseline
+    exhausted category (200 streams):            OK
+      178  μs ±  13 μs,       same as baseline
+  subscription-checkpoint-inventory
+    100 rows:                                    OK
+      389  μs ±  31 μs, 15% less than baseline
+    10000 rows:                                  OK
+      39.1 ms ± 3.5 ms, 12% less than baseline
+
+2 out of 30 tests failed (443.01s)
+Benchmark kiroku-store-bench: ERROR
+Error: [Cabal-7125]
+Benchmarks failed for bench:kiroku-store-bench from kiroku-store-0.9.0.1.
+
+error: recipe `perf-telemetry` failed on line 145 with exit code 1

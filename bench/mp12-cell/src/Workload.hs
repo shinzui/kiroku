@@ -287,6 +287,20 @@ measure context workload store event delivered live failures batches members sta
                     let updates = saves1 - saves0
                         minimumUpdates = if consuming then (fromIntegral (events * deliveryFactor) + fromIntegral workload.checkpointBatch - 1) `div` fromIntegral workload.checkpointBatch else 0
                         maximumUpdates = if consuming then fromIntegral (events * deliveryFactor) else 0
+                    Core.putSummary context Core.Measurements "checkpoint-validation" $
+                        object
+                            [ "events" .= events
+                            , "expected_delivered" .= (events * deliveryFactor)
+                            , "delivered" .= count
+                            , "table_updates_before" .= saves0
+                            , "table_updates_after" .= saves1
+                            , "checkpoint_updates" .= updates
+                            , "minimum_updates" .= minimumUpdates
+                            , "maximum_updates" .= maximumUpdates
+                            , "checkpoint_sql_before" .= sql0
+                            , "checkpoint_sql_after" .= sql1
+                            , "durability" .= durability
+                            ]
                     unless (updates >= minimumUpdates && updates <= maximumUpdates) (fail "checkpoint frequency differs from the declared batch policy")
                 Core.putSummary context Core.Measurements "write-probe" $
                     object

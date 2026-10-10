@@ -1,0 +1,15 @@
+warning: Git tree '/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku' has uncommitted changes
+Using saved setting for 'extra-substituters = ' from ~/.local/share/nix/trusted-settings.json.
+warning: ignoring untrusted flake configuration setting 'extra-substituters'.
+Pass '--accept-flake-config' to trust it
+Using saved setting for 'extra-trusted-public-keys = ' from ~/.local/share/nix/trusted-settings.json.
+ERRO formatter | fourmolu: failed to apply with options '[-i -c --ghc-opt -XBangPatterns --ghc-opt -XPatternSynonyms --ghc-opt -XTypeApplications]': exit status 102
+
+bench/mp12-cell/src/Workload.hs:109:6-7
+  The GHC parser (in Haddock mode) failed:
+  [GHC-58481] parse error on input `<-'
+
+traversed 622 files
+emitted 142 files for processing
+formatted 1 files (0 changed) in 270ms
+Error: failed to finalise formatting: formatting failures detected

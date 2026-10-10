@@ -1,0 +1,1 @@
+kenshou cell: PublishNixError (NixCommandFailed "nix" ["eval","--json","bench/mp12-cell#packages.x86_64-linux.kenshou-released.cohortIdentity"] (ExitFailure 1) "error: cannot find flake 'flake:bench/mp12-cell' in the flake registries\n")

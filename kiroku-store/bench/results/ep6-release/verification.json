@@ -1,0 +1,77 @@
+{
+  "source_commit": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+  "metadata": "current pre-release versions; proposed metadata approval pending",
+  "build_all": "pass",
+  "test_all": {
+    "status": "pass",
+    "examples": 554,
+    "suites": {
+      "kiroku-store": 423,
+      "shibuya-kiroku-adapter": 45,
+      "kiroku-metrics": 23,
+      "kiroku-otel": 17,
+      "kiroku-store-migrations": 24,
+      "kiroku-cli": 22
+    }
+  },
+  "postgres_version": "postgres (PostgreSQL) 18.6",
+  "cabal_checks": {
+    "status": "pass",
+    "packages": 6
+  },
+  "native_nix_flake_check": "pass; aarch64-darwin formatting/pre-commit checks; builds explicitly skipped by flake check",
+  "structural_and_controlled": {
+    "status": "pass",
+    "reuse": "../ep5-unique-violation/perf-check.log",
+    "source_unchanged": true,
+    "structural_checks": 20,
+    "controlled_cases": 16,
+    "seconds": 117.74
+  },
+  "migration_upgrade": "included in the passing 24-example migration suite; 0013 derives legacy group size; 0014 filenode/ctid fixture verifies metadata-only addition",
+  "historical_telemetry": {
+    "status": "failed",
+    "failed_cases": 2,
+    "total_cases": 30,
+    "seconds": 443.01,
+    "failures": [
+      "All.append.single-event.NoStream (new stream): 100-second timeout",
+      "All.read.exhausted-category: 100-second timeout"
+    ],
+    "artifact": "perf-telemetry.log",
+    "retained_without_retry": true
+  },
+  "proposed_version_archives": "pending metadata approval",
+  "publication": "not authorized/not performed",
+  "downstream_adoption": "pending published cohort",
+  "integrated_performance": {
+    "status": "inconclusive",
+    "verified_sealed_results": 2,
+    "valid_benchmark_trials": 0,
+    "complete_pairs": 0,
+    "replacements": 0,
+    "active_remote_execution": false,
+    "owned_lease": "released",
+    "final_vms": "all four terminated",
+    "reason": "control errored on checkpoint-frequency invariant; next candidate cancelled on lease loss; remaining queue unsent"
+  },
+  "strict_adr_validation": "pass: 14 concepts",
+  "capability_validation": "pass: 21 concepts",
+  "diagnostic_capture_build": {
+    "status": "pass",
+    "outputs": [
+      "released",
+      "head",
+      "head-stall"
+    ],
+    "seconds": 88.19587588310242,
+    "remote_retry": false
+  },
+  "additional_strict_capability_audit": {
+    "status": "failed",
+    "reason": "18 pre-existing concepts omit profile-recommended review provenance",
+    "required_repository_capability_gate": "passed with profile/log enforcement; strict flag is not part of the repository recipe",
+    "metadata_fabricated": false
+  },
+  "final_native_nix_flake_check": "pass"
+}

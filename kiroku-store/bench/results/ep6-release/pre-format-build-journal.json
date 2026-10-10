@@ -1,0 +1,14 @@
+{
+  "started_epoch": 1791600398.0,
+  "deadline_epoch": 1791603998.0,
+  "cleanup_reserve_seconds": 180,
+  "wall_clock_budget_seconds": 3600,
+  "phase": "build-failed",
+  "build_limit_seconds": 600,
+  "build_pid": 63231,
+  "build_started_epoch": 1791600744.156121,
+  "build_log_bytes": 96,
+  "updated_epoch": 1791600776.230616,
+  "build_returncode": 1,
+  "build_seconds": 34.07683300971985
+}

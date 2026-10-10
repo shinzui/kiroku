@@ -1,0 +1,29 @@
+{
+  "started_epoch": 1791600398.0,
+  "deadline_epoch": 1791603998.0,
+  "cleanup_reserve_seconds": 180,
+  "wall_clock_budget_seconds": 3600,
+  "phase": "publish-diagnostic-finished",
+  "stages": {
+    "publish-diagnostic": {
+      "started_epoch": 1791601540.373206,
+      "cap_seconds": 300,
+      "command": [
+        "/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kenshou-cli-0.1.0.0/x/kenshou/build/kenshou/kenshou",
+        "cell",
+        "payload",
+        "publish",
+        "--cohort",
+        "head",
+        "--root",
+        "/tmp/mp12-ep6-release/diagnostic-publisher",
+        "--out",
+        "/tmp/mp12-ep6-release/diagnostic.payload.json"
+      ],
+      "returncode": 0,
+      "seconds": 74.12648105621338
+    }
+  },
+  "log_bytes": 0,
+  "updated_epoch": 1791601612.497725
+}

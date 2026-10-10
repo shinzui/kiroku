@@ -102,7 +102,9 @@ The 2026-10-09 source audit at commit `e6ea664` found **0 of 6 children complete
 At that audit all five implementation children were Not Started; EP-6 awaits their completion.
 EP-1 is now Complete under the user-directed minimum-evidence scope recorded
 below. EP-2 is Complete on user-approved practical acceptance; EP-3 is Complete after focused correctness and existing ADR-5 verification.
-EP-4 and EP-5 are also Complete; EP-6 remains Not Started. No package is released.
+EP-4 and EP-5 are also Complete; EP-6 is In Progress with integrated tests passing,
+a proposed independently versioned cohort awaiting approval, and a bounded
+cumulative comparison stopped with no valid matched pair. No package is released.
 The accepted ADR-8 records the intended API, not evidence that it has shipped. The recent
 lifecycle, category-performance, and publisher-memory fixes are baseline improvements to preserve.
 This update inspected source, tests, migrations, changelogs, and history; it did not rerun the
@@ -981,3 +983,18 @@ structural and controlled workload checks; retain exact source/transcript eviden
 and ADR-14. Five children are complete. EP6 is the sole remaining child, with
 cumulative performance, current-version release selection and downstream adoption
 still outstanding; no package has been published.
+
+Revision note (2026-10-10): Begin EP6 readiness with fresh authoritative package/tag
+verification, 554 passing integrated examples, packaging and native flake checks,
+and an exact metadata proposal. Preserve preparation refusals and telemetry
+timeouts; cumulative acceptance, approvals, publication and downstream adoption
+remain open.
+
+EP6 readiness outcome (2026-10-10): The original-control adapter trial failed its
+checkpoint-frequency invariant and the subsequent candidate was cancelled;
+retain both hash-verified sealed artifacts with zero valid benchmark trials and
+zero replacements. Cleanup completed after 25.14 minutes with all four VMs
+TERMINATED and no lease or quarantine. Historical telemetry failed two of 30
+cases. See `kiroku-store/bench/results/ep6-release/README.md`; cumulative acceptance
+is inconclusive and publication remains gated. The exact independently versioned
+metadata proposal awaits the release skill confirmation. EP6 remains In Progress.

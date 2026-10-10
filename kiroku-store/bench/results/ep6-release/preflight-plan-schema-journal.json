@@ -1,0 +1,165 @@
+{
+  "started_epoch": 1791600398.0,
+  "deadline_epoch": 1791603998.0,
+  "cleanup_reserve_seconds": 180,
+  "wall_clock_budget_seconds": 3600,
+  "phase": "stopped",
+  "build_limit_seconds": 600,
+  "build_pid": 63555,
+  "build_started_epoch": 1791600816.358263,
+  "build_log_bytes": 5858,
+  "updated_epoch": 1791601549.458636,
+  "build_returncode": 0,
+  "build_seconds": 142.28781700134277,
+  "stages": {
+    "publish-control": {
+      "started_epoch": 1791601086.247071,
+      "cap_seconds": 240,
+      "command": [
+        "/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kenshou-cli-0.1.0.0/x/kenshou/build/kenshou/kenshou",
+        "cell",
+        "payload",
+        "publish",
+        "--cohort",
+        "released",
+        "--root",
+        "bench/mp12-cell",
+        "--out",
+        "/tmp/mp12-ep6-release/control.payload.json"
+      ],
+      "returncode": 4,
+      "seconds": 2.0050418376922607
+    },
+    "publish-control-correct-root": {
+      "started_epoch": 1791601249.849049,
+      "cap_seconds": 240,
+      "command": [
+        "/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kenshou-cli-0.1.0.0/x/kenshou/build/kenshou/kenshou",
+        "cell",
+        "payload",
+        "publish",
+        "--cohort",
+        "released",
+        "--root",
+        "./bench/mp12-cell",
+        "--out",
+        "/tmp/mp12-ep6-release/control.payload.json"
+      ],
+      "returncode": 0,
+      "seconds": 100.17751407623291
+    },
+    "publish-head": {
+      "started_epoch": 1791601391.3420742,
+      "cap_seconds": 300,
+      "command": [
+        "/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kenshou-cli-0.1.0.0/x/kenshou/build/kenshou/kenshou",
+        "cell",
+        "payload",
+        "publish",
+        "--cohort",
+        "head",
+        "--root",
+        "./bench/mp12-cell",
+        "--out",
+        "/tmp/mp12-ep6-release/head.payload.json"
+      ],
+      "returncode": 0,
+      "seconds": 132.21590876579285
+    }
+  },
+  "log_bytes": 0,
+  "remote_started_epoch": 1791601547.649207,
+  "jobs": [
+    {
+      "name": "real-adapter",
+      "command": [
+        "/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kenshou-cli-0.1.0.0/x/kenshou/build/kenshou/kenshou",
+        "cell",
+        "pair",
+        "--cell",
+        "alpha",
+        "--start",
+        "--baseline",
+        "/tmp/mp12-ep6-release/control.payload.json",
+        "--candidate",
+        "/tmp/mp12-ep6-release/head.payload.json",
+        "--plan",
+        "/tmp/mp12-ep6-release/real-adapter.plan.json",
+        "--pairs",
+        "3",
+        "--ordering",
+        "abba",
+        "--max-replacements",
+        "0",
+        "--policy",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp12-cell/policy.json",
+        "--out",
+        "/tmp/mp12-ep6-release/remote-real-adapter",
+        "--pg-setting",
+        "shared_buffers=128MB",
+        "--pg-setting",
+        "fsync=on",
+        "--pg-setting",
+        "synchronous_commit=on",
+        "--pg-setting",
+        "full_page_writes=on",
+        "--pg-setting",
+        "wal_level=replica",
+        "--pg-setting",
+        "checkpoint_timeout=30min",
+        "--pg-setting",
+        "max_wal_size=16GB"
+      ],
+      "started_epoch": 1791601547.6492958,
+      "returncode": 2,
+      "seconds": 3.8148741722106934
+    }
+  ],
+  "remote_pid": 93806,
+  "instance_power": [
+    {
+      "name": "cell-alpha-broker",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-driver-0",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-monitoring",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-postgres",
+      "status": "TERMINATED"
+    }
+  ],
+  "remote_error": "[Errno 2] No such file or directory: '/tmp/mp12-ep6-release/remote-real-adapter/round-0/session.json'",
+  "final_instance_power": [
+    {
+      "name": "cell-alpha-broker",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-driver-0",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-monitoring",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-postgres",
+      "status": "TERMINATED"
+    }
+  ],
+  "cleanup": [
+    {
+      "action": "stop-cell",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "finished_epoch": 1791601559.127497
+}

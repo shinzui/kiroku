@@ -1,0 +1,349 @@
+{
+  "schema": "kiroku.ep6-release/v1",
+  "operator": "mori://shinzui/keiro-runtime-kenshou",
+  "infrastructure": "mori://shinzui/load-testing-infra",
+  "whole_experiment_started_epoch": 1791600398.0,
+  "whole_experiment_deadline_epoch": 1791603998.0,
+  "controller_finished_epoch": 1791601906.298557,
+  "whole_experiment_seconds": 1508.2985570430756,
+  "within_one_hour": true,
+  "verified_trials": 0,
+  "replacements": 0,
+  "rows": [],
+  "errors": [
+    {
+      "case": "real-adapter",
+      "cell_run": "01a123c7-773f-7725-8af0-55a15f5e1647",
+      "outcome": "errored",
+      "reason": "user error (checkpoint frequency differs from the declared batch policy)"
+    }
+  ],
+  "effects": {
+    "real-adapter": {
+      "op.append.throughput": {
+        "paired_percent_changes": [],
+        "geometric_mean_percent_change": null,
+        "descriptive_95_percent_interval": null
+      },
+      "op.append.latency.p50": {
+        "paired_percent_changes": [],
+        "geometric_mean_percent_change": null,
+        "descriptive_95_percent_interval": null
+      },
+      "op.append.latency.p95": {
+        "paired_percent_changes": [],
+        "geometric_mean_percent_change": null,
+        "descriptive_95_percent_interval": null
+      },
+      "op.append.latency.p99": {
+        "paired_percent_changes": [],
+        "geometric_mean_percent_change": null,
+        "descriptive_95_percent_interval": null
+      },
+      "pg.wal-bytes-per-op": {
+        "paired_percent_changes": [],
+        "geometric_mean_percent_change": null,
+        "descriptive_95_percent_interval": null
+      },
+      "rts.alloc-bytes-per-op": {
+        "paired_percent_changes": [],
+        "geometric_mean_percent_change": null,
+        "descriptive_95_percent_interval": null
+      }
+    },
+    "live-hook-fanout": {
+      "op.append.throughput": {
+        "paired_percent_changes": [],
+        "geometric_mean_percent_change": null,
+        "descriptive_95_percent_interval": null
+      },
+      "op.append.latency.p50": {
+        "paired_percent_changes": [],
+        "geometric_mean_percent_change": null,
+        "descriptive_95_percent_interval": null
+      },
+      "op.append.latency.p95": {
+        "paired_percent_changes": [],
+        "geometric_mean_percent_change": null,
+        "descriptive_95_percent_interval": null
+      },
+      "op.append.latency.p99": {
+        "paired_percent_changes": [],
+        "geometric_mean_percent_change": null,
+        "descriptive_95_percent_interval": null
+      },
+      "pg.wal-bytes-per-op": {
+        "paired_percent_changes": [],
+        "geometric_mean_percent_change": null,
+        "descriptive_95_percent_interval": null
+      },
+      "rts.alloc-bytes-per-op": {
+        "paired_percent_changes": [],
+        "geometric_mean_percent_change": null,
+        "descriptive_95_percent_interval": null
+      }
+    }
+  },
+  "complete_pairs": {
+    "real-adapter": 0,
+    "live-hook-fanout": 0
+  },
+  "diagnostic_cost": null,
+  "performance_acceptance": "inconclusive",
+  "planned_trials": [
+    {
+      "case": "real-adapter",
+      "run_ids": [
+        "01a12301-093f-7116-a87d-06f1c489b65c"
+      ],
+      "cell_run": "01a123c7-773f-7725-8af0-55a15f5e1647",
+      "state": "verified",
+      "cell_outcome": "completed",
+      "entry_exit_code": 4
+    },
+    {
+      "case": "real-adapter",
+      "run_ids": [
+        "01a12301-093f-7116-a639-d9bd4a5fdbde"
+      ],
+      "cell_run": "01a123c7-773f-7725-8f1c-3bfefa10667e",
+      "state": "submitted",
+      "cell_outcome": null,
+      "entry_exit_code": null
+    },
+    {
+      "case": "real-adapter",
+      "run_ids": [
+        "01a12301-093f-7116-a18f-1acaebdaeed2"
+      ],
+      "cell_run": "01a123c7-773f-7725-92eb-fb4b030c18ff",
+      "state": "planned",
+      "cell_outcome": null,
+      "entry_exit_code": null
+    },
+    {
+      "case": "real-adapter",
+      "run_ids": [
+        "01a12301-093f-7116-ac85-94ad84fed7e4"
+      ],
+      "cell_run": "01a123c7-773f-7725-94dd-93bf110996b0",
+      "state": "planned",
+      "cell_outcome": null,
+      "entry_exit_code": null
+    },
+    {
+      "case": "real-adapter",
+      "run_ids": [
+        "01a12301-093f-7116-aef2-eda061f4a689"
+      ],
+      "cell_run": "01a123c7-773f-7725-98f6-b8d501451c4b",
+      "state": "planned",
+      "cell_outcome": null,
+      "entry_exit_code": null
+    },
+    {
+      "case": "real-adapter",
+      "run_ids": [
+        "01a12301-093f-7116-af78-2029fa47c51b"
+      ],
+      "cell_run": "01a123c7-773f-7725-9ea9-2f8d321becbd",
+      "state": "planned",
+      "cell_outcome": null,
+      "entry_exit_code": null
+    }
+  ],
+  "stop_reason": "predeclared stop on failed durable benchmark; no replacement",
+  "controller_error": "'write-probe'",
+  "interrupted_trials": [
+    {
+      "cell_run": "01a123c7-773f-7725-8f1c-3bfefa10667e",
+      "status": {
+        "schema": "cell.status/v1",
+        "runId": "01a123c7-773f-7725-8f1c-3bfefa10667e",
+        "phase": "sealed",
+        "leaseSequence": 2,
+        "updatedAt": "2026-10-10T03:11:19Z",
+        "phaseStartedAt": "2026-10-10T03:11:19Z",
+        "logChunks": {
+          "stdout": 0,
+          "stderr": 0
+        },
+        "outcome": "cancelled",
+        "manifestSha256": "1ce48eeaf543391e536f5f28f8d0a1dad8d3ff61c1c56e92168b4a5e74e923c9",
+        "reasons": [
+          "lease-lost"
+        ]
+      },
+      "manifest_sha256": "1ce48eeaf543391e536f5f28f8d0a1dad8d3ff61c1c56e92168b4a5e74e923c9",
+      "artifacts_verified": 7
+    }
+  ],
+  "declared_trials": 13,
+  "verified_sealed_results": 2,
+  "interval_method": "descriptive Student t interval on paired log ratios; df=pairs-1; not the unchanged Kenshou policy acceptance report",
+  "final_instance_power": [
+    {
+      "name": "cell-alpha-broker",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-driver-0",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-monitoring",
+      "status": "TERMINATED"
+    },
+    {
+      "name": "cell-alpha-postgres",
+      "status": "TERMINATED"
+    }
+  ],
+  "evidence_sha256": {
+    "perf-telemetry.log": "346335078c9f9d67b533fc333ae38350e1bb7380d9f7406fce10dbbe32f8420f",
+    "diagnostic-publication-journal.json": "1c2021e8d93786a03cfe4736c5aa3ad400650c8a700a1cd3fa82ac642babdc22",
+    "policy.json": "d63f377e961400536f0bbb3550477ad359a3b11cd1000af7a854e5da1dbaa5b9",
+    "preflight-controller.py": "f08e125df67a22cf44de050ceb14070a6ffe617451e431c14ff38b69c15097fe",
+    "final-flake-check.log": "4d600a2aa7c2f5a516032a9a8e3f72673b2fbae7decdb03ba3d683a80aa5f073",
+    "collect.py": "556f7f6bf208add6a117013fbb9bab5499b690612b51d6c104759210ecbaae32",
+    "interrupted-candidate-fetch.log": "7e0ccde2b5678c9c614a40761ec81cfcde944907829bfff4a50f5ba7a6b6522e",
+    "kiroku-store-migrations-pre-metadata-check.log": "a19b4064f1acadadad1e1f24beae3785b778a6c5baabde7f333e4dacb7191d30",
+    "kiroku-store-pre-metadata-check.log": "a19b4064f1acadadad1e1f24beae3785b778a6c5baabde7f333e4dacb7191d30",
+    "instrumentation-journal.json": "bf862c259606fa00af270baefb17dc279d0a0441a5ce78529c2cb5f2c4416b8d",
+    "pre-format-build.log": "9bf5374f412d191eb754de0c6c64dcf67adc8e838e1f29f55752cef7eb1ce28d",
+    "live-hook-fanout.plan.json": "d8f4b419f8a66f1c51a38256497cd12acedd516598f6321c0c146999ad97f941",
+    "head.payload.json": "e9c56315e0ec26812dc97329591786246efcff26a68a263d563131db42e6c35a",
+    "experiment-budget.json": "e03995d6cd4b182b73897c59d1af0d156e5420a80686608b3157ba2352e6c877",
+    "publish-control.log": "73675440aabab34b010bfb39e83ea38f3a986db88d2f7b1ed01eddc37594994b",
+    "kiroku-metrics-pre-metadata-check.log": "a19b4064f1acadadad1e1f24beae3785b778a6c5baabde7f333e4dacb7191d30",
+    "release-scope.json": "9eac1a67129eb0161055a8a4f54a8c89839e63ae035d7e1662eceb28e8c69327",
+    "driver-startup-west.log": "80d73ff0cf9ffc4e9beb1d320db85cbfab7d018e85ba4c3bb8708e340e036e17",
+    "kiroku-otel-pre-metadata-check.log": "a19b4064f1acadadad1e1f24beae3785b778a6c5baabde7f333e4dacb7191d30",
+    "publish-control-correct-root.log": "f05a303f8dab11dca6fc4f7e0851cf5e906acce4ca2e6aa5a1d2dc91e22fd8a0",
+    "harness-format.log": "c14924f5984a70e10a8f15de7a4596ab2d4a0ace4a8226df6520d7234871a2cf",
+    "scope.json": "6ac51ab000b89ed8a9ce8408e8b4c94edb05f72d261cb0e5564ee9fe749e2e01",
+    "final-capabilities-strict.log": "b0b9584ac75ca03908c7935a1cfbddfe017c03c7bca8b0261a2c2b315a09dd01",
+    "control.payload.json": "95527463a3f0f1891ff7b3cbcd334961bcaf3ad0a11cadb103817ddfadf457bf",
+    "harness-format-final.log": "14b4e02054a36c64f67ad6509a1f67e1668ba629e484a528745c9d8252209aeb",
+    "readiness-fmt-final.log": "70faff9c315b994228437bf3c333992ae8e19e46c2be2899b6a3a43efa430888",
+    "real-adapter.preflight-plan.json": "f0ab1100e2265f8fc3ddb9f63ae10e74c9db4328a92723e2f00d8a57ff1d72a8",
+    "kiroku-cli-pre-metadata-check.log": "a19b4064f1acadadad1e1f24beae3785b778a6c5baabde7f333e4dacb7191d30",
+    "real-adapter.remote.log": "dfa3c85d522f3eefe3918a67a91c47c63b05a70fc630757c728cfc7c882b7327",
+    "diagnostic-capture-fmt.log": "297571359b47f491409f8ed2709627b360a239911a3d54910a2fbbc5024263da",
+    "final-adrs-strict.log": "fd68932c477b9bdb42daa689937f12d36ba0faa22d3d94619cd4c8b96d7a16b0",
+    "diagnostic-stage-controller.py": "ddbda241a58b34d1c3cc20e9c0c0f78e6a08257c0a18117e425b76bb6aa0254c",
+    "readiness-fmt.log": "20a13a787a1418b23e2e32f8869b1fd84511cf10c82a538ea87811d2fa7da1e8",
+    "preflight-plan-schema.log": "906693ddab56ac098d5d6241eed698bfb24dc5869020ad7227b57cc816310971",
+    "remote-controller.py": "21987d700416477cfa95514a268f6e82fcadc3c1e3a9ef233efab9af3b768f00",
+    "journal.json": "ad4506b8bc6a68e7ae4a9c1bd736ec2ba786e3904d841bbd77d5c875bef0144f",
+    "real-adapter.plan.json": "76aaff2c62aecc871a09e260fb4ae4d2ca20c1cb470ae15d296655d6c680a661",
+    "adrs.log": "6e5968e3a681a57f276917d55c4578e629da74c2b6367d569391135a800ad097",
+    "dependents.json": "7aafc2aadf6ba9f0e0b2ab43bf610d3bbb72512b33a527c370452c76c4eaace2",
+    "diagnostic.payload.json": "155215a45a3bc5c24ea20b24980add1097cc416e6d2c19f6e606aeb0eb6c9ee6",
+    "failed-trial-stop.json": "6c9c2b447b0936425c0fec598dc2f101cfefab13e1a9c83b827796d124f5a6a8",
+    "evidence-fmt.log": "dc34b7ffd63081dcfaddd9c7561473d44888df413dfb7ac485e1a95ea03caa10",
+    "stage-controller.py": "cdcabb39649fac13698d91e1ac2d1a2af9674b74848d6d3cffea0b34d50dd618",
+    "interrupted-candidate-status.json": "43380b903e817927008fd0d826834cca89afc747142090e2dc6efb962c14e736",
+    "pre-format-build-journal.json": "c09b2ad0d767ba1fe53b877143e59ce679f77224db40e76ceb332ecb8ec4cf32",
+    "harness-format-fixed.log": "bc1c65a6c894c1cad58ff5380b9e40851e4867bbcfcf6ed6afc8a57db0f2c7fe",
+    "live-hook-fanout.preflight-plan.json": "67a62968713256f571c2f32e21c9f8553022d16f4ff9a4e83c4d88b99d18c457",
+    "preflight-plan-schema-journal.json": "06a4c64526f92569577ef7f073b2d4442b8fda42bd2e337431d3462f0110172b",
+    "driver-startup.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "capabilities.log": "d9099d58e4a9aebb91b6c008720a0a351de8e6d1594265f0baddc1f069dbd898",
+    "hackage-versions.json": "0e4acf484ade784cf9fdcf0dcb099dbe415518888412a326dd3b0c5a049c7fed",
+    "adrs-strict.log": "fd68932c477b9bdb42daa689937f12d36ba0faa22d3d94619cd4c8b96d7a16b0",
+    "upstream-tags.txt": "9ef2e10c293c1284ec672192649ffddd9b1b9ab512544e8b04077822100d0950",
+    "verification.json": "d9999f15fcb477ce66864d5a2542f9a2d51cdbe405047fbd484d42c115070905",
+    "instrumentation-stage-controller.py": "cbf964c6ee612dd902d85405fb392825a90eecbad837e51bf595529eea9922e0",
+    "executed-controller.py": "81d7a82c78c1ca69efa5da4753ad6f15a51a468dd6cb423c54d571e018b36812",
+    "test-all.log": "15df4ea62779a1b3f3b3313b549c3cb83a2762be5e0e040397506ba98287f6b0",
+    "flake-check.log": "1ae837556e4ba1909fe9c2a10207f09843e77b0e1166555c4865bd9c875b7582",
+    "build-all.log": "abded49493df478bcb7a107f4e66a37c4230d83472ed97c6046de397382bc813",
+    "publish-head.log": "6517e7e0a794b1091d222639d89cf9ff22daed1edafbefe05f88c1af8960caca",
+    "closing-fmt.log": "208841b6789956c1653b6034723667a9921d13bc5bec80cc0ac6ede05585012f",
+    "shibuya-kiroku-adapter-pre-metadata-check.log": "8ad405e0edb9bcebe867eb8a48ad374265983b4d28f7a277fc1e73987576b7af",
+    "publish-diagnostic.log": "6279d13f19c7e93d8adc95e92d1ff770d744063c587e29d279327008cb054ac0",
+    "validate-capture-build.log": "1c2558f0b339ec8582597773a5468e3535d340bf6d129130ef8bba9345234905",
+    "build-controller.py": "b3888de1172d4e0269d47ac0d333d40102d1d83e6a1453009ecc35cb30671d50",
+    "build.log": "99da85344078b6f39dd88ffa9b8aab771a46fa5a3622ceff447ac486f2e6aa6d",
+    "real-adapter/pair-plan.json": "97ae13226f1627f12530fdaf8bf37c90761e8b6e5c07cf5500f7afb21535a67f",
+    "proposal/versions.json": "70f5dc63a4ecdb06173cd89295f0c02b2fbecd39cf477b25aad9cb1e2869d476",
+    "proposal/release-metadata.patch": "9ba92e59f90b225665a5ac5d2475051b6b2b497893e61b4902774a3340b265ca",
+    "diagnostic-publisher/flake.lock": "320f6b1f47571c5e312d96073cb1aa5aac540a3d9a9a4d3b4720fba03cca7b3c",
+    "diagnostic-publisher/flake.nix": "3ba45b51c49908ec86e56fed78a74e8bd88d2aa85e148c3e33c8e0e00c29337f",
+    "runs/01a123c7-773f-7725-8f1c-3bfefa10667e/cell-manifest.json": "1ce48eeaf543391e536f5f28f8d0a1dad8d3ff61c1c56e92168b4a5e74e923c9",
+    "runs/01a123c7-773f-7725-8f1c-3bfefa10667e/cell-run.json": "86594e430ede6f596c06a407d20f556640b5abd008488f71266f4231a78e81c4",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/health.json": "bc8fe490c6e128bdf3d9074a15000dfd4d72ea10b793d0d30880a4b24f593421",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/cell-manifest.json": "546cb3313b52ba1bfa2c90e0b8e0e976a3c40d66ba8318a74a01ec674c0bed21",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/cell-run.json": "35b26a0a7ceb7bf61343c8e04bf946ff110838bd46db1b33bc099b2714a2ef6f",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/reset-evidence.json": "09c85cafe5c4ccb9472ca4de0f8df2aecac1461b4af52b83b70c510817d05312",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/run-manifest.json": "2f1db7a1aa340dd5fbd0db71dc6d09da494bbad20b4691ac7762174135591606",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/run-spec.json": "f978b2b11143809ae5f5386fba88685a5714d284cdd34be927359f0c496bbb67",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/run-result.json": "e6cfce4162fbc844bf18e9f1aa99259e297bf79ed03391037c03a9180d12e7ec",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/metrics/export.jsonl.zst": "e8c77818ad449ed879a4d759ddc150fc7e7c2e73a65703545829a4d7de602bff",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/metrics/window.json": "f9d0c8a88f859d5d8e0ffd0b36d7d26f402ca0a608ae0273cbfad9ab91f8d862",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/plan-summary.json": "2252095f893dcaf92cacc8b1cdd9e88e1c6f1bfd366624d648cfa76e39d2ecae",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/run-plan.json": "7d3942ae754c29342cb3b57b6ec86e44e6ae17832301e7f4b84ae6b517cf7da6",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/cell/result.json": "f56f8d7f334e1e66a05413ec15eb422a09225de88c6592ea2263b86eb7596b79",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/cell/health.json": "bc8fe490c6e128bdf3d9074a15000dfd4d72ea10b793d0d30880a4b24f593421",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/cell/reset-evidence.json": "09c85cafe5c4ccb9472ca4de0f8df2aecac1461b4af52b83b70c510817d05312",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/cell/environment.json": "ec846cc1aaba772b0b38aff75bc71b8f3c2e67add583d9df185fe536bea96775",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/logs/stderr.log": "59fca5483c3ae658392f51d1d58bec0f9b5d6e20c7c4b8556f3db050c3286949",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/logs/entry-exit.json": "48bddee3fa61386bd01a8471241fd7ba4931a5c7c4f054d80812bdf92e7bb236",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/logs/stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/submission/work": "7d3942ae754c29342cb3b57b6ec86e44e6ae17832301e7f4b84ae6b517cf7da6",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/submission/submission.json": "95f9d2a9febaac98fe4fe7e6ab8ea0c2e5029dee4db609eb040336fbc15315c4",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/cell/observations/postgres.json": "95471f4e49241309389e8836d5ec71c751c31b6e40278b4f67b50efcd3c845f1",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/cell/observations/driver.json": "bf1417e368c77220b96c0495dbda21ab813be243c96ffd463e4f6b6f231726ac",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/cell/observations/monitoring.json": "5c395f91130a2e4eb9a8e283c8dddf2ed556d41398ece86c4025ba420d7a5c72",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/kenshou-cell/plan.resolved.json": "7d3942ae754c29342cb3b57b6ec86e44e6ae17832301e7f4b84ae6b517cf7da6",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/kenshou-cell/health-notices.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/kenshou-cell/context.json": "f4bf0ef99fd200b7fe215852c5acdd3ee12d18907dee8b767713f4bbe48ac3c5",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/specs/0001.json": "9b96177032090ea94f63812ba848704c09f9e529c29fe65b2c896b8f307a11b3",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/01a12301-093f-7116-a87d-06f1c489b65c/manifest.json": "2f1db7a1aa340dd5fbd0db71dc6d09da494bbad20b4691ac7762174135591606",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/01a12301-093f-7116-a87d-06f1c489b65c/run-spec.json": "f978b2b11143809ae5f5386fba88685a5714d284cdd34be927359f0c496bbb67",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/01a12301-093f-7116-a87d-06f1c489b65c/run-result.json": "e6cfce4162fbc844bf18e9f1aa99259e297bf79ed03391037c03a9180d12e7ec",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/01a12301-093f-7116-a87d-06f1c489b65c/series/pg-activity.csv": "0dc166ac69c195e326dec46f2c4606f5a281718813db361f7c674f379eab88ee",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/01a12301-093f-7116-a87d-06f1c489b65c/series/pg-statements.csv": "289d39b749fae2ce873e1e3d9bb1e02787fbb7b83a1087fd9ca5cec8e3e3b300",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/01a12301-093f-7116-a87d-06f1c489b65c/series/sampler.csv": "27d9456314a926f47dae17994e4b3c9acee81b03493ac942658e3157c812e886",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/01a12301-093f-7116-a87d-06f1c489b65c/series/proc.csv": "8588cbe9d353bf13068912423f827100ceb8bf0b11b5b0891459713a188af728",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/01a12301-093f-7116-a87d-06f1c489b65c/series/pg-database.csv": "47cbec22f1705569ef0c37852727c953621d09425fbfbbf0c8bf8341870438b1",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/01a12301-093f-7116-a87d-06f1c489b65c/series/pg-wal.csv": "d26f47b68cccc5bba83304e029bc42545ef4d96a5e4b3ff937eb90bc86e74740",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/01a12301-093f-7116-a87d-06f1c489b65c/series/rts.csv": "bc06da7bed5f926ffbf369df8c8978f731ba7993a365aec829bebb26769a9972",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/01a12301-093f-7116-a87d-06f1c489b65c/series/load.csv": "c7d2663c4268e48dc456e4234843fe6cdbd70da72d88f1d23269398fcd71db56",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/01a12301-093f-7116-a87d-06f1c489b65c/series/pg-relations.csv": "e0a809ec56e8f8c88ff08780e6e806633dc299fe126ca6251a0c2e6396e5d2d9",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/01a12301-093f-7116-a87d-06f1c489b65c/series/pg-checkpointer.csv": "a10c70d6497bab20349d294479ec9846603c902bb458631ea89ac8e7a873e19d",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/01a12301-093f-7116-a87d-06f1c489b65c/series/host.csv": "b18d34b7a1652f152e012887b11131fc945ba0508a3914495b8359267f007a8a",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/01a12301-093f-7116-a87d-06f1c489b65c/samples/append.meta.json": "e00e20f29491c567039008ad781d69cb281ac1dc420f7f2c7b9a49ae77e6929f",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/01a12301-093f-7116-a87d-06f1c489b65c/samples/append.raw": "fa435735fb063fc656cff01d00aeb23b1386f7ddc045329102472924b3d593f1",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/01a12301-093f-7116-a87d-06f1c489b65c/samples/append.hist": "ff544c234ad4d06fd34d85e7580f74f9fa79dd5f7de4a1be9526836fff3eec91",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/01a12301-093f-7116-a87d-06f1c489b65c/samples/append.service.hist": "07731aadca3ef9edaa8a34f55a51b5db21b814673a3d8f6361d66f0bfdd39a84",
+    "runs/01a123c7-773f-7725-8af0-55a15f5e1647/tree/output/01a12301-093f-7116-a87d-06f1c489b65c/logs/harness.jsonl": "5187da2be3af1c51c2e24efceccc051a603eab8c2ed918fb56189bed24698a92",
+    "runs/01a123c7-773f-7725-8f1c-3bfefa10667e/tree/metrics/export.jsonl.zst": "4efd60cc7bbbe9e5c77de113f0259a99b23e51a1d5bbf5a10ae47cdbeeb08879",
+    "runs/01a123c7-773f-7725-8f1c-3bfefa10667e/tree/metrics/window.json": "35d7191f2474c521d3c10c076f4a742a08071d80ab3acc22a130d18fb37bb82f",
+    "runs/01a123c7-773f-7725-8f1c-3bfefa10667e/tree/cell/result.json": "88a4158c8780ba409fa5e978b23c396331e0cebe8872c833752c50387f416b84",
+    "runs/01a123c7-773f-7725-8f1c-3bfefa10667e/tree/cell/reset-evidence.json": "1ada3cf17dfab7d04a18ef8784228782207df891f41fcd66371816b7cdca273f",
+    "runs/01a123c7-773f-7725-8f1c-3bfefa10667e/tree/cell/environment.json": "904a452f3dc7589f6f9153bd1a418b4b9fc3fab679ce07a94acfc25e5d7865c4",
+    "runs/01a123c7-773f-7725-8f1c-3bfefa10667e/tree/submission/work": "a8d8b6b0d223a67c47513f9f7dfa6f3ff44ed4ce95e9389862dc44f890b3b659",
+    "runs/01a123c7-773f-7725-8f1c-3bfefa10667e/tree/submission/submission.json": "802b8c06315bb842a00214156b7d7e519cf98f72ca10531a696567c1b2115e44",
+    "real-adapter/round-0/session.json": "fb421bc9a5ff46f5995e10f0c6d3c7582e8d5104f017689e50e789659aab6b16"
+  },
+  "collection_finished_at": "2026-10-10T03:16:15.478481+00:00",
+  "whole_experiment_seconds_through_collection": 1853.01486992836,
+  "sampling_diagnostic": {
+    "source": "failed control pg-relations.csv and load.csv; these sampler snapshots are not the missing exact invariant locals",
+    "warmup_completed": 22586,
+    "steady_delivered": 44545,
+    "all_completed": 67131,
+    "subscription_updates_at_steady_boundary": 22571,
+    "subscription_updates_at_done": 67098,
+    "interpretation": "consistent with delayed cumulative statistics; actual cause remains unproven",
+    "documentation": "https://www.postgresql.org/docs/18/monitoring-stats.html"
+  },
+  "local_diagnostic_validation_seconds": 88.19587588310242,
+  "evidence_collection_finished_at": "2026-10-10T03:17:31.014694+00:00",
+  "within_one_hour_through_collection": true,
+  "final_evidence_verified_at": "2026-10-10T03:18:58.746034+00:00",
+  "whole_experiment_seconds_through_final_evidence": 1940.7462420463562,
+  "within_one_hour_through_final_evidence": true
+}

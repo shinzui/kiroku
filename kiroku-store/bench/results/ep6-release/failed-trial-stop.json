@@ -1,0 +1,11 @@
+{
+  "reason": "predeclared stop on failed durable benchmark; no replacement",
+  "failed_slices": [
+    {
+      "cellRun": "01a123c7-773f-7725-8af0-55a15f5e1647",
+      "entryExitCode": 4,
+      "cellOutcome": "completed",
+      "state": "verified"
+    }
+  ]
+}

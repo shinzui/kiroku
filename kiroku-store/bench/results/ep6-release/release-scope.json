@@ -40,7 +40,8 @@
         "d2a4032 feat(subscriptions): bind checkpoint targets and preserve live reconnect progress",
         "ec9a431 feat(subscription)!: persist group topology and resize without gaps"
       ],
-      "source_diff": ""
+      "source_diff": " kiroku-store-migrations/migrations/0013.sql | 13 +++++++++++++\n kiroku-store-migrations/migrations/0014.sql | 11 +++++++++++\n kiroku-store-migrations/migrations/manifest |  2 ++\n 3 files changed, 26 insertions(+)\n",
+      "source_diff_note": "Migration payload and embedded-manifest changes; no direct store dependency."
     },
     {
       "package": "kiroku-otel",

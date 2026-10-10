@@ -1,0 +1,64 @@
+{
+  "schema": "cell.artifact-manifest/v1",
+  "layout": 1,
+  "runId": "01a123c7-773f-7725-8f1c-3bfefa10667e",
+  "cell": "alpha",
+  "leaseId": "01a123c7-6ff6-7469-950f-b4715599c335",
+  "leaseSequence": 2,
+  "sealedAt": "2026-10-10T03:11:19Z",
+  "agentVersion": "0.1.0",
+  "payload": {
+    "kind": "nix-nar-bundle",
+    "sha256": "3e811d6fa8a8b437696307d9769038a8728c4135ce347df1388030a3a376e9b6",
+    "storePath": "/nix/store/ci5s6gz69jd72r3zhvb6d4530bpy3j51-kiroku-mp12-head"
+  },
+  "outcome": "cancelled",
+  "retention": {
+    "policy": "bucket-retention",
+    "retentionSeconds": 34560000
+  },
+  "artifacts": [
+    {
+      "path": "cell/environment.json",
+      "sha256": "904a452f3dc7589f6f9153bd1a418b4b9fc3fab679ce07a94acfc25e5d7865c4",
+      "bytes": 744,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/reset-evidence.json",
+      "sha256": "1ada3cf17dfab7d04a18ef8784228782207df891f41fcd66371816b7cdca273f",
+      "bytes": 2047,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/result.json",
+      "sha256": "88a4158c8780ba409fa5e978b23c396331e0cebe8872c833752c50387f416b84",
+      "bytes": 292,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "metrics/export.jsonl.zst",
+      "sha256": "4efd60cc7bbbe9e5c77de113f0259a99b23e51a1d5bbf5a10ae47cdbeeb08879",
+      "bytes": 27406,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "metrics/window.json",
+      "sha256": "35d7191f2474c521d3c10c076f4a742a08071d80ab3acc22a130d18fb37bb82f",
+      "bytes": 190,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "submission/submission.json",
+      "sha256": "802b8c06315bb842a00214156b7d7e519cf98f72ca10531a696567c1b2115e44",
+      "bytes": 4579,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "submission/work",
+      "sha256": "a8d8b6b0d223a67c47513f9f7dfa6f3ff44ed4ce95e9389862dc44f890b3b659",
+      "bytes": 2155,
+      "mediaType": "application/octet-stream"
+    }
+  ]
+}
