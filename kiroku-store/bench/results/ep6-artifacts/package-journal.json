@@ -1,0 +1,121 @@
+{
+  "started_at": "2026-10-10T14:22:49.241524+00:00",
+  "phase": "complete",
+  "stages": [
+    {
+      "name": "package-build",
+      "command": [
+        "cabal",
+        "build",
+        "all"
+      ],
+      "cwd": ".",
+      "started_at": "2026-10-10T14:22:49.241699+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:23:23.323915+00:00"
+    },
+    {
+      "name": "kiroku-store-check",
+      "command": [
+        "cabal",
+        "check"
+      ],
+      "cwd": "kiroku-store",
+      "started_at": "2026-10-10T14:23:23.324719+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:23:23.405936+00:00"
+    },
+    {
+      "name": "kiroku-store-migrations-check",
+      "command": [
+        "cabal",
+        "check"
+      ],
+      "cwd": "kiroku-store-migrations",
+      "started_at": "2026-10-10T14:23:23.406413+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:23:23.485345+00:00"
+    },
+    {
+      "name": "kiroku-otel-check",
+      "command": [
+        "cabal",
+        "check"
+      ],
+      "cwd": "kiroku-otel",
+      "started_at": "2026-10-10T14:23:23.486175+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:23:23.566013+00:00"
+    },
+    {
+      "name": "kiroku-cli-check",
+      "command": [
+        "cabal",
+        "check"
+      ],
+      "cwd": "kiroku-cli",
+      "started_at": "2026-10-10T14:23:23.566650+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:23:23.640261+00:00"
+    },
+    {
+      "name": "kiroku-metrics-check",
+      "command": [
+        "cabal",
+        "check"
+      ],
+      "cwd": "kiroku-metrics",
+      "started_at": "2026-10-10T14:23:23.640790+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:23:23.715236+00:00"
+    },
+    {
+      "name": "shibuya-kiroku-adapter-check",
+      "command": [
+        "cabal",
+        "check"
+      ],
+      "cwd": "shibuya-kiroku-adapter",
+      "started_at": "2026-10-10T14:23:23.715779+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:23:23.793186+00:00"
+    },
+    {
+      "name": "sdist",
+      "command": [
+        "cabal",
+        "sdist",
+        "kiroku-store",
+        "kiroku-store-migrations",
+        "kiroku-otel",
+        "kiroku-cli",
+        "kiroku-metrics",
+        "shibuya-kiroku-adapter"
+      ],
+      "cwd": ".",
+      "started_at": "2026-10-10T14:23:23.793727+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:23:23.979962+00:00"
+    },
+    {
+      "name": "haddock",
+      "command": [
+        "cabal",
+        "haddock",
+        "kiroku-store",
+        "kiroku-store-migrations",
+        "kiroku-otel",
+        "kiroku-cli",
+        "kiroku-metrics",
+        "shibuya-kiroku-adapter",
+        "--haddock-for-hackage",
+        "--haddock-hyperlink-source",
+        "--haddock-quickjump"
+      ],
+      "cwd": ".",
+      "started_at": "2026-10-10T14:23:23.980501+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:26:41.340752+00:00"
+    }
+  ]
+}

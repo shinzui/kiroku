@@ -1,0 +1,779 @@
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-cli-0.2.0.9 (test:kiroku-cli-test) (ephemeral targets)
+ - kiroku-metrics-0.2.0.0 (test:kiroku-metrics-test) (ephemeral targets)
+ - kiroku-otel-0.2.0.11 (test:kiroku-otel-test) (ephemeral targets)
+ - kiroku-store-0.10.0.0 (test:kiroku-store-test) (ephemeral targets)
+ - kiroku-store-migrations-0.7.0.0 (test:kiroku-store-migrations-test) (ephemeral targets)
+ - shibuya-kiroku-adapter-0.6.0.0 (test:shibuya-kiroku-adapter-test) (ephemeral targets)
+Preprocessing test suite 'kiroku-metrics-test' for kiroku-metrics-0.2.0.0...
+Preprocessing test suite 'kiroku-cli-test' for kiroku-cli-0.2.0.9...
+Building test suite 'kiroku-cli-test' for kiroku-cli-0.2.0.9...
+Building test suite 'kiroku-metrics-test' for kiroku-metrics-0.2.0.0...
+Preprocessing test suite 'kiroku-store-migrations-test' for kiroku-store-migrations-0.7.0.0...
+Building test suite 'kiroku-store-migrations-test' for kiroku-store-migrations-0.7.0.0...
+Preprocessing test suite 'kiroku-otel-test' for kiroku-otel-0.2.0.11...
+Preprocessing test suite 'kiroku-store-test' for kiroku-store-0.10.0.0...
+Building test suite 'kiroku-otel-test' for kiroku-otel-0.2.0.11...
+Preprocessing test suite 'shibuya-kiroku-adapter-test' for shibuya-kiroku-adapter-0.6.0.0...
+Building test suite 'shibuya-kiroku-adapter-test' for shibuya-kiroku-adapter-0.6.0.0...
+Building test suite 'kiroku-store-test' for kiroku-store-0.10.0.0...
+Running 1 test suites...
+Test suite kiroku-cli-test: RUNNING...
+Running 1 test suites...
+Test suite kiroku-store-migrations-test: RUNNING...
+Running 1 test suites...
+Test suite kiroku-otel-test: RUNNING...
+Running 1 test suites...
+Test suite shibuya-kiroku-adapter-test: RUNNING...
+Running 1 test suites...
+Test suite kiroku-metrics-test: RUNNING...
+Running 1 test suites...
+Test suite kiroku-store-test: RUNNING...
+
+kirokuParserInfo
+  renders top-level help [✔]
+  parses subscriptions status with the default table format [✔]
+  parses subscriptions status with JSON output [✔]
+  parses subscriptions status with a remote URL [✔]
+  renders status help [✔]
+kirokuSubparser
+  parses as a nested host command [✔]
+  parses a nested subscription status command [✔]
+  renders nested help under a host command parser [✔]
+standaloneParserInfo (remote client)
+  parses a status command with a remote URL and format [✔]
+  no longer accepts --database-url [✔]
+  resolves the endpoint from --remote-url [✔]
+  falls back to KIROKU_REMOTE_URL when no flag is given [✔]
+  errors with guidance when no endpoint is given [✔]
+  reports an unreachable endpoint as a readable error, not an exception [✔]
+SubscriptionStatusRow codec (IP-5 wire contract)
+  round-trips through encode/decode [✔]
+  uses the exact wire keys [✔]
+subscriptionStatusRows
+  sorts rows and extracts public scalar fields [✔]
+renderSubscriptionStatusRows
+  renders a header for an empty table [✔]
+  renders table rows [✔]
+  renders script-friendly JSON [✔]
+renderKirokuCommandWithStore
+  renders status from a live KirokuStore registry [✔]
+
+native Kiroku migration definition
+  tracks the fourteen native files in manifest order [✔]
+  preserves every legacy payload byte recorded by migrations.lock [✔]
+  builds component kiroku and a fourteen-migration plan [✔]
+native migration authoring
+  creates the next numeric file and atomically appends the manifest [✔]
+  refuses to overwrite a pre-existing inferred migration [✔]
+fresh native databases
+  runs nested Kiroku commands through a host command wrapper [✔]
+
+Finished in 1.5650 seconds
+22 examples, 0 failures
+Test suite kiroku-cli-test: PASS
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/t/kiroku-cli-test/test/kiroku-cli-0.2.0.9-kiroku-cli-test.log
+1 of 1 test suites (1 of 1 test cases) passed.
+
+TraceContext round-trip
+  encodes and decodes a SpanContext through metadata [✔]
+  preserves existing metadata keys [✔]
+extractTraceContext absence handling
+  returns Nothing when metadata is absent [✔]
+  returns Nothing when metadata is empty [✔]
+  returns Nothing when traceparent is unparseable [✔]
+injectTraceContext overwrites prior trace keys
+  replaces an existing traceparent value [✔]
+subscriptionTraceHandler
+  catch-up then live yields an ended catchup span and a live deliver span [✔]
+  a catch-up delivery yields a deliver span tagged state=catchup [✔]
+  a clean stop from live always yields a standalone stopped span [✔]
+  pause then resume yields an ended paused span [✔]
+  reconnect yields one span with a reconnect.attempt event and attempt=2 [✔]
+  retry then dead-letter yields one retrying span with position and reason [✔]
+  an immediate dead-letter (no retry) yields a standalone dead_letter span [✔]
+  consumer-group members produce separate, correctly tagged spans [✔]
+  stop ends an open pause span so no span leaks [✔]
+  a standalone database error span uses stable database semantic-convention keys [✔]
+subscriptionTraceHandler end-to-end (real $all worker)
+  a real AllStreams worker emits catchup, a live deliver span, and a stopped span [✔]
+
+Finished in 0.2053 seconds
+17 examples, 0 failures
+  applies all fourteen, verifies strictly, and reports AlreadyApplied on rerun [✔]
+
+toEnvelope
+  copies W3C trace metadata into Shibuya trace headers [✔]
+  omits trace headers when traceparent is absent or not a string [✔]
+  does not surface broker headers (headers is Nothing), even with trace metadata [✔]
+  stamps kiroku identity attributes for a non-grouped subscription (EP-5 M2) [✔]
+  stamps the consumer-group member attribute for a grouped subscription (EP-5 M2) [✔]
+toKirokuDeadLetterReason
+  keeps the framework reasons on their dedicated Kiroku constructors [✔]
+  maps an application failure to DeadLetterOther with a queryable code (shibuya-core 0.9) [✔]
+consumer group policy
+  accepts Serial member concurrency as (PartitionedInOrder, Serial) [✔]
+  rejects Ahead member concurrency with a PolicyError [✔]
+  rejects Async member concurrency with a PolicyError [✔]
+acknowledgement liveness
+Test suite kiroku-otel-test: PASS
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-otel-0.2.0.11/t/kiroku-otel-test/test/kiroku-otel-0.2.0.11-kiroku-otel-test.log
+1 of 1 test suites (1 of 1 test cases) passed.
+  standard Shibuya handler exceptions are finalized [✔]
+  serializes concurrent applies through the pg-migrate advisory lock [✔]
+subscription checkpoint SQL relation
+
+Kiroku.Metrics.Collector
+  counts notifier reconnect events [✔]
+  counts publisher pool and loop errors separately [✔]
+  counts typed decode failures and undecodable stops separately from programming errors [✔]
+  counts advisory stalls without advancing the subscription position [✔]
+  records subscription position and derives lag from the global position [✔]
+  records the durable position from checkpoint resolution telemetry [✔]
+  advances last-known position monotonically and never reports negative lag [✔]
+  tallies stop reasons and records the last one per subscription [✔]
+  tallies per-phase database errors and the per-subscription error count [✔]
+  counts delivered batches and sums delivered events [✔]
+  tracks pool connection gauges and cumulative counters from observations [✔]
+  removes terminated connections from the gauge and bumps the terminated counter [✔]
+Kiroku.Metrics.Collector (integration)
+  observes real store activity: appends, a running subscription, and lag [✔]
+Kiroku.Metrics.Server (endpoints)
+  guarded single processor retries with pacing and continues [✔]
+  serves JSON, Prometheus, and health endpoints over HTTP [✔]
+Kiroku.Metrics.WebSocket (endpoints)
+  keeps a raw unfinalized item pending and forwards warning policy Nothing [✔]
+
+unique violation mapping
+  classifies the exact message constraint "events_pkey" [✔]
+  classifies a detail-only constraint "events_pkey" [✔]
+  classifies the exact message constraint "stream_events_pkey" [✔]
+  classifies a detail-only constraint "stream_events_pkey" [✔]
+  classifies the exact message constraint "ix_streams_stream_name" [✔]
+  classifies a detail-only constraint "ix_streams_stream_name" [✔]
+  classifies the exact message constraint "ux_stream_events_stream_version" [✔]
+  classifies a detail-only constraint "ux_stream_events_stream_version" [✔]
+  classifies the exact message constraint "unknown_constraint" [✔]
+  classifies a detail-only constraint "unknown_constraint" [✔]
+  does not match stream_events_pkey as events_pkey [✔]
+  rejects the message lookalike "prefix_events_pkey" [✔]
+  rejects the detail lookalike "prefix_events_pkey" [✔]
+  rejects the message lookalike "events_pkey_suffix" [✔]
+  rejects the detail lookalike "events_pkey_suffix" [✔]
+  rejects the message lookalike "events_pkey$suffix" [✔]
+  rejects the detail lookalike "events_pkey$suffix" [✔]
+  rejects the message lookalike "prefix_stream_events_pkey" [✔]
+  rejects the detail lookalike "prefix_stream_events_pkey" [✔]
+  rejects the message lookalike "stream_events_pkey_suffix" [✔]
+  rejects the detail lookalike "stream_events_pkey_suffix" [✔]
+  rejects the message lookalike "stream_events_pkey$suffix" [✔]
+  rejects the detail lookalike "stream_events_pkey$suffix" [✔]
+  rejects the message lookalike "prefix_ix_streams_stream_name" [✔]
+  rejects the detail lookalike "prefix_ix_streams_stream_name" [✔]
+  rejects the message lookalike "ix_streams_stream_name_suffix" [✔]
+  rejects the detail lookalike "ix_streams_stream_name_suffix" [✔]
+  rejects the message lookalike "ix_streams_stream_name$suffix" [✔]
+  rejects the detail lookalike "ix_streams_stream_name$suffix" [✔]
+  rejects the message lookalike "prefix_ux_stream_events_stream_version" [✔]
+  rejects the detail lookalike "prefix_ux_stream_events_stream_version" [✔]
+  rejects the message lookalike "ux_stream_events_stream_version_suffix" [✔]
+  rejects the detail lookalike "ux_stream_events_stream_version_suffix" [✔]
+  rejects the message lookalike "ux_stream_events_stream_version$suffix" [✔]
+  rejects the detail lookalike "ux_stream_events_stream_version$suffix" [✔]
+  uses the message constraint ahead of misleading detail tokens [✔]
+  retains an unknown message constraint even when detail names a known constraint [✔]
+  does not fabricate an event id for ("events_pkey",Nothing) [✔]
+  does not fabricate an event id for ("events_pkey",Just "unparseable localized detail") [✔]
+  does not fabricate an event id for ("stream_events_pkey",Nothing) [✔]
+  does not fabricate an event id for ("stream_events_pkey",Just "unparseable localized detail") [✔]
+  maps a composite duplicate inside a transaction with its event id [✔]
+  preserves the link-specific duplicate classification [✔]
+  accepts a quoted constraint in legacy detail [✔]
+  keeps an unnamed unique violation on the conservative fallback [✔]
+  does not classify a transaction constraint lookalike as a duplicate [✔]
+  does not classify a link constraint lookalike as already linked [✔]
+  attributes a multi-stream name violation to the named operation [✔]
+  does not attribute a multi-stream constraint lookalike to a later operation [✔]
+subscription configuration
+  validates batch and bridge buffer boundaries as values [✔]
+  exposes every runtime startup refusal through the parent and concrete catches [✔]
+checkpoint target
+  publishes the frozen ordinary-view catalog contract [✔]
+  refuses accidental target reuse before delivery, then resumes after explicit rebind [✔]
+  streams appended events over /ws/events and a snapshot over /ws/metrics [✔]
+  keeps a raw unfinalized item pending and forwards warning policy Just 0.05s [✔]
+retry policy
+  adopts every legacy member once and emits one bound event for the name [✔]
+  reports a typed live decode failure and releases the publisher queue [✔]
+  honors single-adapter total delivery limit Nothing [✔]
+  refuses unbound rows under RequireBound without changing rows or invoking the handler [✔]
+  honors single-adapter total delivery limit Just 2 [✔]
+  refuses mixed bound/unbound siblings before inserting a missing member [✔]
+  does not adopt siblings when FailIfMissing refuses an absent member [✔]
+  forwards two attempts and stall policy to both consumer-group members [✔]
+kirokuAdapter
+  replays history from a position then continues live without duplicating the boundary [✔]
+  serializes conflicting targets on an initially absent name [✔]
+  delivers only matching event types when an eventTypeFilter is set (EP-43) [✔]
+  preserves category binding on resize and initializes fresh names under RequireBound [✔]
+  delivers only matching types across a filtered consumer group (EP-43) [✔]
+  rebinds all members atomically, repeats idempotently, and rolls back with the caller [✔]
+  delivers only events matching an opaque selector (EP-43 follow-up) [✔]
+  persists target binding through an atomic dead-letter save [✔]
+Kiroku.Store.Types category rule
+  categoryName
+    takes the substring before the first dash [✔]
+    treats a dashless name as its own category [✔]
+    stops at the first dash even with later dashes [✔]
+    never yields a category containing a dash [✔]
+      passed 100 tests.
+  streamNameInCategory
+    joins category and segment with a dash [✔]
+  round-trip
+    categoryName . streamNameInCategory == id, for dash-free categories [✔]
+      passed 100 tests.
+kiroku-store invariants (property-based, hedgehog)
+  returns zero rows for an empty checkpoint inventory [✔]
+  delivers catch-up events through Shibuya pipeline [✔]
+  supports a future-only FromCurrentHead adapter [✔]
+  delivers each global position exactly once when the replay overlaps live appends [✔]
+  preserves an existing checkpoint when restarted with FromCurrentHead [✔]
+  surfaces FailIfMissing without leaving a subscription registered [✔]
+  terminates the tail after a replay error instead of streaming with a gap [✔]
+Kiroku.Metrics.Subscriptions (/subscriptions)
+  encodes server-side rows that decode back through the shared CLI codec [✔]
+  delivers live events through Shibuya pipeline [✔]
+  survives an append burst while the handler is paused [✔]
+  reports a live subscription to the CLI remote client end to end [✔]
+  ends adapter.source cleanly after shutdown [✔]
+  returns exact non-null member rows and exposes reassignment only after commit [✔]
+  returns a configured-404 when no provider is wired [✔]
+  returns the documented 404 JSON body for unknown paths when mounted standalone [✔]
+
+Finished in 4.3575 seconds
+23 examples, 0 failures
+  rethrows worker crashes through adapter.source [✔]
+  runs multiple category subscriptions concurrently [✔]
+  allows view-only readers while structurally rejecting owner updates [✔]
+Test suite kiroku-metrics-test: PASS
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/t/kiroku-metrics-test/test/kiroku-metrics-0.2.0.0-kiroku-metrics-test.log
+1 of 1 test suites (1 of 1 test cases) passed.
+  isolates a failing subscription from healthy ones [✔]
+  shuts down all subscriptions coordinately [✔]
+ack dispositions
+  preserves a downstream view while private checkpoint storage is replaced [✔]
+  keeps the first Kiroku reply when an ack is finalized twice [✔]
+  AckRetry redelivers the same event, then AckOk advances (EP-40 M3) [✔]
+  $all global positions are strictly ascending and unique (F2) [✔]
+    passed 15 tests.
+  AckHalt leaves the checkpoint behind the event and restart replays it [✔]
+PostgreSQL 18.6 checkpoint relation plan:
+Aggregate
+  ->  Index Scan using ix_subscriptions_name_member on subscriptions
+        Index Cond: (subscription_name = 'subscription-042'::text)
+
+  shutdown after an ack but before checkpoint persistence replays without leaking [✔]
+  pushes a subscription filter to the existing checkpoint index [✔]
+history retention schema
+  AckDeadLetter records the event and the next event continues (EP-40 M3) [✔]
+  guardKirokuHandlerWith retries a transient handler exception and preserves attempts [✔]
+  guardKirokuHandlerWith dead-letters a persistent handler exception and continues [✔]
+consumer groups
+  four-member group delivers a disjoint, complete partition of the stream [✔]
+consumer group policy
+  rejects an invalid member concurrency before opening any subscription [✔]
+  rejects non-positive group sizes at construction [✔]
+  soft-deleted streams reject appends of every ExpectedVersion (F4) [✔]
+    passed 15 tests.
+  publishes the exact coordinator and lease table columns [✔]
+  shuts down every created member and preserves the factory failure when cleanup throws [✔]
+  owns a returned member before cancellation can interrupt construction [✔]
+  installs the singleton, checks, partial index, function, and six triggers [✔]
+upgrades of already-bootstrapped databases
+  wraps consumer-group handlers so exceptions finalize a retry decision [✔]
+  duplicate caller-supplied event ids are rejected (F5) [✔]
+    passed 15 tests.
+kiroku-store concurrency (deterministic)
+  one call yields N PartitionedInOrder processors; members partition the stream disjointly [✔]
+
+Finished in 12.2753 seconds
+45 examples, 0 failures
+  many AnyVersion writers to one stream preserve stream and global order [✔]
+  many AnyVersion writers to invoice-payment preserve stream and global order [✔]
+  applies the pending tail in a session that never ran the bootstrap [✔]
+  many batched writers to different streams preserve batch-local and global order [✔]
+  large append batches return the final stream and global positions [✔]
+  overlapping appendMultiStream stress preserves all-or-nothing ordering [✔]
+  duplicate event failure leaves touched streams and $all unchanged [✔]
+  two concurrent appends to different streams both succeed (F9) [✔]
+  two concurrent ExactVersion appends to same stream — one wins (F10) [✔]
+  adds unbound target metadata without rewriting legacy rows and drops stream_name [✔]
+  two concurrent multi-stream appends in opposite order do not deadlock (F11) [✔]
+  single-stream append retry does not leak transient SQLSTATEs [✔]
+kiroku-store failure injection
+Test suite shibuya-kiroku-adapter-test: PASS
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.6.0.0/t/shibuya-kiroku-adapter-test/test/shibuya-kiroku-adapter-0.6.0.0-shibuya-kiroku-adapter-test.log
+1 of 1 test suites (1 of 1 test cases) passed.
+FATAL:  terminating connection due to administrator command
+  derives group topology from legacy rows when 0013 upgrades a populated store [✔]
+  delivers events appended during listener-down window after reconnect (F14) [✔]
+history retention
+  validates UTF-8 byte lengths, duration bounds, and inventory bounds [✔]
+  captures the authoritative frontier and database-derived expiry [✔]
+  rolls back acquisition when the surrounding transaction is condemned [✔]
+  renews only the matching active owner and never shortens expiry [✔]
+  backfills $all-row categories when 0012 upgrades a populated store [✔]
+PostgreSQL 18 UUIDv7 generator: kiroku.uuidv7() via 0010's alias for the builtin
+  derives expiry without a worker and refuses resurrection [✔]
+  releases idempotently and leaves another simultaneous lease active [✔]
+  bounds inventory and prunes only terminal rows older than the cutoff [✔]
+  emits committed effect transitions once and no false repeated-release event [✔]
+  returns and emits a typed hard-delete conflict without changing history while any lease is active [✔]
+  history retention raw SQL
+    serializes lease-first acquisition ahead of raw deletion [✔]
+  publishes the generator by the route its PostgreSQL major requires [✔]
+    serializes delete-first maintenance ahead of post-delete acquisition [✔]
+    rejects GUC-enabled DELETE with KR001 and permits it after release [✔]
+    rejects GUC-enabled TRUNCATE with KR001 and permits it after release [✔]
+  acquires a lease from a session whose search_path excludes kiroku [✔]
+Codd history import
+  imports a current codd V5 ledger, verifies, and never replays SQL [✔]
+    permits GUC-enabled maintenance after passive expiry [✔]
+history retention mock
+  dispatches every closed lease operation exactly once [✔]
+runTransaction
+  executes a no-op Tx.statement and returns its result [✔]
+  preserves SQLSTATE and message for an opaque foreign-key failure [✔]
+appendToStreamTx (driven inside runTransaction)
+  appends events and a side-table row in one atomic transaction [✔]
+  rolls back the append and the side row when the body condemns [✔]
+  returns Left on version conflict; the caller's branch sees no AppendResult [✔]
+  surfaces duplicate caller-supplied event ids as DuplicateEvent [✔]
+runTransactionAppending
+  commits 3 events and a side-table row in one ACID transaction [✔]
+  rolls back the append and the side row when the callback condemns [✔]
+  skips the callback and surfaces the version conflict [✔]
+  imports the legacy codd_schema ledger shape [✔]
+  rejects $all before opening any transaction [✔]
+  rejects oversized stream names before opening any transaction [✔]
+  rejects empty event batches before opening a transaction [✔]
+  surfaces duplicate caller-supplied event ids as DuplicateEvent [✔]
+TruncateBefore
+  bounds per-stream reads to the kept suffix [✔]
+  leaves the $all global log and category reads intact [✔]
+  rejects a partial legacy row before creating the target ledger [✔]
+
+Finished in 23.9112 seconds
+24 examples, 0 failures
+Test suite kiroku-store-migrations-test: PASS
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.0.0/t/kiroku-store-migrations-test/test/kiroku-store-migrations-0.7.0.0-kiroku-store-migrations-test.log
+1 of 1 test suites (1 of 1 test cases) passed.
+  is reversible via clearStreamTruncateBefore [✔]
+  is idempotent [✔]
+  applies across paged reads [✔]
+  reflects the marker in getStream [✔]
+  returns Nothing for missing or soft-deleted streams [✔]
+  rejects $all with ReservedStreamName [✔]
+readStreamForwardStream
+  matches readStreamForward on a single-page stream [✔]
+  folds 1000 events end-to-end with Fold.length across multiple pages [✔]
+  preserves order and avoids duplicates / gaps when paging at pageSize 2 [✔]
+  terminates immediately on a nonexistent stream [✔]
+  honors a non-zero starting cursor with exclusivity [✔]
+  uses one pool checkout per non-empty page when the final page is short [✔]
+eventExistsInStream
+  finds an existing event id in its live stream [✔]
+  returns False for absent ids and ids linked only to another stream [✔]
+  treats soft-deleted streams as absent [✔]
+lookupStreamNames / lookupStreamName
+  resolves originalStreamId back to the source stream for $all reads [✔]
+  omits ids that name no existing stream [✔]
+  returns an empty map for an empty id list [✔]
+  lookupStreamName resolves a single id, and Nothing for an unknown one [✔]
+stream bridge termination
+  rejects a zero-sized bridge buffer at construction [✔]
+  rethrows the worker exception to the consumer when the worker dies [✔]
+  ends the stream after a clean worker stop [✔]
+  cancelAction returns promptly even when the bridge queue is full [✔]
+  cancelAction is idempotent and leaves no subscription thread registered [✔]
+stream history guard
+  returns exact metadata and pages with production cursor semantics [✔]
+  returns typed unavailable results for missing and reserved streams [✔]
+  returns soft-deleted metadata and blocks undelete until guard completion [✔]
+  blocks append until guard completion [✔]
+  releases the guard on rollback and lets the blocked append complete [✔]
+  blocks link into the guarded stream until guard completion [✔]
+  blocks soft delete and logical truncate until guard completion [✔]
+  blocks hard delete of the guarded origin until guard completion [✔]
+  blocks hard delete of another origin linked into the guarded stream [✔]
+  keeps opposing hard deletes and multi-stream appends deadlock-free [✔]
+InterpreterHooks
+  enrichEvent
+    applies enrichEvent to appended events surfaced through readStreamForward [✔]
+    applies enrichEvent across appendMultiStream per-stream batches [✔]
+  decodeHook
+    retains the no-hook batch without evaluating its events [✔]
+    applies decodeHook to readAllForward results [✔]
+    applies decodeHook to subscription handlers across catch-up and live phases [✔]
+  no hooks
+    with defaultStoreSettings, a round-trip preserves payload and metadata exactly [✔]
+findCausationDescendants
+  returns the seed event and every descendant in global-position order [✔]
+  on an eventId with no descendants returns a vector of length 1 (the seed only) [✔]
+  on a non-existent eventId returns an empty vector [✔]
+findCausationAncestors
+  walks from a leaf back to the root, leaf first [✔]
+findByCorrelation
+  returns every event with the given correlation across multiple streams in global-position order [✔]
+  on an unknown correlation returns an empty vector [✔]
+ConsumerGroupSql
+  category consumer-group partitioning (size 4)
+    splits a category into 4 pairwise-disjoint member slices [✔]
+    union of all member slices equals the unpartitioned category read [✔]
+    every stream's events go to exactly one member, in ascending global position [✔]
+    member assignment is deterministic across repeated reads [✔]
+    size 1 is equivalent to an unpartitioned category read [✔]
+  per-member checkpoints
+    stores and reads independent checkpoints per member [✔]
+    never moves a member checkpoint backward (GREATEST monotonicity) [✔]
+    missing member checkpoint reads as Nothing [✔]
+    the existing name-keyed checkpoint statements still round-trip (as member 0) [✔]
+  $all consumer-group partitioning (size 4)
+    splits $all into 4 pairwise-disjoint member slices [✔]
+    union of all member slices equals the unpartitioned $all read [✔]
+    every stream's events go to exactly one member, in ascending global position [✔]
+    size 1 is equivalent to an unpartitioned $all read [✔]
+  member_of assignment rule
+    returns a member index in [0, size) for every stream [✔]
+consumer-group resize
+  rejects invalid sizes and member indices at construction [✔]
+  refuses a configured size that disagrees with stored topology before creating a member [✔]
+  also refuses an ordinary subscription over an existing larger group [✔]
+  refuses an underestimated derived topology until resized [✔]
+  refuses mixed stored sizes even when its own row agrees [✔]
+  serializes concurrent initializers with competing group sizes [✔]
+  persists configured topology on initialization, ordinary saves and dead-letter saves [✔]
+  delivers every seeded event after equalizing size 2 to size 3 [✔]
+  is idempotent when repeated at the same size and retains surviving member identities [✔]
+  starts a missing group at zero and removes obsolete members on shrink [✔]
+  rolls back the complete resize with the caller transaction [✔]
+consumer groups
+  delivers a disjoint, complete, per-stream-ordered partition (size-4 category group) [✔]
+  size-1 group delivers the same set as a plain subscription [✔]
+  $all group partitions the whole store across members [✔]
+  resumes member 2 from its own (name, member) checkpoint [✔]
+  lifecycle events carry the consumer-group member context (GroupMember 2 4) [✔]
+  consumerGroupGuard fails fast when another holder holds the (name, member) lock [✔]
+  subscriptionStream forwards the consumer-group field (member 0 of 2 sees its slice) [✔]
+consumer groups (effectful)
+  routes each member through the effectful API to its own disjoint, complete, per-stream-ordered slice (size-2 category group) [✔]
+  preserves State across handler calls within one member (Persistent unlift) [✔]
+performance structure
+  no-op paths use no pooled connection
+    rejects invalid batch and buffer sizes before pool checkout [✔]
+    rejects invalid consumer-group values before pool checkout [✔]
+    refuses mismatched topology in exactly one initialization checkout with no handler [✔]
+    refuses mismatched target in exactly one initialization checkout with no handler [✔]
+    keeps ordinary checkpoint saves as one unconditional monotonic upsert [✔]
+    rejects an empty appendToStream batch before pool checkout [✔]
+    returns an empty appendMultiStream result before pool checkout [✔]
+    rejects invalid retention requests before pool checkout [✔]
+    keeps every ordinary statement free of retention coordination [✔]
+  production query plans
+    visible global head lookup uses ux_stream_events_stream_version without Sort [✔]
+    dead-letter reads use ix_dead_letters_subscription_position without Sort [✔]
+    orphan dead-letter cleanup uses ix_dead_letters_event_id [✔]
+    active retention lookup uses ix_history_retention_leases_unreleased_expiry [✔]
+    installs no retention trigger for INSERT or UPDATE [✔]
+  category read cost
+    category high-cursor reads use ix_stream_events_all_by_category without Sort [✔]
+    consumer-group category reads use ix_stream_events_all_by_category without Sort [✔]
+    category caught-up poll on 20000 idle streams reads at most 32 buffers [✔]
+  NOTIFY trigger guard
+    emits one unchanged append payload and no lifecycle or $all payloads [✔]
+    emits the unchanged payload for a 512-byte stream name [✔]
+  empty stream-name lookup
+    short-circuits empty input without a pool checkout [✔]
+live loops do not busy-spin while idle (plan 37)
+  an idle Category subscriber does zero fetches while another category is active, then wakes on its own event [✔]
+  idle consumer-group category members do zero fetches while another category is active, then the owner wakes on its own event [✔]
+  an idle AllStreams consumer-group member wakes a bounded number of times, not a busy spin [✔]
+handler stall
+  warns without acknowledging or checkpointing a blocked handler for (AllStreams,Nothing,False) [✔]
+  warns without acknowledging or checkpointing a blocked handler for (AllStreams,Nothing,True) [✔]
+  warns without acknowledging or checkpointing a blocked handler for (Category (CategoryName "stall"),Nothing,True) [✔]
+  warns without acknowledging or checkpointing a blocked handler for (AllStreams,Just (ConsumerGroup 0 (ConsumerGroupSize 1)),True) [✔]
+  warns without acknowledging or checkpointing a blocked handler for (Category (CategoryName "stall"),Just (ConsumerGroup 0 (ConsumerGroupSize 1)),False) [✔]
+  warns periodically while pending and joins the watchdog on cancellation [✔]
+  warns for the current invocation after replacing a quick handler [✔]
+  contains a throwing diagnostic callback and still completes the handler [✔]
+  clears tracking and joins the watchdog when a handler throws [✔]
+  emits nothing when the handler completes before the threshold [✔]
+  keeps warnings disabled by default even when a handler is blocked [✔]
+  refuses a nonpositive warning interval before checkpoint initialization: 0s [✔]
+  refuses a nonpositive warning interval before checkpoint initialization: -1s [✔]
+publisher callback resilience
+  stops only the default subscriber while a sibling dead-letters and continues live [✔]
+  shares successful live decoding across subscribers [✔]
+  handles an undecodable event after confirmed DB-driven live transition for (Category (CategoryName "decode"),Nothing) [✔]
+  handles an undecodable event after confirmed DB-driven live transition for (AllStreams,Just (ConsumerGroup 0 (ConsumerGroupSize 1))) [✔]
+  does not apply an undecodable disposition to an explicitly filtered-out event [✔]
+  recovers a typed one-shot failure on the default retry without a callback [✔]
+  stops a persistent undecodable event during catch-up for (AllStreams,Nothing) [✔]
+  stops a persistent undecodable event during catch-up for (AllStreams,Just (ConsumerGroup 0 (ConsumerGroupSize 1))) [✔]
+  stops a persistent undecodable event during catch-up for (Category (CategoryName "decode"),Nothing) [✔]
+  stops a persistent undecodable event during catch-up for (Category (CategoryName "decode"),Just (ConsumerGroup 0 (ConsumerGroupSize 1))) [✔]
+  honors an explicit undecodable disposition Continue [✔]
+  honors an explicit undecodable disposition Stop [✔]
+  honors an explicit undecodable disposition Retry (RetryDelay 0s) [✔]
+  re-applies the hook on a callback Retry and then calls the ordinary handler [✔]
+  fails reads with EventDecodeFailed instead of returning a partial vector [✔]
+  cancels promptly while waiting for the default decode retry [✔]
+  replays the failed event from its durable checkpoint after the hook is fixed [✔]
+  releases a bracketed subscriber during a pending default decode retry [✔]
+  unlifts the undecodable callback in the same persistent effect environment as the handler [✔]
+  keeps the publisher alive when decodeHook throws once [✔]
+  drops throwing eventHandler exceptions without killing publisher or worker [✔]
+publisher idle advance
+  does not retain append results while advancing with no queue subscribers [✔]
+  advances lastPublished without decoding any rows when no subscriber is registered [✔]
+  does not fetch full rows while only a category subscriber exists [✔]
+  switches from cheap advance to all-stream delivery without gaps [✔]
+publisher restart tail initialization
+  does not rebroadcast restart history into a blocked all-stream subscriber [✔]
+  delivers a live event appended after a restarted subscriber catches up [✔]
+  keeps per-subscription checkpoints independent from the publisher tail [✔]
+catch-up DB error handling
+  retries a transient fetch error instead of switching to live mode at a stale cursor [✔]
+subscription FSM — recoverable backpressure (EP-41 M2)
+  pauses a slow AllStreams consumer and resumes, delivering all events [✔]
+  still fails fast under DropSubscription [✔]
+subscription checkpoint initialization
+  materializes position zero for FromBeginning [✔]
+  atomically materializes the current store head for FromCurrentHead [✔]
+  returns a typed missing result without creating a row for FailIfMissing [✔]
+  preserves an existing row for every configured policy [✔]
+  isolates checkpoint initialization by consumer-group member [✔]
+  converges concurrent initializers on one durable winner [✔]
+  runs through the resource-backed Store interpreter [✔]
+subscription checkpoint initialization mock interpreter
+  carries the closed policy and typed result through one Store effect call [✔]
+subscription checkpoint worker policies
+  starts a non-group worker FromBeginning and reports the durable seed [✔]
+  forms a clean FromCurrentHead cut while appends race startup [✔]
+  initializes each consumer-group member independently at the current head [✔]
+  preserves FailIfMissing through the bracketed plain-IO entry point [✔]
+  preserves FromCurrentHead through the higher-order effect entry point [✔]
+  preserves FailIfMissing through the Streamly bridge [✔]
+SubscriptionCheckpointInventory
+  returns position zero and no rows for an empty migrated store [✔]
+  runs through the resource-backed Store interpreter [✔]
+  returns the exact store position and a member-zero checkpoint [✔]
+  returns multiple names and members in deterministic key order [✔]
+  preserves monotonic checkpoints and observes later commits on a fresh read [✔]
+  retains a durable row after the worker stops and leaves live state [✔]
+  does not expose in-flight live handler progress before checkpoint commit [✔]
+  observes the checkpoint advanced by a dead-letter transaction [✔]
+  captures a head at or beyond every normally written checkpoint [✔]
+SubscriptionCheckpointInventory mock interpreter
+  returns a public inventory through one Store effect call [✔]
+subscription checkpoint reset
+  commits every persisted member and reports sorted affected and missing names exactly [✔]
+  rolls back the reset and an application-table write when the transaction is condemned [✔]
+  can rewind while later ordinary saves remain monotonic [✔]
+  reports missing names without manufacturing checkpoint rows [✔]
+subscription FSM — worker-level live reconnect (EP-41 M3)
+  reconnects and resumes after transient live-mode database errors [✔]
+  resumes a database-driven live worker from processed progress [✔]
+startup failure surfacing
+  fails subscription startup loudly when checkpoint load fails [✔]
+  refuses a missing checkpoint before Started or handler delivery [✔]
+  leaves no publisher or subscription registry entries after a subscribe/cancel storm [✔]
+subscription FSM — observable state (EP-41 M4)
+  reports CatchingUp while blocked in catch-up and Live once caught up [✔]
+  delivers every event exactly once in order across the catch-up to live boundary [✔]
+subscription registry (EP-1 / plan 45)
+  registers every live subscription with a sensible state and position [✔]
+  removes a subscription's entry when it stops cleanly [✔]
+  removes a subscription's entry when it is cancelled [✔]
+  removes a subscription's entry when its handler crashes [✔]
+  stale duplicate-key cleanup does not remove the replacement entry [✔]
+  publisher queue registration
+    registers publisher queues only for non-group AllStreams subscriptions [✔]
+subscription dispositions — retry / dead-letter (EP-40)
+  dead-letters one event, advances the checkpoint, and keeps delivering [✔]
+  retries one event until it succeeds without advancing past it [✔]
+  dead-letters after exhausting the retry budget and continues [✔]
+event-type filter
+  delivers only matching types and advances the checkpoint past filtered events [✔]
+  advances the checkpoint past a trailing filtered-out event [✔]
+  never stalls on a long run of non-matching events (1 A, 1000 B, 1 A) [✔]
+  does not dead-letter a filtered-out type even when the handler would [✔]
+  delivers only events matching an opaque selector and advances past the rest (no stall) [✔]
+  composes the selector with eventTypeFilter as a logical AND [✔]
+visible global head position
+  returns zero for an empty migrated store through both public runners [✔]
+  returns the greatest appended position [✔]
+  falls back across hard-deleted tails while the append frontier stays monotonic [✔]
+  keeps logically truncated and soft-deleted events visible in $all [✔]
+  does not invoke the event decode hook [✔]
+visible global head position mock
+  returns the configured position through one Store effect call [✔]
+schema migrations
+  installs every Kiroku table under the kiroku schema [✔]
+  leaves the public schema free of Kiroku tables [✔]
+  provides a UUIDv7 database default for direct event inserts [✔]
+appendToStream
+  NoStream
+    creates a new stream and appends events [✔]
+    fails when stream already exists [✔]
+  empty event batches
+    rejects NoStream without creating a phantom stream or advancing $all [✔]
+    rejects empty batches for existing-stream expectations without changing version [✔]
+    rejects an empty per-stream batch in appendMultiStream without committing any stream [✔]
+    treats an empty appendMultiStream operation list as a no-op [✔]
+  ExactVersion
+    appends when version matches [✔]
+    fails on version conflict [✔]
+  StreamExists
+    appends to an existing stream [✔]
+    fails when stream does not exist [✔]
+  AnyVersion
+    creates a new stream [✔]
+    appends to an existing stream [✔]
+  batch append
+    appends multiple events with sequential versions [✔]
+  global position contiguity
+    assigns contiguous global positions across streams [✔]
+  duplicate event ID
+    returns the caller event id on same-stream retry and leaves one stored event [✔]
+    rejects duplicate event IDs [✔]
+  stream-name contract
+    treats system-looking names other than $all as ordinary streams [✔]
+    rejects $all as an application append target [✔]
+    rejects $all as a multi-stream append target without partial commit [✔]
+    rejects $all as a link target [✔]
+    rejects lifecycle operations against $all [✔]
+    rejects stream names longer than 512 UTF-8 bytes before creating streams [✔]
+    rejects oversized link targets without creating the target stream [✔]
+    rejects oversized multi-stream targets without partial commit [✔]
+    accepts a 512-byte stream name [✔]
+readStreamForward
+  reads events in forward order (read-your-own-writes) [✔]
+readStreamBackward
+  reads events in backward order [✔]
+  paginates backward using stream version as an exclusive cursor [✔]
+cursor-based pagination
+  paginates using stream version as cursor [✔]
+readAllForward
+  reads events from $all in global order [✔]
+readAllBackward
+  reads events from $all in reverse order [✔]
+  paginates backward using global position as an exclusive cursor [✔]
+read empty/nonexistent stream
+  returns empty Vector for nonexistent stream [✔]
+getStream
+  returns metadata for existing stream [✔]
+  returns Nothing for nonexistent stream [✔]
+lookupStreamId
+  returns the same id as getStream for a live stream [✔]
+  returns Nothing for a stream that has never been created [✔]
+  returns Just the same id for a soft-deleted stream [✔]
+integration: full lifecycle through withStore
+  append, read forward, read $all, getStream — all through public API [✔]
+linkToStream
+  links a single event to a new stream [✔]
+  links multiple events with sequential versions [✔]
+  links events to an existing stream and bumps version [✔]
+  linked events still appear in $all at original global positions [✔]
+  rejects linking the same event to the same stream twice [✔]
+  rejects link when the source event does not exist [✔]
+  rejects link with a mix of valid and missing events (no partial commit) [✔]
+  rejects link to a soft-deleted target stream [✔]
+readCategory
+  reads events from matching category streams in global position order [✔]
+  supports pagination with start position and limit [✔]
+  returns empty for nonexistent category [✔]
+  includes linked events that originate from category streams [✔]
+appendMultiStream
+  atomically appends to two streams [✔]
+  rolls back all streams on version conflict [✔]
+  appends to three streams with different expected versions [✔]
+  preserves user-supplied ordering of global positions [✔]
+softDeleteStream
+  soft-deletes a stream and getStream shows deletedAt [✔]
+  returns empty for reads from a soft-deleted stream [✔]
+  rejects appends to a soft-deleted stream [✔]
+  returns Nothing for nonexistent stream [✔]
+  returns Nothing for already-deleted stream [✔]
+  events from soft-deleted stream still appear in $all [✔]
+  ExactVersion append rejected against soft-deleted stream [✔]
+  AnyVersion append rejected against soft-deleted stream [✔]
+  NoStream append rejected against soft-deleted stream [✔]
+undeleteStream
+  restores a soft-deleted stream [✔]
+  reads work after undelete [✔]
+  appends work after undelete [✔]
+  returns Nothing for non-deleted stream [✔]
+hardDeleteStream
+  hard-deletes a stream completely [✔]
+  events from hard-deleted stream no longer appear in $all [✔]
+  returns Nothing for nonexistent stream [✔]
+  TRUNCATE on events is rejected without the GUC [✔]
+  TRUNCATE on stream_events is rejected without the GUC [✔]
+  TRUNCATE on streams is rejected without the GUC [✔]
+  removes orphan event payloads from the events table [✔]
+  removes dead letters for orphaned events before deleting their payloads [✔]
+  keeps dead letters for linked-in events that survive a hard delete [✔]
+  preserves events still linked to non-target streams [✔]
+subscribe
+  catches up from position 0 on a store with existing events [✔]
+  receives live events appended after subscription starts [✔]
+  persists checkpoint and resumes from saved position [✔]
+  does not replay catch-up events when switching to all-stream live mode [✔]
+  does not skip an event when cancelled before checkpoint save [✔]
+  saves checkpoints at Stop boundaries without skipping the next event [✔]
+  delivers only category-matching events during live mode (F18) [✔]
+  delivers only category-matching events during catch-up [✔]
+  preserves category subscription order under mixed invoice-payment writes [✔]
+  cancels a running subscription cleanly [✔]
+  receives events appended to an initially empty store [✔]
+  handles rapid appends without losing events (debouncing) [✔]
+  surfaces SubscriptionOverflowed when a slow subscriber overruns its queue (F6) [✔]
+  catches up with an Eff-based handler via the effectful API [✔]
+withSubscription
+  cancels the worker on normal scope exit [✔]
+  cancels the worker when the body throws [✔]
+extractStreamNameFromDetail
+  extracts the stream name from a typical PostgreSQL detail [✔]
+  extracts a stream name containing dashes and digits [✔]
+  returns Nothing when the detail is empty [✔]
+  returns Nothing when the detail does not contain '=(' [✔]
+  returns Nothing for an empty parenthesised value [✔]
+isTransientSerializationError
+  recognizes only serialization and deadlock SQLSTATEs [✔]
+  maps both transient SQLSTATEs to TransientTransactionFailure [✔]
+  leaves non-transient server codes on UnexpectedServerError [✔]
+Notifier reconnection
+FATAL:  terminating connection due to administrator command
+  releases the reconnected listener connection on shutdown [✔]
+observationHandler
+  receives observations during store operations [✔]
+KirokuEvent observation
+FATAL:  terminating connection due to administrator command
+  emits notifier reconnect events on backend termination (F1) [✔]
+  emits subscription lifecycle events (F14) [✔]
+  emits a hard-delete event when the stream existed (F13) [✔]
+
+Finished in 75.9268 seconds
+423 examples, 0 failures
+Test suite kiroku-store-test: PASS
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/t/kiroku-store-test/test/kiroku-store-0.10.0.0-kiroku-store-test.log
+1 of 1 test suites (1 of 1 test cases) passed.

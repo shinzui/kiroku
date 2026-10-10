@@ -1,0 +1,25 @@
+{
+  "command": [
+    "cabal",
+    "exec",
+    "--",
+    "ghc-9.12.4",
+    "-fno-code",
+    "-package-id",
+    "kiroku-cli-0.2.0.9-inplace",
+    "-package-id",
+    "kiroku-metrics-0.2.0.0-inplace",
+    "-package-id",
+    "kiroku-otel-0.2.0.11-inplace",
+    "-package-id",
+    "kiroku-store-0.10.0.0-inplace",
+    "-package-id",
+    "kiroku-store-migrations-0.7.0.0-inplace",
+    "-package-id",
+    "shibuya-kiroku-adapter-0.6.0.0-inplace",
+    "kiroku-store/bench/results/ep6-artifacts/consumer/Main.hs"
+  ],
+  "exit_code": 0,
+  "scope": "Compile fixture against explicit local public-library unit IDs; not clean published-consumer proof.",
+  "corrections": "Earlier invocations omitted package exposure, selected the adapter private sublibrary by package name/version and imported the stream-buffer constructor from the wrong module. Failed output retained separately; correct public API and six main-library unit IDs used."
+}

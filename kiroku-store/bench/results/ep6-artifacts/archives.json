@@ -1,0 +1,190 @@
+[
+  {
+    "package": "kiroku-store",
+    "version": "0.10.0.0",
+    "public_modules_checked": [
+      "Kiroku.Store",
+      "Kiroku.Store.Append",
+      "Kiroku.Store.Causation",
+      "Kiroku.Store.Connection",
+      "Kiroku.Store.Effect",
+      "Kiroku.Store.Effect.Resource",
+      "Kiroku.Store.Error",
+      "Kiroku.Store.HistoryRetention",
+      "Kiroku.Store.HistoryRetention.Types",
+      "Kiroku.Store.Lifecycle",
+      "Kiroku.Store.Link",
+      "Kiroku.Store.Notification",
+      "Kiroku.Store.Observability",
+      "Kiroku.Store.Read",
+      "Kiroku.Store.Settings",
+      "Kiroku.Store.SQL",
+      "Kiroku.Store.Subscription",
+      "Kiroku.Store.Subscription.Checkpoint",
+      "Kiroku.Store.Subscription.Effect",
+      "Kiroku.Store.Subscription.EventPublisher",
+      "Kiroku.Store.Subscription.Fsm",
+      "Kiroku.Store.Subscription.Stream",
+      "Kiroku.Store.Subscription.Types",
+      "Kiroku.Store.Subscription.Worker",
+      "Kiroku.Store.Transaction",
+      "Kiroku.Store.Types"
+    ],
+    "checks": [
+      "exact Cabal metadata",
+      "changelog",
+      "license",
+      "public source modules",
+      "Hackage Haddock symbol index/interface/public module pages"
+    ],
+    "source": {
+      "path": "dist-newstyle/sdist/kiroku-store-0.10.0.0.tar.gz",
+      "bytes": 252560,
+      "sha256": "ff09ca182e6724e78616f440c9fbe1eb8552960afa4b33ac5ec6cd2cdc0a36d4"
+    },
+    "docs": {
+      "path": "dist-newstyle/kiroku-store-0.10.0.0-docs.tar.gz",
+      "bytes": 714924,
+      "sha256": "5fccd6d614a9f13d03749adced9510b900d034692fa27863b0c17f089b987891"
+    }
+  },
+  {
+    "package": "kiroku-store-migrations",
+    "version": "0.7.0.0",
+    "public_modules_checked": [
+      "Kiroku.Store.Migrations",
+      "Kiroku.Store.Migrations.History.Codd",
+      "Kiroku.Store.Migrations.New"
+    ],
+    "checks": [
+      "exact Cabal metadata",
+      "changelog",
+      "license",
+      "public source modules",
+      "Hackage Haddock symbol index/interface/public module pages",
+      "exact manifest, lock and all migration SQL payloads"
+    ],
+    "source": {
+      "path": "dist-newstyle/sdist/kiroku-store-migrations-0.7.0.0.tar.gz",
+      "bytes": 35464,
+      "sha256": "9c04214a5184a699e090396ee6065168bf508b2444f4d292a2e10258a89dacdb"
+    },
+    "docs": {
+      "path": "dist-newstyle/kiroku-store-migrations-0.7.0.0-docs.tar.gz",
+      "bytes": 60692,
+      "sha256": "8eb24bb1d6e1b5f524d68ee8d312d375a5f928d765fcea5d56e952442ea53f34"
+    }
+  },
+  {
+    "package": "kiroku-otel",
+    "version": "0.2.0.11",
+    "public_modules_checked": [
+      "Kiroku.Otel.Subscription",
+      "Kiroku.Otel.TraceContext"
+    ],
+    "checks": [
+      "exact Cabal metadata",
+      "changelog",
+      "license",
+      "public source modules",
+      "Hackage Haddock symbol index/interface/public module pages"
+    ],
+    "source": {
+      "path": "dist-newstyle/sdist/kiroku-otel-0.2.0.11.tar.gz",
+      "bytes": 17677,
+      "sha256": "61d51efc40e3615ba4e3a98fccbf5d33380f95f43f0d0f6877d168eac0ff4345"
+    },
+    "docs": {
+      "path": "dist-newstyle/kiroku-otel-0.2.0.11-docs.tar.gz",
+      "bytes": 78930,
+      "sha256": "4607eff6c94a1c5e3cc15f3aa853155eda8c336414770620f7b394c360e2fc37"
+    }
+  },
+  {
+    "package": "kiroku-cli",
+    "version": "0.2.0.9",
+    "public_modules_checked": [
+      "Kiroku.Cli",
+      "Kiroku.Cli.Command",
+      "Kiroku.Cli.Parser",
+      "Kiroku.Cli.Run",
+      "Kiroku.Cli.Standalone",
+      "Kiroku.Cli.Subscription.Status"
+    ],
+    "checks": [
+      "exact Cabal metadata",
+      "changelog",
+      "license",
+      "public source modules",
+      "Hackage Haddock symbol index/interface/public module pages"
+    ],
+    "source": {
+      "path": "dist-newstyle/sdist/kiroku-cli-0.2.0.9.tar.gz",
+      "bytes": 10332,
+      "sha256": "001eb1640559566c4400bc1e54d1b589b4743f40dfda2b65cb4070e50d01f778"
+    },
+    "docs": {
+      "path": "dist-newstyle/kiroku-cli-0.2.0.9-docs.tar.gz",
+      "bytes": 73058,
+      "sha256": "fe780f1046061176987137540db71c9f546736e67c171a8ac92128ec1e842f02"
+    }
+  },
+  {
+    "package": "kiroku-metrics",
+    "version": "0.2.0.0",
+    "public_modules_checked": [
+      "Kiroku.Metrics",
+      "Kiroku.Metrics.Collector",
+      "Kiroku.Metrics.Config",
+      "Kiroku.Metrics.Health",
+      "Kiroku.Metrics.JSON",
+      "Kiroku.Metrics.Prometheus",
+      "Kiroku.Metrics.Server",
+      "Kiroku.Metrics.Subscriptions",
+      "Kiroku.Metrics.Types",
+      "Kiroku.Metrics.WebSocket"
+    ],
+    "checks": [
+      "exact Cabal metadata",
+      "changelog",
+      "license",
+      "public source modules",
+      "Hackage Haddock symbol index/interface/public module pages"
+    ],
+    "source": {
+      "path": "dist-newstyle/sdist/kiroku-metrics-0.2.0.0.tar.gz",
+      "bytes": 34265,
+      "sha256": "5a868fca3219903c0f4f431e25dee5123797d83533cd31e30e1b31abbb2638f8"
+    },
+    "docs": {
+      "path": "dist-newstyle/kiroku-metrics-0.2.0.0-docs.tar.gz",
+      "bytes": 141671,
+      "sha256": "11758774ac2e2101bb22c92bc90b37f97641e184fde100fec453b492c30b65c1"
+    }
+  },
+  {
+    "package": "shibuya-kiroku-adapter",
+    "version": "0.6.0.0",
+    "public_modules_checked": [
+      "Shibuya.Adapter.Kiroku",
+      "Shibuya.Adapter.Kiroku.Convert"
+    ],
+    "checks": [
+      "exact Cabal metadata",
+      "changelog",
+      "license",
+      "public source modules",
+      "Hackage Haddock symbol index/interface/public module pages"
+    ],
+    "source": {
+      "path": "dist-newstyle/sdist/shibuya-kiroku-adapter-0.6.0.0.tar.gz",
+      "bytes": 40564,
+      "sha256": "7e7d27e12908aefc806474efec2809a5f901a6c738cc58efe1f5d3eac8cb5c27"
+    },
+    "docs": {
+      "path": "dist-newstyle/shibuya-kiroku-adapter-0.6.0.0-docs.tar.gz",
+      "bytes": 105561,
+      "sha256": "4549c86ad0319f386d54f0cd707a5fee861d17515ce6b58344e6c128502aabc1"
+    }
+  }
+]

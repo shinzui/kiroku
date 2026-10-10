@@ -1,0 +1,45 @@
+Loaded package environment from /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/tmp/environment.-17626/.ghc.environment.aarch64-darwin-9.12.4
+[1 of 1] Compiling Main             ( kiroku-store/bench/results/ep6-artifacts/consumer/Main.hs, nothing )
+kiroku-store/bench/results/ep6-artifacts/consumer/Main.hs:12:111: error: [GHC-61689]
+    Module ‘Kiroku.Store.Subscription.Types’ does not export ‘mkStreamBufferSize’.
+   |
+12 | import Kiroku.Store.Subscription.Types (SomeSubscriptionStartupFailure(..), mkConsumerGroupSize, mkBatchSize, mkStreamBufferSize, defaultRetryPolicy)
+   |                                                                                                               ^^^^^^^^^^^^^^^^^^
+
+kiroku-store/bench/results/ep6-artifacts/consumer/Main.hs:13:1: error: [GHC-87110]
+    Could not load module ‘Shibuya.Adapter.Kiroku’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.6.0.0’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.5’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.5’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.5’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.5’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.5’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.5’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.5’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.5’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.5’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.5’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.5’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.5’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.5’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.3’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.3’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.2’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.2’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.2’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.2’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.2’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.2’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.2’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.2’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.2’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.2’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.2’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.1’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.5.1.1’.
+    It is a member of the hidden package ‘shibuya-kiroku-adapter-0.4.0.0’.
+    Use -v to see a list of the files searched for.
+   |
+13 | import Shibuya.Adapter.Kiroku (KirokuAdapterConfig(..), SubscriptionName(..), SubscriptionTarget(..), defaultKirokuAdapterConfig, kirokuProcessor)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

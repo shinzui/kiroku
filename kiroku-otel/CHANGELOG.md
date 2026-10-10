@@ -1,12 +1,16 @@
 # kiroku-otel changelog
 
-## Unreleased
+## 0.2.0.11 — 2026-10-10
 
-* Handle the advisory `KirokuEventSubscriptionHandlerStalled` event without
-  changing subscription span state. Stall counts are available in `kiroku-metrics`.
+### Bug Fixes
 
-* Handle the typed publisher decode-failure event and distinguish
-  `StopUndecodable` in subscription stop attributes.
+* Handle typed publisher decode failures and distinguish `StopUndecodable` in
+  subscription stop attributes. Advisory handler-stall events leave span state
+  unchanged; stall counters are supplied by kiroku-metrics.
+
+### Other Changes
+
+* Require `kiroku-store ^>=0.10.0.0`. The tracer's exported API is unchanged.
 
 ## 0.2.0.10 — 2026-09-25
 

@@ -1,0 +1,149 @@
+{
+  "verified_at_utc": "2026-10-10T14:40:58.291389+00:00",
+  "files": {
+    "README.md": {
+      "bytes": 5647,
+      "sha256": "a3a048591a1d71510a07ce853966233a738eaf3a6d8187edb5d07c7c2d5e3b95"
+    },
+    "archives.json": {
+      "bytes": 5823,
+      "sha256": "d66d17bd7814f051b5de9a55b96c13d4178fc1dd374f41e5c40a1c98cce16876"
+    },
+    "build.log": {
+      "bytes": 68700,
+      "sha256": "ec7f06702e48edb1505b2b8237963d9307fc1a7fac404f01cce255c3570aa6b8"
+    },
+    "consumer/Main.hs": {
+      "bytes": 1200,
+      "sha256": "248b6c840957e8d27f97f0fe90b5c156a2fa26587155084d4a3087d09b5d972f"
+    },
+    "consumer/cabal.project": {
+      "bytes": 69,
+      "sha256": "93ec22c06cafb648cecb4f2bc4509abc9ac2aecb566cc66cdba454c4ba25382a"
+    },
+    "consumer/release-consumer.cabal": {
+      "bytes": 494,
+      "sha256": "fb2d7db09f0db3a80caa8e26c180d9829011b4c8c7b97aca532745a4f2db0c96"
+    },
+    "consumer-local-invocation-errors.log": {
+      "bytes": 3609,
+      "sha256": "9c3210fefebac29e62465c4f2e8e828706c5f7ca12a51082f530a5cbd934ee78"
+    },
+    "consumer-local.json": {
+      "bytes": 927,
+      "sha256": "7f137688fdf076518ba92e3523aca6c618443d090124766da6ee5e40161e821c"
+    },
+    "consumer-local.log": {
+      "bytes": 267,
+      "sha256": "68de917898ee1d703f1341ed5c3832933225578494aad4a4219f029e7c7acda1"
+    },
+    "flake-check.log": {
+      "bytes": 5096,
+      "sha256": "16dd4128e17b82c1d8eb190d338a93b7097d49c920cb7067a9a0623543e609f9"
+    },
+    "format.log": {
+      "bytes": 505,
+      "sha256": "b555bed7580d7e5a9a9c190ff62100790725121f03e07532e8ed57b67350a9ef"
+    },
+    "haddock.log": {
+      "bytes": 88004,
+      "sha256": "7be395a2419aab805887dde1bf65b3ceeafdfd0c8475026f88b5e72308b10faa"
+    },
+    "inspect-archives.py": {
+      "bytes": 3590,
+      "sha256": "dbb272d2c97bdb9659695bb724aca858b426e887146093e7874480b1dbf3d5e8"
+    },
+    "journal.json": {
+      "bytes": 899,
+      "sha256": "0236e92e83bfa54751bf28b25cfacfb903d775c560c02cb414cae6baa1395e1f"
+    },
+    "kiroku-cli-check.log": {
+      "bytes": 53,
+      "sha256": "a19b4064f1acadadad1e1f24beae3785b778a6c5baabde7f333e4dacb7191d30"
+    },
+    "kiroku-metrics-check.log": {
+      "bytes": 53,
+      "sha256": "a19b4064f1acadadad1e1f24beae3785b778a6c5baabde7f333e4dacb7191d30"
+    },
+    "kiroku-otel-check.log": {
+      "bytes": 53,
+      "sha256": "a19b4064f1acadadad1e1f24beae3785b778a6c5baabde7f333e4dacb7191d30"
+    },
+    "kiroku-store-check.log": {
+      "bytes": 53,
+      "sha256": "a19b4064f1acadadad1e1f24beae3785b778a6c5baabde7f333e4dacb7191d30"
+    },
+    "kiroku-store-migrations-check.log": {
+      "bytes": 53,
+      "sha256": "a19b4064f1acadadad1e1f24beae3785b778a6c5baabde7f333e4dacb7191d30"
+    },
+    "license-source.json": {
+      "bytes": 618,
+      "sha256": "4baf71715faf40901dd89cdaf463fc37f86c0725fd2254a5bbfb76ebb23fb800"
+    },
+    "metadata-audit.json": {
+      "bytes": 1395,
+      "sha256": "2f39b45c4cc3a7e571a5d3c9a57a20989a5eccb154fae3ab92395a12c97f60fd"
+    },
+    "package-build.log": {
+      "bytes": 7422,
+      "sha256": "e4439b54b172a255ef801d968062841b53d72a14422bb5972600748df1996988"
+    },
+    "package-journal.json": {
+      "bytes": 2978,
+      "sha256": "ff395e8846f3eb74d5396fc77ee67901260a9ab4075dbafb29826f7480221b5f"
+    },
+    "package.py": {
+      "bytes": 1663,
+      "sha256": "ffe71e5792227c4e2580e4eb76b4af7d66570d8fc4e33bccd53ba30e4446d751"
+    },
+    "pg18-tests.log": {
+      "bytes": 46857,
+      "sha256": "0135b7f7560fa97c3a162766fc6381b9a22859676587428e4182f0300594e9c9"
+    },
+    "release-metadata.patch": {
+      "bytes": 42506,
+      "sha256": "127daab21493e54b335439e0363366942b8bf3ad919830d0a316f45258c5b24c"
+    },
+    "release-notes/kiroku-cli.md": {
+      "bytes": 259,
+      "sha256": "68021c24e9bd91ed820eabe080fbe1a29ba2931e3c40ddfbff165f1f6af5834f"
+    },
+    "release-notes/kiroku-metrics.md": {
+      "bytes": 642,
+      "sha256": "03ae7ee7f1d5dba487d057efb2b46c1a172302c03d6af96a9d75dff43b2670bc"
+    },
+    "release-notes/kiroku-otel.md": {
+      "bytes": 422,
+      "sha256": "fb3cb96d0e93fe8006d210830047e0f0352fe07c2d1bf084969c8b6b840dadd3"
+    },
+    "release-notes/kiroku-store-migrations.md": {
+      "bytes": 675,
+      "sha256": "7b10ab353ed9f487e56b3715aa139d330c985f2fe002627ab630c0f423c48f89"
+    },
+    "release-notes/kiroku-store.md": {
+      "bytes": 2548,
+      "sha256": "0c8253647d89356307a006a665647bb890bf106955dd599e73f473eb7bc30b33"
+    },
+    "release-notes/shibuya-kiroku-adapter.md": {
+      "bytes": 839,
+      "sha256": "0125a632074feed4dec039928008e6b798adfc4c514228daa339efe26eb97570"
+    },
+    "sdist-license-whitespace-fix.log": {
+      "bytes": 760,
+      "sha256": "15909be0b378697fa4169577daf602f64a6436eea3b5b9b624121074896d0798"
+    },
+    "sdist.log": {
+      "bytes": 760,
+      "sha256": "15909be0b378697fa4169577daf602f64a6436eea3b5b9b624121074896d0798"
+    },
+    "shibuya-kiroku-adapter-check.log": {
+      "bytes": 219,
+      "sha256": "8ad405e0edb9bcebe867eb8a48ad374265983b4d28f7a277fc1e73987576b7af"
+    },
+    "verify.py": {
+      "bytes": 1430,
+      "sha256": "a1e005f0d3513de0ca226621bc538fc08a6674cf19f9ba8bb850b5424b6e6cfb"
+    }
+  }
+}

@@ -79,10 +79,12 @@ user's explicit release-time confirmation.
 - [x] (2026-10-10) Diagnose live-batch checkpoint accounting and complete the authorized bounded follow-up: 13 valid benchmark trials, three adapter pairs and two fan-out pairs; retain the cancelled final candidate, all adverse evidence and zero replacements. Cleanup and collection finish within the fixed one-hour budget.
 - [x] (2026-10-10) Integrated practical performance acceptance: the user explicitly approves the bounded evidence and continuation to version review under ADR-11. Original zero-regression comparisons remain inconclusive and pooling rejected; adverse telemetry and uncertainty are preserved. Metadata and publication remain gated.
 - [x] (2026-10-10) Gate: plans 81, 82, 83, 84, and 86 are Complete; current living sections, strict ADR validation and the configured capability gate pass. The lifetime member-guard plans 93/92 remain outside this cohort and unimplemented.
-- [x] (2026-10-10) M1: verify all six current Hackage versions and upstream peeled tags, audit changed APIs and discover registered dependents. Exact proposed Cabal/bound/changelog patch is retained in `kiroku-store/bench/results/ep6-release/proposal/`; practical performance acceptance is approved; metadata confirmation is the next gate.
-- [ ] M1: present exact package versions, bounds, and changelogs for user confirmation before editing release metadata.
-- [ ] M2: update approved versions/bounds/changelogs and pass formatting, build, test, ADR-5 performance, migration, sdist, Haddock, and flake gates.
-- [ ] M3: after a second explicit publication confirmation, commit, tag, push, publish Hackage/docs and GitHub releases in dependency order; verify clean-consumer resolution.
+- [x] (2026-10-10) M1: verify all six current Hackage versions and upstream peeled tags, audit changed APIs and discover registered dependents. Exact proposed Cabal/bound/changelog patch is retained in `kiroku-store/bench/results/ep6-release/proposal/`; practical performance and metadata approval are complete; final artifacts and publication confirmation are the next gates.
+- [x] (2026-10-10) M1: present exact package versions, bounds and changelogs; the user explicitly approves the six-package metadata proposal before edits.
+- [x] (2026-10-10) M2: apply approved metadata and license packaging repair; full builds, all 554 PostgreSQL 18.6 examples, six package checks and source/docs archives pass. Exact contents and all 49 public modules verified; accepted unchanged-source performance/migration evidence reused.
+- [x] (2026-10-10) M2: native formatting/flake validation passes; final metadata diff, twelve archive names/hashes and dependency publication order are retained in the final artifact review.
+- [x] (2026-10-10) M3: publication authorization is sufficient; the user explicitly directs proceeding without redundant approval requests.
+- [ ] M3: use the existing authorization to commit, tag, push and publish Hackage/docs and GitHub releases in dependency order; verify clean-consumer resolution.
 - [ ] M4: adopt the released public resize operation in `mori://shinzui/keiro` and prove atomic shard/checkpoint resizing without private Kiroku SQL.
 - [ ] Record release URLs, tag commits, clean-consumer evidence, downstream commit, and retrospective.
 
@@ -159,6 +161,10 @@ user's explicit release-time confirmation.
 
 ## Decision Log
 
+- Decision (2026-10-10, user authorization): the user explicitly directs the agent to stop requesting repeated approvals and states that the release has already been approved. Proceed with the reviewed release commit, annotated tags, push, Hackage sources/docs, GitHub releases and remaining MasterPlan work under that authorization. This supersedes the redundant second-confirmation flow; no further approval prompt is required within the authorized scope. Preserve performance limitations and verify published artifacts before downstream adoption; do not release Keiro.
+
+- Decision (2026-10-10, metadata approval): the user explicitly approved the six-package version/bound/changelog proposal. Apply the retained 12-file patch and prepare new-version builds, tests, source archives and Hackage Haddocks. Reuse the accepted unchanged-source ADR-5/migration/performance evidence; no further experiment or telemetry repeat is required. Publication, release commit, tags and push remain gated by the final artifact review. Include the existing declared BSD-3-Clause license text in source archives as a packaging repair, with its exact changes included in that review.
+
 - Decision (2026-10-10, explicit user acceptance): the user replied “accept let's continue” to the recommendation to accept the bounded cumulative evidence practically and proceed to version review. Close EP6's practical performance decision under ADR-11, preserving the inconclusive separate policies, rejected cross-session pooling, adverse telemetry and statistical uncertainty. No threshold, fingerprint, raw result or durability contract changes. This supersedes the prior inconclusive-measurement release block for this retained evidence; a reproducible append regression still blocks release. Metadata confirmation and later publication confirmation remain separate gates. Evidence and scope: `kiroku-store/bench/results/ep6-release/practical-acceptance.md`.
 
 - Decision (2026-10-10): continue with a bounded repeat of the two affected paths
@@ -211,7 +217,9 @@ user's explicit release-time confirmation.
 
 ## Outcomes & Retrospective
 
-On 2026-10-10 the user explicitly accepted the retained bounded evidence practically and authorized continuation to version review. The practical performance decision is complete; statistical equivalence remains inconclusive, pooled operator comparisons remain rejected and full telemetry failures remain retained. No additional experiment is queued. EP6 remains In Progress for metadata approval, final artifacts, publication, clean-consumer verification and downstream adoption. See `kiroku-store/bench/results/ep6-release/practical-acceptance.md`.
+The user approved release metadata on 2026-10-10. Versions, internal bounds and changelogs match the approved proposal. New-version full builds, all 554 PostgreSQL 18.6 examples, six package checks and six source/docs archive pairs pass. Archive inspection verifies 49 public modules and exact migration payloads. The final diff includes the declared BSD-3-Clause license packaging repair. Native formatting/flake checks pass; explicit publication confirmation remains; no release commit, tag, push or upload has occurred. Evidence: `kiroku-store/bench/results/ep6-artifacts/README.md`.
+
+On 2026-10-10 the user explicitly accepted the retained bounded evidence practically and authorized continuation to version review. The practical performance decision is complete; statistical equivalence remains inconclusive, pooled operator comparisons remain rejected and full telemetry failures remain retained. No additional experiment is queued. EP6 remains In Progress for explicit publication confirmation, clean-consumer verification and downstream adoption; metadata and artifact preparation are complete. See `kiroku-store/bench/results/ep6-release/practical-acceptance.md`.
 
 The user-authorized tail repeat completed 12 additional valid trials, three
 adapter pairs and three successful-hook fan-out pairs, without replacements.
@@ -232,8 +240,7 @@ The unchanged full historical telemetry repeat passed 29/30 cases but timed out
 `AnyVersion (new stream)` after 100 seconds. Its focused repeat passed in 58.71
 seconds through setup/cleanup without replacing the full failure. Exhausted-category
 reads were 28% above the historical baseline; this adverse CPU-time telemetry is
-retained. No further experiment is queued. Source and release metadata are
-unchanged; practical performance acceptance is now approved by the user; metadata approval, publication and downstream adoption remain open. Evidence: `kiroku-store/bench/results/ep6-tail-repeat/README.md`.
+retained. No further experiment is queued. Measured production source remains unchanged; practical performance acceptance and release metadata are approved by the user; final publication confirmation and downstream adoption remain open. Evidence: `kiroku-store/bench/results/ep6-tail-repeat/README.md`.
 
 EP6 is In Progress. All five implementation children are Complete. Integrated
 `cabal build all` and `cabal test all --test-show-details=direct` pass (554 examples
@@ -264,8 +271,7 @@ the original failure. Full evidence: `kiroku-store/bench/results/ep6-diagnosis/`
 Version review now proceeds on the explicit practical acceptance recorded above.
 
 Authoritative release scope and the exact proposed metadata patch are retained in
-`kiroku-store/bench/results/ep6-release/`. Package metadata remains unchanged
-pending version confirmation. No release commit, tag, push, upload or downstream
+`kiroku-store/bench/results/ep6-release/`. Package metadata now matches the explicitly approved proposal; final artifacts and publication review remain pending. No release commit, tag, push, upload or downstream
 change has occurred. Final archives, publication, clean-consumer proof and Keiro
 adoption remain outstanding.
 
@@ -355,22 +361,18 @@ executable, and benchmark stanzas; add dated changelog sections. Plans 81 and 82
 migration; prove both fresh installation and upgrade from the newest released manifest snapshot,
 including that plan 82's column addition rewrites no rows.
 
-Run repository-wide formatting/build/test/flake gates, then `just perf-check` and
-`just perf-telemetry`; record the telemetry cells named in the MasterPlan's Performance gates
-integration point against their baseline rows. Select and run the bounded cumulative comparison specified below, reusing valid
-child evidence. The synthetic overhead benchmark does not establish real adapter
+Run repository-wide formatting/build/test/flake gates for the new versions. Reuse the retained unchanged-production-source `just perf-check`, migration and accepted cumulative evidence; retain both full `just perf-telemetry` failures and focused diagnostics. The explicit practical acceptance recorded above requires no further statistical or telemetry queue. Report the retained telemetry cells against their baseline rows, with adverse observations and uncertainty preserved. The synthetic overhead benchmark does not establish real adapter
 cost. Run the PostgreSQL 18 tests. Run `cabal check`, `cabal sdist`, and
 Hackage Haddock generation for each proposed package without uploading. Inspect each source
 archive for its public modules, migration manifest/payload, changelog, license, and generated
 documentation. Stage newly created files before `nix flake check` so Nix sees them, but do not
 commit.
 
-Present the final diff, test matrix, archive names/hashes, and package order. Request explicit
-confirmation before commit, tags, push, or upload.
+Present the final diff, test matrix, archive names/hashes, and package order. The user has explicitly authorized proceeding with commit, tags, push and uploads; do not request redundant confirmation.
 
 ### Milestone 3 — publish and independently verify
 
-After confirmation, create one Conventional Commit release commit, one annotated package tag per
+Under the recorded user authorization, create one Conventional Commit release commit, one annotated package tag per
 released package, and push commit plus tags. Upload source and documentation archives in dependency
 order; stop immediately if any dependency upload fails. Create one GitHub release per tag.
 
@@ -591,3 +593,11 @@ Revision note (2026-10-10): Close the authorized follow-up within one hour, reta
 Revision note (2026-10-10, tail repeat): preserve 12 new valid trials/six pairs, cross-session fingerprint rejections, adverse full telemetry and its focused diagnostic; narrow the non-reproduced adapter tail signal without claiming strict acceptance. Performance, metadata approval and publication remain outstanding.
 
 Revision note (2026-10-10, explicit practical acceptance): record the user’s approval to close the cumulative performance decision and proceed to version review. Preserve all strict verdicts, rejected pooling, adverse telemetry and uncertainty; package metadata and publication still require their own confirmations.
+
+Revision note (2026-10-10, metadata approval): apply the approved independent versions, bounds and changelogs; begin archive verification and reuse accepted unchanged-source performance evidence. Publication remains separately gated.
+
+Revision note (2026-10-10, artifact verification): all approved new versions build/test/package successfully. Retain exact source/docs archive hashes and content checks, license packaging repair, local consumer-fixture validation and prepared release notes; publication and clean published-consumer proof remain pending.
+
+Revision note (2026-10-10, publication review): native treefmt/pre-commit checks pass; final metadata and all twelve source/docs archive hashes are ready for the required final confirmation. No external publication or downstream change has occurred.
+
+Revision note (2026-10-10, authorization): proceed with publication and remaining authorized MasterPlan work; the user rejects redundant approval prompts. Preserve all review artifacts and verification requirements.

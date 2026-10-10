@@ -1,5 +1,13 @@
 # Changelog
 
+
+## 0.2.0.9 — 2026-10-10
+
+### Other Changes
+
+* Require `kiroku-store ^>=0.10.0.0` so operator consumers resolve the subscription
+  hardening cohort. The CLI API and runtime behavior are unchanged.
+
 ## 0.2.0.8 — 2026-09-25
 
 ### Other Changes

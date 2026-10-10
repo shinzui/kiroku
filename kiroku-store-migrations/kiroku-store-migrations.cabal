@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               kiroku-store-migrations
-version:            0.6.0.0
+version:            0.7.0.0
 synopsis:           Schema migrations for kiroku-store
 description:
   Native pg-migrate component, Codd history mapping, and migration executable
@@ -11,6 +11,7 @@ bug-reports:        https://github.com/shinzui/kiroku/issues
 author:             Nadeem Bitar
 maintainer:         nadeem@gmail.com
 license:            BSD-3-Clause
+license-file:       LICENSE
 build-type:         Simple
 category:           Database, Eventing
 extra-doc-files:    CHANGELOG.md

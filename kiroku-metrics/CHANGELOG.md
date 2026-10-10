@@ -1,15 +1,23 @@
 # Revision history for kiroku-metrics
 
-## Unreleased
+## 0.2.0.0 — 2026-10-10
 
-* **Breaking:** `LifecycleCounters` adds `subscriptionHandlerStalls`.
-  JSON adds `subscription_handler_stalls`; Prometheus adds
+### Breaking Changes
+
+* `LifecycleCounters` adds `publisherDecodeFailures`,
+  `subscriptionsStoppedUndecodable` and `subscriptionHandlerStalls`.
+
+### New Features
+
+* JSON and Prometheus distinguish typed publisher decode failures and
+  undecodable stops from programming failures. JSON adds
+  `subscription_handler_stalls`; Prometheus adds
   `kiroku_subscription_handler_stalls_total`. Advisory warnings do not advance
   the collector's subscription position.
 
-* **Breaking:** `LifecycleCounters` adds `publisherDecodeFailures` and
-  `subscriptionsStoppedUndecodable`. JSON and Prometheus distinguish typed decode
-  failures and `undecodable` subscription stops from programming errors/crashes.
+### Other Changes
+
+* Require `kiroku-store ^>=0.10.0.0` and `kiroku-cli ^>=0.2.0.9`.
 
 ## 0.1.0.10 -- 2026-09-25
 

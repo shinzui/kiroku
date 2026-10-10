@@ -1,0 +1,16 @@
+cabal-version: 3.0
+name:          release-consumer
+version:       0.1.0.0
+build-type:    Simple
+
+executable release-consumer
+  main-is:          Main.hs
+  default-language: GHC2024
+  build-depends:
+    , base                     >=4.18     && <5
+    , kiroku-cli               ==0.2.0.9
+    , kiroku-metrics           ==0.2.0.0
+    , kiroku-otel              ==0.2.0.11
+    , kiroku-store             ==0.10.0.0
+    , kiroku-store-migrations  ==0.7.0.0
+    , shibuya-kiroku-adapter   ==0.6.0.0

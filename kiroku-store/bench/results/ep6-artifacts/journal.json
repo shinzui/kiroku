@@ -1,0 +1,40 @@
+{
+  "started_at": "2026-10-10T14:19:24.495381+00:00",
+  "phase": "complete",
+  "stages": [
+    {
+      "name": "format",
+      "command": [
+        "nix",
+        "fmt"
+      ],
+      "started_at": "2026-10-10T14:19:24.495549+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:19:26.498563+00:00"
+    },
+    {
+      "name": "build",
+      "command": [
+        "cabal",
+        "build",
+        "all"
+      ],
+      "started_at": "2026-10-10T14:19:26.499139+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:20:53.235623+00:00"
+    },
+    {
+      "name": "pg18-tests",
+      "command": [
+        "cabal",
+        "test",
+        "all",
+        "--test-show-details=direct"
+      ],
+      "started_at": "2026-10-10T14:20:53.236133+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:22:22.118744+00:00"
+    }
+  ],
+  "elapsed_seconds": 177.62383890151978
+}

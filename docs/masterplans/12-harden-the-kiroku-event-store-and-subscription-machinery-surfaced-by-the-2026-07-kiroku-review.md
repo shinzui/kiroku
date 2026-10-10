@@ -640,6 +640,10 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Decision Log
 
+- Decision (2026-10-10, user authorization): the user explicitly directs the agent to stop requesting repeated approvals and states that the release has already been approved. Proceed with the reviewed release commit, annotated tags, push, Hackage sources/docs, GitHub releases and remaining MasterPlan work under that authorization. This supersedes the redundant second-confirmation flow; no further approval prompt is required within the authorized scope. Preserve performance limitations and verify published artifacts before downstream adoption; do not release Keiro.
+
+- Decision (2026-10-10, metadata approval): the user explicitly approved the six-package version/bound/changelog proposal. Apply the retained 12-file patch and prepare new-version builds, tests, source archives and Hackage Haddocks. Reuse the accepted unchanged-source ADR-5/migration/performance evidence; no further experiment or telemetry repeat is required. Publication, release commit, tags and push remain gated by the final artifact review. Include the existing declared BSD-3-Clause license text in source archives as a packaging repair, with its exact changes included in that review.
+
 - Decision (2026-10-10, explicit user acceptance): the user replied “accept let's continue” to the recommendation to accept the bounded cumulative evidence practically and proceed to version review. Close EP6's practical performance decision under ADR-11, preserving the inconclusive separate policies, rejected cross-session pooling, adverse telemetry and statistical uncertainty. No threshold, fingerprint, raw result or durability contract changes. This supersedes the prior inconclusive-measurement release block for this retained evidence; a reproducible append regression still blocks release. Metadata confirmation and later publication confirmation remain separate gates. Evidence and scope: `kiroku-store/bench/results/ep6-release/practical-acceptance.md`.
 
 - Decision (2026-10-10): the user's continuation authorizes a bounded tail repeat
@@ -877,7 +881,9 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Outcomes & Retrospective
 
-On 2026-10-10 the user explicitly accepted the retained bounded evidence practically and authorized continuation to version review. The practical performance decision is complete; statistical equivalence remains inconclusive, pooled operator comparisons remain rejected and full telemetry failures remain retained. No additional experiment is queued. EP6 remains In Progress for metadata approval, final artifacts, publication, clean-consumer verification and downstream adoption. See `kiroku-store/bench/results/ep6-release/practical-acceptance.md`.
+The user approved release metadata on 2026-10-10. Versions, internal bounds and changelogs match the approved proposal. New-version full builds, all 554 PostgreSQL 18.6 examples, six package checks and six source/docs archive pairs pass. Archive inspection verifies 49 public modules and exact migration payloads. The final diff includes the declared BSD-3-Clause license packaging repair. Native formatting/flake checks pass; explicit publication confirmation remains; no release commit, tag, push or upload has occurred. Evidence: `kiroku-store/bench/results/ep6-artifacts/README.md`.
+
+On 2026-10-10 the user explicitly accepted the retained bounded evidence practically and authorized continuation to version review. The practical performance decision is complete; statistical equivalence remains inconclusive, pooled operator comparisons remain rejected and full telemetry failures remain retained. No additional experiment is queued. EP6 remains In Progress for explicit publication confirmation, clean-consumer verification and downstream adoption; metadata and artifact preparation are complete. See `kiroku-store/bench/results/ep6-release/practical-acceptance.md`.
 
 The user-authorized tail repeat completed 12 additional valid trials, three
 adapter pairs and three successful-hook fan-out pairs, without replacements.
@@ -898,8 +904,7 @@ The unchanged full historical telemetry repeat passed 29/30 cases but timed out
 `AnyVersion (new stream)` after 100 seconds. Its focused repeat passed in 58.71
 seconds through setup/cleanup without replacing the full failure. Exhausted-category
 reads were 28% above the historical baseline; this adverse CPU-time telemetry is
-retained. No further experiment is queued. Source and release metadata are
-unchanged; practical performance acceptance is now approved by the user; metadata approval, publication and downstream adoption remain open. Evidence: `kiroku-store/bench/results/ep6-tail-repeat/README.md`.
+retained. No further experiment is queued. Measured production source remains unchanged; practical performance acceptance and release metadata are approved by the user; final publication confirmation and downstream adoption remain open. Evidence: `kiroku-store/bench/results/ep6-tail-repeat/README.md`.
 
 Implementation update (2026-10-09): **5 of 6 children are Complete**. EP1
 implements durable topology, typed startup refusal, migration-derived legacy
@@ -942,7 +947,7 @@ server error. All 423 store examples, 20 structural checks and 16 controlled
 workloads pass; ADR-14 and unchanged success-path source identities are retained
 with `kiroku-store/bench/results/ep5-unique-violation/`. EP6 is In Progress,
 with integrated correctness passing and retained cumulative default/opt-in
-measurements. Practical performance acceptance is now explicitly approved; metadata approval, publication and downstream adoption remain outstanding. No package is released.
+measurements. Practical performance acceptance is now explicitly approved; metadata and artifact preparation are complete; explicit publication confirmation and downstream adoption remain outstanding. No package is released.
 
 
 
@@ -1077,3 +1082,11 @@ metadata approval, publication and downstream adoption remain outstanding.
 Revision note (2026-10-10, tail repeat): retain twelve new valid trials and all failed/inconclusive comparisons, record cross-session fingerprint rejection and historical timeout diagnostics, correct current EP6 status and ADR-11 implementation wording. Performance and publication remain open; no additional experiment is queued.
 
 Revision note (2026-10-10, explicit practical acceptance): record the user’s approval to close the cumulative performance decision and proceed to version review. Preserve all strict verdicts, rejected pooling, adverse telemetry and uncertainty; package metadata and publication still require their own confirmations.
+
+Revision note (2026-10-10, metadata approval): apply the approved independent versions, bounds and changelogs; begin archive verification and reuse accepted unchanged-source performance evidence. Publication remains separately gated.
+
+Revision note (2026-10-10, artifact verification): all approved new versions build/test/package successfully. Retain exact source/docs archive hashes and content checks, license packaging repair, local consumer-fixture validation and prepared release notes; publication and clean published-consumer proof remain pending.
+
+Revision note (2026-10-10, publication review): native treefmt/pre-commit checks pass; final metadata and all twelve source/docs archive hashes are ready for the required final confirmation. No external publication or downstream change has occurred.
+
+Revision note (2026-10-10, authorization): proceed with publication and remaining authorized MasterPlan work; the user rejects redundant approval prompts. Preserve all review artifacts and verification requirements.

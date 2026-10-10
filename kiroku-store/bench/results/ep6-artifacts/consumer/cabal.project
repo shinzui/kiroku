@@ -1,0 +1,4 @@
+packages: .
+with-compiler: ghc-9.12.4
+tests: False
+benchmarks: False

@@ -1,12 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.7.0.0 — 2026-10-10
 
-- Migration 0014 adds checked, unindexed target-binding columns and removes the unused subscription `stream_name`. Stop workers before applying it; constant defaults do not rewrite legacy rows.
+### Breaking Changes
 
-* Migration `0013.sql` derives persisted consumer-group size from existing member
-  rows. Apply with subscription workers stopped; incomplete legacy groups are
-  refused on next startup until explicitly resized to the intended topology.
+* Migration 0014 adds checked, unindexed subscription target-binding columns and
+  removes the unused `stream_name` column. Stop subscription workers before
+  applying the cohort's migrations and restart with kiroku-store 0.10.0.0.
+  Constant defaults do not rewrite legacy rows.
+
+### New Features
+
+* Migration 0013 derives persisted consumer-group size from existing member rows.
+  Incomplete legacy groups refuse on next startup until explicitly resized to
+  the intended topology. Both migrations are included in the embedded manifest.
 
 ## 0.6.0.0 — 2026-09-25
 

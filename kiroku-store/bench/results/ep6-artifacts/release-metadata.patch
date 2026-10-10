@@ -1,0 +1,814 @@
+diff --git a/kiroku-cli/CHANGELOG.md b/kiroku-cli/CHANGELOG.md
+index 2499e83..b6da7f9 100644
+--- a/kiroku-cli/CHANGELOG.md
++++ b/kiroku-cli/CHANGELOG.md
+@@ -1,5 +1,13 @@
+ # Changelog
+ 
++
++## 0.2.0.9 — 2026-10-10
++
++### Other Changes
++
++* Require `kiroku-store ^>=0.10.0.0` so operator consumers resolve the subscription
++  hardening cohort. The CLI API and runtime behavior are unchanged.
++
+ ## 0.2.0.8 — 2026-09-25
+ 
+ ### Other Changes
+diff --git a/kiroku-cli/LICENSE b/kiroku-cli/LICENSE
+new file mode 100644
+index 0000000..4f02452
+--- /dev/null
++++ b/kiroku-cli/LICENSE
+@@ -0,0 +1,11 @@
++Copyright (c) 2026 Nadeem Bitar.
++
++Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
++
++1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
++
++2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
++
++3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
++
++THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+diff --git a/kiroku-cli/kiroku-cli.cabal b/kiroku-cli/kiroku-cli.cabal
+index 75027d1..2f7399d 100644
+--- a/kiroku-cli/kiroku-cli.cabal
++++ b/kiroku-cli/kiroku-cli.cabal
+@@ -1,6 +1,6 @@
+ cabal-version:   3.0
+ name:            kiroku-cli
+-version:         0.2.0.8
++version:         0.2.0.9
+ synopsis:        Embeddable operator CLI for Kiroku
+ description:
+   Parser, runner, and executable entry points for Kiroku operator commands.
+@@ -12,6 +12,7 @@ bug-reports:     https://github.com/shinzui/kiroku/issues
+ author:          Nadeem Bitar
+ maintainer:      nadeem@gmail.com
+ license:         BSD-3-Clause
++license-file:    LICENSE
+ build-type:      Simple
+ category:        Database, Eventing
+ extra-doc-files: CHANGELOG.md
+@@ -41,18 +42,18 @@ library
+     Kiroku.Cli.Subscription.Status
+ 
+   build-depends:
+-    , aeson                 >=2.1      && <2.3
+-    , base                  >=4.18     && <5
+-    , bytestring            >=0.11     && <0.13
+-    , containers            >=0.6      && <0.8
+-    , generic-lens          >=2.2      && <2.4
+-    , http-client           >=0.7      && <0.8
+-    , http-client-tls       >=0.3      && <0.4
+-    , http-types            >=0.12     && <0.13
+-    , kiroku-store          ^>=0.9.0.1
+-    , lens                  >=5.2      && <5.4
+-    , optparse-applicative  >=0.19     && <0.20
+-    , text                  >=2.0      && <2.2
++    , aeson                 >=2.1       && <2.3
++    , base                  >=4.18      && <5
++    , bytestring            >=0.11      && <0.13
++    , containers            >=0.6       && <0.8
++    , generic-lens          >=2.2       && <2.4
++    , http-client           >=0.7       && <0.8
++    , http-client-tls       >=0.3       && <0.4
++    , http-types            >=0.12      && <0.13
++    , kiroku-store          ^>=0.10.0.0
++    , lens                  >=5.2       && <5.4
++    , optparse-applicative  >=0.19      && <0.20
++    , text                  >=2.0       && <2.2
+ 
+   hs-source-dirs:  src
+ 
+@@ -77,12 +78,12 @@ test-suite kiroku-cli-test
+     , aeson
+     , base
+     , containers
+-    , generic-lens          >=2.2      && <2.4
+-    , hspec                 >=2.10     && <2.12
+-    , http-client           >=0.7      && <0.8
+-    , http-client-tls       >=0.3      && <0.4
++    , generic-lens          >=2.2       && <2.4
++    , hspec                 >=2.10      && <2.12
++    , http-client           >=0.7       && <0.8
++    , http-client-tls       >=0.3       && <0.4
+     , kiroku-cli
+-    , kiroku-store          ^>=0.9.0.1
++    , kiroku-store          ^>=0.10.0.0
+     , kiroku-test-support
+     , lens
+     , optparse-applicative
+diff --git a/kiroku-metrics/CHANGELOG.md b/kiroku-metrics/CHANGELOG.md
+index efefb7d..69620c6 100644
+--- a/kiroku-metrics/CHANGELOG.md
++++ b/kiroku-metrics/CHANGELOG.md
+@@ -1,15 +1,23 @@
+ # Revision history for kiroku-metrics
+ 
+-## Unreleased
++## 0.2.0.0 — 2026-10-10
+ 
+-* **Breaking:** `LifecycleCounters` adds `subscriptionHandlerStalls`.
+-  JSON adds `subscription_handler_stalls`; Prometheus adds
++### Breaking Changes
++
++* `LifecycleCounters` adds `publisherDecodeFailures`,
++  `subscriptionsStoppedUndecodable` and `subscriptionHandlerStalls`.
++
++### New Features
++
++* JSON and Prometheus distinguish typed publisher decode failures and
++  undecodable stops from programming failures. JSON adds
++  `subscription_handler_stalls`; Prometheus adds
+   `kiroku_subscription_handler_stalls_total`. Advisory warnings do not advance
+   the collector's subscription position.
+ 
+-* **Breaking:** `LifecycleCounters` adds `publisherDecodeFailures` and
+-  `subscriptionsStoppedUndecodable`. JSON and Prometheus distinguish typed decode
+-  failures and `undecodable` subscription stops from programming errors/crashes.
++### Other Changes
++
++* Require `kiroku-store ^>=0.10.0.0` and `kiroku-cli ^>=0.2.0.9`.
+ 
+ ## 0.1.0.10 -- 2026-09-25
+ 
+diff --git a/kiroku-metrics/LICENSE b/kiroku-metrics/LICENSE
+new file mode 100644
+index 0000000..4f02452
+--- /dev/null
++++ b/kiroku-metrics/LICENSE
+@@ -0,0 +1,11 @@
++Copyright (c) 2026 Nadeem Bitar.
++
++Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
++
++1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
++
++2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
++
++3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
++
++THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+diff --git a/kiroku-metrics/kiroku-metrics.cabal b/kiroku-metrics/kiroku-metrics.cabal
+index 013848b..ac7e19e 100644
+--- a/kiroku-metrics/kiroku-metrics.cabal
++++ b/kiroku-metrics/kiroku-metrics.cabal
+@@ -1,6 +1,6 @@
+ cabal-version:   3.0
+ name:            kiroku-metrics
+-version:         0.1.0.10
++version:         0.2.0.0
+ synopsis:
+   Metrics, health, and event-streaming HTTP endpoints for Kiroku
+ 
+@@ -13,6 +13,7 @@ description:
+ author:          Nadeem Bitar
+ maintainer:      nadeem@gmail.com
+ license:         BSD-3-Clause
++license-file:    LICENSE
+ build-type:      Simple
+ category:        Database, Eventing, Observability
+ extra-doc-files: CHANGELOG.md
+@@ -51,25 +52,25 @@ library
+     Kiroku.Metrics.WebSocket
+ 
+   build-depends:
+-    , aeson           >=2.1      && <2.3
+-    , async           >=2.2      && <2.3
+-    , base            >=4.18     && <5
+-    , bytestring      >=0.11     && <0.13
+-    , containers      >=0.6      && <0.8
+-    , hasql           >=1.10     && <1.11
+-    , hasql-pool      >=1.2      && <1.5
+-    , http-types      >=0.12     && <0.13
+-    , kiroku-cli      ^>=0.2.0.8
+-    , kiroku-store    ^>=0.9.0.1
+-    , stm             >=2.5      && <2.6
+-    , text            >=2.0      && <2.2
+-    , time            >=1.12     && <1.15
+-    , uuid            >=1.3      && <1.4
+-    , vector          >=0.13     && <0.14
+-    , wai             >=3.2      && <3.3
+-    , wai-websockets  >=3.0      && <3.1
+-    , warp            >=3.4      && <3.5
+-    , websockets      >=0.13     && <0.14
++    , aeson           >=2.1       && <2.3
++    , async           >=2.2       && <2.3
++    , base            >=4.18      && <5
++    , bytestring      >=0.11      && <0.13
++    , containers      >=0.6       && <0.8
++    , hasql           >=1.10      && <1.11
++    , hasql-pool      >=1.2       && <1.5
++    , http-types      >=0.12      && <0.13
++    , kiroku-cli      ^>=0.2.0.9
++    , kiroku-store    ^>=0.10.0.0
++    , stm             >=2.5       && <2.6
++    , text            >=2.0       && <2.2
++    , time            >=1.12      && <1.15
++    , uuid            >=1.3       && <1.4
++    , vector          >=0.13      && <0.14
++    , wai             >=3.2       && <3.3
++    , wai-websockets  >=3.0       && <3.1
++    , warp            >=3.4       && <3.5
++    , websockets      >=0.13      && <0.14
+ 
+   hs-source-dirs:  src
+ 
+@@ -94,21 +95,21 @@ executable kiroku-metrics-example
+     buildable: False
+ 
+   build-depends:
+-    , aeson                >=2.1      && <2.3
+-    , async                >=2.2      && <2.3
+-    , base                 >=4.18     && <5
+-    , bytestring           >=0.11     && <0.13
+-    , containers           >=0.6      && <0.8
+-    , http-client          >=0.7      && <0.8
+-    , http-types           >=0.12     && <0.13
++    , aeson                >=2.1       && <2.3
++    , async                >=2.2       && <2.3
++    , base                 >=4.18      && <5
++    , bytestring           >=0.11      && <0.13
++    , containers           >=0.6       && <0.8
++    , http-client          >=0.7       && <0.8
++    , http-types           >=0.12      && <0.13
+     , kiroku-metrics
+-    , kiroku-store         ^>=0.9.0.1
++    , kiroku-store         ^>=0.10.0.0
+     , kiroku-test-support  ^>=0.1
+-    , lens                 >=5.2      && <5.4
+-    , scientific           >=0.3      && <0.4
+-    , stm                  >=2.5      && <2.6
+-    , text                 >=2.0      && <2.2
+-    , websockets           >=0.13     && <0.14
++    , lens                 >=5.2       && <5.4
++    , scientific           >=0.3       && <0.4
++    , stm                  >=2.5       && <2.6
++    , text                 >=2.0       && <2.2
++    , websockets           >=0.13      && <0.14
+ 
+ test-suite kiroku-metrics-test
+   import:         common
+@@ -124,25 +125,25 @@ test-suite kiroku-metrics-test
+   hs-source-dirs: test
+   ghc-options:    -threaded -rtsopts -with-rtsopts=-N
+   build-depends:
+-    , aeson                >=2.1      && <2.3
+-    , async                >=2.2      && <2.3
+-    , base                 >=4.18     && <5
+-    , bytestring           >=0.11     && <0.13
+-    , containers           >=0.6      && <0.8
+-    , generic-lens         >=2.2      && <2.4
+-    , hasql                >=1.10     && <1.11
+-    , hasql-pool           >=1.2      && <1.5
+-    , hspec                >=2.10     && <2.12
+-    , http-client          >=0.7      && <0.8
+-    , http-types           >=0.12     && <0.13
+-    , kiroku-cli           ^>=0.2.0.8
++    , aeson                >=2.1       && <2.3
++    , async                >=2.2       && <2.3
++    , base                 >=4.18      && <5
++    , bytestring           >=0.11      && <0.13
++    , containers           >=0.6       && <0.8
++    , generic-lens         >=2.2       && <2.4
++    , hasql                >=1.10      && <1.11
++    , hasql-pool           >=1.2       && <1.5
++    , hspec                >=2.10      && <2.12
++    , http-client          >=0.7       && <0.8
++    , http-types           >=0.12      && <0.13
++    , kiroku-cli           ^>=0.2.0.9
+     , kiroku-metrics
+-    , kiroku-store         ^>=0.9.0.1
++    , kiroku-store         ^>=0.10.0.0
+     , kiroku-test-support
+-    , lens                 >=5.2      && <5.4
+-    , scientific           >=0.3      && <0.4
+-    , stm                  >=2.5      && <2.6
+-    , text                 >=2.0      && <2.2
+-    , uuid                 >=1.3      && <1.4
+-    , warp                 >=3.4      && <3.5
+-    , websockets           >=0.13     && <0.14
++    , lens                 >=5.2       && <5.4
++    , scientific           >=0.3       && <0.4
++    , stm                  >=2.5       && <2.6
++    , text                 >=2.0       && <2.2
++    , uuid                 >=1.3       && <1.4
++    , warp                 >=3.4       && <3.5
++    , websockets           >=0.13      && <0.14
+diff --git a/kiroku-otel/CHANGELOG.md b/kiroku-otel/CHANGELOG.md
+index b17a284..f0baf6a 100644
+--- a/kiroku-otel/CHANGELOG.md
++++ b/kiroku-otel/CHANGELOG.md
+@@ -1,12 +1,16 @@
+ # kiroku-otel changelog
+ 
+-## Unreleased
++## 0.2.0.11 — 2026-10-10
+ 
+-* Handle the advisory `KirokuEventSubscriptionHandlerStalled` event without
+-  changing subscription span state. Stall counts are available in `kiroku-metrics`.
++### Bug Fixes
+ 
+-* Handle the typed publisher decode-failure event and distinguish
+-  `StopUndecodable` in subscription stop attributes.
++* Handle typed publisher decode failures and distinguish `StopUndecodable` in
++  subscription stop attributes. Advisory handler-stall events leave span state
++  unchanged; stall counters are supplied by kiroku-metrics.
++
++### Other Changes
++
++* Require `kiroku-store ^>=0.10.0.0`. The tracer's exported API is unchanged.
+ 
+ ## 0.2.0.10 — 2026-09-25
+ 
+diff --git a/kiroku-otel/LICENSE b/kiroku-otel/LICENSE
+new file mode 100644
+index 0000000..4f02452
+--- /dev/null
++++ b/kiroku-otel/LICENSE
+@@ -0,0 +1,11 @@
++Copyright (c) 2026 Nadeem Bitar.
++
++Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
++
++1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
++
++2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
++
++3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
++
++THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+diff --git a/kiroku-otel/kiroku-otel.cabal b/kiroku-otel/kiroku-otel.cabal
+index aaa8984..01608dd 100644
+--- a/kiroku-otel/kiroku-otel.cabal
++++ b/kiroku-otel/kiroku-otel.cabal
+@@ -1,6 +1,6 @@
+ cabal-version:   3.0
+ name:            kiroku-otel
+-version:         0.2.0.10
++version:         0.2.0.11
+ synopsis:
+   OpenTelemetry W3C trace-context helpers for Kiroku event metadata
+ 
+@@ -15,6 +15,7 @@ description:
+ author:          Nadeem Bitar
+ maintainer:      nadeem@gmail.com
+ license:         BSD-3-Clause
++license-file:    LICENSE
+ build-type:      Simple
+ category:        Database, Eventing, Observability
+ extra-doc-files: CHANGELOG.md
+@@ -42,18 +43,18 @@ library
+     Kiroku.Otel.TraceContext
+ 
+   build-depends:
+-    , aeson                                  >=2.1      && <2.3
+-    , base                                   >=4.18     && <5
+-    , bytestring                             >=0.11     && <0.13
+-    , containers                             >=0.6      && <0.8
+-    , generic-lens                           >=2.2      && <2.4
++    , aeson                                  >=2.1       && <2.3
++    , base                                   >=4.18      && <5
++    , bytestring                             >=0.11      && <0.13
++    , containers                             >=0.6       && <0.8
++    , generic-lens                           >=2.2       && <2.4
+     , hs-opentelemetry-api                   ^>=1.0
+     , hs-opentelemetry-propagator-w3c        ^>=1.0
+     , hs-opentelemetry-semantic-conventions  ^>=1.40
+-    , kiroku-store                           ^>=0.9.0.1
+-    , lens                                   >=5.2      && <5.4
+-    , text                                   >=2.0      && <2.2
+-    , unordered-containers                   >=0.2      && <0.3
++    , kiroku-store                           ^>=0.10.0.0
++    , lens                                   >=5.2       && <5.4
++    , text                                   >=2.0       && <2.2
++    , unordered-containers                   >=0.2       && <0.3
+ 
+   hs-source-dirs:  src
+ 
+@@ -64,23 +65,23 @@ test-suite kiroku-otel-test
+   hs-source-dirs: test
+   ghc-options:    -threaded -rtsopts -with-rtsopts=-N
+   build-depends:
+-    , aeson                                >=2.1      && <2.3
+-    , base                                 >=4.18     && <5
+-    , bytestring                           >=0.11     && <0.13
+-    , containers                           >=0.6      && <0.8
+-    , ephemeral-pg                         >=0.3.1    && <0.4
+-    , generic-lens                         >=2.2      && <2.4
+-    , hasql-pool                           >=1.2      && <1.5
++    , aeson                                >=2.1       && <2.3
++    , base                                 >=4.18      && <5
++    , bytestring                           >=0.11      && <0.13
++    , containers                           >=0.6       && <0.8
++    , ephemeral-pg                         >=0.3.1     && <0.4
++    , generic-lens                         >=2.2       && <2.4
++    , hasql-pool                           >=1.2       && <1.5
+     , hs-opentelemetry-api
+     , hs-opentelemetry-exporter-in-memory  ^>=1.0
+     , hs-opentelemetry-sdk                 ^>=1.0
+-    , hspec                                >=2.10     && <2.12
++    , hspec                                >=2.10      && <2.12
+     , kiroku-otel
+-    , kiroku-store                         ^>=0.9.0.1
++    , kiroku-store                         ^>=0.10.0.0
+     , kiroku-test-support
+-    , lens                                 >=5.2      && <5.4
+-    , stm                                  >=2.5      && <2.6
+-    , text                                 >=2.0      && <2.2
+-    , time                                 >=1.12     && <1.15
+-    , unordered-containers                 >=0.2      && <0.3
+-    , uuid                                 >=1.3      && <1.4
++    , lens                                 >=5.2       && <5.4
++    , stm                                  >=2.5       && <2.6
++    , text                                 >=2.0       && <2.2
++    , time                                 >=1.12      && <1.15
++    , unordered-containers                 >=0.2       && <0.3
++    , uuid                                 >=1.3       && <1.4
+diff --git a/kiroku-store-migrations/CHANGELOG.md b/kiroku-store-migrations/CHANGELOG.md
+index 14c47b9..d658c97 100644
+--- a/kiroku-store-migrations/CHANGELOG.md
++++ b/kiroku-store-migrations/CHANGELOG.md
+@@ -1,12 +1,19 @@
+ # Changelog
+ 
+-## Unreleased
++## 0.7.0.0 — 2026-10-10
+ 
+-- Migration 0014 adds checked, unindexed target-binding columns and removes the unused subscription `stream_name`. Stop workers before applying it; constant defaults do not rewrite legacy rows.
++### Breaking Changes
+ 
+-* Migration `0013.sql` derives persisted consumer-group size from existing member
+-  rows. Apply with subscription workers stopped; incomplete legacy groups are
+-  refused on next startup until explicitly resized to the intended topology.
++* Migration 0014 adds checked, unindexed subscription target-binding columns and
++  removes the unused `stream_name` column. Stop subscription workers before
++  applying the cohort's migrations and restart with kiroku-store 0.10.0.0.
++  Constant defaults do not rewrite legacy rows.
++
++### New Features
++
++* Migration 0013 derives persisted consumer-group size from existing member rows.
++  Incomplete legacy groups refuse on next startup until explicitly resized to
++  the intended topology. Both migrations are included in the embedded manifest.
+ 
+ ## 0.6.0.0 — 2026-09-25
+ 
+diff --git a/kiroku-store-migrations/LICENSE b/kiroku-store-migrations/LICENSE
+new file mode 100644
+index 0000000..4f02452
+--- /dev/null
++++ b/kiroku-store-migrations/LICENSE
+@@ -0,0 +1,11 @@
++Copyright (c) 2026 Nadeem Bitar.
++
++Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
++
++1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
++
++2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
++
++3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
++
++THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+diff --git a/kiroku-store-migrations/kiroku-store-migrations.cabal b/kiroku-store-migrations/kiroku-store-migrations.cabal
+index d1a7ed6..68387da 100644
+--- a/kiroku-store-migrations/kiroku-store-migrations.cabal
++++ b/kiroku-store-migrations/kiroku-store-migrations.cabal
+@@ -1,6 +1,6 @@
+ cabal-version:      3.0
+ name:               kiroku-store-migrations
+-version:            0.6.0.0
++version:            0.7.0.0
+ synopsis:           Schema migrations for kiroku-store
+ description:
+   Native pg-migrate component, Codd history mapping, and migration executable
+@@ -11,6 +11,7 @@ bug-reports:        https://github.com/shinzui/kiroku/issues
+ author:             Nadeem Bitar
+ maintainer:         nadeem@gmail.com
+ license:            BSD-3-Clause
++license-file:       LICENSE
+ build-type:         Simple
+ category:           Database, Eventing
+ extra-doc-files:    CHANGELOG.md
+diff --git a/kiroku-store/CHANGELOG.md b/kiroku-store/CHANGELOG.md
+index 4c93435..1ce8dba 100644
+--- a/kiroku-store/CHANGELOG.md
++++ b/kiroku-store/CHANGELOG.md
+@@ -1,44 +1,47 @@
+ # Changelog
+ 
+-## Unreleased
++## 0.10.0.0 — 2026-10-10
+ 
+-* Append unique violations now compare exact constraint names. Both `events_pkey`
+-  and `stream_events_pkey` return `DuplicateEvent` with the caller ID when parseable;
+-  `ux_stream_events_stream_version` returns `UnexpectedServerError "23505"` with
+-  the original message because it indicates an internal invariant failure.
+-  Transaction, link and multi-stream attribution share the same name extraction.
+-  Unknown append unique constraints retain the existing expected-version fallback.
++### Breaking Changes
+ 
+-* **Breaking:** subscription configs add `handlerStallWarnAfter`, disabled by
+-  default. A positive `Just seconds` enables a scoped handler watchdog and the
+-  advisory `KirokuEventSubscriptionHandlerStalled` event. Nonpositive intervals
+-  fail through `InvalidHandlerStallWarnAfter` under `SomeSubscriptionStartupFailure`
+-  on `wait`, before checkpoint initialization. Diagnostics never acknowledge,
+-  retry or checkpoint a pending event; the default path adds no tracking work.
++* `ConsumerGroup` and `ConsumerGroupSize` are opaque validated types. Construct
++  them with `mkConsumerGroupSize` and `mkConsumerGroup`; use `mkBatchSize` for
++  positive subscription batches and `mkStreamBufferSize` for bridge capacities.
++* `decodeHook` returns `Either DecodeFailure RecordedEvent` in IO;
++  `decodeEvents` returns `DecodedBatch`. Return `Right` from successful hooks.
++* `SubscriptionConfigM` adds `undecodableHandler` (default `Nothing`) and
++  `handlerStallWarnAfter` (default `Nothing`). Observers must handle typed
++  publisher decode failures, group-size mismatch, advisory handler stalls and
++  `StopUndecodable`.
++* Apply migrations 0013 and 0014 from kiroku-store-migrations 0.7.0.0 with
++  subscription workers stopped. Startup verifies persisted group size and
++  target binding. Declare adoption of legacy targets explicitly; incompatible
++  restart refuses before delivery through `SomeSubscriptionStartupFailure`.
+ 
+-* **Breaking:** `decodeHook` now returns `Either DecodeFailure RecordedEvent` in
+-  IO. Return `Right` for existing successful hooks. `decodeEvents` now returns
+-  `DecodedBatch`, with an unchanged-vector fast path when no hook is installed.
+-* **Breaking:** `SubscriptionConfigM` adds `undecodableHandler` (default `Nothing`).
+-  Typed failures no longer stall the shared publisher. Default bounded retries
+-  end with `StopUndecodable` / `SubscriptionUndecodable` and preserve the checkpoint
+-  before the failed event. Explicit callbacks can skip, stop, retry, or record
++### New Features
++
++* Public `resizeConsumerGroupTx` equalizes every new member at the old minimum
++  checkpoint and returns `ConsumerGroupResizeReport`, composing with caller SQL.
++  Stop every member before resizing, including same-size hash-assignment changes.
++* Public `rebindSubscriptionTargetTx` atomically changes a stopped subscription's
++  target. Resize preserves target bindings.
++* Typed undecodable events use bounded retries and preserve the checkpoint before
++  a failed event. Explicit callbacks can skip, stop, retry or dead-letter with
+   `DeadLetterDecodeFailure`; reads return `EventDecodeFailed` without partial data.
+-* Observers must account for `KirokuEventPublisherDecodeFailed` and
+-  `StopUndecodable`. Hook exceptions remain programming failures.
++* A positive `handlerStallWarnAfter` enables a scoped advisory watchdog. Invalid
++  intervals refuse on `wait` before checkpoint initialization. Warnings do not
++  acknowledge, retry or checkpoint an event; the default path has no tracking work.
+ 
++### Bug Fixes
+ 
+-- **Breaking:** Validated `BatchSize` and bridge `StreamBufferSize`; shared `SomeSubscriptionStartupFailure` exception hierarchy; live reconnect retains processed progress. Checkpoints persist target identity, enforce declared legacy adoption, and support atomic `rebindSubscriptionTargetTx`. Resize preserves target bindings.
+-
+-* **Breaking:** `ConsumerGroup` and positive `ConsumerGroupSize` are opaque;
+-  use `mkConsumerGroupSize` and `mkConsumerGroup`. Invalid membership is an
+-  `Either InvalidConsumerGroup` construction error, not a startup exception.
+-* Checkpoints persist group size on startup, ordinary saves, and dead-letter saves.
+-  `ConsumerGroupSizeMismatch` refuses incompatible restart before delivery and
+-  emits `KirokuEventSubscriptionGroupSizeMismatch`.
+-* `resizeConsumerGroupTx` explicitly equalizes every new member at the old minimum
+-  checkpoint, returning `ConsumerGroupResizeReport` and composing with caller SQL.
+-  Stop all members before resize, including same-size hash-assignment changes.
++* Live reconnect retains processed progress. Typed hook failures no longer stall
++  the shared publisher; absent hooks retain the unchanged-vector fast path.
++  Hook exceptions remain programming failures.
++* Match unique constraints by exact name across append, transaction, link and
++  multi-stream error attribution. `events_pkey` and `stream_events_pkey` return
++  `DuplicateEvent` with a parseable caller ID. `ux_stream_events_stream_version`
++  returns `UnexpectedServerError "23505"` with the original message for an
++  invariant failure. Unknown append constraints retain the expected-version fallback.
+ 
+ ## 0.9.0.1 — 2026-09-25
+ 
+diff --git a/kiroku-store/LICENSE b/kiroku-store/LICENSE
+new file mode 100644
+index 0000000..4f02452
+--- /dev/null
++++ b/kiroku-store/LICENSE
+@@ -0,0 +1,11 @@
++Copyright (c) 2026 Nadeem Bitar.
++
++Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
++
++1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
++
++2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
++
++3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
++
++THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+diff --git a/kiroku-store/kiroku-store.cabal b/kiroku-store/kiroku-store.cabal
+index f7a9213..0077e81 100644
+--- a/kiroku-store/kiroku-store.cabal
++++ b/kiroku-store/kiroku-store.cabal
+@@ -1,6 +1,6 @@
+ cabal-version:   3.0
+ name:            kiroku-store
+-version:         0.9.0.1
++version:         0.10.0.0
+ synopsis:        High-performance PostgreSQL event store
+ description:
+   Kiroku is a PostgreSQL-backed event store for Haskell applications. It
+@@ -12,6 +12,7 @@ bug-reports:     https://github.com/shinzui/kiroku/issues
+ author:          Nadeem Bitar
+ maintainer:      nadeem@gmail.com
+ license:         BSD-3-Clause
++license-file:    LICENSE
+ build-type:      Simple
+ category:        Database, Eventing
+ extra-doc-files: CHANGELOG.md
+diff --git a/shibuya-kiroku-adapter/CHANGELOG.md b/shibuya-kiroku-adapter/CHANGELOG.md
+index d127f29..172fce6 100644
+--- a/shibuya-kiroku-adapter/CHANGELOG.md
++++ b/shibuya-kiroku-adapter/CHANGELOG.md
+@@ -1,19 +1,25 @@
+ # Changelog
+ 
+-## Unreleased
++## 0.6.0.0 — 2026-10-10
+ 
+-* Add `kirokuProcessor`, composing the existing single-processor defaults
+-  (`Unordered`, `Serial`) with the one-second synchronous exception retry guard.
+-* **Breaking:** both adapter configs add `retryPolicy` (five total deliveries)
+-  and `handlerStallWarnAfter` (`Nothing`), forwarded to every underlying worker.
+-  A pending raw acknowledgement remains pending; enabled warnings are advisory.
++### Breaking Changes
+ 
+-- **Breaking:** Both adapter configurations use the store’s validated `BatchSize` and `StreamBufferSize` capacities.
++* Both configurations use validated `BatchSize` and `StreamBufferSize` capacities.
++  `KirokuConsumerGroupConfig.groupSize` and `defaultConsumerGroupConfig` take
++  validated `ConsumerGroupSize`; smart constructors and read-only accessors are
++  re-exported.
++* Both configurations add `retryPolicy` (five total deliveries) and
++  `handlerStallWarnAfter` (default `Nothing`), forwarded to each underlying worker.
++  Pending raw acknowledgements remain pending; enabled warnings are advisory.
+ 
+-* **Breaking:** `KirokuConsumerGroupConfig.groupSize` and
+-  `defaultConsumerGroupConfig` now take validated `ConsumerGroupSize`. Construct
+-  membership with `mkConsumerGroupSize`/`mkConsumerGroup`; non-positive sizes are
+-  rejected at construction. Re-export the smart constructors and read-only accessors.
++### New Features
++
++* Add `kirokuProcessor`, composing single-processor defaults (`Unordered`,
++  `Serial`) with the one-second synchronous exception retry guard.
++
++### Other Changes
++
++* Require `kiroku-store ^>=0.10.0.0`.
+ 
+ ## 0.5.1.5 — 2026-09-25
+ 
+diff --git a/shibuya-kiroku-adapter/LICENSE b/shibuya-kiroku-adapter/LICENSE
+new file mode 100644
+index 0000000..4f02452
+--- /dev/null
++++ b/shibuya-kiroku-adapter/LICENSE
+@@ -0,0 +1,11 @@
++Copyright (c) 2026 Nadeem Bitar.
++
++Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
++
++1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
++
++2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
++
++3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
++
++THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+diff --git a/shibuya-kiroku-adapter/shibuya-kiroku-adapter.cabal b/shibuya-kiroku-adapter/shibuya-kiroku-adapter.cabal
+index 57de73a..f19579c 100644
+--- a/shibuya-kiroku-adapter/shibuya-kiroku-adapter.cabal
++++ b/shibuya-kiroku-adapter/shibuya-kiroku-adapter.cabal
+@@ -1,6 +1,6 @@
+ cabal-version:   3.0
+ name:            shibuya-kiroku-adapter
+-version:         0.5.1.5
++version:         0.6.0.0
+ synopsis:
+   Kiroku event store adapter for the Shibuya queue processing framework
+ 
+@@ -18,6 +18,7 @@ description:
+ author:          Nadeem Bitar
+ maintainer:      nadeem@gmail.com
+ license:         BSD-3-Clause
++license-file:    LICENSE
+ build-type:      Simple
+ category:        Concurrency, Database, Eventing
+ extra-doc-files: CHANGELOG.md
+@@ -59,20 +60,20 @@ library
+     Shibuya.Adapter.Kiroku.Convert
+ 
+   build-depends:
+-    , aeson                                  >=2.1      && <2.3
+-    , base                                   >=4.18     && <5
+-    , effectful-core                         >=2.6.1    && <2.7  || >=2.7.1.1 && <2.8
++    , aeson                                  >=2.1       && <2.3
++    , base                                   >=4.18      && <5
++    , effectful-core                         >=2.6.1     && <2.7  || >=2.7.1.1 && <2.8
+     , hs-opentelemetry-api                   ^>=1.0
+     , hs-opentelemetry-semantic-conventions  ^>=1.40
+-    , kiroku-store                           ^>=0.9.0.1
+-    , shibuya-core                           >=0.10     && <0.11
++    , kiroku-store                           ^>=0.10.0.0
++    , shibuya-core                           >=0.10      && <0.11
+     , shibuya-kiroku-adapter-internal
+-    , stm                                    >=2.5      && <2.6
+-    , streamly-core                          >=0.3      && <0.4
+-    , text                                   >=2.0      && <2.2
+-    , time                                   >=1.12     && <1.15
+-    , unordered-containers                   >=0.2      && <0.3
+-    , uuid                                   >=1.3      && <1.4
++    , stm                                    >=2.5       && <2.6
++    , streamly-core                          >=0.3       && <0.4
++    , text                                   >=2.0       && <2.2
++    , time                                   >=1.12      && <1.15
++    , unordered-containers                   >=0.2       && <0.3
++    , uuid                                   >=1.3       && <1.4
+ 
+   hs-source-dirs:  src
+ 
+@@ -83,30 +84,30 @@ test-suite shibuya-kiroku-adapter-test
+   hs-source-dirs: test
+   ghc-options:    -threaded -rtsopts -with-rtsopts=-N
+   build-depends:
+-    , aeson                            >=2.1      && <2.3
+-    , base                             >=4.18     && <5
+-    , containers                       >=0.6      && <0.8
++    , aeson                            >=2.1       && <2.3
++    , base                             >=4.18      && <5
++    , containers                       >=0.6       && <0.8
+     , directory
+-    , effectful                        >=2.6.1    && <2.8
+-    , effectful-core                   >=2.6.1    && <2.7  || >=2.7.1.1 && <2.8
+-    , ephemeral-pg                     >=0.3.1    && <0.4
+-    , generic-lens                     >=2.2      && <2.4
+-    , hasql                            >=1.10     && <1.11
+-    , hasql-pool                       >=1.2      && <1.5
++    , effectful                        >=2.6.1     && <2.8
++    , effectful-core                   >=2.6.1     && <2.7  || >=2.7.1.1 && <2.8
++    , ephemeral-pg                     >=0.3.1     && <0.4
++    , generic-lens                     >=2.2       && <2.4
++    , hasql                            >=1.10      && <1.11
++    , hasql-pool                       >=1.2       && <1.5
+     , hs-opentelemetry-api             ^>=1.0
+-    , hspec                            >=2.10     && <2.12
+-    , kiroku-store                     ^>=0.9.0.1
++    , hspec                            >=2.10      && <2.12
++    , kiroku-store                     ^>=0.10.0.0
+     , kiroku-test-support              ^>=0.1.0.0
+-    , lens                             >=5.2      && <5.4
+-    , shibuya-core                     >=0.10     && <0.11
++    , lens                             >=5.2       && <5.4
++    , shibuya-core                     >=0.10      && <0.11
+     , shibuya-kiroku-adapter
+     , shibuya-kiroku-adapter-internal
+-    , stm                              >=2.5      && <2.6
+-    , streamly-core                    >=0.3      && <0.4
+-    , text                             >=2.0      && <2.2
+-    , time                             >=1.12     && <1.15
+-    , unordered-containers             >=0.2      && <0.3
+-    , uuid                             >=1.3      && <1.4
++    , stm                              >=2.5       && <2.6
++    , streamly-core                    >=0.3       && <0.4
++    , text                             >=2.0       && <2.2
++    , time                             >=1.12      && <1.15
++    , unordered-containers             >=0.2       && <0.3
++    , uuid                             >=1.3       && <1.4
+ 
+ -- EP-45 live-store performance, restart, backlog, and retained-memory fixture.
+ -- The executable owns an ephemeral PostgreSQL instance and emits the common
+@@ -122,21 +123,21 @@ executable lifecycle-live
+   ghc-options:        -threaded -rtsopts "-with-rtsopts=-N4 -T -A32m" -O2
+   default-extensions: OverloadedRecordDot
+   build-depends:
+-    , aeson                   >=2.1      && <2.3
+-    , async                   >=2.2      && <2.3
+-    , base                    >=4.18     && <5
+-    , bytestring              >=0.11     && <0.13
+-    , containers              >=0.6      && <0.8
+-    , effectful-core          >=2.6.1    && <2.7  || >=2.7.1.1 && <2.8
+-    , ephemeral-pg            >=0.3.1    && <0.4
+-    , kiroku-store            ^>=0.9.0.1
++    , aeson                   >=2.1       && <2.3
++    , async                   >=2.2       && <2.3
++    , base                    >=4.18      && <5
++    , bytestring              >=0.11      && <0.13
++    , containers              >=0.6       && <0.8
++    , effectful-core          >=2.6.1     && <2.7  || >=2.7.1.1 && <2.8
++    , ephemeral-pg            >=0.3.1     && <0.4
++    , kiroku-store            ^>=0.10.0.0
+     , kiroku-test-support     ^>=0.1.0.0
+-    , shibuya-core            >=0.10     && <0.11
++    , shibuya-core            >=0.10      && <0.11
+     , shibuya-kiroku-adapter
+-    , stm                     >=2.5      && <2.6
+-    , text                    >=2.0      && <2.2
+-    , time                    >=1.12     && <1.15
+-    , vector                  >=0.13     && <0.14
++    , stm                     >=2.5       && <2.6
++    , text                    >=2.0       && <2.2
++    , time                    >=1.12      && <1.15
++    , vector                  >=0.13      && <0.14
+ 
+ -- MP-12: identical durable mixed-workload probe for control/candidate builds.
+ benchmark kiroku-mp12-write-probe

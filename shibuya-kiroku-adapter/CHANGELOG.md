@@ -1,19 +1,25 @@
 # Changelog
 
-## Unreleased
+## 0.6.0.0 — 2026-10-10
 
-* Add `kirokuProcessor`, composing the existing single-processor defaults
-  (`Unordered`, `Serial`) with the one-second synchronous exception retry guard.
-* **Breaking:** both adapter configs add `retryPolicy` (five total deliveries)
-  and `handlerStallWarnAfter` (`Nothing`), forwarded to every underlying worker.
-  A pending raw acknowledgement remains pending; enabled warnings are advisory.
+### Breaking Changes
 
-- **Breaking:** Both adapter configurations use the store’s validated `BatchSize` and `StreamBufferSize` capacities.
+* Both configurations use validated `BatchSize` and `StreamBufferSize` capacities.
+  `KirokuConsumerGroupConfig.groupSize` and `defaultConsumerGroupConfig` take
+  validated `ConsumerGroupSize`; smart constructors and read-only accessors are
+  re-exported.
+* Both configurations add `retryPolicy` (five total deliveries) and
+  `handlerStallWarnAfter` (default `Nothing`), forwarded to each underlying worker.
+  Pending raw acknowledgements remain pending; enabled warnings are advisory.
 
-* **Breaking:** `KirokuConsumerGroupConfig.groupSize` and
-  `defaultConsumerGroupConfig` now take validated `ConsumerGroupSize`. Construct
-  membership with `mkConsumerGroupSize`/`mkConsumerGroup`; non-positive sizes are
-  rejected at construction. Re-export the smart constructors and read-only accessors.
+### New Features
+
+* Add `kirokuProcessor`, composing single-processor defaults (`Unordered`,
+  `Serial`) with the one-second synchronous exception retry guard.
+
+### Other Changes
+
+* Require `kiroku-store ^>=0.10.0.0`.
 
 ## 0.5.1.5 — 2026-09-25
 

@@ -1,0 +1,10 @@
+{
+  "source": "https://raw.githubusercontent.com/spdx/license-list-data/main/text/BSD-3-Clause.txt",
+  "spdx": "https://spdx.org/licenses/BSD-3-Clause.html",
+  "copyright": "2026 Nadeem Bitar",
+  "basis": "Existing BSD-3-Clause package declarations and author; repository history begins in 2026.",
+  "source_repository": "mori://spdx/license-list-data",
+  "project_relative_path": "text/BSD-3-Clause.txt",
+  "artifact_uri_status": "Artifact-level URI pending; canonical project reference included with the upstream retrieval URL.",
+  "normalization": "Remove trailing whitespace from license text; terms unchanged."
+}

@@ -1,0 +1,1287 @@
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - hasql-1.10.3.7 (lib) (requires build)
+ - http-client-tls-0.3.6.1 (lib) (requires build)
+ - http2-5.4.8 (lib) (requires build)
+ - shibuya-kiroku-adapter-0.6.0.0 (lib:shibuya-kiroku-adapter-internal) (configuration changed)
+ - hasql-transaction-1.2.3.1 (lib) (requires build)
+ - hasql-pool-1.4.2.3 (lib) (requires build)
+ - warp-3.4.16 (lib) (requires build)
+ - pg-migrate-1.2.0.0 (lib) (requires build)
+ - hasql-notifications-0.2.5.0 (lib) (requires build)
+ - pg-migrate-embed-1.2.0.0 (lib) (requires build)
+ - kiroku-store-0.10.0.0 (lib) (configuration changed)
+ - pg-migrate-cli-1.2.0.0 (lib) (requires build)
+ - shibuya-kiroku-adapter-0.6.0.0 (lib) (configuration changed)
+ - kiroku-otel-0.2.0.11 (lib) (configuration changed)
+ - kiroku-cli-0.2.0.9 (lib) (configuration changed)
+ - pg-migrate-import-codd-1.2.0.0 (lib) (requires build)
+ - kiroku-metrics-0.2.0.0 (lib) (configuration changed)
+ - kiroku-store-migrations-0.7.0.0 (lib) (configuration changed)
+Starting     http-client-tls-0.3.6.1 (lib)
+Configuring library 'shibuya-kiroku-adapter-internal' for shibuya-kiroku-adapter-0.6.0.0...
+Starting     hasql-1.10.3.7 (lib)
+Starting     http2-5.4.8 (lib)
+Building     http-client-tls-0.3.6.1 (lib)
+Building     hasql-1.10.3.7 (lib)
+Preprocessing library 'shibuya-kiroku-adapter-internal' for shibuya-kiroku-adapter-0.6.0.0...
+Building library 'shibuya-kiroku-adapter-internal' for shibuya-kiroku-adapter-0.6.0.0...
+Building     http2-5.4.8 (lib)
+[1 of 1] Compiling Shibuya.Adapter.Kiroku.Internal ( internal/Shibuya/Adapter/Kiroku/Internal.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.6.0.0/l/shibuya-kiroku-adapter-internal/build/shibuya-kiroku-adapter-internal/Shibuya/Adapter/Kiroku/Internal.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.6.0.0/l/shibuya-kiroku-adapter-internal/build/shibuya-kiroku-adapter-internal/Shibuya/Adapter/Kiroku/Internal.dyn_o ) [Flags changed]
+Preprocessing library 'shibuya-kiroku-adapter-internal' for shibuya-kiroku-adapter-0.6.0.0...
+Running Haddock on library 'shibuya-kiroku-adapter-internal' for shibuya-kiroku-adapter-0.6.0.0...
+Haddock      http-client-tls-0.3.6.1 (lib)
+[1 of 1] Compiling Shibuya.Adapter.Kiroku.Internal ( internal/Shibuya/Adapter/Kiroku/Internal.hs, nothing )
+Haddock coverage:
+  50% (  1 /  2) in 'Shibuya.Adapter.Kiroku.Internal'
+  Missing documentation for:
+    Module header
+Documentation created:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.6.0.0/l/shibuya-kiroku-adapter-internal/doc/html/shibuya-kiroku-adapter-0.6.0.0-docs/shibuya-kiroku-adapter-internal,
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.6.0.0/l/shibuya-kiroku-adapter-internal/doc/html/shibuya-kiroku-adapter-0.6.0.0-docs/shibuya-kiroku-adapter-internal/shibuya-kiroku-adapter.txt
+Documentation tarball created:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/shibuya-kiroku-adapter-0.6.0.0-docs.tar.gz
+Installing   http-client-tls-0.3.6.1 (lib)
+Completed    http-client-tls-0.3.6.1 (lib)
+Haddock      http2-5.4.8 (lib)
+Installing   http2-5.4.8 (lib)
+Haddock      hasql-1.10.3.7 (lib)
+Completed    http2-5.4.8 (lib)
+Starting     warp-3.4.16 (lib)
+Building     warp-3.4.16 (lib)
+Haddock      warp-3.4.16 (lib)
+Installing   hasql-1.10.3.7 (lib)
+Completed    hasql-1.10.3.7 (lib)
+Starting     hasql-transaction-1.2.3.1 (lib)
+Starting     hasql-pool-1.4.2.3 (lib)
+Installing   warp-3.4.16 (lib)
+Building     hasql-pool-1.4.2.3 (lib)
+Building     hasql-transaction-1.2.3.1 (lib)
+Completed    warp-3.4.16 (lib)
+Haddock      hasql-pool-1.4.2.3 (lib)
+Haddock      hasql-transaction-1.2.3.1 (lib)
+Installing   hasql-transaction-1.2.3.1 (lib)
+Installing   hasql-pool-1.4.2.3 (lib)
+Completed    hasql-transaction-1.2.3.1 (lib)
+Starting     pg-migrate-1.2.0.0 (lib)
+Completed    hasql-pool-1.4.2.3 (lib)
+Starting     hasql-notifications-0.2.5.0 (lib)
+Building     pg-migrate-1.2.0.0 (lib)
+Building     hasql-notifications-0.2.5.0 (lib)
+Haddock      hasql-notifications-0.2.5.0 (lib)
+Installing   hasql-notifications-0.2.5.0 (lib)
+Completed    hasql-notifications-0.2.5.0 (lib)
+Configuring library for kiroku-store-0.10.0.0...
+Haddock      pg-migrate-1.2.0.0 (lib)
+Preprocessing library for kiroku-store-0.10.0.0...
+Building library for kiroku-store-0.10.0.0...
+[ 1 of 30] Compiling Kiroku.Store.Types ( src/Kiroku/Store/Types.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Types.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Types.dyn_o ) [Flags changed]
+[ 2 of 30] Compiling Kiroku.Store.Settings ( src/Kiroku/Store/Settings.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Settings.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Settings.dyn_o ) [Flags changed]
+[ 3 of 30] Compiling Kiroku.Store.Subscription.Fsm ( src/Kiroku/Store/Subscription/Fsm.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Fsm.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Fsm.dyn_o ) [Flags changed]
+[ 4 of 30] Compiling Kiroku.Store.Subscription.Types ( src/Kiroku/Store/Subscription/Types.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Types.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Types.dyn_o ) [Flags changed]
+[ 5 of 30] Compiling Kiroku.Store.Subscription.CheckpointInventory.SQL ( src/Kiroku/Store/Subscription/CheckpointInventory/SQL.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/CheckpointInventory/SQL.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/CheckpointInventory/SQL.dyn_o ) [Flags changed]
+[ 6 of 30] Compiling Kiroku.Store.SQL ( src/Kiroku/Store/SQL.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/SQL.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/SQL.dyn_o ) [Flags changed]
+Installing   pg-migrate-1.2.0.0 (lib)
+Completed    pg-migrate-1.2.0.0 (lib)
+Starting     pg-migrate-embed-1.2.0.0 (lib)
+[ 7 of 30] Compiling Kiroku.Store.Subscription.Checkpoint.SQL ( src/Kiroku/Store/Subscription/Checkpoint/SQL.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Checkpoint/SQL.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Checkpoint/SQL.dyn_o ) [Flags changed]
+Building     pg-migrate-embed-1.2.0.0 (lib)
+[ 8 of 30] Compiling Kiroku.Store.Subscription.Checkpoint ( src/Kiroku/Store/Subscription/Checkpoint.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Checkpoint.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Checkpoint.dyn_o ) [Flags changed]
+[ 9 of 30] Compiling Kiroku.Store.HistoryRetention.Types ( src/Kiroku/Store/HistoryRetention/Types.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/HistoryRetention/Types.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/HistoryRetention/Types.dyn_o ) [Flags changed]
+[10 of 30] Compiling Kiroku.Store.Observability ( src/Kiroku/Store/Observability.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Observability.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Observability.dyn_o ) [Flags changed]
+[11 of 30] Compiling Kiroku.Store.Subscription.EventPublisher ( src/Kiroku/Store/Subscription/EventPublisher.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/EventPublisher.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/EventPublisher.dyn_o ) [Flags changed]
+[12 of 30] Compiling Kiroku.Store.Subscription.Worker ( src/Kiroku/Store/Subscription/Worker.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Worker.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Worker.dyn_o ) [Flags changed]
+Haddock      pg-migrate-embed-1.2.0.0 (lib)
+[13 of 30] Compiling Kiroku.Store.Notification ( src/Kiroku/Store/Notification.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Notification.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Notification.dyn_o ) [Flags changed]
+[14 of 30] Compiling Kiroku.Store.Connection ( src/Kiroku/Store/Connection.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Connection.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Connection.dyn_o ) [Flags changed]
+[15 of 30] Compiling Kiroku.Store.Effect.Resource ( src/Kiroku/Store/Effect/Resource.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Effect/Resource.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Effect/Resource.dyn_o ) [Flags changed]
+[16 of 30] Compiling Kiroku.Store.HistoryRetention.SQL ( src/Kiroku/Store/HistoryRetention/SQL.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/HistoryRetention/SQL.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/HistoryRetention/SQL.dyn_o ) [Flags changed]
+[17 of 30] Compiling Kiroku.Store.HistoryRetention.Internal ( src/Kiroku/Store/HistoryRetention/Internal.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/HistoryRetention/Internal.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/HistoryRetention/Internal.dyn_o ) [Flags changed]
+[18 of 30] Compiling Kiroku.Store.Error ( src/Kiroku/Store/Error.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Error.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Error.dyn_o ) [Flags changed]
+[19 of 30] Compiling Kiroku.Store.Effect ( src/Kiroku/Store/Effect.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Effect.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Effect.dyn_o ) [Flags changed]
+[20 of 30] Compiling Kiroku.Store.Transaction ( src/Kiroku/Store/Transaction.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Transaction.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Transaction.dyn_o ) [Flags changed]
+[21 of 30] Compiling Kiroku.Store.Subscription ( src/Kiroku/Store/Subscription.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription.dyn_o ) [Flags changed]
+src/Kiroku/Store/Subscription.hs:271:51: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store.Subscription.Types’ at src/Kiroku/Store/Subscription.hs:37:1-38
+      (and originally defined
+         at src/Kiroku/Store/Subscription/Types.hs:542:1-6)
+    |
+271 | initializeSubscriptionCheckpoint subscriptionName member policy =
+    |                                                   ^^^^^^
+
+[22 of 30] Compiling Kiroku.Store.Subscription.Stream ( src/Kiroku/Store/Subscription/Stream.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Stream.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Stream.dyn_o ) [Flags changed]
+[23 of 30] Compiling Kiroku.Store.Subscription.Effect ( src/Kiroku/Store/Subscription/Effect.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Effect.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Effect.dyn_o ) [Flags changed]
+[24 of 30] Compiling Kiroku.Store.Read ( src/Kiroku/Store/Read.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Read.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Read.dyn_o ) [Flags changed]
+[25 of 30] Compiling Kiroku.Store.Link ( src/Kiroku/Store/Link.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Link.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Link.dyn_o ) [Flags changed]
+[26 of 30] Compiling Kiroku.Store.Lifecycle ( src/Kiroku/Store/Lifecycle.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Lifecycle.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Lifecycle.dyn_o ) [Flags changed]
+[27 of 30] Compiling Kiroku.Store.HistoryRetention ( src/Kiroku/Store/HistoryRetention.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/HistoryRetention.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/HistoryRetention.dyn_o ) [Flags changed]
+[28 of 30] Compiling Kiroku.Store.Causation ( src/Kiroku/Store/Causation.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Causation.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Causation.dyn_o ) [Flags changed]
+[29 of 30] Compiling Kiroku.Store.Append ( src/Kiroku/Store/Append.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Append.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Append.dyn_o ) [Flags changed]
+[30 of 30] Compiling Kiroku.Store     ( src/Kiroku/Store.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store.dyn_o ) [Flags changed]
+Preprocessing library for kiroku-store-0.10.0.0...
+Running Haddock on library for kiroku-store-0.10.0.0...
+Warning: The following packages have no Haddock documentation installed. No
+links will be generated to these packages: postgresql-libpq-configure-0.11,
+attoparsec-0.14.4
+[ 1 of 30] Compiling Kiroku.Store.Types ( src/Kiroku/Store/Types.hs, nothing ) [HIE file is missing]
+[ 2 of 30] Compiling Kiroku.Store.Settings ( src/Kiroku/Store/Settings.hs, nothing ) [HIE file is missing]
+[ 3 of 30] Compiling Kiroku.Store.Subscription.Fsm ( src/Kiroku/Store/Subscription/Fsm.hs, nothing ) [HIE file is missing]
+[ 4 of 30] Compiling Kiroku.Store.Subscription.Types ( src/Kiroku/Store/Subscription/Types.hs, nothing ) [HIE file is missing]
+[ 5 of 30] Compiling Kiroku.Store.Subscription.CheckpointInventory.SQL ( src/Kiroku/Store/Subscription/CheckpointInventory/SQL.hs, nothing ) [HIE file is missing]
+[ 6 of 30] Compiling Kiroku.Store.SQL ( src/Kiroku/Store/SQL.hs, nothing ) [HIE file is missing]
+[ 7 of 30] Compiling Kiroku.Store.Subscription.Checkpoint.SQL ( src/Kiroku/Store/Subscription/Checkpoint/SQL.hs, nothing ) [HIE file is missing]
+[ 8 of 30] Compiling Kiroku.Store.Subscription.Checkpoint ( src/Kiroku/Store/Subscription/Checkpoint.hs, nothing ) [HIE file is missing]
+[ 9 of 30] Compiling Kiroku.Store.HistoryRetention.Types ( src/Kiroku/Store/HistoryRetention/Types.hs, nothing ) [HIE file is missing]
+Installing   pg-migrate-embed-1.2.0.0 (lib)
+[10 of 30] Compiling Kiroku.Store.Observability ( src/Kiroku/Store/Observability.hs, nothing ) [HIE file is missing]
+[11 of 30] Compiling Kiroku.Store.Subscription.EventPublisher ( src/Kiroku/Store/Subscription/EventPublisher.hs, nothing ) [HIE file is missing]
+[12 of 30] Compiling Kiroku.Store.Subscription.Worker ( src/Kiroku/Store/Subscription/Worker.hs, nothing ) [HIE file is missing]
+[13 of 30] Compiling Kiroku.Store.Notification ( src/Kiroku/Store/Notification.hs, nothing ) [HIE file is missing]
+[14 of 30] Compiling Kiroku.Store.Connection ( src/Kiroku/Store/Connection.hs, nothing ) [HIE file is missing]
+[15 of 30] Compiling Kiroku.Store.Effect.Resource ( src/Kiroku/Store/Effect/Resource.hs, nothing ) [HIE file is missing]
+[16 of 30] Compiling Kiroku.Store.HistoryRetention.SQL ( src/Kiroku/Store/HistoryRetention/SQL.hs, nothing ) [HIE file is missing]
+[17 of 30] Compiling Kiroku.Store.HistoryRetention.Internal ( src/Kiroku/Store/HistoryRetention/Internal.hs, nothing ) [HIE file is missing]
+[18 of 30] Compiling Kiroku.Store.Error ( src/Kiroku/Store/Error.hs, nothing ) [HIE file is missing]
+[19 of 30] Compiling Kiroku.Store.Effect ( src/Kiroku/Store/Effect.hs, nothing ) [HIE file is missing]
+[20 of 30] Compiling Kiroku.Store.Transaction ( src/Kiroku/Store/Transaction.hs, nothing ) [HIE file is missing]
+[21 of 30] Compiling Kiroku.Store.Subscription ( src/Kiroku/Store/Subscription.hs, nothing ) [HIE file is missing]
+src/Kiroku/Store/Subscription.hs:271:51: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store.Subscription.Types’ at src/Kiroku/Store/Subscription.hs:37:1-38
+      (and originally defined
+         at src/Kiroku/Store/Subscription/Types.hs:542:1-6)
+    |
+271 | initializeSubscriptionCheckpoint subscriptionName member policy =
+    |                                                   ^^^^^^
+
+[22 of 30] Compiling Kiroku.Store.Subscription.Stream ( src/Kiroku/Store/Subscription/Stream.hs, nothing ) [HIE file is missing]
+[23 of 30] Compiling Kiroku.Store.Subscription.Effect ( src/Kiroku/Store/Subscription/Effect.hs, nothing ) [HIE file is missing]
+[24 of 30] Compiling Kiroku.Store.Read ( src/Kiroku/Store/Read.hs, nothing ) [HIE file is missing]
+[25 of 30] Compiling Kiroku.Store.Link ( src/Kiroku/Store/Link.hs, nothing ) [HIE file is missing]
+[26 of 30] Compiling Kiroku.Store.Lifecycle ( src/Kiroku/Store/Lifecycle.hs, nothing ) [HIE file is missing]
+[27 of 30] Compiling Kiroku.Store.HistoryRetention ( src/Kiroku/Store/HistoryRetention.hs, nothing ) [HIE file is missing]
+[28 of 30] Compiling Kiroku.Store.Causation ( src/Kiroku/Store/Causation.hs, nothing ) [HIE file is missing]
+[29 of 30] Compiling Kiroku.Store.Append ( src/Kiroku/Store/Append.hs, nothing ) [HIE file is missing]
+[30 of 30] Compiling Kiroku.Store     ( src/Kiroku/Store.hs, nothing ) [HIE file is missing]
+Haddock coverage:
+Warning: 'CategoryName' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:284:24
+    * at src/Kiroku/Store/Types.hs:284:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:284:1
+Warning: 'appendToStream' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'appendMultiStream' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'readCategory' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'EventData' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:144:18
+    * at src/Kiroku/Store/Types.hs:144:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:144:1
+Warning: 'RecordedEvent' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:216:22
+    * at src/Kiroku/Store/Types.hs:216:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:216:1
+Warning: 'GlobalPosition' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:97:26
+    * at src/Kiroku/Store/Types.hs:97:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:97:1
+Warning: 'linkToStream' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'globalPosition' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:257:7
+    * at src/Kiroku/Store/Types.hs:226:7
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:226:7
+Warning: 'StreamName' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:43:22
+    * at src/Kiroku/Store/Types.hs:43:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:43:1
+Warning: 'hardDeleteStream' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'getStream' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'id' is ambiguous. It is defined
+    * in ‘GHC.Internal.Base’
+    * at src/Kiroku/Store/Types.hs:180:7
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:180:7
+Warning: 'DuplicateRecordFields' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'readStreamBackward' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+  94% ( 16 / 17) in 'Kiroku.Store.Types'
+  Missing documentation for:
+    Module header
+Warning: 'StoreSettings' is ambiguous. It is defined
+    * at src/Kiroku/Store/Settings.hs:121:22
+    * at src/Kiroku/Store/Settings.hs:121:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Settings.hs:121:1
+Warning: 'runStorePool' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+  69% (  9 / 13) in 'Kiroku.Store.Settings'
+  Missing documentation for:
+    decodedEventRecorded (src/Kiroku/Store/Settings.hs:86)
+    decodedBatchLength (src/Kiroku/Store/Settings.hs:91)
+    decodedBatchLastEvent (src/Kiroku/Store/Settings.hs:96)
+    filterDecodedBatch (src/Kiroku/Store/Settings.hs:101)
+Warning: 'GlobalPosition' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:97:26
+    * at src/Kiroku/Store/Types.hs:97:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:97:1
+Warning: 'Stop' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'PauseAndResume' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'DropSubscription' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+ 100% ( 19 / 19) in 'Kiroku.Store.Subscription.Fsm'
+Warning: 'RetryDelay' is ambiguous. It is defined
+    * at src/Kiroku/Store/Subscription/Fsm.hs:106:22
+    * at src/Kiroku/Store/Subscription/Fsm.hs:106:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Subscription/Fsm.hs:106:1
+Warning: 'RetryPolicy' is ambiguous. It is defined
+    * at src/Kiroku/Store/Subscription/Types.hs:275:23
+    * at src/Kiroku/Store/Subscription/Types.hs:275:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Subscription/Types.hs:275:1
+Warning: 'SubscriptionConfig' is ambiguous. It is defined
+    * at src/Kiroku/Store/Subscription/Types.hs:354:30
+    * at src/Kiroku/Store/Subscription/Types.hs:449:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Subscription/Types.hs:449:1
+Warning: 'RecordedEvent' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:216:22
+    * at src/Kiroku/Store/Types.hs:216:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:216:1
+Warning: 'SubscriptionName' is ambiguous. It is defined
+    * at src/Kiroku/Store/Subscription/Types.hs:168:28
+    * at src/Kiroku/Store/Subscription/Types.hs:168:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Subscription/Types.hs:168:1
+Warning: 'SubscriptionOverflowed' is ambiguous. It is defined
+    * at src/Kiroku/Store/Subscription/Types.hs:331:34
+    * at src/Kiroku/Store/Subscription/Types.hs:331:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Subscription/Types.hs:331:1
+Warning: 'subscriptionName' is ambiguous. It is defined
+    * at src/Kiroku/Store/Subscription/Types.hs:224:7
+    * at src/Kiroku/Store/Subscription/Types.hs:187:7
+    * at src/Kiroku/Store/Subscription/Types.hs:332:7
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Subscription/Types.hs:332:7
+Warning: 'consumerGroupMember' is ambiguous. It is defined
+    * at src/Kiroku/Store/Subscription/Types.hs:225:7
+    * at src/Kiroku/Store/Subscription/Types.hs:188:7
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Subscription/Types.hs:188:7
+  83% ( 44 / 53) in 'Kiroku.Store.Subscription.Types'
+  Missing documentation for:
+    mkBatchSize (src/Kiroku/Store/Subscription/Types.hs:637)
+    batchSizeValue (src/Kiroku/Store/Subscription/Types.hs:642)
+    defaultBatchSize (src/Kiroku/Store/Subscription/Types.hs:645)
+    InvalidBatchSize (src/Kiroku/Store/Subscription/Types.hs:633)
+    member (src/Kiroku/Store/Subscription/Types.hs:542)
+    size (src/Kiroku/Store/Subscription/Types.hs:545)
+    consumerGroupSizeValue (src/Kiroku/Store/Subscription/Types.hs:530)
+    mkConsumerGroupSize (src/Kiroku/Store/Subscription/Types.hs:533)
+    mkConsumerGroup (src/Kiroku/Store/Subscription/Types.hs:548)
+  93% ( 55 / 59) in 'Kiroku.Store.SQL'
+  Missing documentation for:
+    Module header
+    readCategoryEncoder (src/Kiroku/Store/SQL.hs:821)
+    readCategoryConsumerGroupEncoder (src/Kiroku/Store/SQL.hs:873)
+    saveCategoryCheckpointMemberStmt (src/Kiroku/Store/SQL.hs:1283)
+ 100% (  7 /  7) in 'Kiroku.Store.Subscription.Checkpoint'
+  18% (  5 / 27) in 'Kiroku.Store.HistoryRetention.Types'
+  Missing documentation for:
+    Module header
+    HistoryRetentionLeaseRequest (src/Kiroku/Store/HistoryRetention/Types.hs:55)
+    HistoryRetentionLeaseHandle (src/Kiroku/Store/HistoryRetention/Types.hs:62)
+    HistoryRetentionLeaseState (src/Kiroku/Store/HistoryRetention/Types.hs:68)
+    HistoryRetentionLease (src/Kiroku/Store/HistoryRetention/Types.hs:74)
+    HistoryRetentionRenewalError (src/Kiroku/Store/HistoryRetention/Types.hs:87)
+    HistoryRetentionReleaseResult (src/Kiroku/Store/HistoryRetention/Types.hs:94)
+    HistoryRetentionConflict (src/Kiroku/Store/HistoryRetention/Types.hs:102)
+    HistoryRetentionInventoryQuery (src/Kiroku/Store/HistoryRetention/Types.hs:112)
+    HistoryRetentionPruneResult (src/Kiroku/Store/HistoryRetention/Types.hs:117)
+    HistoryRetentionRequestError (src/Kiroku/Store/HistoryRetention/Types.hs:123)
+    HistoryRetentionInventoryError (src/Kiroku/Store/HistoryRetention/Types.hs:131)
+    StreamHistoryUnavailable (src/Kiroku/Store/HistoryRetention/Types.hs:135)
+    mkHistoryRetentionLeaseOwner (src/Kiroku/Store/HistoryRetention/Types.hs:141)
+    mkHistoryRetentionLeaseReason (src/Kiroku/Store/HistoryRetention/Types.hs:149)
+    mkHistoryRetentionLeaseDuration (src/Kiroku/Store/HistoryRetention/Types.hs:157)
+    mkHistoryRetentionInventoryLimit (src/Kiroku/Store/HistoryRetention/Types.hs:163)
+    historyRetentionLeaseOwnerText (src/Kiroku/Store/HistoryRetention/Types.hs:168)
+    historyRetentionLeaseReasonText (src/Kiroku/Store/HistoryRetention/Types.hs:171)
+    historyRetentionLeaseDurationValue (src/Kiroku/Store/HistoryRetention/Types.hs:174)
+    historyRetentionInventoryLimitValue (src/Kiroku/Store/HistoryRetention/Types.hs:177)
+    maxHistoryRetentionLeaseDuration (src/Kiroku/Store/HistoryRetention/Types.hs:180)
+Warning: 'ExistingCheckpoint' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'InitializedCheckpoint' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'Stop' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'SubscriptionState' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'CatchingUp' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'Live' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+ 100% (  8 /  8) in 'Kiroku.Store.Observability'
+Warning: 'EventPublisher' is ambiguous. It is defined
+    * at src/Kiroku/Store/Subscription/EventPublisher.hs:77:23
+    * at src/Kiroku/Store/Subscription/EventPublisher.hs:77:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Subscription/EventPublisher.hs:77:1
+Warning: 'Subscriber' is ambiguous. It is defined
+    * at src/Kiroku/Store/Subscription/EventPublisher.hs:92:19
+    * at src/Kiroku/Store/Subscription/EventPublisher.hs:92:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Subscription/EventPublisher.hs:92:1
+Warning: 'eventHandler' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'SubscriptionOverflowed' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+ 100% (  8 /  8) in 'Kiroku.Store.Subscription.EventPublisher'
+Warning: 'eventHandler' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'subscribe' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+  85% (  6 /  7) in 'Kiroku.Store.Subscription.Worker'
+  Missing documentation for:
+    configMember (src/Kiroku/Store/Subscription/Worker.hs:552)
+Warning: 'eventHandler' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'dupTChan' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+  80% (  4 /  5) in 'Kiroku.Store.Notification'
+  Missing documentation for:
+    Module header
+Warning: 'ReaderT' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'TBQueue' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'schema' is ambiguous. It is defined
+    * at src/Kiroku/Store/Connection.hs:45:7
+    * at src/Kiroku/Store/Connection.hs:144:7
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Connection.hs:144:7
+Warning: 'KirokuStore' is ambiguous. It is defined
+    * at src/Kiroku/Store/Connection.hs:142:20
+    * at src/Kiroku/Store/Connection.hs:142:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Connection.hs:142:1
+Warning: 's' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'EventData' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'RecordedEvent' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'stateVar' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'currentState' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+  83% (  5 /  6) in 'Kiroku.Store.Connection'
+  Missing documentation for:
+    Module header
+Warning: 'KirokuStoreResource' is ambiguous. It is defined
+    * at src/Kiroku/Store/Effect/Resource.hs:41:50
+    * at src/Kiroku/Store/Effect/Resource.hs:37:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Effect/Resource.hs:37:1
+  88% (  8 /  9) in 'Kiroku.Store.Effect.Resource'
+  Missing documentation for:
+    Module header
+Warning: 'appendMultiStream' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'AppendResult' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:248:21
+    * at src/Kiroku/Store/Types.hs:248:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:248:1
+Warning: 'StreamVersion' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:82:25
+    * at src/Kiroku/Store/Types.hs:82:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:82:1
+Warning: 'throwIO' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'MonadIO' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'SomeException' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'linkToStream' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+  93% ( 15 / 16) in 'Kiroku.Store.Error'
+  Missing documentation for:
+    Module header
+Warning: 'RecordedEvent' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:216:22
+    * at src/Kiroku/Store/Types.hs:216:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:216:1
+Warning: 'StreamName' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:43:22
+    * at src/Kiroku/Store/Types.hs:43:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:43:1
+Warning: 'StreamId' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:51:20
+    * at src/Kiroku/Store/Types.hs:51:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:51:1
+Warning: 'StreamInfo' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:179:19
+    * at src/Kiroku/Store/Types.hs:179:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:179:1
+Warning: 'BEGIN' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'COMMIT' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'appendMultiStream' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+  92% ( 12 / 13) in 'Kiroku.Store.Effect'
+  Missing documentation for:
+    Module header
+Warning: 'EventData' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:144:18
+    * at src/Kiroku/Store/Types.hs:144:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:144:1
+Warning: 'eventId' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:145:7
+    * at src/Kiroku/Store/Types.hs:217:7
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:217:7
+Warning: 'BEGIN' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'COMMIT' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'AppendResult' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:248:21
+    * at src/Kiroku/Store/Types.hs:248:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:248:1
+Warning: 'StoreSettings' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'appendToStream' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+ 100% ( 18 / 18) in 'Kiroku.Store.Transaction'
+Warning: 'SubscriptionCheckpointMissing' is ambiguous. It is defined
+    * at src/Kiroku/Store/Subscription/Types.hs:211:41
+    * at src/Kiroku/Store/Subscription/Types.hs:211:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Subscription/Types.hs:211:1
+Warning: 'SubscriptionHandle' is ambiguous. It is defined
+    * at src/Kiroku/Store/Subscription/Types.hs:494:30
+    * at src/Kiroku/Store/Subscription/Types.hs:523:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Subscription/Types.hs:523:1
+Warning: 'subscriptionStream' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'saveCheckpoint' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'DecodeFailure' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'SubscriptionStateView' is ambiguous. It is defined
+    * at src/Kiroku/Store/Subscription.hs:291:30
+    * at src/Kiroku/Store/Subscription.hs:291:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Subscription.hs:291:1
+Warning: 'subscriptionName' is ambiguous. It is defined
+    * at src/Kiroku/Store/Subscription.hs:292:7
+    * at src/Kiroku/Store/Subscription/Types.hs:224:7
+    * at src/Kiroku/Store/Subscription/Types.hs:187:7
+    * at src/Kiroku/Store/Subscription/Types.hs:332:7
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Subscription/Types.hs:332:7
+Warning: 'member' is ambiguous. It is defined
+    * at src/Kiroku/Store/Subscription.hs:293:7
+    * at src/Kiroku/Store/Subscription/Types.hs:542:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Subscription/Types.hs:542:1
+Warning: 'cursor' is ambiguous. It is defined
+    * at src/Kiroku/Store/Subscription.hs:296:7
+    * at src/Kiroku/Store/Subscription/Fsm.hs:191:19
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Subscription/Fsm.hs:191:19
+  90% ( 10 / 11) in 'Kiroku.Store.Subscription'
+  Missing documentation for:
+    Module header
+Warning: 'AckItem' is ambiguous. It is defined
+    * at src/Kiroku/Store/Subscription/Stream.hs:85:16
+    * at src/Kiroku/Store/Subscription/Stream.hs:85:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Subscription/Stream.hs:85:1
+Warning: 'SubscriptionConfig' is ambiguous. It is defined
+    * at src/Kiroku/Store/Subscription/Types.hs:354:30
+    * at src/Kiroku/Store/Subscription/Types.hs:449:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Subscription/Types.hs:449:1
+Warning: 'TBQueue' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'RecordedEvent' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:216:22
+    * at src/Kiroku/Store/Types.hs:216:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:216:1
+  72% (  8 / 11) in 'Kiroku.Store.Subscription.Stream'
+  Missing documentation for:
+    mkStreamBufferSize (src/Kiroku/Store/Subscription/Stream.hs:110)
+    streamBufferSizeValue (src/Kiroku/Store/Subscription/Stream.hs:115)
+    defaultStreamBufferSize (src/Kiroku/Store/Subscription/Stream.hs:118)
+Warning: 'SubscriptionHandle' is ambiguous. It is defined
+    * at src/Kiroku/Store/Subscription/Types.hs:494:30
+    * at src/Kiroku/Store/Subscription/Types.hs:523:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Subscription/Types.hs:523:1
+  88% (  8 /  9) in 'Kiroku.Store.Subscription.Effect'
+  Missing documentation for:
+    Module header
+Warning: 'StreamId' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:51:20
+    * at src/Kiroku/Store/Types.hs:51:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:51:1
+Warning: 'StreamInfo' is ambigCompleted    pg-migrate-embed-1.2.0.0 (lib)
+Starting     pg-migrate-cli-1.2.0.0 (lib)
+Building     pg-migrate-cli-1.2.0.0 (lib)
+uous. It is defined
+    * at src/Kiroku/Store/Types.hs:179:19
+    * at src/Kiroku/Store/Types.hs:179:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:179:1
+Warning: 'StreamName' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:43:22
+    * at src/Kiroku/Store/Types.hs:43:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:43:1
+Warning: 'RecordedEvent' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:216:22
+    * at src/Kiroku/Store/Types.hs:216:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:216:1
+Warning: '!?' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'GlobalPosition' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:97:26
+    * at src/Kiroku/Store/Types.hs:97:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:97:1
+Warning: 'CategoryName' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:284:24
+    * at src/Kiroku/Store/Types.hs:284:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:284:1
+Warning: 'StreamVersion' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:82:25
+    * at src/Kiroku/Store/Types.hs:82:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:82:1
+  92% ( 12 / 13) in 'Kiroku.Store.Read'
+  Missing documentation for:
+    Module header
+  50% (  1 /  2) in 'Kiroku.Store.Link'
+  Missing documentation for:
+    Module header
+Warning: 'stream_events' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'events' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'readStreamBackward' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+  83% (  5 /  6) in 'Kiroku.Store.Lifecycle'
+  Missing documentation for:
+    Module header
+ 100% ( 14 / 14) in 'Kiroku.Store.HistoryRetention'
+ 100% (  4 /  4) in 'Kiroku.Store.Causation'
+Warning: 'AppendResult' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:248:21
+    * at src/Kiroku/Store/Types.hs:248:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:248:1
+Warning: 'BEGIN' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'COMMIT' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'eventId' is ambiguous. It is defined
+    * at src/Kiroku/Store/Types.hs:145:7
+    * at src/Kiroku/Store/Types.hs:217:7
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Store/Types.hs:217:7
+  66% (  2 /  3) in 'Kiroku.Store.Append'
+  Missing documentation for:
+    Module header
+  97% ( 34 / 35) in 'Kiroku.Store'
+  Missing documentation for:
+    ConnectionReadyForUseReason
+Warning: Kiroku.Store.Types: could not find link destinations for: 
+	- Kiroku.Store.Types.Rep_AppendResult
+	- Kiroku.Store.Types.Rep_CategoryName
+	- Kiroku.Store.Types.Rep_EventData
+	- Kiroku.Store.Types.Rep_EventFilter
+	- Kiroku.Store.Types.Rep_EventId
+	- Kiroku.Store.Types.Rep_EventType
+	- Kiroku.Store.Types.Rep_ExpectedVersion
+	- Kiroku.Store.Types.Rep_GlobalPosition
+	- Kiroku.Store.Types.Rep_LinkResult
+	- Kiroku.Store.Types.Rep_RecordedEvent
+	- Kiroku.Store.Types.Rep_StreamId
+	- Kiroku.Store.Types.Rep_StreamInfo
+	- Kiroku.Store.Types.Rep_StreamName
+	- Kiroku.Store.Types.Rep_StreamVersion
+Warning: Kiroku.Store.Settings: could not find link destinations for: 
+	- Kiroku.Store.Settings.Rep_DecodeFailure
+	- Kiroku.Store.Settings.Rep_StoreSettings
+Warning: Kiroku.Store.Subscription.Types: could not find link destinations for: 
+	- Kiroku.Store.Subscription.Types.Rep_CheckpointInitialization
+	- Kiroku.Store.Subscription.Types.Rep_MissingCheckpointPolicy
+	- Kiroku.Store.Subscription.Types.Rep_SubscriptionCheckpointInventory
+	- Kiroku.Store.Subscription.Types.Rep_SubscriptionCheckpointKey
+	- Kiroku.Store.Subscription.Types.Rep_SubscriptionCheckpointMissing
+	- Kiroku.Store.Subscription.Types.Rep_SubscriptionCheckpoint
+Warning: Kiroku.Store.SQL: could not find link destinations for: 
+	- Kiroku.Store.SQL.Rep_AppendParams
+	- Kiroku.Store.SQL.Rep_DeadLetterParams
+	- Kiroku.Store.SQL.Rep_DeadLetterRecord
+Warning: Kiroku.Store.Subscription.Checkpoint: could not find link destinations for: 
+	- Kiroku.Store.Subscription.Checkpoint.Rep_ConsumerGroupResizeReport
+	- Kiroku.Store.Subscription.Checkpoint.Rep_SubscriptionCheckpointResetReport
+Warning: Kiroku.Store.HistoryRetention.Types: could not find link destinations for: 
+	- Kiroku.Store.HistoryRetention.Types.Rep_HistoryRetentionConflict
+	- Kiroku.Store.HistoryRetention.Types.Rep_HistoryRetentionInventoryError
+	- Kiroku.Store.HistoryRetention.Types.Rep_HistoryRetentionInventoryLimit
+	- Kiroku.Store.HistoryRetention.Types.Rep_HistoryRetentionInventoryQuery
+	- Kiroku.Store.HistoryRetention.Types.Rep_HistoryRetentionLeaseDuration
+	- Kiroku.Store.HistoryRetention.Types.Rep_HistoryRetentionLeaseHandle
+	- Kiroku.Store.HistoryRetention.Types.Rep_HistoryRetentionLeaseId
+	- Kiroku.Store.HistoryRetention.Types.Rep_HistoryRetentionLeaseOwner
+	- Kiroku.Store.HistoryRetention.Types.Rep_HistoryRetentionLeaseReason
+	- Kiroku.Store.HistoryRetention.Types.Rep_HistoryRetentionLeaseRequest
+	- Kiroku.Store.HistoryRetention.Types.Rep_HistoryRetentionLeaseState
+	- Kiroku.Store.HistoryRetention.Types.Rep_HistoryRetentionLease
+	- Kiroku.Store.HistoryRetention.Types.Rep_HistoryRetentionPruneResult
+	- Kiroku.Store.HistoryRetention.Types.Rep_HistoryRetentionReleaseResult
+	- Kiroku.Store.HistoryRetention.Types.Rep_HistoryRetentionRenewalError
+	- Kiroku.Store.HistoryRetention.Types.Rep_HistoryRetentionRequestError
+	- Kiroku.Store.HistoryRetention.Types.Rep_StreamHistoryUnavailable
+Warning: Kiroku.Store.Subscription.Worker: could not find link destinations for: 
+	- Kiroku.Store.Subscription.Worker.FetchBatchHook
+	- Kiroku.Store.Subscription.Worker.LoadCheckpointHook
+	- Kiroku.Store.Subscription.Worker.SaveCheckpointHook
+	- Kiroku.Store.Subscription.Worker.fetchBatch
+	- Kiroku.Store.Subscription.Worker.loadCheckpoint
+	- Kiroku.Store.Subscription.Worker.saveCheckpoint
+Warning: Kiroku.Store.Connection: could not find link destinations for: 
+	- Kiroku.Store.Connection.Rep_ConnectionSettingsM
+	- Kiroku.Store.Connection.Rep_KirokuStore
+Warning: Kiroku.Store.Effect.Resource: could not find link destinations for: 
+	- Kiroku.Store.Effect.Resource.KirokuStoreResource
+Warning: Kiroku.Store.Error: could not find link destinations for: 
+	- Kiroku.Store.Error.Rep_AppendConflict
+	- Kiroku.Store.Error.Rep_StoreError
+Warning: Kiroku.Store.Effect: could not find link destinations for: 
+	- Kiroku.Store.Effect.Rep_PreparedEvent
+Warning: Kiroku.Store.Transaction: could not find link destinations for: 
+	- Kiroku.Store.Error.Rep_AppendConflict
+	- Kiroku.Store.Effect.Rep_PreparedEvent
+Warning: Kiroku.Store.Subscription: could not find link destinations for: 
+	- Kiroku.Store.Subscription.Rep_SubscriptionStateView
+Documentation created:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/doc/html/kiroku-store-0.10.0.0-docs,
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/doc/html/kiroku-store-0.10.0.0-docs/kiroku-store.txt
+Documentation tarball created:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/kiroku-store-0.10.0.0-docs.tar.gz
+Configuring library for shibuya-kiroku-adapter-0.6.0.0...
+Configuring library for kiroku-otel-0.2.0.11...
+Configuring library for kiroku-cli-0.2.0.9...
+Haddock      pg-migrate-cli-1.2.0.0 (lib)
+Preprocessing library for kiroku-cli-0.2.0.9...
+Building library for kiroku-cli-0.2.0.9...
+Preprocessing library for kiroku-otel-0.2.0.11...
+Preprocessing library for shibuya-kiroku-adapter-0.6.0.0...
+Running Haddock on library for kiroku-otel-0.2.0.11...
+Running Haddock on library for shibuya-kiroku-adapter-0.6.0.0...
+Warning: The following packages have no Haddock documentation installed. No
+links will be generated to these packages: kiroku-store-0.10.0.0,
+postgresql-libpq-configure-0.11, attoparsec-0.14.4
+Warning: The following packages have no Haddock documentation installed. No
+links will be generated to these packages: kiroku-store-0.10.0.0,
+postgresql-libpq-configure-0.11, shibuya-kiroku-adapter-0.6.0.0,
+attoparsec-0.14.4
+[1 of 6] Compiling Kiroku.Cli.Command ( src/Kiroku/Cli/Command.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Command.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Command.dyn_o ) [Flags changed]
+[2 of 6] Compiling Kiroku.Cli.Parser ( src/Kiroku/Cli/Parser.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Parser.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Parser.dyn_o ) [Flags changed]
+[3 of 6] Compiling Kiroku.Cli.Subscription.Status ( src/Kiroku/Cli/Subscription/Status.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Subscription/Status.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Subscription/Status.dyn_o ) [Flags changed]
+[1 of 2] Compiling Shibuya.Adapter.Kiroku.Convert ( src/Shibuya/Adapter/Kiroku/Convert.hs, nothing ) [Flags changed]
+[1 of 2] Compiling Kiroku.Otel.Subscription ( src/Kiroku/Otel/Subscription.hs, nothing ) [Flags changed]
+[2 of 2] Compiling Kiroku.Otel.TraceContext ( src/Kiroku/Otel/TraceContext.hs, nothing ) [Flags changed]
+[2 of 2] Compiling Shibuya.Adapter.Kiroku ( src/Shibuya/Adapter/Kiroku.hs, nothing ) [Flags changed]
+[4 of 6] Compiling Kiroku.Cli.Standalone ( src/Kiroku/Cli/Standalone.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Standalone.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Standalone.dyn_o ) [Flags changed]
+Haddock coverage:
+Warning: 'RecordedEvent' is ambiguous. It is defined
+    * in ‘Kiroku.Store.Types’
+    * in ‘Kiroku.Store.Types’
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined in ‘Kiroku.Store.Types’
+Warning: 'Ingested' is ambiguous. It is defined
+    * in ‘Shibuya.Core.Ingested’
+    * in ‘Shibuya.Core.Ingested’
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined in ‘Shibuya.Core.Ingested’
+Warning: 'Envelope' is ambiguous. It is defined
+    * in ‘Shibuya.Core.Types’
+    * in ‘Shibuya.Core.Types’
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined in ‘Shibuya.Core.Types’
+Warning: 'KirokuEnvelopeAttrs' is ambiguous. It is defined
+    * at src/Shibuya/Adapter/Kiroku/Convert.hs:81:31
+    * at src/Shibuya/Adapter/Kiroku/Convert.hs:81:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Shibuya/Adapter/Kiroku/Convert.hs:81:1
+Warning: 'MessageId' is ambiguous. It is defined
+    * in ‘Shibuya.Core.Types’
+    * in ‘Shibuya.Core.Types’
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined in ‘Shibuya.Core.Types’
+Warning: 'AckItem' is ambiguous. It is defined
+    * in ‘Kiroku.Store.Subscription.Stream’
+    * in ‘Kiroku.Store.Subscription.Stream’
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined in ‘Kiroku.Store.Subscription.Stream’
+Warning: 'subscriptionAckStream' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'DeadLetterReason' is ambiguous. It is defined
+    * in ‘Kiroku.Store.Subscription.Fsm’
+    * in ‘Shibuya.Core.Ack’
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined in ‘Shibuya.Core.Ack’
+Warning: 'detail' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'code' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'MaxRetriesExceeded' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+ 100% ( 10 / 10) in 'Shibuya.Adapter.Kiroku.Convert'
+Warning: 'Adapter' is ambiguous. It is defined
+    * in ‘Shibuya.Adapter’
+    * in ‘Shibuya.Adapter’
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined in ‘Shibuya.Adapter’
+Warning: 'TBQueue' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'subscriptionStream' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'subscriptionName' is ambiguous. It is defined
+    * at src/Shibuya/Adapter/Kiroku.hs:205:7
+    * at src/Shibuya/Adapter/Kiroku.hs:407:7
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Shibuya/Adapter/Kiroku.hs:407:7
+Warning: 'runApp' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'KirokuConsumerGroupConfig' is ambiguous. It is defined
+    * at src/Shibuya/Adapter/Kiroku.hs:406:34
+    * at src/Shibuya/Adapter/Kiroku.hs:406:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Shibuya/Adapter/Kiroku.hs:406:1
+Warning: 'KirokuAdapterConfig' is ambiguous. It is defined
+    * at src/Shibuya/Adapter/Kiroku.hs:204:28
+    * at src/Shibuya/Adapter/Kiroku.hs:204:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Shibuya/Adapter/Kiroku.hs:204:1
+Warning: 'RetryDelay' is ambiguous. It is defined
+    * in ‘Shibuya.Core.Ack’
+    * in ‘Shibuya.Core.Ack’
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined in ‘Shibuya.Core.Ack’
+Warning: 'Ingested' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'Envelope' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'AckHandle' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'QueueProcessor' is ambiguous. It is defined
+    * in ‘Shibuya.Internal.App’
+    * in ‘Shibuya.Internal.App’
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined in ‘Shibuya.Internal.App’
+Warning: 'ProcessorId' is ambiguous. It is defined
+    * in ‘Shibuya.Core.Metrics’
+    * in ‘Shibuya.Core.Metrics’
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined in ‘Shibuya.Core.Metrics’
+Warning: 'eventTypeFilter' is ambiguous. It is defined
+    * at src/Shibuya/Adapter/Kiroku.hs:241:7
+    * at src/Shibuya/Adapter/Kiroku.hs:438:7
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Shibuya/Adapter/Kiroku.hs:438:7
+Warning: Shibuya.Adapter.Kiroku: Couldn't find .haddock for export SubscriptionName
+Warning: Shibuya.Adapter.Kiroku: Couldn't find .haddock for export SubscriptionTarget
+Warning: Shibuya.Adapter.Kiroku: Couldn't find .haddock for export ConsumerGroup
+Warning: Shibuya.Adapter.Kiroku: Couldn't find .haddock for export ConsumerGroupSize
+Warning: Shibuya.Adapter.Kiroku: Couldn't find .haddock for export consumerGroupSizeValue
+Warning: Shibuya.Adapter.Kiroku: Couldn't find .haddock for export mkConsumerGroupSize
+Warning: Shibuya.Adapter.Kiroku: Couldn't find .haddock for export mkConsumerGroup
+Warning: Shibuya.Adapter.Kiroku: Couldn't find .haddock for export member
+Warning: Shibuya.Adapter.Kiroku: Couldn't find .haddock for export size
+Warning: Shibuya.Adapter.Kiroku: Couldn't find .haddock for export EventTypeFilter
+Warning: Shibuya.Adapter.Kiroku: Couldn't find .haddock for export MissingCheckpointPolicy
+  59% ( 16 / 27) in 'Shibuya.Adapter.Kiroku'
+  Missing documentation for:
+    SubscriptionName
+    SubscriptionTarget
+    ConsumerGroup
+    ConsumerGroupSize
+    consumerGroupSizeValue
+    mkConsumerGroupSize
+    mkConsumerGroup
+    member
+    size
+    EventTypeFilter
+    MissingCheckpointPolicy
+Warning: Shibuya.Adapter.Kiroku.Convert: could not find link destinations for: 
+	- Kiroku.Store.Types.RecordedEvent
+	- Kiroku.Store.Subscription.Types.SubscriptionResult
+	- Kiroku.Store.Subscription.Stream.AckItem
+	- Kiroku.Store.Subscription.Fsm.DeadLetterReason
+	- Kiroku.Store.Subscription.Types.Continue
+	- Kiroku.Store.Subscription.Types.DeadLetter
+	- Kiroku.Store.Subscription.Types.Retry
+	- Kiroku.Store.Subscription.Fsm.DeadLetterOther
+Warning: Shibuya.Adapter.Kiroku: could not find link destinations for: 
+	- Kiroku.Store.Types.RecordedEvent
+	- Kiroku.Store.Subscription.Stream.subscriptionAckStream
+	- Kiroku.Store.Subscription.Stream.StreamBufferSize
+	- Kiroku.Store.Connection.KirokuStore
+	- Kiroku.Store.Subscription.Types.BatchSize
+	- Kiroku.Store.Subscription.Types.InvalidConsumerGroup
+	- Kiroku.Store.Subscription.Types.RetryPolicy
+	- Kiroku.Store.Subscription.Types.Rep_MissingCheckpointPolicy
+	- Kiroku.Store.Typ[5 of 6] Compiling Kiroku.Cli.Run   ( src/Kiroku/Cli/Run.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Run.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Run.dyn_o ) [Flags changed]
+[6 of 6] Compiling Kiroku.Cli       ( src/Kiroku/Cli.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli.dyn_o ) [Flags changed]
+Preprocessing library for kiroku-cli-0.2.0.9...
+Running Haddock on library for kiroku-cli-0.2.0.9...
+Warning: The following packages have no Haddock documentation installed. No
+links will be generated to these packages: kiroku-store-0.10.0.0,
+postgresql-libpq-configure-0.11, attoparsec-0.14.4
+[1 of 6] Compiling Kiroku.Cli.Command ( src/Kiroku/Cli/Command.hs, nothing ) [HIE file is missing]
+[2 of 6] Compiling Kiroku.Cli.Parser ( src/Kiroku/Cli/Parser.hs, nothing ) [HIE file is missing]
+[3 of 6] Compiling Kiroku.Cli.Subscription.Status ( src/Kiroku/Cli/Subscription/Status.hs, nothing ) [HIE file is missing]
+[4 of 6] Compiling Kiroku.Cli.Standalone ( src/Kiroku/Cli/Standalone.hs, nothing ) [HIE file is missing]
+[5 of 6] Compiling Kiroku.Cli.Run   ( src/Kiroku/Cli/Run.hs, nothing ) [HIE file is missing]
+[6 of 6] Compiling Kiroku.Cli       ( src/Kiroku/Cli.hs, nothing ) [HIE file is missing]
+Haddock coverage:
+Warning: 'OpenState' is ambiguous. It is defined
+    * at src/Kiroku/Otel/Subscription.hs:195:18
+    * at src/Kiroku/Otel/Subscription.hs:195:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Otel/Subscription.hs:195:1
+Warning: 'Tracer'' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'TracerProvider' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'GlobalPosition' is ambiguous. It is defined
+    * in ‘Kiroku.Store.Types’
+    * in ‘Kiroku.Store.Types’
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined in ‘Kiroku.Store.Types’
+  16% (  5 / 30) in 'Kiroku.Otel.Subscription'
+  Missing documentation for:
+    spanCatchup (src/Kiroku/Otel/Subscription.hs:501)
+    spanDeliver (src/Kiroku/Otel/Subscription.hs:502)
+    spanPaused (src/Kiroku/Otel/Subscription.hs:503)
+    spanReconnecting (src/Kiroku/Otel/Subscription.hs:504)
+    spanRetrying (src/Kiroku/Otel/Subscription.hs:505)
+    spanDeadLetter (src/Kiroku/Otel/Subscription.hs:506)
+    spanDbError (src/Kiroku/Otel/Subscription.hs:507)
+    spanStopped (src/Kiroku/Otel/Subscription.hs:508)
+    attrSubName (src/Kiroku/Otel/Subscription.hs:517)
+    attrState (src/Kiroku/Otel/Subscription.hs:518)
+    attrAttempt (src/Kiroku/Otel/Subscription.hs:519)
+    attrCheckpoint (src/Kiroku/Otel/Subscription.hs:520)
+    attrGroupMember (src/Kiroku/Otel/Subscription.hs:521)
+    attrGroupSize (src/Kiroku/Otel/Subscription.hs:522)
+    attrBatchRows (src/Kiroku/Otel/Subscription.hs:523)
+    attrEventPos (src/Kiroku/Otel/Subscription.hs:524)
+    attrDeadLetterReason (src/Kiroku/Otel/Subscription.hs:525)
+    attrStopReason (src/Kiroku/Otel/Subscription.hs:526)
+    attrDbPhase (src/Kiroku/Otel/Subscription.hs:527)
+    attrMessagingSystem (src/Kiroku/Otel/Subscription.hs:528)
+    attrMessagingDestinationName (src/Kiroku/Otel/Subscription.hs:529)
+    attrMessagingOperationType (src/Kiroku/Otel/Subscription.hs:530)
+    attrMessagingBatchMessageCount (src/Kiroku/Otel/Subscription.hs:531)
+    attrDbSystemName (src/Kiroku/Otel/Subscription.hs:532)
+    attrDbOperationName (src/Kiroku/Otel/Subscription.hs:533)
+Warning: 'RecordedEvent' is ambiguous. It is defined
+    * in ‘Kiroku.Store.Types’
+    * in ‘Kiroku.Store.Types’
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined in ‘Kiroku.Store.Types’
+Warning: 'EventData' is ambiguous. It is defined
+    * in ‘Kiroku.Store.Types’
+    * in ‘Kiroku.Store.Types’
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined in ‘Kiroku.Store.Types’
+ 100% (  3 /  3) in 'Kiroku.Otel.TraceContext'
+Warning: Kiroku.Otel.Subscription: could not find link destinations for: 
+	- Kiroku.Otel.Subscription.OpenState
+	- Kiroku.Store.Observability.KirokuEvent
+Warning: Kiroku.Otel.TraceContext: could not find link destinations for: 
+	- Kiroku.Store.Types.RecordedEvent
+	- Kiroku.Store.Types.EventData
+Documentation created:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-otel-0.2.0.11/doc/html/kiroku-otel-0.2.0.11-docs,
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-otel-0.2.0.11/doc/html/kiroku-otel-0.2.0.11-docs/kiroku-otel.txt
+Documentation tarball created:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/kiroku-otel-0.2.0.11-docs.tar.gz
+Installing   pg-migrate-cli-1.2.0.0 (lib)
+es.EventType
+	- Kiroku.Store.Types.CategoryName
+	- Shibuya.Adapter.Kiroku.Rep_KirokuAdapterConfig
+	- Shibuya.Adapter.Kiroku.Rep_KirokuConsumerGroupConfig
+Documentation created:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.6.0.0/doc/html/shibuya-kiroku-adapter-0.6.0.0-docs,
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.6.0.0/doc/html/shibuya-kiroku-adapter-0.6.0.0-docs/shibuya-kiroku-adapter.txt
+Documentation tarball created:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/shibuya-kiroku-adapter-0.6.0.0-docs.tar.gz
+Haddock coverage:
+  16% (  1 /  6) in 'Kiroku.Cli.Command'
+  Missing documentation for:
+    Module header
+    KirokuCommand (src/Kiroku/Cli/Command.hs:11)
+    OutputFormat (src/Kiroku/Cli/Command.hs:35)
+    StatusOptions (src/Kiroku/Cli/Command.hs:26)
+    SubscriptionCommand (src/Kiroku/Cli/Command.hs:16)
+   0% (  0 /  4) in 'Kiroku.Cli.Parser'
+  Missing documentation for:
+    Module header
+    kirokuCommandParser (src/Kiroku/Cli/Parser.hs:34)
+    kirokuParserInfo (src/Kiroku/Cli/Parser.hs:85)
+    kirokuSubparser (src/Kiroku/Cli/Parser.hs:94)
+  33% (  2 /  6) in 'Kiroku.Cli.Subscription.Status'
+  Missing documentation for:
+    Module header
+    SubscriptionStatusRow (src/Kiroku/Cli/Subscription/Status.hs:38)
+    renderSubscriptionStatusRows (src/Kiroku/Cli/Subscription/Status.hs:85)
+    subscriptionStatusRows (src/Kiroku/Cli/Subscription/Status.hs:69)
+Warning: 'StatusOptions' is ambiguous. It is defined
+    * at src/Kiroku/Cli/Command.hs:26:22
+    * at src/Kiroku/Cli/Command.hs:26:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Cli/Command.hs:26:1
+  42% (  3 /  7) in 'Kiroku.Cli.Standalone'
+  Missing documentation for:
+    Module header
+    standaloneOptionsParser (src/Kiroku/Cli/Standalone.hs:64)
+    standaloneParserInfo (src/Kiroku/Cli/Standalone.hs:52)
+    runStandaloneCommand (src/Kiroku/Cli/Standalone.hs:95)
+   0% (  0 /  4) in 'Kiroku.Cli.Run'
+  Missing documentation for:
+    Module header
+    runKirokuCommand (src/Kiroku/Cli/Run.hs:19)
+    runKirokuCommandWithStore (src/Kiroku/Cli/Run.hs:25)
+    renderKirokuCommandWithStore (src/Kiroku/Cli/Run.hs:29)
+   0% (  0 /  8) in 'Kiroku.Cli'
+  Missing documentation for:
+    Module header
+    KirokuCommand (src/Kiroku/Cli/Command.hs:11)
+    kirokuCommandParser (src/Kiroku/Cli/Parser.hs:34)
+    kirokuParserInfo (src/Kiroku/Cli/Parser.hs:85)
+    kirokuSubparser (src/Kiroku/Cli/Parser.hs:94)
+    runKirokuCommand (src/Kiroku/Cli/Run.hs:19)
+    runKirokuCommandWithStore (src/Kiroku/Cli/Run.hs:25)
+    renderKirokuCommandWithStore (src/Kiroku/Cli/Run.hs:29)
+Warning: Kiroku.Cli.Subscription.Status: could not find link destinations for: 
+	- Kiroku.Cli.Subscription.Status.Rep_SubscriptionStatusRow
+	- Kiroku.Store.Subscription.Types.SubscriptionName
+	- Kiroku.Store.Subscription.SubscriptionStateView
+Warning: Kiroku.Cli.Standalone: could not find link destinations for: 
+	- Kiroku.Cli.Standalone.Rep_StandaloneOptions
+	- Kiroku.Cli.Standalone.Rep_StandaloneRuntime
+Warning: Kiroku.Cli.Run: could not find link destinations for: 
+	- Kiroku.Store.Connection.KirokuStore
+Warning: Kiroku.Cli: could not find link destinations for: 
+	- Kiroku.Store.Connection.KirokuStore
+Documentation created:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/doc/html/kiroku-cli-0.2.0.9-docs,
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/doc/html/kiroku-cli-0.2.0.9-docs/kiroku-cli.txt
+Documentation tarball created:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/kiroku-cli-0.2.0.9-docs.tar.gz
+Completed    pg-migrate-cli-1.2.0.0 (lib)
+Starting     pg-migrate-import-codd-1.2.0.0 (lib)
+Configuring library for kiroku-metrics-0.2.0.0...
+Building     pg-migrate-import-codd-1.2.0.0 (lib)
+Preprocessing library for kiroku-metrics-0.2.0.0...
+Running Haddock on library for kiroku-metrics-0.2.0.0...
+Warning: The following packages have no Haddock documentation installed. No
+links will be generated to these packages: kiroku-cli-0.2.0.9,
+kiroku-store-0.10.0.0, postgresql-libpq-configure-0.11, attoparsec-0.14.4
+[ 1 of 10] Compiling Kiroku.Metrics.Config ( src/Kiroku/Metrics/Config.hs, nothing ) [Flags changed]
+[ 2 of 10] Compiling Kiroku.Metrics.Types ( src/Kiroku/Metrics/Types.hs, nothing ) [Flags changed]
+[ 3 of 10] Compiling Kiroku.Metrics.Collector ( src/Kiroku/Metrics/Collector.hs, nothing ) [Flags changed]
+[ 4 of 10] Compiling Kiroku.Metrics.Prometheus ( src/Kiroku/Metrics/Prometheus.hs, nothing ) [Flags changed]
+[ 5 of 10] Compiling Kiroku.Metrics.JSON ( src/Kiroku/Metrics/JSON.hs, nothing ) [Flags changed]
+[ 6 of 10] Compiling Kiroku.Metrics.Subscriptions ( src/Kiroku/Metrics/Subscriptions.hs, nothing ) [Flags changed]
+[ 7 of 10] Compiling Kiroku.Metrics.Health ( src/Kiroku/Metrics/Health.hs, nothing ) [Flags changed]
+[ 8 of 10] Compiling Kiroku.Metrics.WebSocket ( src/Kiroku/Metrics/WebSocket.hs, nothing ) [Flags changed]
+[ 9 of 10] Compiling Kiroku.Metrics.Server ( src/Kiroku/Metrics/Server.hs, nothing ) [Flags changed]
+[10 of 10] Compiling Kiroku.Metrics   ( src/Kiroku/Metrics.hs, nothing ) [Flags changed]
+Haddock      pg-migrate-import-codd-1.2.0.0 (lib)
+Haddock coverage:
+ 100% (  3 /  3) in 'Kiroku.Metrics.Config'
+Warning: 'MetricsSnapshot' is ambiguous. It is defined
+    * at src/Kiroku/Metrics/Types.hs:35:24
+    * at src/Kiroku/Metrics/Types.hs:35:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Metrics/Types.hs:35:1
+Warning: 'StoreGauges' is ambiguous. It is defined
+    * at src/Kiroku/Metrics/Types.hs:44:20
+    * at src/Kiroku/Metrics/Types.hs:44:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Metrics/Types.hs:44:1
+Warning: 'LifecycleCounters' is ambiguous. It is defined
+    * at src/Kiroku/Metrics/Types.hs:64:26
+    * at src/Kiroku/Metrics/Types.hs:64:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Metrics/Types.hs:64:1
+Warning: 'SubscriptionMetrics' is ambiguous. It is defined
+    * at src/Kiroku/Metrics/Types.hs:97:28
+    * at src/Kiroku/Metrics/Types.hs:97:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Metrics/Types.hs:97:1
+Warning: 'KirokuEvent' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'Started' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'CaughtUp' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'Paused' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'Resumed' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'Reconnecting' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'Retrying' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'DeadLettered' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'Stopped' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'KirokuEventSubscriptionDelivered' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'KirokuEventSubscriptionFetched' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+ 100% (  5 /  5) in 'Kiroku.Metrics.Types'
+Warning: 'KirokuMetrics' is ambiguous. It is defined
+    * at src/Kiroku/Metrics/Collector.hs:63:22
+    * at src/Kiroku/Metrics/Collector.hs:63:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Metrics/Collector.hs:63:1
+Warning: 'MetricsSnapshot' is ambiguous. It is defined
+    * at src/Kiroku/Metrics/Types.hs:35:24
+    * at src/Kiroku/Metrics/Types.hs:35:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Metrics/Types.hs:35:1
+Warning: 'EventPublisher' is ambiguous. It is defined
+    * in ‘Kiroku.Store.Subscription.EventPublisher’
+    * in ‘Kiroku.Store.Subscription.EventPublisher’
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined in ‘Kiroku.Store.Subscription.EventPublisher’
+Warning: 'IORef' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+ 100% (  7 /  7) in 'Kiroku.Metrics.Collector'
+ 100% (  3 /  3) in 'Kiroku.Metrics.Prometheus'
+ 100% (  3 /  3) in 'Kiroku.Metrics.JSON'
+Warning: 'SubscriptionStatusRow' is ambiguous. It is defined
+    * in ‘Kiroku.Cli.Subscription.Status’
+    * in ‘Kiroku.Cli.Subscription.Status’
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined in ‘Kiroku.Cli.Subscription.Status’
+ 100% (  4 /  4) in 'Kiroku.Metrics.Subscriptions'
+Warning: 'DependencyStatus' is ambiguous. It is defined
+    * at src/Kiroku/Metrics/Health.hs:52:25
+    * at src/Kiroku/Metrics/Health.hs:52:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Metrics/Health.hs:52:1
+ 100% (  9 /  9) in 'Kiroku.Metrics.Health'
+Warning: 'RecordedEvent' is ambiguous. It is defined
+    * in ‘Kiroku.Store.Types’
+    * in ‘Kiroku.Store.Types’
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined in ‘Kiroku.Store.Types’
+Warning: 'EventPublisher' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+Warning: 'WebSocketState' is ambiguous. It is defined
+    * at src/Kiroku/Metrics/WebSocket.hs:201:23
+    * at src/Kiroku/Metrics/WebSocket.hs:201:1
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined at src/Kiroku/Metrics/WebSocket.hs:201:1
+Warning: 'GlobalPosition' is ambiguous. It is defined
+    * in ‘Kiroku.Store.Types’
+    * in ‘Kiroku.Store.Types’
+    You may be able to disambiguate the identifier by qualifying it or
+    by specifying the type/value namespace explicitly.
+    Defaulting to the one defined in ‘Kiroku.Store.Types’
+ 100% ( 10 / 10) in 'Kiroku.Metrics.WebSocket'
+Warning: 'postgresPing' is out of scope.
+    If you qualify the identifier, haddock can try to link it anyway.
+ 100% ( 13 / 13) in 'Kiroku.Metrics.Server'
+ 100% (  8 /  8) in 'Kiroku.Metrics'
+Warning: Kiroku.Metrics.Collector: could not find link destinations for: 
+	- Kiroku.Store.Observability.KirokuEvent
+	- Kiroku.Store.Types.GlobalPosition
+	- Kiroku.Store.Connection.KirokuStore
+	- Kiroku.Store.Subscription.EventPublisher.EventPublisher
+Warning: Kiroku.Metrics.Subscriptions: could not find link destinations for: 
+	- Kiroku.Store.Connection.KirokuStore
+	- Kiroku.Store.Subscription.subscriptionStates
+	- Kiroku.Cli.Subscription.Status.SubscriptionStatusRow
+Warning: Kiroku.Metrics.Health: could not find link destinations for: 
+	- Kiroku.Store.Connection.KirokuStore
+Warning: Kiroku.Metrics.WebSocket: could not find link destinations for: 
+	- Kiroku.Store.Connection.KirokuStore
+	- Kiroku.Store.Effect.runStoreIO
+	- Kiroku.Store.Read.readAllForward
+	- Kiroku.Store.Read.readCategory
+	- Kiroku.Store.Types.RecordedEvent
+	- Kiroku.Store.Subscription.EventPublisher.subscribePublisher
+Warning: Kiroku.Metrics.Server: could not find link destinations for: 
+	- Kiroku.Store.Connection.KirokuStore
+Documentation created:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/doc/html/kiroku-metrics-0.2.0.0-docs,
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/doc/html/kiroku-metrics-0.2.0.0-docs/kiroku-metrics.txt
+Documentation tarball created:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/kiroku-metrics-0.2.0.0-docs.tar.gz
+Installing   pg-migrate-import-codd-1.2.0.0 (lib)
+Completed    pg-migrate-import-codd-1.2.0.0 (lib)
+Configuring library for kiroku-store-migrations-0.7.0.0...
+Preprocessing library for kiroku-store-migrations-0.7.0.0...
+Running Haddock on library for kiroku-store-migrations-0.7.0.0...
+Warning: The following packages have no Haddock documentation installed. No
+links will be generated to these packages: postgresql-libpq-configure-0.11,
+attoparsec-0.14.4
+[1 of 5] Compiling Kiroku.Store.Migrations.Internal.Definition ( src/Kiroku/Store/Migrations/Internal/Definition.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/ghc17144_tmp_0/ghc_tmp_2.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/ghc17144_tmp_0/ghc_tmp_2.dyn_o )
+[2 of 5] Compiling Kiroku.Store.Migrations ( src/Kiroku/Store/Migrations.hs, nothing ) [Flags changed]
+[3 of 5] Compiling Kiroku.Store.Migrations.Internal.EmbedFile ( src/Kiroku/Store/Migrations/Internal/EmbedFile.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/ghc17144_tmp_0/ghc_tmp_4.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/ghc17144_tmp_0/ghc_tmp_4.dyn_o )
+[4 of 5] Compiling Kiroku.Store.Migrations.History.Codd ( src/Kiroku/Store/Migrations/History/Codd.hs, nothing ) [Flags changed]
+[5 of 5] Compiling Kiroku.Store.Migrations.New ( src/Kiroku/Store/Migrations/New.hs, nothing ) [Flags changed]
+Haddock coverage:
+  71% (  5 /  7) in 'Kiroku.Store.Migrations'
+  Missing documentation for:
+    Module header
+    kirokuMigrations (src/Kiroku/Store/Migrations/Internal/Definition.hs:29)
+   0% (  0 /  6) in 'Kiroku.Store.Migrations.History.Codd'
+  Missing documentation for:
+    Module header
+    kirokuCoddHistoryMappings (src/Kiroku/Store/Migrations/History/Codd.hs:48)
+    kirokuCoddManifestText (src/Kiroku/Store/Migrations/History/Codd.hs:92)
+    kirokuCoddSourceConfig (src/Kiroku/Store/Migrations/History/Codd.hs:65)
+    kirokuCoddSourcePayloads (src/Kiroku/Store/Migrations/History/Codd.hs:87)
+    kirokuLegacyMigrationNames (src/Kiroku/Store/Migrations/History/Codd.hs:37)
+  20% (  1 /  5) in 'Kiroku.Store.Migrations.New'
+  Missing documentation for:
+    Module header
+    defaultMigrationsDir (src/Kiroku/Store/Migrations/New.hs:19)
+    newMigrationFile (src/Kiroku/Store/Migrations/New.hs:22)
+    migrationTemplate (src/Kiroku/Store/Migrations/New.hs:30)
+Warning: Kiroku.Store.Migrations: could not find link destinations for: 
+	- Database.PostgreSQL.Migrate.Definition.Rep_DefinitionError
+	- Database.PostgreSQL.Migrate.Plan.Rep_PlanError
+Documentation created:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.0.0/doc/html/kiroku-store-migrations-0.7.0.0-docs,
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.0.0/doc/html/kiroku-store-migrations-0.7.0.0-docs/kiroku-store-migrations.txt
+Documentation tarball created:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/kiroku-store-migrations-0.7.0.0-docs.tar.gz
