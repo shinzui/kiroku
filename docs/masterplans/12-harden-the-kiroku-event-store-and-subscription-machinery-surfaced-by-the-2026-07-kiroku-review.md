@@ -102,17 +102,16 @@ The 2026-10-09 source audit at commit `e6ea664` found **0 of 6 children complete
 At that audit all five implementation children were Not Started; EP-6 awaits their completion.
 EP-1 is now Complete under the user-directed minimum-evidence scope recorded
 below. EP-2 is Complete on user-approved practical acceptance; EP-3 is Complete after focused correctness and existing ADR-5 verification.
-EP-4 and EP-5 are also Complete; EP-6 is In Progress with integrated tests passing
-and a proposed independently versioned cohort awaiting approval. The first cumulative
-comparison stopped without a valid pair; its authorized follow-up retained 13 valid
-trials and five matched pairs, with tail-latency acceptance still inconclusive.
-The subsequent user-authorized tail repeat retained 12 additional valid trials and
-six pairs; separate policies remain inconclusive and pooled comparisons are rejected
-for a 4096-byte memory fingerprint difference across VM boots. No package is released.
-The accepted ADR-8 records the intended API, not evidence that it has shipped. The recent
+EP-4, EP-5 and EP-6 are Complete: all six children are complete. The six-package
+cohort is published and verified; exact-version indexed consumer proof and Keiro
+source adoption pass. The user accepted the cumulative evidence practically.
+Strict comparisons remain inconclusive and pooling rejected; adverse telemetry
+and uncertainty are preserved. No further experiment or Keiro release is required.
+ADR-8 records the validated construction and startup-refusal API now shipped in this cohort. The recent
 lifecycle, category-performance, and publisher-memory fixes are baseline improvements to preserve.
-This update inspected source, tests, migrations, changelogs, and history; it did not rerun the
-runtime or performance suites and makes no new measured-performance claim.
+The initial audit inspected source, tests, migrations, changelogs and history without
+rerunning runtime or performance suites. Subsequent implementation and release verification
+are recorded below; completion makes no new measured-performance claim.
 
 Five implementation plans are separated by functional ownership, followed by one release and
 downstream-adoption plan. EP-1 owns consumer-group topology and safe resize. EP-2 owns the worker
@@ -165,7 +164,7 @@ records exact unique-constraint identity and the append invariant-failure bounda
 | 3 | Contain persistent publisher decode-hook failures | docs/plans/83-contain-persistent-publisher-decode-hook-failures.md | None | EP-2 | Complete |
 | 4 | Harden adapter acknowledgement liveness and expose retry policy | docs/plans/84-harden-adapter-acknowledgement-liveness-and-expose-retry-policy.md | EP-1, EP-2 | EP-3 | Complete |
 | 5 | Make append unique-violation classification exact | docs/plans/86-make-append-unique-violation-classification-exact.md | None | None | Complete |
-| 6 | Release the subscription hardening cohort and coordinate downstream adoption | docs/plans/85-release-the-subscription-hardening-cohort-and-coordinate-downstream-adoption.md | EP-1, EP-2, EP-3, EP-4, EP-5 | None | In Progress |
+| 6 | Release the subscription hardening cohort and coordinate downstream adoption | docs/plans/85-release-the-subscription-hardening-cohort-and-coordinate-downstream-adoption.md | EP-1, EP-2, EP-3, EP-4, EP-5 | None | Complete |
 
 
 ### Historical source evidence before the cohort (2026-10-09, `e6ea664`)
@@ -451,7 +450,7 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 - [x] (2026-10-09) EP-3: prove the current apparent-live stall, then make decode failure a typed per-event outcome that each subscriber disposes of through an optional callback, stopping by default, and that fails reads with a typed error.
 - [x] (2026-10-09) EP-4: expose retry policy on single and consumer-group adapter configs; provide a guarded processor path and a worker-level handler-stall event the adapter configures.
 - [x] (2026-10-10) EP-5: distinguish `stream_events_pkey` duplicates and `ux_stream_events_stream_version` corruption with deterministic mapping tests.
-- [ ] EP-6: run integrated PostgreSQL 18 correctness, existing ADR-5 gates and the focused cumulative comparison, release the affected package cohort with current authoritative versions, and prove downstream Keiro shard-count adoption without private Kiroku SQL.
+- [x] (2026-10-10) EP-6: integrated PostgreSQL 18 correctness, existing ADR-5 gates and user-approved practical cumulative evidence accepted; all six packages published and verified, exact indexed consumer proof passed, Keiro public-API adoption committed/pushed with 769 downstream examples passing.
 
 
 ## Surprises & Discoveries
@@ -881,9 +880,11 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Outcomes & Retrospective
 
-The user approved release metadata on 2026-10-10. Versions, internal bounds and changelogs match the approved proposal. New-version full builds, all 554 PostgreSQL 18.6 examples, six package checks and six source/docs archive pairs pass. Archive inspection verifies 49 public modules and exact migration payloads. The final diff includes the declared BSD-3-Clause license packaging repair. Native formatting/flake checks pass; explicit publication confirmation remains; no release commit, tag, push or upload has occurred. Evidence: `kiroku-store/bench/results/ep6-artifacts/README.md`.
+Current outcome (2026-10-10): All six children are Complete. Release commit `364ffa82136fcfc83d39ead1234abffaf500844b` and all six annotated package tags are pushed. The six reviewed Hackage source/docs pairs and GitHub releases are public; downloaded source hashes and remote tag commits match. Both the direct-public-archive and signed-index clean consumers build and run at the exact six versions. Keiro adoption is committed and pushed in mori://shinzui/keiro at `2c3a5389353d290b532cafff14122bf9ab1af79a`: 719 Keiro and 50 Ops examples pass, including atomic stopped-group resize, rollback and complete delivery after reassignment. Full downstream workspace build, native checks and strict ADR/user-documentation checks pass. Keiro is not released. Evidence: `kiroku-store/bench/results/ep6-publication/README.md` and `downstream-proof.json` there. The 554-example Kiroku release gate, twelve archive inspections and all retained performance evidence remain unchanged.
 
-On 2026-10-10 the user explicitly accepted the retained bounded evidence practically and authorized continuation to version review. The practical performance decision is complete; statistical equivalence remains inconclusive, pooled operator comparisons remain rejected and full telemetry failures remain retained. No additional experiment is queued. EP6 remains In Progress for explicit publication confirmation, clean-consumer verification and downstream adoption; metadata and artifact preparation are complete. See `kiroku-store/bench/results/ep6-release/practical-acceptance.md`.
+Historical artifact review: The user approved release metadata on 2026-10-10. Versions, internal bounds and changelogs match the approved proposal. New-version full builds, all 554 PostgreSQL 18.6 examples, six package checks and six source/docs archive pairs pass. Archive inspection verifies 49 public modules and exact migration payloads. The final diff includes the declared BSD-3-Clause license packaging repair. Native formatting/flake checks pass; explicit publication confirmation remains; no release commit, tag, push or upload has occurred. Evidence: `kiroku-store/bench/results/ep6-artifacts/README.md`.
+
+On 2026-10-10 the user explicitly accepted the retained bounded evidence practically and authorized continuation to version review. The practical performance decision is complete; statistical equivalence remains inconclusive, pooled operator comparisons remain rejected and full telemetry failures remain retained. No additional experiment is queued. EP6 is Complete: publication, clean consumer and downstream verification pass. See `kiroku-store/bench/results/ep6-release/practical-acceptance.md`.
 
 The user-authorized tail repeat completed 12 additional valid trials, three
 adapter pairs and three successful-hook fan-out pairs, without replacements.
@@ -945,9 +946,7 @@ EP5 is Complete at `5805117`: exact constraint classification preserves composit
 caller IDs and surfaces internal stream-version uniqueness as an unexpected
 server error. All 423 store examples, 20 structural checks and 16 controlled
 workloads pass; ADR-14 and unchanged success-path source identities are retained
-with `kiroku-store/bench/results/ep5-unique-violation/`. EP6 is In Progress,
-with integrated correctness passing and retained cumulative default/opt-in
-measurements. Practical performance acceptance is now explicitly approved; metadata and artifact preparation are complete; explicit publication confirmation and downstream adoption remain outstanding. No package is released.
+with `kiroku-store/bench/results/ep5-unique-violation/`. EP6 is Complete with integrated correctness, practically accepted cumulative evidence, verified publication and downstream adoption.
 
 
 
@@ -1090,3 +1089,9 @@ Revision note (2026-10-10, artifact verification): all approved new versions bui
 Revision note (2026-10-10, publication review): native treefmt/pre-commit checks pass; final metadata and all twelve source/docs archive hashes are ready for the required final confirmation. No external publication or downstream change has occurred.
 
 Revision note (2026-10-10, authorization): proceed with publication and remaining authorized MasterPlan work; the user rejects redundant approval prompts. Preserve all review artifacts and verification requirements.
+
+
+Revision note (2026-10-10, publication): all six reviewed source/docs pairs are published and verified against public downloads; remote annotated tags match the release commit. Direct-archive and signed-index clean consumers build/run. Downstream adoption verification remains in progress.
+
+
+Revision note (2026-10-10, completion): all six children are Complete. Publish and verify the approved cohort, prove clean signed-index consumption, and commit/push Keiro adoption after 719 Keiro and 50 Ops examples pass. Update durable ADR-2/ADR-8 implementation status and preserve ADR-11 practical acceptance with all adverse/inconclusive evidence. No Keiro release or further performance experiment is required.

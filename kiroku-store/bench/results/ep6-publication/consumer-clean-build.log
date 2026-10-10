@@ -1,0 +1,73 @@
+Downloading
+https://hackage.haskell.org/package/kiroku-store-0.10.0.0/kiroku-store-0.10.0.0.tar.gz
+Downloading
+https://hackage.haskell.org/package/kiroku-store-migrations-0.7.0.0/kiroku-store-migrations-0.7.0.0.tar.gz
+Downloading
+https://hackage.haskell.org/package/kiroku-otel-0.2.0.11/kiroku-otel-0.2.0.11.tar.gz
+Downloading
+https://hackage.haskell.org/package/kiroku-cli-0.2.0.9/kiroku-cli-0.2.0.9.tar.gz
+Downloading
+https://hackage.haskell.org/package/kiroku-metrics-0.2.0.0/kiroku-metrics-0.2.0.0.tar.gz
+Downloading
+https://hackage.haskell.org/package/shibuya-kiroku-adapter-0.6.0.0/shibuya-kiroku-adapter-0.6.0.0.tar.gz
+Resolving dependencies...
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.10.0.0 (lib) (requires build)
+ - kiroku-store-migrations-0.7.0.0 (lib) (requires build)
+ - unicode-data-0.9.0 (lib) (requires download & build)
+ - shibuya-kiroku-adapter-0.6.0.0 (lib:shibuya-kiroku-adapter-internal) (requires build)
+ - kiroku-otel-0.2.0.11 (lib) (requires build)
+ - kiroku-cli-0.2.0.9 (lib) (requires build)
+ - streamly-0.11.1 (lib) (requires build)
+ - kiroku-metrics-0.2.0.0 (lib) (requires build)
+ - shibuya-core-0.10.0.1 (lib) (requires build)
+ - shibuya-kiroku-adapter-0.6.0.0 (lib) (requires build)
+ - release-consumer-0.1.0.0 (exe:release-consumer) (first run)
+Downloading  unicode-data-0.9.0
+Starting     shibuya-kiroku-adapter-0.6.0.0 (lib:shibuya-kiroku-adapter-internal)
+Starting     kiroku-store-migrations-0.7.0.0 (lib)
+Starting     kiroku-store-0.10.0.0 (lib)
+Downloaded   unicode-data-0.9.0
+Starting     unicode-data-0.9.0 (lib)
+Building     unicode-data-0.9.0 (lib)
+Building     shibuya-kiroku-adapter-0.6.0.0 (lib:shibuya-kiroku-adapter-internal)
+Building     kiroku-store-0.10.0.0 (lib)
+Building     kiroku-store-migrations-0.7.0.0 (lib)
+Installing   shibuya-kiroku-adapter-0.6.0.0 (lib:shibuya-kiroku-adapter-internal)
+Installing   kiroku-store-migrations-0.7.0.0 (lib)
+Completed    shibuya-kiroku-adapter-0.6.0.0 (lib:shibuya-kiroku-adapter-internal)
+Completed    kiroku-store-migrations-0.7.0.0 (lib)
+Installing   unicode-data-0.9.0 (lib)
+Completed    unicode-data-0.9.0 (lib)
+Starting     streamly-0.11.1 (lib)
+Building     streamly-0.11.1 (lib)
+Installing   kiroku-store-0.10.0.0 (lib)
+Completed    kiroku-store-0.10.0.0 (lib)
+Starting     kiroku-otel-0.2.0.11 (lib)
+Starting     kiroku-cli-0.2.0.9 (lib)
+Building     kiroku-otel-0.2.0.11 (lib)
+Building     kiroku-cli-0.2.0.9 (lib)
+Installing   kiroku-otel-0.2.0.11 (lib)
+Installing   kiroku-cli-0.2.0.9 (lib)
+Completed    kiroku-otel-0.2.0.11 (lib)
+Completed    kiroku-cli-0.2.0.9 (lib)
+Starting     kiroku-metrics-0.2.0.0 (lib)
+Building     kiroku-metrics-0.2.0.0 (lib)
+Installing   kiroku-metrics-0.2.0.0 (lib)
+Completed    kiroku-metrics-0.2.0.0 (lib)
+Installing   streamly-0.11.1 (lib)
+Completed    streamly-0.11.1 (lib)
+Starting     shibuya-core-0.10.0.1 (lib)
+Building     shibuya-core-0.10.0.1 (lib)
+Installing   shibuya-core-0.10.0.1 (lib)
+Completed    shibuya-core-0.10.0.1 (lib)
+Starting     shibuya-kiroku-adapter-0.6.0.0 (lib)
+Building     shibuya-kiroku-adapter-0.6.0.0 (lib)
+Installing   shibuya-kiroku-adapter-0.6.0.0 (lib)
+Completed    shibuya-kiroku-adapter-0.6.0.0 (lib)
+Configuring executable 'release-consumer' for release-consumer-0.1.0.0...
+Preprocessing executable 'release-consumer' for release-consumer-0.1.0.0...
+Building executable 'release-consumer' for release-consumer-0.1.0.0...
+[1 of 1] Compiling Main             ( Main.hs, dist-newstyle/build/aarch64-osx/ghc-9.12.4/release-consumer-0.1.0.0/x/release-consumer/build/release-consumer/release-consumer-tmp/Main.o )
+[2 of 2] Linking dist-newstyle/build/aarch64-osx/ghc-9.12.4/release-consumer-0.1.0.0/x/release-consumer/build/release-consumer/release-consumer

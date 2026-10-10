@@ -1,0 +1,229 @@
+{
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 3163,
+      "sha256": "017d3a71f3b81af99e2130e9675020690b7e157221e66f3b1d61a571ddb24313"
+    },
+    {
+      "path": "consumer-clean-build.log",
+      "bytes": 3800,
+      "sha256": "bc7b800043096f939a266acc1165e6f85e2c9cb73631223eaf423e7822db7345"
+    },
+    {
+      "path": "consumer-direct-archives.project",
+      "bytes": 638,
+      "sha256": "2d21ff0fe7eeb3fc6491b5d0a861978a850a97267bc0eb7c2d3a44e1de11ad65"
+    },
+    {
+      "path": "consumer-index-build.log",
+      "bytes": 37,
+      "sha256": "c70726dfeb77ed1cb6519801e91628cd00939716eb2d6dffbd80e95ef5b9806f"
+    },
+    {
+      "path": "consumer-index-proof.json",
+      "bytes": 6929,
+      "sha256": "31f34011e152db3f2ff8fd006fc7e33ff090ab92b483a40025ce8a97e66f0317"
+    },
+    {
+      "path": "consumer-index-run.log",
+      "bytes": 42,
+      "sha256": "6f2cb48a79892f4c9f54d576046a6405c136d664afd0e4dec45dcab6969642c5"
+    },
+    {
+      "path": "consumer-index-update.log",
+      "bytes": 885,
+      "sha256": "58c388646e030f1769185b11e2fe38dd080ad693f7e83f7d54e12bad0c867969"
+    },
+    {
+      "path": "consumer-index.project",
+      "bytes": 69,
+      "sha256": "93ec22c06cafb648cecb4f2bc4509abc9ac2aecb566cc66cdba454c4ba25382a"
+    },
+    {
+      "path": "consumer-journal.json",
+      "bytes": 976,
+      "sha256": "b18abb634166aa227f865ac34cadde5b5612ec5179c84604de8f5728dae25db0"
+    },
+    {
+      "path": "consumer-proof.json",
+      "bytes": 400,
+      "sha256": "1454eb487f6f1f65f91765712cf97aef63bb504726db532fe0f610ff085ce5b6"
+    },
+    {
+      "path": "consumer-resolved-packages.json",
+      "bytes": 5959,
+      "sha256": "b4f140a8f62dd1fc3de3506d783d1aff1c50d10c955be907fde4f909066111be"
+    },
+    {
+      "path": "consumer-run.log",
+      "bytes": 668,
+      "sha256": "033b5f38342cd3af2705b8a120fa075740dce233740ff6bb0b59ad7af03493df"
+    },
+    {
+      "path": "consumer.py",
+      "bytes": 2046,
+      "sha256": "81361ca61748c91b5c04a33bdfc68690d6d0a6a1f9bc06ae2569f56f4d081e61"
+    },
+    {
+      "path": "downstream-proof.json",
+      "bytes": 538,
+      "sha256": "c152e3a314d102bc2aec5c867c8331fb871f8f886cc92b6de280fdd3ba9086c1"
+    },
+    {
+      "path": "final-adr.log",
+      "bytes": 34,
+      "sha256": "fd68932c477b9bdb42daa689937f12d36ba0faa22d3d94619cd4c8b96d7a16b0"
+    },
+    {
+      "path": "final-capabilities.log",
+      "bytes": 757,
+      "sha256": "d9099d58e4a9aebb91b6c008720a0a351de8e6d1594265f0baddc1f069dbd898"
+    },
+    {
+      "path": "final-flake.log",
+      "bytes": 5096,
+      "sha256": "39b2815fc7bc2ffb7206cc58449e52a6b721f3ebc176d9a782f8d5ef1dd09ed5"
+    },
+    {
+      "path": "final-format.log",
+      "bytes": 504,
+      "sha256": "63617f98200f9a20b0694ecc222e192025b9c4a7c373ecb81b0e78bf2ee02226"
+    },
+    {
+      "path": "index-propagation-first-attempt/consumer-clean-build.log",
+      "bytes": 833,
+      "sha256": "024e4c43f83900d9f205b69574810fc48a641d42e31a67f9408229802af650d1"
+    },
+    {
+      "path": "index-propagation-first-attempt/consumer-index-update.log",
+      "bytes": 259,
+      "sha256": "79a7f7c59735d5201bb69e3b147c02b6819de39e131417e0dd48d75626eeab6e"
+    },
+    {
+      "path": "index-propagation-first-attempt/consumer-journal.json",
+      "bytes": 673,
+      "sha256": "6f6743c61a5a007c572c1363180120b6a9fedf4191353552fe6e4c0a16c2f9a1"
+    },
+    {
+      "path": "index-propagation-recheck.log",
+      "bytes": 259,
+      "sha256": "af636a42761d498780aaa1a3ff524bf8667235db8aa195cbba7d120cf5617b2f"
+    },
+    {
+      "path": "journal.json",
+      "bytes": 9485,
+      "sha256": "bc78737c6b76767b43b9cc50dfaf57115ce0597d9dd58da194c510831d72a612"
+    },
+    {
+      "path": "kiroku-cli-docs-upload.log",
+      "bytes": 251,
+      "sha256": "705f20e97eec846c73b2c7e6b0cf88b8ed4b12df541189bf8055e1dba646a376"
+    },
+    {
+      "path": "kiroku-cli-github-release.log",
+      "bytes": 67,
+      "sha256": "fadffeac37682bb8f3526fb9d7a15a665eb50603dc279dbf5ddb1258c85890b5"
+    },
+    {
+      "path": "kiroku-cli-source-upload.log",
+      "bytes": 224,
+      "sha256": "87b0e24945ec8d5d166da2a5000c3c1f6d3dae0534dbc0ff6ba44c74968c2b29"
+    },
+    {
+      "path": "kiroku-metrics-docs-upload.log",
+      "bytes": 259,
+      "sha256": "40b2c429e9e038b70679acafa30b22cfb79e715197b5448b1e8a4010d65599b9"
+    },
+    {
+      "path": "kiroku-metrics-github-release.log",
+      "bytes": 71,
+      "sha256": "b3369163815b14b439150b6b38fde65e3dfb4192480e7b4d60fa5e5fa66f8151"
+    },
+    {
+      "path": "kiroku-metrics-source-upload.log",
+      "bytes": 232,
+      "sha256": "e95fe0eb0452d02cd337246eadaba2e759cca1fd6fb1c252448f8971fa96e9c9"
+    },
+    {
+      "path": "kiroku-otel-docs-upload.log",
+      "bytes": 255,
+      "sha256": "92f37193e8a72d30ed39e72446ad7359ab47273c933a6168bd3fb72c8c665de6"
+    },
+    {
+      "path": "kiroku-otel-github-release.log",
+      "bytes": 69,
+      "sha256": "4258e15e59451d44a080aa20cfb8164a31eed87c9db2a9c361bb68822cbdf98a"
+    },
+    {
+      "path": "kiroku-otel-source-upload.log",
+      "bytes": 228,
+      "sha256": "6552d47f8dbc2e69da0bee1f02b34f6799da0c25582137ddddeaef27acab28ba"
+    },
+    {
+      "path": "kiroku-store-docs-upload.log",
+      "bytes": 257,
+      "sha256": "07ce5afa46e6dd79ad483c16d95bcbfb2bd95d7278558a12b93fa34190d13e51"
+    },
+    {
+      "path": "kiroku-store-github-release.log",
+      "bytes": 70,
+      "sha256": "af02754ba975516e0455473459bb004515006ed20cc69e6c91d796d975b997b0"
+    },
+    {
+      "path": "kiroku-store-migrations-docs-upload.log",
+      "bytes": 277,
+      "sha256": "416b2c8167dce32671de3e0728b53bcf1ed50c66a05cfd23a36450dbe45a8e87"
+    },
+    {
+      "path": "kiroku-store-migrations-github-release.log",
+      "bytes": 80,
+      "sha256": "dc6f23afab6887e2752de5953d89a5107bf3b39628c5f41206fd401bacd95d4e"
+    },
+    {
+      "path": "kiroku-store-migrations-source-upload.log",
+      "bytes": 250,
+      "sha256": "6c640183245f5a044ff89cce9b8f3170d35839fb3adb8d07b01b8c667cb5045e"
+    },
+    {
+      "path": "kiroku-store-source-upload.log",
+      "bytes": 230,
+      "sha256": "f0f76cd2ee589ae0fca2d7c9f555ccb5949a5af4012db4bb9ebc3bbb8b954758"
+    },
+    {
+      "path": "publish.py",
+      "bytes": 2064,
+      "sha256": "dba759ede58e08e421435cb4dd001104bf61604a136a3891bb06f46b74834562"
+    },
+    {
+      "path": "registry-verification.json",
+      "bytes": 3464,
+      "sha256": "ea7f046ed9fa824e386563bac7a6b8c4ce49fb8e58df12aa1d467f23562d75c1"
+    },
+    {
+      "path": "remote-tags.txt",
+      "bytes": 12063,
+      "sha256": "b21a519ba00e0deaf74dd55568dfb61ae8cf1d4da2ab1d9fbb52972a8f04f839"
+    },
+    {
+      "path": "shibuya-kiroku-adapter-docs-upload.log",
+      "bytes": 275,
+      "sha256": "136715e36aff73a30d30dabb9e475084bedea9828510144c2f1d189942a46446"
+    },
+    {
+      "path": "shibuya-kiroku-adapter-github-release.log",
+      "bytes": 79,
+      "sha256": "cbced05b62647931d5635083ecd54e1feff72482ddfccfdd4e740bbd7967f6ba"
+    },
+    {
+      "path": "shibuya-kiroku-adapter-source-upload.log",
+      "bytes": 406,
+      "sha256": "845534c915e9675e0f836a4d1f9d762a022a2f3367088012fae2bbd8103dc47c"
+    },
+    {
+      "path": "tag-proof.json",
+      "bytes": 1057,
+      "sha256": "1bd8403996a0d0703040a55b80a0b13c13a1ace0008fca71ff1ddebe81a2ffe1"
+    }
+  ]
+}

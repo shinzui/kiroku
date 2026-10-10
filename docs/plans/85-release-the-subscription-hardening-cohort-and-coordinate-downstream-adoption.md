@@ -84,9 +84,9 @@ user's explicit release-time confirmation.
 - [x] (2026-10-10) M2: apply approved metadata and license packaging repair; full builds, all 554 PostgreSQL 18.6 examples, six package checks and source/docs archives pass. Exact contents and all 49 public modules verified; accepted unchanged-source performance/migration evidence reused.
 - [x] (2026-10-10) M2: native formatting/flake validation passes; final metadata diff, twelve archive names/hashes and dependency publication order are retained in the final artifact review.
 - [x] (2026-10-10) M3: publication authorization is sufficient; the user explicitly directs proceeding without redundant approval requests.
-- [ ] M3: use the existing authorization to commit, tag, push and publish Hackage/docs and GitHub releases in dependency order; verify clean-consumer resolution.
-- [ ] M4: adopt the released public resize operation in `mori://shinzui/keiro` and prove atomic shard/checkpoint resizing without private Kiroku SQL.
-- [ ] Record release URLs, tag commits, clean-consumer evidence, downstream commit, and retrospective.
+- [x] (2026-10-10) M3: release commit `364ffa82136fcfc83d39ead1234abffaf500844b`, six annotated tags and master are pushed; all six Hackage source/docs pairs and GitHub releases are published. Published hashes, docs and remote tag commits match; an external consumer resolves exact versions from the public index and builds/runs successfully.
+- [x] (2026-10-10) M4: adopt the released public resize operation in `mori://shinzui/keiro`, prove atomic shard/checkpoint resizing without private checkpoint SQL, and commit/push `2c3a5389353d290b532cafff14122bf9ab1af79a` with 719 Keiro and 50 Ops examples passing.
+- [x] (2026-10-10) Record release URLs, tag commits, clean-consumer evidence, downstream commit and retrospective in the publication bundle; all required work is complete.
 
 
 ## Surprises & Discoveries
@@ -217,9 +217,11 @@ user's explicit release-time confirmation.
 
 ## Outcomes & Retrospective
 
-The user approved release metadata on 2026-10-10. Versions, internal bounds and changelogs match the approved proposal. New-version full builds, all 554 PostgreSQL 18.6 examples, six package checks and six source/docs archive pairs pass. Archive inspection verifies 49 public modules and exact migration payloads. The final diff includes the declared BSD-3-Clause license packaging repair. Native formatting/flake checks pass; explicit publication confirmation remains; no release commit, tag, push or upload has occurred. Evidence: `kiroku-store/bench/results/ep6-artifacts/README.md`.
+Current outcome (2026-10-10): All six children are Complete. Release commit `364ffa82136fcfc83d39ead1234abffaf500844b` and all six annotated package tags are pushed. The six reviewed Hackage source/docs pairs and GitHub releases are public; downloaded source hashes and remote tag commits match. Both the direct-public-archive and signed-index clean consumers build and run at the exact six versions. Keiro adoption is committed and pushed in mori://shinzui/keiro at `2c3a5389353d290b532cafff14122bf9ab1af79a`: 719 Keiro and 50 Ops examples pass, including atomic stopped-group resize, rollback and complete delivery after reassignment. Full downstream workspace build, native checks and strict ADR/user-documentation checks pass. Keiro is not released. Evidence: `kiroku-store/bench/results/ep6-publication/README.md` and `downstream-proof.json` there. The 554-example Kiroku release gate, twelve archive inspections and all retained performance evidence remain unchanged.
 
-On 2026-10-10 the user explicitly accepted the retained bounded evidence practically and authorized continuation to version review. The practical performance decision is complete; statistical equivalence remains inconclusive, pooled operator comparisons remain rejected and full telemetry failures remain retained. No additional experiment is queued. EP6 remains In Progress for explicit publication confirmation, clean-consumer verification and downstream adoption; metadata and artifact preparation are complete. See `kiroku-store/bench/results/ep6-release/practical-acceptance.md`.
+Historical artifact review: The user approved release metadata on 2026-10-10. Versions, internal bounds and changelogs match the approved proposal. New-version full builds, all 554 PostgreSQL 18.6 examples, six package checks and six source/docs archive pairs pass. Archive inspection verifies 49 public modules and exact migration payloads. The final diff includes the declared BSD-3-Clause license packaging repair. Native formatting/flake checks pass; explicit publication confirmation remains; no release commit, tag, push or upload has occurred. Evidence: `kiroku-store/bench/results/ep6-artifacts/README.md`.
+
+On 2026-10-10 the user explicitly accepted the retained bounded evidence practically and authorized continuation to version review. The practical performance decision is complete; statistical equivalence remains inconclusive, pooled operator comparisons remain rejected and full telemetry failures remain retained. No additional experiment is queued. EP6 is Complete with publication, clean consumer and downstream adoption verified. See `kiroku-store/bench/results/ep6-release/practical-acceptance.md`.
 
 The user-authorized tail repeat completed 12 additional valid trials, three
 adapter pairs and three successful-hook fan-out pairs, without replacements.
@@ -240,9 +242,9 @@ The unchanged full historical telemetry repeat passed 29/30 cases but timed out
 `AnyVersion (new stream)` after 100 seconds. Its focused repeat passed in 58.71
 seconds through setup/cleanup without replacing the full failure. Exhausted-category
 reads were 28% above the historical baseline; this adverse CPU-time telemetry is
-retained. No further experiment is queued. Measured production source remains unchanged; practical performance acceptance and release metadata are approved by the user; final publication confirmation and downstream adoption remain open. Evidence: `kiroku-store/bench/results/ep6-tail-repeat/README.md`.
+retained. No further experiment is queued. Measured production source remains unchanged; practical performance acceptance and release metadata are approved by the user; publication and downstream adoption are complete. Evidence: `kiroku-store/bench/results/ep6-tail-repeat/README.md`.
 
-EP6 is In Progress. All five implementation children are Complete. Integrated
+Historical initial preparation: all five implementation children were Complete. Integrated
 `cabal build all` and `cabal test all --test-show-details=direct` pass (554 examples
 across six suites), as do all six current-version `cabal check` runs and native
 Nix formatting/pre-commit checks. The cumulative comparison stopped under its predeclared failure rule: its first
@@ -270,15 +272,23 @@ of both CPU telemetry timeout cases passed in 96.00 seconds without replacing
 the original failure. Full evidence: `kiroku-store/bench/results/ep6-diagnosis/`.
 Version review now proceeds on the explicit practical acceptance recorded above.
 
-Authoritative release scope and the exact proposed metadata patch are retained in
-`kiroku-store/bench/results/ep6-release/`. Package metadata now matches the explicitly approved proposal; final artifacts and publication review remain pending. No release commit, tag, push, upload or downstream
-change has occurred. Final archives, publication, clean-consumer proof and Keiro
-adoption remain outstanding.
+The approved metadata proposal and earlier gates remain in
+`kiroku-store/bench/results/ep6-release/`; frozen final source/docs archives and
+inspection are in `kiroku-store/bench/results/ep6-artifacts/`. Publication, both
+consumer methods and downstream completion are proved in
+`kiroku-store/bench/results/ep6-publication/`. Initial index propagation failures,
+new-fixture errors and downstream legacy fixture/schema failures are retained
+alongside the corrected passing results. Keeping publication and source adoption
+as separate stages made those downstream fixes possible against real artifacts.
+The resize wrapper accepts an already validated size; validation remains owned
+by Kiroku. Existing authorization covers all actions; redundant confirmation
+requests were unnecessary. Keiro publication remains outside the plan.
+
 
 
 ## Context and Orientation
 
-Current audit (2026-10-10, production commit `5805117`): all five implementation
+Pre-release audit (2026-10-10, production commit `5805117`): all five implementation
 children are Complete; migrations 0013 and 0014 and the resize, rebind, typed
 decode and opt-in stall APIs are implemented. Current Hackage/tag truth, proposed
 versions and exact edits are retained under `kiroku-store/bench/results/ep6-release/`.
@@ -390,8 +400,8 @@ helpers that lock the complete subscription lease-row set and refuse resize whil
 active. Add `resizeShardCount` in `keiro/src/Keiro/Subscription/Shard.hs`. In one
 `Hasql.Transaction.Transaction` it must:
 
-1. construct Kiroku's `ConsumerGroupSize` from the new count, whose `Either` is the validation,
-   and lock existing Keiro shard rows;
+1. accept Kiroku's validated `ConsumerGroupSize` (constructed by the caller through its
+   `Either` smart constructor), and lock existing Keiro shard rows;
 2. refuse with typed `ShardResizeActiveLeases` unless every owner is clear;
 3. call Kiroku's released `resizeConsumerGroupTx` for the same subscription;
 4. replace Keiro rows with buckets `0 .. newSize - 1` and the new recorded count;
@@ -601,3 +611,9 @@ Revision note (2026-10-10, artifact verification): all approved new versions bui
 Revision note (2026-10-10, publication review): native treefmt/pre-commit checks pass; final metadata and all twelve source/docs archive hashes are ready for the required final confirmation. No external publication or downstream change has occurred.
 
 Revision note (2026-10-10, authorization): proceed with publication and remaining authorized MasterPlan work; the user rejects redundant approval prompts. Preserve all review artifacts and verification requirements.
+
+
+Revision note (2026-10-10, publication): publish the approved cohort and verify public source hashes, documentation, releases, tags and clean consumer resolution. Preserve the initial index propagation failure and subsequent direct-archive and indexed successes. Keiro adoption and final acceptance remain in progress.
+
+
+Revision note (2026-10-10, completion): all milestones pass, six package releases and exact indexed consumer proof are verified, and Keiro adoption is committed/pushed after 769 downstream examples pass. The parent MasterPlan and this child are Complete; retained practical-performance limits and all earlier failure evidence remain unchanged.

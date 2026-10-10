@@ -1,0 +1,307 @@
+{
+  "release_commit": "364ffa82136fcfc83d39ead1234abffaf500844b",
+  "started_at": "2026-10-10T14:41:44.483368+00:00",
+  "phase": "complete",
+  "actions": [
+    {
+      "package": "kiroku-store",
+      "version": "0.10.0.0",
+      "action": "source-upload",
+      "command": [
+        "cabal",
+        "upload",
+        "--publish",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/sdist/kiroku-store-0.10.0.0.tar.gz"
+      ],
+      "started_at": "2026-10-10T14:41:44.485174+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:41:45.163163+00:00"
+    },
+    {
+      "package": "kiroku-store",
+      "version": "0.10.0.0",
+      "action": "docs-upload",
+      "command": [
+        "cabal",
+        "upload",
+        "--publish",
+        "--documentation",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/kiroku-store-0.10.0.0-docs.tar.gz"
+      ],
+      "started_at": "2026-10-10T14:41:45.164227+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:41:45.949162+00:00"
+    },
+    {
+      "package": "kiroku-store",
+      "version": "0.10.0.0",
+      "action": "github-release",
+      "command": [
+        "gh",
+        "release",
+        "create",
+        "kiroku-store-v0.10.0.0",
+        "--repo",
+        "shinzui/kiroku",
+        "--verify-tag",
+        "--title",
+        "kiroku-store v0.10.0.0",
+        "--notes-file",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-artifacts/release-notes/kiroku-store.md"
+      ],
+      "started_at": "2026-10-10T14:41:45.953011+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:41:47.078519+00:00"
+    },
+    {
+      "package": "kiroku-store-migrations",
+      "version": "0.7.0.0",
+      "action": "source-upload",
+      "command": [
+        "cabal",
+        "upload",
+        "--publish",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/sdist/kiroku-store-migrations-0.7.0.0.tar.gz"
+      ],
+      "started_at": "2026-10-10T14:41:47.085792+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:41:47.453519+00:00"
+    },
+    {
+      "package": "kiroku-store-migrations",
+      "version": "0.7.0.0",
+      "action": "docs-upload",
+      "command": [
+        "cabal",
+        "upload",
+        "--publish",
+        "--documentation",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/kiroku-store-migrations-0.7.0.0-docs.tar.gz"
+      ],
+      "started_at": "2026-10-10T14:41:47.454465+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:41:47.791803+00:00"
+    },
+    {
+      "package": "kiroku-store-migrations",
+      "version": "0.7.0.0",
+      "action": "github-release",
+      "command": [
+        "gh",
+        "release",
+        "create",
+        "kiroku-store-migrations-v0.7.0.0",
+        "--repo",
+        "shinzui/kiroku",
+        "--verify-tag",
+        "--title",
+        "kiroku-store-migrations v0.7.0.0",
+        "--notes-file",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-artifacts/release-notes/kiroku-store-migrations.md"
+      ],
+      "started_at": "2026-10-10T14:41:47.792306+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:41:49.018950+00:00"
+    },
+    {
+      "package": "kiroku-otel",
+      "version": "0.2.0.11",
+      "action": "source-upload",
+      "command": [
+        "cabal",
+        "upload",
+        "--publish",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/sdist/kiroku-otel-0.2.0.11.tar.gz"
+      ],
+      "started_at": "2026-10-10T14:41:49.021395+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:41:49.469591+00:00"
+    },
+    {
+      "package": "kiroku-otel",
+      "version": "0.2.0.11",
+      "action": "docs-upload",
+      "command": [
+        "cabal",
+        "upload",
+        "--publish",
+        "--documentation",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/kiroku-otel-0.2.0.11-docs.tar.gz"
+      ],
+      "started_at": "2026-10-10T14:41:49.473113+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:41:49.832419+00:00"
+    },
+    {
+      "package": "kiroku-otel",
+      "version": "0.2.0.11",
+      "action": "github-release",
+      "command": [
+        "gh",
+        "release",
+        "create",
+        "kiroku-otel-v0.2.0.11",
+        "--repo",
+        "shinzui/kiroku",
+        "--verify-tag",
+        "--title",
+        "kiroku-otel v0.2.0.11",
+        "--notes-file",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-artifacts/release-notes/kiroku-otel.md"
+      ],
+      "started_at": "2026-10-10T14:41:49.836253+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:41:50.827303+00:00"
+    },
+    {
+      "package": "kiroku-cli",
+      "version": "0.2.0.9",
+      "action": "source-upload",
+      "command": [
+        "cabal",
+        "upload",
+        "--publish",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/sdist/kiroku-cli-0.2.0.9.tar.gz"
+      ],
+      "started_at": "2026-10-10T14:41:50.838232+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:41:51.080581+00:00"
+    },
+    {
+      "package": "kiroku-cli",
+      "version": "0.2.0.9",
+      "action": "docs-upload",
+      "command": [
+        "cabal",
+        "upload",
+        "--publish",
+        "--documentation",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/kiroku-cli-0.2.0.9-docs.tar.gz"
+      ],
+      "started_at": "2026-10-10T14:41:51.081293+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:41:51.374711+00:00"
+    },
+    {
+      "package": "kiroku-cli",
+      "version": "0.2.0.9",
+      "action": "github-release",
+      "command": [
+        "gh",
+        "release",
+        "create",
+        "kiroku-cli-v0.2.0.9",
+        "--repo",
+        "shinzui/kiroku",
+        "--verify-tag",
+        "--title",
+        "kiroku-cli v0.2.0.9",
+        "--notes-file",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-artifacts/release-notes/kiroku-cli.md"
+      ],
+      "started_at": "2026-10-10T14:41:51.375204+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:41:52.284620+00:00"
+    },
+    {
+      "package": "kiroku-metrics",
+      "version": "0.2.0.0",
+      "action": "source-upload",
+      "command": [
+        "cabal",
+        "upload",
+        "--publish",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/sdist/kiroku-metrics-0.2.0.0.tar.gz"
+      ],
+      "started_at": "2026-10-10T14:41:52.286564+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:41:52.683144+00:00"
+    },
+    {
+      "package": "kiroku-metrics",
+      "version": "0.2.0.0",
+      "action": "docs-upload",
+      "command": [
+        "cabal",
+        "upload",
+        "--publish",
+        "--documentation",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/kiroku-metrics-0.2.0.0-docs.tar.gz"
+      ],
+      "started_at": "2026-10-10T14:41:52.684248+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:41:53.256337+00:00"
+    },
+    {
+      "package": "kiroku-metrics",
+      "version": "0.2.0.0",
+      "action": "github-release",
+      "command": [
+        "gh",
+        "release",
+        "create",
+        "kiroku-metrics-v0.2.0.0",
+        "--repo",
+        "shinzui/kiroku",
+        "--verify-tag",
+        "--title",
+        "kiroku-metrics v0.2.0.0",
+        "--notes-file",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-artifacts/release-notes/kiroku-metrics.md"
+      ],
+      "started_at": "2026-10-10T14:41:53.275278+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:41:54.358067+00:00"
+    },
+    {
+      "package": "shibuya-kiroku-adapter",
+      "version": "0.6.0.0",
+      "action": "source-upload",
+      "command": [
+        "cabal",
+        "upload",
+        "--publish",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/sdist/shibuya-kiroku-adapter-0.6.0.0.tar.gz"
+      ],
+      "started_at": "2026-10-10T14:41:54.361732+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:41:56.515500+00:00"
+    },
+    {
+      "package": "shibuya-kiroku-adapter",
+      "version": "0.6.0.0",
+      "action": "docs-upload",
+      "command": [
+        "cabal",
+        "upload",
+        "--publish",
+        "--documentation",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/shibuya-kiroku-adapter-0.6.0.0-docs.tar.gz"
+      ],
+      "started_at": "2026-10-10T14:41:56.516478+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:41:56.971151+00:00"
+    },
+    {
+      "package": "shibuya-kiroku-adapter",
+      "version": "0.6.0.0",
+      "action": "github-release",
+      "command": [
+        "gh",
+        "release",
+        "create",
+        "shibuya-kiroku-adapter-v0.6.0.0",
+        "--repo",
+        "shinzui/kiroku",
+        "--verify-tag",
+        "--title",
+        "shibuya-kiroku-adapter v0.6.0.0",
+        "--notes-file",
+        "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store/bench/results/ep6-artifacts/release-notes/shibuya-kiroku-adapter.md"
+      ],
+      "started_at": "2026-10-10T14:41:56.972118+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:41:57.978953+00:00"
+    }
+  ]
+}

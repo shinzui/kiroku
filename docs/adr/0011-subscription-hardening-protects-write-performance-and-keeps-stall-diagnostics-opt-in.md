@@ -8,7 +8,7 @@ generated:
 docId: ADR-11
 status: Accepted
 date: 2026-10-09
-timestamp: "2026-10-10T13:52:05Z"
+timestamp: "2026-10-10T15:06:38Z"
 originatingPlan: docs/masterplans/12-harden-the-kiroku-event-store-and-subscription-machinery-surfaced-by-the-2026-07-kiroku-review.md
 ---
 
@@ -114,3 +114,13 @@ its uncertainty rather than being relabelled as a strict statistical pass.
 
 Making correctness checks optional was rejected: the cohort must preserve both its safety
 contracts and the user's write-performance requirement.
+
+
+## Implementation status (2026-10-10)
+
+The user explicitly approved metadata and publication and directed proceeding
+without redundant confirmation prompts. The reviewed six-package cohort is now
+published and its exact artifacts verified. This changes no performance verdict:
+practical acceptance remains separate from the retained inconclusive statistical
+comparisons and adverse telemetry. No additional experiment is required merely
+by publication. Evidence: `kiroku-store/bench/results/ep6-publication/`.

@@ -1,0 +1,80 @@
+[
+  {
+    "package": "kiroku-store",
+    "version": "0.10.0.0",
+    "hackage_url": "https://hackage.haskell.org/package/kiroku-store-0.10.0.0",
+    "downloaded_source_sha256": "ff09ca182e6724e78616f440c9fbe1eb8552960afa4b33ac5ec6cd2cdc0a36d4",
+    "docs_url": "https://hackage.haskell.org/package/kiroku-store-0.10.0.0/docs/Kiroku-Store.html",
+    "github_release": {
+      "isDraft": false,
+      "isPrerelease": false,
+      "tagName": "kiroku-store-v0.10.0.0",
+      "url": "https://github.com/shinzui/kiroku/releases/tag/kiroku-store-v0.10.0.0"
+    }
+  },
+  {
+    "package": "kiroku-store-migrations",
+    "version": "0.7.0.0",
+    "hackage_url": "https://hackage.haskell.org/package/kiroku-store-migrations-0.7.0.0",
+    "downloaded_source_sha256": "9c04214a5184a699e090396ee6065168bf508b2444f4d292a2e10258a89dacdb",
+    "docs_url": "https://hackage.haskell.org/package/kiroku-store-migrations-0.7.0.0/docs/Kiroku-Store-Migrations.html",
+    "github_release": {
+      "isDraft": false,
+      "isPrerelease": false,
+      "tagName": "kiroku-store-migrations-v0.7.0.0",
+      "url": "https://github.com/shinzui/kiroku/releases/tag/kiroku-store-migrations-v0.7.0.0"
+    }
+  },
+  {
+    "package": "kiroku-otel",
+    "version": "0.2.0.11",
+    "hackage_url": "https://hackage.haskell.org/package/kiroku-otel-0.2.0.11",
+    "downloaded_source_sha256": "61d51efc40e3615ba4e3a98fccbf5d33380f95f43f0d0f6877d168eac0ff4345",
+    "docs_url": "https://hackage.haskell.org/package/kiroku-otel-0.2.0.11/docs/Kiroku-Otel-Subscription.html",
+    "github_release": {
+      "isDraft": false,
+      "isPrerelease": false,
+      "tagName": "kiroku-otel-v0.2.0.11",
+      "url": "https://github.com/shinzui/kiroku/releases/tag/kiroku-otel-v0.2.0.11"
+    }
+  },
+  {
+    "package": "kiroku-cli",
+    "version": "0.2.0.9",
+    "hackage_url": "https://hackage.haskell.org/package/kiroku-cli-0.2.0.9",
+    "downloaded_source_sha256": "001eb1640559566c4400bc1e54d1b589b4743f40dfda2b65cb4070e50d01f778",
+    "docs_url": "https://hackage.haskell.org/package/kiroku-cli-0.2.0.9/docs/Kiroku-Cli.html",
+    "github_release": {
+      "isDraft": false,
+      "isPrerelease": false,
+      "tagName": "kiroku-cli-v0.2.0.9",
+      "url": "https://github.com/shinzui/kiroku/releases/tag/kiroku-cli-v0.2.0.9"
+    }
+  },
+  {
+    "package": "kiroku-metrics",
+    "version": "0.2.0.0",
+    "hackage_url": "https://hackage.haskell.org/package/kiroku-metrics-0.2.0.0",
+    "downloaded_source_sha256": "5a868fca3219903c0f4f431e25dee5123797d83533cd31e30e1b31abbb2638f8",
+    "docs_url": "https://hackage.haskell.org/package/kiroku-metrics-0.2.0.0/docs/Kiroku-Metrics.html",
+    "github_release": {
+      "isDraft": false,
+      "isPrerelease": false,
+      "tagName": "kiroku-metrics-v0.2.0.0",
+      "url": "https://github.com/shinzui/kiroku/releases/tag/kiroku-metrics-v0.2.0.0"
+    }
+  },
+  {
+    "package": "shibuya-kiroku-adapter",
+    "version": "0.6.0.0",
+    "hackage_url": "https://hackage.haskell.org/package/shibuya-kiroku-adapter-0.6.0.0",
+    "downloaded_source_sha256": "7e7d27e12908aefc806474efec2809a5f901a6c738cc58efe1f5d3eac8cb5c27",
+    "docs_url": "https://hackage.haskell.org/package/shibuya-kiroku-adapter-0.6.0.0/docs/Shibuya-Adapter-Kiroku.html",
+    "github_release": {
+      "isDraft": false,
+      "isPrerelease": false,
+      "tagName": "shibuya-kiroku-adapter-v0.6.0.0",
+      "url": "https://github.com/shinzui/kiroku/releases/tag/shibuya-kiroku-adapter-v0.6.0.0"
+    }
+  }
+]

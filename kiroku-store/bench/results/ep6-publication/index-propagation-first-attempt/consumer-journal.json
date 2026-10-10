@@ -1,0 +1,27 @@
+{
+  "consumer_directory": "/tmp/mp12-ep6-published-consumer",
+  "scope": "Only exact published Hackage versions; no local source packages or package environment",
+  "stages": [
+    {
+      "name": "index-update",
+      "command": [
+        "cabal",
+        "update"
+      ],
+      "started_at": "2026-10-10T14:43:14.402776+00:00",
+      "exit_code": 0,
+      "finished_at": "2026-10-10T14:43:22.809594+00:00"
+    },
+    {
+      "name": "clean-build",
+      "command": [
+        "cabal",
+        "build",
+        "all"
+      ],
+      "started_at": "2026-10-10T14:43:22.810138+00:00",
+      "exit_code": 1,
+      "finished_at": "2026-10-10T14:43:24.852457+00:00"
+    }
+  ]
+}

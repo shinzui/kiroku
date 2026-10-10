@@ -1,0 +1,16 @@
+{
+  "project_uri": "mori://shinzui/keiro",
+  "commit_sha": "2c3a5389353d290b532cafff14122bf9ab1af79a",
+  "verified_remote_master": "2c3a5389353d290b532cafff14122bf9ab1af79a",
+  "evidence_project_relative_path": "keiro/bench/results/mp12-kiroku-adoption",
+  "evidence_artifact_uri": "pending",
+  "keiro_examples": 719,
+  "ops_examples": 50,
+  "failures": 0,
+  "focused_shard_examples": 22,
+  "build_all": "passed",
+  "native_flake": "passed",
+  "adr_concepts": 50,
+  "user_documentation_concepts": 34,
+  "keiro_release_performed": false
+}

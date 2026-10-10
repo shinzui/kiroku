@@ -1,0 +1,12 @@
+packages:
+  .
+  https://hackage.haskell.org/package/kiroku-store-0.10.0.0/kiroku-store-0.10.0.0.tar.gz
+  https://hackage.haskell.org/package/kiroku-store-migrations-0.7.0.0/kiroku-store-migrations-0.7.0.0.tar.gz
+  https://hackage.haskell.org/package/kiroku-otel-0.2.0.11/kiroku-otel-0.2.0.11.tar.gz
+  https://hackage.haskell.org/package/kiroku-cli-0.2.0.9/kiroku-cli-0.2.0.9.tar.gz
+  https://hackage.haskell.org/package/kiroku-metrics-0.2.0.0/kiroku-metrics-0.2.0.0.tar.gz
+  https://hackage.haskell.org/package/shibuya-kiroku-adapter-0.6.0.0/shibuya-kiroku-adapter-0.6.0.0.tar.gz
+
+with-compiler: ghc-9.12.4
+tests: False
+benchmarks: False

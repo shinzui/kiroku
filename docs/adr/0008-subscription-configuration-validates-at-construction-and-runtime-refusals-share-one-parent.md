@@ -8,7 +8,7 @@ generated:
 docId: ADR-8
 status: Accepted
 date: 2026-09-10
-timestamp: "2026-10-10T00:38:59Z"
+timestamp: "2026-10-10T15:06:38Z"
 originatingPlan: docs/masterplans/12-harden-the-kiroku-event-store-and-subscription-machinery-surfaced-by-the-2026-07-kiroku-review.md
 ---
 
@@ -107,3 +107,14 @@ ones the 1.0 review audits.
   models silently, and because a systemic hook failure would become a flood of skipped events.
 - **A store-wide terminal publisher state after a fixed number of decode failures.** Rejected
   because it stops every subscriber for one consumer's problem and hides a magic constant.
+
+
+## Implementation status (2026-10-10)
+
+These construction and startup-refusal contracts ship in `kiroku-store`
+0.10.0.0 and `shibuya-kiroku-adapter` 0.6.0.0. Migration 0014 supplies durable target
+binding. Public archives, Haddocks and a clean exact-version indexed consumer are
+verified in `kiroku-store/bench/results/ep6-publication/`. Downstream
+mori://shinzui/keiro adopts validated constructors, deterministic decode-error
+classification and the shared startup-failure parent. Projections and shard
+readers retain the default stop-on-undecodable behavior.

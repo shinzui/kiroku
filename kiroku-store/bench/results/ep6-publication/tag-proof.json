@@ -1,0 +1,32 @@
+[
+  {
+    "tag": "kiroku-store-v0.10.0.0",
+    "annotation_sha": "aac635d1313f3eacc3ca4c25a1d7c32e151a83db",
+    "commit_sha": "364ffa82136fcfc83d39ead1234abffaf500844b"
+  },
+  {
+    "tag": "kiroku-store-migrations-v0.7.0.0",
+    "annotation_sha": "6ac2d8fedf189cd4a0eb8287d19a25184780d4d5",
+    "commit_sha": "364ffa82136fcfc83d39ead1234abffaf500844b"
+  },
+  {
+    "tag": "kiroku-otel-v0.2.0.11",
+    "annotation_sha": "756a03d739803334e76ff30428383c8016570fec",
+    "commit_sha": "364ffa82136fcfc83d39ead1234abffaf500844b"
+  },
+  {
+    "tag": "kiroku-cli-v0.2.0.9",
+    "annotation_sha": "f2b53a004df7a87efe8c8b8c812742132e37933d",
+    "commit_sha": "364ffa82136fcfc83d39ead1234abffaf500844b"
+  },
+  {
+    "tag": "kiroku-metrics-v0.2.0.0",
+    "annotation_sha": "8b0d1849d914ae30e578f62ab137811a074c330e",
+    "commit_sha": "364ffa82136fcfc83d39ead1234abffaf500844b"
+  },
+  {
+    "tag": "shibuya-kiroku-adapter-v0.6.0.0",
+    "annotation_sha": "e7dd224f10cdee20e4218e59fee09bc42aeeca9f",
+    "commit_sha": "364ffa82136fcfc83d39ead1234abffaf500844b"
+  }
+]

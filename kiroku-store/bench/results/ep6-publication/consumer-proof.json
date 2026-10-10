@@ -1,0 +1,8 @@
+{
+  "passed": true,
+  "source": "Exact versioned public Hackage HTTPS archives during signed-index propagation delay",
+  "built_and_ran": true,
+  "six_main_libraries_verified": true,
+  "package_environment": "disabled",
+  "correction": "Post-build verifier narrowed package count to six main-library entries; executable/private-library entries are separate components, not extra package versions."
+}

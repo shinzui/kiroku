@@ -8,7 +8,7 @@ generated:
 docId: ADR-2
 status: Accepted (recorded retroactively)
 date: 2026-05-20
-timestamp: "2026-10-09T16:46:40Z"
+timestamp: "2026-10-10T15:06:38Z"
 ---
 
 # ADR-0002: Consumer groups are static, hash-partitioned competing consumers
@@ -132,3 +132,14 @@ whole groups through resize so their topology is explicit.
 
 Performance acceptance remains governed by [ADR-11](0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md).
 Functional validation alone does not establish write-performance neutrality.
+
+
+## Implementation status (2026-10-10)
+
+The durable topology and public transaction-composable equalization operation
+ship in `kiroku-store` 0.10.0.0 with migration 0013 in
+`kiroku-store-migrations` 0.7.0.0. Published source hashes and annotated tags are
+verified in `kiroku-store/bench/results/ep6-publication/`. Downstream lease resize
+in mori://shinzui/keiro composes that released checkpoint API with application-owned
+lease rows; checkpoint SQL remains owned here. Stopped-worker preconditions and
+at-least-once replay remain required.
