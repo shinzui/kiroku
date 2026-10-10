@@ -97,6 +97,8 @@ dependency.
 
 ## Progress
 
+- [x] (2026-10-10) M0: prepare the same-payload index-layout comparison, TypeID catalog/fresh fixtures, active category browsing and stream HOT/WAL snapshots; compile the Linux payload and verify paired-input/deadline invariants.
+- [ ] M0: prove remote submission, sealed verification and lease release, then collect the bounded fresh/existing write comparison; statistical acceptance remains open.
 - [x] (2026-10-10) M0: research Kenshou coverage and a disposable category/name index replacement; retain three completed 96-case runs, initial setup error, layout sizes and benchmark source/run inventory. No append-cost acceptance.
 - [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
 - [x] (2026-10-10) M0: execute the focused existing-index SQL prototype check on PostgreSQL 18.6; retain 80 initial and 152 expanded EXPLAIN cases, migration hashes and verified owned-server cleanup.
@@ -123,6 +125,13 @@ dependency.
 
 ## Surprises & Discoveries
 
+- 2026-10-10 matched harness preparation: Kenshou's `cell pair` shortcut varies
+  payload identities, not knobs. The dedicated controller submits explicit AB/BA
+  specs through the same executable and compares only `mp13.index-layout`. The
+  default MP12 workload leaves layout unchanged. Linux compilation passed; the
+  exploratory Darwin package compiled but failed its GHC runtime-closure check,
+  so this dedicated payload advertises Linux only. No write-cost result is inferred.
+  See [the bounded protocol](../../bench/mp13-index/README.md).
 - 2026-10-10 index research: replacing the category-only index with
   `(category, stream_name)` in disposable databases gave correct results within
   the existing budget in all 48 replacement cases across C/ICU and generic/custom
@@ -179,6 +188,14 @@ dependency.
 
 ## Decision Log
 
+- Decision (2026-10-10 matched comparison): keep both arms on the same current
+  source and payload. Select fresh appends without observers, then existing
+  appends with one category subscriber and one browse cycle per second, over
+  20K streams per category. Declare 10/61/10-second phases, five interleaved
+  pairs per case and the existing zero-slowdown policy before measurement. A
+  small proof/calibration precedes expansion; its size does not prove statistical
+  resolution. One persisted hour covers build, setup, recovery and verification.
+  Stop rather than silently reduce coverage, weaken policy or replace failed runs.
 - Decision (2026-10-10 research): retain the category/name replacement as a
   candidate, not a selected migration or complete browse access design. Reuse
   the existing matched append/subscriber harness with current-source arms that
@@ -383,6 +400,10 @@ dependency.
 
 ## Outcomes & Retrospective
 
+2026-10-10 matched harness checkpoint: benchmark-only preparation is complete
+and Linux compilation passed. Paired-input and persistent-deadline checks passed;
+remote proof and measured write cost remain pending. No production migration or
+browse milestone is promoted. ADR-15 already governs this focused experiment.
 2026-10-10 index research: completed the authorized source/benchmark research
 and local footprint/read diagnosis. Three 96-case runs, the zero-case setup error
 and the unchanged prefix regression result are retained, with all five owned
@@ -1499,3 +1520,11 @@ Recorded disposable replacement footprint/read evidence and verified cleanup,
 Kenshou source/run coverage, matched-harness instrumentation gaps, and the
 unchanged shared access/cumulative write-cost obligation. No migration or
 performance acceptance is selected; production milestones remain open.
+
+
+## Matched index harness revision (2026-10-10)
+
+Prepared a current-source, same-payload index comparison with TypeID fixtures,
+stream HOT/WAL observations and active category browsing. Recorded the selected
+small protocol, unchanged comparison policy and persistent whole-experiment budget.
+Linux compilation and controller input invariants passed; remote evidence is pending.

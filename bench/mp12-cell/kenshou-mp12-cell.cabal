@@ -16,6 +16,7 @@ executable kenshou
   main-is:            Main.hs
   hs-source-dirs:     src
   other-modules:
+    IndexResearch
     Kenshou.Suite.Kiroku.Bench.Hardening
     Workload
 

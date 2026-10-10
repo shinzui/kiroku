@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 
--- Controlled hardening workload; production APIs are the only varying code.
+-- Controlled hardening workload, with an opt-in disposable index comparison.
 -- mori://shinzui/keiro-runtime-kenshou/packages/kenshou-measure
 module Workload (bundle) where
 
@@ -37,6 +37,8 @@ import System.Mem (performMajorGC)
 import System.Posix.Unistd qualified as Posix
 import System.Timeout (timeout)
 
+import IndexResearch qualified as Index
+
 import Kenshou.Core.Bundle (LayerBundle (..))
 import Kenshou.Core.Context qualified as Core
 import Kenshou.Core.Env.Postgres (PostgresEnv (..))
@@ -64,6 +66,7 @@ data Workload = Workload
     , subscribers :: !Int
     , hookEnabled :: !Bool
     , diagnosticsEnabled :: !Bool
+    , indexResearch :: !(Maybe Index.Config)
     }
 
 bundle :: LayerBundle
@@ -73,9 +76,10 @@ scenario :: Scenario
 scenario =
     Hardening.scenario
         { run = runWorkload
-        , revision = 3
+        , revision = 4
         , knobs =
             Hardening.scenario.knobs
+                <> Index.knobs
                 <> [ KnobSpec (knobName "mp12.subscribers") "Independent all-stream subscribers" KnobInt (VInt 1) (IntRange 1 2) []
                    , KnobSpec (knobName "mp12.hook") "Successful identity decode hook" KnobBool (VBool False) AnyValue []
                    ]
@@ -103,6 +107,7 @@ runWorkload context = do
                 (integer "mp12.subscribers")
                 (knobBool context.knobs (knobName "mp12.hook"))
                 diagnostics
+                (Index.configuration context.knobs)
     unless (workload.seconds >= 60 && workload.warmupSeconds >= 2) (fail "benchmark requires >=60s steady and >=2s warmup")
     unless (workload.subscribers == 1 || workload.mode == "all") (fail "independent fan-out requires all-stream mode")
     validateDiagnostics diagnostics
@@ -116,10 +121,13 @@ runWorkload context = do
             _ -> pure ()
         settings = (defaultConnectionSettings ((Core.requirePostgres context).connectionString)){poolSize = 10, eventHandler = Just observe, storeSettings = configuredStoreSettings workload.hookEnabled}
     withStore settings $ \store -> do
+        case workload.indexResearch of
+            Nothing -> pure ()
+            Just config -> setupIndex context store config
         let event = EventData Nothing (EventType "Probe") (object ["body" .= Text.replicate 512 "x"]) Nothing Nothing Nothing
         -- Identical existing-stream fixtures and explicit future-only live entry.
         forM_ [0 .. 3] $ \writer -> forM_ [0 .. workload.width - 1] $ \slot ->
-            void $ append store [(stream writer slot 0 False, AnyVersion, [event])]
+            void $ append store [(stream workload writer slot 0 False, AnyVersion, [event])]
         delivered <- newIORef (0 :: Int)
         startup <- newIORef 0
         let handler _ = atomicModifyIORef' delivered (\n -> (n + 1, ())) >> pure Continue
@@ -151,6 +159,18 @@ runWorkload context = do
                         stopApp handle
                         pure report
             _ -> native
+
+setupIndex :: Core.RunContext -> KirokuStore -> Index.Config -> IO ()
+#ifdef LEGACY_TOPOLOGY
+setupIndex _ _ _ = fail "index comparison requires identical current-source arms"
+#else
+setupIndex context store config = Index.setup config store >>= Core.putSummary context Core.Measurements "index-setup"
+#endif
+
+hasIndexResearch :: Workload -> Bool
+hasIndexResearch workload = case workload.indexResearch of
+    Nothing -> False
+    Just _ -> True
 
 membership :: Int32 -> ConsumerGroup
 #ifdef LEGACY_TOPOLOGY
@@ -196,8 +216,10 @@ workloadTarget workload
     | workload.mode `elem` ["category", "group-category"] = Category (CategoryName "probe")
     | otherwise = AllStreams
 
-stream :: Int -> Int -> Int -> Bool -> StreamName
-stream writer slot iteration fresh = StreamName ("probe-" <> Text.pack (show writer <> "-" <> show slot <> if fresh then "-" <> show iteration else ""))
+stream :: Workload -> Int -> Int -> Int -> Bool -> StreamName
+stream workload writer slot iteration fresh
+    | Just _ <- workload.indexResearch = Index.streamName writer slot iteration fresh
+    | otherwise = StreamName ("probe-" <> Text.pack (show writer <> "-" <> show slot <> if fresh then "-" <> show iteration else ""))
 
 append :: KirokuStore -> [(StreamName, ExpectedVersion, [EventData])] -> IO [AppendResult]
 append store operations = runStoreIO store (appendMultiStream operations) >>= either (fail . show) pure
@@ -212,7 +234,7 @@ measure context workload store event delivered live failures batches members sta
         finish <- getMonotonicTimeNSec
         Core.putSummary context Core.Measurements "startup" (object ["workers" .= members, "mode" .= workload.mode, "milliseconds" .= (secondsBetween begin finish * 1000)])
     config0 <- either (fail . Text.unpack) pure (Measure.measureConfigFromKnobs context (Measure.phasePlanFromCore context.phases))
-    let config = (config0{Measure.postgres = fmap (\pg -> (pg{relations = ["kiroku.subscriptions", "kiroku.stream_events"]} :: PgSamplerConfig)) config0.postgres} :: Measure.MeasureConfig)
+    let config = (config0{Measure.postgres = fmap (\pg -> (pg{relations = ["kiroku.subscriptions", "kiroku.stream_events"] <> ["kiroku.streams" | Just _ <- [workload.indexResearch]]} :: PgSamplerConfig)) config0.postgres} :: Measure.MeasureConfig)
     ((_result, _), report) <- Measure.withMeasurement context config $ \measurement -> do
         bracket (LoadSeries.openLoadSeries measurement) LoadSeries.closeLoadSeries $ \series -> do
             offeredCalls <- newIORef 0
@@ -224,11 +246,13 @@ measure context workload store event delivered live failures batches members sta
                 clock = Measure.measurementPhaseClock measurement
             handle <- Recorder.registerOp (Measure.measurementRecorder measurement) (Recorder.OpName "append")
             recorders <- mapM (Recorder.newWorkerRecorder handle) [0 .. 3]
+            browser <- Index.newBrowser workload.indexResearch measurement
+            let withBrowse = Index.withBrowser workload.indexResearch browser store
             Async.withAsync (sampleBacklog appended delivered backlog sample (if members == 0 then pure Nothing else Just <$> scalarInt store pendingSQL)) $ \sampler -> do
                 Async.link sampler
                 Phase.enterPhase clock Phase.WarmUp
                 sample
-                void $ Core.withPhase context CorePhase.WarmUp (writers appended (offeredCalls, startedCalls, completedCalls, maxLag) recorders workload.warmupSeconds 0)
+                void $ Core.withPhase context CorePhase.WarmUp (withBrowse (writers appended (offeredCalls, startedCalls, completedCalls, maxLag) recorders workload.warmupSeconds 0))
                 when (members > 0) $ await "warmup checkpoint drain" durable
                 flushStats store
                 writeIORef appended 0
@@ -240,10 +264,11 @@ measure context workload store event delivered live failures batches members sta
                 stats0 <- getRTSStats
                 wal0 <- scalar store "SELECT pg_current_wal_insert_lsn()::text"
                 tables0 <- tableStats store
+                when (hasIndexResearch workload) $ Index.snapshot store >>= Core.putSummary context Core.Measurements "streams-before"
                 start <- getMonotonicTimeNSec
                 Phase.enterPhase clock Phase.Steady
                 sample
-                samples <- Core.withPhase context CorePhase.Steady $ do
+                samples <- Core.withPhase context CorePhase.Steady $ withBrowse do
                     result <- writers appended (offeredCalls, startedCalls, completedCalls, maxLag) recorders workload.seconds 1
                     -- Capacity includes the outstanding durable work in its
                     -- elapsed time. Fixed-load latency retains its arrival window.
@@ -268,6 +293,7 @@ measure context workload store event delivered live failures batches members sta
                 wal1 <- scalar store "SELECT pg_current_wal_insert_lsn()::text"
                 walBytes <- scalarInt store ("SELECT pg_wal_lsn_diff('" <> wal1 <> "'::pg_lsn, '" <> wal0 <> "'::pg_lsn)::bigint")
                 tables1 <- tableStats store
+                when (hasIndexResearch workload) $ Index.snapshot store >>= Core.putSummary context Core.Measurements "streams-after"
                 count <- readIORef delivered
                 batchCount <- readIORef batches
                 server <- scalar store "SELECT version()"
@@ -310,7 +336,7 @@ measure context workload store event delivered live failures batches members sta
                     object
                         [ "workload" .= object ["mode" .= workload.mode, "width" .= workload.width, "append_batch" .= workload.appendBatch, "checkpoint_batch" .= workload.checkpointBatch, "fresh" .= workload.fresh, "offered" .= workload.offered, "seconds" .= workload.seconds, "warmup_seconds" .= workload.warmupSeconds, "subscribers" .= workload.subscribers, "hook" .= workload.hookEnabled, "diagnostics" .= workload.diagnosticsEnabled]
                         , "expected_delivered" .= (if consuming then events * deliveryFactor else 0)
-                        , "fixture_preview" .= [let StreamName name = stream writer slot (2 * iteration + phase) workload.fresh in name | phase <- [0, 1], writer <- [0 .. 3], slot <- [0 .. workload.width - 1], iteration <- [0, 1]]
+                        , "fixture_preview" .= [let StreamName name = stream workload writer slot (2 * iteration + phase) workload.fresh in name | phase <- [0, 1], writer <- [0 .. 3], slot <- [0 .. workload.width - 1], iteration <- [0, 1]]
                         , "server" .= server
                         , "durability" .= durability
                         , "calls" .= calls
@@ -387,7 +413,7 @@ measure context workload store event delivered live failures batches members sta
                     -- Even warmup / odd steady names are deterministic and
                     -- disjoint. Clock-derived names would change hash partition
                     -- membership between matched fresh-stream trials.
-                    void $ append store [(stream writerId slot (2 * i + phase) workload.fresh, AnyVersion, replicate workload.appendBatch event) | slot <- [0 .. workload.width - 1]]
+                    void $ append store [(stream workload writerId slot (2 * i + phase) workload.fresh, AnyVersion, replicate workload.appendBatch event) | slot <- [0 .. workload.width - 1]]
                     completed <- getMonotonicTimeNSec
                     atomicModifyIORef' completedCalls (\n -> (n + 1, ()))
                     atomicModifyIORef' appended (\n -> (n + workload.width * workload.appendBatch, ()))
