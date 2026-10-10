@@ -15,10 +15,14 @@ module Kiroku.Store.Types (
     categoryName,
     streamNameInCategory,
     EventFilter (..),
+    BrowsePageSize,
+    BrowsePageSizeError (..),
+    mkBrowsePageSize,
+    browsePageSizeValue,
 ) where
 
 import Data.Aeson (Value)
-import Data.Int (Int64)
+import Data.Int (Int32, Int64)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Time (UTCTime)
@@ -337,3 +341,20 @@ data EventFilter
       -}
       FilterCausationAncestors !EventId
     deriving stock (Eq, Show, Generic)
+
+{- | Validated catalog page size: 1–1001, including one HTTP over-fetch row.
+The constructor is private; arithmetic on untrusted limits cannot overflow.
+-}
+newtype BrowsePageSize = BrowsePageSize Int32
+    deriving stock (Eq, Show)
+
+data BrowsePageSizeError = InvalidBrowsePageSize !Int
+    deriving stock (Eq, Show)
+
+mkBrowsePageSize :: Int -> Either BrowsePageSizeError BrowsePageSize
+mkBrowsePageSize n
+    | n >= 1 && n <= 1001 = Right (BrowsePageSize (fromIntegral n))
+    | otherwise = Left (InvalidBrowsePageSize n)
+
+browsePageSizeValue :: BrowsePageSize -> Int32
+browsePageSizeValue (BrowsePageSize n) = n

@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-10
+* **Update**: Record the user-approved byte-order browsing implementation, bounded Store primitives, HTTP routes, tests and shared migration 0015; final-layout cost and cohort publication remain pending.
 * **Update**: IR-8 retains category-first existing-index evidence requested by the user. Category equality is useful, while ordered pages and prefix filtering still scale with selected-category size. Arbitrary prefix search remains required; no new index or production API was added and status remains `in_progress`.
 * **Implementation**: IR-8 moves to `in_progress`; plan 88 executes its required PostgreSQL 18 SQL promotion check and rejects inventory-proportional prefix scans. Evidence is retained; production browse APIs and routes await a reviewed read/write design.
 * **Implementation**: IR-10 moves to `in_progress`; plan 87 adds durable checkpoint inventory and the provider-based inspection composition under MasterPlan 13. Release remains with plan 96.
@@ -8,7 +9,7 @@
 * **Update**: IR-11 moves to `in_progress`; plan 90 implements and tests the default-off CORS foundation under MasterPlan 13. Release and completion remain with plan 96.
 
 ## 2026-10-09
-* **Update**: PR #1 merged IR-18. Its SQL feasibility evaluation records approximately 20-33% extra read latency when the head probe is added to every `getStream`, recommends an opt-in combined metadata/head operation, and checks in reproducible PostgreSQL 18.6 evidence. The existing origin index needs no schema or append/link changes; `0012` retained it. The request now scopes the freshness guarantee to origin-only streams with retained history and documents the linked-stream and reserved `$all` caveats. Status remains `proposed` pending implementation and release.
+* **Update**: PR \#1 merged IR-18. Its SQL feasibility evaluation records approximately 20-33% extra read latency when the head probe is added to every `getStream`, recommends an opt-in combined metadata/head operation, and checks in reproducible PostgreSQL 18.6 evidence. The existing origin index needs no schema or append/link changes; `0012` retained it. The request now scopes the freshness guarantee to origin-only streams with retained history and documents the linked-stream and reserved `$all` caveats. Status remains `proposed` pending implementation and release.
 
 ## 2026-10-06
 * **Addition**: IR-18 asks `getStream` (or a sibling read) to answer a stream's newest visible global position beside its `version`, so a consumer holding a stream-version floor can wait for a projection cursor on exactly that stream's events. It originates from `mori://tan/notification-render-service/plans/16-give-the-admin-api-one-command-answer-and-a-read-your-writes-position-floor`, which today waits on Keiro's category visible head as a documented proxy; the request is non-blocking and additive in intent, and the existing `ix_stream_events_all_by_origin` index already serves the probe.

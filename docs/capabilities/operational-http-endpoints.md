@@ -1,7 +1,7 @@
 ---
 title: "Operational HTTP endpoints: metrics, health, and event streaming"
 type: Capability
-description: "Serve in-process metrics as JSON and Prometheus exposition, liveness/readiness/detailed health, a subscription-status endpoint, durable cross-process checkpoint inventory, and a WebSocket channel for live metrics and events, with host-configured default-off browser CORS, without pulling a web framework into the core library."
+description: "Serve in-process metrics as JSON and Prometheus exposition, liveness/readiness/detailed health, a subscription-status endpoint, durable cross-process checkpoint inventory, and a WebSocket channel for live metrics and events, bounded stream/category/event inspection in the unreleased cohort, with host-configured default-off browser CORS, without pulling a web framework into the core library."
 generated:
   by: anthropic/claude-sonnet-4.5
   at: "2026-08-08T00:00:00Z"
@@ -13,6 +13,7 @@ since: "0.1.0.0"
 packages:
   - kiroku-metrics
 interface:
+  - Kiroku.Metrics.Browse
   - Kiroku.Metrics.Server
   - Kiroku.Metrics.Checkpoints
   - Kiroku.Metrics.Collector
@@ -23,6 +24,9 @@ requires:
   - CAP-14
   - CAP-11
 evidence:
+  - kind: test
+    resource: kiroku-metrics/test/Test/BrowseSpec.hs
+    proves: Bounded category/prefix stream pages, exclusive event cursors, batched name resolution, HEAD and structured validation through the shared server.
   - kind: test
     resource: kiroku-metrics/test/Test/CheckpointsSpec.hs
     proves: Durable rows survive stopped workers, quiescent inventories agree across store handles, live responses remain compatible, mounted WebSockets work, and supervised lifetimes clean up listeners.
@@ -77,3 +81,9 @@ withMetricsServerWithStore cfg collector store [postgresPing store] $ \_ -> runA
   Hackage.
 - Durable checkpoint inventory is unpaginated and proportional to checkpoint row count; avoid overlapping client polls.
 - The collector is STM-only and non-blocking; snapshots are point-in-time.
+
+The unreleased cohort also adds `StoreBrowser` and the bounded `/streams`,
+`/categories`, and `/events` inspection routes. Stream-name pages use stable
+UTF-8 byte order, category enumeration retains locale order, and event items
+include an additive `original_stream_name`. This feature's exact index-layout
+write-cost acceptance and publication remain pending.

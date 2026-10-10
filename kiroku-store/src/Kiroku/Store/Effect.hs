@@ -117,6 +117,14 @@ data Store :: Effect where
     'Kiroku.Store.Read.lookupStreamName').
     -}
     LookupStreamNames :: [StreamId] -> Store m (Map StreamId StreamName)
+    {- | Byte-ordered names; optional exact category, literal prefix and exclusive cursor.
+    Includes soft-deleted streams, excludes only the reserved stream row.
+    -}
+    ListStreams :: Maybe CategoryName -> Maybe Text -> Maybe StreamName -> BrowsePageSize -> Store m (Vector StreamInfo)
+    -- | Deployment-collation category order with an exclusive cursor.
+    ListCategories :: Maybe CategoryName -> BrowsePageSize -> Store m (Vector CategoryName)
+    -- | The canonical global-log event; absent after hard deletion.
+    GetEvent :: EventId -> Store m (Maybe RecordedEvent)
     LinkToStream :: StreamName -> [EventId] -> Store m LinkResult
     ReadCategoryForward :: CategoryName -> GlobalPosition -> Int32 -> Store m (Vector RecordedEvent)
     AppendMultiStream :: [(StreamName, ExpectedVersion, [EventData])] -> Store m [AppendResult]
@@ -276,6 +284,16 @@ runStorePool store = interpret_ $ \case
             ( usePool (store ^. #pool) $
                 Session.statement [s | StreamId s <- sids] SQL.lookupStreamNamesStmt
             )
+    ListStreams category prefix after limit ->
+        usePool (store ^. #pool) (SQL.listStreamsSession category prefix after limit)
+    ListCategories after limit ->
+        fmap (V.map CategoryName) $
+            usePool (store ^. #pool) $
+                Session.statement (fmap (\(CategoryName value) -> value) after, browsePageSizeValue limit) (SQL.listCategoriesStmt (not (isNothing after)))
+    GetEvent (EventId eid) -> do
+        found <- usePool (store ^. #pool) $ Session.statement eid SQL.getEventStmt
+        decoded <- decodeReadEvents (store ^. #storeSettings) (maybe V.empty V.singleton found)
+        pure (decoded V.!? 0)
     LinkToStream (StreamName name) eventIds -> do
         rejectInvalidApplicationStream name
         let uuids = V.fromList [uid | EventId uid <- eventIds]

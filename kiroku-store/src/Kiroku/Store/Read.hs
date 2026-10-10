@@ -7,6 +7,9 @@ module Kiroku.Store.Read (
     visibleGlobalHeadPosition,
     readCategory,
     getStream,
+    listStreams,
+    listCategories,
+    getEvent,
     lookupStreamId,
     eventExistsInStream,
     lookupStreamName,
@@ -18,6 +21,7 @@ import Data.Generics.Labels ()
 import Data.Int (Int32)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
+import Data.Text (Text)
 import Data.Vector (Vector)
 import Data.Vector qualified as V
 import Effectful (Eff, (:>))
@@ -252,3 +256,22 @@ lookupStreamName ::
     StreamId ->
     Eff es (Maybe StreamName)
 lookupStreamName sid = Map.lookup sid <$> lookupStreamNames [sid]
+
+{- | Page streams in stable UTF-8 byte order, independent of database locale.
+Category equality includes its bare name; prefix matching is literal, including
+@%@ and @_@. Use the last returned name as the exclusive cursor. Soft-deleted
+streams remain visible, hard-deleted streams do not. Only the reserved row is
+excluded, so @$all-x@ and empty categories are valid. A short page proves current
+exhaustion. Concurrent lifecycle changes are not a snapshot-isolation guarantee.
+TypeID timestamps give generation order, not event/commit order.
+-}
+listStreams :: (HasCallStack, Store :> es) => Maybe CategoryName -> Maybe Text -> Maybe StreamName -> BrowsePageSize -> Eff es (Vector StreamInfo)
+listStreams category prefix after limit = send (ListStreams category prefix after limit)
+
+-- | Distinct categories, in deployment locale order, after an exclusive cursor.
+listCategories :: (HasCallStack, Store :> es) => Maybe CategoryName -> BrowsePageSize -> Eff es (Vector CategoryName)
+listCategories after limit = send (ListCategories after limit)
+
+-- | An event as seen in the global log, using the configured typed decode hook.
+getEvent :: (HasCallStack, Store :> es) => EventId -> Eff es (Maybe RecordedEvent)
+getEvent eid = send (GetEvent eid)

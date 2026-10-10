@@ -44,7 +44,7 @@ import Test.Hspec
 main :: IO ()
 main = hspec $ do
     describe "native Kiroku migration definition" $ do
-        it "tracks the fourteen native files in manifest order" $ do
+        it "tracks the fifteen native files in manifest order" $ do
             directory <- findMigrationsDirectory
             manifest <- Text.lines <$> Text.IO.readFile (directory </> "manifest")
             manifest `shouldBe` Text.pack <$> nativeMigrationFiles
@@ -57,7 +57,7 @@ main = hspec $ do
                 bytes <- ByteString.readFile (directory </> nativeName)
                 lookup legacyName lockEntries `shouldBe` Just (checksumText bytes)
 
-        it "builds component kiroku and a fourteen-migration plan" $ do
+        it "builds component kiroku and a fifteen-migration plan" $ do
             component <- requireRight kirokuMigrations
             component `seq` pure ()
             plan <- requirePlan
@@ -93,7 +93,7 @@ main = hspec $ do
                     `shouldReturn` "0007-existing.sql\n"
 
     describe "fresh native databases" $ do
-        it "applies all fourteen, verifies strictly, and reports AlreadyApplied on rerun" $ do
+        it "applies all fifteen, verifies strictly, and reports AlreadyApplied on rerun" $ do
             plan <- requirePlan
             result <- withMigratedDatabase plan $ \connection -> do
                 assertSchema connection
@@ -341,7 +341,7 @@ main = hspec $ do
                 withConnection settings $ \connection ->
                     useSession connection (Session.script "INSERT INTO kiroku.subscriptions (subscription_name, consumer_group_member, last_seen) VALUES ('group', 0, 5), ('group', 1, 20), ('incomplete', 0, 8), ('ordinary', 0, 10)")
                 upgraded <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
-                reportOutcomes upgraded `shouldBe` replicate 12 AlreadyApplied <> replicate 2 AppliedNow
+                reportOutcomes upgraded `shouldBe` replicate 12 AlreadyApplied <> replicate (length nativeMigrationFiles - 12) AppliedNow
                 withConnection settings $ \connection -> do
                     let stmt =
                             Statement.preparable
@@ -462,7 +462,7 @@ importFixture sourceSchema = do
         pendingIds <-
             traverse
                 (requireRight . migrationId "kiroku")
-                ["0008-schema-management-comment", "0009", "0010", "0011", "0012", "0013", "0014"]
+                ["0008-schema-management-comment", "0009", "0010", "0011", "0012", "0013", "0014", "0015"]
         verifiedBeforeCanary <- verifyMigrationPlan defaultRunOptions settings plan >>= requireMigration
         case verifiedBeforeCanary of
             VerificationReport verificationIssues _ _ _ ->
@@ -503,6 +503,7 @@ nativeMigrationFiles =
     , "0012.sql"
     , "0013.sql"
     , "0014.sql"
+    , "0015.sql"
     ]
 
 {- | The plan truncated to its first @count@ migrations, read from the checked-in
@@ -646,7 +647,8 @@ schemaFactsStatement =
           (EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'ck_stream_events_all_category')),
           (EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'chk_streams_stream_name_length')),
           (EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a JOIN pg_catalog.pg_class c ON c.oid = a.attrelid JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'kiroku' AND c.relname = 'streams' AND a.attname = 'truncate_before' AND NOT a.attisdropped)),
-          (obj_description(to_regnamespace('kiroku'), 'pg_namespace') = 'Managed by pg-migrate component kiroku through 0012')
+          (EXISTS (SELECT 1 FROM pg_catalog.pg_indexes WHERE schemaname = 'kiroku' AND indexname = 'ix_streams_browse_name' AND indexdef LIKE '%COLLATE "C"%' AND indexdef LIKE '%WHERE (stream_id <> 0)%')),
+          (obj_description(to_regnamespace('kiroku'), 'pg_namespace') = 'Managed by pg-migrate component kiroku through 0015')
         ) AS checks(ok)
         """
         Encoders.noParams

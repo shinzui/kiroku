@@ -242,3 +242,30 @@ hooks should be safe to repeat. Thrown exceptions propagate as programming
 failures. With no hook, reads return the original vector without traversal.
 See [undecodable subscriptions](subscriptions.md#undecodable-events) for retry
 and recovery behavior.
+
+## Browsing metadata and looking up an event (unreleased)
+
+Construct a bounded `BrowsePageSize` with `mkBrowsePageSize` (1–1001). The
+extra row at 1001 supports HTTP over-fetch; ordinary clients can request less.
+
+```haskell
+Right size <- pure (mkBrowsePageSize 100)
+streams <- listStreams (Just (CategoryName "orders")) (Just "orders-order_") Nothing size
+categories <- listCategories Nothing size
+event <- getEvent eventId
+```
+
+`listStreams category prefix cursor size` returns `StreamInfo` values in stable
+UTF-8 byte order. The category is exact, including a bare category-named stream;
+prefixes are literal and can be combined with categories. Pass the last returned
+name as the exclusive cursor. It includes soft-deleted metadata and excludes
+the reserved `$all` row and hard-deleted rows. Category enumeration keeps the
+database's locale order and emits each application category once.
+
+`getEvent` returns the canonical global-log row, once even when linked, or
+`Nothing` for an absent id or an event no longer in that log. It applies the
+configured decode hook and returns typed decode failures. Like `readAllForward`,
+its `streamVersion` is the global position; `originalVersion` remains the
+source-stream version. These are current-store reads, without cross-request
+snapshot guarantees. The [HTTP browsing routes](metrics.md#browsing-streams-categories-and-events-unreleased)
+wrap these supported library operations.

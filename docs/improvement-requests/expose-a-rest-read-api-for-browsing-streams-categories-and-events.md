@@ -9,7 +9,7 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-10-10T19:09:15Z"
+timestamp: "2026-10-10T23:40:46Z"
 requestId: IR-8
 status: in_progress
 origin: mori://shinzui/keiro-ui
@@ -52,24 +52,29 @@ which coordinates IR-8 through IR-12 as one cohort and releases them together. T
 moves to `in_progress` when that plan's first milestone starts and to `completed` once the
 cohort release is published.
 
-## Implementation Status (2026-10-10)
+## Implementation Evidence (2026-10-10)
 
-EP-3 implementation started with its SQL promotion milestone. The focused
-PostgreSQL 18.6 check rejected the prefix prototype: absent-prefix work scales
-with the stream inventory under generic plans and under ICU custom plans.
-[Evidence and reproduction](../../kiroku-store/bench/results/mp13-ep3-prefix/README.md)
-retain full plans, exact inputs and owned-server cleanup. No core browse API or
-HTTP route has landed; a reviewed prefix design must resolve the read/write
-trade-off before promotion. This is a feasibility result, not implementation or
-release acceptance. Status is `in_progress`; completion remains with plan 96.
+The user accepted UTF-8 byte stream ordering. Plan 88 now adds `listStreams`,
+`listCategories`, and `getEvent` with a validated bounded page size, plus
+`Kiroku.Metrics.Browse` and store-backed server composition. `/streams` accepts
+an exact category and literal prefix together; stream/category/event pages use
+exclusive cursors, optional `next_cursor`, and one original-name lookup per
+returned event page. GET/HEAD and sanitized structured errors are implemented.
 
-The user-directed category-first follow-up uses the existing category index.
-[Its evidence](../../kiroku-store/bench/results/mp13-ep3-category/README.md)
-shows that materializing the category before ordering contained work to that
-category in the tested fixtures, but still examined 20,001 selected streams for
-an eleven-row page. All 192 cases returned correct results, and server cleanup
-was verified. No index or API was added. Category browsing is the primary
-workflow; arbitrary prefix search remains a valid requirement and is not removed.
+`kiroku-store/test/Test/BrowseReads.hs`, `BrowseReadsMock.hs`, and
+`BrowseQueryPlans.hs` verify correctness, effect dispatch and bounded production
+prepared statements; `kiroku-metrics/test/Test/BrowseSpec.hs` verifies HTTP
+semantics and shared composition. The self-verifying example is
+`kiroku-metrics/example/Main.hs`, documented in `docs/user/metrics.md`.
+[ADR-17](../adr/0017-stream-browsing-uses-byte-order-and-one-shared-name-index.md)
+selects one partial name index shared across category and prefix browsing.
+Migration 0015 is authored for isolated verification. Final-layout write-cost
+acceptance and cumulative cohort publication remain pending. Status stays
+`in_progress`; plan 96 owns publication and completion.
+
+Earlier rejected query plans and replacement-index measurements are retained
+in plan 88 and its evidence directories. They are historical research, not
+acceptance of the selected layout.
 
 ## Context
 

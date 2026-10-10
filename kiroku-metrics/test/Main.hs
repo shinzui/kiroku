@@ -3,6 +3,7 @@ module Main (main) where
 import Test.Hspec (hspec)
 
 import Kiroku.Test.Postgres (withSharedMigratedPostgres)
+import Test.BrowseSpec qualified as BrowseSpec
 import Test.CheckpointsSpec qualified as CheckpointsSpec
 import Test.CollectorSpec qualified as CollectorSpec
 import Test.CorsSpec qualified as CorsSpec
@@ -13,6 +14,7 @@ import Test.WebSocketSpec qualified as WebSocketSpec
 
 main :: IO ()
 main = withSharedMigratedPostgres $ hspec $ do
+    BrowseSpec.spec
     CheckpointsSpec.spec
     CorsSpec.spec
     CollectorSpec.spec

@@ -4,10 +4,15 @@
 
 ### Breaking Changes
 
+* `ServerProviders` adds optional `storeBrowsing`; use `defaultServerProviders` plus record updates for custom composition.
+
 * `MetricsServerConfig` gains `cors`, defaulting to `corsDisabled`. Use
   `defaultConfig` record updates; complete or positional construction must supply it.
 
 ### New Features
+
+* Add bounded stream/category/event browsing with category-plus-literal-prefix filters, exclusive cursors, validated page limits and GET/HEAD support. Store-backed servers configure the provider automatically.
+* Add `recordedEventToJSONResolved`, preserving existing event keys and adding `original_stream_name`.
 
 * `GET /subscription-checkpoints` serves exact durable member checkpoints and
   the same-snapshot store position through `Kiroku.Metrics.Checkpoints`.

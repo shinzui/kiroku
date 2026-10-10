@@ -275,6 +275,59 @@ Add your own dependency check by appending an `IO DependencyStatus` action to th
 The durable, cross-process checkpoint inventory. Store-backed starters wire this route;
 see [Durable subscription checkpoints over HTTP](#durable-subscription-checkpoints-over-http).
 
+## Browsing streams, categories and events (unreleased)
+
+A store-backed server (`withMetricsServerWithStore`, or `storeServerProviders`)
+serves these read-only routes. Hosts can supply a custom `StoreBrowser` in
+`ServerProviders.storeBrowsing`; without one the routes return a structured
+404 `store_browsing_not_configured`. They share the server's CORS policy.
+
+| Route | Parameters and result |
+| --- | --- |
+| `GET /streams` | `category`, literal `prefix`, exclusive name `from`, `limit`; stream summaries |
+| `GET /streams/<name>` | One summary, or 404 `stream_not_found` |
+| `GET /streams/<name>/events` | Exclusive stream-version `from`, `limit`, `direction=forward` or `backward` |
+| `GET /categories` | Exclusive category-name `from`, `limit`; distinct category names |
+| `GET /categories/<name>/events` | Exclusive global-position `from`, `limit`; forward category events |
+| `GET /events` | Exclusive global-position `from`, `limit`, `direction=forward` or `backward` |
+| `GET /events/<uuid>` | One event as it appears in the global log, or 404 `event_not_found` |
+
+HEAD uses the same status and headers with no body. Other methods return 405
+with `Allow: GET, HEAD`. Invalid parameters return 400
+`invalid_query_parameter`; invalid UUIDs return `invalid_event_id`. `/streams/$all`
+is reserved; use `/events` for the global log. Limits default to 100 and have a
+maximum of 1000; hosts can use `mkBrowseLimits` and `storeBrowserWith` to lower
+them. Numeric cursors are non-negative Int64 decimal values. Zero selects the
+beginning forward and newest backward.
+
+```bash
+curl -s 'localhost:9091/streams?category=orders&limit=10' | jq .
+curl -s 'localhost:9091/streams?category=orders&prefix=orders-order_&limit=10' | jq .
+curl -s 'localhost:9091/events?from=0&limit=10' | jq .
+```
+
+Pages contain `items` and include `next_cursor` only when another item was
+observed. Echo that cursor verbatim as `from`; when absent, the page is exhausted.
+Stream names use stable UTF-8 byte order, including Unicode names. This puts
+TypeIDs in ID-generation order within a category; it does not promise event or
+commit order. Prefixes are literal: `%` and `_` have no wildcard meaning.
+Category enumeration retains database locale order. Pages describe the current
+store, without a cross-request snapshot; concurrent inserts/deletes can change
+later pages.
+
+Summaries contain `stream_id`, `name`, `category`, `version`, `created_at`,
+`deleted_at`, and `truncate_before`. Soft-deleted summaries remain visible and
+hard-deleted streams disappear. Ordered per-stream event reads honor truncation;
+global and category reads retain their existing lifecycle semantics. Events
+preserve the documented camelCase shape and add `original_stream_name`, resolved
+once per returned page, or null if its original stream row no longer exists.
+Connection and decode errors use sanitized structured error envelopes.
+
+Migration 0015 adds one partial byte-order name index shared by category and
+prefix browsing. Its transactional build requires a write pause or maintenance
+window. Final-layout write-cost and cumulative release acceptance remain open;
+this unreleased surface has not been published to Hackage.
+
 ## Prometheus metric reference
 
 Metric names, types, and label names are a published contract for dashboards
@@ -608,14 +661,15 @@ cabal run -fexample kiroku-metrics-example
 ```
 
 ```text
-[1/8] ephemeral postgres ready
-[2/8] store + collector + metrics server on port 59196
-[3/8] appended 3 events to orders-1
-[4/8] HTTP /metrics, /prometheus, /health/live, /health/ready all OK
-[5/8] CORS: preflight and GET from https://ops.example.com allowed; https://evil.example.com undecorated
-[6/8] GET /subscription-checkpoints store_position=3 with no durable checkpoints (this example runs no subscription)
-[7/8] WebSocket /ws/events received event eventType=OrderRefunded
-[8/8] kiroku-metrics-example: all checks passed (snapshot global position = 4)
+[1/9] ephemeral postgres ready
+[2/9] store + collector + metrics server on port 59196
+[3/9] appended 3 events to orders-1
+[4/9] HTTP /metrics, /prometheus, /health/live, /health/ready all OK
+[5/9] CORS: preflight and GET from https://ops.example.com allowed; https://evil.example.com undecorated
+[6/9] GET /subscription-checkpoints store_position=3 with no durable checkpoints (this example runs no subscription)
+[7/9] Stream browsing and historical events resolve original stream names
+[8/9] WebSocket /ws/events received event eventType=OrderRefunded
+[9/9] kiroku-metrics-example: all checks passed (snapshot global position = 4)
 ```
 
 The source is `kiroku-metrics/example/Main.hs`; it is the authoritative,

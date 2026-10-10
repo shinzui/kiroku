@@ -29,6 +29,7 @@ module Kiroku.Metrics.WebSocket (
     ClientMessage (..),
     ServerMessage (..),
     recordedEventToJSON,
+    recordedEventToJSONResolved,
 
     -- * Connection limiting
     WebSocketState (..),
@@ -57,7 +58,7 @@ import Control.Monad (forever)
 import Data.Aeson (
     FromJSON (..),
     ToJSON (..),
-    Value,
+    Value (..),
     eitherDecode',
     encode,
     object,
@@ -66,10 +67,13 @@ import Data.Aeson (
     (.:?),
     (.=),
  )
+import Data.Aeson.KeyMap qualified as KeyMap
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
 import Data.Foldable (for_)
 import Data.Int (Int64)
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Vector (Vector)
@@ -99,6 +103,7 @@ import Kiroku.Store.Types (
     EventId (..),
     EventType (..),
     StreamId (..),
+    StreamName (..),
     StreamVersion (..),
  )
 
@@ -489,3 +494,9 @@ recvMsg conn = do
 -- | Unwrap a 'GlobalPosition' to its underlying 'Int64'.
 unGP :: GlobalPosition -> Int64
 unGP (GlobalPosition n) = n
+
+-- | The frozen event shape plus the resolved original name (or null).
+recordedEventToJSONResolved :: Map StreamId StreamName -> RecordedEvent -> Value
+recordedEventToJSONResolved names event = case recordedEventToJSON event of
+    Object fields -> Object (KeyMap.insert "original_stream_name" (toJSON (fmap (\(StreamName name) -> name) (Map.lookup event.originalStreamId names))) fields)
+    _ -> error "recordedEventToJSON must return an object"

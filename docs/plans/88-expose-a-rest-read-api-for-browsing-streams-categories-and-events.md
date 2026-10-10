@@ -46,7 +46,7 @@ Since 2026-09-30 this plan is EP-3 of
 which coordinates the five open keiro-ui requests as one cohort. It now hard-depends on plan 87
 (EP-2), which introduces the `ServerProviders` record (with `webSocketServer`,
 `subscriptionStatus`, and `checkpointInventory`) and the four `...WithProviders` functions this
-plan's Milestone 3 originally proposed; this plan adds the `browser` field and the browse route
+plan's Milestone 3 originally proposed; this plan adds the `storeBrowsing` field and the browse route
 arms to that record instead of creating it. The MasterPlan's Integration Points section is
 authoritative wherever this plan's older text disagrees. The other changes made at adoption: the
 structured error envelope is plan 90's `errorEnvelope`/`errorResponse` pair in
@@ -98,7 +98,8 @@ dependency.
 ## Progress
 
 - [x] (2026-10-10) M0: implement a disposable shared-access prototype: one byte-ordered browse index, bounded category/literal-prefix pages, and namespace global windows using existing event indexes. All 224 TypeID/edge-case checks pass (176 browse, 48 namespace); retain preceding rejected plans/setup error and verify every owned cluster stopped.
-- [ ] M0: settle the new browsing-order preference (byte order versus deployment locale), then select the final shared layout and validate its own write cost before migration. The prior replacement's cost is not acceptance of a different layout.
+- [x] (2026-10-10) M0: user accepted UTF-8 byte ordering; select one partial C-collated name index for category and literal-prefix stream pages (ADR-17).
+- [ ] M0 cost remaining: measure the exact selected layout against the original control before production promotion. Migration 0015 is authored for isolated verification; earlier replacement measurements do not certify this layout.
 
 - [x] (2026-10-10) M0: correct sparse observer recording, preserve primary append grade requirements, compile the Linux payload and verify diagnostic schedule/grade/cost-bound checks.
 - [x] (2026-10-10) M0: verify the corrected observer proof (47,734 benchmark-grade append samples, 61–62 steady samples per diagnostic browse page), raw recomputation and lease release.
@@ -112,22 +113,22 @@ dependency.
 - [x] (2026-10-10) M0: execute the focused existing-index SQL prototype check on PostgreSQL 18.6; retain 80 initial and 152 expanded EXPLAIN cases, migration hashes and verified owned-server cleanup.
 - [x] (2026-10-10) M0 follow-up: evaluate category-scoped stream paging and prefix filtering with existing indexes; retain 192 correct-result EXPLAIN cases and verified server cleanup.
 - [x] (2026-10-10) M0 range follow-up: retain 224 initial and 400 refined TypeID/name-range cases, including generic-plan scaling and ICU correctness failures; verify both owned servers stopped.
-- [ ] M0 remaining: resolve ordered paging within large categories and the general prefix design after the failed promotion gates. No production browse SQL or HTTP route may be promoted yet.
+- [x] (2026-10-10) M0 read design: bounded lower-seek/LIMIT branches resolve category, prefix and combined browsing under byte ordering. Implement the approved design for isolated testing; production promotion still depends on its own measured write cost.
 - [ ] Implement and execute the remaining focused correctness and performance acceptance added by this review.
 
-- [ ] M1: add `listStreamsStmt`, `listCategoriesStmt`, and `getEventStmt` to `kiroku-store/src/Kiroku/Store/SQL.hs` with encoders and SQL text.
-- [ ] M1: add `ListStreams`, `ListCategories`, and `GetEvent` constructors to the `Store` effect in `kiroku-store/src/Kiroku/Store/Effect.hs` and interpret them in `runStorePool` (with the read `decodeReadEvents` path applied to `GetEvent`).
-- [ ] M1: add `listStreams`, `listCategories`, and `getEvent` wrappers with Haddock to `kiroku-store/src/Kiroku/Store/Read.hs`.
+- [x] (2026-10-10) M1: add bounded `listStreamsSession`, range/pair variants, `listCategoriesStmt`, and `getEventStmt` to `kiroku-store/src/Kiroku/Store/SQL.hs` with encoders and SQL text.
+- [x] (2026-10-10) M1: add `ListStreams`, `ListCategories`, and `GetEvent` constructors to the `Store` effect in `kiroku-store/src/Kiroku/Store/Effect.hs` and interpret them in `runStorePool` (with the read `decodeReadEvents` path applied to `GetEvent`).
+- [x] (2026-10-10) M1: add `listStreams`, `listCategories`, and `getEvent` wrappers with Haddock to `kiroku-store/src/Kiroku/Store/Read.hs`.
 - [ ] M1: add `kiroku-store/test/Test/BrowseReads.hs` (database tests) and `kiroku-store/test/Test/BrowseReadsMock.hs` (mock-interpreter test); register both in `kiroku-store/test/Main.hs` and the cabal test stanza; run the store test suite.
-- [ ] M1: add this plan's bullets under `## Unreleased` in `kiroku-store/CHANGELOG.md` (no `version:` or bound edits; plan 96 assigns 0.11.0.0); `cabal build all` is warning-free.
-- [ ] M2: create `kiroku-metrics/src/Kiroku/Metrics/Browse.hs` with `StoreBrowser`, `BrowseLimits`, `ReadDirection`, the query-parameter parser, the page envelope, `streamInfoToJSON`, and `browseApp`; add `recordedEventToJSONResolved` to `Kiroku.Metrics.WebSocket` (owned here; plan 94 hard-depends on this plan).
-- [ ] M2: add `kiroku-metrics/test/Test/BrowseSpec.hs` database-free tests over a mock `Store` interpreter covering every route, pagination, and every error code; register the module and add `effectful-core` to the library and test-suite `build-depends`.
-- [ ] M3: add the `browser` field to plan 87's `ServerProviders` in `kiroku-metrics/src/Kiroku/Metrics/Server.hs` (`Nothing` in `defaultServerProviders`, `Just (storeBrowser store)` in `storeServerProviders` and `startMetricsServerWithStore`); route `/streams`, `/categories`, and `/events` to the browser in `httpAppWithProviders`.
-- [ ] M3: extend `kiroku-metrics/test/Test/BrowseSpec.hs` with end-to-end tests against a real ephemeral PostgreSQL store, plus regression assertions that the legacy 404 body and the pre-existing endpoints are unchanged; run the metrics test suite.
-- [ ] M4: document the endpoints in `docs/user/metrics.md` (one copyable transcript per endpoint, the error-code table, the cursor rules) and the new primitives in `docs/user/reading-events.md`; update `docs/user/README.md`.
-- [ ] M4: extend `kiroku-metrics/example/Main.hs` with browse checks and update its documented transcript.
-- [ ] M4: add this plan's bullets under `## Unreleased` in `kiroku-metrics/CHANGELOG.md` describing the new routes and exports (no `version:` edit; plan 96 assigns 0.3.0.0); update CAP-17 and its log; add IR-8's "Implementation Evidence" section.
-- [ ] M4: ADR distillation pass (the browse-endpoint ADR first planned here is withdrawn as subsumed by ADR-9; record in Outcomes whether anything else is durable).
+- [x] (2026-10-10) M1: add this plan's bullets under `## Unreleased` in `kiroku-store/CHANGELOG.md` (no `version:` or bound edits; plan 96 assigns 0.11.0.0); `cabal build all` succeeds; existing shadowing warnings remain, with no new browsing warnings.
+- [x] (2026-10-10) M2: create `kiroku-metrics/src/Kiroku/Metrics/Browse.hs` with `StoreBrowser`, `BrowseLimits`, `ReadDirection`, the query-parameter parser, the page envelope, `streamInfoToJSON`, and `browseApp`; add `recordedEventToJSONResolved` to `Kiroku.Metrics.WebSocket` (owned here; plan 94 hard-depends on this plan).
+- [x] (2026-10-10) M2: add `kiroku-metrics/test/Test/BrowseSpec.hs` database-free tests over a mock `Store` interpreter covering every route, pagination, and every error code; register the module and add `effectful-core` to the library and test-suite `build-depends`.
+- [x] (2026-10-10) M3: add the `storeBrowsing` field to plan 87's `ServerProviders` in `kiroku-metrics/src/Kiroku/Metrics/Server.hs` (`Nothing` in `defaultServerProviders`, `Just (storeBrowser store)` in `storeServerProviders` and `startMetricsServerWithStore`); route `/streams`, `/categories`, and `/events` to the browser in `httpAppWithProviders`.
+- [x] (2026-10-10) M3: extend `kiroku-metrics/test/Test/BrowseSpec.hs` with end-to-end tests against a real ephemeral PostgreSQL store, plus regression assertions that the legacy 404 body and the pre-existing endpoints are unchanged; run the metrics test suite.
+- [x] (2026-10-10) M4: document the endpoints in `docs/user/metrics.md` (one copyable transcript per endpoint, the error-code table, the cursor rules) and the new primitives in `docs/user/reading-events.md`; update `docs/user/README.md`.
+- [x] (2026-10-10) M4: extend `kiroku-metrics/example/Main.hs` with browse checks and update its documented transcript.
+- [x] (2026-10-10) M4: add this plan's bullets under `## Unreleased` in `kiroku-metrics/CHANGELOG.md` describing the new routes and exports (no `version:` edit; plan 96 assigns 0.3.0.0); update CAP-17 and its log; add IR-8's "Implementation Evidence" section.
+- [x] (2026-10-10) M4: ADR distillation pass (the browse-endpoint ADR first planned here is withdrawn as subsumed by ADR-9; record in Outcomes whether anything else is durable).
 - [ ] Fill in Outcomes & Retrospective, mark EP-3 `Complete` in the MasterPlan registry, and record the closing provenance revision.
 
 
@@ -491,14 +492,21 @@ dependency.
 
 ## Outcomes & Retrospective
 
+Current implementation: the user-approved byte order and one shared name index
+are recorded in ADR-17. The Store primitives, migration 0015 and HTTP routes
+are authored, and serial verification passes 434 store, 24 migration and 68
+metrics examples. Production prepared plans are bounded in C and English ICU
+databases. Final-layout cost review and publication are separate remaining
+work. The dated research outcomes below describe their earlier layouts.
+
+
 2026-10-10 shared design continuation: a concrete disposable query prototype
 passes all 224 TypeID/edge-case checks for category-plus-literal-prefix browsing
 and bounded namespace windows. Browse work is at most 12 rows / 12 buffers;
 namespace work is at most 38 rows / 9 buffers. Owned clusters stopped.
 The retained research distinguishes successful read evidence from migration,
-worker and write-cost acceptance. The new browsing-order preference is pending;
-no durable architecture or production index is selected. ADR-15 already governs
-this shared review, so the distillation pass creates no new ADR yet.
+worker and write-cost acceptance. This prototype preceded the subsequent
+user approval and ADR-17; it did not itself select a production migration.
 
 2026-10-10 corrected observer completion: proof plus ten comparison trials are
 benchmark-grade, raw metrics recompute and exact durable delivery passes.
@@ -853,7 +861,7 @@ change -0.466% (95% interval -1.821% to +0.908%) and p99 change -0.013%
 Neither those cost measurements nor the bounded unfiltered category replacement
 settle global literal-prefix correctness or plan 54 namespace ordering.
 
-**Current state (2026-10-10): executed, promotion rejected.** Run the retained
+**Historical initial result (2026-10-10): executed, prototype promotion rejected.** Run the retained
 [diagnostic](../../scripts/mp13-browse-sql-prototype.py) as described in the
 [evidence README](../../kiroku-store/bench/results/mp13-ep3-prefix/README.md).
 The user-directed category follow-up is retained in
@@ -861,10 +869,10 @@ The user-directed category follow-up is retained in
 Run the same diagnostic with `--scope category-streams` to reproduce it. It
 proves category equality can use the existing index while category-sized work
 remains. Category-first browsing is the investigation priority, and arbitrary
-prefix search remains a valid requirement. No API shape or new index is selected.
-Exit 2 is the expected rejection, not a passing performance gate. Do not begin
-M1 with the SQL sketch below. Resolve the no-migration/prefix/collation conflict
-through an explicit reviewed design first; leave the remaining milestones open.
+prefix search remains a valid requirement. Exit 2 reproduces the rejected
+initial query, not the selected design. The user subsequently accepted byte
+order and ADR-17 selects one shared index. M1 implements that explicit reviewed
+design for isolated correctness and cost verification.
 
 Add focused cases to `kiroku-store/test/Test/PerformanceStructure.hs` using the existing
 EXPLAIN machinery. Check first and later pages under both forced generic and custom plans.
@@ -878,7 +886,7 @@ First try existing-index statement variants without changing the published prefi
 ordering or database collation. If sparse-prefix work still scales with total history, do not
 ship the prototype or add an index silently: record the failing plan and revise this design
 with an explicit read/write trade-off before continuing. A new index needs separate append
-cost review under ADR-15. No benchmark result exists yet. A LIMIT or page-size test alone
+cost review under ADR-15. Earlier benchmark results belong to the category/name replacement; the selected byte-name layout needs its own comparison. A LIMIT or page-size test alone
 cannot pass this milestone.
 
 Add a regression fixture with both prefix and cursor present and different (`orders-`,
@@ -893,178 +901,60 @@ Scope: after this milestone a Haskell consumer can call `listStreams`, `listCate
 `getEvent` through the public `Store` effect, the PostgreSQL interpreter serves them, a mock
 interpreter can implement them without a database, and the store package and its dependants compile with their versions unchanged until plan 96. Nothing in `kiroku-metrics` changes yet.
 
-**SQL** (`kiroku-store/src/Kiroku/Store/SQL.hs`). Add three statements to the export list, after
-`lookupStreamNamesStmt`, and define them in the "Read Statements" section:
+**Selected implementation (2026-10-10, supersedes the former locale-order SQL sketches).**
+Follow [ADR-17](../adr/0017-stream-browsing-uses-byte-order-and-one-shared-name-index.md).
+Migration `kiroku-store-migrations/migrations/0015.sql` adds exactly one partial
+`stream_name COLLATE "C"` index; preserve the existing unique name and category
+indexes. Category enumeration remains in deployment locale order. A migration
+build requires a write pause; the migration must not ship before cost review.
+
+`Kiroku.Store.SQL.listStreamsSession` computes up to two disjoint name ranges:
+a bare category equality and a category-plus-hyphen range, intersected with an
+optional literal prefix and exclusive cursor. It uses `listStreamsRangeStmt`
+or `listStreamsPairStmt`, selecting `InclusiveLower`, `ExclusiveLower`, or
+`ExactName` from a closed sum type. Apply an ordered LIMIT before the optional
+upper filter; do not reintroduce nullable lower predicates or a generic-plan
+bitmap/sort over an entire prefix. Unicode scalar upper-bound construction
+skips surrogates and supports maximum-scalar and empty prefixes.
+`listCategoriesStmt` has separate first/after shapes and a recursive loose
+category index scan. `getEventStmt` returns the canonical global row once,
+regardless of links. The interpreter applies the configured decode hook and
+propagates typed decode failures.
+
+The public effect/wrapper signatures are:
 
 ```haskell
--- | Page application streams in name order. Params: (exclusive name cursor, prefix, limit).
-listStreamsStmt :: Statement (Maybe Text, Maybe Text, Int32) (Vector StreamInfo)
-listStreamsStmt =
-    preparable
-        listStreamsSQL
-        ( contrazip3
-            (E.param (E.nullable E.text))
-            (E.param (E.nullable E.text))
-            (E.param (E.nonNullable E.int4))
-        )
-        (D.rowVector streamInfoRow)
-
-listStreamsSQL :: Text
-listStreamsSQL =
-    """
-    SELECT stream_id, stream_name, stream_version, created_at, deleted_at, truncate_before
-    FROM streams
-    WHERE stream_id <> 0
-      AND ($1::text IS NULL OR stream_name > $1)
-      AND ($2::text IS NULL OR starts_with(stream_name, $2))
-    ORDER BY stream_name ASC
-    LIMIT $3
-    """
-
--- | Page distinct categories in name order with a loose index scan.
--- Params: (exclusive category cursor, limit).
-listCategoriesStmt :: Statement (Maybe Text, Int32) (Vector Text)
-listCategoriesStmt =
-    preparable
-        listCategoriesSQL
-        (contrazip2 (E.param (E.nullable E.text)) (E.param (E.nonNullable E.int4)))
-        (D.rowVector (D.column (D.nonNullable D.text)))
-
-listCategoriesSQL :: Text
-listCategoriesSQL =
-    """
-    WITH RECURSIVE next_category AS (
-      SELECT (
-        SELECT s.category FROM streams s
-        WHERE s.stream_id <> 0 AND ($1::text IS NULL OR s.category > $1)
-        ORDER BY s.category ASC LIMIT 1
-      ) AS category
-      UNION ALL
-      SELECT (
-        SELECT s.category FROM streams s
-        WHERE s.stream_id <> 0 AND s.category > n.category
-        ORDER BY s.category ASC LIMIT 1
-      )
-      FROM next_category n
-      WHERE n.category IS NOT NULL
-    )
-    SELECT category FROM next_category WHERE category IS NOT NULL LIMIT $2
-    """
-
--- | Fetch one event by id as it appears in the global $all log.
-getEventStmt :: Statement UUID (Maybe RecordedEvent)
-getEventStmt =
-    preparable
-        getEventSQL
-        (E.param (E.nonNullable E.uuid))
-        (D.rowMaybe recordedEventRow)
-
-getEventSQL :: Text
-getEventSQL =
-    """
-    SELECT e.event_id, e.event_type,
-           se.stream_version, se.stream_version AS global_position,
-           se.original_stream_id, se.original_stream_version,
-           e.data, e.metadata, e.causation_id, e.correlation_id,
-           e.created_at
-    FROM events e
-    JOIN stream_events se ON se.event_id = e.event_id AND se.stream_id = 0
-    WHERE e.event_id = $1
-    """
+listStreams :: (HasCallStack, Store :> es)
+    => Maybe CategoryName -> Maybe Text -> Maybe StreamName -> BrowsePageSize
+    -> Eff es (Vector StreamInfo)
+listCategories :: (HasCallStack, Store :> es)
+    => Maybe CategoryName -> BrowsePageSize -> Eff es (Vector CategoryName)
+getEvent :: (HasCallStack, Store :> es)
+    => EventId -> Eff es (Maybe RecordedEvent)
+mkBrowsePageSize :: Int -> Either BrowsePageSizeError BrowsePageSize
 ```
 
-The SQL above is a correctness prototype, not a performance-approved implementation.
-The parameter order is cursor, prefix, limit; the public API order remains prefix, cursor, limit.
-Before promotion, split nullable cursor predicates into first-page and after-cursor statement
-variants when necessary to keep the cursor in Index Cond under generic prepared plans. `starts_with` is a built-in PostgreSQL function
-(since version 11); it does no wildcard interpretation. The recursive CTE emits one row per
-distinct category, each found by a single ordered index probe past the previous one; PostgreSQL
-evaluates a recursive CTE lazily, so the outer `LIMIT` stops the recursion after the page is
-full. In `getEventSQL` the `stream_id = 0` join picks the event's `$all` row, whose
-`stream_version` is the global position, matching the column layout of `readAllForwardSQL`.
-
-**Effect** (`kiroku-store/src/Kiroku/Store/Effect.hs`). Add three constructors to `data Store`,
-placed after `LookupStreamNames` with Haddock in the style of the neighbours:
-
-```haskell
-    {- | Page application streams in ascending name order. The first argument is
-    an optional name prefix (exact, no wildcards); the second is an exclusive
-    name cursor ('Nothing' = from the first name); the third caps the page. Never
-    returns the reserved @$all@ row. Live and soft-deleted streams are both
-    included; hard-deleted streams are gone. Surfaced as 'Kiroku.Store.Read.listStreams'.
-    -}
-    ListStreams :: Maybe Text -> Maybe StreamName -> Int32 -> Store m (Vector StreamInfo)
-    {- | Page the distinct categories present in @streams.category@ in ascending
-    order, from an exclusive cursor ('Nothing' = from the first). Excludes the reserved stream row (stream_id 0), not a legitimate category
-    named @$all@ derived from an application stream such as @$all-x@. Surfaced as 'Kiroku.Store.Read.listCategories'.
-    -}
-    ListCategories :: Maybe CategoryName -> Int32 -> Store m (Vector CategoryName)
-    {- | Fetch one event by id as it appears in the global @$all@ log:
-    @streamVersion == globalPosition@ and the @original*@ fields name its source
-    stream. 'Nothing' when no such event exists (never appended, or hard-deleted).
-    Surfaced as 'Kiroku.Store.Read.getEvent'.
-    -}
-    GetEvent :: EventId -> Store m (Maybe RecordedEvent)
-```
-
-Interpret them in `runStorePool`, next to the `LookupStreamNames` branch:
-
-```haskell
-    ListStreams prefix after limit ->
-        usePool (store ^. #pool) $
-            Session.statement (fmap (\(StreamName n) -> n) after, prefix, limit) SQL.listStreamsStmt
-    ListCategories after limit ->
-        fmap (V.map CategoryName) $
-            usePool (store ^. #pool) $
-                Session.statement (fmap (\(CategoryName c) -> c) after, limit) SQL.listCategoriesStmt
-    GetEvent (EventId eid) -> do
-        found <- usePool (store ^. #pool) $ Session.statement eid SQL.getEventStmt
-        decoded <- decodeReadEvents (store ^. #storeSettings) (maybe V.empty V.singleton found)
-        pure (decoded V.!? 0)
-```
-
-`GetEvent` must use `decodeReadEvents` exactly as the other readers do, so a consumer that
-installs a payload-decoding hook sees the decoded event by id too.
-
-**Wrappers** (`kiroku-store/src/Kiroku/Store/Read.hs`). Export and define, with Haddock that
-repeats the exclusive-cursor rule and the `$all` exclusion in plain words:
-
-```haskell
-listStreams ::
-    (HasCallStack, Store :> es) =>
-    Maybe Text ->        -- ^ optional exact name prefix
-    Maybe StreamName ->  -- ^ exclusive name cursor; Nothing = from the first name
-    Int32 ->             -- ^ page size
-    Eff es (Vector StreamInfo)
-listStreams prefix after limit = send (ListStreams prefix after limit)
-
-listCategories ::
-    (HasCallStack, Store :> es) =>
-    Maybe CategoryName -> Int32 -> Eff es (Vector CategoryName)
-listCategories after limit = send (ListCategories after limit)
-
-getEvent :: (HasCallStack, Store :> es) => EventId -> Eff es (Maybe RecordedEvent)
-getEvent eid = send (GetEvent eid)
-```
-
-Document in `listStreams`'s Haddock that to page you pass the last returned `name` back as the
-cursor, that a prefix of `"orders-"` is exactly "streams in category `orders`" except for a
-stream named exactly `orders`, and that the library does not validate `limit` (PostgreSQL rejects
-a negative `LIMIT` and that surfaces as `ConnectionError`, like every other read).
+`BrowsePageSize` has a private constructor and accepts 1 through 1001, allowing
+one over-fetched row for a maximum HTTP page of 1000. Custom interpreters handle
+`ListStreams category prefix cursor page`, `ListCategories cursor page`, and
+`GetEvent id`. These reads exclude only the reserved row `stream_id=0`, preserve
+soft-deleted metadata, and naturally omit hard-deleted rows. Names such as
+`$all-x` and an empty category remain valid. Stream name order is stable UTF-8
+byte order, not event/commit order, and cursors are live rather than snapshots.
 
 **Tests.** Create `kiroku-store/test/Test/BrowseReads.hs` (`spec :: Spec`, `around withTestStore`)
 with these cases, each building its own fixture with `appendToStream` and `makeEvent`:
 
 - listing an empty store returns an empty vector and never includes `$all`;
 - after creating `orders-1`, `orders-2`, `shipments-1`, and a dash-less `singleton`,
-  `listStreams Nothing Nothing 10` returns exactly those four in ascending name order, each with
-  the right `version`; `listStreams (Just "orders-") Nothing 10` returns the two orders streams;
-  `listStreams Nothing Nothing 2` returns the first two and `listStreams Nothing (Just lastName) 2`
+  `listStreams Nothing Nothing Nothing (page 10)` returns exactly those four in ascending name order, each with
+  the right `version`; `listStreams Nothing (Just "orders-") Nothing (page 10)` returns the two orders streams;
+  `listStreams Nothing Nothing Nothing (page 2)` returns the first two and `listStreams Nothing Nothing (Just lastName) (page 2)`
   returns the rest; a soft-deleted stream (`softDeleteStream`) still appears with `deletedAt`
   set; a stream with `setStreamTruncateBefore` shows the marker;
-- `listCategories Nothing 10` returns `orders`, `shipments`, `singleton` once each in order even
-  when a category has several streams; `listCategories (Just (CategoryName "orders")) 10` returns
-  the categories after it; `listCategories Nothing 1` returns only the first;
+- `listCategories Nothing (page 10)` returns `orders`, `shipments`, `singleton` once each in order even
+  when a category has several streams; `listCategories (Just (CategoryName "orders")) (page 10)` returns
+  the categories after it; `listCategories Nothing (page 1)` returns only the first;
 - `getEvent` on an appended event returns `Just` with `globalPosition` equal to the append's
   `globalPosition`, `streamVersion` equal to that same position, `originalStreamId` equal to the
   stream's `lookupStreamId`, and `originalVersion 1`; a random `EventId` returns `Nothing`; an
@@ -1171,10 +1061,10 @@ browseApp :: StoreBrowser -> Application
 
 | Method and path | Behavior |
 | --- | --- |
-| `GET /streams` | `listStreams prefix after (limit + 1)`; items are `streamInfoToJSON`; `next_cursor` is the last returned `name` (a JSON string). Query: `prefix`, `from`, `limit`. |
+| `GET /streams` | `listStreams category prefix after (page (limit + 1))`; items are `streamInfoToJSON`; `next_cursor` is the last returned `name` (a JSON string). Query: `category`, `prefix`, `from`, `limit`. |
 | `GET /streams/<name>` | `getStream`; 200 with one `streamInfoToJSON` object, or 404 `stream_not_found`. |
 | `GET /streams/<name>/events` | `getStream` first (404 `stream_not_found` if `Nothing`); then `readStreamForward`/`readStreamBackward name (StreamVersion from) (limit + 1)`; `next_cursor` is the last item's `streamVersion` (a JSON number). Query: `from`, `limit`, `direction`. |
-| `GET /categories` | `listCategories after (limit + 1)`; items are `{"name": …}`; `next_cursor` is the last name. Query: `from`, `limit`. |
+| `GET /categories` | `listCategories after (page (limit + 1))`; items are `{"name": …}`; `next_cursor` is the last name. Query: `from`, `limit`. |
 | `GET /categories/<name>/events` | `readCategory (CategoryName name) (GlobalPosition from) (limit + 1)`; `next_cursor` is the last item's `globalPosition`. Query: `from`, `limit`. |
 | `GET /events` | `readAllForward`/`readAllBackward (GlobalPosition from) (limit + 1)`; `next_cursor` is the last item's `globalPosition`. Query: `from`, `limit`, `direction`. |
 | `GET /events/<event_id>` | `getEvent`; 200 with one event object, 404 `event_not_found`, or 400 `invalid_event_id` when the segment is not a UUID. |
@@ -1247,8 +1137,7 @@ Add `Test.BrowseSpec` to `other-modules`, register it in `kiroku-metrics/test/Ma
 `effectful-core` to the test-suite `build-depends`.
 
 Acceptance for M2: `cabal test kiroku-metrics-test --test-options='--match "Browse"'` passes
-without a database being touched by these cases (the shared PostgreSQL still starts because
-`main` wraps the whole run).
+with pure validation cases and independent mock-interpreter resolution checks; route semantics run against a real migrated database. This avoids duplicating store query logic in a fixture interpreter.
 
 ### Milestone 3 — mounting the routes in the server
 
@@ -1277,7 +1166,7 @@ with every legacy starter delegating to them, `combinedAppWithProviders` wrapped
 Confirm with `grep -n "ServerProviders\|WithProviders" kiroku-metrics/src/Kiroku/Metrics/Server.hs`
 before starting; if the record is missing, stop and implement plan 87 first.
 
-Add one field, `browser :: !(Maybe StoreBrowser)`, with a Haddock line ("Backs `/streams`,
+Add one field, `storeBrowsing :: !(Maybe StoreBrowser)`, with a Haddock line ("Backs `/streams`,
 `/categories`, and `/events`"). Set it to `Nothing` in `defaultServerProviders`, to
 `Just (storeBrowser store)` in `storeServerProviders`, and to `Just (storeBrowser store)` in the
 record `startMetricsServerWithStore` builds (subscription status stays `Nothing` there, exactly
@@ -1294,7 +1183,7 @@ record. In `httpAppWithProviders` add, before the `["ws"]` arm:
 with
 
 ```haskell
-    browseRoute = case providers.browser of
+    browseRoute = case providers.storeBrowsing of
         Just browser -> browseApp browser req respond
         Nothing ->
             respond $
@@ -1343,7 +1232,7 @@ carries the right version, and the durable decision is recorded as an ADR.
 `docs/user/metrics.md`: add a "Browsing the store over HTTP" entry to the Contents list and a
 section of that name after "Subscription status over HTTP". Open with how browsing is enabled
 (`withMetricsServerWithStore` serves it; `storeServerProviders` with
-`withMetricsServerWithProviders` serves it together with `/subscriptions`; `browser = Nothing`
+`withMetricsServerWithProviders` serves it together with `/subscriptions`; `storeBrowsing = Nothing`
 disables it; `storeBrowserWith` changes the limits). Then, per endpoint, a `bash` block with the
 `curl` and a `json` block with the actual response captured from the example or test run, for
 `GET /streams`, `GET /streams/<name>`, `GET /streams/<name>/events` (forward and backward, and a
@@ -1372,7 +1261,7 @@ transcript and mirror the new lines in the "Try it" block of `docs/user/metrics.
 
 `kiroku-metrics/CHANGELOG.md`: under the `## Unreleased` heading (plans 90 and 87 opened it),
 add "New Features" bullets (the routes, `Kiroku.Metrics.Browse`, `recordedEventToJSONResolved`,
-the `browser` field) and an "Other Changes" bullet (`effectful-core` is a new library
+the `storeBrowsing` field) and an "Other Changes" bullet (`effectful-core` is a new library
 dependency; all pre-existing endpoints, frames, and starters unchanged). Do not edit `version:`
 or any bound in `kiroku-metrics.cabal`; plan 96 dates the section as 0.3.0.0.
 
@@ -1397,7 +1286,7 @@ otherwise record in Outcomes that no record was needed.
 
 Acceptance for M4: the guide's transcripts match a live server, `cabal run -fexample kiroku-metrics-example`
 prints its new steps and exits 0, `just capabilities-validate` and the strict
-improvement-request validation pass, and `cabal build all` is warning-free.
+improvement-request validation pass, and `cabal build all` succeeds; existing shadowing warnings remain, with no new browsing warnings.
 
 
 ## Concrete Steps
@@ -1458,7 +1347,7 @@ curl -s -i 'http://127.0.0.1:9091/events/00000000-0000-0000-0000-000000000000'
 The last command should show `HTTP/1.1 404 Not Found` and the body
 
 ```json
-{"error":{"code":"event_not_found","message":"No event with id 00000000-0000-0000-0000-000000000000 exists in this store.","details":{"event_id":"00000000-0000-0000-0000-000000000000"}}}
+{"error":{"code":"event_not_found","message":"Event not found."}}
 ```
 
 Example (Milestone 4):
@@ -1569,10 +1458,10 @@ At the end of Milestone 1, `kiroku-store` (its `.cabal` version unchanged in-tre
 releases it as 0.11.0.0) exports from `Kiroku.Store.Effect` the constructors `ListStreams :: Maybe Text -> Maybe StreamName -> Int32 -> Store m (Vector StreamInfo)`,
 `ListCategories :: Maybe CategoryName -> Int32 -> Store m (Vector CategoryName)`, and
 `GetEvent :: EventId -> Store m (Maybe RecordedEvent)`; from `Kiroku.Store.Read` the wrappers
-`listStreams :: (HasCallStack, Store :> es) => Maybe Text -> Maybe StreamName -> Int32 -> Eff es (Vector StreamInfo)`,
-`listCategories :: (HasCallStack, Store :> es) => Maybe CategoryName -> Int32 -> Eff es (Vector CategoryName)`,
+`listStreams :: (HasCallStack, Store :> es) => Maybe CategoryName -> Maybe Text -> Maybe StreamName -> BrowsePageSize -> Eff es (Vector StreamInfo)`,
+`listCategories :: (HasCallStack, Store :> es) => Maybe CategoryName -> BrowsePageSize -> Eff es (Vector CategoryName)`,
 and `getEvent :: (HasCallStack, Store :> es) => EventId -> Eff es (Maybe RecordedEvent)`; and from
-`Kiroku.Store.SQL` the statements `listStreamsStmt`, `listCategoriesStmt`, and `getEventStmt`.
+`Kiroku.Store.SQL` the session `listStreamsSession` and statements `listStreamsRangeStmt`, `listStreamsPairStmt`, `listCategoriesStmt`, and `getEventStmt`.
 No new library dependency is added to `kiroku-store`; the SQL uses only `hasql`,
 `contravariant-extras`, and built-in PostgreSQL functions (`starts_with`, recursive CTEs).
 
@@ -1588,7 +1477,7 @@ dependency: `effectful-core (align with kiroku-store's verified supported range 
 `containers`, `vector`.
 
 At the end of Milestone 3, plan 87's `ServerProviders` in `Kiroku.Metrics.Server` has one more
-field, `browser :: !(Maybe StoreBrowser)`, set to `Nothing` in `defaultServerProviders` and to
+field, `storeBrowsing :: !(Maybe StoreBrowser)`, set to `Nothing` in `defaultServerProviders` and to
 `Just (storeBrowser store)` in `storeServerProviders` and in `startMetricsServerWithStore`;
 every previously exported name keeps its exact type and observable behavior.
 
@@ -1604,7 +1493,7 @@ this plan.
 
 - 2026-09-30: Adopted as EP-3 of MasterPlan 13 (`master_plan` added to the frontmatter) with a
   hard dependency on plan 87, which now introduces the `ServerProviders` record and the
-  `...WithProviders` functions this plan first proposed; Milestone 3 adds only the `browser`
+  `...WithProviders` functions this plan first proposed; Milestone 3 adds only the `storeBrowsing`
   field and the route arms. The error envelope became plan 90's `errorResponse` (the
   browse-specific helper is withdrawn); the resolved-name encoder became
   `recordedEventToJSONResolved` in `Kiroku.Metrics.WebSocket`, shared with plan 94; the stale
@@ -1700,3 +1589,45 @@ Implemented a bounded disposable probe for one byte-ordered name index and
 namespace windows over the current denormalized global log. Retained generic-plan
 failures, fixture repair and successful follow-up evidence. Recorded the pending
 new-API ordering choice and kept migration, worker and final-layout cost gates open.
+
+## Approved ordering implementation revision (2026-10-10)
+
+The user accepted byte order. ADR-17 records the shared design. The core effect,
+validated bounded page size, migration 0015, and HTTP implementation are now
+authored. Seven PostgreSQL correctness examples pass, including hundreds of
+category/prefix/cursor intersections. Prepared-plan and HTTP validation are in
+progress. Functional validation and final-layout cost acceptance remain separate;
+this revision does not declare the earlier cost measurements transferable.
+
+## Validation scope revision (2026-10-10)
+
+Route semantics use real PostgreSQL and HTTP, with independent mock tests for
+Store effect dispatch, over-fetch trimming and distinct-name lookup counts.
+Pure HTTP validation/method tests touch no database. Do not duplicate the
+production range planner in a mock fixture just to repeat those route checks.
+The selected migration exposed stale 14-file/0012-schema-marker assertions;
+update them to 15 and check the actual C-collated partial index. The first
+parallel full-store run also missed a backpressure resumed signal; retained
+logs show all exact deliveries/checkpoints completed, and the serial rerun
+passes that case. Concurrent Cabal builds collided on temporary object files;
+all final build and test commands run serially. Earlier failures remain in the
+execution record, rather than being treated as performance samples.
+
+## Serial functional verification (2026-10-10)
+
+`cabal build all` succeeds (pre-existing migration-test shadowing warnings).
+`cabal test kiroku-store-migrations-test kiroku-metrics-test kiroku-store-test -j1`
+passes all 434 store, 24 migration and 68 metrics examples. The store suite
+includes forced generic/custom production plans on 40,000 names in both C and
+English ICU databases, Unicode-prefix correctness, lifecycle and typed decoding.
+The metrics suite includes every route, batched names, prefix mounts, CORS and
+disabled legacy switches. Migration tests cover fresh apply, pending-tail
+upgrade, strict rerun and legacy history import. Strict ADR, capability and
+improvement-request validation passes. The serial backpressure case passed.
+The example and exact-layout remote comparison remain the next checks.
+
+The self-verifying example passes all nine steps. Retained raw functional logs
+and hashes are in
+[production validation](../../kiroku-store/bench/results/mp13-ep3-shared-access/production-validation/README.md).
+The next step is the exact-layout comparison, with the original index-only
+control, five pairs per selected case and one persisted 60-minute budget.

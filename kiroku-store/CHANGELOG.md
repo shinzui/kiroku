@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Breaking Changes
+
+- The closed `Store` effect gains `ListStreams`, `ListCategories` and `GetEvent`.
+  Custom interpreters must handle them. Catalog limits use validated `BrowsePageSize`.
+
+### New Features
+
+- Byte-ordered stream browsing with exact category, literal prefix and exclusive
+  name cursors; paged category enumeration and canonical event lookup by id.
+
+
 ## 0.10.0.0 — 2026-10-10
 
 ### Breaking Changes

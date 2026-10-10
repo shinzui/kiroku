@@ -285,7 +285,7 @@ data ServerProviders = ServerProviders
     { webSocketServer :: !WS.ServerApp
     , subscriptionStatus :: !(Maybe SubscriptionStatusProvider)      -- GET /subscriptions (live, process-local)
     , checkpointInventory :: !(Maybe CheckpointInventoryProvider)    -- GET /subscription-checkpoints        (EP-2)
-    , browser :: !(Maybe StoreBrowser)                               -- /streams, /categories, /events        (EP-3 adds)
+    , storeBrowsing :: !(Maybe StoreBrowser)                               -- /streams, /categories, /events        (EP-3 adds)
     , deadLetters :: !(Maybe DeadLetterProvider)                     -- GET /subscriptions/<name>/dead-letters (EP-4 adds)
     , webSocketChannels :: !WebSocketChannels                        -- declared channels (EP-6 adds)
     }
@@ -687,7 +687,7 @@ rule suffices.
   byte-ordered name index as an alternative, with no separate namespace index.
   Do not transfer the previous layout's confidence bounds to this new layout or
   invent a new regression allowance. Keep its production migration unselected
-  while the new browsing-order preference is pending. Existing published reads,
+  with user-approved UTF-8 byte ordering for new stream pages. Existing published reads,
   unique-name identity, database collation and event ordering remain unchanged.
   The namespace window strategy trades sparse historical catch-up throughput
   for bounded per-fetch work and no additional writer index. It needs distinct
@@ -896,7 +896,7 @@ passes all 224 TypeID/edge-case checks for category-plus-literal-prefix browsing
 and bounded namespace windows. Browse work is at most 12 rows / 12 buffers;
 namespace work is at most 38 rows / 9 buffers. Owned clusters stopped.
 The retained research distinguishes successful read evidence from migration,
-worker and write-cost acceptance. The new browsing-order preference is pending;
+worker and write-cost acceptance. The user accepted UTF-8 byte ordering for new stream pages;
 no durable architecture or production index is selected. ADR-15 already governs
 this shared review, so the distillation pass creates no new ADR yet.
 
@@ -1085,3 +1085,23 @@ Implemented a bounded disposable probe for one byte-ordered name index and
 namespace windows over the current denormalized global log. Retained generic-plan
 failures, fixture repair and successful follow-up evidence. Recorded the pending
 new-API ordering choice and kept migration, worker and final-layout cost gates open.
+
+## Approved stream ordering revision (2026-10-10)
+
+The user accepted stable UTF-8 byte order for new stream browsing.
+[ADR-17](../adr/0017-stream-browsing-uses-byte-order-and-one-shared-name-index.md)
+selects one partial C-collated name index for category and literal-prefix pages,
+keeping existing unique name and category indexes. No separate category/name
+index or namespace event index is selected. Plan 88 now implements this design
+for isolated correctness and cost verification. Plan 54's future bounded global
+windows reuse existing event indexes and require independent scanned-frontier
+tracking; its worker and semantic decision remain unfinished. Final-layout cost
+and cumulative release acceptance remain open.
+
+## EP-3 functional implementation checkpoint (2026-10-10)
+
+EP-3 now has supported bounded Store browsing reads, migration 0015 and mounted
+HTTP routes. Serial validation passes 434 store, 24 migration and 68 metrics
+examples, including production prepared plans in C and English ICU databases.
+ADR/capability/request validation passes. The example and final-layout remote
+cost comparison are next; EP-3 stays In Progress and publication stays with EP-7.

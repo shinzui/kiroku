@@ -39,6 +39,7 @@ import Network.Wai.Handler.Warp qualified as Warp
 import Network.Wai.Handler.WebSockets qualified as WaiWS
 import Network.WebSockets qualified as WS
 
+import Kiroku.Metrics.Browse (StoreBrowser, browseApp, browseNotConfiguredApp, storeBrowser)
 import Kiroku.Metrics.Checkpoints (CheckpointInventoryProvider, checkpointsApp, checkpointsNotConfiguredApp, storeCheckpointInventory)
 import Kiroku.Metrics.Collector (KirokuMetrics)
 import Kiroku.Metrics.Config (MetricsServerConfig (..))
@@ -68,11 +69,13 @@ data ServerProviders = ServerProviders
     { webSocketServer :: !WS.ServerApp
     , subscriptionStatus :: !(Maybe SubscriptionStatusProvider)
     , checkpointInventory :: !(Maybe CheckpointInventoryProvider)
+    , storeBrowsing :: !(Maybe StoreBrowser)
+    -- ^ Backs the stream, category and event inspection routes.
     }
 
 -- | Reject upgrades and leave all optional providers unconfigured.
 defaultServerProviders :: ServerProviders
-defaultServerProviders = ServerProviders stubWebSocketApp Nothing Nothing
+defaultServerProviders = ServerProviders stubWebSocketApp Nothing Nothing Nothing
 
 {- | Build every store-backed provider, including the process-local live registry.
 Bind this action first, then use 'withMetricsServerWithProviders'.
@@ -80,7 +83,7 @@ Bind this action first, then use 'withMetricsServerWithProviders'.
 storeServerProviders :: MetricsServerConfig -> KirokuMetrics -> KirokuStore -> IO ServerProviders
 storeServerProviders cfg m store = do
     wsState <- newWebSocketState cfg.wsMaxConnections
-    pure $ ServerProviders (websocketApp cfg m store wsState) (Just (storeSubscriptionStatus store)) (Just (storeCheckpointInventory store))
+    pure $ ServerProviders (websocketApp cfg m store wsState) (Just (storeSubscriptionStatus store)) (Just (storeCheckpointInventory store)) (Just (storeBrowser store))
 
 {- | Return only after Warp is ready; bind/setup failures are rethrown.
 Ephemeral sockets are explicitly closed on every exit, including cancellation.
@@ -183,6 +186,7 @@ httpAppWithProviders cfg m deps providers req respond =
         ["metrics", "prometheus"] | cfg.enablePrometheus -> prometheusApp m req respond
         ["metrics"] | cfg.enableJSON -> jsonApp m req respond
         ["metrics", _] | cfg.enableJSON -> jsonApp m req respond
+        prefix : _ | prefix `elem` ["streams", "categories", "events"] -> browseRoute
         ["subscription-checkpoints"] -> checkpointsRoute
         ["subscriptions"] -> subscriptionsRoute
         ["subscriptions", _] -> subscriptionsRoute
@@ -208,6 +212,7 @@ httpAppWithProviders cfg m deps providers req respond =
             respond (jsonResponse status404 (encode (object ["error" .= ("Not found" :: Text)])))
   where
     statusFor ok = if ok then status200 else status503
+    browseRoute = maybe browseNotConfiguredApp browseApp providers.storeBrowsing req respond
     checkpointsRoute = case providers.checkpointInventory of
         Just provider -> checkpointsApp provider req respond
         Nothing -> checkpointsNotConfiguredApp req respond

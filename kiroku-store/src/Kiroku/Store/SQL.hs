@@ -23,6 +23,12 @@ module Kiroku.Store.SQL (
     getStreamStmt,
     eventExistsInStreamStmt,
     lookupStreamNamesStmt,
+    listStreamsSession,
+    StreamRangeBound (..),
+    listStreamsRangeStmt,
+    listStreamsPairStmt,
+    listCategoriesStmt,
+    getEventStmt,
     currentGlobalPositionStmt,
     visibleGlobalHeadPositionStmt,
 
@@ -74,16 +80,19 @@ module Kiroku.Store.SQL (
 import Contravariant.Extras (contrazip2, contrazip3, contrazip4, contrazip5, contrazip6)
 import Control.Lens ((^.))
 import Data.Aeson (Value)
+import Data.Char (chr, ord)
 import Data.Functor.Contravariant ((>$<))
 import Data.Generics.Labels ()
 import Data.Int (Int32, Int64)
 import Data.Text (Text)
+import Data.Text qualified as T
 import Data.Time (UTCTime)
 import Data.UUID (UUID)
 import Data.Vector (Vector)
 import GHC.Generics (Generic)
 import Hasql.Decoders qualified as D
 import Hasql.Encoders qualified as E
+import Hasql.Session qualified as Session
 import Hasql.Statement (Statement, preparable)
 import Kiroku.Store.Types
 
@@ -1416,3 +1425,121 @@ readDeadLettersSQL =
       AND consumer_group_member = $2
     ORDER BY global_position DESC, dead_letter_id DESC
     """
+
+-- Catalog statements have a finite family of prepared shapes. Upper bounds
+-- are deliberately checked after the ordered LIMIT, keeping generic plans
+-- from bitmap-scanning and sorting an entire matching prefix.
+data StreamRangeBound = InclusiveLower | ExclusiveLower | ExactName
+    deriving stock (Eq, Show)
+
+streamColumns :: Text
+streamColumns = "stream_id, stream_name, stream_version, created_at, deleted_at, truncate_before"
+
+streamRangeSQL :: StreamRangeBound -> Text -> Text -> Text -> Text
+streamRangeSQL bound lower upper limit =
+    "SELECT * FROM (SELECT "
+        <> streamColumns
+        <> " FROM streams WHERE stream_id <> 0 AND stream_name COLLATE \"C\" "
+        <> operator
+        <> " "
+        <> lower
+        <> " ORDER BY stream_name COLLATE \"C\" LIMIT "
+        <> limit
+        <> ") bounded WHERE ("
+        <> upper
+        <> "::text IS NULL OR stream_name COLLATE \"C\" < "
+        <> upper
+        <> ")"
+  where
+    operator = case bound of InclusiveLower -> ">="; ExclusiveLower -> ">"; ExactName -> "="
+
+listStreamsRangeStmt :: StreamRangeBound -> Statement (Text, Maybe Text, Int32) (Vector StreamInfo)
+listStreamsRangeStmt bound =
+    preparable
+        (streamRangeSQL bound "$1" "$2" "$3" <> " ORDER BY stream_name COLLATE \"C\"")
+        (contrazip3 (E.param (E.nonNullable E.text)) (E.param (E.nullable E.text)) (E.param (E.nonNullable E.int4)))
+        (D.rowVector streamInfoRow)
+
+listStreamsPairStmt :: StreamRangeBound -> StreamRangeBound -> Statement (Text, Maybe Text, Text, Maybe Text, Int32) (Vector StreamInfo)
+listStreamsPairStmt first second =
+    preparable
+        ( "SELECT * FROM (("
+            <> streamRangeSQL first "$1" "$2" "$5"
+            <> ") UNION ALL ("
+            <> streamRangeSQL second "$3" "$4" "$5"
+            <> ")) matching ORDER BY stream_name COLLATE \"C\" LIMIT $5"
+        )
+        ( contrazip5
+            (E.param (E.nonNullable E.text))
+            (E.param (E.nullable E.text))
+            (E.param (E.nonNullable E.text))
+            (E.param (E.nullable E.text))
+            (E.param (E.nonNullable E.int4))
+        )
+        (D.rowVector streamInfoRow)
+
+{- | One statement and one checkout, including the bare-category/descendant union.
+All text is encoded as parameters; only closed operator choices build SQL.
+-}
+listStreamsSession :: Maybe CategoryName -> Maybe Text -> Maybe StreamName -> BrowsePageSize -> Session.Session (Vector StreamInfo)
+listStreamsSession category prefix after page = case ranges of
+    [] -> pure mempty
+    [(kind, lower, upper)] -> Session.statement (lower, upper, limit) (listStreamsRangeStmt kind)
+    [(kind, lower, upper), (kind2, lower2, upper2)] ->
+        Session.statement (lower, upper, lower2, upper2, limit) (listStreamsPairStmt kind kind2)
+    _ -> error "catalog range invariant: at most two disjoint ranges"
+  where
+    limit = browsePageSizeValue page
+    cursor = fmap (\(StreamName value) -> value) after
+    ranges = case category of
+        Nothing -> maybe [] pure (interval "" Nothing)
+        Just (CategoryName value)
+            | T.any (== '-') value -> []
+            | otherwise -> bare value <> maybe [] pure (interval (value <> "-") (prefixEnd (value <> "-")))
+    bare value
+        | maybe True (`T.isPrefixOf` value) prefix && maybe True (< value) cursor = [(ExactName, value, Nothing)]
+        | otherwise = []
+    interval start end =
+        let lower = max start (maybe "" (\value -> value) prefix)
+            upper = minimumEnd end (prefix >>= prefixEnd)
+            (kind, seek) = case cursor of
+                Just value | value >= lower -> (ExclusiveLower, value)
+                _ -> (InclusiveLower, lower)
+         in if maybe False (<= seek) upper then Nothing else Just (kind, seek, upper)
+    minimumEnd Nothing b = b
+    minimumEnd a Nothing = a
+    minimumEnd (Just a) (Just b) = Just (min a b)
+
+-- Valid UTF-8 byte order follows Unicode scalar order. The all-maximum and
+-- empty prefixes have no finite upper bound; PostgreSQL text has no NUL.
+prefixEnd :: Text -> Maybe Text
+prefixEnd value = case T.unsnoc value of
+    Nothing -> Nothing
+    Just (initial, lastChar)
+        | ord lastChar == 0x10ffff -> prefixEnd initial
+        | otherwise -> Just (T.snoc initial (chr (if ord lastChar + 1 == 0xd800 then 0xe000 else ord lastChar + 1)))
+
+-- First and later category pages have separate cursor shapes. Category order
+-- retains the deployment collation and its existing category index.
+listCategoriesStmt :: Bool -> Statement (Maybe Text, Int32) (Vector Text)
+listCategoriesStmt after =
+    preparable
+        query
+        (contrazip2 (E.param (E.nullable E.text)) (E.param (E.nonNullable E.int4)))
+        (D.rowVector (D.column (D.nonNullable D.text)))
+  where
+    first = if after then "AND s.category > $1" else "AND $1::text IS NULL"
+    query =
+        "WITH RECURSIVE next_category AS (SELECT (SELECT s.category FROM streams s WHERE s.stream_id <> 0 "
+            <> first
+            <> " ORDER BY s.category LIMIT 1) AS category UNION ALL SELECT (SELECT s.category FROM streams s "
+            <> "WHERE s.stream_id <> 0 AND s.category > n.category ORDER BY s.category LIMIT 1) "
+            <> "FROM next_category n WHERE n.category IS NOT NULL) SELECT category FROM next_category "
+            <> "WHERE category IS NOT NULL LIMIT $2"
+
+getEventStmt :: Statement UUID (Maybe RecordedEvent)
+getEventStmt =
+    preparable
+        "SELECT e.event_id,e.event_type,se.stream_version,se.stream_version AS global_position, se.original_stream_id,se.original_stream_version,e.data,e.metadata,e.causation_id,e.correlation_id,e.created_at FROM events e JOIN stream_events se ON se.event_id=e.event_id AND se.stream_id=0 WHERE e.event_id=$1"
+        (E.param (E.nonNullable E.uuid))
+        (D.rowMaybe recordedEventRow)

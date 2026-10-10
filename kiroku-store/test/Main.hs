@@ -24,6 +24,9 @@ import Kiroku.Store
 import Kiroku.Store.Subscription.Effect qualified as SubEff
 import Kiroku.Store.Subscription.EventPublisher (publisherPosition)
 import Kiroku.Test.Postgres (withMigratedTestDatabase)
+import Test.BrowseQueryPlans qualified as BrowseQueryPlans
+import Test.BrowseReads qualified as BrowseReads
+import Test.BrowseReadsMock qualified as BrowseReadsMock
 import Test.CatchupDbErrorNoPrematureSwitch qualified as CatchupDbErrorNoPrematureSwitch
 import Test.Category qualified as Category
 import Test.CategoryIdleNoSpin qualified as CategoryIdleNoSpin
@@ -72,6 +75,9 @@ import Test.VisibleGlobalHeadPositionMock qualified as VisibleGlobalHeadPosition
 
 main :: IO ()
 main = withSharedMigratedPostgres $ hspec $ do
+    BrowseReads.spec
+    BrowseReadsMock.spec
+    BrowseQueryPlans.spec
     UniqueViolationMapping.spec
     SubscriptionTarget.spec
     Category.spec

@@ -4,6 +4,7 @@ snapshot type, the server configuration and lifecycle, and the health-check
 types into scope.
 -}
 module Kiroku.Metrics (
+    module Kiroku.Metrics.Browse,
     module Kiroku.Metrics.Types,
     module Kiroku.Metrics.Collector,
     module Kiroku.Metrics.Checkpoints,
@@ -15,6 +16,7 @@ module Kiroku.Metrics (
     module Kiroku.Metrics.WebSocket,
 ) where
 
+import Kiroku.Metrics.Browse
 import Kiroku.Metrics.Checkpoints
 import Kiroku.Metrics.Collector
 import Kiroku.Metrics.Config

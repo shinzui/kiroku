@@ -1,4 +1,4 @@
-"""Disposable research for one byte-ordered name index, not a selected migration.
+"""Disposable research for the selected byte-ordered name layout; append acceptance remains separate.
 
 Called by mp13-browse-sql-prototype.py's bounded owned-cluster lifecycle.
 Existing unique-name and category indexes/column collations remain unchanged.
@@ -26,7 +26,7 @@ def probe(sql, database, evidence, save, fixture_typeid):
         for child in plan.get('Plans', []):
             yield from nodes(child)
 
-    sql('CREATE INDEX ix_streams_browse_name ON kiroku.streams '
+    sql('CREATE INDEX IF NOT EXISTS ix_streams_browse_name ON kiroku.streams '
         '(stream_name COLLATE "C") WHERE stream_id <> 0;', database)
     for size in [1000, 20000]:
         catalog = [category + '-' + fixture_typeid(n)
