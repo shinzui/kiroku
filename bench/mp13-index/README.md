@@ -59,7 +59,8 @@ The controller requires 150s/trial plus cleanup reserve before each new queue.
 If measured overhead or remaining time cannot fit, it stops without shrinking
 pair count or relaxing acceptance. Do not reset `budget.json` to resume.
 
-The controller journals immutable plans and operator sessions. Every 30 seconds
+The controller requires Python 3.14 or later for UUIDv7 plan/run IDs. It journals
+immutable plans and operator sessions. Every 30 seconds
 it checks the current remote run phase, actual driver/database power state and
 verified slice count. It stops on five minutes without phase/count progress,
 active stopped instances, health/hash/invariant failures, deadline exhaustion or

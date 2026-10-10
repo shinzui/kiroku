@@ -109,7 +109,7 @@ def verified(session_file):
 def plan(template, case, pairs, calibration=False, proof=False):
     name, fresh, mode, hz = case
     document = copy.deepcopy(template)
-    document['planId'] = str(uuid.uuid4())
+    document['planId'] = str(uuid.uuid7())
     document['runs'] = []
     for pair in range(pairs):
         arms = ['baseline', 'candidate'] if pair % 2 == 0 else ['candidate', 'baseline']
@@ -117,7 +117,7 @@ def plan(template, case, pairs, calibration=False, proof=False):
             arms = ['baseline']
         for arm in arms:
             entry = copy.deepcopy(template['runs'][0])
-            identifier = str(uuid.uuid4())
+            identifier = str(uuid.uuid7())
             position = pair * 2 + (0 if arm == arms[0] else 1)
             entry.update(ordinal=len(document['runs']) + 1, runId=identifier, estimateMinutes=2)
             group = 'mp13-index/' + ('calibration' if calibration else name)
