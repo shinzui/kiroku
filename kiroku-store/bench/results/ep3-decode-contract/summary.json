@@ -1,0 +1,39 @@
+{
+  "source_commit": "eb58104",
+  "pre_change_base": "7e9c7a2",
+  "environment": {
+    "postgresql": "18.6",
+    "ghc": "9.12.4",
+    "cabal": "3.16.1.0",
+    "platform": "aarch64-osx",
+    "optimization": "O1"
+  },
+  "correctness": {
+    "kiroku_store": 360,
+    "kiroku_metrics": 22,
+    "shibuya_kiroku_adapter": 38,
+    "kiroku_store_migrations": 24,
+    "kiroku_cli": 22,
+    "kiroku_otel": 17,
+    "total": 483,
+    "publisher_callback_resilience": 21
+  },
+  "gates": {
+    "performance_structure": 20,
+    "controlled_workload_cases": 16,
+    "controlled_workload_seconds": 115.37,
+    "adr_concepts": 12,
+    "capability_concepts": 21
+  },
+  "cumulative_append_acceptance": "reserved for EP6; no new remote experiment",
+  "retained_files_sha256": {
+    "pre-change-regression.log": "5e4d7b1fbb28a7a87b6622b4c29423fc79159cdb49f193895fb1bda581582313",
+    "tests-verified.log": "e2e7acb1f74425df2071842ef6a75519f393205b74d2af82a6722027b0f6873e",
+    "final-affected-tests.log": "4bdecab61c4f8af68ab939921e3f54e33f872743a1adac0772bbe33e6c1e4be4",
+    "build-verified.log": "65ef955e9835a73d01c50ebe8f77ede9da62faaed8ca49bd17498292feb8447b",
+    "perf-check.log": "6a58b2332890711986383453d2b82739e89823ca392271c664d3d60c021de22d",
+    "adr-validation.log": "6c6a0bfed9192f5202cf4137700dbd19890222c1489734290436972569a18ae5",
+    "capability-validation.log": "90741eb3a563bb3a6e92a28a1dc6ef45b3453c531e4da178d42bb82cbbc58895",
+    "format-final.log": "c77b7ce5f6595e3bae69228d0c78f9475f8839acc571c0ad63c2797ca69f07f2"
+  }
+}

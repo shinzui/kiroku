@@ -1,0 +1,8 @@
+warning: Git tree '/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku' has uncommitted changes
+Using saved setting for 'extra-substituters = ' from ~/.local/share/nix/trusted-settings.json.
+warning: ignoring untrusted flake configuration setting 'extra-substituters'.
+Pass '--accept-flake-config' to trust it
+Using saved setting for 'extra-trusted-public-keys = ' from ~/.local/share/nix/trusted-settings.json.
+traversed 582 files
+emitted 140 files for processing
+formatted 3 files (2 changed) in 436ms

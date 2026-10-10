@@ -1,0 +1,44 @@
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.9.0.1 (test:kiroku-store-test) (file test/Test/PublisherCallbackResilience.hs changed)
+Preprocessing test suite 'kiroku-store-test' for kiroku-store-0.9.0.1...
+Building test suite 'kiroku-store-test' for kiroku-store-0.9.0.1...
+[19 of 43] Compiling Test.PublisherCallbackResilience ( test/Test/PublisherCallbackResilience.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/PublisherCallbackResilience.o ) [Source file changed]
+test/Test/PublisherCallbackResilience.hs:63:13: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘before’ shadows the existing binding
+      imported from ‘Test.Hspec’ at test/Test/PublisherCallbackResilience.hs:19:1-17
+      (and originally defined in ‘hspec-core-2.11.18:Test.Hspec.Core.Hooks’)
+   |
+63 |             before <- atomically $ Pub.publisherPosition (store ^. #publisher)
+   |             ^^^^^^
+
+test/Test/PublisherCallbackResilience.hs:69:13: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘after’ shadows the existing binding
+      imported from ‘Test.Hspec’ at test/Test/PublisherCallbackResilience.hs:19:1-17
+      (and originally defined in ‘hspec-core-2.11.18:Test.Hspec.Core.Hooks’)
+   |
+69 |             after <- atomically $ Pub.publisherPosition (store ^. #publisher)
+   |             ^^^^^
+
+test/Test/PublisherCallbackResilience.hs:77:50: warning: [GHC-63394] [-Wx-partial]
+    In the use of ‘head’
+    (imported from Prelude, but defined in GHC.Internal.List):
+    "This is a partial function, it throws an error on empty lists. Use pattern matching, 'Data.List.uncons' or 'Data.Maybe.listToMaybe' instead. Consider refactoring to use "Data.List.NonEmpty"."
+   |
+77 |             seen `shouldSatisfy` (\xs -> all (== head xs) xs)
+   |                                                  ^^^^
+
+[43 of 43] Compiling Main             ( test/Main.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Main.o ) [Test.PublisherCallbackResilience changed]
+[44 of 44] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test [Objects changed]
+Running 1 test suites...
+Test suite kiroku-store-test: RUNNING...
+
+publisher callback resilience
+  characterizes a persistent throwing hook retrying the same batch while the subscriber appears live [✔]
+
+Finished in 0.2300 seconds
+1 example, 0 failures
+Test suite kiroku-store-test: PASS
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/test/kiroku-store-0.9.0.1-kiroku-store-test.log
+1 of 1 test suites (1 of 1 test cases) passed.

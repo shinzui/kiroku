@@ -1,0 +1,94 @@
+just perf-structure
+cabal test kiroku-store:kiroku-store-test --test-show-details=direct --test-options='--match "performance structure"'
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.9.0.1 (test:kiroku-store-test) (file test/Test/PublisherCallbackResilience.hs changed)
+Preprocessing test suite 'kiroku-store-test' for kiroku-store-0.9.0.1...
+Building test suite 'kiroku-store-test' for kiroku-store-0.9.0.1...
+[19 of 43] Compiling Test.PublisherCallbackResilience ( test/Test/PublisherCallbackResilience.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/PublisherCallbackResilience.o ) [Source file changed]
+[44 of 44] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test [Objects changed]
+Running 1 test suites...
+Test suite kiroku-store-test: RUNNING...
+
+performance structure
+  no-op paths use no pooled connection
+    rejects invalid batch and buffer sizes before pool checkout [✔]
+    rejects invalid consumer-group values before pool checkout [✔]
+    refuses mismatched topology in exactly one initialization checkout with no handler [✔]
+    refuses mismatched target in exactly one initialization checkout with no handler [✔]
+    keeps ordinary checkpoint saves as one unconditional monotonic upsert [✔]
+    rejects an empty appendToStream batch before pool checkout [✔]
+    returns an empty appendMultiStream result before pool checkout [✔]
+    rejects invalid retention requests before pool checkout [✔]
+    keeps every ordinary statement free of retention coordination [✔]
+  production query plans
+    visible global head lookup uses ux_stream_events_stream_version without Sort [✔]
+    dead-letter reads use ix_dead_letters_subscription_position without Sort [✔]
+    orphan dead-letter cleanup uses ix_dead_letters_event_id [✔]
+    active retention lookup uses ix_history_retention_leases_unreleased_expiry [✔]
+    installs no retention trigger for INSERT or UPDATE [✔]
+  category read cost
+    category high-cursor reads use ix_stream_events_all_by_category without Sort [✔]
+    consumer-group category reads use ix_stream_events_all_by_category without Sort [✔]
+    category caught-up poll on 20000 idle streams reads at most 32 buffers [✔]
+  NOTIFY trigger guard
+    emits one unchanged append payload and no lifecycle or $all payloads [✔]
+    emits the unchanged payload for a 512-byte stream name [✔]
+  empty stream-name lookup
+    short-circuits empty input without a pool checkout [✔]
+
+Finished in 3.7967 seconds
+20 examples, 0 failures
+Test suite kiroku-store-test: PASS
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/t/kiroku-store-test/test/kiroku-store-0.9.0.1-kiroku-store-test.log
+1 of 1 test suites (1 of 1 test cases) passed.
+just perf-workload-gate
+cabal bench kiroku-store:kiroku-store-bench-workload-gate --benchmark-options="--stdev 5"
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.9.0.1 (bench:kiroku-store-bench-workload-gate) (file /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/cache/build changed)
+Preprocessing benchmark 'kiroku-store-bench-workload-gate' for kiroku-store-0.9.0.1...
+Building benchmark 'kiroku-store-bench-workload-gate' for kiroku-store-0.9.0.1...
+[2 of 2] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/b/kiroku-store-bench-workload-gate/build/kiroku-store-bench-workload-gate/kiroku-store-bench-workload-gate [Library changed]
+Running 1 benchmarks...
+Benchmark kiroku-store-bench-workload-gate: RUNNING...
+All
+  append-multi-stream
+    sequential-control-4:                    OK
+      694  μs ±  60 μs
+    production-pipeline-4:                   OK
+      569  μs ±  27 μs, 0.82x
+    sequential-control-8:                    OK
+      1.19 ms ±  76 μs
+    production-pipeline-8:                   OK
+      1.02 ms ±  73 μs, 0.85x
+  append-category-column
+    control-append-40:                       OK
+      45.9 ms ±  48 ms
+    candidate-append-40:                     OK
+      6.95 ms ± 471 μs, 0.15x
+  category-read
+    control-exhausted-category:              OK
+      2.45 ms ± 109 μs
+    candidate-exhausted-category:            OK
+      941  μs ±  78 μs, 0.38x
+    control-page-200-streams-from-0:         OK
+      277  ms ±  15 ms
+    candidate-page-200-streams-from-0:       OK
+      8.15 ms ± 721 μs, 0.03x
+    control-page-20000-streams-from-0:       OK
+      360  ms ±  14 ms
+    candidate-page-20000-streams-from-0:     OK
+      8.02 ms ± 465 μs, 0.02x
+    control-plain-caught-up-20000-streams:   OK
+      118  ms ± 7.2 ms
+    candidate-plain-caught-up-20000-streams: OK
+      959  μs ±  60 μs, 0.01x
+    control-group-caught-up-20000-streams:   OK
+      78.7 ms ± 7.7 ms
+    candidate-group-caught-up-20000-streams: OK
+      1.02 ms ±  66 μs, 0.01x
+
+All 16 tests passed (115.37s)
+Benchmark kiroku-store-bench-workload-gate: FINISH
