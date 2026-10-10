@@ -1,0 +1,204 @@
+Using saved setting for 'extra-substituters = ' from ~/.local/share/nix/trusted-settings.json.
+warning: ignoring untrusted flake configuration setting 'extra-substituters'.
+Pass '--accept-flake-config' to trust it
+Using saved setting for 'extra-trusted-public-keys = ' from ~/.local/share/nix/trusted-settings.json.
+just bench-baseline-check
+cabal build kiroku-store:kiroku-store-bench
+Resolving dependencies...
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.9.0.1 (lib) (configuration changed)
+ - kiroku-store-migrations-0.6.0.0 (lib) (configuration changed)
+ - tasty-bench-0.5.1 (lib) (requires build)
+ - kiroku-test-support-0.1.0.0 (lib) (configuration changed)
+ - kiroku-store-0.9.0.1 (bench:kiroku-store-bench) (configuration changed)
+Starting     tasty-bench-0.5.1 (lib)
+Configuring library for kiroku-store-migrations-0.6.0.0...
+Configuring library for kiroku-store-0.9.0.1...
+Building     tasty-bench-0.5.1 (lib)
+Preprocessing library for kiroku-store-migrations-0.6.0.0...
+Preprocessing library for kiroku-store-0.9.0.1...
+Building library for kiroku-store-migrations-0.6.0.0...
+Building library for kiroku-store-0.9.0.1...
+[ 1 of 30] Compiling Kiroku.Store.Types ( src/Kiroku/Store/Types.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Types.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Types.dyn_o ) [Prelude package changed]
+[1 of 5] Compiling Kiroku.Store.Migrations.Internal.Definition ( src/Kiroku/Store/Migrations/Internal/Definition.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.6.0.0/build/Kiroku/Store/Migrations/Internal/Definition.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.6.0.0/build/Kiroku/Store/Migrations/Internal/Definition.dyn_o ) [Prelude package changed]
+[ 2 of 30] Compiling Kiroku.Store.Settings ( src/Kiroku/Store/Settings.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Settings.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Settings.dyn_o ) [Prelude package changed]
+[2 of 5] Compiling Kiroku.Store.Migrations ( src/Kiroku/Store/Migrations.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.6.0.0/build/Kiroku/Store/Migrations.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.6.0.0/build/Kiroku/Store/Migrations.dyn_o ) [Prelude package changed]
+[ 3 of 30] Compiling Kiroku.Store.Subscription.Fsm ( src/Kiroku/Store/Subscription/Fsm.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/Fsm.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/Fsm.dyn_o ) [Prelude package changed]
+[3 of 5] Compiling Kiroku.Store.Migrations.Internal.EmbedFile ( src/Kiroku/Store/Migrations/Internal/EmbedFile.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.6.0.0/build/Kiroku/Store/Migrations/Internal/EmbedFile.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.6.0.0/build/Kiroku/Store/Migrations/Internal/EmbedFile.dyn_o ) [Prelude package changed]
+[4 of 5] Compiling Kiroku.Store.Migrations.History.Codd ( src/Kiroku/Store/Migrations/History/Codd.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.6.0.0/build/Kiroku/Store/Migrations/History/Codd.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.6.0.0/build/Kiroku/Store/Migrations/History/Codd.dyn_o ) [Prelude package changed]
+[ 4 of 30] Compiling Kiroku.Store.Subscription.Types ( src/Kiroku/Store/Subscription/Types.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/Types.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/Types.dyn_o ) [Prelude package changed]
+[5 of 5] Compiling Kiroku.Store.Migrations.New ( src/Kiroku/Store/Migrations/New.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.6.0.0/build/Kiroku/Store/Migrations/New.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.6.0.0/build/Kiroku/Store/Migrations/New.dyn_o ) [Prelude package changed]
+Installing   tasty-bench-0.5.1 (lib)
+[ 5 of 30] Compiling Kiroku.Store.Subscription.CheckpointInventory.SQL ( src/Kiroku/Store/Subscription/CheckpointInventory/SQL.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/CheckpointInventory/SQL.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/CheckpointInventory/SQL.dyn_o ) [Prelude package changed]
+Configuring library for kiroku-test-support-0.1.0.0...
+[ 6 of 30] Compiling Kiroku.Store.SQL ( src/Kiroku/Store/SQL.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/SQL.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/SQL.dyn_o ) [Prelude package changed]
+Completed    tasty-bench-0.5.1 (lib)
+Preprocessing library for kiroku-test-support-0.1.0.0...
+Building library for kiroku-test-support-0.1.0.0...
+[1 of 2] Compiling Kiroku.Test.Fixtures.CategoryScaling ( src/Kiroku/Test/Fixtures/CategoryScaling.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-test-support-0.1.0.0/build/Kiroku/Test/Fixtures/CategoryScaling.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-test-support-0.1.0.0/build/Kiroku/Test/Fixtures/CategoryScaling.dyn_o ) [Prelude package changed]
+[2 of 2] Compiling Kiroku.Test.Postgres ( src/Kiroku/Test/Postgres.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-test-support-0.1.0.0/build/Kiroku/Test/Postgres.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-test-support-0.1.0.0/build/Kiroku/Test/Postgres.dyn_o ) [Prelude package changed]
+[ 7 of 30] Compiling Kiroku.Store.Subscription.Checkpoint.SQL ( src/Kiroku/Store/Subscription/Checkpoint/SQL.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/Checkpoint/SQL.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/Checkpoint/SQL.dyn_o ) [Prelude package changed]
+[ 8 of 30] Compiling Kiroku.Store.Subscription.Checkpoint ( src/Kiroku/Store/Subscription/Checkpoint.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/Checkpoint.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/Checkpoint.dyn_o ) [Prelude package changed]
+[ 9 of 30] Compiling Kiroku.Store.HistoryRetention.Types ( src/Kiroku/Store/HistoryRetention/Types.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/HistoryRetention/Types.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/HistoryRetention/Types.dyn_o ) [Prelude package changed]
+[10 of 30] Compiling Kiroku.Store.Observability ( src/Kiroku/Store/Observability.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Observability.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Observability.dyn_o ) [Prelude package changed]
+[11 of 30] Compiling Kiroku.Store.Subscription.EventPublisher ( src/Kiroku/Store/Subscription/EventPublisher.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/EventPublisher.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/EventPublisher.dyn_o ) [Prelude package changed]
+[12 of 30] Compiling Kiroku.Store.Subscription.Worker ( src/Kiroku/Store/Subscription/Worker.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/Worker.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/Worker.dyn_o ) [Prelude package changed]
+[13 of 30] Compiling Kiroku.Store.Notification ( src/Kiroku/Store/Notification.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Notification.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Notification.dyn_o ) [Prelude package changed]
+[14 of 30] Compiling Kiroku.Store.Connection ( src/Kiroku/Store/Connection.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Connection.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Connection.dyn_o ) [Prelude package changed]
+[15 of 30] Compiling Kiroku.Store.Effect.Resource ( src/Kiroku/Store/Effect/Resource.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Effect/Resource.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Effect/Resource.dyn_o ) [Prelude package changed]
+[16 of 30] Compiling Kiroku.Store.HistoryRetention.SQL ( src/Kiroku/Store/HistoryRetention/SQL.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/HistoryRetention/SQL.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/HistoryRetention/SQL.dyn_o ) [Prelude package changed]
+[17 of 30] Compiling Kiroku.Store.HistoryRetention.Internal ( src/Kiroku/Store/HistoryRetention/Internal.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/HistoryRetention/Internal.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/HistoryRetention/Internal.dyn_o ) [Prelude package changed]
+[18 of 30] Compiling Kiroku.Store.Error ( src/Kiroku/Store/Error.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Error.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Error.dyn_o ) [Prelude package changed]
+[19 of 30] Compiling Kiroku.Store.Effect ( src/Kiroku/Store/Effect.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Effect.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Effect.dyn_o ) [Prelude package changed]
+[20 of 30] Compiling Kiroku.Store.Transaction ( src/Kiroku/Store/Transaction.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Transaction.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Transaction.dyn_o ) [Prelude package changed]
+[21 of 30] Compiling Kiroku.Store.Subscription ( src/Kiroku/Store/Subscription.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription.dyn_o ) [Prelude package changed]
+src/Kiroku/Store/Subscription.hs:271:51: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store.Subscription.Types’ at src/Kiroku/Store/Subscription.hs:37:1-38
+      (and originally defined
+         at src/Kiroku/Store/Subscription/Types.hs:542:1-6)
+    |
+271 | initializeSubscriptionCheckpoint subscriptionName member policy =
+    |                                                   ^^^^^^
+
+[22 of 30] Compiling Kiroku.Store.Subscription.Stream ( src/Kiroku/Store/Subscription/Stream.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/Stream.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/Stream.dyn_o ) [Prelude package changed]
+[23 of 30] Compiling Kiroku.Store.Subscription.Effect ( src/Kiroku/Store/Subscription/Effect.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/Effect.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Subscription/Effect.dyn_o ) [Prelude package changed]
+[24 of 30] Compiling Kiroku.Store.Read ( src/Kiroku/Store/Read.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Read.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Read.dyn_o ) [Prelude package changed]
+[25 of 30] Compiling Kiroku.Store.Link ( src/Kiroku/Store/Link.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Link.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Link.dyn_o ) [Prelude package changed]
+[26 of 30] Compiling Kiroku.Store.Lifecycle ( src/Kiroku/Store/Lifecycle.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Lifecycle.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Lifecycle.dyn_o ) [Prelude package changed]
+[27 of 30] Compiling Kiroku.Store.HistoryRetention ( src/Kiroku/Store/HistoryRetention.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/HistoryRetention.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/HistoryRetention.dyn_o ) [Prelude package changed]
+[28 of 30] Compiling Kiroku.Store.Causation ( src/Kiroku/Store/Causation.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Causation.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Causation.dyn_o ) [Prelude package changed]
+[29 of 30] Compiling Kiroku.Store.Append ( src/Kiroku/Store/Append.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Append.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store/Append.dyn_o ) [Prelude package changed]
+[30 of 30] Compiling Kiroku.Store     ( src/Kiroku/Store.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/build/Kiroku/Store.dyn_o ) [Prelude package changed]
+Configuring benchmark 'kiroku-store-bench' for kiroku-store-0.9.0.1...
+Preprocessing benchmark 'kiroku-store-bench' for kiroku-store-0.9.0.1...
+Building benchmark 'kiroku-store-bench' for kiroku-store-0.9.0.1...
+[1 of 1] Compiling Main             ( bench/Main.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/b/kiroku-store-bench/build/kiroku-store-bench/kiroku-store-bench-tmp/Main.o ) [Prelude package changed]
+bench/Main.hs:695:74: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at bench/Main.hs:28:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+695 |     forceCheckpoint !acc (SubscriptionCheckpoint (SubscriptionName name) member (GlobalPosition position) updatedAt) =
+    |                                                                          ^^^^^^
+
+bench/Main.hs:742:45: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at bench/Main.hs:28:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+742 | runGroupCategoryPolls store category cursor member size limit =
+    |                                             ^^^^^^
+
+bench/Main.hs:742:52: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at bench/Main.hs:28:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+742 | runGroupCategoryPolls store category cursor member size limit =
+    |                                                    ^^^^
+
+[2 of 2] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.9.0.1/b/kiroku-store-bench/build/kiroku-store-bench/kiroku-store-bench [Objects changed]
+kiroku-store/bench/check-baseline-coverage.sh
+baseline coverage OK: 30 historical benchmarks match exactly
+cabal bench kiroku-store:kiroku-store-bench --benchmark-options="--baseline $PWD/kiroku-store/bench/results/baseline.csv"
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.9.0.1 (bench:kiroku-store-bench) (ephemeral targets)
+Preprocessing benchmark 'kiroku-store-bench' for kiroku-store-0.9.0.1...
+Building benchmark 'kiroku-store-bench' for kiroku-store-0.9.0.1...
+Running 1 benchmarks...
+Benchmark kiroku-store-bench: RUNNING...
+
+--- Pre-populating category data (100 cats × 10 streams × 100 events) ---
+  Setup time: 4.184363s (100K events)
+
+--- B9: Pool saturation (64 writers × 100 appends, pool size 10) ---
+  Total appends: 6400
+  Elapsed: 4.202767s
+  Throughput: 1523 ops/s
+  Avg latency: 0.6566823437499999 ms
+---
+All
+  append
+    single-event
+      NoStream (new stream):                     OK
+        138  μs ±  14 μs, 24% less than baseline
+      AnyVersion (new stream):                   TIMEOUT
+        Timed out after 100s
+        Use -p '/AnyVersion (new stream)/' to rerun this test only.
+    batch-10
+      NoStream:                                  OK
+        176  μs ± 8.3 μs, 51% less than baseline
+    batch-100
+      NoStream:                                  OK
+        578  μs ±  35 μs, 65% less than baseline
+    sequential
+      10 appends to same stream:                 OK
+        1.26 ms ± 116 μs, 27% less than baseline
+  raw-append-shape
+    AnyVersion
+      scalar singleton (new stream):             OK
+        112  μs ± 3.8 μs, 27% less than baseline
+      production arrays/unnest (new stream):     OK
+        126  μs ±  12 μs, 27% less than baseline
+      two-roundtrip (new stream):                OK
+        142  μs ±  13 μs, 24% less than baseline
+      two-roundtrip + BEGIN/COMMIT (new stream): OK
+        171  μs ±  17 μs, 22% less than baseline
+      scalar singleton (hot stream):             OK
+        112  μs ± 9.3 μs, 29% less than baseline
+      production arrays/unnest (hot stream):     OK
+        125  μs ±  11 μs, 25% less than baseline
+      two-roundtrip (hot stream):                OK
+        143  μs ±  13 μs, 23% less than baseline
+      two-roundtrip + BEGIN/COMMIT (hot stream): OK
+        180  μs ±  13 μs, 17% less than baseline
+  read
+    stream forward (100-event page):             OK
+      824  μs ±  54 μs, 29% less than baseline
+    $all forward (100-event page):               OK
+      790  μs ±  55 μs, 26% less than baseline
+  category
+    category forward (100-event page):           OK
+      784  μs ±  69 μs,       same as baseline
+    exhausted-category:                          OK
+      21.8 μs ± 1.2 μs, 28% more than baseline
+    $all forward (100-event page baseline):      OK
+      786  μs ±  53 μs,       same as baseline
+  concurrent
+    8 writers x 10 appends:                      OK
+      11.2 ms ± 524 μs, 28% less than baseline
+    32 writers x 10 appends:                     OK
+      802  ms ±  17 ms,       same as baseline
+  reliability-audit
+    hot invoice-payment 10 AnyVersion appends:   OK
+      1.25 ms ±  71 μs, 26% less than baseline
+    appendMultiStream 3 existing streams:        OK
+      225  μs ±  13 μs, 40% less than baseline
+    subscription category catch-up 100 events:   OK
+      1.47 ms ±  58 μs, 47% less than baseline
+  category-scaling
+    plain caught-up poll (200 streams):          OK
+      179  μs ±  11 μs,       same as baseline
+    plain caught-up poll (20000 streams):        OK
+      176  μs ± 7.6 μs,       same as baseline
+    group caught-up poll (20000 streams):        OK
+      176  μs ±  15 μs,       same as baseline
+    plain page from 0 (20000 streams):           OK
+      6.35 ms ± 474 μs,       same as baseline
+    exhausted category (200 streams):            OK
+      177  μs ± 7.5 μs,       same as baseline
+  subscription-checkpoint-inventory
+    100 rows:                                    OK
+      394  μs ±  34 μs, 15% less than baseline
+    10000 rows:                                  OK
+      39.1 ms ± 1.9 ms, 12% less than baseline
+
+1 out of 30 tests failed (301.24s)
+Benchmark kiroku-store-bench: ERROR
+Error: [Cabal-7125]
+Benchmarks failed for bench:kiroku-store-bench from kiroku-store-0.9.0.1.
+
+error: recipe `perf-telemetry` failed on line 145 with exit code 1

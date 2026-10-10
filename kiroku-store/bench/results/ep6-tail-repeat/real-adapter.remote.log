@@ -1,0 +1,34 @@
+started 4 instances for cell alpha
+phase: Accepted
+phase: Resetting
+phase: Fetching
+phase: Running
+phase: Publishing
+phase: Sealed
+phase: Resetting
+phase: Fetching
+phase: Running
+phase: Publishing
+phase: Sealed
+phase: Resetting
+phase: Fetching
+phase: Running
+phase: Publishing
+phase: Sealed
+phase: Resetting
+phase: Fetching
+phase: Running
+phase: Publishing
+phase: Sealed
+phase: Resetting
+phase: Fetching
+phase: Running
+phase: Publishing
+phase: Sealed
+phase: Resetting
+phase: Fetching
+phase: Running
+phase: Publishing
+phase: Sealed
+session 01a12425-6176-7428-8bf4-cc79a7017b01 verified; journal /tmp/mp12-ep6-tail-repeat/remote-real-adapter/round-0/session.json
+comparison VerdictInconclusive; valid pairs 3/3
