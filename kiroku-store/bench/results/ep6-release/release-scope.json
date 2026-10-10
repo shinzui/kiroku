@@ -1,0 +1,101 @@
+{
+  "verified_at": "2026-10-10T02:53:37.851059+00:00",
+  "packages": [
+    {
+      "package": "kiroku-store",
+      "hackage": "0.9.0.1",
+      "current": "0.9.0.1",
+      "tag": "kiroku-store-v0.9.0.1",
+      "peeled_commit": "94e11392a1e84f33ecd7f135f816e4ce3ea019d2",
+      "commit_count": 16,
+      "commits": [
+        "904a066 test(bench): prepare focused cumulative hardening comparison",
+        "cc13408 docs(plan): complete unique-violation hardening acceptance",
+        "5805117 fix(store): classify unique constraints by exact identity",
+        "250d446 test(subscription): retain focused acknowledgement liveness evidence",
+        "96c7d4f feat(subscription): add opt-in handler stall diagnostics and adapter retry policy",
+        "6733239 test(store): retain focused decode hardening evidence",
+        "eb58104 fix(store): contain typed decode failures per subscription",
+        "e94093a docs(bench): track the retained quick verification transcripts",
+        "489baf3 docs(bench): retain bounded EP2 Linux timings and checkpoint trade-off",
+        "7bd37df docs(bench): clarify the mixed probe uses four category group members",
+        "7aadc12 docs(subscriptions): retain EP2 evidence and unresolved write cost",
+        "6612523 perf(subscriptions): avoid encoding constant checkpoint target parameters",
+        "d2a4032 feat(subscriptions): bind checkpoint targets and preserve live reconnect progress",
+        "597dc6e test(perf): correct arrival timing and retain cell calibration evidence",
+        "15c21e8 test(subscription): retain inconclusive control calibration evidence",
+        "ec9a431 feat(subscription)!: persist group topology and resize without gaps"
+      ],
+      "source_diff": " kiroku-store/kiroku-store.cabal                    |  22 ++\n kiroku-store/src/Kiroku/Store/Effect.hs            |  21 +-\n kiroku-store/src/Kiroku/Store/Error.hs             |  86 ++++---\n kiroku-store/src/Kiroku/Store/Observability.hs     |  14 +-\n kiroku-store/src/Kiroku/Store/SQL.hs               |  56 ++++-\n kiroku-store/src/Kiroku/Store/Settings.hs          |  92 ++++++-\n kiroku-store/src/Kiroku/Store/Subscription.hs      |  15 +-\n .../src/Kiroku/Store/Subscription/Checkpoint.hs    |  75 +++++-\n .../Kiroku/Store/Subscription/Checkpoint/SQL.hs    | 180 +++++++++++++-\n .../src/Kiroku/Store/Subscription/Effect.hs        |   8 +-\n .../Kiroku/Store/Subscription/EventPublisher.hs    |  16 +-\n kiroku-store/src/Kiroku/Store/Subscription/Fsm.hs  |  29 ++-\n .../src/Kiroku/Store/Subscription/Stream.hs        |  34 ++-\n .../src/Kiroku/Store/Subscription/Types.hs         | 185 ++++++++++++--\n .../src/Kiroku/Store/Subscription/Worker.hs        | 273 ++++++++++++++-------\n 15 files changed, 888 insertions(+), 218 deletions(-)\n"
+    },
+    {
+      "package": "kiroku-store-migrations",
+      "hackage": "0.6.0.0",
+      "current": "0.6.0.0",
+      "tag": "kiroku-store-migrations-v0.6.0.0",
+      "peeled_commit": "691c6efed78ca6bb344c9cac5d122eb5ca4980b2",
+      "commit_count": 3,
+      "commits": [
+        "6612523 perf(subscriptions): avoid encoding constant checkpoint target parameters",
+        "d2a4032 feat(subscriptions): bind checkpoint targets and preserve live reconnect progress",
+        "ec9a431 feat(subscription)!: persist group topology and resize without gaps"
+      ],
+      "source_diff": ""
+    },
+    {
+      "package": "kiroku-otel",
+      "hackage": "0.2.0.10",
+      "current": "0.2.0.10",
+      "tag": "kiroku-otel-v0.2.0.10",
+      "peeled_commit": "94e11392a1e84f33ecd7f135f816e4ce3ea019d2",
+      "commit_count": 4,
+      "commits": [
+        "96c7d4f feat(subscription): add opt-in handler stall diagnostics and adapter retry policy",
+        "eb58104 fix(store): contain typed decode failures per subscription",
+        "d2a4032 feat(subscriptions): bind checkpoint targets and preserve live reconnect progress",
+        "ec9a431 feat(subscription)!: persist group topology and resize without gaps"
+      ],
+      "source_diff": " kiroku-otel/src/Kiroku/Otel/Subscription.hs | 4 ++++\n 1 file changed, 4 insertions(+)\n"
+    },
+    {
+      "package": "kiroku-cli",
+      "hackage": "0.2.0.8",
+      "current": "0.2.0.8",
+      "tag": "kiroku-cli-v0.2.0.8",
+      "peeled_commit": "94e11392a1e84f33ecd7f135f816e4ce3ea019d2",
+      "commit_count": 0,
+      "commits": [],
+      "source_diff": ""
+    },
+    {
+      "package": "kiroku-metrics",
+      "hackage": "0.1.0.10",
+      "current": "0.1.0.10",
+      "tag": "kiroku-metrics-v0.1.0.10",
+      "peeled_commit": "94e11392a1e84f33ecd7f135f816e4ce3ea019d2",
+      "commit_count": 4,
+      "commits": [
+        "96c7d4f feat(subscription): add opt-in handler stall diagnostics and adapter retry policy",
+        "eb58104 fix(store): contain typed decode failures per subscription",
+        "d2a4032 feat(subscriptions): bind checkpoint targets and preserve live reconnect progress",
+        "ec9a431 feat(subscription)!: persist group topology and resize without gaps"
+      ],
+      "source_diff": " kiroku-metrics/src/Kiroku/Metrics/Collector.hs  | 13 ++++++++++++\n kiroku-metrics/src/Kiroku/Metrics/Prometheus.hs |  3 +++\n kiroku-metrics/src/Kiroku/Metrics/Types.hs      |  6 ++++++\n kiroku-metrics/src/Kiroku/Metrics/WebSocket.hs  | 28 ++++++++++++++++++-------\n 4 files changed, 42 insertions(+), 8 deletions(-)\n"
+    },
+    {
+      "package": "shibuya-kiroku-adapter",
+      "hackage": "0.5.1.5",
+      "current": "0.5.1.5",
+      "tag": "shibuya-kiroku-adapter-v0.5.1.5",
+      "peeled_commit": "94e11392a1e84f33ecd7f135f816e4ce3ea019d2",
+      "commit_count": 4,
+      "commits": [
+        "96c7d4f feat(subscription): add opt-in handler stall diagnostics and adapter retry policy",
+        "6612523 perf(subscriptions): avoid encoding constant checkpoint target parameters",
+        "d2a4032 feat(subscriptions): bind checkpoint targets and preserve live reconnect progress",
+        "ec9a431 feat(subscription)!: persist group topology and resize without gaps"
+      ],
+      "source_diff": " .../shibuya-kiroku-adapter.cabal                   |  26 ++++\n .../src/Shibuya/Adapter/Kiroku.hs                  | 145 +++++++++++++--------\n 2 files changed, 117 insertions(+), 54 deletions(-)\n"
+    }
+  ]
+}

@@ -76,7 +76,7 @@ user's explicit release-time confirmation.
 ## Progress
 
 - [ ] Integrated performance gate: select the minimum useful cumulative comparison against original control and finish the whole experiment within one hour, retaining uncertainty and regression policy under ADR-11.
-- [ ] Gate: plans 81, 82, 83, 84, and 86 are complete, their living sections are current, and required ADR/OKF validation passes.
+- [x] (2026-10-10) Gate: plans 81, 82, 83, 84, and 86 are Complete; current living sections and strict ADR/capability validation pass. The lifetime member-guard plans 93/92 remain outside this cohort and unimplemented.
 - [ ] M1: determine changed packages and PVP impact from commits since authoritative tags; verify Hackage and upstream tags rather than trusting local registry versions.
 - [ ] M1: present exact package versions, bounds, and changelogs for user confirmation before editing release metadata.
 - [ ] M2: update approved versions/bounds/changelogs and pass formatting, build, test, ADR-5 performance, migration, sdist, Haddock, and flake gates.
@@ -86,6 +86,21 @@ user's explicit release-time confirmation.
 
 
 ## Surprises & Discoveries
+
+- (2026-10-10) All six Hackage preferred-version responses match the latest
+  upstream package-specific peeled tags. The migration package has no direct
+  kiroku-store dependency, contrary to the release skill's package description;
+  retain the normal publication order but do not invent a dependency bound.
+- (2026-10-10) The retained harness lacks successful-hook fan-out and diagnostic
+  activation. Small matched extensions add two independent live all-stream
+  subscribers and an identity hook, plus a wrapper enabling the candidate's
+  60-second watchdog. The initial formatter rejected CPP inside a do-block;
+  preparation stopped before remote trials and was corrected with complete
+  helper definitions. Original failure logs are retained.
+- (2026-10-10) The publisher supports only released/head cohort names. The
+  diagnostic wrapper uses the same verified head identity through an isolated
+  root exporting it as kenshou-head; it changes no production package or operator
+  source. Disabled/enabled costs are reported separately and descriptively.
 
 - Refresh audit (2026-10-09): source, tests, and changelogs confirm the remaining acceptance
   work is unimplemented; the dated Context audit distinguishes existing baseline from this plan.

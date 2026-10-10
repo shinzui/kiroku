@@ -1,0 +1,1447 @@
+[
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku",
+        "kind": null,
+        "name": "danwa",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": null,
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-project"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku",
+        "kind": null,
+        "name": "kanmon",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": null,
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-project"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "kawa",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store-migrations",
+        "kind": null,
+        "name": "kawa",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store-migrations",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": "third_party",
+        "name": "kawa",
+        "namespace": "shinzui",
+        "package": "kawa-core",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store-migrations",
+        "kind": "third_party",
+        "name": "kawa",
+        "namespace": "shinzui",
+        "package": "kawa-core",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store-migrations",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "keiei",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store-migrations",
+        "kind": null,
+        "name": "keiei",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store-migrations",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:shibuya-kiroku-adapter",
+        "kind": null,
+        "name": "keiei",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "shibuya-kiroku-adapter",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "keiro",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store-migrations",
+        "kind": null,
+        "name": "keiro",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store-migrations",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": "third_party",
+        "name": "keiro",
+        "namespace": "shinzui",
+        "package": "keiro",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": "third_party",
+        "name": "keiro",
+        "namespace": "shinzui",
+        "package": "keiro-core",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": "third_party",
+        "name": "keiro",
+        "namespace": "shinzui",
+        "package": "keiro-dsl",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "test",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": "third_party",
+        "name": "keiro",
+        "namespace": "shinzui",
+        "package": "keiro-migrations",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "test",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store-migrations",
+        "kind": "third_party",
+        "name": "keiro",
+        "namespace": "shinzui",
+        "package": "keiro-migrations",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store-migrations",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": "third_party",
+        "name": "keiro",
+        "namespace": "shinzui",
+        "package": "keiro-ops",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": "third_party",
+        "name": "keiro",
+        "namespace": "shinzui",
+        "package": "keiro-test-support",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store-migrations",
+        "kind": "third_party",
+        "name": "keiro",
+        "namespace": "shinzui",
+        "package": "keiro-test-support",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store-migrations",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku",
+        "kind": null,
+        "name": "keiro-benchmarks",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": null,
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-project"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku",
+        "kind": null,
+        "name": "keiro-benchmarks",
+        "namespace": "shinzui",
+        "package": "message-db-vs-kiroku",
+        "provenance": null,
+        "resolved_target": {
+            "package": null,
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-project"
+        },
+        "scope": null,
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku",
+        "kind": null,
+        "name": "keiro-runtime-docs",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": null,
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-project"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku",
+        "kind": null,
+        "name": "keiro-runtime-jitsurei",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": null,
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-project"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku",
+        "kind": null,
+        "name": "keiro-runtime-kenshou",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": null,
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-project"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku",
+        "kind": null,
+        "name": "keiro-runtime-patterns",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": null,
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-project"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "kiroku",
+        "kind": null,
+        "name": "kikan",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": null,
+            "project": "shinzui/kiroku",
+            "resolution": "project"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "kioku",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store-migrations",
+        "kind": null,
+        "name": "kioku",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store-migrations",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:shibuya-kiroku-adapter",
+        "kind": null,
+        "name": "kioku",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "shibuya-kiroku-adapter",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "kioku",
+        "namespace": "shinzui",
+        "package": "kioku-cli",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "kioku",
+        "namespace": "shinzui",
+        "package": "kioku-core",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:shibuya-kiroku-adapter",
+        "kind": null,
+        "name": "kioku",
+        "namespace": "shinzui",
+        "package": "kioku-core",
+        "provenance": null,
+        "resolved_target": {
+            "package": "shibuya-kiroku-adapter",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "kioku",
+        "namespace": "shinzui",
+        "package": "kioku-migrate",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store-migrations",
+        "kind": null,
+        "name": "kioku",
+        "namespace": "shinzui",
+        "package": "kioku-migrations",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store-migrations",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku",
+        "kind": null,
+        "name": "kizashi",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": null,
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-project"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "kotei",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store-migrations",
+        "kind": null,
+        "name": "kotei",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store-migrations",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": "third_party",
+        "name": "kotei",
+        "namespace": "shinzui",
+        "package": "kotei-client",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": "third_party",
+        "name": "kotei",
+        "namespace": "shinzui",
+        "package": "kotei-core",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store-migrations",
+        "kind": "third_party",
+        "name": "kotei",
+        "namespace": "shinzui",
+        "package": "kotei-core",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store-migrations",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store-migrations",
+        "kind": "third_party",
+        "name": "kotei",
+        "namespace": "shinzui",
+        "package": "kotei-migrations",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store-migrations",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": "third_party",
+        "name": "kotei",
+        "namespace": "shinzui",
+        "package": "kotei-server",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": "third_party",
+        "name": "kotei",
+        "namespace": "shinzui",
+        "package": "kotei-workers",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku",
+        "kind": null,
+        "name": "meibo",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": null,
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-project"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-cli",
+        "kind": null,
+        "name": "mori",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-cli",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-metrics",
+        "kind": null,
+        "name": "mori",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-metrics",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-otel",
+        "kind": null,
+        "name": "mori",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-otel",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "mori",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store-migrations",
+        "kind": null,
+        "name": "mori",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store-migrations",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:shibuya-kiroku-adapter",
+        "kind": null,
+        "name": "mori",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "shibuya-kiroku-adapter",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "mori",
+        "namespace": "shinzui",
+        "package": "mori-api",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-cli",
+        "kind": null,
+        "name": "mori",
+        "namespace": "shinzui",
+        "package": "mori-cli",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-cli",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "test",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-metrics",
+        "kind": null,
+        "name": "mori",
+        "namespace": "shinzui",
+        "package": "mori-cli",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-metrics",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "mori",
+        "namespace": "shinzui",
+        "package": "mori-cli",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-metrics",
+        "kind": null,
+        "name": "mori",
+        "namespace": "shinzui",
+        "package": "mori-core",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-metrics",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "test",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-otel",
+        "kind": null,
+        "name": "mori",
+        "namespace": "shinzui",
+        "package": "mori-core",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-otel",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "mori",
+        "namespace": "shinzui",
+        "package": "mori-core",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store-migrations",
+        "kind": null,
+        "name": "mori",
+        "namespace": "shinzui",
+        "package": "mori-core",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store-migrations",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:shibuya-kiroku-adapter",
+        "kind": null,
+        "name": "mori",
+        "namespace": "shinzui",
+        "package": "mori-core",
+        "provenance": null,
+        "resolved_target": {
+            "package": "shibuya-kiroku-adapter",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "notion-hub",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "notion-hub",
+        "namespace": "shinzui",
+        "package": "notion-hub-api",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "notion-hub",
+        "namespace": "shinzui",
+        "package": "notion-hub-core",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-cli",
+        "kind": null,
+        "name": "rei",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-cli",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-metrics",
+        "kind": null,
+        "name": "rei",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-metrics",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-otel",
+        "kind": null,
+        "name": "rei",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-otel",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "rei",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store-migrations",
+        "kind": null,
+        "name": "rei",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store-migrations",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:shibuya-kiroku-adapter",
+        "kind": null,
+        "name": "rei",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "shibuya-kiroku-adapter",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": "third_party",
+        "name": "rei",
+        "namespace": "shinzui",
+        "package": "rei-api",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store-migrations",
+        "kind": "third_party",
+        "name": "rei",
+        "namespace": "shinzui",
+        "package": "rei-api",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store-migrations",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "test",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-cli",
+        "kind": "third_party",
+        "name": "rei",
+        "namespace": "shinzui",
+        "package": "rei-cli",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-cli",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-metrics",
+        "kind": "third_party",
+        "name": "rei",
+        "namespace": "shinzui",
+        "package": "rei-cli",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-metrics",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": "third_party",
+        "name": "rei",
+        "namespace": "shinzui",
+        "package": "rei-cli",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-otel",
+        "kind": "third_party",
+        "name": "rei",
+        "namespace": "shinzui",
+        "package": "rei-core",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-otel",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": "third_party",
+        "name": "rei",
+        "namespace": "shinzui",
+        "package": "rei-core",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store-migrations",
+        "kind": "third_party",
+        "name": "rei",
+        "namespace": "shinzui",
+        "package": "rei-core",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store-migrations",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:shibuya-kiroku-adapter",
+        "kind": "third_party",
+        "name": "rei",
+        "namespace": "shinzui",
+        "package": "rei-core",
+        "provenance": null,
+        "resolved_target": {
+            "package": "shibuya-kiroku-adapter",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "shikigami",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store-migrations",
+        "kind": null,
+        "name": "shikigami",
+        "namespace": "shinzui",
+        "package": null,
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store-migrations",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "project",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "shikigami",
+        "namespace": "shinzui",
+        "package": "shikigami-agent",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "shikigami",
+        "namespace": "shinzui",
+        "package": "shikigami-core",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": "third_party",
+        "name": "shikigami",
+        "namespace": "shinzui",
+        "package": "shikigami-migrations",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store-migrations",
+        "kind": "third_party",
+        "name": "shikigami",
+        "namespace": "shinzui",
+        "package": "shikigami-migrations",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store-migrations",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": "regular",
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "shikigami",
+        "namespace": "shinzui",
+        "package": "shikigami-server",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "package",
+        "version": null
+    },
+    {
+        "declared": null,
+        "dependency": "shinzui/kiroku:kiroku-store",
+        "kind": null,
+        "name": "shikigami",
+        "namespace": "shinzui",
+        "package": "shikigami-workers",
+        "provenance": null,
+        "resolved_target": {
+            "package": "kiroku-store",
+            "project": "shinzui/kiroku",
+            "resolution": "qualified-package"
+        },
+        "scope": null,
+        "source": "package",
+        "version": null
+    }
+]

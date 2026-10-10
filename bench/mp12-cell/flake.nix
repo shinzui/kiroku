@@ -25,7 +25,7 @@
           hl = pkgs.haskell.lib.compose;
           base = inputs.kenshou.packages.${system}.kenshou-released.hp;
           mk =
-            cohort:
+            cohort: stallDiagnostics:
             let
               source = if cohort == "released" then inputs.control else inputs.kiroku;
               hp = base.override (old: {
@@ -125,7 +125,7 @@
                 cp "${identity.file}" "$out/share/kenshou/cohort-identity.json"
                 cp "${identity.payloadFile}" "$out/share/kenshou/payload-identity.json"
                 wrapProgram "$out/bin/kenshou" \
-                  ${lib.optionalString (cohort == "head-stall") "--set KENSHOU_MP12_STALL_DIAGNOSTICS 1"} \
+                  ${lib.optionalString stallDiagnostics "--set KENSHOU_MP12_STALL_DIAGNOSTICS 1"} \
                   --set-default KENSHOU_COHORT_IDENTITY "$out/share/kenshou/cohort-identity.json" \
                   --set-default KENSHOU_PAYLOAD_IDENTITY "$out/share/kenshou/payload-identity.json" \
                   --set-default KENSHOU_HARNESS_REVISION "${inputs.self.rev or "dirty"}" \
@@ -134,9 +134,9 @@
               '';
         in
         {
-          kenshou-released = mk "released";
-          kenshou-head = mk "head";
-          kenshou-head-stall = mk "head-stall";
+          kenshou-released = mk "released" false;
+          kenshou-head = mk "head" false;
+          kenshou-head-stall = mk "head" true;
         };
     in
     {
