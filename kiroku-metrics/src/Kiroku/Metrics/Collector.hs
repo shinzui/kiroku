@@ -92,6 +92,7 @@ emptyCounters =
         , publisherPoolErrors = 0
         , publisherLoopErrors = 0
         , publisherDecodeFailures = 0
+        , subscriptionHandlerStalls = 0
         , subscriptionDbErrorsLoad = 0
         , subscriptionDbErrorsFetch = 0
         , subscriptionDbErrorsSave = 0
@@ -171,6 +172,8 @@ applyEvent km = \case
         bumpCounters km (\c -> c{notifierReconnected = c.notifierReconnected + 1})
     KirokuEventPublisherPoolError _ ->
         bumpCounters km (\c -> c{publisherPoolErrors = c.publisherPoolErrors + 1})
+    KirokuEventSubscriptionHandlerStalled{} ->
+        bumpCounters km (\c -> c{subscriptionHandlerStalls = c.subscriptionHandlerStalls + 1})
     KirokuEventPublisherDecodeFailed{} ->
         bumpCounters km (\c -> c{publisherDecodeFailures = c.publisherDecodeFailures + 1})
     KirokuEventPublisherLoopError _ ->

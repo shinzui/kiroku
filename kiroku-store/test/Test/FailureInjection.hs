@@ -68,6 +68,7 @@ spec = describe "kiroku-store failure injection" $ do
                     , missingCheckpointPolicy = FromBeginning
                     , targetBindingPolicy = AdoptUnbound
                     , undecodableHandler = Nothing
+                    , handlerStallWarnAfter = Nothing
                     , retryPolicy = defaultRetryPolicy
                     , eventTypeFilter = AllEventTypes
                     , selector = Nothing

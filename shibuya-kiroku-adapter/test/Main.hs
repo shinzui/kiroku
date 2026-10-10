@@ -6,23 +6,27 @@ import Control.Concurrent.STM (atomically, newEmptyTMVarIO, newTVarIO, readTMVar
 import Control.Concurrent.STM qualified as STM
 import Control.Exception qualified as E
 import Control.Lens ((&), (.~), (^.))
-import Control.Monad (unless)
+import Control.Monad (forM_, unless)
 import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (Value)
 import Data.Aeson qualified as Aeson
 import Data.Foldable (toList)
 import Data.Generics.Labels ()
 import Data.HashMap.Strict qualified as HashMap
-import Data.IORef (modifyIORef', newIORef, readIORef)
+import Data.IORef (atomicModifyIORef', modifyIORef', newIORef, readIORef)
 import Data.Int (Int32, Int64)
 import Data.List (nub, sort)
 import Data.Map.Strict qualified as Map
+import Data.Maybe (isNothing)
 import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Time (UTCTime (..), fromGregorian)
 import Data.UUID qualified as UUID
+import Data.Word (Word64)
 import Effectful (runEff)
+import Effectful.Timeout qualified as Timeout
+import GHC.Clock (getMonotonicTimeNSec)
 import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Kiroku.Store
@@ -41,6 +45,7 @@ import Shibuya.Adapter.Kiroku (
     kirokuAdapter,
     kirokuConsumerGroupProcessors,
     kirokuConsumerGroupProcessorsWith,
+    kirokuProcessor,
  )
 import Shibuya.Adapter.Kiroku.Convert (
     KirokuEnvelopeAttrs,
@@ -189,6 +194,7 @@ main = withSharedMigratedPostgres $ hspec $ do
             consumerGroupPolicy (Async 4)
                 `shouldBe` Left (InvalidPolicyCombo "StrictInOrder requires Serial concurrency")
 
+    acknowledgementSpec
     around withTestStore $ do
         describe "kirokuAdapter" $ do
             it "delivers only matching event types when an eventTypeFilter is set (EP-43)" $ \store -> do
@@ -1291,8 +1297,11 @@ stubAdapter =
 
 -- | Read the dead letters recorded for a non-group subscription (member 0).
 readDeadLetters :: KirokuStore -> Text -> IO [SQL.DeadLetterRecord]
-readDeadLetters store subName = do
-    result <- Pool.use (store ^. #pool) (Session.statement (subName, 0 :: Int32) SQL.readDeadLettersStmt)
+readDeadLetters store subName = readMemberDeadLetters store subName 0
+
+readMemberDeadLetters :: KirokuStore -> Text -> Int32 -> IO [SQL.DeadLetterRecord]
+readMemberDeadLetters store subName memberIndex = do
+    result <- Pool.use (store ^. #pool) (Session.statement (subName, memberIndex) SQL.readDeadLettersStmt)
     case result of
         Left err -> error ("readDeadLetters failed: " <> show err)
         Right v -> pure (toList v)
@@ -1420,3 +1429,155 @@ validGroupSize = either (error . show) Prelude.id . mkConsumerGroupSize
 
 validConsumerGroup :: Int32 -> Int32 -> ConsumerGroup
 validConsumerGroup m n = either (error . show) Prelude.id (mkConsumerGroup m (validGroupSize n))
+
+acknowledgementSpec :: Spec
+acknowledgementSpec = do
+    describe "acknowledgement liveness" $ do
+        forM_ [False, True] $ \guarded ->
+            it (if guarded then "guarded single processor retries with pacing and continues" else "standard Shibuya handler exceptions are finalized") $
+                withTestStore $ \store -> do
+                    Right _ <-
+                        runStoreIO store $
+                            appendToStream
+                                (StreamName "ack-liveness")
+                                NoStream
+                                [makeEvent "First" (Aeson.object []), makeEvent "Second" (Aeson.object [])]
+                    attempts <- newIORef ([] :: [(Int64, Maybe Attempt, Word64)])
+                    count <- newTVarIO (0 :: Int)
+                    within "runner finalization" $ runEff $ runTracingNoop $ do
+                        adapter <- kirokuAdapter store (defaultKirokuAdapterConfig (SubscriptionName "ack-liveness") AllStreams)
+                        let handler ingested = do
+                                now <- liftIO getMonotonicTimeNSec
+                                let pos = globalPos (envelopePayload ingested)
+                                    Message{envelope = Envelope{attempt = attempt'}} = ingested
+                                n <- liftIO $ do
+                                    modifyIORef' attempts ((pos, attempt', now) :)
+                                    atomically $ do
+                                        old <- readTVar count
+                                        writeTVar count (old + 1)
+                                        pure old
+                                if n == 0 then liftIO (E.throwIO (userError "one-shot handler failure")) else pure AckOk
+                            processor = if guarded then kirokuProcessor adapter handler else mkProcessor adapter handler
+                        app <- runApp defaultAppConfig [(ProcessorId "ack-liveness", processor)] >>= either (liftIO . fail . show) pure
+                        liftIO $ waitForCount count 3 5_000_000
+                        liftIO $ waitForCheckpointPosition store (SubscriptionCheckpointKey (SubscriptionName "ack-liveness") 0) (GlobalPosition 2)
+                        stopApp app
+                    recorded <- reverse <$> readIORef attempts
+                    map (\(pos, attempt', _) -> (pos, attempt')) recorded
+                        `shouldBe` [(1, Just (Attempt 0)), (1, Just (Attempt 1)), (2, Just (Attempt 0))]
+                    case recorded of
+                        (_, _, firstAt) : (_, _, retriedAt) : _ ->
+                            if guarded
+                                then retriedAt - firstAt `shouldSatisfy` (>= 900_000_000)
+                                else retriedAt - firstAt `shouldSatisfy` (< 900_000_000)
+                        _ -> expectationFailure "expected three finalized deliveries"
+
+        forM_ [Nothing, Just 0.05] $ \warnAfter ->
+            it ("keeps a raw unfinalized item pending and forwards warning policy " <> show warnAfter) $ do
+                warnings <- newTVarIO (0 :: Int)
+                warning <- STM.newEmptyTMVarIO
+                let observe event = case event of
+                        KirokuEventSubscriptionHandlerStalled _ pos _ elapsed _ -> atomically $ do
+                            STM.modifyTVar' warnings (+ 1)
+                            _ <- STM.tryPutTMVar warning (pos, elapsed)
+                            pure ()
+                        _ -> pure ()
+                withMigratedTestDatabase $ \connStr ->
+                    withStore (defaultConnectionSettings connStr & #eventHandler .~ Just observe) $ \store -> do
+                        Right _ <-
+                            runStoreIO store $
+                                appendToStream
+                                    (StreamName "ack-raw")
+                                    NoStream
+                                    [makeEvent "First" (Aeson.object []), makeEvent "Second" (Aeson.object [])]
+                        within "raw acknowledgement ownership" $ runEff $ runTracingNoop $ Timeout.runTimeout $ do
+                            adapter <-
+                                kirokuAdapter
+                                    store
+                                    ( (defaultKirokuAdapterConfig (SubscriptionName "ack-raw") AllStreams)
+                                        & #handlerStallWarnAfter .~ warnAfter
+                                    )
+                            let Adapter{source = sourceStream, shutdown = shutdownAction} = adapter
+                            first <- Stream.uncons sourceStream
+                            case first of
+                                Nothing -> liftIO (expectationFailure "expected first item")
+                                Just (item, rest) -> do
+                                    -- The raw consumer intentionally leaves item unfinalized.
+                                    secondRead <- Timeout.timeout 150_000 (Stream.uncons rest)
+                                    liftIO (isNothing secondRead `shouldBe` True)
+                                    liftIO $ readCheckpointPosition store (SubscriptionCheckpointKey (SubscriptionName "ack-raw") 0) `shouldReturn` Just (GlobalPosition 0)
+                                    case warnAfter of
+                                        Nothing -> liftIO $ STM.readTVarIO warnings `shouldReturn` 0
+                                        Just threshold -> liftIO $ do
+                                            (pos, elapsed) <- within "raw ack warning" (atomically (STM.readTMVar warning))
+                                            pos `shouldBe` GlobalPosition 1
+                                            elapsed `shouldSatisfy` (>= threshold)
+                                    -- Finalization remains explicitly owned by this consumer.
+                                    let Ingested{ack = AckHandle{finalize = finalizeFirst}} = item
+                                    finalizeFirst AckOk
+                                    (second, _) <- Stream.uncons rest >>= maybe (liftIO (fail "expected second item")) pure
+                                    let Ingested{envelope = Envelope{payload = secondEvent}} = second
+                                    liftIO $ globalPos secondEvent `shouldBe` 2
+                                    let Ingested{ack = AckHandle{finalize = finalizeSecond}} = second
+                                    finalizeSecond AckOk
+                                    liftIO $ waitForCheckpointPosition store (SubscriptionCheckpointKey (SubscriptionName "ack-raw") 0) (GlobalPosition 2)
+                            shutdownAction
+                        stoppedCount <- STM.readTVarIO warnings
+                        threadDelay 100_000
+                        STM.readTVarIO warnings `shouldReturn` stoppedCount
+
+    describe "retry policy" $ do
+        forM_ [Nothing, Just 2] $ \attemptLimit ->
+            it ("honors single-adapter total delivery limit " <> show attemptLimit) $ withTestStore $ \store -> do
+                Right _ <- runStoreIO store $ appendToStream (StreamName "ack-policy") NoStream [makeEvent "Retry" (Aeson.object [])]
+                count <- newTVarIO (0 :: Int)
+                runEff $ runTracingNoop $ do
+                    let config =
+                            (defaultKirokuAdapterConfig (SubscriptionName "ack-policy") AllStreams)
+                                & #retryPolicy .~ maybe defaultRetryPolicy RetryPolicy attemptLimit
+                    adapter <- kirokuAdapter store config
+                    let handler _ = liftIO (atomically (STM.modifyTVar' count (+ 1))) >> pure (AckRetry (Ack.RetryDelay 0))
+                    app <- runApp defaultAppConfig [(ProcessorId "ack-policy", kirokuProcessor adapter handler)] >>= either (liftIO . fail . show) pure
+                    liftIO $ waitForCheckpointPosition store (SubscriptionCheckpointKey (SubscriptionName "ack-policy") 0) (GlobalPosition 1)
+                    stopApp app
+                STM.readTVarIO count `shouldReturn` maybe 5 Prelude.id attemptLimit
+                letters <- readDeadLetters store "ack-policy"
+                map SQL.deadLetterAttemptCount letters `shouldBe` [fromIntegral (maybe 5 Prelude.id attemptLimit)]
+
+        it "forwards two attempts and stall policy to both consumer-group members" $ do
+            warned <- newTVarIO Set.empty
+            release <- STM.newEmptyTMVarIO
+            let observe event = case event of
+                    KirokuEventSubscriptionHandlerStalled _ _ _ _ (GroupMember member' 2) -> atomically (STM.modifyTVar' warned (Set.insert member'))
+                    _ -> pure ()
+            withMigratedTestDatabase $ \connStr ->
+                withStore (defaultConnectionSettings connStr & #eventHandler .~ Just observe) $ \store -> do
+                    -- Enough distinct streams to exercise both PostgreSQL hash slots;
+                    -- require both warnings before release so an empty slot fails.
+                    forM_ [1 .. 20 :: Int] $ \i -> do
+                        Right _ <- runStoreIO store $ appendToStream (StreamName ("ack-group-" <> T.pack (show i))) NoStream [makeEvent "Retry" (Aeson.object [])]
+                        pure ()
+                    seen <- newIORef Map.empty
+                    runEff $ runTracingNoop $ do
+                        let config =
+                                (defaultConsumerGroupConfig (SubscriptionName "ack-policy-group") AllStreams (validGroupSize 2))
+                                    & #retryPolicy .~ RetryPolicy 2
+                                    & #handlerStallWarnAfter .~ Just 0.05
+                            handler ingested = do
+                                liftIO $ atomically (STM.readTMVar release)
+                                liftIO $ atomicModifyIORef' seen (\old -> (Map.insertWith (+) (globalPos (envelopePayload ingested)) (1 :: Int) old, ()))
+                                pure (AckRetry (Ack.RetryDelay 0))
+                        processors <- kirokuConsumerGroupProcessors store config handler >>= either (liftIO . fail . show) pure
+                        app <- runApp defaultAppConfig processors >>= either (liftIO . fail . show) pure
+                        liftIO $ within "both group members stalled" $ atomically $ readTVar warned >>= STM.check . (== Set.fromList [0, 1])
+                        liftIO $ atomically (STM.putTMVar release ())
+                        liftIO $ within "all group dead letters" $ do
+                            let loop = do
+                                    letters <- concat <$> mapM (readMemberDeadLetters store "ack-policy-group") [0, 1]
+                                    if length letters == 20 then pure () else threadDelay 10_000 >> loop
+                            loop
+                        stopApp app
+                    Map.elems <$> readIORef seen `shouldReturn` replicate 20 2
+                    letters <- concat <$> mapM (readMemberDeadLetters store "ack-policy-group") [0, 1]
+                    sort (map SQL.deadLetterGlobalPosition letters) `shouldBe` [1 .. 20]
+                    map SQL.deadLetterAttemptCount letters `shouldBe` replicate 20 2

@@ -138,8 +138,9 @@ accepted in September, records the subscription API conventions the cohort estab
 refusals, and never skipping an event on a consumer's behalf. The completed checkpoint lifecycle
 request `mori://shinzui/kiroku/okf/improvement-requests/concepts/IR-3` is adjacent but does not bind
 a checkpoint to a subscription target or define group topology. [ADR-12](../adr/0012-decode-failures-are-per-event-outcomes-with-independent-subscription-dispositions.md)
-now covers the decode hook's failure contract. EP4 decides during implementation
-whether handler-stall observability warrants its own record.
+now covers the decode hook's failure contract.
+[ADR-13](../adr/0013-handler-stall-diagnostics-are-worker-owned-and-advisory.md)
+records opt-in worker ownership, advisory acknowledgement diagnostics and adapter retry policy.
 
 
 ## Exec-Plan Registry
@@ -149,12 +150,15 @@ whether handler-stall observability warrants its own record.
 | 1 | Make consumer-group topology durable and resize without gaps | docs/plans/81-make-consumer-group-topology-durable-and-resize-without-gaps.md | None | EP-2 | Complete |
 | 2 | Repair live reconnect and validate subscription identity and batch size | docs/plans/82-repair-live-reconnect-and-validate-subscription-identity-and-batch-size.md | None | EP-1 | Complete |
 | 3 | Contain persistent publisher decode-hook failures | docs/plans/83-contain-persistent-publisher-decode-hook-failures.md | None | EP-2 | Complete |
-| 4 | Harden adapter acknowledgement liveness and expose retry policy | docs/plans/84-harden-adapter-acknowledgement-liveness-and-expose-retry-policy.md | EP-1, EP-2 | EP-3 | Not Started |
+| 4 | Harden adapter acknowledgement liveness and expose retry policy | docs/plans/84-harden-adapter-acknowledgement-liveness-and-expose-retry-policy.md | EP-1, EP-2 | EP-3 | Complete |
 | 5 | Make append unique-violation classification exact | docs/plans/86-make-append-unique-violation-classification-exact.md | None | None | Not Started |
 | 6 | Release the subscription hardening cohort and coordinate downstream adoption | docs/plans/85-release-the-subscription-hardening-cohort-and-coordinate-downstream-adoption.md | EP-1, EP-2, EP-3, EP-4, EP-5 | None | Not Started |
 
 
-### Source evidence for the registry (2026-10-09)
+### Historical source evidence before the cohort (2026-10-09, `e6ea664`)
+
+The following audit describes the pre-implementation baseline. Current completion and
+verification are recorded in the registry, Progress and Outcomes sections.
 
 
 EP-1: `kiroku-store/src/Kiroku/Store/Subscription/Checkpoint/SQL.hs` initializes only
@@ -294,7 +298,8 @@ a time, so an enabled watchdog has one `TVar` per worker written before and clea
 one monotonic clock read and two STM writes per event, plus watchdog wakeup and timer
 bookkeeping. These are opt-in costs to measure; `handlerStallWarnAfter` now defaults to
 `Nothing` in the store and both adapter configs, superseding the proposed `Just 60` default. The watchdog parks on STM until an item
-is pending and then waits the full threshold; it never polls. When the threshold is `Nothing` no
+is pending and checks its monotonic age after the interval, reusing a timer across quick calls;
+it does not poll while idle. When the threshold is `Nothing` no
 thread, tracking cell, or timer is created, and no per-delivery clock read or tracking STM write occurs.
 
 Gate ownership (user-approved focused scope, 2026-10-09): implementation children
@@ -426,12 +431,24 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 - [x] (2026-10-09) EP-2 bounded Linux verification: five benchmark-grade trials verified in 25 minutes 30 seconds including preparation and cleanup; two complete pairs, one unmatched control and a sixth submission stopped during reset. Lease absent, all four VMs TERMINATED, no replacement or expanded queue.
 - [x] (2026-10-09) EP-2 practical acceptance: the user approves completion on passing correctness/structural checks and the bounded Linux evidence. The checkpoint-only cost is accepted; throughput -0.14% and p99 +2.87% retain wide intervals. Statistical equivalence remains inconclusive and cumulative append acceptance belongs to EP6; no further EP2 benchmark or release is claimed.
 - [x] (2026-10-09) EP-3: prove the current apparent-live stall, then make decode failure a typed per-event outcome that each subscriber disposes of through an optional callback, stopping by default, and that fails reads with a typed error.
-- [ ] EP-4: expose retry policy on single and consumer-group adapter configs; provide a guarded processor path and a worker-level handler-stall event the adapter configures.
+- [x] (2026-10-09) EP-4: expose retry policy on single and consumer-group adapter configs; provide a guarded processor path and a worker-level handler-stall event the adapter configures.
 - [ ] EP-5: distinguish `stream_events_pkey` duplicates and `ux_stream_events_stream_version` corruption with deterministic mapping tests.
-- [ ] EP-6: run the integrated test matrix and the ADR-5 performance gates, release the affected package cohort with current authoritative versions, and prove downstream Keiro shard-count adoption without private Kiroku SQL.
+- [ ] EP-6: run integrated PostgreSQL 18 correctness, existing ADR-5 gates and the focused cumulative comparison, release the affected package cohort with current authoritative versions, and prove downstream Keiro shard-count adoption without private Kiroku SQL.
 
 
 ## Surprises & Discoveries
+
+- EP4 (2026-10-09): four real-adapter acknowledgement cases pass, distinguishing the
+  resolved Shibuya standard runner's immediate finalized retry from the new helper's
+  one-second guard and a raw consumer's genuinely pending item. Three policy cases
+  pass, including both size-2 group slots. One initial group test read only member 0's
+  dead-letter rows; the corrected fixture reads both member keys. No production fix
+  or favorable timing retry was concealed by this test correction.
+- EP4 diagnostics select the original handler at construction when disabled. Enabled
+  workers own one cell and scoped watchdog, reuse a timer across quick calls, and
+  clear tracking in `finally`. A nonpositive raw duration is refused before checkpoint
+  initialization through `InvalidHandlerStallWarnAfter`; ADR-8 documents this narrow
+  exception to its validated size/group rule, and ADR-13 owns the durable contract.
 
 - EP3 implementation (2026-10-09): the metrics WebSocket directly consumes
   publisher queues and needed the typed batch migration. It reports a kept
@@ -579,6 +596,11 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 
 ## Decision Log
+
+- Decision (2026-10-09): retain consumer acknowledgement ownership and keep stall events
+  advisory across all ordinary worker paths. Preserve `mkProcessor`'s actual `Unordered`,
+  `Serial` defaults in the new guarded helper and pass retry limits unchanged to every
+  group member. ADR-13 records the contract; no schema or append SQL changes are needed.
 
 - Decision: Mark EP3 Complete on focused correctness and existing ADR-5 gates;
   preserve cumulative timing concerns for EP6 and cascade that scope to EP4/EP6.
@@ -798,7 +820,7 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Outcomes & Retrospective
 
-Implementation update (2026-10-09): **3 of 6 children are Complete**. EP1
+Implementation update (2026-10-09): **4 of 6 children are Complete**. EP1
 implements durable topology, typed startup refusal, migration-derived legacy
 sizes and transactional gap-free resize, with updated guide and ADR-2. Full
 correctness suites and existing ADR-5 gates passed. Its six retained mixed trials
@@ -829,8 +851,12 @@ the metrics WebSocket emits its existing error frame and ends its tail.
 Final verification passes 360 store tests, 22 metrics tests and the four other
 package suites; all components build and the 20 structural/16 controlled ADR-5
 cases pass. ADR-12 records the contract. Evidence is in
-`kiroku-store/bench/results/ep3-decode-contract/README.md`. EP4 is the next
-implementable child; EP4, EP5 and EP6 remain Not Started. No package is released.
+`kiroku-store/bench/results/ep3-decode-contract/README.md`. EP4 is Complete: `kirokuProcessor`, retry-policy forwarding and opt-in scoped store
+handler diagnostics land with 504 passing workspace examples, 20 structural checks,
+16 controlled workload cases (116.73 seconds), and ADR-13. Evidence:
+`kiroku-store/bench/results/ep4-acknowledgement-liveness/README.md`.
+EP5 is the next implementable child; EP6 waits on EP5. Both remain Not Started.
+No package is released; cumulative default/opt-in timing remains EP6 work.
 
 
 
@@ -910,3 +936,12 @@ with uncertainty preserved and starting EP3. Update the registry/progress and
 reserve cumulative append measurement for EP6; do not relabel existing evidence.
 
 Revision note (2026-10-09): Complete EP3 with typed decode contracts, retained correctness/build/ADR-5 evidence and ADR-12; mark three of six children complete and cascade focused assurance plus one-hour EP6 cumulative timing ownership to the remaining affected children.
+
+Revision note (2026-10-09, EP4 implementation): real adapter liveness characterization,
+worker-owned opt-in diagnostics, guarded single helper and retry policy forwarding are
+implemented. ADR-13 and the ADR-8 duration exception preserve durable ownership and API
+context. Final local verification passes; EP6 owns cumulative timing.
+
+Revision note (2026-10-09, EP4 completion): mark the fourth child Complete after full
+workspace build/tests, existing ADR-5 gates and strict ADR validation. EP5 is next ready;
+EP6 retains cumulative original-control timing and release ownership.

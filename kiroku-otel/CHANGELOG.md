@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* Handle the advisory `KirokuEventSubscriptionHandlerStalled` event without
+  changing subscription span state. Stall counts are available in `kiroku-metrics`.
+
 * Handle the typed publisher decode-failure event and distinguish
   `StopUndecodable` in subscription stop attributes.
 

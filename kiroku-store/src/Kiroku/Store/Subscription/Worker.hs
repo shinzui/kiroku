@@ -34,8 +34,9 @@ module Kiroku.Store.Subscription.Worker (
 import Contravariant.Extras (contrazip2)
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async qualified as Async
-import Control.Concurrent.STM (TBQueue, TVar, atomically, check, orElse, readTBQueue, readTVar, registerDelay, tryReadTBQueue, writeTVar)
-import Control.Exception (SomeException, bracket, fromException, throwIO, toException, try)
+import Control.Concurrent.STM (TBQueue, TVar, atomically, check, newTVarIO, orElse, readTBQueue, readTVar, registerDelay, tryReadTBQueue, writeTVar)
+import Control.Concurrent.STM qualified as STM
+import Control.Exception (SomeException, bracket, finally, fromException, mask, throwIO, toException, try)
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
@@ -43,9 +44,11 @@ import Data.Int (Int32)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
+import Data.Time (NominalDiffTime)
 import Data.Vector (Vector)
 import Data.Vector qualified as V
 import Data.Word (Word64)
+import GHC.Clock (getMonotonicTimeNSec)
 import Hasql.Decoders qualified as D
 import Hasql.Encoders qualified as E
 import Hasql.Pool (Pool)
@@ -237,7 +240,63 @@ runWorker ::
     -}
     StoreSettings ->
     m ()
-runWorker pool liveSource stateVar pubPosVar catGenVar config mHandler stSettings = liftIO $ do
+runWorker pool liveSource stateVar pubPosVar catGenVar config mHandler stSettings = liftIO $
+    withHandlerStallDiagnostics config (emitOrDrop mHandler) $ \deliveryConfig ->
+        runWorkerBody pool liveSource stateVar pubPosVar catGenVar deliveryConfig mHandler stSettings
+
+-- Select the delivery handler once per worker. The disabled arm returns the
+-- original config directly, with no per-delivery diagnostic branch or work.
+withHandlerStallDiagnostics :: SubscriptionConfig -> (KirokuEvent -> IO ()) -> (SubscriptionConfig -> IO a) -> IO a
+withHandlerStallDiagnostics config emit action = case handlerStallWarnAfter config of
+    Nothing -> action config
+    Just threshold
+        | threshold <= 0 -> throwIO (InvalidHandlerStallWarnAfter threshold)
+        | otherwise -> do
+            pending <- newTVarIO Nothing
+            let tracked event = mask $ \restore -> do
+                    started <- getMonotonicTimeNSec
+                    let delivery = StalledDelivery (globalPosition event) (eventId event) started
+                    atomically (writeTVar pending (Just delivery))
+                    restore (handler config event) `finally` atomically (writeTVar pending Nothing)
+            Async.withAsync (watchHandler pending threshold) $ \watchdog -> do
+                Async.link watchdog
+                action config{handler = tracked}
+  where
+    -- Park while idle. Reuse a pending interval across completed/replaced
+    -- invocations, rather than abandoning a registerDelay timer per event.
+    watchHandler pending threshold = awaitDelivery
+      where
+        awaitDelivery = do
+            _ <- atomically $ readTVar pending >>= maybe STM.retry pure
+            waitInterval threshold
+        waitInterval delay = do
+            timer <- registerDelay (durationMicros delay)
+            atomically (readTVar timer >>= check)
+            current <- atomically (readTVar pending)
+            case current of
+                Nothing -> awaitDelivery
+                Just delivery@(StalledDelivery pos eid started) -> do
+                    now <- getMonotonicTimeNSec
+                    let elapsed = fromRational (fromIntegral (now - started) / 1_000_000_000)
+                    if elapsed < threshold
+                        then waitInterval (threshold - elapsed)
+                        else do
+                            stillPending <- atomically ((== Just delivery) <$> readTVar pending)
+                            when stillPending $
+                                emit (KirokuEventSubscriptionHandlerStalled (name config) pos eid elapsed (groupCtxOf config))
+                            waitInterval threshold
+
+-- One cell per enabled worker, not one timer/thread per handler invocation.
+data StalledDelivery = StalledDelivery !GlobalPosition !EventId !Word64
+    deriving stock (Eq)
+
+-- registerDelay accepts an Int. Cap huge intervals safely and round positive
+-- sub-microsecond intervals up instead of creating a zero-delay polling loop.
+durationMicros :: NominalDiffTime -> Int
+durationMicros duration = fromInteger (max 1 (min (toInteger (maxBound :: Int)) (ceiling (duration * 1_000_000))))
+
+runWorkerBody :: Pool -> LiveSource -> TVar SubscriptionState -> TVar GlobalPosition -> TVar (Map Text Word64) -> SubscriptionConfig -> Maybe (KirokuEvent -> IO ()) -> StoreSettings -> IO ()
+runWorkerBody pool liveSource stateVar pubPosVar catGenVar config mHandler stSettings = do
     let emit = emitOrDrop mHandler
         subName = name config
         groupCtx = groupCtxOf config

@@ -259,6 +259,7 @@ Metric names, types, and label names are a published contract for dashboards
 | `kiroku_subscriptions_paused_total` | counter | — | Subscription pauses (backpressure). |
 | `kiroku_subscriptions_resumed_total` | counter | — | Subscription resumes after pause. |
 | `kiroku_subscriptions_reconnecting_total` | counter | — | Subscription live-fetch reconnects. |
+| `kiroku_subscription_handler_stalls_total` | counter | — | Advisory handler stall warnings; enabled only by explicit subscription configuration. |
 | `kiroku_subscriptions_retrying_total` | counter | — | Subscription event redeliveries. |
 | `kiroku_subscriptions_dead_lettered_total` | counter | — | Events written to dead letters. |
 | `kiroku_subscriptions_stopped_total` | counter | `reason="handler\|cancelled\|overflow\|crashed\|undecodable"` | Subscription stops by reason. |
@@ -437,3 +438,9 @@ compiling reference for the wiring pattern above.
 Lifecycle JSON adds `publisher_decode_failures` and
 `subscriptions_stopped_undecodable`; decode failures are separate from publisher
 programming errors and worker crashes.
+
+Lifecycle JSON additionally includes `subscription_handler_stalls`. This counts
+warnings, including repeated warnings for one pending invocation. It does not
+advance the subscription's last-known position or imply that an event was
+acknowledged. The OpenTelemetry subscription observer leaves span state unchanged
+on these advisory events.

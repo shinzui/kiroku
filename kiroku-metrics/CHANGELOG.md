@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* **Breaking:** `LifecycleCounters` adds `subscriptionHandlerStalls`.
+  JSON adds `subscription_handler_stalls`; Prometheus adds
+  `kiroku_subscription_handler_stalls_total`. Advisory warnings do not advance
+  the collector's subscription position.
+
 * **Breaking:** `LifecycleCounters` adds `publisherDecodeFailures` and
   `subscriptionsStoppedUndecodable`. JSON and Prometheus distinguish typed decode
   failures and `undecodable` subscription stops from programming errors/crashes.

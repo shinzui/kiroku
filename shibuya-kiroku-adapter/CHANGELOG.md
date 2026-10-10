@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+* Add `kirokuProcessor`, composing the existing single-processor defaults
+  (`Unordered`, `Serial`) with the one-second synchronous exception retry guard.
+* **Breaking:** both adapter configs add `retryPolicy` (five total deliveries)
+  and `handlerStallWarnAfter` (`Nothing`), forwarded to every underlying worker.
+  A pending raw acknowledgement remains pending; enabled warnings are advisory.
+
 - **Breaking:** Both adapter configurations use the store’s validated `BatchSize` and `StreamBufferSize` capacities.
 
 * **Breaking:** `KirokuConsumerGroupConfig.groupSize` and

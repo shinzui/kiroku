@@ -45,8 +45,8 @@ main = withStore (defaultConnectionSettings connStr) $ \store ->
           pure AckOk
 
     Right appHandle <-
-      runApp IgnoreFailures 100
-        [(ProcessorId "my-projection", mkProcessor adapter handler)]
+      runApp defaultAppConfig
+        [(ProcessorId "my-projection", kirokuProcessor adapter handler)]
 
     waitApp appHandle
 ```
@@ -66,6 +66,8 @@ literal so a field added later is inherited at its default automatically.
 | `queueCapacity :: Natural` | `16` | Publisher-side capacity in batches for non-group `AllStreams` adapters. Kiroku pauses and resumes losslessly when it fills. |
 | `consumerGroup :: Maybe ConsumerGroup` | `Nothing` | `Nothing` = ordinary subscription. `Just membership` built with `mkConsumerGroup` = this adapter is member `member` of a size-`size` consumer group (see below). |
 | `missingCheckpointPolicy :: MissingCheckpointPolicy` | `FromBeginning` | What an absent exact member key means. Use `FromCurrentHead` for future-only processing or `FailIfMissing` for mandatory provisioning; existing rows always win. |
+| `retryPolicy :: RetryPolicy` | `defaultRetryPolicy` (5 total deliveries) | Attempt limit for `AckRetry`, including the initial delivery; forwarded unchanged. Import `RetryPolicy` from `Kiroku.Store`. |
+| `handlerStallWarnAfter :: Maybe NominalDiffTime` | `Nothing` | Opt in with a positive duration, for example `Just 60`, to report a pending handler or acknowledgement. |
 | `eventTypeFilter :: EventTypeFilter` | `AllEventTypes` | Deliver only chosen event types. Forwarded into the underlying subscription; filtering is worker-side, so a filtered-out event never reaches the Shibuya handler yet the checkpoint still advances past it. |
 | `selector :: Maybe (RecordedEvent -> Bool)` | `Nothing` | Optional opaque per-event predicate for filtering `eventTypeFilter` cannot express; composed with it as a logical AND. Also worker-side. |
 
@@ -107,13 +109,13 @@ let cfg = defaultConsumerGroupConfig
             groupSize   -- group size
 
 Right processors <- kirokuConsumerGroupProcessors store cfg handler
-Right appHandle  <- runApp IgnoreFailures 100 processors
+Right appHandle  <- runApp defaultAppConfig processors
 waitApp appHandle
 ```
 
 `KirokuConsumerGroupConfig` (built by `defaultConsumerGroupConfig name target
 size`) describes the whole group; its `missingCheckpointPolicy`,
-`eventTypeFilter`, and `selector` apply independently to every member key, and
+`eventTypeFilter`, `selector`, `retryPolicy`, and `handlerStallWarnAfter` apply independently to every member key, and
 `memberConcurrency` must be `Serial` (any `Ahead` / `Async` is rejected before
 any subscription opens, because Shibuya does not route by partition key —
 member identity rides each processor's `ProcessorId`,
@@ -163,6 +165,29 @@ sentinel so any blocked stream reader terminates. The retry / dead-letter
 behaviour is the same as the native `Retry` / `DeadLetter` dispositions
 documented in [Subscriptions](subscriptions.md#per-event-retry-and-dead-letter).
 
+## Handler Exceptions And Pending Acknowledgements
+
+`kirokuProcessor adapter handler` is the recommended single-processor helper.
+It preserves Shibuya's `Unordered`, `Serial` defaults and converts synchronous
+handler exceptions to `AckRetry (RetryDelay 1)`. The group factory applies the
+same guard. Asynchronous cancellation propagates. Advanced callers may compose
+`kirokuAdapter` with `mkProcessor` themselves: the standard supervised runner
+already finalizes a synchronous exception as a zero-delay retry.
+
+A raw consumer of `adapter.source` owns finalization of every `Ingested.ack`.
+Leaving one item unfinalized blocks the next delivery and leaves its checkpoint
+unchanged. Set `handlerStallWarnAfter = Just 60` and install the store's
+`eventHandler` to receive advisory `KirokuEventSubscriptionHandlerStalled`
+notifications, including the current position, id, elapsed duration and group
+member. Warnings never finalize the item, retry it or advance the checkpoint.
+Finalization, completion or worker shutdown ends warnings for that invocation.
+See [Subscriptions](subscriptions.md#handler-stall-diagnostics) for ownership
+and pacing details.
+
+`retryPolicy` controls the total delivery count; `AckRetry delay` independently
+controls the delay before another attempt. For example, `RetryPolicy 2` allows
+the initial delivery and one retry before dead-lettering.
+
 ## Backpressure
 
 `bufferSize` sets the `TBQueue` capacity. Because delivery is ack-coupled, the
@@ -204,7 +229,7 @@ consistently.
 
 ## Dependencies
 
-The adapter depends on `shibuya-core` (`>=0.6 && <0.7`) and `kiroku-store`.
+The adapter depends on `shibuya-core` (`>=0.10 && <0.11`) and `kiroku-store`.
 It does **not** pull in `kiroku-otel`; trace-context propagation works on the
 raw `metadata` JSON regardless of whether the producer uses `kiroku-otel`.
 

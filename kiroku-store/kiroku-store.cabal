@@ -109,6 +109,7 @@ test-suite kiroku-store-test
     Test.ConsumerGroupSql
     Test.EventTypeFilter
     Test.FailureInjection
+    Test.HandlerStall
     Test.Helpers
     Test.HistoryRetention
     Test.HistoryRetentionMock

@@ -130,6 +130,22 @@ spec = describe "Kiroku.Metrics.Collector" $ do
         snap.counters.subscriptionsStoppedCrashed `shouldBe` 0
         (Map.lookup "p" snap.subscriptions >>= (.lastStopReason)) `shouldBe` Just "undecodable"
 
+    it "counts advisory stalls without advancing the subscription position" $ do
+        snap <-
+            runScript
+                (pure (GlobalPosition 12))
+                (pure 1)
+                [ KirokuEventSubscriptionStarted sub (GlobalPosition 2) NonGroup
+                , KirokuEventSubscriptionHandlerStalled sub (GlobalPosition 3) (EventId (uuidN 3)) 0.2 NonGroup
+                ]
+                []
+        snap.counters.subscriptionHandlerStalls `shouldBe` 1
+        (Map.lookup "p" snap.subscriptions >>= Just . (.lastKnownPosition)) `shouldBe` Just 2
+        case toJSON snap.counters of
+            Object fields -> KM.lookup "subscription_handler_stalls" fields `shouldBe` Just (Number 1)
+            other -> expectationFailure ("expected lifecycle object, got " <> show other)
+        LBS.unpack (renderPrometheus snap) `shouldSatisfy` isInfixOf "kiroku_subscription_handler_stalls_total 1"
+
     it "records subscription position and derives lag from the global position" $ do
         snap <-
             runScript

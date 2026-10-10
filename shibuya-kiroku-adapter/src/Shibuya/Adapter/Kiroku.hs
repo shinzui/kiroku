@@ -26,7 +26,7 @@ main = withStore settings $ \\store ->
                 pure AckOk
 
         Right appHandle <- runApp defaultAppConfig
-            [(ProcessorId \"my-projection\", mkProcessor adapter handler)]
+            [(ProcessorId \"my-projection\", kirokuProcessor adapter handler)]
 
         waitApp appHandle
 @
@@ -106,14 +106,22 @@ of being killed.
 
 Shibuya's supervised runner converts a synchronous handler exception to an
 immediate 'AckRetry' and finalizes it, so the ack-coupled Kiroku worker cannot be
-left blocked by an abandoned reply. 'guardKirokuHandlerWith' remains useful when
+left blocked by an abandoned reply. 'kirokuProcessor' applies the one-second
+paced guard for a single processor. 'guardKirokuHandlerWith' remains useful when
 the application wants a different exception disposition, and
 'kirokuConsumerGroupProcessors' applies the adapter's default guard
 automatically. Asynchronous cancellation is never converted into an ack.
+
+Raw consumers of @adapter.source@ must finalize every item. Leaving one pending
+blocks delivery and checkpoint advancement. Opt in with a positive
+@handlerStallWarnAfter@ to receive advisory store handler-stall events; warnings
+never finalize, retry or checkpoint the item. @retryPolicy@ controls total
+deliveries independently of the delay chosen by 'AckRetry'.
 -}
 module Shibuya.Adapter.Kiroku (
     -- * Adapter
     kirokuAdapter,
+    kirokuProcessor,
     guardKirokuHandlerWith,
     guardKirokuHandler,
 
@@ -145,6 +153,7 @@ module Shibuya.Adapter.Kiroku (
 import Control.Exception (SomeException)
 import Data.Int (Int32)
 import Data.Text qualified as T
+import Data.Time (NominalDiffTime)
 import Effectful (Eff, IOE, liftIO, (:>))
 import Effectful.Exception (catchSync)
 import GHC.Generics (Generic)
@@ -172,7 +181,7 @@ import Numeric.Natural (Natural)
 import Shibuya.Adapter (Adapter (..))
 import Shibuya.Adapter.Kiroku.Convert (kirokuEnvelopeAttrs, toIngestedAck)
 import Shibuya.Adapter.Kiroku.Internal (acquireAllAndTransfer)
-import Shibuya.App (ProcessorId (..), QueueProcessor (..))
+import Shibuya.App (ProcessorId (..), QueueProcessor (..), mkProcessor)
 import Shibuya.Core.Ack (AckDecision (..), RetryDelay (..))
 import Shibuya.Core.Error (PolicyError (..))
 import Shibuya.Handler (Handler)
@@ -201,6 +210,10 @@ data KirokuAdapterConfig = KirokuAdapterConfig
     -- ^ Events per database fetch during catch-up
     , bufferSize :: !StreamBufferSize
     -- ^ Bridge 'TBQueue' capacity; must be at least 1.
+    , retryPolicy :: !Sub.RetryPolicy
+    -- ^ Total delivery attempts, default five; each AckRetry chooses its delay.
+    , handlerStallWarnAfter :: !(Maybe NominalDiffTime)
+    -- ^ Optional positive advisory warning interval, disabled by default.
     , queueCapacity :: !Natural
     {- ^ Publisher-side capacity in batches, where each batch contains up to
     Kiroku's publisher batch size (currently 1000 events). When this fills,
@@ -275,6 +288,8 @@ defaultKirokuAdapterConfig name target =
         , subscriptionTarget = target
         , batchSize = Sub.defaultBatchSize
         , bufferSize = defaultStreamBufferSize
+        , retryPolicy = Sub.defaultRetryPolicy
+        , handlerStallWarnAfter = Nothing
         , queueCapacity = 16
         , consumerGroup = Nothing
         , missingCheckpointPolicy = FromBeginning
@@ -304,6 +319,12 @@ according to the subscription retry policy.
 guardKirokuHandler :: Handler es msg -> Handler es msg
 guardKirokuHandler = guardKirokuHandlerWith (const (AckRetry (RetryDelay 1)))
 
+{- | Recommended single-processor constructor. Like mkProcessor, defaults to
+unordered policy and serial concurrency, with the paced exception guard.
+-}
+kirokuProcessor :: Adapter es RecordedEvent -> Handler es RecordedEvent -> QueueProcessor es
+kirokuProcessor adapter handler = mkProcessor adapter (guardKirokuHandler handler)
+
 {- | Create a Shibuya 'Adapter' backed by a Kiroku subscription.
 
 The adapter:
@@ -326,7 +347,7 @@ kirokuAdapter ::
     KirokuStore ->
     KirokuAdapterConfig ->
     Eff es (Adapter es RecordedEvent)
-kirokuAdapter store KirokuAdapterConfig{subscriptionName = subName, subscriptionTarget = subTarget, batchSize = bs, bufferSize = buf, queueCapacity = qCap, consumerGroup = cg, missingCheckpointPolicy = checkpointPolicy, eventTypeFilter = etf, selector = sel} = do
+kirokuAdapter store KirokuAdapterConfig{subscriptionName = subName, subscriptionTarget = subTarget, batchSize = bs, bufferSize = buf, queueCapacity = qCap, retryPolicy = attempts, handlerStallWarnAfter = stallWarn, consumerGroup = cg, missingCheckpointPolicy = checkpointPolicy, eventTypeFilter = etf, selector = sel} = do
     -- Build from 'defaultSubscriptionConfig' and override only the non-default
     -- fields. Using the smart constructor (rather than a full record literal)
     -- means any future field added to 'SubscriptionConfigM' is inherited at its
@@ -335,6 +356,8 @@ kirokuAdapter store KirokuAdapterConfig{subscriptionName = subName, subscription
         subConfig =
             (defaultSubscriptionConfig subName subTarget (\_ -> pure Continue))
                 { Sub.batchSize = bs
+                , Sub.retryPolicy = attempts
+                , Sub.handlerStallWarnAfter = stallWarn
                 , Sub.queueCapacity = qCap
                 , Sub.consumerGroup = cg
                 , Sub.missingCheckpointPolicy = checkpointPolicy
@@ -397,6 +420,10 @@ data KirokuConsumerGroupConfig = KirokuConsumerGroupConfig
     -- ^ Events per database fetch during catch-up (per member).
     , bufferSize :: !StreamBufferSize
     -- ^ Per-member bridge 'TBQueue' capacity; must be at least 1.
+    , retryPolicy :: !Sub.RetryPolicy
+    -- ^ Total delivery attempts, default five; each AckRetry chooses its delay.
+    , handlerStallWarnAfter :: !(Maybe NominalDiffTime)
+    -- ^ Optional positive advisory warning interval, disabled by default.
     , queueCapacity :: !Natural
     {- ^ Per-member publisher-side capacity in batches. When this fills, Kiroku
     pauses and later resumes the member losslessly.
@@ -446,6 +473,8 @@ defaultConsumerGroupConfig name target n =
         , groupSize = n
         , batchSize = Sub.defaultBatchSize
         , bufferSize = defaultStreamBufferSize
+        , retryPolicy = Sub.defaultRetryPolicy
+        , handlerStallWarnAfter = Nothing
         , queueCapacity = 16
         , memberConcurrency = Serial
         , missingCheckpointPolicy = FromBeginning
@@ -494,7 +523,7 @@ kirokuConsumerGroupProcessors ::
     KirokuConsumerGroupConfig ->
     Handler es RecordedEvent ->
     Eff es (Either PolicyError [(ProcessorId, QueueProcessor es)])
-kirokuConsumerGroupProcessors store cfg@KirokuConsumerGroupConfig{subscriptionName = subName, subscriptionTarget = subTarget, groupSize = n, batchSize = bs, bufferSize = buf, queueCapacity = qCap, missingCheckpointPolicy = checkpointPolicy, eventTypeFilter = etf, selector = sel} handler =
+kirokuConsumerGroupProcessors store cfg@KirokuConsumerGroupConfig{subscriptionName = subName, subscriptionTarget = subTarget, groupSize = n, batchSize = bs, bufferSize = buf, queueCapacity = qCap, retryPolicy = attempts, handlerStallWarnAfter = stallWarn, missingCheckpointPolicy = checkpointPolicy, eventTypeFilter = etf, selector = sel} handler =
     kirokuConsumerGroupProcessorsWith mkMemberAdapter cfg handler
   where
     mkMemberAdapter m =
@@ -505,6 +534,8 @@ kirokuConsumerGroupProcessors store cfg@KirokuConsumerGroupConfig{subscriptionNa
                 , subscriptionTarget = subTarget
                 , batchSize = bs
                 , bufferSize = buf
+                , retryPolicy = attempts
+                , handlerStallWarnAfter = stallWarn
                 , queueCapacity = qCap
                 , consumerGroup = Just (either (error . show) Prelude.id (mkConsumerGroup m n))
                 , missingCheckpointPolicy = checkpointPolicy

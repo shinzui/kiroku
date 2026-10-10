@@ -54,6 +54,7 @@ module Kiroku.Store.Observability (
 import Control.Exception (SomeAsyncException, SomeException, asyncExceptionFromException, catch, throwIO)
 import Data.Foldable (for_)
 import Data.Int (Int32)
+import Data.Time (NominalDiffTime)
 import Data.Time.Clock (UTCTime)
 import Hasql.Pool (UsageError)
 import Kiroku.Store.HistoryRetention.Types (HistoryRetentionConflict, HistoryRetentionLeaseId, HistoryRetentionLeaseOwner, HistoryRetentionPruneResult)
@@ -107,6 +108,8 @@ data KirokuEvent
       KirokuEventPublisherLoopError !SomeException
     | -- | Typed hook failure at broadcast time; publisher still advances.
       KirokuEventPublisherDecodeFailed !GlobalPosition !EventId !DecodeFailure
+    | -- | One handler invocation remains pending after the configured interval.
+      KirokuEventSubscriptionHandlerStalled !SubscriptionName !GlobalPosition !EventId !NominalDiffTime !SubscriptionGroupContext
     | {- | A subscription's worker thread encountered a 'UsageError' in
       the database phase identified by 'SubscriptionDbPhase'. Checkpoint-load
       errors fail startup loudly, fetch-batch errors are retried at the same

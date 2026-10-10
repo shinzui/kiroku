@@ -8,7 +8,7 @@ generated:
 docId: ADR-8
 status: Accepted
 date: 2026-09-10
-timestamp: "2026-09-10T01:20:59Z"
+timestamp: "2026-10-10T00:38:59Z"
 originatingPlan: docs/masterplans/12-harden-the-kiroku-event-store-and-subscription-machinery-surfaced-by-the-2026-07-kiroku-review.md
 ---
 
@@ -44,7 +44,11 @@ ones the 1.0 review audits.
    a newtype whose constructor is not exported, built by a smart constructor that returns `Either`
    a typed error: `mkBatchSize`, `mkStreamBufferSize`, `mkConsumerGroupSize`, and
    `mkConsumerGroup`. The error types are values, not exceptions, and `subscribe` performs no
-   configuration checks because none is possible.
+   size/group configuration checks because none is possible. The later optional
+   `handlerStallWarnAfter :: Maybe NominalDiffTime` preserves its planned duration
+   surface: nonpositive intervals are refused at worker construction before checkpoint
+   initialization, through the shared startup-failure family. This narrow exception is
+   documented in [ADR-13](0013-handler-stall-diagnostics-are-worker-owned-and-advisory.md).
 
 2. **Startup behavior that depends on stored state is declared on the configuration as a policy.**
    `MissingCheckpointPolicy` is the precedent; `TargetBindingPolicy` follows it. A policy never
@@ -71,9 +75,9 @@ ones the 1.0 review audits.
 
 **Positive**
 
-- Invalid configurations cannot reach a worker, a registry, or a pool checkout; the structural
+- Invalid validated size/group values cannot reach a worker, a registry, or a pool checkout; the structural
   performance gate pins them as zero-checkout paths.
-- Callers see two clearly separated failure kinds: `Either` values at construction and one
+- Callers see `Either` values for validated size/group construction and one
   catchable exception family at startup.
 - No startup path moves a checkpoint or skips an event without a declared policy or an explicit
   consumer decision, which keeps ordering-sensitive read models sound.

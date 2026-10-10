@@ -99,6 +99,7 @@ handler`):
 | `queueCapacity :: Natural` | `16` | Maximum number of *batches* the publisher may enqueue for this subscriber before applying the overflow policy. Effective event capacity is `queueCapacity * publisherBatchSize`. |
 | `overflowPolicy :: OverflowPolicy` | `PauseAndResume` | What the publisher does when this subscriber's queue is full (see below). |
 | `targetBindingPolicy :: TargetBindingPolicy` | `AdoptUnbound` | Adopt uniformly unbound legacy rows once, or require an existing binding with `RequireBound`. A conflicting or mixed binding refuses startup. |
+| `handlerStallWarnAfter :: Maybe NominalDiffTime` | `Nothing` | Positive opt-in interval for advisory warnings about a pending ordinary handler call. |
 | `retryPolicy :: RetryPolicy` | `defaultRetryPolicy` (5 attempts) | Bounds how many times an event for which the handler returned `Retry` is redelivered before it is dead-lettered. Handlers that never return `Retry` are unaffected. |
 | `eventTypeFilter :: EventTypeFilter` | `AllEventTypes` | Restrict delivery to chosen event types. See [Event-Type Filtering](#event-type-filtering). |
 | `selector :: Maybe (RecordedEvent -> Bool)` | `Nothing` | Optional opaque per-event predicate, the escape hatch for filtering the type set cannot express (e.g. metadata). Composed with `eventTypeFilter` as a logical AND. See [Event-Type Filtering](#event-type-filtering). |
@@ -540,3 +541,28 @@ values each carrying a one-shot reply variable. This is the mechanism the
   delivery.
 - [Consumer Groups](consumer-groups.md) — horizontal scaling with
   hash-partitioned members, per-member checkpoints, and the resize procedure.
+
+## Handler Stall Diagnostics
+
+Set `handlerStallWarnAfter = Just 60` on a config built with
+`defaultSubscriptionConfig` to report ordinary handler calls pending for at least
+60 seconds. The store's `eventHandler` receives
+`KirokuEventSubscriptionHandlerStalled name position eventId elapsed groupContext`.
+Elapsed time is monotonic. The same worker boundary covers catch-up, live,
+category and consumer-group delivery, including a `subscriptionAckStream` call
+waiting for its acknowledgement. This does not time `undecodableHandler`.
+
+Warnings are advisory, at most once per configured interval, and never alter
+acknowledgements, retries, checkpoints or subscription state. A completed call
+clears tracking; cancellation and worker exit cancel and join the watchdog.
+Observer exceptions are dropped through the normal guarded event callback.
+`Just 0` and negative intervals fail before checkpoint initialization with
+`InvalidHandlerStallWarnAfter` through `SomeSubscriptionStartupFailure` on `wait`.
+
+`Nothing` selects the original handler at worker construction: no tracking cell,
+watchdog, timer, diagnostic clock reads or per-event tracking writes are added.
+An enabled worker owns one cell and one watchdog. The watchdog parks on STM while
+idle and reuses its active timer across quick handler calls; after a call ends,
+one existing timer can wake before it parks again. Enabled delivery adds a
+monotonic clock read and two tracking writes per call. Its runtime cost remains
+an explicit opt-in cost, with cumulative measurement reserved for release.

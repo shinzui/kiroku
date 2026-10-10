@@ -52,6 +52,7 @@ spec =
                         , missingCheckpointPolicy = FromBeginning
                         , targetBindingPolicy = AdoptUnbound
                         , undecodableHandler = Nothing
+                        , handlerStallWarnAfter = Nothing
                         , retryPolicy = defaultRetryPolicy
                         , eventTypeFilter = AllEventTypes
                         , selector = Nothing

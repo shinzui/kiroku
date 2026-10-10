@@ -627,6 +627,7 @@ runSubscriptionCatchup store runCounter = do
                 , missingCheckpointPolicy = FromBeginning
                 , targetBindingPolicy = AdoptUnbound
                 , undecodableHandler = Nothing
+                , handlerStallWarnAfter = Nothing
                 , retryPolicy = defaultRetryPolicy
                 , eventTypeFilter = AllEventTypes
                 , selector = Nothing

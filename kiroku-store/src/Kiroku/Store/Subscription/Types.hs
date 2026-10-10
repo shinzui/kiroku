@@ -40,6 +40,7 @@ module Kiroku.Store.Subscription.Types (
     OverflowPolicy (..),
     SubscriptionOverflowed (..),
     SubscriptionUndecodable (..),
+    InvalidHandlerStallWarnAfter (..),
     EventHandlerM,
     EventHandler,
     SubscriptionConfigM (..),
@@ -80,6 +81,7 @@ import Data.Int (Int32)
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
+import Data.Time (NominalDiffTime)
 import Data.Time.Clock (UTCTime)
 import Data.Typeable (cast)
 import Data.Vector (Vector)
@@ -358,6 +360,12 @@ data SubscriptionConfigM m = SubscriptionConfig
     retry at one-second spacing and then stop without skipping the event.
     A callback uses the ordinary Continue/Stop/Retry/DeadLetter vocabulary.
     -}
+    , handlerStallWarnAfter :: !(Maybe NominalDiffTime)
+    {- ^ Optional positive warning interval for a handler holding one event.
+    Default Nothing allocates no diagnostic cell, watchdog or timer and does
+    no diagnostic work per delivery. Warnings are advisory and never finalize
+    an acknowledgement or advance a checkpoint. Nonpositive values fail startup.
+    -}
     , batchSize :: !BatchSize
     -- ^ Number of events to fetch per batch during catch-up (default: 100)
     , queueCapacity :: !Natural
@@ -469,6 +477,7 @@ defaultSubscriptionConfig name' target' handler' =
         , target = target'
         , handler = handler'
         , undecodableHandler = Nothing
+        , handlerStallWarnAfter = Nothing
         , batchSize = defaultBatchSize
         , queueCapacity = 16
         , overflowPolicy = PauseAndResume
@@ -581,7 +590,17 @@ instance Exception ConsumerGroupGuardConflict where
         SomeSubscriptionStartupFailure refusal <- fromException exception
         cast refusal
 
--- | A catchable family of state-dependent startup refusals. Concrete catches work too.
+-- | A nonpositive handler-stall warning interval was configured.
+newtype InvalidHandlerStallWarnAfter = InvalidHandlerStallWarnAfter NominalDiffTime
+    deriving stock (Eq, Show)
+
+instance Exception InvalidHandlerStallWarnAfter where
+    toException = toException . SomeSubscriptionStartupFailure
+    fromException exception = do
+        SomeSubscriptionStartupFailure refusal <- fromException exception
+        cast refusal
+
+-- | A catchable family of subscription startup refusals. Concrete catches work too.
 data SomeSubscriptionStartupFailure = forall e. (Exception e) => SomeSubscriptionStartupFailure e
 
 instance Show SomeSubscriptionStartupFailure where

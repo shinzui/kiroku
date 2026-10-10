@@ -60,7 +60,7 @@ stall diagnostics are opt-in in the store and both adapter configs. Correctness 
 handling remain enabled; only advisory tracking is optional, under ADR-11.
 
 `shibuya-kiroku-adapter` is acknowledgement-coupled: after yielding one event, the Kiroku worker
-waits inside its handler call until Shibuya finalizes its `AckDecision`. Shibuya Core 0.9's
+waits inside its handler call until Shibuya finalizes its `AckDecision`. Shibuya Core's
 standard runner already catches a synchronous handler exception, substitutes
 `AckRetry (RetryDelay 0)`, and separately retries finalization, but raw consumers of
 `adapter.source` can still leave the acknowledgement pending forever, and a bare Kiroku subscriber
@@ -79,16 +79,40 @@ counts.
 
 ## Progress
 
-- [ ] Focused verification: pass correctness and existing ADR-5 checks; reserve cumulative append and real-adapter diagnostic cost comparison for EP6 under ADR-11. No new per-child benchmark queue.
-- [ ] Before implementation: select bounded real-acknowledgement and stall enabled/disabled correctness tests, and structural checks that the default has no clock reads, timers or per-event diagnostic writes.
-- [ ] M1: reproduce the resolved Shibuya Core exception/finalization behavior and the raw-source pending-ack case with bounded integration tests.
-- [ ] M2: export `kirokuProcessor` as the recommended guarded single-processor path and correct module/user documentation.
-- [ ] M2: add `handlerStallWarnAfter` to `SubscriptionConfigM` with a single-cell, parked watchdog in the store worker emitting `KirokuEventSubscriptionHandlerStalled`; forward the field from both adapter configs.
-- [ ] M3: expose and thread `retryPolicy` through single and consumer-group configs, adopt plan 82's validated size types on both configs, and prove default and custom delivery counts.
-- [ ] Run adapter and store suites plus existing ADR-5 checks; update living sections and perform ADR distillation.
+- [x] (2026-10-09) Focused verification: pass correctness and existing ADR-5 checks; reserve cumulative append and real-adapter diagnostic cost comparison for EP6 under ADR-11. No new per-child benchmark queue.
+- [x] (2026-10-09) Before implementation: select bounded real-acknowledgement and stall enabled/disabled correctness tests, and structural checks that the default has no clock reads, timers or per-event diagnostic writes.
+- [x] (2026-10-09) M1: reproduce the resolved Shibuya Core exception/finalization behavior and the raw-source pending-ack case with bounded integration tests.
+- [x] (2026-10-09) M2: export `kirokuProcessor` as the recommended guarded single-processor path and correct module/user documentation.
+- [x] (2026-10-09) M2: add `handlerStallWarnAfter` to `SubscriptionConfigM` with a single-cell, parked watchdog in the store worker emitting `KirokuEventSubscriptionHandlerStalled`; forward the field from both adapter configs.
+- [x] (2026-10-09) M3: expose and thread `retryPolicy` through single and consumer-group configs, adopt plan 82's validated size types on both configs, and prove default and custom delivery counts.
+- [x] (2026-10-09) Run adapter and store suites plus existing ADR-5 checks; 504 examples, 20 structural checks and 16 controlled workload cases pass; ADR-13 distills the contract.
 
 
 ## Surprises & Discoveries
+
+- Implementation (2026-10-09): Mori source confirms the resolved Shibuya 0.10 runner
+  uses zero-delay exception retry and separate finalization. `mkProcessor` defaults to
+  `Unordered`, `Serial`; the new helper preserves those defaults and applies the existing
+  one-second guard. Four real-store acknowledgement cases pass in 2.0347 seconds.
+- Enabled diagnostics reuse an active interval timer across fast completed/replaced calls.
+  Cancelling and recreating `registerDelay` on every cell change would leave abandoned
+  registrations per event. The watchdog owns one outstanding timer and parks after at
+  most one residual idle wakeup. No timer or tracking work exists in the disabled arm.
+- The adapter needs a direct `time` dependency for its public duration fields. Its existing
+  test/application/store bounds (`>=1.12 && <1.15`) are reused. Mori located the API;
+  authoritative Hackage metadata and upstream tags report newer 1.16.0.1, but no upgrade
+  or compatibility workaround is needed for the already resolved 1.14 API.
+- Two fixture assumptions failed and were corrected: the adapter dead-letter helper
+  read only member 0, so the size-2 test now reads both member keys; the native quick-first/
+  blocked-second test expected a per-event save, but ordinary progress is persisted at the
+  batch boundary. The blocked batch correctly retains checkpoint zero. Failure transcripts
+  are retained alongside verified outcomes; these are correctness fixture corrections,
+  not performance retries.
+- Final correctness (2026-10-09): 504 examples pass across all six workspace suites,
+  including 13 new store stall cases, seven adapter liveness/policy cases, and one
+  metrics JSON/Prometheus counter case. PostgreSQL on PATH is 18.6, GHC 9.12.4,
+  Cabal 3.16.1.0; all-component build passes. Strict ADR validation passes 13
+  concepts and capability validation passes 21.
 
 - Refresh audit (2026-10-09): source, tests, and changelogs confirm the remaining acceptance
   work is unimplemented; the dated Context audit distinguishes existing baseline from this plan.
@@ -102,6 +126,17 @@ counts.
 
 
 ## Decision Log
+
+- Decision (2026-10-09): preserve `Maybe NominalDiffTime`, reject nonpositive enabled
+  intervals before checkpoint initialization through `InvalidHandlerStallWarnAfter`
+  and `SomeSubscriptionStartupFailure`, and document the narrow ADR-8 exception in ADR-13.
+  Rationale: zero/negative intervals would permit a warning spin; the planned duration
+  API needs a defined refusal without introducing another public wrapper type.
+- Decision (2026-10-09): select a tracked ordinary handler once at worker construction;
+  use `mask`/`finally` for the cell and scoped `withAsync` cancellation/join for the watchdog.
+  Rationale: all delivery phases share the same boundary, while disabled diagnostics have
+  no per-event branch. Decode-error callbacks are outside this ordinary-handler boundary.
+  [ADR-13](../adr/0013-handler-stall-diagnostics-are-worker-owned-and-advisory.md) records the contract.
 
 - Decision (2026-10-09): required testing for this cohort uses PostgreSQL 18.
   The user explicitly removed PostgreSQL 17 testing; preserve already collected
@@ -117,7 +152,8 @@ counts.
 - Decision: Require direct controlled performance evidence for real-adapter acknowledgement and watchdog enabled/disabled workloads.
   Rationale: The 2026-10-09 audit found that the named overhead benchmark measures primarily
   catch-up and uses a synthetic adapter; it cannot establish the broader performance claims.
-  This applies ADR-5 without changing the planned public API.
+  This applies ADR-5 without changing the planned public API. The later user-approved scope
+  reserves this controlled comparison for EP6 rather than an additional per-child queue.
   Date: 2026-10-09
 
 - Decision: Preserve the structural acknowledgement wait and make its watchdog observability-only.
@@ -164,11 +200,34 @@ counts.
 
 ## Outcomes & Retrospective
 
-The 2026-10-09 documentation refresh confirmed that this child remains Not Started at
-`e6ea664`. The Context audit records current implementation evidence and reusable baseline work.
-No runtime or performance suite was rerun for this refresh; implementation acceptance remains
-open. The subsequent write-performance requirement is recorded in ADR-11 and the acceptance below;
-implementation and measured evidence remain outstanding.
+EP4 is Complete. The ordinary handler watchdog is store-owned, scoped and opt-in;
+`Nothing` selects the original handler without per-event diagnostic work. Enabled
+warnings identify the pending invocation and preserve acknowledgements, checkpoints
+and state. Completion, exception and cancellation clear tracking and end the watchdog.
+The single helper preserves Shibuya defaults with one-second guarded retries; both
+adapter configs forward total attempt limits and warning intervals to every member.
+
+All 504 workspace examples pass: 373 store, 45 adapter, 23 metrics, 17 OpenTelemetry,
+24 migration and 22 CLI. The all-component build passes. Existing `just perf-check`
+passes 20 structural checks and 16 controlled workload cases (116.73 seconds for the
+workload gate). Strict ADR validation passes 13 concepts; capabilities pass 21.
+PostgreSQL is 18.6, GHC 9.12.4, Cabal 3.16.1.0, aarch64 macOS, Cabal O1.
+Retained evidence is in
+`kiroku-store/bench/results/ep4-acknowledgement-liveness/README.md`.
+
+Two initial fixture assertions failed and were corrected without changing production
+behavior: group dead-letter reads require both member keys, and normal native progress
+saves at the batch boundary. Failure logs are retained. The existing category-append
+control remains noisy (44.4 ± 48 ms), so favorable controlled ratios do not establish
+cohort performance neutrality. No new remote experiment or per-child benchmark queue
+ran. Cumulative default and opt-in costs remain EP6 concerns under ADR-11, with the
+original-control policy, adverse samples and uncertainty preserved. No release occurred.
+
+ADR-13 records worker ownership, timer reuse and consumer finalization; ADR-8 now
+explicitly documents nonpositive raw-duration refusal as its narrow configuration
+exception. The config and event/counter additions are source-breaking and belong in
+EP6's version selection. Timer reuse avoids an abandoned registration per quick event;
+one existing timer can wake after completion before the enabled watchdog parks.
 
 
 ## Context and Orientation
@@ -188,7 +247,7 @@ The checked-in adapter now requires `shibuya-core >=0.10 && <0.11`; the historic
 still substitutes `AckRetry (RetryDelay 0)` after a synchronous handler exception and calls
 `finalizeWithRetry` separately. Recheck the resolved source at implementation time.
 
-The final adapter API hard-depends on plans 81 and 82 for validated group/batch/buffer types;
+The final adapter API consumed completed plans 81 and 82 for validated group/batch/buffer types;
 acknowledgement characterization can be prepared earlier. The independent lifetime-guard field
 belongs to [plan 92](92-expose-the-lifetime-member-guard-in-the-shibuya-adapter.md), implementing
 IR-17 after plan 93 implements IR-15. Preserve those fields if they land first.
@@ -224,9 +283,7 @@ guard.
 
 `Kiroku.Store.Subscription.Types.RetryPolicy` counts total deliveries before dead-lettering.
 `AckRetry (RetryDelay d)` chooses the delay before the next attempt; the two settings are
-orthogonal. No current Kiroku ADR covers this adapter boundary. Create one only if implementation
-introduces a durable cross-package contract beyond the documented configuration and warning
-behavior.
+orthogonal. ADR-13 now records this adapter boundary, shared worker ownership, and enabled timer behavior.
 
 [ADR-5](../adr/0005-three-tier-performance-regression-gates.md) makes `just perf-check`
 authoritative for performance evidence, and the `kiroku-shibuya-overhead` benchmark in
@@ -261,14 +318,14 @@ Add `handlerStallWarnAfter :: Maybe NominalDiffTime` to `SubscriptionConfigM` in
 `kiroku-store/src/Kiroku/Store/Subscription/Types.hs`, defaulting to `Nothing` (disabled) in
 `defaultSubscriptionConfig`. In `Worker.hs`, give each worker with diagnostics enabled one
 `TVar (Maybe StalledDelivery)`
-holding the event position and id and a monotonic start time. `processEvents` writes the cell
-immediately before `handler config event` and clears it immediately after, in the same code path
+holding the event position and id and a monotonic start time. The selected handler wrapper writes the cell
+immediately before the ordinary handler and clears it in `finally`, in the same code path
 for every target and both phases. Start one watchdog thread per enabled worker alongside the existing
 worker body so cancellation covers it; it blocks on the cell with STM `retry` while empty, then
-waits the threshold with `registerDelay`, and if the same delivery is still pending emits
+waits with `registerDelay`, reuses its timer across quick calls, and if the current delivery has reached the threshold emits
 `KirokuEventSubscriptionHandlerStalled` through the worker's event handler with the elapsed time,
 at most once per threshold interval. It never finalizes, never touches the checkpoint, and never
-polls on a fixed interval. When the setting is `Nothing`, allocate no tracking cell, start no thread or timer, and perform
+polls while idle. When the setting is `Nothing`, allocate no tracking cell, start no thread or timer, and perform
 no per-delivery clock read or tracking STM write. Select the ordinary handler path at worker
 construction so disabled diagnostics add no per-event tracking work.
 
@@ -299,10 +356,9 @@ one-second path only for the exception test.
 
 ## Concrete Steps
 
-Own the real-adapter mixed-write arm in the adapter package, using actual acknowledgement
-finalization. Default diagnostics to `Nothing`; verify structurally that this path creates no
-tracking cell, watchdog, timer, per-delivery clock read, or tracking STM write. Compare the default
-with the original control and measure `Just 60` separately as opt-in. Record its cost without
+Select bounded real-adapter acknowledgement tests, using actual finalization. Default diagnostics to `Nothing`; verify structurally that this path creates no
+tracking cell, watchdog, timer, per-delivery clock read, or tracking STM write. EP6 compares the default
+with the original control and measures enabled diagnostics separately as opt-in. Record its cost without
 charging it to default callers or weakening acknowledgement/checkpoint semantics.
 
 Complete plans 81 and 82 before landing the final adapter API. Define the direct production-adapter
@@ -315,7 +371,10 @@ Run from the Kiroku repository root:
 cabal build shibuya-kiroku-adapter
 cabal test shibuya-kiroku-adapter-test \
   --test-show-details=direct \
-  --test-options='--match "acknowledgement liveness|retry policy"'
+  --test-options='--match "acknowledgement liveness"'
+cabal test shibuya-kiroku-adapter-test \
+  --test-show-details=direct \
+  --test-options='--match "retry policy"'
 cabal test kiroku-store:kiroku-store-test \
   --test-show-details=direct \
   --test-options='--match "handler stall"'
@@ -378,8 +437,7 @@ emissions.
 Changing `retryMaxAttempts` to two must yield exactly two deliveries and then one dead-letter row
 on both the single and group paths. Defaults remain five. Full adapter and relevant store suites
 must pass, and user documentation must explain raw-source responsibility, stall-event semantics,
-and the difference between attempt policy and delay. Both layers of `kiroku-shibuya-overhead`
-must show no corroborated slowdown against the pre-change run.
+and the difference between attempt policy and delay. Existing ADR-5 checks must pass; cumulative real-adapter/opt-in costs remain EP6 work.
 
 
 ## Idempotence and Recovery
@@ -420,7 +478,9 @@ KirokuEventSubscriptionHandlerStalled
     -> KirokuEvent
 ```
 
-Use `GHC.Clock.getMonotonicTime` from `base` for the start time; do not introduce wall-clock
+`InvalidHandlerStallWarnAfter` joins the existing startup-failure family for nonpositive intervals.
+
+Use `GHC.Clock.getMonotonicTimeNSec` from `base` for the start time; do not introduce wall-clock
 ordering into tests. The Shibuya API source of truth is
 `mori://shinzui/shibuya/packages/shibuya-core`. Plan 83 adds its own observability constructor and a
 `StopUndecodable` stop reason; `RetryPolicy` is unchanged and is forwarded as is, and both
@@ -428,7 +488,7 @@ observability constructors must survive exhaustive matches. Plan 82 replaces `In
 and `Natural` buffer sizes with validated `BatchSize` and `StreamBufferSize`, and plan 81 replaces
 the `ConsumerGroup` constructor with `mkConsumerGroup`; both adapter configs adopt those types and
 the group factory builds members through the constructor. Plans 82 and 83 also edit `Worker.hs`;
-keep the stall cell writes confined to the two lines around the handler call.
+keep the stall cell writes in the selected handler wrapper around the ordinary call.
 
 Revision note (2026-09-09): Performance review under ADR-5. Fixed the pending-ack record to one
 cell per adapter cleared in the finalizer's existing STM transaction with a parked, non-polling
@@ -456,3 +516,12 @@ acceptance, with per-child ownership and evidence requirements. The user explici
 write performance. Implementation and benchmark gates remain open.
 
 Revision note (2026-10-09): Cascade user-approved focused implementation assurance and EP6 cumulative performance ownership from the MasterPlan; remove obsolete mandatory per-child benchmark matrices.
+
+Revision note (2026-10-09, EP4 implementation): real acknowledgement characterization and
+store diagnostics are implemented. Reuse a timer across short invocations, preserve Shibuya's
+resolved defaults, and define nonpositive-duration refusal through the common exception family.
+Correctness and local ADR-5 verification pass; cumulative timing remains EP6 work.
+
+Revision note (2026-10-09, EP4 completion): all milestones and focused local acceptance pass;
+retain full workspace and existing gate evidence, document fixture corrections and measurement
+limits, and mark the child Complete. Cumulative timing and publication remain EP6 work.

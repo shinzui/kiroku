@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+* **Breaking:** subscription configs add `handlerStallWarnAfter`, disabled by
+  default. A positive `Just seconds` enables a scoped handler watchdog and the
+  advisory `KirokuEventSubscriptionHandlerStalled` event. Nonpositive intervals
+  fail through `InvalidHandlerStallWarnAfter` under `SomeSubscriptionStartupFailure`
+  on `wait`, before checkpoint initialization. Diagnostics never acknowledge,
+  retry or checkpoint a pending event; the default path adds no tracking work.
+
 * **Breaking:** `decodeHook` now returns `Either DecodeFailure RecordedEvent` in
   IO. Return `Right` for existing successful hooks. `decodeEvents` now returns
   `DecodedBatch`, with an unchanged-vector fast path when no hook is installed.

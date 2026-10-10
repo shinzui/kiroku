@@ -67,6 +67,7 @@ data LifecycleCounters = LifecycleCounters
     , publisherPoolErrors :: !Int64
     , publisherLoopErrors :: !Int64
     , publisherDecodeFailures :: !Int64
+    , subscriptionHandlerStalls :: !Int64
     , subscriptionDbErrorsLoad :: !Int64
     , subscriptionDbErrorsFetch :: !Int64
     , subscriptionDbErrorsSave :: !Int64
@@ -132,6 +133,7 @@ instance ToJSON LifecycleCounters where
             , "publisher_pool_errors" .= c.publisherPoolErrors
             , "publisher_loop_errors" .= c.publisherLoopErrors
             , "publisher_decode_failures" .= c.publisherDecodeFailures
+            , "subscription_handler_stalls" .= c.subscriptionHandlerStalls
             , "subscription_db_errors_load" .= c.subscriptionDbErrorsLoad
             , "subscription_db_errors_fetch" .= c.subscriptionDbErrorsFetch
             , "subscription_db_errors_save" .= c.subscriptionDbErrorsSave
