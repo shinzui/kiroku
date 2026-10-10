@@ -1,0 +1,276 @@
+{
+  "cases": {
+    "existing-category-browse": {
+      "artifact_verified_trials": 10,
+      "benchmark_grade_trials": 10,
+      "diagnostics": {
+        "baseline": {
+          "trials": 5,
+          "events": 238832,
+          "stream_inserts": 0,
+          "stream_updates": 477664,
+          "stream_hot_updates": 475206,
+          "hot_fraction": 0.9948541234005494,
+          "new_page_updates": 2458,
+          "wal_bytes_per_event": 1988.8472901453742,
+          "append_statement_wal_bytes_per_call": 1664.272191331145,
+          "initial_stream_index_bytes": [
+            4538368,
+            4538368,
+            4538368,
+            4538368,
+            4538368
+          ],
+          "initial_indexes": [
+            {
+              "bytes": 286720,
+              "definition": "CREATE INDEX ix_streams_category ON kiroku.streams USING btree (category)",
+              "name": "ix_streams_category"
+            },
+            {
+              "bytes": 3334144,
+              "definition": "CREATE UNIQUE INDEX ix_streams_stream_name ON kiroku.streams USING btree (stream_name)",
+              "name": "ix_streams_stream_name"
+            },
+            {
+              "bytes": 917504,
+              "definition": "CREATE UNIQUE INDEX streams_pkey ON kiroku.streams USING btree (stream_id)",
+              "name": "streams_pkey"
+            }
+          ],
+          "durably_drained": true,
+          "exact_delivery": true
+        },
+        "candidate": {
+          "trials": 5,
+          "events": 237677,
+          "stream_inserts": 0,
+          "stream_updates": 475354,
+          "stream_hot_updates": 472889,
+          "hot_fraction": 0.9948143909591589,
+          "new_page_updates": 2465,
+          "wal_bytes_per_event": 2007.923560125717,
+          "append_statement_wal_bytes_per_call": 1677.9938109282766,
+          "initial_stream_index_bytes": [
+            8126464,
+            8126464,
+            8126464,
+            8126464,
+            8126464
+          ],
+          "initial_indexes": [
+            {
+              "bytes": 3874816,
+              "definition": "CREATE INDEX ix_streams_category_name ON kiroku.streams USING btree (category, stream_name)",
+              "name": "ix_streams_category_name"
+            },
+            {
+              "bytes": 3334144,
+              "definition": "CREATE UNIQUE INDEX ix_streams_stream_name ON kiroku.streams USING btree (stream_name)",
+              "name": "ix_streams_stream_name"
+            },
+            {
+              "bytes": 917504,
+              "definition": "CREATE UNIQUE INDEX streams_pkey ON kiroku.streams USING btree (stream_id)",
+              "name": "streams_pkey"
+            }
+          ],
+          "durably_drained": true,
+          "exact_delivery": true
+        }
+      },
+      "verdict": "inconclusive",
+      "pairs": 5,
+      "reasons": [],
+      "metrics": {
+        "op.append.latency.p50": {
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": 0.46212855597185243,
+            "low": -1.2603252969706769,
+            "high": 2.2146295736882315
+          },
+          "baseline_values": [
+            5038079,
+            4931583,
+            4997119,
+            5091327,
+            4984831
+          ],
+          "candidate_values": [
+            5025791,
+            5029887,
+            5083135,
+            5021695,
+            4997119
+          ]
+        },
+        "op.append.latency.p95": {
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": -0.146525387256502,
+            "low": -1.2250296132339633,
+            "high": 0.9437548115296401
+          },
+          "baseline_values": [
+            5586943,
+            5505023,
+            5533695,
+            5652479,
+            5521407
+          ],
+          "candidate_values": [
+            5509119,
+            5529599,
+            5582847,
+            5631999,
+            5505023
+          ]
+        },
+        "op.append.latency.p99": {
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": -0.013441892279963952,
+            "low": -2.192310884562121,
+            "high": 2.2139659227518482
+          },
+          "baseline_values": [
+            6017023,
+            5951487,
+            5984255,
+            6266879,
+            5955583
+          ],
+          "candidate_values": [
+            5980159,
+            5959679,
+            6107135,
+            6103039,
+            6017023
+          ]
+        },
+        "op.append.throughput": {
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": -0.46594277204793366,
+            "low": -1.821203857179965,
+            "high": 0.9080263506750619
+          },
+          "baseline_values": [
+            775.8481151306671,
+            794.7583793027675,
+            782.8088789964531,
+            773.2047307591995,
+            787.5694500380562
+          ],
+          "candidate_values": [
+            782.9980719650304,
+            780.033508930855,
+            772.8978906224536,
+            772.686066409321,
+            787.2457283429754
+          ]
+        }
+      },
+      "browse_diagnostics": {
+        "baseline": {
+          "first": {
+            "samples": 310,
+            "p50_ns": 4411156.5,
+            "p95_ns": 5033480,
+            "mean_ns": 4524520.222580645
+          },
+          "late": {
+            "samples": 310,
+            "p50_ns": 368987.5,
+            "p95_ns": 542258,
+            "mean_ns": 376430.56129032257
+          },
+          "absent": {
+            "samples": 305,
+            "p50_ns": 7986784,
+            "p95_ns": 9465706,
+            "mean_ns": 6168650.767213115
+          },
+          "pooled": {
+            "samples": 925,
+            "p50_ns": 4185512,
+            "p95_ns": 8851100,
+            "mean_ns": 3676468.3535135137
+          }
+        },
+        "candidate": {
+          "first": {
+            "samples": 310,
+            "p50_ns": 270256.0,
+            "p95_ns": 408727,
+            "mean_ns": 291816.42903225805
+          },
+          "late": {
+            "samples": 310,
+            "p50_ns": 388557.5,
+            "p95_ns": 568601,
+            "mean_ns": 429225.5806451613
+          },
+          "absent": {
+            "samples": 310,
+            "p50_ns": 231229.0,
+            "p95_ns": 356176,
+            "mean_ns": 244036.15161290322
+          },
+          "pooled": {
+            "samples": 930,
+            "p50_ns": 282673.0,
+            "p95_ns": 491720,
+            "mean_ns": 321692.72043010755
+          }
+        }
+      },
+      "costEstimates": {
+        "purpose": "cost estimation; distinct from the unchanged zero-slowdown policy verdict",
+        "confidenceLevel": 0.95,
+        "pairs": 5,
+        "policyVerdict": "inconclusive",
+        "metrics": {
+          "op.append.latency.p50": {
+            "candidateChangePercent": 0.46212855597185243,
+            "confidenceIntervalPercent": [
+              -1.2603252969706769,
+              2.2146295736882315
+            ],
+            "upperSlowdownBoundPercent": 2.2146295736882315
+          },
+          "op.append.latency.p95": {
+            "candidateChangePercent": -0.146525387256502,
+            "confidenceIntervalPercent": [
+              -1.2250296132339633,
+              0.9437548115296401
+            ],
+            "upperSlowdownBoundPercent": 0.9437548115296401
+          },
+          "op.append.latency.p99": {
+            "candidateChangePercent": -0.013441892279963952,
+            "confidenceIntervalPercent": [
+              -2.192310884562121,
+              2.2139659227518482
+            ],
+            "upperSlowdownBoundPercent": 2.2139659227518482
+          },
+          "op.append.throughput": {
+            "candidateChangePercent": -0.46594277204793366,
+            "confidenceIntervalPercent": [
+              -1.821203857179965,
+              0.9080263506750619
+            ],
+            "upperSlowdownBoundPercent": 1.821203857179965
+          }
+        }
+      }
+    }
+  },
+  "budget": {
+    "started_epoch": 1791672076.549618,
+    "budget_seconds": 3600,
+    "start_scope": "Corrected Linux payload build, publication, proof, five observer pairs, verification and cleanup; separate user-authorized experiment, prior budget/evidence preserved"
+  }
+}

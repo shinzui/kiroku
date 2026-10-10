@@ -1,0 +1,466 @@
+[
+  {
+    "canIpForward": false,
+    "cpuPlatform": "Unknown CPU Platform",
+    "creationTimestamp": "2026-10-03T06:55:30.636-07:00",
+    "deletionProtection": false,
+    "disks": [
+      {
+        "autoDelete": true,
+        "boot": true,
+        "deviceName": "persistent-disk-0",
+        "diskSizeGb": "100",
+        "index": 0,
+        "interface": "SCSI",
+        "kind": "compute#attachedDisk",
+        "mode": "READ_WRITE",
+        "source": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/disks/cell-alpha-broker",
+        "type": "PERSISTENT"
+      }
+    ],
+    "fingerprint": "fq-QdA91HeM=",
+    "id": "6197277046787061694",
+    "kind": "compute#instance",
+    "labelFingerprint": "CIdOrX_k4sU=",
+    "labels": {
+      "goog-pulumi-provisioned": "true",
+      "lti-cell": "alpha",
+      "lti-lane": "cell",
+      "lti-managed-by": "pulumi",
+      "lti-owner": "nadeem",
+      "lti-role": "broker"
+    },
+    "lastStartTimestamp": "2026-10-10T15:45:59.177-07:00",
+    "lastStopTimestamp": "2026-10-10T16:11:45.380-07:00",
+    "machineType": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/machineTypes/n2-standard-4",
+    "metadata": {
+      "fingerprint": "JaEO9dlyDgk=",
+      "items": [
+        {
+          "key": "cell-control-bucket",
+          "value": "tan-nb-exp-cells-control"
+        },
+        {
+          "key": "cell-image",
+          "value": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/global/images/cell-image-broker-5r6zs0ly52rc"
+        },
+        {
+          "key": "cell-name",
+          "value": "alpha"
+        },
+        {
+          "key": "cell-peers",
+          "value": "{\"postgres\":\"10.0.0.2\",\"drivers\":[\"10.0.0.3\"],\"monitoring\":\"10.0.0.4\",\"broker\":\"10.0.0.5\"}"
+        },
+        {
+          "key": "cell-results-bucket",
+          "value": "tan-nb-exp-cells-results"
+        },
+        {
+          "key": "cell-role",
+          "value": "broker"
+        },
+        {
+          "key": "enable-oslogin",
+          "value": "TRUE"
+        }
+      ],
+      "kind": "compute#metadata"
+    },
+    "name": "cell-alpha-broker",
+    "networkInterfaces": [
+      {
+        "fingerprint": "jhW0iwfBPTk=",
+        "kind": "compute#networkInterface",
+        "name": "nic0",
+        "network": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/global/networks/cell-alpha-net",
+        "networkIP": "10.0.0.5",
+        "stackType": "IPV4_ONLY",
+        "subnetwork": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/regions/us-west1/subnetworks/cell-alpha-subnet"
+      }
+    ],
+    "resourceStatus": {
+      "effectiveInstanceMetadata": {
+        "enableOsloginMetadataValue": true,
+        "vmDnsSettingMetadataValue": "GlobalDefault"
+      }
+    },
+    "satisfiesPzi": true,
+    "scheduling": {
+      "automaticRestart": true,
+      "onHostMaintenance": "MIGRATE",
+      "preemptible": false,
+      "provisioningModel": "STANDARD"
+    },
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-broker",
+    "serviceAccounts": [
+      {
+        "email": "cell-agent@tan-nb-exp.iam.gserviceaccount.com",
+        "scopes": [
+          "https://www.googleapis.com/auth/devstorage.read_write"
+        ]
+      }
+    ],
+    "startRestricted": false,
+    "status": "TERMINATED",
+    "tags": {
+      "fingerprint": "42WmSpB8rSM="
+    },
+    "zone": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a"
+  },
+  {
+    "canIpForward": false,
+    "cpuPlatform": "Unknown CPU Platform",
+    "creationTimestamp": "2026-10-03T06:55:42.892-07:00",
+    "deletionProtection": false,
+    "disks": [
+      {
+        "autoDelete": true,
+        "boot": true,
+        "deviceName": "persistent-disk-0",
+        "diskSizeGb": "100",
+        "index": 0,
+        "interface": "SCSI",
+        "kind": "compute#attachedDisk",
+        "mode": "READ_WRITE",
+        "source": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/disks/cell-alpha-driver-0",
+        "type": "PERSISTENT"
+      }
+    ],
+    "fingerprint": "DrVPk-hN2sI=",
+    "id": "437429859345282993",
+    "kind": "compute#instance",
+    "labelFingerprint": "A0sCsrD-bYA=",
+    "labels": {
+      "goog-pulumi-provisioned": "true",
+      "lti-cell": "alpha",
+      "lti-lane": "cell",
+      "lti-managed-by": "pulumi",
+      "lti-owner": "nadeem",
+      "lti-role": "driver"
+    },
+    "lastStartTimestamp": "2026-10-10T15:45:59.939-07:00",
+    "lastStopTimestamp": "2026-10-10T16:11:45.379-07:00",
+    "machineType": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/machineTypes/n2-standard-8",
+    "metadata": {
+      "fingerprint": "FNztsNHALL4=",
+      "items": [
+        {
+          "key": "cell-control-bucket",
+          "value": "tan-nb-exp-cells-control"
+        },
+        {
+          "key": "cell-driver-count",
+          "value": "1"
+        },
+        {
+          "key": "cell-driver-index",
+          "value": "0"
+        },
+        {
+          "key": "cell-image",
+          "value": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/global/images/cell-image-driver-93hma4y1rg7z"
+        },
+        {
+          "key": "cell-name",
+          "value": "alpha"
+        },
+        {
+          "key": "cell-peers",
+          "value": "{\"postgres\":\"10.0.0.2\",\"drivers\":[\"10.0.0.3\"],\"monitoring\":\"10.0.0.4\",\"broker\":\"10.0.0.5\"}"
+        },
+        {
+          "key": "cell-results-bucket",
+          "value": "tan-nb-exp-cells-results"
+        },
+        {
+          "key": "cell-role",
+          "value": "driver"
+        },
+        {
+          "key": "enable-oslogin",
+          "value": "TRUE"
+        }
+      ],
+      "kind": "compute#metadata"
+    },
+    "name": "cell-alpha-driver-0",
+    "networkInterfaces": [
+      {
+        "fingerprint": "fOlXJgBDKaM=",
+        "kind": "compute#networkInterface",
+        "name": "nic0",
+        "network": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/global/networks/cell-alpha-net",
+        "networkIP": "10.0.0.3",
+        "stackType": "IPV4_ONLY",
+        "subnetwork": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/regions/us-west1/subnetworks/cell-alpha-subnet"
+      }
+    ],
+    "resourceStatus": {
+      "effectiveInstanceMetadata": {
+        "enableOsloginMetadataValue": true,
+        "vmDnsSettingMetadataValue": "GlobalDefault"
+      }
+    },
+    "satisfiesPzi": true,
+    "scheduling": {
+      "automaticRestart": true,
+      "onHostMaintenance": "MIGRATE",
+      "preemptible": false,
+      "provisioningModel": "STANDARD"
+    },
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-driver-0",
+    "serviceAccounts": [
+      {
+        "email": "cell-agent@tan-nb-exp.iam.gserviceaccount.com",
+        "scopes": [
+          "https://www.googleapis.com/auth/devstorage.read_write"
+        ]
+      }
+    ],
+    "startRestricted": false,
+    "status": "TERMINATED",
+    "tags": {
+      "fingerprint": "42WmSpB8rSM="
+    },
+    "zone": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a"
+  },
+  {
+    "canIpForward": false,
+    "cpuPlatform": "Unknown CPU Platform",
+    "creationTimestamp": "2026-10-03T07:48:29.589-07:00",
+    "deletionProtection": false,
+    "disks": [
+      {
+        "autoDelete": true,
+        "boot": true,
+        "deviceName": "persistent-disk-0",
+        "diskSizeGb": "20",
+        "index": 0,
+        "interface": "SCSI",
+        "kind": "compute#attachedDisk",
+        "mode": "READ_WRITE",
+        "source": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/disks/cell-alpha-monitoring",
+        "type": "PERSISTENT"
+      }
+    ],
+    "fingerprint": "gPlRV_n_vXY=",
+    "id": "8625705565159205715",
+    "kind": "compute#instance",
+    "labelFingerprint": "n9nqipoUwJ4=",
+    "labels": {
+      "goog-pulumi-provisioned": "true",
+      "lti-cell": "alpha",
+      "lti-lane": "cell",
+      "lti-managed-by": "pulumi",
+      "lti-owner": "nadeem",
+      "lti-role": "monitoring"
+    },
+    "lastStartTimestamp": "2026-10-10T15:45:58.297-07:00",
+    "lastStopTimestamp": "2026-10-10T16:11:44.654-07:00",
+    "machineType": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/machineTypes/n2-standard-4",
+    "metadata": {
+      "fingerprint": "w4s6F3QtyuQ=",
+      "items": [
+        {
+          "key": "cell-control-bucket",
+          "value": "tan-nb-exp-cells-control"
+        },
+        {
+          "key": "cell-image",
+          "value": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/global/images/cell-image-monitoring-i48ghmb62lbm"
+        },
+        {
+          "key": "cell-name",
+          "value": "alpha"
+        },
+        {
+          "key": "cell-peers",
+          "value": "{\"postgres\":\"10.0.0.2\",\"drivers\":[\"10.0.0.3\"],\"monitoring\":\"10.0.0.4\",\"broker\":\"10.0.0.5\"}"
+        },
+        {
+          "key": "cell-results-bucket",
+          "value": "tan-nb-exp-cells-results"
+        },
+        {
+          "key": "cell-role",
+          "value": "monitoring"
+        },
+        {
+          "key": "enable-oslogin",
+          "value": "TRUE"
+        },
+        {
+          "key": "grafana-admin-password",
+          "value": "34291340b017d91b149aba81a5644488f3db99887ca9a673"
+        },
+        {
+          "key": "victoriametrics-targets",
+          "value": "[\"postgres:10.0.0.2:9100\",\"postgres:10.0.0.2:9187\",\"collector:10.0.0.4:8888\",\"driver:10.0.0.3:9100\",\"broker:10.0.0.5:9100\",\"broker:10.0.0.5:9644\"]"
+        }
+      ],
+      "kind": "compute#metadata"
+    },
+    "name": "cell-alpha-monitoring",
+    "networkInterfaces": [
+      {
+        "fingerprint": "S-UKK9rAVkY=",
+        "kind": "compute#networkInterface",
+        "name": "nic0",
+        "network": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/global/networks/cell-alpha-net",
+        "networkIP": "10.0.0.4",
+        "stackType": "IPV4_ONLY",
+        "subnetwork": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/regions/us-west1/subnetworks/cell-alpha-subnet"
+      }
+    ],
+    "resourceStatus": {
+      "effectiveInstanceMetadata": {
+        "enableOsloginMetadataValue": true,
+        "vmDnsSettingMetadataValue": "GlobalDefault"
+      }
+    },
+    "satisfiesPzi": true,
+    "scheduling": {
+      "automaticRestart": true,
+      "onHostMaintenance": "MIGRATE",
+      "preemptible": false,
+      "provisioningModel": "STANDARD"
+    },
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-monitoring",
+    "serviceAccounts": [
+      {
+        "email": "cell-agent@tan-nb-exp.iam.gserviceaccount.com",
+        "scopes": [
+          "https://www.googleapis.com/auth/devstorage.read_write"
+        ]
+      }
+    ],
+    "startRestricted": false,
+    "status": "TERMINATED",
+    "tags": {
+      "fingerprint": "42WmSpB8rSM="
+    },
+    "zone": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a"
+  },
+  {
+    "canIpForward": false,
+    "cpuPlatform": "Unknown CPU Platform",
+    "creationTimestamp": "2026-10-03T07:48:28.637-07:00",
+    "deletionProtection": false,
+    "disks": [
+      {
+        "autoDelete": true,
+        "boot": true,
+        "deviceName": "persistent-disk-0",
+        "diskSizeGb": "5",
+        "index": 0,
+        "interface": "SCSI",
+        "kind": "compute#attachedDisk",
+        "mode": "READ_WRITE",
+        "source": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/disks/cell-alpha-postgres",
+        "type": "PERSISTENT"
+      },
+      {
+        "autoDelete": false,
+        "boot": false,
+        "deviceName": "postgres-data",
+        "diskSizeGb": "200",
+        "index": 1,
+        "interface": "SCSI",
+        "kind": "compute#attachedDisk",
+        "mode": "READ_WRITE",
+        "source": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/disks/cell-alpha-postgres-data",
+        "type": "PERSISTENT"
+      }
+    ],
+    "fingerprint": "gQPWqyI_zyk=",
+    "id": "4844517418341280596",
+    "kind": "compute#instance",
+    "labelFingerprint": "UzugTJku8vU=",
+    "labels": {
+      "goog-pulumi-provisioned": "true",
+      "lti-cell": "alpha",
+      "lti-lane": "cell",
+      "lti-managed-by": "pulumi",
+      "lti-owner": "nadeem",
+      "lti-role": "postgres"
+    },
+    "lastStartTimestamp": "2026-10-10T15:45:58.351-07:00",
+    "lastStopTimestamp": "2026-10-10T16:11:44.828-07:00",
+    "machineType": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/machineTypes/n2-standard-8",
+    "metadata": {
+      "fingerprint": "P0o7pyBL6x0=",
+      "items": [
+        {
+          "key": "cell-control-bucket",
+          "value": "tan-nb-exp-cells-control"
+        },
+        {
+          "key": "cell-image",
+          "value": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/global/images/cell-image-postgres18-50swxf7hr6zw"
+        },
+        {
+          "key": "cell-name",
+          "value": "alpha"
+        },
+        {
+          "key": "cell-peers",
+          "value": "{\"postgres\":\"10.0.0.2\",\"drivers\":[\"10.0.0.3\"],\"monitoring\":\"10.0.0.4\",\"broker\":\"10.0.0.5\"}"
+        },
+        {
+          "key": "cell-results-bucket",
+          "value": "tan-nb-exp-cells-results"
+        },
+        {
+          "key": "cell-role",
+          "value": "postgres"
+        },
+        {
+          "key": "enable-oslogin",
+          "value": "TRUE"
+        }
+      ],
+      "kind": "compute#metadata"
+    },
+    "name": "cell-alpha-postgres",
+    "networkInterfaces": [
+      {
+        "fingerprint": "DjV5SzH4VZc=",
+        "kind": "compute#networkInterface",
+        "name": "nic0",
+        "network": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/global/networks/cell-alpha-net",
+        "networkIP": "10.0.0.2",
+        "stackType": "IPV4_ONLY",
+        "subnetwork": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/regions/us-west1/subnetworks/cell-alpha-subnet"
+      }
+    ],
+    "resourceStatus": {
+      "effectiveInstanceMetadata": {
+        "enableOsloginMetadataValue": true,
+        "vmDnsSettingMetadataValue": "GlobalDefault"
+      }
+    },
+    "satisfiesPzi": true,
+    "scheduling": {
+      "automaticRestart": true,
+      "onHostMaintenance": "MIGRATE",
+      "preemptible": false,
+      "provisioningModel": "STANDARD"
+    },
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-postgres",
+    "serviceAccounts": [
+      {
+        "email": "cell-agent@tan-nb-exp.iam.gserviceaccount.com",
+        "scopes": [
+          "https://www.googleapis.com/auth/devstorage.read_write"
+        ]
+      }
+    ],
+    "startRestricted": false,
+    "status": "TERMINATED",
+    "tags": {
+      "fingerprint": "42WmSpB8rSM="
+    },
+    "zone": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a"
+  }
+]

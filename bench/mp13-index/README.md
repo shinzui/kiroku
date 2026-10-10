@@ -165,3 +165,14 @@ stop the idle cell using its owner script after release.
 separately from the unchanged zero-slowdown policy verdict. No new acceptable
 regression allowance is selected or retrospectively applied. Distinct scenario
 revisions are not pooled into a single statistical comparison.
+
+
+## Corrected observer result
+
+The observer-only follow-up completed its proof and five benchmark-grade pairs.
+Throughput change was -0.466% (95% interval -1.821% to +0.908%); append p99
+change was -0.013% (-2.192% to +2.214%). Exact durable category delivery and
+raw verification passed. The zero-slowdown verdict remains inconclusive, while
+cost bounds are valid and meet the stated useful precision target. All four
+instances stopped and the lease was released. See the
+[corrected report](evidence/2026-10-10-corrected-observer/README.md).

@@ -1,0 +1,21 @@
+grade: benchmark
+op.append.error-rate: 0.0 ratio
+op.append.latency.max: 3.8185446e7 ns
+op.append.latency.mean: 4937562.074140026 ns
+op.append.latency.p50: 4980735.0 ns
+op.append.latency.p90: 5410815.0 ns
+op.append.latency.p95: 5554175.0 ns
+op.append.latency.p99: 6111231.0 ns
+op.append.latency.p999: 1.4016511e7 ns
+op.append.service.p99: 6111231.0 ns
+op.append.throughput: 782.309504810126 ops/s
+op.append.units-throughput: 782.309504810126 units/s
+pg.checkpoints-in-window: 0.0 count
+pg.wal-bytes-per-op: 1925.154900071228 bytes/op
+proc.cpu-utilisation: 7.854397917213159e-2 ratio
+proc.rss-max: 3.36838656e8 bytes
+rts.alloc-bytes-per-op: 144085.77835505092 bytes/op
+rts.alloc-rate: 1.1271967391512145e8 bytes/s
+rts.gc-productivity: 0.9968445444197169 ratio
+rts.live-bytes-major-mean: 1.1657694e7 bytes
+rts.max-live-bytes: 1.3754528e7 bytes

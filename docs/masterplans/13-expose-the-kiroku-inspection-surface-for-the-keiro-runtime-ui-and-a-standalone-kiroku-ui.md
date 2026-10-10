@@ -454,7 +454,8 @@ rule suffices.
 ## Progress
 
 - [x] (2026-10-10) EP-3: correct sparse observer recording, preserve primary append grade requirements, compile the Linux payload and verify diagnostic schedule/grade/cost-bound checks.
-- [ ] EP-3: run the corrected observer proof, then five matched pairs; report valid cost bounds separately from the unchanged zero-slowdown verdict and verify cell cleanup.
+- [x] (2026-10-10) EP-3: verify the corrected observer proof (47,734 benchmark-grade append samples, 61–62 steady samples per diagnostic browse page), raw recomputation and lease release.
+- [x] (2026-10-10) EP-3: finish five corrected benchmark-grade observer pairs; throughput loss bounded at 1.821% and p99 increase at 2.214% (95% intervals). Raw recomputation, exact delivery, durable drain and cell cleanup passed; unchanged zero-slowdown verdict remains inconclusive.
 - [x] (2026-10-10) EP-3: verify all ten fresh-stream trials and recompute raw metrics; five-pair append acceptance is inconclusive (throughput -0.677%, 95% interval -2.687% to +1.374%).
 - [x] (2026-10-10) EP-3: prepare the same-payload index-layout comparison, TypeID catalog/fresh fixtures, active category browsing and stream HOT/WAL snapshots; compile the Linux payload and verify paired-input/deadline invariants.
 - [x] (2026-10-10) EP-3: verify remote lifecycle proof and second category-only control, sealed hashes, stream counters and owned lease release.
@@ -507,6 +508,18 @@ rule suffices.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-10 corrected observer completion: all ten comparison trials are
+  benchmark-grade. Throughput change -0.466% (95% interval -1.821% to +0.908%),
+  append p99 -0.013% (-2.192% to +2.214%). First/absent diagnostic browse medians
+  fall from 4.411/7.987 ms to 0.270/0.231 ms; late pages rise 0.369 to 0.389 ms.
+  Global WAL/event rises 0.959% descriptively. Exact category delivery, durable
+  drain, raw recomputation and two stream updates per event passed. All five
+  pairs retained without replacements; lease released and all four instances
+  verified stopped within the single budget. See the
+  [corrected report](../../bench/mp13-index/evidence/2026-10-10-corrected-observer/README.md).
+  This valid cost evidence meets the declared precision target; zero-slowdown
+  acceptance remains inconclusive because intervals include both signs.
 
 - 2026-10-10 corrected observer preparation: Kenshou grades each registered
   operation. Sparse browse timings now live in raw summary diagnostics, while
@@ -852,10 +865,20 @@ rule suffices.
 
 ## Outcomes & Retrospective
 
+2026-10-10 corrected observer completion: proof plus ten comparison trials are
+benchmark-grade, raw metrics recompute and exact durable delivery passes.
+Throughput loss is bounded at 1.821% and append p99 increase at 2.214% with 95%
+intervals for this fixture. The zero-slowdown verdict remains inconclusive; no
+cost allowance or production migration is selected. Cleanup is verified.
+Shared literal-prefix/namespace design remains open. ADR distillation finds no
+new architecture; ADR-15 already covers the coordination constraint.
+
 2026-10-10 corrected observer preparation: benchmark-only correction compiled
-and input, schedule, grade and cost-bound checks passed. Remote proof and five
-matched pairs are pending. No production migration or browse milestone is
-promoted; shared prefix/namespace design remains open under ADR-15.
+and input, schedule, grade and cost-bound checks passed. The corrected proof
+passed benchmark grade and raw recomputation, with realistic diagnostic page
+coverage and released lease. All five matched pairs are now complete and
+benchmark-grade. No production migration or browse milestone is promoted;
+shared prefix/namespace design remains open under ADR-15.
 
 2026-10-10 matched experiment completion: all 18 trials sealed; workload and
 artifact checks completed, owned lease released and all four instances stopped
@@ -1011,3 +1034,11 @@ production migration is claimed. General prefix and shared namespace access rema
 Prepared independent sparse browse diagnostics and an observer-only controller
 path with a corrected proof, five pairs and explicit cost estimates. Preserved
 all earlier evidence, primary grading requirements and the zero-slowdown policy.
+
+
+## Corrected observer completion revision (2026-10-10)
+
+Recorded all five valid observer pairs, append cost bounds, diagnostic per-page
+browse timings, descriptive WAL/HOT observations and verified cleanup. Retained
+raw recomputation and sealed evidence. No favorable retries, policy relaxation,
+production promotion or new ADR decision; prefix/namespace design remains open.

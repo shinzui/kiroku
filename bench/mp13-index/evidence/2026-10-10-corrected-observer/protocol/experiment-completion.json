@@ -1,0 +1,26 @@
+{
+  "status": "functional-complete",
+  "verified_proof_trials": 1,
+  "verified_comparison_trials": 10,
+  "benchmark_grade_trials": 11,
+  "pairs": 5,
+  "policy_verdict": "inconclusive",
+  "cost_estimates": "existing-category-browse/cost-estimates.json",
+  "lease": null,
+  "instance_states": {
+    "cell-alpha-broker": "TERMINATED",
+    "cell-alpha-driver-0": "TERMINATED",
+    "cell-alpha-monitoring": "TERMINATED",
+    "cell-alpha-postgres": "TERMINATED"
+  },
+  "completed_at": "2026-10-10T23:12:02.795624+00:00",
+  "elapsed_seconds": 1846.2457609176636,
+  "deadline_met": true,
+  "cleanup_owner": "mori://shinzui/load-testing-infra; project-relative scripts/cell/stop.sh (artifact-level URI pending)",
+  "extra_trials": 0,
+  "failed_or_replaced_trials": 0,
+  "raw_metric_recomputation": "proof and all ten comparison trials passed summarize --verify",
+  "structural_checks": "all comparison trials: no stream inserts, two stream updates per event, append-only primary operations, benchmark grade with no reasons",
+  "retained_evidence_verified_at": "2026-10-10T23:13:04.087567+00:00",
+  "elapsed_through_retention_seconds": 1907.5381410121918
+}

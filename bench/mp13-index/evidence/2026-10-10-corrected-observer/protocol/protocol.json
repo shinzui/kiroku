@@ -1,0 +1,36 @@
+{
+  "purpose": "Correct the observer benchmark; estimate shared write cost without sparse browser grade contamination",
+  "selected_case": "existing-category-browse",
+  "proof_trials": 1,
+  "matched_pairs": 5,
+  "calibration": "Prior two control trials retained; new observer proof validates corrected recording",
+  "warmup_seconds": 10,
+  "measurement_seconds": 61,
+  "drain_allowance_seconds": 10,
+  "per_trial_timeout_seconds": 180,
+  "browse_cycles_per_second": 1,
+  "pages_per_cycle": [
+    "first",
+    "late",
+    "absent"
+  ],
+  "minimum_append_samples": 1000,
+  "sparse_browser_classification": "separate raw diagnostics; not benchmark-grade browse latency",
+  "estimated_total_minutes": [
+    35,
+    40
+  ],
+  "uncertainty_target": "95% bounds near \u00b13% throughput, \u00b15\u20136% tail; wider bounds reported unresolved; no added repeats",
+  "stop_conditions": [
+    "invalid corrected proof/grade/hash/workload/schedule",
+    "five minutes without phase or verified-count progress",
+    "active instance stopped",
+    "original experiment deadline",
+    "confirmed regression"
+  ],
+  "policy_sha256": "d63f377e961400536f0bbb3550477ad359a3b11cd1000af7a854e5da1dbaa5b9",
+  "policy_unchanged": true,
+  "harness_revision": "229f6e598889ecb97abeca0c1d304a55004bd315",
+  "original_evidence": "bench/mp13-index/evidence/2026-10-10",
+  "operator_source_revision": "1f8d06421ff960258c36279858a32ef3a92400ad"
+}
