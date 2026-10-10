@@ -31,3 +31,16 @@ with tempfile.TemporaryDirectory(prefix='mp13-deadline-', dir='/tmp') as owned:
     assert controller.remaining(root) == 0
     assert controller.remaining(root) == 0
 print('UUIDv7, matched pairs, AB/BA order and expired deadline checks passed')
+
+valid = {'outcome': 'passed', 'summaries': {'measurements': {'measurements': {'grade': 'benchmark', 'gradeReasons': []}}}}
+controller.validate_evidence_grade(valid)
+invalid = copy.deepcopy(valid)
+invalid['outcome'] = 'inconclusive'
+invalid['summaries']['measurements']['measurements'].update(grade='exploratory', gradeReasons=['health:insufficient-samples'])
+try:
+    controller.validate_evidence_grade(invalid)
+except ValueError as error:
+    assert 'insufficient-samples' in str(error)
+else:
+    raise AssertionError('exploratory browse evidence must stop queue expansion')
+print('early evidence-grade rejection check passed')

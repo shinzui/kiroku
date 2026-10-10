@@ -1,0 +1,33 @@
+{
+  "payloadSha256": "92adfabb239e9fcf64e617e2f45f868355b5c0df44aeafa63ddae19964fb7eb7",
+  "policySha256": "d63f377e961400536f0bbb3550477ad359a3b11cd1000af7a854e5da1dbaa5b9",
+  "cell": "alpha",
+  "cases": [
+    [
+      "fresh",
+      true,
+      "none",
+      0
+    ],
+    [
+      "existing-category-browse",
+      false,
+      "category",
+      1
+    ]
+  ],
+  "pairs": 5,
+  "phases": [
+    10,
+    61,
+    10
+  ],
+  "settings": [
+    "shared_buffers=128MB",
+    "fsync=on",
+    "synchronous_commit=on",
+    "full_page_writes=on",
+    "wal_level=replica"
+  ],
+  "controllerSha256": "a0326c50faed2989bae588da8b67e1fe8c3fa8a81606657fd54aa895b07653f7"
+}

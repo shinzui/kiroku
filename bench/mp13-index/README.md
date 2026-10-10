@@ -118,5 +118,12 @@ pairs. The unchanged policy still requires five pairs for acceptance. The
 second comparison therefore remains inconclusive for acceptance; no slowdown
 allowance, phase change, favorable replacement or new budget is introduced.
 `protocol-revision-coverage.json` supersedes the original target pair count
-for that case and binds its unsubmitted plan hash. The paired queue is active;
-no replacement cost or production promotion is accepted at this checkpoint.
+for that case and binds its unsubmitted plan hash. The paired queue completed.
+Fresh acceptance is inconclusive; observer evidence
+is exploratory because the low-rate browser did not meet the per-operation
+sample minimum. The controller now checks grade during progress audits before
+allowing continued queue execution. No measured payload or policy was changed.
+All 18 samples, failed setup/grade checks and diagnostic recomputation are
+retained in [the completed report](evidence/2026-10-10/README.md). The owned
+lease is released and all four cell instances are stopped. No production
+promotion is accepted.

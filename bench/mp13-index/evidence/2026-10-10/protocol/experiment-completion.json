@@ -1,0 +1,20 @@
+{
+  "at": 1791670792.64956,
+  "lease": null,
+  "instance_states": {
+    "cell-alpha-postgres": "TERMINATED",
+    "cell-alpha-driver-0": "TERMINATED",
+    "cell-alpha-monitoring": "TERMINATED",
+    "cell-alpha-broker": "TERMINATED"
+  },
+  "elapsed_seconds": 3516.2627890110016,
+  "deadline_met": true,
+  "functional": "18 sealed trials; durable workload and hash checks verified",
+  "acceptance": "fresh inconclusive; observer exploratory and inconclusive",
+  "controller_exit": 1,
+  "controller_failure": "observer operation below 1000-sample evidence-grade minimum; no reruns",
+  "cleanupOwner": "mori://shinzui/load-testing-infra",
+  "cleanupScriptRelativePath": "scripts/cell/stop.sh; artifact-level URI pending",
+  "cleanup_elapsed_seconds": 3438.7708089351654,
+  "finalEvidenceVerifiedAt": 1791670870.141539
+}

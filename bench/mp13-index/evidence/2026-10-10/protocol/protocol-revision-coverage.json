@@ -1,0 +1,23 @@
+{
+  "at_epoch": 1791668552.960901,
+  "reason": "Verified proof/calibration journals took 151.715159s and 132.202186s. Five pairs for both cases no longer fit the remaining original hour.",
+  "original_inputs": "inputs.json",
+  "supersedes": "target pair count for existing-category-browse only",
+  "case_pairs": {
+    "fresh": 5,
+    "existing-category-browse": 3
+  },
+  "acceptance_minimum_pairs": 5,
+  "policy_unchanged": true,
+  "payload_unchanged": true,
+  "phases_unchanged": [
+    10,
+    61,
+    10
+  ],
+  "budget_unchanged": true,
+  "unsubmitted_plan_sha256": "6fab8d2f466329ba24282c0a55faec44d7d0a59e88e3d8134710fb5bdf84f7c9",
+  "second_case_acceptance": "inconclusive; not enough pairs",
+  "chosen_before_second_case_submission": true,
+  "fresh_verified_trials_at_revision": 0
+}

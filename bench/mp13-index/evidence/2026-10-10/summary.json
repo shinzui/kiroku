@@ -1,0 +1,349 @@
+{
+  "cases": {
+    "fresh": {
+      "artifact_verified_trials": 10,
+      "benchmark_grade_trials": 10,
+      "diagnostics": {
+        "baseline": {
+          "trials": 5,
+          "events": 212755,
+          "stream_inserts": 212755,
+          "stream_updates": 212755,
+          "stream_hot_updates": 209996,
+          "hot_fraction": 0.9870320321496557,
+          "new_page_updates": 2759,
+          "wal_bytes_per_event": 2136.2495640525485,
+          "append_statement_wal_bytes_per_call": 2064.419050081079,
+          "initial_stream_index_bytes": [
+            4538368,
+            4538368,
+            4538368,
+            4538368,
+            4538368
+          ],
+          "initial_indexes": [
+            {
+              "bytes": 286720,
+              "definition": "CREATE INDEX ix_streams_category ON kiroku.streams USING btree (category)",
+              "name": "ix_streams_category"
+            },
+            {
+              "bytes": 3334144,
+              "definition": "CREATE UNIQUE INDEX ix_streams_stream_name ON kiroku.streams USING btree (stream_name)",
+              "name": "ix_streams_stream_name"
+            },
+            {
+              "bytes": 917504,
+              "definition": "CREATE UNIQUE INDEX streams_pkey ON kiroku.streams USING btree (stream_id)",
+              "name": "streams_pkey"
+            }
+          ],
+          "durably_drained": true,
+          "exact_delivery": true
+        },
+        "candidate": {
+          "trials": 5,
+          "events": 211302,
+          "stream_inserts": 211302,
+          "stream_updates": 211302,
+          "stream_hot_updates": 208551,
+          "hot_fraction": 0.986980719538859,
+          "new_page_updates": 2751,
+          "wal_bytes_per_event": 2188.181503251271,
+          "append_statement_wal_bytes_per_call": 2115.5349026511817,
+          "initial_stream_index_bytes": [
+            8126464,
+            8126464,
+            8126464,
+            8126464,
+            8126464
+          ],
+          "initial_indexes": [
+            {
+              "bytes": 3874816,
+              "definition": "CREATE INDEX ix_streams_category_name ON kiroku.streams USING btree (category, stream_name)",
+              "name": "ix_streams_category_name"
+            },
+            {
+              "bytes": 3334144,
+              "definition": "CREATE UNIQUE INDEX ix_streams_stream_name ON kiroku.streams USING btree (stream_name)",
+              "name": "ix_streams_stream_name"
+            },
+            {
+              "bytes": 917504,
+              "definition": "CREATE UNIQUE INDEX streams_pkey ON kiroku.streams USING btree (stream_id)",
+              "name": "streams_pkey"
+            }
+          ],
+          "durably_drained": true,
+          "exact_delivery": true
+        }
+      },
+      "verdict": "inconclusive",
+      "pairs": 5,
+      "reasons": [],
+      "metrics": {
+        "op.append.latency.p50": {
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": 0.6567653386209349,
+            "low": -1.311328956254898,
+            "high": 2.6641082636845725
+          },
+          "baseline_values": [
+            5697535,
+            5566463,
+            5603327,
+            5685247,
+            5812223
+          ],
+          "candidate_values": [
+            5644287,
+            5648383,
+            5763071,
+            5730303,
+            5763071
+          ]
+        },
+        "op.append.latency.p95": {
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": 0.8279317732533542,
+            "low": -1.976040895453346,
+            "high": 3.7121120034447674
+          },
+          "baseline_values": [
+            6381567,
+            6250495,
+            6242303,
+            6430719,
+            6516735
+          ],
+          "candidate_values": [
+            6299647,
+            6324223,
+            6529023,
+            6463487,
+            6467583
+          ]
+        },
+        "op.append.latency.p99": {
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": 1.717961689985481,
+            "low": -1.7031083800014502,
+            "high": 5.258096770379916
+          },
+          "baseline_values": [
+            6950911,
+            6746111,
+            6852607,
+            6950911,
+            7094271
+          ],
+          "candidate_values": [
+            6905855,
+            6852607,
+            7299071,
+            7053311,
+            7081983
+          ]
+        },
+        "op.append.throughput": {
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": -0.677307494279622,
+            "low": -2.6873791553677973,
+            "high": 1.3742838386419098
+          },
+          "baseline_values": [
+            694.9604127863819,
+            710.7960999586705,
+            706.0485551457144,
+            695.0450371309203,
+            680.6653626125886
+          ],
+          "candidate_values": [
+            701.3735153785818,
+            700.2316296745456,
+            685.3913481326066,
+            690.1044042554612,
+            686.5689938914379
+          ]
+        }
+      },
+      "browse_diagnostic_percent": {}
+    },
+    "existing-category-browse": {
+      "artifact_verified_trials": 6,
+      "benchmark_grade_trials": 0,
+      "diagnostics": {
+        "baseline": {
+          "trials": 3,
+          "events": 125549,
+          "stream_inserts": 0,
+          "stream_updates": 251098,
+          "stream_hot_updates": 249840,
+          "hot_fraction": 0.9949900039028586,
+          "new_page_updates": 1258,
+          "wal_bytes_per_event": 1997.2923400425332,
+          "append_statement_wal_bytes_per_call": 1669.111382806713,
+          "initial_stream_index_bytes": [
+            4538368,
+            4538368,
+            4538368
+          ],
+          "initial_indexes": [
+            {
+              "bytes": 286720,
+              "definition": "CREATE INDEX ix_streams_category ON kiroku.streams USING btree (category)",
+              "name": "ix_streams_category"
+            },
+            {
+              "bytes": 3334144,
+              "definition": "CREATE UNIQUE INDEX ix_streams_stream_name ON kiroku.streams USING btree (stream_name)",
+              "name": "ix_streams_stream_name"
+            },
+            {
+              "bytes": 917504,
+              "definition": "CREATE UNIQUE INDEX streams_pkey ON kiroku.streams USING btree (stream_id)",
+              "name": "streams_pkey"
+            }
+          ],
+          "durably_drained": true,
+          "exact_delivery": true
+        },
+        "candidate": {
+          "trials": 3,
+          "events": 128471,
+          "stream_inserts": 0,
+          "stream_updates": 256942,
+          "stream_hot_updates": 255563,
+          "hot_fraction": 0.9946330300223397,
+          "new_page_updates": 1379,
+          "wal_bytes_per_event": 2002.8411081100014,
+          "append_statement_wal_bytes_per_call": 1674.1210701247753,
+          "initial_stream_index_bytes": [
+            8126464,
+            8126464,
+            8126464
+          ],
+          "initial_indexes": [
+            {
+              "bytes": 3874816,
+              "definition": "CREATE INDEX ix_streams_category_name ON kiroku.streams USING btree (category, stream_name)",
+              "name": "ix_streams_category_name"
+            },
+            {
+              "bytes": 3334144,
+              "definition": "CREATE UNIQUE INDEX ix_streams_stream_name ON kiroku.streams USING btree (stream_name)",
+              "name": "ix_streams_stream_name"
+            },
+            {
+              "bytes": 917504,
+              "definition": "CREATE UNIQUE INDEX streams_pkey ON kiroku.streams USING btree (stream_id)",
+              "name": "streams_pkey"
+            }
+          ],
+          "durably_drained": true,
+          "exact_delivery": true
+        }
+      },
+      "verdict": "inconclusive",
+      "pairs": 3,
+      "reasons": [
+        "fewer than the required number of pairs",
+        "an input run is below the required evidence grade",
+        "an input run has a soft health observation"
+      ],
+      "metrics": {
+        "op.append.latency.p50": {
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": -1.7241042105661686,
+            "low": -6.22850783545138,
+            "high": 2.996672765617281
+          },
+          "baseline_values": [
+            5631999,
+            5685247,
+            5718015
+          ],
+          "candidate_values": [
+            5435391,
+            5697535,
+            5611519
+          ]
+        },
+        "op.append.latency.p95": {
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": -1.6023179033860302,
+            "low": -7.752425253601148,
+            "high": 4.957814539880623
+          },
+          "baseline_values": [
+            6381567,
+            6467583,
+            6459391
+          ],
+          "candidate_values": [
+            6135807,
+            6545407,
+            6324223
+          ]
+        },
+        "op.append.latency.p99": {
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": 0.16776620395659858,
+            "low": -5.3833504976596664,
+            "high": 6.044564451020107
+          },
+          "baseline_values": [
+            7016447,
+            7245823,
+            7180287
+          ],
+          "candidate_values": [
+            6864895,
+            7421951,
+            7200767
+          ]
+        },
+        "op.append.throughput": {
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": 2.3256051760347507,
+            "low": -0.899696550846274,
+            "high": 5.6558770278030135
+          },
+          "baseline_values": [
+            695.4487578413006,
+            678.223617996846,
+            683.9328807469859
+          ],
+          "candidate_values": [
+            720.3666278972537,
+            684.7060668711993,
+            700.7235808841336
+          ]
+        }
+      },
+      "browse_diagnostic_percent": {
+        "op.browse.latency.max": -82.0819939954138,
+        "op.browse.latency.mean": -90.13226709704854,
+        "op.browse.latency.p50": -92.31296617729566,
+        "op.browse.latency.p90": -94.16307294678315,
+        "op.browse.latency.p95": -93.88097234333021,
+        "op.browse.latency.p99": -91.03810251292582,
+        "op.browse.latency.p999": -82.0819939954138
+      }
+    }
+  },
+  "budget": {
+    "started_epoch": 1791667353.878751,
+    "budget_seconds": 3600,
+    "start_scope": "Linux payload build and operator preparation; covers publication, calibration, setup, trials, recovery and verification"
+  }
+}

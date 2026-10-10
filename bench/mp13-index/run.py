@@ -57,6 +57,12 @@ def command(args, log, timeout=120, environment=None):
                               timeout=timeout, env=environment).returncode
 
 
+def validate_evidence_grade(result):
+    measure = result['summaries']['measurements']['measurements']
+    if result['outcome'] != 'passed' or measure['grade'] != 'benchmark' or measure['gradeReasons']:
+        raise ValueError(f"completed trial failed the measurement contract: {result['outcome']}; {measure['grade']}; {measure['gradeReasons']}")
+
+
 def verified(session_file):
     """Verify every completed slice; never hide failed or unfinished slices."""
     session = read(session_file)
@@ -79,8 +85,7 @@ def verified(session_file):
             summary = result['summaries']['measurements']
             measure = summary['measurements']
             probe = summary['write-probe']
-            if result['outcome'] != 'passed' or measure['grade'] != 'benchmark' or measure['gradeReasons']:
-                raise ValueError('completed trial failed the measurement contract')
+            validate_evidence_grade(result)
             if probe['durability'] != 'on,on,on' or not probe['durable_drained']:
                 raise ValueError('trial lacks durable progress')
             before, after = summary['streams-before'], summary['streams-after']
@@ -140,6 +145,11 @@ def audit(operator, root, session_file, descriptor):
     """Actual remote phase and instance state, not log size or PID activity."""
     session = read(session_file) if session_file.exists() else {'slices': []}
     slices = session['slices']
+    # Check grade as soon as a sealed slice is fetched, before queue expansion.
+    for trial in slices:
+        if trial['state'] == 'verified' and trial.get('fetchedPath'):
+            for result_file in Path(trial['fetchedPath']).glob('output/*/run-result.json'):
+                validate_evidence_grade(read(result_file))
     active = next((x for x in slices if x['state'] not in ['verified', 'failed', 'rejected']), None)
     status = None
     if active and active.get('submission'):

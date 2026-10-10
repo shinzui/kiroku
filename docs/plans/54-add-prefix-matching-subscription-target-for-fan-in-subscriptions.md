@@ -73,6 +73,7 @@ unchanged; this plan verifies that and adds no adapter code.
 
 ## Progress
 
+- [x] (2026-10-10) Shared research: retain the current-source matched replacement write experiment; fresh acceptance is inconclusive and active-observer evidence exploratory. No namespace access or cumulative combined-feature acceptance.
 - [x] (2026-10-10) Shared research: inspect Kenshou benchmark coverage and plan 88's disposable category/name replacement evidence; retain footprint and harness gaps. M0 semantics and M2 migration remain open.
 Use a checklist to summarize granular steps. Every stopping point must be documented here,
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
@@ -105,6 +106,12 @@ This section must always reflect the actual current state of the work.
 
 ## Surprises & Discoveries
 
+- 2026-10-10 matched replacement: fresh throughput estimate -0.677% (95%
+  interval -2.687% to +1.374%), with descriptive WAL/event +2.43%. Existing
+  subscriptions retained exact durable delivery under active browsing, but the
+  low-rate browser failed the operation sample-grade minimum. All three pairs
+  are retained as exploratory; they cannot establish subscription performance
+  acceptance or namespace access. See the [matched report](../../bench/mp13-index/evidence/2026-10-10/README.md).
 - 2026-10-10 shared index research: current category subscriptions use the
   denormalized `stream_events` category/version index, not `streams.category`.
   A default-opclass `(category, stream_name)` replacement preserved tested
@@ -185,6 +192,10 @@ working tree:
 
 ## Decision Log
 
+- Decision (2026-10-10 matched evidence): no physical design selected. Preserve
+  the inconclusive fresh comparison and exploratory observer diagnostics as
+  shared evidence; do not reuse them as a namespace migration allowance or
+  grant another independent write-cost budget. ADR-15 remains authoritative.
 - Decision (2026-10-10 research): keep namespace semantics and supporting
   physical design open. The replacement candidate was tested only in disposable
   databases, not installed as a migration. Do not infer namespace-prefix support
@@ -401,6 +412,11 @@ Record every decision made while working on the plan.
 
 
 ## Outcomes & Retrospective
+
+2026-10-10 shared research completed with retained matched evidence and verified
+cell cleanup. This plan remains unimplemented: namespace semantics/access and
+cumulative combined-feature acceptance are open. No migration or new durable
+architecture was selected; ADR-15 already governs coordination.
 
 2026-10-10 shared research stopping point: benchmark and footprint research
 is complete; no prefix target, migration or append acceptance was implemented.
@@ -1099,3 +1115,9 @@ Recorded disposable replacement footprint/read evidence and verified cleanup,
 Kenshou source/run coverage, matched-harness instrumentation gaps, and the
 unchanged shared access/cumulative write-cost obligation. No migration or
 performance acceptance is selected; production milestones remain open.
+
+
+## Shared matched evidence revision (2026-10-10)
+
+Retained fresh uncertainty and exploratory observer diagnostics without granting
+namespace access, migration or another independent write-cost allowance.

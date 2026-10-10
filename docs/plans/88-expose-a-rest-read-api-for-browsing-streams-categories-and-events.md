@@ -97,9 +97,10 @@ dependency.
 
 ## Progress
 
+- [x] (2026-10-10) M0: verify all ten fresh-stream trials and recompute raw metrics; five-pair append acceptance is inconclusive (throughput -0.677%, 95% interval -2.687% to +1.374%).
 - [x] (2026-10-10) M0: prepare the same-payload index-layout comparison, TypeID catalog/fresh fixtures, active category browsing and stream HOT/WAL snapshots; compile the Linux payload and verify paired-input/deadline invariants.
 - [x] (2026-10-10) M0: verify remote lifecycle proof and second category-only control, sealed hashes, stream counters and owned lease release.
-- [ ] M0: finish five fresh pairs and three active-observer diagnostic pairs inside the original deadline; unchanged five-pair acceptance remains open.
+- [x] (2026-10-10) M0: complete and retain 18 sealed trials inside the original deadline, release the lease and verify all four cell instances stopped. Fresh acceptance is inconclusive; six observer trials are exploratory, not benchmark-grade. Acceptance remains open.
 - [x] (2026-10-10) M0: research Kenshou coverage and a disposable category/name index replacement; retain three completed 96-case runs, initial setup error, layout sizes and benchmark source/run inventory. No append-cost acceptance.
 - [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
 - [x] (2026-10-10) M0: execute the focused existing-index SQL prototype check on PostgreSQL 18.6; retain 80 initial and 152 expanded EXPLAIN cases, migration hashes and verified owned-server cleanup.
@@ -126,6 +127,22 @@ dependency.
 
 ## Surprises & Discoveries
 
+- 2026-10-10 observer-grade failure: all six observer runs sealed, but 1 Hz
+  browsing produced 185–186 samples per run, below the 1,000-sample operation
+  minimum. The whole-run grade is exploratory. The controller caught this only
+  after the queue; an early progress-audit grade check now prevents recurrence.
+  All raw summaries were recomputed and all original pairs retained, without
+  reruns, relaxed policy or acceptance. Diagnostic browse p50 fell 92.31%;
+  combined append throughput was +2.326% (95% interval -0.900% to +5.656%).
+  Exact delivery, durable drain, counters and sealed hashes passed. The lease
+  is released and all four cell instances are stopped. See the
+  [matched result](../../bench/mp13-index/evidence/2026-10-10/README.md).
+- 2026-10-10 fresh comparison: throughput point estimate is -0.677%, with a
+  95% interval from -2.687% to +1.374%; all four append metrics are inconclusive.
+  Global WAL/event rose 2.43% descriptively; stream HOT fractions stayed
+  98.703% / 98.698%. Incrementally populated fixture stream-index bytes rose
+  79.06%, beyond the earlier compact-layout 53.7% result. Footprint does not
+  translate directly into write latency. Observer results are retained in the matched experiment report.
 - 2026-10-10 remote checkpoint: UUIDv4 plan IDs were rejected before execution;
   corrected to UUIDv7 and retained the rejection. Missing `zstd` publication
   tooling was supplied by the established pinned shell. The corrected proof
@@ -198,6 +215,14 @@ dependency.
 
 ## Decision Log
 
+- Decision (2026-10-10 measured evidence): retain the replacement candidate,
+  without production promotion. Fresh five-pair acceptance is inconclusive,
+  and observer evidence is exploratory and below the minimum pair count.
+  Faster diagnostic category browsing does not override those gates or settle
+  general prefix/namespace access. Preserve every sample and the original
+  grade rejection; fix early grade detection rather than rerun under a weaker
+  policy. ADR-15 continues to govern the shared plan 54 design and cumulative
+  original-control cost. No new durable architecture was selected.
 - Decision (2026-10-10 matched comparison): keep both arms on the same current
   source and payload. Select fresh appends without observers, then existing
   appends with one category subscriber and one browse cycle per second, over
@@ -410,11 +435,16 @@ dependency.
 
 ## Outcomes & Retrospective
 
-2026-10-10 remote checkpoint: functional lifecycle and measurement instrumentation
-are verified with two complete controls and released owned leases. The paired
-queue is active; no replacement write cost or performance acceptance is reported
-yet. Retain the zero-execution rejection and original deadline. The smaller
-second-case coverage is explicitly diagnostic under the unchanged policy.
+2026-10-10 matched experiment completion: all 18 trials sealed; workload and
+artifact checks completed, owned lease released and all four instances stopped
+within the original hour. Fresh throughput estimate is -0.677% with an interval
+from -2.687% to +1.374%; fresh append acceptance remains inconclusive. Observer
+results are exploratory because the low-rate browse operation failed the sample
+grade minimum, in addition to the three-pair acceptance limit. Retain every
+sample, rejection and raw recomputation; an early grade guard prevents repeating
+this queue mistake. M0 remains In Progress; no production migration or browse
+route was promoted. ADR distillation found no new selected architecture. See
+the [full report](../../bench/mp13-index/evidence/2026-10-10/README.md).
 2026-10-10 matched harness checkpoint: benchmark-only preparation is complete
 and Linux compilation passed. Paired-input and persistent-deadline checks passed;
 remote proof and measured write cost remain pending. No production migration or
@@ -1551,3 +1581,11 @@ Recorded verified lifecycle/counter/cleanup evidence, preserved setup failures,
 and reduced only the second-case sample count before its submission because
 measured reset overhead exceeded the initial estimate. Policy and deadline
 remain unchanged; paired cost evidence is still running.
+
+
+## Matched experiment completion revision (2026-10-10)
+
+Recorded completed samples, fresh uncertainty/WAL cost, the observer grade failure,
+explicit diagnostic recovery, early guard correction and verified cell cleanup.
+The original policy and hour were preserved; no performance acceptance or
+production migration is claimed. General prefix and shared namespace access remain open.

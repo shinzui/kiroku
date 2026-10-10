@@ -1,0 +1,11 @@
+{"at": 1791668102.1949708, "remaining_seconds": 2851.6835730075836, "verified": 0, "active_run": null, "phase": null, "instance_states": ["TERMINATED", "TERMINATED"]}
+Traceback (most recent call last):
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-index/run.py", line 301, in <module>
+    main()
+    ~~~~^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-index/run.py", line 269, in main
+    execute(args.operator, root, args.payload, args.cell, 'proof', proof, descriptor)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-index/run.py", line 226, in execute
+    raise ValueError('session incomplete or failed; retained all samples and journal')
+ValueError: session incomplete or failed; retained all samples and journal

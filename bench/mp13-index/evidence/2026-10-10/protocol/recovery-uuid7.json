@@ -1,0 +1,10 @@
+{
+  "at_epoch": 1791668191.053736,
+  "reason": "Plan parser rejected UUIDv4 before any benchmark submission/execution; use UUIDv7.",
+  "old_inputs": "inputs-rejected-uuid4.json",
+  "retained_attempt": "proof-rejected-uuid4",
+  "budget_preserved": true,
+  "payload_unchanged": true,
+  "policy_unchanged": true,
+  "new_controller_sha256": "230490a8c9b774772331d61e31e933a4ab47e8b8f1e2598c5d5b57ec7ab49306"
+}

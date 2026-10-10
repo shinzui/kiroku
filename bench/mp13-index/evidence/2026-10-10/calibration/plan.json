@@ -1,0 +1,139 @@
+{
+  "changes": [],
+  "cohort": {
+    "name": "head",
+    "planHash": "sha256:b12f60da02eafab33941afb0fea9330dbddaa05299abed9ad66d946e81f92c3c"
+  },
+  "createdAt": "2026-10-10T21:35:00.184338Z",
+  "estimateMinutes": 2,
+  "graphDigest": "sha256:d03c353e4a93b1a0179db13576bc93805c60cb793d424432d5b845cad0843ce1",
+  "inputs": {
+    "all": true,
+    "changed": [],
+    "cohortFrom": null,
+    "cohortTo": null,
+    "exclude": [],
+    "select": [
+      "kiroku/append/benchmark/subscription-hardening"
+    ],
+    "since": null,
+    "upstreamDiffs": []
+  },
+  "planId": "01a127c1-8935-7535-a350-2a031b37095b",
+  "policy": {
+    "budgetMinutes": null,
+    "dimensionPolicy": "default-only",
+    "dimensions": [
+      [
+        "pg.version",
+        "18"
+      ],
+      [
+        "pg.durability",
+        "durable"
+      ]
+    ],
+    "kinds": [
+      "correctness",
+      "concurrency",
+      "soak",
+      "benchmark"
+    ],
+    "knobPolicy": "defaults",
+    "maxTier": "standard",
+    "placement": "cell",
+    "seed": 7,
+    "set": [],
+    "tierMinutes": {
+      "extended": 60,
+      "smoke": 1,
+      "soak": 240,
+      "standard": 10
+    },
+    "trialOrdering": "alternating/v1",
+    "trials": 3
+  },
+  "runs": [
+    {
+      "estimateMinutes": 2,
+      "ordinal": 1,
+      "reasons": [
+        {
+          "component": "all",
+          "distance": 0,
+          "selector": "**",
+          "source": "all",
+          "via": [
+            "all"
+          ]
+        }
+      ],
+      "runId": "01a127c1-8935-7535-a350-2a0446627d92",
+      "spec": {
+        "cohortExpectation": {
+          "name": "head",
+          "planHash": "sha256:b12f60da02eafab33941afb0fea9330dbddaa05299abed9ad66d946e81f92c3c"
+        },
+        "comparison": {
+          "group": "mp13-index/calibration",
+          "arm": "baseline",
+          "trial": 0,
+          "position": 0
+        },
+        "dimensions": {
+          "pg.durability": "durable",
+          "pg.version": "18",
+          "telemetry.metrics": "off",
+          "telemetry.tracing": "off"
+        },
+        "environment": {
+          "kafka": null,
+          "machineProfile": null,
+          "placement": "cell",
+          "postgres": null,
+          "telemetry": null
+        },
+        "knobs": {
+          "measure.histogram-digits": 3,
+          "measure.interval-histogram-seconds": 10,
+          "measure.pg-statements": "snapshots",
+          "measure.raw-sample-one-in": 100,
+          "measure.raw-samples": "full",
+          "measure.sample-interval-ms": 1000,
+          "mp12.append-batch": 1,
+          "mp12.checkpoint-batch": 1,
+          "mp12.fresh": true,
+          "mp12.max-backlog": 100000,
+          "mp12.mode": "none",
+          "mp12.offered": 0,
+          "mp12.width": 1,
+          "mp13.index-layout": "category-only",
+          "mp13.catalog": 20000,
+          "mp13.browse-hz": 0
+        },
+        "labels": {},
+        "scenario": "kiroku/append/benchmark/subscription-hardening",
+        "scenarioRevision": 4,
+        "schema": "kenshou.run-spec/v1",
+        "seed": 7,
+        "runId": "01a127c1-8935-7535-a350-2a0446627d92",
+        "phases": {
+          "warmUpSeconds": 10,
+          "steadySeconds": 61,
+          "drainSeconds": 10
+        },
+        "timeoutSeconds": 180
+      },
+      "trial": {
+        "group": "mp13-index/calibration",
+        "arm": "baseline",
+        "index": 0,
+        "of": 1
+      }
+    }
+  ],
+  "schema": "kenshou.run-plan/v1",
+  "skipped": [],
+  "suite": null,
+  "warnings": []
+}
