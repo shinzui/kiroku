@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-10
+* **Update**: Coordinate browsing and prefix-subscription physical access; avoid redundant indexes and require cumulative append-cost evidence against one original control without per-feature additive regression allowances. No index is authorized.
 * **Update**: Record supervised callback/server lifetimes and explicit supplied-socket finalization from plan 87.
 * **Addition**: ADR-16 records explicit, default-off CORS at the HTTP/WebSocket composition boundary, cache variation and the trusted-network/proxy posture.
 * **Decision**: Record inspection compatibility, bounded observer work, and focused performance acceptance for MasterPlan 13.

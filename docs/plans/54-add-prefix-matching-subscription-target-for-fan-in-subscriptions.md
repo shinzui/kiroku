@@ -5,6 +5,13 @@ title: "Add prefix-matching subscription target for fan-in subscriptions"
 kind: exec-plan
 created_at: 2026-06-03T14:43:06Z
 intention: "intention_01kt6yyawwewj80gv5q9qt5m0f"
+provenance:
+  revisions:
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-10T19:19:06Z
+      mode: "discuss"
+      note: "Record shared prefix/browse physical design and cumulative append-cost constraint; no index authorized."
 ---
 
 # Add prefix-matching subscription target for fan-in subscriptions
@@ -76,13 +83,17 @@ This section must always reflect the actual current state of the work.
   `stream_name`); (b) live-path strategy (accept-and-bound / `$all`-driven live
   query / per-prefix NOTIFY gate). The rest of the plan substitutes the chosen
   forms.
+- [ ] M0 (shared physical design): coordinate any index proposal with
+  [plan 88](88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md)
+  under ADR-15; reuse suitable structures and review cumulative writer cost before M2.
 - [ ] M1: Add `-Werror=incomplete-patterns` to the cabal `common common` stanza
   (step 0), then add the constructor and the namespace SQL statements (non-group
   and consumer-group); the now-strict build forces the two pattern-match sites
   (`fetchBatch`, `nextInput`) to gain arms.
-- [ ] M2: Add the `text_pattern_ops` index migration so namespace `LIKE` lookups
-  are index-backed; **and** record the before/after append-benchmark delta proving
-  the shared-`streams` index does not materially regress writers.
+- [ ] M2: Prove the selected namespace/prefix access path and, only if the shared
+  design review requires it, add the reviewed index migration. Record cumulative
+  append evidence for the combined schema and active workloads against one original
+  control; the illustrative `text_pattern_ops` migration below is not preapproved.
 - [ ] M3 (optional parity): expose a public `readPrefix` read combinator and a
   `ReadPrefixForward` `Store`-effect constructor.
 - [ ] M4: Add the prefix-subscription test (catch-up + live, with a negative
@@ -164,6 +175,20 @@ working tree:
 ## Decision Log
 
 Record every decision made while working on the plan.
+
+- Decision (2026-10-10 user clarification): coordinate physical access with
+  [plan 88](88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md)
+  and [MasterPlan 13](../masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md)
+  under [ADR-15](../adr/0015-inspection-observers-preserve-wire-contracts-and-bound-shared-work.md).
+  Reuse suitable indexes instead of independently adding redundant structures. If different
+  stream-name/global-event ordering needs require separate structures, justify them with
+  focused read evidence and assess their combined append overhead and active load against
+  the same original control. There is no separate additive regression allowance per feature.
+  Rationale: the user cannot pay ongoing writer overhead twice. This supersedes unconditional
+  index-creation instructions and independent before/after acceptance below; M2's migration
+  is conditional on that shared review. Neither feature becomes an implementation prerequisite
+  for the other. No index is authorized, no milestone is completed, and the older plan's
+  source/schema assumptions still need refreshing before implementation.
 
 - Decision: Add a new `CategoryPrefix !Text` constructor to `SubscriptionTarget`
   rather than redefining `Category` to mean a prefix.
@@ -647,7 +672,14 @@ and two in `fetchBatch` (`(Nothing, …)` and `(Just (ConsumerGroup …), …)`)
 `cabal test kiroku-store` is green (existing behavior unchanged; the new arms are
 only reached by a namespace config, which nothing constructs yet).
 
-### Milestone 2 — Add the prefix index migration
+### Milestone 2 — Review the shared access path and any required migration
+
+**2026-10-10 coordination gate:** complete the shared physical design review in M0 first.
+The migration and benchmark commands below are historical candidate instructions, not
+authorization to add a separate index for this feature. First evaluate existing structures
+and the browsing design in plan 88. Only implement a migration selected by that review;
+acceptance must cover the resulting combined schema and active workloads against the same
+original control. A per-feature before/after delta alone cannot satisfy that gate.
 
 Scope: make the namespace `LIKE` scan index-backed so a namespace subscription
 over a large store does not sequential-scan `streams`, **and** measure the
@@ -656,7 +688,9 @@ affects every writer — see the append-regression decision in the Decision Log)
 the end, `EXPLAIN` shows an index scan for the namespace predicate and the
 before/after append benchmark delta is recorded.
 
-Create `kiroku-store-migrations/sql-migrations/2026-06-03-00-00-00-kiroku-prefix-subscription.sql`
+If the shared review selects this candidate, create a migration at the current repository's
+actual migration location; the historical example was
+`kiroku-store-migrations/sql-migrations/2026-06-03-00-00-00-kiroku-prefix-subscription.sql`
 (the date prefix sorts after the existing migrations, so it applies last). Index
 the column the chosen predicate filters on — `category` for the recommended
 `CategoryNamespace` design (lower cardinality, smaller/cheaper btree), or
@@ -1027,3 +1061,10 @@ Following review feedback, three points were resolved and propagated:
    snippets, and the migration (now `ix_streams_category_pattern ON streams
    (category text_pattern_ops)`) were updated to carry both options with the
    namespace form recommended. Final name/semantics is the team's call at M0.
+
+
+## Shared access-cost clarification (2026-10-10)
+
+Recorded the user's requirement to coordinate browsing and prefix-subscription physical
+access and cumulative writer cost under ADR-15. No index or implementation milestone is
+approved. Plan 88 also records the application's TypeID naming convention and its limits.

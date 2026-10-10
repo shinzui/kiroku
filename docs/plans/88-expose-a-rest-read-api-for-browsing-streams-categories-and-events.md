@@ -151,6 +151,15 @@ dependency.
 
 ## Decision Log
 
+- Decision (2026-10-10 user clarification): review prefix/category physical access
+  together with [plan 54](54-add-prefix-matching-subscription-target-for-fan-in-subscriptions.md)
+  under ADR-15 before proposing any index. Reuse suitable structures; justify separate ones
+  against the combined read requirements and cumulative append cost against the same original
+  control. Do not grant separate additive write-regression allowances to the two features.
+  Rationale: both features can impose ongoing overhead on every writer. Coordination is
+  required even though stream-name paging and global-event ordering have different needs.
+  Plan 54 is not a new implementation prerequisite, and no index is authorized here.
+
 - Decision (2026-10-10 user-directed follow-up): investigate category-scoped
   stream browsing first with the existing schema, because users normally browse
   streams inside a category. Keep arbitrary prefix search as a valid UI
@@ -490,6 +499,16 @@ From `kiroku-store/src/Kiroku/Store/Error.hs`: `StoreError`, whose constructors 
 which rejects `$all` and names over 512 UTF-8 bytes.
 
 ### The database schema that the new SQL reads
+
+The user's application names streams `<category>-<typeid>`. UUIDv7-based TypeIDs
+provide approximate ID-generation-time order under bytewise string ordering; that is
+not global event order or necessarily stream insertion order. The store itself accepts
+arbitrary stream names and does not enforce this convention. A common category prefix
+already groups names under bytewise ordering regardless of whether the suffix is ordered.
+TypeIDs therefore make name-order browsing useful, but do not by themselves turn category
+filtering or `starts_with` into an index seek. Any existing-name-index range candidate must
+prove membership, cursor behavior and bounded work under the database's actual collation
+and generic/custom plans. Do not impose a new naming restriction or change collation.
 
 The schema is owned by `kiroku-store-migrations/migrations/0001-kiroku-bootstrap.sql` and later
 files (`0005-…`, `0006-…`, `0007-stream-truncate-before.sql`). The relevant facts:
@@ -1388,3 +1407,10 @@ Evaluated the user-requested category-first workflow using existing indexes.
 Retained correct-result and EXPLAIN evidence for category and unrelated-inventory
 scaling; kept arbitrary prefix search required and all production milestones open.
 No new index, migration, collation, API signature or acceptance threshold was added.
+
+
+## Shared access-cost clarification (2026-10-10)
+
+Recorded the user's requirement to coordinate browsing and prefix-subscription physical
+access and cumulative writer cost under ADR-15. No index or implementation milestone is
+approved. Plan 88 also records the application's TypeID naming convention and its limits.

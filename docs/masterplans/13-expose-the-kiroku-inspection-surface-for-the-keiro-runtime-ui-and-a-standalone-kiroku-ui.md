@@ -586,6 +586,15 @@ rule suffices.
 
 ## Decision Log
 
+- Decision (2026-10-10 user clarification): coordinate EP-3's physical access design
+  with [plan 54](../plans/54-add-prefix-matching-subscription-target-for-fan-in-subscriptions.md).
+  Avoid redundant indexes and assess any necessary structures together against one original
+  append control, including combined active browsing/subscription load. Neither feature has
+  an independent additive regression allowance. ADR-15 records this shared constraint.
+  Rationale: the user is concerned about paying ongoing writer overhead twice, not only
+  duplicating measurement work. This is a design coordination requirement, not adoption of
+  plan 54 as a child or an implementation dependency. The current no-new-index direction holds.
+
 - Decision (2026-10-10 user-directed follow-up): prioritize category-scoped
   browsing investigation with existing indexes, preserving arbitrary prefix
   search as a UI requirement. Do not treat this as a migration authorization or
@@ -803,3 +812,10 @@ EP-3 step. No performance gate was weakened.
 Recorded the user-directed existing-index experiment and its category-sized
 work limitation. Category browsing is the priority workflow, arbitrary prefix
 search remains required, and the original promotion gate remains in force.
+
+
+## Shared access-cost clarification (2026-10-10)
+
+Recorded the user's requirement to coordinate browsing and prefix-subscription physical
+access and cumulative writer cost under ADR-15. No index or implementation milestone is
+approved. Plan 88 also records the application's TypeID naming convention and its limits.

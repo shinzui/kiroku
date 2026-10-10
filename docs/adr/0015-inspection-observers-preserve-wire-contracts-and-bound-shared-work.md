@@ -8,7 +8,7 @@ generated:
 docId: ADR-15
 status: Accepted
 date: 2026-10-10
-timestamp: "2026-10-10T17:40:29Z"
+timestamp: "2026-10-10T19:17:23Z"
 originatingPlan: docs/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md
 ---
 
@@ -58,6 +58,17 @@ never one lookup per event or an ever-growing lifetime map.
 
 Stream/category/dead-letter reads use existing indexes first. No index or migration may be
 added merely to hide an expensive observer without separately reviewing append cost.
+Coordinate any prefix/category access design with
+[plan 54](../plans/54-add-prefix-matching-subscription-target-for-fan-in-subscriptions.md)
+before proposing a migration. Browsing and prefix subscriptions share the writer's
+physical schema: reuse suitable existing or proposed indexes rather than adding redundant
+structures independently. If their different ordering requirements need separate structures,
+justify that with focused read evidence and review their combined write cost. Compare the
+combined schema and representative active readers/subscriptions against the same original
+control; each feature does not receive its own additive append-regression allowance.
+Include new-stream inserts and existing-stream updates, including non-HOT updates, when
+affected. This coordination authorizes no index and does not make either feature a prerequisite
+for implementing the other.
 All-member dead-letter paging must limit each member's index scan before merging;
 its cost depends on member count and page size, not every historical dead letter.
 Prefix filtering and optional-cursor prepared plans require focused EXPLAIN evidence,
