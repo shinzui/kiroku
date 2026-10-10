@@ -1,0 +1,82 @@
+
+[1m━━━ Bodigrim/tasty-bench ━━━[0m
+
+  [2mDescription:[0m Corpus: tasty-bench featherlight benchmark framework
+  [2mType:[0m library
+  [2mOrigin:[0m third_party
+  [2mLifecycle:[0m [2mActive[0m
+  [2mPath:[0m /Users/shinzui/Keikaku/hub/haskell/tasty-bench-project
+  [2mHost:[0m host_01kz07q6kdeyq8rmk5e3x5yhax
+  [2mDomains:[0m benchmarking, testing
+  [2mGroups:[0m [2m(none)[0m
+  [2mRepo ID:[0m [2m—[0m
+  [2mStable ID:[0m [2m—[0m
+  [2mAliases:[0m [2m—[0m
+  [2mRegistered:[0m [2m2026-08-20 04:08:10.5565 UTC[0m
+  [2mRegistration:[0m current
+  [2mSchema:[0m https://raw.githubusercontent.com/shinzui/mori-schema/06588f0a31e97784398f1260bc88321684219908/package.dhall  [93m[stale][0m
+            [2msha256:4f9f90bd930eb8d27e8bce70e504d7d366bc302d58a139c9b6874b8c51c952e4[0m
+
+[2m── Constrained dependents [2m(2)[0m ──[0m
+
+  • [1mmori://shinzui/keiki/packages/jitsurei[0m  [2mpackages[jitsurei].dependencies[Bodigrim/tasty-bench:tasty-bench].versionConstraint[0m
+  • [1mmori://shinzui/keiki/packages/keiki-codec-json[0m  [2mpackages[keiki-codec-json].dependencies[Bodigrim/tasty-bench:tasty-bench].versionConstraint[0m
+
+[2m── Depended on via typed refs [2m(3)[0m ──[0m
+
+  • [1mmori://shinzui/kiroku[0m  [2mdependencyRefs[0][0m
+  • [1mmori://shinzui/shibuya-kafka-adapter[0m  [2mdependencyRefs[8][0m
+  • [1mmori://shinzui/keiki[0m  [2mdependencyRefs[0][0m
+
+[2m── Pinned Imports [2m(0)[0m ──[0m
+
+  [2m(none)[0m
+
+[2m── Packages [2m(1)[0m ──[0m
+
+  • [1mtasty-bench[0m  [2mlibrary[0m  [2mhaskell[0m  [2mtasty-bench[0m  [2mActive[0m[2m (inherited)[0m
+    [2mFeatherlight benchmark framework with tasty integration[0m
+      [2mmori://Bodigrim/tasty-bench/packages/tasty-bench[0m
+
+[2m── Repositories [2m(1)[0m ──[0m
+
+  • [1mtasty-bench[0m  [2mgithub: Bodigrim/tasty-bench[0m
+    [2m[localPath: tasty-bench][0m
+      [2mmori://Bodigrim/tasty-bench/repos/tasty-bench[0m
+
+[2m── Dependencies [2m(0)[0m ──[0m
+
+  [2m(none)[0m
+
+[2m── Package dependencies [2m(0)[0m ──[0m
+
+  [2m(none)[0m
+
+[2m── Bundles [2m(0)[0m ──[0m
+
+  [2m(none)[0m
+
+[2m── Docs [2m(1)[0m ──[0m
+
+  • [1menv-thunk-nested-atomically[0m  notes       user      local_file: /Users/shinzui/Keikaku/hub/haskell/tasty-bench-project/docs/env-thunk-nested-atomically.md
+      [2mmori://Bodigrim/tasty-bench/docs/env-thunk-nested-atomically[0m
+
+[2m── Skills [2m(0)[0m ──[0m
+
+  [2m(none)[0m
+
+[2m── Subagents [2m(0)[0m ──[0m
+
+  [2m(none)[0m
+
+[2m── Seihou Templates [2m(0)[0m ──[0m
+
+  [2m(none)[0m
+
+[2m── Published Profiles [2m(0)[0m ──[0m
+
+  [2m(none)[0m
+
+[2m── Extensions [2m(0)[0m ──[0m
+
+  [2m(none)[0m

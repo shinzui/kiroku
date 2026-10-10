@@ -447,6 +447,16 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Surprises & Discoveries
 
+- (2026-10-10) EP6 follow-up: the failed checkpoint assertion incorrectly treated
+  the subscription fetch limit as the live publisher batch size. Both source
+  arms save once per actual delivered batch. Six local real-adapter probes show
+  exact table-update/batch equality despite 1000 delivered events per trial.
+  Correct the harness accounting without changing event/durable/regression gates.
+  The two telemetry timeout cases passed a focused repeat under unchanged CPU-time
+  settings; the original full failure remains retained. Version approval is
+  deferred while cumulative evidence is assessed under the authorized fixed
+  03:31–04:31 UTC whole-work budget.
+
 - EP5 (2026-10-10): the transaction mapper shared the append substring collision.
   Exact extraction is now common to append, transaction, link and multi-stream
   attribution, preserving their distinct constructors and fallbacks. The initial
@@ -998,3 +1008,5 @@ TERMINATED and no lease or quarantine. Historical telemetry failed two of 30
 cases. See `kiroku-store/bench/results/ep6-release/README.md`; cumulative acceptance
 is inconclusive and publication remains gated. The exact independently versioned
 metadata proposal awaits the release skill confirmation. EP6 remains In Progress.
+
+Revision note (2026-10-10): The user authorizes diagnosing the unresolved EP6 evidence before release. Defer metadata approval, prove the live-batch accounting correction locally and retain the separate focused telemetry repeat; EP6 remains In Progress.

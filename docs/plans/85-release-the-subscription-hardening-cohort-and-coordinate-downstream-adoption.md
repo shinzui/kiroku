@@ -77,7 +77,7 @@ user's explicit release-time confirmation.
 
 - [ ] Integrated performance gate: select the minimum useful cumulative comparison against original control and finish the whole experiment within one hour, retaining uncertainty and regression policy under ADR-11.
 - [x] (2026-10-10) Gate: plans 81, 82, 83, 84, and 86 are Complete; current living sections, strict ADR validation and the configured capability gate pass. The lifetime member-guard plans 93/92 remain outside this cohort and unimplemented.
-- [x] (2026-10-10) M1: verify all six current Hackage versions and upstream peeled tags, audit changed APIs and discover registered dependents. Exact proposed Cabal/bound/changelog patch is retained in `kiroku-store/bench/results/ep6-release/proposal/`; metadata approval is pending.
+- [x] (2026-10-10) M1: verify all six current Hackage versions and upstream peeled tags, audit changed APIs and discover registered dependents. Exact proposed Cabal/bound/changelog patch is retained in `kiroku-store/bench/results/ep6-release/proposal/`; metadata approval is deferred until the unresolved evidence is assessed.
 - [ ] M1: present exact package versions, bounds, and changelogs for user confirmation before editing release metadata.
 - [ ] M2: update approved versions/bounds/changelogs and pass formatting, build, test, ADR-5 performance, migration, sdist, Haddock, and flake gates.
 - [ ] M3: after a second explicit publication confirmation, commit, tag, push, publish Hackage/docs and GitHub releases in dependency order; verify clean-consumer resolution.
@@ -86,6 +86,25 @@ user's explicit release-time confirmation.
 
 
 ## Surprises & Discoveries
+
+- (2026-10-10) Follow-up diagnosis proves the checkpoint gate assumed the wrong
+  batching unit. AllStreams live delivery consumes publisher batches (maximum
+  1000), independently of the subscription fetch limit. Both original control
+  and candidate save once per delivered batch. Six actual-adapter local probes
+  each delivered 1000 events and drained durable progress; table-update deltas
+  exactly equalled observed batch counts (969, 992, 995, 939, 961, 897), including
+  after idle and longer flush checks. Ten distinct pool backends were flushed.
+  The harness now requires exact equality to delivery batches; event delivery,
+  durable progress, durability and regression thresholds remain unchanged.
+- (2026-10-10) The authorized follow-up has a fixed 03:31–04:31 UTC whole-work
+  budget, including diagnosis, builds, submission, verification and cleanup.
+  The two previously timed-out telemetry cases passed under unchanged CPU-time,
+  baseline and timeout settings in 96.00 seconds: NoStream append 125 µs (32%
+  below historical baseline), exhausted-category read 17.9 µs (reported same).
+  The original full telemetry failure is retained; this focused repeat does not
+  replace it. Tasty-bench uses CPU-time adaptation by default while its hard
+  timeout is wall time, so I/O-heavy cases can time out; this is a plausible
+  timing explanation, not proof of the original timeout cause.
 
 - (2026-10-10) The initial real-adapter control errored on the unchanged
   checkpoint-frequency invariant after 44,545 steady deliveries. Sampler table
@@ -131,6 +150,13 @@ user's explicit release-time confirmation.
 
 
 ## Decision Log
+
+- Decision (2026-10-10): Defer version approval and publication while diagnosing
+  the cumulative measurement failure. The user authorized this follow-up after
+  the premature release proposal was corrected. Preserve the closed experiment
+  and all invalid/adverse evidence; do not reset the new one-hour clock or loosen
+  the statistical policy. Correct checkpoint accounting to the actual delivered
+  batch unit and verify a small remote run before expanding coverage.
 
 - Decision (2026-10-09): required testing for this cohort uses PostgreSQL 18.
   The user explicitly removed PostgreSQL 17 testing; preserve already collected
@@ -503,3 +529,5 @@ telemetry and the stopped cumulative experiment. No matched performance result
 is available; diagnostic capture improves future failures while preserving the
 original invariant and no-replacement rule. Approval, final archives, publication
 and Keiro adoption remain outstanding.
+
+Revision note (2026-10-10): Defer release approval; diagnose live publisher batching with six exact local adapter checks and retain the focused CPU telemetry repeat. The follow-up uses one fixed 03:31–04:31 UTC budget. Remote evidence remains pending.

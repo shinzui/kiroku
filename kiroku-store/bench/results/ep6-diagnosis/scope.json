@@ -1,0 +1,42 @@
+{
+  "cases": [
+    "live-hook-fanout",
+    "real-adapter"
+  ],
+  "pairs_per_case": 3,
+  "ordering": "abba",
+  "warmup_seconds": 30,
+  "measurement_seconds": 61,
+  "drain_max_seconds": 30,
+  "max_replacements": 0,
+  "diagnostic_trial": "one head-stall real-adapter trial immediately after final head baseline; descriptive cost only",
+  "strict_policy": "unchanged bench/mp12-cell/policy.json; <5 pairs can remain inconclusive",
+  "descriptive_uncertainty_target_percent": 10,
+  "estimate_whole_minutes": [
+    52,
+    59
+  ],
+  "deadline_epoch": 1791606660.0,
+  "source_control": "e6ea66433c5320097b6afd3c4ca56cd18ba86bd0",
+  "candidate_source": "5805117edf6bdb988d02d73e19fbb221ef2bf767",
+  "harness_source": "pending clean commit",
+  "settings": [
+    "shared_buffers=128MB",
+    "fsync=on",
+    "synchronous_commit=on",
+    "full_page_writes=on",
+    "wal_level=replica",
+    "checkpoint_timeout=30min",
+    "max_wal_size=16GB"
+  ],
+  "stop_conditions": [
+    "fixed deadline with 180-second cleanup reserve",
+    "240 seconds without remote phase or verified-trial progress",
+    "failed slice, wrong durable work, reset or artifact verification: stop without replacement",
+    "confirmed regression retains open release gate"
+  ],
+  "calibration_trials": 1,
+  "planned_total_trials": 14,
+  "started_epoch": 1791603060.0,
+  "budget_includes": "diagnosis, local probes, build, publication, calibration, reset/setup, remote trials, fetch, verification, cleanup"
+}

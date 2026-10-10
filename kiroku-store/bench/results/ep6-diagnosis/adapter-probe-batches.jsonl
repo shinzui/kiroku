@@ -1,0 +1,6 @@
+{"after_idle_delta":969,"before":0,"delivery_batches":969,"end_unique_backends":10,"expected_updates":1000,"long_flush_delta":969,"old_flush_delta":969,"start_unique_backends":10,"trial":1}
+{"after_idle_delta":992,"before":969,"delivery_batches":992,"end_unique_backends":10,"expected_updates":1000,"long_flush_delta":992,"old_flush_delta":992,"start_unique_backends":10,"trial":2}
+{"after_idle_delta":995,"before":1961,"delivery_batches":995,"end_unique_backends":10,"expected_updates":1000,"long_flush_delta":995,"old_flush_delta":995,"start_unique_backends":10,"trial":3}
+{"after_idle_delta":939,"before":2956,"delivery_batches":939,"end_unique_backends":10,"expected_updates":1000,"long_flush_delta":939,"old_flush_delta":939,"start_unique_backends":10,"trial":4}
+{"after_idle_delta":961,"before":3895,"delivery_batches":961,"end_unique_backends":10,"expected_updates":1000,"long_flush_delta":961,"old_flush_delta":961,"start_unique_backends":10,"trial":5}
+{"after_idle_delta":897,"before":4856,"delivery_batches":897,"end_unique_backends":10,"expected_updates":1000,"long_flush_delta":897,"old_flush_delta":897,"start_unique_backends":10,"trial":6}

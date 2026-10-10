@@ -285,13 +285,17 @@ measure context workload store event delivered live failures batches members sta
                     (saves1, hot1) = tables1
                 when (members > 0) $ do
                     let updates = saves1 - saves0
-                        minimumUpdates = if consuming then (fromIntegral (events * deliveryFactor) + fromIntegral workload.checkpointBatch - 1) `div` fromIntegral workload.checkpointBatch else 0
-                        maximumUpdates = if consuming then fromIntegral (events * deliveryFactor) else 0
+                        -- Healthy Continue/AckOk handlers save once per delivered
+                        -- batch. AllStreams live batches come from the publisher,
+                        -- whose batch size is independent of the fetch limit.
+                        minimumUpdates = fromIntegral batchCount
+                        maximumUpdates = fromIntegral batchCount
                     Core.putSummary context Core.Measurements "checkpoint-validation" $
                         object
                             [ "events" .= events
                             , "expected_delivered" .= (events * deliveryFactor)
                             , "delivered" .= count
+                            , "delivery_batches" .= batchCount
                             , "table_updates_before" .= saves0
                             , "table_updates_after" .= saves1
                             , "checkpoint_updates" .= updates
