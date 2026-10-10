@@ -32,6 +32,7 @@ import Shibuya.Adapter.Kiroku qualified as Adapter
 import Shibuya.App (ProcessorId (..), defaultAppConfig, mkProcessor, runApp, stopApp)
 import Shibuya.Core.Ack (AckDecision (..))
 import Shibuya.Telemetry.Effect (runTracingNoop)
+import System.Environment (lookupEnv)
 import System.Mem (performMajorGC)
 import System.Posix.Unistd qualified as Posix
 import System.Timeout (timeout)
@@ -60,19 +61,32 @@ data Workload = Workload
     , offered :: !Int
     , warmupSeconds :: !Int
     , maxBacklog :: !Int
+    , subscribers :: !Int
+    , hookEnabled :: !Bool
+    , diagnosticsEnabled :: !Bool
     }
 
 bundle :: LayerBundle
 bundle = LayerBundle Kiroku [scenario] []
 
 scenario :: Scenario
-scenario = Hardening.scenario{run = runWorkload}
+scenario =
+    Hardening.scenario
+        { run = runWorkload
+        , revision = 3
+        , knobs =
+            Hardening.scenario.knobs
+                <> [ KnobSpec (knobName "mp12.subscribers") "Independent all-stream subscribers" KnobInt (VInt 1) (IntRange 1 2) []
+                   , KnobSpec (knobName "mp12.hook") "Successful identity decode hook" KnobBool (VBool False) AnyValue []
+                   ]
+        }
 
 knobName :: Text -> KnobName
 knobName = either (error . show) id . mkKnobName
 
 runWorkload :: Core.RunContext -> IO ScenarioReport
 runWorkload context = do
+    diagnostics <- maybe False (== "1") <$> lookupEnv "KENSHOU_MP12_STALL_DIAGNOSTICS"
     let integer :: (Integral n) => Text -> n
         integer key = fromIntegral (knobInt context.knobs (knobName key))
         workload =
@@ -86,7 +100,12 @@ runWorkload context = do
                 (integer "mp12.offered")
                 (floor context.phases.warmUpSeconds)
                 (integer "mp12.max-backlog")
+                (integer "mp12.subscribers")
+                (knobBool context.knobs (knobName "mp12.hook"))
+                diagnostics
     unless (workload.seconds >= 60 && workload.warmupSeconds >= 2) (fail "benchmark requires >=60s steady and >=2s warmup")
+    unless (workload.subscribers == 1 || workload.mode == "all") (fail "independent fan-out requires all-stream mode")
+    validateDiagnostics diagnostics
     live <- newIORef (0 :: Int)
     failures <- newIORef (0 :: Int)
     batches <- newIORef (0 :: Int)
@@ -95,7 +114,7 @@ runWorkload context = do
             KirokuEventSubscriptionDbError{} -> atomicModifyIORef' failures (\n -> (n + 1, ()))
             KirokuEventSubscriptionDelivered{} -> atomicModifyIORef' batches (\n -> (n + 1, ()))
             _ -> pure ()
-        settings = (defaultConnectionSettings ((Core.requirePostgres context).connectionString)){poolSize = 10, eventHandler = Just observe}
+        settings = (defaultConnectionSettings ((Core.requirePostgres context).connectionString)){poolSize = 10, eventHandler = Just observe, storeSettings = configuredStoreSettings workload.hookEnabled}
     withStore settings $ \store -> do
         let event = EventData Nothing (EventType "Probe") (object ["body" .= Text.replicate 512 "x"]) Nothing Nothing Nothing
         -- Identical existing-stream fixtures and explicit future-only live entry.
@@ -105,12 +124,12 @@ runWorkload context = do
         startup <- newIORef 0
         let handler _ = atomicModifyIORef' delivered (\n -> (n + 1, ())) >> pure Continue
             config m =
-                (defaultSubscriptionConfig (SubscriptionName "probe") (workloadTarget workload) handler)
+                (configureNativeDiagnostics diagnostics (defaultSubscriptionConfig (SubscriptionName (if workload.subscribers > 1 then "probe-fanout-" <> Text.pack (show m) else "probe")) (workloadTarget workload) handler))
                     { missingCheckpointPolicy = FromCurrentHead
                     , batchSize = configuredCheckpointBatch workload.checkpointBatch
                     , consumerGroup = if workload.mode `elem` ["group-all", "group-category"] then Just (membership m) else Nothing
                     }
-            members = if workload.mode `elem` ["group-all", "group-category"] then [0, 1, 2, 3] else [0]
+            members = if workload.mode `elem` ["group-all", "group-category"] then [0, 1, 2, 3] else map fromIntegral [0 .. workload.subscribers - 1]
             native = do
                 getMonotonicTimeNSec >>= writeIORef startup
                 bracket (mapM (subscribe store . config) members) (mapM_ cancel) $ \_ -> measure context workload store event delivered live failures batches (length members) startup
@@ -120,7 +139,7 @@ runWorkload context = do
                 liftIO $ getMonotonicTimeNSec >>= writeIORef startup
                 adapter <-
                     kirokuAdapter store $
-                        (defaultKirokuAdapterConfig (SubscriptionName "probe") AllStreams)
+                        (configureAdapterDiagnostics diagnostics (defaultKirokuAdapterConfig (SubscriptionName "probe") AllStreams))
                             { Adapter.missingCheckpointPolicy = FromCurrentHead
                             , Adapter.batchSize = configuredCheckpointBatch workload.checkpointBatch
                             }
@@ -138,6 +157,37 @@ membership :: Int32 -> ConsumerGroup
 membership m = ConsumerGroup m 4
 #else
 membership m = either (error . show) Prelude.id (mkConsumerGroupSize 4 >>= mkConsumerGroup m)
+#endif
+
+configuredStoreSettings :: Bool -> StoreSettings
+configuredStoreSettings False = defaultStoreSettings
+configuredStoreSettings True = defaultStoreSettings{decodeHook = Just successfulHook}
+  where
+#ifdef LEGACY_TOPOLOGY
+    successfulHook = pure
+#else
+    successfulHook = pure . Right
+#endif
+
+validateDiagnostics :: Bool -> IO ()
+#ifdef LEGACY_TOPOLOGY
+validateDiagnostics enabled = when enabled (fail "legacy control has no handler diagnostics")
+#else
+validateDiagnostics _ = pure ()
+#endif
+
+configureNativeDiagnostics :: Bool -> SubscriptionConfig -> SubscriptionConfig
+#ifdef LEGACY_TOPOLOGY
+configureNativeDiagnostics _ config = config
+#else
+configureNativeDiagnostics enabled config = config{handlerStallWarnAfter = if enabled then Just 60 else Nothing}
+#endif
+
+configureAdapterDiagnostics :: Bool -> Adapter.KirokuAdapterConfig -> Adapter.KirokuAdapterConfig
+#ifdef LEGACY_TOPOLOGY
+configureAdapterDiagnostics _ config = config
+#else
+configureAdapterDiagnostics enabled config = config{Adapter.handlerStallWarnAfter = if enabled then Just 60 else Nothing}
 #endif
 
 workloadTarget :: Workload -> SubscriptionTarget
@@ -207,7 +257,7 @@ measure context workload store event delivered live failures batches members sta
                     elapsed = secondsBetween start finish
                     sorted = sort (concat [latencies | (latencies, _) <- samples])
                 Core.withPhase context CorePhase.Drain $ when (members > 0) $ do
-                    await "delivery drain" (fmap (== if consuming then events else 0) (readIORef delivered))
+                    await "delivery drain" (fmap (== if consuming then events * deliveryFactor else 0) (readIORef delivered))
                     await "durable progress drain" durable
                 performMajorGC
                 stats1 <- getRTSStats
@@ -226,7 +276,7 @@ measure context workload store event delivered live failures batches members sta
                 backlogRows <- readIORef backlog
                 unless (length backlogRows >= workload.seconds * 5) (fail "handler backlog sampling is incomplete")
                 when (members > 0) $ unless (length [() | (_, _, _, Just _) <- backlogRows] >= workload.seconds `div` 2) (fail "durable backlog sampling is incomplete")
-                let peak = if not consuming then 0 else maximum (0 : [max 0 (issued - handled) | (_, issued, handled, _) <- backlogRows])
+                let peak = if not consuming then 0 else maximum (0 : [max 0 (issued * deliveryFactor - handled) | (_, issued, handled, _) <- backlogRows])
                     peakDurable = maximum (0 : [pending | (_, _, _, Just pending) <- backlogRows])
                 unless (peak <= backlogLimit && peakDurable <= fromIntegral backlogLimit) (fail "subscriber backlog exceeded the predeclared limit")
                 unless (workload.offered == 0 || calls == workload.offered * workload.seconds) (fail "fixed-load schedule did not complete every declared arrival")
@@ -235,12 +285,13 @@ measure context workload store event delivered live failures batches members sta
                     (saves1, hot1) = tables1
                 when (members > 0) $ do
                     let updates = saves1 - saves0
-                        minimumUpdates = if consuming then (fromIntegral events + fromIntegral workload.checkpointBatch - 1) `div` fromIntegral workload.checkpointBatch else 0
-                        maximumUpdates = if consuming then fromIntegral events else 0
+                        minimumUpdates = if consuming then (fromIntegral (events * deliveryFactor) + fromIntegral workload.checkpointBatch - 1) `div` fromIntegral workload.checkpointBatch else 0
+                        maximumUpdates = if consuming then fromIntegral (events * deliveryFactor) else 0
                     unless (updates >= minimumUpdates && updates <= maximumUpdates) (fail "checkpoint frequency differs from the declared batch policy")
                 Core.putSummary context Core.Measurements "write-probe" $
                     object
-                        [ "workload" .= object ["mode" .= workload.mode, "width" .= workload.width, "append_batch" .= workload.appendBatch, "checkpoint_batch" .= workload.checkpointBatch, "fresh" .= workload.fresh, "offered" .= workload.offered, "seconds" .= workload.seconds, "warmup_seconds" .= workload.warmupSeconds]
+                        [ "workload" .= object ["mode" .= workload.mode, "width" .= workload.width, "append_batch" .= workload.appendBatch, "checkpoint_batch" .= workload.checkpointBatch, "fresh" .= workload.fresh, "offered" .= workload.offered, "seconds" .= workload.seconds, "warmup_seconds" .= workload.warmupSeconds, "subscribers" .= workload.subscribers, "hook" .= workload.hookEnabled, "diagnostics" .= workload.diagnosticsEnabled]
+                        , "expected_delivered" .= (if consuming then events * deliveryFactor else 0)
                         , "fixture_preview" .= [let StreamName name = stream writer slot (2 * iteration + phase) workload.fresh in name | phase <- [0, 1], writer <- [0 .. 3], slot <- [0 .. workload.width - 1], iteration <- [0, 1]]
                         , "server" .= server
                         , "durability" .= durability
@@ -268,10 +319,11 @@ measure context workload store event delivered live failures batches members sta
     pure (passed{outcome = Measure.measuredOutcome report passed.outcome})
   where
     consuming = members > 0 && workload.mode /= "idle"
+    deliveryFactor = if workload.mode == "all" then workload.subscribers else 1
     -- Independent of window length: fixed-load appends cannot appear faster
     -- by moving an ever-growing checkpoint backlog outside the timed window.
     backlogLimit = min workload.maxBacklog (8 * max (workload.width * workload.appendBatch) (fromIntegral workload.checkpointBatch * max 1 members))
-    pendingSQL = "SELECT count(*) FROM kiroku.stream_events se JOIN kiroku.subscriptions s ON s.subscription_name='probe' WHERE se.stream_id=0 AND se.stream_version>s.last_seen" <> (if workload.mode == "idle" then " AND se.category='quiet'" else "") <> if workload.mode `elem` ["group-all", "group-category"] then " AND (((hashtextextended(se.original_stream_id::text,0)%4)+4)%4)=s.consumer_group_member" else ""
+    pendingSQL = "SELECT count(*) FROM kiroku.stream_events se JOIN kiroku.subscriptions s ON s.subscription_name LIKE 'probe%' WHERE se.stream_id=0 AND se.stream_version>s.last_seen" <> (if workload.mode == "idle" then " AND se.category='quiet'" else "") <> if workload.mode `elem` ["group-all", "group-category"] then " AND (((hashtextextended(se.original_stream_id::text,0)%4)+4)%4)=s.consumer_group_member" else ""
     durable = do
         Right inventory <- runStoreIO store subscriptionCheckpointInventory
         unless (Vector.length inventory.checkpoints == members) (fail "durable checkpoint row count does not match the declared subscribers")
@@ -301,7 +353,7 @@ measure context workload store event delivered live failures batches members sta
             handled <- readIORef delivered
             now <- getMonotonicTimeNSec
             let limit = min (workload.maxBacklog `div` 2) (max (workload.width * workload.appendBatch) (fromIntegral workload.checkpointBatch * members * 2))
-            when (issued - handled >= max 1 limit && now < end) $ Posix.nanosleep 200_000 >> capacityWait
+            when (issued * deliveryFactor - handled >= max 1 limit && now < end) $ Posix.nanosleep 200_000 >> capacityWait
         loop i collected = do
             when (workload.offered == 0 && consuming) $ capacityWait
             now <- getMonotonicTimeNSec

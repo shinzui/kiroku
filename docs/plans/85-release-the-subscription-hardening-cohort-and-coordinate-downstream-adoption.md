@@ -44,6 +44,11 @@ provenance:
       at: 2026-10-10T00:17:55Z
       mode: "implement"
       note: "Reserve focused cumulative release comparison within user one-hour ceiling."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-10T02:48:14Z
+      mode: "implement"
+      note: "Begin integrated release readiness and bounded original-control evidence."
 ---
 
 # Release the subscription hardening cohort and coordinate downstream adoption

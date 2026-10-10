@@ -1,7 +1,7 @@
 {
   "schema": "kenshou.cohort/v1",
-  "name": "head",
-  "description": "MP-12 controlled write comparison; Kiroku source is the only runtime varying axis.",
+  "name": "head-stall",
+  "description": "Same EP6 candidate source with opt-in 60-second handler stall diagnostics.",
   "verifiedAt": "pending",
   "compiler": "ghc-9.12.4",
   "indexState": "2026-09-20T13:44:47Z",
