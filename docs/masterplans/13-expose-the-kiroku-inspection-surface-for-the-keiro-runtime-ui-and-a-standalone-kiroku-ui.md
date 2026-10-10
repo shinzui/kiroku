@@ -470,6 +470,7 @@ rule suffices.
       evidence.
 - [x] (2026-10-10) EP-3: execute M0 existing-index prototype diagnostics; reject inventory-proportional prefix work and retain evidence.
 - [x] (2026-10-10) EP-3: evaluate user-directed category-scoped stream browsing with existing indexes; retain category-size scaling and correctness evidence.
+- [x] (2026-10-10) EP-3: evaluate name ranges with TypeID fixtures on existing indexes; retain 224 initial and 400 refined cases with verified cleanup and rejected promotion.
 - [ ] EP-3: resolve ordered paging within large categories and arbitrary prefix filtering before promoting browse SQL.
 - [ ] EP-3: `listStreams`, `listCategories`, `getEvent` in `kiroku-store` with database, mock,
       and structural tests.
@@ -499,6 +500,16 @@ rule suffices.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-10 EP-3 range follow-up: ordinary TypeID category pages can use the
+  name index for eleven examined rows, but generated-category generic plans can
+  still scan 20,007 rows and codepoint prefix bounds omit valid ICU matches.
+  The refined 400-case run was correct in all 200 C cases and 168 ICU cases;
+  earlier 224 cases are also retained. See the
+  [range evidence](../../kiroku-store/bench/results/mp13-ep3-range/README.md).
+  Both owned servers stopped; no index or production SQL was added. Stream
+  indexes can affect event appends through new-stream inserts and non-HOT
+  version updates. The proposed index's write cost remains unmeasured.
 
 - 2026-10-10 EP-3 category follow-up: the existing category index is useful.
   Materializing category filters before sorting avoided unrelated-inventory
@@ -585,6 +596,13 @@ rule suffices.
 
 
 ## Decision Log
+
+- Decision (2026-10-10 range follow-up): hold EP-3 after the name-range
+  experiment. Useful ordinary TypeID seeks do not override ICU correctness
+  failures or broad planner work. Coordinate any physical-design proposal with
+  plan 54 under ADR-15 and measure cumulative append cost; stream-version
+  updates mean an index is not automatically free for event creation. The
+  current investigation adds no index and completes no production milestone.
 
 - Decision (2026-10-10 user clarification): coordinate EP-3's physical access design
   with [plan 54](../plans/54-add-prefix-matching-subscription-target-for-fan-in-subscriptions.md).
@@ -743,6 +761,13 @@ rule suffices.
 
 ## Outcomes & Retrospective
 
+2026-10-10 range follow-up: completed the authorized existing-index range
+experiment and retained both runs. EP-3 remains In Progress because correctness
+under ICU and bounded planner work are unresolved. The useful TypeID cases do
+not authorize a naming restriction, collation change, new index or relaxed gate.
+Plan 54 still shares the physical-design and cumulative write-cost review; no
+append-cost acceptance is claimed. The dependency graph is unchanged.
+
 2026-10-10 category follow-up: the requested no-new-index experiment is complete.
 Category equality helps, while sorted/prefix-filtered pages still scale with
 selected-category size. Correct results and server cleanup are verified; no
@@ -819,3 +844,10 @@ search remains required, and the original promotion gate remains in force.
 Recorded the user's requirement to coordinate browsing and prefix-subscription physical
 access and cumulative writer cost under ADR-15. No index or implementation milestone is
 approved. Plan 88 also records the application's TypeID naming convention and its limits.
+
+
+## Name-range prototype revision (2026-10-10)
+
+EP-3 remains In Progress after 624 retained range cases. Ordinary TypeID pages can
+seek cheaply, but ICU membership and planner-work failures prevent promotion. No
+index or cumulative append acceptance is claimed; plan 54 coordination still applies.

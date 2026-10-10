@@ -100,6 +100,7 @@ dependency.
 - [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
 - [x] (2026-10-10) M0: execute the focused existing-index SQL prototype check on PostgreSQL 18.6; retain 80 initial and 152 expanded EXPLAIN cases, migration hashes and verified owned-server cleanup.
 - [x] (2026-10-10) M0 follow-up: evaluate category-scoped stream paging and prefix filtering with existing indexes; retain 192 correct-result EXPLAIN cases and verified server cleanup.
+- [x] (2026-10-10) M0 range follow-up: retain 224 initial and 400 refined TypeID/name-range cases, including generic-plan scaling and ICU correctness failures; verify both owned servers stopped.
 - [ ] M0 remaining: resolve ordered paging within large categories and the general prefix design after the failed promotion gates. No production browse SQL or HTTP route may be promoted yet.
 - [ ] Implement and execute the remaining focused correctness and performance acceptance added by this review.
 
@@ -120,6 +121,20 @@ dependency.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-10 range follow-up: splitting bare-name and prefix-range branches can
+  reduce ordinary TypeID category pages to eleven examined rows. Replacing the
+  generated-category predicate with its equivalent name expression avoided a
+  generic plan scanning 20,007 rows / 568 buffers in the neighbor fixture; the
+  range candidate then examined 11 rows / 8 buffers. This is not portable
+  acceptance: small-fixture planner choices still exceed the unchanged budget,
+  and codepoint upper bounds omitted valid literal `%` and Unicode matches in
+  ICU. All 200 refined C cases were correct; 32 of 200 ICU cases were incorrect.
+  Both runs, exact SQL and comparisons are retained in the
+  [range evidence](../../kiroku-store/bench/results/mp13-ep3-range/README.md).
+  Write cost remains unmeasured. Appends update application and `$all` stream
+  versions; an added index can affect new-stream inserts and non-HOT updates
+  despite existing fillfactor 50. It cannot be described as free for event creation.
 
 - 2026-10-10 category follow-up: category equality does use the existing category
   index. Applying category/cursor/prefix filters in a materialized CTE before
@@ -150,6 +165,14 @@ dependency.
 
 
 ## Decision Log
+
+- Decision (2026-10-10 range implementation): retain the improved name-range
+  candidate as diagnostic evidence and reject production promotion. Neither
+  ordinary TypeID success nor bytewise bounds prove the full name/collation
+  contract. Resolve the physical access design with plan 54 under ADR-15 before
+  proposing a migration, and measure its cumulative write cost rather than
+  assuming stream indexes leave event appends unaffected. No index is selected
+  or authorized; M1–M4 remain open.
 
 - Decision (2026-10-10 user clarification): review prefix/category physical access
   together with [plan 54](54-add-prefix-matching-subscription-target-for-fan-in-subscriptions.md)
@@ -337,6 +360,13 @@ dependency.
 
 
 ## Outcomes & Retrospective
+
+2026-10-10 range follow-up: completed the authorized existing-index experiment
+in 23.48 seconds initially and 39.24 seconds after a focused planner/prefix
+refinement, including setup and verified cleanup. The retained 624 cases expose
+both useful ordinary TypeID seeks and correctness/scaling failures. The gate is
+still rejected; no production primitive, HTTP route or index was added. ADR-15
+already governs this result, so no durable architectural change is adopted.
 
 2026-10-10 category follow-up: completed the user's requested no-new-index
 prototype in 15.97 seconds with correct results in 192 cases and a verified
@@ -628,6 +658,13 @@ follow-up.
 ## Plan of Work
 
 ### Milestone 0 — prove read work before promoting the SQL
+
+The subsequent range experiment is retained in
+[its evidence README](../../kiroku-store/bench/results/mp13-ep3-range/README.md).
+Use `--scope range-streams` with the same diagnostic to reproduce its 400 refined
+cases. Ordinary TypeID seeks improve, but generic-plan scaling and ICU membership
+failures still reject promotion. The index write cost requested by the user has
+not been measured; HOT eligibility is not proof of zero event-append overhead.
 
 **Current state (2026-10-10): executed, promotion rejected.** Run the retained
 [diagnostic](../../scripts/mp13-browse-sql-prototype.py) as described in the
@@ -1414,3 +1451,10 @@ No new index, migration, collation, API signature or acceptance threshold was ad
 Recorded the user's requirement to coordinate browsing and prefix-subscription physical
 access and cumulative writer cost under ADR-15. No index or implementation milestone is
 approved. Plan 88 also records the application's TypeID naming convention and its limits.
+
+
+## Name-range prototype revision (2026-10-10)
+
+Recorded the completed TypeID/name-range experiment, retained both runs and their
+correctness/planner failures, and kept the production gate rejected. Clarified that
+proposed stream-index write cost remains unmeasured and can affect event appends.

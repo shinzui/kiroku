@@ -15,6 +15,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import time
+import uuid
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -132,10 +133,162 @@ def category_streams_probe(sql, database, evidence, save):
                     save()
 
 
+def sql_text(value):
+    return "'" + value.replace("'", "''") + "'"
+
+
+def prefix_successor(prefix):
+    """Codepoint upper bound: diagnostic only, NOT safe for every collation."""
+    for position in range(len(prefix) - 1, -1, -1):
+        code = ord(prefix[position])
+        if code < 0x10FFFF:
+            following = code + 1
+            if 0xD800 <= following <= 0xDFFF:
+                following = 0xE000
+            return prefix[:position] + chr(following)
+    raise ValueError("this diagnostic requires a finite prefix upper bound")
+
+
+def fixture_typeid(number):
+    """Deterministic valid UUIDv7 TypeID specimen, not an application generator."""
+    timestamp = 1700000000000 + number
+    payload = (timestamp << 80) | (7 << 76) | (2 << 62) | number
+    specimen = uuid.UUID(int=payload)
+    assert specimen.version == 7 and specimen.variant == uuid.RFC_4122
+    alphabet = "0123456789abcdefghjkmnpqrstvwxyz"
+    encoded = "".join(alphabet[(payload >> (5 * position)) & 31]
+                      for position in range(25, -1, -1))
+    assert int.from_bytes(specimen.bytes[:6], "big") == timestamp
+    return "order_" + encoded
+
+
+def range_streams_probe(sql, database, evidence, save):
+    """Try name ranges without assuming codepoint order matches DB collation."""
+    evidence.setdefault("collations", {})[database] = sql(
+        "SELECT datlocprovider, datcollate, datctype, datlocale "
+        "FROM pg_database WHERE datname = current_database();", database).strip()
+    # Third fixture varies category size; the fourth adds collation-sensitive
+    # neighboring names. Each stage extends the same owned database.
+    for stage, target_size, noise_size in [("small", 1000, 1000),
+                                           ("more_noise", 1000, 20000),
+                                           ("large_category", 20000, 20000),
+                                           ("neighbors", 20000, 20000)]:
+        names = ["orders", "orders-", "orders-%literal", "orders-_literal",
+                 "orders-éclair", "orders-漢字", "$all-x", "orders'quote-x"]
+        names += ["orders-" + fixture_typeid(n) for n in range(1, target_size + 1)]
+        names += ["noise-" + fixture_typeid(n) for n in range(1, noise_size + 1)]
+        if stage == "neighbors":
+            # Under ICU these punctuation variants can interleave with orders
+            # streams; under C they sit outside the orders- prefix interval.
+            names += ["orders." + fixture_typeid(n) for n in range(1, noise_size + 1)]
+        seed = ("SET search_path TO kiroku, pg_catalog;\n"
+                "INSERT INTO streams(stream_name) SELECT value FROM unnest(ARRAY["
+                + ",".join(sql_text(name) for name in names)
+                + "]) AS input(value) ON CONFLICT DO NOTHING;\nANALYZE streams;")
+        sql(seed, database)
+        evidence.setdefault("fixtures", []).append({"database": database, "stage": stage, "sql": seed})
+        cases = [
+            ("category_first", "orders", None, None),
+            ("category_missing", "missing", None, None),
+            ("category_after", "orders", "orders-" + fixture_typeid(target_size - 10), None),
+            ("category_end", "orders", "orders-漢字", None),
+            ("category_bare_cursor", "orders", "orders", None),
+            ("category_prefix_sparse", "orders", None, "orders-" + fixture_typeid(995)[:-2]),
+            ("category_prefix_percent", "orders", None, "orders-%"),
+            ("category_prefix_after", "orders", "orders-" + fixture_typeid(target_size - 10), "orders-"),
+            ("prefix_first", None, None, "orders-"),
+            ("prefix_after", None, "orders-" + fixture_typeid(target_size - 10), "orders-"),
+            ("prefix_sparse", None, None, "orders-" + fixture_typeid(995)[:-2]),
+            ("prefix_absent", None, None, "absent-"),
+            ("prefix_percent", None, None, "orders-%"),
+            ("prefix_underscore", None, None, "orders-_"),
+            ("prefix_unicode", None, None, "orders-é"),
+            ("prefix_all_application", None, None, "$all-"),
+            ("prefix_quote", None, None, "orders'"),
+        ]
+        for mode in ["force_generic_plan", "force_custom_plan"]:
+            for label, category, cursor, prefix in cases:
+                seek = " AND stream_name > $4" if cursor is not None else ""
+                ranged = (f"SELECT {COLUMNS} FROM streams WHERE stream_id <> 0 "
+                          "AND stream_name >= $2 AND stream_name < $3" + seek)
+                if category is not None:
+                    lower = category + "-"
+                    if prefix is not None and prefix.startswith(lower):
+                        lower = prefix
+                    upper = prefix_successor(lower)
+                    prefix_filter = " AND starts_with(stream_name,$6)" if prefix is not None else ""
+                    # Category membership also includes the dash-less name.
+                    # Limit each branch before sorting/merging at most 12 rows.
+                    query = ("WITH candidates AS ((SELECT " + COLUMNS
+                             + " FROM streams WHERE stream_id <> 0 AND stream_name = $1 "
+                             "AND category = $1" + seek + prefix_filter + " LIMIT 1) UNION ALL ("
+                             + ranged + " AND category = $1" + prefix_filter
+                             + " ORDER BY stream_name LIMIT $5)) "
+                             "SELECT * FROM candidates ORDER BY stream_name LIMIT $5")
+                    reference = "category = " + sql_text(category)
+                    if prefix is not None:
+                        reference += " AND starts_with(stream_name," + sql_text(prefix) + ")"
+                    predicate = category
+                else:
+                    lower, upper = prefix, prefix_successor(prefix)
+                    query = ranged + " AND starts_with(stream_name,$1) ORDER BY stream_name LIMIT $5"
+                    reference = "starts_with(stream_name," + sql_text(prefix) + ")"
+                    predicate = prefix
+                parameters = ",".join([sql_text(predicate), sql_text(lower), sql_text(upper),
+                                       "NULL" if cursor is None else sql_text(cursor), "11",
+                                       "NULL" if prefix is None else sql_text(prefix)])
+                shapes = [("category_column" if category is not None else "prefix", query)]
+                if category is not None:
+                    # Compare a semantically identical name predicate: generic
+                    # category stats can prefer the unordered category index.
+                    # This is diagnostic SQL, not a planner setting or hint.
+                    shapes.append(("name_predicate", query.replace(
+                        "category = $1", "split_part(stream_name,'-',1) = $1")))
+                for shape, shape_query in shapes:
+                    range_streams_case(sql, database, evidence, save, mode, stage, label,
+                                       target_size, noise_size, category, cursor, prefix,
+                                       lower, upper, shape, shape_query, parameters, reference)
+
+
+def range_streams_case(sql, database, evidence, save, mode, stage, label,
+                       target_size, noise_size, category, cursor, prefix,
+                       lower, upper, shape, query, parameters, reference):
+    settings = ("SET search_path TO kiroku, pg_catalog;\n"
+                f"SET plan_cache_mode = {mode};\nSET statement_timeout = '10s';\n"
+                f"PREPARE probe(text,text,text,text,integer,text) AS {query};\n")
+    execute = f"EXECUTE probe({parameters});"
+    transcript = settings + "EXPLAIN (ANALYZE,BUFFERS,COSTS OFF,TIMING OFF,FORMAT JSON) " + execute
+    plan = json.loads(sql(transcript, database))
+    top = plan[0]["Plan"]
+    scans = [n for n in nodes(top) if n.get("Relation Name") == "streams"]
+    examined = sum((n.get("Actual Rows", 0) + n.get("Rows Removed by Filter", 0)
+                    + n.get("Rows Removed by Index Recheck", 0))
+                   * n.get("Actual Loops", 1) for n in scans)
+    buffers = top.get("Shared Hit Blocks", 0) + top.get("Shared Read Blocks", 0)
+    actual = [row.split("|")[1] for row in sql(settings + execute, database).splitlines()]
+    if cursor is not None:
+        reference += " AND stream_name > " + sql_text(cursor)
+    expected = sql("SELECT stream_name FROM kiroku.streams WHERE stream_id <> 0 AND "
+                   + reference + " ORDER BY stream_name LIMIT 11;", database).splitlines()
+    # Retain correctness failures rather than stopping before the
+    # other collation/plan cases. Fast, wrong answers cannot pass.
+    correct = actual == expected
+    evidence["cases"].append({
+        "database": database, "stage": stage, "target_typeid_streams": target_size,
+        "noise_streams": noise_size, "mode": mode, "variant": label, "shape": shape,
+        "category": category, "cursor": cursor, "prefix": prefix,
+        "lower": lower, "upper": upper, "sql": transcript, "plan": plan,
+        "rows_examined": examined, "buffers": buffers, "items": actual,
+        "expected_items": expected, "correct_results": correct,
+        "index_conditions": [n.get("Index Cond") for n in nodes(top) if n.get("Index Cond")],
+        "within_budget": correct and examined <= 64 and buffers <= 64})
+    save()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--scope", choices=["prefix", "category-streams"], default="prefix")
+    parser.add_argument("--scope", choices=["prefix", "category-streams", "range-streams"], default="prefix")
     args = parser.parse_args()
     if args.output.exists():
         parser.error("output exists; preserve prior evidence and choose a new path")
@@ -198,6 +351,9 @@ def main():
                         "WHERE schemaname='kiroku' AND tablename='streams';", database))
                     if args.scope == "category-streams":
                         category_streams_probe(sql, database, evidence, save)
+                        continue
+                    if args.scope == "range-streams":
+                        range_streams_probe(sql, database, evidence, save)
                         continue
                     for size in [1000, 20000]:
                         sql("SET search_path TO kiroku, pg_catalog;\n"
@@ -264,13 +420,14 @@ def main():
                                         "within_budget": examined <= 64 and buffers <= 64})
                                     save()
                 required_cases = [r for r in evidence["cases"]
-                                  if args.scope == "category-streams" or r["variant"] == "nullable"]
+                                  if args.scope in ["category-streams", "range-streams"] or r["variant"] == "nullable"]
                 if not required_cases:
                     raise RuntimeError("no required SQL cases were evaluated")
                 evidence["status"] = "passes_focused_check" if all(
                     r["within_budget"] for r in required_cases
-                ) else ("category_streams_requires_design" if args.scope == "category-streams"
-                        else "rejected_prefix_prototype")
+                ) else {"category-streams": "category_streams_requires_design",
+                        "range-streams": "range_streams_requires_design",
+                        "prefix": "rejected_prefix_prototype"}[args.scope]
             finally:
                 # Stop even when startup, migration or a query fails. No owned cluster survives.
                 stopped = subprocess.run(["pg_ctl", "-D", data, "-w", "-m", "immediate", "stop"],
