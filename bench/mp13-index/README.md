@@ -2,13 +2,14 @@
 
 This payload reuses the MP12 workload and Kenshou executor. Both arms use the
 same current Kiroku source and executable. Only `mp13.index-layout` varies:
-`category-only` preserves the current schema; `category-name` replaces the
-category index with `(category, stream_name)` inside an empty isolated run DB.
-The workload refuses populated stores. No production migration is installed.
+`category-only` drops migration 0015's browse index in an empty isolated run DB to restore the original control;
+`byte-name` keeps the one partial `stream_name COLLATE "C"` index installed by
+0015, alongside the original unique name and category indexes.
+The workload refuses populated stores. No production database is modified.
 
 `bench/mp12-cell/src/IndexResearch.hs` supplies the optional research path;
 `unchanged` is the default and preserves the ordinary MP12 fixture/workload.
-The corrected scenario is revision 5 (original retained runs are revision 4). The separate flake/cohort here pins the
+The corrected scenario is revision 6 (prior replacement runs remain revisions 4 and 5). The separate flake/cohort here pins the
 current runtime packages, rather than using the historical MP12 control.
 The recorded source revision predates only benchmark/documentation changes;
 verify package directories against it before publication.
@@ -28,12 +29,14 @@ The selected two cases are:
 | Case | Appends | Observer load |
 | --- | --- | --- |
 | `fresh` | New TypeID streams, one event per append | None |
-| `existing-category-browse` | Reuse four streams, one event per append | One category subscriber; one browse cycle/sec, each with first/late/absent pages |
+| `existing-category-browse` | Reuse four streams, one event per append | One category subscriber; one browse cycle/sec, each with first/late category pages and an absent global prefix |
 
 Both use unpaced capacity with the existing bounded subscriber backpressure.
 The second case measures combined shared work; it does not separate browse
 savings from bare write overhead. No group/adapter/version/pool matrix is added.
-General prefix and plan 54 namespace access remain unresolved.
+Observer pages use the production byte-ordered browse session, including an
+absent literal global prefix. Plan 54's future namespace worker is not certified
+by this experiment.
 
 ## Protocol and runtime bound
 
@@ -176,3 +179,15 @@ raw verification passed. The zero-slowdown verdict remains inconclusive, while
 cost bounds are valid and meet the stated useful precision target. All four
 instances stopped and the lease was released. See the
 [corrected report](evidence/2026-10-10-corrected-observer/README.md).
+
+## Selected layout revision 6
+
+Migration 0015 installs the selected browse index. The original control removes
+only that index before seeding; both arms retain the original category and
+unique-name indexes and use the same production browse statements. The observer
+uses exact-category first/late pages and an absent literal global prefix at the
+same 1 Hz cycle rate. This isolates the physical layout while measuring combined
+shared work. Earlier category/name replacement evidence is immutable and is not
+pooled with this layout. Use `--no-calibration` to reuse the verified recent
+control calibration; the lifecycle proof and all five pairs per case still run.
+Start `budget.json` before Linux build/publication, not when the controller starts.

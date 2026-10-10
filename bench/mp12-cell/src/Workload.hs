@@ -76,7 +76,7 @@ scenario :: Scenario
 scenario =
     Hardening.scenario
         { run = runWorkload
-        , revision = 5
+        , revision = 6
         , knobs =
             Hardening.scenario.knobs
                 <> Index.knobs

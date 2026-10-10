@@ -1,7 +1,6 @@
 -- Disposable index comparison; never used by the default MP12 workload.
 module IndexResearch (Config (..), knobs, configuration, setup, streamName, snapshot, newBrowser, withBrowser, browserSummary) where
 
-import Contravariant.Extras (contrazip2)
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async qualified as Async
 import Control.Monad (unless, when)
@@ -13,6 +12,7 @@ import Data.Int (Int64)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Text (Text)
 import Data.Text qualified as Text
+import Data.Vector qualified as V
 import Data.Word (Word64)
 import GHC.Clock (getMonotonicTimeNSec)
 import Hasql.Decoders qualified as D
@@ -21,14 +21,15 @@ import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Hasql.Statement (preparable)
 import Kenshou.Core.Knob
-import Kiroku.Store (KirokuStore (..), StreamName (..))
+import Kiroku.Store (CategoryName (..), KirokuStore (..), StreamInfo (..), StreamName (..), mkBrowsePageSize)
+import Kiroku.Store.SQL qualified as SQL
 
 -- These knobs are recorded in compatibility inputs. Both arms use one payload.
 data Config = Config {layout :: !Text, catalog :: !Int, browseHz :: !Int}
 
 knobs :: [KnobSpec]
 knobs =
-    [ KnobSpec (name "mp13.index-layout") "Disposable stream-index layout" KnobText (VText "unchanged") (OneOf (VText "unchanged" :| map VText ["category-only", "category-name"])) []
+    [ KnobSpec (name "mp13.index-layout") "Disposable stream-index layout" KnobText (VText "unchanged") (OneOf (VText "unchanged" :| map VText ["category-only", "category-name", "byte-name"])) []
     , KnobSpec (name "mp13.catalog") "TypeID streams per fixture category" KnobInt (VInt 20000) (IntRange 1 200000) []
     , KnobSpec (name "mp13.browse-hz") "Category browse cycles per second; first, late and absent pages" KnobInt (VInt 0) (IntRange 0 10) []
     ]
@@ -53,8 +54,9 @@ setup config store = do
     subscriptions <- scalarInt store "SELECT count(*) FROM kiroku.subscriptions"
     unless (initial == 1 && events == 0 && subscriptions == 0) (fail "index research requires an empty isolated store")
     let ddl = case config.layout of
-            "category-only" -> "" -- Original current schema; no replacement.
-            "category-name" -> "CREATE INDEX ix_streams_category_name ON kiroku.streams(category,stream_name); DROP INDEX kiroku.ix_streams_category;"
+            "category-only" -> "DROP INDEX kiroku.ix_streams_browse_name;" -- Original pre-0015 layout.
+            "byte-name" -> "" -- Migration 0015 already installs the selected layout.
+            "category-name" -> "DROP INDEX kiroku.ix_streams_browse_name; CREATE INDEX ix_streams_category_name ON kiroku.streams(category,stream_name); DROP INDEX kiroku.ix_streams_category;"
             _ -> error "unvalidated layout"
     unless (Text.null ddl) $ session store (Session.script ddl)
     let names = [category <> "-" <> fixtureId n | category <- ["probe", "noise"], n <- [1 .. config.catalog]]
@@ -127,27 +129,18 @@ withBrowser (Just config) (Just (Browser samples)) phase store action = do
         forPages
         loop begin (iteration + 1)
     forPages = do
-        page "first" "probe" Nothing
-        page "late" "probe" (Just late)
-        page "absent" "missing" Nothing
-    page shape category cursor = do
+        page "first" (Just (CategoryName "probe")) Nothing Nothing
+        page "late" (Just (CategoryName "probe")) Nothing (Just (StreamName late))
+        page "absent" Nothing (Just "missing-") Nothing
+    page shape category prefix cursor = do
         started <- getMonotonicTimeNSec
-        rows <- case cursor of
-            Nothing ->
-                session store $
-                    Session.statement category $
-                        preparable "SELECT stream_name FROM kiroku.streams WHERE stream_id<>0 AND category=$1 ORDER BY stream_name LIMIT 11" (E.param (E.nonNullable E.text)) (D.rowList (D.column (D.nonNullable D.text)))
-            Just after ->
-                session store $
-                    Session.statement (category, after) $
-                        preparable
-                            "SELECT stream_name FROM kiroku.streams WHERE stream_id<>0 AND category=$1 AND stream_name>$2 ORDER BY stream_name LIMIT 11"
-                            (contrazip2 (E.param (E.nonNullable E.text)) (E.param (E.nonNullable E.text)))
-                            (D.rowList (D.column (D.nonNullable D.text)))
+        let size = either (error . show) id (mkBrowsePageSize 11)
+        rows <- session store (SQL.listStreamsSession category prefix cursor size)
         finished <- getMonotonicTimeNSec
-        unless (length rows <= 11 && all (Text.isPrefixOf (category <> "-")) rows) (fail "browse returned invalid category page")
-        when (category == "missing") $ unless (null rows) (fail "absent category returned rows")
-        atomicModifyIORef' samples (\rows0 -> (BrowseSample phase shape started (finished - started) (length rows) : rows0, ()))
+        let names = [name | row <- V.toList rows, let StreamName name = row.name]
+        unless (V.length rows <= 11 && all (Text.isPrefixOf "probe-") names) (fail "browse returned invalid category page")
+        when (shape == "absent") $ unless (V.null rows) (fail "absent prefix returned rows")
+        atomicModifyIORef' samples (\rows0 -> (BrowseSample phase shape started (finished - started) (V.length rows) : rows0, ()))
 withBrowser _ _ _ _ action = action
 
 session :: KirokuStore -> Session.Session a -> IO a

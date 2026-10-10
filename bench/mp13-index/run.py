@@ -168,13 +168,13 @@ def plan(template, case, pairs, calibration=False, proof=False):
             group = 'mp13-index/' + ('calibration' if calibration else name)
             entry['trial'] = {'group': group, 'arm': arm, 'index': pair, 'of': pairs}
             spec = entry['spec']
-            spec.update(runId=identifier, scenarioRevision=5, seed=7 + pair,
+            spec.update(runId=identifier, scenarioRevision=6, seed=7 + pair,
                         phases={'warmUpSeconds': 10, 'steadySeconds': 61, 'drainSeconds': 10},
                         timeoutSeconds=180,
                         comparison={'group': group, 'arm': arm, 'trial': pair, 'position': position})
             spec['knobs'].update({'mp12.mode': mode, 'mp12.fresh': fresh, 'mp12.width': 1,
                                   'mp12.append-batch': 1, 'mp12.checkpoint-batch': 1, 'mp12.offered': 0,
-                                  'mp13.index-layout': 'category-only' if calibration or arm == 'baseline' else 'category-name',
+                                  'mp13.index-layout': 'category-only' if calibration or arm == 'baseline' else 'byte-name',
                                   'mp13.catalog': 20000, 'mp13.browse-hz': hz})
             document['runs'].append(entry)
     document['estimateMinutes'] = 2 * len(document['runs'])

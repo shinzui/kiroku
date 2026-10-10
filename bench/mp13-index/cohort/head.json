@@ -1,7 +1,7 @@
 {
   "schema": "kenshou.cohort/v1",
   "name": "head",
-  "description": "MP-13 matched index-layout comparison; identical current source and executable in both arms.",
+  "description": "MP-13 selected byte-name index cost; identical production source and executable in both arms.",
   "verifiedAt": "pending",
   "compiler": "ghc-9.12.4",
   "indexState": "2026-09-20T13:44:47Z",
@@ -13,7 +13,7 @@
       "source": {
         "type": "git",
         "location": "https://github.com/shinzui/kiroku.git",
-        "rev": "1c6905f61dfd32e3e6838739a2ddfae8cb187def"
+        "rev": "9717120a0411ac05d8aa6febe9e76e7a3a107d15"
       },
       "packages": [
         {
