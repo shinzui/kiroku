@@ -97,6 +97,9 @@ dependency.
 
 ## Progress
 
+- [x] (2026-10-10) M0: implement a disposable shared-access prototype: one byte-ordered browse index, bounded category/literal-prefix pages, and namespace global windows using existing event indexes. All 224 TypeID/edge-case checks pass (176 browse, 48 namespace); retain preceding rejected plans/setup error and verify every owned cluster stopped.
+- [ ] M0: settle the new browsing-order preference (byte order versus deployment locale), then select the final shared layout and validate its own write cost before migration. The prior replacement's cost is not acceptance of a different layout.
+
 - [x] (2026-10-10) M0: correct sparse observer recording, preserve primary append grade requirements, compile the Linux payload and verify diagnostic schedule/grade/cost-bound checks.
 - [x] (2026-10-10) M0: verify the corrected observer proof (47,734 benchmark-grade append samples, 61–62 steady samples per diagnostic browse page), raw recomputation and lease release.
 - [x] (2026-10-10) M0: finish five corrected benchmark-grade observer pairs; throughput loss bounded at 1.821% and p99 increase at 2.214% (95% intervals). Raw recomputation, exact delivery, durable drain and cell cleanup passed; unchanged zero-slowdown verdict remains inconclusive.
@@ -129,6 +132,18 @@ dependency.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-10 shared-access prototype: one partial C-collated name index can
+  serve global names, literal prefixes, exact categories and category-plus-prefix
+  pages without also installing the category/name replacement. Keep the original
+  unique-name constraint and small category index. Bound the ordered lower seek
+  before testing the upper range: generic plans otherwise chose a bitmap scan
+  and sort. Namespace reads can use migration 0012's denormalized event category
+  and the existing global-position index, with bounded scan progress rather than
+  per-stream probes. This requires new internal worker progress semantics; it is
+  not implemented by this SQL diagnostic. See
+  [shared-access research](../../kiroku-store/bench/results/mp13-ep3-shared-access/README.md).
+  New API byte order remains a product choice, not an imposed database collation.
 
 - 2026-10-10 corrected observer completion: all ten comparison trials are
   benchmark-grade. Throughput change -0.466% (95% interval -1.821% to +0.908%),
@@ -235,6 +250,17 @@ dependency.
 
 
 ## Decision Log
+
+- Decision (2026-10-10 approved continuation): pursue one shared physical design
+  after the user's approval of the measured replacement trade-off. Test a
+  byte-ordered name index as an alternative, with no separate namespace index.
+  Do not transfer the previous layout's confidence bounds to this new layout or
+  invent a new regression allowance. Keep its production migration unselected
+  while the new browsing-order preference is pending. Existing published reads,
+  unique-name identity, database collation and event ordering remain unchanged.
+  The namespace window strategy trades sparse historical catch-up throughput
+  for bounded per-fetch work and no additional writer index. It needs distinct
+  scan progress and successful-disposition checkpoint tests before worker use.
 
 - Decision (2026-10-10 user-authorized follow-up): rerun only the broken
   observer case. Use one corrected observer proof followed by five matched
@@ -464,6 +490,15 @@ dependency.
 
 
 ## Outcomes & Retrospective
+
+2026-10-10 shared design continuation: a concrete disposable query prototype
+passes all 224 TypeID/edge-case checks for category-plus-literal-prefix browsing
+and bounded namespace windows. Browse work is at most 12 rows / 12 buffers;
+namespace work is at most 38 rows / 9 buffers. Owned clusters stopped.
+The retained research distinguishes successful read evidence from migration,
+worker and write-cost acceptance. The new browsing-order preference is pending;
+no durable architecture or production index is selected. ADR-15 already governs
+this shared review, so the distillation pass creates no new ADR yet.
 
 2026-10-10 corrected observer completion: proof plus ten comparison trials are
 benchmark-grade, raw metrics recompute and exact durable delivery passes.
@@ -1657,3 +1692,11 @@ Recorded all five valid observer pairs, append cost bounds, diagnostic per-page
 browse timings, descriptive WAL/HOT observations and verified cleanup. Retained
 raw recomputation and sealed evidence. No favorable retries, policy relaxation,
 production promotion or new ADR decision; prefix/namespace design remains open.
+
+
+## Shared access prototype revision (2026-10-10)
+
+Implemented a bounded disposable probe for one byte-ordered name index and
+namespace windows over the current denormalized global log. Retained generic-plan
+failures, fixture repair and successful follow-up evidence. Recorded the pending
+new-API ordering choice and kept migration, worker and final-layout cost gates open.

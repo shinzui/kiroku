@@ -362,7 +362,7 @@ def index_layout_probe(sql, database, evidence, save):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--scope", choices=["prefix", "category-streams", "range-streams", "index-layout"], default="prefix")
+    parser.add_argument("--scope", choices=["prefix", "category-streams", "range-streams", "index-layout", "shared-name-index"], default="prefix")
     args = parser.parse_args()
     if args.output.exists():
         parser.error("output exists; preserve prior evidence and choose a new path")
@@ -432,6 +432,15 @@ def main():
                     if args.scope == "index-layout":
                         index_layout_probe(sql, database, evidence, save)
                         continue
+                    if args.scope == "shared-name-index":
+                        import importlib.util
+                        source = ROOT / "scripts/mp13-shared-name-index-probe.py"
+                        spec = importlib.util.spec_from_file_location("shared_name_probe", source)
+                        module = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(module)
+                        evidence["probe_sha256"] = hashlib.sha256(source.read_bytes()).hexdigest()
+                        module.probe(sql, database, evidence, save, fixture_typeid)
+                        continue
                     for size in [1000, 20000]:
                         sql("SET search_path TO kiroku, pg_catalog;\n"
                             f"INSERT INTO streams(stream_name) SELECT 'noise-' || lpad(n::text,6,'0') "
@@ -497,7 +506,7 @@ def main():
                                         "within_budget": examined <= 64 and buffers <= 64})
                                     save()
                 required_cases = [r for r in evidence["cases"]
-                                  if args.scope in ["category-streams", "range-streams", "index-layout"] or r["variant"] == "nullable"]
+                                  if args.scope in ["category-streams", "range-streams", "index-layout", "shared-name-index"] or r["variant"] == "nullable"]
                 if not required_cases:
                     raise RuntimeError("no required SQL cases were evaluated")
                 if args.scope == "index-layout":
@@ -509,6 +518,7 @@ def main():
                         r["within_budget"] for r in required_cases
                     ) else {"category-streams": "category_streams_requires_design",
                         "range-streams": "range_streams_requires_design",
+                        "shared-name-index": "shared_name_index_requires_design",
                         "prefix": "rejected_prefix_prototype"}[args.scope]
             finally:
                 # Stop even when startup, migration or a query fails. No owned cluster survives.

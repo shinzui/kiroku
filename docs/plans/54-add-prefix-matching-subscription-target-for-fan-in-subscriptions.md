@@ -12,6 +12,11 @@ provenance:
       at: 2026-10-10T19:19:06Z
       mode: "discuss"
       note: "Record shared prefix/browse physical design and cumulative append-cost constraint; no index authorized."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-10T23:28:20Z
+      mode: "implement"
+      note: "Prototype shared browse access and bounded namespace windows; final ordering and layout remain under review."
 ---
 
 # Add prefix-matching subscription target for fan-in subscriptions
@@ -73,6 +78,9 @@ unchanged; this plan verifies that and adds no adapter code.
 
 ## Progress
 
+- [x] (2026-10-10) Shared research: implement a disposable shared-access prototype: one byte-ordered browse index, bounded category/literal-prefix pages, and namespace global windows using existing event indexes. All 224 TypeID/edge-case checks pass (176 browse, 48 namespace); retain preceding rejected plans/setup error and verify every owned cluster stopped.
+- [ ] Shared research: settle the new browsing-order preference (byte order versus deployment locale), then select the final shared layout and validate its own write cost before migration. The prior replacement's cost is not acceptance of a different layout.
+
 - [x] (2026-10-10) Shared research: retain the current-source matched replacement write experiment; fresh acceptance is inconclusive and active-observer evidence exploratory. No namespace access or cumulative combined-feature acceptance.
 - [x] (2026-10-10) Shared research: inspect Kenshou benchmark coverage and plan 88's disposable category/name replacement evidence; retain footprint and harness gaps. M0 semantics and M2 migration remain open.
 Use a checklist to summarize granular steps. Every stopping point must be documented here,
@@ -105,6 +113,18 @@ This section must always reflect the actual current state of the work.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-10 shared-access prototype: one partial C-collated name index can
+  serve global names, literal prefixes, exact categories and category-plus-prefix
+  pages without also installing the category/name replacement. Keep the original
+  unique-name constraint and small category index. Bound the ordered lower seek
+  before testing the upper range: generic plans otherwise chose a bitmap scan
+  and sort. Namespace reads can use migration 0012's denormalized event category
+  and the existing global-position index, with bounded scan progress rather than
+  per-stream probes. This requires new internal worker progress semantics; it is
+  not implemented by this SQL diagnostic. See
+  [shared-access research](../../kiroku-store/bench/results/mp13-ep3-shared-access/README.md).
+  New API byte order remains a product choice, not an imposed database collation.
 
 - 2026-10-10 matched replacement: fresh throughput estimate -0.677% (95%
   interval -2.687% to +1.374%), with descriptive WAL/event +2.43%. Existing
@@ -191,6 +211,17 @@ working tree:
 
 
 ## Decision Log
+
+- Decision (2026-10-10 approved continuation): pursue one shared physical design
+  after the user's approval of the measured replacement trade-off. Test a
+  byte-ordered name index as an alternative, with no separate namespace index.
+  Do not transfer the previous layout's confidence bounds to this new layout or
+  invent a new regression allowance. Keep its production migration unselected
+  while the new browsing-order preference is pending. Existing published reads,
+  unique-name identity, database collation and event ordering remain unchanged.
+  The namespace window strategy trades sparse historical catch-up throughput
+  for bounded per-fetch work and no additional writer index. It needs distinct
+  scan progress and successful-disposition checkpoint tests before worker use.
 
 - Decision (2026-10-10 matched evidence): no physical design selected. Preserve
   the inconclusive fresh comparison and exploratory observer diagnostics as
@@ -412,6 +443,15 @@ Record every decision made while working on the plan.
 
 
 ## Outcomes & Retrospective
+
+2026-10-10 shared design continuation: a concrete disposable query prototype
+passes all 224 TypeID/edge-case checks for category-plus-literal-prefix browsing
+and bounded namespace windows. Browse work is at most 12 rows / 12 buffers;
+namespace work is at most 38 rows / 9 buffers. Owned clusters stopped.
+The retained research distinguishes successful read evidence from migration,
+worker and write-cost acceptance. The new browsing-order preference is pending;
+no durable architecture or production index is selected. ADR-15 already governs
+this shared review, so the distillation pass creates no new ADR yet.
 
 2026-10-10 shared research completed with retained matched evidence and verified
 cell cleanup. This plan remains unimplemented: namespace semantics/access and
@@ -1121,3 +1161,11 @@ performance acceptance is selected; production milestones remain open.
 
 Retained fresh uncertainty and exploratory observer diagnostics without granting
 namespace access, migration or another independent write-cost allowance.
+
+
+## Shared access prototype revision (2026-10-10)
+
+Implemented a bounded disposable probe for one byte-ordered name index and
+namespace windows over the current denormalized global log. Retained generic-plan
+failures, fixture repair and successful follow-up evidence. Recorded the pending
+new-API ordering choice and kept migration, worker and final-layout cost gates open.
