@@ -39,6 +39,11 @@ provenance:
       at: 2026-10-09T18:48:29Z
       mode: "update"
       note: "Apply user PostgreSQL 18-only testing scope."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-10T00:03:15Z
+      mode: "implement"
+      note: "Implement typed per-event decode failure after user-approved practical EP2 acceptance; preserve no-hook paths and focused verification."
 ---
 
 # Contain persistent publisher decode-hook failures
@@ -67,8 +72,8 @@ dead-letter that continues with the rest of the batch, and the typed read failur
 
 ## Progress
 
-- [ ] Write-performance gate: establish pre-cohort controls and pass mixed append/subscription throughput, latency, checkpoint/WAL, and GC checks under ADR-11 before completion.
-- [ ] Before implementation: define controlled no-hook/successful-hook read, catch-up, and confirmed live publisher workloads, throughput/allocation measurements, and ADR-5 acceptance bounds.
+- [ ] Focused verification: pass correctness and ADR-5 structural/controlled checks, preserve no-hook read/vector passthrough and shared live fan-out, and document successful-hook wrapper costs. The user reserves cumulative append measurement for EP6; no additional benchmark queue is required here.
+- [x] (2026-10-09) Before implementation: select existing InterpreterHooks read/catch-up/live cases, publisher idle-position/heap regression, and explicit two-subscriber live decode-failure tests. Pin no-hook non-traversal/vector passthrough structurally; run the existing ADR-5 gates after production changes. Preserve original-cohort evidence for EP6 without launching another benchmark now.
 - [ ] M1: add a deterministic persistent-`decodeHook` regression that proves the current repeated same-position loop and apparent-live subscriber state.
 - [ ] M2: introduce `DecodeFailure`, change `decodeHook` to return `Either DecodeFailure RecordedEvent`, make `decodeEvents` produce batches with a no-hook fast path and typed `DecodedEvent` values when a hook runs, and decode per event in the publisher and the worker catch-up path.
 - [ ] M2: add `undecodableHandler` to `SubscriptionConfigM`; deliver `Undecodable` to it, or apply the default retry-then-`StopUndecodable`; map read-path failures to `EventDecodeFailed`.
@@ -102,6 +107,12 @@ dead-letter that continues with the rest of the batch, and the typed read failur
 
 
 ## Decision Log
+
+- Decision (2026-10-09, user approval): begin this child after practical EP2
+  acceptance. Use focused correctness and structural/controlled checks now;
+  reserve cumulative append measurement for EP6 before release, within a
+  one-hour whole-experiment ceiling. This supersedes the older mandatory
+  per-child matrix and tight-precision benchmark instructions below.
 
 - Decision (2026-10-09): required testing for this cohort uses PostgreSQL 18.
   The user explicitly removed PostgreSQL 17 testing; preserve already collected
@@ -202,6 +213,10 @@ dead-letter that continues with the rest of the batch, and the typed read failur
 
 
 ## Outcomes & Retrospective
+
+Implementation is now In Progress after the user approved practical EP2
+completion and continuation. Focused verification replaces the obsolete
+per-child matrix; the typed hook implementation is still outstanding.
 
 The 2026-10-09 documentation refresh confirmed that this child remains Not Started at
 `e6ea664`. The Context audit records current implementation evidence and reusable baseline work.
@@ -377,48 +392,33 @@ cabal test kiroku-store:kiroku-store-test --test-show-details=direct
 okf validate docs/adr --strict --profile docs/adr/profile.dhall --profile-enforce --log-enforce
 ```
 
-Run the overhead benchmark once on the unchanged tree before milestone 2 and once after it, and
-record both bare-subscribe figures in Surprises & Discoveries. Then run the
-[ADR-5](../adr/0005-three-tier-performance-regression-gates.md) authoritative gate, which must
-pass.
+The user reserves further benchmark runs for integrated EP6 verification.
+Run the existing [ADR-5](../adr/0005-three-tier-performance-regression-gates.md)
+authoritative gate and preserve structural evidence for the affected paths.
 
 ```bash
-cabal bench kiroku-store:kiroku-shibuya-overhead
 just perf-check
 ```
 
 
 ## Validation and Acceptance
 
-Write-performance acceptance (2026-10-09): [ADR-11](../adr/0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md) makes write performance
-blocking. Before production changes, freeze a pre-cohort control (initially `e6ea664`) and this
-child's workload specification. Compare append-only and simultaneous appends/subscriptions in the
-same process and pool, with native `$all`, category/group, and real acknowledgement-coupled adapter
-coverage as applicable. Keep append SQL, successful-path round trips, locks, and instrumentation
-unchanged. Keep ordinary checkpoint saves at one monotonic upsert per batch tail.
-
-Run durable PostgreSQL 18, matched compiler/RTS/pool/database settings, and fixed payloads,
-concurrency, checkpoint frequency, and offered load. Include single/multi-stream, fresh/existing,
-and small/batched writes; test checkpoint batch sizes 1 and 100. Establish live mode before live
-measurements, assert equal delivered work, durable progress, and bounded backlog, and measure
-throughput separately from fixed-load append p50/p95/p99 including queueing delay. Record checkpoint
-latency, WAL per event/save, allocation/GC/residency, and contention as well as append throughput.
-Warm up, alternate at least five paired trials of at least 60 seconds, and extend inconclusive runs.
-Calibrate variability on control/control first; predeclare uncertainty margins able to resolve
-1% throughput/p50 and 3% p95/p99 changes or better. These are measurement-resolution limits, not
-slowdown budgets. A wide uncertainty interval is inconclusive; any reproducible write regression
-blocks completion until corrected. Do not offset a slow case with a faster one or alter durability,
-checkpoint frequency, thresholds, or baselines to pass. Add the controlled gate to `just perf-check`
-and record exact commands, revisions, schemas, raw results, and interpretation before completion.
-
-Before milestone 2, define controlled workload cases and acceptance bounds under ADR-5 for
-no-hook reads, successful-hook reads, catch-up, and live `$all` fan-out. Establish live mode before
-appending the measured events and test multiple subscribers; do not infer fan-out coverage from
-preloaded catch-up. Record throughput and allocation per event for control and candidate. Preserve
-the no-hook read fast path, and account explicitly for wrapping/unwrapping costs.
-Integrate these cases into an authoritative controlled gate and record the exact invocation and
-results here before completion. The old overhead benchmark and an unchanged SQL statement count
-alone are insufficient. Preserve BUG-3's strict idle-position/heap regression.
+Write-performance acceptance (2026-10-09, user-approved practical scope):
+[ADR-11](../adr/0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md)
+governs focused implementation checks and the integrated EP6 release gate. The
+user approved practical EP2 completion and continuation to this child with
+statistical uncertainty preserved. No additional benchmark queue, calibration,
+write-shape matrix or per-child statistical-equivalence requirement applies.
+Run the existing correctness and ADR-5 structural/controlled checks, preserve
+the no-hook read passthrough and unchanged-vector batch arm, and retain direct
+correctness coverage for no-hook/successful-hook reads, catch-up and confirmed
+live fan-out with multiple subscribers. Record successful-hook wrapper costs
+as a release-stage measurement concern rather than pretending unchanged SQL
+proves allocation neutrality. Cumulative append throughput/tail latency and
+real adapter costs are assessed once the cohort is complete, before release,
+with a focused experiment within the user's one-hour whole-experiment ceiling.
+Confirmed regressions still require correction. The original policy and all
+inconclusive/adverse results remain retained.
 
 A hook that returns `Left` once must recover on the next retry and deliver the event normally
 without any callback configured. A hook that always returns `Left` for one event must never reach
@@ -432,9 +432,8 @@ must remain `Live`. A read that meets an undecodable event must return `Left (Ev
 and no partial vector.
 
 A throwing observability callback must neither stop the subscription nor stop the publisher.
-Store shutdown during a decode retry must not leak a thread or block. The bare-subscribe layer of
-`kiroku-shibuya-overhead` must show no corroborated slowdown against the pre-change run, and
-`just perf-check` must pass. Focused, full store, and strict ADR validation must pass.
+Store shutdown during a decode retry must not leak a thread or block. `just perf-check` must pass; any new measured append concern belongs in the
+retained release-stage evidence, without silently calling it a pass. Focused, full store, and strict ADR validation must pass.
 
 
 ## Idempotence and Recovery
@@ -522,3 +521,8 @@ implementation or new runtime-test evidence.
 Revision note (2026-10-09, write-performance requirement): Applied ADR-11 and blocking write-path
 acceptance, with per-child ownership and evidence requirements. The user explicitly prioritizes
 write performance. Implementation and benchmark gates remain open.
+
+Revision note (2026-10-09, begin implementation): apply the user-approved
+practical scope, select focused correctness/structural checks and reserve
+cumulative append measurements for EP6. Preserve the original statistical
+policy and prior evidence; do not launch another benchmark queue.

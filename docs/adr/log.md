@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-10-10
+* **Update**: ADR-11: record user-approved EP2 practical completion and reserve cumulative append measurement for the integrated release gate.
+
 ## 2026-10-09
 * **Update**: Clarify the user-accepted EP2 checkpoint-only cost, synchronous subscriber saves and retained event-append regression gate.
 * **Update**: ADR-4: bind checkpoints to targets with declared legacy adoption and explicit transactional rebind; preserve binding on resize and the existing startup/save boundaries.

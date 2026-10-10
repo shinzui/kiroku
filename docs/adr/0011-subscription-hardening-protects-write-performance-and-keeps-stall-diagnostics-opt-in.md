@@ -8,7 +8,7 @@ generated:
 docId: ADR-11
 status: Accepted
 date: 2026-10-09
-timestamp: "2026-10-09T23:45:00Z"
+timestamp: "2026-10-10T00:01:00Z"
 originatingPlan: docs/masterplans/12-harden-the-kiroku-event-store-and-subscription-machinery-surfaced-by-the-2026-07-kiroku-review.md
 ---
 
@@ -64,6 +64,14 @@ stated. The integrated cohort needs original-control evidence selected for the p
 changes, including real acknowledgement and opt-in diagnostic costs where applicable.
 PostgreSQL 18 is the required performance scope; the user's earlier correction excludes
 PostgreSQL 17 performance trials.
+
+The user subsequently approved EP-2 practical completion with its statistical
+uncertainty retained and continuation to EP-3. Focused correctness, structural
+and affected-path checks accompany implementation. Reserve the cumulative
+append comparison for the completed cohort in EP-6 before release, using a
+focused experiment within the one-hour whole-experiment ceiling. Do not require
+another remote mixed-write benchmark for each child or relabel an inconclusive
+comparison as a statistical pass.
 
 Handler-stall diagnostics are opt-in: `handlerStallWarnAfter = Nothing` in the store and both
 adapter defaults. The disabled path creates no watchdog thread, tracking cell, timer, per-delivery

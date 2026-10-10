@@ -72,7 +72,7 @@ exception type.
 
 ## Progress
 
-- [ ] Event-append acceptance: the user accepts the checkpoint-only save cost. Five verified Linux trials supply two complete pairs; append throughput changes -0.14% and p99 +2.87%, with wide intervals. The sixth trial stopped during reset under the bounded queue. Event-append acceptance remains inconclusive; no more trials are queued and no release is claimed.
+- [x] (2026-10-09) Practical acceptance: the user approves completion with passing correctness/structural checks, the accepted checkpoint-only cost and bounded Linux evidence. Append throughput changes -0.14% and p99 +2.87%, with wide intervals; statistical equivalence remains inconclusive. Cumulative append acceptance belongs to EP6 before release; no additional EP2 trials are queued.
 - [x] (2026-10-09) Quick Linux verification: retain five sealed, benchmark-grade, durably drained trials, two matched pairs, the unmatched control and the interrupted sixth submission. Preparation through cleanup took 25 minutes 30 seconds; all artifact hashes were checked, the lease is absent and all four cell instances are TERMINATED.
 - [x] (2026-10-09 22:49 UTC) M1: carry the current `GlobalPosition` in `ConnectionLost` and reconnect from the maximum of FSM cursor and `posRef`; add the mid-live-fetch regression test.
 - [x] (2026-10-09 22:49 UTC) M1: make `BatchSize` and the ack-stream buffer size validated types built by smart constructors, and route every runtime startup refusal through `SomeSubscriptionStartupFailure`.
@@ -143,6 +143,12 @@ exception type.
 
 
 ## Decision Log
+
+- Decision (2026-10-09, user approval): complete this child on practical
+  acceptance with all passing checks and bounded evidence retained. Keep the
+  statistical report inconclusive, including adverse tail/allocation estimates,
+  and assess cumulative append performance at EP6 before release. No further
+  EP2 benchmark is required; proceed to EP3.
 
 - Decision (2026-10-09, user clarification): accept the checkpoint-only save
   overhead after distinguishing it from event appends. A save runs synchronously
@@ -301,10 +307,11 @@ The full experiment through cleanup took 25 minutes 30 seconds. Five trials
 completed; the sixth stopped during reset when its minimum measurement time
 could not fit the remaining queue budget. It supplied no timing sample; no
 replacement was launched. The owned lease is absent, all four alpha VMs are
-TERMINATED, and no remote execution remains active. **This child remains In
-Progress solely because event-append acceptance is inconclusive, not because
-checkpoint-only cost is unaccepted.** No further experiments are queued. EP3
-is independently ready, but has not begun; no release is claimed.
+TERMINATED, and no remote execution remains active. **This child is Complete
+on the user-approved practical acceptance.** Statistical equivalence remains
+inconclusive and cumulative event-append acceptance remains an EP6 release
+concern. No further EP2 experiments are queued. The user approved beginning
+EP3; no release is claimed.
 
 
 ## Context and Orientation
@@ -678,3 +685,8 @@ verified trials, two complete pairs, the unmatched control and the sixth reset
 interrupted before timing, without replacements. Preparation through cleanup
 took 25 minutes 30 seconds; uncertainty remains wider than the intended coarse
 target. Lease absent, all four VMs stopped, no further experiment queued.
+
+Revision note (2026-10-09, practical acceptance): the user approved completion
+with performance uncertainty retained. Mark all progress complete and move the
+cumulative append comparison to the integrated release gate; existing raw
+results and thresholds are unchanged.

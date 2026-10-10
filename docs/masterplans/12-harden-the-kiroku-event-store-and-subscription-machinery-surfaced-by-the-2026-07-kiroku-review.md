@@ -96,7 +96,8 @@ already complete under [ADR-7](../adr/0007-replay-history-retention-uses-leases-
 The 2026-10-09 source audit at commit `e6ea664` found **0 of 6 children complete**.
 At that audit all five implementation children were Not Started; EP-6 awaits their completion.
 EP-1 is now Complete under the user-directed minimum-evidence scope recorded
-below. EP-2 is In Progress; the other four children remain Not Started; no package is released.
+below. EP-2 is Complete on user-approved practical acceptance; EP-3 is now In Progress.
+The other three children remain Not Started; no package is released.
 The accepted ADR-8 records the intended API, not evidence that it has shipped. The recent
 lifecycle, category-performance, and publisher-memory fixes are baseline improvements to preserve.
 This update inspected source, tests, migrations, changelogs, and history; it did not rerun the
@@ -146,8 +147,8 @@ decides during implementation whether the latter warrants a record.
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
 | 1 | Make consumer-group topology durable and resize without gaps | docs/plans/81-make-consumer-group-topology-durable-and-resize-without-gaps.md | None | EP-2 | Complete |
-| 2 | Repair live reconnect and validate subscription identity and batch size | docs/plans/82-repair-live-reconnect-and-validate-subscription-identity-and-batch-size.md | None | EP-1 | In Progress |
-| 3 | Contain persistent publisher decode-hook failures | docs/plans/83-contain-persistent-publisher-decode-hook-failures.md | None | EP-2 | Not Started |
+| 2 | Repair live reconnect and validate subscription identity and batch size | docs/plans/82-repair-live-reconnect-and-validate-subscription-identity-and-batch-size.md | None | EP-1 | Complete |
+| 3 | Contain persistent publisher decode-hook failures | docs/plans/83-contain-persistent-publisher-decode-hook-failures.md | None | EP-2 | In Progress |
 | 4 | Harden adapter acknowledgement liveness and expose retry policy | docs/plans/84-harden-adapter-acknowledgement-liveness-and-expose-retry-policy.md | EP-1, EP-2 | EP-3 | Not Started |
 | 5 | Make append unique-violation classification exact | docs/plans/86-make-append-unique-violation-classification-exact.md | None | None | Not Started |
 | 6 | Release the subscription hardening cohort and coordinate downstream adoption | docs/plans/85-release-the-subscription-hardening-cohort-and-coordinate-downstream-adoption.md | EP-1, EP-2, EP-3, EP-4, EP-5 | None | Not Started |
@@ -440,7 +441,7 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 - [x] (2026-10-09) EP-2 functional scope: reconnect database-driven live subscriptions from `posRef` and reject `batchSize < 1` before a worker starts.
 - [x] (2026-10-09) EP-2 functional scope: bind every checkpoint to its target in typed columns under a declared binding policy, drop `stream_name`, validate batch and buffer sizes at construction, introduce the startup-refusal parent exception, and document deliberate retarget operations.
 - [x] (2026-10-09) EP-2 bounded Linux verification: five benchmark-grade trials verified in 25 minutes 30 seconds including preparation and cleanup; two complete pairs, one unmatched control and a sixth submission stopped during reset. Lease absent, all four VMs TERMINATED, no replacement or expanded queue.
-- [ ] EP-2 event-append acceptance: checkpoint-only cost is accepted by the user. The two Linux pairs show throughput -0.14% and p99 +2.87% with wide intervals; event-append acceptance remains inconclusive. EP2 remains In Progress, with no further experiment queued or release claimed.
+- [x] (2026-10-09) EP-2 practical acceptance: the user approves completion on passing correctness/structural checks and the bounded Linux evidence. The checkpoint-only cost is accepted; throughput -0.14% and p99 +2.87% retain wide intervals. Statistical equivalence remains inconclusive and cumulative append acceptance belongs to EP6; no further EP2 benchmark or release is claimed.
 - [ ] EP-3: prove the current apparent-live stall, then make decode failure a typed per-event outcome that each subscriber disposes of through an optional callback, stopping by default, and that fails reads with a typed error.
 - [ ] EP-4: expose retry policy on single and consumer-group adapter configs; provide a guarded processor path and a worker-level handler-stall event the adapter configures.
 - [ ] EP-5: distinguish `stream_events_pkey` duplicates and `ux_stream_events_stream_version` corruption with deterministic mapping tests.
@@ -468,7 +469,7 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
   passes 340 examples and the structural/controlled gates pass. Fixed-kind
   checkpoint statements reduce encoding allocation. The category-save probe
   remains consistently slower, and both initial and optimized mixed diagnostics
-  are inconclusive with adverse signals retained. EP2 stays In Progress; the
+  are inconclusive with adverse signals retained. At that historical stopping point EP2 stayed In Progress; the
   evidence lives in `kiroku-store/bench/results/ep2-target-binding/`.
 
 - Final minimum-evidence correction (2026-10-09): the user rejected the
@@ -587,6 +588,13 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 
 ## Decision Log
+
+- Decision (2026-10-09, user approval): close EP2 on practical acceptance and
+  begin EP3. Keep strict statistical results inconclusive and retain adverse tail
+  and allocation estimates. Run focused correctness and structural checks during
+  implementation; reserve the cumulative append comparison for EP6 before
+  release, with a focused experiment within the one-hour whole-work budget.
+  No additional EP2 benchmark is required.
 
 - Decision (2026-10-09, checkpoint cost clarification): the user accepts the
   checkpoint-only save overhead because it is outside the event-append
@@ -790,7 +798,7 @@ traceability; do not broaden completed records or close IR-15, IR-16, or IR-17 t
 
 ## Outcomes & Retrospective
 
-Implementation update (2026-10-09): **1 of 6 children is Complete**. EP1
+Implementation update (2026-10-09): **2 of 6 children are Complete**. EP1
 implements durable topology, typed startup refusal, migration-derived legacy
 sizes and transactional gap-free resize, with updated guide and ADR-2. Full
 correctness suites and existing ADR-5 gates passed. Its six retained mixed trials
@@ -810,11 +818,10 @@ during reset because it could not finish within the queue ceiling. The full
 experiment through cleanup took 25 minutes 30 seconds; lease absent and all four
 alpha VMs TERMINATED. No replacement or additional experiment is queued.
 `kiroku-store/bench/results/ep2-quick-linux/README.md` preserves inputs, raw result
-identities, uncertainty and the missed scope estimate. EP2 remains In Progress
-because event-append acceptance is still inconclusive; its checkpoint-only
-trade-off is resolved. Four children remain Not Started, no package has been
-released, and plan 82 remains the active child. EP3 (plan 83) is independently
-ready; it has not been started.
+identities, uncertainty and the missed scope estimate. The user now approves
+EP2 Complete on practical acceptance with that uncertainty retained. Cumulative
+event-append acceptance remains an EP6 release concern. EP3 (plan 83) is now the
+active child; the other three children are Not Started and no package is released.
 
 
 
@@ -888,3 +895,7 @@ trials, two complete pairs and the sixth reset interrupted under the queue
 ceiling. Preparation through cleanup took 25 minutes 30 seconds. Event-append
 acceptance remains inconclusive with wide intervals; EP2 remains In Progress,
 all remote resources are released and no further experiment is queued.
+
+Revision note (2026-10-09, practical acceptance): the user approved closing EP2
+with uncertainty preserved and starting EP3. Update the registry/progress and
+reserve cumulative append measurement for EP6; do not relabel existing evidence.
