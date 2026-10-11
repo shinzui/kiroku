@@ -42,3 +42,7 @@ executable stream-head-cost
 executable workload-gate
   import:  shared
   main-is: RegressionGate.hs
+
+executable stream-head-paired
+  import:  shared
+  main-is: StreamHeadPaired.hs

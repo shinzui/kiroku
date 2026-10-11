@@ -62,7 +62,7 @@ additional read traffic competing for the same database resources.
 - [x] (2026-10-11 04:24Z) Milestone 3 structural evidence: all eight natural literal/prepared plans pass bounded origin probes.
 - [x] (2026-10-11 04:59Z) Milestone 3 focused timing: verified two six-case remote trials and recorded opt-in costs for both sizes; every cell met 5% relative deviation.
 - [x] (2026-10-11 05:02Z) Milestone 3 integration: all 16 remote append/category workload cases pass with required precision; sealed result and owned-lease release verified.
-- [ ] Milestone 3 performance acceptance: legacy metadata timing is inconclusive because the 100,000-event ratio failed at 1.17 and passed at 1.00 on the unchanged repeat.
+- [ ] Milestone 3 performance acceptance: resolve the initial conflicting ratios with the user-authorized paired investigation below; validate the sampler and complete two fixed remote trials.
 - [x] (2026-10-11 04:41Z) Milestone 4 implementation: Haddocks, guide and changelog complete; ADR-19 and IR-18 bundles validate strictly; Haddock generation passes.
 - [x] (2026-10-11 05:03Z) Final evidence/retrospective recorded; all four remote runs verified, all owned leases released, alpha instances independently confirmed TERMINATED.
 
@@ -79,6 +79,8 @@ additional read traffic competing for the same database resources.
 
 ## Decision Log
 
+
+2026-10-11: The user requested proper testing because the inconclusive metadata gate blocks release, then required investigation rather than another unexplained inconclusive report. Start a separately authorized 60-minute investigation at `docs/bench/stream-head/2026-10-11-ep97-paired/started.txt`; do not reuse or relabel the earlier experiment. Replace the short sequential timing comparison with fixed, balanced paired batches, explicit identical-code and 20%-extra-work controls, and uncertainty for the ratio itself. Existing passed functional, structural and workload results remain valid. Use alpha only and retain all attempts. If controls fail, identify and repair the harness issue within this budget; if validated evidence shows a regression, investigate the implementation instead of seeking a favorable repeat.
 
 2026-10-10: Use the opt-in tuple API requested by IR-18. Preserve `StreamInfo` and
 ordinary `getStream` in full. Adding a nullable field to every metadata read would
@@ -533,6 +535,65 @@ entry with `record-provenance.ts --mode implement` at the first plan update, and
 maintain timestamped Progress entries and the implementation revision note.
 
 
+
+### Release-blocking paired follow-up (2026-10-11)
+
+
+`kiroku-store/bench/StreamHeadPaired.hs` uses the unchanged fixture and frozen
+metadata path from `StreamHeadCost.hs`. `bench/stream-head-cell/paired.py` generates
+and validates a complete predetermined schedule and analyzes the raw batch CSV.
+`entry.py`, `run.py` and the existing flake run it through the sealed alpha protocol.
+The production read path is unchanged by this investigation.
+
+After a small `paired-proof` run (seed 9700, four rounds, 100 reads per batch), run
+`paired-1` and `paired-2` with seeds 9701 and 9702. Each trial uses a fresh migrated
+database/process, 40 rounds and 1,000 reads per batch. Warm each of the four distinct
+metadata actions with 1,000 calls. Each round measures five cases: frozen versus
+production metadata for 100 and 100,000 events, production versus the identical
+production action for both sizes, and a production control whose B arm performs
+1,200 calls instead of 1,000. Each case has four batches, ABBA or BAAB, with exactly
+20 of each order across 40 rounds; shuffle case order and the balanced order list
+with the stated seed. Validate every returned metadata field and retain every
+batch's monotonic start/end, elapsed time, arm, count, order and round.
+
+Compare the sum of the two B durations with the sum of the two A durations in
+matched rounds. The estimator is the ratio of total matched B/A duration. Compute
+nominal 99% percentile intervals using 20,000 deterministic circular block bootstrap
+resamples of adjacent rounds, separately at block lengths five and ten, and use the
+union of these intervals. This preserves short-range dependence instead of assuming
+all database calls are independent. Require relative interval half-width at most
+3%, ABBA/BAAB ratio-of-ratios within 0.95–1.05, and first-half/second-half ratio-of-ratios
+within 0.95–1.05. Both legacy upper bounds must be at most the unchanged 1.10 limit.
+Both identical-code intervals must lie entirely within 0.95–1.05. The extra-work
+control interval must lie above 1.10 and below 1.30, showing sensitivity near the
+release limit. Both fixed trials must pass; no pooling away a failed trial.
+
+Before remote runs, execute `python3 bench/stream-head-cell/test-paired.py`; it must
+accept identical synthetic actions under temporal drift, reject a 17% slowdown,
+block on biased identical-code controls, reject missing samples, and verify balanced
+seeded schedules. Remote collection verifies the sealed manifest and independently
+recomputes analysis from every raw sample. Preserve all original sequential results
+as historical evidence; the paired design supersedes that unsuitable acceptance test.
+The bootstrap intervals are approximate and do not establish performance at arbitrary
+loads; the independent trial, bias, order and time checks are additional safeguards.
+
+Expected measurement is approximately two minutes per trial, with about ten seconds
+fixture setup and one second warmup each. Build, proof, both trials, result verification
+and shutdown are expected to take 15–25 minutes; reserve the remainder of the single
+60-minute follow-up budget for a specifically diagnosed repair if needed. Reuse the
+already verified lifecycle protocol and original workload evidence; no expanded matrix.
+A failed control triggers investigation of the harness, a lower legacy bound above
+1.10 triggers regression investigation, and deadline expiry ends remote execution.
+Do not change thresholds, discard samples or simply repeat until acceptance.
+
+Build a committed revision with the existing flake command. Publish its payload,
+then invoke `bench/stream-head-cell/run.py --kind paired-proof`, `--kind paired-1`
+and `--kind paired-2`, with distinct owned output directories and the same new
+`--started` file. Use `--keep-running` only between stages; every stage still releases
+its lease. The last stage stops alpha. `analysis.json` status must be `passed` for
+both release trials, with independent verification and final lease/power evidence.
+
+
 ## Validation and Acceptance
 
 
@@ -552,8 +613,9 @@ can execute multiple statements. Review the handler and production SQL explicitl
 Performance acceptance requires frozen legacy SQL checks and unchanged legacy
 encoders/decoders/dispatch, no schema or write-path additions, the natural indexed
 head probe and 32-buffer bound, measured opt-in public-runner results for both
-sizes, and passing legacy metadata ratios within 1.10 with the stated uncertainty
-policy. Existing `perf-check` gates must also pass or remain explicitly unresolved;
+sizes, and passing legacy metadata ratio upper bounds within 1.10 using the paired
+follow-up protocol above. The earlier short sequential estimates remain historical
+evidence, not the release acceptance test. Existing `perf-check` gates must also pass or remain explicitly unresolved;
 preliminary SQL evidence alone cannot close this milestone. Report what was measured
 and protected rather than claiming performance at every workload/concurrency level.
 
@@ -629,3 +691,5 @@ and public-runner evidence without launching implementation or performance runs.
 2026-10-11: Began implementation, froze the pre-feature SQL and full runner control, added the shared fixture and recorded successful baseline validation.
 
 2026-10-11: Implemented the additive API, compatibility/lifecycle/snapshot tests, bounded plan checks and documentation; distilled ADR-19. After the user reported local contention and authorized remote cells, preserved the original experiment deadline and moved unchanged timing actions to alpha. Retained a failed legacy ratio and its conflicting unchanged repeat without claiming performance acceptance.
+
+2026-10-11: At the user's explicit release-blocker request, added a fixed paired follow-up with identical-code and extra-work controls, ratio uncertainty, order/time checks and a new bounded investigation. Earlier experiments and thresholds are preserved.

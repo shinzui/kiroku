@@ -52,3 +52,10 @@ Preserve every journal, controller log and fetched tree. A nonzero benchmark exi
 missing result or missed precision target is not acceptance. The aggregate's
 structural checks are run by the repository's local full test suite; moving only
 its timing half avoids measuring on a busy developer machine.
+
+For the release-blocking metadata comparison, use `paired-proof`, `paired-1` and
+`paired-2` in sequence. These run `StreamHeadPaired.hs` and `paired.py`: fixed
+ABBA/BAAB measurements, identical-code and 20%-extra-work controls, and paired
+ratio intervals. The exact protocol and thresholds are in Plan 97 and
+`docs/bench/stream-head/2026-10-11-ep97-paired/README.md`.
+Run `python3 bench/stream-head-cell/test-paired.py` before publishing a new payload.

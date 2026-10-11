@@ -29,6 +29,7 @@
                     cp -r ${inputs.self} "$out"
                     chmod -R u+w "$out"
                     cp ${inputs.kiroku}/kiroku-store/bench/StreamHeadCost.hs "$out/src/StreamHeadCost.hs"
+                    cp ${inputs.kiroku}/kiroku-store/bench/StreamHeadPaired.hs "$out/src/StreamHeadPaired.hs"
                     cp ${inputs.kiroku}/kiroku-store/bench/RegressionGate.hs "$out/src/RegressionGate.hs"
                   '') { }
                 )
@@ -44,7 +45,7 @@
         name = "stream-head-cell";
         runtimeInputs = [ pkgs.python3 ];
         text = ''
-          exec python3 ${./entry.py} ${executable}/bin/stream-head-cost ${executable}/bin/workload-gate "$@"
+          exec python3 ${./entry.py} ${executable}/bin/stream-head-cost ${executable}/bin/workload-gate ${executable}/bin/stream-head-paired ${./paired.py} "$@"
         '';
       };
     };

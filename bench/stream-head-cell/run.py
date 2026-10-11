@@ -72,9 +72,12 @@ class Run:
         if rejection.returncode==0:raise RuntimeError('submission rejected: '+rejection.stdout)
         return {}
     def submit(self):
-        seconds={'proof':120,'head':480,'gate':720}[self.a.kind]
+        seconds={'proof':120,'head':480,'gate':720,'paired-proof':120,'paired-1':600,'paired-2':600}[self.a.kind]
         if self.deadline-time.time()<seconds+180:raise TimeoutError('insufficient remaining budget for stage and cleanup')
-        write(self.root/'work.json',dict(kind=self.a.kind,seconds=seconds))
+        work_input=dict(kind=self.a.kind,seconds=seconds)
+        if self.a.kind.startswith('paired'):
+            work_input['seed']={'paired-proof':9700,'paired-1':9701,'paired-2':9702}[self.a.kind]
+        write(self.root/'work.json',work_input)
         work=self.root/'work.json'
         submission=dict(schema='cell.submission/v1',runId=self.j['run_id'],leaseId=self.j['lease_id'],payload=read(self.a.payload),work=dict(sha256=digest(work),bytes=work.stat().st_size,mediaType='application/json'),env={},reset=dict(cachePolicy='warm',postgres=dict(major=18,databases=[dict(name=n,owner='benchmark',template='template0') for n in ['benchmark','ep97_1','ep97_2','ep97_3','ep97_4']],settings=dict(shared_buffers='128MB',fsync='on',synchronous_commit='on',full_page_writes='on',wal_level='replica'))),limits=dict(wallClockSeconds=seconds+60,memoryMaxBytes=8*1024**3,outputMaxBytes=256*1024**2),requires=dict(protocol='cell.protocol/v1',minAgentVersion='0.1.0'),collect=dict(traces=False),labels=dict(purpose='ep97-stream-head',kind=self.a.kind))
         write(self.root/'submission.json',submission)
@@ -89,6 +92,20 @@ class Run:
         if status.get('manifestSha256') and status['manifestSha256'].removeprefix('sha256:')!=digest(fetched/'manifest.json'):raise ValueError('status/manifest digest mismatch')
         result=read(fetched/'cell/result.json')
         summary=read(fetched/'output/summary.json')
+        if result['runId'] != self.j['run_id'] or result['leaseId'] != self.j['lease_id'] or summary['kind'] != self.a.kind:
+            raise ValueError('result identity mismatch')
+        if self.a.kind.startswith('paired'):
+            from paired import analyze
+            work=read(self.root/'work.json')
+            proof=self.a.kind=='paired-proof'
+            estimates=analyze(fetched/'output/samples.csv',work['seed'],4 if proof else 40,100 if proof else 1000,proof)
+            if estimates != read(fetched/'output/analysis.json'):
+                raise ValueError('independent analysis differs from sealed analysis')
+            write(self.root/'estimates.json',estimates)
+            self.j.update(status='verified',verified_trials=1,result=result,summary=summary,
+                          acceptance_status=estimates['status'],manifest_sha256=digest(fetched/'manifest.json'))
+            self.save()
+            return 0 if result['entryExitCode']==0 and estimates['status'] in ('passed','proof-valid') else 3
         rows=list(csv.DictReader((fetched/'output/timings.csv').open()))
         expected={'proof':1,'head':6,'gate':16}[self.a.kind]
         if len(rows)!=expected:raise ValueError(f'expected {expected} timing cells, found {len(rows)}')
@@ -152,7 +169,7 @@ class Run:
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     for name in ('cellctl','infra','payload','out','started'):p.add_argument('--'+name,type=pathlib.Path,required=True)
-    p.add_argument('--kind',choices=['proof','head','gate'],required=True)
+    p.add_argument('--kind',choices=['proof','head','gate','paired-proof','paired-1','paired-2'],required=True)
     p.add_argument('--wait-seconds',type=int,default=0)
     p.add_argument('--keep-running',action='store_true')
     a=p.parse_args()

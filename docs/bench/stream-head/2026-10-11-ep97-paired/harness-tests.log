@@ -1,0 +1,17 @@
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/stream-head-cell/paired.py:62: ResourceWarning: unclosed file <_io.TextIOWrapper name='/var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/tmpixaxnh2r/samples.csv' mode='r' encoding='UTF-8'>
+  rows = list(csv.DictReader(Path(path).open()))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/stream-head-cell/paired.py:62: ResourceWarning: unclosed file <_io.TextIOWrapper name='/var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/tmp3s94v0r1/samples.csv' mode='r' encoding='UTF-8'>
+  rows = list(csv.DictReader(Path(path).open()))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+./Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/stream-head-cell/paired.py:62: ResourceWarning: unclosed file <_io.TextIOWrapper name='/var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/tmpywblhr26/samples.csv' mode='r' encoding='UTF-8'>
+  rows = list(csv.DictReader(Path(path).open()))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+../Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/stream-head-cell/paired.py:62: ResourceWarning: unclosed file <_io.TextIOWrapper name='/var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/tmp017l3v8l/samples.csv' mode='r' encoding='UTF-8'>
+  rows = list(csv.DictReader(Path(path).open()))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.
+----------------------------------------------------------------------
+Ran 5 tests in 1.184s
+
+OK
