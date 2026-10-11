@@ -191,3 +191,23 @@ shared work. Earlier category/name replacement evidence is immutable and is not
 pooled with this layout. Use `--no-calibration` to reuse the verified recent
 control calibration; the lifecycle proof and all five pairs per case still run.
 Start `budget.json` before Linux build/publication, not when the controller starts.
+
+
+## Selected layout result
+
+The revision-6 comparison completed all 21 benchmark-grade trials and raw
+verification. Fresh throughput change is -2.980% [-6.128%, +0.274%]; existing
+streams with a category subscriber and browsing give -1.722%
+[-4.631%, +1.276%]. Fresh p99 is +3.700% [-3.814%, +11.802%]; observer p99
++0.308% [-3.556%, +4.327%]. Both zero-slowdown verdicts remain inconclusive,
+and most intervals miss the frozen precision target. The shared browse index
+adds 3.180 MiB on 40,000 streams, with substantially faster browse diagnostics.
+All four instances stopped, and the lease was released. See the
+[selected report](evidence/2026-10-10-byte-name/README.md).
+
+Kenshou's comparison ratio is normalized for adverse change: throughput is
+baseline/candidate, latency is candidate/baseline. `cost_estimates` in `run.py`
+converts throughput to actual candidate change with inverted interval endpoints.
+The selected run's original derived reports/logs preserve an incorrect
+pre-submission percentage edit for audit; use its corrected sidecars and summary.
+Raw measurements, paired comparisons, policy and verdicts were unaffected.

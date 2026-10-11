@@ -1,0 +1,11 @@
+{
+  "epoch": 1791677493.631988,
+  "reason": "Linux harness import recovery, missing zstd publication recovery, and observed remote reset/fetch overhead put both full five-pair cases near 65\u201370 minutes including cleanup",
+  "estimated_total_minutes": [
+    65,
+    70
+  ],
+  "extension_requested_minutes": 75,
+  "authorization": "pending; original 60-minute deadline remains in force",
+  "cases_pairs_phases_policy_unchanged": true
+}

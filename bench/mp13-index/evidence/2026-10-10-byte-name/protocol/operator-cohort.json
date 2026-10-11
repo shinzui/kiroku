@@ -1,0 +1,80 @@
+{
+  "arch": "x86_64",
+  "cabalVersion": "nix",
+  "cohort": "head",
+  "compiler": "ghc-9.12.4",
+  "components": [
+    {
+      "id": "kiroku",
+      "moriUri": "mori://shinzui/kiroku",
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "source": {
+            "location": "https://github.com/shinzui/kiroku.git",
+            "rev": "9717120a0411ac05d8aa6febe9e76e7a3a107d15",
+            "subdir": "kiroku-store",
+            "type": "git"
+          },
+          "version": "0.10.0.0"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "source": {
+            "location": "https://github.com/shinzui/kiroku.git",
+            "rev": "9717120a0411ac05d8aa6febe9e76e7a3a107d15",
+            "subdir": "kiroku-store-migrations",
+            "type": "git"
+          },
+          "version": "0.7.0.0"
+        },
+        {
+          "name": "kiroku-otel",
+          "source": {
+            "location": "https://github.com/shinzui/kiroku.git",
+            "rev": "9717120a0411ac05d8aa6febe9e76e7a3a107d15",
+            "subdir": "kiroku-otel",
+            "type": "git"
+          },
+          "version": "0.2.0.11"
+        },
+        {
+          "name": "kiroku-metrics",
+          "source": {
+            "location": "https://github.com/shinzui/kiroku.git",
+            "rev": "9717120a0411ac05d8aa6febe9e76e7a3a107d15",
+            "subdir": "kiroku-metrics",
+            "type": "git"
+          },
+          "version": "0.2.0.0"
+        },
+        {
+          "name": "kiroku-cli",
+          "source": {
+            "location": "https://github.com/shinzui/kiroku.git",
+            "rev": "9717120a0411ac05d8aa6febe9e76e7a3a107d15",
+            "subdir": "kiroku-cli",
+            "type": "git"
+          },
+          "version": "0.2.0.9"
+        },
+        {
+          "name": "shibuya-kiroku-adapter",
+          "source": {
+            "location": "https://github.com/shinzui/kiroku.git",
+            "rev": "9717120a0411ac05d8aa6febe9e76e7a3a107d15",
+            "subdir": "shibuya-kiroku-adapter",
+            "type": "git"
+          },
+          "version": "0.6.0.0"
+        }
+      ]
+    }
+  ],
+  "descriptorSha256": "ab737f6162bd88c9432fdf095ae4030b6bc2e0b27f084b26536bd1d57e003c7d",
+  "indexState": "2026-09-20T13:44:47Z",
+  "os": "linux",
+  "planHash": "sha256:40f72eded62334c86772cb86063e55b35697d9c095dc77b736a891b27f1658f6",
+  "resolver": "nix",
+  "schema": "kenshou.cohort-identity/v1"
+}

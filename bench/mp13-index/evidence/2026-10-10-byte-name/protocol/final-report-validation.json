@@ -1,0 +1,8 @@
+{
+  "cases": 2,
+  "measured_trials": 20,
+  "all_arm_index_inventories_valid": true,
+  "corrected_report_matches_fixed_controller": true,
+  "controller_fixed_sha256": "878b991ddcba1b9373dbf81b6fc47a74b6ab2b9338f39e2deaea759b84fe55e7",
+  "validated_epoch": 1791680130.6384058
+}

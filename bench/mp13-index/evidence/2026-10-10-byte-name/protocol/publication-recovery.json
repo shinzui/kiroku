@@ -1,0 +1,6 @@
+{
+  "reason": "zstd executable missing from operator environment; supply project-pinned Nix package",
+  "epoch": 1791676925.677259,
+  "measured_trials": 0,
+  "deadline_unchanged": true
+}

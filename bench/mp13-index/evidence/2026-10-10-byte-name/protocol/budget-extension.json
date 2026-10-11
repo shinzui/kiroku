@@ -1,0 +1,7 @@
+{
+  "approved_epoch": 1791677522.482909,
+  "previous_budget_seconds": 3600,
+  "approved_budget_seconds": 4500,
+  "started_epoch": 1791676477.668554,
+  "authorization": "User selected Extend to 75 minutes (Recommended) in response to the explicit same-experiment extension question; no clock reset, coverage, phase, precision, or policy change."
+}

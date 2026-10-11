@@ -1,0 +1,6 @@
+{
+  "epoch": 1791679988.573003,
+  "reason": "Reporting helper changed before trials incorrectly assumed every comparison ratio was candidate/baseline; source verification confirms adverse ratio normalization. Preserve original derived reports and produce corrected sidecars from unchanged paired comparison/raw data. Workload, policy, controller inputs, trial identities, and acceptance verdict are unchanged.",
+  "source": "mori://shinzui/keiro-runtime-kenshou; kenshou-measure/src/Kenshou/Measure/Compare.hs compareMetricPairs (artifact-level URI pending)",
+  "reported_implementation": "/tmp/mp13-correct-cost.py"
+}

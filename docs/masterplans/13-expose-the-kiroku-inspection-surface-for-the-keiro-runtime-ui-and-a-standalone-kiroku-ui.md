@@ -453,6 +453,8 @@ rule suffices.
 
 ## Progress
 
+- [x] (2026-10-10) EP-3 selected-layout measurement: verify proof plus five fresh and five observer pairs, all 21 benchmark-grade trials, raw recomputation and lease/cell cleanup. Preserve adverse cost estimates and unresolved precision in the [report](../../bench/mp13-index/evidence/2026-10-10-byte-name/README.md); EP-3 remains In Progress for cost review, with cumulative release acceptance still owned by EP-7.
+
 - [x] (2026-10-10) EP-3: implement a disposable shared-access prototype: one byte-ordered browse index, bounded category/literal-prefix pages, and namespace global windows using existing event indexes. All 224 TypeID/edge-case checks pass (176 browse, 48 namespace); retain preceding rejected plans/setup error and verify every owned cluster stopped.
 - [ ] EP-3: settle the new browsing-order preference (byte order versus deployment locale), then select the final shared layout and validate its own write cost before migration. The prior replacement's cost is not acceptance of a different layout.
 
@@ -1105,3 +1107,31 @@ HTTP routes. Serial validation passes 434 store, 24 migration and 68 metrics
 examples, including production prepared plans in C and English ICU databases.
 ADR/capability/request validation passes. The example and final-layout remote
 cost comparison are next; EP-3 stays In Progress and publication stays with EP-7.
+
+
+## EP-3 selected-layout cost evidence revision (2026-10-10)
+
+The supported browsing API and nine-step example pass, and the final physical
+layout now has its own matched original-control evidence: 21 verified trials,
+including proof and five pairs each for fresh-stream writes and existing-stream
+writes with a category subscriber and SQL browsing. All sealed hashes, raw
+recomputation, counters, durable drain and exact delivery checks pass. The same
+pre-build clock was explicitly extended to 75 minutes; cleanup verified all four
+cell instances stopped and no lease at 59.32 minutes. Retained setup/reporting
+recoveries did not replace any measured sample.
+
+Actual throughput change is -2.980% [-6.128%, +0.274%] for fresh streams and
+-1.722% [-4.631%, +1.276%] for the observer workload. Fresh p99 is +3.700%
+[-3.814%, +11.802%]; observer p99 +0.308% [-3.556%, +4.327%]. Most intervals
+miss the frozen precision target; both zero-slowdown verdicts are inconclusive.
+Fresh WAL/event rises 5.668%, observer WAL/event 0.187%; the shared index adds
+3.180 MiB on 40,000 streams. Browse first/late/absent medians are
+0.647/0.471/0.380 ms versus 15.020/4.968/16.414 ms originally.
+
+See the [selected-layout report](../../bench/mp13-index/evidence/2026-10-10-byte-name/README.md)
+for hashes, pair values and corrected ratio semantics. Functional implementation
+is complete, but EP-3 remains In Progress for cost review; no performance gate
+was relaxed. Keep the one shared index and original category/identity indexes.
+Plan 54 remains independently unimplemented and receives no separate additive
+write-cost allowance. EP-7 still owns cumulative inspection load and publication;
+the registry and dependency graph remain unchanged.

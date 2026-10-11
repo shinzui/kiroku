@@ -1,0 +1,90 @@
+{
+  "purpose": "cost estimation, separate from unchanged zero-slowdown policy",
+  "ratioSemantics": "Kenshou normalizes adverse ratios: baseline/candidate for throughput, candidate/baseline for latency; actual candidate changes invert throughput ratios.",
+  "confidenceLevel": 0.95,
+  "pairs": 5,
+  "policyVerdict": "inconclusive",
+  "comparisonSha256": "3a12740b3a696b370f468c45820b852754510898c2c4d087116288784123b4f5",
+  "metrics": {
+    "op.append.latency.p50": {
+      "candidateChangePercent": 3.052705892753904,
+      "confidenceIntervalPercent": [
+        -0.20893231713265958,
+        6.420949674253373
+      ],
+      "upperSlowdownBoundPercent": 6.420949674253373,
+      "candidateOverBaselineRatio": {
+        "estimate": 1.030527058927539,
+        "high": 1.0642094967425337,
+        "low": 0.9979106768286734
+      },
+      "comparisonAdverseRatio": {
+        "estimate": 1.030527058927539,
+        "high": 1.0642094967425337,
+        "low": 0.9979106768286734
+      },
+      "relativeIntervalWidth": 0.06643762959281663,
+      "precisionTargetMet": false
+    },
+    "op.append.latency.p95": {
+      "candidateChangePercent": 3.1708777461140425,
+      "confidenceIntervalPercent": [
+        -1.303200531539761,
+        7.847772898705863
+      ],
+      "upperSlowdownBoundPercent": 7.847772898705863,
+      "candidateOverBaselineRatio": {
+        "estimate": 1.0317087774611404,
+        "high": 1.0784777289870586,
+        "low": 0.9869679946846024
+      },
+      "comparisonAdverseRatio": {
+        "estimate": 1.0317087774611404,
+        "high": 1.0784777289870586,
+        "low": 0.9869679946846024
+      },
+      "relativeIntervalWidth": 0.09271803624361619,
+      "precisionTargetMet": false
+    },
+    "op.append.latency.p99": {
+      "candidateChangePercent": 3.7000980361212354,
+      "confidenceIntervalPercent": [
+        -3.8144929410025674,
+        11.801774108287821
+      ],
+      "upperSlowdownBoundPercent": 11.801774108287821,
+      "candidateOverBaselineRatio": {
+        "estimate": 1.0370009803612124,
+        "high": 1.1180177410828782,
+        "low": 0.9618550705899743
+      },
+      "comparisonAdverseRatio": {
+        "estimate": 1.0370009803612124,
+        "high": 1.1180177410828782,
+        "low": 0.9618550705899743
+      },
+      "relativeIntervalWidth": 0.16235571789117698,
+      "precisionTargetMet": false
+    },
+    "op.append.throughput": {
+      "candidateChangePercent": -2.979818132340939,
+      "confidenceIntervalPercent": [
+        -6.128193269380788,
+        0.2741506472285993
+      ],
+      "upperSlowdownBoundPercent": 6.128193269380788,
+      "candidateOverBaselineRatio": {
+        "estimate": 0.9702018186765906,
+        "low": 0.9387180673061921,
+        "high": 1.002741506472286
+      },
+      "comparisonAdverseRatio": {
+        "estimate": 1.0307133843183842,
+        "high": 1.065282575065021,
+        "low": 0.9972659888370127
+      },
+      "relativeIntervalWidth": 0.06820305413937522,
+      "precisionTargetMet": false
+    }
+  }
+}

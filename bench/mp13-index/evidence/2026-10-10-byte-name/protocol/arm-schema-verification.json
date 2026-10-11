@@ -1,0 +1,50 @@
+{
+  "verified_first_pair_schema": {
+    "baseline": {
+      "indexes": [
+        {
+          "bytes": 286720,
+          "definition": "CREATE INDEX ix_streams_category ON kiroku.streams USING btree (category)",
+          "name": "ix_streams_category"
+        },
+        {
+          "bytes": 3334144,
+          "definition": "CREATE UNIQUE INDEX ix_streams_stream_name ON kiroku.streams USING btree (stream_name)",
+          "name": "ix_streams_stream_name"
+        },
+        {
+          "bytes": 917504,
+          "definition": "CREATE UNIQUE INDEX streams_pkey ON kiroku.streams USING btree (stream_id)",
+          "name": "streams_pkey"
+        }
+      ],
+      "result_sha256": "656326b6ae120e2bf8da2aff29b4155b3aaaa6d629a680f6d44d12e1f2ec9a2a"
+    },
+    "candidate": {
+      "indexes": [
+        {
+          "bytes": 3334144,
+          "definition": "CREATE INDEX ix_streams_browse_name ON kiroku.streams USING btree (stream_name COLLATE \"C\") WHERE (stream_id <> 0)",
+          "name": "ix_streams_browse_name"
+        },
+        {
+          "bytes": 286720,
+          "definition": "CREATE INDEX ix_streams_category ON kiroku.streams USING btree (category)",
+          "name": "ix_streams_category"
+        },
+        {
+          "bytes": 3334144,
+          "definition": "CREATE UNIQUE INDEX ix_streams_stream_name ON kiroku.streams USING btree (stream_name)",
+          "name": "ix_streams_stream_name"
+        },
+        {
+          "bytes": 917504,
+          "definition": "CREATE UNIQUE INDEX streams_pkey ON kiroku.streams USING btree (stream_id)",
+          "name": "streams_pkey"
+        }
+      ],
+      "result_sha256": "2ee1ebd29b38ceb463a3d1bb098530001fe025699fb89921ccf3add24108c6af"
+    }
+  },
+  "only_difference": "ix_streams_browse_name; all existing index definitions unchanged"
+}

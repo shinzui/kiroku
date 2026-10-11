@@ -1,0 +1,25 @@
+{
+  "scope": "selected partial C-collated name index against original pre-0015 layout; PG18 only",
+  "source_commit": "9717120a0411ac05d8aa6febe9e76e7a3a107d15",
+  "harness_commit": "52527bce334d140a689ff798043e5d42285a3e55",
+  "cases": [
+    "fresh",
+    "existing-category-browse"
+  ],
+  "pairs_per_case": 5,
+  "proof_trials": 1,
+  "reuse_calibration": "bench/mp13-index/evidence/2026-10-10; recent verified control calibration",
+  "warmup_seconds": 10,
+  "measurement_seconds": 61,
+  "drain_allowance_seconds": 10,
+  "estimate_total_minutes": [
+    50,
+    58
+  ],
+  "budget_minutes": 60,
+  "confidence": 0.95,
+  "relative_interval_width_target": 0.06,
+  "policy_sha256": "d63f377e961400536f0bbb3550477ad359a3b11cd1000af7a854e5da1dbaa5b9",
+  "controller_sha256": "9a7338bc621b5b5817a035f71b0ec12252492cf1951b75c756cab8cf7cb9d4a2",
+  "stop": "confirmed regression, invalid grade/hash/invariants, stalled phase or verified count, actual instance power mismatch, insufficient remaining budget; no hidden retries or changed gates"
+}

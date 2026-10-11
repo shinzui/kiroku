@@ -1,0 +1,6 @@
+{
+  "reason": "ambiguous id import in harness; narrowed StreamInfo import to name",
+  "harness_commit": "1224410e00f0aa46c9a73de957d5b9308d077cf4",
+  "epoch": 1791676804.161519,
+  "measured_trials": 0
+}

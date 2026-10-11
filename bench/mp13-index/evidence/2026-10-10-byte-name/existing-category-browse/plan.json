@@ -1,0 +1,832 @@
+{
+  "changes": [],
+  "cohort": {
+    "name": "head",
+    "planHash": "sha256:40f72eded62334c86772cb86063e55b35697d9c095dc77b736a891b27f1658f6"
+  },
+  "createdAt": "2026-10-11T00:03:34.225128Z",
+  "estimateMinutes": 20,
+  "graphDigest": "sha256:d03c353e4a93b1a0179db13576bc93805c60cb793d424432d5b845cad0843ce1",
+  "inputs": {
+    "all": true,
+    "changed": [],
+    "cohortFrom": null,
+    "cohortTo": null,
+    "exclude": [],
+    "select": [
+      "kiroku/append/benchmark/subscription-hardening"
+    ],
+    "since": null,
+    "upstreamDiffs": []
+  },
+  "planId": "01a1285d-6583-73a6-a1a2-a6582ad31c08",
+  "policy": {
+    "budgetMinutes": null,
+    "dimensionPolicy": "default-only",
+    "dimensions": [
+      [
+        "pg.version",
+        "18"
+      ],
+      [
+        "pg.durability",
+        "durable"
+      ]
+    ],
+    "kinds": [
+      "correctness",
+      "concurrency",
+      "soak",
+      "benchmark"
+    ],
+    "knobPolicy": "defaults",
+    "maxTier": "standard",
+    "placement": "cell",
+    "seed": 7,
+    "set": [],
+    "tierMinutes": {
+      "extended": 60,
+      "smoke": 1,
+      "soak": 240,
+      "standard": 10
+    },
+    "trialOrdering": "alternating/v1",
+    "trials": 3
+  },
+  "runs": [
+    {
+      "estimateMinutes": 2,
+      "ordinal": 1,
+      "reasons": [
+        {
+          "component": "all",
+          "distance": 0,
+          "selector": "**",
+          "source": "all",
+          "via": [
+            "all"
+          ]
+        }
+      ],
+      "runId": "01a1285d-6583-73a6-a1a2-a659579d5ce9",
+      "spec": {
+        "cohortExpectation": {
+          "name": "head",
+          "planHash": "sha256:40f72eded62334c86772cb86063e55b35697d9c095dc77b736a891b27f1658f6"
+        },
+        "comparison": {
+          "group": "mp13-index/existing-category-browse",
+          "arm": "baseline",
+          "trial": 0,
+          "position": 0
+        },
+        "dimensions": {
+          "pg.durability": "durable",
+          "pg.version": "18",
+          "telemetry.metrics": "off",
+          "telemetry.tracing": "off"
+        },
+        "environment": {
+          "kafka": null,
+          "machineProfile": null,
+          "placement": "cell",
+          "postgres": null,
+          "telemetry": null
+        },
+        "knobs": {
+          "measure.histogram-digits": 3,
+          "measure.interval-histogram-seconds": 10,
+          "measure.pg-statements": "snapshots",
+          "measure.raw-sample-one-in": 100,
+          "measure.raw-samples": "full",
+          "measure.sample-interval-ms": 1000,
+          "mp12.append-batch": 1,
+          "mp12.checkpoint-batch": 1,
+          "mp12.fresh": false,
+          "mp12.max-backlog": 100000,
+          "mp12.mode": "category",
+          "mp12.offered": 0,
+          "mp12.width": 1,
+          "mp13.index-layout": "category-only",
+          "mp13.catalog": 20000,
+          "mp13.browse-hz": 1
+        },
+        "labels": {},
+        "scenario": "kiroku/append/benchmark/subscription-hardening",
+        "scenarioRevision": 6,
+        "schema": "kenshou.run-spec/v1",
+        "seed": 7,
+        "runId": "01a1285d-6583-73a6-a1a2-a659579d5ce9",
+        "phases": {
+          "warmUpSeconds": 10,
+          "steadySeconds": 61,
+          "drainSeconds": 10
+        },
+        "timeoutSeconds": 180
+      },
+      "trial": {
+        "group": "mp13-index/existing-category-browse",
+        "arm": "baseline",
+        "index": 0,
+        "of": 5
+      }
+    },
+    {
+      "estimateMinutes": 2,
+      "ordinal": 2,
+      "reasons": [
+        {
+          "component": "all",
+          "distance": 0,
+          "selector": "**",
+          "source": "all",
+          "via": [
+            "all"
+          ]
+        }
+      ],
+      "runId": "01a1285d-6583-73a6-a1a2-a65abff7c1cb",
+      "spec": {
+        "cohortExpectation": {
+          "name": "head",
+          "planHash": "sha256:40f72eded62334c86772cb86063e55b35697d9c095dc77b736a891b27f1658f6"
+        },
+        "comparison": {
+          "group": "mp13-index/existing-category-browse",
+          "arm": "candidate",
+          "trial": 0,
+          "position": 1
+        },
+        "dimensions": {
+          "pg.durability": "durable",
+          "pg.version": "18",
+          "telemetry.metrics": "off",
+          "telemetry.tracing": "off"
+        },
+        "environment": {
+          "kafka": null,
+          "machineProfile": null,
+          "placement": "cell",
+          "postgres": null,
+          "telemetry": null
+        },
+        "knobs": {
+          "measure.histogram-digits": 3,
+          "measure.interval-histogram-seconds": 10,
+          "measure.pg-statements": "snapshots",
+          "measure.raw-sample-one-in": 100,
+          "measure.raw-samples": "full",
+          "measure.sample-interval-ms": 1000,
+          "mp12.append-batch": 1,
+          "mp12.checkpoint-batch": 1,
+          "mp12.fresh": false,
+          "mp12.max-backlog": 100000,
+          "mp12.mode": "category",
+          "mp12.offered": 0,
+          "mp12.width": 1,
+          "mp13.index-layout": "byte-name",
+          "mp13.catalog": 20000,
+          "mp13.browse-hz": 1
+        },
+        "labels": {},
+        "scenario": "kiroku/append/benchmark/subscription-hardening",
+        "scenarioRevision": 6,
+        "schema": "kenshou.run-spec/v1",
+        "seed": 7,
+        "runId": "01a1285d-6583-73a6-a1a2-a65abff7c1cb",
+        "phases": {
+          "warmUpSeconds": 10,
+          "steadySeconds": 61,
+          "drainSeconds": 10
+        },
+        "timeoutSeconds": 180
+      },
+      "trial": {
+        "group": "mp13-index/existing-category-browse",
+        "arm": "candidate",
+        "index": 0,
+        "of": 5
+      }
+    },
+    {
+      "estimateMinutes": 2,
+      "ordinal": 3,
+      "reasons": [
+        {
+          "component": "all",
+          "distance": 0,
+          "selector": "**",
+          "source": "all",
+          "via": [
+            "all"
+          ]
+        }
+      ],
+      "runId": "01a1285d-6583-73a6-a1a2-a65bdba3b06d",
+      "spec": {
+        "cohortExpectation": {
+          "name": "head",
+          "planHash": "sha256:40f72eded62334c86772cb86063e55b35697d9c095dc77b736a891b27f1658f6"
+        },
+        "comparison": {
+          "group": "mp13-index/existing-category-browse",
+          "arm": "candidate",
+          "trial": 1,
+          "position": 2
+        },
+        "dimensions": {
+          "pg.durability": "durable",
+          "pg.version": "18",
+          "telemetry.metrics": "off",
+          "telemetry.tracing": "off"
+        },
+        "environment": {
+          "kafka": null,
+          "machineProfile": null,
+          "placement": "cell",
+          "postgres": null,
+          "telemetry": null
+        },
+        "knobs": {
+          "measure.histogram-digits": 3,
+          "measure.interval-histogram-seconds": 10,
+          "measure.pg-statements": "snapshots",
+          "measure.raw-sample-one-in": 100,
+          "measure.raw-samples": "full",
+          "measure.sample-interval-ms": 1000,
+          "mp12.append-batch": 1,
+          "mp12.checkpoint-batch": 1,
+          "mp12.fresh": false,
+          "mp12.max-backlog": 100000,
+          "mp12.mode": "category",
+          "mp12.offered": 0,
+          "mp12.width": 1,
+          "mp13.index-layout": "byte-name",
+          "mp13.catalog": 20000,
+          "mp13.browse-hz": 1
+        },
+        "labels": {},
+        "scenario": "kiroku/append/benchmark/subscription-hardening",
+        "scenarioRevision": 6,
+        "schema": "kenshou.run-spec/v1",
+        "seed": 8,
+        "runId": "01a1285d-6583-73a6-a1a2-a65bdba3b06d",
+        "phases": {
+          "warmUpSeconds": 10,
+          "steadySeconds": 61,
+          "drainSeconds": 10
+        },
+        "timeoutSeconds": 180
+      },
+      "trial": {
+        "group": "mp13-index/existing-category-browse",
+        "arm": "candidate",
+        "index": 1,
+        "of": 5
+      }
+    },
+    {
+      "estimateMinutes": 2,
+      "ordinal": 4,
+      "reasons": [
+        {
+          "component": "all",
+          "distance": 0,
+          "selector": "**",
+          "source": "all",
+          "via": [
+            "all"
+          ]
+        }
+      ],
+      "runId": "01a1285d-6583-73a6-a1a2-a65c4d218acf",
+      "spec": {
+        "cohortExpectation": {
+          "name": "head",
+          "planHash": "sha256:40f72eded62334c86772cb86063e55b35697d9c095dc77b736a891b27f1658f6"
+        },
+        "comparison": {
+          "group": "mp13-index/existing-category-browse",
+          "arm": "baseline",
+          "trial": 1,
+          "position": 3
+        },
+        "dimensions": {
+          "pg.durability": "durable",
+          "pg.version": "18",
+          "telemetry.metrics": "off",
+          "telemetry.tracing": "off"
+        },
+        "environment": {
+          "kafka": null,
+          "machineProfile": null,
+          "placement": "cell",
+          "postgres": null,
+          "telemetry": null
+        },
+        "knobs": {
+          "measure.histogram-digits": 3,
+          "measure.interval-histogram-seconds": 10,
+          "measure.pg-statements": "snapshots",
+          "measure.raw-sample-one-in": 100,
+          "measure.raw-samples": "full",
+          "measure.sample-interval-ms": 1000,
+          "mp12.append-batch": 1,
+          "mp12.checkpoint-batch": 1,
+          "mp12.fresh": false,
+          "mp12.max-backlog": 100000,
+          "mp12.mode": "category",
+          "mp12.offered": 0,
+          "mp12.width": 1,
+          "mp13.index-layout": "category-only",
+          "mp13.catalog": 20000,
+          "mp13.browse-hz": 1
+        },
+        "labels": {},
+        "scenario": "kiroku/append/benchmark/subscription-hardening",
+        "scenarioRevision": 6,
+        "schema": "kenshou.run-spec/v1",
+        "seed": 8,
+        "runId": "01a1285d-6583-73a6-a1a2-a65c4d218acf",
+        "phases": {
+          "warmUpSeconds": 10,
+          "steadySeconds": 61,
+          "drainSeconds": 10
+        },
+        "timeoutSeconds": 180
+      },
+      "trial": {
+        "group": "mp13-index/existing-category-browse",
+        "arm": "baseline",
+        "index": 1,
+        "of": 5
+      }
+    },
+    {
+      "estimateMinutes": 2,
+      "ordinal": 5,
+      "reasons": [
+        {
+          "component": "all",
+          "distance": 0,
+          "selector": "**",
+          "source": "all",
+          "via": [
+            "all"
+          ]
+        }
+      ],
+      "runId": "01a1285d-6583-73a6-a1a2-a65d003f3f03",
+      "spec": {
+        "cohortExpectation": {
+          "name": "head",
+          "planHash": "sha256:40f72eded62334c86772cb86063e55b35697d9c095dc77b736a891b27f1658f6"
+        },
+        "comparison": {
+          "group": "mp13-index/existing-category-browse",
+          "arm": "baseline",
+          "trial": 2,
+          "position": 4
+        },
+        "dimensions": {
+          "pg.durability": "durable",
+          "pg.version": "18",
+          "telemetry.metrics": "off",
+          "telemetry.tracing": "off"
+        },
+        "environment": {
+          "kafka": null,
+          "machineProfile": null,
+          "placement": "cell",
+          "postgres": null,
+          "telemetry": null
+        },
+        "knobs": {
+          "measure.histogram-digits": 3,
+          "measure.interval-histogram-seconds": 10,
+          "measure.pg-statements": "snapshots",
+          "measure.raw-sample-one-in": 100,
+          "measure.raw-samples": "full",
+          "measure.sample-interval-ms": 1000,
+          "mp12.append-batch": 1,
+          "mp12.checkpoint-batch": 1,
+          "mp12.fresh": false,
+          "mp12.max-backlog": 100000,
+          "mp12.mode": "category",
+          "mp12.offered": 0,
+          "mp12.width": 1,
+          "mp13.index-layout": "category-only",
+          "mp13.catalog": 20000,
+          "mp13.browse-hz": 1
+        },
+        "labels": {},
+        "scenario": "kiroku/append/benchmark/subscription-hardening",
+        "scenarioRevision": 6,
+        "schema": "kenshou.run-spec/v1",
+        "seed": 9,
+        "runId": "01a1285d-6583-73a6-a1a2-a65d003f3f03",
+        "phases": {
+          "warmUpSeconds": 10,
+          "steadySeconds": 61,
+          "drainSeconds": 10
+        },
+        "timeoutSeconds": 180
+      },
+      "trial": {
+        "group": "mp13-index/existing-category-browse",
+        "arm": "baseline",
+        "index": 2,
+        "of": 5
+      }
+    },
+    {
+      "estimateMinutes": 2,
+      "ordinal": 6,
+      "reasons": [
+        {
+          "component": "all",
+          "distance": 0,
+          "selector": "**",
+          "source": "all",
+          "via": [
+            "all"
+          ]
+        }
+      ],
+      "runId": "01a1285d-6583-73a6-a1a2-a65e8fe43e4f",
+      "spec": {
+        "cohortExpectation": {
+          "name": "head",
+          "planHash": "sha256:40f72eded62334c86772cb86063e55b35697d9c095dc77b736a891b27f1658f6"
+        },
+        "comparison": {
+          "group": "mp13-index/existing-category-browse",
+          "arm": "candidate",
+          "trial": 2,
+          "position": 5
+        },
+        "dimensions": {
+          "pg.durability": "durable",
+          "pg.version": "18",
+          "telemetry.metrics": "off",
+          "telemetry.tracing": "off"
+        },
+        "environment": {
+          "kafka": null,
+          "machineProfile": null,
+          "placement": "cell",
+          "postgres": null,
+          "telemetry": null
+        },
+        "knobs": {
+          "measure.histogram-digits": 3,
+          "measure.interval-histogram-seconds": 10,
+          "measure.pg-statements": "snapshots",
+          "measure.raw-sample-one-in": 100,
+          "measure.raw-samples": "full",
+          "measure.sample-interval-ms": 1000,
+          "mp12.append-batch": 1,
+          "mp12.checkpoint-batch": 1,
+          "mp12.fresh": false,
+          "mp12.max-backlog": 100000,
+          "mp12.mode": "category",
+          "mp12.offered": 0,
+          "mp12.width": 1,
+          "mp13.index-layout": "byte-name",
+          "mp13.catalog": 20000,
+          "mp13.browse-hz": 1
+        },
+        "labels": {},
+        "scenario": "kiroku/append/benchmark/subscription-hardening",
+        "scenarioRevision": 6,
+        "schema": "kenshou.run-spec/v1",
+        "seed": 9,
+        "runId": "01a1285d-6583-73a6-a1a2-a65e8fe43e4f",
+        "phases": {
+          "warmUpSeconds": 10,
+          "steadySeconds": 61,
+          "drainSeconds": 10
+        },
+        "timeoutSeconds": 180
+      },
+      "trial": {
+        "group": "mp13-index/existing-category-browse",
+        "arm": "candidate",
+        "index": 2,
+        "of": 5
+      }
+    },
+    {
+      "estimateMinutes": 2,
+      "ordinal": 7,
+      "reasons": [
+        {
+          "component": "all",
+          "distance": 0,
+          "selector": "**",
+          "source": "all",
+          "via": [
+            "all"
+          ]
+        }
+      ],
+      "runId": "01a1285d-6583-73a6-a1a2-a65f58ee8714",
+      "spec": {
+        "cohortExpectation": {
+          "name": "head",
+          "planHash": "sha256:40f72eded62334c86772cb86063e55b35697d9c095dc77b736a891b27f1658f6"
+        },
+        "comparison": {
+          "group": "mp13-index/existing-category-browse",
+          "arm": "candidate",
+          "trial": 3,
+          "position": 6
+        },
+        "dimensions": {
+          "pg.durability": "durable",
+          "pg.version": "18",
+          "telemetry.metrics": "off",
+          "telemetry.tracing": "off"
+        },
+        "environment": {
+          "kafka": null,
+          "machineProfile": null,
+          "placement": "cell",
+          "postgres": null,
+          "telemetry": null
+        },
+        "knobs": {
+          "measure.histogram-digits": 3,
+          "measure.interval-histogram-seconds": 10,
+          "measure.pg-statements": "snapshots",
+          "measure.raw-sample-one-in": 100,
+          "measure.raw-samples": "full",
+          "measure.sample-interval-ms": 1000,
+          "mp12.append-batch": 1,
+          "mp12.checkpoint-batch": 1,
+          "mp12.fresh": false,
+          "mp12.max-backlog": 100000,
+          "mp12.mode": "category",
+          "mp12.offered": 0,
+          "mp12.width": 1,
+          "mp13.index-layout": "byte-name",
+          "mp13.catalog": 20000,
+          "mp13.browse-hz": 1
+        },
+        "labels": {},
+        "scenario": "kiroku/append/benchmark/subscription-hardening",
+        "scenarioRevision": 6,
+        "schema": "kenshou.run-spec/v1",
+        "seed": 10,
+        "runId": "01a1285d-6583-73a6-a1a2-a65f58ee8714",
+        "phases": {
+          "warmUpSeconds": 10,
+          "steadySeconds": 61,
+          "drainSeconds": 10
+        },
+        "timeoutSeconds": 180
+      },
+      "trial": {
+        "group": "mp13-index/existing-category-browse",
+        "arm": "candidate",
+        "index": 3,
+        "of": 5
+      }
+    },
+    {
+      "estimateMinutes": 2,
+      "ordinal": 8,
+      "reasons": [
+        {
+          "component": "all",
+          "distance": 0,
+          "selector": "**",
+          "source": "all",
+          "via": [
+            "all"
+          ]
+        }
+      ],
+      "runId": "01a1285d-6583-73a6-a1a2-a66020de8083",
+      "spec": {
+        "cohortExpectation": {
+          "name": "head",
+          "planHash": "sha256:40f72eded62334c86772cb86063e55b35697d9c095dc77b736a891b27f1658f6"
+        },
+        "comparison": {
+          "group": "mp13-index/existing-category-browse",
+          "arm": "baseline",
+          "trial": 3,
+          "position": 7
+        },
+        "dimensions": {
+          "pg.durability": "durable",
+          "pg.version": "18",
+          "telemetry.metrics": "off",
+          "telemetry.tracing": "off"
+        },
+        "environment": {
+          "kafka": null,
+          "machineProfile": null,
+          "placement": "cell",
+          "postgres": null,
+          "telemetry": null
+        },
+        "knobs": {
+          "measure.histogram-digits": 3,
+          "measure.interval-histogram-seconds": 10,
+          "measure.pg-statements": "snapshots",
+          "measure.raw-sample-one-in": 100,
+          "measure.raw-samples": "full",
+          "measure.sample-interval-ms": 1000,
+          "mp12.append-batch": 1,
+          "mp12.checkpoint-batch": 1,
+          "mp12.fresh": false,
+          "mp12.max-backlog": 100000,
+          "mp12.mode": "category",
+          "mp12.offered": 0,
+          "mp12.width": 1,
+          "mp13.index-layout": "category-only",
+          "mp13.catalog": 20000,
+          "mp13.browse-hz": 1
+        },
+        "labels": {},
+        "scenario": "kiroku/append/benchmark/subscription-hardening",
+        "scenarioRevision": 6,
+        "schema": "kenshou.run-spec/v1",
+        "seed": 10,
+        "runId": "01a1285d-6583-73a6-a1a2-a66020de8083",
+        "phases": {
+          "warmUpSeconds": 10,
+          "steadySeconds": 61,
+          "drainSeconds": 10
+        },
+        "timeoutSeconds": 180
+      },
+      "trial": {
+        "group": "mp13-index/existing-category-browse",
+        "arm": "baseline",
+        "index": 3,
+        "of": 5
+      }
+    },
+    {
+      "estimateMinutes": 2,
+      "ordinal": 9,
+      "reasons": [
+        {
+          "component": "all",
+          "distance": 0,
+          "selector": "**",
+          "source": "all",
+          "via": [
+            "all"
+          ]
+        }
+      ],
+      "runId": "01a1285d-6583-73a6-a1a2-a661e345d9a1",
+      "spec": {
+        "cohortExpectation": {
+          "name": "head",
+          "planHash": "sha256:40f72eded62334c86772cb86063e55b35697d9c095dc77b736a891b27f1658f6"
+        },
+        "comparison": {
+          "group": "mp13-index/existing-category-browse",
+          "arm": "baseline",
+          "trial": 4,
+          "position": 8
+        },
+        "dimensions": {
+          "pg.durability": "durable",
+          "pg.version": "18",
+          "telemetry.metrics": "off",
+          "telemetry.tracing": "off"
+        },
+        "environment": {
+          "kafka": null,
+          "machineProfile": null,
+          "placement": "cell",
+          "postgres": null,
+          "telemetry": null
+        },
+        "knobs": {
+          "measure.histogram-digits": 3,
+          "measure.interval-histogram-seconds": 10,
+          "measure.pg-statements": "snapshots",
+          "measure.raw-sample-one-in": 100,
+          "measure.raw-samples": "full",
+          "measure.sample-interval-ms": 1000,
+          "mp12.append-batch": 1,
+          "mp12.checkpoint-batch": 1,
+          "mp12.fresh": false,
+          "mp12.max-backlog": 100000,
+          "mp12.mode": "category",
+          "mp12.offered": 0,
+          "mp12.width": 1,
+          "mp13.index-layout": "category-only",
+          "mp13.catalog": 20000,
+          "mp13.browse-hz": 1
+        },
+        "labels": {},
+        "scenario": "kiroku/append/benchmark/subscription-hardening",
+        "scenarioRevision": 6,
+        "schema": "kenshou.run-spec/v1",
+        "seed": 11,
+        "runId": "01a1285d-6583-73a6-a1a2-a661e345d9a1",
+        "phases": {
+          "warmUpSeconds": 10,
+          "steadySeconds": 61,
+          "drainSeconds": 10
+        },
+        "timeoutSeconds": 180
+      },
+      "trial": {
+        "group": "mp13-index/existing-category-browse",
+        "arm": "baseline",
+        "index": 4,
+        "of": 5
+      }
+    },
+    {
+      "estimateMinutes": 2,
+      "ordinal": 10,
+      "reasons": [
+        {
+          "component": "all",
+          "distance": 0,
+          "selector": "**",
+          "source": "all",
+          "via": [
+            "all"
+          ]
+        }
+      ],
+      "runId": "01a1285d-6583-73a6-a1a2-a6625fb5ff39",
+      "spec": {
+        "cohortExpectation": {
+          "name": "head",
+          "planHash": "sha256:40f72eded62334c86772cb86063e55b35697d9c095dc77b736a891b27f1658f6"
+        },
+        "comparison": {
+          "group": "mp13-index/existing-category-browse",
+          "arm": "candidate",
+          "trial": 4,
+          "position": 9
+        },
+        "dimensions": {
+          "pg.durability": "durable",
+          "pg.version": "18",
+          "telemetry.metrics": "off",
+          "telemetry.tracing": "off"
+        },
+        "environment": {
+          "kafka": null,
+          "machineProfile": null,
+          "placement": "cell",
+          "postgres": null,
+          "telemetry": null
+        },
+        "knobs": {
+          "measure.histogram-digits": 3,
+          "measure.interval-histogram-seconds": 10,
+          "measure.pg-statements": "snapshots",
+          "measure.raw-sample-one-in": 100,
+          "measure.raw-samples": "full",
+          "measure.sample-interval-ms": 1000,
+          "mp12.append-batch": 1,
+          "mp12.checkpoint-batch": 1,
+          "mp12.fresh": false,
+          "mp12.max-backlog": 100000,
+          "mp12.mode": "category",
+          "mp12.offered": 0,
+          "mp12.width": 1,
+          "mp13.index-layout": "byte-name",
+          "mp13.catalog": 20000,
+          "mp13.browse-hz": 1
+        },
+        "labels": {},
+        "scenario": "kiroku/append/benchmark/subscription-hardening",
+        "scenarioRevision": 6,
+        "schema": "kenshou.run-spec/v1",
+        "seed": 11,
+        "runId": "01a1285d-6583-73a6-a1a2-a6625fb5ff39",
+        "phases": {
+          "warmUpSeconds": 10,
+          "steadySeconds": 61,
+          "drainSeconds": 10
+        },
+        "timeoutSeconds": 180
+      },
+      "trial": {
+        "group": "mp13-index/existing-category-browse",
+        "arm": "candidate",
+        "index": 4,
+        "of": 5
+      }
+    }
+  ],
+  "schema": "kenshou.run-plan/v1",
+  "skipped": [],
+  "suite": null,
+  "warnings": []
+}

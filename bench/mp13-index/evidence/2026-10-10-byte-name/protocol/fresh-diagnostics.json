@@ -1,0 +1,12 @@
+{
+  "baseline": {
+    "events": 219679,
+    "wal_bytes_per_event": 2131.8920060633923,
+    "hot_percent": 98.6981004101439
+  },
+  "candidate": {
+    "events": 213061,
+    "wal_bytes_per_event": 2252.7266463594933,
+    "hot_percent": 98.69427065488287
+  }
+}

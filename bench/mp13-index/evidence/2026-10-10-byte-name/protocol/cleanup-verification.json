@@ -1,0 +1,27 @@
+{
+  "instances": [
+    {
+      "name": "cell-alpha-broker",
+      "status": "TERMINATED",
+      "zone": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a"
+    },
+    {
+      "name": "cell-alpha-driver-0",
+      "status": "TERMINATED",
+      "zone": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a"
+    },
+    {
+      "name": "cell-alpha-monitoring",
+      "status": "TERMINATED",
+      "zone": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a"
+    },
+    {
+      "name": "cell-alpha-postgres",
+      "status": "TERMINATED",
+      "zone": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a"
+    }
+  ],
+  "lease": null,
+  "verified_epoch": 1791680037.080558,
+  "elapsed_minutes_to_verified_cleanup": 59.3235333998998
+}

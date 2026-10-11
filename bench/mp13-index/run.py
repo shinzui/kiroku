@@ -88,14 +88,20 @@ def validate_browser_diagnostics(result):
 def cost_estimates(comparison):
     metrics = {}
     for name, row in comparison['metrics'].items():
-        ratio = row['ratio']
         throughput = name.endswith('throughput')
+        adverse = row['ratio']
+        # Kenshou uses baseline/candidate for higher-is-better metrics.
+        # Invert throughput, including the interval endpoints, to report
+        # the actual candidate change; latency already uses candidate/baseline.
+        ratio = {'estimate': 1 / adverse['estimate'], 'low': 1 / adverse['high'],
+                 'high': 1 / adverse['low']} if throughput else adverse
         percent = lambda value: (value - 1) * 100
         lower = percent(ratio['low'])
         upper = percent(ratio['high'])
         metrics[name] = {'candidateChangePercent': percent(ratio['estimate']),
                          'confidenceIntervalPercent': [lower, upper],
-                         'upperSlowdownBoundPercent': max(0, -lower if throughput else upper)}
+                         'upperSlowdownBoundPercent': max(0, -lower if throughput else upper),
+                         'candidateOverBaselineRatio': ratio}
     return {'purpose': 'cost estimation; distinct from the unchanged zero-slowdown policy verdict',
             'confidenceLevel': comparison['policy']['confidenceLevel'],
             'pairs': comparison['pairCount'], 'policyVerdict': comparison['verdict'], 'metrics': metrics}

@@ -1,0 +1,11 @@
+{
+  "status": "complete",
+  "elapsed_minutes": 62.55819849570592,
+  "budget_minutes": 75.0,
+  "verified_trials": 21,
+  "performance_acceptance": "inconclusive; see per-metric precision and corrected confidence bounds",
+  "remote_execution": "inactive",
+  "lease": null,
+  "all_four_instances": "TERMINATED",
+  "no_measured_trials_retried": true
+}

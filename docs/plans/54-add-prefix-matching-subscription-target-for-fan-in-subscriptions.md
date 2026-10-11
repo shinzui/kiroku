@@ -1181,3 +1181,22 @@ for isolated correctness and cost verification. Plan 54's future bounded global
 windows reuse existing event indexes and require independent scanned-frontier
 tracking; its worker and semantic decision remain unfinished. Final-layout cost
 and cumulative release acceptance remain open.
+
+
+## Shared selected-layout cost evidence (2026-10-10)
+
+Plan 88's selected partial C-collated browse index now has its own
+[matched report](../../bench/mp13-index/evidence/2026-10-10-byte-name/README.md).
+Proof plus five pairs per workload all verified, with raw recomputation and
+owned cell cleanup. Fresh throughput is -2.980% [-6.128%, +0.274%]; existing
+appends with a category subscriber and browsing are -1.722% [-4.631%, +1.276%].
+Fresh and observer WAL/event rise 5.668% and 0.187%, respectively, descriptively.
+The one browse index adds 3.180 MiB on 40,000 streams; original category and
+unique-name indexes remain intact. Both zero-slowdown verdicts are inconclusive,
+and most intervals miss the frozen precision target.
+
+This evidence does not implement or certify this plan's future namespace worker.
+Its proposed bounded global windows still need no additional prefix index;
+semantics, scan-frontier handling and cumulative active-feature acceptance remain
+open. Preserve the original-control baseline and review combined cost under
+ADR-15; do not grant this future feature another independent regression allowance.

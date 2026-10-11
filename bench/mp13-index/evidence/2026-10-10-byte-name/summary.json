@@ -1,0 +1,698 @@
+{
+  "cases": {
+    "fresh": {
+      "artifact_verified_trials": 10,
+      "benchmark_grade_trials": 10,
+      "diagnostics": {
+        "baseline": {
+          "trials": 5,
+          "events": 219679,
+          "stream_inserts": 219679,
+          "stream_updates": 219679,
+          "stream_hot_updates": 216819,
+          "hot_fraction": 0.986981004101439,
+          "new_page_updates": 2860,
+          "wal_bytes_per_event": 2131.8920060633923,
+          "append_statement_wal_bytes_per_call": 2059.222711319698,
+          "initial_stream_index_bytes": [
+            4538368,
+            4538368,
+            4538368,
+            4538368,
+            4538368
+          ],
+          "initial_indexes": [
+            {
+              "bytes": 286720,
+              "definition": "CREATE INDEX ix_streams_category ON kiroku.streams USING btree (category)",
+              "name": "ix_streams_category"
+            },
+            {
+              "bytes": 3334144,
+              "definition": "CREATE UNIQUE INDEX ix_streams_stream_name ON kiroku.streams USING btree (stream_name)",
+              "name": "ix_streams_stream_name"
+            },
+            {
+              "bytes": 917504,
+              "definition": "CREATE UNIQUE INDEX streams_pkey ON kiroku.streams USING btree (stream_id)",
+              "name": "streams_pkey"
+            }
+          ],
+          "durably_drained": true,
+          "exact_delivery": true
+        },
+        "candidate": {
+          "trials": 5,
+          "events": 213061,
+          "stream_inserts": 213061,
+          "stream_updates": 213061,
+          "stream_hot_updates": 210279,
+          "hot_fraction": 0.9869427065488288,
+          "new_page_updates": 2782,
+          "wal_bytes_per_event": 2252.7266463594933,
+          "append_statement_wal_bytes_per_call": 2176.3690539329114,
+          "initial_stream_index_bytes": [
+            7872512,
+            7872512,
+            7872512,
+            7872512,
+            7872512
+          ],
+          "initial_indexes": [
+            {
+              "bytes": 3334144,
+              "definition": "CREATE INDEX ix_streams_browse_name ON kiroku.streams USING btree (stream_name COLLATE \"C\") WHERE (stream_id <> 0)",
+              "name": "ix_streams_browse_name"
+            },
+            {
+              "bytes": 286720,
+              "definition": "CREATE INDEX ix_streams_category ON kiroku.streams USING btree (category)",
+              "name": "ix_streams_category"
+            },
+            {
+              "bytes": 3334144,
+              "definition": "CREATE UNIQUE INDEX ix_streams_stream_name ON kiroku.streams USING btree (stream_name)",
+              "name": "ix_streams_stream_name"
+            },
+            {
+              "bytes": 917504,
+              "definition": "CREATE UNIQUE INDEX streams_pkey ON kiroku.streams USING btree (stream_id)",
+              "name": "streams_pkey"
+            }
+          ],
+          "durably_drained": true,
+          "exact_delivery": true
+        }
+      },
+      "verdict": "inconclusive",
+      "pairs": 5,
+      "reasons": [],
+      "metrics": {
+        "op.append.latency.p50": {
+          "ratio_candidate_over_baseline": {
+            "estimate": 1.030527058927539,
+            "high": 1.0642094967425337,
+            "low": 0.9979106768286734
+          },
+          "comparison_adverse_ratio": {
+            "estimate": 1.030527058927539,
+            "high": 1.0642094967425337,
+            "low": 0.9979106768286734
+          },
+          "relative_interval_width": 0.06643762959281663,
+          "precision_target_met": false,
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": 3.052705892753904,
+            "low": -0.20893231713265958,
+            "high": 6.420949674253373
+          },
+          "baseline_values": [
+            5631999,
+            5640191,
+            5599231,
+            5427199,
+            5234687
+          ],
+          "candidate_values": [
+            5754879,
+            5607423,
+            5738495,
+            5705727,
+            5558271
+          ]
+        },
+        "op.append.latency.p95": {
+          "ratio_candidate_over_baseline": {
+            "estimate": 1.0317087774611404,
+            "high": 1.0784777289870586,
+            "low": 0.9869679946846024
+          },
+          "comparison_adverse_ratio": {
+            "estimate": 1.0317087774611404,
+            "high": 1.0784777289870586,
+            "low": 0.9869679946846024
+          },
+          "relative_interval_width": 0.09271803624361619,
+          "precision_target_met": false,
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": 3.1708777461140425,
+            "low": -1.303200531539761,
+            "high": 7.847772898705863
+          },
+          "baseline_values": [
+            6238207,
+            6332415,
+            6217727,
+            6033407,
+            5779455
+          ],
+          "candidate_values": [
+            6356991,
+            6266879,
+            6348799,
+            6283263,
+            6299647
+          ]
+        },
+        "op.append.latency.p99": {
+          "ratio_candidate_over_baseline": {
+            "estimate": 1.0370009803612124,
+            "high": 1.1180177410828782,
+            "low": 0.9618550705899743
+          },
+          "comparison_adverse_ratio": {
+            "estimate": 1.0370009803612124,
+            "high": 1.1180177410828782,
+            "low": 0.9618550705899743
+          },
+          "relative_interval_width": 0.16235571789117698,
+          "precision_target_met": false,
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": 3.7000980361212354,
+            "low": -3.8144929410025674,
+            "high": 11.801774108287821
+          },
+          "baseline_values": [
+            6729727,
+            6971391,
+            6746111,
+            6443007,
+            6152191
+          ],
+          "candidate_values": [
+            6914047,
+            6762495,
+            6836223,
+            6688767,
+            7036927
+          ]
+        },
+        "op.append.throughput": {
+          "ratio_candidate_over_baseline": {
+            "estimate": 0.9702018186765906,
+            "low": 0.9387180673061921,
+            "high": 1.002741506472286
+          },
+          "comparison_adverse_ratio": {
+            "estimate": 1.0307133843183842,
+            "high": 1.065282575065021,
+            "low": 0.9972659888370127
+          },
+          "relative_interval_width": 0.06820305413937522,
+          "precision_target_met": false,
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": -2.979818132340939,
+            "low": -6.128193269380788,
+            "high": 0.2741506472285993
+          },
+          "baseline_values": [
+            704.316166993967,
+            701.7791853814017,
+            707.4346740204747,
+            730.6079141350019,
+            756.8807495992056
+          ],
+          "candidate_values": [
+            689.0262891900148,
+            705.9319694402589,
+            690.9403364637564,
+            695.8019377958436,
+            710.8073550962775
+          ]
+        }
+      },
+      "browse_diagnostics": {
+        "baseline": {},
+        "candidate": {}
+      },
+      "costEstimates": {
+        "purpose": "cost estimation, separate from unchanged zero-slowdown policy",
+        "ratioSemantics": "Kenshou normalizes adverse ratios: baseline/candidate for throughput, candidate/baseline for latency; actual candidate changes invert throughput ratios.",
+        "confidenceLevel": 0.95,
+        "pairs": 5,
+        "policyVerdict": "inconclusive",
+        "comparisonSha256": "3a12740b3a696b370f468c45820b852754510898c2c4d087116288784123b4f5",
+        "metrics": {
+          "op.append.latency.p50": {
+            "candidateChangePercent": 3.052705892753904,
+            "confidenceIntervalPercent": [
+              -0.20893231713265958,
+              6.420949674253373
+            ],
+            "upperSlowdownBoundPercent": 6.420949674253373,
+            "candidateOverBaselineRatio": {
+              "estimate": 1.030527058927539,
+              "high": 1.0642094967425337,
+              "low": 0.9979106768286734
+            },
+            "comparisonAdverseRatio": {
+              "estimate": 1.030527058927539,
+              "high": 1.0642094967425337,
+              "low": 0.9979106768286734
+            },
+            "relativeIntervalWidth": 0.06643762959281663,
+            "precisionTargetMet": false
+          },
+          "op.append.latency.p95": {
+            "candidateChangePercent": 3.1708777461140425,
+            "confidenceIntervalPercent": [
+              -1.303200531539761,
+              7.847772898705863
+            ],
+            "upperSlowdownBoundPercent": 7.847772898705863,
+            "candidateOverBaselineRatio": {
+              "estimate": 1.0317087774611404,
+              "high": 1.0784777289870586,
+              "low": 0.9869679946846024
+            },
+            "comparisonAdverseRatio": {
+              "estimate": 1.0317087774611404,
+              "high": 1.0784777289870586,
+              "low": 0.9869679946846024
+            },
+            "relativeIntervalWidth": 0.09271803624361619,
+            "precisionTargetMet": false
+          },
+          "op.append.latency.p99": {
+            "candidateChangePercent": 3.7000980361212354,
+            "confidenceIntervalPercent": [
+              -3.8144929410025674,
+              11.801774108287821
+            ],
+            "upperSlowdownBoundPercent": 11.801774108287821,
+            "candidateOverBaselineRatio": {
+              "estimate": 1.0370009803612124,
+              "high": 1.1180177410828782,
+              "low": 0.9618550705899743
+            },
+            "comparisonAdverseRatio": {
+              "estimate": 1.0370009803612124,
+              "high": 1.1180177410828782,
+              "low": 0.9618550705899743
+            },
+            "relativeIntervalWidth": 0.16235571789117698,
+            "precisionTargetMet": false
+          },
+          "op.append.throughput": {
+            "candidateChangePercent": -2.979818132340939,
+            "confidenceIntervalPercent": [
+              -6.128193269380788,
+              0.2741506472285993
+            ],
+            "upperSlowdownBoundPercent": 6.128193269380788,
+            "candidateOverBaselineRatio": {
+              "estimate": 0.9702018186765906,
+              "low": 0.9387180673061921,
+              "high": 1.002741506472286
+            },
+            "comparisonAdverseRatio": {
+              "estimate": 1.0307133843183842,
+              "high": 1.065282575065021,
+              "low": 0.9972659888370127
+            },
+            "relativeIntervalWidth": 0.06820305413937522,
+            "precisionTargetMet": false
+          }
+        }
+      }
+    },
+    "existing-category-browse": {
+      "artifact_verified_trials": 10,
+      "benchmark_grade_trials": 10,
+      "diagnostics": {
+        "baseline": {
+          "trials": 5,
+          "events": 231099,
+          "stream_inserts": 0,
+          "stream_updates": 462198,
+          "stream_hot_updates": 459767,
+          "hot_fraction": 0.9947403493740777,
+          "new_page_updates": 2431,
+          "wal_bytes_per_event": 1995.0808268317908,
+          "append_statement_wal_bytes_per_call": 1666.6641958641103,
+          "initial_stream_index_bytes": [
+            4538368,
+            4538368,
+            4538368,
+            4538368,
+            4538368
+          ],
+          "initial_indexes": [
+            {
+              "bytes": 286720,
+              "definition": "CREATE INDEX ix_streams_category ON kiroku.streams USING btree (category)",
+              "name": "ix_streams_category"
+            },
+            {
+              "bytes": 3334144,
+              "definition": "CREATE UNIQUE INDEX ix_streams_stream_name ON kiroku.streams USING btree (stream_name)",
+              "name": "ix_streams_stream_name"
+            },
+            {
+              "bytes": 917504,
+              "definition": "CREATE UNIQUE INDEX streams_pkey ON kiroku.streams USING btree (stream_id)",
+              "name": "streams_pkey"
+            }
+          ],
+          "durably_drained": true,
+          "exact_delivery": true
+        },
+        "candidate": {
+          "trials": 5,
+          "events": 227182,
+          "stream_inserts": 0,
+          "stream_updates": 454364,
+          "stream_hot_updates": 452125,
+          "hot_fraction": 0.9950722328353478,
+          "new_page_updates": 2239,
+          "wal_bytes_per_event": 1998.803179829388,
+          "append_statement_wal_bytes_per_call": 1671.0580283649233,
+          "initial_stream_index_bytes": [
+            7872512,
+            7872512,
+            7872512,
+            7872512,
+            7872512
+          ],
+          "initial_indexes": [
+            {
+              "bytes": 3334144,
+              "definition": "CREATE INDEX ix_streams_browse_name ON kiroku.streams USING btree (stream_name COLLATE \"C\") WHERE (stream_id <> 0)",
+              "name": "ix_streams_browse_name"
+            },
+            {
+              "bytes": 286720,
+              "definition": "CREATE INDEX ix_streams_category ON kiroku.streams USING btree (category)",
+              "name": "ix_streams_category"
+            },
+            {
+              "bytes": 3334144,
+              "definition": "CREATE UNIQUE INDEX ix_streams_stream_name ON kiroku.streams USING btree (stream_name)",
+              "name": "ix_streams_stream_name"
+            },
+            {
+              "bytes": 917504,
+              "definition": "CREATE UNIQUE INDEX streams_pkey ON kiroku.streams USING btree (stream_id)",
+              "name": "streams_pkey"
+            }
+          ],
+          "durably_drained": true,
+          "exact_delivery": true
+        }
+      },
+      "verdict": "inconclusive",
+      "pairs": 5,
+      "reasons": [],
+      "metrics": {
+        "op.append.latency.p50": {
+          "ratio_candidate_over_baseline": {
+            "estimate": 1.0166031005609917,
+            "high": 1.0471101128757236,
+            "low": 0.9869848942934244
+          },
+          "comparison_adverse_ratio": {
+            "estimate": 1.0166031005609917,
+            "high": 1.0471101128757236,
+            "low": 0.9869848942934244
+          },
+          "relative_interval_width": 0.06091807375161751,
+          "precision_target_met": false,
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": 1.660310056099168,
+            "low": -1.3015105706575603,
+            "high": 4.711011287572364
+          },
+          "baseline_values": [
+            5320703,
+            5246975,
+            5091327,
+            5132287,
+            5087231
+          ],
+          "candidate_values": [
+            5611519,
+            5304319,
+            5099519,
+            5091327,
+            5214207
+          ]
+        },
+        "op.append.latency.p95": {
+          "ratio_candidate_over_baseline": {
+            "estimate": 1.0142483904314752,
+            "high": 1.040706747954701,
+            "low": 0.9884626956772791
+          },
+          "comparison_adverse_ratio": {
+            "estimate": 1.0142483904314752,
+            "high": 1.040706747954701,
+            "low": 0.9884626956772791
+          },
+          "relative_interval_width": 0.05285384315047437,
+          "precision_target_met": true,
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": 1.4248390431475189,
+            "low": -1.1537304322720932,
+            "high": 4.070674795470097
+          },
+          "baseline_values": [
+            5918719,
+            5873663,
+            5730303,
+            5718015,
+            5677055
+          ],
+          "candidate_values": [
+            6176767,
+            5947391,
+            5677055,
+            5713919,
+            5824511
+          ]
+        },
+        "op.append.latency.p99": {
+          "ratio_candidate_over_baseline": {
+            "estimate": 1.003080912804858,
+            "high": 1.0432700862663427,
+            "low": 0.9644399191338029
+          },
+          "comparison_adverse_ratio": {
+            "estimate": 1.003080912804858,
+            "high": 1.0432700862663427,
+            "low": 0.9644399191338029
+          },
+          "relative_interval_width": 0.08173673192969844,
+          "precision_target_met": false,
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": 0.3080912804857894,
+            "low": -3.556008086619711,
+            "high": 4.3270086266342656
+          },
+          "baseline_values": [
+            6516735,
+            6602751,
+            6508543,
+            6479871,
+            6180863
+          ],
+          "candidate_values": [
+            6631423,
+            6778879,
+            6221823,
+            6397951,
+            6365183
+          ]
+        },
+        "op.append.throughput": {
+          "ratio_candidate_over_baseline": {
+            "estimate": 0.9827826724263813,
+            "low": 0.9536893146254637,
+            "high": 1.0127635556039092
+          },
+          "comparison_adverse_ratio": {
+            "estimate": 1.0175189571984526,
+            "high": 1.0485595095429203,
+            "low": 0.9873972996626065
+          },
+          "relative_interval_width": 0.06194285714697911,
+          "precision_target_met": false,
+          "status": "inconclusive",
+          "candidate_change_percent": {
+            "estimate": -1.7217327573618713,
+            "low": -4.631068537453631,
+            "high": 1.2763555603909182
+          },
+          "baseline_values": [
+            741.5118875985564,
+            747.5834597382418,
+            763.1472958927884,
+            766.7457449954683,
+            768.3756941509279
+          ],
+          "candidate_values": [
+            703.010646577057,
+            733.2500521767101,
+            771.8352594308893,
+            764.2819071495322,
+            751.4609561683977
+          ]
+        }
+      },
+      "browse_diagnostics": {
+        "baseline": {
+          "first": {
+            "samples": 305,
+            "p50_ns": 15020054,
+            "p95_ns": 17480777,
+            "mean_ns": 15237546.081967212
+          },
+          "late": {
+            "samples": 305,
+            "p50_ns": 4968396,
+            "p95_ns": 5778381,
+            "mean_ns": 5060440.613114754
+          },
+          "absent": {
+            "samples": 305,
+            "p50_ns": 16414306,
+            "p95_ns": 18775911,
+            "mean_ns": 16575466.816393442
+          },
+          "pooled": {
+            "samples": 915,
+            "p50_ns": 14945060,
+            "p95_ns": 17802115,
+            "mean_ns": 12291151.170491803
+          }
+        },
+        "candidate": {
+          "first": {
+            "samples": 310,
+            "p50_ns": 646572.5,
+            "p95_ns": 920521,
+            "mean_ns": 684560.864516129
+          },
+          "late": {
+            "samples": 310,
+            "p50_ns": 470648.0,
+            "p95_ns": 693187,
+            "mean_ns": 522822.72903225804
+          },
+          "absent": {
+            "samples": 310,
+            "p50_ns": 379971.0,
+            "p95_ns": 518918,
+            "mean_ns": 394412.72580645164
+          },
+          "pooled": {
+            "samples": 930,
+            "p50_ns": 484339.0,
+            "p95_ns": 841143,
+            "mean_ns": 533932.1064516129
+          }
+        }
+      },
+      "costEstimates": {
+        "purpose": "cost estimation, separate from unchanged zero-slowdown policy",
+        "ratioSemantics": "Kenshou normalizes adverse ratios: baseline/candidate for throughput, candidate/baseline for latency; actual candidate changes invert throughput ratios.",
+        "confidenceLevel": 0.95,
+        "pairs": 5,
+        "policyVerdict": "inconclusive",
+        "comparisonSha256": "8c6b7adff47b0115e9d1b5f8bd5916ab818765a6c636bf76a093f89e59e35ab7",
+        "metrics": {
+          "op.append.latency.p50": {
+            "candidateChangePercent": 1.660310056099168,
+            "confidenceIntervalPercent": [
+              -1.3015105706575603,
+              4.711011287572364
+            ],
+            "upperSlowdownBoundPercent": 4.711011287572364,
+            "candidateOverBaselineRatio": {
+              "estimate": 1.0166031005609917,
+              "high": 1.0471101128757236,
+              "low": 0.9869848942934244
+            },
+            "comparisonAdverseRatio": {
+              "estimate": 1.0166031005609917,
+              "high": 1.0471101128757236,
+              "low": 0.9869848942934244
+            },
+            "relativeIntervalWidth": 0.06091807375161751,
+            "precisionTargetMet": false
+          },
+          "op.append.latency.p95": {
+            "candidateChangePercent": 1.4248390431475189,
+            "confidenceIntervalPercent": [
+              -1.1537304322720932,
+              4.070674795470097
+            ],
+            "upperSlowdownBoundPercent": 4.070674795470097,
+            "candidateOverBaselineRatio": {
+              "estimate": 1.0142483904314752,
+              "high": 1.040706747954701,
+              "low": 0.9884626956772791
+            },
+            "comparisonAdverseRatio": {
+              "estimate": 1.0142483904314752,
+              "high": 1.040706747954701,
+              "low": 0.9884626956772791
+            },
+            "relativeIntervalWidth": 0.05285384315047437,
+            "precisionTargetMet": true
+          },
+          "op.append.latency.p99": {
+            "candidateChangePercent": 0.3080912804857894,
+            "confidenceIntervalPercent": [
+              -3.556008086619711,
+              4.3270086266342656
+            ],
+            "upperSlowdownBoundPercent": 4.3270086266342656,
+            "candidateOverBaselineRatio": {
+              "estimate": 1.003080912804858,
+              "high": 1.0432700862663427,
+              "low": 0.9644399191338029
+            },
+            "comparisonAdverseRatio": {
+              "estimate": 1.003080912804858,
+              "high": 1.0432700862663427,
+              "low": 0.9644399191338029
+            },
+            "relativeIntervalWidth": 0.08173673192969844,
+            "precisionTargetMet": false
+          },
+          "op.append.throughput": {
+            "candidateChangePercent": -1.7217327573618713,
+            "confidenceIntervalPercent": [
+              -4.631068537453631,
+              1.2763555603909182
+            ],
+            "upperSlowdownBoundPercent": 4.631068537453631,
+            "candidateOverBaselineRatio": {
+              "estimate": 0.9827826724263813,
+              "low": 0.9536893146254637,
+              "high": 1.0127635556039092
+            },
+            "comparisonAdverseRatio": {
+              "estimate": 1.0175189571984526,
+              "high": 1.0485595095429203,
+              "low": 0.9873972996626065
+            },
+            "relativeIntervalWidth": 0.06194285714697911,
+            "precisionTargetMet": false
+          }
+        }
+      }
+    }
+  },
+  "budget": {
+    "started_epoch": 1791676477.668554,
+    "budget_seconds": 4500
+  }
+}

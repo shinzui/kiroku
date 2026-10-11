@@ -1,0 +1,10 @@
+comparison 01a1285d-64a7-721d-842e-d278ffd75fdf  verdict: inconclusive
+op.append.latency.p50  inconclusive  ratio=1.030527058927539
+op.append.latency.p95  inconclusive  ratio=1.0317087774611404
+op.append.latency.p99  inconclusive  ratio=1.0370009803612124
+op.append.throughput  inconclusive  ratio=1.0307133843183842
+comparison 01a12871-f9c7-72b7-8df6-6dbd54db0ce0  verdict: inconclusive
+op.append.latency.p50  inconclusive  ratio=1.0166031005609917
+op.append.latency.p95  inconclusive  ratio=1.0142483904314752
+op.append.latency.p99  inconclusive  ratio=1.003080912804858
+op.append.throughput  inconclusive  ratio=1.0175189571984526

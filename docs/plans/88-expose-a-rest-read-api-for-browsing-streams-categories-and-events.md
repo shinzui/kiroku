@@ -99,7 +99,8 @@ dependency.
 
 - [x] (2026-10-10) M0: implement a disposable shared-access prototype: one byte-ordered browse index, bounded category/literal-prefix pages, and namespace global windows using existing event indexes. All 224 TypeID/edge-case checks pass (176 browse, 48 namespace); retain preceding rejected plans/setup error and verify every owned cluster stopped.
 - [x] (2026-10-10) M0: user accepted UTF-8 byte ordering; select one partial C-collated name index for category and literal-prefix stream pages (ADR-17).
-- [ ] M0 cost remaining: measure the exact selected layout against the original control before production promotion. Migration 0015 is authored for isolated verification; earlier replacement measurements do not certify this layout.
+- [x] (2026-10-10) M0 cost measurement: finish the exact selected layout comparison against the original control: proof plus five pairs per workload, all 21 trials verified, raw recomputation and owned cell cleanup passed. Retain corrected percentages, original reporting error, and approved same-clock budget extension.
+- [ ] M0 promotion remaining: review the selected layout's measured write cost and unresolved precision before production promotion. Both zero-slowdown verdicts are inconclusive; cumulative release acceptance remains plan 96's responsibility.
 
 - [x] (2026-10-10) M0: correct sparse observer recording, preserve primary append grade requirements, compile the Linux payload and verify diagnostic schedule/grade/cost-bound checks.
 - [x] (2026-10-10) M0: verify the corrected observer proof (47,734 benchmark-grade append samples, 61–62 steady samples per diagnostic browse page), raw recomputation and lease release.
@@ -114,12 +115,12 @@ dependency.
 - [x] (2026-10-10) M0 follow-up: evaluate category-scoped stream paging and prefix filtering with existing indexes; retain 192 correct-result EXPLAIN cases and verified server cleanup.
 - [x] (2026-10-10) M0 range follow-up: retain 224 initial and 400 refined TypeID/name-range cases, including generic-plan scaling and ICU correctness failures; verify both owned servers stopped.
 - [x] (2026-10-10) M0 read design: bounded lower-seek/LIMIT branches resolve category, prefix and combined browsing under byte ordering. Implement the approved design for isolated testing; production promotion still depends on its own measured write cost.
-- [ ] Implement and execute the remaining focused correctness and performance acceptance added by this review.
+- [x] (2026-10-10) Implement and execute the focused correctness and selected-layout comparison added by this review; functional checks pass, while performance acceptance is explicitly inconclusive.
 
 - [x] (2026-10-10) M1: add bounded `listStreamsSession`, range/pair variants, `listCategoriesStmt`, and `getEventStmt` to `kiroku-store/src/Kiroku/Store/SQL.hs` with encoders and SQL text.
 - [x] (2026-10-10) M1: add `ListStreams`, `ListCategories`, and `GetEvent` constructors to the `Store` effect in `kiroku-store/src/Kiroku/Store/Effect.hs` and interpret them in `runStorePool` (with the read `decodeReadEvents` path applied to `GetEvent`).
 - [x] (2026-10-10) M1: add `listStreams`, `listCategories`, and `getEvent` wrappers with Haddock to `kiroku-store/src/Kiroku/Store/Read.hs`.
-- [ ] M1: add `kiroku-store/test/Test/BrowseReads.hs` (database tests) and `kiroku-store/test/Test/BrowseReadsMock.hs` (mock-interpreter test); register both in `kiroku-store/test/Main.hs` and the cabal test stanza; run the store test suite.
+- [x] (2026-10-10) M1: add `kiroku-store/test/Test/BrowseReads.hs` (database tests) and `kiroku-store/test/Test/BrowseReadsMock.hs` (mock-interpreter test); register both in `kiroku-store/test/Main.hs` and the cabal test stanza; run the store test suite.
 - [x] (2026-10-10) M1: add this plan's bullets under `## Unreleased` in `kiroku-store/CHANGELOG.md` (no `version:` or bound edits; plan 96 assigns 0.11.0.0); `cabal build all` succeeds; existing shadowing warnings remain, with no new browsing warnings.
 - [x] (2026-10-10) M2: create `kiroku-metrics/src/Kiroku/Metrics/Browse.hs` with `StoreBrowser`, `BrowseLimits`, `ReadDirection`, the query-parameter parser, the page envelope, `streamInfoToJSON`, and `browseApp`; add `recordedEventToJSONResolved` to `Kiroku.Metrics.WebSocket` (owned here; plan 94 hard-depends on this plan).
 - [x] (2026-10-10) M2: add `kiroku-metrics/test/Test/BrowseSpec.hs` database-free tests over a mock `Store` interpreter covering every route, pagination, and every error code; register the module and add `effectful-core` to the library and test-suite `build-depends`.
@@ -496,8 +497,13 @@ Current implementation: the user-approved byte order and one shared name index
 are recorded in ADR-17. The Store primitives, migration 0015 and HTTP routes
 are authored, and serial verification passes 434 store, 24 migration and 68
 metrics examples. Production prepared plans are bounded in C and English ICU
-databases. Final-layout cost review and publication are separate remaining
-work. The dated research outcomes below describe their earlier layouts.
+databases. The final-layout comparison completed all 21 verified trials: fresh
+throughput -2.980% (95% interval -6.128% to +0.274%) and observer throughput
+-1.722% (-4.631% to +1.276%). Fresh p99 is +3.700% (-3.814% to +11.802%);
+observer p99 +0.308% (-3.556% to +4.327%). Most intervals miss the frozen
+precision target, and both zero-slowdown verdicts remain inconclusive. Cost
+review and cumulative release acceptance remain open; publication belongs to
+plan 96. See the [selected-layout report](../../bench/mp13-index/evidence/2026-10-10-byte-name/README.md). The dated research outcomes below describe their earlier layouts.
 
 
 2026-10-10 shared design continuation: a concrete disposable query prototype
@@ -1631,3 +1637,35 @@ and hashes are in
 [production validation](../../kiroku-store/bench/results/mp13-ep3-shared-access/production-validation/README.md).
 The next step is the exact-layout comparison, with the original index-only
 control, five pairs per selected case and one persisted 60-minute budget.
+
+
+## Selected-layout write-cost checkpoint (2026-10-10)
+
+Completed one lifecycle proof and five alternating pairs for each selected-layout
+workload. Every trial is benchmark-grade; sealed hashes, raw recomputation,
+stream counters, durable drain and exact category delivery pass. The approved
+75-minute budget retained the original pre-build start time; cleanup verified
+all four instances stopped and no lease at 59.32 minutes. No measured trial was
+repeated or replaced. Setup recoveries and the derived throughput-reporting
+correction are retained with the [report](../../bench/mp13-index/evidence/2026-10-10-byte-name/README.md).
+
+Fresh throughput change is -2.980% [-6.128%, +0.274%] and p99 +3.700%
+[-3.814%, +11.802%]. Existing-stream appends with a category subscriber and
+browsing give throughput -1.722% [-4.631%, +1.276%], p99 +0.308%
+[-3.556%, +4.327%]. These are actual candidate changes, not Kenshou's normalized
+adverse ratio. Both zero-slowdown verdicts are inconclusive; most intervals miss
+the frozen 6% width target. Keep the adverse estimates and uncertainty visible.
+
+Descriptive fresh WAL/event rises 5.668%; observer WAL/event rises 0.187%.
+HOT rates stay near 98.7% and 99.5%, respectively. The index adds 3.180 MiB
+on 40,000 fixture streams, increasing stream-index storage 73.466%.
+Steady SQL browse medians improve first/late/absent pages from
+15.020/4.968/16.414 ms to 0.647/0.471/0.380 ms. Sparse browse timing remains
+diagnostic evidence, not an accepted independent latency benchmark.
+
+The nine-step metrics example passes. Functional implementation is complete;
+EP-3 remains In Progress for cost review and unresolved performance acceptance.
+Retain the selected one-index implementation and original category/name indexes,
+but do not infer free writes or a second allowance for plan 54. Plan 96 still
+owns cumulative HTTP/tail/inventory performance and release. No new practical
+allowance, production migration or publication is authorized by these results.

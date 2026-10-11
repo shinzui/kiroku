@@ -1,0 +1,1 @@
+kenshou cell: PublishNixError (NixCommandIoError "zstd: createProcess: posix_spawnp: does not exist (No such file or directory)")

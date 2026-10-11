@@ -1,0 +1,8 @@
+{
+  "harness_commit": "63ed721a35798c2478eea78f0e0327c7bd2982db",
+  "controller_sha256": "207b09dc9d502d4598e4eff9f41646cc81710735d7cc88b25cd09c7b9059f771",
+  "policy_sha256": "d63f377e961400536f0bbb3550477ad359a3b11cd1000af7a854e5da1dbaa5b9",
+  "epoch": 1791676846.9718258,
+  "measured_trials": 0,
+  "reason": "narrow conflicting import; correct descriptive throughput percent and adverse confidence bound; cases, pairs, phases, policy and original deadline unchanged"
+}

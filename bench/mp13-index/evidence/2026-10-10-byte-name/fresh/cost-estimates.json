@@ -1,0 +1,40 @@
+{
+  "purpose": "cost estimation; distinct from the unchanged zero-slowdown policy verdict",
+  "confidenceLevel": 0.95,
+  "pairs": 5,
+  "policyVerdict": "inconclusive",
+  "metrics": {
+    "op.append.latency.p50": {
+      "candidateChangePercent": 3.052705892753904,
+      "confidenceIntervalPercent": [
+        -0.20893231713265958,
+        6.420949674253373
+      ],
+      "upperSlowdownBoundPercent": 6.420949674253373
+    },
+    "op.append.latency.p95": {
+      "candidateChangePercent": 3.1708777461140425,
+      "confidenceIntervalPercent": [
+        -1.303200531539761,
+        7.847772898705863
+      ],
+      "upperSlowdownBoundPercent": 7.847772898705863
+    },
+    "op.append.latency.p99": {
+      "candidateChangePercent": 3.7000980361212354,
+      "confidenceIntervalPercent": [
+        -3.8144929410025674,
+        11.801774108287821
+      ],
+      "upperSlowdownBoundPercent": 11.801774108287821
+    },
+    "op.append.throughput": {
+      "candidateChangePercent": 3.071338431838422,
+      "confidenceIntervalPercent": [
+        -0.27340111629873265,
+        6.5282575065021
+      ],
+      "upperSlowdownBoundPercent": 0.27340111629873265
+    }
+  }
+}
