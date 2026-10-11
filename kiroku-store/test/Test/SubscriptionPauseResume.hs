@@ -30,6 +30,7 @@ To confirm the first spec actually pins the new behavior: temporarily set its
 -}
 module Test.SubscriptionPauseResume (spec) where
 
+import Control.Concurrent (threadDelay)
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM (atomically, newTVarIO, readTVar, writeTVar)
 import Control.Exception qualified
@@ -43,6 +44,8 @@ import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
 import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
+import Kiroku.Store.Subscription.Fsm qualified as Fsm
+import System.Timeout qualified as Timeout
 import Test.Helpers (makeEvent, waitForPublisher, waitWithTimeout, withTestStoreSettings)
 import Test.Hspec
 
@@ -96,6 +99,7 @@ spec = describe "subscription FSM — recoverable backpressure (EP-41 M2)" $ do
                         , selector = Nothing
                         }
             handle <- subscribe store cfg
+            waitForLive handle
             -- First append: the worker reads it from the queue and the handler
             -- blocks inside it on `release`, so the worker stops draining.
             Right _ <- runStoreIO store $ appendToStream (StreamName "pr-1") NoStream [makeEvent "E1" (Aeson.object [])]
@@ -164,6 +168,7 @@ spec = describe "subscription FSM — recoverable backpressure (EP-41 M2)" $ do
                         , selector = Nothing
                         }
             handle <- subscribe store cfg
+            waitForLive handle
             Right _ <- runStoreIO store $ appendToStream (StreamName "ds-1") NoStream [makeEvent "E1" (Aeson.object [])]
             takeMVar firstSeen
             let appendOne i = do
@@ -183,3 +188,13 @@ spec = describe "subscription FSM — recoverable backpressure (EP-41 M2)" $ do
                     case Control.Exception.fromException e of
                         Just (SubscriptionOverflowed sn) -> sn `shouldBe` SubscriptionName "dropsub-overflow-test"
                         Nothing -> expectationFailure ("expected SubscriptionOverflowed, got: " <> show e)
+
+-- These fixtures must block live delivery, not the initial catch-up read.
+waitForLive :: SubscriptionHandle -> IO ()
+waitForLive handle = do
+    let go = do
+            st <- currentState handle
+            case st of
+                Just Fsm.Live{} -> pure ()
+                _ -> threadDelay 1_000 >> go
+    Timeout.timeout 5_000_000 go >>= (`shouldBe` Just ())

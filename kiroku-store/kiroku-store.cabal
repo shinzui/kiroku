@@ -124,6 +124,7 @@ test-suite kiroku-store-test
     Test.PerformanceStructure
     Test.Properties
     Test.PublisherCallbackResilience
+    Test.PublisherDropCounter
     Test.PublisherIdleAdvance
     Test.PublisherRestartNoRebroadcast
     Test.ReadStream

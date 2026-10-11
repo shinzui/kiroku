@@ -9,15 +9,15 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-10-10T16:10:46Z"
+timestamp: "2026-10-11T02:24:04Z"
 requestId: IR-12
-status: accepted
+status: in_progress
 origin: mori://shinzui/keiro-ui
 reviews:
   - kind: model
     reviewer: codex
     reviewed_at: "2026-10-10T16:10:46Z"
-    document_timestamp: "2026-10-10T16:10:46Z"
+    document_timestamp: "2026-10-11T01:56:12Z"
     scope: authoring-metadata
     outcome: comments
     provider: openai
@@ -42,7 +42,7 @@ document (`mori://shinzui/keiro-ui`, `docs/architecture/inspection-api-conventio
 artifact-level URI pending, area 5). Implementation is kiroku's own downstream work under
 kiroku's plans.
 
-Accepted by kiroku on 2026-09-30. Implementation is planned by
+Accepted by kiroku on 2026-09-30. Implementation is under way under
 [ExecPlan 94, Converge the kiroku-metrics WebSocket protocol with the cross-project convention](../plans/94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention.md)
 (`mori://shinzui/kiroku/plans/94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention`),
 EP-5 of
@@ -124,3 +124,34 @@ version negotiation. This request does not cover new data endpoints (those are
 The gap audit outcome (however kiroku records it), the additive protocol changes with tests,
 and the conformance mapping in user documentation; changelog entries and PVP-appropriate
 version bumps, at kiroku's discretion.
+
+## Implementation Evidence (unreleased)
+
+ExecPlan 94 implements explicit metrics stop/resume, four sanitized error codes,
+resolved source names on live/replay/category event objects, and drop-oldest loss
+notices before affected survivors. The public publisher counter increments only
+on actual drops; the old triple-returning API remains available. Name resolution
+uses at most one lookup per batch and a bounded per-tail 4096-name FIFO cache.
+
+`kiroku-metrics/test/Test/WebSocketConvergenceSpec.hs` has 21 examples covering
+frozen frames, real protocol lifecycle/read failures, cache bounds, scoped worker
+cancellation/failure and the production overflow delivery loop. Its gated writer
+proves notice-before-survivor order and recovery from the pre-notice cursor.
+`kiroku-store/test/Test/PublisherDropCounter.hs` covers actual policy counters,
+newest-batch retention and idempotent legacy deregistration. The original
+`Test.WebSocketSpec` remains unchanged; the metrics suite reports 98 passing examples.
+
+The ten-element [guide mapping](../user/metrics.md#conformance-with-the-cross-project-websocket-convention)
+records typed frames, lifecycle, ping/pong, replay cursor, initial snapshot,
+incremental frames, idle pings, in-band loss/error reporting, goodbye and bounded
+queues. Both paths already had 30-second server pings. Event-stream acknowledgement,
+metrics push-on-connect and complete periodic snapshots remain documented dialect
+deviations. Earlier drop-oldest notices were unreachable; the counter now makes
+that promised signal observable and correctly ordered.
+
+`kiroku-metrics:kiroku-websocket-tail` compares frozen encoding and warm/cold
+bounded resolution alongside local appends; retained logs belong to plan 94.
+Local correctness is separate from cumulative performance and publication.
+Status remains `in_progress` until plan 96 releases the cohort and records acceptance.
+
+All 654 examples across six suites, the ten-step example and both Nix package builds pass. [Retained local evidence](../../kiroku-metrics/bench/results/mp13-ep5-websocket-convergence/README.md) includes adverse samples, setup/fixture failures, a bounded original-publisher comparison and the final faithful tail-control comparison. No cumulative performance or publication verdict is inferred.

@@ -4,12 +4,19 @@
 
 ### Breaking Changes
 
+- `ClientMessage` gains `UnsubscribeMetrics` and `ServerMessage` gains `CodedError`; exhaustive Haskell matches must handle the additions. Published wire growth is additive.
+
 * `ServerProviders` adds optional `storeBrowsing`; use `defaultServerProviders` plus record updates for custom composition.
 
 * `MetricsServerConfig` gains `cors`, defaulting to `corsDisabled`. Use
   `defaultConfig` record updates; complete or positional construction must supply it.
 
 ### New Features
+
+- `unsubscribe_metrics` stops periodic snapshots; `subscribe_metrics` requests a fresh snapshot and resumes periodic delivery without duplicate workers.
+- Tail errors carry stable `code` values: `replay_failed`, `category_read_failed`, `live_decode_failed`, `event_stream_overflowed`, with sanitized messages.
+- Live, replay and category event frames add `original_stream_name` through one batched lookup and a bounded 4096-name FIFO cache per tail.
+- Drop-oldest loss now sends an overflow notice before surviving events. Earlier versions documented that notice but never emitted it.
 
 - Read-only `GET`/`HEAD /subscriptions/<name>/dead-letters`, structured reasons and errors, member filtering and opaque cursor pages. `Kiroku.Metrics.DeadLetters` exports the codec and provider; store-backed starters configure the new `deadLetters` provider automatically.
 

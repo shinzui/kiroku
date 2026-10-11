@@ -30,6 +30,19 @@ module Kiroku.Metrics.WebSocket (
     ServerMessage (..),
     recordedEventToJSON,
     recordedEventToJSONResolved,
+    errorCodeReplayFailed,
+    errorCodeCategoryReadFailed,
+    errorCodeEventStreamOverflowed,
+    errorCodeLiveDecodeFailed,
+    overflowNotice,
+
+    -- * Tail delivery building blocks
+    StreamNameCache,
+    newStreamNameCache,
+    streamNameCacheSize,
+    resolveEventNames,
+    broadcastEventsWith,
+    withWorkerSlot,
 
     -- * Connection limiting
     WebSocketState (..),
@@ -40,10 +53,9 @@ module Kiroku.Metrics.WebSocket (
 ) where
 
 import Control.Concurrent (threadDelay)
-import Control.Concurrent.Async (async, cancel, link)
+import Control.Concurrent.Async (asyncWithUnmask, link, uninterruptibleCancel)
 import Control.Concurrent.STM (
     STM,
-    TBQueue,
     TVar,
     atomically,
     check,
@@ -53,7 +65,7 @@ import Control.Concurrent.STM (
     readTVar,
     writeTVar,
  )
-import Control.Exception (catch, finally)
+import Control.Exception (bracket, catch, finally, mask, mask_)
 import Control.Monad (forever)
 import Data.Aeson (
     FromJSON (..),
@@ -70,14 +82,19 @@ import Data.Aeson (
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
-import Data.Foldable (for_)
+import Data.Foldable (foldl', for_)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Int (Int64)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
+import Data.Sequence (Seq, ViewL (..), (|>))
+import Data.Sequence qualified as Seq
+import Data.Set qualified as Set
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Vector (Vector)
 import Data.Vector qualified as V
+import Data.Word (Word64)
 import Network.WebSockets qualified as WS
 
 import Kiroku.Metrics.Collector (KirokuMetrics, snapshotMetrics)
@@ -88,15 +105,17 @@ import Kiroku.Store (
     GlobalPosition (..),
     KirokuStore (..),
     RecordedEvent (..),
+    lookupStreamNames,
     readAllForward,
     readCategory,
     runStoreIO,
  )
 import Kiroku.Store.Settings (DecodedBatch (..), DecodedEvent (..), decodedEventRecorded)
 import Kiroku.Store.Subscription.EventPublisher (
+    PublisherSubscription (..),
     SubscriberStatus (..),
     publisherPosition,
-    subscribePublisher,
+    subscribePublisherWith,
  )
 import Kiroku.Store.Subscription.Types (OverflowPolicy (..))
 import Kiroku.Store.Types (
@@ -129,6 +148,8 @@ data ClientMessage
       SubscribeEvents !(Maybe Int64) !(Maybe Text)
     | -- | (Event channel) stop the current tail.
       UnsubscribeEvents
+    | -- | Stop periodic metrics snapshots; subscribe_metrics resumes them.
+      UnsubscribeMetrics
     deriving stock (Eq, Show)
 
 -- | Messages from the server to a WebSocket client (tagged on a @"type"@ field).
@@ -147,6 +168,8 @@ data ServerMessage
       Goodbye
     | -- | A non-fatal error message for the client.
       ErrorMsg !Text
+    | -- | An error with a stable machine-readable code.
+      CodedError !Text !Text
     deriving stock (Eq, Show)
 
 instance FromJSON ClientMessage where
@@ -155,6 +178,7 @@ instance FromJSON ClientMessage where
         case msgType :: Text of
             "ping" -> pure Ping
             "subscribe_metrics" -> pure SubscribeMetrics
+            "unsubscribe_metrics" -> pure UnsubscribeMetrics
             "subscribe_events" ->
                 SubscribeEvents <$> v .:? "from_position" <*> v .:? "category"
             "unsubscribe_events" -> pure UnsubscribeEvents
@@ -168,6 +192,28 @@ instance ToJSON ServerMessage where
         object ["type" .= ("event_stream_started" :: Text), "from_position" .= p]
     toJSON Goodbye = object ["type" .= ("goodbye" :: Text)]
     toJSON (ErrorMsg msg) = object ["type" .= ("error" :: Text), "message" .= msg]
+    toJSON (CodedError code msg) = object ["type" .= ("error" :: Text), "code" .= code, "message" .= msg]
+
+-- | Published error codes (human messages may change).
+errorCodeReplayFailed, errorCodeCategoryReadFailed, errorCodeEventStreamOverflowed, errorCodeLiveDecodeFailed :: Text
+errorCodeReplayFailed = "replay_failed"
+errorCodeCategoryReadFailed = "category_read_failed"
+errorCodeEventStreamOverflowed = "event_stream_overflowed"
+errorCodeLiveDecodeFailed = "live_decode_failed"
+
+-- | A notice on any counter change, including a Word64 wrap (modular subtraction).
+overflowNotice :: Word64 -> Word64 -> Maybe ServerMessage
+overflowNotice previous current
+    | previous /= current =
+        Just
+            ( CodedError
+                errorCodeEventStreamOverflowed
+                ( "event stream overflowed; "
+                    <> T.pack (show (current - previous))
+                    <> " undelivered batch(es) dropped since the last notice; re-read from your last position"
+                )
+            )
+    | otherwise = Nothing
 
 {- | Encode a 'RecordedEvent' to a JSON 'Value' (IP-4). An explicit function
 rather than a @ToJSON@ instance: 'RecordedEvent' has no instance today and a
@@ -283,13 +329,33 @@ websocketApp cfg m store st pending =
 handleMetrics :: MetricsServerConfig -> KirokuMetrics -> WS.PendingConnection -> IO ()
 handleMetrics cfg m pending = do
     conn <- WS.acceptRequest pending
-    WS.withPingThread conn 30 (pure ()) $ do
-        sendMsg conn . Snapshot =<< snapshotMetrics m
-        pushThread <- async (metricsPushLoop cfg m conn)
-        link pushThread
-        finally
-            (metricsReceiveLoop m conn)
-            (cancel pushThread >> sendMsg conn Goodbye)
+    WS.withPingThread conn 30 (pure ()) $
+        withWorkerSlot $ \start stop -> do
+            sendMsg conn . Snapshot =<< snapshotMetrics m
+            start (metricsPushLoop cfg m conn)
+            metricsReceiveLoop m conn (start (metricsPushLoop cfg m conn)) stop
+                `finally` (stop >> sendMsg conn Goodbye)
+
+{- | Scope one linked worker. Creation and registration are masked, the worker
+body is unmasked, and cleanup cancels and joins even during acquisition. Starting
+an already occupied slot is a no-op. The receive loop is the sole slot owner.
+-}
+withWorkerSlot :: ((IO () -> IO ()) -> IO () -> IO a) -> IO a
+withWorkerSlot body = mask $ \restore -> do
+    workerVar <- newTVarIO Nothing
+    let stop = mask_ $ do
+            worker <- atomically (readTVar workerVar)
+            for_ worker uninterruptibleCancel
+            atomically (writeTVar workerVar Nothing)
+        start action = mask_ $ do
+            worker <- atomically (readTVar workerVar)
+            case worker of
+                Just _ -> pure ()
+                Nothing -> do
+                    child <- asyncWithUnmask (\unmask -> unmask action)
+                    atomically (writeTVar workerVar (Just child))
+                    link child
+    restore (body start stop) `finally` stop
 
 -- | Periodically push a fresh snapshot every @wsPushIntervalUs@.
 metricsPushLoop :: MetricsServerConfig -> KirokuMetrics -> WS.Connection -> IO ()
@@ -298,12 +364,15 @@ metricsPushLoop cfg m conn = forever $ do
     sendMsg conn . Snapshot =<< snapshotMetrics m
 
 -- | Answer @ping@ with @pong@ and @subscribe_metrics@ with a fresh snapshot.
-metricsReceiveLoop :: KirokuMetrics -> WS.Connection -> IO ()
-metricsReceiveLoop m conn = forever $ do
+metricsReceiveLoop :: KirokuMetrics -> WS.Connection -> IO () -> IO () -> IO ()
+metricsReceiveLoop m conn start stop = forever $ do
     cmd <- recvMsg conn
     case cmd of
         Just Ping -> sendMsg conn Pong
-        Just SubscribeMetrics -> sendMsg conn . Snapshot =<< snapshotMetrics m
+        Just SubscribeMetrics -> do
+            sendMsg conn . Snapshot =<< snapshotMetrics m
+            start
+        Just UnsubscribeMetrics -> stop
         _ -> pure ()
 
 --------------------------------------------------------------------------------
@@ -318,26 +387,18 @@ stops it, and @ping@ → @pong@. The tail runs in a child thread tracked in a
 handleEvents :: MetricsServerConfig -> KirokuStore -> WS.PendingConnection -> IO ()
 handleEvents cfg store pending = do
     conn <- WS.acceptRequest pending
-    WS.withPingThread conn 30 (pure ()) $ do
-        tailVar <- newTVarIO Nothing
-        let stopTail = do
-                mt <- atomically (readTVar tailVar)
-                for_ mt cancel
-                atomically (writeTVar tailVar Nothing)
-            startTail from cat = do
-                stopTail
-                t <- async (eventTail cfg store conn from cat)
-                atomically (writeTVar tailVar (Just t))
-        finally
-            ( forever $ do
-                cmd <- recvMsg conn
-                case cmd of
-                    Just Ping -> sendMsg conn Pong
-                    Just (SubscribeEvents from cat) -> startTail from cat
-                    Just UnsubscribeEvents -> stopTail
-                    _ -> pure ()
-            )
-            (stopTail >> sendMsg conn Goodbye)
+    WS.withPingThread conn 30 (pure ()) $
+        withWorkerSlot $ \start stop ->
+            finally
+                ( forever $ do
+                    cmd <- recvMsg conn
+                    case cmd of
+                        Just Ping -> sendMsg conn Pong
+                        Just (SubscribeEvents from cat) -> stop >> start (eventTail cfg store conn from cat)
+                        Just UnsubscribeEvents -> stop
+                        _ -> pure ()
+                )
+                (stop >> sendMsg conn Goodbye)
 
 -- | A reasonable replay/category page size.
 eventReadLimit :: Int
@@ -361,28 +422,33 @@ eventTail ::
     Maybe Int64 ->
     Maybe Text ->
     IO ()
-eventTail cfg store conn mFrom mCategory =
+eventTail cfg store conn mFrom mCategory = do
+    cache <- newStreamNameCache
     case mCategory of
         Just cat -> do
             start <- case mFrom of
                 Just p -> pure p
                 Nothing -> unGP <$> atomically (publisherPosition store.publisher)
             sendMsg conn (EventStreamStarted start)
-            categoryLoop store conn (CategoryName cat) start
-        Nothing -> do
-            (queue, statusVar, unsubscribe) <-
-                atomically (subscribePublisher store.publisher cfg.wsEventQueueCap DropOldest)
-            attachPos <- unGP <$> atomically (publisherPosition store.publisher)
-            flip finally unsubscribe $
-                case mFrom of
-                    Nothing -> do
-                        sendMsg conn (EventStreamStarted attachPos)
-                        broadcastLoop conn queue statusVar (const True)
-                    Just p -> do
-                        sendMsg conn (EventStreamStarted p)
-                        mCovered <- replayHistory store conn p attachPos
-                        for_ mCovered $ \covered ->
-                            broadcastLoop conn queue statusVar (\e -> unGP e.globalPosition > covered)
+            categoryLoop store cache conn (CategoryName cat) start
+        Nothing ->
+            bracket
+                ( atomically $ do
+                    sub <- subscribePublisherWith store.publisher cfg.wsEventQueueCap DropOldest
+                    attachPos <- unGP <$> publisherPosition store.publisher
+                    pure (sub, attachPos)
+                )
+                (unsubscribe . fst)
+                $ \(sub, attachPos) ->
+                    case mFrom of
+                        Nothing -> do
+                            sendMsg conn (EventStreamStarted attachPos)
+                            broadcastEventsWith (sendMsg conn) cache (lookupNames store) sub (const True)
+                        Just p -> do
+                            sendMsg conn (EventStreamStarted p)
+                            mCovered <- replayHistory store cache conn p attachPos
+                            for_ mCovered $ \covered ->
+                                broadcastEventsWith (sendMsg conn) cache (lookupNames store) sub (\e -> unGP e.globalPosition > covered)
 
 {- | Page history from the requested position up to @attachPos@ with
 'readAllForward'. Returns @Just covered@, the highest global position the
@@ -391,60 +457,68 @@ final page read past it), or @Nothing@ after a read error, which has already
 been surfaced to the client as an 'ErrorMsg'. The caller must terminate the
 tail on @Nothing@ rather than continue live with a gap.
 -}
-replayHistory :: KirokuStore -> WS.Connection -> Int64 -> Int64 -> IO (Maybe Int64)
-replayHistory store conn from attachPos = go from attachPos
+replayHistory :: KirokuStore -> StreamNameCache -> WS.Connection -> Int64 -> Int64 -> IO (Maybe Int64)
+replayHistory store cache conn from attachPos = go from attachPos
   where
     go cursor covered
         | cursor >= attachPos = pure (Just covered)
         | otherwise = do
             res <- runStoreIO store (readAllForward (GlobalPosition cursor) (fromIntegral eventReadLimit))
             case res of
-                Left err -> do
-                    sendMsg conn (ErrorMsg (T.pack ("replay error: " <> show err)))
+                Left _ -> do
+                    sendMsg conn (CodedError errorCodeReplayFailed "replay error: history unavailable")
                     pure Nothing
                 Right evs
                     | V.null evs -> pure (Just covered)
                     | otherwise -> do
-                        sendEvents conn evs
+                        sendEvents store cache conn evs
                         let lastPos = unGP (V.last evs).globalPosition
                         go lastPos (max covered lastPos)
 
-{- | Drain the broadcast queue forever, sending each kept event. Defensively
-surfaces an @Overflowed@ status (not set under 'DropOldest', but handled).
+{- | Production live delivery with an injectable frame writer and name lookup.
+Queue, status and counter are sampled atomically. Loss is signalled before any
+surviving event, preserving the client's last contiguous recovery cursor.
 -}
-broadcastLoop ::
-    WS.Connection ->
-    -- | broadcast queue
-    TBQueue DecodedBatch ->
-    TVar SubscriberStatus ->
+broadcastEventsWith ::
+    (ServerMessage -> IO ()) ->
+    StreamNameCache ->
+    ([StreamId] -> IO (Map StreamId StreamName)) ->
+    PublisherSubscription ->
     (RecordedEvent -> Bool) ->
     IO ()
-broadcastLoop conn queue statusVar keep = go
+broadcastEventsWith send cache lookupBatch sub keep = go 0 False
   where
-    go = do
-        batch <- atomically (readTBQueue queue)
+    go previous warned = do
+        (batch, status, dropped) <-
+            atomically $
+                (,,)
+                    <$> readTBQueue sub.subscriptionQueue
+                    <*> readTVar sub.subscriptionStatus
+                    <*> readTVar sub.subscriptionDropped
+        let notice = case overflowNotice previous dropped of
+                Just msg -> Just msg
+                Nothing | status == Overflowed && not warned -> Just (CodedError errorCodeEventStreamOverflowed "event stream overflowed; some events dropped")
+                Nothing -> Nothing
+        for_ notice send
         let decoded = case batch of
                 UnchangedBatch events -> Right (V.filter keep events)
                 TransformedBatch events -> V.mapM unwrap (V.filter (keep . decodedEventRecorded) events)
             unwrap (Decoded event) = Right event
             unwrap (Undecodable _ failure) = Left failure
         case decoded of
-            Left failure -> sendMsg conn (ErrorMsg (T.pack ("live decode error: " <> show failure)))
+            Left _ -> send (CodedError errorCodeLiveDecodeFailed "live event decoding failed")
             Right events -> do
-                sendEvents conn events
-                status <- atomically (readTVar statusVar)
-                case status of
-                    Overflowed -> sendMsg conn (ErrorMsg "event stream overflowed; some events dropped")
-                    _ -> pure ()
-                go
+                names <- resolveEventNames cache lookupBatch events
+                V.mapM_ (send . Event . recordedEventToJSONResolved names) events
+                go dropped (status == Overflowed)
 
 {- | DB-driven category live loop. Mirrors the subscription worker's
 @liveLoopDbDriven@: gate on the publisher advancing past the /last observed/
 position (not the cursor) so an unmatched category does not busy-spin, then drain
 the category to empty before waiting again.
 -}
-categoryLoop :: KirokuStore -> WS.Connection -> CategoryName -> Int64 -> IO ()
-categoryLoop store conn cat startPos = go startPos 0
+categoryLoop :: KirokuStore -> StreamNameCache -> WS.Connection -> CategoryName -> Int64 -> IO ()
+categoryLoop store cache conn cat startPos = go startPos 0
   where
     go cursor waitFrom = do
         pubPos <- atomically $ do
@@ -458,13 +532,13 @@ categoryLoop store conn cat startPos = go startPos 0
     drainTo cursor = do
         res <- runStoreIO store (readCategory cat (GlobalPosition cursor) (fromIntegral eventReadLimit))
         case res of
-            Left err -> do
-                sendMsg conn (ErrorMsg (T.pack ("category read error: " <> show err)))
+            Left _ -> do
+                sendMsg conn (CodedError errorCodeCategoryReadFailed "category read error: events unavailable")
                 pure Nothing
             Right evs
                 | V.null evs -> pure (Just cursor)
                 | otherwise -> do
-                    sendEvents conn evs
+                    sendEvents store cache conn evs
                     drainTo (unGP (V.last evs).globalPosition)
 
 --------------------------------------------------------------------------------
@@ -472,8 +546,51 @@ categoryLoop store conn cat startPos = go startPos 0
 --------------------------------------------------------------------------------
 
 -- | Send each event in a batch as an 'Event' message.
-sendEvents :: WS.Connection -> Vector RecordedEvent -> IO ()
-sendEvents conn = V.mapM_ (sendMsg conn . Event . recordedEventToJSON)
+sendEvents :: KirokuStore -> StreamNameCache -> WS.Connection -> Vector RecordedEvent -> IO ()
+sendEvents store cache conn events = do
+    names <- resolveEventNames cache (lookupNames store) events
+    V.mapM_ (sendMsg conn . Event . recordedEventToJSONResolved names) events
+
+-- Typed lookup failures fall back to null names; thrown exceptions propagate.
+lookupNames :: KirokuStore -> [StreamId] -> IO (Map StreamId StreamName)
+lookupNames store ids = either (const Map.empty) id <$> runStoreIO store (lookupStreamNames ids)
+
+data NameCache = NameCache !(Map StreamId StreamName) !(Seq StreamId)
+
+-- | Per-tail FIFO name cache. Missing names are not retained. Capacity: 4096.
+newtype StreamNameCache = StreamNameCache (IORef NameCache)
+
+-- | Allocate once for a tail; dispose on unsubscribe/disconnect.
+newStreamNameCache :: IO StreamNameCache
+newStreamNameCache = StreamNameCache <$> newIORef (NameCache Map.empty Seq.empty)
+
+-- | Retained map and FIFO sizes (both bounded by 4096).
+streamNameCacheSize :: StreamNameCache -> IO (Int, Int)
+streamNameCacheSize (StreamNameCache ref) = do
+    NameCache names order <- readIORef ref
+    pure (Map.size names, Seq.length order)
+
+{- | Resolve distinct misses in at most one lookup. The temporary encoding map
+contains all current-batch names even when that batch exceeds cache capacity.
+The tail owns the cache; calls on one cache must be serialized.
+-}
+resolveEventNames :: StreamNameCache -> ([StreamId] -> IO (Map StreamId StreamName)) -> Vector RecordedEvent -> IO (Map StreamId StreamName)
+resolveEventNames (StreamNameCache ref) lookupBatch events = do
+    NameCache cached order <- readIORef ref
+    let wanted = Set.fromList (V.toList (V.map (.originalStreamId) events))
+        missing = wanted `Set.difference` Map.keysSet cached
+    found <- if Set.null missing then pure Map.empty else Map.restrictKeys <$> lookupBatch (Set.toList missing) <*> pure missing
+    let current = Map.union cached found
+        inserted = foldl' (|>) order (Map.keys found)
+        trimmed = evict current inserted
+    trimmed `seq` writeIORef ref trimmed
+    pure (Map.restrictKeys current wanted)
+  where
+    evict names order
+        | Map.size names <= 4096 = NameCache names order
+        | otherwise = case Seq.viewl order of
+            oldest :< rest -> evict (Map.delete oldest names) rest
+            EmptyL -> NameCache Map.empty Seq.empty
 
 {- | Send a 'ServerMessage', swallowing a closed-connection exception so cleanup
 in a @finally@ never re-throws on an already-dead socket.

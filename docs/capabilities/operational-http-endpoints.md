@@ -1,7 +1,7 @@
 ---
 title: "Operational HTTP endpoints: metrics, health, and event streaming"
 type: Capability
-description: "Serve in-process metrics as JSON and Prometheus exposition, liveness/readiness/detailed health, a subscription-status endpoint, durable cross-process checkpoint inventory, and a WebSocket channel for live metrics and events, bounded stream/category/event and subscription dead-letter inspection in the unreleased cohort, with host-configured default-off browser CORS, without pulling a web framework into the core library."
+description: "Serve in-process metrics as JSON and Prometheus exposition, liveness/readiness/detailed health, a subscription-status endpoint, durable cross-process checkpoint inventory, and a WebSocket channel for live metrics and events, bounded stream/category/event and subscription dead-letter inspection in the unreleased cohort, with coded WebSocket errors, explicit metrics lifecycle, ordered overflow notices, bounded tail name resolution and host-configured default-off browser CORS, without pulling a web framework into the core library."
 generated:
   by: anthropic/claude-sonnet-4.5
   at: "2026-08-08T00:00:00Z"
@@ -25,6 +25,12 @@ requires:
   - CAP-14
   - CAP-11
 evidence:
+  - kind: test
+    resource: kiroku-metrics/test/Test/WebSocketConvergenceSpec.hs
+    proves: Additive frames, real stop/resume and resolved tails, sanitized failures, bounded FIFO cache, scoped workers and production overflow notices before survivors with cursor recovery.
+  - kind: test
+    resource: kiroku-store/test/Test/PublisherDropCounter.hs
+    proves: Actual DropOldest batches increment the counter and retain newest data, other policies do not, and the legacy wrapper deregisters idempotently.
   - kind: test
     resource: kiroku-metrics/test/Test/DeadLettersSpec.hs
     proves: Read-only dead-letter pages preserve structured reasons, opaque cursors, HEAD and sanitized errors with mounted CORS and compatible legacy routes.
@@ -95,3 +101,10 @@ write-cost acceptance and publication remain pending.
 The unreleased `GET`/`HEAD /subscriptions/<name>/dead-letters` route wraps
 `subscriptionDeadLetters`. All-member work scales with historical member count
 times page size; prefer member-scoped polling for large groups.
+
+The unreleased WebSocket convergence retains the shipped dialect and documents
+its convention mapping in the guide. Metrics pushes can stop and resume; event
+tails resolve original names with at most one lookup per batch and 4096 cached
+names. Coded errors sanitize failures. Real drop-oldest overflow is signalled
+before survivors, so clients recover from their last contiguous pre-notice cursor.
+Cumulative append-under-observer performance acceptance remains with the release.

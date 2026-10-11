@@ -17,6 +17,11 @@ provenance:
       at: 2026-10-10T15:41:06Z
       mode: "update"
       note: "Correct current APIs, integration ownership and bounded observer work; runtime acceptance remains pending."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-11T01:56:04Z
+      mode: "implement"
+      note: "Implement bounded WebSocket convergence and validate local delivery, lifecycle and publisher behavior"
   reviews:
     - model: "gpt-6-astra"
       harness: "codex-cli"
@@ -115,35 +120,63 @@ convention, the kiroku frame that realises it or the recorded deviation.
 ## Progress
 
 - [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
-- [ ] Implement and execute the focused correctness and performance acceptance added by this review.
+- [x] (2026-10-11) Implement and execute the focused correctness and performance acceptance added by this review.
 
-- [ ] M1: IR-12 moved from `accepted` to `in_progress` (timestamp advanced, bundle log entry,
+- [x] (2026-10-11) M1: IR-12 moved from `accepted` to `in_progress` (timestamp advanced, bundle log entry,
       strict validation green).
-- [ ] M1: `kiroku-store`: `Subscriber` gains `subDropped :: TVar Word64`; the `DropOldest` branch
+- [x] (2026-10-11) M1: `kiroku-store`: `Subscriber` gains `subDropped :: TVar Word64`; the `DropOldest` branch
       of `deliverBatchSTM` increments it; new `PublisherSubscription` record and
       `subscribePublisherWith`; `subscribePublisher` kept as a compatibility wrapper; changelog
       bullets under the unreleased heading.
-- [ ] M1: `kiroku-store/test/Test/PublisherDropCounter.hs` proves the counter deterministically
+- [x] (2026-10-11) M1: `kiroku-store/test/Test/PublisherDropCounter.hs` proves the counter deterministically
       (cap 1, two batches, counter 1, queue holds the newest batch); registered; store suite
       green; `cabal bench kiroku-store:kiroku-shibuya-overhead` recorded before and after.
-- [ ] M2: `Kiroku.Metrics.WebSocket`: `UnsubscribeMetrics` client frame, `CodedError` server frame
+- [x] (2026-10-11) M2: `Kiroku.Metrics.WebSocket`: `UnsubscribeMetrics` client frame, `CodedError` server frame
       with the four codes, reuse of plan 88's `recordedEventToJSONResolved`, per-connection
       stream-name cache in the tail, overflow detection from the drop counter,
       `overflowNotice` exported for testing; changelog bullets under `## Unreleased`.
-- [ ] M2: `kiroku-metrics/test/Test/WebSocketConvergenceSpec.hs` (frame shapes pinned,
+- [x] (2026-10-11) M2: `kiroku-metrics/test/Test/WebSocketConvergenceSpec.hs` (frame shapes pinned,
       unsubscribe/resubscribe on the metrics path, `original_stream_name` on the live and
       category paths, `replay_failed` and `category_read_failed` codes end to end,
       `overflowNotice` cases); registered; whole metrics suite green with `Test.WebSocketSpec`
       untouched.
-- [ ] M3: `docs/user/metrics.md` WebSocket section updated (new frames, the `code` vocabulary,
+- [x] (2026-10-11) M3: `docs/user/metrics.md` WebSocket section updated (new frames, the `code` vocabulary,
       the `original_stream_name` key, the conformance mapping table); CAP-17 and the
       capabilities log updated and validated; IR-12 body gains "Implementation Evidence";
       all repository validations green.
-- [ ] M3: ADR distillation pass recorded in Outcomes (no ADR expected; see Decision Log);
+- [x] (2026-10-11) M3: ADR distillation pass recorded in Outcomes (no ADR expected; see Decision Log);
       closing provenance revision recorded.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-11 local acceptance: all 654 examples across six suites, ten-step example and Nix builds pass after the fixture barriers. Frozen encoders/dispatch/spec and nonfull/other-policy publisher branches compare byte-identically to `c725aac`. Retained [evidence](../../kiroku-metrics/bench/results/mp13-ep5-websocket-convergence/README.md) includes failures and isolated follow-ups; no remote runs or release acceptance are inferred.
+
+```text
+100 events baseline: bare subscribe:  median 9 ms  [8 ms .. 42 ms]  (11609 events/s, 86 μs/event)
+100 events isolated after: bare subscribe:  median 13 ms  [6 ms .. 19 ms]  (7643 events/s, 131 μs/event)
+1000 events baseline: bare subscribe:  median 17 ms  [16 ms .. 31 ms]  (60544 events/s, 17 μs/event)
+1000 events isolated after: bare subscribe:  median 19 ms  [18 ms .. 29 ms]  (52051 events/s, 19 μs/event)
+5000 events baseline: bare subscribe:  median 43 ms  [42 ms .. 46 ms]  (117534 events/s, 9 μs/event)
+5000 events isolated after: bare subscribe:  median 77 ms  [67 ms .. 188 ms]  (64847 events/s, 15 μs/event)
+Same-condition control/candidate pair (original publisher, then counter publisher):
+100 events control: bare subscribe:  median 11 ms  [5 ms .. 14 ms]  (9185 events/s, 109 μs/event)
+100 events candidate: bare subscribe:  median 11 ms  [9 ms .. 15 ms]  (8960 events/s, 112 μs/event)
+1000 events control: bare subscribe:  median 38 ms  [27 ms .. 46 ms]  (26248 events/s, 38 μs/event)
+1000 events candidate: bare subscribe:  median 24 ms  [19 ms .. 40 ms]  (41827 events/s, 24 μs/event)
+5000 events control: bare subscribe:  median 86 ms  [67 ms .. 274 ms]  (58467 events/s, 17 μs/event)
+5000 events candidate: bare subscribe:  median 70 ms  [63 ms .. 98 ms]  (71424 events/s, 14 μs/event)
+```
+
+- 2026-10-11: the isolated 5000-event bare row remained adverse (77 ms vs early 43 ms), so one bounded same-condition original-publisher/control-counter check was run, preserving both five-sample cases and restoring candidate source on every normal/error exit. Original publisher now measured 86 ms [67..274], counter publisher 70 ms [63..98]; smaller-case ranges overlap as well. This shows the earlier movement is not attributable to the counter alone, rather than proving zero regression. No additional publisher repeats. The controller finished in under its 12-minute ceiling with exact source restoration verified.
+- 2026-10-11: the preliminary tail harness control omitted the old filter/status sample. Retain both preliminary outputs; correct the control to reproduce those existing steps and run one final five-round comparison. Lookup/cache/append-visibility assertions remain unchanged. Interpret local timings descriptively and leave integrated real-socket/publisher observer acceptance with plan 96.
+
+- 2026-10-11: the first final all-suite run retained a second failure in the existing pause/resume fixture (448 store examples, one missing Resumed callback). Event delivery and checkpoint 5 passed. The atomic callback collector from EP-4 remained intact; the fixture still failed to wait for Live before its blocked first event, allowing catch-up to bypass the resume path. Added the same bounded Live barrier to its PauseAndResume and DropSubscription scenarios, retaining every original assertion. No production FSM change.
+- 2026-10-11: the first post-counter overhead run and first tail-cost run overlapped the Nix build. Their raw adverse/noisy results are retained but cannot establish runtime neutrality; perform one isolated follow-up, then hand cumulative acceptance to plan 96 without another broad experiment.
+
+- 2026-10-11: first full store run reported 448 examples, one failure in the pre-existing F6 overflow-restart fixture. It started its blocked first handler before observing Live, permitting catch-up to consume the range the restart expected to replay. Added a bounded currentState/Live barrier before the first append; production DropSubscription and worker behavior stay unchanged. Retain the adverse log and run focused plus full checks after the fixture fix.
+
+- 2026-10-11 baseline: build and 77 metrics tests passed. The prescribed Shibuya benchmark failed before sampling because it opened an unmigrated ephemeral database (`42P01`, missing streams). Added the existing migration helper to benchmark setup only; retain the failed log and rerun before publisher edits.
 
 - 2026-10-10 source review: Publisher queues now contain DecodedBatch. The proposed name Map grew for the lifetime of the tail, and notices followed survivors, allowing loss of the client's safe recovery cursor. Separate counter/encoder tests did not prove delivery ordering. No runtime acceptance is inferred from this finding.
 
@@ -169,6 +202,9 @@ convention, the kiroku frame that realises it or the recorded deviation.
 
 ## Decision Log
 
+- Decision (2026-10-11): use an opaque per-tail cache and injectable production delivery helper plus one scoped linked-worker slot for both channels. The old event-tail acquisition also had an async registration gap; share the masked acquisition/finalization fix rather than retaining it. Frame writers and lookup callbacks are serialized by the tail. No append statement or default publisher delivery branch changes.
+- Decision (2026-10-11): the convention mapping explicitly records complete periodic metrics snapshots as a retained deviation from state deltas. The source convention at `mori://shinzui/keiro-ui`, `docs/architecture/inspection-api-conventions.md` (artifact URI pending), requires update deltas; additive lifecycle repair does not change the frozen snapshot dialect. Mori now resolves `mori://shinzui/keiro-ui/okf/adrs/concepts/ADR-2`.
+
 - Decision (2026-10-10): the reviewed Context and Plan of Work supersede incompatible September choices on dependencies, routes, decoding, method handling, bounds and performance. Implementation remains pending; durable constraints are in ADR-15.
   Rationale: the released APIs changed and the original sketches contained correctness and shared-resource hazards.
 
@@ -187,7 +223,7 @@ convention, the kiroku frame that realises it or the recorded deviation.
   `CodedError !Text !Text` (code, message) encoding to `{"type":"error","code":c,"message":m}`;
   the existing `ErrorMsg !Text` constructor and its encoding stay exactly as they are, and the
   four places that build error frames today switch to `CodedError` with the codes
-  `replay_failed`, `category_read_failed`, and `event_stream_overflowed`.
+  `replay_failed`, `category_read_failed`, `live_decode_failed`, and `event_stream_overflowed`.
   Rationale: Adding a constructor is additive for Haskell callers that only construct or encode
   frames (pattern matches on `ServerMessage` in this repository are the `ToJSON` instance alone),
   and it keeps `toJSON (ErrorMsg m)` byte-identical by construction rather than by a `Maybe`
@@ -279,9 +315,37 @@ convention, the kiroku frame that realises it or the recorded deviation.
 
 ## Outcomes & Retrospective
 
-2026-10-10 review: implementation and performance acceptance remain pending. Static review does not prove zero runtime regression. Earlier planning-time observations and dated decisions are historical where this revision explicitly replaces them.
+2026-10-11: Complete locally. Publisher DropOldest loss is observable through
+`subscribePublisherWith` without changing the legacy wrapper or ordinary delivery
+branch. WebSocket tails send the loss notice before survivors, share a bounded
+4096-name FIFO across replay/live/category delivery, preserve typed decode failures,
+and provide four sanitized error codes. Metrics stop/resume and both channels'
+workers have masked registration and joined cleanup. The original WebSocketSpec,
+frozen encoder and path dispatch are unchanged.
 
-(To be filled during and after implementation.)
+All 654 examples (448 store, 98 metrics, 22 CLI, 17 OTel, 24 migrations, 45 adapter),
+the ten-step self-checking example, both Nix package builds, formatting and bundle
+validation pass. Nix builds disable tests; the runtime evidence comes from Cabal.
+New implementation/test/harness code builds without new warnings; unrelated
+pre-existing warnings appear in retained broader logs. The prescribed benchmark
+needed migration setup; two existing backpressure fixtures needed Live barriers
+because their blocked handlers could run during catch-up. Every original
+behavioral assertion remains. Failed logs are retained rather than hidden.
+
+[Local evidence](../../kiroku-metrics/bench/results/mp13-ep5-websocket-convergence/README.md)
+records five-round publisher and faithful frozen-tail checks, lookup counts, retained cache sizes,
+serialization/append timings and exact visibility of 7,500 concurrent appends.
+The first timing runs overlapped Nix; their adverse samples are retained as
+confounded, with an isolated follow-up and one bounded original-publisher/control-counter pair to investigate the remaining adverse row. Local timings are descriptive, not a
+statistical zero-slowdown verdict. Plan 96 must still assess cumulative original-control
+PG18 appends with real HTTP/tail/inventory observers and the retained index cost.
+IR-12 stays in_progress, changelogs stay Unreleased, and no package is published.
+
+ADR distillation: no new record. ADR-9 already makes the guide normative, and
+ADR-15 already fixes bounded lookup/cache, typed failures, exact loss ordering
+and shared-resource acceptance. The conformance table applies those decisions;
+push-on-connect, full metrics snapshots and event-stream acknowledgement remain
+explicit frozen-dialect deviations. Provenance is recorded once for this session.
 
 
 ## Context and Orientation
@@ -1001,7 +1065,7 @@ In `docs/user/metrics.md`, inside "The WebSocket protocol":
   cannot be resolved. Keep the note that the camelCase keys are frozen and that this key, being
   new, is snake_case; say that the same object is served by the REST browse endpoints.
 - In "Semantics", extend the `DropOldest` bullet: the server counts dropped batches per
-  connection and sends `error` with `code` `event_stream_overflowed` after the next delivered
+  connection and sends `error` with `code` `event_stream_overflowed` before the affected survivor
   batch; state that the signal is delivered from this version on (earlier versions documented it
   but never sent it), and that a category tail cannot overflow because it is read from the
   database rather than the broadcast.
@@ -1322,3 +1386,5 @@ the release that completes IR-12.
 ## API and performance review revision (2026-10-10)
 
 Reviewed against repository HEAD `f1a0209` and the released typed-decoding implementation. Corrected integration contracts and made focused performance evidence a completion gate. Existing authorship history is preserved; this revision records no implemented milestone or accepted performance result. The active requirements above supersede incompatible September design decisions, not published wire contracts.
+
+Revision (2026-10-11): implemented all three milestones, retained local evidence and fixture failures, documented the ten-element mapping, and kept cumulative performance/publication pending with plan 96.

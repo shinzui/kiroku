@@ -4,12 +4,16 @@
 
 ### Breaking Changes
 
+- `Subscriber` gains `subDropped :: TVar Word64`, counting batches discarded only under `DropOldest`; complete record constructors must supply it.
+
 - The closed `Store` effect gains `ListSubscriptionDeadLetters`; exhaustive custom interpreters must handle it.
 
 - The closed `Store` effect gains `ListStreams`, `ListCategories` and `GetEvent`.
   Custom interpreters must handle them. Catalog limits use validated `BrowsePageSize`.
 
 ### New Features
+
+- `subscribePublisherWith` returns `PublisherSubscription`, including the dropped-batch counter and idempotent deregistration; `subscribePublisher` retains its original triple.
 
 - Public `subscriptionDeadLetters` with validated query limits, exclusive composite cursors, and newest-first pages across historical members or one selected member. Structured reasons are unchanged.
 

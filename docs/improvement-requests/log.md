@@ -5,6 +5,8 @@
 * **Implementation**: IR-9 moves to `in_progress`; plan 89 starts public paginated dead-letter reads and the HTTP inspection route under MasterPlan 13.
 
 ## 2026-10-10
+* **Update**: IR-12 gains local WebSocket convergence evidence and a ten-element guide mapping; status stays in_progress for cohort performance acceptance and publication.
+* **Implementation**: IR-12 is in progress under [ExecPlan 94](../plans/94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention.md): bounded tail name resolution, coded errors, metrics lifecycle and ordered overflow notices. Publication remains with the cohort release.
 * **Update**: Record the user-approved byte-order browsing implementation, bounded Store primitives, HTTP routes, tests and shared migration 0015; final-layout cost and cohort publication remain pending.
 * **Update**: IR-8 retains category-first existing-index evidence requested by the user. Category equality is useful, while ordered pages and prefix filtering still scale with selected-category size. Arbitrary prefix search remains required; no new index or production API was added and status remains `in_progress`.
 * **Implementation**: IR-8 moves to `in_progress`; plan 88 executes its required PostgreSQL 18 SQL promotion check and rejects inventory-proportional prefix scans. Evidence is retained; production browse APIs and routes await a reviewed read/write design.

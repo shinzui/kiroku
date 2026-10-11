@@ -205,7 +205,7 @@ Integration Points.
 | 2 | Serve durable subscription checkpoints over HTTP (IR-10) | docs/plans/87-serve-durable-subscription-checkpoints-over-http.md | EP-1 | None | Complete |
 | 3 | Expose a REST read API for browsing streams, categories, and events (IR-8) | docs/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md | EP-2 | EP-4 | Complete |
 | 4 | Expose a public dead-letter read API (IR-9) | docs/plans/89-expose-a-public-dead-letter-read-api.md | EP-2 | EP-3 | Complete |
-| 5 | Converge the kiroku-metrics WebSocket protocol with the cross-project convention (IR-12) | docs/plans/94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention.md | EP-3 | None | Not Started |
+| 5 | Converge the kiroku-metrics WebSocket protocol with the cross-project convention (IR-12) | docs/plans/94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention.md | EP-3 | None | Complete |
 | 6 | Serve the Kiroku inspection surface standalone and make it self-describing | docs/plans/95-serve-the-kiroku-inspection-surface-standalone-and-make-it-self-describing.md | EP-1, EP-2, EP-3, EP-4, EP-5 | None | Not Started |
 | 7 | Release the inspection surface cohort and complete the keiro-ui requests | docs/plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md | EP-1, EP-2, EP-3, EP-4, EP-5, EP-6 | None | Not Started |
 
@@ -495,12 +495,12 @@ rule suffices.
 - [x] (2026-10-11) EP-4: `Kiroku.Metrics.DeadLetters`, the `deadLetters` field and route arm, scripted and
       end-to-end tests.
 - [x] (2026-10-11) EP-4: documentation, example step, CAP-17, changelog, IR-9 evidence.
-- [ ] EP-5: the publisher drop counter in `kiroku-store` with a deterministic test and the
+- [x] (2026-10-11) EP-5: the publisher drop counter in `kiroku-store` with a deterministic test and the
       overhead benchmark recorded before and after.
-- [ ] EP-5: additive frames (`unsubscribe_metrics`, `error.code`, `original_stream_name`, the
+- [x] (2026-10-11) EP-5: additive frames (`unsubscribe_metrics`, `error.code`, `original_stream_name`, the
       now-reachable `event_stream_overflowed` error) with tests proving existing frames
       byte-identical.
-- [ ] EP-5: conformance mapping in the guide, CAP-17, changelog, IR-12 evidence.
+- [x] (2026-10-11) EP-5: conformance mapping in the guide, CAP-17, changelog, IR-12 evidence.
 - [ ] EP-6: `GET /capabilities` with pinned codec and real-server tests.
 - [ ] EP-6: `kiroku-inspect` executable with option, environment, and end-to-end tests;
       `nix build .#kiroku-metrics` green.
@@ -513,6 +513,8 @@ rule suffices.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-11 EP-5: exact publisher drops are observed atomically with dequeue and notified before survivors; the same per-tail 4096-name FIFO covers replay/live/category delivery. The legacy wrapper and frozen frames/spec remain intact. Both metrics and event workers now have masked registration and joined cleanup. Existing backpressure fixtures required Live barriers (catch-up otherwise bypassed the asserted resume/restart path), with adverse logs retained. Focused local timing is separate from EP-7's cumulative performance acceptance.
 
 - 2026-10-10 shared-access prototype: one partial C-collated name index can
   serve global names, literal prefixes, exact categories and category-plus-prefix
@@ -893,11 +895,14 @@ rule suffices.
 
 ## Outcomes & Retrospective
 
-Current state (2026-10-11): EP-1 through EP-4 are Complete locally. The browse
-index's measured costs remain inconclusive for release. Dead-letter inspection
-adds no index and passes bounded production plans, 631 full-suite examples, the
-ten-step example, Nix build and bundle checks. EP-5 is the next ready child;
-EP-6 and EP-7 retain their dependencies. No package publication has occurred.
+Current state (2026-10-11): EP-1 through EP-5 are Complete locally. WebSocket
+convergence has ordered overflow recovery, bounded tail name resolution, coded
+errors and scoped metrics stop/resume. All 654 full-suite examples, the ten-step
+example, both Nix builds and bundle checks pass. Local timing evidence is retained
+with confounded/adverse samples and an isolated follow-up; it does not settle
+cumulative release acceptance. The browse index's retained policy verdict remains
+inconclusive. EP-6 is the next ready child; EP-7 retains its dependencies. IR-12
+stays in_progress and no package publication has occurred.
 
 2026-10-10 shared design continuation: a concrete disposable query prototype
 passes all 224 TypeID/edge-case checks for category-plus-literal-prefix browsing
@@ -1164,3 +1169,5 @@ preserves every assertion and the full suite passes. Retain raw failures and
 EP-4 adds no index or migration; ADR-9/8/15 cover its durable decisions.
 EP-5 WebSocket convergence is ready. IR-9 and release acceptance remain pending
 publication under EP-7.
+
+Revision (2026-10-11 EP-5): WebSocket convergence completes locally with 654 passing examples, retained local timing checks and retained failures. EP-6 standalone discovery is ready; cohort acceptance and publication remain open.

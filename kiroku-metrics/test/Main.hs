@@ -11,6 +11,7 @@ import Test.DeadLettersSpec qualified as DeadLettersSpec
 import Test.IntegrationSpec qualified as IntegrationSpec
 import Test.ServerSpec qualified as ServerSpec
 import Test.SubscriptionsSpec qualified as SubscriptionsSpec
+import Test.WebSocketConvergenceSpec qualified as WebSocketConvergenceSpec
 import Test.WebSocketSpec qualified as WebSocketSpec
 
 main :: IO ()
@@ -22,5 +23,6 @@ main = withSharedMigratedPostgres $ hspec $ do
     CollectorSpec.spec
     IntegrationSpec.spec
     ServerSpec.spec
+    WebSocketConvergenceSpec.spec
     WebSocketSpec.spec
     SubscriptionsSpec.spec

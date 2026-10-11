@@ -404,7 +404,8 @@ Two paths, dispatched by URL. Messages are tagged JSON (`{"type": "..."}`).
 | Message | Channel | Meaning |
 |---------|---------|---------|
 | `{"type":"ping"}` | both | Keepalive; answered with `pong`. |
-| `{"type":"subscribe_metrics"}` | metrics | Request a fresh snapshot now. |
+| `{"type":"subscribe_metrics"}` | metrics | Request a fresh snapshot now and resume periodic push if stopped. |
+| `{"type":"unsubscribe_metrics"}` | metrics | Stop periodic snapshots; `subscribe_metrics` resumes them. |
 | `{"type":"subscribe_events","from_position":N,"category":"orders"}` | events | Start streaming. Both fields optional: omit `from_position` for "from now"; omit `category` for all streams. |
 | `{"type":"unsubscribe_events"}` | events | Stop the current tail. |
 
@@ -417,11 +418,25 @@ Two paths, dispatched by URL. Messages are tagged JSON (`{"type": "..."}`).
 | `{"type":"event","event":{ … RecordedEvent … }}` | One appended event (shape below). |
 | `{"type":"event_stream_started","from_position":N}` | Acknowledgement that streaming has begun from position `N`. |
 | `{"type":"goodbye"}` | The connection is being torn down. |
-| `{"type":"error","message":"…"}` | A non-fatal error. |
+| `{"type":"error","code":"…","message":"…"}` | A stable machine-readable code with human text that may change. |
+
+### Error codes (unreleased)
+
+| Code | Meaning and recovery |
+| --- | --- |
+| `replay_failed` | History read failed; the tail ended. Resubscribe after recovery. |
+| `category_read_failed` | Category read failed; the tail ended. Resubscribe after recovery. |
+| `live_decode_failed` | An applicable typed decode failure ended the live tail without partial data. Repair decoding and resubscribe. |
+| `event_stream_overflowed` | Old undelivered batches were dropped. Re-read through REST or resubscribe with `from_position` from the last contiguous **pre-notice** cursor. |
+
+Older errors carried no `code`; clients must tolerate that. A tail error leaves
+its connection open for ping or resubscription. Messages contain sanitized text.
+
 
 ### The `RecordedEvent` wire shape
 
-Produced by `recordedEventToJSON`. **Note:** the protocol envelope and metrics keys
+Produced by `recordedEventToJSONResolved` for tail frames and REST browse items.
+The original `recordedEventToJSON` encoder retains its eleven-key shape. **Note:** the protocol envelope and metrics keys
 are snake_case, but the per-event payload fields are **camelCase**. Both halves are
 frozen as shipped; a key added to this object later is snake_case (see
 [Wire-format stability](#wire-format-stability)):
@@ -439,6 +454,7 @@ frozen as shipped; a key added to this object later is snake_case (see
 | `causationId` | string (UUID) or `null` | Causing event's id. |
 | `correlationId` | string (UUID) or `null` | Workflow correlation id. |
 | `createdAt` | string (ISO-8601) | Append timestamp. |
+| `original_stream_name` | string or `null` | Source stream name resolved from `originalStreamId`, or null when unavailable. This additive key is snake_case. |
 
 ### Semantics
 
@@ -447,11 +463,46 @@ frozen as shipped; a key added to this object later is snake_case (see
   checkpoint table, so transient watchers leave no trace.
 - **Backpressure is `DropOldest`** (bounded by `wsEventQueueCap`): a slow client
   loses the oldest undelivered batches rather than stalling the publisher or other
-  subscribers.
+  subscribers. The server samples the dropped-batch count atomically with dequeue
+  and sends `event_stream_overflowed` **before** the affected survivor batch. Keep
+  the pre-notice contiguous cursor, mark later live events as hints and re-read
+  from that saved cursor. Earlier releases documented this notice but never sent it.
+  Category tails read the database directly and cannot overflow a broadcast queue.
 - **`from_position` replay**: history from that position is paged out first, then
   the live tail continues, with no duplicate at the boundary.
 - **`category` filter** is SQL-filtered (`readCategory`) because broadcast events
-  carry no stream name; it gates on the global position advancing.
+  carry only source IDs; it gates on the global position advancing.
+- **Name resolution** uses at most one batched lookup per delivered batch and a
+  per-tail FIFO cache retaining at most 4096 names. Empty/warm batches do no lookup;
+  missing names remain null, and evicted names may be fetched again. The cache is
+  discarded on unsubscribe, resubscribe or disconnect.
+- **Metrics lifecycle** retains push-on-connect. Unsubscribe cancels and joins
+  the push worker; repeated subscribe requests snapshots and keeps one worker.
+
+### Conformance with the cross-project WebSocket convention
+
+The convention is defined by `mori://shinzui/keiro-ui`,
+`docs/architecture/inspection-api-conventions.md` (artifact-level URI pending),
+and `mori://shinzui/keiro-ui/okf/adrs/concepts/ADR-2`.
+Kiroku's shipped dialect is frozen by [ADR-9](../adr/0009-published-http-and-websocket-wire-shapes-are-frozen-and-served-only-by-sister-packages.md)
+and converges additively in this unreleased cohort.
+
+| Convention element | `/ws/metrics` | `/ws/events` | Status |
+| --- | --- | --- | --- |
+| Typed frames | `type` tagged | `type` tagged | Met |
+| Subscribe/unsubscribe | `subscribe_metrics` / `unsubscribe_metrics`; push-on-connect retained | `subscribe_events` / `unsubscribe_events` | Metrics additively closed; events met |
+| Ping/pong | `ping` / `pong` | `ping` / `pong` | Met |
+| Replay cursor | Not applicable | `from_position` | Met where applicable |
+| Initial snapshot | Connect and subscribe `snapshot` | `event_stream_started` supplies the starting position | Metrics met; events documented deviation |
+| Incremental frames | Periodic complete `snapshot` | `event` | Metrics documented deviation from deltas; events met |
+| Server idle pings | WebSocket ping every 30 seconds | WebSocket ping every 30 seconds | Met |
+| In-band errors / overflow | Overflow not applicable | Coded `error`; `event_stream_overflowed` before survivors | Events additively closed |
+| Goodbye before server close | `goodbye` on teardown, best effort on dead sockets | Same | Met |
+| Bounded drop-oldest queue | Not applicable | `wsEventQueueCap`, exact dropped-batch count | Met where applicable |
+
+“Additively closed” retains published frames and behaviors for old clients;
+new fields and the repaired overflow notice may appear and must be tolerated.
+The events path remains idle until subscribed; metrics retains its connect push.
 
 ### `websocat` transcript
 
@@ -460,7 +511,7 @@ $ websocat ws://localhost:9091/ws/events
 {"type":"subscribe_events"}
 {"type":"event_stream_started","from_position":42}
 # (append OrderCreated to orders-7 from another shell)
-{"type":"event","event":{"eventType":"OrderCreated","globalPosition":43, ...}}
+{"type":"event","event":{"eventType":"OrderCreated","globalPosition":43,"original_stream_name":"orders-7", ...}}
 ```
 
 ## Subscription status over HTTP
@@ -758,6 +809,8 @@ The source is `kiroku-metrics/example/Main.hs`; it is the authoritative,
 compiling reference for the wiring pattern above.
 
 ## See Also
+
+- Cross-project convention: `mori://shinzui/keiro-ui`, `docs/architecture/inspection-api-conventions.md` (artifact-level URI pending), and `mori://shinzui/keiro-ui/okf/adrs/concepts/ADR-2`.
 
 - [Observability](observability.md) — the raw `eventHandler`/`observationHandler`
   callbacks this package aggregates.

@@ -1,0 +1,8 @@
+{
+  "phase": "complete",
+  "elapsed_seconds": 71.64054458402097,
+  "budget_seconds": 720,
+  "candidate_sha256": "02556e444461f8e44a09e568b6fc057fec2b3f586e2c3e526e9d1af8d869f7d4",
+  "control_sha256": "bc3e52f4d6974112beaa7df4eee0ab2f6dda58307a1cdb3f2f461d225cad9cee",
+  "exit_code": 0
+}

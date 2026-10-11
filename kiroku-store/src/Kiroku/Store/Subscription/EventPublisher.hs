@@ -15,7 +15,7 @@ When a subscriber's queue fills, the publisher applies that subscriber's
 'SubscriberStatus': under the default @PauseAndResume@ it marks the subscriber
 'Paused' and stops pushing (the worker drains and re-catches-up losslessly),
 under @DropSubscription@ it marks it 'Overflowed', and under @DropOldest@ it
-evicts the oldest batch. The publisher itself never blocks on a slow consumer.
+evicts the oldest batch and counts the drop in 'subDropped'. The publisher itself never blocks on a slow consumer.
 -}
 module Kiroku.Store.Subscription.EventPublisher (
     EventPublisher (..),
@@ -24,6 +24,8 @@ module Kiroku.Store.Subscription.EventPublisher (
     startPublisher,
     stopPublisher,
     subscribePublisher,
+    PublisherSubscription (..),
+    subscribePublisherWith,
     publisherPosition,
 ) where
 
@@ -59,6 +61,7 @@ import Data.Int (Int32)
 import Data.IntMap.Strict (IntMap)
 import Data.IntMap.Strict qualified as IntMap
 import Data.Vector qualified as V
+import Data.Word (Word64)
 import Hasql.Pool (Pool)
 import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
@@ -93,6 +96,17 @@ data Subscriber = Subscriber
     { subQueue :: !(TBQueue DecodedBatch)
     , subStatus :: !(TVar SubscriberStatus)
     , subPolicy :: !OverflowPolicy
+    , subDropped :: !(TVar Word64)
+    -- ^ Dropped batches under DropOldest; compare successive readings (modulo Word64).
+    }
+
+-- | A bounded publisher subscription with its exact dropped-batch counter.
+data PublisherSubscription = PublisherSubscription
+    { subscriptionQueue :: !(TBQueue DecodedBatch)
+    , subscriptionStatus :: !(TVar SubscriberStatus)
+    , subscriptionDropped :: !(TVar Word64)
+    , unsubscribe :: !(IO ())
+    -- ^ Idempotent deregistration; invoke on every exit.
     }
 
 -- | Subscriber lifecycle status as observed by its worker.
@@ -184,16 +198,23 @@ subscribePublisher ::
     OverflowPolicy ->
     STM (TBQueue DecodedBatch, TVar SubscriberStatus, IO ())
 subscribePublisher pub cap policy = do
+    sub <- subscribePublisherWith pub cap policy
+    pure (subscriptionQueue sub, subscriptionStatus sub, unsubscribe sub)
+
+-- | Register a subscriber, also exposing the DropOldest counter (initially zero).
+subscribePublisherWith :: EventPublisher -> Natural -> OverflowPolicy -> STM PublisherSubscription
+subscribePublisherWith pub cap policy = do
     queue <- newTBQueue cap
     status <- newTVar Active
+    dropped <- newTVar 0
     sid <- readTVar (nextSubscriberId pub)
     writeTVar (nextSubscriberId pub) (sid + 1)
-    let sub = Subscriber{subQueue = queue, subStatus = status, subPolicy = policy}
+    let sub = Subscriber{subQueue = queue, subStatus = status, subPolicy = policy, subDropped = dropped}
     modifyTVar' (subscribers pub) (IntMap.insert sid sub)
-    let unsubscribe =
+    let deregister =
             atomically $
                 modifyTVar' (subscribers pub) (IntMap.delete sid)
-    pure (queue, status, unsubscribe)
+    pure (PublisherSubscription queue status dropped deregister)
 
 -- | Read the last-published global position.
 publisherPosition :: EventPublisher -> STM GlobalPosition
@@ -322,6 +343,7 @@ publisherLoop pool tickChan subsVar posVar mHandler stSettings = loop
                 DropSubscription -> writeTVar (subStatus sub) Overflowed
                 DropOldest -> do
                     _ <- tryReadTBQueue (subQueue sub)
+                    modifyTVar' (subDropped sub) (+ 1)
                     writeTBQueue (subQueue sub) events
 
 -- Wait for either a tick or a 30-second timeout (safety poll).

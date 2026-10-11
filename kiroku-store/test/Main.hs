@@ -23,6 +23,7 @@ import Hasql.Pool (UsageError (..))
 import Kiroku.Store
 import Kiroku.Store.Subscription.Effect qualified as SubEff
 import Kiroku.Store.Subscription.EventPublisher (publisherPosition)
+import Kiroku.Store.Subscription.Fsm qualified as Fsm
 import Kiroku.Test.Postgres (withMigratedTestDatabase)
 import Test.BrowseQueryPlans qualified as BrowseQueryPlans
 import Test.BrowseReads qualified as BrowseReads
@@ -48,6 +49,7 @@ import Test.NotifyGuard qualified as NotifyGuard
 import Test.PerformanceStructure qualified as PerformanceStructure
 import Test.Properties qualified as Properties
 import Test.PublisherCallbackResilience qualified as PublisherCallbackResilience
+import Test.PublisherDropCounter qualified as PublisherDropCounter
 import Test.PublisherIdleAdvance qualified as PublisherIdleAdvance
 import Test.PublisherRestartNoRebroadcast qualified as PublisherRestartNoRebroadcast
 import Test.ReadStream qualified as ReadStream
@@ -109,6 +111,7 @@ main = withSharedMigratedPostgres $ hspec $ do
     CategoryIdleNoSpin.spec
     HandlerStall.spec
     PublisherCallbackResilience.spec
+    PublisherDropCounter.spec
     PublisherIdleAdvance.spec
     PublisherRestartNoRebroadcast.spec
     CatchupDbErrorNoPrematureSwitch.spec
@@ -1804,6 +1807,14 @@ main = withSharedMigratedPostgres $ hspec $ do
                             , selector = Nothing
                             }
                 handle <- subscribe store cfg
+                -- This fixture requires a live handler; catch-up could otherwise
+                -- consume the queued range before observing overflow.
+                let awaitLive = do
+                        st <- currentState handle
+                        case st of
+                            Just Fsm.Live{} -> pure ()
+                            _ -> threadDelay 1_000 >> awaitLive
+                Async.race (threadDelay 5_000_000) awaitLive >>= (`shouldBe` Right ())
                 -- First append: triggers handler, which blocks on the release MVar.
                 Right _ <- runStoreIO store $ appendToStream (StreamName "f6-1") NoStream [makeEvent "E1" (Aeson.object [])]
                 takeMVar firstSeen
