@@ -1,0 +1,38 @@
+{
+  "kiroku-store": {
+    "current": "0.10.0.0",
+    "tag": "kiroku-store-v0.10.0.0",
+    "target": "364ffa82136fcfc83d39ead1234abffaf500844b",
+    "commits": 9
+  },
+  "kiroku-store-migrations": {
+    "current": "0.7.0.0",
+    "tag": "kiroku-store-migrations-v0.7.0.0",
+    "target": "364ffa82136fcfc83d39ead1234abffaf500844b",
+    "commits": 1
+  },
+  "kiroku-otel": {
+    "current": "0.2.0.11",
+    "tag": "kiroku-otel-v0.2.0.11",
+    "target": "364ffa82136fcfc83d39ead1234abffaf500844b",
+    "commits": 0
+  },
+  "kiroku-cli": {
+    "current": "0.2.0.9",
+    "tag": "kiroku-cli-v0.2.0.9",
+    "target": "364ffa82136fcfc83d39ead1234abffaf500844b",
+    "commits": 0
+  },
+  "kiroku-metrics": {
+    "current": "0.2.0.0",
+    "tag": "kiroku-metrics-v0.2.0.0",
+    "target": "364ffa82136fcfc83d39ead1234abffaf500844b",
+    "commits": 8
+  },
+  "shibuya-kiroku-adapter": {
+    "current": "0.6.0.0",
+    "tag": "shibuya-kiroku-adapter-v0.6.0.0",
+    "target": "364ffa82136fcfc83d39ead1234abffaf500844b",
+    "commits": 0
+  }
+}

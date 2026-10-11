@@ -1,0 +1,58 @@
+{
+  "kiroku-cli-0.2.0.10.tar.gz": {
+    "sha256": "2a8a8248d554edc4278873144a5478db7fd15fdd3b1e0f30d1e51b9f84f589c2",
+    "members": 17,
+    "checks": {
+      "LICENSE": true,
+      "CHANGELOG.md": true,
+      "cabal": true
+    }
+  },
+  "kiroku-metrics-0.3.0.0.tar.gz": {
+    "sha256": "209e21b45a7ff683cf4e38070e369af6ab76c966f080537d7439c40c5abb8d63",
+    "members": 43,
+    "checks": {
+      "LICENSE": true,
+      "CHANGELOG.md": true,
+      "cabal": true,
+      "standalone": true
+    }
+  },
+  "kiroku-otel-0.2.0.12.tar.gz": {
+    "sha256": "36789a6b0d9f6f8bb840504b53bdd5ea96fce4354e2580abb20dc234f9d31bfb",
+    "members": 9,
+    "checks": {
+      "LICENSE": true,
+      "CHANGELOG.md": true,
+      "cabal": true
+    }
+  },
+  "kiroku-store-0.11.0.0.tar.gz": {
+    "sha256": "11ad81f7a9f1e00d82893fbd397dcd8bbe7753c49f1214d0f20bc645718fe1ba",
+    "members": 103,
+    "checks": {
+      "LICENSE": true,
+      "CHANGELOG.md": true,
+      "cabal": true
+    }
+  },
+  "kiroku-store-migrations-0.7.1.0.tar.gz": {
+    "sha256": "c34a2ea51e6237bae1033f8c52100312d5dad0197b2a678315934cb529da9181",
+    "members": 39,
+    "checks": {
+      "LICENSE": true,
+      "CHANGELOG.md": true,
+      "cabal": true,
+      "0015": true
+    }
+  },
+  "shibuya-kiroku-adapter-0.6.0.1.tar.gz": {
+    "sha256": "dabbf92c23f5b67d8447f65f4c8fe553b9f77826b800d7f9d7e7681da2c7efb0",
+    "members": 16,
+    "checks": {
+      "LICENSE": true,
+      "CHANGELOG.md": true,
+      "cabal": true
+    }
+  }
+}

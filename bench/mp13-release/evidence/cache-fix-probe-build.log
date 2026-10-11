@@ -1,0 +1,46 @@
+Warning: Specifying an absolute path to the project file is deprecated. Use
+--project-dir to set the project's directory.
+Configuration is affected by mp13-candidate.project at '/private/tmp'.
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-metrics-0.2.0.0 (lib) (file src/Kiroku/Metrics/WebSocket.hs changed)
+ - inspection-probe-0.1.0.0 (exe:inspection-probe) (dependency rebuilt)
+Preprocessing library for kiroku-metrics-0.2.0.0...
+Building library for kiroku-metrics-0.2.0.0...
+[11 of 17] Compiling Kiroku.Metrics.WebSocket ( src/Kiroku/Metrics/WebSocket.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/WebSocket.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/WebSocket.dyn_o ) [Source file changed]
+src/Kiroku/Metrics/WebSocket.hs:85:23: warning: [GHC-38856] [-Wunused-imports]
+    The import of ‘foldl'’ from module ‘Data.Foldable’ is redundant
+   |
+85 | import Data.Foldable (foldl', for_)
+   |                       ^^^^^^
+
+[12 of 17] Compiling Kiroku.Metrics.Browse ( src/Kiroku/Metrics/Browse.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Browse.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Browse.dyn_o ) [Kiroku.Metrics.WebSocket changed]
+src/Kiroku/Metrics/Browse.hs:96:9: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at src/Kiroku/Metrics/Browse.hs:37:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+   |
+96 |         size <- browseSize limit
+   |         ^^^^
+
+src/Kiroku/Metrics/Browse.hs:120:9: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at src/Kiroku/Metrics/Browse.hs:37:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+120 |         size <- browseSize limit
+    |         ^^^^
+
+src/Kiroku/Metrics/Browse.hs:185:11: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at src/Kiroku/Metrics/Browse.hs:37:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+185 |     Right size -> Right size
+    |           ^^^^
+
+[15 of 17] Compiling Kiroku.Metrics.Server ( src/Kiroku/Metrics/Server.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Server.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Server.dyn_o ) [Kiroku.Metrics.WebSocket changed]
+[17 of 17] Compiling Kiroku.Metrics   ( src/Kiroku/Metrics.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics.dyn_o ) [Kiroku.Metrics.WebSocket changed]
+Preprocessing executable 'inspection-probe' for inspection-probe-0.1.0.0...
+Building executable 'inspection-probe' for inspection-probe-0.1.0.0...
+[2 of 2] Linking /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/inspection-probe-0.1.0.0/x/inspection-probe/build/inspection-probe/inspection-probe [Library changed]

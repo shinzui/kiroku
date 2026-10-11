@@ -1,0 +1,9 @@
+kiroku-otel-0.2.0.12
+kiroku-otel-0.2.0.12/CHANGELOG.md
+kiroku-otel-0.2.0.12/LICENSE
+kiroku-otel-0.2.0.12/kiroku-otel.cabal
+kiroku-otel-0.2.0.12/src/Kiroku/Otel
+kiroku-otel-0.2.0.12/src/Kiroku/Otel/Subscription.hs
+kiroku-otel-0.2.0.12/src/Kiroku/Otel/TraceContext.hs
+kiroku-otel-0.2.0.12/test
+kiroku-otel-0.2.0.12/test/Main.hs

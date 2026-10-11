@@ -1,0 +1,19 @@
+{
+  "source": "30307c1ed1606551fe108c24888aa4230924efca",
+  "websocket_sha256": "0dba702bbd1ea06fad4de9453d7993e016123087f680a81d68e2f27a8478d875",
+  "initial_client": "candidate only retained names; exploratory/confounded",
+  "corrected_client": "both arms retain original-stream IDs and event positions; candidate additionally checks wire name presence",
+  "corrected_source_sha256": "d507e8325e288af3687f667f04d7c7a1c0bd56bd42676a02a3da911715aeebbd",
+  "prior_runs_retained": [
+    "local-comparison",
+    "cache-fix-comparison"
+  ],
+  "timing_verdict": "inconclusive; six corrected verified active trials; descriptive intervals include adverse changes",
+  "corrected_results": "matched-client-comparison",
+  "corrected_totals": {
+    "verified_trials": 6,
+    "measured_appends": 296504,
+    "tail_events": 355809,
+    "poll_responses": 296
+  }
+}

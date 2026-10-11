@@ -1,0 +1,63 @@
+Warning: Specifying an absolute path to the project file is deprecated. Use
+--project-dir to set the project's directory.
+Configuration is affected by mp13-candidate.project at '/private/tmp'.
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - inspection-probe-0.1.0.0 (exe:inspection-probe) (file src/Main.hs changed)
+Preprocessing executable 'inspection-probe' for inspection-probe-0.1.0.0...
+Building executable 'inspection-probe' for inspection-probe-0.1.0.0...
+[1 of 1] Compiling Main             ( src/Main.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/inspection-probe-0.1.0.0/x/inspection-probe/build/inspection-probe/inspection-probe-tmp/Main.o ) [Source file changed]
+src/Main.hs:95:96: warning: [GHC-18042] [-Wtype-defaults]
+    • Defaulting the type variable ‘a0’ to type ‘Double’ in the following constraints
+        (Num a0) arising from a use of ‘*’ at src/Main.hs:95:96
+        (RealFrac a0) arising from a use of ‘floor’ at src/Main.hs:95:80-84
+        (Fractional a0)
+          arising from the literal ‘0.50’ at src/Main.hs:96:256-259
+    • In the first argument of ‘floor’, namely
+        ‘(fraction * fromIntegral (length sorted - 1))’
+      In the second argument of ‘min’, namely
+        ‘(floor (fraction * fromIntegral (length sorted - 1)))’
+      In the second argument of ‘(!!)’, namely
+        ‘min
+           (length sorted - 1)
+           (floor (fraction * fromIntegral (length sorted - 1)))’
+   |
+95 |                         percentile fraction = sorted !! min (length sorted-1) (floor (fraction * fromIntegral (length sorted-1)))
+   |                                                                                                ^
+
+src/Main.hs:105:53: warning: [GHC-18042] [-Wtype-defaults]
+    • Defaulting the type variable ‘t0’ to type ‘Integer’ in the following constraints
+        (Num t0) arising from the literal ‘0’ at src/Main.hs:105:53
+        (Show t0) arising from a use of ‘show’ at src/Main.hs:114:161-164
+        (Integral t0) arising from a use of ‘even’ at src/Main.hs:114:31-34
+    • In the first argument of ‘go’, namely ‘0’
+      In the expression: go 0 []
+      In an equation for ‘writer’:
+          writer store total begin seconds record worker
+            = go 0 []
+            where
+                event
+                  = S.EventData
+                      Nothing (S.EventType "Probe")
+                      (A.object ["body" A..= T.replicate 512 "x"]) Nothing Nothing
+                      Nothing
+                go n samples
+                  = do start <- getMonotonicTimeNSec
+                       ....
+    |
+105 | writer store total begin seconds record worker = go 0 []
+    |                                                     ^
+
+src/Main.hs:115:17: warning: [GHC-81995] [-Wunused-do-bind]
+    A do-notation statement discarded a result of type ‘S.AppendResult’
+    Suggested fix:
+      Suppress this warning by saying
+        ‘_ <- right
+                =<<
+                  S.runStoreIO
+                    store (S.appendToStream (S.StreamName name) S.AnyVersion [event])’
+    |
+115 |                 right =<< S.runStoreIO store (S.appendToStream (S.StreamName name) S.AnyVersion [event])
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+[2 of 2] Linking /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/inspection-probe-0.1.0.0/x/inspection-probe/build/inspection-probe/inspection-probe [Objects changed]

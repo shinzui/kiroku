@@ -1,0 +1,2 @@
+aac635d1313f3eacc3ca4c25a1d7c32e151a83db	refs/tags/kiroku-store-v0.10.0.0
+364ffa82136fcfc83d39ead1234abffaf500844b	refs/tags/kiroku-store-v0.10.0.0^{}

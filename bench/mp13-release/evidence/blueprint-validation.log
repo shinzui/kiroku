@@ -1,0 +1,20 @@
+Validating blueprint at /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/blueprints/kiroku-upgrade...
+
+  ✓ blueprint.dhall evaluates successfully
+  ✓ Blueprint name: kiroku-upgrade
+  ✓ 0 variables declared
+  ✓ 0 prompts defined
+  ✓ 0 base modules declared
+  ✓ 0 reference files declared
+  ✓ Blueprint name format
+  ✓ Blueprint version
+  ✓ Prompt body non-empty
+  ✓ Unique variable names
+  ✓ Prompt references
+  ✓ Base modules
+  ✓ Reference file existence
+  ✓ Tags
+  ✓ Allowed tools
+  ✓ Launch settings
+
+Blueprint 'kiroku-upgrade' is valid.

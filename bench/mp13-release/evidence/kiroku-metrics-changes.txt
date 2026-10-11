@@ -1,0 +1,8 @@
+d7d740d docs(inspection): retain standalone evidence and close EP-6
+7f9e4f0 feat(metrics): serve self-describing standalone inspection
+ac1d655 feat(metrics): converge WebSocket inspection delivery
+c725aac feat(inspection): expose bounded subscription dead-letter reads
+9717120 feat(inspection): add bounded byte-ordered stream browsing and event reads
+5fffd5a feat(kiroku-metrics): serve durable checkpoints through supervised providers
+6e3024a fix(kiroku-metrics): finish portable CORS validation and documentation
+a0537cf feat(kiroku-metrics)!: add configurable CORS to inspection servers

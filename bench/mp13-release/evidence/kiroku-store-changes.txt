@@ -1,0 +1,9 @@
+ac1d655 feat(metrics): converge WebSocket inspection delivery
+c725aac feat(inspection): expose bounded subscription dead-letter reads
+9717120 feat(inspection): add bounded byte-ordered stream browsing and event reads
+229ce7b test(store): prove shared browse and namespace access prototype
+1c6905f test(store): research shared category index and benchmark coverage
+6089675 test(store): evaluate name-range browsing with TypeID fixtures
+450f173 test(store): evaluate category-scoped browse reads on existing indexes
+635efb4 test(store): record rejected browse SQL promotion prototype
+f1a0209 docs(master-plan): complete hardening release and downstream adoption

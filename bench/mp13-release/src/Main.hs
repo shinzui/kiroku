@@ -53,7 +53,9 @@ main = do
             let port = server.serverPort
             bounded $ ready manager port
             seen <- newTVarIO (Set.empty :: Set.Set Integer)
-            names <- newTVarIO (Set.empty :: Set.Set T.Text)
+            -- Match the client's retained state and per-event bookkeeping in
+            -- both arms. Only the candidate's wire name assertion is additive.
+            names <- newTVarIO (Set.empty :: Set.Set Integer)
             errors <- newTVarIO ([] :: [A.Value])
             started <- newEmptyTMVarIO
             polls <- newIORef ([] :: [(String, Int)])
@@ -67,9 +69,12 @@ main = do
                             Just (A.String "event") -> case field "event" value >>= field "globalPosition" of
                                 Just (A.Number pos) -> atomically $ do
                                     modifyTVar' seen (Set.insert (round pos))
-                                    case field "event" value >>= field "original_stream_name" of
-                                        Just (A.String name) -> modifyTVar' names (Set.insert name)
-                                        _ -> when (arm == "candidate") (error "missing resolved name")
+                                    case field "event" value >>= field "originalStreamId" of
+                                        Just (A.Number sid) -> modifyTVar' names (Set.insert (round sid))
+                                        _ -> error "missing source stream id"
+                                    when (arm == "candidate") $ case field "event" value >>= field "original_stream_name" of
+                                        Just (A.String _) -> pure ()
+                                        _ -> error "missing resolved name"
                                 _ -> fail "missing event position"
                             Just (A.String "error") -> atomically $ modifyTVar' errors (value :)
                             _ -> pure ()
@@ -103,7 +108,7 @@ main = do
                     let sorted = sort samples
                         percentile :: Double -> Double
                         percentile fraction = sorted !! min (length sorted - 1) (floor (fraction * fromIntegral (length sorted - 1)))
-                    A.encodeFile output (A.object ["arm" A..= arm, "mode" A..= mode, "database" A..= database, "durable_events" A..= durable, "seconds" A..= elapsed, "measured_appends" A..= length samples, "total_appends" A..= count, "throughput" A..= (fromIntegral (length samples) / elapsed), "p50_us" A..= percentile 0.50, "p95_us" A..= percentile 0.95, "p99_us" A..= percentile 0.99, "raw_latency_us" A..= samples, "tail_events" A..= Set.size frames, "resolved_names" A..= Set.size uniqueNames, "poll_responses" A..= polled, "tail_errors" A..= failures])
+                    A.encodeFile output (A.object ["arm" A..= arm, "mode" A..= mode, "database" A..= database, "durable_events" A..= durable, "seconds" A..= elapsed, "measured_appends" A..= length samples, "total_appends" A..= count, "throughput" A..= (fromIntegral (length samples) / elapsed), "p50_us" A..= percentile 0.50, "p95_us" A..= percentile 0.95, "p99_us" A..= percentile 0.99, "raw_latency_us" A..= samples, "tail_events" A..= Set.size frames, "source_streams_seen" A..= Set.size uniqueNames, "resolved_names" A..= (if arm == "candidate" then Set.size uniqueNames else 0), "poll_responses" A..= polled, "tail_errors" A..= failures])
             if mode == "active"
                 then Async.withAsync tailClient $ \tailWorker -> Async.withAsync polling $ \pollWorker -> do
                     Async.link tailWorker

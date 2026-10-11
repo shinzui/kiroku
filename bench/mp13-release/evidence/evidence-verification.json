@@ -1,0 +1,21 @@
+{
+  "verified_trial_groups": {
+    "local-comparison": 12,
+    "cache-fix-comparison": 6,
+    "matched-client-comparison": 6,
+    "proof-2": 1,
+    "proof-3": 1
+  },
+  "trial_hashes_and_raw_recomputation": "pass",
+  "durability_checks": {
+    "local-comparison": "pass",
+    "cache-fix-comparison": "pass",
+    "matched-client-comparison": "pass",
+    "proof-2": "earlier proof predates durability fields; not durability evidence",
+    "proof-3": "pass"
+  },
+  "final_gate_exit": 1,
+  "final_gate_inside_original_deadline": true,
+  "retained_failed_proof": "proof-1; failed generated-column insert; old running journal is historical, not active execution",
+  "release_status": "unapproved; unapplied; unpublished"
+}

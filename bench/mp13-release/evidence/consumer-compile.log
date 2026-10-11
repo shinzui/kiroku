@@ -1,0 +1,29 @@
+Loaded package environment from /private/var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/tmp/environment.-19880/.ghc.environment.aarch64-darwin-9.12.4
+[1 of 2] Compiling Legacy           ( /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/Legacy.hs, nothing )
+[2 of 2] Compiling Main             ( /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/Consumer.hs, nothing )
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/Consumer.hs:23:17: error: [GHC-99339]
+    • Ambiguous record update with field ‘Store.limit’
+      This field appears in both datatypes
+        ‘Store.HistoryRetentionInventoryQuery’ and ‘Store.SubscriptionDeadLetterQuery’
+    • In the expression:
+        (Store.defaultSubscriptionDeadLetterQuery
+           (Store.SubscriptionName "probe"))
+          {limit = letterLimit}
+      In an equation for ‘query’:
+          query
+            = (Store.defaultSubscriptionDeadLetterQuery
+                 (Store.SubscriptionName "probe"))
+                {limit = letterLimit}
+      In a stmt of a 'do' block:
+        let query
+              = (Store.defaultSubscriptionDeadLetterQuery
+                   (Store.SubscriptionName "probe"))
+                  {limit = letterLimit}
+            cfg = defaultConfig {port = 0, cors = corsDisabled}
+            settings
+              = Store.defaultStoreSettings
+                  {Store.decodeHook = Just (pure . Right)}
+   |
+23 |     let query = (Store.defaultSubscriptionDeadLetterQuery (Store.SubscriptionName "probe")){Store.limit = letterLimit}
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

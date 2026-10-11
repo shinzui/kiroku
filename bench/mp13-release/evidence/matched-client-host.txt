@@ -1,0 +1,7 @@
+  PID  %CPU COMM
+  654 101.7 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/FSEvents.framework/Versions/A/Support/fseventsd
+ 4905  67.2 /nix/store/ccjihgs38m5qgvksik031vjz1cn9qksy-cabal-install-3.16.1.0/bin/cabal
+50393  12.5 /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/154.0.8037.57/Helpers/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper
+51577  16.9 /Applications/WezTerm.app/Contents/MacOS/wezterm-gui
+73953  19.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+88706 136.3 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Virtualization.VirtualMachine

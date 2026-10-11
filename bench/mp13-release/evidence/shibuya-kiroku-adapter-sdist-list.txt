@@ -1,0 +1,16 @@
+shibuya-kiroku-adapter-0.6.0.1
+shibuya-kiroku-adapter-0.6.0.1/CHANGELOG.md
+shibuya-kiroku-adapter-0.6.0.1/LICENSE
+shibuya-kiroku-adapter-0.6.0.1/app
+shibuya-kiroku-adapter-0.6.0.1/app/LifecycleLive.hs
+shibuya-kiroku-adapter-0.6.0.1/bench
+shibuya-kiroku-adapter-0.6.0.1/bench/WriteProbe.hs
+shibuya-kiroku-adapter-0.6.0.1/internal/Shibuya/Adapter/Kiroku
+shibuya-kiroku-adapter-0.6.0.1/internal/Shibuya/Adapter/Kiroku/Internal.hs
+shibuya-kiroku-adapter-0.6.0.1/shibuya-kiroku-adapter.cabal
+shibuya-kiroku-adapter-0.6.0.1/src/Shibuya/Adapter
+shibuya-kiroku-adapter-0.6.0.1/src/Shibuya/Adapter/Kiroku.hs
+shibuya-kiroku-adapter-0.6.0.1/src/Shibuya/Adapter/Kiroku
+shibuya-kiroku-adapter-0.6.0.1/src/Shibuya/Adapter/Kiroku/Convert.hs
+shibuya-kiroku-adapter-0.6.0.1/test
+shibuya-kiroku-adapter-0.6.0.1/test/Main.hs

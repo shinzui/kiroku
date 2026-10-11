@@ -1,0 +1,196 @@
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-metrics-0.2.0.0 (lib) (file src/Kiroku/Metrics/WebSocket.hs changed)
+ - kiroku-metrics-0.2.0.0 (exe:kiroku-inspect) (dependency rebuilt)
+ - kiroku-metrics-0.2.0.0 (test:kiroku-metrics-test) (dependency rebuilt)
+Preprocessing library for kiroku-metrics-0.2.0.0...
+Building library for kiroku-metrics-0.2.0.0...
+[11 of 17] Compiling Kiroku.Metrics.WebSocket ( src/Kiroku/Metrics/WebSocket.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/WebSocket.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/WebSocket.dyn_o ) [Source file changed]
+src/Kiroku/Metrics/WebSocket.hs:85:23: warning: [GHC-38856] [-Wunused-imports]
+    The import of ‘foldl'’ from module ‘Data.Foldable’ is redundant
+   |
+85 | import Data.Foldable (foldl', for_)
+   |                       ^^^^^^
+
+[12 of 17] Compiling Kiroku.Metrics.Browse ( src/Kiroku/Metrics/Browse.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Browse.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Browse.dyn_o ) [Kiroku.Metrics.WebSocket changed]
+src/Kiroku/Metrics/Browse.hs:96:9: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at src/Kiroku/Metrics/Browse.hs:37:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+   |
+96 |         size <- browseSize limit
+   |         ^^^^
+
+src/Kiroku/Metrics/Browse.hs:120:9: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at src/Kiroku/Metrics/Browse.hs:37:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+120 |         size <- browseSize limit
+    |         ^^^^
+
+src/Kiroku/Metrics/Browse.hs:185:11: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at src/Kiroku/Metrics/Browse.hs:37:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+185 |     Right size -> Right size
+    |           ^^^^
+
+[15 of 17] Compiling Kiroku.Metrics.Server ( src/Kiroku/Metrics/Server.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Server.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Server.dyn_o ) [Kiroku.Metrics.WebSocket changed]
+[17 of 17] Compiling Kiroku.Metrics   ( src/Kiroku/Metrics.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics.dyn_o ) [Kiroku.Metrics.WebSocket changed]
+Preprocessing executable 'kiroku-inspect' for kiroku-metrics-0.2.0.0...
+Building executable 'kiroku-inspect' for kiroku-metrics-0.2.0.0...
+[2 of 2] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/x/kiroku-inspect/build/kiroku-inspect/kiroku-inspect [Library changed]
+Preprocessing test suite 'kiroku-metrics-test' for kiroku-metrics-0.2.0.0...
+Building test suite 'kiroku-metrics-test' for kiroku-metrics-0.2.0.0...
+[11 of 13] Compiling Test.WebSocketConvergenceSpec ( test/Test/WebSocketConvergenceSpec.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/t/kiroku-metrics-test/build/kiroku-metrics-test/kiroku-metrics-test-tmp/Test/WebSocketConvergenceSpec.o ) [Kiroku.Metrics.WebSocket changed]
+[14 of 14] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/t/kiroku-metrics-test/build/kiroku-metrics-test/kiroku-metrics-test [Objects changed]
+Running 1 test suites...
+Test suite kiroku-metrics-test: RUNNING...
+
+Kiroku.Metrics.Standalone (options)
+  parses defaults, repeated origins, and all options [✔]
+  rejects signed, non-ASCII, overflowing and out-of-range CLI numbers and conflicting flags [✔]
+  resolves environment defaults and reports a missing or empty database/schema [✔]
+  valid flags override malformed environment values including explicit credentials False [✔]
+  validates environment numbers and booleans, normalizes origins and refuses wildcard [✔]
+Kiroku.Metrics.Standalone (end to end)
+standalone discovery capture: {"cors":{"enabled":true},"package":"kiroku-metrics","process_local":["metrics","prometheus","health","subscriptions_live","websocket_metrics"],"routes":{"browse":true,"dead_letters":true,"health":true,"metrics":true,"prometheus":true,"subscriptions_checkpoints":true,"subscriptions_live":true,"websocket_events":true,"websocket_metrics":true},"version":"0.2.0.0"}
+  serves durable reads, an empty live registry, CORS, and real event tail from a database URL [✔]
+  releases its listener on immediate shutdown, hook exception and cancellation [✔]
+  does not call onListening on an occupied port [✔]
+kiroku-inspect (executable)
+  exits 2 for usage/resolution errors and redacts runtime connection failures [✔]
+  prints no success banner and exits 1 on bind failure [✔]
+  exits 0 after SIGINT or SIGTERM, including repeated signals [✔]
+Kiroku.Metrics.Capabilities
+  pins every wire key, includes Prometheus as process-local, and round-trips [✔]
+  derives availability from wiring and switches without invoking any provider [✔]
+  implements GET, bodyless HEAD, exact path and 405 in direct WAI [✔]
+  reports plain/stub servers honestly and remains reachable with every switch off [✔]
+  reports all store providers and the legacy store starter's absent live registry [✔]
+  honours custom declarations, refuses disabled upgrades and keeps legacy opaque apps conservative [✔]
+  serves discovery behind a mount prefix and preserves the configured CORS policy [✔]
+Kiroku.Metrics.Browse
+  validates page limits before construction [✔]
+  rejects malformed queries before invoking the store [✔]
+  preserves HEAD status/headers, refuses mutations and sanitizes errors [✔]
+  serves all browse routes, names and exclusive pages through the shared server [✔]
+  keeps prefix-mounted browse routes and CORS active when legacy JSON and WebSockets are disabled [✔]
+  trims over-fetch before one distinct-name lookup and skips it on empty pages [✔]
+Kiroku.Metrics.Checkpoints (/subscription-checkpoints)
+  pins exact snake_case keys, preserves row order and round-trips lossless Int64 positions [✔]
+  serves an inventory and a structured standalone 404 [✔]
+  implements HEAD and 405 directly in WAI and calls the provider once per read [✔]
+  sanitizes typed failures and preserves HEAD error status and headers [✔]
+  does not disguise thrown provider exceptions or cancellation as store errors [✔]
+  keeps a stopped worker durable after its live registry entry disappears [✔]
+  preserves SQL name and numeric member ordering with the captured frontier [✔]
+  returns equal quiescent inventories across handles with different live providers [✔]
+  serves an empty store without changing the legacy unconfigured live response [✔]
+  returns structured not-configured errors without shadowing a live name checkpoints [✔]
+  mounts HTTP and the real event WebSocket when the host strips only pathInfo [✔]
+  escapes mounted WebSocket segments and retains the raw query string [✔]
+  enforces disabled WebSockets through both legacy and general composition [✔]
+  does no checkpoint work on legacy metrics reads and invokes inventory only on demand [✔]
+  inherits exactly one CORS wrap on the provider composition [✔]
+  is immediately ready on ephemeral and fixed ports and releases each socket [✔]
+  reports an occupied-port failure to acquisition without invoking the callback [✔]
+  releases the server after callback failure and propagates unexpected termination [✔]
+  cancels acquisition or its returned lifetime without leaking a fixed-port listener [✔]
+DeadLetters
+  pins exact snake_case keys, preserves reason JSON and round-trips lossless positions [✔]
+  validates decimal cursor components without signed or overflow narrowing [✔]
+  passes the complete query once and uses the documented defaults [✔]
+  rejects invalid, duplicate, missing and malformed UTF-8 values before calling a provider [✔]
+  implements HEAD and 405 in WAI, including unavailable and unconfigured responses [✔]
+  sanitizes typed store failures and preserves HEAD error headers [✔]
+  propagates thrown provider exceptions and serves structured unknown-path errors [✔]
+Dead-letter worker response: {"items":[{"attempt_count":1,"created_at":"2026-10-11T03:40:51.008408Z","dead_letter_id":7,"event_id":"01a1290c-8db9-7419-b871-7ac6f82bacc9","global_position":2,"member":0,"reason":{"detail":"unknown SKU","kind":"poison"},"reason_summary":"poison: unknown SKU","subscription":"worker"}]}
+  serves real pages, member filters and legacy behavior from the store-aware server [✔]
+  inherits mount-relative routing and CORS with legacy switches disabled [✔]
+Kiroku.Metrics.Cors (configuration)
+  defaults to disabled and validates normalized HTTP(S) origins [✔]
+  normalizes IPv6 literals including embedded IPv4 [✔]
+  rejects wildcards, opaque origins, malformed authorities, paths and Unicode [✔]
+  tolerates configuration slash/whitespace but refuses them in request origins [✔]
+Kiroku.Metrics.Cors (middleware, standalone)
+  preserves every response byte and header when disabled, including upgrades and preflights [✔]
+  decorates GET and HEAD and varies allowed, disallowed, absent, malformed and duplicate origins [✔]
+  answers GET/HEAD preflights, reflects validated tokens, and varies on all inputs [✔]
+  rejects unsupported/duplicate methods and malformed requested header tokens [✔]
+  passes plain OPTIONS and disallowed preflights through without grants [✔]
+  merges existing Vary case-insensitively and preserves wildcard variation [✔]
+  owns grants once, adds optional credentials and ignores negative max age [✔]
+  refuses malformed/duplicate/disallowed upgrade origins before invoking the inner app [✔]
+  never reuses grants between sequential requests with different origins [✔]
+  leaves raw upgrade responses untouched [✔]
+  strips HEAD bodies on a real Warp server while preserving grants and status [✔]
+Kiroku.Metrics.JSON (shared inspection errors)
+  pins envelope keys and omits optional details [✔]
+  sanitizes unavailable and other store errors [✔]
+Kiroku.Metrics.Cors (real server)
+  decorates store-backed metrics, answers preflights and keeps denied bodies unchanged [✔]
+  upgrades allowed and absent origins but refuses an unlisted browser origin [✔]
+  keeps upgrades open to any origin under the default disabled policy [✔]
+Kiroku.Metrics.Collector
+  counts notifier reconnect events [✔]
+  counts publisher pool and loop errors separately [✔]
+  counts typed decode failures and undecodable stops separately from programming errors [✔]
+  counts advisory stalls without advancing the subscription position [✔]
+  records subscription position and derives lag from the global position [✔]
+  records the durable position from checkpoint resolution telemetry [✔]
+  advances last-known position monotonically and never reports negative lag [✔]
+  tallies stop reasons and records the last one per subscription [✔]
+  tallies per-phase database errors and the per-subscription error count [✔]
+  counts delivered batches and sums delivered events [✔]
+  tracks pool connection gauges and cumulative counters from observations [✔]
+  removes terminated connections from the gauge and bumps the terminated counter [✔]
+Kiroku.Metrics.Collector (integration)
+  observes real store activity: appends, a running subscription, and lag [✔]
+Kiroku.Metrics.Server (endpoints)
+  serves JSON, Prometheus, and health endpoints over HTTP [✔]
+Kiroku.Metrics.WebSocket (frames)
+  preserves every existing server frame [✔]
+  pins coded errors and all four code spellings [✔]
+  accepts every old client frame and unsubscribe_metrics [✔]
+  adds exactly original_stream_name and preserves all old event fields [✔]
+  detects only counter changes, including modular wraparound [✔]
+Kiroku.Metrics.WebSocket (bounded delivery)
+  resolves one cold batch, no warm or empty batches, and bounds FIFO retention [✔]
+  does not retain misses and propagates cancellation from a name lookup [✔]
+  delivers unchanged and transformed batches without false overflow notices [✔]
+  never sends partial data and terminates on an applicable typed decode failure [✔]
+  filters typed failures below the covered replay boundary [✔]
+  signals real publisher loss before survivors and recovers from the pre-notice cursor [✔]
+  coalesces defensive status overflow and a drop notice in the same delivery [✔]
+Kiroku.Metrics.WebSocket (worker lifecycle)
+  keeps one unmasked worker through repeated start/stop and joins on exit [✔]
+  joins a worker when the connection is cancelled during worker startup [✔]
+  propagates unexpected worker failure to the owner [✔]
+Kiroku.Metrics.WebSocket (convergence, real server)
+  stops metrics pushes, resumes them and preserves ping [✔]
+  labels live events on both new and warm streams [✔]
+  labels replay and category events [✔]
+  codes and sanitizes a replay failure and ends its tail [✔]
+  codes a category failure without appending to the renamed table [✔]
+  codes typed live decode failures without leaking hook details [✔]
+Kiroku.Metrics.WebSocket (endpoints)
+  streams appended events over /ws/events and a snapshot over /ws/metrics [✔]
+  reports a typed live decode failure and releases the publisher queue [✔]
+  replays history from a position then continues live without duplicating the boundary [✔]
+  delivers each global position exactly once when the replay overlaps live appends [✔]
+  terminates the tail after a replay error instead of streaming with a gap [✔]
+Kiroku.Metrics.Subscriptions (/subscriptions)
+  encodes server-side rows that decode back through the shared CLI codec [✔]
+  reports a live subscription to the CLI remote client end to end [✔]
+  returns a configured-404 when no provider is wired [✔]
+  returns the documented 404 JSON body for unknown paths when mounted standalone [✔]
+
+Finished in 11.8525 seconds
+116 examples, 0 failures
+Test suite kiroku-metrics-test: PASS
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/t/kiroku-metrics-test/test/kiroku-metrics-0.2.0.0-kiroku-metrics-test.log
+1 of 1 test suites (1 of 1 test cases) passed.

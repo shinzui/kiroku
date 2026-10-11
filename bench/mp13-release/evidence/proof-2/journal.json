@@ -1,0 +1,28 @@
+{
+  "started": 1791689468.364164,
+  "deadline": 1791692663.0,
+  "binaries": {
+    "control": {
+      "path": "/tmp/mp13-control-build/build/aarch64-osx/ghc-9.12.4/inspection-probe-0.1.0.0/x/inspection-probe/build/inspection-probe/inspection-probe",
+      "sha256": "501db8949030e27c5d65b328a87bec66182094c54310614c8edb65b30a231966"
+    },
+    "candidate": {
+      "path": "/tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/inspection-probe-0.1.0.0/x/inspection-probe/build/inspection-probe/inspection-probe",
+      "sha256": "0f1227ef62b85479ab774621023840fd2d58dfd3f94ec1c4d3051cf548645976"
+    }
+  },
+  "trials": [
+    {
+      "arm": "candidate",
+      "mode": "active",
+      "name": "proof",
+      "started": 1791689468.838891,
+      "status": "verified",
+      "completed": 1791689486.0635068,
+      "sha256": "311d9183a23a9da3b7f94881224315c1fde2917133446777ae5b53e8fef3358b"
+    }
+  ],
+  "status": "complete",
+  "acceptance": "inconclusive: local diagnostic, no controlled-host calibration",
+  "finished": 1791689486.06514
+}

@@ -459,7 +459,8 @@ rule suffices.
 ## Progress
 
 - [x] (2026-10-11) EP-7: confirm six functional children and 672 fresh passing examples; prepare a registry/tag-derived, unapplied six-package release patch, validated source archives, executable and consumer fixtures.
-- [ ] EP-7: resolve the retained aggregate timing failure and cumulative original-control acceptance before publication.
+- [x] (2026-10-11) EP-7: commit batch-proportional tail-cache miss discovery (`30307c1`), pass 116 metrics tests, and finish final proposal build/Nix/Haddock/consumer packaging. Retain all earlier trials and one corrected six-trial observer comparison.
+- [ ] EP-7: resolve retained aggregate timing failures and inconclusive cumulative original-control acceptance before publication.
 
 - [x] (2026-10-10) EP-3 selected-layout measurement: verify proof plus five fresh and five observer pairs, all 21 benchmark-grade trials, raw recomputation and lease/cell cleanup. Preserve adverse cost estimates and unresolved precision in the [report](../../bench/mp13-index/evidence/2026-10-10-byte-name/README.md); EP-3 local design review is now closed by user endorsement; cumulative release acceptance remains owned by EP-7.
 
@@ -521,6 +522,8 @@ rule suffices.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-11 EP-7: full retained-name key enumeration amplified small tail-batch work; requested-ID membership checks preserve lookup/cache/wire behavior. The initial diagnostic also gave the candidate extra client bookkeeping in the server process. All samples remain retained, and the corrected comparison is inconclusive. Package metadata is a concrete isolated proposal; publication and final requests remain pending.
 
 - 2026-10-11 EP-6: `storeBrowsing` is the settled provider label. NoFieldSelectors prevents selector collisions but not ambiguous record updates, so consumers of the expanded umbrella qualify configuration labels. The Nix overlay previously stripped all executable inputs; it now retains published standalone inputs while excluding the example. ADR-18 owns the composition/hosting/discovery outcome. No bind-address field is added in this cohort.
 
@@ -914,8 +917,17 @@ example, external consumer, source distribution, final Nix runtime build and
 bundle checks pass. Evidence is retained with source/artifact hashes in
 `kiroku-metrics/bench/results/mp13-ep6-standalone-discovery/README.md`.
 
-EP-7 / plan 96 is ready for release validation. Cumulative performance acceptance
-remains open and the browse index's retained policy verdict stays inconclusive.
+EP-7 / plan 96 is In Progress. The final six-package metadata/upgrade proposal
+and source/documentation archives are prepared in isolation; new and legacy
+consumer fixtures, executable help, the full build and Nix packaging pass.
+Tail-cache misses now inspect only requested IDs; its 116 metrics tests pass.
+The initial observer comparisons had unequal client bookkeeping; they remain
+retained, and the corrected six-trial comparison verifies 296,504 measured
+appends and exact delivery. The final aggregate check passes structural invariants and 14/16 timings; its
+two high-variance failures remain retained. The workload gate is failed and
+shared-host observer intervals leave cumulative performance acceptance open. See
+[release evidence](../../bench/mp13-release/evidence/README.md). The browse index's
+retained policy verdict stays inconclusive.
 No gate was relaxed, no version bumped or package published; IR-8 through IR-12
 remain in_progress. EP-6 adds no store/index/publisher change or per-request
 provider call to discovery. Existing observer-under-append acceptance is still

@@ -1,0 +1,12 @@
+{
+  "control": "364ffa82136fcfc83d39ead1234abffaf500844b",
+  "candidate": "30307c1ed1606551fe108c24888aa4230924efca",
+  "probe_sources": {
+    "bench/mp13-release/src/Main.hs": "d507e8325e288af3687f667f04d7c7a1c0bd56bd42676a02a3da911715aeebbd",
+    "bench/mp13-release/inspection-probe.cabal": "0cd4d546b711a515df0086a666c3f6112b6ec994a0485c5ef4f9e337bbe8a51e",
+    "bench/mp13-release/run.py": "5adf44d6f9ad0f08f6a55cf837bd2fcdb0758b0389a7705cf2d0d43c15150235"
+  },
+  "external_version_differences": {},
+  "comparison": "matched-client-comparison",
+  "source_tree": "release metadata unapplied; probe bookkeeping amended in both compiled binaries"
+}

@@ -1,0 +1,8 @@
+All
+  append-category-column
+    control-append-40:   OK
+      80.8 ms ±  34 ms
+    candidate-append-40: OK
+      59.3 ms ±  70 ms, 0.73x
+
+All 2 tests passed (112.03s)

@@ -1,0 +1,41 @@
+{
+  "scope": "local diagnostic, not benchmark-grade acceptance",
+  "original_deadline": "2026-10-11T04:24:23Z",
+  "cases": [
+    "disabled observers",
+    "active real WebSocket tail and four HTTP polls per second"
+  ],
+  "paired_trials_per_case": 3,
+  "warmup_seconds": 2,
+  "measurement_seconds": 10,
+  "appenders": 4,
+  "payload_characters": 512,
+  "fixture_streams": 10000,
+  "fixture_dead_letters": 6000,
+  "fixture_historical_members": [
+    0,
+    1,
+    9
+  ],
+  "fixture_inventory_rows": 100,
+  "load": "unpaced, interleaved fresh and warm streams",
+  "comparison": "alternating adjacent AB/BA pairs; descriptive Student-t intervals on log ratios; no release verdict from these measurements",
+  "publication_gate": "unchanged ADR-5 aggregate and ADR-15 cumulative original-control acceptance",
+  "stop_conditions": [
+    "append/store errors",
+    "unexpected HTTP statuses",
+    "tail errors or missing exact delivery",
+    "fewer than 4096 resolved candidate stream names",
+    "invalid durability/version/raw samples",
+    "90-second trial limit",
+    "original whole-experiment deadline"
+  ],
+  "forecast": "12 trials at ~17 seconds each, ~3.5 minutes, plus prior builds/setup; proof is retained separately and excluded",
+  "background": "Other repository tests were observed on this shared workstation; host isolation and statistical neutrality are not claimed",
+  "proof_database": {
+    "fsync": "on",
+    "full_page_writes": "on",
+    "synchronous_commit": "on",
+    "version": "18.6"
+  }
+}

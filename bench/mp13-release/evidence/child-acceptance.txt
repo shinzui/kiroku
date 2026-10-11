@@ -1,0 +1,468 @@
+90-add-configurable-cors-support-to-kiroku-metrics.md
+
+- [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
+- [x] (2026-10-10) Executed focused correctness, disabled-identity/structural checks and the local middleware comparison. Cumulative append-under-observer acceptance remains with plan 96.
+
+- [x] (2026-10-10) Milestone 1: `Kiroku.Metrics.Cors` module (validated `AllowedOrigin`, `CorsPolicy`,
+      `corsMiddleware`), the `cors` field on `MetricsServerConfig` defaulting to
+      `corsDisabled`, umbrella re-export, changelog `Unreleased` entry, and the standalone
+      (database-free) `Test.CorsSpec` examples for configuration validation, preflight, actual
+      requests, disallowed and absent origins, matching rules, credentials, and the WebSocket
+      upgrade refusal at the WAI layer; IR-11 set to `in_progress`.
+- [x] (2026-10-10) Milestone 2: middleware wired into `combinedApp` so every starter honours `cfg.cors`; the
+      shared `errorEnvelope`/`errorResponse` helpers in `Kiroku.Metrics.JSON` (created in
+      Milestone 1); real-server examples proving
+      `GET /metrics` is decorated through `startMetricsServerWithStore`, `/ws/metrics` upgrades
+      for an allowed origin, is refused for a disallowed one, ignores an absent `Origin`, and
+      stays open to any origin when CORS is disabled; whole suite green.
+- [x] (2026-10-10) Milestone 3: `docs/user/metrics.md` CORS section with transcripts, the WebSocket origin
+      rule, the credentials rule, and the reverse-proxy alternative; config table row and
+      deployment note; example extended with a CORS step and the quoted transcript updated;
+      CAP-17 updated with log entry; changelog finalized; IR-11 body updated with implementation
+      evidence; all repository validations green.
+- [x] (2026-10-10) Milestone 4: ADR distillation pass performed (the CORS-posture record decided with
+      evidence in hand) and Outcomes written. (The release, the clean-consumer check, and
+      IR-11's `completed` status moved to plan 96, EP-7 of MasterPlan 13, on 2026-09-30.)
+
+
+
+Completed on 2026-10-10. Every existing starter now inherits explicit-origin CORS at
+combined WAI dispatch. Validated origins, cache-correct grants, preflight refusals,
+credentials/max-age, raw upgrade preservation and the shared sanitized error helpers
+are implemented. The default is the original application. Existing published bodies,
+frames and endpoint dispatch remain unchanged. ADR-16 records the durable posture.
+
+Validation passed: `cabal build all`; `cabal test all` (six suites, 574 examples,
+zero failures); final affected-package rerun (43 examples, zero failures);
+`nix build .#kiroku-metrics`; the seven-step example; `nix fmt` (zero changes);
+`just capabilities-validate`; `just adr-validate`; strict profiled/log-enforced ADR
+and improvement-request checks (16 and 18 concepts respectively); and diff checks.
+No version or dependency bound changed. IR-11 remains `in_progress`; publication,
+clean-consumer evidence and cumulative performance acceptance belong to plan 96.
+
+The local CPU-time smoke check compiled an O2 standalone WAI harness against the
+built library. Each case warmed 2,000 requests, then ran three trials of 50,000
+requests, consuming response headers. Request origins varied ports from 443 to 698
+so parsing could not be hoisted as a constant response. Cases were an unwrapped
+control, disabled CORS, one configured origin and 4,096 configured origins. No DB,
+remote lease, extra server thread or append path participated. Final observations
+in microseconds/request were:
+
+```text
+control:       0.01718, 0.02094, 0.05814
+disabled:      0.03708, 0.03124, 0.02770
+one origin:    1.71948, 1.52770, 1.53206
+4096 origins:  1.58668, 1.59562, 1.59936
+```
+
+This coarse comparison supports the construction-time set invariant and found no
+linear request-time allowlist rebuild. It is not a tight neutrality estimate: the
+submicrosecond control/disabled samples are noisy, and enabled browser access has
+measurable optional work. Disabled identity is established structurally and by
+response tests. Original-control append-under-inspection evidence remains pending
+for the cohort. The harness and raw logs are in `/tmp/mp13-cors-probe.hs` and
+`/tmp/mp13-cors-probe-final.log` for this session.
+
+
+2026-10-10 review: implementation and performance acceptance remain pending. Static review does not prove zero runtime regression. Earlier planning-time observations and dated decisions are historical where this revision explicitly replaces them.
+
+
+
+
+
+87-serve-durable-subscription-checkpoints-over-http.md
+
+- [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
+- [x] (2026-10-10) Execute focused route correctness and shared-work checks: one
+  inventory read per GET/HEAD, none on legacy metrics reads; unchanged store/SQL
+  source and existing structural tests pass. Cumulative append-under-observer
+  performance acceptance remains explicitly assigned to EP-7.
+
+- [x] (2026-10-10) Milestone 1: `Kiroku.Metrics.Checkpoints` module with the provider type, the canonical
+      store-backed provider, the wire types and their hand-written JSON codec, the
+      `checkpointsApp` WAI application, and the pure codec test; IR-10 set to `in_progress`.
+- [x] (2026-10-10) Milestone 2: `ServerProviders` record and the four `...WithProviders` functions added to
+      `Kiroku.Metrics.Server` with every legacy starter delegating unchanged;
+      `/subscription-checkpoints` matched as a reserved segment ahead of the by-name live route;
+      structured not-configured envelope; store-backed starters serve the durable route
+      automatically; the CORS wrap from plan 90 preserved at the composition point; umbrella
+      re-exports; existing suites green.
+- [x] (2026-10-10) Milestone 3: end-to-end `Test.CheckpointsSpec` coverage for every IR-10 acceptance item
+      (stopped-worker retention versus live absence, ordering, two handles over one database,
+      no live provider, empty store, not configured, provider failure, standalone 404).
+- [x] (2026-10-10) Milestone 4: `docs/user/metrics.md` section with transcript and the live-versus-durable
+      explanation, cross-links from `docs/user/subscriptions.md` and `docs/user/operator-cli.md`,
+      the self-verifying example extended, CAP-17 updated, changelog `Unreleased` entry, IR-10
+      body updated with implementation evidence, all repository validations green.
+- [x] (2026-10-10) Milestone 5: ADR distillation pass performed and Outcomes written. (The release and the
+      `completed` status of IR-10 moved to plan 96, EP-7 of MasterPlan 13, on 2026-09-30.)
+
+
+
+2026-10-10 implementation: EP-2 is complete. `Kiroku.Metrics.Checkpoints` wraps the
+existing public inventory without changing store code, SQL, migrations or append paths.
+The provider record and four general bindings preserve every legacy signature, live
+route/body and outer CORS composition. Readiness, failure propagation, explicit socket
+cleanup, the WebSocket switch and prefix mounts are implemented and tested.
+
+Validation passed: `cabal build all`, `cabal test all` (six suites, 593 examples,
+zero failures, including 19 new checkpoint/composition examples),
+`cabal run -fexample kiroku-metrics-example` (all eight steps),
+`nix build .#kiroku-metrics`, capability/request validation, strict ADR validation,
+local Markdown link/fence checks and whitespace checks. A compile-only consumer uses
+all legacy starters plus the explicit provider binding; exact package IDs from the
+Cabal plan avoid duplicate installed Wai/WebSockets modules.
+
+Focused affected-path evidence pins one inventory call on each GET/HEAD, no calls
+on rejected methods or twenty legacy metrics reads, and no inventory background thread.
+Existing store correctness/structural checks run in the full suite. Cancellation probes
+cover entry/readiness lifetime boundaries at three delays; they are boundary checks,
+not a claim of exhaustive scheduling coverage. No remote benchmark was launched and
+no cumulative append-performance neutrality is claimed; EP-7 retains that gate.
+
+ADR distillation: ADR-15 already owns the nonshadowing path, read methods, compatible
+composition and unpaginated-work constraints. Its lifecycle paragraph now records the
+supervised callback thread and explicit socket finalizers. No duplicate routing ADR
+is needed; EP-6 still owns the complete composition/self-hosting ADR. CAP-17 and IR-10
+record the implemented evidence, while IR-10 remains `in_progress` until EP-7 releases.
+The practical lesson is that bind-failure tests must reserve wildcard IPv4 and IPv6
+listeners on macOS, where a loopback listener can coexist with a wildcard bind.
+
+
+2026-10-10 review: implementation and performance acceptance remain pending. Static review does not prove zero runtime regression. Earlier planning-time observations and dated decisions are historical where this revision explicitly replaces them.
+
+(To be filled during and after implementation.)
+
+
+
+88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md
+
+- [x] (2026-10-10) M0: implement a disposable shared-access prototype: one byte-ordered browse index, bounded category/literal-prefix pages, and namespace global windows using existing event indexes. All 224 TypeID/edge-case checks pass (176 browse, 48 namespace); retain preceding rejected plans/setup error and verify every owned cluster stopped.
+- [x] (2026-10-10) M0: user accepted UTF-8 byte ordering; select one partial C-collated name index for category and literal-prefix stream pages (ADR-17).
+- [x] (2026-10-10) M0 cost measurement: finish the exact selected layout comparison against the original control: proof plus five pairs per workload, all 21 trials verified, raw recomputation and owned cell cleanup passed. Retain corrected percentages, original reporting error, and approved same-clock budget extension.
+- [x] (2026-10-11) M0 cost review: the user endorsed retaining the selected index and continuing implementation. Both zero-slowdown verdicts remain inconclusive; this closes the local design review, not production deployment or cumulative release acceptance, which remains plan 96's responsibility.
+
+- [x] (2026-10-10) M0: correct sparse observer recording, preserve primary append grade requirements, compile the Linux payload and verify diagnostic schedule/grade/cost-bound checks.
+- [x] (2026-10-10) M0: verify the corrected observer proof (47,734 benchmark-grade append samples, 61–62 steady samples per diagnostic browse page), raw recomputation and lease release.
+- [x] (2026-10-10) M0: finish five corrected benchmark-grade observer pairs; throughput loss bounded at 1.821% and p99 increase at 2.214% (95% intervals). Raw recomputation, exact delivery, durable drain and cell cleanup passed; unchanged zero-slowdown verdict remains inconclusive.
+- [x] (2026-10-10) M0: verify all ten fresh-stream trials and recompute raw metrics; five-pair append acceptance is inconclusive (throughput -0.677%, 95% interval -2.687% to +1.374%).
+- [x] (2026-10-10) M0: prepare the same-payload index-layout comparison, TypeID catalog/fresh fixtures, active category browsing and stream HOT/WAL snapshots; compile the Linux payload and verify paired-input/deadline invariants.
+- [x] (2026-10-10) M0: verify remote lifecycle proof and second category-only control, sealed hashes, stream counters and owned lease release.
+- [x] (2026-10-10) M0: complete and retain 18 sealed trials inside the original deadline, release the lease and verify all four cell instances stopped. Fresh acceptance is inconclusive; six observer trials are exploratory, not benchmark-grade. Acceptance remains open.
+- [x] (2026-10-10) M0: research Kenshou coverage and a disposable category/name index replacement; retain three completed 96-case runs, initial setup error, layout sizes and benchmark source/run inventory. No append-cost acceptance.
+- [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
+- [x] (2026-10-10) M0: execute the focused existing-index SQL prototype check on PostgreSQL 18.6; retain 80 initial and 152 expanded EXPLAIN cases, migration hashes and verified owned-server cleanup.
+- [x] (2026-10-10) M0 follow-up: evaluate category-scoped stream paging and prefix filtering with existing indexes; retain 192 correct-result EXPLAIN cases and verified server cleanup.
+- [x] (2026-10-10) M0 range follow-up: retain 224 initial and 400 refined TypeID/name-range cases, including generic-plan scaling and ICU correctness failures; verify both owned servers stopped.
+- [x] (2026-10-10) M0 read design: bounded lower-seek/LIMIT branches resolve category, prefix and combined browsing under byte ordering. Implement the approved design for isolated testing; production promotion still depends on its own measured write cost.
+- [x] (2026-10-10) Implement and execute the focused correctness and selected-layout comparison added by this review; functional checks pass, while performance acceptance is explicitly inconclusive.
+
+- [x] (2026-10-10) M1: add bounded `listStreamsSession`, range/pair variants, `listCategoriesStmt`, and `getEventStmt` to `kiroku-store/src/Kiroku/Store/SQL.hs` with encoders and SQL text.
+- [x] (2026-10-10) M1: add `ListStreams`, `ListCategories`, and `GetEvent` constructors to the `Store` effect in `kiroku-store/src/Kiroku/Store/Effect.hs` and interpret them in `runStorePool` (with the read `decodeReadEvents` path applied to `GetEvent`).
+- [x] (2026-10-10) M1: add `listStreams`, `listCategories`, and `getEvent` wrappers with Haddock to `kiroku-store/src/Kiroku/Store/Read.hs`.
+- [x] (2026-10-10) M1: add `kiroku-store/test/Test/BrowseReads.hs` (database tests) and `kiroku-store/test/Test/BrowseReadsMock.hs` (mock-interpreter test); register both in `kiroku-store/test/Main.hs` and the cabal test stanza; run the store test suite.
+- [x] (2026-10-10) M1: add this plan's bullets under `## Unreleased` in `kiroku-store/CHANGELOG.md` (no `version:` or bound edits; plan 96 assigns 0.11.0.0); `cabal build all` succeeds; existing shadowing warnings remain, with no new browsing warnings.
+- [x] (2026-10-10) M2: create `kiroku-metrics/src/Kiroku/Metrics/Browse.hs` with `StoreBrowser`, `BrowseLimits`, `ReadDirection`, the query-parameter parser, the page envelope, `streamInfoToJSON`, and `browseApp`; add `recordedEventToJSONResolved` to `Kiroku.Metrics.WebSocket` (owned here; plan 94 hard-depends on this plan).
+- [x] (2026-10-10) M2: add `kiroku-metrics/test/Test/BrowseSpec.hs` database-free tests over a mock `Store` interpreter covering every route, pagination, and every error code; register the module and add `effectful-core` to the library and test-suite `build-depends`.
+- [x] (2026-10-10) M3: add the `storeBrowsing` field to plan 87's `ServerProviders` in `kiroku-metrics/src/Kiroku/Metrics/Server.hs` (`Nothing` in `defaultServerProviders`, `Just (storeBrowser store)` in `storeServerProviders` and `startMetricsServerWithStore`); route `/streams`, `/categories`, and `/events` to the browser in `httpAppWithProviders`.
+- [x] (2026-10-10) M3: extend `kiroku-metrics/test/Test/BrowseSpec.hs` with end-to-end tests against a real ephemeral PostgreSQL store, plus regression assertions that the legacy 404 body and the pre-existing endpoints are unchanged; run the metrics test suite.
+- [x] (2026-10-10) M4: document the endpoints in `docs/user/metrics.md` (one copyable transcript per endpoint, the error-code table, the cursor rules) and the new primitives in `docs/user/reading-events.md`; update `docs/user/README.md`.
+- [x] (2026-10-10) M4: extend `kiroku-metrics/example/Main.hs` with browse checks and update its documented transcript.
+- [x] (2026-10-10) M4: add this plan's bullets under `## Unreleased` in `kiroku-metrics/CHANGELOG.md` describing the new routes and exports (no `version:` edit; plan 96 assigns 0.3.0.0); update CAP-17 and its log; add IR-8's "Implementation Evidence" section.
+- [x] (2026-10-10) M4: ADR distillation pass (the browse-endpoint ADR first planned here is withdrawn as subsumed by ADR-9; record in Outcomes whether anything else is durable).
+- [x] (2026-10-11) Finalize Outcomes & Retrospective and mark EP-3 `Complete`; existing session provenance records this implementation.
+
+
+
+Current implementation: the user-approved byte order and one shared name index
+are recorded in ADR-17. The Store primitives, migration 0015 and HTTP routes
+are authored, and serial verification passes 434 store, 24 migration and 68
+metrics examples. Production prepared plans are bounded in C and English ICU
+databases. The final-layout comparison completed all 21 verified trials: fresh
+throughput -2.980% (95% interval -6.128% to +0.274%) and observer throughput
+-1.722% (-4.631% to +1.276%). Fresh p99 is +3.700% (-3.814% to +11.802%);
+observer p99 +0.308% (-3.556% to +4.327%). Most intervals miss the frozen
+precision target, and both zero-slowdown verdicts remain inconclusive. The user endorsed retaining the index and continuing on 2026-10-11. EP-3
+is Complete for local implementation and focused evidence; cumulative release
+acceptance remains open, and publication belongs to
+plan 96. See the [selected-layout report](../../bench/mp13-index/evidence/2026-10-10-byte-name/README.md). The dated research outcomes below describe their earlier layouts.
+
+
+2026-10-10 shared design continuation: a concrete disposable query prototype
+passes all 224 TypeID/edge-case checks for category-plus-literal-prefix browsing
+and bounded namespace windows. Browse work is at most 12 rows / 12 buffers;
+namespace work is at most 38 rows / 9 buffers. Owned clusters stopped.
+The retained research distinguishes successful read evidence from migration,
+worker and write-cost acceptance. This prototype preceded the subsequent
+user approval and ADR-17; it did not itself select a production migration.
+
+2026-10-10 corrected observer completion: proof plus ten comparison trials are
+benchmark-grade, raw metrics recompute and exact durable delivery passes.
+Throughput loss is bounded at 1.821% and append p99 increase at 2.214% with 95%
+intervals for this fixture. The zero-slowdown verdict remains inconclusive; no
+cost allowance or production migration is selected. Cleanup is verified.
+Shared literal-prefix/namespace design remains open. ADR distillation finds no
+new architecture; ADR-15 already covers the coordination constraint.
+
+2026-10-10 corrected observer preparation: benchmark-only correction compiled
+and input, schedule, grade and cost-bound checks passed. The corrected proof
+passed benchmark grade and raw recomputation, with realistic diagnostic page
+coverage and released lease. All five matched pairs are now complete and
+benchmark-grade. No production migration or browse milestone is promoted;
+shared prefix/namespace design remains open under ADR-15.
+
+2026-10-10 matched experiment completion: all 18 trials sealed; workload and
+artifact checks completed, owned lease released and all four instances stopped
+within the original hour. Fresh throughput estimate is -0.677% with an interval
+from -2.687% to +1.374%; fresh append acceptance remains inconclusive. Observer
+results are exploratory because the low-rate browse operation failed the sample
+grade minimum, in addition to the three-pair acceptance limit. Retain every
+sample, rejection and raw recomputation; an early grade guard prevents repeating
+this queue mistake. M0 remains In Progress; no production migration or browse
+route was promoted. ADR distillation found no new selected architecture. See
+the [full report](../../bench/mp13-index/evidence/2026-10-10/README.md).
+2026-10-10 matched harness checkpoint: benchmark-only preparation is complete
+and Linux compilation passed. Paired-input and persistent-deadline checks passed;
+remote proof and measured write cost remain pending. No production migration or
+browse milestone is promoted. ADR-15 already governs this focused experiment.
+2026-10-10 index research: completed the authorized source/benchmark research
+and local footprint/read diagnosis. Three 96-case runs, the zero-case setup error
+and the unchanged prefix regression result are retained, with all five owned
+clusters stopped. The replacement bounded the tested category pages/enumeration
+while increasing index footprint;
+event-append and active-observer cost remain unmeasured. EP-3 remains In Progress
+because general prefix access and complete promotion evidence are unresolved.
+No production index, route or primitive was added. The research report records
+the smallest useful matched comparison and its missing instrumentation; no
+remote benchmark was launched. ADR distillation found no new durable decision.
+
+2026-10-10 range follow-up: completed the authorized existing-index experiment
+in 23.48 seconds initially and 39.24 seconds after a focused planner/prefix
+refinement, including setup and verified cleanup. The retained 624 cases expose
+both useful ordinary TypeID seeks and correctness/scaling failures. The gate is
+still rejected; no production primitive, HTTP route or index was added. ADR-15
+already governs this result, so no durable architectural change is adopted.
+
+2026-10-10 category follow-up: completed the user's requested no-new-index
+prototype in 15.97 seconds with correct results in 192 cases and a verified
+stopped cluster. Category equality is useful for the primary UI workflow;
+materialization contained work to the selected category in the tested fixtures.
+The remaining scaling risk is inside a large category, plus the earlier global
+prefix issue. EP-3 remains In Progress with all production milestones open.
+Arbitrary prefix search remains required. ADR-15 already covers the bounded-work
+obligation; this investigation selects no new architecture or index, so no ADR
+revision is needed.
+
+2026-10-10 implementation stopping point: Milestone 0 was executed and rejected
+its stream-prefix prototype. The initial and expanded local runs took 3.62 and
+4.97 seconds, including setup and cleanup; both owned clusters were verified
+stopped. EP-3 is In Progress, not Complete. The core primitives, HTTP routes,
+wire tests, example and documentation remain unimplemented; no release or
+cumulative append-under-observer acceptance is claimed. Existing-index category
+cursor splitting is viable, but does not resolve prefix filtering. ADR distillation
+found this stop already covered by ADR-15; no new architectural decision was
+made. Resume by reviewing an explicit prefix read/write design before M1.
+
+2026-10-10 review: implementation and performance acceptance remain pending. Static review does not prove zero runtime regression. Earlier planning-time observations and dated decisions are historical where this revision explicitly replaces them.
+
+
+
+
+89-expose-a-public-dead-letter-read-api.md
+
+- [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
+- [x] (2026-10-11) Execute focused correctness and production prepared-query work checks; cumulative append-under-inspection acceptance remains with plan 96.
+
+- [x] (2026-09-10) M0: set IR-9 to `accepted` with its Status section citing this plan, add the bundle log
+      entry, and validate the improvement-request bundle (done at plan creation, see Revision
+      Notes).
+- [x] (2026-10-11) M1: add the public types (`SubscriptionDeadLetter`, `SubscriptionDeadLetterCursor`,
+      `SubscriptionDeadLetterLimit` with `mkSubscriptionDeadLetterLimit`,
+      `SubscriptionDeadLetterQuery`, `SubscriptionDeadLetterPage`, and the helpers) to
+      `kiroku-store/src/Kiroku/Store/Subscription/Types.hs`; set IR-9 to `in_progress`.
+- [x] (2026-10-11) M1: add the internal module `kiroku-store/src/Kiroku/Store/Subscription/DeadLetter/SQL.hs`
+      with the two keyset statements and the paging session; register it under `other-modules`.
+- [x] (2026-10-11) M1: add the `ListSubscriptionDeadLetters` constructor to the `Store` effect and its
+      `runStorePool` branch in `kiroku-store/src/Kiroku/Store/Effect.hs`; add the
+      `subscriptionDeadLetters` wrapper with Haddock to `kiroku-store/src/Kiroku/Store/Subscription.hs`.
+- [x] (2026-10-11) M1: add `kiroku-store/test/Test/SubscriptionDeadLetters.hs` (database),
+      `kiroku-store/test/Test/SubscriptionDeadLettersMock.hs` (mock interpreter), the
+      `insertDeadLetterWith` helper, and the three structural-gate cases in
+      `kiroku-store/test/Test/PerformanceStructure.hs`; register everything; store suite green.
+- [x] (2026-10-11) M1: this plan's bullets under the one `## Unreleased` heading of
+      `kiroku-store/CHANGELOG.md` (no `version:` or bound edits; plan 96 assigns 0.11.0.0);
+      `cabal build all` without new implementation warnings.
+- [x] (2026-10-11) M2: create `kiroku-metrics/src/Kiroku/Metrics/DeadLetters.hs` (provider type, canonical
+      store provider, wire types and hand-written JSON codec, cursor text codec, query-parameter
+      parser, `deadLettersApp`); ensure the structured error-envelope helper exists in
+      `Kiroku.Metrics.JSON`; export from the umbrella module; database-free tests in
+      `kiroku-metrics/test/Test/DeadLettersSpec.hs`.
+- [x] (2026-10-11) M3: add the `deadLetters` field to plan 87's `ServerProviders` in
+      `kiroku-metrics/src/Kiroku/Metrics/Server.hs` and the route arm to `httpAppWithProviders`;
+      store-backed starters serve it automatically; end-to-end tests against a real store; every
+      pre-existing spec unchanged and green.
+- [x] (2026-10-11) M4: document the route in `docs/user/metrics.md`, the library operation in
+      `docs/user/subscriptions.md`, fix the stale index row in `docs/user/schema.md`, extend
+      the self-verifying example, update CAP-12 and CAP-17 and the capabilities log, update the
+      IR-9 body with implementation evidence, finalize the `kiroku-metrics` changelog entry;
+      all repository validations green.
+- [x] (2026-10-11) M5: perform the ADR distillation pass, write Outcomes & Retrospective, and mark EP-4
+      `Complete` in the MasterPlan registry. (The release, the clean-consumer check, and IR-9's
+      `completed` status moved to plan 96, EP-7 of MasterPlan 13, on 2026-09-30.)
+
+
+
+EP-4 is Complete locally. Public `subscriptionDeadLetters` and the GET/HEAD
+HTTP route serve newest-first pages with structured reasons, member filtering
+and exclusive value cursors. First-page variants include legal Int64 boundary
+pairs. Historical member enumeration and bounded per-member pages reuse the
+existing indexes, without a migration, worker behavior change or write SQL change.
+The worker import is narrowed only to disambiguate newly exported selectors.
+
+`cabal build all` succeeds; no new warning remains in the changed implementation.
+Pre-existing name-shadowing/record-field warnings are retained in the build log.
+`cabal test all -j1` passes all six suites: CLI 22, metrics 77, otel 17, store 446,
+migrations 24 and adapter 45 examples (631 total). The first full run's missing
+backpressure resumed event led to a test-side atomic callback collector fix;
+all original assertions remain intact and the full rerun passes. Ten-step metrics
+example, Nix metrics package build, format check and strict ADR/capability/request
+validations pass. Nix checks are disabled for these packages, so the test-only
+collector repair is verified by Cabal rather than claimed as a Nix test result.
+
+Sixteen actual prepared EXPLAIN ANALYZE cases cover generic/custom first/later
+pages and three historical members with 1,000 then 20,000 rows each. Per-member
+pages examine at most six rows; all-member work stays within the declared
+24-row budget (21.01 reported with loop-average rounding), and at most 27 shared
+buffers, under the 128-buffer ceiling. The merge receives at most 18 candidates.
+The new limit has no Generic/numeric construction bypass. Direct WAI tests pin
+exact keys, lossless Int64 values, validation before provider calls, HEAD/405,
+sanitized typed errors and exception propagation; real HTTP tests preserve the
+legacy live-route 404, mounted CORS and worker-produced structured reasons.
+
+[Retained verification](../../kiroku-store/bench/results/mp13-ep4-dead-letter-inspection/README.md)
+includes setup/formatter failures, the over-specific index-name assertion and
+initial backpressure failure, not only the successful logs. No remote experiment
+was started. ADR distillation needs no new record: ADR-9 owns wire and sister-package
+boundaries, ADR-8 owns validated construction, and ADR-15 already specifies bounded
+historical-member reads and release-owned cumulative acceptance. Composite cursor
+encoding is this route's wire detail, not another architectural decision.
+
+Versions, bounds and changelog publication remain with plan 96. IR-9 remains
+`in_progress` until publication. This local closure does not accept cumulative
+performance, deploy migration 0015 or publish packages.
+
+
+
+94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention.md
+
+- [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
+- [x] (2026-10-11) Implement and execute the focused correctness and performance acceptance added by this review.
+
+- [x] (2026-10-11) M1: IR-12 moved from `accepted` to `in_progress` (timestamp advanced, bundle log entry,
+      strict validation green).
+- [x] (2026-10-11) M1: `kiroku-store`: `Subscriber` gains `subDropped :: TVar Word64`; the `DropOldest` branch
+      of `deliverBatchSTM` increments it; new `PublisherSubscription` record and
+      `subscribePublisherWith`; `subscribePublisher` kept as a compatibility wrapper; changelog
+      bullets under the unreleased heading.
+- [x] (2026-10-11) M1: `kiroku-store/test/Test/PublisherDropCounter.hs` proves the counter deterministically
+      (cap 1, two batches, counter 1, queue holds the newest batch); registered; store suite
+      green; `cabal bench kiroku-store:kiroku-shibuya-overhead` recorded before and after.
+- [x] (2026-10-11) M2: `Kiroku.Metrics.WebSocket`: `UnsubscribeMetrics` client frame, `CodedError` server frame
+      with the four codes, reuse of plan 88's `recordedEventToJSONResolved`, per-connection
+      stream-name cache in the tail, overflow detection from the drop counter,
+      `overflowNotice` exported for testing; changelog bullets under `## Unreleased`.
+- [x] (2026-10-11) M2: `kiroku-metrics/test/Test/WebSocketConvergenceSpec.hs` (frame shapes pinned,
+      unsubscribe/resubscribe on the metrics path, `original_stream_name` on the live and
+      category paths, `replay_failed` and `category_read_failed` codes end to end,
+      `overflowNotice` cases); registered; whole metrics suite green with `Test.WebSocketSpec`
+      untouched.
+- [x] (2026-10-11) M3: `docs/user/metrics.md` WebSocket section updated (new frames, the `code` vocabulary,
+      the `original_stream_name` key, the conformance mapping table); CAP-17 and the
+      capabilities log updated and validated; IR-12 body gains "Implementation Evidence";
+      all repository validations green.
+- [x] (2026-10-11) M3: ADR distillation pass recorded in Outcomes (no ADR expected; see Decision Log);
+      closing provenance revision recorded.
+
+
+
+2026-10-11: Complete locally. Publisher DropOldest loss is observable through
+`subscribePublisherWith` without changing the legacy wrapper or ordinary delivery
+branch. WebSocket tails send the loss notice before survivors, share a bounded
+4096-name FIFO across replay/live/category delivery, preserve typed decode failures,
+and provide four sanitized error codes. Metrics stop/resume and both channels'
+workers have masked registration and joined cleanup. The original WebSocketSpec,
+frozen encoder and path dispatch are unchanged.
+
+All 654 examples (448 store, 98 metrics, 22 CLI, 17 OTel, 24 migrations, 45 adapter),
+the ten-step self-checking example, both Nix package builds, formatting and bundle
+validation pass. Nix builds disable tests; the runtime evidence comes from Cabal.
+New implementation/test/harness code builds without new warnings; unrelated
+pre-existing warnings appear in retained broader logs. The prescribed benchmark
+needed migration setup; two existing backpressure fixtures needed Live barriers
+because their blocked handlers could run during catch-up. Every original
+behavioral assertion remains. Failed logs are retained rather than hidden.
+
+[Local evidence](../../kiroku-metrics/bench/results/mp13-ep5-websocket-convergence/README.md)
+records five-round publisher and faithful frozen-tail checks, lookup counts, retained cache sizes,
+serialization/append timings and exact visibility of 7,500 concurrent appends.
+The first timing runs overlapped Nix; their adverse samples are retained as
+confounded, with an isolated follow-up and one bounded original-publisher/control-counter pair to investigate the remaining adverse row. Local timings are descriptive, not a
+statistical zero-slowdown verdict. Plan 96 must still assess cumulative original-control
+PG18 appends with real HTTP/tail/inventory observers and the retained index cost.
+IR-12 stays in_progress, changelogs stay Unreleased, and no package is published.
+
+ADR distillation: no new record. ADR-9 already makes the guide normative, and
+ADR-15 already fixes bounded lookup/cache, typed failures, exact loss ordering
+and shared-resource acceptance. The conformance table applies those decisions;
+push-on-connect, full metrics snapshots and event-stream acknowledgement remain
+explicit frozen-dialect deviations. Provenance is recorded once for this session.
+
+
+
+95-serve-the-kiroku-inspection-surface-standalone-and-make-it-self-describing.md
+
+- [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
+- [x] (2026-10-11) Implement and execute the focused correctness and performance acceptance added by this review.
+
+- [x] (2026-10-10) M0: verify every hard dependency is complete in the working tree (`ServerProviders` with
+      `webSocketServer`, `subscriptionStatus`, `checkpointInventory`, `storeBrowsing`, `deadLetters`;
+      the modules `Kiroku.Metrics.Cors`, `Kiroku.Metrics.Checkpoints`, `Kiroku.Metrics.Browse`,
+      `Kiroku.Metrics.DeadLetters`; `errorEnvelope`/`errorResponse` in `Kiroku.Metrics.JSON`);
+      record the observed state in Surprises & Discoveries and stop if anything is missing.
+- [x] (2026-10-10) M1: `Kiroku.Metrics.Capabilities` module (`WebSocketChannels`, `ProviderPresence`,
+      `RouteAvailability`, `Capabilities`, `capabilitiesFor`, `kirokuMetricsVersion`,
+      `capabilitiesApp`) with hand-written JSON codec; `Paths_kiroku_metrics` wired into the
+      library stanza.
+- [x] (2026-10-10) M1: additive `webSocketChannels :: !WebSocketChannels` field on `ServerProviders`; the
+      `/capabilities` arm mounted in `httpAppWithProviders` ahead of the catch-all; every starter
+      declares its channels truthfully; umbrella re-export; changelog `Unreleased` bullets.
+- [x] (2026-10-10) M1: `kiroku-metrics/test/Test/CapabilitiesSpec.hs` (codec pin, standalone mount, plain
+      server, store-backed server, `enableJSON = False`, non-GET); registered; suite green.
+- [x] (2026-10-10) M2: `Kiroku.Metrics.Standalone` module (`InspectOptions`, `inspectOptionsParser`,
+      `inspectParserInfo`, `resolveInspectOptions`, `InspectRuntime`, `InspectHooks`,
+      `runInspect`, `renderStartupBanner`); `optparse-applicative` added to the library
+      `build-depends`.
+- [x] (2026-10-11) M2: `executable kiroku-inspect` stanza with `app-inspect/Main.hs` (signal handling,
+      exit codes); `cabal build kiroku-metrics:exe:kiroku-inspect`, `cabal check`, `cabal sdist`,
+      and `nix build .#kiroku-metrics` all succeed.
+- [x] (2026-10-10) M2: `kiroku-metrics/test/Test/StandaloneSpec.hs` (parser and resolution examples, one
+      end-to-end run against a real database, one CORS run); registered; suite green.
+- [x] (2026-10-10) M3: `docs/guides/building-an-inspection-ui.md` written and indexed in
+      `docs/guides/README.md`; `docs/user/metrics.md` gains "Discovering the surface" and
+      "Running the standalone server"; `docs/user/operator-cli.md` distinguishes `kiroku` from
+      `kiroku-inspect`; `docs/user/README.md` summary line updated.
+- [x] (2026-10-10) M3: `kiroku-metrics/example/Main.hs` checks `/capabilities`; the quoted transcript in
+      `docs/user/metrics.md` updated; CAP-17 and `docs/capabilities/log.md` updated;
+      `just capabilities-validate` green; changelog `Unreleased` finalized for this plan's scope.
+- [x] (2026-10-11) M4: ADR allocated with `okf id next`, written, logged, `just adr-validate` and the strict
+      validation green; Outcomes & Retrospective written; closing provenance revision recorded.
+
+
+
+2026-10-11 completion: EP-6 is Complete locally. `/capabilities` describes actual provider wiring without database reads, and `kiroku-inspect` opens a migrated store, runs no subscription workers and serves the complete read surface. The reusable parser validates CLI/environment precedence, bounds and explicit credential disabling; signal and failure paths release the bracketed lifetime. The UI guide maps every screen to its route, retains mount prefixes and lossless cursors, and explains safe overflow recovery and process-local annotations.
+
+All six Cabal suites passed 672 examples (store 448, metrics 116, CLI 22, OTel 17, migrations 24, adapter 45). A final seven-case discovery run passed after adding explicit 404/405 code assertions; production source was unchanged. The eleven-step example passed, an external umbrella consumer compiled, `cabal check` was clean, and the final sdist contains the executable. The finished runtime source built under local Nix and the installed binary's help ran. Capability and ADR checks passed, including strict ADR-18 validation. Evidence, initial failures and the interrupted remote-builder packaging attempt are retained in `kiroku-metrics/bench/results/mp13-ep6-standalone-discovery/README.md` with 29 artifacts plus a manifest and ten source fingerprints.
+
+Functional implementation is committed as `7f9e4f0`. This child changes no store/migration/CLI code, append SQL, index or publisher logic, and discovery tests prove it invokes none of its four providers. These are proportional focused/structural checks, not a new statistical write-cost claim. Plan 96 still owns cumulative observer-under-append acceptance, PVP/version derivation and publication; the earlier index policy verdict stays inconclusive. IR statuses remain in_progress. ADR-18 distills composition, hosting, truthful discovery and explicit exclusions; ADR-15 continues to govern cost and lifecycle constraints.
+
+Historical 2026-10-10 planning review: implementation and performance acceptance were pending. Static review does not prove zero runtime regression. Earlier planning-time observations and dated decisions are historical where this revision explicitly replaces them.

@@ -1,0 +1,27 @@
+{
+  "started": 1791689422.000718,
+  "deadline": 1791692663.0,
+  "binaries": {
+    "control": {
+      "path": "/tmp/mp13-control-build/build/aarch64-osx/ghc-9.12.4/inspection-probe-0.1.0.0/x/inspection-probe/build/inspection-probe/inspection-probe",
+      "sha256": "798f1345df684f982e344cba91a0499be52e8658f6318415ab8b7fca8c3df649"
+    },
+    "candidate": {
+      "path": "/tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/inspection-probe-0.1.0.0/x/inspection-probe/build/inspection-probe/inspection-probe",
+      "sha256": "0d8dca0d03250d65a20044e73f95ae756bc3d5fc9424547e8bdce506176edc9b"
+    }
+  },
+  "trials": [
+    {
+      "arm": "candidate",
+      "mode": "active",
+      "name": "proof",
+      "started": 1791689422.162373,
+      "status": "running"
+    }
+  ],
+  "status": "stopped",
+  "acceptance": "inconclusive: local diagnostic, no controlled-host calibration",
+  "error": "Command '['/tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/inspection-probe-0.1.0.0/x/inspection-probe/build/inspection-probe/inspection-probe', 'candidate', 'active', 'bench/mp13-release/evidence/proof-1/proof.json']' returned non-zero exit status 1.",
+  "finished": 1791689426.427781
+}

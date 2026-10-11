@@ -1,0 +1,73 @@
+{
+  "started": 1791690126.683242,
+  "deadline": 1791692663.0,
+  "binaries": {
+    "control": {
+      "path": "/tmp/mp13-control-build/build/aarch64-osx/ghc-9.12.4/inspection-probe-0.1.0.0/x/inspection-probe/build/inspection-probe/inspection-probe",
+      "sha256": "9a27af82251f98c9cfedd2b1fc7be0324f5672dd73edf4dcb5c8c31be7fa525e"
+    },
+    "candidate": {
+      "path": "/tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/inspection-probe-0.1.0.0/x/inspection-probe/build/inspection-probe/inspection-probe",
+      "sha256": "c59b9cdbe28140b7ea1dbd3a6c8561139640a52963df674468fbf08971f5398b"
+    }
+  },
+  "trials": [
+    {
+      "arm": "control",
+      "mode": "active",
+      "name": "active-0-control",
+      "started": 1791690127.5124621,
+      "status": "verified",
+      "completed": 1791690143.823742,
+      "sha256": "5d2a7fd865f365d9412ab9c3934024910ffc06dfb5e6930333da13b5733fdd2e"
+    },
+    {
+      "arm": "candidate",
+      "mode": "active",
+      "name": "active-0-candidate",
+      "started": 1791690143.826081,
+      "status": "verified",
+      "completed": 1791690164.184644,
+      "sha256": "a3f594b1cd07f71400a06b66e81d0b1135cda0f51b0460221551c1020b24068e"
+    },
+    {
+      "arm": "candidate",
+      "mode": "active",
+      "name": "active-1-candidate",
+      "started": 1791690164.185521,
+      "status": "verified",
+      "completed": 1791690180.7255218,
+      "sha256": "6f536a5870b17a07d645a29cd186d915bd6628b2645e428d5bdfee6ef592c238"
+    },
+    {
+      "arm": "control",
+      "mode": "active",
+      "name": "active-1-control",
+      "started": 1791690180.72625,
+      "status": "verified",
+      "completed": 1791690195.638627,
+      "sha256": "9e10db0bf258ad56a7a0cad55f3fca30b6b4d4285c5cc152b5ff400a2bd614c2"
+    },
+    {
+      "arm": "control",
+      "mode": "active",
+      "name": "active-2-control",
+      "started": 1791690195.639329,
+      "status": "verified",
+      "completed": 1791690211.246069,
+      "sha256": "b7efc53807d872881a7ffe31d591b2a9c1d813a828fd2a204600715fd723e95f"
+    },
+    {
+      "arm": "candidate",
+      "mode": "active",
+      "name": "active-2-candidate",
+      "started": 1791690211.246899,
+      "status": "verified",
+      "completed": 1791690225.8401961,
+      "sha256": "0f54cf832c5fc62e3e9d77d5ab24eeb88c268c63ef8842f7f2f7c29dcc2407a6"
+    }
+  ],
+  "status": "complete",
+  "acceptance": "inconclusive: local diagnostic, no controlled-host calibration",
+  "finished": 1791690225.882493
+}

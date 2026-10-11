@@ -1,0 +1,9 @@
+{
+  "exit": 1,
+  "started": 1791691172.958695,
+  "finished": 1791691400.2730272,
+  "original_deadline": 1791692663,
+  "earlier_failure": "perf-check.log",
+  "three_focused_repeats": "category-gate-repeats.json",
+  "thresholds_changed": false
+}

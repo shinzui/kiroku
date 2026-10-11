@@ -1,0 +1,3 @@
+Loaded package environment from /private/var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/tmp/environment.-21027/.ghc.environment.aarch64-darwin-9.12.4
+[1 of 2] Compiling Legacy           ( /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/Legacy.hs, nothing )
+[2 of 2] Compiling Main             ( /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/Consumer.hs, nothing )

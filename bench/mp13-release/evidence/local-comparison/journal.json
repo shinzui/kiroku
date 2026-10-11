@@ -1,0 +1,127 @@
+{
+  "started": 1791689788.722275,
+  "deadline": 1791692663.0,
+  "binaries": {
+    "control": {
+      "path": "/tmp/mp13-control-build/build/aarch64-osx/ghc-9.12.4/inspection-probe-0.1.0.0/x/inspection-probe/build/inspection-probe/inspection-probe",
+      "sha256": "9a27af82251f98c9cfedd2b1fc7be0324f5672dd73edf4dcb5c8c31be7fa525e"
+    },
+    "candidate": {
+      "path": "/tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/inspection-probe-0.1.0.0/x/inspection-probe/build/inspection-probe/inspection-probe",
+      "sha256": "93c95e328eb50776dcc4f5e8c922cd5294879da9411839c1f0e48f65175f962e"
+    }
+  },
+  "trials": [
+    {
+      "arm": "control",
+      "mode": "disabled",
+      "name": "disabled-0-control",
+      "started": 1791689788.849788,
+      "status": "verified",
+      "completed": 1791689803.522151,
+      "sha256": "17ef1263dc1afa19ef316ae92b40c69a21acc9211ae7e5d0424c5d8bb061f8fe"
+    },
+    {
+      "arm": "candidate",
+      "mode": "disabled",
+      "name": "disabled-0-candidate",
+      "started": 1791689803.522881,
+      "status": "verified",
+      "completed": 1791689818.049645,
+      "sha256": "fd1fa19420b4be8dce1a54121bd2d5fb55a259d6dcd629eb3a0721054fe7786e"
+    },
+    {
+      "arm": "candidate",
+      "mode": "disabled",
+      "name": "disabled-1-candidate",
+      "started": 1791689818.0503,
+      "status": "verified",
+      "completed": 1791689831.555556,
+      "sha256": "6346e3353cfa7efc54661b1587eaf4cba583bdd11aac000dac5ed72c44af0e95"
+    },
+    {
+      "arm": "control",
+      "mode": "disabled",
+      "name": "disabled-1-control",
+      "started": 1791689831.556225,
+      "status": "verified",
+      "completed": 1791689845.089798,
+      "sha256": "dd7a9b423f3e7f9a57d2b32b0c2fc92ac583024f77bf90b9a2632813809ffe1f"
+    },
+    {
+      "arm": "control",
+      "mode": "disabled",
+      "name": "disabled-2-control",
+      "started": 1791689845.090643,
+      "status": "verified",
+      "completed": 1791689858.605778,
+      "sha256": "72ac288495b77286f4b6302f4f9eb38f6a338287029e78ef095f10544499bf68"
+    },
+    {
+      "arm": "candidate",
+      "mode": "disabled",
+      "name": "disabled-2-candidate",
+      "started": 1791689858.606545,
+      "status": "verified",
+      "completed": 1791689872.3438148,
+      "sha256": "b2c999462b6794d38a1bd5fb39beef55fa9e51661aad10a0092b6b455b8d477c"
+    },
+    {
+      "arm": "control",
+      "mode": "active",
+      "name": "active-0-control",
+      "started": 1791689872.3445299,
+      "status": "verified",
+      "completed": 1791689885.8033438,
+      "sha256": "4a1bb8ff2125ce1f00f17505d10a75765e78f72617085bf1d3fc6280bbd4b9ef"
+    },
+    {
+      "arm": "candidate",
+      "mode": "active",
+      "name": "active-0-candidate",
+      "started": 1791689885.804228,
+      "status": "verified",
+      "completed": 1791689900.12241,
+      "sha256": "45ce291825b8e78185f6e23d8e73cd6df4176cc4dd62d1633b28f5c37c6e3cd9"
+    },
+    {
+      "arm": "candidate",
+      "mode": "active",
+      "name": "active-1-candidate",
+      "started": 1791689900.123143,
+      "status": "verified",
+      "completed": 1791689913.8988018,
+      "sha256": "5d119222857e278ac35928e95e5e17e1dfb9ed3951c18f73b0bf87035b0ecfed"
+    },
+    {
+      "arm": "control",
+      "mode": "active",
+      "name": "active-1-control",
+      "started": 1791689913.8994792,
+      "status": "verified",
+      "completed": 1791689927.5949628,
+      "sha256": "433d41315053875bb28a244b9fb6d7d2119449923e2bcb4e0c934cc8f427b944"
+    },
+    {
+      "arm": "control",
+      "mode": "active",
+      "name": "active-2-control",
+      "started": 1791689927.595676,
+      "status": "verified",
+      "completed": 1791689941.186676,
+      "sha256": "de5fa6cc90144178c37b481369101006b5225c89d602f0c13d9b1f383eaa52f0"
+    },
+    {
+      "arm": "candidate",
+      "mode": "active",
+      "name": "active-2-candidate",
+      "started": 1791689941.187331,
+      "status": "verified",
+      "completed": 1791689954.74695,
+      "sha256": "c66c154fcc307409883a65dab14bfe1a37681f81844d5961335a02de66e8383e"
+    }
+  ],
+  "status": "complete",
+  "acceptance": "inconclusive: local diagnostic, no controlled-host calibration",
+  "finished": 1791689954.8640032
+}

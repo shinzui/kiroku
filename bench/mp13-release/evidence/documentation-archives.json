@@ -1,0 +1,26 @@
+{
+  "kiroku-cli-0.2.0.10-docs.tar.gz": {
+    "sha256": "c5d6effac1648339a924a7e807554e8d761cac6f657c6a0b0b5744b56ae8492f",
+    "members": 27
+  },
+  "kiroku-metrics-0.3.0.0-docs.tar.gz": {
+    "sha256": "511daaf542afec51d4a9b76416b3bed6363d54a5fc7c6923d7ea1d051592b3c8",
+    "members": 69
+  },
+  "kiroku-otel-0.2.0.12-docs.tar.gz": {
+    "sha256": "3e711719802d66c98250d141aedfa86a75f72bfc23a0c6a78051f740185ab47c",
+    "members": 19
+  },
+  "kiroku-store-0.11.0.0-docs.tar.gz": {
+    "sha256": "6838b3715d2ccc331379686578a290d5829ad184fb92374fadb09786d5f3871d",
+    "members": 95
+  },
+  "kiroku-store-migrations-0.7.1.0-docs.tar.gz": {
+    "sha256": "90b38afdfea47c35d253afcc16ca2354f7ecae14b6848d0d00befab1375d5999",
+    "members": 23
+  },
+  "shibuya-kiroku-adapter-0.6.0.1-docs.tar.gz": {
+    "sha256": "d34cbec00290afbddabbbaa7b26451684614f48200e0d75ac9969c1c8322cd4c",
+    "members": 19
+  }
+}

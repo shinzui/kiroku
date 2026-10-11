@@ -57,21 +57,28 @@ This plan publishes no UI and makes no downstream repository edits without autho
 - [x] (2026-10-10) Reviewed current releases, cabal dependencies, typed decoding and performance obligations; superseded stale September version and benchmark scripts.
 - [x] (2026-10-11) Confirm all six functional children Complete; retain their Progress/Outcomes in `bench/mp13-release/evidence/child-acceptance.txt`. Fresh `cabal build all -j1` and all six suites pass 672 examples.
 - [x] (2026-10-11) Compile new-provider and every legacy-starter fixture against the proposed cohort; pass flake, capability, ADR and request validation.
-- [ ] Pass cumulative performance acceptance: structural checks pass, but the aggregate workload gate has one retained failure; local original-control diagnostics are in progress and cannot establish neutrality.
+- [ ] Pass cumulative performance acceptance: structural checks pass, but the aggregate workload gate has one retained failure; corrected local original-control diagnostics are complete and inconclusive; the final unchanged aggregate run also has a retained timing failure.
 - [x] (2026-10-11) Verify Hackage/tag release truth, per-package diffs and matched dependency versions; prepare an unapplied six-package metadata/upgrade patch. Proposed versions are store 0.11.0.0, metrics 0.3.0.0, migrations 0.7.1.0, CLI 0.2.0.10, OTel 0.2.0.12 and adapter 0.6.0.1.
 - [ ] Obtain concrete metadata/publication authorization after resolving performance acceptance.
 - [x] (2026-10-11) Build the proposal in an isolated source copy; all six `cabal check` invocations pass, six public source archives are hashed/inspected, the proposed executable help passes and the appended upgrade blueprint validates.
-- [ ] Finish documentation/Nix proposal packaging; publish and verify the authorized cohort.
+- [x] (2026-10-11) Finish final proposal packaging: fresh full build, Nix executable, six Haddock archives, final new/legacy consumer compilation and both executable help checks pass. Source is `30307c1`; no artifact is uploaded.
+- [ ] Publish and verify the authorized cohort after performance acceptance.
 - [ ] Prove an exact-version clean consumer; complete requests and record outcomes.
 
 
 ## Surprises & Discoveries
 
-The first local comparison retains twelve verified trials and 567,808 measured appends. Disabled throughput is +7.884% with a descriptive interval [-21.064%, +47.448%]. Active throughput is -11.387% [-24.607%, +4.152%]; p50 is +8.334% [+2.621%, +14.365%] and p95 +22.020% [+4.545%, +42.416%]. The shared-host measurements are exploratory, but all three active pairs are adverse and justify investigation. Source inspection found `Map.keysSet cached` rebuilt the whole 4096-name retained key set for every small batch. Replace it with membership checks over only requested ids, preserving the lookup/cache/wire behavior. A new active-only comparison tests this changed implementation; it does not replace any original samples. ADR-15 records the batch-proportional cache-work constraint.
+The initial local comparison retains twelve verified trials and 567,808 measured appends. Its active adverse estimates and the six-trial cache-fix comparison (208,352 appends) are exploratory and confounded: only the candidate client retained stream names in the same process as the appenders. Preserve both sets, but do not diagnose production regression from them. Source inspection independently found `Map.keysSet cached` rebuilt all 4096 retained cache keys for each small batch. Commit `30307c1` replaces it with membership checks over requested ids; all 116 metrics examples pass, cache/lookup/wire behavior is preserved, and ADR-15 records batch-proportional work.
+
+The corrected client retains original stream IDs and event positions in both arms, additionally checking candidate name presence. All six active trials verify: 296,504 measured appends, 355,809 exact tail events and 296 HTTP responses. Throughput is +4.968% with descriptive interval [-15.138%, +29.839%]; p50 -0.250% [-2.762%, +2.326%], p95 -12.257% [-47.540%, +46.755%] and p99 -21.676% [-70.418%, +107.374%]. Owned compilation has stopped, but other host work remains. These short shared-process diagnostics are inconclusive, not cumulative acceptance. No remote run/lease was started, no completed sample replaced, and the original 03:24:23–04:24:23 UTC budget was retained. The harness does not dynamically record lookup count, cache retention or SQL buffers; the required controlled-host evidence remains open.
+
+All final proposed packages build from source `30307c1`, all six checks/source archives/documentation archives verify, and final new/legacy consumers compile. Both Cabal and Nix help checks pass. The older relocated build-directory attempt failed on vector unit identities; a fresh directory resolves the tooling failure without changing APIs or external bounds. The previous proposal and errors remain retained. See [release evidence](../../bench/mp13-release/evidence/README.md) for hashes, raw data and limitations.
 
 2026-10-11 implementation: all proposed package baselines still point to released commit `364ffa82136fcfc83d39ead1234abffaf500844b`. CLI, OTel and the adapter have no source changes since their tags, so their patches only advance store bounds. Migration 0015 adds a schema feature without breaking the runner API: its proposal is 0.7.1.0. Metadata is staged outside the working tree, with the exact reviewable patch in `bench/mp13-release/evidence/release.patch`. No versions or changelog dates have been applied here.
 
 The first aggregate workload run passes structural invariants and 15 of 16 timing cases, but category append is 1.57x its pre-0012 control (70.5 ± 87 ms versus 44.9 ± 40 ms). Parallel builds and another repository's tests were observed on this workstation. This is retained adverse evidence, not a regression diagnosis or permission to waive the gate. A local real-observer proof delivers 54,227 events exactly, resolves 27,116 names and completes 48 polls on verified durable PostgreSQL 18.6. Its two setup attempts and initial compile failure are retained. The comparison uses the same public starter on the released and integrated source; control polling intentionally gets its old 404 while candidate polling does the newly added reads. It is a preliminary diagnostic on a shared host, not controlled-host acceptance.
+
+The three unchanged category-append focused repeats pass but retain high variance. The final unchanged full `just perf-check` completes in 210.03 seconds: structural checks pass, 14/16 workload cases pass, pipeline eight fails at 1.31x (1.71 ± 1.8 ms versus 1.30 ± 0.07 ms), and category append fails at 6.25x (48.3 ± 50 ms versus 7.74 ± 0.886 ms). Owned build jobs are stopped, while other host work remains. Retain both full failures and all three focused passes without diagnosing a source regression or waiving the gate. Stop further exploratory timings; investigate on a quiet controlled host before release. The local experiment finishes inside its original budget.
 
 On 2026-10-10, Hackage preferred-version JSON and upstream annotated tags both identified
 store 0.10.0.0 and metrics 0.2.0.0 as already released (tag targets
@@ -89,6 +96,8 @@ The prior cohort's practical performance acceptance is not transferable to inspe
 
 ## Decision Log
 
+- Decision (2026-10-11): retain both confounded comparisons and run one corrected active comparison with identical client bookkeeping; stop additional exploratory timing repeats after the unchanged aggregate check.
+  Rationale: correct a known measurement flaw without replacing adverse samples or retrying until favorable. Shared-host intervals do not establish neutrality.
 - Decision (2026-10-11): prepare a metadata patch and validate an isolated proposal without applying approved package metadata or publishing.
   Rationale: the release skill requires concrete version/changelog confirmation; performance acceptance is still open.
 - Decision (2026-10-11): begin with a bounded local original-control diagnostic, retaining the existing policy verdict and failed workload gate.
@@ -112,7 +121,7 @@ The prior cohort's practical performance acceptance is not transferable to inspe
 
 ## Outcomes & Retrospective
 
-2026-10-11 checkpoint: EP-7 is In Progress. Functional integration and the isolated release proposal are validated, with retained evidence under `bench/mp13-release/evidence/`. Cumulative performance acceptance, publication authorization, documentation/Nix proposal packaging and exact published-consumer proof remain pending. No package version, published artifact, tag, downstream state or request completion has changed.
+2026-10-11 checkpoint: EP-7 is In Progress. Functional integration and final isolated release packaging are validated, with retained evidence under `bench/mp13-release/evidence/`. The requested-id cache optimization is committed and its 116 metrics tests pass. The authoritative workload gate is failed and cumulative observer acceptance is inconclusive; publication authorization and exact published-consumer proof remain pending. Documentation/Nix proposal packaging is complete. No package version, published artifact, tag, downstream state or request completion has changed.
 
 Historical planning review: no implementation or benchmark was performed by that review; runtime acceptance remained pending.
 

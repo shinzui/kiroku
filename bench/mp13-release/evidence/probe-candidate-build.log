@@ -1,0 +1,139 @@
+Warning: Specifying an absolute path to the project file is deprecated. Use
+--project-dir to set the project's directory.
+Configuration is affected by mp13-candidate.project at '/private/tmp'.
+Resolving dependencies...
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.10.0.0 (lib) (first run)
+ - kiroku-store-migrations-0.7.0.0 (lib) (first run)
+ - kiroku-cli-0.2.0.9 (lib) (first run)
+ - kiroku-test-support-0.1.0.0 (lib) (first run)
+ - kiroku-metrics-0.2.0.0 (lib) (first run)
+ - inspection-probe-0.1.0.0 (exe:inspection-probe) (first run)
+Configuring library for kiroku-store-migrations-0.7.0.0...
+Configuring library for kiroku-store-0.10.0.0...
+Preprocessing library for kiroku-store-0.10.0.0...
+Building library for kiroku-store-0.10.0.0...
+Preprocessing library for kiroku-store-migrations-0.7.0.0...
+Building library for kiroku-store-migrations-0.7.0.0...
+[ 1 of 31] Compiling Kiroku.Store.Types ( src/Kiroku/Store/Types.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Types.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Types.dyn_o )
+[1 of 5] Compiling Kiroku.Store.Migrations.Internal.Definition ( src/Kiroku/Store/Migrations/Internal/Definition.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.0.0/build/Kiroku/Store/Migrations/Internal/Definition.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.0.0/build/Kiroku/Store/Migrations/Internal/Definition.dyn_o )
+[ 2 of 31] Compiling Kiroku.Store.Settings ( src/Kiroku/Store/Settings.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Settings.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Settings.dyn_o )
+[2 of 5] Compiling Kiroku.Store.Migrations ( src/Kiroku/Store/Migrations.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.0.0/build/Kiroku/Store/Migrations.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.0.0/build/Kiroku/Store/Migrations.dyn_o )
+[3 of 5] Compiling Kiroku.Store.Migrations.Internal.EmbedFile ( src/Kiroku/Store/Migrations/Internal/EmbedFile.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.0.0/build/Kiroku/Store/Migrations/Internal/EmbedFile.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.0.0/build/Kiroku/Store/Migrations/Internal/EmbedFile.dyn_o )
+[4 of 5] Compiling Kiroku.Store.Migrations.History.Codd ( src/Kiroku/Store/Migrations/History/Codd.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.0.0/build/Kiroku/Store/Migrations/History/Codd.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.0.0/build/Kiroku/Store/Migrations/History/Codd.dyn_o )
+[ 3 of 31] Compiling Kiroku.Store.Subscription.Fsm ( src/Kiroku/Store/Subscription/Fsm.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Fsm.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Fsm.dyn_o )
+[ 4 of 31] Compiling Kiroku.Store.Subscription.Types ( src/Kiroku/Store/Subscription/Types.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Types.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Types.dyn_o )
+[5 of 5] Compiling Kiroku.Store.Migrations.New ( src/Kiroku/Store/Migrations/New.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.0.0/build/Kiroku/Store/Migrations/New.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.0.0/build/Kiroku/Store/Migrations/New.dyn_o )
+[ 5 of 31] Compiling Kiroku.Store.Subscription.DeadLetter.SQL ( src/Kiroku/Store/Subscription/DeadLetter/SQL.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/DeadLetter/SQL.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/DeadLetter/SQL.dyn_o )
+Configuring library for kiroku-test-support-0.1.0.0...
+[ 6 of 31] Compiling Kiroku.Store.Subscription.CheckpointInventory.SQL ( src/Kiroku/Store/Subscription/CheckpointInventory/SQL.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/CheckpointInventory/SQL.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/CheckpointInventory/SQL.dyn_o )
+[ 7 of 31] Compiling Kiroku.Store.SQL ( src/Kiroku/Store/SQL.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/SQL.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/SQL.dyn_o )
+Preprocessing library for kiroku-test-support-0.1.0.0...
+Building library for kiroku-test-support-0.1.0.0...
+[1 of 2] Compiling Kiroku.Test.Fixtures.CategoryScaling ( src/Kiroku/Test/Fixtures/CategoryScaling.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-test-support-0.1.0.0/build/Kiroku/Test/Fixtures/CategoryScaling.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-test-support-0.1.0.0/build/Kiroku/Test/Fixtures/CategoryScaling.dyn_o )
+[2 of 2] Compiling Kiroku.Test.Postgres ( src/Kiroku/Test/Postgres.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-test-support-0.1.0.0/build/Kiroku/Test/Postgres.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-test-support-0.1.0.0/build/Kiroku/Test/Postgres.dyn_o )
+[ 8 of 31] Compiling Kiroku.Store.Subscription.Checkpoint.SQL ( src/Kiroku/Store/Subscription/Checkpoint/SQL.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Checkpoint/SQL.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Checkpoint/SQL.dyn_o )
+[ 9 of 31] Compiling Kiroku.Store.Subscription.Checkpoint ( src/Kiroku/Store/Subscription/Checkpoint.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Checkpoint.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Checkpoint.dyn_o )
+[10 of 31] Compiling Kiroku.Store.HistoryRetention.Types ( src/Kiroku/Store/HistoryRetention/Types.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/HistoryRetention/Types.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/HistoryRetention/Types.dyn_o )
+[11 of 31] Compiling Kiroku.Store.Observability ( src/Kiroku/Store/Observability.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Observability.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Observability.dyn_o )
+[12 of 31] Compiling Kiroku.Store.Subscription.EventPublisher ( src/Kiroku/Store/Subscription/EventPublisher.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/EventPublisher.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/EventPublisher.dyn_o )
+[13 of 31] Compiling Kiroku.Store.Subscription.Worker ( src/Kiroku/Store/Subscription/Worker.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Worker.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Worker.dyn_o )
+[14 of 31] Compiling Kiroku.Store.Notification ( src/Kiroku/Store/Notification.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Notification.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Notification.dyn_o )
+[15 of 31] Compiling Kiroku.Store.Connection ( src/Kiroku/Store/Connection.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Connection.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Connection.dyn_o )
+[16 of 31] Compiling Kiroku.Store.Effect.Resource ( src/Kiroku/Store/Effect/Resource.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Effect/Resource.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Effect/Resource.dyn_o )
+[17 of 31] Compiling Kiroku.Store.HistoryRetention.SQL ( src/Kiroku/Store/HistoryRetention/SQL.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/HistoryRetention/SQL.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/HistoryRetention/SQL.dyn_o )
+[18 of 31] Compiling Kiroku.Store.HistoryRetention.Internal ( src/Kiroku/Store/HistoryRetention/Internal.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/HistoryRetention/Internal.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/HistoryRetention/Internal.dyn_o )
+[19 of 31] Compiling Kiroku.Store.Error ( src/Kiroku/Store/Error.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Error.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Error.dyn_o )
+[20 of 31] Compiling Kiroku.Store.Effect ( src/Kiroku/Store/Effect.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Effect.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Effect.dyn_o )
+[21 of 31] Compiling Kiroku.Store.Transaction ( src/Kiroku/Store/Transaction.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Transaction.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Transaction.dyn_o )
+[22 of 31] Compiling Kiroku.Store.Subscription ( src/Kiroku/Store/Subscription.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription.dyn_o )
+src/Kiroku/Store/Subscription.hs:272:51: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store.Subscription.Types’ at src/Kiroku/Store/Subscription.hs:38:1-38
+      (and originally defined
+         at src/Kiroku/Store/Subscription/Types.hs:619:1-6)
+    |
+272 | initializeSubscriptionCheckpoint subscriptionName member policy =
+    |                                                   ^^^^^^
+
+[23 of 31] Compiling Kiroku.Store.Subscription.Stream ( src/Kiroku/Store/Subscription/Stream.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Stream.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Stream.dyn_o )
+[24 of 31] Compiling Kiroku.Store.Subscription.Effect ( src/Kiroku/Store/Subscription/Effect.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Effect.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Effect.dyn_o )
+[25 of 31] Compiling Kiroku.Store.Read ( src/Kiroku/Store/Read.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Read.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Read.dyn_o )
+[26 of 31] Compiling Kiroku.Store.Link ( src/Kiroku/Store/Link.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Link.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Link.dyn_o )
+[27 of 31] Compiling Kiroku.Store.Lifecycle ( src/Kiroku/Store/Lifecycle.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Lifecycle.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Lifecycle.dyn_o )
+[28 of 31] Compiling Kiroku.Store.HistoryRetention ( src/Kiroku/Store/HistoryRetention.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/HistoryRetention.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/HistoryRetention.dyn_o )
+[29 of 31] Compiling Kiroku.Store.Causation ( src/Kiroku/Store/Causation.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Causation.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Causation.dyn_o )
+[30 of 31] Compiling Kiroku.Store.Append ( src/Kiroku/Store/Append.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Append.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Append.dyn_o )
+[31 of 31] Compiling Kiroku.Store     ( src/Kiroku/Store.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store.dyn_o )
+Configuring library for kiroku-cli-0.2.0.9...
+Preprocessing library for kiroku-cli-0.2.0.9...
+Building library for kiroku-cli-0.2.0.9...
+[1 of 6] Compiling Kiroku.Cli.Command ( src/Kiroku/Cli/Command.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Command.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Command.dyn_o )
+[2 of 6] Compiling Kiroku.Cli.Parser ( src/Kiroku/Cli/Parser.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Parser.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Parser.dyn_o )
+[3 of 6] Compiling Kiroku.Cli.Subscription.Status ( src/Kiroku/Cli/Subscription/Status.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Subscription/Status.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Subscription/Status.dyn_o )
+[4 of 6] Compiling Kiroku.Cli.Standalone ( src/Kiroku/Cli/Standalone.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Standalone.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Standalone.dyn_o )
+[5 of 6] Compiling Kiroku.Cli.Run   ( src/Kiroku/Cli/Run.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Run.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Run.dyn_o )
+[6 of 6] Compiling Kiroku.Cli       ( src/Kiroku/Cli.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli.dyn_o )
+Configuring library for kiroku-metrics-0.2.0.0...
+Preprocessing library for kiroku-metrics-0.2.0.0...
+Building library for kiroku-metrics-0.2.0.0...
+[ 1 of 17] Compiling Kiroku.Metrics.Types ( src/Kiroku/Metrics/Types.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Types.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Types.dyn_o )
+[ 2 of 17] Compiling Kiroku.Metrics.Collector ( src/Kiroku/Metrics/Collector.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Collector.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Collector.dyn_o )
+[ 3 of 17] Compiling Kiroku.Metrics.Prometheus ( src/Kiroku/Metrics/Prometheus.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Prometheus.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Prometheus.dyn_o )
+[ 4 of 17] Compiling Kiroku.Metrics.JSON ( src/Kiroku/Metrics/JSON.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/JSON.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/JSON.dyn_o )
+[ 5 of 17] Compiling Kiroku.Metrics.Subscriptions ( src/Kiroku/Metrics/Subscriptions.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Subscriptions.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Subscriptions.dyn_o )
+[ 6 of 17] Compiling Kiroku.Metrics.DeadLetters ( src/Kiroku/Metrics/DeadLetters.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/DeadLetters.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/DeadLetters.dyn_o )
+[ 7 of 17] Compiling Kiroku.Metrics.Cors ( src/Kiroku/Metrics/Cors.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Cors.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Cors.dyn_o )
+[ 8 of 17] Compiling Kiroku.Metrics.Config ( src/Kiroku/Metrics/Config.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Config.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Config.dyn_o )
+[ 9 of 17] Compiling Kiroku.Metrics.Checkpoints ( src/Kiroku/Metrics/Checkpoints.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Checkpoints.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Checkpoints.dyn_o )
+[10 of 17] Compiling Kiroku.Metrics.Health ( src/Kiroku/Metrics/Health.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Health.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Health.dyn_o )
+[11 of 17] Compiling Kiroku.Metrics.WebSocket ( src/Kiroku/Metrics/WebSocket.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/WebSocket.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/WebSocket.dyn_o )
+src/Kiroku/Metrics/WebSocket.hs:85:23: warning: [GHC-38856] [-Wunused-imports]
+    The import of ‘foldl'’ from module ‘Data.Foldable’ is redundant
+   |
+85 | import Data.Foldable (foldl', for_)
+   |                       ^^^^^^
+
+[12 of 17] Compiling Kiroku.Metrics.Browse ( src/Kiroku/Metrics/Browse.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Browse.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Browse.dyn_o )
+src/Kiroku/Metrics/Browse.hs:96:9: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at src/Kiroku/Metrics/Browse.hs:37:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+   |
+96 |         size <- browseSize limit
+   |         ^^^^
+
+src/Kiroku/Metrics/Browse.hs:120:9: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at src/Kiroku/Metrics/Browse.hs:37:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+120 |         size <- browseSize limit
+    |         ^^^^
+
+src/Kiroku/Metrics/Browse.hs:185:11: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at src/Kiroku/Metrics/Browse.hs:37:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+185 |     Right size -> Right size
+    |           ^^^^
+
+[13 of 17] Compiling Paths_kiroku_metrics ( /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/autogen/Paths_kiroku_metrics.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Paths_kiroku_metrics.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Paths_kiroku_metrics.dyn_o )
+[14 of 17] Compiling Kiroku.Metrics.Capabilities ( src/Kiroku/Metrics/Capabilities.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Capabilities.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Capabilities.dyn_o )
+[15 of 17] Compiling Kiroku.Metrics.Server ( src/Kiroku/Metrics/Server.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Server.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Server.dyn_o )
+[16 of 17] Compiling Kiroku.Metrics.Standalone ( src/Kiroku/Metrics/Standalone.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Standalone.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Standalone.dyn_o )
+[17 of 17] Compiling Kiroku.Metrics   ( src/Kiroku/Metrics.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics.o, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics.dyn_o )
+Configuring executable 'inspection-probe' for inspection-probe-0.1.0.0...
+Preprocessing executable 'inspection-probe' for inspection-probe-0.1.0.0...
+Building executable 'inspection-probe' for inspection-probe-0.1.0.0...
+[1 of 1] Compiling Main             ( src/Main.hs, /private/tmp/dist-newstyle/build/aarch64-osx/ghc-9.12.4/inspection-probe-0.1.0.0/x/inspection-probe/build/inspection-probe/inspection-probe-tmp/Main.o )
+src/Main.hs:38:629: error: [GHC-58481] parse error on input ‘)’
+   |
+38 |         right =<< Pool.use store.pool (Session.script "INSERT INTO streams(stream_name,version,category) SELECT 'catalog-' || lpad(n::text,8,'0'),0,'catalog' FROM generate_series(1,10000) n; INSERT INTO dead_letters(subscription_name,consumer_group_member,global_position,event_id,reason,reason_summary,attempt_count) SELECT 'probe',m,n,(SELECT event_id FROM events LIMIT 1),'{}','fixture',1 FROM unnest(ARRAY[0,1,9]) m CROSS JOIN generate_series(1,2000) n; INSERT INTO subscriptions(subscription_name,last_seen,target_kind) SELECT 'inventory-' || n,0,'all' FROM generate_series(1,100) n; ANALYZE streams; ANALYZE dead_letters"))
+   |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     ^
+
+Error: [Cabal-7125]
+Failed to build exe:inspection-probe from inspection-probe-0.1.0.0.
+

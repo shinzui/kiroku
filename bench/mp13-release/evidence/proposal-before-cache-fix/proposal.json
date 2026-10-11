@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-10",
+  "versions": {
+    "kiroku-store": [
+      "0.10.0.0",
+      "0.11.0.0"
+    ],
+    "kiroku-store-migrations": [
+      "0.7.0.0",
+      "0.7.1.0"
+    ],
+    "kiroku-otel": [
+      "0.2.0.11",
+      "0.2.0.12"
+    ],
+    "kiroku-cli": [
+      "0.2.0.9",
+      "0.2.0.10"
+    ],
+    "kiroku-metrics": [
+      "0.2.0.0",
+      "0.3.0.0"
+    ],
+    "shibuya-kiroku-adapter": [
+      "0.6.0.0",
+      "0.6.0.1"
+    ]
+  },
+  "source": "d7d740d7a36ac809fd8db9711aa75c9fa924b34c",
+  "metadata_stage": "/var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-proposal-qarld2_4",
+  "status": "unapproved; not applied; not published",
+  "source_stage": "/var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h"
+}

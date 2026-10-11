@@ -1,0 +1,17 @@
+kiroku-cli-0.2.0.10
+kiroku-cli-0.2.0.10/CHANGELOG.md
+kiroku-cli-0.2.0.10/LICENSE
+kiroku-cli-0.2.0.10/app
+kiroku-cli-0.2.0.10/app/Main.hs
+kiroku-cli-0.2.0.10/kiroku-cli.cabal
+kiroku-cli-0.2.0.10/src/Kiroku
+kiroku-cli-0.2.0.10/src/Kiroku/Cli.hs
+kiroku-cli-0.2.0.10/src/Kiroku/Cli
+kiroku-cli-0.2.0.10/src/Kiroku/Cli/Command.hs
+kiroku-cli-0.2.0.10/src/Kiroku/Cli/Parser.hs
+kiroku-cli-0.2.0.10/src/Kiroku/Cli/Run.hs
+kiroku-cli-0.2.0.10/src/Kiroku/Cli/Standalone.hs
+kiroku-cli-0.2.0.10/src/Kiroku/Cli/Subscription
+kiroku-cli-0.2.0.10/src/Kiroku/Cli/Subscription/Status.hs
+kiroku-cli-0.2.0.10/test
+kiroku-cli-0.2.0.10/test/Main.hs

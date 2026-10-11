@@ -1,0 +1,229 @@
+Resolving dependencies...
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.11.0.0 (lib) (configuration changed)
+ - kiroku-store-migrations-0.7.1.0 (lib) (configuration changed)
+ - shibuya-kiroku-adapter-0.6.0.1 (lib:shibuya-kiroku-adapter-internal) (configuration changed)
+ - kiroku-otel-0.2.0.12 (lib) (configuration changed)
+ - kiroku-cli-0.2.0.10 (lib) (configuration changed)
+ - kiroku-test-support-0.1.0.0 (lib) (configuration changed)
+ - kiroku-store-migrations-0.7.1.0 (exe:kiroku-store-migrate) (configuration changed)
+ - shibuya-kiroku-adapter-0.6.0.1 (lib) (configuration changed)
+ - kiroku-metrics-0.3.0.0 (lib) (configuration changed)
+ - kiroku-cli-0.2.0.10 (exe:kiroku) (configuration changed)
+ - shibuya-kiroku-adapter-0.6.0.1 (exe:lifecycle-live) (configuration changed)
+ - kiroku-metrics-0.3.0.0 (exe:kiroku-inspect) (configuration changed)
+Configuring library for kiroku-store-0.11.0.0...
+Preprocessing library for kiroku-store-0.11.0.0...
+Building library for kiroku-store-0.11.0.0...
+[ 1 of 31] Compiling Kiroku.Store.Types ( src/Kiroku/Store/Types.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Types.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Types.dyn_o ) [Flags changed]
+[ 2 of 31] Compiling Kiroku.Store.Settings ( src/Kiroku/Store/Settings.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Settings.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Settings.dyn_o ) [Flags changed]
+[ 3 of 31] Compiling Kiroku.Store.Subscription.Fsm ( src/Kiroku/Store/Subscription/Fsm.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Fsm.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Fsm.dyn_o ) [Flags changed]
+[ 4 of 31] Compiling Kiroku.Store.Subscription.Types ( src/Kiroku/Store/Subscription/Types.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Types.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Types.dyn_o ) [Flags changed]
+[ 5 of 31] Compiling Kiroku.Store.Subscription.DeadLetter.SQL ( src/Kiroku/Store/Subscription/DeadLetter/SQL.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/DeadLetter/SQL.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/DeadLetter/SQL.dyn_o ) [Flags changed]
+[ 6 of 31] Compiling Kiroku.Store.Subscription.CheckpointInventory.SQL ( src/Kiroku/Store/Subscription/CheckpointInventory/SQL.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/CheckpointInventory/SQL.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/CheckpointInventory/SQL.dyn_o ) [Flags changed]
+[ 7 of 31] Compiling Kiroku.Store.SQL ( src/Kiroku/Store/SQL.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/SQL.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/SQL.dyn_o ) [Flags changed]
+[ 8 of 31] Compiling Kiroku.Store.Subscription.Checkpoint.SQL ( src/Kiroku/Store/Subscription/Checkpoint/SQL.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Checkpoint/SQL.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Checkpoint/SQL.dyn_o ) [Flags changed]
+[ 9 of 31] Compiling Kiroku.Store.Subscription.Checkpoint ( src/Kiroku/Store/Subscription/Checkpoint.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Checkpoint.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Checkpoint.dyn_o ) [Flags changed]
+[10 of 31] Compiling Kiroku.Store.HistoryRetention.Types ( src/Kiroku/Store/HistoryRetention/Types.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/HistoryRetention/Types.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/HistoryRetention/Types.dyn_o ) [Flags changed]
+[11 of 31] Compiling Kiroku.Store.Observability ( src/Kiroku/Store/Observability.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Observability.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Observability.dyn_o ) [Flags changed]
+[12 of 31] Compiling Kiroku.Store.Subscription.EventPublisher ( src/Kiroku/Store/Subscription/EventPublisher.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/EventPublisher.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/EventPublisher.dyn_o ) [Flags changed]
+[13 of 31] Compiling Kiroku.Store.Subscription.Worker ( src/Kiroku/Store/Subscription/Worker.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Worker.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Worker.dyn_o ) [Flags changed]
+[14 of 31] Compiling Kiroku.Store.Notification ( src/Kiroku/Store/Notification.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Notification.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Notification.dyn_o ) [Flags changed]
+[15 of 31] Compiling Kiroku.Store.Connection ( src/Kiroku/Store/Connection.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Connection.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Connection.dyn_o ) [Flags changed]
+[16 of 31] Compiling Kiroku.Store.Effect.Resource ( src/Kiroku/Store/Effect/Resource.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Effect/Resource.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Effect/Resource.dyn_o ) [Flags changed]
+[17 of 31] Compiling Kiroku.Store.HistoryRetention.SQL ( src/Kiroku/Store/HistoryRetention/SQL.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/HistoryRetention/SQL.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/HistoryRetention/SQL.dyn_o ) [Flags changed]
+[18 of 31] Compiling Kiroku.Store.HistoryRetention.Internal ( src/Kiroku/Store/HistoryRetention/Internal.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/HistoryRetention/Internal.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/HistoryRetention/Internal.dyn_o ) [Flags changed]
+[19 of 31] Compiling Kiroku.Store.Error ( src/Kiroku/Store/Error.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Error.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Error.dyn_o ) [Flags changed]
+[20 of 31] Compiling Kiroku.Store.Effect ( src/Kiroku/Store/Effect.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Effect.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Effect.dyn_o ) [Flags changed]
+[21 of 31] Compiling Kiroku.Store.Transaction ( src/Kiroku/Store/Transaction.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Transaction.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Transaction.dyn_o ) [Flags changed]
+[22 of 31] Compiling Kiroku.Store.Subscription ( src/Kiroku/Store/Subscription.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription.dyn_o ) [Flags changed]
+src/Kiroku/Store/Subscription.hs:272:51: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store.Subscription.Types’ at src/Kiroku/Store/Subscription.hs:38:1-38
+      (and originally defined
+         at src/Kiroku/Store/Subscription/Types.hs:619:1-6)
+    |
+272 | initializeSubscriptionCheckpoint subscriptionName member policy =
+    |                                                   ^^^^^^
+
+[23 of 31] Compiling Kiroku.Store.Subscription.Stream ( src/Kiroku/Store/Subscription/Stream.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Stream.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Stream.dyn_o ) [Flags changed]
+[24 of 31] Compiling Kiroku.Store.Subscription.Effect ( src/Kiroku/Store/Subscription/Effect.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Effect.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Effect.dyn_o ) [Flags changed]
+[25 of 31] Compiling Kiroku.Store.Read ( src/Kiroku/Store/Read.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Read.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Read.dyn_o ) [Flags changed]
+[26 of 31] Compiling Kiroku.Store.Link ( src/Kiroku/Store/Link.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Link.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Link.dyn_o ) [Flags changed]
+[27 of 31] Compiling Kiroku.Store.Lifecycle ( src/Kiroku/Store/Lifecycle.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Lifecycle.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Lifecycle.dyn_o ) [Flags changed]
+[28 of 31] Compiling Kiroku.Store.HistoryRetention ( src/Kiroku/Store/HistoryRetention.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/HistoryRetention.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/HistoryRetention.dyn_o ) [Flags changed]
+[29 of 31] Compiling Kiroku.Store.Causation ( src/Kiroku/Store/Causation.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Causation.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Causation.dyn_o ) [Flags changed]
+[30 of 31] Compiling Kiroku.Store.Append ( src/Kiroku/Store/Append.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Append.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Append.dyn_o ) [Flags changed]
+[31 of 31] Compiling Kiroku.Store     ( src/Kiroku/Store.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store.dyn_o ) [Flags changed]
+Configuring library for kiroku-store-migrations-0.7.1.0...
+Preprocessing library for kiroku-store-migrations-0.7.1.0...
+Building library for kiroku-store-migrations-0.7.1.0...
+[1 of 5] Compiling Kiroku.Store.Migrations.Internal.Definition ( src/Kiroku/Store/Migrations/Internal/Definition.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.1.0/build/Kiroku/Store/Migrations/Internal/Definition.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.1.0/build/Kiroku/Store/Migrations/Internal/Definition.dyn_o ) [Flags changed]
+[2 of 5] Compiling Kiroku.Store.Migrations ( src/Kiroku/Store/Migrations.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.1.0/build/Kiroku/Store/Migrations.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.1.0/build/Kiroku/Store/Migrations.dyn_o ) [Flags changed]
+[3 of 5] Compiling Kiroku.Store.Migrations.Internal.EmbedFile ( src/Kiroku/Store/Migrations/Internal/EmbedFile.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.1.0/build/Kiroku/Store/Migrations/Internal/EmbedFile.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.1.0/build/Kiroku/Store/Migrations/Internal/EmbedFile.dyn_o ) [Flags changed]
+[4 of 5] Compiling Kiroku.Store.Migrations.History.Codd ( src/Kiroku/Store/Migrations/History/Codd.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.1.0/build/Kiroku/Store/Migrations/History/Codd.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.1.0/build/Kiroku/Store/Migrations/History/Codd.dyn_o ) [Flags changed]
+[5 of 5] Compiling Kiroku.Store.Migrations.New ( src/Kiroku/Store/Migrations/New.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.1.0/build/Kiroku/Store/Migrations/New.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.1.0/build/Kiroku/Store/Migrations/New.dyn_o ) [Flags changed]
+Configuring library 'shibuya-kiroku-adapter-internal' for shibuya-kiroku-adapter-0.6.0.1...
+Preprocessing library 'shibuya-kiroku-adapter-internal' for shibuya-kiroku-adapter-0.6.0.1...
+Building library 'shibuya-kiroku-adapter-internal' for shibuya-kiroku-adapter-0.6.0.1...
+[1 of 1] Compiling Shibuya.Adapter.Kiroku.Internal ( internal/Shibuya/Adapter/Kiroku/Internal.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.6.0.1/l/shibuya-kiroku-adapter-internal/build/shibuya-kiroku-adapter-internal/Shibuya/Adapter/Kiroku/Internal.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.6.0.1/l/shibuya-kiroku-adapter-internal/build/shibuya-kiroku-adapter-internal/Shibuya/Adapter/Kiroku/Internal.dyn_o ) [Flags changed]
+Configuring library for kiroku-otel-0.2.0.12...
+Preprocessing library for kiroku-otel-0.2.0.12...
+Building library for kiroku-otel-0.2.0.12...
+[1 of 2] Compiling Kiroku.Otel.Subscription ( src/Kiroku/Otel/Subscription.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-otel-0.2.0.12/build/Kiroku/Otel/Subscription.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-otel-0.2.0.12/build/Kiroku/Otel/Subscription.dyn_o ) [Flags changed]
+[2 of 2] Compiling Kiroku.Otel.TraceContext ( src/Kiroku/Otel/TraceContext.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-otel-0.2.0.12/build/Kiroku/Otel/TraceContext.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-otel-0.2.0.12/build/Kiroku/Otel/TraceContext.dyn_o ) [Flags changed]
+Configuring library for kiroku-cli-0.2.0.10...
+Preprocessing library for kiroku-cli-0.2.0.10...
+Building library for kiroku-cli-0.2.0.10...
+[1 of 6] Compiling Kiroku.Cli.Command ( src/Kiroku/Cli/Command.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.10/build/Kiroku/Cli/Command.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.10/build/Kiroku/Cli/Command.dyn_o ) [Flags changed]
+[2 of 6] Compiling Kiroku.Cli.Parser ( src/Kiroku/Cli/Parser.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.10/build/Kiroku/Cli/Parser.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.10/build/Kiroku/Cli/Parser.dyn_o ) [Flags changed]
+[3 of 6] Compiling Kiroku.Cli.Subscription.Status ( src/Kiroku/Cli/Subscription/Status.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.10/build/Kiroku/Cli/Subscription/Status.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.10/build/Kiroku/Cli/Subscription/Status.dyn_o ) [Flags changed]
+[4 of 6] Compiling Kiroku.Cli.Standalone ( src/Kiroku/Cli/Standalone.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.10/build/Kiroku/Cli/Standalone.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.10/build/Kiroku/Cli/Standalone.dyn_o ) [Flags changed]
+[5 of 6] Compiling Kiroku.Cli.Run   ( src/Kiroku/Cli/Run.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.10/build/Kiroku/Cli/Run.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.10/build/Kiroku/Cli/Run.dyn_o ) [Flags changed]
+[6 of 6] Compiling Kiroku.Cli       ( src/Kiroku/Cli.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.10/build/Kiroku/Cli.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.10/build/Kiroku/Cli.dyn_o ) [Flags changed]
+Configuring library for kiroku-test-support-0.1.0.0...
+Preprocessing library for kiroku-test-support-0.1.0.0...
+Building library for kiroku-test-support-0.1.0.0...
+[1 of 2] Compiling Kiroku.Test.Fixtures.CategoryScaling ( src/Kiroku/Test/Fixtures/CategoryScaling.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-test-support-0.1.0.0/build/Kiroku/Test/Fixtures/CategoryScaling.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-test-support-0.1.0.0/build/Kiroku/Test/Fixtures/CategoryScaling.dyn_o ) [Flags changed]
+[2 of 2] Compiling Kiroku.Test.Postgres ( src/Kiroku/Test/Postgres.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-test-support-0.1.0.0/build/Kiroku/Test/Postgres.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-test-support-0.1.0.0/build/Kiroku/Test/Postgres.dyn_o ) [Flags changed]
+Configuring executable 'kiroku-store-migrate' for kiroku-store-migrations-0.7.1.0...
+Preprocessing executable 'kiroku-store-migrate' for kiroku-store-migrations-0.7.1.0...
+Building executable 'kiroku-store-migrate' for kiroku-store-migrations-0.7.1.0...
+[1 of 1] Compiling Main             ( app/Main.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.1.0/x/kiroku-store-migrate/build/kiroku-store-migrate/kiroku-store-migrate-tmp/Main.o ) [Flags changed]
+[2 of 2] Linking /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.1.0/x/kiroku-store-migrate/build/kiroku-store-migrate/kiroku-store-migrate [Objects changed]
+Configuring library for shibuya-kiroku-adapter-0.6.0.1...
+Preprocessing library for shibuya-kiroku-adapter-0.6.0.1...
+Building library for shibuya-kiroku-adapter-0.6.0.1...
+[1 of 2] Compiling Shibuya.Adapter.Kiroku.Convert ( src/Shibuya/Adapter/Kiroku/Convert.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.6.0.1/build/Shibuya/Adapter/Kiroku/Convert.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.6.0.1/build/Shibuya/Adapter/Kiroku/Convert.dyn_o ) [Flags changed]
+[2 of 2] Compiling Shibuya.Adapter.Kiroku ( src/Shibuya/Adapter/Kiroku.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.6.0.1/build/Shibuya/Adapter/Kiroku.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.6.0.1/build/Shibuya/Adapter/Kiroku.dyn_o ) [Flags changed]
+Configuring library for kiroku-metrics-0.3.0.0...
+Preprocessing library for kiroku-metrics-0.3.0.0...
+Building library for kiroku-metrics-0.3.0.0...
+[ 1 of 17] Compiling Kiroku.Metrics.Types ( src/Kiroku/Metrics/Types.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Types.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Types.dyn_o ) [Flags changed]
+[ 2 of 17] Compiling Kiroku.Metrics.Collector ( src/Kiroku/Metrics/Collector.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Collector.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Collector.dyn_o ) [Flags changed]
+[ 3 of 17] Compiling Kiroku.Metrics.Prometheus ( src/Kiroku/Metrics/Prometheus.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Prometheus.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Prometheus.dyn_o ) [Flags changed]
+[ 4 of 17] Compiling Kiroku.Metrics.JSON ( src/Kiroku/Metrics/JSON.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/JSON.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/JSON.dyn_o ) [Flags changed]
+[ 5 of 17] Compiling Kiroku.Metrics.Subscriptions ( src/Kiroku/Metrics/Subscriptions.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Subscriptions.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Subscriptions.dyn_o ) [Flags changed]
+[ 6 of 17] Compiling Kiroku.Metrics.DeadLetters ( src/Kiroku/Metrics/DeadLetters.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/DeadLetters.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/DeadLetters.dyn_o ) [Flags changed]
+[ 7 of 17] Compiling Kiroku.Metrics.Cors ( src/Kiroku/Metrics/Cors.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Cors.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Cors.dyn_o ) [Flags changed]
+[ 8 of 17] Compiling Kiroku.Metrics.Config ( src/Kiroku/Metrics/Config.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Config.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Config.dyn_o ) [Flags changed]
+[ 9 of 17] Compiling Kiroku.Metrics.Checkpoints ( src/Kiroku/Metrics/Checkpoints.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Checkpoints.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Checkpoints.dyn_o ) [Flags changed]
+[10 of 17] Compiling Kiroku.Metrics.Health ( src/Kiroku/Metrics/Health.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Health.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Health.dyn_o ) [Flags changed]
+[11 of 17] Compiling Kiroku.Metrics.WebSocket ( src/Kiroku/Metrics/WebSocket.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/WebSocket.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/WebSocket.dyn_o ) [Source file changed]
+src/Kiroku/Metrics/WebSocket.hs:85:23: warning: [GHC-38856] [-Wunused-imports]
+    The import of ‘foldl'’ from module ‘Data.Foldable’ is redundant
+   |
+85 | import Data.Foldable (foldl', for_)
+   |                       ^^^^^^
+
+[12 of 17] Compiling Kiroku.Metrics.Browse ( src/Kiroku/Metrics/Browse.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Browse.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Browse.dyn_o ) [Flags changed]
+src/Kiroku/Metrics/Browse.hs:96:9: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at src/Kiroku/Metrics/Browse.hs:37:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+   |
+96 |         size <- browseSize limit
+   |         ^^^^
+
+src/Kiroku/Metrics/Browse.hs:120:9: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at src/Kiroku/Metrics/Browse.hs:37:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+120 |         size <- browseSize limit
+    |         ^^^^
+
+src/Kiroku/Metrics/Browse.hs:185:11: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at src/Kiroku/Metrics/Browse.hs:37:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+185 |     Right size -> Right size
+    |           ^^^^
+
+[13 of 17] Compiling Paths_kiroku_metrics ( /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/autogen/Paths_kiroku_metrics.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Paths_kiroku_metrics.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Paths_kiroku_metrics.dyn_o ) [Flags changed]
+[14 of 17] Compiling Kiroku.Metrics.Capabilities ( src/Kiroku/Metrics/Capabilities.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Capabilities.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Capabilities.dyn_o ) [Flags changed]
+[15 of 17] Compiling Kiroku.Metrics.Server ( src/Kiroku/Metrics/Server.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Server.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Server.dyn_o ) [Flags changed]
+[16 of 17] Compiling Kiroku.Metrics.Standalone ( src/Kiroku/Metrics/Standalone.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Standalone.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics/Standalone.dyn_o ) [Flags changed]
+[17 of 17] Compiling Kiroku.Metrics   ( src/Kiroku/Metrics.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics.o, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.3.0.0/build/Kiroku/Metrics.dyn_o ) [Flags changed]
+Configuring executable 'kiroku' for kiroku-cli-0.2.0.10...
+Preprocessing executable 'kiroku' for kiroku-cli-0.2.0.10...
+Building executable 'kiroku' for kiroku-cli-0.2.0.10...
+[1 of 1] Compiling Main             ( app/Main.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.10/x/kiroku/build/kiroku/kiroku-tmp/Main.o ) [Flags changed]
+[2 of 2] Linking /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.10/x/kiroku/build/kiroku/kiroku [Objects changed]
+Configuring executable 'lifecycle-live' for shibuya-kiroku-adapter-0.6.0.1...
+Preprocessing executable 'lifecycle-live' for shibuya-kiroku-adapter-0.6.0.1...
+Building executable 'lifecycle-live' for shibuya-kiroku-adapter-0.6.0.1...
+[1 of 1] Compiling Main             ( app/LifecycleLive.hs, /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/mp13-release-source-6jhizn0h/dist-newstyle/build/aarch64-osx/ghc-9.12.4/shibuya-kiroku-adapter-0.6.0.1/x/lifecycle-live/build/lifecycle-live/lifecycle-live-tmp/Main.o ) [Flags changed]
+app/LifecycleLive.hs:188:37: error: [GHC-83865]
+    • Couldn't match expected type ‘aeson-2.2.5.1:Data.Aeson.Types.Internal.Value’
+                  with actual type ‘aeson-2.2.5.1:Data.Aeson.Types.Internal.Value’
+      Note: ‘aeson-2.2.5.1:Data.Aeson.Types.Internal.Value’
+              is defined in ‘Data.Aeson.Types.Internal’
+                  in package ‘aeson-2.2.5.1’
+            ‘aeson-2.2.5.1:Data.Aeson.Types.Internal.Value’
+              is defined in ‘Data.Aeson.Types.Internal’
+                  in package ‘aeson-2.2.5.1’.
+    • In the ‘payload’ field of a record
+      In the expression:
+        EventData
+          {eventId = Nothing, eventType = EventType "Ep45Lifecycle",
+           payload = object ["sequence" .= index], metadata = Nothing,
+           causationId = Nothing, correlationId = Nothing}
+      In an equation for ‘event’:
+          event
+            = EventData
+                {eventId = Nothing, eventType = EventType "Ep45Lifecycle",
+                 payload = object ["sequence" .= index], metadata = Nothing,
+                 causationId = Nothing, correlationId = Nothing}
+    |
+188 |                         , payload = object ["sequence" .= index]
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+app/LifecycleLive.hs:221:84: error: [GHC-18872]
+    • Couldn't match type ‘aeson-2.2.5.1:Data.Aeson.Types.Internal.Value’
+                     with ‘aeson-2.2.5.1:Data.Aeson.Types.Internal.Value’
+        arising from selecting the field ‘payload’
+      Note: ‘aeson-2.2.5.1:Data.Aeson.Types.Internal.Value’
+              is defined in ‘Data.Aeson.Types.Internal’
+                  in package ‘aeson-2.2.5.1’
+            ‘aeson-2.2.5.1:Data.Aeson.Types.Internal.Value’
+              is defined in ‘Data.Aeson.Types.Internal’
+                  in package ‘aeson-2.2.5.1’.
+    • In the second argument of ‘parseMaybe’, namely ‘recorded.payload’
+      In the expression:
+        parseMaybe
+          (withObject "EP-45 event" (.: "sequence")) recorded.payload
+      In an equation for ‘sequenceNumber’:
+          sequenceNumber
+            = parseMaybe
+                (withObject "EP-45 event" (.: "sequence")) recorded.payload
+    |
+221 |             sequenceNumber = parseMaybe (withObject "EP-45 event" (.: "sequence")) recorded.payload
+    |                                                                                    ^^^^^^^^^^^^^^^^
+
+app/LifecycleLive.hs:342:49: error: [GHC-18872]
+    • Couldn't match type: vector-0.13.2.0:Data.Vector.Vector
+                             SubscriptionCheckpoint
+                     with: Vector.Vector SubscriptionCheckpoint
+        arising from selecting the field ‘checkpoints’
+      Note: ‘Vector.Vector’
+              is defined in ‘Data.Vector’ in package ‘vector-0.13.2.0’
+            ‘vector-0.13.2.0:Data.Vector.Vector’
+              is defined in ‘Data.Vector’ in package ‘vector-0.13.2.0’.
+    • In the second argument of ‘Vector.find’, namely
+        ‘inventory.checkpoints’
+      In the expression:
+        Vector.find isTargetCheckpoint inventory.checkpoints
+      In the expression:
+        case Vector.find isTargetCheckpoint inventory.checkpoints of
+          Nothing -> 0
+          Just checkpoint -> let GlobalPosition position = ... in position
+    |
+342 |             case Vector.find isTargetCheckpoint inventory.checkpoints of
+    |                                                 ^^^^^^^^^^^^^^^^^^^^^
+
+Error: [Cabal-7125]
+Failed to build exe:lifecycle-live from shibuya-kiroku-adapter-0.6.0.1.
+
