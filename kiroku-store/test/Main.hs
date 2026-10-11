@@ -55,7 +55,9 @@ import Test.PublisherRestartNoRebroadcast qualified as PublisherRestartNoRebroad
 import Test.ReadStream qualified as ReadStream
 import Test.StartupFailureSurfacing qualified as StartupFailureSurfacing
 import Test.StreamBridgeTermination qualified as StreamBridgeTermination
+import Test.StreamHead qualified as StreamHead
 import Test.StreamHeadIsolation qualified as StreamHeadIsolation
+import Test.StreamHeadMock qualified as StreamHeadMock
 import Test.StreamHistoryGuard qualified as StreamHistoryGuard
 import Test.StreamNameLookup qualified as StreamNameLookup
 import Test.SubscriptionCheckpointInitialization qualified as SubscriptionCheckpointInitialization
@@ -130,6 +132,8 @@ main = withSharedMigratedPostgres $ hspec $ do
     SubscriptionRegistry.spec
     SubscriptionRetryDeadLetter.spec
     EventTypeFilter.spec
+    StreamHead.spec
+    StreamHeadMock.spec
     VisibleGlobalHeadPosition.spec
     VisibleGlobalHeadPositionMock.spec
     around withTestStore $ do

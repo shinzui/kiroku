@@ -1,0 +1,51 @@
+{
+  "baseline": "109d58f57dbd5757ad55792474d046a37cc2e87d",
+  "checks": {
+    "streamInfoRow": {
+      "unchanged": true,
+      "sha256": "9a1e78c59d1c818e553bb8f8ae34cb49dbd5b0cbc17c71a7ba7e77a6338a2e54"
+    },
+    "recordedEventRow": {
+      "unchanged": true,
+      "sha256": "9435d1f9fc42ad8ea8d3156ec8cda040d6124ae20d113a08ba44406b00901a63"
+    },
+    "getStreamStmt": {
+      "unchanged": true,
+      "sha256": "5dd9d8e3ca07982410afb4ced5ac61d1b9b14113ae45db20474336b59d5c74e9"
+    },
+    "getStreamSQL": {
+      "unchanged": true,
+      "sha256": "e7fd52f3515c9400ceb22fff3806f8c347e9fcaa6a44cafc6cec1cec1e2d1b4d"
+    },
+    "readStreamEncoder": {
+      "unchanged": true,
+      "sha256": "87a959704b98f65c53fc94303c1857e031cc1efd7972df3ced2ccb544f41c9c5"
+    },
+    "readCategoryEncoder": {
+      "unchanged": true,
+      "sha256": "5a4ff77b0f18830e77eab1647ef0bfb7ac21f5501460fc32c98429e5a38adda3"
+    },
+    "readCategoryConsumerGroupEncoder": {
+      "unchanged": true,
+      "sha256": "b594c0bb489c97a58698094ac8fc9537ec59a337e2bee2f3348a807f524fd622"
+    },
+    "appendParamsEncoder": {
+      "unchanged": true,
+      "sha256": "9aad27734c9c41f69181a8eedff72b5125f382d7743f0598afc5008c7fbabb69"
+    },
+    "appendResultDecoder": {
+      "unchanged": true,
+      "sha256": "0e0c974732f1e8682cb20bf8d6cd692b467abfdfcedccd1f3befec55b626415c"
+    },
+    "GetStream handler": {
+      "unchanged": true
+    },
+    "kiroku-store/src/Kiroku/Store/Types.hs": {
+      "unchanged": true
+    },
+    "kiroku-store-migrations/migrations": {
+      "unchanged": true
+    }
+  },
+  "new_handler": "One usePool wrapping one Session.statement; public wrapper sends only GetStreamWithHead."
+}

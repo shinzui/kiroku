@@ -132,7 +132,9 @@ test-suite kiroku-store-test
     Test.ReadStream
     Test.StartupFailureSurfacing
     Test.StreamBridgeTermination
+    Test.StreamHead
     Test.StreamHeadIsolation
+    Test.StreamHeadMock
     Test.StreamHistoryGuard
     Test.StreamNameLookup
     Test.SubscriptionCheckpointInitialization

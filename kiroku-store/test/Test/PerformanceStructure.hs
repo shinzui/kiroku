@@ -26,6 +26,7 @@ import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Subscription.Stream qualified as Buffer
 import Kiroku.Store.Subscription.Worker (withLoadCheckpointHookForTest)
 import Kiroku.Test.Fixtures.CategoryScaling (categoryScalingFixtureSql, categoryScalingHead)
+import Kiroku.Test.Fixtures.StreamHead (streamHeadFixtureSql)
 import Test.DeadLetterQueryPlans qualified as DeadLetterQueryPlans
 import Test.Helpers (makeEvent, validConsumerGroup, waitWithTimeout, withTestStore, withTestStoreSettings)
 import Test.Hspec
@@ -36,6 +37,7 @@ spec = do
     queryPlanSpec
     DeadLetterQueryPlans.spec
     categoryReadCostSpec
+    streamHeadQuerySpec
 
 noOpAppendSpec :: Spec
 noOpAppendSpec =
@@ -568,3 +570,81 @@ retentionTriggerShapeStmt =
                 <*> D.column (D.nonNullable D.int8)
             )
         )
+
+streamHeadQuerySpec :: Spec
+streamHeadQuerySpec = describe "stream head query work" $
+    aroundAll withStreamHeadStore $
+        forM_ ["bench-1", "long-1", "empty-1", "missing-1"] $ \name ->
+            it ("bounds literal and warmed prepared probes for " <> T.unpack name) $ \store -> do
+                let literal = "'" <> name <> "'"
+                    prefix = "EXPLAIN (ANALYZE, BUFFERS, TIMING OFF, FORMAT JSON) "
+                direct <- explainWith prefix store SQL.getStreamWithHeadStmt [("$1", literal)]
+                prepared <- explainStreamHeadPrepared store literal
+                forM_ [("literal", direct), ("prepared", prepared)] $ \(kind, plan) -> do
+                    -- Emit complete JSON into retained test logs, including buffers and loops.
+                    putStrLn ("STREAM_HEAD_PLAN " <> T.unpack name <> " " <> kind <> " " <> show (Aeson.encode plan))
+                    expectIndex "ix_stream_events_all_by_origin" plan
+                    expectNoNodeType "Sort" plan
+                    let nodes = planObjects plan
+                        probes = filter ((== Just "stream_events") . textField "Relation Name") nodes
+                        limits = filter ((== Just "Limit") . textField "Node Type") nodes
+                    length probes `shouldBe` 1
+                    length limits `shouldBe` 1
+                    forM_ probes $ \probe -> do
+                        textField "Node Type" probe `shouldSatisfy` (`elem` [Just "Index Scan", Just "Index Only Scan"])
+                        textField "Scan Direction" probe `shouldBe` Just "Backward"
+                        planNumber "Actual Rows" probe `shouldSatisfy` (<= 1)
+                        if name == "missing-1" then planNumber "Actual Loops" probe `shouldBe` 0 else pure ()
+                    forM_ limits $ \limit -> do
+                        expectIndex "ix_stream_events_all_by_origin" (Object limit)
+                        planNumber "Actual Rows" limit `shouldSatisfy` (<= 1)
+                    map (textField "Relation Name") nodes `shouldNotContain` [Just "events"]
+                    case plan of
+                        Array entries
+                            | Object entry : _ <- foldr (:) [] entries
+                            , Just (Object top) <- KeyMap.lookup "Plan" entry -> do
+                                planNumber "Shared Hit Blocks" top + planNumber "Shared Read Blocks" top `shouldSatisfy` (<= 32)
+                                planNumber "Actual Rows" top `shouldBe` (if name == "missing-1" then 0 else 1)
+                        _ -> expectationFailure (show plan)
+                actual <- runStoreIO store (getStreamWithHead (StreamName name))
+                case name of
+                    "missing-1" -> actual `shouldBe` Right Nothing
+                    "empty-1" -> case actual of
+                        Right (Just (_, headPosition)) -> headPosition `shouldBe` Nothing
+                        _ -> expectationFailure (show actual)
+                    _ -> case actual of
+                        Right (Just (_, Just _)) -> pure ()
+                        _ -> expectationFailure (show actual)
+
+withStreamHeadStore :: (KirokuStore -> IO ()) -> IO ()
+withStreamHeadStore action = withTestStore $ \store -> do
+    forM_ [streamHeadFixtureSql, "VACUUM (ANALYZE) stream_events"] $ \command ->
+        Pool.use (store ^. #pool) (Session.script command) >>= either (fail . show) pure
+    action store
+
+explainStreamHeadPrepared :: KirokuStore -> Text -> IO Value
+explainStreamHeadPrepared store literal = do
+    result <- Pool.use (store ^. #pool) $ do
+        Session.script ("PREPARE ep97_head(text) AS " <> Statement.toSql SQL.getStreamWithHeadStmt)
+        -- Default auto policy, past PostgreSQL's first five custom executions.
+        Session.script (T.replicate 6 ("EXECUTE ep97_head(" <> literal <> ");"))
+        bytes <-
+            Session.statement () $
+                unpreparable
+                    ("EXPLAIN (ANALYZE, BUFFERS, TIMING OFF, FORMAT JSON) EXECUTE ep97_head(" <> literal <> ")")
+                    E.noParams
+                    (D.singleRow (D.column (D.nonNullable (D.jsonBytes Right))))
+        Session.script "DEALLOCATE ep97_head"
+        pure bytes
+    bytes <- either (fail . show) pure result
+    either fail pure (Aeson.eitherDecodeStrict' bytes)
+
+planObjects :: Value -> [Aeson.Object]
+planObjects (Object fields) = fields : concatMap planObjects (KeyMap.elems fields)
+planObjects (Array values) = concatMap planObjects (foldr (:) [] values)
+planObjects _ = []
+
+planNumber :: Aeson.Key -> Aeson.Object -> Double
+planNumber key fields = case KeyMap.lookup key fields of
+    Just (Number n) -> realToFrac n
+    _ -> 0

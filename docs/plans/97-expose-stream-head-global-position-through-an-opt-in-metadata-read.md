@@ -57,13 +57,17 @@ additional read traffic competing for the same database resources.
 
 
 - [x] (2026-10-11 04:21Z) Milestone 1: freeze legacy SQL and runner, validate baseline, and seed shared fixture.
-- [ ] Milestone 2: implement the public read and lifecycle/mock/snapshot tests.
-- [ ] Milestone 3: verify bounded query work and public-runner cost, run aggregate gates.
+- [x] (2026-10-11 04:24Z) Implemented the public read and lifecycle/mock/snapshot tests; 26 focused checks pass.
+- [x] (2026-10-11 04:30Z) Milestone 2 integration: full build and all 474 store tests pass.
+- [x] (2026-10-11 04:24Z) Milestone 3 structural evidence: all eight natural literal/prepared plans pass bounded origin probes.
+- [ ] Milestone 3 timing/integration: measure candidate public-runner cost and run aggregate gates.
 - [ ] Milestone 4: document semantics, distill ADR, build and validate integration.
 
 
 ## Surprises & Discoveries
 
+
+2026-10-11: Initial focused test compilation found an ambiguous `wait` import; qualifying Async fixed it. All 26 focused examples then passed.
 
 2026-10-11: Cabal runs benchmarks from the package directory; a relative CSV destination failed before measurement. Retained `baseline-cost.log`; the absolute-path retry completed all four cells in 14.69 seconds. Reported uncertainty is twice standard deviation; all cells met the 5% target. Baseline legacy ratios were 0.99 for both sizes.
 
@@ -95,6 +99,12 @@ Do not schedule a remote experiment, broad configuration matrix, or new statisti
 framework for this read-only addition. Expand only for a named unresolved risk or
 consistent adverse signal, within one 60-minute experiment budget.
 
+2026-10-11: The user explicitly authorized moving timing to the existing remote cell infrastructure after reporting local contention. The local candidate timing command was interrupted before measurement; its log and stage record remain. Reuse the original experiment deadline, the exact benchmark actions and thresholds, and a cell-only database-lifecycle adapter. Remote work uses `mori://shinzui/load-testing-infra` and its project-relative `scripts/cell/` lifecycle tools (artifact-level URI pending), with a sealed small proof before expansion. The six head cells and unchanged append/category workload gate are the only timing scope.
+
+2026-10-11: The user reports the machine is very busy. Keep one candidate diagnostic timing invocation and one aggregate gate invocation; do not perform the quiet-host retry policy on a host known to be busy. Retain any timing failure/noise as inconclusive acceptance without weakening thresholds. A clean quiet-host timing run can be deferred if needed; functional and structural completion remain separate.
+
+2026-10-11: The implementation keeps all twelve protected production SQL texts byte-identical and leaves both decoder bodies, legacy handlers, StreamInfo and migrations unchanged. Use Cabal data-files plus its generated Paths module for working-directory-independent frozen fixtures. The full local package build passes with the new effect constructor.
+
 2026-10-10: Create and associate the intention using the user's requested
 `mina ci --json` command. Its returned identifier is in the generated frontmatter.
 Do not create another intention when resuming this plan.
@@ -103,7 +113,7 @@ Do not create another intention when resuming this plan.
 ## Outcomes & Retrospective
 
 
-Milestone 1 baseline at `109d58f57dbd5757ad55792474d046a37cc2e87d`: 448 existing tests and 13 frozen SQL/column checks passed. Four metadata timing cells passed, with raw evidence in `docs/bench/stream-head/2026-10-11-ep97/`. Functional implementation and candidate performance acceptance remain pending.
+Milestone 1 baseline at `109d58f57dbd5757ad55792474d046a37cc2e87d`: 448 existing tests and 13 frozen SQL/column checks passed. Four metadata timing cells passed, with raw evidence in `docs/bench/stream-head/2026-10-11-ep97/`. The additive API and nine lifecycle/mock/snapshot examples now pass; all 26 focused examples include frozen SQL and four literal/prepared plan checks. Full integration and candidate timing acceptance remain pending.
 
 
 ## Context and Orientation
@@ -392,7 +402,7 @@ category workload checks as well as structural tests. This is the existing
 repository integration gate, not a reason to create a new append/link benchmark
 matrix. Investigate any adverse existing gate under its unchanged policy. If a
 new concern requires broader evidence, name the changed path and unanswered question
-in this plan before increasing coverage. No remote run is planned. Any later remote
+in this plan before increasing coverage. The user authorized a focused remote run on 2026-10-11 because the local host is busy. Use the existing sealed-cell protocol, preserve the original start/deadline, and run only the six head cells and existing workload gate after a small verified lifecycle proof. Any remote
 escalation must first satisfy all repository AGENTS.md requirements, including the
 complete runtime/uncertainty proposal, a verified small lifecycle run, persistent
 bounded controller, progress verification, retained journal, and owned-lease release.

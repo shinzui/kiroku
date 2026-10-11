@@ -14,7 +14,7 @@ spec = describe "stream head legacy isolation" $ do
         it ("preserves " <> name <> " byte for byte") $ do
             path <- getDataFileName ("test/fixtures/stream-head-isolation/" <> name <> ".sql")
             expected <- T.readFile path
-            T.strip actual `shouldBe` expected
+            actual `shouldBe` expected
     it "keeps the six metadata and eleven event result columns" $ do
         columnCount (Statement.toSql SQL.getStreamStmt) `shouldBe` 6
         columnCount (Statement.toSql SQL.readAllForwardStmt) `shouldBe` 11

@@ -1,0 +1,50 @@
+Resolving dependencies...
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.10.0.0 (lib) (configuration changed)
+ - kiroku-store-migrations-0.7.0.0 (lib) (configuration changed)
+ - kiroku-test-support-0.1.0.0 (lib) (configuration changed)
+ - kiroku-store-0.10.0.0 (test:kiroku-store-test) (configuration changed)
+Configuring library for kiroku-store-0.10.0.0...
+Configuring library for kiroku-store-migrations-0.7.0.0...
+Preprocessing library for kiroku-store-migrations-0.7.0.0...
+Building library for kiroku-store-migrations-0.7.0.0...
+Preprocessing library for kiroku-store-0.10.0.0...
+Building library for kiroku-store-0.10.0.0...
+[1 of 5] Compiling Kiroku.Store.Migrations.Internal.Definition ( src/Kiroku/Store/Migrations/Internal/Definition.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.0.0/build/Kiroku/Store/Migrations/Internal/Definition.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-migrations-0.7.0.0/build/Kiroku/Store/Migrations/Internal/Definition.dyn_o ) [Impure plugin forced recompilation]
+Configuring library for kiroku-test-support-0.1.0.0...
+Preprocessing library for kiroku-test-support-0.1.0.0...
+Building library for kiroku-test-support-0.1.0.0...
+[2 of 3] Compiling Kiroku.Test.Fixtures.StreamHead ( src/Kiroku/Test/Fixtures/StreamHead.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-test-support-0.1.0.0/build/Kiroku/Test/Fixtures/StreamHead.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-test-support-0.1.0.0/build/Kiroku/Test/Fixtures/StreamHead.dyn_o )
+Configuring test suite 'kiroku-store-test' for kiroku-store-0.10.0.0...
+Preprocessing test suite 'kiroku-store-test' for kiroku-store-0.10.0.0...
+Building test suite 'kiroku-store-test' for kiroku-store-0.10.0.0...
+[ 1 of 54] Compiling Paths_kiroku_store ( /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/t/kiroku-store-test/build/kiroku-store-test/autogen/Paths_kiroku_store.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Paths_kiroku_store.o )
+[32 of 54] Compiling Test.StreamHeadIsolation ( test/Test/StreamHeadIsolation.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Test/StreamHeadIsolation.o )
+[54 of 54] Compiling Main             ( test/Main.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test-tmp/Main.o ) [Source file changed]
+[55 of 55] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test [Objects changed]
+Running 1 test suites...
+Test suite kiroku-store-test: RUNNING...
+
+performance structure
+  stream head legacy isolation
+    preserves getStreamStmt byte for byte [✔]
+    preserves readStreamForwardStmt byte for byte [✔]
+    preserves readStreamBackwardStmt byte for byte [✔]
+    preserves readAllForwardStmt byte for byte [✔]
+    preserves readAllBackwardStmt byte for byte [✔]
+    preserves readCategoryForwardStmt byte for byte [✔]
+    preserves readCategoryForwardConsumerGroupStmt byte for byte [✔]
+    preserves appendExpectedVersion byte for byte [✔]
+    preserves appendStreamExists byte for byte [✔]
+    preserves appendNoStream byte for byte [✔]
+    preserves appendAnyVersion byte for byte [✔]
+    preserves linkToStreamStmt byte for byte [✔]
+    keeps the six metadata and eleven event result columns [✔]
+
+Finished in 0.0033 seconds
+13 examples, 0 failures
+Test suite kiroku-store-test: PASS
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/t/kiroku-store-test/test/kiroku-store-0.10.0.0-kiroku-store-test.log
+1 of 1 test suites (1 of 1 test cases) passed.

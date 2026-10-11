@@ -8,9 +8,9 @@ description: >-
 generated:
   by: anthropic/claude-fable-5-1
   at: "2026-10-06T23:32:09Z"
-timestamp: "2026-10-10T16:10:46Z"
+timestamp: "2026-10-11T04:25:22Z"
 requestId: IR-18
-status: proposed
+status: in_progress
 origin: mori://tan/notification-render-service
 reviews:
   - kind: model
@@ -40,9 +40,13 @@ That plan is complete; it works today with a category-wide proxy that this reque
 replace with an exact per-stream target. Nothing is blocked. The request is non-urgent and
 additive in intent.
 
-The request was merged in PR #1 on 2026-10-09. It remains `proposed`: the performance evaluation
-below recommends an opt-in combined metadata/head operation; implementation and release are
-still pending.
+The request was merged in PR #1 on 2026-10-09. The opt-in combined metadata/head
+operation is implemented by [Plan 97](../plans/97-expose-stream-head-global-position-through-an-opt-in-metadata-read.md).
+The public `getStreamWithHead` API and lifecycle, linked-stream, mock, snapshot and
+query-plan tests pass. [ADR-19](../adr/0019-originated-stream-heads-are-an-opt-in-snapshot-read.md)
+records the contract and legacy-cost boundary. [Implementation evidence](../bench/stream-head/2026-10-11-ep97/README.md)
+records integration and measured public-runner cost. Status is `in_progress` until
+the separate release workflow publishes the feature; no release is claimed here.
 
 ## Context
 
@@ -59,7 +63,7 @@ projection's durable cursor, and that cursor is kept in **global positions**. To
 stream-version floor the service must therefore answer one question before it waits: *what is the
 global position of event `N` of stream `S`*, or at least of some event at or after it?
 
-Kiroku's public API cannot answer it today:
+Before Plan 97, Kiroku's public API could not answer it:
 
 - `Kiroku.Store.Read.getStream` returns `StreamInfo` with `version` (the count of appended events)
   but no global position. Its statement reads the `streams` row only

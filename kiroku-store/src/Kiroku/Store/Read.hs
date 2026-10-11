@@ -7,6 +7,7 @@ module Kiroku.Store.Read (
     visibleGlobalHeadPosition,
     readCategory,
     getStream,
+    getStreamWithHead,
     listStreams,
     listCategories,
     getEvent,
@@ -187,6 +188,32 @@ getStream ::
     StreamName ->
     Eff es (Maybe StreamInfo)
 getStream name = send (GetStream name)
+
+{- | Read metadata and the newest surviving /originated/ event's global
+position in one SQL statement, from one database snapshot.
+
+Outer 'Nothing' means absent or hard-deleted. Inner 'Nothing' means the
+stream exists without surviving originated events, including empty and
+link-only streams. @$all@ always has an inner 'Nothing': it aggregates events
+but originates none. Links advance the stream version without advancing this
+head. Soft deletion and logical truncation preserve the originated head;
+physical retention can remove it. This is neither the store-wide visible
+head nor the monotonically allocated append frontier.
+
+For an origin-only stream with retained required history, capture this pair,
+require @version >= N@ and @Just head@, then wait for the projection cursor to
+reach @head@. Waiting and timeouts belong to the consumer. The observation does
+not lock history or freeze subsequent appends; later physical removal can
+require a timeout. A positive linked version gives no such guarantee.
+
+Only this opt-in operation pays for the indexed head probe. 'getStream' and
+'StreamInfo' retain their existing representation and cost.
+-}
+getStreamWithHead ::
+    (HasCallStack, Store :> es) =>
+    StreamName ->
+    Eff es (Maybe (StreamInfo, Maybe GlobalPosition))
+getStreamWithHead name = send (GetStreamWithHead name)
 
 {- | Look up a stream's surrogate id by name.
 

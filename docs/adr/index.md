@@ -25,6 +25,5 @@ okf_version: "0.2"
 - [Inspection observers preserve wire contracts and bound shared work](0015-inspection-observers-preserve-wire-contracts-and-bound-shared-work.md) - Keep inspection composition compatible, preserve typed decoding, and require bounded observer work with focused write-performance evidence.
 - [Browser inspection access is explicit and default off](0016-browser-inspection-access-is-explicit-and-default-off.md) - Apply validated explicit-origin CORS at the composed WAI boundary, preserving disabled behavior and enforcing origin policy before WebSocket upgrades.
 - [Stream browsing uses byte order and one shared name index](0017-stream-browsing-uses-byte-order-and-one-shared-name-index.md) - Use stable UTF-8 byte order for new stream pages, share one name index across category and literal-prefix browsing, and retain separate measured write-cost acceptance.
-
-
 - [The inspection surface is composable, self-hosting and self-describing](0018-the-inspection-surface-is-composable-self-hosting-and-self-describing.md) - Compose inspection through declared providers, host it standalone in the sister package and discover actual wiring without reading the store.
+- [Originated stream heads are an opt-in snapshot read](0019-originated-stream-heads-are-an-opt-in-snapshot-read.md) - Capture metadata and an originated global head in one statement while preserving legacy metadata, event-read and write costs.

@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-11
+* **Update**: Record opt-in originated stream heads and their one-statement snapshot and legacy-cost boundary.
 * **Update**: Bound cache-miss work by current-batch IDs after the cumulative local observer diagnostic exposed repeated retained-map traversal.
 * **Addition**: ADR-18 records provider composition, mount-relative hosting, standalone inspection and pure capability discovery.
 

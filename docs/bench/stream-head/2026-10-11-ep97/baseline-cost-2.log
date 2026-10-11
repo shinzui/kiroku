@@ -1,0 +1,23 @@
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.10.0.0 (bench:kiroku-stream-head-cost) (first run)
+Preprocessing benchmark 'kiroku-stream-head-cost' for kiroku-store-0.10.0.0...
+Building benchmark 'kiroku-stream-head-cost' for kiroku-store-0.10.0.0...
+Running 1 benchmarks...
+Benchmark kiroku-stream-head-cost: RUNNING...
+setup_seconds=5.749004s
+warmup_seconds=0.014766s
+All
+  100
+    control-metadata:    OK
+      3.49 ms ± 331 μs
+    production-metadata: OK
+      3.44 ms ±  74 μs, 0.99x
+  100000
+    control-metadata:    OK
+      3.56 ms ± 301 μs
+    production-metadata: OK
+      3.52 ms ± 323 μs, 0.99x
+
+All 4 tests passed (14.69s)
+Benchmark kiroku-stream-head-cost: FINISH

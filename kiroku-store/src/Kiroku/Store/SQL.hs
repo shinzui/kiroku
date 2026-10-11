@@ -21,6 +21,7 @@ module Kiroku.Store.SQL (
     readCategoryForwardStmt,
     readCategoryEncoder,
     getStreamStmt,
+    getStreamWithHeadStmt,
     eventExistsInStreamStmt,
     lookupStreamNamesStmt,
     listStreamsSession,
@@ -496,6 +497,29 @@ visibleGlobalHeadPositionStmt =
         """
         E.noParams
         (D.singleRow (GlobalPosition <$> D.column (D.nonNullable D.int8)))
+
+-- | Metadata and the newest surviving originated global position in one snapshot.
+getStreamWithHeadStmt :: Statement Text (Maybe (StreamInfo, Maybe GlobalPosition))
+getStreamWithHeadStmt =
+    preparable
+        getStreamWithHeadSQL
+        (E.param (E.nonNullable E.text))
+        (D.rowMaybe ((,) <$> streamInfoRow <*> (fmap GlobalPosition <$> D.column (D.nullable D.int8))))
+
+getStreamWithHeadSQL :: Text
+getStreamWithHeadSQL =
+    """
+    SELECT s.stream_id, s.stream_name, s.stream_version,
+           s.created_at, s.deleted_at, s.truncate_before,
+           (SELECT se.stream_version
+            FROM stream_events AS se
+            WHERE se.stream_id = 0
+              AND se.original_stream_id = s.stream_id
+            ORDER BY se.stream_version DESC
+            LIMIT 1) AS head_global_position
+    FROM streams AS s
+    WHERE s.stream_name = $1
+    """
 
 -- | Get stream metadata by name.
 getStreamStmt :: Statement Text (Maybe StreamInfo)

@@ -1,0 +1,592 @@
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.10.0.0 (test:kiroku-store-test) (ephemeral targets)
+Preprocessing test suite 'kiroku-store-test' for kiroku-store-0.10.0.0...
+Building test suite 'kiroku-store-test' for kiroku-store-0.10.0.0...
+Running 1 test suites...
+Test suite kiroku-store-test: RUNNING...
+
+browse reads
+  validates bounded page sizes [✔]
+  excludes only the reserved all row and pages in UTF-8 byte order [✔]
+  intersects exact categories, literal prefixes and exclusive cursors [✔]
+  enumerates distinct categories including bare and empty categories [✔]
+  keeps soft-deleted summaries and removes hard-deleted summaries [✔]
+  returns the canonical global row once even when linked, then nothing after hard deletion [✔]
+  applies the configured decode hook to event lookup [✔]
+  propagates typed decode failure from event lookup [✔]
+browse reads mock
+  dispatches each public wrapper exactly once with its parameters [✔]
+SubscriptionDeadLetters
+  validates page sizes including both boundaries [✔]
+  returns empty pages through both Store interpreters [✔]
+  pages without omissions, isolates names and matches the internal member read [✔]
+  merges historical members and resolves same-position ties with an exclusive cursor [✔]
+  preserves arbitrary and decode-failure JSON unchanged [✔]
+  never invokes a configured event decode hook for dead-letter reads [✔]
+  keeps a cursor valid after its event and row are hard-deleted [✔]
+  includes legal maxBound pairs on first pages [✔]
+  reads a real worker-produced poison reason without changing its checkpoint [✔]
+SubscriptionDeadLetters mock interpreter
+  dispatches the public wrapper once with the entire query and returns the interpreter page [✔]
+browse reads prepared query work
+  bounds production generic and custom index seeks on a 40000-stream catalog [✔]
+  uses the same bounded production statements in an English ICU database [✔]
+unique violation mapping
+  classifies the exact message constraint "events_pkey" [✔]
+  classifies a detail-only constraint "events_pkey" [✔]
+  classifies the exact message constraint "stream_events_pkey" [✔]
+  classifies a detail-only constraint "stream_events_pkey" [✔]
+  classifies the exact message constraint "ix_streams_stream_name" [✔]
+  classifies a detail-only constraint "ix_streams_stream_name" [✔]
+  classifies the exact message constraint "ux_stream_events_stream_version" [✔]
+  classifies a detail-only constraint "ux_stream_events_stream_version" [✔]
+  classifies the exact message constraint "unknown_constraint" [✔]
+  classifies a detail-only constraint "unknown_constraint" [✔]
+  does not match stream_events_pkey as events_pkey [✔]
+  rejects the message lookalike "prefix_events_pkey" [✔]
+  rejects the detail lookalike "prefix_events_pkey" [✔]
+  rejects the message lookalike "events_pkey_suffix" [✔]
+  rejects the detail lookalike "events_pkey_suffix" [✔]
+  rejects the message lookalike "events_pkey$suffix" [✔]
+  rejects the detail lookalike "events_pkey$suffix" [✔]
+  rejects the message lookalike "prefix_stream_events_pkey" [✔]
+  rejects the detail lookalike "prefix_stream_events_pkey" [✔]
+  rejects the message lookalike "stream_events_pkey_suffix" [✔]
+  rejects the detail lookalike "stream_events_pkey_suffix" [✔]
+  rejects the message lookalike "stream_events_pkey$suffix" [✔]
+  rejects the detail lookalike "stream_events_pkey$suffix" [✔]
+  rejects the message lookalike "prefix_ix_streams_stream_name" [✔]
+  rejects the detail lookalike "prefix_ix_streams_stream_name" [✔]
+  rejects the message lookalike "ix_streams_stream_name_suffix" [✔]
+  rejects the detail lookalike "ix_streams_stream_name_suffix" [✔]
+  rejects the message lookalike "ix_streams_stream_name$suffix" [✔]
+  rejects the detail lookalike "ix_streams_stream_name$suffix" [✔]
+  rejects the message lookalike "prefix_ux_stream_events_stream_version" [✔]
+  rejects the detail lookalike "prefix_ux_stream_events_stream_version" [✔]
+  rejects the message lookalike "ux_stream_events_stream_version_suffix" [✔]
+  rejects the detail lookalike "ux_stream_events_stream_version_suffix" [✔]
+  rejects the message lookalike "ux_stream_events_stream_version$suffix" [✔]
+  rejects the detail lookalike "ux_stream_events_stream_version$suffix" [✔]
+  uses the message constraint ahead of misleading detail tokens [✔]
+  retains an unknown message constraint even when detail names a known constraint [✔]
+  does not fabricate an event id for ("events_pkey",Nothing) [✔]
+  does not fabricate an event id for ("events_pkey",Just "unparseable localized detail") [✔]
+  does not fabricate an event id for ("stream_events_pkey",Nothing) [✔]
+  does not fabricate an event id for ("stream_events_pkey",Just "unparseable localized detail") [✔]
+  maps a composite duplicate inside a transaction with its event id [✔]
+  preserves the link-specific duplicate classification [✔]
+  accepts a quoted constraint in legacy detail [✔]
+  keeps an unnamed unique violation on the conservative fallback [✔]
+  does not classify a transaction constraint lookalike as a duplicate [✔]
+  does not classify a link constraint lookalike as already linked [✔]
+  attributes a multi-stream name violation to the named operation [✔]
+  does not attribute a multi-stream constraint lookalike to a later operation [✔]
+subscription configuration
+  validates batch and bridge buffer boundaries as values [✔]
+  exposes every runtime startup refusal through the parent and concrete catches [✔]
+checkpoint target
+  refuses accidental target reuse before delivery, then resumes after explicit rebind [✔]
+  adopts every legacy member once and emits one bound event for the name [✔]
+  refuses unbound rows under RequireBound without changing rows or invoking the handler [✔]
+  refuses mixed bound/unbound siblings before inserting a missing member [✔]
+  does not adopt siblings when FailIfMissing refuses an absent member [✔]
+  serializes conflicting targets on an initially absent name [✔]
+  preserves category binding on resize and initializes fresh names under RequireBound [✔]
+  rebinds all members atomically, repeats idempotently, and rolls back with the caller [✔]
+  persists target binding through an atomic dead-letter save [✔]
+Kiroku.Store.Types category rule
+  categoryName
+    takes the substring before the first dash [✔]
+    treats a dashless name as its own category [✔]
+    stops at the first dash even with later dashes [✔]
+    never yields a category containing a dash [✔]
+      passed 100 tests.
+  streamNameInCategory
+    joins category and segment with a dash [✔]
+  round-trip
+    categoryName . streamNameInCategory == id, for dash-free categories [✔]
+      passed 100 tests.
+kiroku-store invariants (property-based, hedgehog)
+  $all global positions are strictly ascending and unique (F2) [✔]
+    passed 15 tests.
+  soft-deleted streams reject appends of every ExpectedVersion (F4) [✔]
+    passed 15 tests.
+  duplicate caller-supplied event ids are rejected (F5) [✔]
+    passed 15 tests.
+kiroku-store concurrency (deterministic)
+  many AnyVersion writers to one stream preserve stream and global order [✔]
+  many AnyVersion writers to invoice-payment preserve stream and global order [✔]
+  many batched writers to different streams preserve batch-local and global order [✔]
+  large append batches return the final stream and global positions [✔]
+  overlapping appendMultiStream stress preserves all-or-nothing ordering [✔]
+  duplicate event failure leaves touched streams and $all unchanged [✔]
+  two concurrent appends to different streams both succeed (F9) [✔]
+  two concurrent ExactVersion appends to same stream — one wins (F10) [✔]
+  two concurrent multi-stream appends in opposite order do not deadlock (F11) [✔]
+  single-stream append retry does not leak transient SQLSTATEs [✔]
+kiroku-store failure injection
+FATAL:  terminating connection due to administrator command
+  delivers events appended during listener-down window after reconnect (F14) [✔]
+history retention
+  validates UTF-8 byte lengths, duration bounds, and inventory bounds [✔]
+  captures the authoritative frontier and database-derived expiry [✔]
+  rolls back acquisition when the surrounding transaction is condemned [✔]
+  renews only the matching active owner and never shortens expiry [✔]
+  derives expiry without a worker and refuses resurrection [✔]
+  releases idempotently and leaves another simultaneous lease active [✔]
+  bounds inventory and prunes only terminal rows older than the cutoff [✔]
+  emits committed effect transitions once and no false repeated-release event [✔]
+  returns and emits a typed hard-delete conflict without changing history while any lease is active [✔]
+  history retention raw SQL
+    serializes lease-first acquisition ahead of raw deletion [✔]
+    serializes delete-first maintenance ahead of post-delete acquisition [✔]
+    rejects GUC-enabled DELETE with KR001 and permits it after release [✔]
+    rejects GUC-enabled TRUNCATE with KR001 and permits it after release [✔]
+    permits GUC-enabled maintenance after passive expiry [✔]
+history retention mock
+  dispatches every closed lease operation exactly once [✔]
+runTransaction
+  executes a no-op Tx.statement and returns its result [✔]
+  preserves SQLSTATE and message for an opaque foreign-key failure [✔]
+appendToStreamTx (driven inside runTransaction)
+  appends events and a side-table row in one atomic transaction [✔]
+  rolls back the append and the side row when the body condemns [✔]
+  returns Left on version conflict; the caller's branch sees no AppendResult [✔]
+  surfaces duplicate caller-supplied event ids as DuplicateEvent [✔]
+runTransactionAppending
+  commits 3 events and a side-table row in one ACID transaction [✔]
+  rolls back the append and the side row when the callback condemns [✔]
+  skips the callback and surfaces the version conflict [✔]
+  rejects $all before opening any transaction [✔]
+  rejects oversized stream names before opening any transaction [✔]
+  rejects empty event batches before opening a transaction [✔]
+  surfaces duplicate caller-supplied event ids as DuplicateEvent [✔]
+TruncateBefore
+  bounds per-stream reads to the kept suffix [✔]
+  leaves the $all global log and category reads intact [✔]
+  is reversible via clearStreamTruncateBefore [✔]
+  is idempotent [✔]
+  applies across paged reads [✔]
+  reflects the marker in getStream [✔]
+  returns Nothing for missing or soft-deleted streams [✔]
+  rejects $all with ReservedStreamName [✔]
+readStreamForwardStream
+  matches readStreamForward on a single-page stream [✔]
+  folds 1000 events end-to-end with Fold.length across multiple pages [✔]
+  preserves order and avoids duplicates / gaps when paging at pageSize 2 [✔]
+  terminates immediately on a nonexistent stream [✔]
+  honors a non-zero starting cursor with exclusivity [✔]
+  uses one pool checkout per non-empty page when the final page is short [✔]
+eventExistsInStream
+  finds an existing event id in its live stream [✔]
+  returns False for absent ids and ids linked only to another stream [✔]
+  treats soft-deleted streams as absent [✔]
+lookupStreamNames / lookupStreamName
+  resolves originalStreamId back to the source stream for $all reads [✔]
+  omits ids that name no existing stream [✔]
+  returns an empty map for an empty id list [✔]
+  lookupStreamName resolves a single id, and Nothing for an unknown one [✔]
+stream bridge termination
+  rejects a zero-sized bridge buffer at construction [✔]
+  rethrows the worker exception to the consumer when the worker dies [✔]
+  ends the stream after a clean worker stop [✔]
+  cancelAction returns promptly even when the bridge queue is full [✔]
+  cancelAction is idempotent and leaves no subscription thread registered [✔]
+stream history guard
+  returns exact metadata and pages with production cursor semantics [✔]
+  returns typed unavailable results for missing and reserved streams [✔]
+  returns soft-deleted metadata and blocks undelete until guard completion [✔]
+  blocks append until guard completion [✔]
+  releases the guard on rollback and lets the blocked append complete [✔]
+  blocks link into the guarded stream until guard completion [✔]
+  blocks soft delete and logical truncate until guard completion [✔]
+  blocks hard delete of the guarded origin until guard completion [✔]
+  blocks hard delete of another origin linked into the guarded stream [✔]
+  keeps opposing hard deletes and multi-stream appends deadlock-free [✔]
+InterpreterHooks
+  enrichEvent
+    applies enrichEvent to appended events surfaced through readStreamForward [✔]
+    applies enrichEvent across appendMultiStream per-stream batches [✔]
+  decodeHook
+    retains the no-hook batch without evaluating its events [✔]
+    applies decodeHook to readAllForward results [✔]
+    applies decodeHook to subscription handlers across catch-up and live phases [✔]
+  no hooks
+    with defaultStoreSettings, a round-trip preserves payload and metadata exactly [✔]
+findCausationDescendants
+  returns the seed event and every descendant in global-position order [✔]
+  on an eventId with no descendants returns a vector of length 1 (the seed only) [✔]
+  on a non-existent eventId returns an empty vector [✔]
+findCausationAncestors
+  walks from a leaf back to the root, leaf first [✔]
+findByCorrelation
+  returns every event with the given correlation across multiple streams in global-position order [✔]
+  on an unknown correlation returns an empty vector [✔]
+ConsumerGroupSql
+  category consumer-group partitioning (size 4)
+    splits a category into 4 pairwise-disjoint member slices [✔]
+    union of all member slices equals the unpartitioned category read [✔]
+    every stream's events go to exactly one member, in ascending global position [✔]
+    member assignment is deterministic across repeated reads [✔]
+    size 1 is equivalent to an unpartitioned category read [✔]
+  per-member checkpoints
+    stores and reads independent checkpoints per member [✔]
+    never moves a member checkpoint backward (GREATEST monotonicity) [✔]
+    missing member checkpoint reads as Nothing [✔]
+    the existing name-keyed checkpoint statements still round-trip (as member 0) [✔]
+  $all consumer-group partitioning (size 4)
+    splits $all into 4 pairwise-disjoint member slices [✔]
+    union of all member slices equals the unpartitioned $all read [✔]
+    every stream's events go to exactly one member, in ascending global position [✔]
+    size 1 is equivalent to an unpartitioned $all read [✔]
+  member_of assignment rule
+    returns a member index in [0, size) for every stream [✔]
+consumer-group resize
+  rejects invalid sizes and member indices at construction [✔]
+  refuses a configured size that disagrees with stored topology before creating a member [✔]
+  also refuses an ordinary subscription over an existing larger group [✔]
+  refuses an underestimated derived topology until resized [✔]
+  refuses mixed stored sizes even when its own row agrees [✔]
+  serializes concurrent initializers with competing group sizes [✔]
+  persists configured topology on initialization, ordinary saves and dead-letter saves [✔]
+  delivers every seeded event after equalizing size 2 to size 3 [✔]
+  is idempotent when repeated at the same size and retains surviving member identities [✔]
+  starts a missing group at zero and removes obsolete members on shrink [✔]
+  rolls back the complete resize with the caller transaction [✔]
+consumer groups
+  delivers a disjoint, complete, per-stream-ordered partition (size-4 category group) [✔]
+  size-1 group delivers the same set as a plain subscription [✔]
+  $all group partitions the whole store across members [✔]
+  resumes member 2 from its own (name, member) checkpoint [✔]
+  lifecycle events carry the consumer-group member context (GroupMember 2 4) [✔]
+  consumerGroupGuard fails fast when another holder holds the (name, member) lock [✔]
+  subscriptionStream forwards the consumer-group field (member 0 of 2 sees its slice) [✔]
+consumer groups (effectful)
+  routes each member through the effectful API to its own disjoint, complete, per-stream-ordered slice (size-2 category group) [✔]
+  preserves State across handler calls within one member (Persistent unlift) [✔]
+performance structure
+  no-op paths use no pooled connection
+    rejects invalid dead-letter page sizes before pool checkout [✔]
+    rejects invalid batch and buffer sizes before pool checkout [✔]
+    rejects invalid consumer-group values before pool checkout [✔]
+    refuses mismatched topology in exactly one initialization checkout with no handler [✔]
+    refuses mismatched target in exactly one initialization checkout with no handler [✔]
+    keeps ordinary checkpoint saves as one unconditional monotonic upsert [✔]
+    rejects an empty appendToStream batch before pool checkout [✔]
+    returns an empty appendMultiStream result before pool checkout [✔]
+    rejects invalid retention requests before pool checkout [✔]
+    keeps every ordinary statement free of retention coordination [✔]
+  production query plans
+    visible global head lookup uses ux_stream_events_stream_version without Sort [✔]
+    dead-letter reads use ix_dead_letters_subscription_position without Sort [✔]
+    orphan dead-letter cleanup uses ix_dead_letters_event_id [✔]
+    active retention lookup uses ix_history_retention_leases_unreleased_expiry [✔]
+    installs no retention trigger for INSERT or UPDATE [✔]
+  dead-letter production query plans
+[{"Execution Time":2.9e-2,"Plan":{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Plan Rows":100,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":6.0,"Alias":"dead_letters","Async Capable":false,"Disabled":false,"Index Cond":"((subscription_name = $1) AND (consumer_group_member = $2))","Index Name":"ix_dead_letters_subscription_position","Index Searches":1,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":1000,"Plan Width":67,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":56.66}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":5.92},"Planning":{"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":86,"Shared Read Blocks":0,"Shared Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":0.296,"Triggers":[]}]
+[{"Execution Time":2.7e-2,"Plan":{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Plan Rows":33,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":6.0,"Alias":"dead_letters","Async Capable":false,"Disabled":false,"Index Cond":"((subscription_name = $1) AND (consumer_group_member = $2) AND (ROW(global_position, dead_letter_id) < ROW($3, $4)))","Index Name":"ix_dead_letters_subscription_position","Index Searches":1,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":333,"Plan Width":67,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":32.09}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":3.43},"Planning":{"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":9,"Shared Read Blocks":0,"Shared Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":8.3e-2,"Triggers":[]}]
+[{"Execution Time":0.116,"Plan":{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Plan Rows":1000,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":4.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Maximum Storage":33,"Node Type":"Recursive Union","Parallel Aware":false,"Parent Relationship":"InitPlan","Plan Rows":101,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Result","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"InitPlan","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Alias":"dead_letters_1","Async Capable":false,"Disabled":false,"Heap Fetches":1,"Index Cond":"(subscription_name = $1)","Index Name":"dead_letters_subscription_name_consumer_group_member_global_key","Index Searches":1,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Only Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":3000,"Plan Width":4,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":116.78}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Subplan Name":"InitPlan 1","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.32}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.32,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.33},{"Actual Loops":4,"Actual Rows":0.75,"Alias":"m_1","Async Capable":false,"CTE Name":"members","Disabled":false,"Filter":"(member IS NOT NULL)","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"WorkTable Scan","Parallel Aware":false,"Parent Relationship":"Inner","Plan Rows":10,"Plan Width":4,"Plans":[{"Actual Loops":3,"Actual Rows":0.67,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"SubPlan","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":3,"Actual Rows":0.67,"Alias":"dead_letters_2","Async Capable":false,"Disabled":false,"Heap Fetches":2,"Index Cond":"((subscription_name = $1) AND (consumer_group_member > m_1.member))","Index Name":"dead_letters_subscription_name_consumer_group_member_global_key","Index Searches":3,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Only Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":1000,"Plan Width":4,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":8,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":53.66}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":8,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Subplan Name":"SubPlan 2","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.33}],"Rows Removed by Filter":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":8,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.0,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":3.53}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":11,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.32,"Storage":"Memory","Subplan Name":"CTE members","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":36.68},{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Sort","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":10000,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":18.0,"Async Capable":false,"Disabled":false,"Inner Unique":false,"Join Type":"Inner","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Nested Loop","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":10000,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":3.0,"Alias":"m","Async Capable":false,"CTE Name":"members","Disabled":false,"Filter":"(member IS NOT NULL)","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Maximum Storage":17,"Node Type":"CTE Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":100,"Plan Width":4,"Rows Removed by Filter":1,"Shared Dirtied Blocks":0,"Shared Hit Blocks":11,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.0,"Storage":"Memory","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":2.02},{"Actual Loops":3,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"Inner","Plan Rows":100,"Plan Width":67,"Plans":[{"Actual Loops":3,"Actual Rows":6.0,"Alias":"dead_letters","Async Capable":false,"Disabled":false,"Index Cond":"((subscription_name = $1) AND (consumer_group_member = m.member))","Index Name":"ix_dead_letters_subscription_position","Index Searches":3,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":1000,"Plan Width":67,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":9,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":56.66}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":9,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":5.92}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":20,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":693.77}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":20,"Shared Read Blocks":0,"Shared Written Blocks":0,"Sort Key":["dead_letters.global_position DESC","dead_letters.dead_letter_id DESC"],"Sort Method":"top-N heapsort","Sort Space Type":"Memory","Sort Space Used":26,"Startup Cost":1358.16,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":1383.16}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":20,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":1394.83,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":1397.33},"Planning":{"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":0.15,"Triggers":[]}]
+[{"Execution Time":8.0e-2,"Plan":{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Plan Rows":330,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":4.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Maximum Storage":33,"Node Type":"Recursive Union","Parallel Aware":false,"Parent Relationship":"InitPlan","Plan Rows":101,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Result","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"InitPlan","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Alias":"dead_letters_1","Async Capable":false,"Disabled":false,"Heap Fetches":1,"Index Cond":"(subscription_name = $1)","Index Name":"dead_letters_subscription_name_consumer_group_member_global_key","Index Searches":1,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Only Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":3000,"Plan Width":4,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":116.78}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Subplan Name":"InitPlan 1","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.32}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.32,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.33},{"Actual Loops":4,"Actual Rows":0.75,"Alias":"m_1","Async Capable":false,"CTE Name":"members","Disabled":false,"Filter":"(member IS NOT NULL)","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"WorkTable Scan","Parallel Aware":false,"Parent Relationship":"Inner","Plan Rows":10,"Plan Width":4,"Plans":[{"Actual Loops":3,"Actual Rows":0.67,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"SubPlan","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":3,"Actual Rows":0.67,"Alias":"dead_letters_2","Async Capable":false,"Disabled":false,"Heap Fetches":2,"Index Cond":"((subscription_name = $1) AND (consumer_group_member > m_1.member))","Index Name":"dead_letters_subscription_name_consumer_group_member_global_key","Index Searches":3,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Only Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":1000,"Plan Width":4,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":8,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":53.66}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":8,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Subplan Name":"SubPlan 2","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.33}],"Rows Removed by Filter":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":8,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.0,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":3.53}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":11,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.32,"Storage":"Memory","Subplan Name":"CTE members","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":36.68},{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Sort","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":3300,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":18.0,"Async Capable":false,"Disabled":false,"Inner Unique":false,"Join Type":"Inner","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Nested Loop","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":3300,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":3.0,"Alias":"m","Async Capable":false,"CTE Name":"members","Disabled":false,"Filter":"(member IS NOT NULL)","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Maximum Storage":17,"Node Type":"CTE Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":100,"Plan Width":4,"Rows Removed by Filter":1,"Shared Dirtied Blocks":0,"Shared Hit Blocks":11,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.0,"Storage":"Memory","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":2.02},{"Actual Loops":3,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"Inner","Plan Rows":33,"Plan Width":67,"Plans":[{"Actual Loops":3,"Actual Rows":6.0,"Alias":"dead_letters","Async Capable":false,"Disabled":false,"Index Cond":"((subscription_name = $1) AND (consumer_group_member = m.member) AND (ROW(global_position, dead_letter_id) < ROW($2, $3)))","Index Name":"ix_dead_letters_subscription_position","Index Searches":3,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":333,"Plan Width":67,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":9,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":32.09}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":9,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":3.43}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":20,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":378.2}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":20,"Shared Read Blocks":0,"Shared Written Blocks":0,"Sort Key":["dead_letters.global_position DESC","dead_letters.dead_letter_id DESC"],"Sort Method":"top-N heapsort","Sort Space Type":"Memory","Sort Space Used":26,"Startup Cost":571.06,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":579.31}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":20,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":607.74,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":608.56},"Planning":{"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":0,"Shared Read Blocks":0,"Shared Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":0.126,"Triggers":[]}]
+[{"Execution Time":1.5e-2,"Plan":{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Plan Rows":6,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":6.0,"Alias":"dead_letters","Async Capable":false,"Disabled":false,"Index Cond":"((subscription_name = 'plans'::text) AND (consumer_group_member = 9))","Index Name":"ix_dead_letters_subscription_position","Index Searches":1,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":1000,"Plan Width":67,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":56.66}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.62},"Planning":{"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":0,"Shared Read Blocks":0,"Shared Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":5.1e-2,"Triggers":[]}]
+[{"Execution Time":1.6e-2,"Plan":{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Plan Rows":6,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":6.0,"Alias":"dead_letters","Async Capable":false,"Disabled":false,"Index Cond":"((subscription_name = 'plans'::text) AND (consumer_group_member = 9) AND (ROW(global_position, dead_letter_id) < ROW('500'::bigint, '9223372036854775807'::bigint)))","Index Name":"ix_dead_letters_subscription_position","Index Searches":1,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":499,"Plan Width":67,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":38.95}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.74},"Planning":{"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":0,"Shared Read Blocks":0,"Shared Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":7.2e-2,"Triggers":[]}]
+[{"Execution Time":6.2e-2,"Plan":{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Plan Rows":6,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":4.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Maximum Storage":33,"Node Type":"Recursive Union","Parallel Aware":false,"Parent Relationship":"InitPlan","Plan Rows":101,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Result","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"InitPlan","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Alias":"dead_letters_1","Async Capable":false,"Disabled":false,"Heap Fetches":1,"Index Cond":"(subscription_name = 'plans'::text)","Index Name":"dead_letters_subscription_name_consumer_group_member_global_key","Index Searches":1,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Only Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":3000,"Plan Width":4,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":116.78}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Subplan Name":"InitPlan 1","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.32}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.32,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.33},{"Actual Loops":4,"Actual Rows":0.75,"Alias":"m_1","Async Capable":false,"CTE Name":"members","Disabled":false,"Filter":"(member IS NOT NULL)","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"WorkTable Scan","Parallel Aware":false,"Parent Relationship":"Inner","Plan Rows":10,"Plan Width":4,"Plans":[{"Actual Loops":3,"Actual Rows":0.67,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"SubPlan","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":3,"Actual Rows":0.67,"Alias":"dead_letters_2","Async Capable":false,"Disabled":false,"Heap Fetches":2,"Index Cond":"((subscription_name = 'plans'::text) AND (consumer_group_member > m_1.member))","Index Name":"dead_letters_subscription_name_consumer_group_member_global_key","Index Searches":3,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Only Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":1000,"Plan Width":4,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":8,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":53.66}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":8,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Subplan Name":"SubPlan 2","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.33}],"Rows Removed by Filter":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":8,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.0,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":3.53}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":11,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.32,"Storage":"Memory","Subplan Name":"CTE members","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":36.68},{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Sort","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":600,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":18.0,"Async Capable":false,"Disabled":false,"Inner Unique":false,"Join Type":"Inner","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Nested Loop","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":600,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":3.0,"Alias":"m","Async Capable":false,"CTE Name":"members","Disabled":false,"Filter":"(member IS NOT NULL)","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Maximum Storage":17,"Node Type":"CTE Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":100,"Plan Width":4,"Rows Removed by Filter":1,"Shared Dirtied Blocks":0,"Shared Hit Blocks":11,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.0,"Storage":"Memory","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":2.02},{"Actual Loops":3,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"Inner","Plan Rows":6,"Plan Width":67,"Plans":[{"Actual Loops":3,"Actual Rows":6.0,"Alias":"dead_letters","Async Capable":false,"Disabled":false,"Index Cond":"((subscription_name = 'plans'::text) AND (consumer_group_member = m.member))","Index Name":"ix_dead_letters_subscription_position","Index Searches":3,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":1000,"Plan Width":67,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":9,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":56.66}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":9,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.62}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":20,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":69.84}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":20,"Shared Read Blocks":0,"Shared Written Blocks":0,"Sort Key":["dead_letters.global_position DESC","dead_letters.dead_letter_id DESC"],"Sort Method":"top-N heapsort","Sort Space Type":"Memory","Sort Space Used":26,"Startup Cost":80.6,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":82.1}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":20,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":117.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":117.29},"Planning":{"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":0,"Shared Read Blocks":0,"Shared Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":0.116,"Triggers":[]}]
+[{"Execution Time":8.4e-2,"Plan":{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Plan Rows":6,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":4.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Maximum Storage":33,"Node Type":"Recursive Union","Parallel Aware":false,"Parent Relationship":"InitPlan","Plan Rows":101,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Result","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"InitPlan","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Alias":"dead_letters_1","Async Capable":false,"Disabled":false,"Heap Fetches":1,"Index Cond":"(subscription_name = 'plans'::text)","Index Name":"dead_letters_subscription_name_consumer_group_member_global_key","Index Searches":1,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Only Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":3000,"Plan Width":4,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":116.78}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Subplan Name":"InitPlan 1","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.32}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.32,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.33},{"Actual Loops":4,"Actual Rows":0.75,"Alias":"m_1","Async Capable":false,"CTE Name":"members","Disabled":false,"Filter":"(member IS NOT NULL)","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"WorkTable Scan","Parallel Aware":false,"Parent Relationship":"Inner","Plan Rows":10,"Plan Width":4,"Plans":[{"Actual Loops":3,"Actual Rows":0.67,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"SubPlan","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":3,"Actual Rows":0.67,"Alias":"dead_letters_2","Async Capable":false,"Disabled":false,"Heap Fetches":2,"Index Cond":"((subscription_name = 'plans'::text) AND (consumer_group_member > m_1.member))","Index Name":"dead_letters_subscription_name_consumer_group_member_global_key","Index Searches":3,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Only Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":1000,"Plan Width":4,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":8,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":53.66}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":8,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Subplan Name":"SubPlan 2","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.33}],"Rows Removed by Filter":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":8,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.0,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":3.53}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":11,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.32,"Storage":"Memory","Subplan Name":"CTE members","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":36.68},{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Sort","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":600,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":18.0,"Async Capable":false,"Disabled":false,"Inner Unique":false,"Join Type":"Inner","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Nested Loop","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":600,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":3.0,"Alias":"m","Async Capable":false,"CTE Name":"members","Disabled":false,"Filter":"(member IS NOT NULL)","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Maximum Storage":17,"Node Type":"CTE Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":100,"Plan Width":4,"Rows Removed by Filter":1,"Shared Dirtied Blocks":0,"Shared Hit Blocks":11,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.0,"Storage":"Memory","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":2.02},{"Actual Loops":3,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"Inner","Plan Rows":6,"Plan Width":67,"Plans":[{"Actual Loops":3,"Actual Rows":6.0,"Alias":"dead_letters","Async Capable":false,"Disabled":false,"Index Cond":"((subscription_name = 'plans'::text) AND (consumer_group_member = m.member) AND (ROW(global_position, dead_letter_id) < ROW('500'::bigint, '9223372036854775807'::bigint)))","Index Name":"ix_dead_letters_subscription_position","Index Searches":3,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":499,"Plan Width":67,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":9,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":38.95}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":9,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.74}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":20,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.28,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":82.51}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":20,"Shared Read Blocks":0,"Shared Written Blocks":0,"Sort Key":["dead_letters.global_position DESC","dead_letters.dead_letter_id DESC"],"Sort Method":"top-N heapsort","Sort Space Type":"Memory","Sort Space Used":26,"Startup Cost":93.27,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":94.77}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":20,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":129.94,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":129.96},"Planning":{"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":0,"Shared Read Blocks":0,"Shared Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":0.126,"Triggers":[]}]
+[{"Execution Time":2.1e-2,"Plan":{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Plan Rows":2000,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":6.0,"Alias":"dead_letters","Async Capable":false,"Disabled":false,"Index Cond":"((subscription_name = $1) AND (consumer_group_member = $2))","Index Name":"ix_dead_letters_subscription_position","Index Searches":1,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":20000,"Plan Width":67,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":4,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":1117.6}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":4,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":112.13},"Planning":{"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":51,"Shared Read Blocks":8,"Shared Written Blocks":8,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":0.266,"Triggers":[]}]
+[{"Execution Time":4.4e-2,"Plan":{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Plan Rows":667,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":6.0,"Alias":"dead_letters","Async Capable":false,"Disabled":false,"Index Cond":"((subscription_name = $1) AND (consumer_group_member = $2) AND (ROW(global_position, dead_letter_id) < ROW($3, $4)))","Index Name":"ix_dead_letters_subscription_position","Index Searches":1,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":6667,"Plan Width":67,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":1,"Shared Written Blocks":1,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":623.48}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":3,"Shared Read Blocks":1,"Shared Written Blocks":1,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":62.75},"Planning":{"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":0,"Shared Read Blocks":0,"Shared Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":7.0e-2,"Triggers":[]}]
+[{"Execution Time":0.138,"Plan":{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Plan Rows":20000,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":4.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Maximum Storage":33,"Node Type":"Recursive Union","Parallel Aware":false,"Parent Relationship":"InitPlan","Plan Rows":101,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Result","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"InitPlan","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Alias":"dead_letters_1","Async Capable":false,"Disabled":false,"Heap Fetches":1,"Index Cond":"(subscription_name = $1)","Index Name":"ix_dead_letters_subscription_position","Index Searches":1,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Only Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":60000,"Plan Width":4,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":2,"Shared Read Blocks":2,"Shared Written Blocks":2,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":2501.41}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":2,"Shared Read Blocks":2,"Shared Written Blocks":2,"Startup Cost":0.41,"Subplan Name":"InitPlan 1","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.46}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":2,"Shared Read Blocks":2,"Shared Written Blocks":2,"Startup Cost":0.46,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.47},{"Actual Loops":4,"Actual Rows":0.75,"Alias":"m_1","Async Capable":false,"CTE Name":"members","Disabled":false,"Filter":"(member IS NOT NULL)","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"WorkTable Scan","Parallel Aware":false,"Parent Relationship":"Inner","Plan Rows":10,"Plan Width":4,"Plans":[{"Actual Loops":3,"Actual Rows":0.67,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"SubPlan","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":3,"Actual Rows":0.67,"Alias":"dead_letters_2","Async Capable":false,"Disabled":false,"Heap Fetches":2,"Index Cond":"((subscription_name = $1) AND (consumer_group_member > m_1.member))","Index Name":"ix_dead_letters_subscription_position","Index Searches":3,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Only Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":20000,"Plan Width":4,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":10,"Shared Read Blocks":1,"Shared Written Blocks":1,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":1117.6}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":10,"Shared Read Blocks":1,"Shared Written Blocks":1,"Startup Cost":0.41,"Subplan Name":"SubPlan 2","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.47}],"Rows Removed by Filter":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":10,"Shared Read Blocks":1,"Shared Written Blocks":1,"Startup Cost":0.0,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":4.91}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":12,"Shared Read Blocks":3,"Shared Written Blocks":3,"Startup Cost":0.46,"Storage":"Memory","Subplan Name":"CTE members","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":50.56},{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Sort","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":200000,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":18.0,"Async Capable":false,"Disabled":false,"Inner Unique":false,"Join Type":"Inner","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Nested Loop","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":200000,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":3.0,"Alias":"m","Async Capable":false,"CTE Name":"members","Disabled":false,"Filter":"(member IS NOT NULL)","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Maximum Storage":17,"Node Type":"CTE Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":100,"Plan Width":4,"Rows Removed by Filter":1,"Shared Dirtied Blocks":0,"Shared Hit Blocks":12,"Shared Read Blocks":3,"Shared Written Blocks":3,"Startup Cost":0.0,"Storage":"Memory","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":2.02},{"Actual Loops":3,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"Inner","Plan Rows":2000,"Plan Width":67,"Plans":[{"Actual Loops":3,"Actual Rows":6.0,"Alias":"dead_letters","Async Capable":false,"Disabled":false,"Index Cond":"((subscription_name = $1) AND (consumer_group_member = m.member))","Index Name":"ix_dead_letters_subscription_position","Index Searches":3,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":20000,"Plan Width":67,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":12,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":1117.6}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":12,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":112.13}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":24,"Shared Read Blocks":3,"Shared Written Blocks":3,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":13215.4}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":24,"Shared Read Blocks":3,"Shared Written Blocks":3,"Sort Key":["dead_letters.global_position DESC","dead_letters.dead_letter_id DESC"],"Sort Method":"top-N heapsort","Sort Space Type":"Memory","Sort Space Used":26,"Startup Cost":35513.04,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":36013.04}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":24,"Shared Read Blocks":3,"Shared Written Blocks":3,"Startup Cost":35563.6,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":35613.6},"Planning":{"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":0,"Shared Read Blocks":0,"Shared Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":0.163,"Triggers":[]}]
+[{"Execution Time":7.2e-2,"Plan":{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Plan Rows":6670,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":4.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Maximum Storage":33,"Node Type":"Recursive Union","Parallel Aware":false,"Parent Relationship":"InitPlan","Plan Rows":101,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Result","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"InitPlan","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Alias":"dead_letters_1","Async Capable":false,"Disabled":false,"Heap Fetches":1,"Index Cond":"(subscription_name = $1)","Index Name":"ix_dead_letters_subscription_position","Index Searches":1,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Only Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":60000,"Plan Width":4,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":4,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":2501.41}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":4,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Subplan Name":"InitPlan 1","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.46}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":4,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.46,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.47},{"Actual Loops":4,"Actual Rows":0.75,"Alias":"m_1","Async Capable":false,"CTE Name":"members","Disabled":false,"Filter":"(member IS NOT NULL)","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"WorkTable Scan","Parallel Aware":false,"Parent Relationship":"Inner","Plan Rows":10,"Plan Width":4,"Plans":[{"Actual Loops":3,"Actual Rows":0.67,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"SubPlan","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":3,"Actual Rows":0.67,"Alias":"dead_letters_2","Async Capable":false,"Disabled":false,"Heap Fetches":2,"Index Cond":"((subscription_name = $1) AND (consumer_group_member > m_1.member))","Index Name":"ix_dead_letters_subscription_position","Index Searches":3,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Only Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":20000,"Plan Width":4,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":11,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":1117.6}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":11,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Subplan Name":"SubPlan 2","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.47}],"Rows Removed by Filter":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":11,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.0,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":4.91}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":15,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.46,"Storage":"Memory","Subplan Name":"CTE members","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":50.56},{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Sort","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":66700,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":18.0,"Async Capable":false,"Disabled":false,"Inner Unique":false,"Join Type":"Inner","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Nested Loop","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":66700,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":3.0,"Alias":"m","Async Capable":false,"CTE Name":"members","Disabled":false,"Filter":"(member IS NOT NULL)","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Maximum Storage":17,"Node Type":"CTE Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":100,"Plan Width":4,"Rows Removed by Filter":1,"Shared Dirtied Blocks":0,"Shared Hit Blocks":15,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.0,"Storage":"Memory","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":2.02},{"Actual Loops":3,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"Inner","Plan Rows":667,"Plan Width":67,"Plans":[{"Actual Loops":3,"Actual Rows":6.0,"Alias":"dead_letters","Async Capable":false,"Disabled":false,"Index Cond":"((subscription_name = $1) AND (consumer_group_member = m.member) AND (ROW(global_position, dead_letter_id) < ROW($2, $3)))","Index Name":"ix_dead_letters_subscription_position","Index Searches":3,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":6667,"Plan Width":67,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":10,"Shared Read Blocks":2,"Shared Written Blocks":2,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":623.48}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":10,"Shared Read Blocks":2,"Shared Written Blocks":2,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":62.75}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":25,"Shared Read Blocks":2,"Shared Written Blocks":2,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":6944.02}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":25,"Shared Read Blocks":2,"Shared Written Blocks":2,"Sort Key":["dead_letters.global_position DESC","dead_letters.dead_letter_id DESC"],"Sort Method":"top-N heapsort","Sort Space Type":"Memory","Sort Space Used":26,"Startup Cost":13852.49,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":14019.24}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":25,"Shared Read Blocks":2,"Shared Written Blocks":2,"Startup Cost":13903.06,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":13919.73},"Planning":{"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":0,"Shared Read Blocks":0,"Shared Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":0.104,"Triggers":[]}]
+[{"Execution Time":1.7e-2,"Plan":{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Plan Rows":6,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":6.0,"Alias":"dead_letters","Async Capable":false,"Disabled":false,"Index Cond":"((subscription_name = 'plans'::text) AND (consumer_group_member = 9))","Index Name":"ix_dead_letters_subscription_position","Index Searches":1,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":19908,"Plan Width":67,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":4,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":1115.2}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":4,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.75},"Planning":{"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":0,"Shared Read Blocks":0,"Shared Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":5.9e-2,"Triggers":[]}]
+[{"Execution Time":1.3e-2,"Plan":{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Plan Rows":6,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":6.0,"Alias":"dead_letters","Async Capable":false,"Disabled":false,"Index Cond":"((subscription_name = 'plans'::text) AND (consumer_group_member = 9) AND (ROW(global_position, dead_letter_id) < ROW('500'::bigint, '9223372036854775807'::bigint)))","Index Name":"ix_dead_letters_subscription_position","Index Searches":1,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":504,"Plan Width":67,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":4,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":189.69}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":4,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":2.67},"Planning":{"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":0,"Shared Read Blocks":0,"Shared Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":4.8e-2,"Triggers":[]}]
+[{"Execution Time":6.5e-2,"Plan":{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Plan Rows":6,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":4.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Maximum Storage":33,"Node Type":"Recursive Union","Parallel Aware":false,"Parent Relationship":"InitPlan","Plan Rows":101,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Result","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"InitPlan","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Alias":"dead_letters_1","Async Capable":false,"Disabled":false,"Heap Fetches":1,"Index Cond":"(subscription_name = 'plans'::text)","Index Name":"ix_dead_letters_subscription_position","Index Searches":1,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Only Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":60000,"Plan Width":4,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":4,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":2501.41}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":4,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Subplan Name":"InitPlan 1","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.46}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":4,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.46,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.47},{"Actual Loops":4,"Actual Rows":0.75,"Alias":"m_1","Async Capable":false,"CTE Name":"members","Disabled":false,"Filter":"(member IS NOT NULL)","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"WorkTable Scan","Parallel Aware":false,"Parent Relationship":"Inner","Plan Rows":10,"Plan Width":4,"Plans":[{"Actual Loops":3,"Actual Rows":0.67,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"SubPlan","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":3,"Actual Rows":0.67,"Alias":"dead_letters_2","Async Capable":false,"Disabled":false,"Heap Fetches":2,"Index Cond":"((subscription_name = 'plans'::text) AND (consumer_group_member > m_1.member))","Index Name":"ix_dead_letters_subscription_position","Index Searches":3,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Only Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":20000,"Plan Width":4,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":11,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":1117.6}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":11,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Subplan Name":"SubPlan 2","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.47}],"Rows Removed by Filter":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":11,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.0,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":4.91}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":15,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.46,"Storage":"Memory","Subplan Name":"CTE members","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":50.56},{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Sort","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":600,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":18.0,"Async Capable":false,"Disabled":false,"Inner Unique":false,"Join Type":"Inner","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Nested Loop","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":600,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":3.0,"Alias":"m","Async Capable":false,"CTE Name":"members","Disabled":false,"Filter":"(member IS NOT NULL)","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Maximum Storage":17,"Node Type":"CTE Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":100,"Plan Width":4,"Rows Removed by Filter":1,"Shared Dirtied Blocks":0,"Shared Hit Blocks":15,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.0,"Storage":"Memory","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":2.02},{"Actual Loops":3,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"Inner","Plan Rows":6,"Plan Width":67,"Plans":[{"Actual Loops":3,"Actual Rows":6.0,"Alias":"dead_letters","Async Capable":false,"Disabled":false,"Index Cond":"((subscription_name = 'plans'::text) AND (consumer_group_member = m.member))","Index Name":"ix_dead_letters_subscription_position","Index Searches":3,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":20000,"Plan Width":67,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":12,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":1117.6}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":12,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.75}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":27,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":83.04}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":27,"Shared Read Blocks":0,"Shared Written Blocks":0,"Sort Key":["dead_letters.global_position DESC","dead_letters.dead_letter_id DESC"],"Sort Method":"top-N heapsort","Sort Space Type":"Memory","Sort Space Used":26,"Startup Cost":93.79,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":95.29}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":27,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":144.35,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":144.37},"Planning":{"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":0,"Shared Read Blocks":0,"Shared Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":0.119,"Triggers":[]}]
+[{"Execution Time":4.8e-2,"Plan":{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Plan Rows":6,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":4.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Maximum Storage":33,"Node Type":"Recursive Union","Parallel Aware":false,"Parent Relationship":"InitPlan","Plan Rows":101,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Result","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"InitPlan","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":1,"Actual Rows":1.0,"Alias":"dead_letters_1","Async Capable":false,"Disabled":false,"Heap Fetches":1,"Index Cond":"(subscription_name = 'plans'::text)","Index Name":"ix_dead_letters_subscription_position","Index Searches":1,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Only Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":60000,"Plan Width":4,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":4,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":2501.41}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":4,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Subplan Name":"InitPlan 1","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.46}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":4,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.46,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.47},{"Actual Loops":4,"Actual Rows":0.75,"Alias":"m_1","Async Capable":false,"CTE Name":"members","Disabled":false,"Filter":"(member IS NOT NULL)","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"WorkTable Scan","Parallel Aware":false,"Parent Relationship":"Inner","Plan Rows":10,"Plan Width":4,"Plans":[{"Actual Loops":3,"Actual Rows":0.67,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"SubPlan","Plan Rows":1,"Plan Width":4,"Plans":[{"Actual Loops":3,"Actual Rows":0.67,"Alias":"dead_letters_2","Async Capable":false,"Disabled":false,"Heap Fetches":2,"Index Cond":"((subscription_name = 'plans'::text) AND (consumer_group_member > m_1.member))","Index Name":"ix_dead_letters_subscription_position","Index Searches":3,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Only Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":20000,"Plan Width":4,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":11,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":1117.6}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":11,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Subplan Name":"SubPlan 2","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":0.47}],"Rows Removed by Filter":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":11,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.0,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":4.91}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":15,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.46,"Storage":"Memory","Subplan Name":"CTE members","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":50.56},{"Actual Loops":1,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Sort","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":600,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":18.0,"Async Capable":false,"Disabled":false,"Inner Unique":false,"Join Type":"Inner","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Nested Loop","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":600,"Plan Width":67,"Plans":[{"Actual Loops":1,"Actual Rows":3.0,"Alias":"m","Async Capable":false,"CTE Name":"members","Disabled":false,"Filter":"(member IS NOT NULL)","Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Maximum Storage":17,"Node Type":"CTE Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":100,"Plan Width":4,"Rows Removed by Filter":1,"Shared Dirtied Blocks":0,"Shared Hit Blocks":15,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.0,"Storage":"Memory","Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":2.02},{"Actual Loops":3,"Actual Rows":6.0,"Async Capable":false,"Disabled":false,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Limit","Parallel Aware":false,"Parent Relationship":"Inner","Plan Rows":6,"Plan Width":67,"Plans":[{"Actual Loops":3,"Actual Rows":6.0,"Alias":"dead_letters","Async Capable":false,"Disabled":false,"Index Cond":"((subscription_name = 'plans'::text) AND (consumer_group_member = m.member) AND (ROW(global_position, dead_letter_id) < ROW('500'::bigint, '9223372036854775807'::bigint)))","Index Name":"ix_dead_letters_subscription_position","Index Searches":3,"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Node Type":"Index Scan","Parallel Aware":false,"Parent Relationship":"Outer","Plan Rows":506,"Plan Width":67,"Relation Name":"dead_letters","Rows Removed by Index Recheck":0,"Scan Direction":"Forward","Shared Dirtied Blocks":0,"Shared Hit Blocks":12,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":190.17}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":12,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":2.67}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":27,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":0.41,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":274.53}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":27,"Shared Read Blocks":0,"Shared Written Blocks":0,"Sort Key":["dead_letters.global_position DESC","dead_letters.dead_letter_id DESC"],"Sort Method":"top-N heapsort","Sort Space Type":"Memory","Sort Space Used":26,"Startup Cost":285.29,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":286.79}],"Shared Dirtied Blocks":0,"Shared Hit Blocks":27,"Shared Read Blocks":0,"Shared Written Blocks":0,"Startup Cost":335.85,"Temp Read Blocks":0,"Temp Written Blocks":0,"Total Cost":335.86},"Planning":{"Local Dirtied Blocks":0,"Local Hit Blocks":0,"Local Read Blocks":0,"Local Written Blocks":0,"Shared Dirtied Blocks":0,"Shared Hit Blocks":0,"Shared Read Blocks":0,"Shared Written Blocks":0,"Temp Read Blocks":0,"Temp Written Blocks":0},"Planning Time":0.1,"Triggers":[]}]
+    bounds historical-member enumeration and first/later pages in generic/custom plans as history grows [✔]
+  category read cost
+    category high-cursor reads use ix_stream_events_all_by_category without Sort [✔]
+    consumer-group category reads use ix_stream_events_all_by_category without Sort [✔]
+    category caught-up poll on 20000 idle streams reads at most 32 buffers [✔]
+  NOTIFY trigger guard
+    emits one unchanged append payload and no lifecycle or $all payloads [✔]
+    emits the unchanged payload for a 512-byte stream name [✔]
+  empty stream-name lookup
+    short-circuits empty input without a pool checkout [✔]
+live loops do not busy-spin while idle (plan 37)
+  an idle Category subscriber does zero fetches while another category is active, then wakes on its own event [✔]
+  idle consumer-group category members do zero fetches while another category is active, then the owner wakes on its own event [✔]
+  an idle AllStreams consumer-group member wakes a bounded number of times, not a busy spin [✔]
+handler stall
+  warns without acknowledging or checkpointing a blocked handler for (AllStreams,Nothing,False) [✔]
+  warns without acknowledging or checkpointing a blocked handler for (AllStreams,Nothing,True) [✔]
+  warns without acknowledging or checkpointing a blocked handler for (Category (CategoryName "stall"),Nothing,True) [✔]
+  warns without acknowledging or checkpointing a blocked handler for (AllStreams,Just (ConsumerGroup 0 (ConsumerGroupSize 1)),True) [✔]
+  warns without acknowledging or checkpointing a blocked handler for (Category (CategoryName "stall"),Just (ConsumerGroup 0 (ConsumerGroupSize 1)),False) [✔]
+  warns periodically while pending and joins the watchdog on cancellation [✔]
+  warns for the current invocation after replacing a quick handler [✔]
+  contains a throwing diagnostic callback and still completes the handler [✔]
+  clears tracking and joins the watchdog when a handler throws [✔]
+  emits nothing when the handler completes before the threshold [✔]
+  keeps warnings disabled by default even when a handler is blocked [✔]
+  refuses a nonpositive warning interval before checkpoint initialization: 0s [✔]
+  refuses a nonpositive warning interval before checkpoint initialization: -1s [✔]
+publisher callback resilience
+  stops only the default subscriber while a sibling dead-letters and continues live [✔]
+  shares successful live decoding across subscribers [✔]
+  handles an undecodable event after confirmed DB-driven live transition for (Category (CategoryName "decode"),Nothing) [✔]
+  handles an undecodable event after confirmed DB-driven live transition for (AllStreams,Just (ConsumerGroup 0 (ConsumerGroupSize 1))) [✔]
+  does not apply an undecodable disposition to an explicitly filtered-out event [✔]
+  recovers a typed one-shot failure on the default retry without a callback [✔]
+  stops a persistent undecodable event during catch-up for (AllStreams,Nothing) [✔]
+  stops a persistent undecodable event during catch-up for (AllStreams,Just (ConsumerGroup 0 (ConsumerGroupSize 1))) [✔]
+  stops a persistent undecodable event during catch-up for (Category (CategoryName "decode"),Nothing) [✔]
+  stops a persistent undecodable event during catch-up for (Category (CategoryName "decode"),Just (ConsumerGroup 0 (ConsumerGroupSize 1))) [✔]
+  honors an explicit undecodable disposition Continue [✔]
+  honors an explicit undecodable disposition Stop [✔]
+  honors an explicit undecodable disposition Retry (RetryDelay 0s) [✔]
+  re-applies the hook on a callback Retry and then calls the ordinary handler [✔]
+  fails reads with EventDecodeFailed instead of returning a partial vector [✔]
+  cancels promptly while waiting for the default decode retry [✔]
+  replays the failed event from its durable checkpoint after the hook is fixed [✔]
+  releases a bracketed subscriber during a pending default decode retry [✔]
+  unlifts the undecodable callback in the same persistent effect environment as the handler [✔]
+  keeps the publisher alive when decodeHook throws once [✔]
+  drops throwing eventHandler exceptions without killing publisher or worker [✔]
+publisher drop counter
+  counts drops, keeps the newest batch and preserves the idempotent wrapper [✔]
+  does not count PauseAndResume or DropSubscription overflow [✔]
+publisher idle advance
+  does not retain append results while advancing with no queue subscribers [✔]
+  advances lastPublished without decoding any rows when no subscriber is registered [✔]
+  does not fetch full rows while only a category subscriber exists [✔]
+  switches from cheap advance to all-stream delivery without gaps [✔]
+publisher restart tail initialization
+  does not rebroadcast restart history into a blocked all-stream subscriber [✔]
+  delivers a live event appended after a restarted subscriber catches up [✔]
+  keeps per-subscription checkpoints independent from the publisher tail [✔]
+catch-up DB error handling
+  retries a transient fetch error instead of switching to live mode at a stale cursor [✔]
+subscription FSM — recoverable backpressure (EP-41 M2)
+  pauses a slow AllStreams consumer and resumes, delivering all events [✔]
+  still fails fast under DropSubscription [✔]
+subscription checkpoint initialization
+  materializes position zero for FromBeginning [✔]
+  atomically materializes the current store head for FromCurrentHead [✔]
+  returns a typed missing result without creating a row for FailIfMissing [✔]
+  preserves an existing row for every configured policy [✔]
+  isolates checkpoint initialization by consumer-group member [✔]
+  converges concurrent initializers on one durable winner [✔]
+  runs through the resource-backed Store interpreter [✔]
+subscription checkpoint initialization mock interpreter
+  carries the closed policy and typed result through one Store effect call [✔]
+subscription checkpoint worker policies
+  starts a non-group worker FromBeginning and reports the durable seed [✔]
+  forms a clean FromCurrentHead cut while appends race startup [✔]
+  initializes each consumer-group member independently at the current head [✔]
+  preserves FailIfMissing through the bracketed plain-IO entry point [✔]
+  preserves FromCurrentHead through the higher-order effect entry point [✔]
+  preserves FailIfMissing through the Streamly bridge [✔]
+SubscriptionCheckpointInventory
+  returns position zero and no rows for an empty migrated store [✔]
+  runs through the resource-backed Store interpreter [✔]
+  returns the exact store position and a member-zero checkpoint [✔]
+  returns multiple names and members in deterministic key order [✔]
+  preserves monotonic checkpoints and observes later commits on a fresh read [✔]
+  retains a durable row after the worker stops and leaves live state [✔]
+  does not expose in-flight live handler progress before checkpoint commit [✔]
+  observes the checkpoint advanced by a dead-letter transaction [✔]
+  captures a head at or beyond every normally written checkpoint [✔]
+SubscriptionCheckpointInventory mock interpreter
+  returns a public inventory through one Store effect call [✔]
+subscription checkpoint reset
+  commits every persisted member and reports sorted affected and missing names exactly [✔]
+  rolls back the reset and an application-table write when the transaction is condemned [✔]
+  can rewind while later ordinary saves remain monotonic [✔]
+  reports missing names without manufacturing checkpoint rows [✔]
+subscription FSM — worker-level live reconnect (EP-41 M3)
+  reconnects and resumes after transient live-mode database errors [✔]
+  resumes a database-driven live worker from processed progress [✔]
+startup failure surfacing
+  fails subscription startup loudly when checkpoint load fails [✔]
+  refuses a missing checkpoint before Started or handler delivery [✔]
+  leaves no publisher or subscription registry entries after a subscribe/cancel storm [✔]
+subscription FSM — observable state (EP-41 M4)
+  reports CatchingUp while blocked in catch-up and Live once caught up [✔]
+  delivers every event exactly once in order across the catch-up to live boundary [✔]
+subscription registry (EP-1 / plan 45)
+  registers every live subscription with a sensible state and position [✔]
+  removes a subscription's entry when it stops cleanly [✔]
+  removes a subscription's entry when it is cancelled [✔]
+  removes a subscription's entry when its handler crashes [✔]
+  stale duplicate-key cleanup does not remove the replacement entry [✔]
+  publisher queue registration
+    registers publisher queues only for non-group AllStreams subscriptions [✔]
+subscription dispositions — retry / dead-letter (EP-40)
+  dead-letters one event, advances the checkpoint, and keeps delivering [✔]
+  retries one event until it succeeds without advancing past it [✔]
+  dead-letters after exhausting the retry budget and continues [✔]
+event-type filter
+  delivers only matching types and advances the checkpoint past filtered events [✔]
+  advances the checkpoint past a trailing filtered-out event [✔]
+  never stalls on a long run of non-matching events (1 A, 1000 B, 1 A) [✔]
+  does not dead-letter a filtered-out type even when the handler would [✔]
+  delivers only events matching an opaque selector and advances past the rest (no stall) [✔]
+  composes the selector with eventTypeFilter as a logical AND [✔]
+visible global head position
+  returns zero for an empty migrated store through both public runners [✔]
+  returns the greatest appended position [✔]
+  falls back across hard-deleted tails while the append frontier stays monotonic [✔]
+  keeps logically truncated and soft-deleted events visible in $all [✔]
+  does not invoke the event decode hook [✔]
+visible global head position mock
+  returns the configured position through one Store effect call [✔]
+schema migrations
+  installs every Kiroku table under the kiroku schema [✔]
+  leaves the public schema free of Kiroku tables [✔]
+  provides a UUIDv7 database default for direct event inserts [✔]
+appendToStream
+  NoStream
+    creates a new stream and appends events [✔]
+    fails when stream already exists [✔]
+  empty event batches
+    rejects NoStream without creating a phantom stream or advancing $all [✔]
+    rejects empty batches for existing-stream expectations without changing version [✔]
+    rejects an empty per-stream batch in appendMultiStream without committing any stream [✔]
+    treats an empty appendMultiStream operation list as a no-op [✔]
+  ExactVersion
+    appends when version matches [✔]
+    fails on version conflict [✔]
+  StreamExists
+    appends to an existing stream [✔]
+    fails when stream does not exist [✔]
+  AnyVersion
+    creates a new stream [✔]
+    appends to an existing stream [✔]
+  batch append
+    appends multiple events with sequential versions [✔]
+  global position contiguity
+    assigns contiguous global positions across streams [✔]
+  duplicate event ID
+    returns the caller event id on same-stream retry and leaves one stored event [✔]
+    rejects duplicate event IDs [✔]
+  stream-name contract
+    treats system-looking names other than $all as ordinary streams [✔]
+    rejects $all as an application append target [✔]
+    rejects $all as a multi-stream append target without partial commit [✔]
+    rejects $all as a link target [✔]
+    rejects lifecycle operations against $all [✔]
+    rejects stream names longer than 512 UTF-8 bytes before creating streams [✔]
+    rejects oversized link targets without creating the target stream [✔]
+    rejects oversized multi-stream targets without partial commit [✔]
+    accepts a 512-byte stream name [✔]
+readStreamForward
+  reads events in forward order (read-your-own-writes) [✔]
+readStreamBackward
+  reads events in backward order [✔]
+  paginates backward using stream version as an exclusive cursor [✔]
+cursor-based pagination
+  paginates using stream version as cursor [✔]
+readAllForward
+  reads events from $all in global order [✔]
+readAllBackward
+  reads events from $all in reverse order [✔]
+  paginates backward using global position as an exclusive cursor [✔]
+read empty/nonexistent stream
+  returns empty Vector for nonexistent stream [✔]
+getStream
+  returns metadata for existing stream [✔]
+  returns Nothing for nonexistent stream [✔]
+lookupStreamId
+  returns the same id as getStream for a live stream [✔]
+  returns Nothing for a stream that has never been created [✔]
+  returns Just the same id for a soft-deleted stream [✔]
+integration: full lifecycle through withStore
+  append, read forward, read $all, getStream — all through public API [✔]
+linkToStream
+  links a single event to a new stream [✔]
+  links multiple events with sequential versions [✔]
+  links events to an existing stream and bumps version [✔]
+  linked events still appear in $all at original global positions [✔]
+  rejects linking the same event to the same stream twice [✔]
+  rejects link when the source event does not exist [✔]
+  rejects link with a mix of valid and missing events (no partial commit) [✔]
+  rejects link to a soft-deleted target stream [✔]
+readCategory
+  reads events from matching category streams in global position order [✔]
+  supports pagination with start position and limit [✔]
+  returns empty for nonexistent category [✔]
+  includes linked events that originate from category streams [✔]
+appendMultiStream
+  atomically appends to two streams [✔]
+  rolls back all streams on version conflict [✔]
+  appends to three streams with different expected versions [✔]
+  preserves user-supplied ordering of global positions [✔]
+softDeleteStream
+  soft-deletes a stream and getStream shows deletedAt [✔]
+  returns empty for reads from a soft-deleted stream [✔]
+  rejects appends to a soft-deleted stream [✔]
+  returns Nothing for nonexistent stream [✔]
+  returns Nothing for already-deleted stream [✔]
+  events from soft-deleted stream still appear in $all [✔]
+  ExactVersion append rejected against soft-deleted stream [✔]
+  AnyVersion append rejected against soft-deleted stream [✔]
+  NoStream append rejected against soft-deleted stream [✔]
+undeleteStream
+  restores a soft-deleted stream [✔]
+  reads work after undelete [✔]
+  appends work after undelete [✔]
+  returns Nothing for non-deleted stream [✔]
+hardDeleteStream
+  hard-deletes a stream completely [✔]
+  events from hard-deleted stream no longer appear in $all [✔]
+  returns Nothing for nonexistent stream [✔]
+  TRUNCATE on events is rejected without the GUC [✔]
+  TRUNCATE on stream_events is rejected without the GUC [✔]
+  TRUNCATE on streams is rejected without the GUC [✔]
+  removes orphan event payloads from the events table [✔]
+  removes dead letters for orphaned events before deleting their payloads [✔]
+  keeps dead letters for linked-in events that survive a hard delete [✔]
+  preserves events still linked to non-target streams [✔]
+subscribe
+  catches up from position 0 on a store with existing events [✔]
+  receives live events appended after subscription starts [✔]
+  persists checkpoint and resumes from saved position [✔]
+  does not replay catch-up events when switching to all-stream live mode [✔]
+  does not skip an event when cancelled before checkpoint save [✔]
+  saves checkpoints at Stop boundaries without skipping the next event [✔]
+  delivers only category-matching events during live mode (F18) [✔]
+  delivers only category-matching events during catch-up [✔]
+  preserves category subscription order under mixed invoice-payment writes [✔]
+  cancels a running subscription cleanly [✔]
+  receives events appended to an initially empty store [✔]
+  handles rapid appends without losing events (debouncing) [✔]
+  surfaces SubscriptionOverflowed when a slow subscriber overruns its queue (F6) [✔]
+  catches up with an Eff-based handler via the effectful API [✔]
+withSubscription
+  cancels the worker on normal scope exit [✔]
+  cancels the worker when the body throws [✔]
+extractStreamNameFromDetail
+  extracts the stream name from a typical PostgreSQL detail [✔]
+  extracts a stream name containing dashes and digits [✔]
+  returns Nothing when the detail is empty [✔]
+  returns Nothing when the detail does not contain '=(' [✔]
+  returns Nothing for an empty parenthesised value [✔]
+isTransientSerializationError
+  recognizes only serialization and deadlock SQLSTATEs [✔]
+  maps both transient SQLSTATEs to TransientTransactionFailure [✔]
+  leaves non-transient server codes on UnexpectedServerError [✔]
+Notifier reconnection
+FATAL:  terminating connection due to administrator command
+  releases the reconnected listener connection on shutdown [✔]
+observationHandler
+  receives observations during store operations [✔]
+KirokuEvent observation
+FATAL:  terminating connection due to administrator command
+  emits notifier reconnect events on backend termination (F1) [✔]
+  emits subscription lifecycle events (F14) [✔]
+  emits a hard-delete event when the stream existed (F13) [✔]
+
+Finished in 112.9246 seconds
+448 examples, 0 failures
+Test suite kiroku-store-test: PASS
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/t/kiroku-store-test/test/kiroku-store-0.10.0.0-kiroku-store-test.log
+1 of 1 test suites (1 of 1 test cases) passed.

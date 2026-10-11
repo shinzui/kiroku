@@ -2,6 +2,7 @@
 
 module Main where
 
+import Control.Exception (finally)
 import Control.Lens ((^.))
 import Control.Monad (replicateM_, unless)
 import Data.Generics.Labels ()
@@ -27,12 +28,23 @@ main = do
         withStore (defaultConnectionSettings connection) $ \store -> do
             sql store streamHeadFixtureSql
             sql store "VACUUM (ANALYZE) stream_events"
+            details <-
+                Pool.use (store ^. #pool) $
+                    Session.statement () $
+                        preparable
+                            "SELECT json_build_object('server', version(), 'shared_buffers', current_setting('shared_buffers'), 'work_mem', current_setting('work_mem'), 'jit', current_setting('jit'), 'plan_cache_mode', current_setting('plan_cache_mode'), 'streams', (SELECT count(*) FROM streams), 'events', (SELECT count(*) FROM events), 'junctions', (SELECT count(*) FROM stream_events))::text"
+                            E.noParams
+                            (D.singleRow (D.column (D.nonNullable D.text)))
+            either (error . show) (putStrLn . T.unpack) details
             setup <- getCurrentTime
             putStrLn ("setup_seconds=" <> show (diffUTCTime setup start))
             groups <- mapM (sizeGroup store) [("100", StreamName "bench-1"), ("100000", StreamName "long-1")]
             warmed <- getCurrentTime
             putStrLn ("warmup_seconds=" <> show (diffUTCTime warmed setup))
-            defaultMain groups
+            defaultMain groups `finally` do
+                finished <- getCurrentTime
+                putStrLn ("measurement_seconds=" <> show (diffUTCTime finished warmed))
+                putStrLn ("total_seconds=" <> show (diffUTCTime finished start))
 
 sizeGroup :: KirokuStore -> (String, StreamName) -> IO Benchmark
 sizeGroup store (label, name) = do
@@ -46,12 +58,23 @@ sizeGroup store (label, name) = do
     -- Equality checks every StreamInfo field in successful calls in both arms.
     control
     production
+    let withHead = replicateM_ 100 $ do
+            result <- runStoreIO store (getStreamWithHead name)
+            case result of
+                Right (Just (actual, Just headPosition)) -> do
+                    validate (Right (Just actual))
+                    unless
+                        (headPosition == GlobalPosition (if label == "100" then 99001 else 200000))
+                        (error "unexpected originated head")
+                other -> error ("head read failed: " <> show other)
+    withHead
     pure $
         bgroup
             label
             [ bench "control-metadata" (whnfIO control)
             , bcompareWithin 0 1.10 ("$(NF-1) == \"" <> label <> "\" && $NF == \"control-metadata\"") $
                 bench "production-metadata" (whnfIO production)
+            , bench "production-with-head" (whnfIO withHead)
             ]
 
 sql :: KirokuStore -> T.Text -> IO ()

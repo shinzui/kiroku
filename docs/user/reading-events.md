@@ -174,13 +174,52 @@ that were hard-deleted or never created.
 | --- | --- |
 | `id` | The stream's surrogate id (access via `info ^. #id` to avoid clashing with `Prelude.id`). |
 | `name` | The stream name as created. |
-| `version` | Current version (count of appended events). |
+| `version` | Current version (advanced by both appends and links). |
 | `createdAt` | When the stream row was first inserted. |
 | `deletedAt` | `Just` the soft-delete timestamp, or `Nothing` if live. |
+| `truncateBefore` | Logical lower bound for ordinary stream reads. |
 
 `lookupStreamId` is a cheaper alternative when you only need the surrogate id
-— it decodes one column instead of five. It returns `Nothing` for never-created
+— it decodes one column instead of six. It returns `Nothing` for never-created
 and hard-deleted streams, matching `getStream`'s soft-delete behavior.
+
+## Capturing a stream's originated head (unreleased)
+
+`getStreamWithHead name` returns `Maybe (StreamInfo, Maybe GlobalPosition)`
+from one SQL statement and one database snapshot. Outer `Nothing` means the
+stream is absent or hard-deleted. Inner `Nothing` means it exists but has no
+surviving event originally appended to it. Empty and link-only streams have
+no originated head. The reserved `$all` stream also returns metadata with
+`Nothing`, even when it aggregates events from other streams.
+
+A stream version advances for both appends and links. Its originated head is
+the global position of its newest surviving original append; linking a newer
+event from elsewhere does not advance it. This differs from the store-wide
+`visibleGlobalHeadPosition` and the append frontier (the highest allocated
+position, which does not regress when events are removed).
+
+For an origin-only stream whose required history is retained, a consumer can
+capture a target for a read-your-writes wait:
+
+```haskell
+observed <- getStreamWithHead name
+let target = case observed of
+      Just (info, Just headPosition) | info ^. #version >= requestedVersion ->
+        Just headPosition
+      _ -> Nothing
+-- If target is Just p, wait (with a timeout) for the projection cursor >= p.
+-- Otherwise the observation does not yet supply the required target.
+```
+
+Soft deletion and logical truncation preserve this head. Hard deletion removes
+the stream; physical history retention can remove originated events and make
+its head disappear or regress. The observation neither locks history nor freezes
+later appends. Physical removal after capture can require a consumer timeout.
+A positive version on a linked stream is outside this guarantee.
+
+The extra indexed head probe is opt-in. Ordinary `getStream`, `StreamInfo`,
+event reads and write paths keep their existing work. Custom exhaustive `Store`
+interpreters must add a `GetStreamWithHead` case.
 
 ## Resolving Source Stream Names
 

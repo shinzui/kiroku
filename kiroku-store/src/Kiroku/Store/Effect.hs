@@ -91,6 +91,12 @@ data Store :: Effect where
     -}
     GetVisibleGlobalHeadPosition :: Store m GlobalPosition
     GetStream :: StreamName -> Store m (Maybe StreamInfo)
+    {- | One-statement metadata and newest surviving originated head observation.
+    Outer 'Nothing' means absent; inner 'Nothing' means no originated events,
+    including link-only streams and @$all@. Logical lifecycle markers do not
+    hide the head. Custom exhaustive interpreters must handle this constructor.
+    -}
+    GetStreamWithHead :: StreamName -> Store m (Maybe (StreamInfo, Maybe GlobalPosition))
     {- | Resolve a 'StreamName' to its surrogate 'StreamId' without
     materializing the full 'StreamInfo' row. Mirrors 'GetStream'\'s
     soft-delete semantics: returns 'Just' for both live and soft-deleted
@@ -271,6 +277,9 @@ runStorePool store = interpret_ $ \case
     GetVisibleGlobalHeadPosition ->
         usePool (store ^. #pool) $
             Session.statement () SQL.visibleGlobalHeadPositionStmt
+    GetStreamWithHead (StreamName name) ->
+        usePool (store ^. #pool) $
+            Session.statement name SQL.getStreamWithHeadStmt
     GetStream (StreamName name) ->
         usePool (store ^. #pool) $
             Session.statement name SQL.getStreamStmt
