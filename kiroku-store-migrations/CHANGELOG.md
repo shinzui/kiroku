@@ -1,13 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.7.1.0 — 2026-10-11
 
 ### New Features
 
 - Migration 0015 adds one partial byte-ordered name index for catalog and literal-prefix
   reads, preserving existing unique-name and category/event indexes. The transactional
-  build requires a write pause on large stores; final write-cost acceptance is tracked
-  by MasterPlan 13 before release.
+  build requires a write pause on large stores; write-cost evidence and its limitations are recorded
+  by MasterPlan 13. The inspection cohort received practical performance acceptance before publication.
 
 
 ## 0.7.0.0 — 2026-10-10

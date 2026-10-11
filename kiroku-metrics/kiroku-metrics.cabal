@@ -1,6 +1,6 @@
 cabal-version:   3.0
 name:            kiroku-metrics
-version:         0.2.0.0
+version:         0.3.0.0
 synopsis:
   Metrics, health, and event-streaming HTTP endpoints for Kiroku
 
@@ -69,8 +69,8 @@ library
     , hasql                 >=1.10      && <1.11
     , hasql-pool            >=1.2       && <1.5
     , http-types            >=0.12      && <0.13
-    , kiroku-cli            ^>=0.2.0.9
-    , kiroku-store          ^>=0.10.0.0
+    , kiroku-cli            ^>=0.2.0.10
+    , kiroku-store          ^>=0.11.0.0
     , network               >=3.1       && <3.3
     , optparse-applicative  >=0.19      && <0.20
     , stm                   >=2.5       && <2.6
@@ -126,7 +126,7 @@ executable kiroku-metrics-example
     , http-client          >=0.7       && <0.8
     , http-types           >=0.12      && <0.13
     , kiroku-metrics
-    , kiroku-store         ^>=0.10.0.0
+    , kiroku-store         ^>=0.11.0.0
     , kiroku-test-support  ^>=0.1
     , lens                 >=5.2       && <5.4
     , scientific           >=0.3       && <0.4
@@ -170,9 +170,9 @@ test-suite kiroku-metrics-test
     , hspec                 >=2.10      && <2.12
     , http-client           >=0.7       && <0.8
     , http-types            >=0.12      && <0.13
-    , kiroku-cli            ^>=0.2.0.9
+    , kiroku-cli            ^>=0.2.0.10
     , kiroku-metrics
-    , kiroku-store          ^>=0.10.0.0
+    , kiroku-store          ^>=0.11.0.0
     , kiroku-test-support
     , lens                  >=5.2       && <5.4
     , network               >=3.1       && <3.3

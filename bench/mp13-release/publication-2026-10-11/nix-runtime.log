@@ -1,0 +1,11 @@
+warning: Git tree '/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku' has uncommitted changes
+Using saved setting for 'extra-substituters = ' from ~/.local/share/nix/trusted-settings.json.
+warning: ignoring untrusted flake configuration setting 'extra-substituters'.
+Pass '--accept-flake-config' to trust it
+Using saved setting for 'extra-trusted-public-keys = ' from ~/.local/share/nix/trusted-settings.json.
+these 3 derivations will be built:
+  /nix/store/d2hgcgi4i8mf72532whc0nvx6njqyycz-kiroku-store-0.11.0.0.drv
+  /nix/store/x50mbjmypjswxq0jwp6hzps8zwy3pzai-kiroku-cli-0.2.0.10.drv
+  /nix/store/gyg1i7bn9bv1rlnqrj1znw1wypaawf86-kiroku-metrics-0.3.0.0.drv
+building '/nix/store/d2hgcgi4i8mf72532whc0nvx6njqyycz-kiroku-store-0.11.0.0.drv'...
+shutting down[Kerror: interrupted by the user

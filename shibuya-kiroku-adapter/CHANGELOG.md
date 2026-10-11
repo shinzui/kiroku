@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0.1 — 2026-10-11
+
+### Other Changes
+
+- Require `kiroku-store ^>=0.11.0.0` for the inspection cohort; the public API is unchanged.
+
 ## 0.6.0.0 — 2026-10-10
 
 ### Breaking Changes

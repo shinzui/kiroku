@@ -471,7 +471,7 @@ rule suffices.
 - [x] (2026-10-11) EP-7: confirm six functional children and 672 fresh passing examples; prepare a registry/tag-derived, unapplied six-package release patch, validated source archives, executable and consumer fixtures.
 - [x] (2026-10-11) EP-7: commit batch-proportional tail-cache miss discovery (`30307c1`), pass 116 metrics tests, and finish final proposal build/Nix/Haddock/consumer packaging. Retain all earlier trials and one corrected six-trial observer comparison.
 - [x] (2026-10-11 rerun) EP-7: finish one remote proof and 20 measured original-control trials under one lease; independently verify artifacts, delivery, checkpoint symmetry and cleanup. All 16 dedicated-host workload gates also pass.
-- [ ] EP-7: obtain cumulative performance acceptance and native benchmark-grade timing evidence before publication. The completed five-pair inactive and active comparisons do not pass the unchanged policy.
+- [x] (2026-10-11) EP-7: obtain user practical acceptance of measured performance and its uncertainty, plus authorization to finish the six-package release. The statistical verdict remains inconclusive; no new experiment is required.
 
 - [x] (2026-10-10) EP-3 selected-layout measurement: verify proof plus five fresh and five observer pairs, all 21 benchmark-grade trials, raw recomputation and lease/cell cleanup. Preserve adverse cost estimates and unresolved precision in the [report](../../bench/mp13-index/evidence/2026-10-10-byte-name/README.md); EP-3 local design review is now closed by user endorsement; cumulative release acceptance remains owned by EP-7.
 
@@ -711,6 +711,8 @@ rule suffices.
 
 
 ## Decision Log
+
+- Decision (2026-10-11, release authorization): the user accepted the observed performance and instructed completion of the release. Treat this as cohort-specific practical acceptance of the retained uncertainty, not a statistical pass or a new benchmark budget. Apply the previously prepared package versions and preserve the completed opt-in stream-head work in the current source.
 
 - Decision (2026-10-11 cumulative rerun): retain the original zero-slowdown policy after the complete paired experiment. Independent opaque-probe verification is useful evidence but does not manufacture native grade certification. No release or additional remote queue is authorized by successful execution alone.
 
@@ -1239,4 +1241,9 @@ acceptance remains inconclusive. No gate or uncertainty target was weakened.
 
 ## EP-7 controlled comparison completion (2026-10-11 rerun)
 
-The fresh authorized rerun completes one readiness proof and all 20 measured trials (five pairs per case) under one lease and the original 60-minute deadline. Inspection-disabled throughput is -1.544% [-4.090%, +1.069%] and active-observer throughput is -0.370% [-3.371%, +2.724%] (95% intervals). The unchanged acceptance policy is not passed. Ordered delivery, exact candidate names, artifact hashes, cell health and zero checkpoint overlap verify; the lease is released and all four machines are stopped. Diagnostic-database deletion remains pending after an SSH cleanup timeout; the remaining budget did not admit a restart. The opaque probe still lacks a native benchmark-grade timing certificate. Release remains blocked; no package is published. See the [controlled comparison](../../bench/mp13-release/validation-2026-10-11-rerun/README.md).
+The fresh authorized rerun completes one readiness proof and all 20 measured trials (five pairs per case) under one lease and the original 60-minute deadline. Inspection-disabled throughput is -1.544% [-4.090%, +1.069%] and active-observer throughput is -0.370% [-3.371%, +2.724%] (95% intervals). The unchanged acceptance policy is not passed. Ordered delivery, exact candidate names, artifact hashes, cell health and zero checkpoint overlap verify; the lease is released and all four machines are stopped. Diagnostic-database deletion remains pending after an SSH cleanup timeout; the remaining budget did not admit a restart. The opaque probe still lacks a native benchmark-grade timing certificate. At that checkpoint release remained blocked and no package was published. The subsequent user acceptance below supersedes the release hold. See the [controlled comparison](../../bench/mp13-release/validation-2026-10-11-rerun/README.md).
+
+
+## Practical acceptance and release authorization (2026-10-11)
+
+After reviewing the actual disabled/active throughput and uncertainty, the user stated that nothing looked concerning, instructed finishing the work, and explicitly asked to finish the release. The performance hold is removed by that practical decision. The five-pair statistical results remain inconclusive and no native grade certificate is asserted. Publication and clean-consumer verification now proceed for store 0.11.0.0, metrics 0.3.0.0, migrations 0.7.1.0, CLI 0.2.0.10, OTel 0.2.0.12 and adapter 0.6.0.1. See `bench/mp13-release/publication-2026-10-11/authorization.json`.

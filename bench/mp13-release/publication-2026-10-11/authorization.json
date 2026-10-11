@@ -1,0 +1,35 @@
+{
+  "at": "2026-10-11T15:56:09.484404+00:00",
+  "basis": "User practical acceptance after reviewing the completed comparison and its limitations; explicit instruction to finish the release.",
+  "user_acceptance": "i don't see anything concerning so let's finish the work",
+  "publication_instruction": "are you finishing up the release?",
+  "statistical_verdict": "inconclusive; retained unchanged",
+  "native_grade_certificate": false,
+  "performance_release_hold": "removed by user practical acceptance",
+  "versions": {
+    "kiroku-store": [
+      "0.10.0.0",
+      "0.11.0.0"
+    ],
+    "kiroku-store-migrations": [
+      "0.7.0.0",
+      "0.7.1.0"
+    ],
+    "kiroku-otel": [
+      "0.2.0.11",
+      "0.2.0.12"
+    ],
+    "kiroku-cli": [
+      "0.2.0.9",
+      "0.2.0.10"
+    ],
+    "kiroku-metrics": [
+      "0.2.0.0",
+      "0.3.0.0"
+    ],
+    "shibuya-kiroku-adapter": [
+      "0.6.0.0",
+      "0.6.0.1"
+    ]
+  }
+}

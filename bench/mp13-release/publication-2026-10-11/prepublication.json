@@ -1,0 +1,18 @@
+{
+  "at": "2026-10-11T16:06:33.509461+00:00",
+  "build": "passed",
+  "tests": {
+    "kiroku-store": 474,
+    "kiroku-metrics": 116,
+    "shibuya-kiroku-adapter": 45,
+    "kiroku-store-migrations": 24,
+    "kiroku-cli": 22,
+    "kiroku-otel": 17
+  },
+  "cabal_checks": 6,
+  "nix_flake_check": "passed",
+  "nix_runtime": "passed",
+  "native_and_cabal_help": "passed",
+  "performance": "user practical acceptance; numeric comparison unchanged",
+  "documentation": "passed; six archives verified"
+}

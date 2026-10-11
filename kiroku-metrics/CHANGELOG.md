@@ -1,14 +1,12 @@
 # Revision history for kiroku-metrics
 
-## Unreleased
+## 0.3.0.0 — 2026-10-11
 
 ### Breaking Changes
 
-- `ServerProviders` gains `webSocketChannels`; complete constructors must supply the declaration. Custom callers can update `defaultServerProviders`. New standalone record labels in the umbrella import may require qualified record updates.
+- New umbrella exports can make record labels ambiguous; qualify configuration record updates.
 
 - `ClientMessage` gains `UnsubscribeMetrics` and `ServerMessage` gains `CodedError`; exhaustive Haskell matches must handle the additions. Published wire growth is additive.
-
-* `ServerProviders` adds optional `storeBrowsing`; use `defaultServerProviders` plus record updates for custom composition.
 
 * `MetricsServerConfig` gains `cors`, defaulting to `corsDisabled`. Use
   `defaultConfig` record updates; complete or positional construction must supply it.
@@ -44,6 +42,8 @@
   `cors_method_not_allowed` and `invalid_cors_request` codes.
 
 ### Other Changes
+
+- Require `kiroku-store ^>=0.11.0.0` and `kiroku-cli ^>=0.2.0.10`. Construct the new `ServerProviders` from `defaultServerProviders`; full construction supplies all six fields.
 
 - Cache-miss detection inspects only current-batch stream IDs, avoiding a walk of every retained name on each small tail batch.
 

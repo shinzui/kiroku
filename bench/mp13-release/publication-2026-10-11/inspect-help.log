@@ -1,0 +1,734 @@
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.11.0.0 (lib) (configuration changed)
+ - kiroku-cli-0.2.0.10 (lib) (dependency rebuilt)
+ - kiroku-metrics-0.3.0.0 (lib) (dependency rebuilt)
+ - kiroku-metrics-0.3.0.0 (exe:kiroku-inspect) (dependency rebuilt)
+Configuring library for kiroku-store-0.11.0.0...
+Preprocessing library for kiroku-store-0.11.0.0...
+Building library for kiroku-store-0.11.0.0...
+[ 1 of 31] Compiling Kiroku.Store.Types ( src/Kiroku/Store/Types.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Types.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Types.dyn_o ) [Flags changed]
+[ 2 of 31] Compiling Kiroku.Store.Settings ( src/Kiroku/Store/Settings.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Settings.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Settings.dyn_o ) [Flags changed]
+[ 3 of 31] Compiling Kiroku.Store.Subscription.Fsm ( src/Kiroku/Store/Subscription/Fsm.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Fsm.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Fsm.dyn_o ) [Flags changed]
+[ 4 of 31] Compiling Kiroku.Store.Subscription.Types ( src/Kiroku/Store/Subscription/Types.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Types.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Types.dyn_o ) [Flags changed]
+[ 5 of 31] Compiling Kiroku.Store.Subscription.DeadLetter.SQL ( src/Kiroku/Store/Subscription/DeadLetter/SQL.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/DeadLetter/SQL.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/DeadLetter/SQL.dyn_o ) [Flags changed]
+[ 6 of 31] Compiling Kiroku.Store.Subscription.CheckpointInventory.SQL ( src/Kiroku/Store/Subscription/CheckpointInventory/SQL.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/CheckpointInventory/SQL.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/CheckpointInventory/SQL.dyn_o ) [Flags changed]
+[ 7 of 31] Compiling Kiroku.Store.SQL ( src/Kiroku/Store/SQL.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/SQL.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/SQL.dyn_o ) [Flags changed]
+[ 8 of 31] Compiling Kiroku.Store.Subscription.Checkpoint.SQL ( src/Kiroku/Store/Subscription/Checkpoint/SQL.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Checkpoint/SQL.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Checkpoint/SQL.dyn_o ) [Flags changed]
+[ 9 of 31] Compiling Kiroku.Store.Subscription.Checkpoint ( src/Kiroku/Store/Subscription/Checkpoint.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Checkpoint.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Checkpoint.dyn_o ) [Flags changed]
+[10 of 31] Compiling Kiroku.Store.HistoryRetention.Types ( src/Kiroku/Store/HistoryRetention/Types.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/HistoryRetention/Types.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/HistoryRetention/Types.dyn_o ) [Flags changed]
+[11 of 31] Compiling Kiroku.Store.Observability ( src/Kiroku/Store/Observability.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Observability.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Observability.dyn_o ) [Flags changed]
+[12 of 31] Compiling Kiroku.Store.Subscription.EventPublisher ( src/Kiroku/Store/Subscription/EventPublisher.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/EventPublisher.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/EventPublisher.dyn_o ) [Flags changed]
+[13 of 31] Compiling Kiroku.Store.Subscription.Worker ( src/Kiroku/Store/Subscription/Worker.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Worker.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Worker.dyn_o ) [Flags changed]
+[14 of 31] Compiling Kiroku.Store.Notification ( src/Kiroku/Store/Notification.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Notification.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Notification.dyn_o ) [Flags changed]
+[15 of 31] Compiling Kiroku.Store.Connection ( src/Kiroku/Store/Connection.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Connection.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Connection.dyn_o ) [Flags changed]
+[16 of 31] Compiling Kiroku.Store.Effect.Resource ( src/Kiroku/Store/Effect/Resource.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Effect/Resource.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Effect/Resource.dyn_o ) [Flags changed]
+[17 of 31] Compiling Kiroku.Store.HistoryRetention.SQL ( src/Kiroku/Store/HistoryRetention/SQL.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/HistoryRetention/SQL.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/HistoryRetention/SQL.dyn_o ) [Flags changed]
+[18 of 31] Compiling Kiroku.Store.HistoryRetention.Internal ( src/Kiroku/Store/HistoryRetention/Internal.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/HistoryRetention/Internal.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/HistoryRetention/Internal.dyn_o ) [Flags changed]
+[19 of 31] Compiling Kiroku.Store.Error ( src/Kiroku/Store/Error.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Error.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Error.dyn_o ) [Flags changed]
+[20 of 31] Compiling Kiroku.Store.Effect ( src/Kiroku/Store/Effect.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Effect.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Effect.dyn_o ) [Flags changed]
+[21 of 31] Compiling Kiroku.Store.Transaction ( src/Kiroku/Store/Transaction.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Transaction.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Transaction.dyn_o ) [Flags changed]
+[22 of 31] Compiling Kiroku.Store.Subscription ( src/Kiroku/Store/Subscription.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription.dyn_o ) [Flags changed]
+src/Kiroku/Store/Subscription.hs:272:51: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store.Subscription.Types’ at src/Kiroku/Store/Subscription.hs:38:1-38
+      (and originally defined
+         at src/Kiroku/Store/Subscription/Types.hs:619:1-6)
+    |
+272 | initializeSubscriptionCheckpoint subscriptionName member policy =
+    |                                                   ^^^^^^
+
+[23 of 31] Compiling Kiroku.Store.Subscription.Stream ( src/Kiroku/Store/Subscription/Stream.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Stream.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Stream.dyn_o ) [Flags changed]
+[24 of 31] Compiling Kiroku.Store.Subscription.Effect ( src/Kiroku/Store/Subscription/Effect.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Effect.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Subscription/Effect.dyn_o ) [Flags changed]
+[25 of 31] Compiling Kiroku.Store.Read ( src/Kiroku/Store/Read.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Read.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Read.dyn_o ) [Flags changed]
+[26 of 31] Compiling Kiroku.Store.Link ( src/Kiroku/Store/Link.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Link.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Link.dyn_o ) [Flags changed]
+[27 of 31] Compiling Kiroku.Store.Lifecycle ( src/Kiroku/Store/Lifecycle.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Lifecycle.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Lifecycle.dyn_o ) [Flags changed]
+[28 of 31] Compiling Kiroku.Store.HistoryRetention ( src/Kiroku/Store/HistoryRetention.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/HistoryRetention.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/HistoryRetention.dyn_o ) [Flags changed]
+[29 of 31] Compiling Kiroku.Store.Causation ( src/Kiroku/Store/Causation.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Causation.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Causation.dyn_o ) [Flags changed]
+[30 of 31] Compiling Kiroku.Store.Append ( src/Kiroku/Store/Append.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Append.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store/Append.dyn_o ) [Flags changed]
+[31 of 31] Compiling Kiroku.Store     ( src/Kiroku/Store.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.0/build/Kiroku/Store.dyn_o ) [Flags changed]
+Preprocessing library for kiroku-cli-0.2.0.10...
+Building library for kiroku-cli-0.2.0.10...
+[3 of 6] Compiling Kiroku.Cli.Subscription.Status ( src/Kiroku/Cli/Subscription/Status.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.10/build/Kiroku/Cli/Subscription/Status.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.10/build/Kiroku/Cli/Subscription/Status.dyn_o ) [Kiroku.Store.Subscription changed]
+src/Kiroku/Cli/Subscription/Status.hs:54:30: error: [GHC-39999]
+    • Ambiguous type variable ‘v1’ arising from a use of ‘Aeson..=’
+      prevents the constraint ‘(Aeson.ToJSON v1)’ from being solved.
+      Probable fix: use a type annotation to specify what ‘v1’ should be.
+      Potentially matching instances:
+        instance (Aeson.ToJSON v, Aeson.ToJSONKey k) =>
+                 Aeson.ToJSON (Map k v)
+          -- Defined in ‘aeson-2.2.5.1:Data.Aeson.Types.ToJSON’
+        instance (Aeson.ToJSON a, Aeson.ToJSON b) =>
+                 Aeson.ToJSON (Either a b)
+          -- Defined in ‘aeson-2.2.5.1:Data.Aeson.Types.ToJSON’
+        ...plus 33 others
+        ...plus 79 instances involving out-of-scope types
+        (use -fprint-potential-instances to see them all)
+    • In the expression: "subscription" Aeson..= (row ^. #subscription)
+      In the first argument of ‘Aeson.object’, namely
+        ‘["subscription" Aeson..= (row ^. #subscription),
+          "member" Aeson..= (row ^. #member),
+          "phase" Aeson..= (row ^. #phase),
+          "global_position" Aeson..= (row ^. #globalPosition)]’
+      In the expression:
+        Aeson.object
+          ["subscription" Aeson..= (row ^. #subscription),
+           "member" Aeson..= (row ^. #member),
+           "phase" Aeson..= (row ^. #phase),
+           "global_position" Aeson..= (row ^. #globalPosition)]
+   |
+54 |             [ "subscription" Aeson..= (row ^. #subscription)
+   |                              ^^^^^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:54:47: error: [GHC-43085]
+    • Overlapping instances for ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                                  "subscription"
+                                  (Control.Lens.Getter.Getting v1 SubscriptionStatusRow v1)
+        arising from the overloaded label ‘#subscription’
+      Matching instances:
+        instance forall k1 k2 k3
+                        (labelType :: Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType ~ Data.Generics.Labels.ClassifyLabel name,
+                  Data.Generics.Labels.IsLabelHelper labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘Data.Generics.Labels’
+        instance forall k1 k2 k3
+                        (labelType :: generic-lens-2.3.0.0:Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType
+                  ~ generic-lens-2.3.0.0:Data.Generics.Labels.ClassifyLabel name,
+                  generic-lens-2.3.0.0:Data.Generics.Labels.IsLabelHelper
+                    labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘generic-lens-2.3.0.0:Data.Generics.Labels’
+    • In the second argument of ‘(^.)’, namely ‘#subscription’
+      In the second argument of ‘(Aeson..=)’, namely
+        ‘(row ^. #subscription)’
+      In the expression: "subscription" Aeson..= (row ^. #subscription)
+   |
+54 |             [ "subscription" Aeson..= (row ^. #subscription)
+   |                                               ^^^^^^^^^^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:55:24: error: [GHC-39999]
+    • Ambiguous type variable ‘v2’ arising from a use of ‘Aeson..=’
+      prevents the constraint ‘(Aeson.ToJSON v2)’ from being solved.
+      Probable fix: use a type annotation to specify what ‘v2’ should be.
+      Potentially matching instances:
+        instance (Aeson.ToJSON v, Aeson.ToJSONKey k) =>
+                 Aeson.ToJSON (Map k v)
+          -- Defined in ‘aeson-2.2.5.1:Data.Aeson.Types.ToJSON’
+        instance (Aeson.ToJSON a, Aeson.ToJSON b) =>
+                 Aeson.ToJSON (Either a b)
+          -- Defined in ‘aeson-2.2.5.1:Data.Aeson.Types.ToJSON’
+        ...plus 33 others
+        ...plus 79 instances involving out-of-scope types
+        (use -fprint-potential-instances to see them all)
+    • In the expression: "member" Aeson..= (row ^. #member)
+      In the first argument of ‘Aeson.object’, namely
+        ‘["subscription" Aeson..= (row ^. #subscription),
+          "member" Aeson..= (row ^. #member),
+          "phase" Aeson..= (row ^. #phase),
+          "global_position" Aeson..= (row ^. #globalPosition)]’
+      In the expression:
+        Aeson.object
+          ["subscription" Aeson..= (row ^. #subscription),
+           "member" Aeson..= (row ^. #member),
+           "phase" Aeson..= (row ^. #phase),
+           "global_position" Aeson..= (row ^. #globalPosition)]
+   |
+55 |             , "member" Aeson..= (row ^. #member)
+   |                        ^^^^^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:55:41: error: [GHC-43085]
+    • Overlapping instances for ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                                  "member" (Control.Lens.Getter.Getting v2 SubscriptionStatusRow v2)
+        arising from the overloaded label ‘#member’
+      Matching instances:
+        instance forall k1 k2 k3
+                        (labelType :: Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType ~ Data.Generics.Labels.ClassifyLabel name,
+                  Data.Generics.Labels.IsLabelHelper labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘Data.Generics.Labels’
+        instance forall k1 k2 k3
+                        (labelType :: generic-lens-2.3.0.0:Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType
+                  ~ generic-lens-2.3.0.0:Data.Generics.Labels.ClassifyLabel name,
+                  generic-lens-2.3.0.0:Data.Generics.Labels.IsLabelHelper
+                    labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘generic-lens-2.3.0.0:Data.Generics.Labels’
+    • In the second argument of ‘(^.)’, namely ‘#member’
+      In the second argument of ‘(Aeson..=)’, namely ‘(row ^. #member)’
+      In the expression: "member" Aeson..= (row ^. #member)
+   |
+55 |             , "member" Aeson..= (row ^. #member)
+   |                                         ^^^^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:56:23: error: [GHC-39999]
+    • Ambiguous type variable ‘v0’ arising from a use of ‘Aeson..=’
+      prevents the constraint ‘(Aeson.ToJSON v0)’ from being solved.
+      Probable fix: use a type annotation to specify what ‘v0’ should be.
+      Potentially matching instances:
+        instance (Aeson.ToJSON v, Aeson.ToJSONKey k) =>
+                 Aeson.ToJSON (Map k v)
+          -- Defined in ‘aeson-2.2.5.1:Data.Aeson.Types.ToJSON’
+        instance (Aeson.ToJSON a, Aeson.ToJSON b) =>
+                 Aeson.ToJSON (Either a b)
+          -- Defined in ‘aeson-2.2.5.1:Data.Aeson.Types.ToJSON’
+        ...plus 33 others
+        ...plus 79 instances involving out-of-scope types
+        (use -fprint-potential-instances to see them all)
+    • In the expression: "phase" Aeson..= (row ^. #phase)
+      In the first argument of ‘Aeson.object’, namely
+        ‘["subscription" Aeson..= (row ^. #subscription),
+          "member" Aeson..= (row ^. #member),
+          "phase" Aeson..= (row ^. #phase),
+          "global_position" Aeson..= (row ^. #globalPosition)]’
+      In the expression:
+        Aeson.object
+          ["subscription" Aeson..= (row ^. #subscription),
+           "member" Aeson..= (row ^. #member),
+           "phase" Aeson..= (row ^. #phase),
+           "global_position" Aeson..= (row ^. #globalPosition)]
+   |
+56 |             , "phase" Aeson..= (row ^. #phase)
+   |                       ^^^^^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:56:40: error: [GHC-43085]
+    • Overlapping instances for ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                                  "phase" (Control.Lens.Getter.Getting v0 SubscriptionStatusRow v0)
+        arising from the overloaded label ‘#phase’
+      Matching instances:
+        instance forall k1 k2 k3
+                        (labelType :: Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType ~ Data.Generics.Labels.ClassifyLabel name,
+                  Data.Generics.Labels.IsLabelHelper labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘Data.Generics.Labels’
+        instance forall k1 k2 k3
+                        (labelType :: generic-lens-2.3.0.0:Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType
+                  ~ generic-lens-2.3.0.0:Data.Generics.Labels.ClassifyLabel name,
+                  generic-lens-2.3.0.0:Data.Generics.Labels.IsLabelHelper
+                    labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘generic-lens-2.3.0.0:Data.Generics.Labels’
+    • In the second argument of ‘(^.)’, namely ‘#phase’
+      In the second argument of ‘(Aeson..=)’, namely ‘(row ^. #phase)’
+      In the expression: "phase" Aeson..= (row ^. #phase)
+   |
+56 |             , "phase" Aeson..= (row ^. #phase)
+   |                                        ^^^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:57:33: error: [GHC-39999]
+    • Ambiguous type variable ‘v3’ arising from a use of ‘Aeson..=’
+      prevents the constraint ‘(Aeson.ToJSON v3)’ from being solved.
+      Probable fix: use a type annotation to specify what ‘v3’ should be.
+      Potentially matching instances:
+        instance (Aeson.ToJSON v, Aeson.ToJSONKey k) =>
+                 Aeson.ToJSON (Map k v)
+          -- Defined in ‘aeson-2.2.5.1:Data.Aeson.Types.ToJSON’
+        instance (Aeson.ToJSON a, Aeson.ToJSON b) =>
+                 Aeson.ToJSON (Either a b)
+          -- Defined in ‘aeson-2.2.5.1:Data.Aeson.Types.ToJSON’
+        ...plus 33 others
+        ...plus 79 instances involving out-of-scope types
+        (use -fprint-potential-instances to see them all)
+    • In the expression:
+        "global_position" Aeson..= (row ^. #globalPosition)
+      In the first argument of ‘Aeson.object’, namely
+        ‘["subscription" Aeson..= (row ^. #subscription),
+          "member" Aeson..= (row ^. #member),
+          "phase" Aeson..= (row ^. #phase),
+          "global_position" Aeson..= (row ^. #globalPosition)]’
+      In the expression:
+        Aeson.object
+          ["subscription" Aeson..= (row ^. #subscription),
+           "member" Aeson..= (row ^. #member),
+           "phase" Aeson..= (row ^. #phase),
+           "global_position" Aeson..= (row ^. #globalPosition)]
+   |
+57 |             , "global_position" Aeson..= (row ^. #globalPosition)
+   |                                 ^^^^^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:57:50: error: [GHC-43085]
+    • Overlapping instances for ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                                  "globalPosition"
+                                  (Control.Lens.Getter.Getting v3 SubscriptionStatusRow v3)
+        arising from the overloaded label ‘#globalPosition’
+      Matching instances:
+        instance forall k1 k2 k3
+                        (labelType :: Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType ~ Data.Generics.Labels.ClassifyLabel name,
+                  Data.Generics.Labels.IsLabelHelper labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘Data.Generics.Labels’
+        instance forall k1 k2 k3
+                        (labelType :: generic-lens-2.3.0.0:Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType
+                  ~ generic-lens-2.3.0.0:Data.Generics.Labels.ClassifyLabel name,
+                  generic-lens-2.3.0.0:Data.Generics.Labels.IsLabelHelper
+                    labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘generic-lens-2.3.0.0:Data.Generics.Labels’
+    • In the second argument of ‘(^.)’, namely ‘#globalPosition’
+      In the second argument of ‘(Aeson..=)’, namely
+        ‘(row ^. #globalPosition)’
+      In the expression:
+        "global_position" Aeson..= (row ^. #globalPosition)
+   |
+57 |             , "global_position" Aeson..= (row ^. #globalPosition)
+   |                                                  ^^^^^^^^^^^^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:70:5: error: [GHC-39999]
+    • Ambiguous type variable ‘a2’ arising from a use of ‘sortOn’
+      prevents the constraint ‘(Ord a2)’ from being solved.
+      Probable fix: use a type annotation to specify what ‘a2’ should be.
+      Potentially matching instances:
+        instance Ord LBS.ByteString
+          -- Defined in ‘Data.ByteString.Lazy.Internal’
+        instance (Ord k, Ord v) => Ord (Map k v)
+          -- Defined in ‘Data.Map.Internal’
+        ...plus 35 others
+        ...plus 371 instances involving out-of-scope types
+        (use -fprint-potential-instances to see them all)
+    • In the first argument of ‘(.)’, namely
+        ‘sortOn (\ row -> (row ^. #subscription, row ^. #member))’
+      In the expression:
+        sortOn (\ row -> (row ^. #subscription, row ^. #member))
+          . fmap toRow . Map.elems
+      In an equation for ‘subscriptionStatusRows’:
+          subscriptionStatusRows
+            = sortOn (\ row -> (row ^. #subscription, row ^. #member))
+                . fmap toRow . Map.elems
+            where
+                toRow view
+                  = let ...
+                    in
+                      SubscriptionStatusRow
+                        {subscription = name, member = view ^. #member,
+                         phase = view ^. #statePhase, globalPosition = position}
+   |
+70 |     sortOn (\row -> (row ^. #subscription, row ^. #member))
+   |     ^^^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:70:29: error: [GHC-43085]
+    • Overlapping instances for ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                                  "subscription"
+                                  (Control.Lens.Getter.Getting a2 SubscriptionStatusRow a2)
+        arising from the overloaded label ‘#subscription’
+      Matching instances:
+        instance forall k1 k2 k3
+                        (labelType :: Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType ~ Data.Generics.Labels.ClassifyLabel name,
+                  Data.Generics.Labels.IsLabelHelper labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘Data.Generics.Labels’
+        instance forall k1 k2 k3
+                        (labelType :: generic-lens-2.3.0.0:Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType
+                  ~ generic-lens-2.3.0.0:Data.Generics.Labels.ClassifyLabel name,
+                  generic-lens-2.3.0.0:Data.Generics.Labels.IsLabelHelper
+                    labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘generic-lens-2.3.0.0:Data.Generics.Labels’
+    • In the second argument of ‘(^.)’, namely ‘#subscription’
+      In the expression: row ^. #subscription
+      In the expression: (row ^. #subscription, row ^. #member)
+   |
+70 |     sortOn (\row -> (row ^. #subscription, row ^. #member))
+   |                             ^^^^^^^^^^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:70:51: error: [GHC-43085]
+    • Overlapping instances for ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                                  "member" (Control.Lens.Getter.Getting b1 SubscriptionStatusRow b1)
+        arising from the overloaded label ‘#member’
+      Matching instances:
+        instance forall k1 k2 k3
+                        (labelType :: Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType ~ Data.Generics.Labels.ClassifyLabel name,
+                  Data.Generics.Labels.IsLabelHelper labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘Data.Generics.Labels’
+        instance forall k1 k2 k3
+                        (labelType :: generic-lens-2.3.0.0:Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType
+                  ~ generic-lens-2.3.0.0:Data.Generics.Labels.ClassifyLabel name,
+                  generic-lens-2.3.0.0:Data.Generics.Labels.IsLabelHelper
+                    labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘generic-lens-2.3.0.0:Data.Generics.Labels’
+    • In the second argument of ‘(^.)’, namely ‘#member’
+      In the expression: row ^. #member
+      In the expression: (row ^. #subscription, row ^. #member)
+   |
+70 |     sortOn (\row -> (row ^. #subscription, row ^. #member))
+   |                                                   ^^^^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:79:36: error: [GHC-43085]
+    • Overlapping instances for ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                                  "member"
+                                  (Control.Lens.Getter.Getting Int32 SubscriptionStateView Int32)
+        arising from the overloaded label ‘#member’
+      Matching instances:
+        instance forall k1 k2 k3
+                        (labelType :: Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType ~ Data.Generics.Labels.ClassifyLabel name,
+                  Data.Generics.Labels.IsLabelHelper labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘Data.Generics.Labels’
+        instance forall k1 k2 k3
+                        (labelType :: generic-lens-2.3.0.0:Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType
+                  ~ generic-lens-2.3.0.0:Data.Generics.Labels.ClassifyLabel name,
+                  generic-lens-2.3.0.0:Data.Generics.Labels.IsLabelHelper
+                    labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘generic-lens-2.3.0.0:Data.Generics.Labels’
+    • In the second argument of ‘(^.)’, namely ‘#member’
+      In the ‘member’ field of a record
+      In the expression:
+        SubscriptionStatusRow
+          {subscription = name, member = view ^. #member,
+           phase = view ^. #statePhase, globalPosition = position}
+   |
+79 |                 , member = view ^. #member
+   |                                    ^^^^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:80:35: error: [GHC-43085]
+    • Overlapping instances for ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                                  "statePhase"
+                                  (Control.Lens.Getter.Getting Text SubscriptionStateView Text)
+        arising from the overloaded label ‘#statePhase’
+      Matching instances:
+        instance forall k1 k2 k3
+                        (labelType :: Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType ~ Data.Generics.Labels.ClassifyLabel name,
+                  Data.Generics.Labels.IsLabelHelper labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘Data.Generics.Labels’
+        instance forall k1 k2 k3
+                        (labelType :: generic-lens-2.3.0.0:Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType
+                  ~ generic-lens-2.3.0.0:Data.Generics.Labels.ClassifyLabel name,
+                  generic-lens-2.3.0.0:Data.Generics.Labels.IsLabelHelper
+                    labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘generic-lens-2.3.0.0:Data.Generics.Labels’
+    • In the second argument of ‘(^.)’, namely ‘#statePhase’
+      In the ‘phase’ field of a record
+      In the expression:
+        SubscriptionStatusRow
+          {subscription = name, member = view ^. #member,
+           phase = view ^. #statePhase, globalPosition = position}
+   |
+80 |                 , phase = view ^. #statePhase
+   |                                   ^^^^^^^^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:99:53: error: [GHC-43085]
+    • Overlapping instances for ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                                  "subscription"
+                                  (Control.Lens.Getter.Getting Text SubscriptionStatusRow Text)
+        arising from the overloaded label ‘#subscription’
+      Matching instances:
+        instance forall k1 k2 k3
+                        (labelType :: Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType ~ Data.Generics.Labels.ClassifyLabel name,
+                  Data.Generics.Labels.IsLabelHelper labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘Data.Generics.Labels’
+        instance forall k1 k2 k3
+                        (labelType :: generic-lens-2.3.0.0:Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType
+                  ~ generic-lens-2.3.0.0:Data.Generics.Labels.ClassifyLabel name,
+                  generic-lens-2.3.0.0:Data.Generics.Labels.IsLabelHelper
+                    labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘generic-lens-2.3.0.0:Data.Generics.Labels’
+    • In the expression: #subscription
+      In the first argument of ‘fmap’, namely ‘(^. #subscription)’
+      In the second argument of ‘columnWidth’, namely
+        ‘(fmap (^. #subscription) rows)’
+   |
+99 |     subWidth = columnWidth "SUBSCRIPTION" (fmap (^. #subscription) rows)
+   |                                                     ^^^^^^^^^^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:100:56: error: [GHC-39999]
+    • Ambiguous type variable ‘b0’ arising from a use of ‘show’
+      prevents the constraint ‘(Show b0)’ from being solved.
+      Probable fix: use a type annotation to specify what ‘b0’ should be.
+      Potentially matching instances:
+        instance Show LBS.ByteString
+          -- Defined in ‘Data.ByteString.Lazy.Internal’
+        instance (Show k, Show a) => Show (Map k a)
+          -- Defined in ‘Data.Map.Internal’
+        ...plus 48 others
+        ...plus 591 instances involving out-of-scope types
+        (use -fprint-potential-instances to see them all)
+    • In the first argument of ‘(.)’, namely ‘show’
+      In the second argument of ‘(.)’, namely ‘show . (^. #member)’
+      In the first argument of ‘fmap’, namely
+        ‘(T.pack . show . (^. #member))’
+    |
+100 |     memberWidth = columnWidth "MEMBER" (fmap (T.pack . show . (^. #member)) rows)
+    |                                                        ^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:100:67: error: [GHC-43085]
+    • Overlapping instances for ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                                  "member" (Control.Lens.Getter.Getting b0 SubscriptionStatusRow b0)
+        arising from the overloaded label ‘#member’
+      Matching instances:
+        instance forall k1 k2 k3
+                        (labelType :: Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType ~ Data.Generics.Labels.ClassifyLabel name,
+                  Data.Generics.Labels.IsLabelHelper labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘Data.Generics.Labels’
+        instance forall k1 k2 k3
+                        (labelType :: generic-lens-2.3.0.0:Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType
+                  ~ generic-lens-2.3.0.0:Data.Generics.Labels.ClassifyLabel name,
+                  generic-lens-2.3.0.0:Data.Generics.Labels.IsLabelHelper
+                    labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘generic-lens-2.3.0.0:Data.Generics.Labels’
+    • In the expression: #member
+      In the second argument of ‘(.)’, namely ‘(^. #member)’
+      In the second argument of ‘(.)’, namely ‘show . (^. #member)’
+    |
+100 |     memberWidth = columnWidth "MEMBER" (fmap (T.pack . show . (^. #member)) rows)
+    |                                                                   ^^^^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:101:48: error: [GHC-43085]
+    • Overlapping instances for ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                                  "phase"
+                                  (Control.Lens.Getter.Getting Text SubscriptionStatusRow Text)
+        arising from the overloaded label ‘#phase’
+      Matching instances:
+        instance forall k1 k2 k3
+                        (labelType :: Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType ~ Data.Generics.Labels.ClassifyLabel name,
+                  Data.Generics.Labels.IsLabelHelper labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘Data.Generics.Labels’
+        instance forall k1 k2 k3
+                        (labelType :: generic-lens-2.3.0.0:Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType
+                  ~ generic-lens-2.3.0.0:Data.Generics.Labels.ClassifyLabel name,
+                  generic-lens-2.3.0.0:Data.Generics.Labels.IsLabelHelper
+                    labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘generic-lens-2.3.0.0:Data.Generics.Labels’
+    • In the expression: #phase
+      In the first argument of ‘fmap’, namely ‘(^. #phase)’
+      In the second argument of ‘columnWidth’, namely
+        ‘(fmap (^. #phase) rows)’
+    |
+101 |     phaseWidth = columnWidth "PHASE" (fmap (^. #phase) rows)
+    |                                                ^^^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:105:41: error: [GHC-39999]
+    • Ambiguous type variable ‘a1’ arising from a use of ‘show’
+      prevents the constraint ‘(Show a1)’ from being solved.
+      Probable fix: use a type annotation to specify what ‘a1’ should be.
+      Potentially matching instances:
+        instance Show LBS.ByteString
+          -- Defined in ‘Data.ByteString.Lazy.Internal’
+        instance (Show k, Show a) => Show (Map k a)
+          -- Defined in ‘Data.Map.Internal’
+        ...plus 48 others
+        ...plus 591 instances involving out-of-scope types
+        (use -fprint-potential-instances to see them all)
+    • In the first argument of ‘T.pack’, namely
+        ‘(show (row ^. #member))’
+      In the second argument of ‘pad’, namely
+        ‘(T.pack (show (row ^. #member)))’
+      In the first argument of ‘(<>)’, namely
+        ‘pad memberWidth (T.pack (show (row ^. #member)))’
+    |
+105 |             <> pad memberWidth (T.pack (show (row ^. #member)))
+    |                                         ^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:105:54: error: [GHC-43085]
+    • Overlapping instances for ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                                  "member" (Control.Lens.Getter.Getting a1 SubscriptionStatusRow a1)
+        arising from the overloaded label ‘#member’
+      Matching instances:
+        instance forall k1 k2 k3
+                        (labelType :: Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType ~ Data.Generics.Labels.ClassifyLabel name,
+                  Data.Generics.Labels.IsLabelHelper labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘Data.Generics.Labels’
+        instance forall k1 k2 k3
+                        (labelType :: generic-lens-2.3.0.0:Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType
+                  ~ generic-lens-2.3.0.0:Data.Generics.Labels.ClassifyLabel name,
+                  generic-lens-2.3.0.0:Data.Generics.Labels.IsLabelHelper
+                    labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘generic-lens-2.3.0.0:Data.Generics.Labels’
+    • In the second argument of ‘(^.)’, namely ‘#member’
+      In the first argument of ‘show’, namely ‘(row ^. #member)’
+      In the first argument of ‘T.pack’, namely ‘(show (row ^. #member))’
+    |
+105 |             <> pad memberWidth (T.pack (show (row ^. #member)))
+    |                                                      ^^^^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:109:24: error: [GHC-39999]
+    • Ambiguous type variable ‘a0’ arising from a use of ‘show’
+      prevents the constraint ‘(Show a0)’ from being solved.
+      Probable fix: use a type annotation to specify what ‘a0’ should be.
+      Potentially matching instances:
+        instance Show LBS.ByteString
+          -- Defined in ‘Data.ByteString.Lazy.Internal’
+        instance (Show k, Show a) => Show (Map k a)
+          -- Defined in ‘Data.Map.Internal’
+        ...plus 48 others
+        ...plus 591 instances involving out-of-scope types
+        (use -fprint-potential-instances to see them all)
+    • In the first argument of ‘T.pack’, namely
+        ‘(show (row ^. #globalPosition))’
+      In the second argument of ‘(<>)’, namely
+        ‘T.pack (show (row ^. #globalPosition))’
+      In the second argument of ‘(<>)’, namely
+        ‘"  " <> T.pack (show (row ^. #globalPosition))’
+    |
+109 |             <> T.pack (show (row ^. #globalPosition))
+    |                        ^^^^
+
+src/Kiroku/Cli/Subscription/Status.hs:109:37: error: [GHC-43085]
+    • Overlapping instances for ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                                  "globalPosition"
+                                  (Control.Lens.Getter.Getting a0 SubscriptionStatusRow a0)
+        arising from the overloaded label ‘#globalPosition’
+      Matching instances:
+        instance forall k1 k2 k3
+                        (labelType :: Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType ~ Data.Generics.Labels.ClassifyLabel name,
+                  Data.Generics.Labels.IsLabelHelper labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘Data.Generics.Labels’
+        instance forall k1 k2 k3
+                        (labelType :: generic-lens-2.3.0.0:Data.Generics.Labels.LabelType)
+                        (name :: ghc-prim-0.13.0:GHC.Types.Symbol) (p :: k1 -> k2 -> *)
+                        (f :: k3 -> k2) (s :: k1) (t :: k3) (a :: k1) (b :: k3) pafb psft.
+                 (labelType
+                  ~ generic-lens-2.3.0.0:Data.Generics.Labels.ClassifyLabel name,
+                  generic-lens-2.3.0.0:Data.Generics.Labels.IsLabelHelper
+                    labelType name p f s t a b,
+                  pafb ~ p a (f b), psft ~ p s (f t)) =>
+                 ghc-internal-9.1204.0:GHC.Internal.OverloadedLabels.IsLabel
+                   name (pafb -> psft)
+          -- Defined in ‘generic-lens-2.3.0.0:Data.Generics.Labels’
+    • In the second argument of ‘(^.)’, namely ‘#globalPosition’
+      In the first argument of ‘show’, namely ‘(row ^. #globalPosition)’
+      In the first argument of ‘T.pack’, namely
+        ‘(show (row ^. #globalPosition))’
+    |
+109 |             <> T.pack (show (row ^. #globalPosition))
+    |                                     ^^^^^^^^^^^^^^^
+
+Error: [Cabal-7125]
+Failed to build kiroku-cli-0.2.0.10 (which is required by exe:kiroku-inspect from kiroku-metrics-0.3.0.0).
+

@@ -1,12 +1,12 @@
 # MP13 controlled comparison — 2026-10-11 rerun
 
 The user authorized this fresh run after the earlier setup attempt failed to
-produce a comparison. The bounded queue completed; the lease released and machines stopped. Temporary-database deletion remains pending. The results below do not clear release. This directory preserves the earlier run's
+produce a comparison. The bounded queue completed; the lease released and machines stopped. Temporary-database deletion remains pending. The results below retain the original numeric verdict; subsequent user practical acceptance permits release. This directory preserves the earlier run's
 original runtime binaries; it does not include later stream-head work.
 
 ## Results and release decision
 
-**Do not release under the unchanged acceptance policy.** Both comparisons are complete; neither passes every append metric. No native benchmark-grade certificate is claimed.
+**Statistical result: inconclusive. Subsequent release decision: practically accepted by the user.** Both comparisons are complete; neither passes every append metric. No native benchmark-grade certificate is claimed. The user reviewed these limitations and instructed completion of the release; see [authorization](../publication-2026-10-11/authorization.json). This acceptance does not change any sample, interval, or metric verdict.
 
 | Inspection | Metric | Candidate change | 95% interval | Metric verdict |
 |---|---|---:|---:|---|
@@ -30,7 +30,7 @@ For active inspection, mean WAL per measured append is 2051.44 bytes in control 
 
 The controller finished at **15:42:46 UTC**, 56.35 minutes after the original clock began. Temporary-database removal was not completed after an SSH wrapper timeout. The owned lease `01a12b74-4dab-7661-8bd3-6711314258f8` released, and all four cell machines reached TERMINATED. See `cell/journal.json`, `cell/lease-release.log`, and `cell/power-after.json`. No remote work or owned lease remains. The ALTER DATABASE command succeeded, but inherited SSH output handles held the local command open until its 90-second timeout; DROP DATABASE was not reached. The bounded recovery admission refused to restart a machine because fewer than 150 seconds remained. The small diagnostic database remains on the stopped PostgreSQL disk and must be removed under the next owned lease. See `cell/cleanup-recovery/journal.json`. No sample was retried, no gate changed, and no package was published.
 
-The remaining acceptance work is specific: use the native benchmark runner for actual phase/per-operation timing and grade evidence, and address the unresolved interval widths before treating this cohort as performance-accepted. A fresh remote experiment requires a separately declared budget; this run does not restart its clock or silently add trials.
+The original formal evidence gap remains: native phase/per-operation timing and tighter intervals would be needed for a statistical zero-regression claim. The user subsequently accepted these limitations for this release; another experiment is not a release prerequisite. A fresh remote experiment requires a separately declared budget; this run does not restart its clock or silently add trials.
 
 ## Fixed inputs and protocol
 

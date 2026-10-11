@@ -1,0 +1,21 @@
+kiroku-inspect - standalone inspection server
+
+Usage: kiroku-inspect [--database-url URL] [--schema NAME] [--pool-size N] 
+                      [--port N] [--cors-origin ORIGIN] 
+                      [--cors-allow-credentials | --no-cors-allow-credentials] 
+                      [--ws-max-connections N]
+
+  Serve the read-only inspection API from a migrated Kiroku database. Runs no
+  subscriptions.
+
+Available options:
+  --database-url URL       Database connection string (or DATABASE_URL)
+  --schema NAME            Migrated schema (default kiroku)
+  --pool-size N            Connection pool size (default 10)
+  --port N                 Listen port (default 9091; 0 selects a free port)
+  --cors-origin ORIGIN     Allowed HTTP(S) browser origin; repeatable
+  --cors-allow-credentials Allow credentials for explicit origins
+  --no-cors-allow-credentials
+                           Disable credentials, overriding the environment
+  --ws-max-connections N   Maximum WebSocket connections (default 100)
+  -h,--help                Show this help text

@@ -8,7 +8,7 @@ generated:
 docId: ADR-15
 status: Accepted
 date: 2026-10-10
-timestamp: "2026-10-11T03:40:56Z"
+timestamp: "2026-10-11T15:57:22Z"
 originatingPlan: docs/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md
 ---
 
@@ -88,6 +88,10 @@ one-hour ceiling includes setup, recovery and repeats. Record the comparison pol
 measurement; retain uncertainty and adverse samples. A consistent append regression blocks
 release. An inconclusive result is not proof of neutrality, and does not authorize relaxing
 the gate or silently adopting another cohort's practical acceptance.
+
+## Cohort acceptance — 2026-10-11
+
+The inspection cohort completed functional and structural checks, all 16 dedicated-host workload gates, and ten original-control pairs with verified delivery, artifacts, health and checkpoint symmetry. The paired estimates remain statistically inconclusive. After reviewing their small throughput estimates and measurement limits, the user explicitly accepted the practical performance and instructed release. This cohort-specific judgment permits publication without relabeling the intervals as a pass or claiming a native benchmark-grade certificate. It grants no additive slowdown allowance to future features. Evidence and authorization are retained in [the release record](../../bench/mp13-release/publication-2026-10-11/authorization.json).
 
 ## Consequences
 
