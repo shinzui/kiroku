@@ -4,8 +4,10 @@ A client for the keiro runtime UI and an independent Kiroku UI consume the same
 `kiroku-metrics` surface. Stream history, durable subscription checkpoints, dead
 letters and live tails belong to this event store. A store-only adopter can run
 `kiroku-inspect`; an application can embed the exported WAI application or runner.
-The cohort described here is unreleased. This guide describes its implemented
-contract; see the [reference](../user/metrics.md) for complete payloads.
+The inspection surface ships in `kiroku-metrics` 0.3.0.0 with `kiroku-store`
+0.11.0.0 and migration 0015 from `kiroku-store-migrations` 0.7.1.0. See the
+[reference](../user/metrics.md) for complete payloads and the
+[release record](../../bench/mp13-release/publication-2026-10-11/README.md) for artifacts.
 
 ## Start here: discovery
 

@@ -183,7 +183,9 @@ that were hard-deleted or never created.
 — it decodes one column instead of six. It returns `Nothing` for never-created
 and hard-deleted streams, matching `getStream`'s soft-delete behavior.
 
-## Capturing a stream's originated head (unreleased)
+## Capturing a stream's originated head
+
+Available since `kiroku-store` 0.11.0.0.
 
 `getStreamWithHead name` returns `Maybe (StreamInfo, Maybe GlobalPosition)`
 from one SQL statement and one database snapshot. Outer `Nothing` means the
@@ -282,7 +284,9 @@ failures. With no hook, reads return the original vector without traversal.
 See [undecodable subscriptions](subscriptions.md#undecodable-events) for retry
 and recovery behavior.
 
-## Browsing metadata and looking up an event (unreleased)
+## Browsing metadata and looking up an event
+
+Available since `kiroku-store` 0.11.0.0.
 
 Construct a bounded `BrowsePageSize` with `mkBrowsePageSize` (1–1001). The
 extra row at 1001 supports HTTP over-fetch; ordinary clients can request less.
@@ -306,5 +310,5 @@ database's locale order and emits each application category once.
 configured decode hook and returns typed decode failures. Like `readAllForward`,
 its `streamVersion` is the global position; `originalVersion` remains the
 source-stream version. These are current-store reads, without cross-request
-snapshot guarantees. The [HTTP browsing routes](metrics.md#browsing-streams-categories-and-events-unreleased)
+snapshot guarantees. The [HTTP browsing routes](metrics.md#browsing-streams-categories-and-events)
 wrap these supported library operations.

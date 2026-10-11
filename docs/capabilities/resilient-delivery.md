@@ -5,6 +5,7 @@ description: "Read parked dead letters through the public paginated subscription
 generated:
   by: anthropic/claude-sonnet-4.5
   at: "2026-08-08T00:00:00Z"
+timestamp: "2026-10-11T16:21:48Z"
 capabilityId: CAP-12
 provider: mori://shinzui/kiroku
 status: shipped
@@ -22,7 +23,7 @@ requires:
 evidence:
   - kind: test
     resource: kiroku-store/test/Test/SubscriptionDeadLetters.hs
-    proves: Newest-first exclusive pages include historical members, preserve reason JSON and survive deleted cursor rows; the unreleased read does not change checkpoints.
+    proves: Newest-first exclusive pages include historical members, preserve reason JSON and survive deleted cursor rows; the public read does not change checkpoints.
   - kind: test
     resource: kiroku-store/test/Test/SubscriptionRetryDeadLetter.hs
     proves: Retry redelivers under the retry policy and DeadLetter records to kiroku.dead_letters while atomically advancing the checkpoint.
@@ -66,6 +67,6 @@ defaultSubscriptionConfig
 - These dispositions require the ack-coupled bridge; a plain `subscriptionStream` always replies
   `Continue`.
 
-The unreleased inspection cohort adds public `subscriptionDeadLetters` with
+Store 0.11.0.0 adds public `subscriptionDeadLetters` with
 validated page limits, optional member selection and exclusive composite cursors.
 Reasons retain their JSON structure; the read bypasses event decode hooks.

@@ -1,0 +1,17 @@
+Resolving dependencies...
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-metrics-0.3.0.0 (exe:kiroku-inspect) (requires build)
+ - kiroku-store-migrations-0.7.1.0 (exe:kiroku-store-migrate) (requires build)
+Starting     kiroku-store-migrations-0.7.1.0 (exe:kiroku-store-migrate)
+Starting     kiroku-metrics-0.3.0.0 (exe:kiroku-inspect)
+Building     kiroku-metrics-0.3.0.0 (exe:kiroku-inspect)
+Building     kiroku-store-migrations-0.7.1.0 (exe:kiroku-store-migrate)
+Installing   kiroku-metrics-0.3.0.0 (exe:kiroku-inspect)
+Installing   kiroku-store-migrations-0.7.1.0 (exe:kiroku-store-migrate)
+Completed    kiroku-store-migrations-0.7.1.0 (exe:kiroku-store-migrate)
+Completed    kiroku-metrics-0.3.0.0 (exe:kiroku-inspect)
+Copying 'kiroku-inspect' to
+'/var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/kiroku-mp13-published-consumer-1pd86erj/bin/kiroku-inspect'
+Copying 'kiroku-store-migrate' to
+'/var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/kiroku-mp13-published-consumer-1pd86erj/bin/kiroku-store-migrate'

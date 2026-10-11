@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-11
+* **Update**: ADR-15 and ADR-17: reflect the published inspection cohort and retained practical acceptance; preserve future cumulative performance obligations.
 * **Update**: Record user practical acceptance of the inspection cohort performance and release authorization while retaining statistical uncertainty.
 * **Update**: Record paired metadata release evidence requirements and controls; preserve the 1.10 legacy limit.
 * **Update**: Record opt-in originated stream heads and their one-statement snapshot and legacy-cost boundary.

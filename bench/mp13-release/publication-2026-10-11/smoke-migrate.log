@@ -1,0 +1,18 @@
+started=2026-10-11 16:23:51.185861 UTC
+finished=2026-10-11 16:23:51.212317 UTC
+kiroku/0001-kiroku-bootstrap outcome=applied_now duration_ms=10
+kiroku/0002-add-subscription-dead-letters outcome=applied_now duration_ms=2
+kiroku/0003-notify-trigger-append-guard outcome=applied_now duration_ms=1
+kiroku/0004-dead-letters-event-id-index outcome=applied_now duration_ms=1
+kiroku/0005-index-hygiene-and-streams-fillfactor outcome=applied_now duration_ms=2
+kiroku/0006-stream-name-length-check outcome=applied_now duration_ms=1
+kiroku/0007-stream-truncate-before outcome=applied_now duration_ms=1
+kiroku/0008-schema-management-comment outcome=applied_now duration_ms=1
+kiroku/0009 outcome=applied_now duration_ms=1
+kiroku/0010 outcome=applied_now duration_ms=3
+kiroku/0011 outcome=applied_now duration_ms=1
+kiroku/0012 outcome=applied_now duration_ms=2
+kiroku/0013 outcome=applied_now duration_ms=1
+kiroku/0014 outcome=applied_now duration_ms=1
+kiroku/0015 outcome=applied_now duration_ms=1
+

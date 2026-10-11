@@ -8,9 +8,10 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-10-10T16:10:46Z"
+timestamp: "2026-10-11T16:24:07Z"
 requestId: IR-11
-status: in_progress
+status: completed
+completedAt: "2026-10-11T16:24:07Z"
 origin: mori://shinzui/keiro-ui
 reviews:
   - kind: model
@@ -31,6 +32,21 @@ reviews:
 # Improvement Request: Add Configurable CORS Support to kiroku-metrics
 
 ## Status
+
+Completed on 2026-10-11 through [ExecPlan 96](../plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md).
+The implementation is published in [kiroku-metrics 0.3.0.0](https://hackage.haskell.org/package/kiroku-metrics-0.3.0.0),
+[kiroku-store 0.11.0.0](https://hackage.haskell.org/package/kiroku-store-0.11.0.0) and
+[kiroku-store-migrations 0.7.1.0](https://hackage.haskell.org/package/kiroku-store-migrations-0.7.1.0).
+The [GitHub release](https://github.com/shinzui/kiroku/releases/tag/kiroku-metrics-v0.3.0.0)
+and [release record](../../bench/mp13-release/publication-2026-10-11/README.md)
+include verified artifacts, the exact-version Hackage consumer, installed executable
+HTTP/CORS/WebSocket smoke, and the retained performance evidence and practical acceptance.
+All six release test suites pass 698 examples. Consumer instructions are in the
+[inspection UI guide](../guides/building-an-inspection-ui.md).
+
+## Implementation and acceptance history
+
+The following records the request and local verification before cohort publication.
 
 Proposed by the keiro runtime UI initiative
 (`mori://shinzui/keiro-ui/masterplans/1-keiro-runtime-ui-foundations`, filed under

@@ -1,10 +1,11 @@
 ---
 title: "Operational HTTP endpoints: metrics, health, and event streaming"
 type: Capability
-description: "Serve in-process metrics as JSON and Prometheus exposition, liveness/readiness/detailed health, a subscription-status endpoint, durable cross-process checkpoint inventory, and a WebSocket channel for live metrics and events, bounded stream/category/event and subscription dead-letter inspection in the unreleased cohort, with coded WebSocket errors, explicit metrics lifecycle, ordered overflow notices, bounded tail name resolution and host-configured default-off browser CORS, with discovery at /capabilities and standalone hosting through kiroku-inspect, without pulling a web framework into the core library."
+description: "Serve in-process metrics as JSON and Prometheus exposition, liveness/readiness/detailed health, a subscription-status endpoint, durable cross-process checkpoint inventory, and a WebSocket channel for live metrics and events, bounded stream/category/event and subscription dead-letter inspection in kiroku-metrics 0.3.0.0, with coded WebSocket errors, explicit metrics lifecycle, ordered overflow notices, bounded tail name resolution and host-configured default-off browser CORS, with discovery at /capabilities and standalone hosting through kiroku-inspect, without pulling a web framework into the core library."
 generated:
   by: anthropic/claude-sonnet-4.5
   at: "2026-08-08T00:00:00Z"
+timestamp: "2026-10-11T16:18:55Z"
 capabilityId: CAP-17
 provider: mori://shinzui/kiroku
 status: shipped
@@ -74,7 +75,7 @@ liveness/readiness/detailed health (with a built-in `postgresPing`), a `/subscri
 reporting live [subscription](live-subscriptions.md) status, and a WebSocket channel for live
 metrics and events (with optional replay).
 
-The unreleased inspection cohort adds explicit, default-off CORS across HTTP, preflight
+The inspection cohort in `kiroku-metrics` 0.3.0.0 adds explicit, default-off CORS across HTTP, preflight
 and WebSocket upgrades. Hosts configure validated origins with `Kiroku.Metrics.Cors`;
 this is browser access policy, not authentication. It also adds
 `GET /subscription-checkpoints`, exact persisted checkpoints with a same-snapshot
@@ -100,24 +101,24 @@ withMetricsServerWithStore cfg collector store [postgresPing store] $ \_ -> runA
 - Durable checkpoint inventory is unpaginated and proportional to checkpoint row count; avoid overlapping client polls.
 - The collector is STM-only and non-blocking; snapshots are point-in-time.
 
-The unreleased cohort also adds `StoreBrowser` and the bounded `/streams`,
+The released cohort also adds `StoreBrowser` and the bounded `/streams`,
 `/categories`, and `/events` inspection routes. Stream-name pages use stable
 UTF-8 byte order, category enumeration retains locale order, and event items
-include an additive `original_stream_name`. This feature's exact index-layout
-write-cost acceptance and publication remain pending.
+include an additive `original_stream_name`. The selected layout and cumulative measured costs were accepted for this release;
+see the [release evidence](../../bench/mp13-release/publication-2026-10-11/README.md).
 
-The unreleased `GET`/`HEAD /subscriptions/<name>/dead-letters` route wraps
+The released `GET`/`HEAD /subscriptions/<name>/dead-letters` route wraps
 `subscriptionDeadLetters`. All-member work scales with historical member count
 times page size; prefer member-scoped polling for large groups.
 
-The unreleased WebSocket convergence retains the shipped dialect and documents
+The released WebSocket convergence retains the shipped dialect and documents
 its convention mapping in the guide. Metrics pushes can stop and resume; event
 tails resolve original names with at most one lookup per batch and 4096 cached
 names. Coded errors sanitize failures. Real drop-oldest overflow is signalled
 before survivors, so clients recover from their last contiguous pre-notice cursor.
-Cumulative append-under-observer performance acceptance remains with the release.
+Cumulative append-under-observer evidence and practical acceptance are retained in the release record.
 
-The unreleased cohort is self-describing at `/capabilities` and self-hosting through
+The released cohort is self-describing at `/capabilities` and self-hosting through
 `kiroku-inspect`. The executable opens a migrated store and serves read routes,
 but runs no subscriptions: its live registry and per-worker metrics are empty.
 Discovery labels process-local answers and performs no database access.

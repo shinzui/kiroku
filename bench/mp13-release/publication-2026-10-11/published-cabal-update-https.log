@@ -1,0 +1,32 @@
+Project settings changed, reconfiguring...
+creating
+/private/var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/kiroku-mp13-published-consumer-1pd86erj/dist-newstyle
+creating
+/private/var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/kiroku-mp13-published-consumer-1pd86erj/dist-newstyle/cache
+Configuration is affected by cabal.project at
+'/private/var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/kiroku-mp13-published-consumer-1pd86erj'.
+Downloading the latest package lists from:
+- hackage.haskell.org
+- hackage.haskell.org
+Selected mirror http://hackage.haskell.org/
+Selected mirror https://hackage.haskell.org/
+Downloading timestamp
+Running: /Users/shinzui/.nix-profile/bin/curl 'http://hackage.haskell.org/timestamp.json' --output /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/transportAdapterGet45118-2 --location --write-out '%{http_code}' --user-agent 'cabal-install/3.16.1.0 (osx; aarch64)' --silent --show-error --dump-header /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/curl-headers45118-3.txt
+Downloading timestamp
+Running: /Users/shinzui/.nix-profile/bin/curl 'https://hackage.haskell.org/timestamp.json' --output /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/transportAdapterGet45118-5 --location --write-out '%{http_code}' --user-agent 'cabal-install/3.16.1.0 (osx; aarch64)' --silent --show-error --dump-header /var/folders/fn/022xr90s5mz417hz7fllrhv80000gn/T/curl-headers45118-6.txt
+Waiting to acquire cache lock on
+/Users/shinzui/.cabal/packages/hackage.haskell.org/hackage-security-lock
+Acquired cache lock on
+/Users/shinzui/.cabal/packages/hackage.haskell.org/hackage-security-lock
+Released cache lock on
+/Users/shinzui/.cabal/packages/hackage.haskell.org/hackage-security-lock
+Package list of hackage.haskell.org is up to date.
+Waiting to acquire cache lock on
+/Users/shinzui/.cabal/packages/hackage.haskell.org/hackage-security-lock
+Acquired cache lock on
+/Users/shinzui/.cabal/packages/hackage.haskell.org/hackage-security-lock
+Released cache lock on
+/Users/shinzui/.cabal/packages/hackage.haskell.org/hackage-security-lock
+Package list of hackage.haskell.org is up to date.
+The index-state is set to 2026-10-11T16:11:35Z.
+The index-state is set to 2026-10-11T16:11:35Z.

@@ -1,6 +1,10 @@
 # MP13 release preparation — 2026-10-11
 
-EP-7 is **In Progress**. No package metadata has been applied, no tag or package
+This is the historical preparation checkpoint. Publication is now verified in the
+[superseding release record](../publication-2026-10-11/README.md); the original
+proposal, failures and measurements below are preserved.
+
+At this checkpoint EP-7 was **In Progress**. No package metadata had been applied, no tag or package
 has been published, and IR-8 through IR-12 remain in progress. The exact proposal
 is [release.patch](release.patch); it is built in an isolated copy rather than
 changing the checkout's approved release versions.

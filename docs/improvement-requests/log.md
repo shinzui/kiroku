@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-11
+* **Update**: Complete IR-8, IR-9, IR-10, IR-11 and IR-12 after publishing and verifying store 0.11.0.0, metrics 0.3.0.0 and migrations 0.7.1.0 with the six-package cohort. Exact Hackage consumer, published installer smoke, artifact hashes and release links are in bench/mp13-release/publication-2026-10-11/README.md.
 * **Update**: IR-18: paired metadata release gate passes both independent trials with validated controls; publication remains pending.
 * **Update**: IR-18 links the opt-in API, Plan 97 evidence and ADR-19; publication remains pending.
 * **Update**: IR-9 records locally complete public/library dead-letter inspection, bounded existing-index reads, real worker reasons and passing full-suite/example/Nix evidence. Status remains `in_progress` until plan 96 publishes the cohort.

@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/publication-2026-10-11/publish.py", line 35, in <module>
+    assert hash_file(index)==expected_index,'published documentation index differs: '+package
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: published documentation index differs: kiroku-store

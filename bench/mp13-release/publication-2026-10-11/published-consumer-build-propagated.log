@@ -1,0 +1,57 @@
+Resolving dependencies...
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.11.0.0 (lib) (requires download & build)
+ - kiroku-store-migrations-0.7.1.0 (lib) (requires download & build)
+ - shibuya-kiroku-adapter-0.6.0.1 (lib:shibuya-kiroku-adapter-internal) (requires download & build)
+ - kiroku-otel-0.2.0.12 (lib) (requires download & build)
+ - kiroku-cli-0.2.0.10 (lib) (requires download & build)
+ - shibuya-kiroku-adapter-0.6.0.1 (lib) (requires download & build)
+ - kiroku-metrics-0.3.0.0 (lib) (requires download & build)
+ - published-consumer-0.1.0.0 (exe:published-consumer) (first run)
+Downloading  shibuya-kiroku-adapter-0.6.0.1
+Downloaded   shibuya-kiroku-adapter-0.6.0.1
+Downloading  kiroku-store-migrations-0.7.1.0
+Downloaded   kiroku-store-migrations-0.7.1.0
+Downloading  kiroku-store-0.11.0.0
+Starting     kiroku-store-migrations-0.7.1.0 (lib)
+Downloaded   kiroku-store-0.11.0.0
+Downloading  kiroku-cli-0.2.0.10
+Starting     kiroku-store-0.11.0.0 (lib)
+Downloaded   kiroku-cli-0.2.0.10
+Downloading  kiroku-otel-0.2.0.12
+Downloaded   kiroku-otel-0.2.0.12
+Downloading  kiroku-metrics-0.3.0.0
+Downloaded   kiroku-metrics-0.3.0.0
+Building     kiroku-store-0.11.0.0 (lib)
+Building     kiroku-store-migrations-0.7.1.0 (lib)
+Installing   kiroku-store-migrations-0.7.1.0 (lib)
+Completed    kiroku-store-migrations-0.7.1.0 (lib)
+Starting     shibuya-kiroku-adapter-0.6.0.1 (lib:shibuya-kiroku-adapter-internal)
+Building     shibuya-kiroku-adapter-0.6.0.1 (lib:shibuya-kiroku-adapter-internal)
+Installing   shibuya-kiroku-adapter-0.6.0.1 (lib:shibuya-kiroku-adapter-internal)
+Completed    shibuya-kiroku-adapter-0.6.0.1 (lib:shibuya-kiroku-adapter-internal)
+Installing   kiroku-store-0.11.0.0 (lib)
+Completed    kiroku-store-0.11.0.0 (lib)
+Starting     kiroku-otel-0.2.0.12 (lib)
+Starting     shibuya-kiroku-adapter-0.6.0.1 (lib)
+Building     shibuya-kiroku-adapter-0.6.0.1 (lib)
+Building     kiroku-otel-0.2.0.12 (lib)
+Installing   shibuya-kiroku-adapter-0.6.0.1 (lib)
+Installing   kiroku-otel-0.2.0.12 (lib)
+Completed    shibuya-kiroku-adapter-0.6.0.1 (lib)
+Starting     kiroku-cli-0.2.0.10 (lib)
+Completed    kiroku-otel-0.2.0.12 (lib)
+Building     kiroku-cli-0.2.0.10 (lib)
+Installing   kiroku-cli-0.2.0.10 (lib)
+Completed    kiroku-cli-0.2.0.10 (lib)
+Starting     kiroku-metrics-0.3.0.0 (lib)
+Building     kiroku-metrics-0.3.0.0 (lib)
+Installing   kiroku-metrics-0.3.0.0 (lib)
+Completed    kiroku-metrics-0.3.0.0 (lib)
+Configuring executable 'published-consumer' for published-consumer-0.1.0.0...
+Preprocessing executable 'published-consumer' for published-consumer-0.1.0.0...
+Building executable 'published-consumer' for published-consumer-0.1.0.0...
+[1 of 2] Compiling Legacy           ( Legacy.hs, dist-newstyle/build/aarch64-osx/ghc-9.12.4/published-consumer-0.1.0.0/x/published-consumer/build/published-consumer/published-consumer-tmp/Legacy.o )
+[2 of 2] Compiling Main             ( Consumer.hs, dist-newstyle/build/aarch64-osx/ghc-9.12.4/published-consumer-0.1.0.0/x/published-consumer/build/published-consumer/published-consumer-tmp/Main.o )
+[3 of 3] Linking dist-newstyle/build/aarch64-osx/ghc-9.12.4/published-consumer-0.1.0.0/x/published-consumer/build/published-consumer/published-consumer

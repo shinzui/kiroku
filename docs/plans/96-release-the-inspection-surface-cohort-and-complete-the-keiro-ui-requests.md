@@ -55,7 +55,7 @@ and Outcomes & Retrospective current. It is EP-7 of
 ## Purpose / Big Picture
 
 Publish the integrated inspection surface only after its APIs, compatibility and focused
-performance gates pass. A consumer must be able to install the exact published
+performance evidence is accepted. A consumer must be able to install the exact published
 kiroku-inspect executable and build the library examples without this checkout.
 Complete IR-8 through IR-12 with verified publication evidence, not only local source changes.
 This plan publishes no UI and makes no downstream repository edits without authorization.
@@ -77,11 +77,17 @@ This plan publishes no UI and makes no downstream repository edits without autho
 - [x] (2026-10-11) User instructs completion of the release after practical performance acceptance; apply the prepared six-package cohort, refresh dates and include the completed opt-in stream-head API.
 - [x] (2026-10-11) Build the proposal in an isolated source copy; all six `cabal check` invocations pass, six public source archives are hashed/inspected, the proposed executable help passes and the appended upgrade blueprint validates.
 - [x] (2026-10-11) Finish final proposal packaging: fresh full build, Nix executable, six Haddock archives, final new/legacy consumer compilation and both executable help checks pass. Source is `30307c1`; no artifact is uploaded.
-- [ ] Publish and verify the authorized cohort after performance acceptance.
-- [ ] Prove an exact-version clean consumer; complete requests and record outcomes.
+- [x] (2026-10-11T16:24:07Z) Publish and independently verify all six authorized packages, documentation, tags and GitHub releases.
+- [x] (2026-10-11T16:24:07Z) Compile the exact-version Hackage consumer and every legacy starter, install and smoke the published executables, complete IR-8 through IR-12, and distill ADRs/outcomes.
 
 
 ## Surprises & Discoveries
+
+2026-10-11 publication: Hackage injects an 89-byte presentation stylesheet into
+served Haddock HTML and its signed package index propagates after uploads. Exact
+source hashes remain mandatory; documentation verification removes only that exact
+stylesheet. The clean consumer uses the propagated registry index, with no local
+source overrides. Publication and initial index-resolution failures are retained.
 
 2026-10-11 rerun: Inspection-disabled throughput is -1.544% [-4.090%, +1.069%] and active-observer throughput is -0.370% [-3.371%, +2.724%] (95% intervals). Both arms show occasional p99 spikes in the inactive case. All completed samples remain included; no checkpoint overlap or driver saturation explains those spikes. The wrapper supplies real checkpoint-envelope observations but cannot reconstruct the native per-operation phase timestamps that the opaque probe never emitted. Numeric comparison and native grade certification remain distinct.
 
@@ -113,6 +119,10 @@ The prior cohort's practical performance acceptance is not transferable to inspe
 
 ## Decision Log
 
+- Decision (2026-10-11): close the authorized cohort after independent published
+  artifact verification and clean-consumer installation/smoke. Keep release tags
+  at the source release commit; record completion in a later evidence-only commit.
+
 - Decision (2026-10-11, release authorization): the user accepted the observed performance and instructed completion of the release. Treat this as cohort-specific practical acceptance of the retained uncertainty, not a statistical pass or a new benchmark budget. Apply the previously prepared package versions and preserve the completed opt-in stream-head work in the current source.
 
 - Decision (2026-10-11 rerun): honor the newly authorized hour, retain one lease for proof plus both five-pair cases, and apply the existing interval algorithm and policy without favorable retries.
@@ -143,7 +153,34 @@ The prior cohort's practical performance acceptance is not transferable to inspe
 
 ## Outcomes & Retrospective
 
-2026-10-11 checkpoint: EP-7 is In Progress. Functional integration, the 672 suite examples, all 16 dedicated-host workload gates, and isolated six-package release packaging remain validated. The fresh authorized rerun completes one readiness proof and all 20 measured trials (five pairs per case) under one lease and the original 60-minute deadline. Inspection-disabled throughput is -1.544% [-4.090%, +1.069%] and active-observer throughput is -0.370% [-3.371%, +2.724%] (95% intervals). The unchanged acceptance policy is not passed. Ordered delivery, exact candidate names, artifact hashes, cell health and zero checkpoint overlap verify; the lease is released and all four machines are stopped. Diagnostic-database deletion remains pending after an SSH cleanup timeout; the remaining budget did not admit a restart. The opaque probe still lacks a native benchmark-grade timing certificate. At that checkpoint release remained blocked and no package was published. The subsequent user acceptance below supersedes the release hold. See the [controlled comparison](../../bench/mp13-release/validation-2026-10-11-rerun/README.md). Publication authorization and exact published-consumer proof remain pending. No version, artifact, tag, downstream state or request completion has changed.
+Complete (2026-10-11): all seven children are delivered. Release commit
+`7394055de458bef8f6ec2e68231f3ca7932bb9be` and six annotated package tags are pushed.
+Store 0.11.0.0, migrations 0.7.1.0, OTel 0.2.0.12, CLI 0.2.0.10, metrics 0.3.0.0
+and adapter 0.6.0.1 are published with Haddock and GitHub releases. Downloaded
+source archives match byte-for-byte; served documentation matches after removing
+Hackage's exact injected stylesheet. All 698 release test examples, builds,
+packaging and strict bundle checks pass.
+
+A clean consumer resolves those exact six Hackage versions, compiles the new APIs
+and every legacy starter, and runs successfully. Published `kiroku-inspect` and
+`kiroku-store-migrate` install into an isolated directory. Against a fresh migrated
+PostgreSQL database, eight HTTP routes, configured CORS, readiness, WebSocket
+subscription and clean inspector/database shutdown pass. IR-8 through IR-12 are
+completed with exact release links. See the [publication record](../../bench/mp13-release/publication-2026-10-11/README.md)
+for the journal, source/documentation hashes, consumer plan, logs and handoff.
+
+Functional and publication acceptance are complete. Performance is accepted by
+the user's explicit practical decision after the focused review and comparison;
+the numerical intervals remain inconclusive. No further experiment ran. The
+prior remote lease is released and all machines are stopped; the small diagnostic
+database remains on the stopped disk for the next owned maintenance lease.
+ADR distillation confirms ADR-15's bounded observer work and cohort acceptance,
+ADR-16's default-off CORS, ADR-17's shared byte-order index and ADR-18's shared
+hosting/discovery boundary. No additional architecture decision is needed.
+
+### Historical checkpoints
+
+2026-10-11 checkpoint: EP-7 is In Progress. Functional integration, the 672 suite examples, all 16 dedicated-host workload gates, and isolated six-package release packaging remain validated. The fresh authorized rerun completes one readiness proof and all 20 measured trials (five pairs per case) under one lease and the original 60-minute deadline. Inspection-disabled throughput is -1.544% [-4.090%, +1.069%] and active-observer throughput is -0.370% [-3.371%, +2.724%] (95% intervals). The unchanged acceptance policy is not passed. Ordered delivery, exact candidate names, artifact hashes, cell health and zero checkpoint overlap verify; the lease is released and all four machines are stopped. Diagnostic-database deletion remains pending after an SSH cleanup timeout; the remaining budget did not admit a restart. The opaque probe still lacks a native benchmark-grade timing certificate. At that checkpoint release remained blocked and no package was published. The subsequent user acceptance below supersedes the release hold. See the [controlled comparison](../../bench/mp13-release/validation-2026-10-11-rerun/README.md). At that earlier checkpoint, publication and exact consumer proof were pending; the completion record above supersedes it.
 
 Historical planning review: no implementation or benchmark was performed by that review; runtime acceptance remained pending.
 
@@ -158,7 +195,7 @@ Hard dependencies are the checked-in plans
 [94](94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention.md)
 (tail delivery) and
 [95](95-serve-the-kiroku-inspection-surface-standalone-and-make-it-self-describing.md)
-(discovery and standalone). All remain independently testable and leave versions unreleased.
+(discovery and standalone). All are independently testable and are now included in the published cohort.
 
 Source packages live in their same-named root directories. Store has no internal runtime
 dependency; CLI, otel, metrics and shibuya-kiroku-adapter currently depend on store.
@@ -362,8 +399,7 @@ database state and describe losses/recovery truthfully.
 
 The final report separates functional completion, verified trial counts, any active remote
 execution, inconclusive evidence, practical acceptance and publication. Every request
-completion links to actual releases. No benchmark or package publication is claimed by this
-planning revision.
+completion links to actual releases. The publication record above supplies the final evidence.
 
 
 ## Idempotence and Recovery
@@ -442,9 +478,14 @@ No cumulative zero-regression or release verdict is implied by the passed gate.
 
 The fresh authorized rerun completes one readiness proof and all 20 measured trials (five pairs per case) under one lease and the original 60-minute deadline. Inspection-disabled throughput is -1.544% [-4.090%, +1.069%] and active-observer throughput is -0.370% [-3.371%, +2.724%] (95% intervals). The unchanged acceptance policy is not passed. Ordered delivery, exact candidate names, artifact hashes, cell health and zero checkpoint overlap verify; the lease is released and all four machines are stopped. Diagnostic-database deletion remains pending after an SSH cleanup timeout; the remaining budget did not admit a restart. The opaque probe still lacks a native benchmark-grade timing certificate. At that checkpoint release remained blocked and no package was published. The subsequent user acceptance below supersedes the release hold. See the [controlled comparison](../../bench/mp13-release/validation-2026-10-11-rerun/README.md).
 
-The frozen candidate remains `109d58f57dbd5757ad55792474d046a37cc2e87d` against released control `364ffa82136fcfc83d39ead1234abffaf500844b`; later stream-head changes are excluded. The next performance step must produce real native phase/per-operation timing and address unresolved interval widths. No additional queue is launched under this completed budget.
+The frozen candidate remains `109d58f57dbd5757ad55792474d046a37cc2e87d` against released control `364ffa82136fcfc83d39ead1234abffaf500844b`; later stream-head changes are excluded. Any future attempt at formal statistical certification would need native phase/per-operation timing and narrower intervals; the user accepted this release without that additional experiment. No additional queue is launched under this completed budget.
 
 
 ## Practical acceptance and release authorization (2026-10-11)
 
-After reviewing the actual disabled/active throughput and uncertainty, the user stated that nothing looked concerning, instructed finishing the work, and explicitly asked to finish the release. The performance hold is removed by that practical decision. The five-pair statistical results remain inconclusive and no native grade certificate is asserted. Publication and clean-consumer verification now proceed for store 0.11.0.0, metrics 0.3.0.0, migrations 0.7.1.0, CLI 0.2.0.10, OTel 0.2.0.12 and adapter 0.6.0.1. See `bench/mp13-release/publication-2026-10-11/authorization.json`.
+After reviewing the actual disabled/active throughput and uncertainty, the user stated that nothing looked concerning, instructed finishing the work, and explicitly asked to finish the release. The performance hold is removed by that practical decision. The five-pair statistical results remain inconclusive and no native grade certificate is asserted. Publication and clean-consumer verification are complete for store 0.11.0.0, metrics 0.3.0.0, migrations 0.7.1.0, CLI 0.2.0.10, OTel 0.2.0.12 and adapter 0.6.0.1. See `bench/mp13-release/publication-2026-10-11/authorization.json`.
+
+Revision (2026-10-11 release completion): verified all six published packages,
+documentation and tags, exact-version consumer and installed inspector smoke;
+completed IR-8 through IR-12 and all release milestones. Earlier checkpoints
+remain historical evidence; practical acceptance does not rewrite numeric results.

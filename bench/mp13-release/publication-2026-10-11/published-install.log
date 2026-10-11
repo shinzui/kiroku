@@ -1,0 +1,5 @@
+Downloading kiroku-metrics:exe:kiroku-inspect
+Error: cabal: '/Users/shinzui/.nix-profile/bin/curl' exited with an error:
+curl: (3) URL rejected: Port number was not a decimal number between 0 and
+65535
+

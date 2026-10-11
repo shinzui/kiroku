@@ -31,7 +31,7 @@ accessors.
 - [The WebSocket protocol](#the-websocket-protocol)
 - [Subscription status over HTTP](#subscription-status-over-http)
 - [Dead letters over HTTP](#dead-letters-over-http)
-- [Browsing streams, categories and events](#browsing-streams-categories-and-events-unreleased)
+- [Browsing streams, categories and events](#browsing-streams-categories-and-events)
 - [Durable subscription checkpoints over HTTP](#durable-subscription-checkpoints-over-http)
 - [Cross-origin browser access (CORS)](#cross-origin-browser-access-cors)
 - [Discovering the surface](#discovering-the-surface)
@@ -289,7 +289,7 @@ Add your own dependency check by appending an `IO DependencyStatus` action to th
 The durable, cross-process checkpoint inventory. Store-backed starters wire this route;
 see [Durable subscription checkpoints over HTTP](#durable-subscription-checkpoints-over-http).
 
-## Browsing streams, categories and events (unreleased)
+## Browsing streams, categories and events
 
 A store-backed server (`withMetricsServerWithStore`, or `storeServerProviders`)
 serves these read-only routes. Hosts can supply a custom `StoreBrowser` in
@@ -339,8 +339,9 @@ Connection and decode errors use sanitized structured error envelopes.
 
 Migration 0015 adds one partial byte-order name index shared by category and
 prefix browsing. Its transactional build requires a write pause or maintenance
-window. Final-layout write-cost and cumulative release acceptance remain open;
-this unreleased surface has not been published to Hackage.
+window. The inspection surface ships in metrics 0.3.0.0, store 0.11.0.0 and
+migrations 0.7.1.0; measured costs and practical release acceptance are retained
+in the [release record](../../bench/mp13-release/publication-2026-10-11/README.md).
 
 ## Prometheus metric reference
 
@@ -429,7 +430,7 @@ Two paths, dispatched by URL. Messages are tagged JSON (`{"type": "..."}`).
 | `{"type":"goodbye"}` | The connection is being torn down. |
 | `{"type":"error","code":"…","message":"…"}` | A stable machine-readable code with human text that may change. |
 
-### Error codes (unreleased)
+### Error codes
 
 | Code | Meaning and recovery |
 | --- | --- |
@@ -494,7 +495,7 @@ The convention is defined by `mori://shinzui/keiro-ui`,
 `docs/architecture/inspection-api-conventions.md` (artifact-level URI pending),
 and `mori://shinzui/keiro-ui/okf/adrs/concepts/ADR-2`.
 Kiroku's shipped dialect is frozen by [ADR-9](../adr/0009-published-http-and-websocket-wire-shapes-are-frozen-and-served-only-by-sister-packages.md)
-and converges additively in this unreleased cohort.
+and converges additively in `kiroku-metrics` 0.3.0.0.
 
 | Convention element | `/ws/metrics` | `/ws/events` | Status |
 | --- | --- | --- | --- |
@@ -616,7 +617,7 @@ GET and HEAD return the same status and headers; HEAD has no body. Other methods
 
 Messages omit connection strings, raw errors and event payloads. Thrown exceptions propagate
 through the host's normal exception handling. Older routes retain their string error bodies.
-This route is currently unreleased; after the inspection cohort ships, ADR-9 freezes its
+This route ships in `kiroku-metrics` 0.3.0.0. ADR-9 freezes its
 fields and types, with additions limited to optional fields. See the
 [Haskell inventory API](subscriptions.md#reading-durable-checkpoints) and
 [public SQL relation](schema.md#subscription_checkpoints_v1) for the same durable facts.
@@ -713,7 +714,7 @@ ops.example.com {
 
 The new structured error keys become published when released, following
 [Wire-format stability](#wire-format-stability). Header values reflect host configuration.
-This CORS implementation is currently unreleased and ships with the inspection cohort.
+This CORS implementation ships in `kiroku-metrics` 0.3.0.0.
 
 ## Dead letters over HTTP
 

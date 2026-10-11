@@ -1,0 +1,4 @@
+kiroku-inspect: connected to schema "kiroku"; listening on port 50012
+kiroku-inspect: routes browse=on subscriptions_checkpoints=on dead_letters=on subscriptions_live=on websocket_events=on cors=on
+kiroku-inspect: this process runs no subscriptions; /subscriptions, /metrics, and /health reflect only this process
+kiroku-inspect: shutting down

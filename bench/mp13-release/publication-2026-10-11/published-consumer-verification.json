@@ -1,0 +1,67 @@
+{
+  "passed": true,
+  "packages": {
+    "kiroku-cli": {
+      "version": "0.2.0.10",
+      "source": {
+        "type": "repo-tar",
+        "repo": {
+          "type": "secure-repo",
+          "uri": "http://hackage.haskell.org/"
+        }
+      }
+    },
+    "kiroku-metrics": {
+      "version": "0.3.0.0",
+      "source": {
+        "type": "repo-tar",
+        "repo": {
+          "type": "secure-repo",
+          "uri": "http://hackage.haskell.org/"
+        }
+      }
+    },
+    "kiroku-store": {
+      "version": "0.11.0.0",
+      "source": {
+        "type": "repo-tar",
+        "repo": {
+          "type": "secure-repo",
+          "uri": "http://hackage.haskell.org/"
+        }
+      }
+    },
+    "kiroku-store-migrations": {
+      "version": "0.7.1.0",
+      "source": {
+        "type": "repo-tar",
+        "repo": {
+          "type": "secure-repo",
+          "uri": "http://hackage.haskell.org/"
+        }
+      }
+    },
+    "kiroku-otel": {
+      "version": "0.2.0.12",
+      "source": {
+        "type": "repo-tar",
+        "repo": {
+          "type": "secure-repo",
+          "uri": "http://hackage.haskell.org/"
+        }
+      }
+    },
+    "shibuya-kiroku-adapter": {
+      "version": "0.6.0.1",
+      "source": {
+        "type": "repo-tar",
+        "repo": {
+          "type": "secure-repo",
+          "uri": "http://hackage.haskell.org/"
+        }
+      }
+    }
+  },
+  "output": "\"0.3.0.0\"\n",
+  "executable_sha256": "20e44195815327989ece864242b06b76b5964c2969ad1d6167182c23142bdabb"
+}

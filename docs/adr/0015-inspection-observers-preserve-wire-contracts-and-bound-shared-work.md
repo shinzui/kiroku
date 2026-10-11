@@ -8,7 +8,7 @@ generated:
 docId: ADR-15
 status: Accepted
 date: 2026-10-10
-timestamp: "2026-10-11T15:57:22Z"
+timestamp: "2026-10-11T16:18:55Z"
 originatingPlan: docs/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md
 ---
 
@@ -95,9 +95,10 @@ The inspection cohort completed functional and structural checks, all 16 dedicat
 
 ## Consequences
 
-These are implementation constraints, not evidence that the unimplemented inspection cohort
-has passed. Children can complete focused local checks; the release child owns cumulative
-performance acceptance. Broad repeated remote experiments are not required per child.
+These constraints continue to apply after the inspection cohort ships. Functional
+checks and practical acceptance are recorded above; they do not certify future changes.
+The release child owns cumulative performance acceptance. Broad repeated remote
+experiments are not required per child.
 If an existing-index design cannot meet the focused gate, report that limitation and revise
 the design before accepting it. API constructor changes still require PVP review even when
 the wire change is additive. September version forecasts cannot reuse already released versions.

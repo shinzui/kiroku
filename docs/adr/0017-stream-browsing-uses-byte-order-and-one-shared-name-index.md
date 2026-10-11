@@ -8,7 +8,7 @@ generated:
 docId: ADR-17
 status: Accepted
 date: 2026-10-10
-timestamp: "2026-10-10T23:40:46Z"
+timestamp: "2026-10-11T16:18:55Z"
 originatingPlan: docs/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md
 ---
 
@@ -51,10 +51,11 @@ matching events and checkpoint only completed dispositions. That worker and
 its final semantic choice remain plan 54's work.
 
 Migration 0015 installs the selected index transactionally. Its build requires
-a write pause or maintenance window. Production promotion still requires a
-focused cost comparison for this exact layout; earlier category/name replacement
-measurements do not certify it. Release acceptance remains cumulative under
-ADR-15, without separate per-feature regression allowances.
+a write pause or maintenance window. The selected layout was measured separately
+from earlier category/name replacements and accepted for the 2026-10-11 cohort.
+The [release record](../../bench/mp13-release/publication-2026-10-11/README.md)
+retains the comparison and practical acceptance. Future changes still require
+cumulative acceptance under ADR-15, without separate per-feature allowances.
 
 ## Consequences
 

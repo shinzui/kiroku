@@ -8,6 +8,13 @@ commit=(root/'release-commit.txt').read_text().strip()
 state_path=root/'publication.json';state=json.loads(state_path.read_text()) if state_path.exists() else {'commit':commit,'packages':{}}
 assert state['commit']==commit
 hash_file=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+# Hackage injects this presentation-only rule into served Haddock HTML.
+css=b'<style type="text/css">#synopsis details:not([open]) > ul { visibility: hidden; }</style>'
+def verify_html(path,expected_bytes):
+ data=path.read_bytes()
+ assert data.count(css)<=1
+ assert data.replace(css,b'')==expected_bytes,'published documentation body differs: '+str(path)
+ return {'served_sha256':hash_file(path),'local_sha256':hashlib.sha256(expected_bytes).hexdigest(),'hackage_css_injection_removed':css in data}
 def save():state_path.write_text(json.dumps(state,indent=2)+'\n')
 def command(args,name):
  with (root/(name+'.log')).open('a') as log:
@@ -31,9 +38,12 @@ for package in order:
  index=root/(ident+'-remote-index.html');download(item['hackage']+'/docs/doc-index.html',index)
  with tarfile.open(docs) as archive:
   index_member=next(m for m in archive.getmembers() if m.name==ident+'-docs/doc-index.html')
-  expected_index=hashlib.sha256(archive.extractfile(index_member).read()).hexdigest()
- assert hash_file(index)==expected_index,'published documentation index differs: '+package
- item['documentation_index_sha256']=expected_index;save()
+  expected_index=archive.extractfile(index_member).read()
+  module={'kiroku-store':'Kiroku-Store','kiroku-store-migrations':'Kiroku-Store-Migrations','kiroku-metrics':'Kiroku-Metrics','kiroku-cli':'Kiroku-Cli','kiroku-otel':'Kiroku-Otel-Subscription','shibuya-kiroku-adapter':'Shibuya-Adapter-Kiroku'}[package]+'.html'
+  expected_module=archive.extractfile(ident+'-docs/'+module).read()
+ item['documentation_index']=verify_html(index,expected_index)
+ module_path=root/(ident+'-remote-module.html');download(item['hackage']+'/docs/'+module,module_path)
+ item['documentation_module']=verify_html(module_path,expected_module);save()
  if not item.get('github_release'):
   command(['gh','release','create',tag,'--verify-tag','--title',package+' v'+version,'--notes-file',str(root/'release-notes'/(package+'.md'))],package+'-github-release')
   item['github_release']=json.loads(subprocess.check_output(['gh','release','view',tag,'--json','url'],text=True))['url'];save()

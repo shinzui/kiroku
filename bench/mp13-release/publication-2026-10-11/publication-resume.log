@@ -1,0 +1,11 @@
+kiroku-store 0.11.0.0 published and verified
+kiroku-store-migrations 0.7.1.0 published and verified
+Traceback (most recent call last):
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/publication-2026-10-11/publish.py", line 43, in <module>
+    expected_module=archive.extractfile(ident+'-docs/'+module).read()
+                    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/nix/store/0788rbnl2p558jnyjlm2s2f9r5sxpq3h-python3-3.14.6/lib/python3.14/tarfile.py", line 2594, in extractfile
+    tarinfo = self.getmember(member)
+  File "/nix/store/0788rbnl2p558jnyjlm2s2f9r5sxpq3h-python3-3.14.6/lib/python3.14/tarfile.py", line 2154, in getmember
+    raise KeyError("filename %r not found" % name)
+KeyError: "filename 'kiroku-otel-0.2.0.12-docs/Kiroku-Otel.html' not found"

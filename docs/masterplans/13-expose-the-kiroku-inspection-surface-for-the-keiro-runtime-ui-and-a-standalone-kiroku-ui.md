@@ -222,7 +222,7 @@ Integration Points.
 | 4 | Expose a public dead-letter read API (IR-9) | docs/plans/89-expose-a-public-dead-letter-read-api.md | EP-2 | EP-3 | Complete |
 | 5 | Converge the kiroku-metrics WebSocket protocol with the cross-project convention (IR-12) | docs/plans/94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention.md | EP-3 | None | Complete |
 | 6 | Serve the Kiroku inspection surface standalone and make it self-describing | docs/plans/95-serve-the-kiroku-inspection-surface-standalone-and-make-it-self-describing.md | EP-1, EP-2, EP-3, EP-4, EP-5 | None | Complete |
-| 7 | Release the inspection surface cohort and complete the keiro-ui requests | docs/plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md | EP-1, EP-2, EP-3, EP-4, EP-5, EP-6 | None | In Progress |
+| 7 | Release the inspection surface cohort and complete the keiro-ui requests | docs/plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md | EP-1, EP-2, EP-3, EP-4, EP-5, EP-6 | None | Complete |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
 Hard Deps and Soft Deps reference other rows by their # prefix (e.g., EP-1, EP-3).
@@ -487,7 +487,7 @@ rule suffices.
 - [x] (2026-10-10) EP-3: complete and retain 18 sealed trials inside the original deadline, release the lease and verify all four cell instances stopped. Fresh acceptance is inconclusive; six observer trials are exploratory, not benchmark-grade. Acceptance remains open.
 - [x] (2026-10-10) EP-3: research Kenshou coverage and a disposable category/name index replacement; retain three completed 96-case runs, initial setup error, layout sizes and benchmark source/run inventory. No append-cost acceptance.
 - [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
-- [ ] Implement and execute the focused correctness and performance acceptance added by this review.
+- [x] (2026-10-11T16:24:07Z) Complete review correctness checks, focused performance evidence and explicit practical acceptance.
 
 - [x] (2026-09-30) Coordination: MasterPlan created; plans 87, 88, 89, and 90 adopted with
       coordination notes and the stale version, record, and envelope decisions withdrawn;
@@ -526,13 +526,19 @@ rule suffices.
       `nix build .#kiroku-metrics` green.
 - [x] (2026-10-11) EP-6: `docs/guides/building-an-inspection-ui.md`, guide sections, CAP-17, changelog, the
       composition-boundary ADR.
-- [ ] EP-7: release truth established and approved; cohort prepared and verified through the
+- [x] (2026-10-11T16:24:07Z) EP-7: release truth established and approved; cohort prepared and verified through the
       ADR-5 gates.
-- [ ] EP-7: cohort published, clean-consumer proof recorded, IR-8 through IR-12 `completed`.
-- [ ] EP-7: ADR distillation across all children; MasterPlan Outcomes written.
+- [x] (2026-10-11T16:24:07Z) EP-7: cohort published, clean-consumer proof recorded, IR-8 through IR-12 `completed`.
+- [x] (2026-10-11T16:24:07Z) EP-7: ADR distillation across all children; MasterPlan Outcomes written.
 
 
 ## Surprises & Discoveries
+
+2026-10-11 publication: Hackage injects an 89-byte presentation stylesheet into
+served Haddock HTML and its signed package index propagates after uploads. Exact
+source hashes remain mandatory; documentation verification removes only that exact
+stylesheet. The clean consumer uses the propagated registry index, with no local
+source overrides. Publication and initial index-resolution failures are retained.
 
 2026-10-11 cumulative rerun: Inspection-disabled throughput is -1.544% [-4.090%, +1.069%] and active-observer throughput is -0.370% [-3.371%, +2.724%] (95% intervals). The completed evidence narrows the remaining issue to unresolved comparison intervals and missing native benchmark-grade timing frames; setup, delivery, sealed-artifact verification and cleanup now succeed. The original runtime binaries and all adverse samples are retained in the [controlled comparison](../../bench/mp13-release/validation-2026-10-11-rerun/README.md).
 
@@ -711,6 +717,10 @@ rule suffices.
 
 
 ## Decision Log
+
+- Decision (2026-10-11): close the authorized cohort after independent published
+  artifact verification and clean-consumer installation/smoke. Keep release tags
+  at the source release commit; record completion in a later evidence-only commit.
 
 - Decision (2026-10-11, release authorization): the user accepted the observed performance and instructed completion of the release. Treat this as cohort-specific practical acceptance of the retained uncertainty, not a statistical pass or a new benchmark budget. Apply the previously prepared package versions and preserve the completed opt-in stream-head work in the current source.
 
@@ -925,7 +935,34 @@ rule suffices.
 
 ## Outcomes & Retrospective
 
-Current state (2026-10-11): EP-1 through EP-6 are Complete locally. Discovery
+Complete (2026-10-11): all seven children are delivered. Release commit
+`7394055de458bef8f6ec2e68231f3ca7932bb9be` and six annotated package tags are pushed.
+Store 0.11.0.0, migrations 0.7.1.0, OTel 0.2.0.12, CLI 0.2.0.10, metrics 0.3.0.0
+and adapter 0.6.0.1 are published with Haddock and GitHub releases. Downloaded
+source archives match byte-for-byte; served documentation matches after removing
+Hackage's exact injected stylesheet. All 698 release test examples, builds,
+packaging and strict bundle checks pass.
+
+A clean consumer resolves those exact six Hackage versions, compiles the new APIs
+and every legacy starter, and runs successfully. Published `kiroku-inspect` and
+`kiroku-store-migrate` install into an isolated directory. Against a fresh migrated
+PostgreSQL database, eight HTTP routes, configured CORS, readiness, WebSocket
+subscription and clean inspector/database shutdown pass. IR-8 through IR-12 are
+completed with exact release links. See the [publication record](../../bench/mp13-release/publication-2026-10-11/README.md)
+for the journal, source/documentation hashes, consumer plan, logs and handoff.
+
+Functional and publication acceptance are complete. Performance is accepted by
+the user's explicit practical decision after the focused review and comparison;
+the numerical intervals remain inconclusive. No further experiment ran. The
+prior remote lease is released and all machines are stopped; the small diagnostic
+database remains on the stopped disk for the next owned maintenance lease.
+ADR distillation confirms ADR-15's bounded observer work and cohort acceptance,
+ADR-16's default-off CORS, ADR-17's shared byte-order index and ADR-18's shared
+hosting/discovery boundary. No additional architecture decision is needed.
+
+### Historical checkpoints
+
+Pre-publication checkpoint (2026-10-11): EP-1 through EP-6 were Complete locally. Discovery
 reports actual wiring without store reads, and `kiroku-inspect` serves the full
 read surface from a migrated database while identifying its empty process-local
 registry. The complete UI guide and ADR-18 record mounting, discovery, hosting,
@@ -1246,4 +1283,9 @@ The fresh authorized rerun completes one readiness proof and all 20 measured tri
 
 ## Practical acceptance and release authorization (2026-10-11)
 
-After reviewing the actual disabled/active throughput and uncertainty, the user stated that nothing looked concerning, instructed finishing the work, and explicitly asked to finish the release. The performance hold is removed by that practical decision. The five-pair statistical results remain inconclusive and no native grade certificate is asserted. Publication and clean-consumer verification now proceed for store 0.11.0.0, metrics 0.3.0.0, migrations 0.7.1.0, CLI 0.2.0.10, OTel 0.2.0.12 and adapter 0.6.0.1. See `bench/mp13-release/publication-2026-10-11/authorization.json`.
+After reviewing the actual disabled/active throughput and uncertainty, the user stated that nothing looked concerning, instructed finishing the work, and explicitly asked to finish the release. The performance hold is removed by that practical decision. The five-pair statistical results remain inconclusive and no native grade certificate is asserted. Publication and clean-consumer verification are complete for store 0.11.0.0, metrics 0.3.0.0, migrations 0.7.1.0, CLI 0.2.0.10, OTel 0.2.0.12 and adapter 0.6.0.1. See `bench/mp13-release/publication-2026-10-11/authorization.json`.
+
+Revision (2026-10-11 release completion): verified all six published packages,
+documentation and tags, exact-version consumer and installed inspector smoke;
+completed IR-8 through IR-12 and all release milestones. Earlier checkpoints
+remain historical evidence; practical acceptance does not rewrite numeric results.

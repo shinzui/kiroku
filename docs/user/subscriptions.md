@@ -189,7 +189,7 @@ lifecycle events instead.
 
 Browser clients can read the same inventory through
 [`GET /subscription-checkpoints`](metrics.md#durable-subscription-checkpoints-over-http)
-in the unreleased inspection cohort. Store-backed metrics starters serve it without a
+in `kiroku-metrics` 0.3.0.0. Store-backed metrics starters serve it without a
 live status provider; stopped workers' persisted rows remain visible.
 
 `subscriptionStates` answers which workers are live in this process. To answer

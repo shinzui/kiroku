@@ -1,0 +1,91 @@
+{
+  "database_directory": "/tmp/mp13-smoke-hnyrny15",
+  "responses": {
+    "/capabilities": {
+      "status": 200,
+      "body": {
+        "cors": {
+          "enabled": true
+        },
+        "package": "kiroku-metrics",
+        "process_local": [
+          "metrics",
+          "prometheus",
+          "health",
+          "subscriptions_live",
+          "websocket_metrics"
+        ],
+        "routes": {
+          "browse": true,
+          "dead_letters": true,
+          "health": true,
+          "metrics": true,
+          "prometheus": true,
+          "subscriptions_checkpoints": true,
+          "subscriptions_live": true,
+          "websocket_events": true,
+          "websocket_metrics": true
+        },
+        "version": "0.3.0.0"
+      }
+    },
+    "/subscription-checkpoints": {
+      "status": 200,
+      "body": {
+        "checkpoints": [],
+        "store_position": 0
+      }
+    },
+    "/streams": {
+      "status": 200,
+      "body": {
+        "items": []
+      }
+    },
+    "/categories": {
+      "status": 200,
+      "body": {
+        "items": []
+      }
+    },
+    "/events": {
+      "status": 200,
+      "body": {
+        "items": []
+      }
+    },
+    "/subscriptions": {
+      "status": 200,
+      "body": []
+    },
+    "/subscriptions/missing/dead-letters": {
+      "status": 200,
+      "body": {
+        "items": []
+      }
+    },
+    "/health/ready": {
+      "status": 200,
+      "body": {
+        "dependencies": [
+          {
+            "error": null,
+            "healthy": true,
+            "latency_ms": 0,
+            "name": "postgres"
+          }
+        ],
+        "lag_ok": true,
+        "no_overflow": true,
+        "ready": true
+      }
+    }
+  },
+  "port": 50012,
+  "websocket": {
+    "from_position": 0,
+    "type": "event_stream_started"
+  },
+  "inspector_clean_shutdown": true,
+  "postgres_stopped": true
+}

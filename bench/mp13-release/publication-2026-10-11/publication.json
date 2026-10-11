@@ -1,0 +1,127 @@
+{
+  "commit": "7394055de458bef8f6ec2e68231f3ca7932bb9be",
+  "packages": {
+    "kiroku-store": {
+      "version": "0.11.0.0",
+      "tag": "kiroku-store-v0.11.0.0",
+      "hackage": "https://hackage.haskell.org/package/kiroku-store-0.11.0.0",
+      "source_uploaded": true,
+      "source_verified_sha256": "c3a756d96b5341274b681a3d2f643d69deb287ee15cfe932ec8d7eb14928d9f7",
+      "documentation_uploaded": true,
+      "documentation_index": {
+        "served_sha256": "6aa3cf18bd593653168facf6892ed913e433b1fffb295e2c3313fbce7dc86096",
+        "local_sha256": "324f4d3eeb28adf8cef9b4194759d4bfdba7d62defff2acd4689c7583a1667a9",
+        "hackage_css_injection_removed": true
+      },
+      "documentation_module": {
+        "served_sha256": "945bed2095ef4272e755ef63ded1282048fe621b17e2e620fc587bcf9019e67a",
+        "local_sha256": "59248f4c88aa232971392eae6b42fca761b2b63cf8ef53d2303fb900af55dc1d",
+        "hackage_css_injection_removed": true
+      },
+      "github_release": "https://github.com/shinzui/kiroku/releases/tag/kiroku-store-v0.11.0.0",
+      "verified_at": 1791735298.988906
+    },
+    "kiroku-store-migrations": {
+      "version": "0.7.1.0",
+      "tag": "kiroku-store-migrations-v0.7.1.0",
+      "hackage": "https://hackage.haskell.org/package/kiroku-store-migrations-0.7.1.0",
+      "source_uploaded": true,
+      "source_verified_sha256": "013e07503c380b8b6efda9568bd1666be5534646eb1d6a334d16eef37fd84c3c",
+      "documentation_uploaded": true,
+      "documentation_index": {
+        "served_sha256": "2cddcb0cb80859c6af0530e6d9e9bda4570abf0d79a1278b019055eb0df72d90",
+        "local_sha256": "9fc07e02f392cacfc7457cb16f8f7d0d73b3a2fd4d4a2f28e240d712fbe27263",
+        "hackage_css_injection_removed": true
+      },
+      "documentation_module": {
+        "served_sha256": "4deb616e1d8e70e60ebbfe8637c2b190ec38d2995355a816911d552619a47b73",
+        "local_sha256": "6eb2cd730b76baa65989ce386ab5508b3c037d9216c925ecbe04dda26e13bfcb",
+        "hackage_css_injection_removed": true
+      },
+      "github_release": "https://github.com/shinzui/kiroku/releases/tag/kiroku-store-migrations-v0.7.1.0",
+      "verified_at": 1791735299.356786
+    },
+    "kiroku-otel": {
+      "version": "0.2.0.12",
+      "tag": "kiroku-otel-v0.2.0.12",
+      "hackage": "https://hackage.haskell.org/package/kiroku-otel-0.2.0.12",
+      "source_uploaded": true,
+      "source_verified_sha256": "d92f389e97951b026723f571d53eda36aaea603e265f429b2a883bf5b89f09b1",
+      "documentation_uploaded": true,
+      "documentation_index": {
+        "served_sha256": "6ade9e9b685ae9c88a69e9ae2908f8058fac35bd5c3c65aaa642fa66fe168880",
+        "local_sha256": "07690abff60a417e6e98b82e242b016752b806973bbd186ed9fffc7922034e39",
+        "hackage_css_injection_removed": true
+      },
+      "documentation_module": {
+        "served_sha256": "8f4a90f1641263b26ba2a0e2fc1f09b2d57ebfe67eeede02228cac30a7772688",
+        "local_sha256": "88c63bf0c4aca05a3dc0c7225f1cd3d36b43a355de82226549b01f2d8f726724",
+        "hackage_css_injection_removed": true
+      },
+      "github_release": "https://github.com/shinzui/kiroku/releases/tag/kiroku-otel-v0.2.0.12",
+      "verified_at": 1791735301.423164
+    },
+    "kiroku-cli": {
+      "version": "0.2.0.10",
+      "tag": "kiroku-cli-v0.2.0.10",
+      "hackage": "https://hackage.haskell.org/package/kiroku-cli-0.2.0.10",
+      "source_uploaded": true,
+      "source_verified_sha256": "b5b8e67f73b793345b3fafb6b8578a9e5f707f545b88ffc1cd2757f540693124",
+      "documentation_uploaded": true,
+      "documentation_index": {
+        "served_sha256": "f51eb200326f3afd5c3dd2085b0daf3773d6d3cd6ee052a29c201b61f40f6339",
+        "local_sha256": "444f483f34e882338ecb5700e63a03b82e45ec0da98d3ffa684e15a91b4bb391",
+        "hackage_css_injection_removed": true
+      },
+      "documentation_module": {
+        "served_sha256": "d5c4075c0a1be74f4c8159f042204ed25f728038116d449bdbe11756bcc07d7d",
+        "local_sha256": "422ea2b7569a6413806a556e316bd19f6c955bbc9b73bfe139d6c207895e78ac",
+        "hackage_css_injection_removed": true
+      },
+      "github_release": "https://github.com/shinzui/kiroku/releases/tag/kiroku-cli-v0.2.0.10",
+      "verified_at": 1791735306.848018
+    },
+    "kiroku-metrics": {
+      "version": "0.3.0.0",
+      "tag": "kiroku-metrics-v0.3.0.0",
+      "hackage": "https://hackage.haskell.org/package/kiroku-metrics-0.3.0.0",
+      "source_uploaded": true,
+      "source_verified_sha256": "c133c7b69d9c158902aaee52a228bcf1aa56b9fb9cf4767aa865992908e57415",
+      "documentation_uploaded": true,
+      "documentation_index": {
+        "served_sha256": "74a13bbf99273c0f1c4aa160257c77cff87c50b542c950b458d3666593596adf",
+        "local_sha256": "96a9428fc9635a667aaf123c7468ad77f5973a462dfadcd0d1eff557c67afbed",
+        "hackage_css_injection_removed": true
+      },
+      "documentation_module": {
+        "served_sha256": "839b3011cefea4e9299bcbecf5aeadc3ccd188e3bea1d7d0e1d3705b265465cf",
+        "local_sha256": "3ec1e146ccf04a24a516723333a4f5203e73d926b93814b1749e161b23ab2cd1",
+        "hackage_css_injection_removed": true
+      },
+      "github_release": "https://github.com/shinzui/kiroku/releases/tag/kiroku-metrics-v0.3.0.0",
+      "verified_at": 1791735315.929037
+    },
+    "shibuya-kiroku-adapter": {
+      "version": "0.6.0.1",
+      "tag": "shibuya-kiroku-adapter-v0.6.0.1",
+      "hackage": "https://hackage.haskell.org/package/shibuya-kiroku-adapter-0.6.0.1",
+      "source_uploaded": true,
+      "source_verified_sha256": "47f9bd73094de9b6a658807ae57d7dd812c68fb3e071e0bd39985f14f19e8cf4",
+      "documentation_uploaded": true,
+      "documentation_index": {
+        "served_sha256": "3df5eb76b8662c4db01a6a93aea08c28c88b7d307229116345646742bcdec1ef",
+        "local_sha256": "7b5ee809904451dd2f361586bad1af3ef0eae1c2daf53d31178b9cd10dc82c86",
+        "hackage_css_injection_removed": true
+      },
+      "documentation_module": {
+        "served_sha256": "ea6115477948c79ec678bdcaa4c65c0ad7b5c1d2305baf3973b268ed7958d046",
+        "local_sha256": "31269929d72ae029ea4deac795476ea5b3b288ea309330592434fca6c1d23b3e",
+        "hackage_css_injection_removed": true
+      },
+      "github_release": "https://github.com/shinzui/kiroku/releases/tag/shibuya-kiroku-adapter-v0.6.0.1",
+      "verified_at": 1791735321.243537
+    }
+  },
+  "complete": true,
+  "finished": 1791735321.244117
+}

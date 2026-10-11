@@ -1,0 +1,53 @@
+{
+  "passed": true,
+  "packages": {
+    "kiroku-cli": {
+      "version": "0.2.0.10",
+      "source": {
+        "type": "repo-tar",
+        "repo": {
+          "type": "secure-repo",
+          "uri": "http://hackage.haskell.org/"
+        }
+      },
+      "component": "lib"
+    },
+    "kiroku-metrics": {
+      "version": "0.3.0.0",
+      "source": {
+        "type": "repo-tar",
+        "repo": {
+          "type": "secure-repo",
+          "uri": "http://hackage.haskell.org/"
+        }
+      },
+      "component": "lib"
+    },
+    "kiroku-store": {
+      "version": "0.11.0.0",
+      "source": {
+        "type": "repo-tar",
+        "repo": {
+          "type": "secure-repo",
+          "uri": "http://hackage.haskell.org/"
+        }
+      },
+      "component": "lib"
+    },
+    "kiroku-store-migrations": {
+      "version": "0.7.1.0",
+      "source": {
+        "type": "repo-tar",
+        "repo": {
+          "type": "secure-repo",
+          "uri": "http://hackage.haskell.org/"
+        }
+      },
+      "component": "exe:kiroku-store-migrate"
+    }
+  },
+  "executables": {
+    "kiroku-inspect": "bdbc1ef911f52860723243955cba12ad3da9c2325e03d5c2eb13a55f68cdf456",
+    "kiroku-store-migrate": "747a6394fce413915473d33d65ae0c881d77e7556666b09a8ea238e19d9cae88"
+  }
+}
