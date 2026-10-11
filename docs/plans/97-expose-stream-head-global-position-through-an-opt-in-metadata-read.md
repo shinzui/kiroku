@@ -16,6 +16,11 @@ provenance:
       at: 2026-10-11T02:44:04Z
       mode: "other"
       note: "Completed initial IR-18 plan with API semantics and focused performance acceptance"
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-11T04:18:09Z
+      mode: "implement"
+      note: "Implement opt-in stream heads and focused compatibility and cost evidence"
 ---
 
 # Expose stream head global position through an opt-in metadata read
@@ -51,13 +56,16 @@ additional read traffic competing for the same database resources.
 ## Progress
 
 
-(No implementation work recorded yet. Populate the implementation checklist when work begins.)
+- [x] (2026-10-11 04:21Z) Milestone 1: freeze legacy SQL and runner, validate baseline, and seed shared fixture.
+- [ ] Milestone 2: implement the public read and lifecycle/mock/snapshot tests.
+- [ ] Milestone 3: verify bounded query work and public-runner cost, run aggregate gates.
+- [ ] Milestone 4: document semantics, distill ADR, build and validate integration.
 
 
 ## Surprises & Discoveries
 
 
-(None yet.)
+2026-10-11: Cabal runs benchmarks from the package directory; a relative CSV destination failed before measurement. Retained `baseline-cost.log`; the absolute-path retry completed all four cells in 14.69 seconds. Reported uncertainty is twice standard deviation; all cells met the 5% target. Baseline legacy ratios were 0.99 for both sizes.
 
 
 ## Decision Log
@@ -95,7 +103,7 @@ Do not create another intention when resuming this plan.
 ## Outcomes & Retrospective
 
 
-(To be filled during implementation; no performance acceptance is claimed by plan creation.)
+Milestone 1 baseline at `109d58f57dbd5757ad55792474d046a37cc2e87d`: 448 existing tests and 13 frozen SQL/column checks passed. Four metadata timing cells passed, with raw evidence in `docs/bench/stream-head/2026-10-11-ep97/`. Functional implementation and candidate performance acceptance remain pending.
 
 
 ## Context and Orientation
@@ -602,3 +610,5 @@ durable references must use canonical `mori://` URIs.
 2026-10-10: Created from IR-18 and current source research. The plan isolates the
 new cost, fixes originated-head and `$all` semantics, and defines focused structural
 and public-runner evidence without launching implementation or performance runs.
+
+2026-10-11: Began implementation, froze the pre-feature SQL and full runner control, added the shared fixture and recorded successful baseline validation.

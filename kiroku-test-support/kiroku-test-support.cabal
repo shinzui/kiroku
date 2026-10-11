@@ -20,6 +20,7 @@ library
   import:          common
   exposed-modules:
     Kiroku.Test.Fixtures.CategoryScaling
+    Kiroku.Test.Fixtures.StreamHead
     Kiroku.Test.Postgres
 
   hs-source-dirs:  src

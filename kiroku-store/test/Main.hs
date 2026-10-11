@@ -55,6 +55,7 @@ import Test.PublisherRestartNoRebroadcast qualified as PublisherRestartNoRebroad
 import Test.ReadStream qualified as ReadStream
 import Test.StartupFailureSurfacing qualified as StartupFailureSurfacing
 import Test.StreamBridgeTermination qualified as StreamBridgeTermination
+import Test.StreamHeadIsolation qualified as StreamHeadIsolation
 import Test.StreamHistoryGuard qualified as StreamHistoryGuard
 import Test.StreamNameLookup qualified as StreamNameLookup
 import Test.SubscriptionCheckpointInitialization qualified as SubscriptionCheckpointInitialization
@@ -83,7 +84,6 @@ main = withSharedMigratedPostgres $ hspec $ do
     BrowseReadsMock.spec
     SubscriptionDeadLetters.spec
     SubscriptionDeadLettersMock.spec
-    BrowseQueryPlans.spec
     UniqueViolationMapping.spec
     SubscriptionTarget.spec
     Category.spec
@@ -105,6 +105,8 @@ main = withSharedMigratedPostgres $ hspec $ do
     ConsumerGroup.spec
     ConsumerGroupEffect.spec
     describe "performance structure" $ do
+        BrowseQueryPlans.spec
+        StreamHeadIsolation.spec
         PerformanceStructure.spec
         NotifyGuard.spec
         StreamNameLookup.noOpSpec

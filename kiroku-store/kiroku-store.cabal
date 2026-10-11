@@ -16,6 +16,7 @@ license-file:    LICENSE
 build-type:      Simple
 category:        Database, Eventing
 extra-doc-files: CHANGELOG.md
+data-files:      test/fixtures/stream-head-isolation/*.sql
 
 source-repository head
   type:     git
@@ -95,11 +96,12 @@ library
   hs-source-dirs:  src
 
 test-suite kiroku-store-test
-  import:         common
-  type:           exitcode-stdio-1.0
-  main-is:        Main.hs
-  hs-source-dirs: test
+  import:          common
+  type:            exitcode-stdio-1.0
+  main-is:         Main.hs
+  hs-source-dirs:  test
   other-modules:
+    Paths_kiroku_store
     Test.BrowseQueryPlans
     Test.BrowseReads
     Test.BrowseReadsMock
@@ -130,6 +132,7 @@ test-suite kiroku-store-test
     Test.ReadStream
     Test.StartupFailureSurfacing
     Test.StreamBridgeTermination
+    Test.StreamHeadIsolation
     Test.StreamHistoryGuard
     Test.StreamNameLookup
     Test.SubscriptionCheckpointInitialization
@@ -152,7 +155,8 @@ test-suite kiroku-store-test
     Test.VisibleGlobalHeadPosition
     Test.VisibleGlobalHeadPositionMock
 
-  ghc-options:    -threaded -rtsopts "-with-rtsopts=-N -T"
+  autogen-modules: Paths_kiroku_store
+  ghc-options:     -threaded -rtsopts "-with-rtsopts=-N -T"
   build-depends:
     , aeson                 >=2.1   && <2.3
     , async                 >=2.2   && <2.3
@@ -302,3 +306,28 @@ benchmark kiroku-checkpoint-target-cost
     , kiroku-test-support
     , lens
     , text
+
+benchmark kiroku-stream-head-cost
+  import:         common
+  type:           exitcode-stdio-1.0
+  main-is:        StreamHeadCost.hs
+  hs-source-dirs: bench
+  ghc-options:
+    -threaded -rtsopts "-with-rtsopts=-N -A32m" -fproc-alignment=64
+
+  build-depends:
+    , aeson                >=2.1   && <2.3
+    , base                 >=4.18  && <5
+    , effectful-core       >=2.6.1 && <2.7  || >=2.7.1.1 && <2.8
+    , generic-lens         >=2.2   && <2.4
+    , hasql                >=1.10  && <1.11
+    , hasql-pool           >=1.2   && <1.5
+    , hasql-transaction    >=1.1   && <1.3
+    , kiroku-store
+    , kiroku-test-support
+    , lens                 >=5.2   && <5.4
+    , tasty                >=1.4   && <1.6
+    , tasty-bench          >=0.4
+    , text                 >=2.0   && <2.2
+    , time                 >=1.12  && <1.15
+    , vector               >=0.13  && <0.14
