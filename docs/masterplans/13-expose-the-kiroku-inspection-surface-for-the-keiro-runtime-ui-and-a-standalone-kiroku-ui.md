@@ -206,7 +206,7 @@ Integration Points.
 | 3 | Expose a REST read API for browsing streams, categories, and events (IR-8) | docs/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md | EP-2 | EP-4 | Complete |
 | 4 | Expose a public dead-letter read API (IR-9) | docs/plans/89-expose-a-public-dead-letter-read-api.md | EP-2 | EP-3 | Complete |
 | 5 | Converge the kiroku-metrics WebSocket protocol with the cross-project convention (IR-12) | docs/plans/94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention.md | EP-3 | None | Complete |
-| 6 | Serve the Kiroku inspection surface standalone and make it self-describing | docs/plans/95-serve-the-kiroku-inspection-surface-standalone-and-make-it-self-describing.md | EP-1, EP-2, EP-3, EP-4, EP-5 | None | In Progress |
+| 6 | Serve the Kiroku inspection surface standalone and make it self-describing | docs/plans/95-serve-the-kiroku-inspection-surface-standalone-and-make-it-self-describing.md | EP-1, EP-2, EP-3, EP-4, EP-5 | None | Complete |
 | 7 | Release the inspection surface cohort and complete the keiro-ui requests | docs/plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md | EP-1, EP-2, EP-3, EP-4, EP-5, EP-6 | None | Not Started |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
@@ -305,7 +305,7 @@ Every pre-existing starter and application function (`startMetricsServer`,
 `withMetricsServer`, `withMetricsServerWithStore`, `withMetricsServerSubscriptions`,
 `combinedApp`, `httpApp`) keeps its exact signature and becomes a one-line delegation.
 `startMetricsServerWithStore` and `withMetricsServerWithStore` wire the real WebSocket app and
-every store-backed provider that has landed (`checkpointInventory` from EP-2, `browser` from
+every store-backed provider that has landed (`checkpointInventory` from EP-2, `storeBrowsing` from
 EP-3, `deadLetters` from EP-4) but never `subscriptionStatus`, so `GET /subscriptions` on those
 starters keeps answering its published 404, as plans 87 and 88 both decided.
 `storeServerProviders` wires all five and is the documented path for new hosts and for EP-6's
@@ -314,7 +314,7 @@ in `corsMiddleware cfg.cors` (EP-1's invariant), the value handed to Warp, and t
 composed mount (IR-31) will embed behind a path prefix. Consequently no route may assume an
 absolute mount path, `httpAppWithProviders` matches `pathInfo` relative to the mount, and no
 response may carry an absolute URL. Plan 87's `MetricsProviders`, `noProviders`, and
-`storeProviders` are withdrawn; plan 88's Milestone 3 becomes "add the `browser` field and route
+`storeProviders` are withdrawn; plan 88's Milestone 3 becomes "add the `storeBrowsing` field and route
 arm to the record EP-2 introduced"; plan 89's coordination rule 1 applies. EP-6 (plan 95) adds
 one non-provider field, `webSocketChannels :: WebSocketChannels`, declaring which WebSocket
 channels the chosen `webSocketServer` serves (a `WS.ServerApp` is opaque, so the builder of the
@@ -487,7 +487,7 @@ rule suffices.
 - [x] (2026-10-11) EP-3: resolve ordered paging within large categories and arbitrary prefix filtering before promoting browse SQL.
 - [x] (2026-10-11) EP-3: `listStreams`, `listCategories`, `getEvent` in `kiroku-store` with database, mock,
       and structural tests.
-- [x] (2026-10-11) EP-3: `Kiroku.Metrics.Browse`, `recordedEventToJSONResolved`, the `browser` field and
+- [x] (2026-10-11) EP-3: `Kiroku.Metrics.Browse`, `recordedEventToJSONResolved`, the `storeBrowsing` field and
       route arms, mock and end-to-end tests.
 - [x] (2026-10-11) EP-3: documentation, example step, CAP-17, changelog, IR-8 evidence.
 - [x] (2026-10-11) EP-4: `subscriptionDeadLetters` in `kiroku-store` with database, mock, and structural
@@ -501,10 +501,10 @@ rule suffices.
       now-reachable `event_stream_overflowed` error) with tests proving existing frames
       byte-identical.
 - [x] (2026-10-11) EP-5: conformance mapping in the guide, CAP-17, changelog, IR-12 evidence.
-- [ ] EP-6: `GET /capabilities` with pinned codec and real-server tests.
-- [ ] EP-6: `kiroku-inspect` executable with option, environment, and end-to-end tests;
+- [x] (2026-10-11) EP-6: `GET /capabilities` with pinned codec and real-server tests.
+- [x] (2026-10-11) EP-6: `kiroku-inspect` executable with option, environment, and end-to-end tests;
       `nix build .#kiroku-metrics` green.
-- [ ] EP-6: `docs/guides/building-an-inspection-ui.md`, guide sections, CAP-17, changelog, the
+- [x] (2026-10-11) EP-6: `docs/guides/building-an-inspection-ui.md`, guide sections, CAP-17, changelog, the
       composition-boundary ADR.
 - [ ] EP-7: release truth established and approved; cohort prepared and verified through the
       ADR-5 gates.
@@ -513,6 +513,8 @@ rule suffices.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-11 EP-6: `storeBrowsing` is the settled provider label. NoFieldSelectors prevents selector collisions but not ambiguous record updates, so consumers of the expanded umbrella qualify configuration labels. The Nix overlay previously stripped all executable inputs; it now retains published standalone inputs while excluding the example. ADR-18 owns the composition/hosting/discovery outcome. No bind-address field is added in this cohort.
 
 - 2026-10-11 EP-5: exact publisher drops are observed atomically with dequeue and notified before survivors; the same per-tail 4096-name FIFO covers replay/live/category delivery. The legacy wrapper and frozen frames/spec remain intact. Both metrics and event workers now have masked registration and joined cleanup. Existing backpressure fixtures required Live barriers (catch-up otherwise bypassed the asserted resume/restart path), with adverse logs retained. Focused local timing is separate from EP-7's cumulative performance acceptance.
 
@@ -895,14 +897,21 @@ rule suffices.
 
 ## Outcomes & Retrospective
 
-Current state (2026-10-11): EP-1 through EP-5 are Complete locally. WebSocket
-convergence has ordered overflow recovery, bounded tail name resolution, coded
-errors and scoped metrics stop/resume. All 654 full-suite examples, the ten-step
-example, both Nix builds and bundle checks pass. Local timing evidence is retained
-with confounded/adverse samples and an isolated follow-up; it does not settle
-cumulative release acceptance. The browse index's retained policy verdict remains
-inconclusive. EP-6 is the next ready child; EP-7 retains its dependencies. IR-12
-stays in_progress and no package publication has occurred.
+Current state (2026-10-11): EP-1 through EP-6 are Complete locally. Discovery
+reports actual wiring without store reads, and `kiroku-inspect` serves the full
+read surface from a migrated database while identifying its empty process-local
+registry. The complete UI guide and ADR-18 record mounting, discovery, hosting,
+lossless cursors and safe tail recovery. All 672 suite examples, the eleven-step
+example, external consumer, source distribution, final Nix runtime build and
+bundle checks pass. Evidence is retained with source/artifact hashes in
+`kiroku-metrics/bench/results/mp13-ep6-standalone-discovery/README.md`.
+
+EP-7 / plan 96 is ready for release validation. Cumulative performance acceptance
+remains open and the browse index's retained policy verdict stays inconclusive.
+No gate was relaxed, no version bumped or package published; IR-8 through IR-12
+remain in_progress. EP-6 adds no store/index/publisher change or per-request
+provider call to discovery. Existing observer-under-append acceptance is still
+the release child's responsibility.
 
 2026-10-10 shared design continuation: a concrete disposable query prototype
 passes all 224 TypeID/edge-case checks for category-plus-literal-prefix browsing
@@ -1171,3 +1180,6 @@ EP-5 WebSocket convergence is ready. IR-9 and release acceptance remain pending
 publication under EP-7.
 
 Revision (2026-10-11 EP-5): WebSocket convergence completes locally with 654 passing examples, retained local timing checks and retained failures. EP-6 standalone discovery is ready; cohort acceptance and publication remain open.
+
+
+Revision (2026-10-11 EP-6): standalone inspection and pure capability discovery complete locally, with 672 passing examples, packaged executable, eleven-step example, client guide and ADR-18. EP-7 is the next ready child; cumulative performance acceptance and publication remain pending.

@@ -88,7 +88,7 @@ curl -s http://localhost:9091/capabilities | jq .
 ```json
 {
   "package": "kiroku-metrics",
-  "version": "0.3.0.0",
+  "version": "0.2.0.0",
   "routes": {
     "metrics": true,
     "prometheus": true,
@@ -116,10 +116,10 @@ keiro mounts behind a path prefix stays a plain value with relative paths.
 ## Progress
 
 - [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
-- [ ] Implement and execute the focused correctness and performance acceptance added by this review.
+- [x] (2026-10-11) Implement and execute the focused correctness and performance acceptance added by this review.
 
 - [x] (2026-10-10) M0: verify every hard dependency is complete in the working tree (`ServerProviders` with
-      `webSocketServer`, `subscriptionStatus`, `checkpointInventory`, `browser`, `deadLetters`;
+      `webSocketServer`, `subscriptionStatus`, `checkpointInventory`, `storeBrowsing`, `deadLetters`;
       the modules `Kiroku.Metrics.Cors`, `Kiroku.Metrics.Checkpoints`, `Kiroku.Metrics.Browse`,
       `Kiroku.Metrics.DeadLetters`; `errorEnvelope`/`errorResponse` in `Kiroku.Metrics.JSON`);
       record the observed state in Surprises & Discoveries and stop if anything is missing.
@@ -136,7 +136,7 @@ keiro mounts behind a path prefix stays a plain value with relative paths.
       `inspectParserInfo`, `resolveInspectOptions`, `InspectRuntime`, `InspectHooks`,
       `runInspect`, `renderStartupBanner`); `optparse-applicative` added to the library
       `build-depends`.
-- [ ] M2: `executable kiroku-inspect` stanza with `app-inspect/Main.hs` (signal handling,
+- [x] (2026-10-11) M2: `executable kiroku-inspect` stanza with `app-inspect/Main.hs` (signal handling,
       exit codes); `cabal build kiroku-metrics:exe:kiroku-inspect`, `cabal check`, `cabal sdist`,
       and `nix build .#kiroku-metrics` all succeed.
 - [x] (2026-10-10) M2: `kiroku-metrics/test/Test/StandaloneSpec.hs` (parser and resolution examples, one
@@ -148,7 +148,7 @@ keiro mounts behind a path prefix stays a plain value with relative paths.
 - [x] (2026-10-10) M3: `kiroku-metrics/example/Main.hs` checks `/capabilities`; the quoted transcript in
       `docs/user/metrics.md` updated; CAP-17 and `docs/capabilities/log.md` updated;
       `just capabilities-validate` green; changelog `Unreleased` finalized for this plan's scope.
-- [ ] M4: ADR allocated with `okf id next`, written, logged, `just adr-validate` and the strict
+- [x] (2026-10-11) M4: ADR allocated with `okf id next`, written, logged, `just adr-validate` and the strict
       validation green; Outcomes & Retrospective written; closing provenance revision recorded.
 
 
@@ -325,11 +325,15 @@ keiro mounts behind a path prefix stays a plain value with relative paths.
 
 ## Outcomes & Retrospective
 
-2026-10-10 implementation checkpoint: discovery, standalone options/server/executable, UI guide, example and ADR-18 are implemented. All six suites passed 672 examples; the eleven-step example passed, an external umbrella consumer compiled, and the source distribution includes the executable. The final Nix build remains active; no child completion or cumulative release performance acceptance is claimed yet.
+2026-10-11 completion: EP-6 is Complete locally. `/capabilities` describes actual provider wiring without database reads, and `kiroku-inspect` opens a migrated store, runs no subscription workers and serves the complete read surface. The reusable parser validates CLI/environment precedence, bounds and explicit credential disabling; signal and failure paths release the bracketed lifetime. The UI guide maps every screen to its route, retains mount prefixes and lossless cursors, and explains safe overflow recovery and process-local annotations.
 
-2026-10-10 review: implementation and performance acceptance remain pending. Static review does not prove zero runtime regression. Earlier planning-time observations and dated decisions are historical where this revision explicitly replaces them.
+All six Cabal suites passed 672 examples (store 448, metrics 116, CLI 22, OTel 17, migrations 24, adapter 45). A final seven-case discovery run passed after adding explicit 404/405 code assertions; production source was unchanged. The eleven-step example passed, an external umbrella consumer compiled, `cabal check` was clean, and the final sdist contains the executable. The finished runtime source built under local Nix and the installed binary's help ran. Capability and ADR checks passed, including strict ADR-18 validation. Evidence, initial failures and the interrupted remote-builder packaging attempt are retained in `kiroku-metrics/bench/results/mp13-ep6-standalone-discovery/README.md` with 29 artifacts plus a manifest and ten source fingerprints.
 
-(To be filled during and after implementation.)
+Functional implementation is committed as `7f9e4f0`. This child changes no store/migration/CLI code, append SQL, index or publisher logic, and discovery tests prove it invokes none of its four providers. These are proportional focused/structural checks, not a new statistical write-cost claim. Plan 96 still owns cumulative observer-under-append acceptance, PVP/version derivation and publication; the earlier index policy verdict stays inconclusive. IR statuses remain in_progress. ADR-18 distills composition, hosting, truthful discovery and explicit exclusions; ADR-15 continues to govern cost and lifecycle constraints.
+
+Historical 2026-10-10 planning review: implementation and performance acceptance were pending. Static review does not prove zero runtime regression. Earlier planning-time observations and dated decisions are historical where this revision explicitly replaces them.
+
+
 
 
 ## Context and Orientation
@@ -394,8 +398,8 @@ YAML frontmatter validated by the `okf` tool against a profile; `docs/adr/` and
 
 ### Hard dependencies and what they leave in the tree
 
-This plan starts only after four sibling plans are complete, because it serves and describes
-what they add. Milestone 0 verifies each of these in the working tree before any edit:
+This plan starts only after all five predecessors are complete, because it serves and describes
+what they add. The four HTTP/provider dependencies below and plan 94's WebSocket convergence are verified together. Milestone 0 verifies each of these in the working tree before any edit:
 
 - Plan 90 (`docs/plans/90-add-configurable-cors-support-to-kiroku-metrics.md`, IR-11) added
   `kiroku-metrics/src/Kiroku/Metrics/Cors.hs` with `AllowedOrigin`, `allowedOrigin :: Text ->
@@ -413,7 +417,7 @@ what they add. Milestone 0 verifies each of these in the working tree before any
 - Plan 88 (`docs/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md`,
   IR-8) added `kiroku-metrics/src/Kiroku/Metrics/Browse.hs` (`StoreBrowser(..)` with a
   rank-2 `runStoreRead` field and `limits`, `storeBrowser`, `defaultBrowseLimits`, `browseApp`)
-  and the `browser` field.
+  and the `storeBrowsing` field.
 - Plan 89 (`docs/plans/89-expose-a-public-dead-letter-read-api.md`, IR-9) added
   `kiroku-metrics/src/Kiroku/Metrics/DeadLetters.hs` (`DeadLetterProvider`, `storeDeadLetters`,
   `deadLettersApp`) and the `deadLetters` field.
@@ -426,7 +430,7 @@ data ServerProviders = ServerProviders
     { webSocketServer :: !WS.ServerApp
     , subscriptionStatus :: !(Maybe SubscriptionStatusProvider)      -- GET /subscriptions (live, process-local)
     , checkpointInventory :: !(Maybe CheckpointInventoryProvider)    -- GET /subscription-checkpoints
-    , browser :: !(Maybe StoreBrowser)                               -- /streams, /categories, /events
+    , storeBrowsing :: !(Maybe StoreBrowser)                               -- /streams, /categories, /events
     , deadLetters :: !(Maybe DeadLetterProvider)                     -- /subscriptions/<name>/dead-letters
     }
 
@@ -895,7 +899,7 @@ providerPresence providers =
     ProviderPresence
         { hasSubscriptionStatus = isJust providers.subscriptionStatus
         , hasCheckpointInventory = isJust providers.checkpointInventory
-        , hasBrowser = isJust providers.browser
+        , hasBrowser = isJust providers.storeBrowsing
         , hasDeadLetters = isJust providers.deadLetters
         , presentWebSocketChannels = providers.webSocketChannels
         }
@@ -1615,3 +1619,6 @@ nothing depends on `kiroku-metrics`. Plan 96 releases the result as part of the 
 ## API and performance review revision (2026-10-10)
 
 Reviewed against repository HEAD `f1a0209` and the released typed-decoding implementation. Corrected integration contracts and made focused performance evidence a completion gate. Existing authorship history is preserved; this revision records no implemented milestone or accepted performance result. The active requirements above supersede incompatible September design decisions, not published wire contracts.
+
+
+Revision (2026-10-11 implementation): EP-6 completes locally with pure discovery, the standalone executable, a complete UI guide, ADR-18 and retained correctness/packaging evidence. The release performance gate remains open; no version or publication change is made.

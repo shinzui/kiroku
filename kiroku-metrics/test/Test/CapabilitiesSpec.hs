@@ -3,6 +3,7 @@ module Test.CapabilitiesSpec (spec) where
 import Control.Exception (SomeException, try)
 import Control.Monad (forM_)
 import Data.Aeson qualified as A
+import Data.Aeson.KeyMap qualified as KM
 import Data.ByteString.Builder (toLazyByteString)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Either (isLeft)
@@ -70,11 +71,13 @@ spec = describe "Kiroku.Metrics.Capabilities" $ do
         capture app "HEAD" ["capabilities"] `shouldReturn` (s, h, "")
         b `shouldBe` A.encode (capabilitiesFor defaultConfig none)
         forM_ ["POST", "PUT", "DELETE", "OPTIONS"] $ \method -> do
-            (status, headers, _) <- capture app method ["capabilities"]
+            (status, headers, errorBody) <- capture app method ["capabilities"]
             status `shouldBe` status405
+            errorCode errorBody `shouldBe` Just "method_not_allowed"
             lookup "Allow" headers `shouldBe` Just "GET, HEAD"
-        (unknown, unknownHeaders, _) <- capture app "GET" ["capabilities", "x"]
+        (unknown, unknownHeaders, unknownBody) <- capture app "GET" ["capabilities", "x"]
         unknown `shouldBe` status404
+        errorCode unknownBody `shouldBe` Just "not_found"
         capture app "HEAD" ["capabilities", "x"] `shouldReturn` (unknown, unknownHeaders, "")
     it "reports plain/stub servers honestly and remains reachable with every switch off" $ do
         m <- emptyMetrics
@@ -155,3 +158,10 @@ capture app method path = do
 
 bounded :: IO a -> IO a
 bounded action = timeout 15_000_000 action >>= maybe (fail "Timed out") pure
+
+errorCode :: LBS.ByteString -> Maybe Text
+errorCode body = do
+    A.Object root <- A.decode body
+    A.Object err <- KM.lookup "error" root
+    A.String code <- KM.lookup "code" err
+    pure code

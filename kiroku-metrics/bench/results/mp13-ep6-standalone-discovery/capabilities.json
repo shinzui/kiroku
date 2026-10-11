@@ -1,0 +1,25 @@
+{
+  "cors": {
+    "enabled": true
+  },
+  "package": "kiroku-metrics",
+  "process_local": [
+    "metrics",
+    "prometheus",
+    "health",
+    "subscriptions_live",
+    "websocket_metrics"
+  ],
+  "routes": {
+    "browse": true,
+    "dead_letters": true,
+    "health": true,
+    "metrics": true,
+    "prometheus": true,
+    "subscriptions_checkpoints": true,
+    "subscriptions_live": true,
+    "websocket_events": true,
+    "websocket_metrics": true
+  },
+  "version": "0.2.0.0"
+}
