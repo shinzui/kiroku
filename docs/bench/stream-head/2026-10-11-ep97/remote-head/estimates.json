@@ -1,0 +1,38 @@
+[
+  {
+    "Name": "All.100.control-metadata",
+    "Mean (ps)": "15643116300",
+    "2*Stdev (ps)": "1129341896",
+    "relative_stdev": 0.0360970881486063
+  },
+  {
+    "Name": "All.100.production-metadata",
+    "Mean (ps)": "14778738400",
+    "2*Stdev (ps)": "725580356",
+    "relative_stdev": 0.02454811555497863
+  },
+  {
+    "Name": "All.100.production-with-head",
+    "Mean (ps)": "16768843500",
+    "2*Stdev (ps)": "759407816",
+    "relative_stdev": 0.022643416524222436
+  },
+  {
+    "Name": "All.100000.control-metadata",
+    "Mean (ps)": "14967133800",
+    "2*Stdev (ps)": "1161080980",
+    "relative_stdev": 0.03878768625693718
+  },
+  {
+    "Name": "All.100000.production-metadata",
+    "Mean (ps)": "17456778975",
+    "2*Stdev (ps)": "818754122",
+    "relative_stdev": 0.023450893294019035
+  },
+  {
+    "Name": "All.100000.production-with-head",
+    "Mean (ps)": "17436660750",
+    "2*Stdev (ps)": "775690862",
+    "relative_stdev": 0.022243102424298757
+  }
+]

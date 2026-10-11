@@ -1,0 +1,17 @@
+Name,Mean (ps),2*Stdev (ps)
+All.append-multi-stream.sequential-control-4,3252176025,192235658
+All.append-multi-stream.production-pipeline-4,2430071106,126660840
+All.append-multi-stream.sequential-control-8,5170366225,487754290
+All.append-multi-stream.production-pipeline-8,3729202825,182307348
+All.append-category-column.control-append-40,46082873400,4475437284
+All.append-category-column.candidate-append-40,46382911300,1515848816
+All.category-read.control-exhausted-category,7834007500,718036644
+All.category-read.candidate-exhausted-category,3801845450,175985704
+All.category-read.control-page-200-streams-from-0,658047753200,12296805944
+All.category-read.candidate-page-200-streams-from-0,19905994350,1017398854
+All.category-read.control-page-20000-streams-from-0,918022136400,9050325036
+All.category-read.candidate-page-20000-streams-from-0,18839157200,1496361484
+All.category-read.control-plain-caught-up-20000-streams,290362288600,4537638434
+All.category-read.candidate-plain-caught-up-20000-streams,3801376687,231042562
+All.category-read.control-group-caught-up-20000-streams,181209418200,3581500688
+All.category-read.candidate-group-caught-up-20000-streams,3992618175,210208668

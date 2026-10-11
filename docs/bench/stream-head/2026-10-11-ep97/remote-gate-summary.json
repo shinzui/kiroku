@@ -1,0 +1,55 @@
+{
+  "run_id": "01a12954-b6ae-7528-9093-81feb7a76eb9",
+  "precision_met": true,
+  "ratios": [
+    {
+      "case": "append-multi-stream/production-pipeline-4",
+      "ratio": 0.747213892273866,
+      "limit": 0.9,
+      "passed": true
+    },
+    {
+      "case": "append-multi-stream/production-pipeline-8",
+      "ratio": 0.7212647349753256,
+      "limit": 0.9,
+      "passed": true
+    },
+    {
+      "case": "append-category-column/candidate-append-40",
+      "ratio": 1.0065108331547745,
+      "limit": 1.05,
+      "passed": true
+    },
+    {
+      "case": "category-read/candidate-exhausted-category",
+      "ratio": 0.4853002055461397,
+      "limit": 1.05,
+      "passed": true
+    },
+    {
+      "case": "category-read/candidate-page-200-streams-from-0",
+      "ratio": 0.030250075702256803,
+      "limit": 1.05,
+      "passed": true
+    },
+    {
+      "case": "category-read/candidate-page-20000-streams-from-0",
+      "ratio": 0.02052146288528212,
+      "limit": 1.05,
+      "passed": true
+    },
+    {
+      "case": "category-read/candidate-plain-caught-up-20000-streams",
+      "ratio": 0.013091840215644312,
+      "limit": 0.2,
+      "passed": true
+    },
+    {
+      "case": "category-read/candidate-group-caught-up-20000-streams",
+      "ratio": 0.022033171424861404,
+      "limit": 0.2,
+      "passed": true
+    }
+  ],
+  "entry_seconds": 15.055846691131592
+}

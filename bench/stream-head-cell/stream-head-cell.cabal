@@ -1,0 +1,44 @@
+cabal-version: 3.0
+name:          stream-head-cell
+version:       0.1.0.0
+build-type:    Simple
+license:       BSD-3-Clause
+
+common shared
+  default-language:   GHC2024
+  default-extensions:
+    DeriveAnyClass
+    DuplicateRecordFields
+    OverloadedLabels
+    OverloadedStrings
+
+  ghc-options:
+    -Wall -threaded -rtsopts "-with-rtsopts=-N4 -A32m"
+    -fproc-alignment=64
+
+  hs-source-dirs:     src
+  other-modules:      Kiroku.Test.Postgres
+  build-depends:
+    , aeson
+    , base
+    , effectful-core
+    , generic-lens
+    , hasql
+    , hasql-pool
+    , hasql-transaction
+    , kiroku-store
+    , kiroku-test-support
+    , lens
+    , tasty
+    , tasty-bench
+    , text
+    , time
+    , vector
+
+executable stream-head-cost
+  import:  shared
+  main-is: StreamHeadCost.hs
+
+executable workload-gate
+  import:  shared
+  main-is: RegressionGate.hs

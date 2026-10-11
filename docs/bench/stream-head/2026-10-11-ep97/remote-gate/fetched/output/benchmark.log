@@ -1,0 +1,38 @@
+All
+  append-multi-stream
+    sequential-control-4:                    OK
+      3.25 ms ± 192 μs
+    production-pipeline-4:                   OK
+      2.43 ms ± 127 μs, 0.75x
+    sequential-control-8:                    OK
+      5.17 ms ± 488 μs
+    production-pipeline-8:                   OK
+      3.73 ms ± 182 μs, 0.72x
+  append-category-column
+    control-append-40:                       OK
+      46.1 ms ± 4.5 ms
+    candidate-append-40:                     OK
+      46.4 ms ± 1.5 ms, 1.01x
+  category-read
+    control-exhausted-category:              OK
+      7.83 ms ± 718 μs
+    candidate-exhausted-category:            OK
+      3.80 ms ± 176 μs, 0.49x
+    control-page-200-streams-from-0:         OK
+      658  ms ±  12 ms
+    candidate-page-200-streams-from-0:       OK
+      19.9 ms ± 1.0 ms, 0.03x
+    control-page-20000-streams-from-0:       OK
+      918  ms ± 9.1 ms
+    candidate-page-20000-streams-from-0:     OK
+      18.8 ms ± 1.5 ms, 0.02x
+    control-plain-caught-up-20000-streams:   OK
+      290  ms ± 4.5 ms
+    candidate-plain-caught-up-20000-streams: OK
+      3.80 ms ± 231 μs, 0.01x
+    control-group-caught-up-20000-streams:   OK
+      181  ms ± 3.6 ms
+    candidate-group-caught-up-20000-streams: OK
+      3.99 ms ± 210 μs, 0.02x
+
+All 16 tests passed (10.42s)

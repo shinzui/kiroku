@@ -1,0 +1,42 @@
+{
+  "kind": "gate",
+  "payload_sha256": "8bd29ba3134bf9f5a02253ad050e595151ee7c6bb042a659644c8573acbf6754",
+  "deadline": 1791695887.0,
+  "run_id": "01a12954-b6ae-7528-9093-81feb7a76eb9",
+  "lease_id": "01a12954-b6ae-7528-9093-81ff9db3ce89",
+  "status": "verified",
+  "verified_trials": 1,
+  "owned_lease_released": true,
+  "acquired_epoch": 1791694783.1443741,
+  "submitted_epoch": 1791694789.594817,
+  "phase": "sealed",
+  "result": {
+    "cell": "alpha",
+    "entryExitCode": 0,
+    "entrySignal": null,
+    "leaseId": "01a12954-b6ae-7528-9093-81ff9db3ce89",
+    "leaseSequence": 1,
+    "outcome": "completed",
+    "reasons": [],
+    "runId": "01a12954-b6ae-7528-9093-81feb7a76eb9",
+    "schema": "cell.run-result/v1"
+  },
+  "summary": {
+    "kind": "gate",
+    "exit_code": 0,
+    "elapsed_seconds": 15.055846691131592,
+    "command": [
+      "/nix/store/sz1z78nym7ijdhxknvix3rrkz299rb15-stream-head-cell-0.1.0.0/bin/workload-gate",
+      "--time-mode",
+      "wall",
+      "--stdev",
+      "5",
+      "--csv",
+      "/var/lib/cell-agent/work/01a12954-b6ae-7528-9093-81feb7a76eb9/results/output/timings.csv"
+    ]
+  },
+  "precision_met": true,
+  "manifest_sha256": "67b50bc16da58e6546ddce4bb53f7c1f0eaeef3b31ca14159cd857665257248b",
+  "stop_exit": 0,
+  "finished_epoch": 1791694925.662278
+}

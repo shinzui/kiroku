@@ -1,0 +1,77 @@
+{
+  "schema": "cell.reset-evidence/v1",
+  "runId": "01a12952-bdd7-7131-958e-f005839741d6",
+  "cell": "alpha",
+  "cachePolicy": "warm",
+  "startedAt": "2026-10-11T04:58:04.514925465Z",
+  "finishedAt": "2026-10-11T04:58:07.863721778Z",
+  "verified": true,
+  "steps": [
+    {
+      "name": "reset-settings",
+      "startedAt": "2026-10-11T04:58:04.514942179Z",
+      "finishedAt": "2026-10-11T04:58:04.917069309Z",
+      "status": "ok"
+    },
+    {
+      "name": "restart-postgres",
+      "startedAt": "2026-10-11T04:58:04.917070953Z",
+      "finishedAt": "2026-10-11T04:58:05.469429155Z",
+      "status": "ok"
+    },
+    {
+      "name": "recreate-databases",
+      "startedAt": "2026-10-11T04:58:05.56044709Z",
+      "finishedAt": "2026-10-11T04:58:07.163415572Z",
+      "status": "ok"
+    },
+    {
+      "name": "verify-postgres",
+      "startedAt": "2026-10-11T04:58:07.163417471Z",
+      "finishedAt": "2026-10-11T04:58:07.863718633Z",
+      "status": "ok"
+    }
+  ],
+  "postgres": {
+    "version": "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit",
+    "databases": [
+      "benchmark",
+      "ep97_1",
+      "ep97_2",
+      "ep97_3",
+      "ep97_4",
+      "postgres"
+    ],
+    "settings": [
+      {
+        "name": "fsync",
+        "setting": "on",
+        "source": "configuration file"
+      },
+      {
+        "name": "full_page_writes",
+        "setting": "on",
+        "source": "configuration file"
+      },
+      {
+        "name": "shared_buffers",
+        "setting": "16384",
+        "source": "configuration file"
+      },
+      {
+        "name": "synchronous_commit",
+        "setting": "on",
+        "source": "configuration file"
+      },
+      {
+        "name": "wal_level",
+        "setting": "replica",
+        "source": "configuration file"
+      }
+    ],
+    "walLsn": "8/806C2650",
+    "checkpoint": {
+      "performed": true
+    }
+  }
+}

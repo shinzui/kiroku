@@ -1,0 +1,13 @@
+{
+  "started_at": "2026-10-11T04:18:07+00:00",
+  "finished_at": "2026-10-11T05:03:03.989318+00:00",
+  "elapsed_seconds": 2696.989317893982,
+  "remaining_budget_seconds": 903.0106821060181,
+  "verified_remote_runs": 4,
+  "owned_leases_released": true,
+  "all_instances_terminated": true,
+  "functional_acceptance": "passed",
+  "structural_acceptance": "passed",
+  "existing_workload_gate": "passed",
+  "legacy_metadata_timing_acceptance": "inconclusive-conflicting-ratios"
+}

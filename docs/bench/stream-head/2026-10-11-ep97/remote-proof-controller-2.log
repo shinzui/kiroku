@@ -1,0 +1,18 @@
+Traceback (most recent call last):
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/stream-head-cell/run.py", line 133, in <module>
+    if __name__=='__main__':main()
+                            ~~~~^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/stream-head-cell/run.py", line 132, in main
+    raise SystemExit(Run(a).run())
+                     ~~~~~~~~~~^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/stream-head-cell/run.py", line 105, in run
+    self.acquire()
+    ~~~~~~~~~~~~^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/stream-head-cell/run.py", line 45, in acquire
+    self.command(['bash',self.a.infra/'scripts/cell/start.sh','alpha'],'start',180)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/stream-head-cell/run.py", line 29, in command
+    if result.returncode and not allow_failure: raise RuntimeError(label+': '+result.stderr[-1500:])
+                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: start: refusing to run: gcloud active project is 'tan-ng-labs', expected 'tan-nb-exp'.
+

@@ -1,0 +1,18 @@
+{
+  "kind": "proof",
+  "exit_code": 0,
+  "elapsed_seconds": 10.39786958694458,
+  "command": [
+    "/nix/store/sz1z78nym7ijdhxknvix3rrkz299rb15-stream-head-cell-0.1.0.0/bin/stream-head-cost",
+    "--time-mode",
+    "wall",
+    "--stdev",
+    "5",
+    "--csv",
+    "/var/lib/cell-agent/work/01a12943-b0f0-7181-b851-8a22220c7039/results/output/timings.csv",
+    "--timeout",
+    "10s",
+    "--pattern",
+    "$(NF-1) == \"100\" && $NF == \"production-with-head\""
+  ]
+}

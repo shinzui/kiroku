@@ -1,0 +1,46 @@
+{
+  "kind": "proof",
+  "payload_sha256": "8bd29ba3134bf9f5a02253ad050e595151ee7c6bb042a659644c8573acbf6754",
+  "deadline": 1791695887.0,
+  "run_id": "01a12943-b0f0-7181-b851-8a22220c7039",
+  "lease_id": "01a12943-b0f0-7181-b851-8a23d177a3a4",
+  "status": "verified",
+  "verified_trials": 1,
+  "error": "cell is leased by another owner; no interference",
+  "owned_lease_released": true,
+  "finished_epoch": 1791694410.688201,
+  "submitted_epoch": 1791694281.788393,
+  "acquired_epoch": 1791694265.8985012,
+  "phase": "sealed",
+  "result": {
+    "cell": "alpha",
+    "entryExitCode": 0,
+    "entrySignal": null,
+    "leaseId": "01a12943-b0f0-7181-b851-8a23d177a3a4",
+    "leaseSequence": 1,
+    "outcome": "completed",
+    "reasons": [],
+    "runId": "01a12943-b0f0-7181-b851-8a22220c7039",
+    "schema": "cell.run-result/v1"
+  },
+  "summary": {
+    "kind": "proof",
+    "exit_code": 0,
+    "elapsed_seconds": 10.39786958694458,
+    "command": [
+      "/nix/store/sz1z78nym7ijdhxknvix3rrkz299rb15-stream-head-cell-0.1.0.0/bin/stream-head-cost",
+      "--time-mode",
+      "wall",
+      "--stdev",
+      "5",
+      "--csv",
+      "/var/lib/cell-agent/work/01a12943-b0f0-7181-b851-8a22220c7039/results/output/timings.csv",
+      "--timeout",
+      "10s",
+      "--pattern",
+      "$(NF-1) == \"100\" && $NF == \"production-with-head\""
+    ]
+  },
+  "precision_met": true,
+  "manifest_sha256": "38d46527ceda4b586dd048c0dd062d72b7c8cff25fec7b06701a491b4a4068d0"
+}

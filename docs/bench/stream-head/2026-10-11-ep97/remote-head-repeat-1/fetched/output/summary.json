@@ -1,0 +1,16 @@
+{
+  "kind": "head",
+  "exit_code": 0,
+  "elapsed_seconds": 10.896717309951782,
+  "command": [
+    "/nix/store/sz1z78nym7ijdhxknvix3rrkz299rb15-stream-head-cell-0.1.0.0/bin/stream-head-cost",
+    "--time-mode",
+    "wall",
+    "--stdev",
+    "5",
+    "--csv",
+    "/var/lib/cell-agent/work/01a12952-bdd7-7131-958e-f005839741d6/results/output/timings.csv",
+    "--timeout",
+    "60s"
+  ]
+}

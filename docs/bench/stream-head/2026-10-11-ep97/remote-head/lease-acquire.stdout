@@ -1,0 +1,16 @@
+{
+  "generation": 1791694517048381,
+  "lease": {
+    "acquiredAt": "2026-10-11T04:55:15Z",
+    "cancelRequested": false,
+    "cell": "alpha",
+    "heartbeatAt": "2026-10-11T04:55:15Z",
+    "leaseId": "01a12950-aa30-76dd-acf3-fb528b7f0a36",
+    "owner": "kiroku-ep97",
+    "purpose": "stream head cost",
+    "runsStarted": 0,
+    "schema": "cell.lease/v1",
+    "ttlSeconds": 120
+  },
+  "outcome": "acquired"
+}

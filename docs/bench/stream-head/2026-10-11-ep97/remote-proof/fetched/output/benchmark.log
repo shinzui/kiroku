@@ -1,0 +1,11 @@
+{"server" : "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit", "shared_buffers" : "128MB", "work_mem" : "16MB", "jit" : "off", "plan_cache_mode" : "auto", "streams" : 1003, "events" : 200000, "junctions" : 400000}
+setup_seconds=9.024232684s
+warmup_seconds=0.098053295s
+All
+  100
+    production-with-head: OK
+      17.9 ms ± 1.8 ms
+
+All 1 tests passed (0.13s)
+measurement_seconds=0.132048774s
+total_seconds=9.254334753s

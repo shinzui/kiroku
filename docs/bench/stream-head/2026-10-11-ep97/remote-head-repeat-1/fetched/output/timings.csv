@@ -1,0 +1,7 @@
+Name,Mean (ps),2*Stdev (ps)
+All.100.control-metadata,18714950100,1242658776
+All.100.production-metadata,17703005750,367942748
+All.100.production-with-head,19814174900,1425579200
+All.100000.control-metadata,16369189750,832061018
+All.100000.production-metadata,16318049000,741591944
+All.100000.production-with-head,17371750800,1466520262

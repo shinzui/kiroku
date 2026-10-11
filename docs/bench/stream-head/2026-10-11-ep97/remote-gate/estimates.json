@@ -1,0 +1,98 @@
+[
+  {
+    "Name": "All.append-multi-stream.sequential-control-4",
+    "Mean (ps)": "3252176025",
+    "2*Stdev (ps)": "192235658",
+    "relative_stdev": 0.02955492822686312
+  },
+  {
+    "Name": "All.append-multi-stream.production-pipeline-4",
+    "Mean (ps)": "2430071106",
+    "2*Stdev (ps)": "126660840",
+    "relative_stdev": 0.026061138640607332
+  },
+  {
+    "Name": "All.append-multi-stream.sequential-control-8",
+    "Mean (ps)": "5170366225",
+    "2*Stdev (ps)": "487754290",
+    "relative_stdev": 0.047168253540879494
+  },
+  {
+    "Name": "All.append-multi-stream.production-pipeline-8",
+    "Mean (ps)": "3729202825",
+    "2*Stdev (ps)": "182307348",
+    "relative_stdev": 0.024443206303749382
+  },
+  {
+    "Name": "All.append-category-column.control-append-40",
+    "Mean (ps)": "46082873400",
+    "2*Stdev (ps)": "4475437284",
+    "relative_stdev": 0.04855857451805512
+  },
+  {
+    "Name": "All.append-category-column.candidate-append-40",
+    "Mean (ps)": "46382911300",
+    "2*Stdev (ps)": "1515848816",
+    "relative_stdev": 0.016340595852162475
+  },
+  {
+    "Name": "All.category-read.control-exhausted-category",
+    "Mean (ps)": "7834007500",
+    "2*Stdev (ps)": "718036644",
+    "relative_stdev": 0.04582818206390535
+  },
+  {
+    "Name": "All.category-read.candidate-exhausted-category",
+    "Mean (ps)": "3801845450",
+    "2*Stdev (ps)": "175985704",
+    "relative_stdev": 0.023144773546752144
+  },
+  {
+    "Name": "All.category-read.control-page-200-streams-from-0",
+    "Mean (ps)": "658047753200",
+    "2*Stdev (ps)": "12296805944",
+    "relative_stdev": 0.009343399384164936
+  },
+  {
+    "Name": "All.category-read.candidate-page-200-streams-from-0",
+    "Mean (ps)": "19905994350",
+    "2*Stdev (ps)": "1017398854",
+    "relative_stdev": 0.025555087480470424
+  },
+  {
+    "Name": "All.category-read.control-page-20000-streams-from-0",
+    "Mean (ps)": "918022136400",
+    "2*Stdev (ps)": "9050325036",
+    "relative_stdev": 0.004929252072009186
+  },
+  {
+    "Name": "All.category-read.candidate-page-20000-streams-from-0",
+    "Mean (ps)": "18839157200",
+    "2*Stdev (ps)": "1496361484",
+    "relative_stdev": 0.03971413020535759
+  },
+  {
+    "Name": "All.category-read.control-plain-caught-up-20000-streams",
+    "Mean (ps)": "290362288600",
+    "2*Stdev (ps)": "4537638434",
+    "relative_stdev": 0.007813753046028306
+  },
+  {
+    "Name": "All.category-read.candidate-plain-caught-up-20000-streams",
+    "Mean (ps)": "3801376687",
+    "2*Stdev (ps)": "231042562",
+    "relative_stdev": 0.030389327475769834
+  },
+  {
+    "Name": "All.category-read.control-group-caught-up-20000-streams",
+    "Mean (ps)": "181209418200",
+    "2*Stdev (ps)": "3581500688",
+    "relative_stdev": 0.009882214521673245
+  },
+  {
+    "Name": "All.category-read.candidate-group-caught-up-20000-streams",
+    "Mean (ps)": "3992618175",
+    "2*Stdev (ps)": "210208668",
+    "relative_stdev": 0.026324664516661427
+  }
+]

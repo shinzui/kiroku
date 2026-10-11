@@ -1,0 +1,21 @@
+{
+  "acceptance": "inconclusive-conflicting-legacy-ratios",
+  "trials": [
+    {
+      "trial": "remote-head",
+      "run_id": "01a12950-aa30-76dd-acf3-fb51d227b3ca",
+      "entry_exit_code": 1,
+      "precision_met": true,
+      "owned_lease_released": true,
+      "entry_seconds": 11.297784328460693
+    },
+    {
+      "trial": "remote-head-repeat-1",
+      "run_id": "01a12952-bdd7-7131-958e-f005839741d6",
+      "entry_exit_code": 0,
+      "precision_met": true,
+      "owned_lease_released": true,
+      "entry_seconds": 10.896717309951782
+    }
+  ]
+}

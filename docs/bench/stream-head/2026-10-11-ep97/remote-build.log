@@ -1,0 +1,6 @@
+error:
+       … while updating the lock file of flake 'path:/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/stream-head-cell'
+
+       … while updating the flake input 'kiroku'
+
+       error: access to absolute path '/nix/flake.nix' is forbidden in pure evaluation mode (use '--impure' to override)

@@ -1,0 +1,23 @@
+{"server" : "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit", "shared_buffers" : "128MB", "work_mem" : "16MB", "jit" : "off", "plan_cache_mode" : "auto", "streams" : 1003, "events" : 200000, "junctions" : 400000}
+setup_seconds=8.59676454s
+warmup_seconds=0.109452499s
+All
+  100
+    control-metadata:     OK
+      15.6 ms ± 1.1 ms
+    production-metadata:  OK
+      14.8 ms ± 726 μs, 0.94x
+    production-with-head: OK
+      16.8 ms ± 759 μs
+  100000
+    control-metadata:     OK
+      15.0 ms ± 1.2 ms
+    production-metadata:  FAIL
+      17.5 ms ± 819 μs, 1.17x
+      Use -p '/100000.production-metadata/' to rerun this test only.
+    production-with-head: OK
+      17.4 ms ± 776 μs
+
+1 out of 6 tests failed (2.56s)
+measurement_seconds=2.559029335s
+total_seconds=11.265246374s

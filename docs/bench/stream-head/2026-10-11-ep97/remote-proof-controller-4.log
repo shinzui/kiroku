@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/stream-head-cell/run.py", line 146, in <module>
+    if __name__=='__main__':main()
+                            ~~~~^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/stream-head-cell/run.py", line 145, in main
+    raise SystemExit(Run(a).run())
+                     ~~~~~~~~~~^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/stream-head-cell/run.py", line 118, in run
+    self.acquire()
+    ~~~~~~~~~~~~^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/stream-head-cell/run.py", line 45, in acquire
+    if held and held['leaseId']!=self.j['lease_id']: raise RuntimeError('cell is leased by another owner; no interference')
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: cell is leased by another owner; no interference
