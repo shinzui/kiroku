@@ -27,12 +27,22 @@ provenance:
       at: 2026-10-11T03:24:23Z
       mode: "implement"
       note: "Begin EP-7 integrated acceptance and release preparation"
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-11T04:36:56Z
+      mode: "implement"
+      note: "Repair review validation gaps and prepare isolated controlled-host original-control validation; preserve prior failed and inconclusive evidence."
   reviews:
     - model: "gpt-6-astra"
       harness: "codex-cli"
       at: 2026-10-10T15:41:08Z
       verdict: "comments"
       note: "Source review corrections applied; SQL promotion and focused performance gates require implementation evidence."
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-11T04:11:43Z
+      verdict: "changes-requested"
+      note: "Verified all 195 release evidence hashes and recomputed corrected observer ratios; failed workload gates and broad intervals block no-regression acceptance, while Set cardinality hides duplicate/out-of-order tail frames."
 ---
 
 # Release the inspection surface cohort and complete the keiro-ui requests
@@ -52,6 +62,10 @@ This plan publishes no UI and makes no downstream repository edits without autho
 
 
 ## Progress
+
+- [x] (2026-10-11) Address implementation-review validation gaps: browse query-plan checks now run under `performance structure`; the v2 probe checks every ordered position and resolved name, runs observers in a separate process, and retains WAL/SQL diagnostics. Local control/candidate proofs pass; controlled-host acceptance remains pending.
+- [x] (2026-10-11) Run the unchanged workload gate on dedicated PG18: all 16 pass; health and all 16 sealed artifacts verify, the lease releases, and all four machines stop. Preserve the earlier failed local run.
+- [ ] Complete remote observer lifecycle proof and the cumulative original-control comparison. The bounded attempt stopped after extension setup/SSH failures and another owner acquiring the cell; no remote observer trial or pair verified. The remaining forecast exceeded the original budget. See `bench/mp13-release/validation-2026-10-11/README.md`.
 
 - [x] (2026-09-30) Drafted the release coordination plan.
 - [x] (2026-10-10) Reviewed current releases, cabal dependencies, typed decoding and performance obligations; superseded stale September version and benchmark scripts.
@@ -121,7 +135,7 @@ The prior cohort's practical performance acceptance is not transferable to inspe
 
 ## Outcomes & Retrospective
 
-2026-10-11 checkpoint: EP-7 is In Progress. Functional integration and final isolated release packaging are validated, with retained evidence under `bench/mp13-release/evidence/`. The requested-id cache optimization is committed and its 116 metrics tests pass. The authoritative workload gate is failed and cumulative observer acceptance is inconclusive; publication authorization and exact published-consumer proof remain pending. Documentation/Nix proposal packaging is complete. No package version, published artifact, tag, downstream state or request completion has changed.
+2026-10-11 checkpoint: EP-7 is In Progress. Functional integration and final isolated release packaging are validated, with retained evidence under `bench/mp13-release/evidence/`. The requested-id cache optimization is committed and its 116 metrics tests pass. The unchanged workload gate now passes all 16 cases on dedicated PG18, superseding its current failed status while retaining the original local failure. Cumulative observer acceptance remains inconclusive; publication authorization and exact published-consumer proof remain pending. Documentation/Nix proposal packaging is complete. No package version, published artifact, tag, downstream state or request completion has changed.
 
 Historical planning review: no implementation or benchmark was performed by that review; runtime acceptance remained pending.
 
@@ -395,3 +409,22 @@ continued local implementation, without relaxing any performance gate or
 authorizing production migration/publication. Reuse valid evidence with matching
 inputs; remaining cumulative HTTP/tail/inventory acceptance stays here. Future
 plan 54 shares the same physical cost and gets no independent additive allowance.
+
+
+## Implementation-review validation follow-up (2026-10-11)
+
+The user authorized correcting the review gaps and proceeding with focused validation. The candidate runtime is frozen at `109d58f`; concurrent plan 97 source edits are excluded using isolated git archives. The released control remains `364ffa82136fcfc83d39ead1234abffaf500844b`. Both arms share the same v2 probe and external dependency set. Local proof counts are 44,404 candidate and 35,087 control ordered frames with exact candidate names. A separate client process removes observer allocations from the server heap. Statement diagnostics occur outside the append measurement window. The whole experiment retains one 60-minute clock beginning before setup; the queue will not start unless the verified proof forecast fits. No release or performance verdict is claimed by preparation.
+
+The dedicated-host workload gate subsequently passed all 16 cases without changing
+thresholds (run `01a1294a-329d-73f0-b429-5e4a49f21642`). Its host health, artifact
+hashes, lease release and shutdown all verified. The observer proof failed before
+measurement because the benchmark role could not create the diagnostic extension.
+Template setup then hit SSH readiness failure; the resumed attempt found another
+owner's lease and did not interfere. With a 420-second proof allowance plus a
+1,180-second active queue, the remaining hour could not admit a useful comparison.
+The stopped experiment has zero verified remote observer trials and zero pairs.
+The v2 opaque probe is diagnostic: formal acceptance also needs the original
+benchmark-grade and checkpoint-symmetry evidence. Full evidence, source snapshots,
+failures, tests and the remaining work are in
+[the validation checkpoint](../../bench/mp13-release/validation-2026-10-11/README.md).
+No cumulative zero-regression or release verdict is implied by the passed gate.

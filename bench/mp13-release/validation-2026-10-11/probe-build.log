@@ -1,0 +1,108 @@
+Warning: Specifying an absolute path to the project file is deprecated. Use
+--project-dir to set the project's directory.
+Configuration is affected by mp13-candidate.project at '/private/tmp'.
+Resolving dependencies...
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.10.0.0 (lib) (configuration changed)
+ - kiroku-test-support-0.1.0.0 (lib) (configuration changed)
+ - kiroku-cli-0.2.0.9 (lib) (dependency rebuilt)
+ - kiroku-metrics-0.2.0.0 (lib) (dependency rebuilt)
+ - inspection-probe-0.1.0.0 (exe:inspection-probe) (configuration changed)
+Configuring library for kiroku-test-support-0.1.0.0...
+Configuring library for kiroku-store-0.10.0.0...
+Preprocessing library for kiroku-test-support-0.1.0.0...
+Building library for kiroku-test-support-0.1.0.0...
+Preprocessing library for kiroku-store-0.10.0.0...
+Building library for kiroku-store-0.10.0.0...
+[2 of 3] Compiling Kiroku.Test.Fixtures.StreamHead ( src/Kiroku/Test/Fixtures/StreamHead.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-test-support-0.1.0.0/build/Kiroku/Test/Fixtures/StreamHead.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-test-support-0.1.0.0/build/Kiroku/Test/Fixtures/StreamHead.dyn_o )
+[ 7 of 31] Compiling Kiroku.Store.SQL ( src/Kiroku/Store/SQL.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/SQL.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/SQL.dyn_o ) [Source file changed]
+[ 8 of 31] Compiling Kiroku.Store.Subscription.Checkpoint.SQL ( src/Kiroku/Store/Subscription/Checkpoint/SQL.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Checkpoint/SQL.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Checkpoint/SQL.dyn_o ) [Kiroku.Store.SQL changed]
+[12 of 31] Compiling Kiroku.Store.Subscription.EventPublisher ( src/Kiroku/Store/Subscription/EventPublisher.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/EventPublisher.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/EventPublisher.dyn_o ) [Kiroku.Store.SQL changed]
+[13 of 31] Compiling Kiroku.Store.Subscription.Worker ( src/Kiroku/Store/Subscription/Worker.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Worker.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription/Worker.dyn_o ) [Kiroku.Store.SQL changed]
+[20 of 31] Compiling Kiroku.Store.Effect ( src/Kiroku/Store/Effect.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Effect.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Effect.dyn_o ) [Source file changed]
+[21 of 31] Compiling Kiroku.Store.Transaction ( src/Kiroku/Store/Transaction.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Transaction.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Transaction.dyn_o ) [Kiroku.Store.Effect changed]
+[22 of 31] Compiling Kiroku.Store.Subscription ( src/Kiroku/Store/Subscription.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Subscription.dyn_o ) [Kiroku.Store.Effect changed]
+src/Kiroku/Store/Subscription.hs:272:51: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘member’ shadows the existing binding
+      imported from ‘Kiroku.Store.Subscription.Types’ at src/Kiroku/Store/Subscription.hs:38:1-38
+    |
+272 | initializeSubscriptionCheckpoint subscriptionName member policy =
+    |                                                   ^^^^^^
+
+[25 of 31] Compiling Kiroku.Store.Read ( src/Kiroku/Store/Read.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Read.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Read.dyn_o ) [Source file changed]
+[26 of 31] Compiling Kiroku.Store.Link ( src/Kiroku/Store/Link.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Link.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Link.dyn_o ) [Kiroku.Store.Effect changed]
+[27 of 31] Compiling Kiroku.Store.Lifecycle ( src/Kiroku/Store/Lifecycle.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Lifecycle.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Lifecycle.dyn_o ) [Kiroku.Store.Effect changed]
+[28 of 31] Compiling Kiroku.Store.HistoryRetention ( src/Kiroku/Store/HistoryRetention.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/HistoryRetention.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/HistoryRetention.dyn_o ) [Kiroku.Store.Effect changed]
+[29 of 31] Compiling Kiroku.Store.Causation ( src/Kiroku/Store/Causation.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Causation.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Causation.dyn_o ) [Kiroku.Store.Effect changed]
+[30 of 31] Compiling Kiroku.Store.Append ( src/Kiroku/Store/Append.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Append.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store/Append.dyn_o ) [Kiroku.Store.Effect changed]
+[31 of 31] Compiling Kiroku.Store     ( src/Kiroku/Store.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.10.0.0/build/Kiroku/Store.dyn_o ) [Kiroku.Store.Append changed]
+Preprocessing library for kiroku-cli-0.2.0.9...
+Building library for kiroku-cli-0.2.0.9...
+[3 of 6] Compiling Kiroku.Cli.Subscription.Status ( src/Kiroku/Cli/Subscription/Status.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Subscription/Status.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Subscription/Status.dyn_o ) [Kiroku.Store.Subscription changed]
+[5 of 6] Compiling Kiroku.Cli.Run   ( src/Kiroku/Cli/Run.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Run.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-cli-0.2.0.9/build/Kiroku/Cli/Run.dyn_o ) [Kiroku.Store changed]
+Preprocessing library for kiroku-metrics-0.2.0.0...
+Building library for kiroku-metrics-0.2.0.0...
+[ 2 of 17] Compiling Kiroku.Metrics.Collector ( src/Kiroku/Metrics/Collector.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Collector.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Collector.dyn_o ) [Kiroku.Store changed]
+[ 5 of 17] Compiling Kiroku.Metrics.Subscriptions ( src/Kiroku/Metrics/Subscriptions.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Subscriptions.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Subscriptions.dyn_o ) [Kiroku.Store changed]
+[ 6 of 17] Compiling Kiroku.Metrics.DeadLetters ( src/Kiroku/Metrics/DeadLetters.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/DeadLetters.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/DeadLetters.dyn_o ) [Kiroku.Store changed]
+[ 9 of 17] Compiling Kiroku.Metrics.Checkpoints ( src/Kiroku/Metrics/Checkpoints.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Checkpoints.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Checkpoints.dyn_o ) [Kiroku.Store changed]
+[10 of 17] Compiling Kiroku.Metrics.Health ( src/Kiroku/Metrics/Health.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Health.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Health.dyn_o ) [Kiroku.Store changed]
+[11 of 17] Compiling Kiroku.Metrics.WebSocket ( src/Kiroku/Metrics/WebSocket.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/WebSocket.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/WebSocket.dyn_o ) [Kiroku.Store changed]
+src/Kiroku/Metrics/WebSocket.hs:85:23: warning: [GHC-38856] [-Wunused-imports]
+    The import of ‘foldl'’ from module ‘Data.Foldable’ is redundant
+   |
+85 | import Data.Foldable (foldl', for_)
+   |                       ^^^^^^
+
+[12 of 17] Compiling Kiroku.Metrics.Browse ( src/Kiroku/Metrics/Browse.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Browse.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Browse.dyn_o ) [Kiroku.Store changed]
+src/Kiroku/Metrics/Browse.hs:96:9: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at src/Kiroku/Metrics/Browse.hs:37:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+   |
+96 |         size <- browseSize limit
+   |         ^^^^
+
+src/Kiroku/Metrics/Browse.hs:120:9: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at src/Kiroku/Metrics/Browse.hs:37:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+120 |         size <- browseSize limit
+    |         ^^^^
+
+src/Kiroku/Metrics/Browse.hs:185:11: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at src/Kiroku/Metrics/Browse.hs:37:1-19
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+    |
+185 |     Right size -> Right size
+    |           ^^^^
+
+[15 of 17] Compiling Kiroku.Metrics.Server ( src/Kiroku/Metrics/Server.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Server.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Server.dyn_o ) [Kiroku.Metrics.Browse changed]
+[16 of 17] Compiling Kiroku.Metrics.Standalone ( src/Kiroku/Metrics/Standalone.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Standalone.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics/Standalone.dyn_o ) [Kiroku.Metrics.Server changed]
+[17 of 17] Compiling Kiroku.Metrics   ( src/Kiroku/Metrics.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics.o, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/kiroku-metrics-0.2.0.0/build/Kiroku/Metrics.dyn_o ) [Kiroku.Metrics.Browse changed]
+Configuring executable 'inspection-probe' for inspection-probe-0.1.0.0...
+Preprocessing executable 'inspection-probe' for inspection-probe-0.1.0.0...
+Building executable 'inspection-probe' for inspection-probe-0.1.0.0...
+[1 of 2] Compiling Delivery         ( src/Delivery.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/inspection-probe-0.1.0.0/x/inspection-probe/build/inspection-probe/inspection-probe-tmp/Delivery.o )
+[2 of 2] Compiling Main             ( src/Main.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/inspection-probe-0.1.0.0/x/inspection-probe/build/inspection-probe/inspection-probe-tmp/Main.o ) [Source file changed]
+src/Main.hs:139:44: error: [GHC-39999]
+    • No instance for ‘MonadFail STM’ arising from a use of ‘fail’
+    • In the first argument of ‘either’, namely ‘fail’
+      In a stmt of a 'do' block:
+        next <- either fail pure (acceptPosition position previous)
+      In the second argument of ‘($)’, namely
+        ‘do previous <- readTVar delivery
+            next <- either fail pure (acceptPosition position previous)
+            writeTVar delivery next
+            modifyTVar' names (Set.insert sid)
+            ....’
+    |
+139 |                             next <- either fail pure (acceptPosition position previous)
+    |                                            ^^^^
+
+Error: [Cabal-7125]
+Failed to build exe:inspection-probe from inspection-probe-0.1.0.0.
+

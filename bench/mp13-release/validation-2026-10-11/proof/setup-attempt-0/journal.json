@@ -1,0 +1,13 @@
+{
+  "started": 1791693460.1478772,
+  "deadline": 1791695772.1880598,
+  "payload_sha256": "ea3c8a748b1633e124c9bd30b82740dde8e74842f5025d14f50e00f0e8820eab",
+  "trials": [],
+  "status": "stopped",
+  "lease_id": "01a12940-92b4-74b1-a9b7-1c02276534b0",
+  "error": "start failed (1)",
+  "lease_release_exit": 0,
+  "stop_exit": 1,
+  "all_stopped": true,
+  "finished": 1791693466.14622
+}

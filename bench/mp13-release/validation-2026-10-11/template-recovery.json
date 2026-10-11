@@ -1,0 +1,21 @@
+{
+  "at": 1791693925.544262,
+  "reason": "proof failed before measurement: pg_stat_statements requires superuser; provision unique owned template, preserve unprivileged benchmark role",
+  "prior_run": "01a12941-6e5e-740e-8e81-76ad2e1a731b",
+  "payload_changed": false,
+  "command": [
+    "python3",
+    "bench/mp13-release/run-cell.py",
+    "--cellctl",
+    "/nix/store/v3hs3fng3qkq1i454dcrmkxp0m4x8qf2-cell-agent-0.1.0/bin/cellctl",
+    "--infra",
+    "/Users/shinzui/Keikaku/bokuno/load-testing-infra",
+    "--payload",
+    "bench/mp13-release/validation-2026-10-11/payload.json",
+    "--out",
+    "bench/mp13-release/validation-2026-10-11/proof-template",
+    "--budget",
+    "bench/mp13-release/validation-2026-10-11/budget.json",
+    "--proof"
+  ]
+}

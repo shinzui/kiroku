@@ -1,0 +1,17 @@
+{
+  "started": 1791693925.799537,
+  "deadline": 1791695772.1880598,
+  "payload_sha256": "ea3c8a748b1633e124c9bd30b82740dde8e74842f5025d14f50e00f0e8820eab",
+  "trials": [],
+  "status": "stopped",
+  "recovery_note": "Lease release log records released; all four instances TERMINATED. No template created, no trial submitted. Stop command exit unavailable after interruption.",
+  "recoveries": [
+    {
+      "at": 1791694285.5783548,
+      "previous_journal": "bench/mp13-release/validation-2026-10-11/proof-template/setup-attempt-0/journal.json",
+      "reason": "resume before any trial submission"
+    }
+  ],
+  "error": "lease-acquire failed (1)",
+  "finished": 1791694287.206859
+}

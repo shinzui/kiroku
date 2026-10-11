@@ -1,0 +1,44 @@
+Traceback (most recent call last):
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/run-cell.py", line 173, in run
+    (self.root/'stop.log').write_text(stop.stdout+stop.stderr)
+    ^^^^^^^^^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/run-cell.py", line 79, in acquire
+    return result
+        ^^^^^^^^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/run-cell.py", line 87, in admin_sql
+    self.holder=subprocess.Popen(self.ctl+['lease','hold','--cell','alpha','--lease-id',self.lease],stdout=self.holder_log,stderr=subprocess.STDOUT)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/run-cell.py", line 66, in command
+    stdout,stderr=process.communicate(timeout=min(timeout,max(1,self.remaining())))
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: template-create failed (255)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/run-cell.py", line 200, in <module>
+    except BaseException as error:
+                    ^^^^^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/run-cell.py", line 197, in main
+    if self.remaining()<estimate:raise TimeoutError(f'queue needs {estimate:.0f}s, only {self.remaining():.0f}s remain; no measurements submitted')
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/run-cell.py", line 184, in run
+    estimate=600 if self.args.gate else (300 if self.args.proof else len(modes)*10*self.args.seconds_per_trial+180)
+        ^^^^^^^^^^^^^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/run-cell.py", line 160, in cleanup
+    self.journal['template_removed']=True
+     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/nix/store/0788rbnl2p558jnyjlm2s2f9r5sxpq3h-python3-3.14.6/lib/python3.14/subprocess.py", line 557, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/nix/store/0788rbnl2p558jnyjlm2s2f9r5sxpq3h-python3-3.14.6/lib/python3.14/subprocess.py", line 1221, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/nix/store/0788rbnl2p558jnyjlm2s2f9r5sxpq3h-python3-3.14.6/lib/python3.14/subprocess.py", line 2153, in _communicate
+    ready = selector.select(timeout)
+  File "/nix/store/0788rbnl2p558jnyjlm2s2f9r5sxpq3h-python3-3.14.6/lib/python3.14/selectors.py", line 398, in select
+    fd_event_list = self._selector.poll(timeout)
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/run-cell.py", line 195, in interrupt
+    schedule=[('candidate','gate','gate')] if self.args.gate else ([('candidate','active','proof')] if self.args.proof else [(arm,mode,f'{mode}-{pair}-{arm}') for mode in modes for pair in range(5) for arm in (('control','candidate') if pair%2==0 else ('candidate','control'))])
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt: signal 15

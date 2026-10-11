@@ -1,0 +1,6 @@
+{
+  "arm": "candidate",
+  "mode": "gate",
+  "warmup_seconds": 10,
+  "measurement_seconds": 30
+}

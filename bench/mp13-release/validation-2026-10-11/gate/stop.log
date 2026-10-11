@@ -1,0 +1,6 @@
+Stopping instance(s) cell-alpha-postgres, cell-alpha-driver-0, cell-alpha-monitoring, cell-alpha-broker...
+..............................................................................done.
+Updated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-postgres].
+Updated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-driver-0].
+Updated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-monitoring].
+Updated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-broker].

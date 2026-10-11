@@ -1,0 +1,18 @@
+{
+  "at": 1791694819.955327,
+  "note": "Final source includes post-experiment formatting and controller fixes; payload-source is the executed payload source.",
+  "sha256": {
+    "bench/mp13-release/run.py": "88622112728e9032cd6f17e7d4170a92e42c28dd026e2b1387b63baa11561f22",
+    "bench/mp13-release/test-validation.py": "ec28ca4cd1f10d543439df532aac6d2062db83ba52928adbfd19aa10bffc4ba2",
+    "bench/mp13-release/cell-entry.py": "f1df645cae33fb76afcb7bd443e7f09c491ee5c8d70885f148907cc0549c6e96",
+    "bench/mp13-release/test-controller.py": "8bf64f7da968d1d06e6c7f0fd3beb05fe0b5e05371fb377d831ab57ea2fe89de",
+    "bench/mp13-release/run-cell.py": "efe304b6d6871e4fe31875ae3940a99bc8d4b036d3c67e549c744f5f1af3c4a3",
+    "bench/mp13-release/prepare.py": "8ba9e19d3eda23f1e590811823d9a52ca3a7d5bf99a0596c5c1ced2fcb93c6cd",
+    "bench/mp13-release/src/Main.hs": "25aae6bd58a2c5f87e747128f2d31093f2f25bc94caba5cc18d0eb588468e484",
+    "bench/mp13-release/src/Delivery.hs": "36e1080e3bd67f2b43a7173a7e598e39651c98de7007e757cb01834a2e0b67c5",
+    "bench/mp13-release/gate/inspection-workload-gate.cabal": "dddf1fcfe0ccfe04348fdf240ac74617fcac9eb85e0e50eb2fc79f2236fd8754",
+    "bench/mp13-release/gate/RemotePostgres.hs": "519cf50f5c14513be48762b5f446496fc439ae1495a83ce4900ccc45c848684b",
+    "bench/mp13-release/flake.nix": "093d703fe77c6fd8b558ee1b1e5ed1299d55046788ae3706a6f41089087d56c1",
+    "bench/mp13-release/flake.lock": "d4c4cc1fdc828d77bd457d213db4c3671dc02300a27bc137e4bf78138f4d6962"
+  }
+}

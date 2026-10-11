@@ -20,24 +20,54 @@ def digest(path):
 
 def validate(path, arm, mode):
     data = json.loads(path.read_text())
-    if data['arm'] != arm or data['mode'] != mode or data['tail_errors']:
-        raise ValueError('invalid trial identity or tail errors')
+    if data.get('schema') != 'mp13.inspection-trial/v2':
+        raise ValueError('v2 ordered-delivery evidence required; historical set-count trials are insufficient')
+    if data['arm'] != arm or data['mode'] != mode:
+        raise ValueError('invalid trial identity')
+    if any(data['database'][key] != 'on' for key in ('fsync', 'synchronous_commit', 'full_page_writes')):
+        raise ValueError('durability disabled')
+    if not data['database']['version'].startswith('18.'):
+        raise ValueError('requires PostgreSQL 18')
     raw = data['raw_latency_us']
-    if len(raw) != data['measured_appends'] or len(raw) < 1000 or any(x <= 0 for x in raw):
+    if len(raw) != data['measured_appends'] or len(raw) < 1000 or any(not math.isfinite(x) or x <= 0 for x in raw):
         raise ValueError('invalid raw append samples')
+    if not math.isfinite(data['seconds']) or data['seconds'] < data['measurement_seconds']:
+        raise ValueError('incomplete measurement window')
+    if data['durable_events'] != data['total_appends'] + 1 or data['total_appends'] < len(raw):
+        raise ValueError('incorrect durable count')
     ordered = sorted(raw)
     for key, fraction in [('p50_us', .50), ('p95_us', .95), ('p99_us', .99)]:
         if ordered[math.floor(fraction * (len(raw)-1))] != data[key]:
             raise ValueError('percentile does not reproduce')
     if not math.isclose(len(raw)/data['seconds'], data['throughput']):
         raise ValueError('throughput does not reproduce')
+    observer = data['observer']
     if mode == 'active':
-        if data['tail_events'] != data['total_appends'] or len(data['poll_responses']) < 24:
-            raise ValueError('missing tail delivery or polls')
-        if arm == 'candidate' and data['resolved_names'] <= 4096:
+        if not observer or observer['ordered_exact_delivery'] is not True:
+            raise ValueError('ordered-delivery oracle did not pass')
+        if observer['tail_events'] != data['total_appends'] or observer['last_position'] != data['total_appends'] + 1:
+            raise ValueError('incorrect delivery count/frontier')
+        if observer['source_streams_seen'] <= 4096:
             raise ValueError('distinct-name workload did not fill the cache')
-    elif data['tail_events'] or data['poll_responses']:
+        if observer['verified_names'] != (data['total_appends'] if arm == 'candidate' else 0):
+            raise ValueError('name correctness not verified')
+        paths = ['/streams?category=catalog&prefix=catalog-00009&limit=10', '/categories?limit=10', '/subscriptions/probe/dead-letters?limit=10', '/subscription-checkpoints']
+        for path in paths:
+            polls = [status for observed, status in observer['poll_responses'] if observed == path]
+            if len(polls) < data['measurement_seconds'] or any(status != (200 if arm == 'candidate' else 404) for status in polls):
+                raise ValueError('missing or failed observer polls')
+        lags = observer['raw_lag_us']
+        if len(lags) != data['total_appends'] or any(not math.isfinite(x) or x < 0 for x in lags):
+            raise ValueError('invalid tail latency samples')
+        if sorted(lags)[math.floor(.99 * (len(lags)-1))] != observer['lag_p99_us']:
+            raise ValueError('tail latency does not reproduce')
+    elif observer is not None:
         raise ValueError('disabled observers performed work')
+    def lsn(value):
+        hi, lo = value.split('/')
+        return (int(hi, 16) << 32) + int(lo, 16)
+    if lsn(data['wal_lsn_after']) <= lsn(data['wal_lsn_before']):
+        raise ValueError('missing WAL progress')
     return data
 
 

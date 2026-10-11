@@ -1,0 +1,18 @@
+[
+  {
+    "name": "cell-alpha-broker",
+    "status": "TERMINATED"
+  },
+  {
+    "name": "cell-alpha-driver-0",
+    "status": "TERMINATED"
+  },
+  {
+    "name": "cell-alpha-monitoring",
+    "status": "TERMINATED"
+  },
+  {
+    "name": "cell-alpha-postgres",
+    "status": "TERMINATED"
+  }
+]

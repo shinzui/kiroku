@@ -1,0 +1,33 @@
+{
+  "control": "364ffa82136fcfc83d39ead1234abffaf500844b",
+  "candidate": "109d58f",
+  "runtime_source": "isolated git archives; concurrent stream-head work excluded",
+  "harness": {
+    "bench/mp13-release/src/Main.hs": "b9654cb98eb8bd082e8cdabea15dc2c5fd88e56d57a2c6c40447677707354244",
+    "bench/mp13-release/src/Delivery.hs": "36e1080e3bd67f2b43a7173a7e598e39651c98de7007e757cb01834a2e0b67c5",
+    "bench/mp13-release/inspection-probe.cabal": "33b86e68a87e8178d0b91945584dc04a0f6fa6c1054de8faf1668da9feb3a242",
+    "bench/mp13-release/flake.nix": "b0b9bf48b49cfcbb67407a3dc405e08de365b3b0dbbf5e84e8de6e3eb10b01cb",
+    "bench/mp13-release/cell-entry.py": "6614aaf568316ed7917e05e372d32caad9589bc6cd6d848245dcb8dcad2eee8f",
+    "bench/mp13-release/run-cell.py": "c4214fbb3c02e8c8b9c646e9f567cc3e6ee18b82aa039dd805cdffdba4ec3307",
+    "bench/mp13-release/run.py": "88622112728e9032cd6f17e7d4170a92e42c28dd026e2b1387b63baa11561f22",
+    "bench/mp13-release/gate/RemotePostgres.hs": "c5c5b8cbafd2eab90bc07a62bb02237d594598fbcbb8361319d7b4bb09aa88fa"
+  },
+  "proof": "10s warmup / 30s measurement; lifecycle and ordered delivery",
+  "cases": [
+    "disabled",
+    "active"
+  ],
+  "pairs_per_case": 5,
+  "warmup_seconds": 10,
+  "measurement_seconds": 30,
+  "drain_timeout_seconds": 30,
+  "maximum_interval_relative_width": 0.06,
+  "allowed_slowdown": 0,
+  "confidence": 0.95,
+  "deadline": {
+    "started_epoch": 1791692172.1880598,
+    "budget_seconds": 3600,
+    "note": "Clock includes discovery and setup before this file was created."
+  },
+  "no_favorable_retries": true
+}

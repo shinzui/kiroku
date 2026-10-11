@@ -1,0 +1,25 @@
+unpacking 'github:shinzui/kiroku/364ffa82136fcfc83d39ead1234abffaf500844b' into the Git cache...
+warning: updating lock file "/tmp/kiroku-mp13-validation/payload/flake.lock":
+• Added input 'candidate':
+    'path:../..'
+• Added input 'control':
+    'github:shinzui/kiroku/364ffa8' (2026-10-10)
+• Removed input 'kiroku'
+• Removed input 'kiroku/flake-parts'
+• Removed input 'kiroku/flake-parts/nixpkgs-lib'
+• Removed input 'kiroku/haskell-nix'
+• Removed input 'kiroku/haskell-nix/nixpkgs'
+• Removed input 'kiroku/haskell-nix-dev'
+• Removed input 'kiroku/haskell-nix-dev/flake-utils'
+• Removed input 'kiroku/haskell-nix-dev/flake-utils/systems'
+• Removed input 'kiroku/haskell-nix-dev/nixpkgs'
+• Removed input 'kiroku/haskell-nix-dev/treefmt-nix'
+• Removed input 'kiroku/haskell-nix-dev/treefmt-nix/nixpkgs'
+• Removed input 'kiroku/nixpkgs'
+• Removed input 'kiroku/pre-commit-hooks'
+• Removed input 'kiroku/pre-commit-hooks/flake-compat'
+• Removed input 'kiroku/pre-commit-hooks/gitignore'
+• Removed input 'kiroku/pre-commit-hooks/gitignore/nixpkgs'
+• Removed input 'kiroku/pre-commit-hooks/nixpkgs'
+• Removed input 'kiroku/treefmt-nix'
+error: path '/nix' is not in the Nix store

@@ -1,0 +1,6 @@
+unpacking 'github:shinzui/kiroku/109d58f57dbd5757ad55792474d046a37cc2e87d' into the Git cache...
+warning: updating lock file "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/flake.lock":
+• Added input 'candidate':
+    'github:shinzui/kiroku/109d58f' (2026-10-11)
+• Added input 'control':
+    'github:shinzui/kiroku/364ffa8' (2026-10-10)

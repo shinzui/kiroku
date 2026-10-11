@@ -1,0 +1,18 @@
+[
+  {
+    "arm": "candidate",
+    "total_appends": 44404,
+    "measured_appends": 37989,
+    "source_streams_seen": 22204,
+    "sql_available": false,
+    "sha256": "86caf01b0e692a27fe8faf14edd2b520a2f75bc98cb8ac72862e5d95689b43a8"
+  },
+  {
+    "arm": "control",
+    "total_appends": 35087,
+    "measured_appends": 28992,
+    "source_streams_seen": 17546,
+    "sql_available": false,
+    "sha256": "4e402c369fd99d445e1ac82e8c702ee50506774f20d0d313eb889a1925982c41"
+  }
+]

@@ -36,12 +36,22 @@ provenance:
       at: 2026-10-11T03:24:23Z
       mode: "implement"
       note: "Coordinate final child acceptance and release preparation"
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-11T04:56:15Z
+      mode: "implement"
+      note: "Repair review validation gaps; record unchanged dedicated PG18 workload gate pass and bounded observer-validation stop without a cumulative acceptance claim."
   reviews:
     - model: "gpt-6-astra"
       harness: "codex-cli"
       at: 2026-10-10T15:41:06Z
       verdict: "comments"
       note: "Source review corrections applied; SQL promotion and focused performance gates require implementation evidence."
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-11T04:11:43Z
+      verdict: "changes-requested"
+      note: "Implementation review: retained workload gate fails and cumulative observer evidence is inconclusive; browse plan checks are excluded from perf-structure and observer accounting cannot prove exact ordered delivery."
 ---
 
 # Expose the Kiroku inspection surface for the keiro runtime UI and a standalone Kiroku UI
@@ -923,9 +933,13 @@ consumer fixtures, executable help, the full build and Nix packaging pass.
 Tail-cache misses now inspect only requested IDs; its 116 metrics tests pass.
 The initial observer comparisons had unequal client bookkeeping; they remain
 retained, and the corrected six-trial comparison verifies 296,504 measured
-appends and exact delivery. The final aggregate check passes structural invariants and 14/16 timings; its
-two high-variance failures remain retained. The workload gate is failed and
-shared-host observer intervals leave cumulative performance acceptance open. See
+appends with unique-position counts; that historical oracle did not reject duplicates
+or reordering. The old aggregate check passed structural invariants and 14/16
+timings; its two high-variance failures remain retained. The unchanged workload
+gate now passes all 16 cases on dedicated PG18. Cumulative inspection acceptance
+remains inconclusive: the corrected remote observer proof did not complete and
+no original-control pair was measured in the bounded follow-up. See the
+[validation checkpoint](../../bench/mp13-release/validation-2026-10-11/README.md). See
 [release evidence](../../bench/mp13-release/evidence/README.md). The browse index's
 retained policy verdict stays inconclusive.
 No gate was relaxed, no version bumped or package published; IR-8 through IR-12
@@ -1206,3 +1220,11 @@ Revision (2026-10-11 EP-6): standalone inspection and pure capability discovery 
 
 
 Revision (2026-10-11 EP-7): final child is In Progress. Registry/tag truth and the isolated release proposal are verified. Structural/API checks pass, but one aggregate workload case failed with high variance; focused real-observer diagnostic evidence is being collected without a release verdict. No version, tag, publication or request completion changed.
+
+Revision (2026-10-11 implementation-review validation): corrected ordered-delivery
+validation, isolated observer bookkeeping, and inclusion of browse query plans in
+the structural gate. Local original-control/candidate correctness proofs and
+controller fault checks pass. The unchanged dedicated-host workload gate passes
+16/16 with verified health/artifacts/cleanup. Setup failures and cell contention
+prevented the cumulative paired comparison within the original budget; its
+acceptance remains inconclusive. No gate or uncertainty target was weakened.

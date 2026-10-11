@@ -1,0 +1,10 @@
+Starting instance(s) cell-alpha-postgres, cell-alpha-driver-0, cell-alpha-monitoring, cell-alpha-broker...
+..........................................done.
+Updated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-postgres].
+Instance internal IP is 10.0.0.2
+Updated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-driver-0].
+Instance internal IP is 10.0.0.3
+Updated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-monitoring].
+Instance internal IP is 10.0.0.4
+Updated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-broker].
+Instance internal IP is 10.0.0.5

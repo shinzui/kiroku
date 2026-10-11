@@ -1,0 +1,24 @@
+{
+  "started": 1791694075.298301,
+  "deadline": 1791695772.1880598,
+  "payload_sha256": "ea3c8a748b1633e124c9bd30b82740dde8e74842f5025d14f50e00f0e8820eab",
+  "trials": [
+    {
+      "label": "gate",
+      "arm": "candidate",
+      "mode": "gate",
+      "run_id": "01a1294a-329d-73f0-b429-5e4a49f21642",
+      "started": 1791694090.909952,
+      "status": "verified",
+      "phase": "sealed",
+      "finished": 1791694241.037799,
+      "manifest_sha256": "67aa8f01f19f872dd6afa87c27af279a6506ef4e22b816c7f606ba9d40b7dccf"
+    }
+  ],
+  "status": "complete",
+  "lease_id": "01a12949-f5a2-7227-a53c-73d919c210f9",
+  "lease_release_exit": 0,
+  "stop_exit": 0,
+  "all_stopped": true,
+  "finished": 1791694266.659914
+}

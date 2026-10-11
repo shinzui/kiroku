@@ -1,35 +1,36 @@
 cabal-version: 3.0
-name:          inspection-probe
+name:          inspection-workload-gate
 version:       0.1.0.0
 build-type:    Simple
 
-executable inspection-probe
+executable inspection-workload-gate
   main-is:            Main.hs
-  hs-source-dirs:     src
-  other-modules:      Delivery
+  hs-source-dirs:     .
+  other-modules:      Kiroku.Test.Postgres
   default-language:   GHC2024
   default-extensions:
     DuplicateRecordFields
     NoFieldSelectors
+    OverloadedLabels
     OverloadedRecordDot
     OverloadedStrings
 
-  ghc-options:        -Wall -O2 -threaded -rtsopts -with-rtsopts=-N4
+  ghc-options:
+    -O2 -threaded -rtsopts "-with-rtsopts=-N -A32m" -fproc-alignment=64
+
   build-depends:
     , aeson
-    , async
     , base
-    , bytestring
-    , containers
+    , generic-lens
     , hasql
     , hasql-pool
-    , http-client
-    , http-types
-    , kiroku-metrics
+    , hasql-transaction
     , kiroku-store
     , kiroku-test-support
+    , lens
     , process
-    , stm
+    , tasty
+    , tasty-bench
     , text
+    , time
     , vector
-    , websockets

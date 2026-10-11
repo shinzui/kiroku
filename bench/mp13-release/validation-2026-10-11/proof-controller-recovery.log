@@ -1,0 +1,19 @@
+proof awaiting-status verified 0
+proof awaiting-status verified 0
+proof awaiting-status verified 0
+proof awaiting-status verified 0
+proof fetching verified 0
+proof running verified 0
+proof sealed verified 0
+Traceback (most recent call last):
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/run-cell.py", line 178, in <module>
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/run-cell.py", line 175, in main
+    def interrupt(signum, frame): raise KeyboardInterrupt(f'signal {signum}')
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/run-cell.py", line 156, in run
+    estimate=600 if self.args.gate else (240 if self.args.proof else 20*self.args.seconds_per_trial+180)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/run-cell.py", line 115, in trial
+    if result['outcome']!='completed' or result['entryExitCode']!=0: raise RuntimeError('remote execution failed; sealed evidence retained')
+                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: remote execution failed; sealed evidence retained

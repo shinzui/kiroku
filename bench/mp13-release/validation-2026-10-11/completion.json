@@ -1,0 +1,14 @@
+{
+  "at": 1791694403.538496,
+  "status": "stopped-before-budget",
+  "gate": "all 16 passed; health and manifest verified",
+  "remote_observer_verified_trials": 0,
+  "original_control_pairs": 0,
+  "acceptance": "inconclusive",
+  "reason": "Extension permission blocked first observer proof; SSH readiness blocked template setup; later lease belonged to kiroku-ep97. Proof (420s) plus active queue (1180s) cannot fit remaining original budget.",
+  "owned_lease_released": true,
+  "owned_remote_execution": false,
+  "cell_state": "Another owner acquired alpha after our verified shutdown; its run was not changed.",
+  "runtime_source_candidate": "109d58f57dbd5757ad55792474d046a37cc2e87d",
+  "runtime_source_control": "364ffa82136fcfc83d39ead1234abffaf500844b"
+}

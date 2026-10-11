@@ -1,0 +1,6 @@
+error:
+       … while updating the lock file of flake 'path:/tmp/kiroku-mp13-validation/candidate/bench/mp13-release'
+
+       … while updating the flake input 'candidate'
+
+       error: access to absolute path '/nix/flake.nix' is forbidden in pure evaluation mode (use '--impure' to override)

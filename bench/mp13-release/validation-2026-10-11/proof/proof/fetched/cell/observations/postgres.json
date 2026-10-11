@@ -1,0 +1,209 @@
+{
+  "schema": "cell.observations/v1",
+  "machine": "cell-alpha-postgres",
+  "image": "https://www.googleapis.com/compute/v1/projects/tan-nb-exp/global/images/cell-image-postgres18-50swxf7hr6zw",
+  "agentVersion": "0.1.0",
+  "systemClosure": "/nix/store/nrbpn570y6868i7pp8jpsxr50bp2d34h-nixos-system-cell-postgres-google-compute-26.05.20260510.da5ad66",
+  "from": "2026-10-11T04:39:44Z",
+  "to": "2026-10-11T04:40:11Z",
+  "samples": [
+    {
+      "at": "2026-10-11T04:39:43.511181239Z",
+      "cpuTotalTicks": 50798,
+      "cpuIdleTicks": 49909,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:39:44.513215174Z",
+      "cpuTotalTicks": 51600,
+      "cpuIdleTicks": 50710,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:39:45.514946197Z",
+      "cpuTotalTicks": 52403,
+      "cpuIdleTicks": 51508,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:39:46.516681892Z",
+      "cpuTotalTicks": 53201,
+      "cpuIdleTicks": 52261,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:39:47.518371875Z",
+      "cpuTotalTicks": 54001,
+      "cpuIdleTicks": 53017,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:39:48.520196035Z",
+      "cpuTotalTicks": 54802,
+      "cpuIdleTicks": 53815,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:39:49.521979552Z",
+      "cpuTotalTicks": 55602,
+      "cpuIdleTicks": 54615,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:39:50.52385699Z",
+      "cpuTotalTicks": 56404,
+      "cpuIdleTicks": 55416,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:39:51.525688428Z",
+      "cpuTotalTicks": 57206,
+      "cpuIdleTicks": 56217,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:39:52.527597452Z",
+      "cpuTotalTicks": 58008,
+      "cpuIdleTicks": 57018,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:39:53.52938558Z",
+      "cpuTotalTicks": 58809,
+      "cpuIdleTicks": 57816,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:39:54.531225867Z",
+      "cpuTotalTicks": 59612,
+      "cpuIdleTicks": 58616,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:39:55.53308922Z",
+      "cpuTotalTicks": 60412,
+      "cpuIdleTicks": 59416,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:39:56.534877052Z",
+      "cpuTotalTicks": 61213,
+      "cpuIdleTicks": 60217,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:39:57.536717513Z",
+      "cpuTotalTicks": 62014,
+      "cpuIdleTicks": 61018,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:39:58.53854789Z",
+      "cpuTotalTicks": 62815,
+      "cpuIdleTicks": 61819,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:39:59.540397575Z",
+      "cpuTotalTicks": 63617,
+      "cpuIdleTicks": 62620,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:40:00.5423469Z",
+      "cpuTotalTicks": 64419,
+      "cpuIdleTicks": 63420,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:40:01.54420514Z",
+      "cpuTotalTicks": 65221,
+      "cpuIdleTicks": 64221,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:40:02.546036058Z",
+      "cpuTotalTicks": 66021,
+      "cpuIdleTicks": 65021,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:40:03.547985145Z",
+      "cpuTotalTicks": 66822,
+      "cpuIdleTicks": 65822,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:40:04.549915634Z",
+      "cpuTotalTicks": 67623,
+      "cpuIdleTicks": 66623,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:40:05.55178978Z",
+      "cpuTotalTicks": 68424,
+      "cpuIdleTicks": 67424,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:40:06.553659877Z",
+      "cpuTotalTicks": 69226,
+      "cpuIdleTicks": 68226,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:40:07.555502796Z",
+      "cpuTotalTicks": 70029,
+      "cpuIdleTicks": 69027,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:40:08.557453965Z",
+      "cpuTotalTicks": 70830,
+      "cpuIdleTicks": 69823,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:40:09.559390617Z",
+      "cpuTotalTicks": 71630,
+      "cpuIdleTicks": 70596,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    },
+    {
+      "at": "2026-10-11T04:40:10.561213764Z",
+      "cpuTotalTicks": 72433,
+      "cpuIdleTicks": 71383,
+      "cpuStealTicks": 0,
+      "diskFreePercent": 97.0
+    }
+  ],
+  "maintenanceEvents": [],
+  "samplingErrors": []
+}

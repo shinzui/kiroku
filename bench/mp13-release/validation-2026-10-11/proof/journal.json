@@ -1,0 +1,31 @@
+{
+  "started": 1791693460.1478772,
+  "deadline": 1791695772.1880598,
+  "payload_sha256": "ea3c8a748b1633e124c9bd30b82740dde8e74842f5025d14f50e00f0e8820eab",
+  "trials": [
+    {
+      "label": "proof",
+      "arm": "candidate",
+      "mode": "active",
+      "run_id": "01a12941-6e5e-740e-8e81-76ad2e1a731b",
+      "started": 1791693516.3829272,
+      "status": "failed",
+      "phase": "sealed",
+      "error": "remote execution failed; sealed evidence retained"
+    }
+  ],
+  "status": "stopped",
+  "recoveries": [
+    {
+      "at": 1791693498.838111,
+      "previous_journal": "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/validation-2026-10-11/proof/setup-attempt-0/journal.json",
+      "reason": "resume before any trial submission"
+    }
+  ],
+  "lease_id": "01a12941-29d6-7212-95b7-10173a43bfe3",
+  "error": "remote execution failed; sealed evidence retained",
+  "lease_release_exit": 0,
+  "stop_exit": 0,
+  "all_stopped": true,
+  "finished": 1791693682.1927428
+}

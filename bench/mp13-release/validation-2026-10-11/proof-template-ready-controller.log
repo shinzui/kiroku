@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/run-cell.py", line 227, in <module>
+    if __name__=='__main__':main()
+                            ~~~~^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/run-cell.py", line 224, in main
+    Controller(p.parse_args()).run()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/run-cell.py", line 199, in run
+    self.acquire();self.journal['status']='running';self.save()
+    ~~~~~~~~~~~~^^
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/run-cell.py", line 83, in acquire
+    result=self.command(self.ctl+['lease','acquire','--cell','alpha','--lease-id',self.lease,'--owner','kiroku-mp13','--purpose','inspection validation','--ttl-seconds','120'],'lease-acquire')
+  File "/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/bench/mp13-release/run-cell.py", line 78, in command
+    if result.returncode and not allow_failure: raise RuntimeError(f'{name} failed ({result.returncode})')
+                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: lease-acquire failed (1)

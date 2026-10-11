@@ -1,0 +1,11 @@
+Warning: Specifying an absolute path to the project file is deprecated. Use
+--project-dir to set the project's directory.
+Configuration is affected by candidate.project at
+'/private/tmp/kiroku-mp13-validation'.
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - inspection-probe-0.1.0.0 (exe:inspection-probe) (file src/Main.hs changed)
+Preprocessing executable 'inspection-probe' for inspection-probe-0.1.0.0...
+Building executable 'inspection-probe' for inspection-probe-0.1.0.0...
+[2 of 2] Compiling Main             ( src/Main.hs, /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/inspection-probe-0.1.0.0/x/inspection-probe/build/inspection-probe/inspection-probe-tmp/Main.o ) [Source file changed]
+[3 of 3] Linking /tmp/mp13-candidate-build/build/aarch64-osx/ghc-9.12.4/inspection-probe-0.1.0.0/x/inspection-probe/build/inspection-probe/inspection-probe [Objects changed]

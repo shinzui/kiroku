@@ -1,0 +1,8 @@
+warning: not writing modified lock file of flake 'path:/tmp/kiroku-mp13-validation/payload':
+• Updated input 'candidate':
+    'path:../..'
+  → 'path:/tmp/kiroku-mp13-validation/candidate'
+• Updated input 'control':
+    'github:shinzui/kiroku/364ffa8' (2026-10-10)
+  → 'path:/tmp/kiroku-mp13-validation/control'
+error: flake 'path:/tmp/kiroku-mp13-validation/payload' does not provide attribute 'packages.aarch64-darwin.default' or 'defaultPackage.aarch64-darwin'
