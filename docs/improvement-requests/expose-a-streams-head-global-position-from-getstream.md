@@ -8,7 +8,7 @@ description: >-
 generated:
   by: anthropic/claude-fable-5-1
   at: "2026-10-06T23:32:09Z"
-timestamp: "2026-10-11T04:25:22Z"
+timestamp: "2026-10-11T05:34:15Z"
 requestId: IR-18
 status: in_progress
 origin: mori://tan/notification-render-service
@@ -45,7 +45,10 @@ operation is implemented by [Plan 97](../plans/97-expose-stream-head-global-posi
 The public `getStreamWithHead` API and lifecycle, linked-stream, mock, snapshot and
 query-plan tests pass. [ADR-19](../adr/0019-originated-stream-heads-are-an-opt-in-snapshot-read.md)
 records the contract and legacy-cost boundary. [Implementation evidence](../bench/stream-head/2026-10-11-ep97/README.md)
-records integration and measured public-runner cost. Status is `in_progress` until
+records integration and measured public-runner cost. The [paired release gate](../bench/stream-head/2026-10-11-ep97-paired/README.md)
+passes both independent remote trials with validated controls and a maximum legacy
+99% upper ratio bound of 1.01932 against the 1.10 limit, resolving the initial
+inconclusive sequential timings. Status is `in_progress` until
 the separate release workflow publishes the feature; no release is claimed here.
 
 ## Context

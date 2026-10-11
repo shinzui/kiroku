@@ -1,0 +1,187 @@
+{
+  "schema": "ep97.paired-analysis/v1",
+  "seed": 9702,
+  "rounds": 40,
+  "calls": 1000,
+  "rows": 800,
+  "resamples": 20000,
+  "block_lengths": [
+    5,
+    10
+  ],
+  "confidence": 0.99,
+  "status": "passed",
+  "controls_passed": true,
+  "cases": [
+    {
+      "case": "legacy-100",
+      "ratio": 1.0033479474628206,
+      "ci99": [
+        0.9886776979948827,
+        1.0192413425487454
+      ],
+      "block_intervals": {
+        "5": [
+          0.9886776979948827,
+          1.0192413425487454
+        ],
+        "10": [
+          0.9913208749575377,
+          1.014976022085117
+        ]
+      },
+      "relative_half_width": 0.015230830257414405,
+      "order_ratios": {
+        "BAAB": 1.0080941832843229,
+        "ABBA": 0.9986178001174992
+      },
+      "half_ratios": [
+        1.0027768606577336,
+        1.0038903708156734
+      ],
+      "stable_order": true,
+      "stable_halves": true,
+      "precise": true,
+      "within_limit": true,
+      "passed": true,
+      "mean_a_us": 190.7397650625,
+      "mean_b_us": 191.378351775
+    },
+    {
+      "case": "legacy-100000",
+      "ratio": 0.9951955053588958,
+      "ci99": [
+        0.9810059164081854,
+        1.0072801431138794
+      ],
+      "block_intervals": {
+        "5": [
+          0.9810059164081854,
+          1.0072801431138794
+        ],
+        "10": [
+          0.9826632611694314,
+          1.0050457836010926
+        ]
+      },
+      "relative_half_width": 0.013200535253733277,
+      "order_ratios": {
+        "BAAB": 0.9936759686048953,
+        "ABBA": 0.9966561271281702
+      },
+      "half_ratios": [
+        0.9938614297702313,
+        0.9964758476032136
+      ],
+      "stable_order": true,
+      "stable_halves": true,
+      "precise": true,
+      "within_limit": true,
+      "passed": true,
+      "mean_a_us": 184.2412243375,
+      "mean_b_us": 183.3560383625
+    },
+    {
+      "case": "aa-100",
+      "ratio": 0.9939949105383004,
+      "ci99": [
+        0.9811671489981725,
+        1.0060389035563084
+      ],
+      "block_intervals": {
+        "5": [
+          0.9811671489981725,
+          1.0060389035563084
+        ],
+        "10": [
+          0.9834510479148619,
+          1.0050884814062555
+        ]
+      },
+      "relative_half_width": 0.012511006995330887,
+      "order_ratios": {
+        "ABBA": 0.9929086764763062,
+        "BAAB": 0.9950440932458859
+      },
+      "half_ratios": [
+        1.002042437774388,
+        0.9862247022026469
+      ],
+      "stable_order": true,
+      "stable_halves": true,
+      "precise": true,
+      "within_limit": true,
+      "passed": true,
+      "mean_a_us": 188.102790925,
+      "mean_b_us": 186.9732168375
+    },
+    {
+      "case": "aa-100000",
+      "ratio": 1.0066673516761053,
+      "ci99": [
+        0.9944840689302844,
+        1.01644848422446
+      ],
+      "block_intervals": {
+        "5": [
+          0.9944840689302844,
+          1.01644848422446
+        ],
+        "10": [
+          0.9959239711894138,
+          1.015674248689291
+        ]
+      },
+      "relative_half_width": 0.010909470371520869,
+      "order_ratios": {
+        "ABBA": 1.004141074340083,
+        "BAAB": 1.009262636568333
+      },
+      "half_ratios": [
+        1.008891556973519,
+        1.0045370410598915
+      ],
+      "stable_order": true,
+      "stable_halves": true,
+      "precise": true,
+      "within_limit": true,
+      "passed": true,
+      "mean_a_us": 185.04221915,
+      "mean_b_us": 186.2759607
+    },
+    {
+      "case": "positive-20pct",
+      "ratio": 1.2007882461489603,
+      "ci99": [
+        1.1838130758467769,
+        1.2192296773704034
+      ],
+      "block_intervals": {
+        "5": [
+          1.1838130758467769,
+          1.2192296773704034
+        ],
+        "10": [
+          1.1854516469924004,
+          1.2113160730746626
+        ]
+      },
+      "relative_half_width": 0.014747230261959558,
+      "order_ratios": {
+        "BAAB": 1.1983245744666047,
+        "ABBA": 1.2032778021918982
+      },
+      "half_ratios": [
+        1.2036921225944706,
+        1.1980078764758737
+      ],
+      "stable_order": true,
+      "stable_halves": true,
+      "precise": true,
+      "within_limit": true,
+      "passed": true,
+      "mean_a_us": 185.3212859875,
+      "mean_b_us": 222.531621975
+    }
+  ]
+}

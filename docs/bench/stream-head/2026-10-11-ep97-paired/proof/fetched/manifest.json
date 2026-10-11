@@ -1,0 +1,136 @@
+{
+  "schema": "cell.artifact-manifest/v1",
+  "layout": 1,
+  "runId": "01a12968-9b2d-75bf-a67c-357dca44263d",
+  "cell": "alpha",
+  "leaseId": "01a12968-9b2d-75bf-a67c-357ecb42dc7f",
+  "leaseSequence": 1,
+  "sealedAt": "2026-10-11T05:23:22Z",
+  "agentVersion": "0.1.0",
+  "payload": {
+    "kind": "nix-nar-bundle",
+    "sha256": "0a37cfd29b43e0914f785caadf289917b54790f1b10147817d4a9ae3236d0c92",
+    "storePath": "/nix/store/v0w7afq8wb2pxr6j45nzidwdkfk93qas-stream-head-cell"
+  },
+  "outcome": "completed",
+  "retention": {
+    "policy": "bucket-retention",
+    "retentionSeconds": 34560000
+  },
+  "artifacts": [
+    {
+      "path": "cell/environment.json",
+      "sha256": "ff6c217da4d3d16b6311bc01140cf2ad12cdedb43cfd3385a1f667229e82b3a4",
+      "bytes": 746,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/health.json",
+      "sha256": "45c0573385c608b27948cffcf1e82cc01923f3d6c45a0520befd40ff0f05b892",
+      "bytes": 4227,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/observations/driver.json",
+      "sha256": "e62443b1c97ca0221c795be9426aee880d4df56a3b4c560e118c22273f1eeb13",
+      "bytes": 7088,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/observations/monitoring.json",
+      "sha256": "fde6e93b0ff60fa2345e7278a162706d2ec6869eab92f3e4d36375c35ea0983c",
+      "bytes": 7101,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/observations/postgres.json",
+      "sha256": "65bba97c6a6c3756dac2de75f268754c715cd0b387abda09e1a91a6a9d0dbfb7",
+      "bytes": 7099,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/reset-evidence.json",
+      "sha256": "382ab72087aeb772ba417432aa427d905755938a460f394054cc0f5f04e1b9c6",
+      "bytes": 1892,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/result.json",
+      "sha256": "71f29f66b469cf4a1f7633aaea077dbd03b935b642e2449cc207c3d482a2cc93",
+      "bytes": 269,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "logs/entry-exit.json",
+      "sha256": "1b0f348c77578cae66fdcb884abfb4a24544e49ea4a9e11acc237915a6bb7ffd",
+      "bytes": 29,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "logs/stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "mediaType": "text/plain"
+    },
+    {
+      "path": "logs/stdout.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "mediaType": "text/plain"
+    },
+    {
+      "path": "metrics/export.jsonl.zst",
+      "sha256": "f15b70c6053e81a9f04a818f5a76ac791ddfa61ee1a7d49bb9e78ca9acd2eba0",
+      "bytes": 100487,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "metrics/window.json",
+      "sha256": "9936cd2c053a3bcf1bd53573081a3d7dca243c27bc2217836d780e703325d988",
+      "bytes": 192,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "output/analysis.json",
+      "sha256": "8f58f376b7290e4a0eab7397e7bda1c40ce22e72a2d405486c44107e810ec1c1",
+      "bytes": 99,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "output/benchmark.log",
+      "sha256": "055cb2cad6810fc75b655a0f608ae0a31ab10638a81a22864fe489059d79d84b",
+      "bytes": 362,
+      "mediaType": "text/plain"
+    },
+    {
+      "path": "output/samples.csv",
+      "sha256": "eff267b06a38d9af7e6fe442348ec177ef12b8212bde87a853ad41c2c3a2859a",
+      "bytes": 4812,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "output/schedule.csv",
+      "sha256": "a950810e12094a370fb5ddfe571cd05dbb8babeefd998b70873d1d706a9acc45",
+      "bytes": 368,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "output/summary.json",
+      "sha256": "aa030e48ef75160b23df0e10350c044183503e1a4d3e83b97871b706464f6f2e",
+      "bytes": 410,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "submission/submission.json",
+      "sha256": "5dca377af6ce8692928c7ce3d9647d4b814eb10ad45275cd46704758fbd2e91b",
+      "bytes": 4998,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "submission/work",
+      "sha256": "908fcd89048e58aeb0d76cdaceda9cd8daee1b82f7133169ee8726c57db62cd9",
+      "bytes": 63,
+      "mediaType": "application/octet-stream"
+    }
+  ]
+}

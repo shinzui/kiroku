@@ -1,0 +1,11 @@
+{
+  "kind": "paired-proof",
+  "exit_code": 0,
+  "elapsed_seconds": 12.501458406448364,
+  "command": [
+    "/nix/store/yqrmbd5fgnri3wv64lyjra5xjcbscrf2-stream-head-cell-0.1.0.0/bin/stream-head-paired",
+    "/var/lib/cell-agent/work/01a12968-9b2d-75bf-a67c-357dca44263d/results/output/schedule.csv",
+    "/var/lib/cell-agent/work/01a12968-9b2d-75bf-a67c-357dca44263d/results/output/samples.csv",
+    "100"
+  ]
+}

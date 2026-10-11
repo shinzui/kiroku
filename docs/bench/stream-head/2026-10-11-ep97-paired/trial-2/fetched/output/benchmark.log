@@ -1,0 +1,5 @@
+{"server" : "PostgreSQL 18.3 on x86_64-pc-linux-gnu, compiled by clang version 21.1.8, 64-bit", "shared_buffers" : "128MB", "work_mem" : "16MB", "jit" : "off", "plan_cache_mode" : "auto", "streams" : 1003, "events" : 200000, "junctions" : 400000}
+setup_seconds=8.991241771s
+warmup_seconds=0.8856031s
+measurement_seconds=152.345694059s
+total_seconds=162.22253893s

@@ -1,0 +1,38 @@
+{
+  "kind": "paired-1",
+  "payload_sha256": "132cced7e5446d7715b6de2273d2582935bce72773dcf8a1c44702e550bd7586",
+  "deadline": 1791699014.0,
+  "run_id": "01a1296b-5fcb-7106-8f8b-13a31e1dd886",
+  "lease_id": "01a1296b-5fcb-7106-8f8b-13a40f036cbe",
+  "status": "verified",
+  "verified_trials": 1,
+  "owned_lease_released": true,
+  "acquired_epoch": 1791696271.4013062,
+  "submitted_epoch": 1791696278.948926,
+  "phase": "sealed",
+  "result": {
+    "cell": "alpha",
+    "entryExitCode": 0,
+    "entrySignal": null,
+    "leaseId": "01a1296b-5fcb-7106-8f8b-13a40f036cbe",
+    "leaseSequence": 1,
+    "outcome": "completed",
+    "reasons": [],
+    "runId": "01a1296b-5fcb-7106-8f8b-13a31e1dd886",
+    "schema": "cell.run-result/v1"
+  },
+  "summary": {
+    "kind": "paired-1",
+    "exit_code": 0,
+    "elapsed_seconds": 151.57851266860962,
+    "command": [
+      "/nix/store/yqrmbd5fgnri3wv64lyjra5xjcbscrf2-stream-head-cell-0.1.0.0/bin/stream-head-paired",
+      "/var/lib/cell-agent/work/01a1296b-5fcb-7106-8f8b-13a31e1dd886/results/output/schedule.csv",
+      "/var/lib/cell-agent/work/01a1296b-5fcb-7106-8f8b-13a31e1dd886/results/output/samples.csv",
+      "1000"
+    ]
+  },
+  "acceptance_status": "passed",
+  "manifest_sha256": "13bfbf535f5c057da0429eeb9fe268d51fe2f33e6c399fe96a30448b19f04aeb",
+  "finished_epoch": 1791696519.6701891
+}

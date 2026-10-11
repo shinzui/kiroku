@@ -1,0 +1,19 @@
+{
+  "command": [
+    "nix",
+    "build",
+    "path:./bench/stream-head-cell#packages.x86_64-linux.default",
+    "--override-input",
+    "kiroku",
+    "git+file:///Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku?rev=05a11baab7a35335dc38eafd0c9376334e9cc26a",
+    "--out-link",
+    "/tmp/ep97-paired-payload",
+    "--print-out-paths",
+    "--max-jobs",
+    "0"
+  ],
+  "started": 1791695842.446573,
+  "elapsed_seconds": 129.72599983215332,
+  "exit_code": 0,
+  "deadline": 1791699014.0
+}

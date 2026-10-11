@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-11
+* **Update**: IR-18: paired metadata release gate passes both independent trials with validated controls; publication remains pending.
 * **Update**: IR-18 links the opt-in API, Plan 97 evidence and ADR-19; publication remains pending.
 * **Update**: IR-9 records locally complete public/library dead-letter inspection, bounded existing-index reads, real worker reasons and passing full-suite/example/Nix evidence. Status remains `in_progress` until plan 96 publishes the cohort.
 * **Implementation**: IR-9 moves to `in_progress`; plan 89 starts public paginated dead-letter reads and the HTTP inspection route under MasterPlan 13.

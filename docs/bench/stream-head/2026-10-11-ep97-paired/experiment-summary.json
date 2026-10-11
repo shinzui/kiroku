@@ -1,0 +1,16 @@
+{
+  "started_at": "2026-10-11T05:10:14+00:00",
+  "finished_at": "2026-10-11T05:35:53.108586+00:00",
+  "elapsed_seconds": 1539.1085860729218,
+  "remaining_budget_seconds": 2060.8914139270782,
+  "verified_remote_runs": 3,
+  "accepted_release_trials": 2,
+  "measured_release_batches": 1600,
+  "measured_release_reads": 1632000,
+  "owned_leases_released": true,
+  "all_instances_terminated": true,
+  "acceptance": "passed",
+  "production_code_changed": false,
+  "threshold_relaxed": false,
+  "timing_retries": 0
+}

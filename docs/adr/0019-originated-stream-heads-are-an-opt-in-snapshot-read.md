@@ -8,7 +8,7 @@ generated:
 docId: ADR-19
 status: Accepted
 date: 2026-10-11
-timestamp: "2026-10-11T04:23:00Z"
+timestamp: "2026-10-11T05:19:12Z"
 originatingPlan: docs/plans/97-expose-stream-head-global-position-through-an-opt-in-metadata-read.md
 ---
 
@@ -61,6 +61,14 @@ and warmed prepared plans must use a backward origin-index probe below Limit,
 without event access or sorting and within 32 execution shared buffers. A frozen
 public-runner control protects legacy metadata cost with a 1.10 ratio; the new
 operation's measured cost is diagnostic rather than subject to that legacy bound.
+
+For release decisions about small metadata latency differences, short sequential
+benchmark estimates are insufficient: low deviation within one window does not
+establish precision for a ratio between different windows. Use fixed paired batches
+with balanced execution order, identical-code controls and a known extra-work
+control. Check uncertainty of the ratio, order and time effects, and require an
+independent confirmation. Preserve failed observations and keep the 1.10 limit;
+a corrected measurement protocol must not silently relax the acceptance boundary.
 
 ## Alternatives considered
 

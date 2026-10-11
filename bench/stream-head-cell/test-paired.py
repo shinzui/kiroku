@@ -50,6 +50,16 @@ class PairedTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'incomplete rows'):
                 paired.analyze(path, 9701)
 
+    def test_interval_preserves_variation_and_comparison_direction(self):
+        pairs = [(1, value) for value in (1, 2, 3, 4)]
+        low, high = paired.interval(pairs, 1, 9701)
+        # The exact four-draw distribution has mean 2.5 and wide tails.
+        self.assertLess(low, 1.5)
+        self.assertGreater(high, 3.5)
+        inverse_low, inverse_high = paired.interval([(b, a) for a, b in pairs], 1, 9701)
+        self.assertAlmostEqual(inverse_low, 1 / high)
+        self.assertAlmostEqual(inverse_high, 1 / low)
+
     def test_schedule_is_balanced_reproducible_and_seeded(self):
         first=paired.schedule(9701)
         self.assertEqual(first, paired.schedule(9701))

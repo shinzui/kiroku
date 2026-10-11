@@ -1,0 +1,136 @@
+{
+  "schema": "cell.artifact-manifest/v1",
+  "layout": 1,
+  "runId": "01a1296f-6876-7645-ad8c-cb1078fb1827",
+  "cell": "alpha",
+  "leaseId": "01a1296f-6876-7645-ad8c-cb11c0e96484",
+  "leaseSequence": 1,
+  "sealedAt": "2026-10-11T05:32:34Z",
+  "agentVersion": "0.1.0",
+  "payload": {
+    "kind": "nix-nar-bundle",
+    "sha256": "0a37cfd29b43e0914f785caadf289917b54790f1b10147817d4a9ae3236d0c92",
+    "storePath": "/nix/store/v0w7afq8wb2pxr6j45nzidwdkfk93qas-stream-head-cell"
+  },
+  "outcome": "completed",
+  "retention": {
+    "policy": "bucket-retention",
+    "retentionSeconds": 34560000
+  },
+  "artifacts": [
+    {
+      "path": "cell/environment.json",
+      "sha256": "fc508f3be4bc98298ed73f5b74e873ba55194150dcc76eab458a75070e915989",
+      "bytes": 746,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/health.json",
+      "sha256": "3dea82f60f1b14bc369c4c89ad598131cebe78fc020f898eca7a4c8f53f479f7",
+      "bytes": 4226,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/observations/driver.json",
+      "sha256": "ba6c61165acc8488cf3a1aa610ec6f0f9ab665d299f57bbe9a126fd435e8e1e1",
+      "bytes": 32666,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/observations/monitoring.json",
+      "sha256": "15fa1bd6fb8e2927733fb6b6b5e50f0dd205bc91891a729cf724b38b16338d3f",
+      "bytes": 32695,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/observations/postgres.json",
+      "sha256": "db1737d25254a38c3743adace5fe8b7f15c1f1ead779baabf64b11a394d28d89",
+      "bytes": 32678,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/reset-evidence.json",
+      "sha256": "3daee64bfec56b9527c9295a59fc9f1f3675ee6325d3b3d68152aeb4fff43a3c",
+      "bytes": 1893,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "cell/result.json",
+      "sha256": "7ab081cd16d867eda355c7330c6847f9f4d8dd22f8f8e9ff9401b0a821e1225c",
+      "bytes": 269,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "logs/entry-exit.json",
+      "sha256": "1b0f348c77578cae66fdcb884abfb4a24544e49ea4a9e11acc237915a6bb7ffd",
+      "bytes": 29,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "logs/stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "mediaType": "text/plain"
+    },
+    {
+      "path": "logs/stdout.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "mediaType": "text/plain"
+    },
+    {
+      "path": "metrics/export.jsonl.zst",
+      "sha256": "9b2424344b1180a6cb2bc6feb84a6a335ff5a4af1123c2463b54d6bc6515157c",
+      "bytes": 138316,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "metrics/window.json",
+      "sha256": "0f9a9cfb0c7c066b918c512143c507099bb0ed600a110c1b4dd83a9f3b056b22",
+      "bytes": 193,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "output/analysis.json",
+      "sha256": "dbb858d39f36e836dc646cbbd281fe135c5aa13ed1ede429bd962a87c8350209",
+      "bytes": 4255,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "output/benchmark.log",
+      "sha256": "61b986e3bd298d9e3c225af7b0e3e4e21a0059f5759871faec369fa9a622f8b9",
+      "bytes": 363,
+      "mediaType": "text/plain"
+    },
+    {
+      "path": "output/samples.csv",
+      "sha256": "00e06850d8c099179b054679d6e6cdf78dd061c4d20ab43a5a402225a08d49c1",
+      "bytes": 51380,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "output/schedule.csv",
+      "sha256": "1d992468b91344ca16e7e0c9bfea554b463a72f0afc655fd29fcacb9749ddcc9",
+      "bytes": 3830,
+      "mediaType": "application/octet-stream"
+    },
+    {
+      "path": "output/summary.json",
+      "sha256": "2574c92802c40a9098e3cc11ee0731f9697d9c8ab533845cfea6ba9b34a5e8fa",
+      "bytes": 407,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "submission/submission.json",
+      "sha256": "66c8a7bdc64bbd243f63dbdf5db75657a083519db72c5da34638d1f79936ccc0",
+      "bytes": 4994,
+      "mediaType": "application/json"
+    },
+    {
+      "path": "submission/work",
+      "sha256": "4a0cf40c74a5592cc608372dd6860003b09754056638df5cb6aa66784a929cb6",
+      "bytes": 59,
+      "mediaType": "application/octet-stream"
+    }
+  ]
+}

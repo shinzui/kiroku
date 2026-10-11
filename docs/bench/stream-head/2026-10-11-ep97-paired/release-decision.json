@@ -1,0 +1,392 @@
+{
+  "status": "passed",
+  "source_revision": "05a11baab7a35335dc38eafd0c9376334e9cc26a",
+  "legacy_limit": 1.1,
+  "trials": [
+    {
+      "trial": "trial-1",
+      "run_id": "01a1296b-5fcb-7106-8f8b-13a31e1dd886",
+      "analysis": {
+        "schema": "ep97.paired-analysis/v1",
+        "seed": 9701,
+        "rounds": 40,
+        "calls": 1000,
+        "rows": 800,
+        "resamples": 20000,
+        "block_lengths": [
+          5,
+          10
+        ],
+        "confidence": 0.99,
+        "status": "passed",
+        "controls_passed": true,
+        "cases": [
+          {
+            "case": "legacy-100",
+            "ratio": 1.0050325982632782,
+            "ci99": [
+              0.9911232536347414,
+              1.0193231572111126
+            ],
+            "block_intervals": {
+              "5": [
+                0.9923005280217787,
+                1.0193231572111126
+              ],
+              "10": [
+                0.9911232536347414,
+                1.0185411367007526
+              ]
+            },
+            "relative_half_width": 0.01402934771722892,
+            "order_ratios": {
+              "BAAB": 1.0136525061161545,
+              "ABBA": 0.9960420067147386
+            },
+            "half_ratios": [
+              1.0028729284408913,
+              1.0071525692107883
+            ],
+            "stable_order": true,
+            "stable_halves": true,
+            "precise": true,
+            "within_limit": true,
+            "passed": true,
+            "mean_a_us": 174.0575874875,
+            "mean_b_us": 174.9335494
+          },
+          {
+            "case": "legacy-100000",
+            "ratio": 1.00436006900078,
+            "ci99": [
+              0.9937471177922989,
+              1.0135647921772946
+            ],
+            "block_intervals": {
+              "5": [
+                0.9937471177922989,
+                1.0135647921772946
+              ],
+              "10": [
+                0.9986626621061206,
+                1.0089395328506972
+              ]
+            },
+            "relative_half_width": 0.009865821529878206,
+            "order_ratios": {
+              "ABBA": 1.014798282875934,
+              "BAAB": 0.9939295354207545
+            },
+            "half_ratios": [
+              1.0056870318243898,
+              1.0030545604074315
+            ],
+            "stable_order": true,
+            "stable_halves": true,
+            "precise": true,
+            "within_limit": true,
+            "passed": true,
+            "mean_a_us": 172.712410025,
+            "mean_b_us": 173.46544805
+          },
+          {
+            "case": "aa-100",
+            "ratio": 1.0060295721125472,
+            "ci99": [
+              0.992869990211523,
+              1.0203714748261707
+            ],
+            "block_intervals": {
+              "5": [
+                0.992869990211523,
+                1.0203714748261707
+              ],
+              "10": [
+                0.9959768693967357,
+                1.0152513617700922
+              ]
+            },
+            "relative_half_width": 0.013668328137162889,
+            "order_ratios": {
+              "ABBA": 1.0058548363803728,
+              "BAAB": 1.006212550255808
+            },
+            "half_ratios": [
+              1.0074166884222864,
+              1.0046913186360054
+            ],
+            "stable_order": true,
+            "stable_halves": true,
+            "precise": true,
+            "within_limit": true,
+            "passed": true,
+            "mean_a_us": 173.9682071,
+            "mean_b_us": 175.01716095
+          },
+          {
+            "case": "aa-100000",
+            "ratio": 0.9921371578184333,
+            "ci99": [
+              0.9817791543076816,
+              1.0037269159531828
+            ],
+            "block_intervals": {
+              "5": [
+                0.9817791543076816,
+                1.0037269159531828
+              ],
+              "10": [
+                0.9827245534677003,
+                1.0026614532727394
+              ]
+            },
+            "relative_half_width": 0.011060850544979652,
+            "order_ratios": {
+              "ABBA": 0.9887272520528171,
+              "BAAB": 0.9955367982619086
+            },
+            "half_ratios": [
+              0.9969863192975876,
+              0.9874386105224343
+            ],
+            "stable_order": true,
+            "stable_halves": true,
+            "precise": true,
+            "within_limit": true,
+            "passed": true,
+            "mean_a_us": 175.028485975,
+            "mean_b_us": 173.6522646125
+          },
+          {
+            "case": "positive-20pct",
+            "ratio": 1.203861211132416,
+            "ci99": [
+              1.1839738966344868,
+              1.2225297545509595
+            ],
+            "block_intervals": {
+              "5": [
+                1.1839738966344868,
+                1.2225297545509595
+              ],
+              "10": [
+                1.188855915130297,
+                1.2220744420390146
+              ]
+            },
+            "relative_half_width": 0.016013414818891354,
+            "order_ratios": {
+              "BAAB": 1.2239516525173169,
+              "ABBA": 1.1853762613412224
+            },
+            "half_ratios": [
+              1.2063999183726117,
+              1.201420989725536
+            ],
+            "stable_order": true,
+            "stable_halves": true,
+            "precise": true,
+            "within_limit": true,
+            "passed": true,
+            "mean_a_us": 168.6001179875,
+            "mean_b_us": 202.9711422375
+          }
+        ]
+      },
+      "entry_seconds": 151.57851266860962
+    },
+    {
+      "trial": "trial-2",
+      "run_id": "01a1296f-6876-7645-ad8c-cb1078fb1827",
+      "analysis": {
+        "schema": "ep97.paired-analysis/v1",
+        "seed": 9702,
+        "rounds": 40,
+        "calls": 1000,
+        "rows": 800,
+        "resamples": 20000,
+        "block_lengths": [
+          5,
+          10
+        ],
+        "confidence": 0.99,
+        "status": "passed",
+        "controls_passed": true,
+        "cases": [
+          {
+            "case": "legacy-100",
+            "ratio": 1.0033479474628206,
+            "ci99": [
+              0.9886776979948827,
+              1.0192413425487454
+            ],
+            "block_intervals": {
+              "5": [
+                0.9886776979948827,
+                1.0192413425487454
+              ],
+              "10": [
+                0.9913208749575377,
+                1.014976022085117
+              ]
+            },
+            "relative_half_width": 0.015230830257414405,
+            "order_ratios": {
+              "BAAB": 1.0080941832843229,
+              "ABBA": 0.9986178001174992
+            },
+            "half_ratios": [
+              1.0027768606577336,
+              1.0038903708156734
+            ],
+            "stable_order": true,
+            "stable_halves": true,
+            "precise": true,
+            "within_limit": true,
+            "passed": true,
+            "mean_a_us": 190.7397650625,
+            "mean_b_us": 191.378351775
+          },
+          {
+            "case": "legacy-100000",
+            "ratio": 0.9951955053588958,
+            "ci99": [
+              0.9810059164081854,
+              1.0072801431138794
+            ],
+            "block_intervals": {
+              "5": [
+                0.9810059164081854,
+                1.0072801431138794
+              ],
+              "10": [
+                0.9826632611694314,
+                1.0050457836010926
+              ]
+            },
+            "relative_half_width": 0.013200535253733277,
+            "order_ratios": {
+              "BAAB": 0.9936759686048953,
+              "ABBA": 0.9966561271281702
+            },
+            "half_ratios": [
+              0.9938614297702313,
+              0.9964758476032136
+            ],
+            "stable_order": true,
+            "stable_halves": true,
+            "precise": true,
+            "within_limit": true,
+            "passed": true,
+            "mean_a_us": 184.2412243375,
+            "mean_b_us": 183.3560383625
+          },
+          {
+            "case": "aa-100",
+            "ratio": 0.9939949105383004,
+            "ci99": [
+              0.9811671489981725,
+              1.0060389035563084
+            ],
+            "block_intervals": {
+              "5": [
+                0.9811671489981725,
+                1.0060389035563084
+              ],
+              "10": [
+                0.9834510479148619,
+                1.0050884814062555
+              ]
+            },
+            "relative_half_width": 0.012511006995330887,
+            "order_ratios": {
+              "ABBA": 0.9929086764763062,
+              "BAAB": 0.9950440932458859
+            },
+            "half_ratios": [
+              1.002042437774388,
+              0.9862247022026469
+            ],
+            "stable_order": true,
+            "stable_halves": true,
+            "precise": true,
+            "within_limit": true,
+            "passed": true,
+            "mean_a_us": 188.102790925,
+            "mean_b_us": 186.9732168375
+          },
+          {
+            "case": "aa-100000",
+            "ratio": 1.0066673516761053,
+            "ci99": [
+              0.9944840689302844,
+              1.01644848422446
+            ],
+            "block_intervals": {
+              "5": [
+                0.9944840689302844,
+                1.01644848422446
+              ],
+              "10": [
+                0.9959239711894138,
+                1.015674248689291
+              ]
+            },
+            "relative_half_width": 0.010909470371520869,
+            "order_ratios": {
+              "ABBA": 1.004141074340083,
+              "BAAB": 1.009262636568333
+            },
+            "half_ratios": [
+              1.008891556973519,
+              1.0045370410598915
+            ],
+            "stable_order": true,
+            "stable_halves": true,
+            "precise": true,
+            "within_limit": true,
+            "passed": true,
+            "mean_a_us": 185.04221915,
+            "mean_b_us": 186.2759607
+          },
+          {
+            "case": "positive-20pct",
+            "ratio": 1.2007882461489603,
+            "ci99": [
+              1.1838130758467769,
+              1.2192296773704034
+            ],
+            "block_intervals": {
+              "5": [
+                1.1838130758467769,
+                1.2192296773704034
+              ],
+              "10": [
+                1.1854516469924004,
+                1.2113160730746626
+              ]
+            },
+            "relative_half_width": 0.014747230261959558,
+            "order_ratios": {
+              "BAAB": 1.1983245744666047,
+              "ABBA": 1.2032778021918982
+            },
+            "half_ratios": [
+              1.2036921225944706,
+              1.1980078764758737
+            ],
+            "stable_order": true,
+            "stable_halves": true,
+            "precise": true,
+            "within_limit": true,
+            "passed": true,
+            "mean_a_us": 185.3212859875,
+            "mean_b_us": 222.531621975
+          }
+        ]
+      },
+      "entry_seconds": 162.98484134674072
+    }
+  ],
+  "max_legacy_upper_bound": 1.0193231572111126
+}

@@ -1,0 +1,38 @@
+{
+  "kind": "paired-proof",
+  "payload_sha256": "132cced7e5446d7715b6de2273d2582935bce72773dcf8a1c44702e550bd7586",
+  "deadline": 1791699014.0,
+  "run_id": "01a12968-9b2d-75bf-a67c-357dca44263d",
+  "lease_id": "01a12968-9b2d-75bf-a67c-357ecb42dc7f",
+  "status": "verified",
+  "verified_trials": 1,
+  "owned_lease_released": true,
+  "acquired_epoch": 1791696087.139224,
+  "submitted_epoch": 1791696103.891309,
+  "phase": "sealed",
+  "result": {
+    "cell": "alpha",
+    "entryExitCode": 0,
+    "entrySignal": null,
+    "leaseId": "01a12968-9b2d-75bf-a67c-357ecb42dc7f",
+    "leaseSequence": 1,
+    "outcome": "completed",
+    "reasons": [],
+    "runId": "01a12968-9b2d-75bf-a67c-357dca44263d",
+    "schema": "cell.run-result/v1"
+  },
+  "summary": {
+    "kind": "paired-proof",
+    "exit_code": 0,
+    "elapsed_seconds": 12.501458406448364,
+    "command": [
+      "/nix/store/yqrmbd5fgnri3wv64lyjra5xjcbscrf2-stream-head-cell-0.1.0.0/bin/stream-head-paired",
+      "/var/lib/cell-agent/work/01a12968-9b2d-75bf-a67c-357dca44263d/results/output/schedule.csv",
+      "/var/lib/cell-agent/work/01a12968-9b2d-75bf-a67c-357dca44263d/results/output/samples.csv",
+      "100"
+    ]
+  },
+  "acceptance_status": "proof-valid",
+  "manifest_sha256": "45e9b62c1afa1ed74cbaad9fbdaaf65df35cb6d6dc72a4eef0186f8581780d0b",
+  "finished_epoch": 1791696242.725974
+}

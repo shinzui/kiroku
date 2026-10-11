@@ -1,5 +1,9 @@
 # Plan 97 implementation evidence
 
+The subsequent [paired release investigation](../2026-10-11-ep97-paired/README.md)
+passed both fixed trials and cleared metadata performance acceptance. This directory
+preserves the original inconclusive experiment unchanged as historical evidence.
+
 This directory retains local PostgreSQL 18.6 correctness/baseline evidence and
 remote PostgreSQL 18.3 / GHC 9.12.4 timing evidence for
 [Plan 97](../../../plans/97-expose-stream-head-global-position-through-an-opt-in-metadata-read.md).

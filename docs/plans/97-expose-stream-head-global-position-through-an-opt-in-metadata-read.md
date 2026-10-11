@@ -62,9 +62,13 @@ additional read traffic competing for the same database resources.
 - [x] (2026-10-11 04:24Z) Milestone 3 structural evidence: all eight natural literal/prepared plans pass bounded origin probes.
 - [x] (2026-10-11 04:59Z) Milestone 3 focused timing: verified two six-case remote trials and recorded opt-in costs for both sizes; every cell met 5% relative deviation.
 - [x] (2026-10-11 05:02Z) Milestone 3 integration: all 16 remote append/category workload cases pass with required precision; sealed result and owned-lease release verified.
-- [ ] Milestone 3 performance acceptance: resolve the initial conflicting ratios with the user-authorized paired investigation below; validate the sampler and complete two fixed remote trials.
+- [x] (2026-10-11 05:17Z) Paired sampler and analyzer implemented; five synthetic checks pass, including rejection of a 17% regression and detection of biased controls. Frozen control and production-isolation audit pass.
+- [x] (2026-10-11 05:24Z) Paired remote proof verified: 80/80 scheduled samples, valid metadata, independent analysis agreement and released lease.
+- [x] (2026-10-11 05:29Z) Paired trial 1 verified and passed all controls, order/time checks and ratio bounds; legacy 99% upper bounds 1.01932 and 1.01356.
+- [x] (2026-10-11 05:33Z) Milestone 3 performance acceptance: both fixed paired trials passed all controls, order/time checks and precision targets. Largest legacy 99% upper bound 1.01932 is below 1.10; the release blocker is cleared.
 - [x] (2026-10-11 04:41Z) Milestone 4 implementation: Haddocks, guide and changelog complete; ADR-19 and IR-18 bundles validate strictly; Haddock generation passes.
-- [x] (2026-10-11 05:03Z) Final evidence/retrospective recorded; all four remote runs verified, all owned leases released, alpha instances independently confirmed TERMINATED.
+- [x] (2026-10-11 05:03Z) Initial evidence/retrospective recorded; all four initial remote runs verified, all owned leases released, alpha instances independently confirmed TERMINATED.
+- [x] (2026-10-11 05:35Z) Paired follow-up closed: both release trials pass, all three sealed runs and lease releases verified, alpha shut down, ADR/IR validation passes, final evidence and retrospective retained.
 
 
 ## Surprises & Discoveries
@@ -120,7 +124,23 @@ Do not create another intention when resuming this plan.
 ## Outcomes & Retrospective
 
 
-Milestone 1 baseline at `109d58f57dbd5757ad55792474d046a37cc2e87d`: 448 existing tests and 13 frozen SQL/column checks passed. Four metadata timing cells passed, with raw evidence in `docs/bench/stream-head/2026-10-11-ep97/`. The additive API and nine lifecycle/mock/snapshot examples now pass; all 26 focused examples include frozen SQL and four literal/prepared plan checks. Full local integration passes (474 store tests, all-package build and Haddocks). Candidate source is committed as `daae3f1ab6b27f8de5d1ba2deed1c3fd5a65e16a`. Two six-case remote trials on PostgreSQL 18.3 measured opt-in reads at approximately 168–198 microseconds per call. The 100-event legacy metadata ratio passed in both (0.94 and 0.95), while the 100,000-event ratio conflicted (1.17 then 1.00). Every timing cell met the 5% deviation target, but this conflict leaves performance acceptance inconclusive; it does not undo functional or structural completion. The unchanged append/category workload gate passed all 16 cases with required precision. The local full suite covers the aggregate structural checks, so its full coverage is satisfied without timing on the busy local machine. Full strict bundle validation passes (19 ADR and 18 IR concepts). Four remote sealed runs and all owned-lease releases are verified; alpha is independently confirmed fully TERMINATED with no active lease. The full experiment ended after 44.95 minutes within its original 60-minute budget. Evidence is retained under `docs/bench/stream-head/2026-10-11-ep97/`. Functional delivery is complete; the plan remains open solely for legacy metadata performance acceptance. ADR-19 records the durable API/snapshot decision. No release or dependency-version change was made.
+Plan 97 implementation and performance acceptance are complete. The user-authorized
+paired follow-up passed both independent remote trials with no production changes,
+threshold relaxation, sample removal or retries. Legacy ratios were 1.00503/1.00436
+in trial 1 and 1.00335/0.99520 in trial 2; the largest 99% upper bound was 1.01932
+against the unchanged 1.10 limit. All identical-code controls passed; the known
+20% extra work measured 1.20386 and 1.20079. Order/time stability and precision checks
+passed. All 1,600 release batches and both independently verified sealed analyses
+are retained in `docs/bench/stream-head/2026-10-11-ep97-paired/`. Six synthetic analyzer
+checks and the 80-batch live proof pass. ADR-19 now records the durable lesson:
+release decisions about small differences need uncertainty for matched ratios and
+controls, not just low deviation inside separate short timing windows. The earlier
+inconclusive experiment below remains historical evidence. All three follow-up runs and owned-lease releases are verified; independent checks
+confirm all four alpha instances TERMINATED and no active lease. The follow-up
+finished in 25.65 minutes within its separately authorized 60-minute budget.
+Strict full ADR/IR bundle validation passes. This work does not publish a package release.
+
+Milestone 1 baseline at `109d58f57dbd5757ad55792474d046a37cc2e87d`: 448 existing tests and 13 frozen SQL/column checks passed. Four metadata timing cells passed, with raw evidence in `docs/bench/stream-head/2026-10-11-ep97/`. The additive API and nine lifecycle/mock/snapshot examples now pass; all 26 focused examples include frozen SQL and four literal/prepared plan checks. Full local integration passes (474 store tests, all-package build and Haddocks). Candidate source is committed as `daae3f1ab6b27f8de5d1ba2deed1c3fd5a65e16a`. Two six-case remote trials on PostgreSQL 18.3 measured opt-in reads at approximately 168–198 microseconds per call. The 100-event legacy metadata ratio passed in both (0.94 and 0.95), while the 100,000-event ratio conflicted (1.17 then 1.00). Every timing cell met the 5% deviation target, but this conflict initially left performance acceptance inconclusive; it does not undo functional or structural completion. The unchanged append/category workload gate passed all 16 cases with required precision. The local full suite covers the aggregate structural checks, so its full coverage is satisfied without timing on the busy local machine. Full strict bundle validation passes (19 ADR and 18 IR concepts). Four remote sealed runs and all owned-lease releases are verified; alpha is independently confirmed fully TERMINATED with no active lease. The full experiment ended after 44.95 minutes within its original 60-minute budget. Evidence is retained under `docs/bench/stream-head/2026-10-11-ep97/`. Functional delivery was complete at that point; only legacy metadata performance acceptance remained open, and the paired follow-up above has now resolved it. ADR-19 records the durable API/snapshot decision. No release or dependency-version change was made.
 
 
 ## Context and Orientation
@@ -693,3 +713,5 @@ and public-runner evidence without launching implementation or performance runs.
 2026-10-11: Implemented the additive API, compatibility/lifecycle/snapshot tests, bounded plan checks and documentation; distilled ADR-19. After the user reported local contention and authorized remote cells, preserved the original experiment deadline and moved unchanged timing actions to alpha. Retained a failed legacy ratio and its conflicting unchanged repeat without claiming performance acceptance.
 
 2026-10-11: At the user's explicit release-blocker request, added a fixed paired follow-up with identical-code and extra-work controls, ratio uncertainty, order/time checks and a new bounded investigation. Earlier experiments and thresholds are preserved.
+
+2026-10-11: Both fixed paired release trials passed every predeclared gate. Close metadata performance acceptance with a maximum 99% upper bound of 1.01932 versus 1.10; retain the original inconclusive evidence and all new samples.
