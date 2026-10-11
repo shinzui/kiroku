@@ -79,7 +79,13 @@ comparison = {'verdict': 'inconclusive', 'pairCount': 5, 'policy': {'confidenceL
               'metrics': {'op.append.throughput': {'ratio': {'estimate': 1.0, 'low': 0.98, 'high': 1.02}},
                           'op.append.latency.p99': {'ratio': {'estimate': 1.01, 'low': 0.99, 'high': 1.03}}}}
 estimates = controller.cost_estimates(comparison)
-assert abs(estimates['metrics']['op.append.throughput']['upperSlowdownBoundPercent'] - 1.9607843137254943) < 1e-9
+assert abs(estimates['metrics']['op.append.throughput']['upperSlowdownBoundPercent'] - 2) < 1e-9
+assert abs(estimates['metrics']['op.append.throughput']['confidenceIntervalPercent'][0] + 2) < 1e-9
+assert abs(estimates['metrics']['op.append.throughput']['confidenceIntervalPercent'][1] - 2) < 1e-9
+asymmetric = dict(comparison, metrics={'op.append.throughput': {'ratio': {'estimate': 0.98, 'low': 0.96, 'high': 0.99}}})
+asymmetric_estimate = controller.cost_estimates(asymmetric)['metrics']['op.append.throughput']
+assert abs(asymmetric_estimate['candidateChangePercent'] + 2) < 1e-9
+assert abs(asymmetric_estimate['upperSlowdownBoundPercent'] - 4) < 1e-9
 assert abs(estimates['metrics']['op.append.latency.p99']['upperSlowdownBoundPercent'] - 3) < 1e-9
 assert comparison['verdict'] == 'inconclusive'
 print('separate sparse diagnostics, realistic observer schedule and cost-bound conversion checks passed')

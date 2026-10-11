@@ -90,9 +90,9 @@ def cost_estimates(comparison):
     for name, row in comparison['metrics'].items():
         ratio = row['ratio']
         throughput = name.endswith('throughput')
-        percent = lambda value: (1 / value - 1) * 100 if throughput else (value - 1) * 100
-        lower = percent(ratio['high'] if throughput else ratio['low'])
-        upper = percent(ratio['low'] if throughput else ratio['high'])
+        percent = lambda value: (value - 1) * 100
+        lower = percent(ratio['low'])
+        upper = percent(ratio['high'])
         metrics[name] = {'candidateChangePercent': percent(ratio['estimate']),
                          'confidenceIntervalPercent': [lower, upper],
                          'upperSlowdownBoundPercent': max(0, -lower if throughput else upper)}
