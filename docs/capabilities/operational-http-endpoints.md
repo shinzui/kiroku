@@ -1,7 +1,7 @@
 ---
 title: "Operational HTTP endpoints: metrics, health, and event streaming"
 type: Capability
-description: "Serve in-process metrics as JSON and Prometheus exposition, liveness/readiness/detailed health, a subscription-status endpoint, durable cross-process checkpoint inventory, and a WebSocket channel for live metrics and events, bounded stream/category/event and subscription dead-letter inspection in the unreleased cohort, with coded WebSocket errors, explicit metrics lifecycle, ordered overflow notices, bounded tail name resolution and host-configured default-off browser CORS, without pulling a web framework into the core library."
+description: "Serve in-process metrics as JSON and Prometheus exposition, liveness/readiness/detailed health, a subscription-status endpoint, durable cross-process checkpoint inventory, and a WebSocket channel for live metrics and events, bounded stream/category/event and subscription dead-letter inspection in the unreleased cohort, with coded WebSocket errors, explicit metrics lifecycle, ordered overflow notices, bounded tail name resolution and host-configured default-off browser CORS, with discovery at /capabilities and standalone hosting through kiroku-inspect, without pulling a web framework into the core library."
 generated:
   by: anthropic/claude-sonnet-4.5
   at: "2026-08-08T00:00:00Z"
@@ -13,6 +13,8 @@ since: "0.1.0.0"
 packages:
   - kiroku-metrics
 interface:
+  - Kiroku.Metrics.Capabilities
+  - Kiroku.Metrics.Standalone
   - Kiroku.Metrics.DeadLetters
   - Kiroku.Metrics.Browse
   - Kiroku.Metrics.Server
@@ -25,6 +27,12 @@ requires:
   - CAP-14
   - CAP-11
 evidence:
+  - kind: test
+    resource: kiroku-metrics/test/Test/CapabilitiesSpec.hs
+    proves: Pinned discovery codecs describe actual provider wiring, configured switches, custom WebSockets, prefix mounts and CORS without invoking providers.
+  - kind: test
+    resource: kiroku-metrics/test/Test/StandaloneSpec.hs
+    proves: A database URL serves store inspection and a real event tail with deterministic cleanup, bounded option resolution and executable signal/exit behavior.
   - kind: test
     resource: kiroku-metrics/test/Test/WebSocketConvergenceSpec.hs
     proves: Additive frames, real stop/resume and resolved tails, sanitized failures, bounded FIFO cache, scoped workers and production overflow notices before survivors with cursor recovery.
@@ -84,8 +92,8 @@ withMetricsServerWithStore cfg collector store [postgresPing store] $ \_ -> runA
 ## Limits
 
 - The bare `startMetricsServer` mounts a **rejecting `stubWebSocketApp`** ("not yet implemented");
-  the real WebSocket/event-streaming path is only mounted by `startMetricsServerWithStore`, which
-  binds an actual `KirokuStore`. Choose the store-backed starter if you want the live socket.
+  store-backed starters and `storeServerProviders` mount the real channels. Custom hosts
+  declare channels in `webSocketChannels`; discovery combines this with the enable switch.
 - The self-verifying `kiroku-metrics-example` executable is gated behind the `-fexample` flag
   (default **off**) because its `ephemeral-pg` / `kiroku-test-support` dependencies are not on
   Hackage.
@@ -108,3 +116,8 @@ tails resolve original names with at most one lookup per batch and 4096 cached
 names. Coded errors sanitize failures. Real drop-oldest overflow is signalled
 before survivors, so clients recover from their last contiguous pre-notice cursor.
 Cumulative append-under-observer performance acceptance remains with the release.
+
+The unreleased cohort is self-describing at `/capabilities` and self-hosting through
+`kiroku-inspect`. The executable opens a migrated store and serves read routes,
+but runs no subscriptions: its live registry and per-worker metrics are empty.
+Discovery labels process-local answers and performs no database access.

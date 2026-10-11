@@ -13,7 +13,7 @@ described in [Observability](observability.md)) plus a couple of public read
 accessors.
 
 > **Deployment assumption — no built-in auth or TLS.** The server has no
-> authentication, TLS, or rate limiting. It binds all interfaces; use network
+> authentication, TLS, or rate limiting. The starters and `kiroku-inspect` bind all interfaces; use network
 > isolation or a sidecar/ingress that terminates TLS and authentication. Treat
 > `/metrics`, `/health`, `/subscriptions`, `/subscription-checkpoints`,
 > `/subscriptions/<name>/dead-letters`, browsing routes, and the WebSocket as you would any
@@ -34,6 +34,8 @@ accessors.
 - [Browsing streams, categories and events](#browsing-streams-categories-and-events-unreleased)
 - [Durable subscription checkpoints over HTTP](#durable-subscription-checkpoints-over-http)
 - [Cross-origin browser access (CORS)](#cross-origin-browser-access-cors)
+- [Discovering the surface](#discovering-the-surface)
+- [Running the standalone server](#running-the-standalone-server)
 - [Try it](#try-it)
 - [See Also](#see-also)
 
@@ -125,17 +127,22 @@ Every starter waits for Warp readiness before returning and propagates bind or s
 failure. Bracketed starters supervise unexpected server termination and release the
 server when the callback ends or fails. The callback runs in a supervised thread.
 
-New hosts wanting every store-backed route bind the providers explicitly:
+New hosts wanting every store-backed route bind the providers explicitly.
+When importing the full umbrella, qualify configuration record updates to
+distinguish their labels from the standalone option records:
 
 ```haskell
-let cfg = defaultConfig{port = 9091}
+import Kiroku.Metrics.Config qualified as Config
+
+let cfg = defaultConfig{Config.port = 9091}
 providers <- storeServerProviders cfg metrics store
 withMetricsServerWithProviders cfg metrics [postgresPing store] providers $ \server ->
   useServer server
 ```
 
 `ServerProviders` contains `webSocketServer`, optional `subscriptionStatus` and
-optional `checkpointInventory`, `storeBrowsing` and `deadLetters`.
+optional `checkpointInventory`, `storeBrowsing` and `deadLetters`, plus declared
+`webSocketChannels`.
 `defaultServerProviders` rejects upgrades and leaves every read provider absent. Record updates allow custom sources. The legacy store
 starter wires the WebSocket, durable inventory, browse reads and dead letters while keeping the live route's
 published unconfigured 404; it does not opt into the live registry automatically.
@@ -145,6 +152,8 @@ WAI application. A host strips its prefix from `pathInfo`; the composition also 
 that relative path for WebSocket dispatch and retains the query string. The bare
 `httpAppWithProviders` router requires the host to apply CORS. `enableWebSocket = False`
 prevents upgrade dispatch, including through legacy starters.
+
+Every server reports its wiring at [`/capabilities`](#discovering-the-surface).
 
 ## Wire-format stability
 
@@ -782,6 +791,113 @@ This is a read-only surface: POST, DELETE and other methods return 405. Redrive,
 delete and retry-policy changes require separate safety semantics. The route
 joins the [published wire contract](#wire-format-stability) when released.
 
+## Discovering the surface
+
+`GET /capabilities` describes the configured application, regardless of the
+`enableJSON`, `enablePrometheus` or `enableWebSocket` switches. HEAD returns the
+same status and headers with no body; other methods return structured 405
+`method_not_allowed` with `Allow: GET, HEAD`. Discovery performs no database
+access and contains no absolute URLs or origin allowlist.
+
+```bash
+curl -s http://localhost:9091/capabilities | jq .
+```
+
+The response captured from the real standalone test (compiled version before
+the cohort release):
+
+```json
+{
+  "package": "kiroku-metrics",
+  "version": "0.2.0.0",
+  "routes": {
+    "metrics": true,
+    "prometheus": true,
+    "health": true,
+    "subscriptions_live": true,
+    "subscriptions_checkpoints": true,
+    "dead_letters": true,
+    "browse": true,
+    "websocket_metrics": true,
+    "websocket_events": true
+  },
+  "cors": {"enabled": true},
+  "process_local": ["metrics", "prometheus", "health", "subscriptions_live", "websocket_metrics"]
+}
+```
+
+`package` identifies this surface and `version` comes from the Cabal-generated
+package version (`kirokuMetricsVersion`), rather than a separately maintained
+string. Route booleans reflect switches and provider presence. An available
+route can still return a temporary failure; this is wiring discovery, not a
+readiness probe. `cors.enabled` means explicit origins are configured.
+
+`process_local` identifies answers about this process, including Prometheus.
+Live subscriptions and metrics in a standalone server are empty because it runs
+no workers; durable inventory, dead letters and history read the shared database.
+The same durable facts may be observed from different processes, subject to
+intervening commits between requests.
+
+WebSocket booleans combine `enableWebSocket` with `ServerProviders.webSocketChannels`.
+`storeServerProviders` and the legacy store starters declare both channels.
+`defaultServerProviders` and plain starters declare none. Legacy
+`startMetricsServerWith` / `startMetricsServerWith'` and `combinedApp` cannot
+inspect their opaque caller-supplied app and conservatively report none; custom
+hosts use providers and declare their actual channels. Disabling WebSockets
+prevents upgrade dispatch even for a custom declared app.
+
+These new keys join the published contract on release. Clients should ignore
+unknown keys and render screens using these booleans. For a complete client
+workflow see [Building an inspection UI](../guides/building-an-inspection-ui.md).
+
+## Running the standalone server
+
+`kiroku-inspect` ships in `kiroku-metrics` and serves the inspection backend from
+an already migrated database, without writing a Haskell host program:
+
+```bash
+DATABASE_URL='postgresql://localhost/kiroku' kiroku-inspect --port 9091 --cors-origin http://localhost:5173
+```
+
+```text
+kiroku-inspect: connected to schema "kiroku"; listening on port 9091
+kiroku-inspect: routes browse=on subscriptions_checkpoints=on dead_letters=on subscriptions_live=on websocket_events=on cors=on
+kiroku-inspect: this process runs no subscriptions; /subscriptions, /metrics, and /health reflect only this process
+```
+
+The banner appears only after successful binding. Port zero selects a free port
+and reports the actual port. The server runs no subscription workers:
+`/subscriptions` answers `200 []`, `/metrics` has an empty `subscriptions` map,
+and readiness checks its own PostgreSQL connection. Browse, checkpoint,
+dead-letter and event-tail routes read the store. The executable does not apply
+migrations or serve static UI files.
+
+| Flag | Environment fallback | Default / meaning |
+| --- | --- | --- |
+| `--database-url URL` | `DATABASE_URL` | Required; libpq connection string passed verbatim |
+| `--schema NAME` | `KIROKU_INSPECT_SCHEMA` | `kiroku`; already migrated schema, including notification channel |
+| `--pool-size N` | `KIROKU_INSPECT_POOL_SIZE` | 10; positive connection pool size |
+| `--port N` | `KIROKU_INSPECT_PORT` | 9091; 0–65535, zero selects a free port |
+| `--cors-origin ORIGIN` (repeatable) | `KIROKU_INSPECT_CORS_ORIGINS` (comma-separated) | None; explicit HTTP(S) origins, wildcard refused |
+| `--cors-allow-credentials` / `--no-cors-allow-credentials` | `KIROKU_INSPECT_CORS_ALLOW_CREDENTIALS` | false; environment accepts `true`, `false`, `1`, `0` |
+| `--ws-max-connections N` | `KIROKU_INSPECT_WS_MAX_CONNECTIONS` | 100; positive connection limit |
+
+Flags override variables, including malformed variables. An explicit negative
+credentials flag overrides environment True; the two flags are mutually
+exclusive. Empty environment values count as unset. Numeric values require ASCII
+decimal digits and are range-checked before narrowing to machine integers.
+An explicitly empty database URL or schema is an error. URL-bearing records
+have no `Show` instance, startup banners omit the connection string and runtime
+failure diagnostics are redacted.
+
+SIGINT and SIGTERM request a joined shutdown, print
+`kiroku-inspect: shutting down`, release the server and store, and exit 0.
+Usage/resolution errors exit 2; startup or runtime failure exits 1. No bind-address
+option is available: the listener binds every interface. Restrict access with a
+controlled network/firewall or an authenticating TLS proxy. CORS is browser
+access policy, not authentication. For one-origin deployments a reverse proxy
+can serve the page and API together without enabling CORS.
+
 ## Try it
 
 The package ships a self-verifying example that boots an ephemeral store, starts
@@ -793,16 +909,17 @@ cabal run -fexample kiroku-metrics-example
 ```
 
 ```text
-[1/10] ephemeral postgres ready
-[2/10] store + collector + metrics server on port 62340
-[3/10] appended 3 events to orders-1
-[4/10] HTTP /metrics, /prometheus, /health/live, /health/ready all OK
-[5/10] CORS: preflight and GET from https://ops.example.com allowed; https://evil.example.com undecorated
-[6/10] GET /subscription-checkpoints store_position=3 with no durable checkpoints (this example runs no subscription)
-[7/10] Stream browsing and historical events resolve original stream names
-[8/10] GET /subscriptions/example/dead-letters returned an empty page (this example runs no subscription)
-[9/10] WebSocket /ws/events received event eventType=OrderRefunded
-[10/10] kiroku-metrics-example: all checks passed (snapshot global position = 4)
+[1/11] ephemeral postgres ready
+[2/11] store + collector + metrics server on port 64815
+[3/11] appended 3 events to orders-1
+[4/11] HTTP /metrics, /prometheus, /health/live, /health/ready all OK
+[5/11] CORS: preflight and GET from https://ops.example.com allowed; https://evil.example.com undecorated
+[6/11] GET /subscription-checkpoints store_position=3 with no durable checkpoints (this example runs no subscription)
+[7/11] Stream browsing and historical events resolve original stream names
+[8/11] GET /subscriptions/example/dead-letters returned an empty page (this example runs no subscription)
+[9/11] GET /capabilities reports browse, checkpoints, dead letters, and the event tail
+[10/11] WebSocket /ws/events received event eventType=OrderRefunded
+[11/11] kiroku-metrics-example: all checks passed (snapshot global position = 4)
 ```
 
 The source is `kiroku-metrics/example/Main.hs`; it is the authoritative,

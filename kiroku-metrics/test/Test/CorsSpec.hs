@@ -26,6 +26,7 @@ import System.Timeout (timeout)
 import Test.Hspec
 
 import Kiroku.Metrics
+import Kiroku.Metrics.Config qualified as Config
 import Kiroku.Metrics.JSON (errorEnvelope, storeErrorResponse)
 import Kiroku.Store (StreamName (..), defaultConnectionSettings, withStore)
 import Kiroku.Store.Error (StoreError (..))
@@ -238,7 +239,7 @@ withInspection :: CorsPolicy -> (Int -> IO a) -> IO a
 withInspection cors action = withMigratedTestDatabase $ \connStr -> do
     metrics <- newKirokuMetricsWith (pure (GlobalPosition 0)) (pure 0)
     withStore (defaultConnectionSettings connStr) $ \store ->
-        withMetricsServerWithStore (defaultConfig{port = 0, cors}) metrics store [] $ \server -> do
+        withMetricsServerWithStore (defaultConfig{Config.port = 0, Config.cors = cors}) metrics store [] $ \server -> do
             threadDelay 300_000
             action server.serverPort
 

@@ -19,6 +19,7 @@ import Effectful (Eff, IOE, runEff)
 import Effectful.Dispatch.Dynamic (interpret_)
 import Effectful.Error.Static (Error, runErrorNoCallStack)
 import Kiroku.Metrics hiding (items)
+import Kiroku.Metrics.Config qualified as Config
 import Kiroku.Store qualified as Store
 import Kiroku.Store.Effect (Store (..))
 import Kiroku.Test.Postgres (withMigratedTestDatabase)
@@ -64,7 +65,7 @@ spec = describe "Kiroku.Metrics.Browse" $ do
         append store "shipments-1" 1
         metrics <- newKirokuMetrics store
         providers <- storeServerProviders defaultConfig metrics store
-        withMetricsServerWithProviders defaultConfig{port = 0} metrics [] providers $ \server -> do
+        withMetricsServerWithProviders defaultConfig{Config.port = 0} metrics [] providers $ \server -> do
             let fetch = get server.serverPort
             first <- fetch "/streams?category=orders&limit=1"
             field "next_cursor" (body first) `shouldBe` Just (String "orders-1")

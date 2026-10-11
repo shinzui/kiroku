@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-10-11
+* **Addition**: ADR-18 records provider composition, mount-relative hosting, standalone inspection and pure capability discovery.
+
 ## 2026-10-10
 * **Decision**: ADR-17 records user-approved UTF-8 byte stream ordering and one shared browse-name index; final-layout write-cost and cumulative release acceptance remain separate.
 * **Update**: Coordinate browsing and prefix-subscription physical access; avoid redundant indexes and require cumulative append-cost evidence against one original control without per-feature additive regression allowances. No index is authorized.

@@ -1,11 +1,13 @@
 {- | The shared inspection composition. Store-backed behavior enters through
 provider closures; HTTP and WebSocket dispatch share a mount-relative path and
-one outer CORS policy. Legacy starters retain their signatures.
+one outer CORS policy. /capabilities reports this wiring without store access.
+Legacy starters retain their signatures.
 -}
 module Kiroku.Metrics.Server (
     MetricsServer (..),
     ServerProviders (..),
     defaultServerProviders,
+    providerPresence,
     storeServerProviders,
     startMetricsServerWithProviders,
     withMetricsServerWithProviders,
@@ -30,6 +32,7 @@ import Control.Exception (bracket, finally, mask, onException, throwIO)
 import Data.Aeson (encode, object, (.=))
 import Data.ByteString.Builder (toLazyByteString)
 import Data.ByteString.Lazy qualified as LBS
+import Data.Maybe (isJust)
 import Data.Text (Text)
 import Network.HTTP.Types (status200, status404, status503)
 import Network.HTTP.Types.URI (encodePathSegments)
@@ -40,6 +43,7 @@ import Network.Wai.Handler.WebSockets qualified as WaiWS
 import Network.WebSockets qualified as WS
 
 import Kiroku.Metrics.Browse (StoreBrowser, browseApp, browseNotConfiguredApp, storeBrowser)
+import Kiroku.Metrics.Capabilities (ProviderPresence (..), WebSocketChannels, capabilitiesApp, capabilitiesFor, noWebSocketChannels, storeWebSocketChannels)
 import Kiroku.Metrics.Checkpoints (CheckpointInventoryProvider, checkpointsApp, checkpointsNotConfiguredApp, storeCheckpointInventory)
 import Kiroku.Metrics.Collector (KirokuMetrics)
 import Kiroku.Metrics.Config (MetricsServerConfig (..))
@@ -74,11 +78,13 @@ data ServerProviders = ServerProviders
     -- ^ Backs the stream, category and event inspection routes.
     , deadLetters :: !(Maybe DeadLetterProvider)
     -- ^ Backs GET /subscriptions/<name>/dead-letters.
+    , webSocketChannels :: !WebSocketChannels
+    -- ^ Channels served by the opaque WebSocket app, declared for /capabilities.
     }
 
 -- | Reject upgrades and leave all optional providers unconfigured.
 defaultServerProviders :: ServerProviders
-defaultServerProviders = ServerProviders stubWebSocketApp Nothing Nothing Nothing Nothing
+defaultServerProviders = ServerProviders stubWebSocketApp Nothing Nothing Nothing Nothing noWebSocketChannels
 
 {- | Build every store-backed provider, including the process-local live registry.
 Bind this action first, then use 'withMetricsServerWithProviders'.
@@ -86,7 +92,7 @@ Bind this action first, then use 'withMetricsServerWithProviders'.
 storeServerProviders :: MetricsServerConfig -> KirokuMetrics -> KirokuStore -> IO ServerProviders
 storeServerProviders cfg m store = do
     wsState <- newWebSocketState cfg.wsMaxConnections
-    pure $ ServerProviders (websocketApp cfg m store wsState) (Just (storeSubscriptionStatus store)) (Just (storeCheckpointInventory store)) (Just (storeBrowser store)) (Just (storeDeadLetters store))
+    pure $ ServerProviders (websocketApp cfg m store wsState) (Just (storeSubscriptionStatus store)) (Just (storeCheckpointInventory store)) (Just (storeBrowser store)) (Just (storeDeadLetters store)) storeWebSocketChannels
 
 {- | Return only after Warp is ready; bind/setup failures are rethrown.
 Ephemeral sockets are explicitly closed on every exit, including cancellation.
@@ -184,47 +190,61 @@ httpApp cfg m deps mProvider = httpAppWithProviders cfg m deps defaultServerProv
 
 -- | Unwrapped HTTP router, matching paths relative to the host's mount.
 httpAppWithProviders :: MetricsServerConfig -> KirokuMetrics -> [DependencyCheck] -> ServerProviders -> Application
-httpAppWithProviders cfg m deps providers req respond =
-    case pathInfo req of
-        ["metrics", "prometheus"] | cfg.enablePrometheus -> prometheusApp m req respond
-        ["metrics"] | cfg.enableJSON -> jsonApp m req respond
-        ["metrics", _] | cfg.enableJSON -> jsonApp m req respond
-        prefix : _ | prefix `elem` ["streams", "categories", "events"] -> browseRoute
-        ["subscription-checkpoints"] -> checkpointsRoute
-        ["subscriptions", _, "dead-letters"] -> deadLettersRoute
-        ["subscriptions"] -> subscriptionsRoute
-        ["subscriptions", _] -> subscriptionsRoute
-        ["health"] | cfg.enableJSON -> do
-            (readiness, snap) <- checkDetailedHealth cfg m deps
-            respond $
-                jsonResponse
-                    (statusFor readiness.ready)
-                    (encode (object ["status" .= readiness, "metrics" .= snap]))
-        ["health", "live"] | cfg.enableJSON -> do
-            liveness <- checkLiveness cfg m
-            respond (jsonResponse (statusFor liveness.alive) (encode liveness))
-        ["health", "ready"] | cfg.enableJSON -> do
-            readiness <- checkReadiness cfg m deps
-            respond (jsonResponse (statusFor readiness.ready) (encode readiness))
-        ["ws"]
-            | cfg.enableWebSocket ->
+httpAppWithProviders cfg m deps providers = dispatch
+  where
+    discovery = capabilitiesApp (capabilitiesFor cfg (providerPresence providers))
+    dispatch req respond =
+        case pathInfo req of
+            ["capabilities"] -> discovery req respond
+            ["metrics", "prometheus"] | cfg.enablePrometheus -> prometheusApp m req respond
+            ["metrics"] | cfg.enableJSON -> jsonApp m req respond
+            ["metrics", _] | cfg.enableJSON -> jsonApp m req respond
+            prefix : _ | prefix `elem` ["streams", "categories", "events"] -> browseRoute
+            ["subscription-checkpoints"] -> checkpointsRoute
+            ["subscriptions", _, "dead-letters"] -> deadLettersRoute
+            ["subscriptions"] -> subscriptionsRoute
+            ["subscriptions", _] -> subscriptionsRoute
+            ["health"] | cfg.enableJSON -> do
+                (readiness, snap) <- checkDetailedHealth cfg m deps
+                respond $
+                    jsonResponse
+                        (statusFor readiness.ready)
+                        (encode (object ["status" .= readiness, "metrics" .= snap]))
+            ["health", "live"] | cfg.enableJSON -> do
+                liveness <- checkLiveness cfg m
+                respond (jsonResponse (statusFor liveness.alive) (encode liveness))
+            ["health", "ready"] | cfg.enableJSON -> do
+                readiness <- checkReadiness cfg m deps
+                respond (jsonResponse (statusFor readiness.ready) (encode readiness))
+            ["ws"]
+                | cfg.enableWebSocket ->
+                    respond $
+                        jsonResponse
+                            status404
+                            (encode (object ["error" .= ("WebSocket endpoint - use ws:// protocol" :: Text)]))
+            _ ->
+                respond (jsonResponse status404 (encode (object ["error" .= ("Not found" :: Text)])))
+      where
+        statusFor ok = if ok then status200 else status503
+        deadLettersRoute = maybe deadLettersNotConfiguredApp deadLettersApp providers.deadLetters req respond
+        browseRoute = maybe browseNotConfiguredApp browseApp providers.storeBrowsing req respond
+        checkpointsRoute = case providers.checkpointInventory of
+            Just provider -> checkpointsApp provider req respond
+            Nothing -> checkpointsNotConfiguredApp req respond
+        subscriptionsRoute = case providers.subscriptionStatus of
+            Just provider -> subscriptionsApp provider req respond
+            Nothing ->
                 respond $
                     jsonResponse
                         status404
-                        (encode (object ["error" .= ("WebSocket endpoint - use ws:// protocol" :: Text)]))
-        _ ->
-            respond (jsonResponse status404 (encode (object ["error" .= ("Not found" :: Text)])))
-  where
-    statusFor ok = if ok then status200 else status503
-    deadLettersRoute = maybe deadLettersNotConfiguredApp deadLettersApp providers.deadLetters req respond
-    browseRoute = maybe browseNotConfiguredApp browseApp providers.storeBrowsing req respond
-    checkpointsRoute = case providers.checkpointInventory of
-        Just provider -> checkpointsApp provider req respond
-        Nothing -> checkpointsNotConfiguredApp req respond
-    subscriptionsRoute = case providers.subscriptionStatus of
-        Just provider -> subscriptionsApp provider req respond
-        Nothing ->
-            respond $
-                jsonResponse
-                    status404
-                    (encode (object ["error" .= ("subscription status not configured" :: Text)]))
+                        (encode (object ["error" .= ("subscription status not configured" :: Text)]))
+
+-- | Pure wiring summary; evaluating it never invokes a provider.
+providerPresence :: ServerProviders -> ProviderPresence
+providerPresence providers =
+    ProviderPresence
+        (isJust providers.subscriptionStatus)
+        (isJust providers.checkpointInventory)
+        (isJust providers.storeBrowsing)
+        (isJust providers.deadLetters)
+        providers.webSocketChannels

@@ -4,6 +4,8 @@
 
 ### Breaking Changes
 
+- `ServerProviders` gains `webSocketChannels`; complete constructors must supply the declaration. Custom callers can update `defaultServerProviders`. New standalone record labels in the umbrella import may require qualified record updates.
+
 - `ClientMessage` gains `UnsubscribeMetrics` and `ServerMessage` gains `CodedError`; exhaustive Haskell matches must handle the additions. Published wire growth is additive.
 
 * `ServerProviders` adds optional `storeBrowsing`; use `defaultServerProviders` plus record updates for custom composition.
@@ -12,6 +14,10 @@
   `defaultConfig` record updates; complete or positional construction must supply it.
 
 ### New Features
+
+- `GET`/`HEAD /capabilities` reports actual wiring, declared WebSocket channels and process-local scope without database reads. `Kiroku.Metrics.Capabilities` exports codecs and the generated `kirokuMetricsVersion`.
+- `kiroku-inspect` and `Kiroku.Metrics.Standalone` serve the store-backed inspection API from a database URL, with validated CLI/environment options, explicit CORS and joined SIGINT/SIGTERM shutdown. It runs no subscriptions.
+- Add `optparse-applicative` as a library dependency for the reusable standalone parser.
 
 - `unsubscribe_metrics` stops periodic snapshots; `subscribe_metrics` requests a fresh snapshot and resumes periodic delivery without duplicate workers.
 - Tail errors carry stable `code` values: `replay_failed`, `category_read_failed`, `live_decode_failed`, `event_stream_overflowed`, with sanitized messages.
@@ -38,6 +44,8 @@
   `cors_method_not_allowed` and `invalid_cors_request` codes.
 
 ### Other Changes
+
+- Document discovery, standalone hosting and the complete client workflow in `docs/guides/building-an-inspection-ui.md`.
 
 * Server acquisition waits for Warp readiness and propagates bind failures;
   bracketed lifetimes supervise server termination and release sockets.

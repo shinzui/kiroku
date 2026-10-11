@@ -26,3 +26,5 @@ okf_version: "0.2"
 - [Browser inspection access is explicit and default off](0016-browser-inspection-access-is-explicit-and-default-off.md) - Apply validated explicit-origin CORS at the composed WAI boundary, preserving disabled behavior and enforcing origin policy before WebSocket upgrades.
 - [Stream browsing uses byte order and one shared name index](0017-stream-browsing-uses-byte-order-and-one-shared-name-index.md) - Use stable UTF-8 byte order for new stream pages, share one name index across category and literal-prefix browsing, and retain separate measured write-cost acceptance.
 
+
+- [The inspection surface is composable, self-hosting and self-describing](0018-the-inspection-surface-is-composable-self-hosting-and-self-describing.md) - Compose inspection through declared providers, host it standalone in the sister package and discover actual wiring without reading the store.

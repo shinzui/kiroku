@@ -12,6 +12,10 @@ semantics of one function or type.
 
 ## Available Guides
 
+- [Building an inspection UI](building-an-inspection-ui.md) — run or embed the
+  inspection surface, discover available routes, browse category streams, combine
+  durable progress with process-local status, and recover a live tail safely.
+
 - [Consuming The Event Log](consuming-the-event-log.md) — the comprehensive
   subscriptions guide: choosing an approach, the catch-up→live lifecycle,
   filtering by event type, at-least-once and idempotency, retry/dead-letter,

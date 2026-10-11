@@ -17,6 +17,11 @@ provenance:
       at: 2026-10-10T15:41:07Z
       mode: "update"
       note: "Correct current APIs, integration ownership and bounded observer work; runtime acceptance remains pending."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-11T02:39:50Z
+      mode: "implement"
+      note: "Implement capability discovery and standalone inspection with focused lifecycle and composition checks."
   reviews:
     - model: "gpt-6-astra"
       harness: "codex-cli"
@@ -113,34 +118,34 @@ keiro mounts behind a path prefix stays a plain value with relative paths.
 - [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
 - [ ] Implement and execute the focused correctness and performance acceptance added by this review.
 
-- [ ] M0: verify every hard dependency is complete in the working tree (`ServerProviders` with
+- [x] (2026-10-10) M0: verify every hard dependency is complete in the working tree (`ServerProviders` with
       `webSocketServer`, `subscriptionStatus`, `checkpointInventory`, `browser`, `deadLetters`;
       the modules `Kiroku.Metrics.Cors`, `Kiroku.Metrics.Checkpoints`, `Kiroku.Metrics.Browse`,
       `Kiroku.Metrics.DeadLetters`; `errorEnvelope`/`errorResponse` in `Kiroku.Metrics.JSON`);
       record the observed state in Surprises & Discoveries and stop if anything is missing.
-- [ ] M1: `Kiroku.Metrics.Capabilities` module (`WebSocketChannels`, `ProviderPresence`,
+- [x] (2026-10-10) M1: `Kiroku.Metrics.Capabilities` module (`WebSocketChannels`, `ProviderPresence`,
       `RouteAvailability`, `Capabilities`, `capabilitiesFor`, `kirokuMetricsVersion`,
       `capabilitiesApp`) with hand-written JSON codec; `Paths_kiroku_metrics` wired into the
       library stanza.
-- [ ] M1: additive `webSocketChannels :: !WebSocketChannels` field on `ServerProviders`; the
+- [x] (2026-10-10) M1: additive `webSocketChannels :: !WebSocketChannels` field on `ServerProviders`; the
       `/capabilities` arm mounted in `httpAppWithProviders` ahead of the catch-all; every starter
       declares its channels truthfully; umbrella re-export; changelog `Unreleased` bullets.
-- [ ] M1: `kiroku-metrics/test/Test/CapabilitiesSpec.hs` (codec pin, standalone mount, plain
+- [x] (2026-10-10) M1: `kiroku-metrics/test/Test/CapabilitiesSpec.hs` (codec pin, standalone mount, plain
       server, store-backed server, `enableJSON = False`, non-GET); registered; suite green.
-- [ ] M2: `Kiroku.Metrics.Standalone` module (`InspectOptions`, `inspectOptionsParser`,
+- [x] (2026-10-10) M2: `Kiroku.Metrics.Standalone` module (`InspectOptions`, `inspectOptionsParser`,
       `inspectParserInfo`, `resolveInspectOptions`, `InspectRuntime`, `InspectHooks`,
       `runInspect`, `renderStartupBanner`); `optparse-applicative` added to the library
       `build-depends`.
 - [ ] M2: `executable kiroku-inspect` stanza with `app-inspect/Main.hs` (signal handling,
       exit codes); `cabal build kiroku-metrics:exe:kiroku-inspect`, `cabal check`, `cabal sdist`,
       and `nix build .#kiroku-metrics` all succeed.
-- [ ] M2: `kiroku-metrics/test/Test/StandaloneSpec.hs` (parser and resolution examples, one
+- [x] (2026-10-10) M2: `kiroku-metrics/test/Test/StandaloneSpec.hs` (parser and resolution examples, one
       end-to-end run against a real database, one CORS run); registered; suite green.
-- [ ] M3: `docs/guides/building-an-inspection-ui.md` written and indexed in
+- [x] (2026-10-10) M3: `docs/guides/building-an-inspection-ui.md` written and indexed in
       `docs/guides/README.md`; `docs/user/metrics.md` gains "Discovering the surface" and
       "Running the standalone server"; `docs/user/operator-cli.md` distinguishes `kiroku` from
       `kiroku-inspect`; `docs/user/README.md` summary line updated.
-- [ ] M3: `kiroku-metrics/example/Main.hs` checks `/capabilities`; the quoted transcript in
+- [x] (2026-10-10) M3: `kiroku-metrics/example/Main.hs` checks `/capabilities`; the quoted transcript in
       `docs/user/metrics.md` updated; CAP-17 and `docs/capabilities/log.md` updated;
       `just capabilities-validate` green; changelog `Unreleased` finalized for this plan's scope.
 - [ ] M4: ADR allocated with `okf id next`, written, logged, `just adr-validate` and the strict
@@ -149,12 +154,25 @@ keiro mounts behind a path prefix stays a plain value with relative paths.
 
 ## Surprises & Discoveries
 
+- 2026-10-10 packaging recovery: the first Nix invocation was interrupted after about eight minutes waiting on configured remote building; it also predated the final HEAD/error and shared-discovery closure changes. Its log is retained. The final check uses `--builders '' --max-jobs 2 -L`, preserving visible local compilation progress and testing finished source. This is packaging recovery, not a performance sample or a new benchmark budget.
+
+- 2026-10-10 lifecycle evidence: standalone tests add occupied-port, immediate shutdown, hook failure, cancellation and real SIGINT/SIGTERM cases. Existing `CheckpointsSpec` again tests unexpected server termination and cancellation at acquisition; `runInspect` uses that unchanged supervised bracket directly and adds no exception-swallowing layer. The collector allocates STM state only, with no collector thread to stop.
+
+- 2026-10-10 implementation: focused discovery passed 7 examples; standalone options/lifetime passed 8; executable exit/signal checks passed 3. The integrated metrics suite passed 116 examples (14.0858s), with every pre-existing assertion retained. Final package, full-repository and Nix checks remain in progress.
+- 2026-10-10 packaging: the existing Nix overlay erased every executable dependency to exclude the unpublished example. It now keeps the published `kiroku-inspect` dependencies while the example remains disabled. Cabal package checking reported no errors or warnings.
+
+- 2026-10-10 implementation baseline: all five predecessors are Complete; the five provider fields and CORS/error helpers are present. The browse field is `storeBrowsing`, retained throughout this implementation. `cabal test kiroku-metrics -j1` passed 98 examples (11.3455s); log `/tmp/mp13-ep6-baseline.log`.
+
 - 2026-10-10 source review: The onListening sketches disagreed on arity and could run before bind success. Exported record selectors collided across the umbrella module; a Bool credentials switch could not override an environment True with False. No runtime acceptance is inferred from this finding.
 
 (None yet.)
 
 
 ## Decision Log
+
+- Decision (2026-10-10 implementation): preserve `storeBrowsing`, include Prometheus in the fixed process-local list, and use persistent `Catch` signal handlers with `tryPutMVar` so repeated signals cannot restore a terminating default or block. NoFieldSelectors prevents exported function clashes, but record labels still require qualified updates; two pre-existing tests receive only mechanical qualification, with every assertion unchanged.
+
+- Decision (2026-10-10 implementation): proportional evidence is the 98-example baseline, discovery provider non-invocation assertions, and the real standalone lifecycle/read path. No store/publisher/migration code changes or additional index/append cost are introduced; cumulative release performance acceptance remains plan 96.
 
 - Decision (2026-10-10): the reviewed Context and Plan of Work supersede incompatible September choices on dependencies, routes, decoding, method handling, bounds and performance. Implementation remains pending; durable constraints are in ADR-15.
   Rationale: the released APIs changed and the original sketches contained correctness and shared-resource hazards.
@@ -306,6 +324,8 @@ keiro mounts behind a path prefix stays a plain value with relative paths.
 
 
 ## Outcomes & Retrospective
+
+2026-10-10 implementation checkpoint: discovery, standalone options/server/executable, UI guide, example and ADR-18 are implemented. All six suites passed 672 examples; the eleven-step example passed, an external umbrella consumer compiled, and the source distribution includes the executable. The final Nix build remains active; no child completion or cumulative release performance acceptance is claimed yet.
 
 2026-10-10 review: implementation and performance acceptance remain pending. Static review does not prove zero runtime regression. Earlier planning-time observations and dated decisions are historical where this revision explicitly replaces them.
 

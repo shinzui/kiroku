@@ -154,13 +154,16 @@ final: prev: {
     doJailbreak (
       overrideCabal
         (_: {
-          # The self-verifying example executable (cabal flag `example`, on by
-          # default so `cabal run kiroku-metrics-example` works in the dev shell)
-          # depends on kiroku-test-support -> ephemeral-pg, which has no buildable
-          # source in this nixpkgs Haskell set. Turn the flag off and drop the
-          # example's deps so the library builds under nix.
+          # Keep the default-off example's unpublished dependencies out of the
+          # executable closure. The always-built kiroku-inspect uses published
+          # dependencies and GHC's unix library; do not strip its inputs.
           configureFlags = [ "-f-example" ];
-          executableHaskellDepends = [ ];
+          executableHaskellDepends = with final; [
+            base
+            optparse-applicative
+            text
+            unix
+          ];
         })
         (
           final.callCabal2nix "kiroku-metrics" ../kiroku-metrics {

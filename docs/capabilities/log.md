@@ -1,6 +1,7 @@
 # Capability Catalog Log
 
 ## 2026-10-11
+* **Update**: CAP-17 records capability discovery and the standalone inspection server, with focused wiring, lifecycle, signal and client-guide evidence. Cohort publication and cumulative performance acceptance remain pending.
 * **Update**: CAP-12 and CAP-17 record unreleased public dead-letter reads, bounded historical-member paging, unchanged structured reasons and library/HTTP validation under plan 89.
 
 ## 2026-10-10

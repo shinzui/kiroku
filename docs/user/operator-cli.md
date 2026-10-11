@@ -61,6 +61,10 @@ non-zero with guidance (the standalone binary runs no subscriptions of its own, 
 there is nothing local to read). An unreachable endpoint prints a readable error,
 not a Haskell exception dump.
 
+The `kiroku` binary is a remote client and opens no database.
+[`kiroku-inspect`](metrics.md#running-the-standalone-server), from `kiroku-metrics`,
+opens a database and serves the inspection backend for a browser UI.
+
 ## How Status Is Sourced
 
 The worker side serves `/subscriptions` from `subscriptionStates store`, which
