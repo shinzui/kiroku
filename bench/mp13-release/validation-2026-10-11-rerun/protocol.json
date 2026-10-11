@@ -1,0 +1,32 @@
+{
+  "started_epoch": 1791729986,
+  "candidate": "109d58f57dbd5757ad55792474d046a37cc2e87d",
+  "control": "364ffa82136fcfc83d39ead1234abffaf500844b",
+  "original_payload": "bench/mp13-release/validation-2026-10-11/payload.json",
+  "runtime_binaries_changed": false,
+  "proof_trials": 1,
+  "cases": [
+    "disabled",
+    "active"
+  ],
+  "pairs_per_case": 5,
+  "warmup_seconds": 10,
+  "measurement_seconds": 30,
+  "forecast_seconds_per_trial": 100,
+  "setup_proof_allowance_seconds": 420,
+  "cleanup_reserve_seconds": 180,
+  "confidence": 0.95,
+  "max_ci_relative_width": 0.06,
+  "allowed_slowdown": 0,
+  "no_favorable_retries": true,
+  "checkpoint_evidence": "1Hz snapshots enclosing entire entry; any counter, LSN, reset, or non-idle checkpointer activity rejects benchmark admission",
+  "lease": "one lease for proof and full queue; previous verified gate lifecycle reused for release/shutdown proof",
+  "sources": {
+    "bench/mp13-release/run-cell.py": "50cf1fcbc29c60bff8a0764506c8dd34d8a681354e4d79b496795d80a9bca4b8",
+    "bench/mp13-release/run.py": "88622112728e9032cd6f17e7d4170a92e42c28dd026e2b1387b63baa11561f22",
+    "bench/mp13-release/observer-cell/observe.py": "bb39f4fa4c62dcc702ffd21dc6d0be8e72267755bb4261f5ce265379dede3967",
+    "bench/mp13-release/flake.nix": "51f4fca7d233ae7940b19e4f22f4d2ea0d7f962590157619e8b6257d6c1a4db9",
+    "bench/mp13-release/flake.lock": "d4c4cc1fdc828d77bd457d213db4c3671dc02300a27bc137e4bf78138f4d6962"
+  },
+  "recorded_at": 1791730336.882907
+}

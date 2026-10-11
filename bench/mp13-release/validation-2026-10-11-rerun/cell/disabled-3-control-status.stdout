@@ -1,0 +1,1 @@
+{"schema":"cell.status/v1","runId":"01a12b85-8b91-74c9-9f03-3cd6b82ffead","phase":"sealed","leaseSequence":9,"updatedAt":"2026-10-11T15:13:44Z","phaseStartedAt":"2026-10-11T15:13:44Z","logChunks":{"stdout":0,"stderr":0},"outcome":"completed","manifestSha256":"b8c51eb040292caf6943743590568393a9e26ab95ca4df5f1ce24c9c12d39303"}

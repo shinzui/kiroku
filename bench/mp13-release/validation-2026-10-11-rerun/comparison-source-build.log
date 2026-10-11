@@ -1,0 +1,256 @@
+[ 1 of 19] Compiling Kenshou.Core.Canonical ( /Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-core/src/Kenshou/Core/Canonical.hs, /tmp/kiroku-mp13-validation/compare-source-build/Kenshou/Core/Canonical.o )
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-core/src/Kenshou/Core/Canonical.hs:3:1: error: [GHC-87110]
+    Could not find module ‘Crypto.Hash.SHA256’.
+    Use -v to see a list of the files searched for.
+  |
+3 | import Crypto.Hash.SHA256 qualified as SHA256
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-core/src/Kenshou/Core/Canonical.hs:4:1: error: [GHC-61948]
+    Could not find module ‘Data.Aeson’.
+    Perhaps you meant Data.Version (from base-4.21.2.0)
+    Use -v to see a list of the files searched for.
+  |
+4 | import Data.Aeson (Value (..), encode)
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-core/src/Kenshou/Core/Canonical.hs:5:1: error: [GHC-87110]
+    Could not find module ‘Data.Aeson.Key’.
+    Use -v to see a list of the files searched for.
+  |
+5 | import Data.Aeson.Key qualified as Key
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-core/src/Kenshou/Core/Canonical.hs:6:1: error: [GHC-87110]
+    Could not find module ‘Data.Aeson.KeyMap’.
+    Use -v to see a list of the files searched for.
+  |
+6 | import Data.Aeson.KeyMap qualified as KeyMap
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-core/src/Kenshou/Core/Canonical.hs:8:1: error: [GHC-61948]
+    Could not find module ‘Data.ByteString.Base16’.
+    Perhaps you meant
+      Data.ByteString.Lazy (from bytestring-0.12.2.0)
+      Data.ByteString.Unsafe (from bytestring-0.12.2.0)
+      Data.ByteString.Char8 (from bytestring-0.12.2.0)
+    Use -v to see a list of the files searched for.
+  |
+8 | import Data.ByteString.Base16 qualified as Base16
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-core/src/Kenshou/Core/Canonical.hs:14:1: error: [GHC-61948]
+    Could not find module ‘Data.Vector’.
+    Perhaps you meant Data.Functor (from base-4.21.2.0)
+    Use -v to see a list of the files searched for.
+   |
+14 | import Data.Vector qualified as Vector
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+[ 2 of 19] Compiling Kenshou.Core.Id  ( /Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-core/src/Kenshou/Core/Id.hs, /tmp/kiroku-mp13-validation/compare-source-build/Kenshou/Core/Id.o )
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-core/src/Kenshou/Core/Id.hs:25:1: error: [GHC-61948]
+    Could not find module ‘Data.Aeson’.
+    Perhaps you meant Data.Version (from base-4.21.2.0)
+    Use -v to see a list of the files searched for.
+   |
+25 | import Data.Aeson (FromJSON (..), ToJSON (..), withText)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-core/src/Kenshou/Core/Id.hs:32:1: error: [GHC-87110]
+    Could not find module ‘Data.UUID’.
+    Use -v to see a list of the files searched for.
+   |
+32 | import Data.UUID (UUID)
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-core/src/Kenshou/Core/Id.hs:33:1: error: [GHC-87110]
+    Could not find module ‘Data.UUID’.
+    Use -v to see a list of the files searched for.
+   |
+33 | import Data.UUID qualified as UUID
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-core/src/Kenshou/Core/Id.hs:34:1: error: [GHC-87110]
+    Could not find module ‘Data.UUID.V7’.
+    Use -v to see a list of the files searched for.
+   |
+34 | import Data.UUID.V7 qualified as UUID.V7
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-core/src/Kenshou/Core/Id.hs:36:1: error: [GHC-87110]
+    Could not find module ‘System.Random.SplitMix’.
+    Use -v to see a list of the files searched for.
+   |
+36 | import System.Random.SplitMix (SMGen, mkSMGen)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+[ 3 of 19] Compiling Kenshou.Core.Outcome ( /Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-core/src/Kenshou/Core/Outcome.hs, /tmp/kiroku-mp13-validation/compare-source-build/Kenshou/Core/Outcome.o )
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-core/src/Kenshou/Core/Outcome.hs:11:1: error: [GHC-61948]
+    Could not find module ‘Data.Aeson’.
+    Perhaps you meant Data.Version (from base-4.21.2.0)
+    Use -v to see a list of the files searched for.
+   |
+11 | import Data.Aeson (FromJSON (..), ToJSON (..), withText)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+[ 4 of 19] Compiling Kenshou.Core.Version ( /Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-core/src/Kenshou/Core/Version.hs, /tmp/kiroku-mp13-validation/compare-source-build/Kenshou/Core/Version.o )
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-core/src/Kenshou/Core/Version.hs:6:1: error: [GHC-87110]
+    Could not find module ‘Paths_kenshou_core’.
+    Use -v to see a list of the files searched for.
+  |
+6 | import Paths_kenshou_core (version)
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+[ 6 of 19] Compiling Kenshou.Measure.Clock ( /Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Clock.hs, /tmp/kiroku-mp13-validation/compare-source-build/Kenshou/Measure/Clock.o )
+[ 7 of 19] Compiling Kenshou.Measure.Compare.Compatibility ( /Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Compare/Compatibility.hs, /tmp/kiroku-mp13-validation/compare-source-build/Kenshou/Measure/Compare/Compatibility.o )
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Compare/Compatibility.hs:54:36: error: [GHC-25037]
+    Unexpected case expression in function application:
+        case axis of
+          VaryControl -> objectValue
+          VaryCohort -> KeyMap.delete "cohortPlanHash" objectValue
+          VaryDimension name -> updateNested "dimensions" name objectValue
+          VaryKnob name -> updateNested "knobs" name objectValue
+    Suggested fixes:
+      • Use parentheses.
+      • Perhaps you intended to use the ‘BlockArguments’ extension
+   |
+54 |       Object objectValue -> Object case axis of
+   |                                    ^^^^^^^^^^^^...
+
+[ 8 of 19] Compiling Kenshou.Measure.Compare.Ordering ( /Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Compare/Ordering.hs, /tmp/kiroku-mp13-validation/compare-source-build/Kenshou/Measure/Compare/Ordering.o )
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Compare/Ordering.hs:14:1: error: [GHC-87110]
+    Could not find module ‘System.Random.SplitMix’.
+    Use -v to see a list of the files searched for.
+   |
+14 | import System.Random.SplitMix (mkSMGen, nextWord64)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+[ 9 of 19] Compiling Kenshou.Measure.Compare.Policy ( /Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Compare/Policy.hs, /tmp/kiroku-mp13-validation/compare-source-build/Kenshou/Measure/Compare/Policy.o )
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Compare/Policy.hs:36:36: error: [GHC-06074]
+    Unexpected lambda expression in function application:
+        \ value
+          -> case value of
+               "higher-is-better" -> pure HigherIsBetter
+               "lower-is-better" -> pure LowerIsBetter
+               _ -> fail "direction must be higher-is-better or lower-is-better"
+    Suggested fixes:
+      • Use parentheses.
+      • Perhaps you intended to use the ‘BlockArguments’ extension
+   |
+36 |   parseJSON = withText "Direction" \value -> case value of
+   |                                    ^^^^^^^^^^^^^^^^^^^^^^^...
+
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Compare/Policy.hs:46:39: error: [GHC-06074]
+    Unexpected lambda expression in function application:
+        \ value
+          -> MetricRule <$> value .: "match" <*> value .: "direction"
+               <*> value
+               .: "relativeLimit"
+               <*> value
+               .: "absoluteFloor"
+    Suggested fixes:
+      • Use parentheses.
+      • Perhaps you intended to use the ‘BlockArguments’ extension
+   |
+46 |   parseJSON = withObject "MetricRule" \value -> MetricRule <$> value .: "match" <*> value .: "direction" <*> value .: "relativeLimit" <*> value .: "absoluteFloor"
+   |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Compare/Policy.hs:52:35: error: [GHC-06074]
+    Unexpected lambda expression in function application:
+        \ value
+          -> do schema <- value .: "schema"
+                if schema /= ("kenshou.comparison-policy/v1" :: Text) then
+                    fail "unsupported comparison policy"
+                else
+                    pure ()
+                ....
+    Suggested fixes:
+      • Use parentheses.
+      • Perhaps you intended to use the ‘BlockArguments’ extension
+   |
+52 |   parseJSON = withObject "Policy" \value -> do
+   |                                   ^^^^^^^^^^^^...
+
+[11 of 19] Compiling Kenshou.Measure.Histogram ( /Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Histogram.hs, /tmp/kiroku-mp13-validation/compare-source-build/Kenshou/Measure/Histogram.o )
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Histogram.hs:145:28: error: [GHC-52095]
+    Unexpected do block in function application:
+        do mutable <- newPrimArray left.layout.arrayLength
+           forM_
+             [0 .. left.layout.arrayLength - 1]
+             \ index
+               -> writePrimArray
+                    mutable index
+                    (indexPrimArray left.counts index
+                       + indexPrimArray right.counts index)
+           unsafeFreezePrimArray mutable
+    Suggested fixes:
+      • Use parentheses.
+      • Perhaps you intended to use the ‘BlockArguments’ extension
+    |
+145 |             counts = runST do
+    |                            ^^...
+
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Histogram.hs:147:56: error: [GHC-06074]
+    Unexpected lambda expression in function application:
+        \ index
+          -> writePrimArray
+               mutable index
+               (indexPrimArray left.counts index
+                  + indexPrimArray right.counts index)
+    Suggested fixes:
+      • Use parentheses.
+      • Perhaps you intended to use the ‘BlockArguments’ extension
+    |
+147 |               forM_ [0 .. left.layout.arrayLength - 1] \index ->
+    |                                                        ^^^^^^^^^...
+
+[13 of 19] Compiling Kenshou.Measure.Metrics ( /Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Metrics.hs, /tmp/kiroku-mp13-validation/compare-source-build/Kenshou/Measure/Metrics.o )
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Metrics.hs:16:35: error: [GHC-06074]
+    Unexpected lambda expression in function application:
+        \ value -> Metric <$> value .: "value" <*> value .: "unit"
+    Suggested fixes:
+      • Use parentheses.
+      • Perhaps you intended to use the ‘BlockArguments’ extension
+   |
+16 |   parseJSON = withObject "Metric" \value -> Metric <$> value .: "value" <*> value .: "unit"
+   |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+[14 of 19] Compiling Kenshou.Measure.Samples ( /Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Samples.hs, /tmp/kiroku-mp13-validation/compare-source-build/Kenshou/Measure/Samples.o )
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Samples.hs:79:25: error: [GHC-52095]
+    Unexpected do block in function application:
+        do full <- isFullTBQueue writer.queue
+           writeTBQueue writer.queue (WriteBlock workerId records)
+           pure full
+    Suggested fixes:
+      • Use parentheses.
+      • Perhaps you intended to use the ‘BlockArguments’ extension
+   |
+79 |   wasFull <- atomically do
+   |                         ^^...
+
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Samples.hs:83:20: error: [GHC-52095]
+    Unexpected do block in function application:
+        do modifyIORef' writer.backpressure (+ 1)
+    Suggested fixes:
+      • Use parentheses.
+      • Perhaps you intended to use the ‘BlockArguments’ extension
+   |
+83 |   whenFull wasFull do
+   |                    ^^...
+
+[15 of 19] Compiling Kenshou.Measure.Stats ( /Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Stats.hs, /tmp/kiroku-mp13-validation/compare-source-build/Kenshou/Measure/Stats.o )
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Stats.hs:13:1: error: [GHC-61948]
+    Could not find module ‘Data.Aeson’.
+    Perhaps you meant Data.Version (from base-4.21.2.0)
+    Use -v to see a list of the files searched for.
+   |
+13 | import Data.Aeson (ToJSON (..), object, (.=))
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/Users/shinzui/Keikaku/bokuno/keiro-runtime-kenshou/kenshou-measure/src/Kenshou/Measure/Stats.hs:16:1: error: [GHC-87110]
+    Could not find module ‘System.Random.SplitMix’.
+    Use -v to see a list of the files searched for.
+   |
+16 | import System.Random.SplitMix (mkSMGen, nextWord64)
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

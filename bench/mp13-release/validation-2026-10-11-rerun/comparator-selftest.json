@@ -1,0 +1,18 @@
+{
+  "checks": [
+    {
+      "expected": "pass",
+      "statuses": [
+        "pass"
+      ]
+    },
+    {
+      "expected": "regression",
+      "statuses": [
+        "regression"
+      ]
+    }
+  ],
+  "binary_sha256": "661fe5029618fd4e6427210b5b71a5d5586ac3647f995cebecd862acc2d8ae7a",
+  "policy_sha256": "d63f377e961400536f0bbb3550477ad359a3b11cd1000af7a854e5da1dbaa5b9"
+}

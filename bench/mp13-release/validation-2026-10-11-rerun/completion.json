@@ -1,0 +1,70 @@
+{
+  "finished": 1791733366.837404,
+  "deadline": 1791733586,
+  "measured_trials": 20,
+  "readiness_trials": 1,
+  "pairs_per_case": 5,
+  "measured_appends": 660159,
+  "release_accepted": false,
+  "cases": {
+    "disabled": {
+      "latency.p50": {
+        "estimate": 1.5115398273798375,
+        "low": -0.90654340850993,
+        "high": 3.988629245280162,
+        "status": "inconclusive"
+      },
+      "latency.p95": {
+        "estimate": 1.7672371967416112,
+        "low": -1.0199237437065412,
+        "high": 4.63288126633834,
+        "status": "inconclusive"
+      },
+      "latency.p99": {
+        "estimate": 4.742637773532832,
+        "low": -36.15797258425276,
+        "high": 71.84636221391996,
+        "status": "inconclusive"
+      },
+      "throughput": {
+        "estimate": -1.5439705729524578,
+        "low": -4.089718447249169,
+        "high": 1.0693491209089911,
+        "status": "inconclusive"
+      }
+    },
+    "active": {
+      "latency.p50": {
+        "estimate": 0.898251394213978,
+        "low": -1.2506260926424595,
+        "high": 3.093890437835811,
+        "status": "inconclusive"
+      },
+      "latency.p95": {
+        "estimate": -0.01510221225926589,
+        "low": -3.647472033140464,
+        "high": 3.754203408793022,
+        "status": "inconclusive"
+      },
+      "latency.p99": {
+        "estimate": -14.034600950549493,
+        "low": -40.89028418933799,
+        "high": 25.022591165939502,
+        "status": "inconclusive"
+      },
+      "throughput": {
+        "estimate": -0.3701517189286796,
+        "low": -3.3711438048090514,
+        "high": 2.7240418582466175,
+        "status": "inconclusive"
+      }
+    }
+  },
+  "cleanup": {
+    "template_removed": false,
+    "template": "mp13_01a12b744dab76618bd36711314258f8",
+    "lease_released": true,
+    "all_stopped": true
+  },
+  "assessment_source_sha256": "80bad62e7f14ad119ef2ea890fde14a93b098ea814914ce5de921aed81f492bd"
+}

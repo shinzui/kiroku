@@ -1,0 +1,374 @@
+{
+  "started": 1791730404.778666,
+  "deadline": 1791733586,
+  "payload_sha256": "360950b46eb86721a278ca6d9d0f375e8e6fe10b6a741d3e52247503759e81af",
+  "trials": [
+    {
+      "label": "proof",
+      "arm": "candidate",
+      "mode": "active",
+      "run_id": "01a12b75-41b1-7099-b9a8-230838d6ab24",
+      "started": 1791730467.251145,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "0c65109332da80dde285c364668f64a4e15041fe1ca884402c5b45cdd855d997",
+      "checkpoint_evidence": {
+        "samples": 43,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791730619.673172,
+      "manifest_sha256": "6469892f851b625324fa6eb9360d43da7c84f18d6219b0392ecce23662a97ff2"
+    },
+    {
+      "label": "disabled-0-control",
+      "arm": "control",
+      "mode": "disabled",
+      "run_id": "01a12b77-951b-7682-a116-86dcc7552daf",
+      "started": 1791730619.6767192,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "8c85a8fd440ae87d9607abf02f471d0009c2b6993780ac15c9b693dd67fb4d22",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791730752.099631,
+      "manifest_sha256": "0f2fed41f67351808a98d612ee9b711e36ac413586aa18e5e2129753f72a4b05"
+    },
+    {
+      "label": "disabled-0-candidate",
+      "arm": "candidate",
+      "mode": "disabled",
+      "run_id": "01a12b79-9a64-76ad-8ec3-eabc68cee270",
+      "started": 1791730752.101331,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "7b7851c06befa2d6ddfdfbf28376a6dcebc3a4635558b2208530bbebfba84702",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791730883.42082,
+      "manifest_sha256": "c7c453366cf2bc40c2639f3291b4dce77e41b59f64c2f1f31f8ea316a7ed7ebb"
+    },
+    {
+      "label": "disabled-1-candidate",
+      "arm": "candidate",
+      "mode": "disabled",
+      "run_id": "01a12b7b-9b5d-77d0-b099-88038d6caecb",
+      "started": 1791730883.422622,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "76cdbd10c5c6053bfccff4d8c88095a0e870f3b32a8c191609e0964ecc9678e9",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791731016.826514,
+      "manifest_sha256": "930dae41cc7ce557151efbf75094ec23803f658e53602a2876a87192d2c89c99"
+    },
+    {
+      "label": "disabled-1-control",
+      "arm": "control",
+      "mode": "disabled",
+      "run_id": "01a12b7d-a47b-7041-8b56-d2f55f3089d3",
+      "started": 1791731016.828632,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "37b45113dc79a95d9cbdd8d7ed88daa368e513adc6c8c3968b37b83172765c4f",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791731151.7222831,
+      "manifest_sha256": "c0945d5842bdc8e7a6b129b9cb80f73ca8c95ab70c3a7d0dd88b3fa81ffce147"
+    },
+    {
+      "label": "disabled-2-control",
+      "arm": "control",
+      "mode": "disabled",
+      "run_id": "01a12b7f-b36b-71f1-aa22-c0d938a751ca",
+      "started": 1791731151.724341,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "1401576eb1d2344405c326a50674460d2513815eeabd7ce015f50dbd66d7c498",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791731284.094062,
+      "manifest_sha256": "0a3b6943578d12dd5a9e0f4f73f8a7b2ef9e6736656c62f0a54753ff234b2c0f"
+    },
+    {
+      "label": "disabled-2-candidate",
+      "arm": "candidate",
+      "mode": "disabled",
+      "run_id": "01a12b81-b87f-7602-ba62-8314198d95e0",
+      "started": 1791731284.0957818,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "93b3a7b4e2246fa8a12857ccd749ef4a6c44625a95dae7ae235d69048bd1129c",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791731400.273802,
+      "manifest_sha256": "ec09e8d7c5039f163725f0e15fcc4ff9ac4aecea6792eddd073cd030dfe04210"
+    },
+    {
+      "label": "disabled-3-candidate",
+      "arm": "candidate",
+      "mode": "disabled",
+      "run_id": "01a12b83-7e53-71cb-9fb9-e6e41c4c4d3a",
+      "started": 1791731400.276265,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "7474c343a5687da9fb5658ccb9c82d87c32697c2e8e5f9dbf34ec30e6ad9c632",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791731534.7361338,
+      "manifest_sha256": "b5235e1039e0bfdf4b167381b5b6c4b71a4810d82fd5841e99be8fb58e90b5fd"
+    },
+    {
+      "label": "disabled-3-control",
+      "arm": "control",
+      "mode": "disabled",
+      "run_id": "01a12b85-8b91-74c9-9f03-3cd6b82ffead",
+      "started": 1791731534.738244,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "d1eabe87209a088bf871551de2d51b6252784f13210e209643a553ad5ed3bd0d",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791731655.1277912,
+      "manifest_sha256": "b8c51eb040292caf6943743590568393a9e26ab95ca4df5f1ce24c9c12d39303"
+    },
+    {
+      "label": "disabled-4-control",
+      "arm": "control",
+      "mode": "disabled",
+      "run_id": "01a12b87-61d9-767f-968a-09eba8f67034",
+      "started": 1791731655.129907,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "9fac83c12a05105cf07d6e6d93b0b308cfc2fdac03ee86dfc97825a24ec6fc37",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791731776.538304,
+      "manifest_sha256": "2df2c846021e961d0a08f28eea97761c42eb2bd04617bad763be6016f3cb56e4"
+    },
+    {
+      "label": "disabled-4-candidate",
+      "arm": "candidate",
+      "mode": "disabled",
+      "run_id": "01a12b89-3c1b-74e3-b2fe-ab67dfaf561d",
+      "started": 1791731776.540471,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "1f3f64e85de07e4cca2e8cac3a8c575fc96dfcf4b732c87d4c05cf7e99835564",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791731894.666989,
+      "manifest_sha256": "899cc1a5653e68849aa03fef58c07b5d160a63da095dc449b5a08d3e7812901b"
+    },
+    {
+      "label": "active-0-control",
+      "arm": "control",
+      "mode": "active",
+      "run_id": "01a12b8b-098c-7740-923f-1cb906b9bc2c",
+      "started": 1791731894.669131,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "4758230d74a2fb04b02761beb8fb4b9937ec16ed406ab1805c5fdf1355aaf097",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791732029.6110048,
+      "manifest_sha256": "2fc95476017731b29d9ce5416b7ba762f4c4553a4ad9398b7ec31069ec513c3c"
+    },
+    {
+      "label": "active-0-candidate",
+      "arm": "candidate",
+      "mode": "active",
+      "run_id": "01a12b8d-18ac-7482-acc6-3f112e127966",
+      "started": 1791732029.613426,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "c635986f4c07402b13021167c5d6a8744932766f1cba17c362d4ac586d70d45f",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791732163.576865,
+      "manifest_sha256": "99588aa65b50c931a158d76ea7f53a9a074d42b7376e161af22aa96263cc5c06"
+    },
+    {
+      "label": "active-1-candidate",
+      "arm": "candidate",
+      "mode": "active",
+      "run_id": "01a12b8f-23fa-713c-aef8-d6835a19f834",
+      "started": 1791732163.579333,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "a2d2bce07e090e58c77d2f3b6bf3dcf7d4a79d0e5519ed6aac70cb527dd9d6d1",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791732280.613707,
+      "manifest_sha256": "d3cd46e9a5a44f07d39d47c6719998bca6089c0bdd65a4ea2a26360aa07fa288"
+    },
+    {
+      "label": "active-1-control",
+      "arm": "control",
+      "mode": "active",
+      "run_id": "01a12b90-ed27-7787-bc3e-c967e7003377",
+      "started": 1791732280.615901,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "89d13de0693ee7ded2bec0f72e4413440588d72dce5a894a723d6ddab5208b36",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791732418.635115,
+      "manifest_sha256": "ccb880ae9706416c32944ab61877439f823758250fcfc3c8c691ab36a71e23c7"
+    },
+    {
+      "label": "active-2-control",
+      "arm": "control",
+      "mode": "active",
+      "run_id": "01a12b93-084d-7128-8daa-e0eaa71038f6",
+      "started": 1791732418.637745,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "6ea22382c073dcd0a0aa8c5f745263647da6e7fbc0598cc6b1b30e7c5d6b8ef4",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791732555.3971221,
+      "manifest_sha256": "671bfcaa20af26ce55101d4e75ad78484e7d36315e4b2084a3b35cde65eeb856"
+    },
+    {
+      "label": "active-2-candidate",
+      "arm": "candidate",
+      "mode": "active",
+      "run_id": "01a12b95-1e87-710f-9a0d-5993d80c0caa",
+      "started": 1791732555.4001138,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "de0912bce2a2295775664f7db52229862766f00fa1be4dd8f06d52fc5734b064",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791732707.984472,
+      "manifest_sha256": "97b236a9dd72b7c61a0aecc0a0fa6f026a55d646aae7a31a0b95c9424a1d9ea5"
+    },
+    {
+      "label": "active-3-candidate",
+      "arm": "candidate",
+      "mode": "active",
+      "run_id": "01a12b97-7292-76ce-ba6e-bd899cd742a0",
+      "started": 1791732707.9878368,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "41e7d5c17d13bef0aaa75b45a8415034d8ac66327ade4b5290a646ec67db8be2",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791732848.716758,
+      "manifest_sha256": "732cb606270fa18c48f5fef27c9f37c8e206a1c4c565fa88e9cfe8e7b2289221"
+    },
+    {
+      "label": "active-3-control",
+      "arm": "control",
+      "mode": "active",
+      "run_id": "01a12b99-984e-7145-be65-bebdaa1c2a61",
+      "started": 1791732848.7195861,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "81877d0278e7c9da0c5bf9a3d0f2458a1b42a7408f77d0d47fe9308615458d4c",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791732973.881769,
+      "manifest_sha256": "99300f761f010ea20d2c13e3762cc6920647405c54769c70e7393d71b7257990"
+    },
+    {
+      "label": "active-4-control",
+      "arm": "control",
+      "mode": "active",
+      "run_id": "01a12b9b-813b-7379-8a5d-d8c6428022fb",
+      "started": 1791732973.884794,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "25a47407558cf32e0fd04bb62d73a4eea183b756b7ffdcc04dea2ab1daed223c",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791733105.249473,
+      "manifest_sha256": "3eab382ce0a90740bb208b59a79fcfc7b8190d472bac215de28f88f1e441f52a"
+    },
+    {
+      "label": "active-4-candidate",
+      "arm": "candidate",
+      "mode": "active",
+      "run_id": "01a12b9d-8263-736b-9d90-57d4afb03db9",
+      "started": 1791733105.252148,
+      "status": "verified",
+      "phase": "sealed",
+      "trial_sha256": "5b29dbcbd02928e2b100f19041b1cd135eca74732172f26e7815af99a331a337",
+      "checkpoint_evidence": {
+        "samples": 42,
+        "overlap_fraction": 0,
+        "scope": "entire entry including fixture and warmup"
+      },
+      "finished": 1791733248.9631941,
+      "manifest_sha256": "32afd01ceafdf15759e8c09d40678602ca06580308c2bf35a223355ce9e87eb8"
+    }
+  ],
+  "status": "complete",
+  "lease_id": "01a12b74-4dab-7661-8bd3-6711314258f8",
+  "phase": "waiting-for-ssh-readiness",
+  "template": "mp13_01a12b744dab76618bd36711314258f8",
+  "proof_verified": true,
+  "template_cleanup_error": "Command '['bash', '/Users/shinzui/Keikaku/bokuno/load-testing-infra/scripts/iap-ssh.sh', 'ssh', 'cell-alpha-postgres', '--', \"sudo -u postgres psql -X -v ON_ERROR_STOP=1 -d postgres -c 'ALTER DATABASE mp13_01a12b744dab76618bd36711314258f8 IS_TEMPLATE false'\"]' timed out after 90 seconds",
+  "lease_release_exit": 0,
+  "stop_exit": 0,
+  "all_stopped": true,
+  "finished": 1791733366.837404
+}

@@ -470,7 +470,8 @@ rule suffices.
 
 - [x] (2026-10-11) EP-7: confirm six functional children and 672 fresh passing examples; prepare a registry/tag-derived, unapplied six-package release patch, validated source archives, executable and consumer fixtures.
 - [x] (2026-10-11) EP-7: commit batch-proportional tail-cache miss discovery (`30307c1`), pass 116 metrics tests, and finish final proposal build/Nix/Haddock/consumer packaging. Retain all earlier trials and one corrected six-trial observer comparison.
-- [ ] EP-7: resolve retained aggregate timing failures and inconclusive cumulative original-control acceptance before publication.
+- [x] (2026-10-11 rerun) EP-7: finish one remote proof and 20 measured original-control trials under one lease; independently verify artifacts, delivery, checkpoint symmetry and cleanup. All 16 dedicated-host workload gates also pass.
+- [ ] EP-7: obtain cumulative performance acceptance and native benchmark-grade timing evidence before publication. The completed five-pair inactive and active comparisons do not pass the unchanged policy.
 
 - [x] (2026-10-10) EP-3 selected-layout measurement: verify proof plus five fresh and five observer pairs, all 21 benchmark-grade trials, raw recomputation and lease/cell cleanup. Preserve adverse cost estimates and unresolved precision in the [report](../../bench/mp13-index/evidence/2026-10-10-byte-name/README.md); EP-3 local design review is now closed by user endorsement; cumulative release acceptance remains owned by EP-7.
 
@@ -532,6 +533,8 @@ rule suffices.
 
 
 ## Surprises & Discoveries
+
+2026-10-11 cumulative rerun: Inspection-disabled throughput is -1.544% [-4.090%, +1.069%] and active-observer throughput is -0.370% [-3.371%, +2.724%] (95% intervals). The completed evidence narrows the remaining issue to unresolved comparison intervals and missing native benchmark-grade timing frames; setup, delivery, sealed-artifact verification and cleanup now succeed. The original runtime binaries and all adverse samples are retained in the [controlled comparison](../../bench/mp13-release/validation-2026-10-11-rerun/README.md).
 
 - 2026-10-11 EP-7: full retained-name key enumeration amplified small tail-batch work; requested-ID membership checks preserve lookup/cache/wire behavior. The initial diagnostic also gave the candidate extra client bookkeeping in the server process. All samples remain retained, and the corrected comparison is inconclusive. Package metadata is a concrete isolated proposal; publication and final requests remain pending.
 
@@ -708,6 +711,8 @@ rule suffices.
 
 
 ## Decision Log
+
+- Decision (2026-10-11 cumulative rerun): retain the original zero-slowdown policy after the complete paired experiment. Independent opaque-probe verification is useful evidence but does not manufacture native grade certification. No release or additional remote queue is authorized by successful execution alone.
 
 - Decision (2026-10-10 approved continuation): pursue one shared physical design
   after the user's approval of the measured replacement trade-off. Test a
@@ -936,10 +941,12 @@ retained, and the corrected six-trial comparison verifies 296,504 measured
 appends with unique-position counts; that historical oracle did not reject duplicates
 or reordering. The old aggregate check passed structural invariants and 14/16
 timings; its two high-variance failures remain retained. The unchanged workload
-gate now passes all 16 cases on dedicated PG18. Cumulative inspection acceptance
-remains inconclusive: the corrected remote observer proof did not complete and
-no original-control pair was measured in the bounded follow-up. See the
-[validation checkpoint](../../bench/mp13-release/validation-2026-10-11/README.md). See
+gate now passes all 16 cases on dedicated PG18. The newly authorized rerun completes the readiness proof and all ten original-control
+pairs with verified delivery, checkpoint symmetry, artifact hashes and cleanup.
+Cumulative inspection acceptance remains open: the unchanged comparison policy
+is not passed, and native benchmark-grade timing evidence is missing. See the
+[controlled comparison](../../bench/mp13-release/validation-2026-10-11-rerun/README.md). The earlier failed
+[validation checkpoint](../../bench/mp13-release/validation-2026-10-11/README.md) remains retained. See
 [release evidence](../../bench/mp13-release/evidence/README.md). The browse index's
 retained policy verdict stays inconclusive.
 No gate was relaxed, no version bumped or package published; IR-8 through IR-12
@@ -1228,3 +1235,8 @@ controller fault checks pass. The unchanged dedicated-host workload gate passes
 16/16 with verified health/artifacts/cleanup. Setup failures and cell contention
 prevented the cumulative paired comparison within the original budget; its
 acceptance remains inconclusive. No gate or uncertainty target was weakened.
+
+
+## EP-7 controlled comparison completion (2026-10-11 rerun)
+
+The fresh authorized rerun completes one readiness proof and all 20 measured trials (five pairs per case) under one lease and the original 60-minute deadline. Inspection-disabled throughput is -1.544% [-4.090%, +1.069%] and active-observer throughput is -0.370% [-3.371%, +2.724%] (95% intervals). The unchanged acceptance policy is not passed. Ordered delivery, exact candidate names, artifact hashes, cell health and zero checkpoint overlap verify; the lease is released and all four machines are stopped. Diagnostic-database deletion remains pending after an SSH cleanup timeout; the remaining budget did not admit a restart. The opaque probe still lacks a native benchmark-grade timing certificate. Release remains blocked; no package is published. See the [controlled comparison](../../bench/mp13-release/validation-2026-10-11-rerun/README.md).

@@ -25,6 +25,26 @@ def write(path, data):
     temp.write_text(json.dumps(data, indent=2) + '\n'); temp.replace(path)
 
 
+def validate_checkpoints(folder):
+    window=read(folder/'checkpoint-window.json')
+    rows=[json.loads(line) for line in (folder/'checkpoints.jsonl').read_text().splitlines()]
+    if window['errors'] or len(rows)!=window['samples'] or len(rows)<30:
+        raise ValueError('checkpoint observation incomplete')
+    if rows[0]['unix_ns']>window['started_unix_ns'] or rows[-1]['unix_ns']<window['finished_unix_ns']:
+        raise ValueError('checkpoint samples do not enclose workload')
+    if any(b['monotonic_ns']-a['monotonic_ns']>5_000_000_000 for a,b in zip(rows,rows[1:])):
+        raise ValueError('checkpoint sampler gap')
+    first=rows[0]['postgres']
+    keys=['num_timed','num_requested','num_done','buffers_written','stats_reset']
+    for row in rows:
+        data=row['postgres']
+        if any(data[key]!=first[key] for key in keys) or data['checkpoint']['checkpoint_lsn']!=first['checkpoint']['checkpoint_lsn']:
+            raise ValueError('checkpoint activity or reset overlaps workload envelope')
+        if not data['activity'] or any(item['wait_event']!='CheckpointerMain' for item in data['activity']):
+            raise ValueError('checkpointer was not idle throughout workload envelope')
+    return dict(samples=len(rows),overlap_fraction=0,scope='entire entry including fixture and warmup')
+
+
 class Controller:
     def __init__(self, args):
         self.args = args
@@ -61,20 +81,19 @@ class Controller:
     def command(self, args, name, timeout=120, allow_failure=False):
         if self.remaining() <= 0: raise TimeoutError('whole-experiment deadline')
         command=list(map(str,args))
-        process=subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=True)
-        try:
-            stdout,stderr=process.communicate(timeout=min(timeout,max(1,self.remaining())))
-        except BaseException:
-            # SSH wrappers can leave descendants holding pipes after their parent
-            # exits. Bound the entire process group, including those descendants.
-            os.killpg(process.pid,signal.SIGKILL)
-            stdout,stderr=process.communicate(timeout=5)
-            (self.root/(name+'.stdout')).write_text(stdout)
-            (self.root/(name+'.stderr')).write_text(stderr)
-            raise
+        stdout_path=self.root/(name+'.stdout');stderr_path=self.root/(name+'.stderr')
+        # Background IAP descendants can inherit output handles after the wrapper
+        # exits. Regular files let us wait for the command, not for pipe EOF.
+        with stdout_path.open('w') as stdout_file, stderr_path.open('w') as stderr_file:
+            process=subprocess.Popen(command,stdout=stdout_file,stderr=stderr_file,text=True,start_new_session=True)
+            try:
+                process.wait(timeout=min(timeout,max(1,self.remaining())))
+            except BaseException:
+                os.killpg(process.pid,signal.SIGKILL)
+                process.wait(timeout=5)
+                raise
+        stdout,stderr=stdout_path.read_text(),stderr_path.read_text()
         result=subprocess.CompletedProcess(command,process.returncode,stdout,stderr)
-        (self.root/(name+'.stdout')).write_text(result.stdout)
-        (self.root/(name+'.stderr')).write_text(result.stderr)
         if result.returncode and not allow_failure: raise RuntimeError(f'{name} failed ({result.returncode})')
         return result
 
@@ -95,6 +114,12 @@ class Controller:
             self.template = name
             self.journal['template'] = name; self.save()
             self.admin_sql(name, 'CREATE EXTENSION pg_stat_statements WITH SCHEMA public', 'template-extension')
+            self.admin_sql(name, """CREATE FUNCTION public.mp13_checkpoint_snapshot() RETURNS jsonb
+LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog AS $fn$
+SELECT to_jsonb(c) || jsonb_build_object('checkpoint',to_jsonb(pg_control_checkpoint()),
+'activity',(SELECT jsonb_agg(jsonb_build_object('wait_event',wait_event,'state',state))
+FROM pg_stat_activity WHERE backend_type='checkpointer')) FROM pg_stat_checkpointer c
+$fn$""", 'template-checkpoint-function')
             self.admin_sql('postgres', 'ALTER DATABASE ' + name + ' IS_TEMPLATE true', 'template-enable')
 
     def admin_sql(self, database, sql, name):
@@ -154,6 +179,9 @@ class Controller:
             if data['warmup_seconds']!=work['warmup_seconds'] or data['measurement_seconds']!=work['measurement_seconds']:
                 raise ValueError('measurement phases differ from submitted work')
             row['trial_sha256']=digest(folder/'fetched/output/trial.json')
+            if getattr(self.args,'sequence',False):
+                checkpoints=validate_checkpoints(folder/'fetched/output')
+                row['checkpoint_evidence']=checkpoints
         row.update(status='verified',finished=time.time(),manifest_sha256=digest(manifest))
         self.save()
 
@@ -190,9 +218,10 @@ class Controller:
     def run(self):
         try:
             modes=('disabled','active') if self.args.case=='both' else (self.args.case,)
-            estimate=600 if self.args.gate else (420 if self.args.proof else len(modes)*10*self.args.seconds_per_trial+180)
+            sequence=getattr(self.args,'sequence',False)
+            estimate=420+len(modes)*10*self.args.seconds_per_trial+180 if sequence else (600 if self.args.gate else (420 if self.args.proof else len(modes)*10*self.args.seconds_per_trial+180))
             if self.remaining()<estimate:raise TimeoutError(f'queue needs {estimate:.0f}s, only {self.remaining():.0f}s remain; no lease acquired')
-            if not self.args.proof and not self.args.gate:
+            if not self.args.proof and not self.args.gate and not sequence:
                 if self.args.proof_journal is None: raise ValueError('verified lifecycle proof required before queue expansion')
                 proof=read(self.args.proof_journal)
                 if not (proof['status']=='complete' and proof['payload_sha256']==digest(self.args.payload)
@@ -201,6 +230,10 @@ class Controller:
                         and len(proof['trials'])==1 and proof['trials'][0]['status']=='verified'):
                     raise ValueError('lifecycle proof or cleanup incomplete')
             self.acquire();self.journal['status']='running';self.save()
+            if sequence:
+                self.trial('candidate','active','proof')
+                self.journal['proof_verified']=True;self.save()
+                estimate=len(modes)*10*self.args.seconds_per_trial+180
             schedule=[('candidate','gate','gate')] if self.args.gate else ([('candidate','active','proof')] if self.args.proof else [(arm,mode,f'{mode}-{pair}-{arm}') for mode in modes for pair in range(5) for arm in (('control','candidate') if pair%2==0 else ('candidate','control'))])
             # Admit the whole predeclared queue before submitting measured trials.
             if self.remaining()<estimate:raise TimeoutError(f'queue needs {estimate:.0f}s, only {self.remaining():.0f}s remain; no measurements submitted')
@@ -219,6 +252,7 @@ def main():
     p.add_argument('--payload',type=Path,required=True);p.add_argument('--out',type=Path,required=True)
     p.add_argument('--budget',type=Path,required=True)
     mode=p.add_mutually_exclusive_group();mode.add_argument('--proof',action='store_true');mode.add_argument('--gate',action='store_true')
+    mode.add_argument('--sequence',action='store_true',help='Verify proof, then paired cases under the same lease; never retry a failed proof')
     p.add_argument('--seconds-per-trial',type=float,default=100)
     p.add_argument('--case',choices=['disabled','active','both'],default='both')
     p.add_argument('--proof-journal',type=Path)

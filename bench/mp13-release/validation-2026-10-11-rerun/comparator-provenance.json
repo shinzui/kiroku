@@ -1,0 +1,29 @@
+{
+  "owner": "mori://shinzui/keiro-runtime-kenshou",
+  "source_revision": "afb22ba104665c4eeef4f77cb3ff4a31dadf8e6f",
+  "binary_sha256": "661fe5029618fd4e6427210b5b71a5d5586ac3647f995cebecd862acc2d8ae7a",
+  "note": "Uses compiled kenshou-measure library and the unchanged policy, with constant-effect positive/negative self-tests. Metrics verdict is separate from native run-directory grading.",
+  "owner_sources": [
+    {
+      "project": "mori://shinzui/keiro-runtime-kenshou",
+      "project_relative_path": "kenshou-measure/src/Kenshou/Measure/Compare.hs",
+      "artifact_uri_pending": true,
+      "sha256": "8804a97f94831a37146ad70380b7df3db5fa5dd21e3c36240a0cc29903a74301"
+    },
+    {
+      "project": "mori://shinzui/keiro-runtime-kenshou",
+      "project_relative_path": "kenshou-measure/src/Kenshou/Measure/Compare/Policy.hs",
+      "artifact_uri_pending": true,
+      "sha256": "2897d645a9b494d51e831c947697a3270b855a8467b2a3b61a55203103963f52"
+    },
+    {
+      "project": "mori://shinzui/keiro-runtime-kenshou",
+      "project_relative_path": "kenshou-measure/src/Kenshou/Measure/Stats.hs",
+      "artifact_uri_pending": true,
+      "sha256": "1cff22e697b0c25c6694725ac2d8c9843d1ed8a04c7a644a77273eddf786fa41"
+    }
+  ],
+  "local_sources": {
+    "bench/mp13-release/ComparePairs.hs": "79b722895b1319bc9daeb77d4f789d1d663056e86209d716ad2515d6e937bd5c"
+  }
+}

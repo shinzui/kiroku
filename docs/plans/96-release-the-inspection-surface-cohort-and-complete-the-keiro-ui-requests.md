@@ -65,13 +65,14 @@ This plan publishes no UI and makes no downstream repository edits without autho
 
 - [x] (2026-10-11) Address implementation-review validation gaps: browse query-plan checks now run under `performance structure`; the v2 probe checks every ordered position and resolved name, runs observers in a separate process, and retains WAL/SQL diagnostics. Local control/candidate proofs pass; controlled-host acceptance remains pending.
 - [x] (2026-10-11) Run the unchanged workload gate on dedicated PG18: all 16 pass; health and all 16 sealed artifacts verify, the lease releases, and all four machines stop. Preserve the earlier failed local run.
-- [ ] Complete remote observer lifecycle proof and the cumulative original-control comparison. The bounded attempt stopped after extension setup/SSH failures and another owner acquiring the cell; no remote observer trial or pair verified. The remaining forecast exceeded the original budget. See `bench/mp13-release/validation-2026-10-11/README.md`.
+- [x] (2026-10-11 rerun) Complete remote observer readiness proof and both original-control comparisons: 21 verified runs, ten pairs, exact delivery, unchanged inputs, zero checkpoint overlap, lease release and shutdown. Diagnostic-database deletion remains pending after an SSH timeout. See `bench/mp13-release/validation-2026-10-11-rerun/README.md`. The earlier failed setup attempt is retained.
+- [ ] Obtain accepted cumulative performance and native benchmark-grade timing evidence; completed comparisons do not establish zero slowdown.
 
 - [x] (2026-09-30) Drafted the release coordination plan.
 - [x] (2026-10-10) Reviewed current releases, cabal dependencies, typed decoding and performance obligations; superseded stale September version and benchmark scripts.
 - [x] (2026-10-11) Confirm all six functional children Complete; retain their Progress/Outcomes in `bench/mp13-release/evidence/child-acceptance.txt`. Fresh `cabal build all -j1` and all six suites pass 672 examples.
 - [x] (2026-10-11) Compile new-provider and every legacy-starter fixture against the proposed cohort; pass flake, capability, ADR and request validation.
-- [ ] Pass cumulative performance acceptance: structural checks pass, but the aggregate workload gate has one retained failure; corrected local original-control diagnostics are complete and inconclusive; the final unchanged aggregate run also has a retained timing failure.
+- [ ] Pass cumulative performance acceptance: structural checks and all 16 dedicated-host workload gates pass. The completed ten-pair comparison does not pass the unchanged zero-slowdown policy; native benchmark-grade timing evidence remains missing. Retain earlier failed local timings.
 - [x] (2026-10-11) Verify Hackage/tag release truth, per-package diffs and matched dependency versions; prepare an unapplied six-package metadata/upgrade patch. Proposed versions are store 0.11.0.0, metrics 0.3.0.0, migrations 0.7.1.0, CLI 0.2.0.10, OTel 0.2.0.12 and adapter 0.6.0.1.
 - [ ] Obtain concrete metadata/publication authorization after resolving performance acceptance.
 - [x] (2026-10-11) Build the proposal in an isolated source copy; all six `cabal check` invocations pass, six public source archives are hashed/inspected, the proposed executable help passes and the appended upgrade blueprint validates.
@@ -81,6 +82,8 @@ This plan publishes no UI and makes no downstream repository edits without autho
 
 
 ## Surprises & Discoveries
+
+2026-10-11 rerun: Inspection-disabled throughput is -1.544% [-4.090%, +1.069%] and active-observer throughput is -0.370% [-3.371%, +2.724%] (95% intervals). Both arms show occasional p99 spikes in the inactive case. All completed samples remain included; no checkpoint overlap or driver saturation explains those spikes. The wrapper supplies real checkpoint-envelope observations but cannot reconstruct the native per-operation phase timestamps that the opaque probe never emitted. Numeric comparison and native grade certification remain distinct.
 
 The initial local comparison retains twelve verified trials and 567,808 measured appends. Its active adverse estimates and the six-trial cache-fix comparison (208,352 appends) are exploratory and confounded: only the candidate client retained stream names in the same process as the appenders. Preserve both sets, but do not diagnose production regression from them. Source inspection independently found `Map.keysSet cached` rebuilt all 4096 retained cache keys for each small batch. Commit `30307c1` replaces it with membership checks over requested ids; all 116 metrics examples pass, cache/lookup/wire behavior is preserved, and ADR-15 records batch-proportional work.
 
@@ -110,6 +113,9 @@ The prior cohort's practical performance acceptance is not transferable to inspe
 
 ## Decision Log
 
+- Decision (2026-10-11 rerun): honor the newly authorized hour, retain one lease for proof plus both five-pair cases, and apply the existing interval algorithm and policy without favorable retries.
+  Rationale: the previous setup failure supplied no comparison; this run supplies real paired evidence. It does not waive uncertainty or synthesize a missing native grade certificate.
+
 - Decision (2026-10-11): retain both confounded comparisons and run one corrected active comparison with identical client bookkeeping; stop additional exploratory timing repeats after the unchanged aggregate check.
   Rationale: correct a known measurement flaw without replacing adverse samples or retrying until favorable. Shared-host intervals do not establish neutrality.
 - Decision (2026-10-11): prepare a metadata patch and validate an isolated proposal without applying approved package metadata or publishing.
@@ -135,7 +141,7 @@ The prior cohort's practical performance acceptance is not transferable to inspe
 
 ## Outcomes & Retrospective
 
-2026-10-11 checkpoint: EP-7 is In Progress. Functional integration and final isolated release packaging are validated, with retained evidence under `bench/mp13-release/evidence/`. The requested-id cache optimization is committed and its 116 metrics tests pass. The unchanged workload gate now passes all 16 cases on dedicated PG18, superseding its current failed status while retaining the original local failure. Cumulative observer acceptance remains inconclusive; publication authorization and exact published-consumer proof remain pending. Documentation/Nix proposal packaging is complete. No package version, published artifact, tag, downstream state or request completion has changed.
+2026-10-11 checkpoint: EP-7 is In Progress. Functional integration, the 672 suite examples, all 16 dedicated-host workload gates, and isolated six-package release packaging remain validated. The fresh authorized rerun completes one readiness proof and all 20 measured trials (five pairs per case) under one lease and the original 60-minute deadline. Inspection-disabled throughput is -1.544% [-4.090%, +1.069%] and active-observer throughput is -0.370% [-3.371%, +2.724%] (95% intervals). The unchanged acceptance policy is not passed. Ordered delivery, exact candidate names, artifact hashes, cell health and zero checkpoint overlap verify; the lease is released and all four machines are stopped. Diagnostic-database deletion remains pending after an SSH cleanup timeout; the remaining budget did not admit a restart. The opaque probe still lacks a native benchmark-grade timing certificate. Release remains blocked; no package is published. See the [controlled comparison](../../bench/mp13-release/validation-2026-10-11-rerun/README.md). Publication authorization and exact published-consumer proof remain pending. No version, artifact, tag, downstream state or request completion has changed.
 
 Historical planning review: no implementation or benchmark was performed by that review; runtime acceptance remained pending.
 
@@ -428,3 +434,10 @@ benchmark-grade and checkpoint-symmetry evidence. Full evidence, source snapshot
 failures, tests and the remaining work are in
 [the validation checkpoint](../../bench/mp13-release/validation-2026-10-11/README.md).
 No cumulative zero-regression or release verdict is implied by the passed gate.
+
+
+## Controlled comparison completion (2026-10-11 rerun)
+
+The fresh authorized rerun completes one readiness proof and all 20 measured trials (five pairs per case) under one lease and the original 60-minute deadline. Inspection-disabled throughput is -1.544% [-4.090%, +1.069%] and active-observer throughput is -0.370% [-3.371%, +2.724%] (95% intervals). The unchanged acceptance policy is not passed. Ordered delivery, exact candidate names, artifact hashes, cell health and zero checkpoint overlap verify; the lease is released and all four machines are stopped. Diagnostic-database deletion remains pending after an SSH cleanup timeout; the remaining budget did not admit a restart. The opaque probe still lacks a native benchmark-grade timing certificate. Release remains blocked; no package is published. See the [controlled comparison](../../bench/mp13-release/validation-2026-10-11-rerun/README.md).
+
+The frozen candidate remains `109d58f57dbd5757ad55792474d046a37cc2e87d` against released control `364ffa82136fcfc83d39ead1234abffaf500844b`; later stream-head changes are excluded. The next performance step must produce real native phase/per-operation timing and address unresolved interval widths. No additional queue is launched under this completed budget.

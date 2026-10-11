@@ -1,0 +1,92 @@
+[1 of 2] Compiling Main             ( bench/mp13-release/ComparePairs.hs, /tmp/kiroku-mp13-validation/compare-build/Main.o )
+bench/mp13-release/ComparePairs.hs:23:77: error: [GHC-39999]
+    • No instance for ‘GHC.Internal.Records.HasField
+                         "match" Kenshou.Measure.Compare.Policy.MetricRule Text’
+        arising from selecting the field ‘match’
+    • In the first argument of ‘Map.lookup’, namely ‘rule.match’
+      In the third argument of ‘maybe’, namely
+        ‘(Map.lookup rule.match pairs)’
+      In a stmt of a 'do' block:
+        values <- maybe
+                    (fail "missing policy metric") pure (Map.lookup rule.match pairs)
+   |
+23 |             values <- maybe (fail "missing policy metric") pure (Map.lookup rule.match pairs)
+   |                                                                             ^^^^^^^^^^
+
+bench/mp13-release/ComparePairs.hs:24:38: error: [GHC-39999]
+    • No instance for ‘GHC.Internal.Records.HasField
+                         "minimumPairs" Kenshou.Measure.Compare.Policy.Policy Int’
+        arising from selecting the field ‘minimumPairs’
+    • In the second argument of ‘(>=)’, namely ‘policy.minimumPairs’
+      In the first argument of ‘unless’, namely
+        ‘(length values >= policy.minimumPairs)’
+      In a stmt of a 'do' block:
+        unless
+          (length values >= policy.minimumPairs) (fail "insufficient pairs")
+   |
+24 |             unless (length values >= policy.minimumPairs) (fail "insufficient pairs")
+   |                                      ^^^^^^^^^^^^^^^^^^^
+
+bench/mp13-release/ComparePairs.hs:26:50: error: [GHC-39999]
+    • No instance for ‘GHC.Internal.Records.HasField
+                         "metricRules"
+                         Kenshou.Measure.Compare.Policy.Policy
+                         [Kenshou.Measure.Compare.Policy.MetricRule]’
+        arising from selecting the field ‘metricRules’
+    • In the second argument of ‘traverse’, namely ‘policy.metricRules’
+      In the second argument of ‘(<$>)’, namely
+        ‘traverse compare policy.metricRules’
+      In a stmt of a 'do' block:
+        metrics <- Map.fromList <$> traverse compare policy.metricRules
+   |
+26 |     metrics <- Map.fromList <$> traverse compare policy.metricRules
+   |                                                  ^^^^^^^^^^^^^^^^^^
+
+bench/mp13-release/ComparePairs.hs:27:41: error: [GHC-39999]
+    • No instance for ‘aeson-2.3.2.0:Data.Aeson.Types.ToJSON.ToJSON
+                         Kenshou.Measure.Compare.Policy.Policy’
+        arising from a use of ‘.=’
+    • In the expression: "policy" .= policy
+      In the first argument of ‘object’, namely
+        ‘["policy" .= policy,
+          "algorithm"
+            .=
+              ("paired-bootstrap-t-envelope/v1; Kenshou.Measure.Compare.compareMetricPairs" ::
+                 Text),
+          "metrics" .= metrics]’
+      In the second argument of ‘encodeFile’, namely
+        ‘(object
+            ["policy" .= policy,
+             "algorithm"
+               .=
+                 ("paired-bootstrap-t-envelope/v1; Kenshou.Measure.Compare.compareMetricPairs" ::
+                    Text),
+             "metrics" .= metrics])’
+   |
+27 |     encodeFile output (object ["policy" .= policy, "algorithm" .= ("paired-bootstrap-t-envelope/v1; Kenshou.Measure.Compare.compareMetricPairs" :: Text), "metrics" .= metrics])
+   |                                         ^^
+
+bench/mp13-release/ComparePairs.hs:27:165: error: [GHC-39999]
+    • No instance for ‘aeson-2.3.2.0:Data.Aeson.Types.ToJSON.ToJSON
+                         Kenshou.Measure.Compare.MetricComparison’
+        arising from a use of ‘.=’
+    • In the expression: "metrics" .= metrics
+      In the first argument of ‘object’, namely
+        ‘["policy" .= policy,
+          "algorithm"
+            .=
+              ("paired-bootstrap-t-envelope/v1; Kenshou.Measure.Compare.compareMetricPairs" ::
+                 Text),
+          "metrics" .= metrics]’
+      In the second argument of ‘encodeFile’, namely
+        ‘(object
+            ["policy" .= policy,
+             "algorithm"
+               .=
+                 ("paired-bootstrap-t-envelope/v1; Kenshou.Measure.Compare.compareMetricPairs" ::
+                    Text),
+             "metrics" .= metrics])’
+   |
+27 |     encodeFile output (object ["policy" .= policy, "algorithm" .= ("paired-bootstrap-t-envelope/v1; Kenshou.Measure.Compare.compareMetricPairs" :: Text), "metrics" .= metrics])
+   |                                                                                                                                                                     ^^
+

@@ -1,0 +1,2 @@
+# Exact fetched bytes are retained in each trial's fetched.tar.gz.
+cell/*/fetched/

@@ -24,30 +24,33 @@
               (import (inputs.candidate + "/nix/haskell-overlay.nix") { inherit pkgs; })
               (
                 self: _:
-                (lib.genAttrs [
-                  "kiroku-store"
-                  "kiroku-store-migrations"
-                  "kiroku-test-support"
-                  "kiroku-cli"
-                  "kiroku-metrics"
-                ] (name: hl.dontCheck (hl.doJailbreak (self.callCabal2nix name (source + "/${name}") { }))))
-                // {
-                  inspection-probe = hl.dontCheck (
-                    hl.doJailbreak (self.callCabal2nix "inspection-probe" inputs.self { })
-                  );
-                  inspection-workload-gate = hl.dontCheck (
-                    hl.doJailbreak (
-                      self.callCabal2nix "inspection-workload-gate" (pkgs.runCommand "inspection-workload-gate-source" { }
-                        ''
-                          mkdir -p "$out/Kiroku/Test"
-                          cp ${./gate/inspection-workload-gate.cabal} "$out/"
-                          cp ${./gate/RemotePostgres.hs} "$out/Kiroku/Test/Postgres.hs"
-                          cp ${inputs.candidate}/kiroku-store/bench/RegressionGate.hs "$out/Main.hs"
-                        ''
-                      ) { }
-                    )
-                  );
-                }
+                  (lib.genAttrs [
+                    "kiroku-store"
+                    "kiroku-store-migrations"
+                    "kiroku-test-support"
+                    "kiroku-cli"
+                    "kiroku-metrics"
+                  ]
+                    (name: hl.dontCheck (hl.doJailbreak (self.callCabal2nix name (source + "/${name}") { }))))
+                  // {
+                    inspection-probe = hl.dontCheck (
+                      hl.doJailbreak (self.callCabal2nix "inspection-probe" inputs.self { })
+                    );
+                    inspection-workload-gate = hl.dontCheck (
+                      hl.doJailbreak (
+                        self.callCabal2nix "inspection-workload-gate"
+                          (pkgs.runCommand "inspection-workload-gate-source" { }
+                            ''
+                              mkdir -p "$out/Kiroku/Test"
+                              cp ${./gate/inspection-workload-gate.cabal} "$out/"
+                              cp ${./gate/RemotePostgres.hs} "$out/Kiroku/Test/Postgres.hs"
+                              cp ${inputs.candidate}/kiroku-store/bench/RegressionGate.hs "$out/Main.hs"
+                            ''
+                          )
+                          { }
+                      )
+                    );
+                  }
               )
             ];
           });
@@ -61,6 +64,13 @@
     in
     {
       packages.${system} = {
+        observed = pkgs.writeShellApplication {
+          name = "inspection-observed-cell";
+          runtimeInputs = [ pkgs.python3 pkgs.postgresql_18 ];
+          text = let original = builtins.storePath (builtins.fromJSON (builtins.readFile ./validation-2026-10-11/payload.json)).storePath; in ''
+            exec python3 ${./observer-cell/observe.py} ${original}/bin/inspection-cell "$@"
+          '';
+        };
         candidate = candidate.probe;
         control = control.probe;
         default = pkgs.writeShellApplication {

@@ -1,0 +1,821 @@
+[
+  {
+    "label": "proof",
+    "arm": "candidate",
+    "mode": "active",
+    "run_id": "01a12b75-41b1-7099-b9a8-230838d6ab24",
+    "started": 1791730467.251145,
+    "finished": 1791730619.673172,
+    "measured_appends": 31079,
+    "total_appends": 41433,
+    "seconds": 30.003229496,
+    "throughput": 1035.85515699713,
+    "p50_us": 3786.706,
+    "p95_us": 4349.949,
+    "p99_us": 5294.011,
+    "wal_bytes_per_append": 2110.649377393095,
+    "checkpoint": {
+      "samples": 43,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.15538847117794485,
+        "peak_steal": 0.0,
+        "samples": 70
+      },
+      "postgres": {
+        "peak_busy": 0.23529411764705888,
+        "peak_steal": 0.0,
+        "samples": 70
+      },
+      "monitoring": {
+        "peak_busy": 0.012499999999999956,
+        "peak_steal": 0.0,
+        "samples": 69
+      }
+    },
+    "tail_lag_p99_us": 6131.314
+  },
+  {
+    "label": "disabled-0-control",
+    "arm": "control",
+    "mode": "disabled",
+    "run_id": "01a12b77-951b-7682-a116-86dcc7552daf",
+    "started": 1791730619.6767192,
+    "finished": 1791730752.099631,
+    "measured_appends": 33714,
+    "total_appends": 44871,
+    "seconds": 30.003617829,
+    "throughput": 1123.6644924670961,
+    "p50_us": 3522.407,
+    "p95_us": 3995.852,
+    "p99_us": 4354.738,
+    "wal_bytes_per_append": 2035.3782998161,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.1629072681704261,
+        "peak_steal": 0.0,
+        "samples": 64
+      },
+      "postgres": {
+        "peak_busy": 0.19999999999999996,
+        "peak_steal": 0.0,
+        "samples": 63
+      },
+      "monitoring": {
+        "peak_busy": 0.02493765586034913,
+        "peak_steal": 0.0,
+        "samples": 64
+      }
+    },
+    "tail_lag_p99_us": null
+  },
+  {
+    "label": "disabled-0-candidate",
+    "arm": "candidate",
+    "mode": "disabled",
+    "run_id": "01a12b79-9a64-76ad-8ec3-eabc68cee270",
+    "started": 1791730752.101331,
+    "finished": 1791730883.42082,
+    "measured_appends": 33066,
+    "total_appends": 43954,
+    "seconds": 30.003248947,
+    "throughput": 1102.080646612981,
+    "p50_us": 3594.474,
+    "p95_us": 4068.226,
+    "p99_us": 4392.481,
+    "wal_bytes_per_append": 2101.8418919736287,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.1660424469413233,
+        "peak_steal": 0.0,
+        "samples": 62
+      },
+      "postgres": {
+        "peak_busy": 0.1783042394014963,
+        "peak_steal": 0.0,
+        "samples": 62
+      },
+      "monitoring": {
+        "peak_busy": 0.02244389027431426,
+        "peak_steal": 0.0,
+        "samples": 62
+      }
+    },
+    "tail_lag_p99_us": null
+  },
+  {
+    "label": "disabled-1-candidate",
+    "arm": "candidate",
+    "mode": "disabled",
+    "run_id": "01a12b7b-9b5d-77d0-b099-88038d6caecb",
+    "started": 1791730883.422622,
+    "finished": 1791731016.826514,
+    "measured_appends": 32867,
+    "total_appends": 43896,
+    "seconds": 30.002717099,
+    "throughput": 1095.467450216216,
+    "p50_us": 3571.444,
+    "p95_us": 4070.175,
+    "p99_us": 5529.828,
+    "wal_bytes_per_append": 2119.376639182158,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.1645885286783042,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "postgres": {
+        "peak_busy": 0.20848938826466912,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "monitoring": {
+        "peak_busy": 0.02238805970149249,
+        "peak_steal": 0.0,
+        "samples": 61
+      }
+    },
+    "tail_lag_p99_us": null
+  },
+  {
+    "label": "disabled-1-control",
+    "arm": "control",
+    "mode": "disabled",
+    "run_id": "01a12b7d-a47b-7041-8b56-d2f55f3089d3",
+    "started": 1791731016.828632,
+    "finished": 1791731151.7222831,
+    "measured_appends": 33572,
+    "total_appends": 44605,
+    "seconds": 30.003189856,
+    "throughput": 1118.9476905998486,
+    "p50_us": 3436.659,
+    "p95_us": 3970.893,
+    "p99_us": 8581.439,
+    "wal_bytes_per_append": 2029.2681996902181,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.16185696361355084,
+        "peak_steal": 0.0,
+        "samples": 83
+      },
+      "postgres": {
+        "peak_busy": 0.19221105527638194,
+        "peak_steal": 0.0,
+        "samples": 83
+      },
+      "monitoring": {
+        "peak_busy": 0.029925187032418976,
+        "peak_steal": 0.0,
+        "samples": 82
+      }
+    },
+    "tail_lag_p99_us": null
+  },
+  {
+    "label": "disabled-2-control",
+    "arm": "control",
+    "mode": "disabled",
+    "run_id": "01a12b7f-b36b-71f1-aa22-c0d938a751ca",
+    "started": 1791731151.724341,
+    "finished": 1791731284.094062,
+    "measured_appends": 33637,
+    "total_appends": 45001,
+    "seconds": 30.002813058,
+    "throughput": 1121.1282067109696,
+    "p50_us": 3530.691,
+    "p95_us": 3967.789,
+    "p99_us": 4314.094,
+    "wal_bytes_per_append": 2040.5317953444123,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.16060225846925968,
+        "peak_steal": 0.0,
+        "samples": 62
+      },
+      "postgres": {
+        "peak_busy": 0.20967741935483875,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "monitoring": {
+        "peak_busy": 0.017456359102244412,
+        "peak_steal": 0.0,
+        "samples": 62
+      }
+    },
+    "tail_lag_p99_us": null
+  },
+  {
+    "label": "disabled-2-candidate",
+    "arm": "candidate",
+    "mode": "disabled",
+    "run_id": "01a12b81-b87f-7602-ba62-8314198d95e0",
+    "started": 1791731284.0957818,
+    "finished": 1791731400.273802,
+    "measured_appends": 32173,
+    "total_appends": 43097,
+    "seconds": 30.003285083,
+    "throughput": 1072.3159117742532,
+    "p50_us": 3616.897,
+    "p95_us": 4169.117,
+    "p99_us": 8460.484,
+    "wal_bytes_per_append": 2101.617629689491,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.15683814303638643,
+        "peak_steal": 0.0,
+        "samples": 60
+      },
+      "postgres": {
+        "peak_busy": 0.21571072319202,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "monitoring": {
+        "peak_busy": 0.0675,
+        "peak_steal": 0.0,
+        "samples": 61
+      }
+    },
+    "tail_lag_p99_us": null
+  },
+  {
+    "label": "disabled-3-candidate",
+    "arm": "candidate",
+    "mode": "disabled",
+    "run_id": "01a12b83-7e53-71cb-9fb9-e6e41c4c4d3a",
+    "started": 1791731400.276265,
+    "finished": 1791731534.7361338,
+    "measured_appends": 33359,
+    "total_appends": 44615,
+    "seconds": 30.003464831,
+    "throughput": 1111.838255611499,
+    "p50_us": 3565.029,
+    "p95_us": 4012.3,
+    "p99_us": 4310.802,
+    "wal_bytes_per_append": 2106.376330225726,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.16354556803995002,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "postgres": {
+        "peak_busy": 0.21321695760598502,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "monitoring": {
+        "peak_busy": 0.01488833746898266,
+        "peak_steal": 0.0,
+        "samples": 61
+      }
+    },
+    "tail_lag_p99_us": null
+  },
+  {
+    "label": "disabled-3-control",
+    "arm": "control",
+    "mode": "disabled",
+    "run_id": "01a12b85-8b91-74c9-9f03-3cd6b82ffead",
+    "started": 1791731534.738244,
+    "finished": 1791731655.1277912,
+    "measured_appends": 33533,
+    "total_appends": 44737,
+    "seconds": 30.003133983,
+    "throughput": 1117.649910139389,
+    "p50_us": 3550.16,
+    "p95_us": 3987.506,
+    "p99_us": 4320.37,
+    "wal_bytes_per_append": 2065.8632391972087,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.16874999999999996,
+        "peak_steal": 0.0,
+        "samples": 62
+      },
+      "postgres": {
+        "peak_busy": 0.19725343320848943,
+        "peak_steal": 0.0,
+        "samples": 62
+      },
+      "monitoring": {
+        "peak_busy": 0.01243781094527363,
+        "peak_steal": 0.0,
+        "samples": 62
+      }
+    },
+    "tail_lag_p99_us": null
+  },
+  {
+    "label": "disabled-4-control",
+    "arm": "control",
+    "mode": "disabled",
+    "run_id": "01a12b87-61d9-767f-968a-09eba8f67034",
+    "started": 1791731655.129907,
+    "finished": 1791731776.538304,
+    "measured_appends": 33235,
+    "total_appends": 44132,
+    "seconds": 30.002706222,
+    "throughput": 1107.733407582742,
+    "p50_us": 3574.846,
+    "p95_us": 4023.047,
+    "p99_us": 4362.359,
+    "wal_bytes_per_append": 2076.737896795547,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.16770963704630792,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "postgres": {
+        "peak_busy": 0.17861635220125782,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "monitoring": {
+        "peak_busy": 0.012468827930174564,
+        "peak_steal": 0.0,
+        "samples": 61
+      }
+    },
+    "tail_lag_p99_us": null
+  },
+  {
+    "label": "disabled-4-candidate",
+    "arm": "candidate",
+    "mode": "disabled",
+    "run_id": "01a12b89-3c1b-74e3-b2fe-ab67dfaf561d",
+    "started": 1791731776.540471,
+    "finished": 1791731894.666989,
+    "measured_appends": 33654,
+    "total_appends": 44912,
+    "seconds": 30.002646044,
+    "throughput": 1121.7010643209653,
+    "p50_us": 3532.154,
+    "p95_us": 3980.035,
+    "p99_us": 4324.111,
+    "wal_bytes_per_append": 2110.801925476912,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.16708229426433918,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "postgres": {
+        "peak_busy": 0.18045112781954886,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "monitoring": {
+        "peak_busy": 0.01995012468827928,
+        "peak_steal": 0.0,
+        "samples": 61
+      }
+    },
+    "tail_lag_p99_us": null
+  },
+  {
+    "label": "active-0-control",
+    "arm": "control",
+    "mode": "active",
+    "run_id": "01a12b8b-098c-7740-923f-1cb906b9bc2c",
+    "started": 1791731894.669131,
+    "finished": 1791732029.6110048,
+    "measured_appends": 32031,
+    "total_appends": 43049,
+    "seconds": 30.003269685,
+    "throughput": 1067.5836445923678,
+    "p50_us": 3730.75,
+    "p95_us": 4198.683,
+    "p99_us": 4533.418,
+    "wal_bytes_per_append": 2044.3932440448316,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.1629072681704261,
+        "peak_steal": 0.0,
+        "samples": 62
+      },
+      "postgres": {
+        "peak_busy": 0.22055137844611528,
+        "peak_steal": 0.0,
+        "samples": 62
+      },
+      "monitoring": {
+        "peak_busy": 0.05249999999999999,
+        "peak_steal": 0.0,
+        "samples": 62
+      }
+    },
+    "tail_lag_p99_us": 5235.233
+  },
+  {
+    "label": "active-0-candidate",
+    "arm": "candidate",
+    "mode": "active",
+    "run_id": "01a12b8d-18ac-7482-acc6-3f112e127966",
+    "started": 1791732029.613426,
+    "finished": 1791732163.576865,
+    "measured_appends": 32142,
+    "total_appends": 43308,
+    "seconds": 30.0035442,
+    "throughput": 1071.2734397558272,
+    "p50_us": 3692.942,
+    "p95_us": 4197.107,
+    "p99_us": 4578.108,
+    "wal_bytes_per_append": 2105.7542156679733,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.16978776529338324,
+        "peak_steal": 0.0,
+        "samples": 62
+      },
+      "postgres": {
+        "peak_busy": 0.2343358395989975,
+        "peak_steal": 0.0,
+        "samples": 62
+      },
+      "monitoring": {
+        "peak_busy": 0.01243781094527363,
+        "peak_steal": 0.0,
+        "samples": 62
+      }
+    },
+    "tail_lag_p99_us": 5525.4
+  },
+  {
+    "label": "active-1-candidate",
+    "arm": "candidate",
+    "mode": "active",
+    "run_id": "01a12b8f-23fa-713c-aef8-d6835a19f834",
+    "started": 1791732163.579333,
+    "finished": 1791732280.613707,
+    "measured_appends": 32142,
+    "total_appends": 43018,
+    "seconds": 30.003458001,
+    "throughput": 1071.2765174910414,
+    "p50_us": 3699.553,
+    "p95_us": 4184.356,
+    "p99_us": 4534.681,
+    "wal_bytes_per_append": 2126.7941011760313,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.1660424469413233,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "postgres": {
+        "peak_busy": 0.2415519399249061,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "monitoring": {
+        "peak_busy": 0.012499999999999956,
+        "peak_steal": 0.0,
+        "samples": 60
+      }
+    },
+    "tail_lag_p99_us": 5487.082
+  },
+  {
+    "label": "active-1-control",
+    "arm": "control",
+    "mode": "active",
+    "run_id": "01a12b90-ed27-7787-bc3e-c967e7003377",
+    "started": 1791732280.615901,
+    "finished": 1791732418.635115,
+    "measured_appends": 33044,
+    "total_appends": 44076,
+    "seconds": 30.00340912,
+    "throughput": 1101.3415131540226,
+    "p50_us": 3594.718,
+    "p95_us": 4096.452,
+    "p99_us": 4458.786,
+    "wal_bytes_per_append": 2054.939353589154,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.15914786967418548,
+        "peak_steal": 0.0,
+        "samples": 62
+      },
+      "postgres": {
+        "peak_busy": 0.2433460076045627,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "monitoring": {
+        "peak_busy": 0.012499999999999956,
+        "peak_steal": 0.0,
+        "samples": 62
+      }
+    },
+    "tail_lag_p99_us": 5172.43
+  },
+  {
+    "label": "active-2-control",
+    "arm": "control",
+    "mode": "active",
+    "run_id": "01a12b93-084d-7128-8daa-e0eaa71038f6",
+    "started": 1791732418.637745,
+    "finished": 1791732555.3971221,
+    "measured_appends": 33025,
+    "total_appends": 44277,
+    "seconds": 30.002565974,
+    "throughput": 1100.7391843957353,
+    "p50_us": 3488.034,
+    "p95_us": 4118.177,
+    "p99_us": 8481.542,
+    "wal_bytes_per_append": 2064.532929598789,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.16811955168119552,
+        "peak_steal": 0.0,
+        "samples": 62
+      },
+      "postgres": {
+        "peak_busy": 0.22921914357682616,
+        "peak_steal": 0.0,
+        "samples": 62
+      },
+      "monitoring": {
+        "peak_busy": 0.015000000000000013,
+        "peak_steal": 0.0,
+        "samples": 62
+      }
+    },
+    "tail_lag_p99_us": 8570.444
+  },
+  {
+    "label": "active-2-candidate",
+    "arm": "candidate",
+    "mode": "active",
+    "run_id": "01a12b95-1e87-710f-9a0d-5993d80c0caa",
+    "started": 1791732555.4001138,
+    "finished": 1791732707.984472,
+    "measured_appends": 34153,
+    "total_appends": 45441,
+    "seconds": 30.003175789,
+    "throughput": 1138.312831954324,
+    "p50_us": 3474.972,
+    "p95_us": 3920.514,
+    "p99_us": 4281.175,
+    "wal_bytes_per_append": 2116.2971334875415,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.1691542288557214,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "postgres": {
+        "peak_busy": 0.2672521957340025,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "monitoring": {
+        "peak_busy": 0.057499999999999996,
+        "peak_steal": 0.0,
+        "samples": 61
+      }
+    },
+    "tail_lag_p99_us": 5224.125
+  },
+  {
+    "label": "active-3-candidate",
+    "arm": "candidate",
+    "mode": "active",
+    "run_id": "01a12b97-7292-76ce-ba6e-bd899cd742a0",
+    "started": 1791732707.9878368,
+    "finished": 1791732848.716758,
+    "measured_appends": 32048,
+    "total_appends": 42767,
+    "seconds": 30.00321666,
+    "throughput": 1068.1521372582056,
+    "p50_us": 3659.155,
+    "p95_us": 4173.676,
+    "p99_us": 5958.395,
+    "wal_bytes_per_append": 2127.3706939590616,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.1639549436795995,
+        "peak_steal": 0.0,
+        "samples": 62
+      },
+      "postgres": {
+        "peak_busy": 0.23797468354430384,
+        "peak_steal": 0.0,
+        "samples": 62
+      },
+      "monitoring": {
+        "peak_busy": 0.020000000000000018,
+        "peak_steal": 0.0,
+        "samples": 61
+      }
+    },
+    "tail_lag_p99_us": 6177.284
+  },
+  {
+    "label": "active-3-control",
+    "arm": "control",
+    "mode": "active",
+    "run_id": "01a12b99-984e-7145-be65-bebdaa1c2a61",
+    "started": 1791732848.7195861,
+    "finished": 1791732973.881769,
+    "measured_appends": 32827,
+    "total_appends": 43573,
+    "seconds": 30.003131748,
+    "throughput": 1094.1191164881725,
+    "p50_us": 3567.988,
+    "p95_us": 4066.118,
+    "p99_us": 6605.873,
+    "wal_bytes_per_append": 2049.1419867791756,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.1639549436795995,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "postgres": {
+        "peak_busy": 0.23677581863979846,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "monitoring": {
+        "peak_busy": 0.05513784461152882,
+        "peak_steal": 0.0,
+        "samples": 61
+      }
+    },
+    "tail_lag_p99_us": 6132.426
+  },
+  {
+    "label": "active-4-control",
+    "arm": "control",
+    "mode": "active",
+    "run_id": "01a12b9b-813b-7379-8a5d-d8c6428022fb",
+    "started": 1791732973.884794,
+    "finished": 1791733105.249473,
+    "measured_appends": 33032,
+    "total_appends": 43934,
+    "seconds": 30.003339424,
+    "throughput": 1100.9441160265428,
+    "p50_us": 3595.777,
+    "p95_us": 4085.393,
+    "p99_us": 4434.083,
+    "wal_bytes_per_append": 2044.1816420440784,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.15960099750623447,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "postgres": {
+        "peak_busy": 0.24780976220275341,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "monitoring": {
+        "peak_busy": 0.01754385964912286,
+        "peak_steal": 0.0,
+        "samples": 61
+      }
+    },
+    "tail_lag_p99_us": 5299.792
+  },
+  {
+    "label": "active-4-candidate",
+    "arm": "candidate",
+    "mode": "active",
+    "run_id": "01a12b9d-8263-736b-9d90-57d4afb03db9",
+    "started": 1791733105.252148,
+    "finished": 1791733248.9631941,
+    "measured_appends": 32905,
+    "total_appends": 44103,
+    "seconds": 30.003573923,
+    "throughput": 1096.7026823019853,
+    "p50_us": 3612.619,
+    "p95_us": 4091.395,
+    "p99_us": 4451.892,
+    "wal_bytes_per_append": 2126.9854429418024,
+    "checkpoint": {
+      "samples": 42,
+      "overlap_fraction": 0,
+      "scope": "entire entry including fixture and warmup"
+    },
+    "host": {
+      "driver": {
+        "peak_busy": 0.17000000000000004,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "postgres": {
+        "peak_busy": 0.25595984943538264,
+        "peak_steal": 0.0,
+        "samples": 61
+      },
+      "monitoring": {
+        "peak_busy": 0.015037593984962405,
+        "peak_steal": 0.0,
+        "samples": 61
+      }
+    },
+    "tail_lag_p99_us": 5400.823
+  }
+]
