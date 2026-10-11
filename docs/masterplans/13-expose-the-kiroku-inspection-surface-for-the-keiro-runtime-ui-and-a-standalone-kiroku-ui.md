@@ -31,6 +31,11 @@ provenance:
       at: 2026-10-10T18:08:46Z
       mode: "implement"
       note: "Coordinate EP-3 SQL promotion and implementation"
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-11T03:24:23Z
+      mode: "implement"
+      note: "Coordinate final child acceptance and release preparation"
   reviews:
     - model: "gpt-6-astra"
       harness: "codex-cli"
@@ -207,7 +212,7 @@ Integration Points.
 | 4 | Expose a public dead-letter read API (IR-9) | docs/plans/89-expose-a-public-dead-letter-read-api.md | EP-2 | EP-3 | Complete |
 | 5 | Converge the kiroku-metrics WebSocket protocol with the cross-project convention (IR-12) | docs/plans/94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention.md | EP-3 | None | Complete |
 | 6 | Serve the Kiroku inspection surface standalone and make it self-describing | docs/plans/95-serve-the-kiroku-inspection-surface-standalone-and-make-it-self-describing.md | EP-1, EP-2, EP-3, EP-4, EP-5 | None | Complete |
-| 7 | Release the inspection surface cohort and complete the keiro-ui requests | docs/plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md | EP-1, EP-2, EP-3, EP-4, EP-5, EP-6 | None | Not Started |
+| 7 | Release the inspection surface cohort and complete the keiro-ui requests | docs/plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md | EP-1, EP-2, EP-3, EP-4, EP-5, EP-6 | None | In Progress |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
 Hard Deps and Soft Deps reference other rows by their # prefix (e.g., EP-1, EP-3).
@@ -452,6 +457,9 @@ rule suffices.
 
 
 ## Progress
+
+- [x] (2026-10-11) EP-7: confirm six functional children and 672 fresh passing examples; prepare a registry/tag-derived, unapplied six-package release patch, validated source archives, executable and consumer fixtures.
+- [ ] EP-7: resolve the retained aggregate timing failure and cumulative original-control acceptance before publication.
 
 - [x] (2026-10-10) EP-3 selected-layout measurement: verify proof plus five fresh and five observer pairs, all 21 benchmark-grade trials, raw recomputation and lease/cell cleanup. Preserve adverse cost estimates and unresolved precision in the [report](../../bench/mp13-index/evidence/2026-10-10-byte-name/README.md); EP-3 local design review is now closed by user endorsement; cumulative release acceptance remains owned by EP-7.
 
@@ -1183,3 +1191,6 @@ Revision (2026-10-11 EP-5): WebSocket convergence completes locally with 654 pas
 
 
 Revision (2026-10-11 EP-6): standalone inspection and pure capability discovery complete locally, with 672 passing examples, packaged executable, eleven-step example, client guide and ADR-18. EP-7 is the next ready child; cumulative performance acceptance and publication remain pending.
+
+
+Revision (2026-10-11 EP-7): final child is In Progress. Registry/tag truth and the isolated release proposal are verified. Structural/API checks pass, but one aggregate workload case failed with high variance; focused real-observer diagnostic evidence is being collected without a release verdict. No version, tag, publication or request completion changed.

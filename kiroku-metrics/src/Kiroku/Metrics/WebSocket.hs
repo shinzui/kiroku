@@ -578,7 +578,9 @@ resolveEventNames :: StreamNameCache -> ([StreamId] -> IO (Map StreamId StreamNa
 resolveEventNames (StreamNameCache ref) lookupBatch events = do
     NameCache cached order <- readIORef ref
     let wanted = Set.fromList (V.toList (V.map (.originalStreamId) events))
-        missing = wanted `Set.difference` Map.keysSet cached
+        -- Inspect the requested ids rather than materializing all retained keys
+        -- for each small batch after the cache has filled.
+        missing = Set.filter (`Map.notMember` cached) wanted
     found <- if Set.null missing then pure Map.empty else Map.restrictKeys <$> lookupBatch (Set.toList missing) <*> pure missing
     let current = Map.union cached found
         inserted = foldl' (|>) order (Map.keys found)

@@ -45,6 +45,8 @@
 
 ### Other Changes
 
+- Cache-miss detection inspects only current-batch stream IDs, avoiding a walk of every retained name on each small tail batch.
+
 - Document discovery, standalone hosting and the complete client workflow in `docs/guides/building-an-inspection-ui.md`.
 
 * Server acquisition waits for Warp readiness and propagates bind failures;

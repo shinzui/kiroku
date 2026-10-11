@@ -22,6 +22,11 @@ provenance:
       at: 2026-10-11T01:31:56Z
       mode: "update"
       note: "Carry selected migration and unresolved original-control cost into release ownership"
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-11T03:24:23Z
+      mode: "implement"
+      note: "Begin EP-7 integrated acceptance and release preparation"
   reviews:
     - model: "gpt-6-astra"
       harness: "codex-cli"
@@ -50,14 +55,23 @@ This plan publishes no UI and makes no downstream repository edits without autho
 
 - [x] (2026-09-30) Drafted the release coordination plan.
 - [x] (2026-10-10) Reviewed current releases, cabal dependencies, typed decoding and performance obligations; superseded stale September version and benchmark scripts.
-- [ ] Confirm plans 90, 87, 88, 89, 94 and 95 complete with their reviewed acceptance evidence.
-- [ ] Pass cumulative compatibility and focused performance acceptance.
-- [ ] Re-derive package versions, bounds and upgrade guidance from registry, tags and actual diff; obtain required release authorization.
-- [ ] Build/check source and documentation archives; publish and verify the authorized cohort.
+- [x] (2026-10-11) Confirm all six functional children Complete; retain their Progress/Outcomes in `bench/mp13-release/evidence/child-acceptance.txt`. Fresh `cabal build all -j1` and all six suites pass 672 examples.
+- [x] (2026-10-11) Compile new-provider and every legacy-starter fixture against the proposed cohort; pass flake, capability, ADR and request validation.
+- [ ] Pass cumulative performance acceptance: structural checks pass, but the aggregate workload gate has one retained failure; local original-control diagnostics are in progress and cannot establish neutrality.
+- [x] (2026-10-11) Verify Hackage/tag release truth, per-package diffs and matched dependency versions; prepare an unapplied six-package metadata/upgrade patch. Proposed versions are store 0.11.0.0, metrics 0.3.0.0, migrations 0.7.1.0, CLI 0.2.0.10, OTel 0.2.0.12 and adapter 0.6.0.1.
+- [ ] Obtain concrete metadata/publication authorization after resolving performance acceptance.
+- [x] (2026-10-11) Build the proposal in an isolated source copy; all six `cabal check` invocations pass, six public source archives are hashed/inspected, the proposed executable help passes and the appended upgrade blueprint validates.
+- [ ] Finish documentation/Nix proposal packaging; publish and verify the authorized cohort.
 - [ ] Prove an exact-version clean consumer; complete requests and record outcomes.
 
 
 ## Surprises & Discoveries
+
+The first local comparison retains twelve verified trials and 567,808 measured appends. Disabled throughput is +7.884% with a descriptive interval [-21.064%, +47.448%]. Active throughput is -11.387% [-24.607%, +4.152%]; p50 is +8.334% [+2.621%, +14.365%] and p95 +22.020% [+4.545%, +42.416%]. The shared-host measurements are exploratory, but all three active pairs are adverse and justify investigation. Source inspection found `Map.keysSet cached` rebuilt the whole 4096-name retained key set for every small batch. Replace it with membership checks over only requested ids, preserving the lookup/cache/wire behavior. A new active-only comparison tests this changed implementation; it does not replace any original samples. ADR-15 records the batch-proportional cache-work constraint.
+
+2026-10-11 implementation: all proposed package baselines still point to released commit `364ffa82136fcfc83d39ead1234abffaf500844b`. CLI, OTel and the adapter have no source changes since their tags, so their patches only advance store bounds. Migration 0015 adds a schema feature without breaking the runner API: its proposal is 0.7.1.0. Metadata is staged outside the working tree, with the exact reviewable patch in `bench/mp13-release/evidence/release.patch`. No versions or changelog dates have been applied here.
+
+The first aggregate workload run passes structural invariants and 15 of 16 timing cases, but category append is 1.57x its pre-0012 control (70.5 ± 87 ms versus 44.9 ± 40 ms). Parallel builds and another repository's tests were observed on this workstation. This is retained adverse evidence, not a regression diagnosis or permission to waive the gate. A local real-observer proof delivers 54,227 events exactly, resolves 27,116 names and completes 48 polls on verified durable PostgreSQL 18.6. Its two setup attempts and initial compile failure are retained. The comparison uses the same public starter on the released and integrated source; control polling intentionally gets its old 404 while candidate polling does the newly added reads. It is a preliminary diagnostic on a shared host, not controlled-host acceptance.
 
 On 2026-10-10, Hackage preferred-version JSON and upstream annotated tags both identified
 store 0.10.0.0 and metrics 0.2.0.0 as already released (tag targets
@@ -74,6 +88,11 @@ The prior cohort's practical performance acceptance is not transferable to inspe
 
 
 ## Decision Log
+
+- Decision (2026-10-11): prepare a metadata patch and validate an isolated proposal without applying approved package metadata or publishing.
+  Rationale: the release skill requires concrete version/changelog confirmation; performance acceptance is still open.
+- Decision (2026-10-11): begin with a bounded local original-control diagnostic, retaining the existing policy verdict and failed workload gate.
+  Rationale: the public HTTP/tail paths need real-load evidence, and this workstation has other active work. Remote calibration or a practical decision must not be inferred from exploratory timings.
 
 - Decision (2026-09-30, retained): one coordinated release child owns version assignment,
   publication, clean-consumer verification and final request completion.
@@ -93,9 +112,9 @@ The prior cohort's practical performance acceptance is not transferable to inspe
 
 ## Outcomes & Retrospective
 
-Planning review only. No implementation, benchmark, package metadata, upload, tag or
-downstream state changed. Runtime acceptance remains pending. Static review cannot
-guarantee zero performance regression.
+2026-10-11 checkpoint: EP-7 is In Progress. Functional integration and the isolated release proposal are validated, with retained evidence under `bench/mp13-release/evidence/`. Cumulative performance acceptance, publication authorization, documentation/Nix proposal packaging and exact published-consumer proof remain pending. No package version, published artifact, tag, downstream state or request completion has changed.
+
+Historical planning review: no implementation or benchmark was performed by that review; runtime acceptance remained pending.
 
 
 ## Context and Orientation

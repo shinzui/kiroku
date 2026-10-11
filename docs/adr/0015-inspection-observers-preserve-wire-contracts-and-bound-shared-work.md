@@ -8,7 +8,7 @@ generated:
 docId: ADR-15
 status: Accepted
 date: 2026-10-10
-timestamp: "2026-10-10T19:17:23Z"
+timestamp: "2026-10-11T03:40:56Z"
 originatingPlan: docs/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md
 ---
 
@@ -54,7 +54,11 @@ The publisher drop counter is updated only on an actual drop, in the same STM tr
 The tail samples queue and counter atomically and emits loss notification before survivor
 events, so the client retains a safe recovery cursor. Name enrichment uses at most one
 batched lookup per delivered batch and a bounded per-tail cache (4096 entries initially),
-never one lookup per event or an ever-growing lifetime map.
+never one lookup per event or an ever-growing lifetime map. Cache-miss detection
+checks the current batch's distinct ids against the retained map; it must not
+materialize every retained key on each small batch. Bounded retained state is
+not a reason to impose its full size on every delivery. The release comparison
+exposed that avoidable work under sustained distinct-name churn.
 
 Stream/category/dead-letter reads use existing indexes first. No index or migration may be
 added merely to hide an expensive observer without separately reviewing append cost.

@@ -1,0 +1,33 @@
+cabal-version: 3.0
+name:          inspection-probe
+version:       0.1.0.0
+build-type:    Simple
+
+executable inspection-probe
+  main-is:            Main.hs
+  hs-source-dirs:     src
+  default-language:   GHC2024
+  default-extensions:
+    DuplicateRecordFields
+    NoFieldSelectors
+    OverloadedRecordDot
+    OverloadedStrings
+
+  ghc-options:        -Wall -O2 -threaded -rtsopts -with-rtsopts=-N4
+  build-depends:
+    , aeson
+    , async
+    , base
+    , bytestring
+    , containers
+    , hasql
+    , hasql-pool
+    , http-client
+    , http-types
+    , kiroku-metrics
+    , kiroku-store
+    , kiroku-test-support
+    , stm
+    , text
+    , vector
+    , websockets
