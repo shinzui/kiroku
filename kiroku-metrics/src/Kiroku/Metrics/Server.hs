@@ -44,6 +44,7 @@ import Kiroku.Metrics.Checkpoints (CheckpointInventoryProvider, checkpointsApp, 
 import Kiroku.Metrics.Collector (KirokuMetrics)
 import Kiroku.Metrics.Config (MetricsServerConfig (..))
 import Kiroku.Metrics.Cors (corsMiddleware)
+import Kiroku.Metrics.DeadLetters (DeadLetterProvider, deadLettersApp, deadLettersNotConfiguredApp, storeDeadLetters)
 import Kiroku.Metrics.Health (
     DependencyCheck,
     LivenessStatus (..),
@@ -71,11 +72,13 @@ data ServerProviders = ServerProviders
     , checkpointInventory :: !(Maybe CheckpointInventoryProvider)
     , storeBrowsing :: !(Maybe StoreBrowser)
     -- ^ Backs the stream, category and event inspection routes.
+    , deadLetters :: !(Maybe DeadLetterProvider)
+    -- ^ Backs GET /subscriptions/<name>/dead-letters.
     }
 
 -- | Reject upgrades and leave all optional providers unconfigured.
 defaultServerProviders :: ServerProviders
-defaultServerProviders = ServerProviders stubWebSocketApp Nothing Nothing Nothing
+defaultServerProviders = ServerProviders stubWebSocketApp Nothing Nothing Nothing Nothing
 
 {- | Build every store-backed provider, including the process-local live registry.
 Bind this action first, then use 'withMetricsServerWithProviders'.
@@ -83,7 +86,7 @@ Bind this action first, then use 'withMetricsServerWithProviders'.
 storeServerProviders :: MetricsServerConfig -> KirokuMetrics -> KirokuStore -> IO ServerProviders
 storeServerProviders cfg m store = do
     wsState <- newWebSocketState cfg.wsMaxConnections
-    pure $ ServerProviders (websocketApp cfg m store wsState) (Just (storeSubscriptionStatus store)) (Just (storeCheckpointInventory store)) (Just (storeBrowser store))
+    pure $ ServerProviders (websocketApp cfg m store wsState) (Just (storeSubscriptionStatus store)) (Just (storeCheckpointInventory store)) (Just (storeBrowser store)) (Just (storeDeadLetters store))
 
 {- | Return only after Warp is ready; bind/setup failures are rethrown.
 Ephemeral sockets are explicitly closed on every exit, including cancellation.
@@ -188,6 +191,7 @@ httpAppWithProviders cfg m deps providers req respond =
         ["metrics", _] | cfg.enableJSON -> jsonApp m req respond
         prefix : _ | prefix `elem` ["streams", "categories", "events"] -> browseRoute
         ["subscription-checkpoints"] -> checkpointsRoute
+        ["subscriptions", _, "dead-letters"] -> deadLettersRoute
         ["subscriptions"] -> subscriptionsRoute
         ["subscriptions", _] -> subscriptionsRoute
         ["health"] | cfg.enableJSON -> do
@@ -212,6 +216,7 @@ httpAppWithProviders cfg m deps providers req respond =
             respond (jsonResponse status404 (encode (object ["error" .= ("Not found" :: Text)])))
   where
     statusFor ok = if ok then status200 else status503
+    deadLettersRoute = maybe deadLettersNotConfiguredApp deadLettersApp providers.deadLetters req respond
     browseRoute = maybe browseNotConfiguredApp browseApp providers.storeBrowsing req respond
     checkpointsRoute = case providers.checkpointInventory of
         Just provider -> checkpointsApp provider req respond

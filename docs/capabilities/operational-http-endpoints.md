@@ -1,7 +1,7 @@
 ---
 title: "Operational HTTP endpoints: metrics, health, and event streaming"
 type: Capability
-description: "Serve in-process metrics as JSON and Prometheus exposition, liveness/readiness/detailed health, a subscription-status endpoint, durable cross-process checkpoint inventory, and a WebSocket channel for live metrics and events, bounded stream/category/event inspection in the unreleased cohort, with host-configured default-off browser CORS, without pulling a web framework into the core library."
+description: "Serve in-process metrics as JSON and Prometheus exposition, liveness/readiness/detailed health, a subscription-status endpoint, durable cross-process checkpoint inventory, and a WebSocket channel for live metrics and events, bounded stream/category/event and subscription dead-letter inspection in the unreleased cohort, with host-configured default-off browser CORS, without pulling a web framework into the core library."
 generated:
   by: anthropic/claude-sonnet-4.5
   at: "2026-08-08T00:00:00Z"
@@ -13,6 +13,7 @@ since: "0.1.0.0"
 packages:
   - kiroku-metrics
 interface:
+  - Kiroku.Metrics.DeadLetters
   - Kiroku.Metrics.Browse
   - Kiroku.Metrics.Server
   - Kiroku.Metrics.Checkpoints
@@ -24,6 +25,9 @@ requires:
   - CAP-14
   - CAP-11
 evidence:
+  - kind: test
+    resource: kiroku-metrics/test/Test/DeadLettersSpec.hs
+    proves: Read-only dead-letter pages preserve structured reasons, opaque cursors, HEAD and sanitized errors with mounted CORS and compatible legacy routes.
   - kind: test
     resource: kiroku-metrics/test/Test/BrowseSpec.hs
     proves: Bounded category/prefix stream pages, exclusive event cursors, batched name resolution, HEAD and structured validation through the shared server.
@@ -87,3 +91,7 @@ The unreleased cohort also adds `StoreBrowser` and the bounded `/streams`,
 UTF-8 byte order, category enumeration retains locale order, and event items
 include an additive `original_stream_name`. This feature's exact index-layout
 write-cost acceptance and publication remain pending.
+
+The unreleased `GET`/`HEAD /subscriptions/<name>/dead-letters` route wraps
+`subscriptionDeadLetters`. All-member work scales with historical member count
+times page size; prefer member-scoped polling for large groups.

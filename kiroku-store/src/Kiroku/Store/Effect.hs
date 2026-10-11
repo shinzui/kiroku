@@ -59,11 +59,14 @@ import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Settings (StoreSettings (..), enrichEvents)
 import Kiroku.Store.Subscription.Checkpoint.SQL qualified as CheckpointSQL
 import Kiroku.Store.Subscription.CheckpointInventory.SQL qualified as CheckpointInventorySQL
+import Kiroku.Store.Subscription.DeadLetter.SQL qualified as DeadLetterSQL
 import Kiroku.Store.Subscription.Types (
     CheckpointInitialization,
     MissingCheckpointPolicy,
     SubscriptionCheckpointInventory,
     SubscriptionCheckpointMissing,
+    SubscriptionDeadLetterPage,
+    SubscriptionDeadLetterQuery,
     SubscriptionName,
  )
 import Kiroku.Store.Types
@@ -156,6 +159,8 @@ data Store :: Effect where
     'Kiroku.Store.Subscription.subscriptionCheckpointInventory'.
     -}
     GetSubscriptionCheckpointInventory :: Store m SubscriptionCheckpointInventory
+    -- | Read-only keyset page; no event decode hook or checkpoint write.
+    ListSubscriptionDeadLetters :: SubscriptionDeadLetterQuery -> Store m SubscriptionDeadLetterPage
     {- | Resolve one exact subscription checkpoint key according to its
     missing-row policy. Existing rows always take precedence.
 
@@ -421,6 +426,8 @@ runStorePool store = interpret_ $ \case
         rejectInvalidApplicationStream name
         usePool (store ^. #pool) $
             Session.statement (name, v) SQL.setStreamTruncateBeforeStmt
+    ListSubscriptionDeadLetters query ->
+        usePool (store ^. #pool) (DeadLetterSQL.listSubscriptionDeadLettersSession query)
     GetSubscriptionCheckpointInventory ->
         usePool (store ^. #pool) $
             Session.statement () CheckpointInventorySQL.getSubscriptionCheckpointInventoryStmt

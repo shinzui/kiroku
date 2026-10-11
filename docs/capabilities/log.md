@@ -1,5 +1,8 @@
 # Capability Catalog Log
 
+## 2026-10-11
+* **Update**: CAP-12 and CAP-17 record unreleased public dead-letter reads, bounded historical-member paging, unchanged structured reasons and library/HTTP validation under plan 89.
+
 ## 2026-10-10
 * **Update**: Document unreleased bounded stream/category/event inspection routes, stable byte-order stream cursors, batched original-name resolution and focused validation; final-layout cost and publication remain pending.
 * **Update**: CAP-17 records the unreleased durable checkpoint route, provider composition and its cross-handle, compatibility, mount and lifecycle tests under plan 87.

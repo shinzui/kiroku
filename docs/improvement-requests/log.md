@@ -1,5 +1,9 @@
 # Bundle Update Log
 
+## 2026-10-11
+* **Update**: IR-9 records locally complete public/library dead-letter inspection, bounded existing-index reads, real worker reasons and passing full-suite/example/Nix evidence. Status remains `in_progress` until plan 96 publishes the cohort.
+* **Implementation**: IR-9 moves to `in_progress`; plan 89 starts public paginated dead-letter reads and the HTTP inspection route under MasterPlan 13.
+
 ## 2026-10-10
 * **Update**: Record the user-approved byte-order browsing implementation, bounded Store primitives, HTTP routes, tests and shared migration 0015; final-layout cost and cohort publication remain pending.
 * **Update**: IR-8 retains category-first existing-index evidence requested by the user. Category equality is useful, while ordered pages and prefix filtering still scale with selected-category size. Arbitrary prefix search remains required; no new index or production API was added and status remains `in_progress`.

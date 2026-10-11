@@ -7,6 +7,7 @@ import Test.BrowseSpec qualified as BrowseSpec
 import Test.CheckpointsSpec qualified as CheckpointsSpec
 import Test.CollectorSpec qualified as CollectorSpec
 import Test.CorsSpec qualified as CorsSpec
+import Test.DeadLettersSpec qualified as DeadLettersSpec
 import Test.IntegrationSpec qualified as IntegrationSpec
 import Test.ServerSpec qualified as ServerSpec
 import Test.SubscriptionsSpec qualified as SubscriptionsSpec
@@ -16,6 +17,7 @@ main :: IO ()
 main = withSharedMigratedPostgres $ hspec $ do
     BrowseSpec.spec
     CheckpointsSpec.spec
+    DeadLettersSpec.spec
     CorsSpec.spec
     CollectorSpec.spec
     IntegrationSpec.spec

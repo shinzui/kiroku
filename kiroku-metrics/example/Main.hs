@@ -81,7 +81,7 @@ import Kiroku.Test.Postgres (withMigratedTestDatabase)
 
 main :: IO ()
 main = withMigratedTestDatabase $ \connStr -> do
-    step "[1/9] ephemeral postgres ready"
+    step "[1/10] ephemeral postgres ready"
 
     -- The collector must observe events from the first append, so its callbacks
     -- go on ConnectionSettings BEFORE withStore. But snapshots read store-level
@@ -101,10 +101,10 @@ main = withMigratedTestDatabase $ \connStr -> do
             threadDelay 300_000
             let port = srv.serverPort
                 base = "http://127.0.0.1:" <> show port
-            step ("[2/9] store + collector + metrics server on port " <> show port)
+            step ("[2/10] store + collector + metrics server on port " <> show port)
 
             appendEvents store (StreamName "orders-1") ["OrderCreated", "OrderPaid", "OrderShipped"]
-            step "[3/9] appended 3 events to orders-1"
+            step "[3/10] appended 3 events to orders-1"
 
             mgr <- newManager defaultManagerSettings
 
@@ -123,7 +123,7 @@ main = withMigratedTestDatabase $ \connStr -> do
             check "GET /health/live is 200" (sLive == 200)
             (sReady, _) <- httpGet mgr (base <> "/health/ready")
             check "GET /health/ready is 200" (sReady == 200)
-            step "[4/9] HTTP /metrics, /prometheus, /health/live, /health/ready all OK"
+            step "[4/10] HTTP /metrics, /prometheus, /health/live, /health/ready all OK"
 
             -- Browser preflight and ordinary reads share the host's allowlist.
             request <- parseRequest (base <> "/metrics")
@@ -137,7 +137,7 @@ main = withMigratedTestDatabase $ \connStr -> do
             denied <- httpLbs (request{requestHeaders = [("Origin", evil)]}) mgr
             check "CORS denied GET is unchanged" (statusCode (responseStatus denied) == 200)
             check "CORS denied GET grants nothing" (all (\(name, _) -> name `notElem` ["Access-Control-Allow-Origin", "Access-Control-Allow-Credentials", "Access-Control-Allow-Methods", "Access-Control-Allow-Headers", "Access-Control-Max-Age"]) (responseHeaders denied))
-            step "[5/9] CORS: preflight and GET from https://ops.example.com allowed; https://evil.example.com undecorated"
+            step "[5/10] CORS: preflight and GET from https://ops.example.com allowed; https://evil.example.com undecorated"
 
             (sCheckpoints, bCheckpoints) <- httpGet mgr (base <> "/subscription-checkpoints")
             check "GET /subscription-checkpoints is 200" (sCheckpoints == 200)
@@ -145,7 +145,7 @@ main = withMigratedTestDatabase $ \connStr -> do
                 Just (CheckpointInventoryResponse position rows) -> do
                     check "durable store_position >= 3" (position >= 3)
                     check "no durable checkpoints without subscriptions" (null rows)
-                    step ("[6/9] GET /subscription-checkpoints store_position=" <> show position <> " with no durable checkpoints (this example runs no subscription)")
+                    step ("[6/10] GET /subscription-checkpoints store_position=" <> show position <> " with no durable checkpoints (this example runs no subscription)")
                 Nothing -> check "durable inventory decodes" False
 
             (sStreams, bStreams) <- httpGet mgr (base <> "/streams?category=orders")
@@ -162,7 +162,12 @@ main = withMigratedTestDatabase $ \connStr -> do
                             check "GET event by id is 200" (status == 200)
                         _ -> check "event page is nonempty" False
                 _ -> check "event page decodes" False
-            step "[7/9] Stream browsing and historical events resolve original stream names"
+            step "[7/10] Stream browsing and historical events resolve original stream names"
+
+            (sDeadLetters, bDeadLetters) <- httpGet mgr (base <> "/subscriptions/example/dead-letters?limit=10")
+            check "dead-letter page status" (sDeadLetters == 200)
+            check "dead-letter page is empty without a cursor" (decode bDeadLetters == Just (object ["items" .= ([] :: [Value])]))
+            step "[8/10] GET /subscriptions/example/dead-letters returned an empty page (this example runs no subscription)"
 
             -- WebSocket: subscribe to the live event tail, then append one more
             -- event and assert it arrives over the socket as a JSON event message.
@@ -177,10 +182,10 @@ main = withMigratedTestDatabase $ \connStr -> do
                             wait appendThread
                             pure (eventTypeOf ev)
             check ("WebSocket event eventType == OrderRefunded (got " <> T.unpack evType <> ")") (evType == "OrderRefunded")
-            step ("[8/9] WebSocket /ws/events received event eventType=" <> T.unpack evType)
+            step ("[9/10] WebSocket /ws/events received event eventType=" <> T.unpack evType)
 
             snap <- snapshotMetrics metrics
-            step ("[9/9] kiroku-metrics-example: all checks passed (snapshot global position = " <> show snap.store.globalPosition <> ")")
+            step ("[10/10] kiroku-metrics-example: all checks passed (snapshot global position = " <> show snap.store.globalPosition <> ")")
 
 --------------------------------------------------------------------------------
 -- Helpers

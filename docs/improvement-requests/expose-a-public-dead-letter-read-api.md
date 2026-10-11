@@ -8,15 +8,15 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-10-10T16:10:46Z"
+timestamp: "2026-10-11T01:43:02Z"
 requestId: IR-9
-status: accepted
+status: in_progress
 origin: mori://shinzui/keiro-ui
 reviews:
   - kind: model
     reviewer: codex
     reviewed_at: "2026-10-10T16:10:46Z"
-    document_timestamp: "2026-10-10T16:10:46Z"
+    document_timestamp: "2026-10-11T01:24:00Z"
     scope: authoring-metadata
     outcome: comments
     provider: openai
@@ -39,7 +39,7 @@ Dead letters recorded by kiroku subscriptions are kiroku-owned state, so their r
 here per `mori://shinzui/keiro-ui/okf/adrs/concepts/ADR-1`. Implementation is kiroku's own
 downstream work under kiroku's plans.
 
-Accepted by kiroku on 2026-09-10. Implementation is planned by
+Accepted by kiroku on 2026-09-10. Implementation is underway in
 [ExecPlan 89, Expose a public dead-letter read API](../plans/89-expose-a-public-dead-letter-read-api.md)
 (`mori://shinzui/kiroku/plans/89-expose-a-public-dead-letter-read-api`), which adds the public
 `subscriptionDeadLetters` operation to the `Store` effect with keyset pagination in the store's
@@ -50,8 +50,8 @@ existing endpoint and the dead-letter write and cleanup paths unchanged.
 Since 2026-09-30 that plan is EP-4 of
 [MasterPlan 13, Expose the Kiroku inspection surface for the keiro runtime UI and a standalone Kiroku UI](../masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md)
 (`mori://shinzui/kiroku/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui`),
-which coordinates IR-8 through IR-12 as one cohort. The request moves to `in_progress` when
-plan 89's first milestone starts and to `completed` once the cohort release, performed by
+which coordinates IR-8 through IR-12 as one cohort. This request is `in_progress`;
+local implementation is underway. It moves to `completed` once the cohort release, performed by
 [ExecPlan 96](../plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md),
 is published.
 
@@ -114,3 +114,28 @@ for cross-subscription aggregation or counts beyond what a paginated list natura
 The public `kiroku-store` read operation with Haddock and tests; the `kiroku-metrics` route with
 tests and a documented request/response transcript in `docs/user/metrics.md`; changelog entries
 and PVP-appropriate version bumps, at kiroku's discretion.
+
+
+## Implementation Evidence
+
+The unreleased implementation adds `subscriptionDeadLetters` to the public Store
+effect with opaque validated limits, exclusive composite cursors and newest-first
+pages. `Kiroku.Metrics.DeadLetters` wraps it as `GET`/`HEAD
+/subscriptions/<name>/dead-letters` with stored structured reasons unchanged.
+Store-backed starters wire the optional `deadLetters` provider automatically.
+Unknown names return an empty page; invalid inputs never call a provider; typed
+errors are sanitized. Existing wire assertions and write/cleanup SQL remain unchanged.
+
+Evidence: `kiroku-store/test/Test/SubscriptionDeadLetters.hs` and its mock spec;
+`kiroku-store/test/Test/DeadLetterQueryPlans.hs` called by the structural gate;
+`kiroku-metrics/test/Test/DeadLettersSpec.hs`; the self-verifying metrics example;
+and the captured real worker response in [the guide](../user/metrics.md#dead-letters-over-http).
+All-member reads bound each historical member's candidates before merging and
+reuse existing indexes, with work proportional to member count times page size.
+Release and cumulative performance acceptance remain with plan 96.
+
+Local verification passes six full test suites (631 examples), sixteen prepared
+query-work checks, the ten-step example and Nix build. See the
+[retained verification](../../kiroku-store/bench/results/mp13-ep4-dead-letter-inspection/README.md).
+The backpressure test's callback collector was made atomic without weakening
+its assertions; production delivery behavior is unchanged.

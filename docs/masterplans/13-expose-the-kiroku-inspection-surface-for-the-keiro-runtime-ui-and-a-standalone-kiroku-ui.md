@@ -203,8 +203,8 @@ Integration Points.
 |---|-------|------|-----------|-----------|--------|
 | 1 | Add configurable CORS support to kiroku-metrics (IR-11) | docs/plans/90-add-configurable-cors-support-to-kiroku-metrics.md | None | None | Complete |
 | 2 | Serve durable subscription checkpoints over HTTP (IR-10) | docs/plans/87-serve-durable-subscription-checkpoints-over-http.md | EP-1 | None | Complete |
-| 3 | Expose a REST read API for browsing streams, categories, and events (IR-8) | docs/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md | EP-2 | EP-4 | In Progress |
-| 4 | Expose a public dead-letter read API (IR-9) | docs/plans/89-expose-a-public-dead-letter-read-api.md | EP-2 | EP-3 | Not Started |
+| 3 | Expose a REST read API for browsing streams, categories, and events (IR-8) | docs/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md | EP-2 | EP-4 | Complete |
+| 4 | Expose a public dead-letter read API (IR-9) | docs/plans/89-expose-a-public-dead-letter-read-api.md | EP-2 | EP-3 | Complete |
 | 5 | Converge the kiroku-metrics WebSocket protocol with the cross-project convention (IR-12) | docs/plans/94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention.md | EP-3 | None | Not Started |
 | 6 | Serve the Kiroku inspection surface standalone and make it self-describing | docs/plans/95-serve-the-kiroku-inspection-surface-standalone-and-make-it-self-describing.md | EP-1, EP-2, EP-3, EP-4, EP-5 | None | Not Started |
 | 7 | Release the inspection surface cohort and complete the keiro-ui requests | docs/plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md | EP-1, EP-2, EP-3, EP-4, EP-5, EP-6 | None | Not Started |
@@ -378,10 +378,10 @@ GADT gains four constructors and the exported `Subscriber` record gains a field)
 `kiroku-metrics` 0.3.0.0 (the configuration field, the record, new modules, a new executable,
 and new library dependencies `network`, `effectful-core` and `optparse-applicative`), and patch bumps
 of `kiroku-otel`, `kiroku-cli`, and `shibuya-kiroku-adapter` to move their `kiroku-store`
-bound, plus `kiroku-metrics`'s `kiroku-cli` bound. `kiroku-store-migrations` is outside the
-cohort: it does not depend on `kiroku-store` (the release skill's dependents list says
-otherwise and is stale on that point; EP-7 corrects the skill in its release commit) and this
-cohort adds no migration. Because in-tree packages resolve against their local versions, leaving
+bound, plus `kiroku-metrics`'s `kiroku-cli` bound. `kiroku-store-migrations` does not depend on `kiroku-store` (the release skill's
+older dependents list is stale), but joins the cohort for its own migration 0015
+schema change selected by ADR-17. EP-7 re-derives its version and documents the
+transactional index build's maintenance-window write pause. Because in-tree packages resolve against their local versions, leaving
 every version untouched until EP-7 keeps `cabal build all` satisfiable throughout.
 
 **The publisher drop counter** (owner: EP-5, plan 94). Shared artifact:
@@ -453,10 +453,10 @@ rule suffices.
 
 ## Progress
 
-- [x] (2026-10-10) EP-3 selected-layout measurement: verify proof plus five fresh and five observer pairs, all 21 benchmark-grade trials, raw recomputation and lease/cell cleanup. Preserve adverse cost estimates and unresolved precision in the [report](../../bench/mp13-index/evidence/2026-10-10-byte-name/README.md); EP-3 remains In Progress for cost review, with cumulative release acceptance still owned by EP-7.
+- [x] (2026-10-10) EP-3 selected-layout measurement: verify proof plus five fresh and five observer pairs, all 21 benchmark-grade trials, raw recomputation and lease/cell cleanup. Preserve adverse cost estimates and unresolved precision in the [report](../../bench/mp13-index/evidence/2026-10-10-byte-name/README.md); EP-3 local design review is now closed by user endorsement; cumulative release acceptance remains owned by EP-7.
 
 - [x] (2026-10-10) EP-3: implement a disposable shared-access prototype: one byte-ordered browse index, bounded category/literal-prefix pages, and namespace global windows using existing event indexes. All 224 TypeID/edge-case checks pass (176 browse, 48 namespace); retain preceding rejected plans/setup error and verify every owned cluster stopped.
-- [ ] EP-3: settle the new browsing-order preference (byte order versus deployment locale), then select the final shared layout and validate its own write cost before migration. The prior replacement's cost is not acceptance of a different layout.
+- [x] (2026-10-11) EP-3: settle the new browsing-order preference (byte order versus deployment locale), then select the final shared layout and validate its own write cost before migration. The prior replacement's cost is not acceptance of a different layout.
 
 - [x] (2026-10-10) EP-3: correct sparse observer recording, preserve primary append grade requirements, compile the Linux payload and verify diagnostic schedule/grade/cost-bound checks.
 - [x] (2026-10-10) EP-3: verify the corrected observer proof (47,734 benchmark-grade append samples, 61–62 steady samples per diagnostic browse page), raw recomputation and lease release.
@@ -484,17 +484,17 @@ rule suffices.
 - [x] (2026-10-10) EP-3: execute M0 existing-index prototype diagnostics; reject inventory-proportional prefix work and retain evidence.
 - [x] (2026-10-10) EP-3: evaluate user-directed category-scoped stream browsing with existing indexes; retain category-size scaling and correctness evidence.
 - [x] (2026-10-10) EP-3: evaluate name ranges with TypeID fixtures on existing indexes; retain 224 initial and 400 refined cases with verified cleanup and rejected promotion.
-- [ ] EP-3: resolve ordered paging within large categories and arbitrary prefix filtering before promoting browse SQL.
-- [ ] EP-3: `listStreams`, `listCategories`, `getEvent` in `kiroku-store` with database, mock,
+- [x] (2026-10-11) EP-3: resolve ordered paging within large categories and arbitrary prefix filtering before promoting browse SQL.
+- [x] (2026-10-11) EP-3: `listStreams`, `listCategories`, `getEvent` in `kiroku-store` with database, mock,
       and structural tests.
-- [ ] EP-3: `Kiroku.Metrics.Browse`, `recordedEventToJSONResolved`, the `browser` field and
+- [x] (2026-10-11) EP-3: `Kiroku.Metrics.Browse`, `recordedEventToJSONResolved`, the `browser` field and
       route arms, mock and end-to-end tests.
-- [ ] EP-3: documentation, example step, CAP-17, changelog, IR-8 evidence.
-- [ ] EP-4: `subscriptionDeadLetters` in `kiroku-store` with database, mock, and structural
+- [x] (2026-10-11) EP-3: documentation, example step, CAP-17, changelog, IR-8 evidence.
+- [x] (2026-10-11) EP-4: `subscriptionDeadLetters` in `kiroku-store` with database, mock, and structural
       tests.
-- [ ] EP-4: `Kiroku.Metrics.DeadLetters`, the `deadLetters` field and route arm, scripted and
+- [x] (2026-10-11) EP-4: `Kiroku.Metrics.DeadLetters`, the `deadLetters` field and route arm, scripted and
       end-to-end tests.
-- [ ] EP-4: documentation, example step, CAP-17, changelog, IR-9 evidence.
+- [x] (2026-10-11) EP-4: documentation, example step, CAP-17, changelog, IR-9 evidence.
 - [ ] EP-5: the publisher drop counter in `kiroku-store` with a deterministic test and the
       overhead benchmark recorded before and after.
 - [ ] EP-5: additive frames (`unsubscribe_metrics`, `error.code`, `original_stream_name`, the
@@ -893,6 +893,12 @@ rule suffices.
 
 ## Outcomes & Retrospective
 
+Current state (2026-10-11): EP-1 through EP-4 are Complete locally. The browse
+index's measured costs remain inconclusive for release. Dead-letter inspection
+adds no index and passes bounded production plans, 631 full-suite examples, the
+ten-step example, Nix build and bundle checks. EP-5 is the next ready child;
+EP-6 and EP-7 retain their dependencies. No package publication has occurred.
+
 2026-10-10 shared design continuation: a concrete disposable query prototype
 passes all 224 TypeID/edge-case checks for category-plus-literal-prefix browsing
 and bounded namespace windows. Browse work is at most 12 rows / 12 buffers;
@@ -1135,3 +1141,26 @@ was relaxed. Keep the one shared index and original category/identity indexes.
 Plan 54 remains independently unimplemented and receives no separate additive
 write-cost allowance. EP-7 still owns cumulative inspection load and publication;
 the registry and dependency graph remain unchanged.
+
+
+## EP-3 closure and EP-4 continuation (2026-10-11)
+
+The user endorsed retaining the selected name index after its cost review and
+authorized continued implementation. Mark EP-3 Complete for supported reads,
+correctness, bounded production plans, documentation and focused cost evidence.
+No zero-slowdown verdict or practical allowance changes: cumulative release
+acceptance remains open in EP-7. EP-4 now starts from the landed providers,
+shared error helpers and browse routes. EP-5 is also unblocked.
+
+
+## EP-4 completion (2026-10-11)
+
+Public library and HTTP dead-letter reads, historical-member work bounds, codecs,
+query validation, mounted CORS and documentation are complete. Full verification
+passes six test suites with 631 examples. A shared non-atomic callback collector
+caused the existing backpressure test to miss a resumed event; its atomic repair
+preserves every assertion and the full suite passes. Retain raw failures and
+[verification evidence](../../kiroku-store/bench/results/mp13-ep4-dead-letter-inspection/README.md).
+EP-4 adds no index or migration; ADR-9/8/15 cover its durable decisions.
+EP-5 WebSocket convergence is ready. IR-9 and release acceptance remain pending
+publication under EP-7.

@@ -47,7 +47,7 @@ tuning see `docs/PRODUCTION-DEPLOYMENT.md` and `docs/PRODUCTION-TUNING.md`.
   pool observation handler, and wiring both to logs and metrics.
 - [Metrics And Event Streaming](metrics.md) — the `kiroku-metrics` sister
   package: HTTP/JSON and Prometheus metrics, health probes, a live
-  subscription-status endpoint, bounded stream/category/event browsing, and a WebSocket that streams events out of
+  subscription-status endpoint, bounded stream/category/event browsing and paginated dead-letter inspection, and a WebSocket that streams events out of
   the store.
 - [Operator CLI](operator-cli.md) — run the standalone `kiroku` executable
   and embed Kiroku operator subcommands in a host CLI.

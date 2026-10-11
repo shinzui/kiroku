@@ -75,7 +75,7 @@ import Kiroku.Store.Subscription.Fsm (
     stateCursor,
     step,
  )
-import Kiroku.Store.Subscription.Types
+import Kiroku.Store.Subscription.Types hiding (eventId, globalPosition)
 import Kiroku.Store.Types (CategoryName (..), EventId (..), GlobalPosition (..), RecordedEvent (..))
 import System.IO.Unsafe (unsafePerformIO)
 

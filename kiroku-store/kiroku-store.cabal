@@ -66,6 +66,7 @@ library
     Kiroku.Store.HistoryRetention.SQL
     Kiroku.Store.Subscription.Checkpoint.SQL
     Kiroku.Store.Subscription.CheckpointInventory.SQL
+    Kiroku.Store.Subscription.DeadLetter.SQL
 
   build-depends:
     , aeson                 >=2.1   && <2.3
@@ -111,6 +112,7 @@ test-suite kiroku-store-test
     Test.ConsumerGroupEffect
     Test.ConsumerGroupResize
     Test.ConsumerGroupSql
+    Test.DeadLetterQueryPlans
     Test.EventTypeFilter
     Test.FailureInjection
     Test.HandlerStall
@@ -135,6 +137,8 @@ test-suite kiroku-store-test
     Test.SubscriptionCheckpointInventoryMock
     Test.SubscriptionCheckpointReset
     Test.SubscriptionCheckpointWorker
+    Test.SubscriptionDeadLetters
+    Test.SubscriptionDeadLettersMock
     Test.SubscriptionPauseResume
     Test.SubscriptionReconnect
     Test.SubscriptionRegistry

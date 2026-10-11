@@ -11,6 +11,8 @@
 
 ### New Features
 
+- Read-only `GET`/`HEAD /subscriptions/<name>/dead-letters`, structured reasons and errors, member filtering and opaque cursor pages. `Kiroku.Metrics.DeadLetters` exports the codec and provider; store-backed starters configure the new `deadLetters` provider automatically.
+
 * Add bounded stream/category/event browsing with category-plus-literal-prefix filters, exclusive cursors, validated page limits and GET/HEAD support. Store-backed servers configure the provider automatically.
 * Add `recordedEventToJSONResolved`, preserving existing event keys and adding `original_stream_name`.
 

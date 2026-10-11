@@ -6,6 +6,7 @@ module Kiroku.Store.Subscription (
     -- * Observability
     initializeSubscriptionCheckpoint,
     subscriptionCheckpointInventory,
+    subscriptionDeadLetters,
     subscriptionStates,
     SubscriptionStateView (..),
 
@@ -30,7 +31,7 @@ import Effectful.Dispatch.Dynamic (send)
 import GHC.Generics (Generic)
 import GHC.Stack (HasCallStack)
 import Kiroku.Store.Connection (KirokuStore (..))
-import Kiroku.Store.Effect (Store (GetSubscriptionCheckpointInventory, InitializeSubscriptionCheckpoint))
+import Kiroku.Store.Effect (Store (GetSubscriptionCheckpointInventory, InitializeSubscriptionCheckpoint, ListSubscriptionDeadLetters))
 import Kiroku.Store.Notification qualified as Notifier
 import Kiroku.Store.Subscription.EventPublisher qualified as Pub
 import Kiroku.Store.Subscription.Fsm (SubscriptionState (..), stateCursor, stateName)
@@ -333,3 +334,18 @@ subscriptionStates store = do
                     }
         )
         cells
+
+{- | Read one subscription's dead letters, newest first by global position and
+then dead-letter id. Echo the page's 'nextCursor' as 'after' for an exclusive
+next page. 'consumerGroupMember' Nothing includes all historical members; Just
+selects one (ungrouped subscriptions use 0). All-member work is bounded by the
+number of historical members times the page size; use member-scoped polling for
+large groups. One statement and one pool checkout serve a page.
+
+The reason JSON is returned unchanged, without an event decoding hook. An empty
+page means no dead letters were recorded for this query. Hard-deleting source
+streams can remove rows, but their cursors remain valid. This operation neither
+writes a checkpoint nor changes the worker or cleanup paths.
+-}
+subscriptionDeadLetters :: (HasCallStack, Store :> es) => SubscriptionDeadLetterQuery -> Eff es SubscriptionDeadLetterPage
+subscriptionDeadLetters = send . ListSubscriptionDeadLetters

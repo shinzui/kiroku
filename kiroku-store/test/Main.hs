@@ -61,6 +61,8 @@ import Test.SubscriptionCheckpointInventory qualified as SubscriptionCheckpointI
 import Test.SubscriptionCheckpointInventoryMock qualified as SubscriptionCheckpointInventoryMock
 import Test.SubscriptionCheckpointReset qualified as SubscriptionCheckpointReset
 import Test.SubscriptionCheckpointWorker qualified as SubscriptionCheckpointWorker
+import Test.SubscriptionDeadLetters qualified as SubscriptionDeadLetters
+import Test.SubscriptionDeadLettersMock qualified as SubscriptionDeadLettersMock
 import Test.SubscriptionPauseResume qualified as SubscriptionPauseResume
 import Test.SubscriptionReconnect qualified as SubscriptionReconnect
 import Test.SubscriptionRegistry qualified as SubscriptionRegistry
@@ -77,6 +79,8 @@ main :: IO ()
 main = withSharedMigratedPostgres $ hspec $ do
     BrowseReads.spec
     BrowseReadsMock.spec
+    SubscriptionDeadLetters.spec
+    SubscriptionDeadLettersMock.spec
     BrowseQueryPlans.spec
     UniqueViolationMapping.spec
     SubscriptionTarget.spec

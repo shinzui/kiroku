@@ -75,6 +75,10 @@ module Kiroku.Store.SQL (
     DeadLetterRecord (..),
     insertDeadLetterAndCheckpointStmt,
     readDeadLettersStmt,
+    listSubscriptionDeadLettersStmt,
+    listSubscriptionDeadLettersFromStartStmt,
+    listSubscriptionMemberDeadLettersStmt,
+    listSubscriptionMemberDeadLettersFromStartStmt,
 ) where
 
 import Contravariant.Extras (contrazip2, contrazip3, contrazip4, contrazip5, contrazip6)
@@ -94,6 +98,7 @@ import Hasql.Decoders qualified as D
 import Hasql.Encoders qualified as E
 import Hasql.Session qualified as Session
 import Hasql.Statement (Statement, preparable)
+import Kiroku.Store.Subscription.DeadLetter.SQL (listSubscriptionDeadLettersFromStartStmt, listSubscriptionDeadLettersStmt, listSubscriptionMemberDeadLettersFromStartStmt, listSubscriptionMemberDeadLettersStmt)
 import Kiroku.Store.Types
 
 -- | Parameters for append CTE variants (the 7 parallel arrays + stream name).

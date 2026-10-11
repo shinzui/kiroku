@@ -10,6 +10,7 @@ module Kiroku.Metrics (
     module Kiroku.Metrics.Checkpoints,
     module Kiroku.Metrics.Config,
     module Kiroku.Metrics.Cors,
+    module Kiroku.Metrics.DeadLetters,
     module Kiroku.Metrics.Health,
     module Kiroku.Metrics.Server,
     module Kiroku.Metrics.Subscriptions,
@@ -21,6 +22,7 @@ import Kiroku.Metrics.Checkpoints
 import Kiroku.Metrics.Collector
 import Kiroku.Metrics.Config
 import Kiroku.Metrics.Cors
+import Kiroku.Metrics.DeadLetters
 import Kiroku.Metrics.Health
 import Kiroku.Metrics.Server
 import Kiroku.Metrics.Subscriptions

@@ -36,7 +36,7 @@ import Control.Exception qualified
 import Control.Lens ((&), (.~), (^.))
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
-import Data.IORef (modifyIORef', newIORef, readIORef)
+import Data.IORef (atomicModifyIORef', modifyIORef', newIORef, readIORef)
 import Data.Int (Int32)
 import Data.Text qualified as T
 import Hasql.Pool qualified as Pool
@@ -59,7 +59,8 @@ spec :: Spec
 spec = describe "subscription FSM — recoverable backpressure (EP-41 M2)" $ do
     it "pauses a slow AllStreams consumer and resumes, delivering all events" $ do
         evtRef <- newIORef ([] :: [KirokuEvent])
-        let evtHandler e = modifyIORef' evtRef (e :)
+        -- Publisher and worker callbacks can arrive concurrently.
+        let evtHandler e = atomicModifyIORef' evtRef (\events -> (e : events, ()))
         withTestStoreSettings (& #eventHandler .~ Just evtHandler) $ \store -> do
             firstSeen <- newEmptyMVar
             release <- newEmptyMVar

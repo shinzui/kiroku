@@ -200,6 +200,9 @@ stalls on a poison event.
 The natural key `(subscription_name, consumer_group_member, global_position,
 event_id)` is unique, so re-recording the same dead letter is idempotent.
 
+Supported readers are `subscriptionDeadLetters` and the
+[dead-letter HTTP route](metrics.md#dead-letters-over-http); consumers need not query this private table.
+
 ## Indexes
 
 | Index | Table | Purpose |
@@ -213,7 +216,7 @@ event_id)` is unique, so re-recording the same dead letter is idempotent.
 | `ix_events_correlation_id` | `events(correlation_id) WHERE correlation_id IS NOT NULL` | Supports correlation lookups. |
 | `ix_events_causation_id` | `events(causation_id) WHERE causation_id IS NOT NULL` | Supports causation-chain lookups. |
 | `ix_subscriptions_name_member` | `subscriptions(subscription_name, consumer_group_member)` | Composite unique checkpoint key — one row per consumer-group member under a shared subscription name. |
-| `ix_dead_letters_subscription_created_at` | `dead_letters(subscription_name, consumer_group_member, created_at)` | Operator read path: list a subscription member's dead letters by recency. |
+| `ix_dead_letters_subscription_position` | `dead_letters(subscription_name, consumer_group_member, global_position DESC, dead_letter_id DESC)` | Newest-first dead-letter pages, index-ordered per member. |
 
 ## Triggers And Functions
 

@@ -27,6 +27,19 @@ module Kiroku.Store.Subscription.Types (
     SubscriptionCheckpointMissing (..),
     SubscriptionCheckpoint (..),
     SubscriptionCheckpointInventory (..),
+
+    -- * Dead-letter inspection
+    SubscriptionDeadLetter (..),
+    SubscriptionDeadLetterCursor (..),
+    subscriptionDeadLetterCursor,
+    SubscriptionDeadLetterLimit,
+    SubscriptionDeadLetterLimitOutOfRange (..),
+    mkSubscriptionDeadLetterLimit,
+    subscriptionDeadLetterLimitValue,
+    defaultSubscriptionDeadLetterLimit,
+    SubscriptionDeadLetterQuery (..),
+    defaultSubscriptionDeadLetterQuery,
+    SubscriptionDeadLetterPage (..),
     SubscriptionTarget (..),
     TargetBindingPolicy (..),
     SubscriptionTargetMismatch (..),
@@ -77,7 +90,8 @@ module Kiroku.Store.Subscription.Types (
 ) where
 
 import Control.Exception (Exception (..), SomeException)
-import Data.Int (Int32)
+import Data.Aeson (Value)
+import Data.Int (Int32, Int64)
 import Data.Set (Set)
 import Data.Set qualified as Set
 import Data.Text (Text)
@@ -95,7 +109,7 @@ import Kiroku.Store.Subscription.Fsm (
     deadLetterSummary,
     retryDelayMicros,
  )
-import Kiroku.Store.Types (CategoryName, EventType, GlobalPosition, RecordedEvent (..))
+import Kiroku.Store.Types (CategoryName, EventId, EventType, GlobalPosition, RecordedEvent (..))
 import Numeric.Natural (Natural)
 
 {- | A declarative, closed filter over event types for a subscription.
@@ -235,6 +249,69 @@ subscription checkpoint. The rows are ordered by 'subscriptionName' and then
 data SubscriptionCheckpointInventory = SubscriptionCheckpointInventory
     { storePosition :: !GlobalPosition
     , checkpoints :: !(Vector SubscriptionCheckpoint)
+    }
+    deriving stock (Eq, Show, Generic)
+
+-- | A durably parked event. The worker's structured reason JSON is unchanged.
+data SubscriptionDeadLetter = SubscriptionDeadLetter
+    { deadLetterId :: !Int64
+    , subscriptionName :: !SubscriptionName
+    , consumerGroupMember :: !Int32
+    , globalPosition :: !GlobalPosition
+    , eventId :: !EventId
+    , reason :: !Value
+    , reasonSummary :: !Text
+    , attemptCount :: !Int32
+    , createdAt :: !UTCTime
+    }
+    deriving stock (Eq, Show, Generic)
+
+{- | Exclusive cursor in descending (global position, dead-letter id) order.
+It remains usable after the originating row is deleted.
+-}
+data SubscriptionDeadLetterCursor = SubscriptionDeadLetterCursor
+    { cursorGlobalPosition :: !GlobalPosition
+    , cursorDeadLetterId :: !Int64
+    }
+    deriving stock (Eq, Ord, Show, Generic)
+
+subscriptionDeadLetterCursor :: SubscriptionDeadLetter -> SubscriptionDeadLetterCursor
+subscriptionDeadLetterCursor SubscriptionDeadLetter{globalPosition = position, deadLetterId = ident} =
+    SubscriptionDeadLetterCursor position ident
+
+{- | Validated page size, 1 through 1,000. Use the smart constructor.
+No Generic or numeric instance exposes a construction bypass.
+-}
+newtype SubscriptionDeadLetterLimit = SubscriptionDeadLetterLimit Int32
+    deriving stock (Eq, Ord, Show)
+
+newtype SubscriptionDeadLetterLimitOutOfRange = SubscriptionDeadLetterLimitOutOfRange Int32
+    deriving stock (Eq, Show)
+mkSubscriptionDeadLetterLimit :: Int32 -> Either SubscriptionDeadLetterLimitOutOfRange SubscriptionDeadLetterLimit
+mkSubscriptionDeadLetterLimit value
+    | value < 1 || value > 1000 = Left (SubscriptionDeadLetterLimitOutOfRange value)
+    | otherwise = Right (SubscriptionDeadLetterLimit value)
+subscriptionDeadLetterLimitValue :: SubscriptionDeadLetterLimit -> Int32
+subscriptionDeadLetterLimitValue (SubscriptionDeadLetterLimit value) = value
+defaultSubscriptionDeadLetterLimit :: SubscriptionDeadLetterLimit
+defaultSubscriptionDeadLetterLimit = SubscriptionDeadLetterLimit 100
+
+-- | Nothing selects all historical members, or starts at the newest row.
+data SubscriptionDeadLetterQuery = SubscriptionDeadLetterQuery
+    { subscriptionName :: !SubscriptionName
+    , consumerGroupMember :: !(Maybe Int32)
+    , after :: !(Maybe SubscriptionDeadLetterCursor)
+    , limit :: !SubscriptionDeadLetterLimit
+    }
+    deriving stock (Eq, Show, Generic)
+
+defaultSubscriptionDeadLetterQuery :: SubscriptionName -> SubscriptionDeadLetterQuery
+defaultSubscriptionDeadLetterQuery name = SubscriptionDeadLetterQuery name Nothing Nothing defaultSubscriptionDeadLetterLimit
+
+-- | Trimmed page; a cursor is present exactly when another row exists.
+data SubscriptionDeadLetterPage = SubscriptionDeadLetterPage
+    { deadLetters :: !(Vector SubscriptionDeadLetter)
+    , nextCursor :: !(Maybe SubscriptionDeadLetterCursor)
     }
     deriving stock (Eq, Show, Generic)
 

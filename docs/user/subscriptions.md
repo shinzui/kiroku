@@ -571,3 +571,27 @@ idle and reuses its active timer across quick handler calls; after a call ends,
 one existing timer can wake before it parks again. Enabled delivery adds a
 monotonic clock read and two tracking writes per call. Its runtime cost remains
 an explicit opt-in cost, with cumulative measurement reserved for release.
+
+
+### Reading dead letters
+
+`subscriptionDeadLetters :: (HasCallStack, Store :> es) =>
+SubscriptionDeadLetterQuery -> Eff es SubscriptionDeadLetterPage` reads parked
+rows newest first by global position, then dead-letter id. Start with
+`defaultSubscriptionDeadLetterQuery name`; use `mkSubscriptionDeadLetterLimit`
+for a size from 1 through 1000 (default 100). Echo a page's `nextCursor` as the
+query's exclusive `after` cursor until it is absent. `consumerGroupMember =
+Just n` selects a member; Nothing includes all historical members. All-member
+work scales with member count times page size; use a member filter for large
+groups. Reasons remain stored JSON, with no event decode hook or checkpoint write.
+An empty page is valid for an unknown name. Hard-deleting source events can remove
+rows while their value cursors remain usable.
+
+```haskell
+page <- subscriptionDeadLetters (defaultSubscriptionDeadLetterQuery name)
+mapM_ (liftIO . print . (\row -> row ^. #reasonSummary)) (page ^. #deadLetters)
+-- Next request: query & #after .~ (page ^. #nextCursor)
+```
+
+See [dead letters over HTTP](metrics.md#dead-letters-over-http) for the same
+read available to browser clients.

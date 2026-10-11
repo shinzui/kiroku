@@ -7,7 +7,7 @@ streams events out of the store** to any network client.
 
 Like [`kiroku-otel`](opentelemetry.md), it is a **sister package** to
 `kiroku-store`: it depends on `kiroku-store`, but the core library gains no web
-dependency and no code change. The collector is a pure external consumer of the
+dependency. The collector is a pure external consumer of the
 store's existing callback seams (the same `eventHandler`/`observationHandler`
 described in [Observability](observability.md)) plus a couple of public read
 accessors.
@@ -15,7 +15,8 @@ accessors.
 > **Deployment assumption — no built-in auth or TLS.** The server has no
 > authentication, TLS, or rate limiting. It binds all interfaces; use network
 > isolation or a sidecar/ingress that terminates TLS and authentication. Treat
-> `/metrics`, `/health`, `/subscriptions`, `/subscription-checkpoints`, and the WebSocket as you would any
+> `/metrics`, `/health`, `/subscriptions`, `/subscription-checkpoints`,
+> `/subscriptions/<name>/dead-letters`, browsing routes, and the WebSocket as you would any
 > internal scrape/admin surface. CORS only tells browsers which pages may read
 > responses; it does not replace the trusted-network or authenticating-proxy assumption.
 
@@ -29,6 +30,8 @@ accessors.
 - [Interpreting the metrics](#interpreting-the-metrics)
 - [The WebSocket protocol](#the-websocket-protocol)
 - [Subscription status over HTTP](#subscription-status-over-http)
+- [Dead letters over HTTP](#dead-letters-over-http)
+- [Browsing streams, categories and events](#browsing-streams-categories-and-events-unreleased)
 - [Durable subscription checkpoints over HTTP](#durable-subscription-checkpoints-over-http)
 - [Cross-origin browser access (CORS)](#cross-origin-browser-access-cors)
 - [Try it](#try-it)
@@ -132,9 +135,9 @@ withMetricsServerWithProviders cfg metrics [postgresPing store] providers $ \ser
 ```
 
 `ServerProviders` contains `webSocketServer`, optional `subscriptionStatus` and
-optional `checkpointInventory`. `defaultServerProviders` rejects upgrades and leaves
-both read providers absent. Record updates allow custom sources. The legacy store
-starter wires the WebSocket and durable inventory while keeping the live route's
+optional `checkpointInventory`, `storeBrowsing` and `deadLetters`.
+`defaultServerProviders` rejects upgrades and leaves every read provider absent. Record updates allow custom sources. The legacy store
+starter wires the WebSocket, durable inventory, browse reads and dead letters while keeping the live route's
 published unconfigured 404; it does not opt into the live registry automatically.
 
 `combinedAppWithProviders cfg metrics deps providers` is the CORS-wrapped, prefix-mountable
@@ -169,7 +172,9 @@ gains no web dependency; the surface lives here, in a sister package.
 
 ## HTTP endpoints
 
-All JSON responses are `application/json`. The wire keys are **snake_case**.
+All JSON responses are `application/json`. New wire keys are **snake_case**;
+the published event object retains its camelCase keys. Store-backed servers also
+serve [dead letters](#dead-letters-over-http).
 
 ### `GET /metrics`
 
@@ -650,6 +655,82 @@ The new structured error keys become published when released, following
 [Wire-format stability](#wire-format-stability). Header values reflect host configuration.
 This CORS implementation is currently unreleased and ships with the inspection cohort.
 
+## Dead letters over HTTP
+
+Store-backed starters automatically serve `GET` and `HEAD
+/subscriptions/<name>/dead-letters`. Custom hosts set the `deadLetters` field of
+`ServerProviders` to `Just (storeDeadLetters store)` or their own provider.
+Subscription names containing `/` must percent-encode it as `%2F`.
+
+```bash
+curl -s 'http://localhost:9091/subscriptions/inventory-projection/dead-letters?limit=50'
+```
+
+A real worker-produced response captured by the HTTP test:
+
+```json
+{
+  "items": [
+    {
+      "attempt_count": 1,
+      "created_at": "2026-10-11T01:33:01.248556Z",
+      "dead_letter_id": 7,
+      "event_id": "01a12897-85b9-7217-97ad-4622a7772a6c",
+      "global_position": 2,
+      "member": 0,
+      "reason": {
+        "detail": "unknown SKU",
+        "kind": "poison"
+      },
+      "reason_summary": "poison: unknown SKU",
+      "subscription": "worker"
+    }
+  ]
+}
+```
+
+The response is `{"items": [...]}` with an optional `next_cursor`. Each item has:
+
+| Field | Meaning |
+| --- | --- |
+| `dead_letter_id` | Stable identity of the parked row. |
+| `subscription`, `member` | Subscription and historical consumer-group member; ungrouped subscriptions use 0. |
+| `global_position`, `event_id` | Original event position and UUID, usable with `GET /events/<event_id>`. Parse Int64 JSON numbers losslessly, including above 2^53. |
+| `reason` | Stored JSON unchanged, including `poison`, `invalid_payload`, `max_attempts_exceeded`, `decode_failure`, or `other` reasons. |
+| `reason_summary` | Operator-facing summary. |
+| `attempt_count` | Number of delivery attempts recorded by the worker. |
+| `created_at` | UTC RFC 3339 timestamp. |
+
+Pages are newest first by `(global_position DESC, dead_letter_id DESC)`. Echo
+`next_cursor` verbatim in `from`; clients treat it as opaque. It is omitted on
+the last page. `limit` defaults to 100 and accepts 1 through 1000; `member`
+optionally selects one non-negative Int32 member. The cursor stays valid if its
+row is hard-deleted. Reads observe live state, without a cross-request snapshot.
+Unknown names return `200 {"items":[]}`. Reasons are JSON values, not strings.
+
+All-member reads include historical members, with work proportional to member
+count times page size. Member-scoped polling is preferable for large groups;
+avoid overlapping polls. The existing per-member index serves both shapes.
+
+| Code | HTTP status |
+| --- | --- |
+| `invalid_query_parameter` | 400, with `parameter`, `value` and `reason` details |
+| `method_not_allowed` | 405, `Allow: GET, HEAD` |
+| `dead_letters_not_configured` | 404 |
+| `dead_letters_unavailable` | 503 |
+| `event_decode_failed`, `store_error` | 500 |
+| `not_found` | 404 on an unknown standalone-app path |
+
+Missing values, duplicate recognized parameters, signs, malformed UTF-8 and
+integer overflow are rejected before a provider call. Unknown parameters are
+ignored. Errors use the structured envelope; older routes retain their published
+string errors. Store errors are sanitized. HEAD preserves GET status and headers
+with no response body.
+
+This is a read-only surface: POST, DELETE and other methods return 405. Redrive,
+delete and retry-policy changes require separate safety semantics. The route
+joins the [published wire contract](#wire-format-stability) when released.
+
 ## Try it
 
 The package ships a self-verifying example that boots an ephemeral store, starts
@@ -661,15 +742,16 @@ cabal run -fexample kiroku-metrics-example
 ```
 
 ```text
-[1/9] ephemeral postgres ready
-[2/9] store + collector + metrics server on port 59196
-[3/9] appended 3 events to orders-1
-[4/9] HTTP /metrics, /prometheus, /health/live, /health/ready all OK
-[5/9] CORS: preflight and GET from https://ops.example.com allowed; https://evil.example.com undecorated
-[6/9] GET /subscription-checkpoints store_position=3 with no durable checkpoints (this example runs no subscription)
-[7/9] Stream browsing and historical events resolve original stream names
-[8/9] WebSocket /ws/events received event eventType=OrderRefunded
-[9/9] kiroku-metrics-example: all checks passed (snapshot global position = 4)
+[1/10] ephemeral postgres ready
+[2/10] store + collector + metrics server on port 62340
+[3/10] appended 3 events to orders-1
+[4/10] HTTP /metrics, /prometheus, /health/live, /health/ready all OK
+[5/10] CORS: preflight and GET from https://ops.example.com allowed; https://evil.example.com undecorated
+[6/10] GET /subscription-checkpoints store_position=3 with no durable checkpoints (this example runs no subscription)
+[7/10] Stream browsing and historical events resolve original stream names
+[8/10] GET /subscriptions/example/dead-letters returned an empty page (this example runs no subscription)
+[9/10] WebSocket /ws/events received event eventType=OrderRefunded
+[10/10] kiroku-metrics-example: all checks passed (snapshot global position = 4)
 ```
 
 The source is `kiroku-metrics/example/Main.hs`; it is the authoritative,

@@ -22,6 +22,11 @@ provenance:
       at: 2026-10-10T15:41:06Z
       mode: "update"
       note: "Correct current APIs, integration ownership and bounded observer work; runtime acceptance remains pending."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-11T01:24:00Z
+      mode: "implement"
+      note: "Implement EP-4 public dead-letter inspection from the landed provider surface"
   reviews:
     - model: "gpt-6-astra"
       harness: "codex-cli"
@@ -119,42 +124,42 @@ retry-policy change, and no change to how dead letters are written or cleaned up
 ## Progress
 
 - [x] (2026-10-10) Reviewed the integrated design against current source; corrected API and performance hazards. This is planning work, not implementation evidence.
-- [ ] Implement and execute the focused correctness and performance acceptance added by this review.
+- [x] (2026-10-11) Execute focused correctness and production prepared-query work checks; cumulative append-under-inspection acceptance remains with plan 96.
 
-- [ ] M0: set IR-9 to `accepted` with its Status section citing this plan, add the bundle log
+- [x] (2026-09-10) M0: set IR-9 to `accepted` with its Status section citing this plan, add the bundle log
       entry, and validate the improvement-request bundle (done at plan creation, see Revision
       Notes).
-- [ ] M1: add the public types (`SubscriptionDeadLetter`, `SubscriptionDeadLetterCursor`,
+- [x] (2026-10-11) M1: add the public types (`SubscriptionDeadLetter`, `SubscriptionDeadLetterCursor`,
       `SubscriptionDeadLetterLimit` with `mkSubscriptionDeadLetterLimit`,
       `SubscriptionDeadLetterQuery`, `SubscriptionDeadLetterPage`, and the helpers) to
       `kiroku-store/src/Kiroku/Store/Subscription/Types.hs`; set IR-9 to `in_progress`.
-- [ ] M1: add the internal module `kiroku-store/src/Kiroku/Store/Subscription/DeadLetter/SQL.hs`
+- [x] (2026-10-11) M1: add the internal module `kiroku-store/src/Kiroku/Store/Subscription/DeadLetter/SQL.hs`
       with the two keyset statements and the paging session; register it under `other-modules`.
-- [ ] M1: add the `ListSubscriptionDeadLetters` constructor to the `Store` effect and its
+- [x] (2026-10-11) M1: add the `ListSubscriptionDeadLetters` constructor to the `Store` effect and its
       `runStorePool` branch in `kiroku-store/src/Kiroku/Store/Effect.hs`; add the
       `subscriptionDeadLetters` wrapper with Haddock to `kiroku-store/src/Kiroku/Store/Subscription.hs`.
-- [ ] M1: add `kiroku-store/test/Test/SubscriptionDeadLetters.hs` (database),
+- [x] (2026-10-11) M1: add `kiroku-store/test/Test/SubscriptionDeadLetters.hs` (database),
       `kiroku-store/test/Test/SubscriptionDeadLettersMock.hs` (mock interpreter), the
       `insertDeadLetterWith` helper, and the three structural-gate cases in
       `kiroku-store/test/Test/PerformanceStructure.hs`; register everything; store suite green.
-- [ ] M1: this plan's bullets under the one `## Unreleased` heading of
+- [x] (2026-10-11) M1: this plan's bullets under the one `## Unreleased` heading of
       `kiroku-store/CHANGELOG.md` (no `version:` or bound edits; plan 96 assigns 0.11.0.0);
-      `cabal build all` warning-free.
-- [ ] M2: create `kiroku-metrics/src/Kiroku/Metrics/DeadLetters.hs` (provider type, canonical
+      `cabal build all` without new implementation warnings.
+- [x] (2026-10-11) M2: create `kiroku-metrics/src/Kiroku/Metrics/DeadLetters.hs` (provider type, canonical
       store provider, wire types and hand-written JSON codec, cursor text codec, query-parameter
       parser, `deadLettersApp`); ensure the structured error-envelope helper exists in
       `Kiroku.Metrics.JSON`; export from the umbrella module; database-free tests in
       `kiroku-metrics/test/Test/DeadLettersSpec.hs`.
-- [ ] M3: add the `deadLetters` field to plan 87's `ServerProviders` in
+- [x] (2026-10-11) M3: add the `deadLetters` field to plan 87's `ServerProviders` in
       `kiroku-metrics/src/Kiroku/Metrics/Server.hs` and the route arm to `httpAppWithProviders`;
       store-backed starters serve it automatically; end-to-end tests against a real store; every
       pre-existing spec unchanged and green.
-- [ ] M4: document the route in `docs/user/metrics.md`, the library operation in
+- [x] (2026-10-11) M4: document the route in `docs/user/metrics.md`, the library operation in
       `docs/user/subscriptions.md`, fix the stale index row in `docs/user/schema.md`, extend
       the self-verifying example, update CAP-12 and CAP-17 and the capabilities log, update the
       IR-9 body with implementation evidence, finalize the `kiroku-metrics` changelog entry;
       all repository validations green.
-- [ ] M5: perform the ADR distillation pass, write Outcomes & Retrospective, and mark EP-4
+- [x] (2026-10-11) M5: perform the ADR distillation pass, write Outcomes & Retrospective, and mark EP-4
       `Complete` in the MasterPlan registry. (The release, the clean-consumer check, and IR-9's
       `completed` status moved to plan 96, EP-7 of MasterPlan 13, on 2026-09-30.)
 
@@ -163,7 +168,10 @@ retry-policy change, and no change to how dead letters are written or cleaned up
 
 - 2026-10-10 source review: The all-member top-N query could scan every historical row. The maxBound first-page sentinel excluded a legal boundary pair; parsing directly into Int64 could wrap. DeadLetterParams gained topology fields. No runtime acceptance is inferred from this finding.
 
-(None yet.)
+- 2026-10-11: EP-2 and EP-3 are landed, with serial baseline evidence reused rather than repeated before editing. The providers record has `storeBrowsing`; this child adds only `deadLetters`.
+- 2026-10-11: New public record fields require mechanically hiding `eventId` and `globalPosition` on the worker's broad subscription-types import and `items` in the browse test. No worker behavior or existing test assertion changes.
+- 2026-10-11: PostgreSQL uses either the existing natural-key index or the recency index for loose historical-member probes; both start with (subscription, member). Retain the failed over-specific index-name assertion, then require ordered member advance, existing indexes only, bounded rows/buffers and the recency index for lateral pages. The SQL and work budgets are unchanged.
+- 2026-10-11: Retain fixture-column (`payload` versus `data`), Hspec argument quoting, record-field ambiguity and initial formatter failures in the execution record; these were local setup/build errors, not performance samples.
 
 
 ## Decision Log
@@ -336,9 +344,44 @@ retry-policy change, and no change to how dead letters are written or cleaned up
 
 ## Outcomes & Retrospective
 
-2026-10-10 review: implementation and performance acceptance remain pending. Static review does not prove zero runtime regression. Earlier planning-time observations and dated decisions are historical where this revision explicitly replaces them.
+EP-4 is Complete locally. Public `subscriptionDeadLetters` and the GET/HEAD
+HTTP route serve newest-first pages with structured reasons, member filtering
+and exclusive value cursors. First-page variants include legal Int64 boundary
+pairs. Historical member enumeration and bounded per-member pages reuse the
+existing indexes, without a migration, worker behavior change or write SQL change.
+The worker import is narrowed only to disambiguate newly exported selectors.
 
-(To be filled during and after implementation.)
+`cabal build all` succeeds; no new warning remains in the changed implementation.
+Pre-existing name-shadowing/record-field warnings are retained in the build log.
+`cabal test all -j1` passes all six suites: CLI 22, metrics 77, otel 17, store 446,
+migrations 24 and adapter 45 examples (631 total). The first full run's missing
+backpressure resumed event led to a test-side atomic callback collector fix;
+all original assertions remain intact and the full rerun passes. Ten-step metrics
+example, Nix metrics package build, format check and strict ADR/capability/request
+validations pass. Nix checks are disabled for these packages, so the test-only
+collector repair is verified by Cabal rather than claimed as a Nix test result.
+
+Sixteen actual prepared EXPLAIN ANALYZE cases cover generic/custom first/later
+pages and three historical members with 1,000 then 20,000 rows each. Per-member
+pages examine at most six rows; all-member work stays within the declared
+24-row budget (21.01 reported with loop-average rounding), and at most 27 shared
+buffers, under the 128-buffer ceiling. The merge receives at most 18 candidates.
+The new limit has no Generic/numeric construction bypass. Direct WAI tests pin
+exact keys, lossless Int64 values, validation before provider calls, HEAD/405,
+sanitized typed errors and exception propagation; real HTTP tests preserve the
+legacy live-route 404, mounted CORS and worker-produced structured reasons.
+
+[Retained verification](../../kiroku-store/bench/results/mp13-ep4-dead-letter-inspection/README.md)
+includes setup/formatter failures, the over-specific index-name assertion and
+initial backpressure failure, not only the successful logs. No remote experiment
+was started. ADR distillation needs no new record: ADR-9 owns wire and sister-package
+boundaries, ADR-8 owns validated construction, and ADR-15 already specifies bounded
+historical-member reads and release-owned cumulative acceptance. Composite cursor
+encoding is this route's wire detail, not another architectural decision.
+
+Versions, bounds and changelog publication remain with plan 96. IR-9 remains
+`in_progress` until publication. This local closure does not accept cumulative
+performance, deploy migration 0015 or publish packages.
 
 
 ## Context and Orientation
@@ -790,7 +833,7 @@ The read never invokes the event decode hook and never writes a checkpoint.
 Scope: after this milestone a Haskell consumer can call `subscriptionDeadLetters` through the
 public `Store` effect, the PostgreSQL interpreter serves it with keyset pagination in the
 canonical order, a mock interpreter can implement it without a database, the structural gate
-pins the query plans, and the store package and its dependants carry the version bump. Nothing
+pins the query plans, with versions and bounds deferred to plan 96. Nothing
 in `kiroku-metrics` changes yet.
 
 First move IR-9 from `accepted` to `in_progress`: in
@@ -842,7 +885,7 @@ subscriptionDeadLetterCursor row =
 
 -- | Validated page size (1 through 1,000). Constructor not exported.
 newtype SubscriptionDeadLetterLimit = SubscriptionDeadLetterLimit Int32
-    deriving stock (Eq, Ord, Show, Generic)
+    deriving stock (Eq, Ord, Show)
 
 newtype SubscriptionDeadLetterLimitOutOfRange = SubscriptionDeadLetterLimitOutOfRange Int32
     deriving stock (Eq, Show, Generic)
@@ -1131,7 +1174,7 @@ arm (delegate in a real interpreter, `error` in a mock) and record it. Because i
 resolve against their local versions, `cabal build all` stays satisfiable with every version
 untouched.
 
-Acceptance for Milestone 1: `cabal build all` succeeds with no warnings, and
+Acceptance for Milestone 1: `cabal build all` succeeds with no new warnings, and
 `cabal test kiroku-store-test --test-options='--match "SubscriptionDeadLetters"'` and
 `cabal test kiroku-store-test --test-options='--match "production query plans"'` pass every
 case above. The whole store suite is green.
@@ -1697,13 +1740,13 @@ The plan is complete when every item below is observed, mapped to IR-9's accepta
    `Kiroku.Store`), `Test.SubscriptionDeadLettersMock` passes with no SQL executed, and the
    metrics scripted-provider block passes with no database.
 5. Every pre-existing endpoint, WebSocket frame, and JSON body is unchanged: the existing specs
-   pass with no assertion edits; `git diff` shows no change under
+   pass with no assertion edits; `git diff` shows only the selector-disambiguating import change in
    `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs`, no change to `readDeadLettersStmt`,
    `insertDeadLetterAndCheckpointStmt`, or `deleteDeadLettersForOrphanedEventsStmt` in
    `kiroku-store/src/Kiroku/Store/SQL.hs`, and no change to the migrations package; `GET /nope`
    still returns exactly `{"error":"Not found"}` (end-to-end test 4).
 
-Beyond the request: `cabal build all` produces no warnings; a limit of 0 or 1001 is refused
+Beyond the request: `cabal build all` produces no new warnings; a limit of 0 or 1001 is refused
 before any pool checkout (structural gate) and as HTTP 400 without calling the provider;
 `POST` on the route is 405; `just capabilities-validate` and the strict improvement-request
 validation pass; the example exits 0; and the MasterPlan registry shows EP-4 complete. (The
@@ -1856,3 +1899,34 @@ sources through `mori registry show <project> --full` (for example `hasql/hasql`
 ## API and performance review revision (2026-10-10)
 
 Reviewed against repository HEAD `f1a0209` and the released typed-decoding implementation. Corrected integration contracts and made focused performance evidence a completion gate. Existing authorship history is preserved; this revision records no implemented milestone or accepted performance result. The active requirements above supersede incompatible September design decisions, not published wire contracts.
+
+
+## Implementation clarification (2026-10-11)
+
+Validated dead-letter limits deliberately omit Generic and numeric instances,
+matching the browse limit's construction invariant. The mock test returns a
+scripted complete page and verifies one dispatch with the exact query; it does
+not duplicate the production pagination algorithm. Structural work checks use
+production prepared statements, first/later pages, generic/custom plans, three
+historical members and 1,000/20,000 rows per member. Enumeration may use the
+existing natural-key index sharing the same leading name/member keys.
+
+The first partial-staging commit attempt was rejected by treefmt because the new
+modules were staged while their Cabal registrations were still unstaged. No commit
+was created. The final commit stages each module together with its registration
+and implementation dependencies, retaining the formatter rejection.
+
+The first full 446-case store run retained one backpressure-test failure at the
+resumed-event assertion (exact delivery and checkpoint assertions passed). Its
+shared callback collector used non-atomic modifyIORef' from publisher and worker
+threads. Change only that collector to atomicModifyIORef', preserving every
+assertion and production FSM behavior, then rerun the full suite. This repairs
+the same test-side lost-update hazard observed during EP-3 validation.
+
+
+## Local completion (2026-10-11)
+
+All five implementation milestones pass; EP-4 is Complete. Retained evidence
+records the successful ten-step example and six full test suites alongside
+preceding failures and the unchanged prepared-query work budgets. Publication
+and request completion remain the release child's work.

@@ -31,6 +31,7 @@ module Test.Helpers (
     countEvents,
     countDeadLettersForEvents,
     insertDeadLetterForEvent,
+    insertDeadLetterWith,
     insertEventUsingDefaultId,
     serverVersionNum,
     truncateRejected,
@@ -131,21 +132,24 @@ countEvents store = do
 
 -- | Insert a dead-letter row for a recorded event without running a subscription.
 insertDeadLetterForEvent :: KirokuStore -> Text -> RecordedEvent -> IO ()
-insertDeadLetterForEvent store subscriptionName event = do
+insertDeadLetterForEvent store subscriptionName = insertDeadLetterWith store subscriptionName 0 (Aeson.object [("source", Aeson.String "test")]) "test dead letter" 1
+
+insertDeadLetterWith :: KirokuStore -> Text -> Int32 -> Aeson.Value -> Text -> Int32 -> RecordedEvent -> IO ()
+insertDeadLetterWith store subscriptionName selectedMember reason summary attempts event = do
     let EventId eid = event ^. #eventId
         GlobalPosition globalPosition = event ^. #globalPosition
         params =
             SQL.DeadLetterParams
                 { SQL.dlSubscriptionName = subscriptionName
-                , SQL.dlMember = 0
+                , SQL.dlMember = selectedMember
                 , SQL.dlTargetKind = "unbound"
                 , SQL.dlTargetCategory = Nothing
-                , SQL.dlGroupSize = 1
+                , SQL.dlGroupSize = max 1 (selectedMember + 1)
                 , SQL.dlGlobalPosition = globalPosition
                 , SQL.dlEventId = eid
-                , SQL.dlReason = Aeson.object [("source", Aeson.String "test")]
-                , SQL.dlReasonSummary = "test dead letter"
-                , SQL.dlAttemptCount = 1
+                , SQL.dlReason = reason
+                , SQL.dlReasonSummary = summary
+                , SQL.dlAttemptCount = attempts
                 }
     result <- Pool.use (store ^. #pool) (Session.statement params SQL.insertDeadLetterAndCheckpointStmt)
     case result of

@@ -1,7 +1,7 @@
 ---
 title: "Resilient delivery: retry, dead-letter, filtering, and backpressure recovery"
 type: Capability
-description: "Drive per-event dispositions (retry with backoff, dead-letter) through an ack-coupled stream, filter deliveries by event type or predicate, and recover from backpressure and live DB errors without losing events."
+description: "Read parked dead letters through the public paginated subscriptionDeadLetters operation and drive per-event dispositions (retry with backoff, dead-letter) through an ack-coupled stream, filter deliveries by event type or predicate, and recover from backpressure and live DB errors without losing events."
 generated:
   by: anthropic/claude-sonnet-4.5
   at: "2026-08-08T00:00:00Z"
@@ -13,12 +13,16 @@ since: "0.2.0.0"
 packages:
   - kiroku-store
 interface:
+  - Kiroku.Store.Subscription
   - Kiroku.Store.Subscription.Types
   - Kiroku.Store.Subscription.Stream
   - Kiroku.Store.Subscription.Fsm
 requires:
   - CAP-11
 evidence:
+  - kind: test
+    resource: kiroku-store/test/Test/SubscriptionDeadLetters.hs
+    proves: Newest-first exclusive pages include historical members, preserve reason JSON and survive deleted cursor rows; the unreleased read does not change checkpoints.
   - kind: test
     resource: kiroku-store/test/Test/SubscriptionRetryDeadLetter.hs
     proves: Retry redelivers under the retry policy and DeadLetter records to kiroku.dead_letters while atomically advancing the checkpoint.
@@ -61,3 +65,7 @@ defaultSubscriptionConfig
   cannot express.
 - These dispositions require the ack-coupled bridge; a plain `subscriptionStream` always replies
   `Continue`.
+
+The unreleased inspection cohort adds public `subscriptionDeadLetters` with
+validated page limits, optional member selection and exclusive composite cursors.
+Reasons retain their JSON structure; the read bypasses event decode hooks.

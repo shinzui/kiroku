@@ -18,7 +18,7 @@ import Data.Vector qualified as V
 import Effectful (Eff, IOE, runEff)
 import Effectful.Dispatch.Dynamic (interpret_)
 import Effectful.Error.Static (Error, runErrorNoCallStack)
-import Kiroku.Metrics
+import Kiroku.Metrics hiding (items)
 import Kiroku.Store qualified as Store
 import Kiroku.Store.Effect (Store (..))
 import Kiroku.Test.Postgres (withMigratedTestDatabase)

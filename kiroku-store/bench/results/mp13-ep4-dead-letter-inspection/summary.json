@@ -1,0 +1,22 @@
+{
+  "verified_prepared_cases": 16,
+  "historical_members": 3,
+  "histories_per_member": [
+    1000,
+    20000
+  ],
+  "fetch_size": 6,
+  "max_reported_relation_rows_examined": 21.01,
+  "max_shared_buffers": 27,
+  "row_gate": 24,
+  "buffer_gate": 128,
+  "full_suite_examples": {
+    "cli": 22,
+    "metrics": 77,
+    "otel": 17,
+    "store": 446,
+    "migrations": 24,
+    "adapter": 45
+  },
+  "remote_experiment_started": false
+}

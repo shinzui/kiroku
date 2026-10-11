@@ -26,6 +26,7 @@ import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Subscription.Stream qualified as Buffer
 import Kiroku.Store.Subscription.Worker (withLoadCheckpointHookForTest)
 import Kiroku.Test.Fixtures.CategoryScaling (categoryScalingFixtureSql, categoryScalingHead)
+import Test.DeadLetterQueryPlans qualified as DeadLetterQueryPlans
 import Test.Helpers (makeEvent, validConsumerGroup, waitWithTimeout, withTestStore, withTestStoreSettings)
 import Test.Hspec
 
@@ -33,11 +34,20 @@ spec :: Spec
 spec = do
     noOpAppendSpec
     queryPlanSpec
+    DeadLetterQueryPlans.spec
     categoryReadCostSpec
 
 noOpAppendSpec :: Spec
 noOpAppendSpec =
     describe "no-op paths use no pooled connection" $ do
+        it "rejects invalid dead-letter page sizes before pool checkout" $ do
+            checkouts <- newIORef (0 :: Int)
+            withObservedStore checkouts $ \_ -> do
+                before <- readIORef checkouts
+                forM_ [0, -1, 1001] $ \n -> mkSubscriptionDeadLetterLimit n `shouldBe` Left (SubscriptionDeadLetterLimitOutOfRange n)
+                after <- readIORef checkouts
+                after - before `shouldBe` 0
+
         it "rejects invalid batch and buffer sizes before pool checkout" $ do
             checkouts <- newIORef (0 :: Int)
             withObservedStore checkouts $ \_ -> do

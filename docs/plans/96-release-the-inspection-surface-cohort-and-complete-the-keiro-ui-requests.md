@@ -17,6 +17,11 @@ provenance:
       at: 2026-10-10T15:41:08Z
       mode: "update"
       note: "Correct current APIs, integration ownership and bounded observer work; runtime acceptance remains pending."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-11T01:31:56Z
+      mode: "update"
+      note: "Carry selected migration and unresolved original-control cost into release ownership"
   reviews:
     - model: "gpt-6-astra"
       harness: "codex-cli"
@@ -109,8 +114,10 @@ Source packages live in their same-named root directories. Store has no internal
 dependency; CLI, otel, metrics and shibuya-kiroku-adapter currently depend on store.
 Metrics also depends on CLI. kiroku-test-support is local test infrastructure, not a release.
 Re-read every cabal stanza and query Mori dependents before deciding a cohort.
-Migrations ships only if its own source/API/schema changes require it; inspection adds no
-migration or append index in the approved design.
+The approved browse design (ADR-17) adds migration 0015 and one partial C-collated
+stream-name index. The migration package therefore joins the release cohort based
+on its own schema change; re-derive its version from the actual diff. No separate
+namespace or category/name replacement index is added.
 
 [ADR-9](../adr/0009-published-http-and-websocket-wire-shapes-are-frozen-and-served-only-by-sister-packages.md)
 freezes published wire contracts;
@@ -204,7 +211,8 @@ this is store 0.10.0.0 to the approved inspection major, with its own appropriat
 file; do not create a mislabeled 0.9 -> 0.10 edge or overwrite an existing migration guide.
 Describe new Store constructors, config/Subscriber constructor compatibility, unchanged
 starter signatures, the new executable, typed decoding assumptions and approved bounds.
-State that this cohort adds no schema migration only after verifying the merged schema diff.
+Document migration 0015's transactional index build and maintenance-window write
+pause after verifying the merged schema diff; preserve all earlier manifest entries.
 Preserve earlier edges and bump the blueprint version based on its actual current state.
 
 Apply approved metadata to every relevant library, test, example and executable stanza.
@@ -325,7 +333,7 @@ Do not use git checkout -- or broad restores to discard a dirty tree.
 ## Interfaces and Dependencies
 
 Use the actual exported API from the children as the clean-consumer authority. The completed
-ServerProviders record has webSocketServer, subscriptionStatus, checkpointInventory, browser,
+ServerProviders record has webSocketServer, subscriptionStatus, checkpointInventory, storeBrowsing,
 deadLetters and webSocketChannels. ProviderPresence uses presentWebSocketChannels to avoid
 a conflicting umbrella export. Capabilities uses corsIsEnabled, while Cors exports corsEnabled.
 InspectHooks.onListening is `Int -> Capabilities -> IO ()`. BrowseLimits is abstract and
@@ -347,3 +355,15 @@ Milestone 2, never September's fixed literals.
 steps; preserved the original publication scope while adding API/lifecycle proof and
 proportional original-control performance acceptance. Store 0.10 and metrics 0.2 are already
 released. No runtime acceptance or publication occurred in this update.
+
+
+2026-10-11 handoff: EP-3 local implementation is complete and the user endorsed
+retaining the selected shared index. The [selected-layout evidence](../../bench/mp13-index/evidence/2026-10-10-byte-name/README.md)
+has 21 verified trials. Fresh throughput is -2.980% [-6.128%, +0.274%], p99
++3.700% [-3.814%, +11.802%]; observer throughput is -1.722% [-4.631%, +1.276%],
+p99 +0.308% [-3.556%, +4.327%]. Both zero-slowdown verdicts remain inconclusive
+and most intervals miss the declared precision target. This endorsement allows
+continued local implementation, without relaxing any performance gate or
+authorizing production migration/publication. Reuse valid evidence with matching
+inputs; remaining cumulative HTTP/tail/inventory acceptance stays here. Future
+plan 54 shares the same physical cost and gets no independent additive allowance.

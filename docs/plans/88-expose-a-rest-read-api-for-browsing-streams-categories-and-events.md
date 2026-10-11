@@ -100,7 +100,7 @@ dependency.
 - [x] (2026-10-10) M0: implement a disposable shared-access prototype: one byte-ordered browse index, bounded category/literal-prefix pages, and namespace global windows using existing event indexes. All 224 TypeID/edge-case checks pass (176 browse, 48 namespace); retain preceding rejected plans/setup error and verify every owned cluster stopped.
 - [x] (2026-10-10) M0: user accepted UTF-8 byte ordering; select one partial C-collated name index for category and literal-prefix stream pages (ADR-17).
 - [x] (2026-10-10) M0 cost measurement: finish the exact selected layout comparison against the original control: proof plus five pairs per workload, all 21 trials verified, raw recomputation and owned cell cleanup passed. Retain corrected percentages, original reporting error, and approved same-clock budget extension.
-- [ ] M0 promotion remaining: review the selected layout's measured write cost and unresolved precision before production promotion. Both zero-slowdown verdicts are inconclusive; cumulative release acceptance remains plan 96's responsibility.
+- [x] (2026-10-11) M0 cost review: the user endorsed retaining the selected index and continuing implementation. Both zero-slowdown verdicts remain inconclusive; this closes the local design review, not production deployment or cumulative release acceptance, which remains plan 96's responsibility.
 
 - [x] (2026-10-10) M0: correct sparse observer recording, preserve primary append grade requirements, compile the Linux payload and verify diagnostic schedule/grade/cost-bound checks.
 - [x] (2026-10-10) M0: verify the corrected observer proof (47,734 benchmark-grade append samples, 61–62 steady samples per diagnostic browse page), raw recomputation and lease release.
@@ -130,7 +130,7 @@ dependency.
 - [x] (2026-10-10) M4: extend `kiroku-metrics/example/Main.hs` with browse checks and update its documented transcript.
 - [x] (2026-10-10) M4: add this plan's bullets under `## Unreleased` in `kiroku-metrics/CHANGELOG.md` describing the new routes and exports (no `version:` edit; plan 96 assigns 0.3.0.0); update CAP-17 and its log; add IR-8's "Implementation Evidence" section.
 - [x] (2026-10-10) M4: ADR distillation pass (the browse-endpoint ADR first planned here is withdrawn as subsumed by ADR-9; record in Outcomes whether anything else is durable).
-- [ ] Fill in Outcomes & Retrospective, mark EP-3 `Complete` in the MasterPlan registry, and record the closing provenance revision.
+- [x] (2026-10-11) Finalize Outcomes & Retrospective and mark EP-3 `Complete`; existing session provenance records this implementation.
 
 
 ## Surprises & Discoveries
@@ -501,8 +501,9 @@ databases. The final-layout comparison completed all 21 verified trials: fresh
 throughput -2.980% (95% interval -6.128% to +0.274%) and observer throughput
 -1.722% (-4.631% to +1.276%). Fresh p99 is +3.700% (-3.814% to +11.802%);
 observer p99 +0.308% (-3.556% to +4.327%). Most intervals miss the frozen
-precision target, and both zero-slowdown verdicts remain inconclusive. Cost
-review and cumulative release acceptance remain open; publication belongs to
+precision target, and both zero-slowdown verdicts remain inconclusive. The user endorsed retaining the index and continuing on 2026-10-11. EP-3
+is Complete for local implementation and focused evidence; cumulative release
+acceptance remains open, and publication belongs to
 plan 96. See the [selected-layout report](../../bench/mp13-index/evidence/2026-10-10-byte-name/README.md). The dated research outcomes below describe their earlier layouts.
 
 
@@ -1669,3 +1670,13 @@ Retain the selected one-index implementation and original category/name indexes,
 but do not infer free writes or a second allowance for plan 54. Plan 96 still
 owns cumulative HTTP/tail/inventory performance and release. No new practical
 allowance, production migration or publication is authorized by these results.
+
+
+## Local implementation closure (2026-10-11)
+
+The user agreed to retain the selected index after reviewing its measured costs
+and uncertainty, and authorized continued implementation. EP-3 is Complete.
+ADR-17 already records the durable shared design; no additional ADR is needed.
+Both performance verdicts remain inconclusive, with unchanged precision and
+regression policy. Plan 96 owns cumulative release acceptance and deployment;
+this closure neither publishes packages nor applies a migration to production.
