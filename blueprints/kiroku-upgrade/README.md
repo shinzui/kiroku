@@ -3,7 +3,7 @@
 > Agent-guided upgrade guidance for projects consuming Kiroku, published as one
 > edge per released version window that needs judgement work.
 
-**Version:** `0.2.0`
+**Version:** `0.4.0`
 
 **Kind:** Blueprint migration (run with `seihou agent migrate`, not
 `seihou agent run` — this blueprint declares no baseline and applies no modules)
@@ -37,6 +37,7 @@ nothing it does not need.
 |---|---|---|
 | `0.7.0.1` | `0.8.0.0` | `kiroku-store` 0.8.0.0 (`StoreError` gains `TransientTransactionFailure`) and `kiroku-store-migrations` 0.4.0.0 (migration `0010` re-baseline, forward migration `0011`) |
 | `0.8.0.2` | `0.9.0.0` | `kiroku-store` 0.9.0.0 and `kiroku-store-migrations` 0.6.0.0 (migration `0012`: category on `$all` rows for category reads; stop old writers, migrate in a maintenance window, then deploy — no rolling deploy) |
+| `0.9.0.1` | `0.10.0.0` | Validated subscription configuration, typed decoding, persisted group size and target binding, and migrations 0013–0014 from migrations 0.7.0.0 |
 | `0.10.0.0` | `0.11.0.0` | Inspection APIs, exhaustive effect/publisher matches, metrics configuration and protocol constructors, standalone hosting, and migration 0015 from migrations 0.7.1.0 |
 
 ## Version space

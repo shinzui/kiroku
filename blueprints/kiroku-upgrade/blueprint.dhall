@@ -4,7 +4,7 @@ let S =
 
 in  S.Blueprint::{
     , name = "kiroku-upgrade"
-    , version = Some "0.3.0"
+    , version = Some "0.4.0"
     , description = Some
         "Upgrade guidance for projects consuming Kiroku, the PostgreSQL append-only event store. One edge per released version window that needs judgement work: source changes across call sites Kiroku cannot see, and read-only classification of databases whose migration ledger needs an operator-applied fixup before the next migrate."
     , prompt = ./prompt.md as Text
@@ -21,6 +21,11 @@ in  S.Blueprint::{
         , from = "0.8.0.2"
         , to = "0.9.0.0"
         , prompt = ./migrations/0-8-to-0-9.md as Text
+        }
+      , S.BlueprintMigration::{
+        , from = "0.9.0.1"
+        , to = "0.10.0.0"
+        , prompt = ./migrations/0.9.0.1-to-0.10.0.0.md as Text
         }
       , S.BlueprintMigration::{
         , from = "0.10.0.0"
