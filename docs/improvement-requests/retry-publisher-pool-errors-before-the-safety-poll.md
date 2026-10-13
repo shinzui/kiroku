@@ -8,7 +8,7 @@ description: >-
 generated:
   by: openai/gpt-6
   at: "2026-09-25T06:38:48Z"
-timestamp: "2026-09-25T06:38:48Z"
+timestamp: "2026-10-13T14:28:09Z"
 requestId: IR-16
 status: proposed
 origin: mori://shinzui/keiro-runtime-kenshou/masterplans/1-build-an-extensive-verification-suite-for-the-keiro-runtime
@@ -30,6 +30,18 @@ reviews:
 ---
 
 # Retry publisher pool errors before the safety poll
+
+## Status
+
+Proposed; no dedicated Kiroku implementation plan exists as of 2026-10-13.
+[ExecPlan 82](../plans/82-repair-live-reconnect-and-validate-subscription-identity-and-batch-size.md)
+repairs the separate category-worker replay symptom, and
+[ExecPlan 83](../plans/83-contain-persistent-publisher-decode-hook-failures.md) contains publisher
+decode-hook failures. Both shipped through
+[ExecPlan 85](../plans/85-release-the-subscription-hardening-cohort-and-coordinate-downstream-adoption.md)
+under [MasterPlan 12](../masterplans/12-harden-the-kiroku-event-store-and-subscription-machinery-surfaced-by-the-2026-07-kiroku-review.md),
+whose request audit explicitly excludes IR-16 from completion. Neither changes the publisher's
+pool-error retry cadence: returned pool errors still return to the notifier/safety-poll loop.
 
 ## Why this is a request
 

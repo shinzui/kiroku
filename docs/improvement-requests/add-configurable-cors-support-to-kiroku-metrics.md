@@ -8,7 +8,7 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-10-11T16:24:07Z"
+timestamp: "2026-10-13T14:28:09Z"
 requestId: IR-11
 status: completed
 completedAt: "2026-10-11T16:24:07Z"
@@ -55,7 +55,7 @@ is the enabling request for every browser consumer of kiroku-metrics: without it
 other endpoints requested by the initiative are reachable from a browser page on a different
 origin. Implementation is kiroku's own downstream work under kiroku's plans.
 
-Accepted by kiroku on 2026-09-10. Implementation is planned by
+Accepted by kiroku on 2026-09-10. Implementation was delivered by
 [ExecPlan 90, Add configurable CORS support to kiroku-metrics](../plans/90-add-configurable-cors-support-to-kiroku-metrics.md)
 (`mori://shinzui/kiroku/plans/90-add-configurable-cors-support-to-kiroku-metrics`), which adds a
 `cors` policy field to `MetricsServerConfig` (default off; an explicit allowed-origins list with
@@ -66,11 +66,11 @@ Since 2026-09-30 that plan is EP-1 of
 [MasterPlan 13, Expose the Kiroku inspection surface for the keiro runtime UI and a standalone Kiroku UI](../masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md)
 (`mori://shinzui/kiroku/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui`),
 which coordinates IR-8 through IR-12 as one cohort and lands this plan first because every
-browser consumer depends on it. The release moved out of plan 90: the request moves to
-`in_progress` when plan 90's first milestone starts and to `completed` once the cohort release
-(a `kiroku-metrics` major, forecast 0.3.0.0), performed by
+browser consumer depends on it. The release moved out of plan 90: implementation started on
+2026-10-10 and the request completed with the cohort release (`kiroku-metrics` 0.3.0.0) on
+2026-10-11, performed by
 [ExecPlan 96](../plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md),
-is published.
+as recorded in the Status section.
 
 Implementation began on 2026-10-10. Local implementation evidence remains separate from
 the cohort release and completion in plan 96.
@@ -157,5 +157,5 @@ The seven-step `kiroku-metrics-example` verifies preflight and allowed/disallowe
 behavior alongside existing metrics, health and event-tail checks. The guide documents
 the single-origin proxy alternative and the trusted-network/authenticating-proxy posture.
 [ADR-16](../adr/0016-browser-inspection-access-is-explicit-and-default-off.md) records the
-composition invariant. This is local implementation evidence; IR-11 remains `in_progress`
-until plan 96 publishes and verifies the cohort.
+composition invariant. These are the local implementation checks preceding the verified
+cohort publication in plan 96; IR-11 is now `completed`.

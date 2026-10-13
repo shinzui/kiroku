@@ -8,9 +8,9 @@ description: >-
 generated:
   by: openai/gpt-5
   at: "2026-08-22T13:40:36Z"
-timestamp: "2026-10-10T16:10:46Z"
+timestamp: "2026-10-13T14:28:09Z"
 requestId: IR-14
-status: proposed
+status: accepted
 origin: mori://shinzui/mori
 reviews:
   - kind: model
@@ -31,6 +31,20 @@ reviews:
 # Improvement Request: Add Manifest-Driven Selective Event Compaction
 
 ## Status
+
+Accepted for implementation under
+[MasterPlan 11](../masterplans/11-manifest-driven-selective-event-compaction.md).
+Implementation has not started: all seven children remain `Not Started`, and the public
+compaction API is absent from the working tree. The children own
+[store identity and ledger](../plans/74-add-a-store-identity-and-an-append-only-event-compaction-ledger.md),
+[reference inventory](../plans/75-expose-an-event-membership-and-reference-inventory-read-api.md),
+[manifest and report types](../plans/76-define-the-compaction-manifest-canonical-digest-refusal-vocabulary-and-report-types.md),
+[read-only preview](../plans/77-preview-a-compaction-manifest-read-only-with-deterministic-witnesses.md),
+[transactional apply](../plans/78-apply-a-compaction-manifest-transactionally-with-ledgered-idempotence.md),
+[operator documentation and CLI](../plans/79-document-compaction-for-operators-and-add-embeddable-kiroku-cli-compaction-commands.md),
+and [release with a clean external consumer](../plans/80-release-the-compaction-cohort-and-prove-it-from-a-clean-external-consumer.md).
+The request stays `accepted` until implementation begins and moves to `completed` only after
+publication and the release consumer proof.
 
 Proposed by
 `mori://shinzui/mori/masterplans/27-record-event-provenance-and-manage-the-store-lifecycle`

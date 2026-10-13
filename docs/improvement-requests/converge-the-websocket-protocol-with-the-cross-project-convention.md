@@ -9,7 +9,7 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-10-11T16:24:07Z"
+timestamp: "2026-10-13T14:28:09Z"
 requestId: IR-12
 status: completed
 completedAt: "2026-10-11T16:24:07Z"
@@ -58,7 +58,7 @@ document (`mori://shinzui/keiro-ui`, `docs/architecture/inspection-api-conventio
 artifact-level URI pending, area 5). Implementation is kiroku's own downstream work under
 kiroku's plans.
 
-Accepted by kiroku on 2026-09-30. Implementation is under way under
+Accepted by kiroku on 2026-09-30. Implementation was delivered by
 [ExecPlan 94, Converge the kiroku-metrics WebSocket protocol with the cross-project convention](../plans/94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention.md)
 (`mori://shinzui/kiroku/plans/94-converge-the-kiroku-metrics-websocket-protocol-with-the-cross-project-convention`),
 EP-5 of
@@ -72,8 +72,7 @@ snake_case `code`); and the in-band overflow `error` frame the guide documents i
 under the tail's `DropOldest` policy, which the plan fixes with a publisher drop counter in
 `kiroku-store`. The plan also adds `original_stream_name` to `event` frames so a client can
 name the source stream without a lookup, sharing one event object with the REST browse items.
-The request moves to `in_progress` when the plan's first milestone starts and to `completed`
-once the cohort release is published.
+The request completed with the verified cohort publication through plan 96 on 2026-10-11.
 
 ## Context
 
@@ -167,7 +166,8 @@ that promised signal observable and correctly ordered.
 
 `kiroku-metrics:kiroku-websocket-tail` compares frozen encoding and warm/cold
 bounded resolution alongside local appends; retained logs belong to plan 94.
-Local correctness is separate from cumulative performance and publication.
-Status remains `in_progress` until plan 96 releases the cohort and records acceptance.
+These local correctness checks preceded plan 96's cohort publication and the user's practical
+acceptance of the retained cumulative performance evidence. IR-12 is now `completed`;
+the numerical intervals remain inconclusive.
 
-All 654 examples across six suites, the ten-step example and both Nix package builds pass. [Retained local evidence](../../kiroku-metrics/bench/results/mp13-ep5-websocket-convergence/README.md) includes adverse samples, setup/fixture failures, a bounded original-publisher comparison and the final faithful tail-control comparison. No cumulative performance or publication verdict is inferred.
+All 654 examples across six suites, the ten-step example and both Nix package builds pass. [Retained local evidence](../../kiroku-metrics/bench/results/mp13-ep5-websocket-convergence/README.md) includes adverse samples, setup/fixture failures, a bounded original-publisher comparison and the final faithful tail-control comparison. Those pre-publication checks supplied local evidence; cohort acceptance and publication are recorded separately in the Status section.

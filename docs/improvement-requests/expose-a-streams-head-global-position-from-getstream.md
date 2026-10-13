@@ -8,9 +8,10 @@ description: >-
 generated:
   by: anthropic/claude-fable-5-1
   at: "2026-10-06T23:32:09Z"
-timestamp: "2026-10-11T05:34:15Z"
+timestamp: "2026-10-13T14:24:18Z"
 requestId: IR-18
-status: in_progress
+status: completed
+completedAt: "2026-10-13T14:24:18Z"
 origin: mori://tan/notification-render-service
 reviews:
   - kind: model
@@ -32,6 +33,13 @@ reviews:
 
 ## Status
 
+Completed. [Plan 97](../plans/97-expose-stream-head-global-position-through-an-opt-in-metadata-read.md)
+implemented the opt-in `getStreamWithHead` API, published on 2026-10-11 in
+[kiroku-store 0.11.0.0](https://hackage.haskell.org/package/kiroku-store-0.11.0.0)
+through [Plan 96](../plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md).
+The [release record](../../bench/mp13-release/publication-2026-10-11/README.md)
+verifies the published artifacts, release tag and exact-version Hackage consumer.
+
 Proposed by the notification render service
 (`mori://tan/notification-render-service`), whose admin API implements the platform's
 read-your-writes contract in
@@ -48,8 +56,8 @@ records the contract and legacy-cost boundary. [Implementation evidence](../benc
 records integration and measured public-runner cost. The [paired release gate](../bench/stream-head/2026-10-11-ep97-paired/README.md)
 passes both independent remote trials with validated controls and a maximum legacy
 99% upper ratio bound of 1.01932 against the 1.10 limit, resolving the initial
-inconclusive sequential timings. Status is `in_progress` until
-the separate release workflow publishes the feature; no release is claimed here.
+inconclusive sequential timings. Implementation, performance acceptance and
+publication are complete; downstream adoption remains a consumer follow-up.
 
 ## Context
 
@@ -269,9 +277,9 @@ with IR-4's store-wide head.
 
 ## Follow-up
 
-When released, the notification render service replaces its category-head proxy
+With the feature released, the notification render service can replace its category-head proxy
 (`Server/Seam.hs` `categoryHead` and the `otherwise` branch of `Handler.hs` `floored`) with the
-stream's own head position, with no change to its HTTP contract, and updates the two rows of its
+stream's own head position, with no change to its HTTP contract, and update the two rows of its
 pattern register that describe the proxy. A later request to Keiro may add a freshness mode that
 takes a stream name and version directly and resolves it through this read, so consumers of the
 platform convention need no handler-level translation at all.

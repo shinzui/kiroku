@@ -8,7 +8,7 @@ description: >-
 generated:
   by: openai/gpt-5
   at: "2026-08-12T16:20:30Z"
-timestamp: "2026-08-12T17:03:14Z"
+timestamp: "2026-10-13T14:28:09Z"
 requestId: IR-4
 status: completed
 completedAt: "2026-08-15T14:12:26Z"
@@ -38,7 +38,8 @@ verified:
 ## Status
 
 Completed. Implemented in repository source by
-`mori://shinzui/kiroku/plans/71-expose-the-visible-global-head-position`, as the owning-library
+[ExecPlan 71](../plans/71-expose-the-visible-global-head-position.md)
+(`mori://shinzui/kiroku/plans/71-expose-the-visible-global-head-position`), as the owning-library
 follow-up to
 `mori://shinzui/keiro/plans/238-target-strong-consistency-waits-at-the-visible-store-head`.
 The public Kiroku API, concrete runner coverage, mock contract, structural query-plan proof, and

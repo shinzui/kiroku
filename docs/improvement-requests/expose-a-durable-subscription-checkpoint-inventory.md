@@ -8,7 +8,7 @@ description: >-
 generated:
   by: openai/gpt-5
   at: "2026-08-09T02:41:50Z"
-timestamp: "2026-08-09T14:52:11Z"
+timestamp: "2026-10-13T14:28:09Z"
 requestId: IR-2
 status: completed
 completedAt: "2026-08-09T14:52:11Z"
@@ -42,7 +42,8 @@ verified:
 Completed as the owning-library follow-up to
 `mori://shinzui/keiro/plans/207-add-the-messaging-and-read-side-command-domains-to-keiro-ops`.
 The API shipped in `kiroku-store` 0.4.0.0 under
-`mori://shinzui/kiroku/plans/69-expose-a-performant-durable-subscription-checkpoint-inventory`.
+[ExecPlan 69](../plans/69-expose-a-performant-durable-subscription-checkpoint-inventory.md)
+(`mori://shinzui/kiroku/plans/69-expose-a-performant-durable-subscription-checkpoint-inventory`).
 Keiro can now mount its deferred durable commands without crossing Kiroku's schema boundary;
 that downstream adoption is planned separately and does not hold this request open.
 

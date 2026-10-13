@@ -9,7 +9,7 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-10-11T16:24:07Z"
+timestamp: "2026-10-13T14:28:09Z"
 requestId: IR-8
 status: completed
 completedAt: "2026-10-11T16:24:07Z"
@@ -57,7 +57,7 @@ stack; per `mori://shinzui/keiro-ui/okf/adrs/concepts/ADR-1`, every endpoint liv
 that owns the concept, and store browsing belongs to kiroku. Implementation is kiroku's own
 downstream work under kiroku's plans.
 
-Accepted by kiroku on 2026-09-30. Implementation is planned by
+Accepted by kiroku on 2026-09-30. Implementation was delivered by
 [ExecPlan 88, Expose a REST read API for browsing streams, categories, and events](../plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md)
 (`mori://shinzui/kiroku/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events`),
 which adds the three `kiroku-store` read primitives and the `kiroku-metrics` routes in four
@@ -65,8 +65,7 @@ independently verifiable milestones, as EP-3 of
 [MasterPlan 13, Expose the Kiroku inspection surface for the keiro runtime UI and a standalone Kiroku UI](../masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md)
 (`mori://shinzui/kiroku/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui`),
 which coordinates IR-8 through IR-12 as one cohort and releases them together. The request
-moves to `in_progress` when that plan's first milestone starts and to `completed` once the
-cohort release is published.
+completed with the verified cohort publication through plan 96 on 2026-10-11.
 
 ## Implementation Evidence (2026-10-10)
 
@@ -84,9 +83,9 @@ semantics and shared composition. The self-verifying example is
 `kiroku-metrics/example/Main.hs`, documented in `docs/user/metrics.md`.
 [ADR-17](../adr/0017-stream-browsing-uses-byte-order-and-one-shared-name-index.md)
 selects one partial name index shared across category and prefix browsing.
-Migration 0015 is authored for isolated verification. Final-layout write-cost
-acceptance and cumulative cohort publication remain pending. Status stays
-`in_progress`; plan 96 owns publication and completion.
+Migration 0015 ships in `kiroku-store-migrations` 0.7.1.0. Plan 96 records publication
+and the user's practical acceptance of the retained final-layout write-cost and cumulative
+cohort evidence; the numerical intervals remain inconclusive. IR-8 is `completed`.
 
 Earlier rejected query plans and replacement-index measurements are retained
 in plan 88 and its evidence directories. They are historical research, not

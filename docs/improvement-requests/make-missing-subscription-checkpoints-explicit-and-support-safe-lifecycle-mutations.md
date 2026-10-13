@@ -8,7 +8,7 @@ description: >-
 generated:
   by: openai/gpt-5
   at: "2026-08-11T15:41:42Z"
-timestamp: "2026-08-11T15:41:42Z"
+timestamp: "2026-10-13T14:28:09Z"
 requestId: IR-3
 status: completed
 completedAt: "2026-08-15T14:12:26Z"
@@ -40,7 +40,8 @@ verified:
 ## Status
 
 Completed. Implemented in Kiroku repository source by
-`mori://shinzui/kiroku/plans/70-make-subscription-checkpoint-initialization-and-reset-semantics-explicit`.
+[ExecPlan 70](../plans/70-make-subscription-checkpoint-initialization-and-reset-semantics-explicit.md)
+(`mori://shinzui/kiroku/plans/70-make-subscription-checkpoint-initialization-and-reset-semantics-explicit`).
 The three startup policies, typed resolution/refusal events, and transaction-composable exact reset
 are covered by the store, adapter, mock, concurrency, rollback, and monotonicity suites.
 `kiroku-store` 0.5.0.0 published the API to Hackage on 2026-08-11, and 0.7.0.0 carries it forward.

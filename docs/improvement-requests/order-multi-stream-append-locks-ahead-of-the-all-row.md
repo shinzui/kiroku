@@ -8,7 +8,7 @@ description: >-
 generated:
   by: anthropic/claude-opus-5
   at: "2026-08-16T00:00:00Z"
-timestamp: "2026-10-10T16:10:46Z"
+timestamp: "2026-10-13T14:28:09Z"
 requestId: IR-7
 status: proposed
 origin: mori://shinzui/kiroku
@@ -29,6 +29,16 @@ reviews:
 ---
 
 # Improvement Request: Order Multi-Stream Append Locks Ahead of the `$all` Row
+
+## Status
+
+Proposed; no dedicated implementation plan exists as of 2026-10-13.
+[ExecPlan 1](../plans/1-schema-cte-and-concurrency-correctness-audit.md) added the existing-stream
+pre-lock, and [ExecPlan 62](../plans/62-benchmark-gated-append-pipelining-and-raw-payload-read-passthrough.md)
+pipelined the multi-stream path. Neither establishes source-before-`$all` locking for fresh
+streams. [ExecPlan 86](../plans/86-make-append-unique-violation-classification-exact.md)
+explicitly excludes this lock-order request; its released error-classification changes do not
+complete IR-7. The current pre-lock still selects only existing stream rows.
 
 ## Why this is a request and not a defect
 
@@ -121,7 +131,9 @@ Two constraints on any implementation:
 Global `$all`-first lock ordering across both append paths. It would eliminate this and every
 related cycle, but it moves the serialization point to the start of every append and lengthens the
 hold across the whole statement. Prior work
-(`mori://shinzui/kiroku/plans/21`, `22`, `23`) settled comparable append-shape questions on
+[ExecPlan 21](../plans/21-evaluate-append-hot-path-performance-experiments.md),
+[ExecPlan 22](../plans/22-optimize-singleton-append-sql-path.md), and
+[ExecPlan 23](../plans/23-restructure-append-into-a-two-round-trip-path.md) settled comparable append-shape questions on
 benchmark evidence rather than reasoning, and the same bar applies here. It stays on the table only
 if measurement clears it.
 

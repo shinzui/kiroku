@@ -9,7 +9,7 @@ description: >-
 generated:
   by: anthropic/claude-fable-5
   at: "2026-08-19T00:00:00Z"
-timestamp: "2026-10-11T16:24:07Z"
+timestamp: "2026-10-13T14:28:09Z"
 requestId: IR-10
 status: completed
 completedAt: "2026-10-11T16:24:07Z"
@@ -58,7 +58,7 @@ library-level capability this endpoint wraps already shipped:
 asks only for the missing HTTP surface. Implementation is kiroku's own downstream work under
 kiroku's plans.
 
-Implementation is in progress under the plan accepted by kiroku on 2026-09-10:
+Implementation was delivered by the plan accepted by kiroku on 2026-09-10:
 [ExecPlan 87, Serve durable subscription checkpoints over HTTP](../plans/87-serve-durable-subscription-checkpoints-over-http.md)
 (`mori://shinzui/kiroku/plans/87-serve-durable-subscription-checkpoints-over-http`), which
 finalizes the route as `GET /subscription-checkpoints` and keeps the live `GET /subscriptions`
@@ -69,9 +69,9 @@ Since 2026-09-30 that plan is EP-2 of
 (`mori://shinzui/kiroku/masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui`),
 which coordinates IR-8 through IR-12 as one cohort; plan 87 also introduces the server
 composition record every other route in the cohort extends. The release moved out of plan 87:
-the request remains `in_progress` until the cohort release, performed by
+the request completed on 2026-10-11 with the cohort publication performed by
 [ExecPlan 96](../plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md),
-is published; only then does it move to `completed`.
+as recorded in the Status section.
 
 ## Context
 
@@ -143,7 +143,7 @@ and PVP-appropriate version bumps, at kiroku's discretion.
 
 ## Implementation Evidence
 
-The unreleased source serves `GET /subscription-checkpoints` through
+The released implementation serves `GET /subscription-checkpoints` through
 `Kiroku.Metrics.Checkpoints` and the shared `ServerProviders` composition in
 `Kiroku.Metrics.Server`. Its object carries `store_position` and ordered `checkpoints`
 rows with `subscription`, `member`, `checkpoint_position`, and `updated_at`.
@@ -155,4 +155,5 @@ quiescent cross-handle equality, no-live-provider behavior, method handling, san
 CORS, prefix mounts, readiness and resource cleanup. The guide is
 [Durable subscription checkpoints over HTTP](../user/metrics.md#durable-subscription-checkpoints-over-http);
 `kiroku-metrics/example/Main.hs` verifies an empty checkpoint array with real HTTP.
-Release and cumulative append-under-observer performance acceptance remain with plan 96.
+Plan 96 records cohort publication and the user's practical acceptance of the retained
+append-under-observer performance evidence; the numerical intervals remain inconclusive.

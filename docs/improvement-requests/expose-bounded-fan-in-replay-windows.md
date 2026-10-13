@@ -8,7 +8,7 @@ description: >-
 generated:
   by: openai/gpt-5
   at: "2026-08-08T00:13:03Z"
-timestamp: "2026-08-08T00:13:03Z"
+timestamp: "2026-10-13T14:28:09Z"
 requestId: IR-1
 status: proposed
 origin: mori://shinzui/keiro
@@ -42,6 +42,16 @@ Proposed as a non-blocking dependency-side companion to
 particularly its deterministic replay work. Keiro can initially implement the same semantics over
 Kiroku's existing public reads. Adopting a Kiroku API should be gated on released availability and
 should remove, rather than duplicate, Keiro's compatibility loop.
+
+No dedicated Kiroku implementation plan exists as of 2026-10-13; this request remains
+`proposed`. [ExecPlan 69](../plans/69-expose-a-performant-durable-subscription-checkpoint-inventory.md)
+captures the append frontier inside the durable checkpoint inventory, but does not expose the
+standalone frontier or bounded page primitives requested here.
+[ExecPlan 71](../plans/71-expose-the-visible-global-head-position.md) exposes a distinct visible
+head that can regress after deletion, and
+[ExecPlan 73](../plans/73-protect-replay-history-with-retention-leases-and-stream-guards.md)
+adds optional retention coordination. Those completed prerequisites do not implement bounded
+`$all` and category paging or complete this request.
 
 ## Context
 
