@@ -1,5 +1,9 @@
 # Bundle Update Log
 
+## 2026-10-19
+* **Update**: IR-19 rechecked against current source and published Store 0.11.0.0; preserve the existing request rather than duplicate it. Status remains proposed; no implementation or publication is authorized.
+* **Creation**: IR-19: preserve structured script session errors for Rei operational error-channel acceptance
+
 ## 2026-10-13
 * **Audit**: Reviewed all 18 requests against their owning plans, current public source, MasterPlan registries and retained release evidence. Current lifecycle totals are 12 `completed`, 3 `accepted` and 3 `proposed`; no request is currently `in_progress`.
 * **Correction**: IR-14 moves from `proposed` to `accepted` to reflect the existing [MasterPlan 11](../masterplans/11-manifest-driven-selective-event-compaction.md) and its seven children, now linked from the request. All children remain Not Started; [Plan 80](../plans/80-release-the-compaction-cohort-and-prove-it-from-a-clean-external-consumer.md) owns publication and the clean-consumer completion gate. This corrects planning traceability and does not claim implementation or authorize live compaction.
