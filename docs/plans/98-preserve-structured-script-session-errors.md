@@ -49,7 +49,8 @@ classification. The consuming work is
 `mori://shinzui/rei/plans/256-expose-operational-status-and-controlled-periodic-check-apis`,
 under `mori://shinzui/rei/masterplans/29-close-rei-cli-and-http-api-gaps-on-the-haskell-jitsurei-contract`.
 This plan owns the Kiroku correction and supported-release evidence; downstream
-adoption remains with that consumer. Implementation is underway; publication remains a separate acceptance gate.
+adoption remains with that consumer. Functional implementation is complete;
+publication remains a separate acceptance gate.
 
 
 ## Progress
@@ -58,7 +59,8 @@ adoption remains with that consumer. Implementation is underway; publication rem
 - [x] (2026-10-20 00:24Z) Implement structured script and connection mapping at both store boundaries; all 13 focused cases pass.
 - [x] (2026-10-20 00:27Z) Pass full PostgreSQL store suite (487 examples) and metrics suite (117 examples), zero failures; store suite includes performance structure checks.
 - [x] (2026-10-20 00:27Z) Update error/transaction Haddock, both changelogs and ADR-20; audit production consumers and validate both OKF bundles.
-- [ ] Verify supported publication and clean-consumer evidence before closing IR-19.
+- [x] (2026-10-20 00:28Z) Verify release baselines, prepare the two-package metadata proposal, build candidate sdists in an isolated copy, and pass candidate package checks.
+- [ ] Obtain the release skill's required version/changelog confirmation, publish the approved packages, and verify supported publication and clean-consumer evidence before closing IR-19.
 
 
 ## Surprises & Discoveries
@@ -106,8 +108,10 @@ subsequent Cabal commands run sequentially.
   `^>=0.11.0.0` bounds already admit the store patch, so no dependent package
   needs a bound-only release. The unapplied proposal is
   `/tmp/ep98-release-metadata.patch`; changelog text is in each changed package's
-  Unreleased section. The release skill explicitly requires confirmation before
-  version metadata and release commits/tags, so obtain that after validation.
+  Unreleased section. The [release skill](../../agents/skills/release/SKILL.md) says:
+  "Always ask the user to confirm the per-package version bumps and changelogs
+  before committing." Obtain that confirmation after validation and before
+  applying release metadata or creating release commits/tags.
   Date: 2026-10-20.
 
 
@@ -128,7 +132,9 @@ Notification errors use Hasql's different connection error type; two benchmark
 comparison helpers retain their own rendering outside production paths.
 Both changed packages pass `cabal check` with no errors or warnings. `nix fmt`,
 `nix flake check` (treefmt and pre-commit) and `git diff --check` pass.
-The release-wide `cabal build all` is running.
+The release-wide `nix develop .#postgresql18 --command cabal build all` also
+passes, including dependent libraries, executables, tests and benchmark
+components (compilation only; no timing experiment).
 
 The actual full-suite command and concise results were:
 
@@ -140,7 +146,8 @@ nix develop .#postgresql18 --command cabal test kiroku-store:kiroku-store-test k
 kiroku-store:   487 examples, 0 failures; PASS
 kiroku-metrics: 117 examples, 0 failures; PASS
 ```
- Publication and the
+
+The functional implementation is committed as `f7b48b1`. Publication and the
 clean published-consumer gate remain outstanding.
 
 
@@ -454,3 +461,20 @@ Release preparation revision (2026-10-20): checked registry and upstream tags, p
 Documentation revision (2026-10-20): updated baseline context to reflect the implemented mapper, documented the bounded consumer audit and passing package checks, and linked ADR-20.
 
 Milestone 2/3 revision (2026-10-20): full PostgreSQL 18.4 store and metrics suites passed (487 and 117 examples). Structural checks passed within the store suite; formatting, flake and strict bundle checks passed. Release-wide build and confirmation remain.
+
+Release artifact revision (2026-10-20): an isolated archive of `f7b48b1` with only
+`/tmp/ep98-release-metadata.patch` applied produced
+`/tmp/ep98-release-sdist/kiroku-store-0.11.0.1.tar.gz` (SHA-256
+`0e941f8d39c9d588e50339e2765dbd857d7b7e3b00610e226bb496c160ad0b72`)
+and `/tmp/ep98-release-sdist/kiroku-metrics-0.3.0.1.tar.gz` (SHA-256
+`2936dc01ba37e0962adac0e3bd8501145718eed030d00e0f2a5c0dacc65583f6`).
+Both proposed packages pass `cabal check`, and the store archive includes the
+new regression module. These are unpublished candidate artifacts. The prepared
+`/tmp/ep98-clean-consumer` pins store 0.11.0.1 and accepts a migrated disposable
+database URL; it must run against the published package after approval and
+publication, with no source override. If temporary files are unavailable,
+recreate the proposal by changing only the two package versions and moving the
+Unreleased changelog headings to those versions dated 2026-10-20 in an isolated
+copy of the implementation commit.
+
+Validation completion revision (2026-10-20 00:30Z): the release-wide build passed. Functional work and all local checks are complete. The plan remains open solely for required release confirmation, publication and clean published-consumer verification; IR-19 remains in progress.

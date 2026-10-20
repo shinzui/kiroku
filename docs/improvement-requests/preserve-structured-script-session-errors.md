@@ -8,7 +8,7 @@ origin: mori://shinzui/rei
 generated:
   by: openai/gpt-6.1-sol
   at: "2026-10-19T20:25:45Z"
-timestamp: "2026-10-20T00:26:15Z"
+timestamp: "2026-10-20T00:29:26Z"
 reviews:
   - kind: model
     reviewer: "codex (author self-review)"
@@ -33,8 +33,20 @@ Implementation in progress under
 [ExecPlan 98: Preserve structured script session errors](../plans/98-preserve-structured-script-session-errors.md).
 The plan covers structured script and transaction error mapping, the shared
 pool helper, real PostgreSQL regression tests, local HTTP classification
-compatibility, and supported-release verification. Implementation is underway. Functional tests and supported-release verification
-remain required before fulfillment; no publication is claimed.
+compatibility, and supported-release verification. Local implementation and functional validation are complete. Supported-release
+verification remains required before fulfillment; no publication is claimed.
+
+## Local implementation — 2026-10-20
+
+Commit `f7b48b1` preserves structured scripts, connection-session failures and
+pool-backed reads, with the HTTP compatibility correction and
+[ADR-20](../adr/0020-store-boundaries-preserve-structured-server-errors.md).
+Real PostgreSQL 18.4 regression tests changed from 13 examples with 11 failures
+to 13 with zero failures. The full store suite passed 487 examples and metrics
+passed 117, both with zero failures; the store run includes structural checks.
+Candidate releases are store 0.11.0.1 and metrics 0.3.0.1. They are not yet
+published: required version/changelog confirmation, publication verification
+and the clean published-consumer proof remain open in ExecPlan 98.
 
 ## Released baseline recheck — 2026-10-19
 

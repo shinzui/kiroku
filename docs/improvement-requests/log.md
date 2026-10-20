@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-20
+* **Update**: IR-19: local implementation committed with 487 store and 117 metrics examples passing; release confirmation, publication and clean published-consumer proof remain pending.
 * **Update**: IR-19: begin ExecPlan 98 implementation; publication and clean-consumer evidence remain pending.
 * **Planning**: IR-19 accepted for planning under [ExecPlan 98](../plans/98-preserve-structured-script-session-errors.md), linked to a new Mina intention. The plan covers structured errors, real PostgreSQL regressions, local HTTP compatibility and supported-release verification; implementation and publication have not started.
 
