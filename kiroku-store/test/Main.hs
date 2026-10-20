@@ -53,6 +53,7 @@ import Test.PublisherDropCounter qualified as PublisherDropCounter
 import Test.PublisherIdleAdvance qualified as PublisherIdleAdvance
 import Test.PublisherRestartNoRebroadcast qualified as PublisherRestartNoRebroadcast
 import Test.ReadStream qualified as ReadStream
+import Test.ScriptSessionErrors qualified as ScriptSessionErrors
 import Test.StartupFailureSurfacing qualified as StartupFailureSurfacing
 import Test.StreamBridgeTermination qualified as StreamBridgeTermination
 import Test.StreamHead qualified as StreamHead
@@ -95,6 +96,7 @@ main = withSharedMigratedPostgres $ hspec $ do
     HistoryRetention.spec
     HistoryRetentionMock.spec
     Transaction.spec
+    ScriptSessionErrors.spec
     TruncateBefore.spec
     ReadStream.spec
     StreamNameLookup.spec

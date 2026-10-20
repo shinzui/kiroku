@@ -190,6 +190,11 @@ validateStreamName sn@(StreamName name)
 
 Pattern matches on the error hierarchy:
   UsageError -> SessionUsageError -> StatementSessionError -> ServerStatementError -> ServerError
+  UsageError -> SessionUsageError -> ScriptSessionError -> ServerError
+
+Scripts and statements share server classification. Connection establishment
+and session connection loss use 'ConnectionLost'; acquisition timeout uses
+'PoolAcquisitionTimeout'. Unsupported non-server errors retain 'ConnectionError'.
 
 PostgreSQL error code mapping:
   23505 (unique_violation) + events_pkey            -> 'DuplicateEvent'
@@ -241,6 +246,8 @@ mapGenericUsageError = \case
         ConnectionLost (T.pack (show connErr))
     AcquisitionTimeoutUsageError ->
         PoolAcquisitionTimeout
+    SessionUsageError (Errors.ConnectionSessionError detail) ->
+        ConnectionLost detail
     SessionUsageError sessionErr ->
         case extractServerError (SessionUsageError sessionErr) of
             Just (Errors.ServerError code message _ _ _)
@@ -270,6 +277,10 @@ mapSessionError :: Text -> ExpectedVersion -> Errors.SessionError -> StoreError
 mapSessionError streamName expected = \case
     Errors.StatementSessionError _ _ _ _ _ stmtErr ->
         mapStatementError streamName expected stmtErr
+    Errors.ScriptSessionError _ serverErr ->
+        mapServerError streamName expected serverErr
+    Errors.ConnectionSessionError detail ->
+        ConnectionLost detail
     other ->
         ConnectionError ("Session error: " <> T.pack (show other))
 
@@ -519,6 +530,8 @@ attributeMultiStreamError ops@((StreamName firstName, firstExpected) : _) usageE
 -- | Walk a 'UsageError' down to the underlying 'Errors.ServerError', if any.
 extractServerError :: UsageError -> Maybe Errors.ServerError
 extractServerError = \case
+    SessionUsageError (Errors.ScriptSessionError _ serverErr) ->
+        Just serverErr
     SessionUsageError (Errors.StatementSessionError _ _ _ _ _ stmtErr) ->
         case stmtErr of
             Errors.ServerStatementError serverErr -> Just serverErr

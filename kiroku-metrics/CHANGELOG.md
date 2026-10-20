@@ -1,5 +1,14 @@
 # Revision history for kiroku-metrics
 
+## Unreleased
+
+### Bug Fixes
+
+- Keep sanitized 503 responses for typed `ConnectionLost`,
+  `PoolAcquisitionTimeout` and `TransientTransactionFailure` store failures.
+  Permanent server errors use the sanitized 500 response. Existing envelope
+  fields, messages and route-specific unavailable codes are preserved.
+
 ## 0.3.0.0 — 2026-10-11
 
 ### Breaking Changes

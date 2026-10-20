@@ -88,7 +88,7 @@ spec = describe "Kiroku.Metrics.Checkpoints (/subscription-checkpoints)" $ do
         readIORef calls `shouldReturn` 2
 
     it "sanitizes typed failures and preserves HEAD error status and headers" $ do
-        let failures = [(Store.ConnectionError "postgres://secret", status503, "checkpoint_inventory_unavailable"), (Store.StreamNotFound (Store.StreamName "secret"), status500, "store_error"), (Store.EventDecodeFailed (DecodeFailure (Store.EventId UUID.nil) "secret"), status500, "event_decode_failed")]
+        let failures = [(Store.ConnectionError "postgres://secret", status503, "checkpoint_inventory_unavailable"), (Store.ConnectionLost "secret", status503, "checkpoint_inventory_unavailable"), (Store.PoolAcquisitionTimeout, status503, "checkpoint_inventory_unavailable"), (Store.TransientTransactionFailure "40001" "secret", status503, "checkpoint_inventory_unavailable"), (Store.TransientTransactionFailure "40P01" "secret", status503, "checkpoint_inventory_unavailable"), (Store.UnexpectedServerError "42P01" "secret SQL", status500, "store_error"), (Store.StreamNotFound (Store.StreamName "secret"), status500, "store_error"), (Store.EventDecodeFailed (DecodeFailure (Store.EventId UUID.nil) "secret"), status500, "event_decode_failed")]
         forM_ failures $ \(err, expected, expectedCode) -> do
             let app = checkpointsApp (pure (Left err))
             (status, headers, body) <- capture app "GET"

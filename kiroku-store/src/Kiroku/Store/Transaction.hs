@@ -94,8 +94,13 @@ isolation in 'Hasql.Transaction.Sessions.Write' mode, mirroring the
 existing transactional sites in 'Kiroku.Store.Append.appendMultiStream'
 and the hard-delete path.
 
-Errors: a hasql 'Hasql.Pool.UsageError' is translated to
-'Kiroku.Store.Error.ConnectionError'. Calling 'Tx.condemn' inside the
+Errors from both 'Tx.sql' scripts and 'Tx.statement' preserve PostgreSQL
+SQLSTATE and message through 'UnexpectedServerError' or
+'TransientTransactionFailure'. Event-ID duplicates retain 'DuplicateEvent';
+opaque bodies do not fabricate stream context for other constraints.
+Connection failures use 'ConnectionLost', and pool acquisition timeouts use
+'PoolAcquisitionTimeout'. Unsupported driver errors retain 'ConnectionError'.
+Calling 'Tx.condemn' inside the
 body marks the transaction for rollback at commit; the call returns the
 final value the body produced, but no SQL writes from this transaction
 will be visible. Mock interpreters of 'Store' reject this constructor.
@@ -108,9 +113,11 @@ runTransaction tx = send (RunTransaction tx)
 
 {- | Like 'runTransaction' but uses
 'Hasql.Transaction.Sessions.transactionNoRetry' — the body is executed
-exactly once even on PostgreSQL serialization conflicts. A conflict
-surfaces as 'Kiroku.Store.Error.ConnectionError' carrying the underlying
-'Hasql.Pool.UsageError'.
+exactly once even on PostgreSQL serialization conflicts. Serialization
+failures (@40001@) and deadlocks (@40P01@) surface as
+'TransientTransactionFailure' with the original SQLSTATE and server message.
+Use this entry point for a body that persistently raises those errors; the
+retrying runner can keep re-executing it.
 -}
 runTransactionNoRetry ::
     (HasCallStack, Store :> es) =>

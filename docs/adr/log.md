@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-10-20
+* **Update**: ADR-20: record structured script, statement and pool error boundaries under ExecPlan 98.
+
 ## 2026-10-11
 * **Update**: ADR-15 and ADR-17: reflect the published inspection cohort and retained practical acceptance; preserve future cumulative performance obligations.
 * **Update**: Record user practical acceptance of the inspection cohort performance and release authorization while retaining statistical uncertainty.

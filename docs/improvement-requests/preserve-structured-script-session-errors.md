@@ -3,12 +3,12 @@ type: Improvement Request
 title: Preserve structured script session errors
 description: Preserve structured PostgreSQL server errors from script-backed transactions so callers can classify permanent and retryable failures without parsing rendered diagnostics.
 requestId: IR-19
-status: accepted
+status: in_progress
 origin: mori://shinzui/rei
 generated:
   by: openai/gpt-6.1-sol
   at: "2026-10-19T20:25:45Z"
-timestamp: "2026-10-20T00:14:26Z"
+timestamp: "2026-10-20T00:26:15Z"
 reviews:
   - kind: model
     reviewer: "codex (author self-review)"
@@ -29,12 +29,12 @@ reviews:
 
 ## Status and implementation plan
 
-Accepted for planning under
+Implementation in progress under
 [ExecPlan 98: Preserve structured script session errors](../plans/98-preserve-structured-script-session-errors.md).
 The plan covers structured script and transaction error mapping, the shared
 pool helper, real PostgreSQL regression tests, local HTTP classification
-compatibility, and supported-release verification. Implementation has not
-started; planning acceptance does not claim fulfillment or publication.
+compatibility, and supported-release verification. Implementation is underway. Functional tests and supported-release verification
+remain required before fulfillment; no publication is claimed.
 
 ## Released baseline recheck — 2026-10-19
 
@@ -63,13 +63,13 @@ the trigger, but did not restore the lost error structure. Rei records the
 original probe and its date in the consuming plan; this request does not claim
 a new production incident.
 
-Current source inspection finds that `mapSessionError` handles
+Baseline source inspection found that `mapSessionError` handled
 `StatementSessionError` through the structured server-error mapping while its
-catch-all renders other session errors into `ConnectionError`. The owning
+catch-all rendered other session errors into `ConnectionError`. The owning
 project is `mori://shinzui/kiroku`, source
 `kiroku-store/src/Kiroku/Store/Error.hs` (source-artifact URI pending).
 Audit the raw store-SQL seam in `kiroku-store/src/Kiroku/Store/Effect.hs` too
-(source-artifact URI pending); it also has a rendered UsageError fallback.
+(source-artifact URI pending); it also had a rendered UsageError fallback.
 
 ## Requested behavior
 

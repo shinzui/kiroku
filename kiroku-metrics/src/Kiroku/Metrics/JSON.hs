@@ -62,5 +62,8 @@ This function handles values only and never catches asynchronous exceptions.
 storeErrorResponse :: Text -> StoreError -> Response
 storeErrorResponse unavailableCode = \case
     ConnectionError _ -> errorResponse status503 unavailableCode "The event store is unavailable." Nothing
+    ConnectionLost _ -> errorResponse status503 unavailableCode "The event store is unavailable." Nothing
+    PoolAcquisitionTimeout -> errorResponse status503 unavailableCode "The event store is unavailable." Nothing
+    TransientTransactionFailure _ _ -> errorResponse status503 unavailableCode "The event store is unavailable." Nothing
     EventDecodeFailed _ -> errorResponse status500 "event_decode_failed" "An event could not be decoded." Nothing
     _ -> errorResponse status500 "store_error" "The event store operation failed." Nothing

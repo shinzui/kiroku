@@ -81,7 +81,7 @@ spec = describe "DeadLetters" $ do
         missing `shouldBe` status404
         code body `shouldBe` Just "dead_letters_not_configured"
     it "sanitizes typed store failures and preserves HEAD error headers" $ do
-        forM_ [(Store.ConnectionError "postgres://secret", status503, "dead_letters_unavailable"), (Store.StreamNotFound (Store.StreamName "secret"), status500, "store_error"), (Store.EventDecodeFailed (Store.DecodeFailure (Store.EventId UUID.nil) "secret"), status500, "event_decode_failed")] $ \(err, expected, expectedCode) -> do
+        forM_ [(Store.ConnectionError "postgres://secret", status503, "dead_letters_unavailable"), (Store.ConnectionLost "secret", status503, "dead_letters_unavailable"), (Store.PoolAcquisitionTimeout, status503, "dead_letters_unavailable"), (Store.TransientTransactionFailure "40001" "secret", status503, "dead_letters_unavailable"), (Store.TransientTransactionFailure "40P01" "secret", status503, "dead_letters_unavailable"), (Store.UnexpectedServerError "42P01" "secret SQL", status500, "store_error"), (Store.StreamNotFound (Store.StreamName "secret"), status500, "store_error"), (Store.EventDecodeFailed (Store.DecodeFailure (Store.EventId UUID.nil) "secret"), status500, "event_decode_failed")] $ \(err, expected, expectedCode) -> do
             let app = deadLettersApp (\_ -> pure (Left err))
             (status, headers, body) <- capture app "GET" route []
             status `shouldBe` expected

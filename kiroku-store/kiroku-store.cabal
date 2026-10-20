@@ -130,6 +130,7 @@ test-suite kiroku-store-test
     Test.PublisherIdleAdvance
     Test.PublisherRestartNoRebroadcast
     Test.ReadStream
+    Test.ScriptSessionErrors
     Test.StartupFailureSurfacing
     Test.StreamBridgeTermination
     Test.StreamHead

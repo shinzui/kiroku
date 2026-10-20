@@ -8,6 +8,7 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Aeson (Value (..), object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KM
+import Data.ByteString qualified as BS
 import Data.ByteString.Builder (toLazyByteString)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Generics.Labels ()
@@ -59,6 +60,14 @@ spec = describe "Kiroku.Metrics.Browse" $ do
         (disabled, _, disabledBody) <- capture browseNotConfiguredApp "GET" ["streams"]
         disabled `shouldBe` status404
         code disabledBody `shouldBe` Just "store_browsing_not_configured"
+    it "sanitizes typed transient and permanent failures on browse routes" $ do
+        forM_ [(Store.ConnectionLost "secret", status503, "store_unavailable"), (Store.PoolAcquisitionTimeout, status503, "store_unavailable"), (Store.TransientTransactionFailure "40001" "secret", status503, "store_unavailable"), (Store.TransientTransactionFailure "40P01" "secret", status503, "store_unavailable"), (Store.UnexpectedServerError "42P01" "secret SQL", status500, "store_error")] $ \(err, expected, expectedCode) -> do
+            let app = browseApp (StoreBrowser (\_ -> pure (Left err)) defaultBrowseLimits)
+            (status, headers, responseBody) <- capture app "GET" ["events"]
+            status `shouldBe` expected
+            code responseBody `shouldBe` Just expectedCode
+            responseBody `shouldSatisfy` (not . BS.isInfixOf "secret" . LBS.toStrict)
+            capture app "HEAD" ["events"] `shouldReturn` (status, headers, "")
     it "serves all browse routes, names and exclusive pages through the shared server" $ withTestStore $ \store -> do
         append store "orders-1" 3
         append store "orders-2" 1

@@ -30,7 +30,6 @@ import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (isNothing)
 import Data.Text (Text)
-import Data.Text qualified as T
 import Data.Time.Clock (UTCTime, getCurrentTime)
 import Data.UUID (UUID)
 import Data.UUID.V7 qualified as V7
@@ -51,7 +50,7 @@ import Hasql.Transaction qualified as Tx
 import Hasql.Transaction.Sessions qualified as TxSessions
 import Kiroku.Store.Connection (KirokuStore (..))
 import Kiroku.Store.Effect.Resource (KirokuStoreResource, getKirokuStore)
-import Kiroku.Store.Error (StoreError (..), attributeMultiStreamError, emptyResultError, isTransientSerializationError, mapLinkUsageError, mapTransactionUsageError, mapUsageError, validateStreamName)
+import Kiroku.Store.Error (StoreError (..), attributeMultiStreamError, emptyResultError, isTransientSerializationError, mapGenericUsageError, mapLinkUsageError, mapTransactionUsageError, mapUsageError, validateStreamName)
 import Kiroku.Store.HistoryRetention.Internal qualified as HistoryRetention
 import Kiroku.Store.HistoryRetention.Types
 import Kiroku.Store.Observability (KirokuEvent (..), emitOrDrop)
@@ -527,7 +526,7 @@ usePool ::
 usePool pool session = do
     result <- liftIO (Pool.use pool session)
     case result of
-        Left usageErr -> throwError (ConnectionError (T.pack (show usageErr)))
+        Left usageErr -> throwError (mapGenericUsageError usageErr)
         Right a -> pure a
 
 {- | Run a 'Tx.Transaction' against the pool using the supplied entry

@@ -173,7 +173,7 @@ spec = do
             errorEnvelope "origin_not_allowed" "Denied." Nothing `shouldBe` object ["error" .= object ["code" .= ("origin_not_allowed" :: Text), "message" .= ("Denied." :: Text)]]
             errorEnvelope "invalid_query_parameter" "Invalid." (Just (object ["parameter" .= ("limit" :: Text)])) `shouldBe` object ["error" .= object ["code" .= ("invalid_query_parameter" :: Text), "message" .= ("Invalid." :: Text), "details" .= object ["parameter" .= ("limit" :: Text)]]]
         it "sanitizes unavailable and other store errors" $ do
-            forM_ [(ConnectionError "postgres://secret", status503, "store_unavailable"), (StreamNotFound (StreamName "private"), status500, "store_error"), (EventDecodeFailed (DecodeFailure (EventId UUID.nil) "secret payload"), status500, "event_decode_failed")] $ \(err, expected, code) -> do
+            forM_ [(ConnectionError "postgres://secret", status503, "store_unavailable"), (ConnectionLost "secret", status503, "store_unavailable"), (PoolAcquisitionTimeout, status503, "store_unavailable"), (TransientTransactionFailure "40001" "secret", status503, "store_unavailable"), (TransientTransactionFailure "40P01" "secret", status503, "store_unavailable"), (UnexpectedServerError "42P01" "secret SQL", status500, "store_error"), (StreamNotFound (StreamName "private"), status500, "store_error"), (EventDecodeFailed (DecodeFailure (EventId UUID.nil) "secret payload"), status500, "event_decode_failed")] $ \(err, expected, code) -> do
                 (status, _, body) <- capture (\_ respond -> respond (storeErrorResponse "store_unavailable" err)) "GET" []
                 status `shouldBe` expected
                 errorCode body `shouldBe` Just (String code)

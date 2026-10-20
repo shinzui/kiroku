@@ -16,6 +16,11 @@ provenance:
       at: 2026-10-20T00:14:27Z
       mode: "other"
       note: "Complete initial plan from source inspection, link IR-19, and associate the user-requested Mina intention."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-20T00:19:29Z
+      mode: "implement"
+      note: "Implement structured script errors, public PostgreSQL regressions, and HTTP compatibility."
 ---
 
 
@@ -44,23 +49,36 @@ classification. The consuming work is
 `mori://shinzui/rei/plans/256-expose-operational-status-and-controlled-periodic-check-apis`,
 under `mori://shinzui/rei/masterplans/29-close-rei-cli-and-http-api-gaps-on-the-haskell-jitsurei-contract`.
 This plan owns the Kiroku correction and supported-release evidence; downstream
-adoption remains with that consumer. Creation of this plan is planning work;
-implementation and publication have not occurred.
+adoption remains with that consumer. Implementation is underway; publication remains a separate acceptance gate.
 
 
 ## Progress
 
 
-- [ ] Implement structured script and connection mapping at both store boundaries.
-- [ ] Pass real PostgreSQL rollback/classification tests and HTTP compatibility checks.
-- [ ] Document the behavior and distill the durable ADR context.
+- [x] (2026-10-20 00:24Z) Implement structured script and connection mapping at both store boundaries; all 13 focused cases pass.
+- [x] (2026-10-20 00:27Z) Pass full PostgreSQL store suite (487 examples) and metrics suite (117 examples), zero failures; store suite includes performance structure checks.
+- [x] (2026-10-20 00:27Z) Update error/transaction Haddock, both changelogs and ADR-20; audit production consumers and validate both OKF bundles.
 - [ ] Verify supported publication and clean-consumer evidence before closing IR-19.
 
 
 ## Surprises & Discoveries
 
 
-(None yet.)
+The resolved build uses Hasql 1.10.3.7, hasql-pool 1.4.2.3 and
+hasql-transaction 1.2.3.1. Mori-located tagged sources confirm the error
+constructors and pool settings. `Tx.sql` takes UTF-8 bytes, while statement
+construction takes text; the fixture encodes scripts explicitly.
+
+Against the original mapping, the focused PostgreSQL group reported
+`13 examples, 11 failures`: both transaction missing-table cases and the public
+read flattened `42P01` to `ConnectionError`; script transients flattened too,
+while the paired prepared cases passed. After the mapper correction it reported
+`13 examples, 0 failures`. PostgreSQL DO blocks preserve both code and fixture
+message; rollback assertions also prove no event or application row persists.
+
+An initial overlapping bootstrap and regression build collided while renaming
+an object file. This is a build orchestration failure, not a regression result;
+subsequent Cabal commands run sequentially.
 
 
 ## Decision Log
@@ -81,17 +99,49 @@ implementation and publication have not occurred.
   Rationale: the change classifies failure results and adds no successful-path
   SQL, connection acquisitions, schema changes, or retry loop.
   Date: 2026-10-20.
-- Decision: Leave release numbers undecided until release preparation verifies
-  the registry, tags, and final compatibility impact. Keep IR-19 accepted until
-  implementation starts and incomplete until publication is verified.
-  Rationale: an accepted plan and a local source override are not release evidence.
+- Decision: Propose patch releases `kiroku-store` 0.11.0.1 and
+  `kiroku-metrics` 0.3.0.1 after verifying Hackage preferred versions and upstream
+  tags. No API signatures, constructor set or HTTP envelope changes; this fixes
+  classification to the existing typed error contract. Existing internal
+  `^>=0.11.0.0` bounds already admit the store patch, so no dependent package
+  needs a bound-only release. The unapplied proposal is
+  `/tmp/ep98-release-metadata.patch`; changelog text is in each changed package's
+  Unreleased section. The release skill explicitly requires confirmation before
+  version metadata and release commits/tags, so obtain that after validation.
   Date: 2026-10-20.
 
 
 ## Outcomes & Retrospective
 
 
-(To be filled during implementation and release verification.)
+The focused public-operation regressions pass with structured SQLSTATE and
+message preservation, connection refusal remains typed, and rollback is verified.
+Functional acceptance passes: the full store suite reports 487 examples with
+zero failures and the full metrics suite reports 117 examples with zero failures.
+The store run includes the existing performance structure group, so no separate
+repeat or timing benchmark is required. Documentation and
+[ADR-20](../adr/0020-store-boundaries-preserve-structured-server-errors.md) are
+written and both OKF bundles pass strict validation. The production Haskell
+source audit found only the shared metrics response mapper relying on the
+`ConnectionError` classification; it now handles the typed unavailable cases.
+Notification errors use Hasql's different connection error type; two benchmark
+comparison helpers retain their own rendering outside production paths.
+Both changed packages pass `cabal check` with no errors or warnings. `nix fmt`,
+`nix flake check` (treefmt and pre-commit) and `git diff --check` pass.
+The release-wide `cabal build all` is running.
+
+The actual full-suite command and concise results were:
+
+```bash
+nix develop .#postgresql18 --command cabal test kiroku-store:kiroku-store-test kiroku-metrics:kiroku-metrics-test --test-show-details=direct
+```
+
+```text
+kiroku-store:   487 examples, 0 failures; PASS
+kiroku-metrics: 117 examples, 0 failures; PASS
+```
+ Publication and the
+clean published-consumer gate remain outstanding.
 
 
 ## Context and Orientation
@@ -105,9 +155,10 @@ connection. Prepared statements report a `StatementSessionError` wrapping a
 `ServerStatementError`; SQL scripts report `ScriptSessionError sql serverError`.
 Both contain PostgreSQL's structured `ServerError`.
 
-`mapSessionError` currently recognizes only the statement branch, then renders
-other session errors with `show`. `extractServerError` also recognizes only the
-statement branch. That extractor feeds `mapGenericUsageError`,
+`mapSessionError` initially recognized only the statement branch and rendered
+other session errors with `show`; `extractServerError` also recognized only
+statements. Both now recognize structured scripts, and connection-session
+failures map to `ConnectionLost`. That extractor feeds `mapGenericUsageError`,
 `mapTransactionUsageError`, link and multi-stream handling, and
 `isTransientSerializationError`. The latter recognizes exactly `40001` and
 `40P01`, not every class-40 code. Generic mapping preserves unknown server codes
@@ -116,8 +167,8 @@ known append conflicts. An opaque transaction has no stream identity, so it
 must not fabricate one when translating foreign-key or uniqueness failures.
 
 `kiroku-store/src/Kiroku/Store/Effect.hs` has two relevant execution paths.
-`runTxOnPool` uses `mapTransactionUsageError`, whereas `usePool` currently renders
-all pool failures as `ConnectionError`. The latter serves public reads and other
+`runTxOnPool` uses `mapTransactionUsageError`, whereas `usePool` initially rendered
+all pool failures as `ConnectionError` and now uses `mapGenericUsageError`. The latter serves public reads and other
 operations such as `getStream` and checkpoint inventory. There is no separate
 public arbitrary-session runner to introduce: raw SQL is already available as
 `Hasql.Transaction.sql` inside the public `runTransaction` and
@@ -135,9 +186,8 @@ foreign-key classification, duplicate events, and transaction rollback.
 databases. Existing transient mapping tests are in `Main.hs`; existing
 constraint attribution tests are in `Test/UniqueViolationMapping.hs`.
 
-`kiroku-metrics/src/Kiroku/Metrics/JSON.hs` currently maps only `ConnectionError`
-to a sanitized 503 response. Once `usePool` preserves typed failures, explicitly
-handle `ConnectionLost`, `PoolAcquisitionTimeout`, and
+`kiroku-metrics/src/Kiroku/Metrics/JSON.hs` initially mapped only `ConnectionError`
+to a sanitized 503 response. The compatibility correction now handles `ConnectionLost`, `PoolAcquisitionTimeout`, and
 `TransientTransactionFailure` as unavailable there. Permanent
 `UnexpectedServerError` values use the existing sanitized 500 envelope. Extend
 `kiroku-metrics/test/Test/CorsSpec.hs` and the relevant browse, checkpoint, and
@@ -394,3 +444,13 @@ consumer-specific retry policy.
 Initial planning note (2026-10-20): created from IR-19 and source inspection;
 linked the accepted request and the user-requested Mina intention. Implementation
 and supported-release verification remain future work.
+
+Implementation revision (2026-10-20): started public PostgreSQL regression coverage, HTTP compatibility tests, documentation and ADR-20; resolved driver APIs from tagged Mori sources.
+
+Milestone 1 revision (2026-10-20): captured the original 11 failures and verified all 13 focused cases pass after the mapping correction. Full store, metrics and structural validation follow.
+
+Release preparation revision (2026-10-20): checked registry and upstream tags, prepared an unapplied two-package patch-release proposal, and recorded the PVP rationale and required release confirmation.
+
+Documentation revision (2026-10-20): updated baseline context to reflect the implemented mapper, documented the bounded consumer audit and passing package checks, and linked ADR-20.
+
+Milestone 2/3 revision (2026-10-20): full PostgreSQL 18.4 store and metrics suites passed (487 and 117 examples). Structural checks passed within the store suite; formatting, flake and strict bundle checks passed. Release-wide build and confirmation remain.

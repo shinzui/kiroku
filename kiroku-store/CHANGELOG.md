@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Bug Fixes
+
+- Preserve SQLSTATE and server message from `Tx.sql` script failures, matching
+  prepared statements: missing relations return `UnexpectedServerError "42P01"`,
+  while serialization failures and deadlocks return `TransientTransactionFailure`.
+- Public reads using the shared pool helper now return existing typed server,
+  connection-loss and acquisition-timeout errors instead of flattened
+  `ConnectionError` diagnostics. Connection-session failures use `ConnectionLost`.
+  Callers matching only the old catch-all should handle the specific constructors.
+  No constructors, SQL work, or retry policy are added.
+
 ## 0.11.0.0 — 2026-10-11
 
 ### Breaking Changes
