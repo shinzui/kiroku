@@ -3,12 +3,12 @@ type: Improvement Request
 title: Preserve structured script session errors
 description: Preserve structured PostgreSQL server errors from script-backed transactions so callers can classify permanent and retryable failures without parsing rendered diagnostics.
 requestId: IR-19
-status: proposed
+status: accepted
 origin: mori://shinzui/rei
 generated:
   by: openai/gpt-6.1-sol
   at: "2026-10-19T20:25:45Z"
-timestamp: "2026-10-19T22:55:57Z"
+timestamp: "2026-10-20T00:14:26Z"
 reviews:
   - kind: model
     reviewer: "codex (author self-review)"
@@ -27,6 +27,15 @@ reviews:
 
 # Preserve structured script session errors
 
+## Status and implementation plan
+
+Accepted for planning under
+[ExecPlan 98: Preserve structured script session errors](../plans/98-preserve-structured-script-session-errors.md).
+The plan covers structured script and transaction error mapping, the shared
+pool helper, real PostgreSQL regression tests, local HTTP classification
+compatibility, and supported-release verification. Implementation has not
+started; planning acceptance does not claim fulfillment or publication.
+
 ## Released baseline recheck — 2026-10-19
 
 This remains the existing request for the Store error-classification gap; no
@@ -34,8 +43,9 @@ duplicate request is needed. Hackage still lists `kiroku-store` 0.11.0.0 as its
 newest normal release, and the upstream tag inventory has no 0.11.0.1 tag.
 The current owner checkout at `ad866f925ac11484a2ee758fe235035840c85c0a`
 still has the rendered session-error fallback and the raw `usePool` fallback
-described below. The request remains `proposed` pending owner fulfillment and
-a supported release. An unpublished local patch is not acceptance evidence.
+described below. At that recheck the request remained `proposed` pending owner
+fulfillment and a supported release; subsequent planning acceptance is recorded
+above. An unpublished local patch is not acceptance evidence.
 
 Creating this request does not authorize upstream implementation or publication.
 

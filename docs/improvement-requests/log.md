@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-10-20
+* **Planning**: IR-19 accepted for planning under [ExecPlan 98](../plans/98-preserve-structured-script-session-errors.md), linked to a new Mina intention. The plan covers structured errors, real PostgreSQL regressions, local HTTP compatibility and supported-release verification; implementation and publication have not started.
+
 ## 2026-10-19
 * **Update**: IR-19 rechecked against current source and published Store 0.11.0.0; preserve the existing request rather than duplicate it. Status remains proposed; no implementation or publication is authorized.
 * **Creation**: IR-19: preserve structured script session errors for Rei operational error-channel acceptance
