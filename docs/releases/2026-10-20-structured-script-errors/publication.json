@@ -1,0 +1,57 @@
+{
+  "release_commit": "084fd8359850342447cdda8e632b7dc456c7fca4",
+  "packages": {
+    "kiroku-store": {
+      "version": "0.11.0.1",
+      "tag": "kiroku-store-v0.11.0.1",
+      "hackage": "https://hackage.haskell.org/package/kiroku-store-0.11.0.1",
+      "source_uploaded": true,
+      "source_verified_sha256": "0e941f8d39c9d588e50339e2765dbd857d7b7e3b00610e226bb496c160ad0b72",
+      "cabal_revision": 0,
+      "cabal_sha256": "8f4a1c0834e11561868bf90542dd18c0b72e40c8da674bf5bee3f5dc5878efb1",
+      "package_page_verified": true,
+      "documentation_uploaded": true,
+      "documentation_verified": {
+        "doc-index.html": {
+          "local_sha256": "40bcc946c267b748c9859213f5fc0ad754e6335f24d96de1e8c15fa69aa24602",
+          "served_sha256": "3278f335503d162bab9e0c933ae7f847590f9ff3ffe855c8ac2b0c638e6d49e9",
+          "hackage_css_injection_removed": true
+        },
+        "Kiroku-Store-Error.html": {
+          "local_sha256": "cc20531c0744d293baabb65e2e5086c0a803c1f54b1bcb6e6786afbccae0321c",
+          "served_sha256": "827fb6d9a4c3ddb0b1adb6ad93a25be58cb25f0aaf7e4adf4be64f8ba7089db5",
+          "hackage_css_injection_removed": true
+        }
+      },
+      "verified_at": "2026-10-20T01:31:03.461740+00:00",
+      "github_release": "https://github.com/shinzui/kiroku/releases/tag/kiroku-store-v0.11.0.1"
+    },
+    "kiroku-metrics": {
+      "version": "0.3.0.1",
+      "tag": "kiroku-metrics-v0.3.0.1",
+      "hackage": "https://hackage.haskell.org/package/kiroku-metrics-0.3.0.1",
+      "source_uploaded": true,
+      "source_verified_sha256": "2936dc01ba37e0962adac0e3bd8501145718eed030d00e0f2a5c0dacc65583f6",
+      "cabal_revision": 0,
+      "cabal_sha256": "21de48c4d8a18b8207ab754cfc5463fdfa8ccc79d8308bd0fabd5abe8b898b9f",
+      "package_page_verified": true,
+      "documentation_uploaded": true,
+      "documentation_verified": {
+        "doc-index.html": {
+          "local_sha256": "0266acf3ebf6442791284d0d8916152bf1f7cc5ad50129c5e973eaf5121637ce",
+          "served_sha256": "e66e052a22bbe0ec5432eaa41f1f5f53b7fbf9f2c71fd5f18f79864bd72d30cc",
+          "hackage_css_injection_removed": true
+        },
+        "Kiroku-Metrics-JSON.html": {
+          "local_sha256": "e784236cb5af0d8d2c7ce67c986aadcb7a31a8baace49ef4232831ce728c7327",
+          "served_sha256": "ec5fd195b7702c26fb7221f601d307c3a8611d88e2b82965f7d20d966bdc1b2d",
+          "hackage_css_injection_removed": true
+        }
+      },
+      "verified_at": "2026-10-20T01:31:06.370973+00:00",
+      "github_release": "https://github.com/shinzui/kiroku/releases/tag/kiroku-metrics-v0.3.0.1"
+    }
+  },
+  "hackage_complete": true,
+  "publication_complete": true
+}

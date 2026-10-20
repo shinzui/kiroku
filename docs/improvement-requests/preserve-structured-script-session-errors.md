@@ -3,12 +3,12 @@ type: Improvement Request
 title: Preserve structured script session errors
 description: Preserve structured PostgreSQL server errors from script-backed transactions so callers can classify permanent and retryable failures without parsing rendered diagnostics.
 requestId: IR-19
-status: in_progress
+status: completed
 origin: mori://shinzui/rei
 generated:
   by: openai/gpt-6.1-sol
   at: "2026-10-19T20:25:45Z"
-timestamp: "2026-10-20T00:29:26Z"
+timestamp: "2026-10-20T01:41:04Z"
 reviews:
   - kind: model
     reviewer: "codex (author self-review)"
@@ -27,26 +27,26 @@ reviews:
 
 # Preserve structured script session errors
 
-## Status and implementation plan
+## Completion — 2026-10-20
 
-Implementation in progress under
-[ExecPlan 98: Preserve structured script session errors](../plans/98-preserve-structured-script-session-errors.md).
-The plan covers structured script and transaction error mapping, the shared
-pool helper, real PostgreSQL regression tests, local HTTP classification
-compatibility, and supported-release verification. Local implementation and functional validation are complete. Supported-release
-verification remains required before fulfillment; no publication is claimed.
-
-## Local implementation — 2026-10-20
-
-Commit `f7b48b1` preserves structured scripts, connection-session failures and
-pool-backed reads, with the HTTP compatibility correction and
+Completed by
+[ExecPlan 98](../plans/98-preserve-structured-script-session-errors.md) and
 [ADR-20](../adr/0020-store-boundaries-preserve-structured-server-errors.md).
-Real PostgreSQL 18.4 regression tests changed from 13 examples with 11 failures
-to 13 with zero failures. The full store suite passed 487 examples and metrics
-passed 117, both with zero failures; the store run includes structural checks.
-Candidate releases are store 0.11.0.1 and metrics 0.3.0.1. They are not yet
-published: required version/changelog confirmation, publication verification
-and the clean published-consumer proof remain open in ExecPlan 98.
+The supported releases are
+[kiroku-store 0.11.0.1](https://hackage.haskell.org/package/kiroku-store-0.11.0.1)
+and [kiroku-metrics 0.3.0.1](https://hackage.haskell.org/package/kiroku-metrics-0.3.0.1),
+revision 0, tagged at release commit
+`084fd8359850342447cdda8e632b7dc456c7fca4`.
+
+The [retained release record](../releases/2026-10-20-structured-script-errors/README.md)
+verifies published source archives, Cabal files, Haddock pages and GitHub
+releases. All 487 store and 117 metrics examples passed. A clean consumer
+resolved both exact Hackage releases and proved script SQLSTATE `42P01` through
+both public transaction runners, permanent HTTP 500 and typed unavailable HTTP
+503 mapping, and clean disposable PostgreSQL 18.4 shutdown. The only local
+package was the consumer; it used no package source override or bound exception.
+Initial signed-index propagation failures are retained separately. Downstream
+Rei adoption remains with its consuming plan.
 
 ## Released baseline recheck — 2026-10-19
 
@@ -56,10 +56,12 @@ newest normal release, and the upstream tag inventory has no 0.11.0.1 tag.
 The current owner checkout at `ad866f925ac11484a2ee758fe235035840c85c0a`
 still has the rendered session-error fallback and the raw `usePool` fallback
 described below. At that recheck the request remained `proposed` pending owner
-fulfillment and a supported release; subsequent planning acceptance is recorded
+fulfillment and a supported release; subsequent implementation and release completion are recorded
 above. An unpublished local patch is not acceptance evidence.
 
-Creating this request does not authorize upstream implementation or publication.
+The initial request filing did not authorize implementation or publication.
+The user subsequently authorized implementation and approved both releases
+under ExecPlan 98.
 
 Rei needs the same structured error classification for prepared statements and
 script-backed store operations. The consuming work is

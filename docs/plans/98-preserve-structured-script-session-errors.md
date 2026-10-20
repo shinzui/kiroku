@@ -54,8 +54,8 @@ classification. The consuming work is
 `mori://shinzui/rei/plans/256-expose-operational-status-and-controlled-periodic-check-apis`,
 under `mori://shinzui/rei/masterplans/29-close-rei-cli-and-http-api-gaps-on-the-haskell-jitsurei-contract`.
 This plan owns the Kiroku correction and supported-release evidence; downstream
-adoption remains with that consumer. Functional implementation is complete;
-publication remains a separate acceptance gate.
+adoption remains with that consumer. Functional implementation, supported
+publication and clean published-consumer verification are complete.
 
 
 ## Progress
@@ -67,7 +67,8 @@ publication remains a separate acceptance gate.
 - [x] (2026-10-20 00:28Z) Verify release baselines, prepare the two-package metadata proposal, build candidate sdists in an isolated copy, and pass candidate package checks.
 - [x] (2026-10-20 01:20Z) Receive user approval ("let's release") for store 0.11.0.1 and metrics 0.3.0.1 and apply the reviewed metadata/changelogs.
 - [x] (2026-10-20 01:30Z) Validate the actual release versions: full build, 487 store and 117 metrics examples, flake checks, package checks and Haddock archives pass; all 144 archived source files match the checkout and the source hashes match the approved candidates.
-- [ ] Publish the approved packages and documentation, verify tags and source archives, and pass the clean published-consumer proof before closing IR-19.
+- [x] (2026-10-20 01:31Z) Publish and verify store 0.11.0.1 and metrics 0.3.0.1, revision 0 Cabal files, source archives, documentation and GitHub releases; both annotated tags point to `084fd8359850342447cdda8e632b7dc456c7fca4`.
+- [x] (2026-10-20 01:41Z) Pass the clean Hackage consumer with both exact published versions and a disposable PostgreSQL 18.4 database; close IR-19 and retain the release evidence.
 
 
 ## Surprises & Discoveries
@@ -89,6 +90,13 @@ An initial overlapping bootstrap and regression build collided while renaming
 an object file. This is a build orchestration failure, not a regression result;
 subsequent Cabal commands run sequentially.
 
+The signed Hackage index lagged the public uploads. Resolution first saw index
+state `2026-10-20T00:32:33Z`, then `2026-10-20T01:31:00Z` with only the store
+patch, and finally `2026-10-20T01:31:03Z` with both patches. Three failures before
+compilation are retained in the release record. The fourth resolved both exact
+versions, built and passed; no dependency constraint or source origin was
+changed during propagation.
+
 
 ## Decision Log
 
@@ -108,17 +116,15 @@ subsequent Cabal commands run sequentially.
   Rationale: the change classifies failure results and adds no successful-path
   SQL, connection acquisitions, schema changes, or retry loop.
   Date: 2026-10-20.
-- Decision: Propose patch releases `kiroku-store` 0.11.0.1 and
+- Decision: Release patch versions `kiroku-store` 0.11.0.1 and
   `kiroku-metrics` 0.3.0.1 after verifying Hackage preferred versions and upstream
   tags. No API signatures, constructor set or HTTP envelope changes; this fixes
   classification to the existing typed error contract. Existing internal
   `^>=0.11.0.0` bounds already admit the store patch, so no dependent package
-  needs a bound-only release. The unapplied proposal is
-  `/tmp/ep98-release-metadata.patch`; changelog text is in each changed package's
-  Unreleased section. The [release skill](../../agents/skills/release/SKILL.md) says:
-  "Always ask the user to confirm the per-package version bumps and changelogs
-  before committing." Obtain that confirmation after validation and before
-  applying release metadata or creating release commits/tags.
+  needs a bound-only release. The user approved the reviewed metadata and
+  changelogs with "let's release" before the release commit and tags, satisfying
+  the [release skill](../../agents/skills/release/SKILL.md). Both approved
+  versions are now published and verified.
   Date: 2026-10-20.
 
 
@@ -154,8 +160,27 @@ kiroku-store:   487 examples, 0 failures; PASS
 kiroku-metrics: 117 examples, 0 failures; PASS
 ```
 
-The functional implementation is committed as `f7b48b1`. Publication and the
-clean published-consumer gate remain outstanding.
+The functional implementation is committed as `f7b48b1`. The approved releases
+are published at revision 0 as `kiroku-store` 0.11.0.1 and `kiroku-metrics`
+0.3.0.1. Both annotated tags point to release commit
+`084fd8359850342447cdda8e632b7dc456c7fca4` and are pushed. Hackage package pages,
+source archives, Cabal files, documentation and GitHub releases are verified.
+Source hashes match the approved candidate hashes above.
+
+The clean consumer resolves both exact releases from Hackage, preserves script
+SQLSTATE `42P01` through both transaction runners, checks permanent HTTP 500 and
+typed unavailable HTTP 503 results, and stops its disposable PostgreSQL database.
+The only local package in its build plan is the consumer; it uses no dependency
+bound exception or package source override. Complete versions, compiler, source
+origins, artifact hashes, commands and compressed logs are retained in the
+[release record](../releases/2026-10-20-structured-script-errors/README.md).
+The initial three signed-index resolution failures are retained there; the
+fourth attempt used index state `2026-10-20T01:31:03Z` and passed.
+
+IR-19 and this plan are complete. The final ADR distillation confirms ADR-20
+already captures the durable boundary rule and separation from application
+retry/HTTP policy; publication adds no new architectural decision. Downstream
+Rei adoption remains with its consuming plan.
 
 
 ## Context and Orientation
@@ -217,9 +242,10 @@ objects separate; qualify application fixture tables explicitly. ADR-5 favors
 structural invariants where timing adds no useful evidence. ADR-9 keeps HTTP in
 sister packages and freezes published response shapes; preserve envelope keys,
 route-specific unavailable codes, and sanitized messages. No ADR specifically
-covering script error extraction was found. Distill the final error-boundary
-rule into an appropriate ADR during implementation, following
-`.agents/skills/exec-plan/ADR.md` and the profiled `docs/adr/` contract.
+covered script extraction at planning time. The implemented rule now lives in
+[ADR-20](../adr/0020-store-boundaries-preserve-structured-server-errors.md): keep
+script/statement SQLSTATE structure at store boundaries, preserve contextual
+constraint attribution, and leave application retry and HTTP policy to callers.
 
 Dependency source was located with Mori at `mori://hasql/hasql`. Its repository
 handles are `mori://hasql/hasql/repos/hasql`,
@@ -415,8 +441,8 @@ confirms that no SQL work or retry policy was added.
 
 Functional acceptance and release acceptance are recorded separately. Full
 IR-19 acceptance additionally requires the published supported version and a
-clean consumer using it. No tests, publication, or performance outcomes are
-claimed by this initial plan.
+clean consumer using it. Both gates now pass, with actual results and exact
+release evidence recorded in Outcomes & Retrospective.
 
 
 ## Idempotence and Recovery
@@ -489,3 +515,17 @@ Validation completion revision (2026-10-20 00:30Z): the release-wide build passe
 Release authorization revision (2026-10-20 01:20Z): the user approved the prepared two-package release. Applied the reviewed metadata; release validation, publication and consumer verification are underway. No further version/changelog confirmation is required.
 
 Release validation revision (2026-10-20 01:30Z): all approved-version checks passed, documentation archives were generated, and source archive hashes exactly match the reviewed candidates. Creating the release commit and annotated tags; publication and consumer verification follow.
+
+Publication revision (2026-10-20 01:31Z): both approved packages, Haddock archives
+and GitHub releases are published and byte-verified. The first clean consumer
+resolution saw the old signed index at 2026-10-20T00:32:33Z and could not find
+store 0.11.0.1. Retained that attempt separately; the next signed snapshot is now
+available and the consumer is retrying without changing source constraints or
+adding an override. A staging copy initially used a wrong relative directory;
+corrected absolute paths and verified the canonical fixture before compilation.
+
+Completion revision (2026-10-20 01:41Z): store 0.11.0.1 and metrics 0.3.0.1, their
+Haddock archives and GitHub releases are published and verified. The exact
+Hackage consumer passed both public script paths and published 500/503 mapping
+checks on PostgreSQL 18.4 and released its database. Closed IR-19, retained the
+signed-index propagation attempts, and completed the ADR-20 distillation pass.

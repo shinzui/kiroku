@@ -1,0 +1,11 @@
+{
+  "approved_at": "2026-10-20T01:20:00Z",
+  "instruction": "let's release",
+  "versions": {
+    "kiroku-store": "0.11.0.1",
+    "kiroku-metrics": "0.3.0.1"
+  },
+  "implementation_commit": "f7b48b1",
+  "exec_plan": "docs/plans/98-preserve-structured-script-session-errors.md",
+  "intention": "intention_01m5badt87ew6r2zqx6n8hqvch"
+}

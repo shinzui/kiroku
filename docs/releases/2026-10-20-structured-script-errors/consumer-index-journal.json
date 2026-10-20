@@ -1,0 +1,36 @@
+{
+  "started_at": "2026-10-20T01:33:09.194540+00:00",
+  "deadline_at": "2026-10-20T01:43:09.194540+00:00",
+  "attempts": [
+    {
+      "attempt": 1,
+      "result": "signed index not yet published",
+      "index_state": "2026-10-20T00:32:33Z",
+      "snapshot_version": 111451
+    },
+    {
+      "attempt": 2,
+      "started_at": "2026-10-20T01:33:25.523254+00:00",
+      "observed_hackage_content_snapshot": 111452,
+      "result": "canonical repository metadata still served snapshot 111451"
+    },
+    {
+      "attempt": 3,
+      "started_at": "2026-10-20T01:34:41.449871+00:00",
+      "observed_canonical_snapshot": 111452,
+      "result": "index includes store but not metrics",
+      "index_state": "2026-10-20T01:31:00Z"
+    },
+    {
+      "attempt": 4,
+      "started_at": "2026-10-20T01:36:25.383054+00:00",
+      "observed_canonical_snapshot": 111453,
+      "result": "resolved exact Hackage packages; build and PostgreSQL consumer passed",
+      "index_state": "2026-10-20T01:31:03Z"
+    }
+  ],
+  "phase": "complete",
+  "index_resolution_completed_at": "2026-10-20T01:36:39.356516+00:00",
+  "resolved_index_state": "2026-10-20T01:31:03Z",
+  "finished_at": "2026-10-20T01:41:04.931691+00:00"
+}

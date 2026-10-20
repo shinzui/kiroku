@@ -1,0 +1,49 @@
+{
+  "compiler": "ghc-9.12.4",
+  "local_packages": [
+    "script-error-consumer"
+  ],
+  "published_packages": {
+    "kiroku-store": {
+      "version": "0.11.0.1",
+      "source": {
+        "type": "repo-tar",
+        "repo": {
+          "type": "secure-repo",
+          "uri": "http://hackage.haskell.org/"
+        }
+      },
+      "cabal_sha256": "8f4a1c0834e11561868bf90542dd18c0b72e40c8da674bf5bee3f5dc5878efb1"
+    },
+    "kiroku-metrics": {
+      "version": "0.3.0.1",
+      "source": {
+        "type": "repo-tar",
+        "repo": {
+          "type": "secure-repo",
+          "uri": "http://hackage.haskell.org/"
+        }
+      },
+      "cabal_sha256": "21de48c4d8a18b8207ab754cfc5463fdfa8ccc79d8308bd0fabd5abe8b898b9f"
+    },
+    "kiroku-store-migrations": {
+      "version": "0.7.1.0",
+      "source": {
+        "type": "repo-tar",
+        "repo": {
+          "type": "secure-repo",
+          "uri": "http://hackage.haskell.org/"
+        }
+      },
+      "cabal_sha256": "d410a411ba62d06d9348d63a3e3697d308b8df6cf310b9bcec9c1c761358402a"
+    }
+  },
+  "database": "postgres (PostgreSQL) 18.4",
+  "successful_run": true,
+  "source_overrides": false,
+  "fixture_sha256": {
+    "Main.hs": "9715aee1f121737f70e2d8338ce5006487c5531c90f19795eb3e40cf4ee628e2",
+    "cabal.project": "124db2036b22ae7802b3121d113ccb674caf81f36b0f46b719f7276c5d1273bc",
+    "script-error-consumer.cabal": "2f44400ebc380e6f69fbefc481e2cb18d0589dc8833edca07c7ccbb821ae6569"
+  }
+}

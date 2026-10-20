@@ -1,0 +1,14 @@
+{
+  "kiroku-store": {
+    "version": "0.11.0.1",
+    "source_sha256": "0e941f8d39c9d588e50339e2765dbd857d7b7e3b00610e226bb496c160ad0b72",
+    "source_entries_verified": 109,
+    "documentation_sha256": "9e8748fe0ce8bd402229b1d330cccf68389f97145996f093a5145038e1cb161b"
+  },
+  "kiroku-metrics": {
+    "version": "0.3.0.1",
+    "source_sha256": "2936dc01ba37e0962adac0e3bd8501145718eed030d00e0f2a5c0dacc65583f6",
+    "source_entries_verified": 35,
+    "documentation_sha256": "6a50d2b2f035e771d4f8fd53310061639c0dc21cc264e3663b9a7c4f34a0b9a9"
+  }
+}
