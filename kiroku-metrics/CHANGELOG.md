@@ -1,6 +1,6 @@
 # Revision history for kiroku-metrics
 
-## Unreleased
+## 0.3.0.1 — 2026-10-20
 
 ### Bug Fixes
 

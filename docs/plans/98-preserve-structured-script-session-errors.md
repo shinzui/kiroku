@@ -21,6 +21,11 @@ provenance:
       at: 2026-10-20T00:19:29Z
       mode: "implement"
       note: "Implement structured script errors, public PostgreSQL regressions, and HTTP compatibility."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-20T01:20:11Z
+      mode: "implement"
+      note: "Publish the approved store and metrics patch releases and verify the clean consumer."
 ---
 
 
@@ -60,7 +65,9 @@ publication remains a separate acceptance gate.
 - [x] (2026-10-20 00:27Z) Pass full PostgreSQL store suite (487 examples) and metrics suite (117 examples), zero failures; store suite includes performance structure checks.
 - [x] (2026-10-20 00:27Z) Update error/transaction Haddock, both changelogs and ADR-20; audit production consumers and validate both OKF bundles.
 - [x] (2026-10-20 00:28Z) Verify release baselines, prepare the two-package metadata proposal, build candidate sdists in an isolated copy, and pass candidate package checks.
-- [ ] Obtain the release skill's required version/changelog confirmation, publish the approved packages, and verify supported publication and clean-consumer evidence before closing IR-19.
+- [x] (2026-10-20 01:20Z) Receive user approval ("let's release") for store 0.11.0.1 and metrics 0.3.0.1 and apply the reviewed metadata/changelogs.
+- [x] (2026-10-20 01:30Z) Validate the actual release versions: full build, 487 store and 117 metrics examples, flake checks, package checks and Haddock archives pass; all 144 archived source files match the checkout and the source hashes match the approved candidates.
+- [ ] Publish the approved packages and documentation, verify tags and source archives, and pass the clean published-consumer proof before closing IR-19.
 
 
 ## Surprises & Discoveries
@@ -478,3 +485,7 @@ Unreleased changelog headings to those versions dated 2026-10-20 in an isolated
 copy of the implementation commit.
 
 Validation completion revision (2026-10-20 00:30Z): the release-wide build passed. Functional work and all local checks are complete. The plan remains open solely for required release confirmation, publication and clean published-consumer verification; IR-19 remains in progress.
+
+Release authorization revision (2026-10-20 01:20Z): the user approved the prepared two-package release. Applied the reviewed metadata; release validation, publication and consumer verification are underway. No further version/changelog confirmation is required.
+
+Release validation revision (2026-10-20 01:30Z): all approved-version checks passed, documentation archives were generated, and source archive hashes exactly match the reviewed candidates. Creating the release commit and annotated tags; publication and consumer verification follow.
