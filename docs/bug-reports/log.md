@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-10-21
+* **Report**: BUG-5 reports that migration 0013 derives a consumer group's size from its highest checkpointed member, so a legacy group whose highest members never ran derives too small a size and the documented resize remedy seeds the missing members at the group minimum, permanently skipping their slices below it; found by REV-2 from code at 364ffa8, not yet executed.
+
 ## 2026-09-28
 * **Report**: BUG-4 records historical shibuya-kiroku-adapter 0.5.1.2 partial group-acquisition cleanup failure and the released 0.5.1.3 masked-ownership fix, with PostgreSQL 17 and 18 external reproductions and passing controls.
 
