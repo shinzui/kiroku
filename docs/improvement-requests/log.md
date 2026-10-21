@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-10-21
+* **Addition**: IR-20 requests the real global position on single-stream reads (they select 0), filed by the keiro runtime console.
+
 ## 2026-10-20
 * **Completion**: IR-19 completed: store 0.11.0.1 and metrics 0.3.0.1 source/docs/GitHub releases verified, and the exact Hackage PostgreSQL consumer passed. Evidence: [release record](../releases/2026-10-20-structured-script-errors/README.md).
 * **Update**: IR-19: local implementation committed with 487 store and 117 metrics examples passing; release confirmation, publication and clean published-consumer proof remain pending.
