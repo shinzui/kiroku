@@ -1,0 +1,27 @@
+Using saved setting for 'extra-substituters = https://shinzui.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = shinzui.cachix.org-1:QEmAoJrA9WwLP0uxfDgktLi2BRrcvQQWdz8NzcMg4/E=' from ~/.local/share/nix/trusted-settings.json.
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.11.0.1 (bench:kiroku-store-bench-workload-gate) (file bench/RegressionGate.hs changed)
+Preprocessing benchmark 'kiroku-store-bench-workload-gate' for kiroku-store-0.11.0.1...
+Building benchmark 'kiroku-store-bench-workload-gate' for kiroku-store-0.11.0.1...
+[1 of 1] Compiling Main             ( bench/RegressionGate.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.1/b/kiroku-store-bench-workload-gate/build/kiroku-store-bench-workload-gate/kiroku-store-bench-workload-gate-tmp/Main.o ) [Source file changed]
+[2 of 2] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.1/b/kiroku-store-bench-workload-gate/build/kiroku-store-bench-workload-gate/kiroku-store-bench-workload-gate [Objects changed]
+Running 1 benchmarks...
+Benchmark kiroku-store-bench-workload-gate: RUNNING...
+PAIR,variant,pair,first,control_ns,candidate_ns,control_before,candidate_before,control_after,candidate_after,pre_gc
+PAIR,paired-aa,1,control,117267000,114958000,20,20,52,52,1
+PAIR,paired-aa,2,candidate,113225000,113022000,52,52,84,84,1
+PAIR,paired-aa,3,control,111765000,112422000,84,84,116,116,1
+PAIR,paired-aa,4,candidate,112366000,113732000,116,116,148,148,1
+PAIR,paired-aa,5,control,111089000,113419000,148,148,180,180,1
+PAIR,paired-aa,6,candidate,112882000,112523000,180,180,212,212,1
+PAIR,paired-aa,7,control,113113000,115023000,212,212,244,244,1
+PAIR,paired-aa,8,candidate,113827000,114824000,244,244,276,276,1
+PAIR,paired-aa,9,control,113572000,114665000,276,276,308,308,1
+PAIR,paired-aa,10,candidate,121526000,112945000,308,308,340,340,1
+PAIR,paired-aa,11,control,110719000,112796000,340,340,372,372,1
+PAIR,paired-aa,12,candidate,111330000,110095000,372,372,404,404,1
+COUNTS,paired-aa,control,8082,16160,32320,8080,16160
+COUNTS,paired-aa,candidate,8082,16160,32320,8080,16160
+Benchmark kiroku-store-bench-workload-gate: FINISH

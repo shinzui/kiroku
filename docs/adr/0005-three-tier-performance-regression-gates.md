@@ -8,7 +8,7 @@ generated:
 docId: ADR-5
 status: Accepted
 date: 2026-08-11
-timestamp: "2026-10-25T13:43:30Z"
+timestamp: "2026-10-25T14:17:04Z"
 originatingPlan: docs/plans/64-harden-benchmark-regression-detection-with-structural-checks-and-controlled-a-b-workload-gates.md
 ---
 
@@ -66,6 +66,17 @@ substitute for checking the measured arms. Category-read ratios keep a zero lowe
 bound because large speedups are expected. These safeguards detect invalid
 measurements; they do not turn the reported spreads into confidence intervals or
 establish equivalence for differences smaller than the noise.
+
+The same day's follow-up investigation also found that sequential adaptive cells
+can give growing arms different work counts, and a single cell's convergence is
+not the uncertainty of the ratio. Near a promotion boundary, diagnose with matched
+work, alternating order and an identical-code/schema comparison before attributing
+an effect. Preserve all samples, including runtime/host spikes. The optional
+`KIROKU_GATE_DIAGNOSE` modes provide these checks and verify final database counts;
+their successful exit status means diagnostic completion, never promotion. This
+adds no replacement gate or relaxed threshold. The retained full comparisons
+were +4.89% and +6.44%, while the exact 5% boundary remained unresolved; see
+[the investigation](../../kiroku-store/bench/results/plan99-investigation/README.md).
 
 **Positive**
 

@@ -52,6 +52,32 @@ proof that a small write-cost difference has been resolved. The parser's failure
 cases can be checked without PostgreSQL with
 `python3 kiroku-store/bench/test-gate-spread.py`.
 
+## Diagnosing a controlled append result
+
+For a suspicious append ratio, use the optional fixed-work diagnostic from the
+repository root:
+
+```bash
+nix develop --no-write-lock-file -c env KIROKU_GATE_DIAGNOSE=paired \
+  cabal bench kiroku-store:kiroku-store-bench-workload-gate
+```
+
+This runs 12 pairs of 32 workload iterations per arm, alternating order and
+collecting garbage before each timed batch as tasty-bench does. It checks equal
+work counts before/after each pair and verifies final database counts. Modes
+`paired-aa`, `paired-column`, `paired-index-check` and `explain` provide an
+identical-code/schema comparison, component comparisons and exact-statement plans.
+Use fresh output labels and retain every sample. A zero diagnostic exit status
+means completion and count validation, **not** performance acceptance. Unset
+`KIROKU_GATE_DIAGNOSE` when running the authoritative tasty gate.
+
+The diagnostic is useful because independent adaptive cells can grow their stores
+to different sizes, and tasty's displayed spread is not a confidence interval for
+the ratio. The [Plan 99 investigation](../kiroku-store/bench/results/plan99-investigation/README.md)
+retains both clean and noisy identical-code controls and full-migration estimates
+of +4.89% and +6.44%. Those results support additional write cost while leaving the
+exact 5% boundary unresolved. Do not choose a favorable repeat as acceptance.
+
 ## Baseline coverage and updates
 
 Run `just bench-baseline-check` after adding, removing, or renaming a historical

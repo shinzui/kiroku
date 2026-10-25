@@ -1,0 +1,20 @@
+$ python3 kiroku-store/bench/test-gate-spread.py
+.......
+----------------------------------------------------------------------
+Ran 7 tests in 0.762s
+
+OK
+exit=0
+
+$ okf validate docs/adr --strict --profile docs/adr/profile.dhall --profile-enforce --log-enforce
+OK: 20 concepts (okf_version 0.2)
+exit=0
+
+$ git diff --check
+exit=0
+
+Final benchmark compilation: passed.
+Frozen control, timed workload and store helpers: byte-identical to 657d116.
+All eight diagnostic invocations: 12 pairs and both database-count checks verified.
+Original 41 structural examples remain applicable: no production SQL or schema changed.
+No full perf-check pass claimed.

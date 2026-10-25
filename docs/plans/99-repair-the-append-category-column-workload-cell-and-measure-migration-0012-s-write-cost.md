@@ -58,16 +58,23 @@ appends gets a number instead of a shrug.
 
 ## Progress
 
-- [ ] Milestone 1: the populated-and-analyzed setup removed the large effect in one focused run (2026-10-25), with spreads 8.33% / 7.53%; three consecutive confirmations remain unperformed because that run exceeded the ratio ceiling and triggered the adverse stop.
+- [ ] Milestone 1: the populated-and-analyzed setup removed the large effect in one focused run (2026-10-25), with spreads 8.33% / 7.53%; three consecutive valid focused runs remain unmet. The authorized follow-up included one invalid control and two clean failed ratios, and added matched-work diagnostics.
 - [ ] Milestone 2: the disposable cell, ratio floors, complete-CSV spread checker and recipe are implemented; seven parser/recipe tests and 41 structural examples pass. Three full gate passes and end-to-end `perf-check` acceptance remain unmet under the adverse stop.
 - [x] Milestone 3 (adverse-result branch, 2026-10-25): the failed 1.058478x ratio and its uncertainty are recorded in the ledger, the guide describes all checks, ADR-5 is amended, and strict ADR validation passes. Normal three-run performance acceptance was not achieved.
 
-Execution stopped under the explicit rule in Validation and Acceptance: the first
-converged candidate/control ratio exceeded 1.05. No more timing trials were run,
+Initial execution stopped under the explicit rule in Validation and Acceptance: the first
+converged candidate/control ratio exceeded 1.05. No more timing trials were run during that initial execution;
 no threshold changed, and no favorable retry replaced this result. The functional
 changes are delivered; the repair's repeated-run acceptance and migration write-cost
 acceptance remain outstanding for a separate decision. Evidence:
 `kiroku-store/bench/results/plan99/README.md`.
+
+At the user's subsequent request, the investigation resumed and included the
+requested repeat. It supports a real cost around 5–6%, plus harness noise;
+the exact 5% boundary remains unresolved. Fixed-work diagnostics and their
+count/plan checks are implemented, with evidence in
+`kiroku-store/bench/results/plan99-investigation/README.md`. This investigation
+is complete; normal full-gate performance acceptance remains unmet.
 
 
 ## Surprises & Discoveries
@@ -100,7 +107,44 @@ bias the pipeline candidate's fixture. This is one successful convergence check,
 not the required three. Its 1.058478x ratio failed and ended the experiment.
 
 
+The authorized follow-up reproduced one invalid-control ratio (0.7843x) and two
+converged failures (1.0554x / 1.0567x) without changing the harness. Thus the
+populated/analyzed setup did not eliminate all startup noise. Reading the resolved
+benchmark library showed that its estimate uses only the latest n/2n batches,
+with a 1 ms timing perturbation; its spread is not a confidence interval for the
+candidate/control ratio. Independent convergence can also give growing arms
+different database sizes.
+
+Twelve-pair equal-work comparisons alternate arm order and verify the final counts
+of both stores (8,082 streams, 16,160 events, 32,320 junction rows). The first
+exploratory protocol omitted pre-batch GC and produced false overhead even for
+identical SQL; those samples are retained. Matching tasty's pre-batch collection
+produced identical-code 0.9986x and full-migration 1.0489x. The user's requested
+repeat produced identical-code 0.9692x with a retained control spike and
+full-migration 1.0644x, positive in all 12 pairs and similar in either order.
+This supports a real 5–6% cost, while preserving uncertainty at the exact gate
+boundary and without claiming GC caused the original startup defect.
+
+The component comparison measured 1.0437x for the column/statement change with
+index and CHECK absent in both stores, and 1.0029x for adding index/CHECK with
+identical production SQL. The sampled plans have identical scan/join structure;
+`$all` rows grow from 72 to 79 bytes for this category, and their insert adds
+87 WAL bytes and one WAL record in both sampled cases. Most measured overhead
+therefore points to the SQL/category value path rather than index maintenance
+alone; the experiment does not separate RETURNING from tuple construction.
+
+
 ## Decision Log
+
+- Decision: Resume diagnosis of the adverse result without changing promotion
+  bounds or discarding the failed sample.
+  Rationale: On 2026-10-25 the user explicitly asked whether the regression was
+  real or the harness was wrong. Run three unchanged focused gates, then 12
+  alternating fixed-work pairs (32 iterations per arm) and an identical-code
+  negative control. Component comparisons follow only if needed for attribution.
+  The investigation has one 60-minute budget from 13:56:36 UTC, including setup,
+  builds and repeats; target 10–20 minutes and retain unresolved uncertainty.
+  Date: 2026-10-25
 
 - Decision: Continue measurements on the available machine, retaining actual host
   load and the original spread and ratio bounds.
@@ -152,6 +196,22 @@ environment required by the commands. FRIC-2 is accepted: whole-manifest Dhall
 validation fails on the pre-existing `versionConstraint` dependency-helper/schema
 mismatch, reproduced on the original HEAD manifest. Strict validation of both
 bundles passes; the unrelated dependency-schema migration is outside this plan.
+
+
+Follow-up (2026-10-25): the user authorized further diagnosis and explicitly
+requested another attempt. The unchanged gate reproduced two usable failures,
+and matched-work comparisons measured +4.89% and +6.44%, supporting a real cost
+around 5–6%. Identical-code comparisons also expose continuing runtime/host
+noise. Most measured cost persists without the index/CHECK; the exact 5% boundary
+remains unresolved. Optional `paired`, `paired-aa`, `paired-column`,
+`paired-index-check` and `explain` modes now reuse the frozen/production statements,
+verify work/database counts and retain plans without replacing the promotion gate.
+ADR-5 and ADR-10 and an additional ledger row carry this qualification. All raw
+samples, including noisy and exploratory ones, are retained in the investigation
+folder. Timing ended at 14:12:10 UTC, about 16 minutes into the single one-hour
+investigation budget; no further timing trials were needed to answer the user's
+question. Full-gate acceptance and a production optimization remain outside the
+completed diagnosis. No additional friction occurred.
 
 
 ## Context and Orientation
@@ -414,3 +474,8 @@ Revision note (2026-10-25): retain the failed warm-only and quiescence-only
 attempts, prime each append store equally before analyze, isolate the disposable
 store, and record the first converged ratio as an adverse stop. Three-run and
 full-gate acceptance remain unclaimed.
+
+Revision note (2026-10-25): follow the user's authorization to investigate the
+adverse result and try again; add matched-work/identical-code/component and
+exact-statement plan diagnostics, retaining every result and the unresolved
+promotion boundary. This does not replace the original adverse row or bounds.

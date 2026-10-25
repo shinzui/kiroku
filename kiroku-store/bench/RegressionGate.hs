@@ -3,16 +3,19 @@
 module Main where
 
 import Control.Lens ((^.))
-import Control.Monad (forM, unless)
+import Control.Monad (forM, replicateM_, unless)
 import Data.Aeson qualified as Aeson
 import Data.Generics.Labels ()
-import Data.IORef (IORef, atomicModifyIORef', newIORef)
+import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef)
 import Data.Int (Int32, Int64)
+import Data.List (intercalate)
 import Data.Maybe (isNothing)
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Text.Encoding (decodeUtf8Lenient)
 import Data.Time.Clock (getCurrentTime)
 import Data.Vector qualified as V
+import GHC.Clock (getMonotonicTime)
 import Hasql.Decoders qualified as D
 import Hasql.Pool qualified as Pool
 import Hasql.Session qualified as Session
@@ -24,11 +27,14 @@ import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Test.Fixtures.CategoryScaling (categoryScalingFixtureSql, categoryScalingHead)
 import Kiroku.Test.Postgres (withMigratedTestDatabase, withSharedMigratedPostgres)
+import System.Environment (lookupEnv)
+import System.Mem (performGC)
 import Test.Tasty (localOption)
 import Test.Tasty.Bench
 
 main :: IO ()
-main =
+main = do
+  mode <- lookupEnv "KIROKU_GATE_DIAGNOSE"
   withSharedMigratedPostgres $
     withMigratedTestDatabase $ \controlConnectionString ->
       withMigratedTestDatabase $ \candidateConnectionString ->
@@ -46,6 +52,7 @@ main =
                 runSequentialMultiAppend controlStore eightStreams
                 runProductionMultiAppend candidateStore eightStreams
 
+                (controlStatement, candidateStatement) <- diagnosticStatements mode appendCandidateStore
                 appendWarmCounter <- newIORef 0
                 appendControlCounter <- newIORef 0
                 appendCandidateCounter <- newIORef 0
@@ -53,8 +60,8 @@ main =
                 -- see a populated store rather than the empty migration template.
                 mapM_
                   ( \_ -> do
-                      runAppendWorkload preCategoryAppendAnyVersion appendControlStore appendControlCounter
-                      runAppendWorkload SQL.appendAnyVersion appendCandidateStore appendCandidateCounter
+                      runAppendWorkload controlStatement appendControlStore appendControlCounter
+                      runAppendWorkload candidateStatement appendCandidateStore appendCandidateCounter
                       runAppendWorkload SQL.appendAnyVersion appendWarmStore appendWarmCounter
                   )
                   [1 .. 20 :: Int]
@@ -65,73 +72,77 @@ main =
                   (\store -> runSetupScript store "VACUUM (ANALYZE)")
                   [controlStore, candidateStore, appendControlStore, appendCandidateStore, appendWarmStore, scalingStore]
 
-                defaultMain
-                  [ -- BUG-2 / plan 91 G4: carrying the category onto each $all
-                    -- row (migration 0012) adds a column and one partial-index
-                    -- insert per event. The control runs the pre-0012 append on
-                    -- a database without the index or CHECK.
-                    localOption WallTime $
-                      bgroup
-                        "append-category-column"
-                        [ -- Keep this group first: the disposable cell absorbs
-                          -- post-setup effects without growing either append arm.
-                          bench "warm-append-40" $
-                            whnfIO (runAppendWorkload SQL.appendAnyVersion appendWarmStore appendWarmCounter),
-                          bench "control-append-40" $
-                            whnfIO (runAppendWorkload preCategoryAppendAnyVersion appendControlStore appendControlCounter),
-                          bcompareWithin 0.5 1.05 "control-append-40" $
-                            bench "candidate-append-40" $
-                              whnfIO (runAppendWorkload SQL.appendAnyVersion appendCandidateStore appendCandidateCounter)
-                        ],
-                    localOption WallTime $
-                      bgroup
-                        "append-multi-stream"
-                        [ bench "sequential-control-4" $
-                            whnfIO (runSequentialMultiAppend controlStore fourStreams),
-                          bcompareWithin 0.5 0.90 "sequential-control-4" $
-                            bench "production-pipeline-4" $
-                              whnfIO (runProductionMultiAppend candidateStore fourStreams),
-                          bench "sequential-control-8" $
-                            whnfIO (runSequentialMultiAppend controlStore eightStreams),
-                          bcompareWithin 0.5 0.90 "sequential-control-8" $
-                            bench "production-pipeline-8" $
-                              whnfIO (runProductionMultiAppend candidateStore eightStreams)
-                        ],
-                    -- BUG-2 / plan 91 G3: the index-range category reads against
-                    -- the LATERAL statements they replaced, on one database seeded
-                    -- with the category-scaling fixture. The unpartitioned read
-                    -- must not be slower where LATERAL was already cheap, and both
-                    -- caught-up polls on 20,000 streams must be 5x faster.
-                    localOption WallTime $
-                      bgroup
-                        "category-read"
-                        [ bench "control-exhausted-category" $
-                            whnfIO (runPlainReads lateralCategoryRead scalingStore "performance" categoryScalingHead),
-                          bcompareWithin 0 1.05 "control-exhausted-category" $
-                            bench "candidate-exhausted-category" $
-                              whnfIO (runPlainReads SQL.readCategoryForwardStmt scalingStore "performance" categoryScalingHead),
-                          bench "control-page-200-streams-from-0" $
-                            whnfIO (runPlainReads lateralCategoryRead scalingStore "performance" 0),
-                          bcompareWithin 0 1.05 "control-page-200-streams-from-0" $
-                            bench "candidate-page-200-streams-from-0" $
-                              whnfIO (runPlainReads SQL.readCategoryForwardStmt scalingStore "performance" 0),
-                          bench "control-page-20000-streams-from-0" $
-                            whnfIO (runPlainReads lateralCategoryRead scalingStore "idle" 0),
-                          bcompareWithin 0 1.05 "control-page-20000-streams-from-0" $
-                            bench "candidate-page-20000-streams-from-0" $
-                              whnfIO (runPlainReads SQL.readCategoryForwardStmt scalingStore "idle" 0),
-                          bench "control-plain-caught-up-20000-streams" $
-                            whnfIO (runPlainReads lateralCategoryRead scalingStore "idle" categoryScalingHead),
-                          bcompareWithin 0 0.20 "control-plain-caught-up-20000-streams" $
-                            bench "candidate-plain-caught-up-20000-streams" $
-                              whnfIO (runPlainReads SQL.readCategoryForwardStmt scalingStore "idle" categoryScalingHead),
-                          bench "control-group-caught-up-20000-streams" $
-                            whnfIO (runGroupReads lateralCategoryGroupRead scalingStore "idle" categoryScalingHead),
-                          bcompareWithin 0 0.20 "control-group-caught-up-20000-streams" $
-                            bench "candidate-group-caught-up-20000-streams" $
-                              whnfIO (runGroupReads SQL.readCategoryForwardConsumerGroupStmt scalingStore "idle" categoryScalingHead)
-                        ]
-                  ]
+                case mode of
+                  Nothing ->
+                    defaultMain
+                      [ -- BUG-2 / plan 91 G4: carrying the category onto each $all
+                        -- row (migration 0012) adds a column and one partial-index
+                        -- insert per event. The control runs the pre-0012 append on
+                        -- a database without the index or CHECK.
+                        localOption WallTime $
+                          bgroup
+                            "append-category-column"
+                            [ -- Keep this group first: the disposable cell absorbs
+                              -- post-setup effects without growing either append arm.
+                              bench "warm-append-40" $
+                                whnfIO (runAppendWorkload SQL.appendAnyVersion appendWarmStore appendWarmCounter),
+                              bench "control-append-40" $
+                                whnfIO (runAppendWorkload controlStatement appendControlStore appendControlCounter),
+                              bcompareWithin 0.5 1.05 "control-append-40" $
+                                bench "candidate-append-40" $
+                                  whnfIO (runAppendWorkload candidateStatement appendCandidateStore appendCandidateCounter)
+                            ],
+                        localOption WallTime $
+                          bgroup
+                            "append-multi-stream"
+                            [ bench "sequential-control-4" $
+                                whnfIO (runSequentialMultiAppend controlStore fourStreams),
+                              bcompareWithin 0.5 0.90 "sequential-control-4" $
+                                bench "production-pipeline-4" $
+                                  whnfIO (runProductionMultiAppend candidateStore fourStreams),
+                              bench "sequential-control-8" $
+                                whnfIO (runSequentialMultiAppend controlStore eightStreams),
+                              bcompareWithin 0.5 0.90 "sequential-control-8" $
+                                bench "production-pipeline-8" $
+                                  whnfIO (runProductionMultiAppend candidateStore eightStreams)
+                            ],
+                        -- BUG-2 / plan 91 G3: the index-range category reads against
+                        -- the LATERAL statements they replaced, on one database seeded
+                        -- with the category-scaling fixture. The unpartitioned read
+                        -- must not be slower where LATERAL was already cheap, and both
+                        -- caught-up polls on 20,000 streams must be 5x faster.
+                        localOption WallTime $
+                          bgroup
+                            "category-read"
+                            [ bench "control-exhausted-category" $
+                                whnfIO (runPlainReads lateralCategoryRead scalingStore "performance" categoryScalingHead),
+                              bcompareWithin 0 1.05 "control-exhausted-category" $
+                                bench "candidate-exhausted-category" $
+                                  whnfIO (runPlainReads SQL.readCategoryForwardStmt scalingStore "performance" categoryScalingHead),
+                              bench "control-page-200-streams-from-0" $
+                                whnfIO (runPlainReads lateralCategoryRead scalingStore "performance" 0),
+                              bcompareWithin 0 1.05 "control-page-200-streams-from-0" $
+                                bench "candidate-page-200-streams-from-0" $
+                                  whnfIO (runPlainReads SQL.readCategoryForwardStmt scalingStore "performance" 0),
+                              bench "control-page-20000-streams-from-0" $
+                                whnfIO (runPlainReads lateralCategoryRead scalingStore "idle" 0),
+                              bcompareWithin 0 1.05 "control-page-20000-streams-from-0" $
+                                bench "candidate-page-20000-streams-from-0" $
+                                  whnfIO (runPlainReads SQL.readCategoryForwardStmt scalingStore "idle" 0),
+                              bench "control-plain-caught-up-20000-streams" $
+                                whnfIO (runPlainReads lateralCategoryRead scalingStore "idle" categoryScalingHead),
+                              bcompareWithin 0 0.20 "control-plain-caught-up-20000-streams" $
+                                bench "candidate-plain-caught-up-20000-streams" $
+                                  whnfIO (runPlainReads SQL.readCategoryForwardStmt scalingStore "idle" categoryScalingHead),
+                              bench "control-group-caught-up-20000-streams" $
+                                whnfIO (runGroupReads lateralCategoryGroupRead scalingStore "idle" categoryScalingHead),
+                              bcompareWithin 0 0.20 "control-group-caught-up-20000-streams" $
+                                bench "candidate-group-caught-up-20000-streams" $
+                                  whnfIO (runGroupReads SQL.readCategoryForwardConsumerGroupStmt scalingStore "idle" categoryScalingHead)
+                            ]
+                      ]
+                  Just "explain" -> runAppendExplainDiagnostic controlStatement candidateStatement appendControlStore appendCandidateStore
+                  Just label -> runPairedAppendDiagnostic label controlStatement candidateStatement appendControlStore appendCandidateStore appendControlCounter appendCandidateCounter
 
 runSetupScript :: KirokuStore -> Text -> IO ()
 runSetupScript store script = do
@@ -139,6 +150,152 @@ runSetupScript store script = do
   case result of
     Left err -> error ("workload gate quiescence failed: " <> show err)
     Right () -> pure ()
+
+-- | Diagnostic comparisons retain the default gate's SQL and bounds. Each
+-- invocation gets fresh stores. The A/A mode tests the harness with identical
+-- SQL and schema; the other modes separate column/statement from index/CHECK cost.
+diagnosticStatements ::
+  Maybe String ->
+  KirokuStore ->
+  IO (Statement SQL.AppendParams (Maybe AppendResult), Statement SQL.AppendParams (Maybe AppendResult))
+diagnosticStatements mode candidate = case mode of
+  Nothing -> pure (preCategoryAppendAnyVersion, SQL.appendAnyVersion)
+  Just "paired" -> pure (preCategoryAppendAnyVersion, SQL.appendAnyVersion)
+  Just "explain" -> pure (preCategoryAppendAnyVersion, SQL.appendAnyVersion)
+  Just "paired-aa" -> do
+    runSetupScript candidate dropCategoryIndexAndCheck
+    pure (preCategoryAppendAnyVersion, preCategoryAppendAnyVersion)
+  Just "paired-column" -> do
+    runSetupScript candidate dropCategoryIndexAndCheck
+    pure (preCategoryAppendAnyVersion, SQL.appendAnyVersion)
+  Just "paired-index-check" -> pure (SQL.appendAnyVersion, SQL.appendAnyVersion)
+  Just invalid -> error ("unknown KIROKU_GATE_DIAGNOSE mode: " <> invalid)
+  where
+    dropCategoryIndexAndCheck =
+      "DROP INDEX kiroku.ix_stream_events_all_by_category; ALTER TABLE kiroku.stream_events DROP CONSTRAINT ck_stream_events_all_category;"
+
+-- | Twelve alternating pairs of equal-sized, growing workloads. Every round
+-- starts at the same logical stream/event counts in both databases. These are
+-- diagnostic samples, never a substitute passing result for the tasty gate.
+runPairedAppendDiagnostic ::
+  String ->
+  Statement SQL.AppendParams (Maybe AppendResult) ->
+  Statement SQL.AppendParams (Maybe AppendResult) ->
+  KirokuStore ->
+  KirokuStore ->
+  IORef Int ->
+  IORef Int ->
+  IO ()
+runPairedAppendDiagnostic label controlStatement candidateStatement control candidate controlCounter candidateCounter = do
+  putStrLn "PAIR,variant,pair,first,control_ns,candidate_ns,control_before,candidate_before,control_after,candidate_after,pre_gc"
+  mapM_ runPair [1 .. 12 :: Int]
+  verifyCounts "control" control controlCounter
+  verifyCounts "candidate" candidate candidateCounter
+  where
+    iterations = 32
+    timed :: IO () -> IO Integer
+    timed action = do
+      -- Match tasty-bench: collect before the timer, rather than letting setup
+      -- garbage fall unpredictably into one arm of this diagnostic comparison.
+      performGC
+      start <- getMonotonicTime
+      action
+      end <- getMonotonicTime
+      pure (round ((end - start) * 1e9) :: Integer)
+    controlAction = replicateM_ iterations (runAppendWorkload controlStatement control controlCounter)
+    candidateAction = replicateM_ iterations (runAppendWorkload candidateStatement candidate candidateCounter)
+    runPair pair = do
+      beforeControl <- readIORef controlCounter
+      beforeCandidate <- readIORef candidateCounter
+      unless (beforeControl == beforeCandidate) $ error "diagnostic arms start at unequal workload counts"
+      (controlNs, candidateNs) <-
+        if odd pair
+          then do
+            c <- timed controlAction
+            n <- timed candidateAction
+            pure (c, n)
+          else do
+            n <- timed candidateAction
+            c <- timed controlAction
+            pure (c, n)
+      afterControl <- readIORef controlCounter
+      afterCandidate <- readIORef candidateCounter
+      unless (afterControl == beforeControl + iterations && afterCandidate == beforeCandidate + iterations) $
+        error "diagnostic arms did not complete equal work"
+      putStrLn $
+        intercalate
+          ","
+          [ "PAIR",
+            label,
+            show pair,
+            if odd pair then "control" else "candidate",
+            show controlNs,
+            show candidateNs,
+            show beforeControl,
+            show beforeCandidate,
+            show afterControl,
+            show afterCandidate,
+            "1"
+          ]
+    verifyCounts arm store counter = do
+      completed <- readIORef counter
+      let expectedEvents = fromIntegral (40 * completed) :: Int64
+          expectedStreams = fromIntegral (20 * completed + 2) :: Int64
+      result <- Pool.use (store ^. #pool) (Session.statement () diagnosticCounts)
+      case result of
+        Right counts@(streams, events, links, hotVersion, globalVersion) -> do
+          unless (counts == (expectedStreams, expectedEvents, 2 * expectedEvents, expectedEvents `div` 2, expectedEvents)) $
+            error ("diagnostic database counts differ for " <> arm <> ": " <> show counts)
+          putStrLn $ intercalate "," ["COUNTS", label, arm, show streams, show events, show links, show hotVersion, show globalVersion]
+        Left err -> error ("diagnostic count verification failed: " <> show err)
+
+-- | Use the exact statements under comparison, rather than a copied EXPLAIN
+-- query. These four plans show structure/buffers/WAL, not a latency estimate.
+runAppendExplainDiagnostic ::
+  Statement SQL.AppendParams (Maybe AppendResult) ->
+  Statement SQL.AppendParams (Maybe AppendResult) ->
+  KirokuStore ->
+  KirokuStore ->
+  IO ()
+runAppendExplainDiagnostic controlStatement candidateStatement control candidate = do
+  mapM_
+    ( \(arm, statement, store) -> do
+        mapM_ (explainOne arm statement store) [("fresh", "append-gate-explain-fresh"), ("hot", "append-gate-hot")]
+        rows <- Pool.use (store ^. #pool) (Session.statement () physicalRows)
+        case rows of
+          Right value -> putStrLn ("PHYSICAL," <> arm <> "," <> T.unpack value)
+          Left err -> error ("diagnostic physical row query failed: " <> show err)
+    )
+    [("control", controlStatement, control), ("candidate", candidateStatement, candidate)]
+  where
+    jsonText = D.singleRow (D.column (D.nonNullable (D.jsonBytes (Right . decodeUtf8Lenient))))
+    physicalRows =
+      Statement.unpreparable
+        "SELECT json_agg(row_to_json(x)) FROM (SELECT stream_id = 0 AS all_row, category IS NULL AS category_is_null, pg_column_size(se) AS row_bytes, count(*) AS samples FROM stream_events se GROUP BY 1,2,3 ORDER BY 1,2,3) x"
+        mempty
+        jsonText
+    explainOne arm statement store (kind, name) = do
+      enriched <- enrichEvents (store ^. #storeSettings) [makeEvent "AppendCategoryGate"]
+      prepared <- prepareEvents enriched
+      now <- getCurrentTime
+      let explain =
+            Statement.unpreparable
+              ("EXPLAIN (ANALYZE, BUFFERS, WAL, TIMING OFF, FORMAT JSON) " <> Statement.toSql statement)
+              SQL.appendParamsEncoder
+              jsonText
+      result <- Pool.use (store ^. #pool) (Session.statement (buildAppendParams name now prepared) explain)
+      case result of
+        Right value -> putStrLn ("PLAN," <> arm <> "," <> kind <> "," <> T.unpack value)
+        Left err -> error ("diagnostic EXPLAIN failed: " <> show err)
+
+diagnosticCounts :: Statement () (Int64, Int64, Int64, Int64, Int64)
+diagnosticCounts =
+  Statement.unpreparable
+    "SELECT (SELECT count(*) FROM streams), (SELECT count(*) FROM events), (SELECT count(*) FROM stream_events), (SELECT stream_version FROM streams WHERE stream_name = 'append-gate-hot'), (SELECT stream_version FROM streams WHERE stream_id = 0)"
+    mempty
+    (D.singleRow ((,,,,) <$> int8 <*> int8 <*> int8 <*> int8 <*> int8))
+  where
+    int8 = D.column (D.nonNullable D.int8)
 
 -- | A migrated store seeded with 'categoryScalingFixtureSql'.
 withCategoryScalingStore :: (KirokuStore -> IO a) -> IO a

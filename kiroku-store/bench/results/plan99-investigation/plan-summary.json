@@ -1,0 +1,136 @@
+{
+  "control-fresh": {
+    "root": {
+      "WAL Bytes": 657,
+      "WAL Records": 8,
+      "Shared Hit Blocks": 17,
+      "Shared Read Blocks": 12,
+      "Shared Dirtied Blocks": 7
+    },
+    "all_links": [
+      {
+        "Node Type": "ModifyTable",
+        "Operation": "Insert",
+        "Subplan Name": "CTE all_links",
+        "WAL Bytes": 335,
+        "WAL Records": 4,
+        "Shared Hit Blocks": 21,
+        "Shared Read Blocks": 14,
+        "Shared Dirtied Blocks": 5,
+        "Plan Width": 0
+      }
+    ],
+    "indexes": [
+      "streams_pkey"
+    ]
+  },
+  "control-hot": {
+    "root": {
+      "WAL Bytes": 196,
+      "WAL Records": 3,
+      "Shared Hit Blocks": 12,
+      "Shared Read Blocks": 0,
+      "Shared Dirtied Blocks": 0
+    },
+    "all_links": [
+      {
+        "Node Type": "ModifyTable",
+        "Operation": "Insert",
+        "Subplan Name": "CTE all_links",
+        "WAL Bytes": 327,
+        "WAL Records": 4,
+        "Shared Hit Blocks": 6,
+        "Shared Read Blocks": 1,
+        "Shared Dirtied Blocks": 1,
+        "Plan Width": 0
+      }
+    ],
+    "indexes": [
+      "streams_pkey"
+    ]
+  },
+  "candidate-fresh": {
+    "root": {
+      "WAL Bytes": 665,
+      "WAL Records": 8,
+      "Shared Hit Blocks": 18,
+      "Shared Read Blocks": 12,
+      "Shared Dirtied Blocks": 8
+    },
+    "all_links": [
+      {
+        "Node Type": "ModifyTable",
+        "Operation": "Insert",
+        "Subplan Name": "CTE all_links",
+        "WAL Bytes": 422,
+        "WAL Records": 5,
+        "Shared Hit Blocks": 28,
+        "Shared Read Blocks": 16,
+        "Shared Dirtied Blocks": 6,
+        "Plan Width": 0
+      }
+    ],
+    "indexes": [
+      "streams_pkey"
+    ]
+  },
+  "candidate-hot": {
+    "root": {
+      "WAL Bytes": 196,
+      "WAL Records": 3,
+      "Shared Hit Blocks": 12,
+      "Shared Read Blocks": 0,
+      "Shared Dirtied Blocks": 0
+    },
+    "all_links": [
+      {
+        "Node Type": "ModifyTable",
+        "Operation": "Insert",
+        "Subplan Name": "CTE all_links",
+        "WAL Bytes": 414,
+        "WAL Records": 5,
+        "Shared Hit Blocks": 8,
+        "Shared Read Blocks": 1,
+        "Shared Dirtied Blocks": 1,
+        "Plan Width": 0
+      }
+    ],
+    "indexes": [
+      "streams_pkey"
+    ]
+  },
+  "physical_rows": {
+    "control": [
+      {
+        "all_row": false,
+        "category_is_null": true,
+        "row_bytes": 72,
+        "samples": 802
+      },
+      {
+        "all_row": true,
+        "category_is_null": true,
+        "row_bytes": 72,
+        "samples": 802
+      }
+    ],
+    "candidate": [
+      {
+        "all_row": false,
+        "category_is_null": true,
+        "row_bytes": 72,
+        "samples": 802
+      },
+      {
+        "all_row": true,
+        "category_is_null": false,
+        "row_bytes": 79,
+        "samples": 802
+      }
+    ]
+  },
+  "matching_plan_shapes": {
+    "fresh": true,
+    "hot": true
+  }
+}

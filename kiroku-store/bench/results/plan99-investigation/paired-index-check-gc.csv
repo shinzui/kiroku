@@ -1,0 +1,13 @@
+PAIR,variant,pair,first,control_ns,candidate_ns,control_before,candidate_before,control_after,candidate_after,pre_gc
+PAIR,paired-index-check,1,control,131337000,126456000,20,20,52,52,1
+PAIR,paired-index-check,2,candidate,123059000,127311000,52,52,84,84,1
+PAIR,paired-index-check,3,control,119557000,121167000,84,84,116,116,1
+PAIR,paired-index-check,4,candidate,122492000,121308000,116,116,148,148,1
+PAIR,paired-index-check,5,control,119870000,121224000,148,148,180,180,1
+PAIR,paired-index-check,6,candidate,123215000,122610000,180,180,212,212,1
+PAIR,paired-index-check,7,control,119620000,121499000,212,212,244,244,1
+PAIR,paired-index-check,8,candidate,123209000,122652000,244,244,276,276,1
+PAIR,paired-index-check,9,control,122466000,126488000,276,276,308,308,1
+PAIR,paired-index-check,10,candidate,123445000,120235000,308,308,340,340,1
+PAIR,paired-index-check,11,control,123342000,123014000,340,340,372,372,1
+PAIR,paired-index-check,12,candidate,120847000,122562000,372,372,404,404,1

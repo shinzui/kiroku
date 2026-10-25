@@ -1,0 +1,13 @@
+PAIR,variant,pair,first,control_ns,candidate_ns,control_before,candidate_before,control_after,candidate_after,pre_gc
+PAIR,paired-column,1,control,119117000,121019000,20,20,52,52,1
+PAIR,paired-column,2,candidate,116457000,119323000,52,52,84,84,1
+PAIR,paired-column,3,control,114376000,120067000,84,84,116,116,1
+PAIR,paired-column,4,candidate,114188000,120531000,116,116,148,148,1
+PAIR,paired-column,5,control,113202000,118055000,148,148,180,180,1
+PAIR,paired-column,6,candidate,115698000,121205000,180,180,212,212,1
+PAIR,paired-column,7,control,116581000,120393000,212,212,244,244,1
+PAIR,paired-column,8,candidate,116285000,119777000,244,244,276,276,1
+PAIR,paired-column,9,control,115917000,122248000,276,276,308,308,1
+PAIR,paired-column,10,candidate,114718000,129923000,308,308,340,340,1
+PAIR,paired-column,11,control,116105000,119349000,340,340,372,372,1
+PAIR,paired-column,12,candidate,116964000,118786000,372,372,404,404,1

@@ -8,7 +8,7 @@ generated:
 docId: ADR-10
 status: Accepted
 date: 2026-09-25
-timestamp: "2026-09-25T19:00:00Z"
+timestamp: "2026-10-25T14:17:04Z"
 originatingPlan: docs/plans/91-evaluate-and-fix-partitioned-category-reads-that-scan-every-stream-in-the-category.md
 ---
 
@@ -100,6 +100,21 @@ statements from an index on `(category, global position)`.
 - A stream's category cannot change after its first event without also rewriting its `$all` rows.
   Stream names are immutable today, so this is a constraint on future features, not a present
   cost.
+
+On 2026-10-25, [Plan 99's follow-up investigation](../../kiroku-store/bench/results/plan99-investigation/README.md)
+qualified the historical write-cost evidence above: the 2026-09-25 cells had
+spread around 100% and did not resolve the cost. Equal-work, alternating-order
+comparisons now support a real cost around 5–6% on the tested local workload
+(+4.89% and +6.44%), while the exact 5% gate boundary remains unresolved. An
+identical-code control exposes continuing host/runtime noise. Removing the index
+and CHECK from both arms still measured +4.4% for the column/statement change;
+adding them back with identical production SQL measured +0.3%, unresolved from
+noise. Thus attributing all overhead to the new index is unsupported. The sampled
+plans keep the same scan/join structure, but `$all` tuples grow from 72 to 79
+bytes for the `append` category and the sampled insert generates extra WAL.
+These are workload-specific measurements, not a universal migration penalty or
+permission to raise the gate. The denormalized category/index remains the read
+architecture; a production write optimization needs its own measured decision.
 
 ## Alternatives Considered
 

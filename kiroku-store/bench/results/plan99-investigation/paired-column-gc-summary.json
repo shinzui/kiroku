@@ -1,0 +1,27 @@
+{
+  "label": "paired-column-gc",
+  "pairs": 12,
+  "pre_gc": true,
+  "ratio": 1.0437351276358586,
+  "ratio_sd": 0.03116438140377854,
+  "ratio_range": [
+    1.0155774426319208,
+    1.1325424083404523
+  ],
+  "descriptive_t_interval": [
+    1.0246427484076504,
+    1.0631832590959158
+  ],
+  "by_order": {
+    "control": 1.0372237860400968,
+    "candidate": 1.0502873452411638
+  },
+  "mean_ms_per_workload": {
+    "control": 3.6187708333333335,
+    "candidate": 3.7778020833333334
+  },
+  "counts": [
+    "COUNTS,paired-column,control,8082,16160,32320,8080,16160",
+    "COUNTS,paired-column,candidate,8082,16160,32320,8080,16160"
+  ]
+}
