@@ -1,36 +1,60 @@
 {
   description = "Kiroku — PostgreSQL event store in Haskell";
 
+  # Every module-owned input is decided by the module's pins: the haskell-nix-dev,
+  # haskell-nix, and redpanda-container revisions below. Everything else `follows` them,
+  # so this project's flake.lock is a pure function of those revs — every project on
+  # this nix-haskell-flake version locks to byte-identical pins and shares one store closure
+  # instead of each re-resolving `master` on its own schedule.
+  #
+  # The rev lives in the URL, not only in flake.lock, which is what makes it stick: a
+  # rev-pinned input cannot be moved by `nix flake update`, so a stray full update in this
+  # project is a no-op here and only touches inputs you added yourself. Verify with
+  # `git diff flake.lock` — it should come back empty.
+  #
+  # seihou-managed: to move the toolchain or the shared patches, release a new
+  # nix-haskell-flake version and `seihou update nix-haskell-flake`. Editing a rev here is a
+  # conflict at the next run.
   inputs = {
-    # The shared base flake. Provides the GHC 9.12.4 / cabal / HLS toolchain via
-    # `mkDevShell`, and the single pinned nixpkgs the whole fleet follows.
-    haskell-nix-dev.url = "github:shinzui/haskell-nix-dev";
+    haskell-nix-dev.url = "github:shinzui/haskell-nix-dev/21933607e80ec4660a28a125a6f4c0707e358caf";
     nixpkgs.follows = "haskell-nix-dev/nixpkgs";
-
-    flake-parts.url = "github:hercules-ci/flake-parts";
-    flake-parts.inputs.nixpkgs-lib.follows = "nixpkgs";
-
+    flake-parts.follows = "haskell-nix-dev/flake-parts";
     treefmt-nix.follows = "haskell-nix-dev/treefmt-nix";
+    pre-commit-hooks.follows = "haskell-nix-dev/pre-commit-hooks";
 
-    pre-commit-hooks.url = "github:cachix/git-hooks.nix";
-    pre-commit-hooks.inputs.nixpkgs.follows = "nixpkgs";
+    # Shared Haskell patch registry (mori://shinzui/haskell-nix), available to
+    # ./flake.module.nix when project-specific package wiring needs it. Keeping every
+    # module-owned input present makes the shipped lock exact for every feature combination;
+    # unused inputs are locked but never built. Both follows keep the graph to one
+    # haskell-nix-dev and nixpkgs.
+    haskell-nix = {
+      url = "github:shinzui/haskell-nix/d13245db8a3e2c1c559185c0adf87285259b7ab2";
+      inputs.haskell-nix-dev.follows = "haskell-nix-dev";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
-    # ---- PROJECT-SPECIFIC INPUTS ----
-    # Shared Haskell patch management (registry overlay), grafted onto the
-    # haskell-nix-dev nixpkgs in flake.module.nix for the package build.
-    haskell-nix.url = "github:shinzui/haskell-nix";
-    haskell-nix.inputs.nixpkgs.follows = "nixpkgs";
+    # Project-local Redpanda on Apple Container (macOS), consumed by
+    # ./nix/redpanda.nix only when nix.redpanda is enabled. Its scripts.nix and
+    # defaults.nix are imported as files, so Apple-Silicon-only outputs are never
+    # evaluated on Linux. Rev-pinned by the module; nixpkgs follows to keep one nixpkgs.
+    redpanda-container = {
+      url = "github:shinzui/redpanda-container/c2ccecf589b93e3430b758165de7d2a2bb92f328";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
+  # The haskell-nix-dev base flake's binary cache, so the first `nix develop` downloads
+  # prebuilt GHC/HLS/cabal instead of compiling HLS from source. nixConfig is only honored
+  # for users who trust this flake; for a guaranteed pull run `cachix use shinzui` once, or
+  # add these two lines to your nix.conf.
   nixConfig = {
-    extra-substituters = [ ];
-    extra-trusted-public-keys = [ ];
+    extra-substituters = [ "https://shinzui.cachix.org" ];
+    extra-trusted-public-keys = [ "shinzui.cachix.org-1:QEmAoJrA9WwLP0uxfDgktLi2BRrcvQQWdz8NzcMg4/E=" ];
   };
 
-  # Thin flake-parts shell. The dev toolchain comes from the haskell-nix-dev base
-  # flake (GHC 9.12.4 / cabal / HLS via mkDevShell); project wiring lives in the
-  # imported ./nix modules; the package build and any custom checks live in
-  # ./flake.module.nix.
+  # This flake is a thin, seihou-managed shell. All project wiring lives in the
+  # imported modules under ./nix, and your own customizations belong in an
+  # (optional, unmanaged) ./flake.module.nix — see flake.module.nix.example.
   outputs =
     inputs@{ flake-parts, nixpkgs, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
@@ -41,6 +65,8 @@
         ./nix/treefmt.nix
         ./nix/pre-commit.nix
       ]
+      # Your project-specific customizations. seihou never generates, touches,
+      # or migrates this file, so it is the conflict-free place to extend.
       ++ nixpkgs.lib.optional (builtins.pathExists ./flake.module.nix) ./flake.module.nix;
     };
 }

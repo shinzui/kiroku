@@ -1,0 +1,111 @@
+# flake.module.nix — your project-specific flake-parts customizations.
+#
+# Copy this file to `flake.module.nix` (next to flake.nix), then edit it:
+#
+#     cp flake.module.nix.example flake.module.nix
+#
+# flake.nix imports it automatically when present:
+#
+#     imports = [ ... ]
+#       ++ nixpkgs.lib.optional (builtins.pathExists ./flake.module.nix) ./flake.module.nix;
+#
+# seihou does NOT manage flake.module.nix: it is never regenerated or overwritten
+# by `seihou run` or by module migrations, so your changes here survive template
+# upgrades without conflict. (flake.nix and nix/*.nix ARE seihou-managed — editing
+# those means accepting a conflict the next time this module migrates.)
+#
+# This is an ordinary flake-parts module. See https://flake.parts for the full
+# module/option reference.
+{ inputs, ... }:
+{
+  # `self'` is this system's own flake outputs (self'.packages.default, …) — handy
+  # for wiring a Docker image around the package you build (see below).
+  perSystem = { self', pkgs, config, ... }: {
+    # Add project-specific dev-shell tools (conflict-free; reads the option
+    # declared in ./nix/haskell.nix):
+    #
+    #   haskellProject.extraDevPackages = [ pkgs.ghciwatch pkgs.haskellPackages.hpack ];
+
+    # Explicit runtime adoption (see upgrade-haskell-runtime's qualified target):
+    # haskellProject.runtime = builtins.fromJSON (builtins.readFile ./runtime-selection.json);
+    # Declare custom ownPackages/applicationOverlays and select production recipes
+    # from config.haskellProject.applicationScope. Root/CLI scaffolds declare theirs.
+    # Never fill missing selections from defaults or override retained shared recipes.
+    # haskellProject.extraBuildInputs = [ pkgs.openssl.dev ];
+    # haskellProject.inputsFrom = [ compatibleEnvironment ];
+    # haskellProject.withHls = null;
+    # haskellProject.shellHook = "export PROJECT_SETTING=value";
+
+    # Add extra package / app / check outputs:
+    #
+    #   packages.my-tool = pkgs.hello;
+    #   apps.seed = { type = "app"; program = "${pkgs.writeShellScript "seed" "..."}"; };
+
+    # Build an OCI image for a SERVICE with dockerTools.buildLayeredImage. An
+    # image is inherently project-specific — which executable, entrypoint, ports
+    # and runtime libraries — so it lives here in the unmanaged flake.module.nix,
+    # next to the package build, rather than in a managed file. Works whether
+    # nix.builtin-package is true (wrap self'.packages.default, as shown) or
+    # false (wrap the packages.default you define below).
+    #
+    # IMPORTANT — guard it to Linux. dockerTools cannot build on darwin, and an
+    # UNconditional image output makes any tool that builds every output for the
+    # current system (e.g. devour-flake, as CI runs it) fail on macOS. Guard on
+    # pkgs.stdenv.hostPlatform.isLinux so an aarch64-darwin eval/build still works:
+    #
+    #   packages = pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+    #     dockerImage = pkgs.dockerTools.buildLayeredImage {
+    #       name = "kiroku";
+    #       tag = "latest";
+    #       # Runtime deps the bare static-ish exe still needs: TLS roots for
+    #       # outbound HTTPS, plus anything the service shells out to. Add e.g.
+    #       # pkgs.tzdata for timezones, or a shared C lib your exe dlopen's.
+    #       contents = [ pkgs.cacert pkgs.coreutils pkgs.bashInteractive ];
+    #       config = {
+    #         Cmd = [ "${self'.packages.default}/bin/kiroku" ];
+    #         ExposedPorts = { "8080/tcp" = { }; };
+    #         Env = [ "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt" ];
+    #       };
+    #       # Need extra files in the image (migration scripts, a static dir)?
+    #       # Use extraCommands to copy them into the layer:
+    #       #   extraCommands = "mkdir -p app && cp -r ${./migrations} app/migrations";
+    #     };
+    #   };
+    #
+    # Build on Linux (or in CI):  nix build .#dockerImage
+    # Load locally:               docker load < result
+
+    # Define your OWN default package build here. nix/haskell.nix emits
+    # `packages.default = callCabal2nix ...` only when nix.builtin-package is
+    # true; set that var False (e.g. when you build on the shared haskell-nix
+    # patches) and define packages.default below — otherwise the two
+    # definitions collide and flake-parts fails to evaluate:
+    #
+    #   packages.default = (pkgs.haskell.packages.ghc9124.override { ... }).my-package;
+    #
+    # `inputs.haskell-nix` is the always-locked shared patch registry.
+    # Compose its extension ahead of your own overrides:
+    #
+    #   packages.default = (pkgs.haskell.packages.ghc9124.override {
+    #     overrides = pkgs.lib.composeExtensions
+    #       (inputs.haskell-nix.lib.haskellExtension pkgs.haskell.lib.compose pkgs)
+    #       (hself: _hsuper: { my-package = hself.callCabal2nix "my-package" ./. { }; });
+    #   }).my-package;
+
+    # Override formatter details without editing the managed nix/treefmt.nix
+    # (flake-parts merges treefmt.* options across modules):
+    #
+    #   treefmt.programs.fourmolu.package = pkgs.haskell.packages.ghc9124.fourmolu;
+
+    # Extra dev shells compose freely (use a new name to avoid clashing with the
+    # generated devShells.default):
+    #
+    #   devShells.ci = pkgs.mkShellNoCC { packages = [ pkgs.cabal-install ]; };
+  };
+
+  # To pull in a brand-new flake input you must add it to flake.nix's top-level
+  # `inputs` (a Nix requirement — inputs cannot be declared from an imported
+  # module). That is the one edit that will conflict on a future migration;
+  # preview it and preserve your input through the three-way merge. (haskell-nix is
+  # already module-owned and available as inputs.haskell-nix; do not add it by hand.)
+}
