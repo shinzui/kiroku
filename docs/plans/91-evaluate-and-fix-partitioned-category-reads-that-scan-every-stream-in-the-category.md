@@ -16,6 +16,11 @@ provenance:
       at: 2026-09-25T16:24:38Z
       mode: "implement"
       note: "Implementing milestones M1-M5"
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-25T23:30:48Z
+      mode: "update"
+      note: "Close the category-read plan using Plan 99 validation and the accepted migration cost; retire redundant telemetry follow-ups."
 ---
 
 # Evaluate and fix partitioned category reads that scan every stream in the category
@@ -26,6 +31,8 @@ If durable project context changes, update or create ADRs in docs/adr/ in the sa
 
 
 ## Purpose / Big Picture
+
+**Status: complete (implementation 2026-09-25; validation follow-up resolved 2026-10-25).** Migration `0012`, both indexed category reads, the regression guards, and category-specific consumer-group wakeups are implemented. [Plan 99](99-repair-the-append-category-column-workload-cell-and-measure-migration-0012-s-write-cost.md) completed the later controlled validation and records the user's acceptance of roughly 5–6% historical append overhead. That acceptance supersedes this plan's original migration-cost gate; it does not turn the old noisy measurements into a valid pass. No work remains under this plan.
 
 Kiroku is a PostgreSQL event store written in Haskell (package `kiroku-store`). Events are
 appended to named streams such as `notification-42`; the text before the first `-` is the
@@ -99,17 +106,19 @@ properties, the size-1 equivalence, and every subscription test pass as before.
 ## Progress
 
 - [x] M1 (2026-09-25 17:10Z): added `Kiroku.Test.Fixtures.CategoryScaling` and the five `category-scaling` cells, captured `EXPLAIN (ANALYZE, BUFFERS)` for both category statements at 200 and 20,000 streams, recorded the numbers in Surprises & Discoveries and `docs/perf-experiment-log.md`, and moved BUG-2 to `confirmed`.
-- [ ] M1 follow-up: re-run `cabal bench kiroku-store:kiroku-store-bench --benchmark-options="-p category-scaling"` on a quiet host for telemetry timings (the loaded host timed out every LATERAL cell).
 - [x] M2 (2026-09-25 17:15Z): added migration `0012` (column, backfill, CHECK constraint, partial index), updated the four append CTEs to populate `stream_events.category` on `$all` rows, updated every direct `stream_events` inserter (the two fixtures, four raw-shape copies in `bench/Main.hs`, `bench/Explain.hs`, eight pgbench scripts and `setup.sql`), extended the migrations suite with the 0012 upgrade-path case, and added the G4 append gate. Migrations and store suites pass on PostgreSQL 17.10 and 18.4; G4 measured 1.00x, 1.04x, 1.00x.
-- [ ] M2 follow-up: re-run `just perf-workload-gate` on a quiet host; the three G4 runs had a spread of about ±100% of the mean.
 - [x] M3 (2026-09-25 17:45Z): switched `readCategoryForwardSQL` and `readCategoryForwardConsumerGroupSQL` to the index-range shape, moved the category plan-shape test to a new `category read cost` group on the category-scaling fixture (G2, both statements), added the buffer-budget test (G1, failed before at 60,387 buffers, passes after), added the read A/B gate (G3, every cell passes), updated the category and category-scaling baseline rows, and rewrote `bench/sql/bench_read_category.sql` to the new shape. `cabal test all` passes on PostgreSQL 18.4; the store suite passes on 17.10.
 - [x] M4 (2026-09-25 18:10Z): wrote ADR-10; updated `docs/user/schema.md`, `docs/SCALING-ANALYSIS.md`, `docs/architecture/subscriptions.md`, `docs/DESIGN.md`, `docs/BENCH-SQL-BASELINE.md`, `docs/user/schema-migrations.md`, `docs/user/consumer-groups.md`, and the migrations README; bumped `kiroku-store` to 0.9.0.0 and `kiroku-store-migrations` to 0.6.0.0 with CHANGELOG entries, and widened the four in-repo dependents to `kiroku-store ^>=0.9`; moved BUG-2 to `fixed`; appended the G3 and G4 perf-log rows. ADR, bug-report, and capability bundles validate; `cabal test all` passes.
 - [x] M5 (2026-09-25 18:35Z): routed consumer-group category members through `liveLoopCategoryNotify` (`Kiroku.Store.Subscription.subscribe` now maps `(_, Category)` to `LiveFromCategoryNotify`), rewrote the worker comments, replaced the old group case in `Test.CategoryIdleNoSpin` with a size-2 idle-category case (zero fetches, then the owner delivers) and an `$all` group case that keeps the corrected-gate coverage, and updated `docs/architecture/subscriptions.md`, CAP-13, CAP-1, and the kiroku-store CHANGELOG. `cabal test all` passes.
 - [x] (2026-09-25 19:00Z) Added the `kiroku-upgrade` blueprint edge `0.8.0.2 -> 0.9.0.0` (`blueprints/kiroku-upgrade/migrations/0-8-to-0-9.md`, blueprint 0.2.0) and recorded the no-rolling-deploy cutover in both CHANGELOGs, `docs/user/schema-migrations.md`, and ADR-10.
-- [ ] Remaining (needs a quiet host): re-run `just perf-workload-gate` (G3, G4) and the `category-scaling` cells for clean timings; optionally `just test-matrix` for all suites on PostgreSQL 17.
+- [x] Validation follow-up (2026-10-25): Plan 99 investigated the noisy append comparison, recorded the user's acceptance of the measured roughly 5–6% migration cost, and completed three full workload-gate runs against the declared accepted post-0012 append baseline. All category-read comparisons passed; the final `perf-check` passed 41 structural examples. Evidence: `kiroku-store/bench/results/plan99-completion/full-summary.json`, `full-batched-3.log`, and Plan 99's Outcomes.
+
+The separate quiet-host `category-scaling` telemetry rerun is retired as a completion item, not reported as performed: the deterministic buffer/plan evidence and retained controlled category-read comparisons already resolve the defect and read-performance questions. The optional full PostgreSQL-17 matrix is not a remaining requirement; the original PostgreSQL-17 store/migration results are preserved below. Future telemetry refreshes or broader matrix runs are separate maintenance work.
 
 
 ## Surprises & Discoveries
+
+- Closure follow-up (2026-10-25): Plan 99 found that the original G4 passes were not reliable evidence of a migration cost within 5%. Later comparisons supported roughly 5–6% overhead, accepted explicitly by the user and recorded in ADR-10. The final full runs retained in `kiroku-store/bench/results/plan99-completion/full-summary.json` passed all category-read ratios and the new accepted-baseline append comparison, with maximum compared doubled spread 9.63%. Their recorded hashes for `RegressionGate.hs`, `check-gate-spread.sh`, `Effect.hs`, and `Justfile` match the current files. This reconciliation verifies retained results and inputs; it is not a new benchmark run or a retrospective pass for the pre-0012 migration comparison.
 
 - M1 reproduced BUG-2 on PostgreSQL 18.4 with the `category-scaling` fixture. `EXPLAIN (ANALYZE,
   BUFFERS, COSTS OFF)` of the LATERAL statements, caught-up poll at cursor 80,000, zero rows returned:
@@ -212,6 +221,10 @@ properties, the size-1 equivalence, and every subscription test pass as before.
 
 
 ## Decision Log
+
+- Decision: Close the plan using Plan 99's completed validation and the user's accepted migration-cost trade-off; retire the redundant telemetry-only rerun.
+  Rationale: The implementation and correctness evidence were already complete. Plan 99 resolves the append-cost acceptance question and supplies three retained full gate passes, including every protected category-read comparison. A new absolute telemetry timing run adds no missing acceptance evidence. Preserve the original noisy and adverse results, the original gate ceiling, and the distinction between accepting the historical cost and guarding subsequent changes against an accepted baseline. No new architectural decision is introduced; ADR-5, ADR-10, and ADR-11 already record the governing decisions.
+  Date: 2026-10-25
 
 - Decision: Reject the report's suggested position-driven join as the fix for either statement.
   Rationale: Plan 10 measured it on 2026-05-06 at 9.88 ms versus 0.116 ms for LATERAL when a
@@ -363,7 +376,7 @@ properties, the size-1 equivalence, and every subscription test pass as before.
 
 ## Outcomes & Retrospective
 
-All five milestones are implemented on `master` (2026-09-25).
+**Complete.** All five milestones were implemented on `master` on 2026-09-25; the measurement-quality follow-up was resolved in Plan 99 on 2026-10-25. Nothing remains under this plan.
 
 The plan's two questions have measured answers. The report's suggested fix is not safe as a drop-in,
 and the plan did not use it; the fix it implemented (a `category` column on `$all` rows plus
@@ -374,12 +387,11 @@ statement went from 29,958 to 3. G1 and G2 now hold the new shape structurally o
 and 18, and M5 removed the other half of BUG-2's cost: idle consumer-group category members no
 longer poll on every append in the store.
 
-What remains is measurement quality, not correctness. The host was heavily loaded for the whole
-session, so G4's append ratio (1.00x to 1.04x) passed with noise as large as the effect, and the
-timing cells were only telemetry; both should be re-run on a quiet host. Publishing is out of scope:
-kiroku-store 0.9.0.0 and kiroku-store-migrations 0.6.0.0 are prepared but unreleased, the four
-dependents need patch bumps at release, and `kiroku-bench` must set `category` on its raw `$all`
-inserts when it next bumps its kiroku pin.
+The original heavily loaded session's G4 ratios (1.00x to 1.04x) had spread as large as the mean and did not establish that the migration stayed within the 5% ceiling. Plan 99 subsequently measured roughly 5–6% append overhead and recorded the user's explicit acceptance of that cost for the category-read improvement. The original cost prediction and gate were not met by a dependable passing measurement; the known trade-off was accepted instead, as recorded in [ADR-10](../adr/0010-category-reads-use-a-denormalized-category-index-on-all-rows.md).
+
+Plan 99 then declared an independently frozen accepted post-0012 SQL control, retaining the historical pre-0012 comparison as diagnostic evidence. Three full workload runs passed all 17 cells, with accepted-baseline append ratios 1.0046x, 0.9895x, and 0.9577x and maximum compared doubled spread 9.63%. The category-read ratios were approximately 0.39x for exhausted-category, 0.032–0.033x and 0.023–0.025x for the two page cases, and 0.008x/0.013x for caught-up plain/group polls. The final `perf-check` passed 41 structural examples. These results validate the declared accepted baseline and protected read workloads; they do not prove that migration 0012 cost at most 5%. Evidence and all earlier adverse attempts remain in [the completion record](../../kiroku-store/bench/results/plan99-completion/README.md).
+
+Current source retains migration `0012`, category population in all four append statements, both category-index read shapes, the migration upgrade-path test, the 32-buffer and index-plan guards, and category-generation routing for all category subscriptions. BUG-2 remains `fixed`, and the 0.8-to-0.9 upgrade blueprint remains present. Historical publishing/version statements below describe the 2026-09-25 implementation, not a current release-status claim; publishing and downstream rollouts are outside this plan. The telemetry-only rerun is retired without claiming it ran. No new tests or benchmarks were run for this documentation reconciliation, and no friction entries are recorded under this plan in `docs/friction-log/`.
 
 Lessons. Buffer counts from `EXPLAIN (ANALYZE, BUFFERS)` were the reliable evidence on a busy
 machine; wall-clock gates were not. Prototyping the migration and statements by hand on a scratch
@@ -389,6 +401,8 @@ records the replacement and the rejected alternatives so the choice is not re-li
 
 
 ## Context and Orientation
+
+The following context is the pre-implementation snapshot from 2026-09-25, including the original LATERAL statements and migration inventory. It explains the change rather than describing today's SQL or release state. Current completion evidence and the later gate policy are summarized above and in Plan 99.
 
 ### The schema that matters here
 
@@ -559,6 +573,8 @@ evidence is cited in the report.
 
 
 ## Plan of Work
+
+The milestones below preserve the original implementation specification and pre-registered gates. All implementation milestones are complete. Plan 99 and the accepted-cost decision supersede the original G4 migration-cost completion requirement; historical instructions are not outstanding work.
 
 ### Milestone 1: reproduce the cost and fix the numbers before touching production code
 
@@ -921,6 +937,8 @@ passes with the new cases; the full suite passes. Commit as
 
 ## Concrete Steps
 
+These are the original implementation commands, not a closure checklist. The retained Plan-99 results resolve the controlled-validation follow-up; no new timing queue or database-version matrix is required for this update.
+
 All commands run from the repository root `/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku`
 inside the default dev shell, which puts GHC 9.12.4, `cabal`, and PostgreSQL 18 on `PATH`; the
 test suites boot ephemeral PostgreSQL servers themselves. Use `just test-pg 17` for the other
@@ -1017,6 +1035,8 @@ Intention: intention_01m3cn0wx4ef9thtphet1ns7vp
 
 ## Validation and Acceptance
 
+Completion reconciliation (2026-10-25): the structural, migration, behavioral, and read-workload evidence is recorded above. The original G4 requirement of migration overhead at or below 1.05 was superseded by the user's explicit acceptance of roughly 5–6% historical cost, not by relabelling the noisy September passes or raising its ceiling. Plan 99's three full runs pass the unchanged numeric bounds against an independently frozen accepted post-0012 SQL baseline, with spread validation; future schema/index costs still require schema-aware controls. The criteria below are the original acceptance specification and remain the record of what was proposed.
+
 The plan's two questions are answered by evidence, not prose. The answer to "is the fix safe"
 is G1 and G2 passing on both PostgreSQL majors together with G4 at or below 1.05 and the
 migrations suite's upgrade-path case proving the backfill and CHECK. The answer to "does it
@@ -1048,6 +1068,8 @@ thousands means the statement text still has the LATERAL shape.
 
 
 ## Idempotence and Recovery
+
+The original pre-release G4 revert instruction below is historical and was superseded by the accepted-cost decision. Migration `0012` is retained; released migrations remain immutable and forward-only. No rollback is pending under this plan.
 
 M1 adds files and benchmark cells only; it can be re-run freely. The fixture script starts with
 `BEGIN` and ends with `COMMIT`, so a failed seed leaves nothing behind.
@@ -1104,6 +1126,8 @@ when it bumps the pin past this change those copies must set `category` on `$all
 bound and reaches this change only through a release, which is outside this plan.
 
 ---
+
+Revision note (2026-10-25, update): closed the completed implementation by reconciling its measurement follow-up with Plan 99 and the user's accepted 5–6% migration cost. Retired the telemetry-only rerun, preserved the original gate and adverse evidence, and marked pre-implementation context and conditional rollback instructions as historical. No implementation or new performance measurement was added.
 
 Revision note (2026-09-25, implementation): recorded M1 to M5 as implemented, with evidence in
 Surprises & Discoveries, the decisions taken during implementation (cell sizes and names, the separate

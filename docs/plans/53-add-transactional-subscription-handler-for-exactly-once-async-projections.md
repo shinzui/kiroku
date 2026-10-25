@@ -5,6 +5,13 @@ title: "Add transactional subscription handler for exactly-once async projection
 kind: exec-plan
 created_at: 2026-06-03T14:43:05Z
 intention: "intention_01kt6yzdtve4h97er05ygf03jv"
+provenance:
+  revisions:
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-25T23:41:38Z
+      mode: "update"
+      note: "Defer the unimplemented transactional subscription proposal at the user request and record revisit conditions."
 ---
 
 # Add transactional subscription handler for exactly-once async projections
@@ -14,6 +21,8 @@ Decision Log, and Outcomes & Retrospective must be kept up to date as work proce
 
 
 ## Purpose / Big Picture
+
+**Status: deferred by the user on 2026-10-25; not implemented.** The original proposal below addresses the crash window between committing projection writes and saving a subscription checkpoint. The named primary consumer already has transactional event deduplication, so no current unmet consumer need justifies another worker delivery mode and its potential per-event checkpoint cost. The design is retained for future evaluation, not scheduled implementation.
 
 A "subscription" in this repository is a long-running worker that walks the event
 log forward and hands each stored event to a user-supplied function called a
@@ -58,9 +67,7 @@ why the direct kiroku-store consumer (keiro) does not need it.
 
 ## Progress
 
-Use a checklist to summarize granular steps. Every stopping point must be documented here,
-even if it requires splitting a partially completed task into two ("done" vs. "remaining").
-This section must always reflect the actual current state of the work.
+Deferred before implementation. The unchecked milestones below preserve the original proposal; they are inactive, not completed or cancelled. Revisit only for a concrete consumer requirement that existing deduplication cannot adequately meet, then review the transaction boundary, concurrency guarantees, and focused performance acceptance before resuming.
 
 - [ ] M1: Add the transactional handler type `EventHandlerTx` and the optional
   `handlerTx` field on `SubscriptionConfig`, defaulting to `Nothing`; re-export
@@ -81,12 +88,16 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+The 2026-10-25 assessment found an existing alternative in `mori://shinzui/keiro`, project-relative `keiro/src/Keiro/Projection.hs` (artifact-level URI pending): its async projection functions insert a projection/event deduplication key and apply the projection writes in the same transaction, skipping the write when the key already exists. This addresses the motivating crash/replay problem for that API without coupling projection commits to Kiroku's checkpoint saves. This is source inspection, not a fresh runtime validation or a claim that every downstream consumer uses that API.
 
 
 ## Decision Log
 
 Record every decision made while working on the plan.
+
+- Decision: Defer Plan 53 rather than implement the proposed transactional subscription mode now.
+  Rationale: The user explicitly chose deferral after reviewing the limited incremental benefit over existing transactional deduplication and the possible throughput/pool costs. Revisit when a named consumer demonstrates an unmet need. Any resumed design must limit its atomicity guarantee to participating database writes, address duplicate workers and deliberate replay, consider committing a batch's projection writes and checkpoint together, and define proportional performance evidence. The original claim below that per-event commits are required for atomicity is not an accepted constraint for future work.
+  Date: 2026-10-25.
 
 - Decision: Make exactly-once an *opt-in* second handler shape carried by a new
   optional `handlerTx` field on `SubscriptionConfig`, rather than changing the
@@ -151,10 +162,7 @@ Record every decision made while working on the plan.
 
 ## Outcomes & Retrospective
 
-Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
-Compare the result against the original purpose.
-
-(To be filled during and after implementation.)
+Deferred on 2026-10-25 at the user's request. No `EventHandlerTx`, `handlerTx`, transactional delivery implementation, or acceptance tests have been delivered. Existing delivery behavior is unchanged. The potential benefit is atomic projection writes and checkpoint advancement, but the named consumer's existing deduplication reduces the immediate need; the proposed per-event checkpointing and shared-pool usage have no measured performance acceptance evidence. Deferral is not completion or rejection of every possible transactional projection design. No ADR change is needed for this task-local scheduling decision.
 
 
 ## Context and Orientation
@@ -252,6 +260,8 @@ Terms used in this plan, in plain language:
 
 
 ## Plan of Work
+
+The following milestones are the deferred original design. They require reassessment against the revisit conditions in Progress and Decision Log before implementation; the user has not requested resumption.
 
 The work is five milestones. M1-M2 are the core; M3 is a verification that the
 public entry point is unchanged; M4 proves the behavior; M5 documents the
@@ -627,3 +637,8 @@ Signatures that must exist at the end of each milestone (full module paths):
 
 No public signature changes outside the new `Types` exports; `subscribe`,
 `runWorker`, `subscriptionAckStream`, and the Shibuya adapter are untouched.
+
+
+## Revision Notes
+
+- 2026-10-25: Deferred the unimplemented proposal at the user's request. Recorded the existing transactional-deduplication alternative, the unmet-need condition for revisiting, and the correctness/performance questions that must be resolved before resumption. Original milestones remain unchecked and inactive.
