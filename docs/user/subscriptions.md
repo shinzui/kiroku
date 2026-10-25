@@ -296,6 +296,18 @@ the transaction; rollback preserves all previous bindings and positions.
 Resizing a bound group preserves its binding on new members. Reset changes
 progress alone and preserves both binding and topology.
 
+The low-level `initializeSubscriptionCheckpoint` adopts size and target binding
+from existing siblings only when all agree on both. Empty or inconsistent sets
+use size 1 and an unbound target. It initializes only the requested missing key;
+existing rows always win, and siblings are never repaired or assigned positions.
+
+The per-name transaction advisory lock serializes worker initialization,
+low-level checkpoint initialization, resize and rebind. Reset does not acquire
+this advisory lock. None of these operations stops a running member: its next
+save writes its configured size and binding and can advance past a reset
+position. Stop every member, wait for exit, and prevent new starts during resize,
+rebind or reset.
+
 Runtime semantic startup refusals share the exception parent
 `SomeSubscriptionStartupFailure`: `SubscriptionCheckpointMissing`,
 `ConsumerGroupGuardConflict`, `ConsumerGroupSizeMismatch`, and
@@ -400,6 +412,15 @@ the hook and invokes the ordinary handler if decoding recovers, and
 advances the checkpoint atomically. Explicit callback retries use the existing
 retry limit and `DeadLetterMaxAttempts` exhaustion contract. Events excluded
 by the subscription's filter or selector do not invoke this callback.
+
+The filter decision is taken once, on the hook's output for decodable events
+and on the raw event otherwise, and does not change across retries. This includes
+the selector. A type-rewriting hook should keep raw types in the filter when
+undecodable events of those types need recovery: otherwise they bypass the
+callback. A recovered event is delivered even if its rewritten type is excluded.
+
+`Stop` checkpoints past the undecodable event. To investigate it later, use
+`Retry` with a delay or `DeadLetter` to retain its diagnostic evidence.
 
 Live non-group all-stream subscribers share one decoded batch. Subscriber
 retries re-run the hook independently; category/group and catch-up reads decode

@@ -1,55 +1,55 @@
-{- | Structured operational events emitted by 'Kiroku.Store'.
-
-This module provides the 'KirokuEvent' sum type and its supporting
-enumerations. It complements
-'Kiroku.Store.Connection.ConnectionSettings.observationHandler' (which
-covers @hasql-pool@'s connection-lifecycle events) with events the
-package emits itself:
-
-* Notifier reconnection (the dedicated @LISTEN@ connection went bad and
-  is being re-established).
-* EventPublisher pool errors (the publisher's read query failed and
-  will retry on the next tick or 30-second safety poll).
-* Per-subscription database errors (checkpoint load, batch fetch,
-  checkpoint save).
-* Subscription lifecycle (started, caught-up, paused, resumed, reconnecting,
-  stopped).
-* Subscription batch delivery (one per non-empty batch handed to the
-  handler, on every target and in both catch-up and live phases).
-* Subscription live fetches (one per DB-driven live-mode fetch).
-* Hard-delete issuance (a fail-safe audit signal — see
-  @docs\/PRODUCTION-DEPLOYMENT.md@ for the recommended in-band audit
-  pattern).
-* Committed replay-history lease acquisition, renewal, actual release, pruning,
-  and supported hard-delete refusal.
-
-Lease reasons remain in the durable inventory and are deliberately absent from
-these process-local events. Do not turn free-form reasons into metrics labels.
-Direct @Tx.Transaction@ combinators cannot emit process-local events; the
-mockable effect wrappers emit only after their database transaction finishes.
-
-Wire 'Kiroku.Store.Connection.ConnectionSettingsM.eventHandler' to a
-callback that forwards to your structured logger or metrics pipeline.
-The callback runs synchronously on the emit-site thread (notifier loop,
-publisher loop, worker loop, store interpreter); slow callbacks therefore
-stall those loops. For callbacks that may block, fan out asynchronously
-(write to a 'Control.Concurrent.STM.TBQueue' and drain in a separate
-thread).
-
-The constructor set is /additive/: new events are added rather than
-existing constructors changed. Pattern matches that do not handle a
-new constructor will surface as @-Wincomplete-patterns@ warnings, never
-as silent regressions.
--}
-module Kiroku.Store.Observability (
-    KirokuEvent (..),
+-- | Structured operational events emitted by 'Kiroku.Store'.
+--
+-- This module provides the 'KirokuEvent' sum type and its supporting
+-- enumerations. It complements
+-- 'Kiroku.Store.Connection.ConnectionSettings.observationHandler' (which
+-- covers @hasql-pool@'s connection-lifecycle events) with events the
+-- package emits itself:
+--
+-- * Notifier reconnection (the dedicated @LISTEN@ connection went bad and
+--   is being re-established).
+-- * EventPublisher pool errors (the publisher's read query failed and
+--   will retry on the next tick or 30-second safety poll).
+-- * Per-subscription database errors (checkpoint load, batch fetch,
+--   checkpoint save).
+-- * Subscription lifecycle (started, caught-up, paused, resumed, reconnecting,
+--   stopped).
+-- * Subscription batch delivery (one per non-empty batch handed to the
+--   handler, on every target and in both catch-up and live phases).
+-- * Subscription live fetches (one per DB-driven live-mode fetch).
+-- * Hard-delete issuance (a fail-safe audit signal — see
+--   @docs\/PRODUCTION-DEPLOYMENT.md@ for the recommended in-band audit
+--   pattern).
+-- * Committed replay-history lease acquisition, renewal, actual release, pruning,
+--   and supported hard-delete refusal.
+--
+-- Lease reasons remain in the durable inventory and are deliberately absent from
+-- these process-local events. Do not turn free-form reasons into metrics labels.
+-- Direct @Tx.Transaction@ combinators cannot emit process-local events; the
+-- mockable effect wrappers emit only after their database transaction finishes.
+--
+-- Wire 'Kiroku.Store.Connection.ConnectionSettingsM.eventHandler' to a
+-- callback that forwards to your structured logger or metrics pipeline.
+-- The callback runs synchronously on the emit-site thread (notifier loop,
+-- publisher loop, worker loop, store interpreter); slow callbacks therefore
+-- stall those loops. For callbacks that may block, fan out asynchronously
+-- (write to a 'Control.Concurrent.STM.TBQueue' and drain in a separate
+-- thread).
+--
+-- The constructor set is /additive/: new events are added rather than
+-- existing constructors changed. Pattern matches that do not handle a
+-- new constructor will surface as @-Wincomplete-patterns@ warnings, never
+-- as silent regressions.
+module Kiroku.Store.Observability
+  ( KirokuEvent (..),
     SubscriptionDbPhase (..),
     SubscriptionDeliveryPhase (..),
     SubscriptionStopReason (..),
     SubscriptionGroupContext (..),
     DeadLetterReason (..),
     emitOrDrop,
-) where
+  )
+where
 
 import Control.Exception (SomeAsyncException, SomeException, asyncExceptionFromException, catch, throwIO)
 import Data.Foldable (for_)
@@ -60,246 +60,222 @@ import Hasql.Pool (UsageError)
 import Kiroku.Store.HistoryRetention.Types (HistoryRetentionConflict, HistoryRetentionLeaseId, HistoryRetentionLeaseOwner, HistoryRetentionPruneResult)
 import Kiroku.Store.Settings (DecodeFailure)
 import Kiroku.Store.Subscription.Fsm (DeadLetterReason (..), SubscriptionStopReason (..))
-import Kiroku.Store.Subscription.Types (
-    CheckpointInitialization,
+import Kiroku.Store.Subscription.Types
+  ( CheckpointInitialization,
     ConsumerGroupSizeMismatch,
     SubscriptionCheckpointMissing,
     SubscriptionName,
     SubscriptionTarget,
- )
+    SubscriptionTargetMismatch,
+  )
 import Kiroku.Store.Types (EventId, GlobalPosition, StreamId, StreamName)
 
-{- | A structured operational event emitted by 'Kiroku.Store' itself.
-
-Events are emitted synchronously from the originating thread; consumer
-callbacks should be fast or fan out to an asynchronous worker. See the
-module Haddock for context.
--}
+-- | A structured operational event emitted by 'Kiroku.Store' itself.
+--
+-- Events are emitted synchronously from the originating thread; consumer
+-- callbacks should be fast or fan out to an asynchronous worker. See the
+-- module Haddock for context.
 data KirokuEvent
-    = KirokuEventSubscriptionTargetBound !SubscriptionName !SubscriptionTarget !SubscriptionGroupContext
-    | KirokuEventSubscriptionGroupSizeMismatch !ConsumerGroupSizeMismatch !SubscriptionGroupContext
-    | {- | The dedicated @LISTEN@ connection encountered a non-async
-      exception and the listener loop is about to attempt reconnection.
-      The 'Int' is the consecutive failure count starting at @1@; it
-      drives the exponential-backoff delay (capped at 30 seconds) and
-      is useful as a metric label for sustained-outage alerting.
-      -}
-      KirokuEventNotifierReconnecting !Int !SomeException
-    | {- | The listener loop successfully re-established the @LISTEN@
-      connection. Pairs with the most recent
-      'KirokuEventNotifierReconnecting'; the failure counter resets to
-      @0@ on observing this event.
-      -}
-      KirokuEventNotifierReconnected
-    | {- | The 'Kiroku.Store.Subscription.EventPublisher.EventPublisher'
-      read query returned a 'UsageError'. The publisher will retry on
-      the next notification tick or the 30-second safety poll. Sustained
-      emissions indicate either pool exhaustion (the publisher shares
-      the application pool) or a persistent server error.
-      -}
-      KirokuEventPublisherPoolError !UsageError
-    | {- | The publisher loop's broadcast iteration threw a synchronous
-      exception that was not a 'UsageError' — typically a user-supplied
-      'Kiroku.Store.Settings.decodeHook' or observability handler throwing.
-      The publisher skipped this tick and will retry on the next notification
-      or the 30-second safety poll. Sustained emissions mean a deterministically
-      failing callback is stalling live broadcast until it is fixed.
-      -}
-      KirokuEventPublisherLoopError !SomeException
-    | -- | Typed hook failure at broadcast time; publisher still advances.
-      KirokuEventPublisherDecodeFailed !GlobalPosition !EventId !DecodeFailure
-    | -- | One handler invocation remains pending after the configured interval.
-      KirokuEventSubscriptionHandlerStalled !SubscriptionName !GlobalPosition !EventId !NominalDiffTime !SubscriptionGroupContext
-    | {- | A subscription's worker thread encountered a 'UsageError' in
-      the database phase identified by 'SubscriptionDbPhase'. Checkpoint-load
-      errors fail startup loudly, fetch-batch errors are retried at the same
-      cursor, and checkpoint-save errors are reported while the worker continues.
-      The event is the operator's structured signal that this happened. The
-      trailing 'SubscriptionGroupContext' identifies which consumer-group member
-      (if any) emitted it.
-      -}
-      KirokuEventSubscriptionDbError !SubscriptionName !SubscriptionDbPhase !UsageError !SubscriptionGroupContext
-    | {- | Startup resolved an exact checkpoint key before the worker emitted
-      'KirokuEventSubscriptionStarted'. 'ExistingCheckpoint' means the worker
-      resumed durable progress; 'InitializedCheckpoint' identifies whether it
-      seeded zero or the current store head. The event contains no payload data.
-      -}
-      KirokuEventSubscriptionCheckpointResolved !CheckpointInitialization !SubscriptionGroupContext
-    | {- | Startup applied 'Kiroku.Store.Subscription.Types.FailIfMissing' to
-      an absent exact checkpoint key. The worker emits this event and throws the
-      carried typed exception before emitting 'KirokuEventSubscriptionStarted'
-      or invoking the handler.
-      -}
-      KirokuEventSubscriptionCheckpointMissing !SubscriptionCheckpointMissing !SubscriptionGroupContext
-    | {- | A subscription's worker thread has just started; the worker
-      will begin from the durable 'GlobalPosition' reported by the immediately
-      preceding checkpoint-resolution event. The trailing
-      'SubscriptionGroupContext' identifies which consumer-group member (if any)
-      started.
-      -}
-      KirokuEventSubscriptionStarted !SubscriptionName !GlobalPosition !SubscriptionGroupContext
-    | {- | The subscription has reached the EventPublisher's
-      @lastPublished@ position and is switching from catch-up to
-      live mode at the indicated 'GlobalPosition'. Fires at most
-      once per worker run. The trailing 'SubscriptionGroupContext'
-      identifies which consumer-group member (if any) caught up.
-      -}
-      KirokuEventSubscriptionCaughtUp !SubscriptionName !GlobalPosition !SubscriptionGroupContext
-    | {- | The subscription's worker has stopped at the indicated
-      'GlobalPosition'. The 'SubscriptionStopReason' discriminates
-      normal completion (handler returned 'Stop') from cancellation,
-      overflow, and worker-thread crashes. The trailing
-      'SubscriptionGroupContext' identifies which consumer-group member
-      (if any) stopped.
-      -}
-      KirokuEventSubscriptionStopped !SubscriptionName !GlobalPosition !SubscriptionStopReason !SubscriptionGroupContext
-    | {- | A subscription's worker hit recoverable backpressure: its bounded
-      queue filled under the 'Kiroku.Store.Subscription.Types.PauseAndResume'
-      overflow policy, so the worker paused delivery at the indicated
-      'GlobalPosition'. Pairs with a subsequent
-      'KirokuEventSubscriptionResumed'. The trailing 'SubscriptionGroupContext'
-      identifies which consumer-group member (if any) paused.
-      -}
-      KirokuEventSubscriptionPaused !SubscriptionName !GlobalPosition !SubscriptionGroupContext
-    | {- | A subscription's worker resumed after a pause: it drained the stale
-      queue and re-catches-up from its checkpoint (the indicated
-      'GlobalPosition') so every event skipped while paused is re-read from the
-      database. Pairs with a preceding 'KirokuEventSubscriptionPaused'.
-      -}
-      KirokuEventSubscriptionResumed !SubscriptionName !GlobalPosition !SubscriptionGroupContext
-    | {- | A subscription's worker lost its database connection while live (a
-      'UsageError' on a live-mode fetch) and is reconnecting: it backs off and
-      re-catches-up from its checkpoint rather than dying. The 'Int' is the
-      consecutive reconnect-attempt count starting at @1@; it drives the
-      capped backoff and is a useful sustained-outage metric label. Emitted by
-      Category and consumer-group subscriptions (AllStreams live delivery is fed
-      by the publisher, which owns its own reconnect). The trailing
-      'SubscriptionGroupContext' identifies the consumer-group member (if any).
-      -}
-      KirokuEventSubscriptionReconnecting !SubscriptionName !Int !SubscriptionGroupContext
-    | {- | A live DB-driven subscription loop
-      ('Kiroku.Store.Subscription.Worker') issued one category/partition fetch
-      in live mode, returning the given row count ('Int'). Emitted by the
-      @Category@ NOTIFY-driven loop and the consumer-group loop on every live
-      fetch (not on the catch-up path). Lets operators observe the
-      per-subscription live-fetch rate and lets tests assert that an idle
-      category does no work. The trailing 'SubscriptionGroupContext' identifies
-      the consumer-group member (if any).
-      -}
-      KirokuEventSubscriptionFetched !SubscriptionName !Int !SubscriptionGroupContext
-    | {- | A subscription's worker delivered one non-empty batch of events to
-      the handler through the single delivery primitive
-      'Kiroku.Store.Subscription.Worker.processEvents'. Emitted once per batch on
-      __every__ delivery path — catch-up for every target, @AllStreams@ live, and
-      the @Category@\/consumer-group DB-driven live loops — so it is a uniform
-      per-batch delivery signal. The 'Int' is the batch row count (always @>= 1@).
-      The 'SubscriptionDeliveryPhase' says whether the worker was catching up or
-      live when it delivered. The trailing 'SubscriptionGroupContext' identifies
-      the consumer-group member (if any).
+  = KirokuEventSubscriptionTargetBound !SubscriptionName !SubscriptionTarget !SubscriptionGroupContext
+  | KirokuEventSubscriptionGroupSizeMismatch !ConsumerGroupSizeMismatch !SubscriptionGroupContext
+  | KirokuEventSubscriptionTargetMismatch !SubscriptionTargetMismatch !SubscriptionGroupContext
+  | -- | The dedicated @LISTEN@ connection encountered a non-async
+    --       exception and the listener loop is about to attempt reconnection.
+    --       The 'Int' is the consecutive failure count starting at @1@; it
+    --       drives the exponential-backoff delay (capped at 30 seconds) and
+    --       is useful as a metric label for sustained-outage alerting.
+    KirokuEventNotifierReconnecting !Int !SomeException
+  | -- | The listener loop successfully re-established the @LISTEN@
+    --       connection. Pairs with the most recent
+    --       'KirokuEventNotifierReconnecting'; the failure counter resets to
+    --       @0@ on observing this event.
+    KirokuEventNotifierReconnected
+  | -- | The 'Kiroku.Store.Subscription.EventPublisher.EventPublisher'
+    --       read query returned a 'UsageError'. The publisher will retry on
+    --       the next notification tick or the 30-second safety poll. Sustained
+    --       emissions indicate either pool exhaustion (the publisher shares
+    --       the application pool) or a persistent server error.
+    KirokuEventPublisherPoolError !UsageError
+  | -- | The publisher loop's broadcast iteration threw a synchronous
+    --       exception that was not a 'UsageError' — typically a user-supplied
+    --       'Kiroku.Store.Settings.decodeHook' or observability handler throwing.
+    --       The publisher skipped this tick and will retry on the next notification
+    --       or the 30-second safety poll. Sustained emissions mean a deterministically
+    --       failing callback is stalling live broadcast until it is fixed.
+    KirokuEventPublisherLoopError !SomeException
+  | -- | Typed hook failure at broadcast time; publisher still advances.
+    KirokuEventPublisherDecodeFailed !GlobalPosition !EventId !DecodeFailure
+  | -- | One handler invocation remains pending after the configured interval.
+    KirokuEventSubscriptionHandlerStalled !SubscriptionName !GlobalPosition !EventId !NominalDiffTime !SubscriptionGroupContext
+  | -- | A subscription's worker thread encountered a 'UsageError' in
+    --       the database phase identified by 'SubscriptionDbPhase'. Checkpoint-load
+    --       errors fail startup loudly, fetch-batch errors are retried at the same
+    --       cursor, and checkpoint-save errors are reported while the worker continues.
+    --       The event is the operator's structured signal that this happened. The
+    --       trailing 'SubscriptionGroupContext' identifies which consumer-group member
+    --       (if any) emitted it.
+    KirokuEventSubscriptionDbError !SubscriptionName !SubscriptionDbPhase !UsageError !SubscriptionGroupContext
+  | -- | Startup resolved an exact checkpoint key before the worker emitted
+    --       'KirokuEventSubscriptionStarted'. 'ExistingCheckpoint' means the worker
+    --       resumed durable progress; 'InitializedCheckpoint' identifies whether it
+    --       seeded zero or the current store head. The event contains no payload data.
+    KirokuEventSubscriptionCheckpointResolved !CheckpointInitialization !SubscriptionGroupContext
+  | -- | Startup applied 'Kiroku.Store.Subscription.Types.FailIfMissing' to
+    --       an absent exact checkpoint key. The worker emits this event and throws the
+    --       carried typed exception before emitting 'KirokuEventSubscriptionStarted'
+    --       or invoking the handler.
+    KirokuEventSubscriptionCheckpointMissing !SubscriptionCheckpointMissing !SubscriptionGroupContext
+  | -- | A subscription's worker thread has just started; the worker
+    --       will begin from the durable 'GlobalPosition' reported by the immediately
+    --       preceding checkpoint-resolution event. The trailing
+    --       'SubscriptionGroupContext' identifies which consumer-group member (if any)
+    --       started.
+    KirokuEventSubscriptionStarted !SubscriptionName !GlobalPosition !SubscriptionGroupContext
+  | -- | The subscription has reached the EventPublisher's
+    --       @lastPublished@ position and is switching from catch-up to
+    --       live mode at the indicated 'GlobalPosition'. Fires at most
+    --       once per worker run. The trailing 'SubscriptionGroupContext'
+    --       identifies which consumer-group member (if any) caught up.
+    KirokuEventSubscriptionCaughtUp !SubscriptionName !GlobalPosition !SubscriptionGroupContext
+  | -- | The subscription's worker has stopped at the indicated
+    --       'GlobalPosition'. The 'SubscriptionStopReason' discriminates
+    --       normal completion (handler returned 'Stop') from cancellation,
+    --       overflow, and worker-thread crashes. The trailing
+    --       'SubscriptionGroupContext' identifies which consumer-group member
+    --       (if any) stopped.
+    KirokuEventSubscriptionStopped !SubscriptionName !GlobalPosition !SubscriptionStopReason !SubscriptionGroupContext
+  | -- | A subscription's worker hit recoverable backpressure: its bounded
+    --       queue filled under the 'Kiroku.Store.Subscription.Types.PauseAndResume'
+    --       overflow policy, so the worker paused delivery at the indicated
+    --       'GlobalPosition'. Pairs with a subsequent
+    --       'KirokuEventSubscriptionResumed'. The trailing 'SubscriptionGroupContext'
+    --       identifies which consumer-group member (if any) paused.
+    KirokuEventSubscriptionPaused !SubscriptionName !GlobalPosition !SubscriptionGroupContext
+  | -- | A subscription's worker resumed after a pause: it drained the stale
+    --       queue and re-catches-up from its checkpoint (the indicated
+    --       'GlobalPosition') so every event skipped while paused is re-read from the
+    --       database. Pairs with a preceding 'KirokuEventSubscriptionPaused'.
+    KirokuEventSubscriptionResumed !SubscriptionName !GlobalPosition !SubscriptionGroupContext
+  | -- | A subscription's worker lost its database connection while live (a
+    --       'UsageError' on a live-mode fetch) and is reconnecting: it backs off and
+    --       re-catches-up from its checkpoint rather than dying. The 'Int' is the
+    --       consecutive reconnect-attempt count starting at @1@; it drives the
+    --       capped backoff and is a useful sustained-outage metric label. Emitted by
+    --       Category and consumer-group subscriptions (AllStreams live delivery is fed
+    --       by the publisher, which owns its own reconnect). The trailing
+    --       'SubscriptionGroupContext' identifies the consumer-group member (if any).
+    KirokuEventSubscriptionReconnecting !SubscriptionName !Int !SubscriptionGroupContext
+  | -- | A live DB-driven subscription loop
+    --       ('Kiroku.Store.Subscription.Worker') issued one category/partition fetch
+    --       in live mode, returning the given row count ('Int'). Emitted by the
+    --       @Category@ NOTIFY-driven loop and the consumer-group loop on every live
+    --       fetch (not on the catch-up path). Lets operators observe the
+    --       per-subscription live-fetch rate and lets tests assert that an idle
+    --       category does no work. The trailing 'SubscriptionGroupContext' identifies
+    --       the consumer-group member (if any).
+    KirokuEventSubscriptionFetched !SubscriptionName !Int !SubscriptionGroupContext
+  | -- | A subscription's worker delivered one non-empty batch of events to
+    --       the handler through the single delivery primitive
+    --       'Kiroku.Store.Subscription.Worker.processEvents'. Emitted once per batch on
+    --       __every__ delivery path — catch-up for every target, @AllStreams@ live, and
+    --       the @Category@\/consumer-group DB-driven live loops — so it is a uniform
+    --       per-batch delivery signal. The 'Int' is the batch row count (always @>= 1@).
+    --       The 'SubscriptionDeliveryPhase' says whether the worker was catching up or
+    --       live when it delivered. The trailing 'SubscriptionGroupContext' identifies
+    --       the consumer-group member (if any).
+    --
+    --       This is distinct from 'KirokuEventSubscriptionFetched', which only the
+    --       DB-driven live loops emit (per /fetch/, including empty fetches) and which
+    --       this constructor does /not/ replace. A DB-driven live batch therefore emits
+    --       both 'KirokuEventSubscriptionFetched' (the fetch) and
+    --       'KirokuEventSubscriptionDelivered' (the delivery).
+    KirokuEventSubscriptionDelivered !SubscriptionName !Int !SubscriptionDeliveryPhase !SubscriptionGroupContext
+  | -- | A subscription handler returned
+    --       'Kiroku.Store.Subscription.Types.Retry' for the event at the indicated
+    --       'GlobalPosition' and the worker is about to redeliver it. The 'Int' is the
+    --       redelivery attempt count starting at @1@ (so @1@ is the first redelivery
+    --       after the initial delivery). Bounded by the subscription's
+    --       'Kiroku.Store.Subscription.Types.RetryPolicy'; exhaustion produces a
+    --       'KirokuEventSubscriptionDeadLettered' with
+    --       'Kiroku.Store.Subscription.Types.DeadLetterMaxAttempts'. The trailing
+    --       'SubscriptionGroupContext' identifies the consumer-group member (if any).
+    KirokuEventSubscriptionRetrying !SubscriptionName !GlobalPosition !Int !SubscriptionGroupContext
+  | -- | The worker recorded the event at the indicated 'GlobalPosition' in
+    --       @kiroku.dead_letters@ with the given 'DeadLetterReason' and atomically
+    --       advanced the checkpoint past it. Emitted when a handler returns
+    --       'Kiroku.Store.Subscription.Types.DeadLetter' or when retry attempts are
+    --       exhausted. The trailing 'SubscriptionGroupContext' identifies the
+    --       consumer-group member (if any).
+    KirokuEventSubscriptionDeadLettered !SubscriptionName !GlobalPosition !DeadLetterReason !SubscriptionGroupContext
+  | -- | A hard-delete transaction completed successfully. Operators
+    --       relying on a fail-safe audit log can capture this event;
+    --       compliance-grade audit should still record an application-level
+    --       event /before/ calling
+    --       'Kiroku.Store.Lifecycle.hardDeleteStream' (see
+    --       @docs\/PRODUCTION-DEPLOYMENT.md@). Not emitted when the named
+    --       stream did not exist.
+    KirokuEventHardDeleteIssued !StreamName !StreamId
+  | -- | A lease acquisition committed. The lease row is the durable audit
+    --       evidence; this process-local event contains no event payload.
+    KirokuEventHistoryRetentionLeaseAcquired !HistoryRetentionLeaseId !HistoryRetentionLeaseOwner !GlobalPosition !UTCTime
+  | -- | A live lease renewal committed; reason text is not copied into the event.
+    KirokuEventHistoryRetentionLeaseRenewed !HistoryRetentionLeaseId !HistoryRetentionLeaseOwner !UTCTime
+  | -- | A previously active lease was actually released and committed.
+    KirokuEventHistoryRetentionLeaseReleased !HistoryRetentionLeaseId !HistoryRetentionLeaseOwner !UTCTime
+  | -- | A prune operation committed with the reported terminal-row counts.
+    KirokuEventHistoryRetentionLeasesPruned !HistoryRetentionPruneResult
+  | -- | Supported hard delete was refused before changing history.
+    KirokuEventHardDeleteHistoryRetentionConflict !StreamName !HistoryRetentionConflict
+  deriving stock (Show)
 
-      This is distinct from 'KirokuEventSubscriptionFetched', which only the
-      DB-driven live loops emit (per /fetch/, including empty fetches) and which
-      this constructor does /not/ replace. A DB-driven live batch therefore emits
-      both 'KirokuEventSubscriptionFetched' (the fetch) and
-      'KirokuEventSubscriptionDelivered' (the delivery).
-      -}
-      KirokuEventSubscriptionDelivered !SubscriptionName !Int !SubscriptionDeliveryPhase !SubscriptionGroupContext
-    | {- | A subscription handler returned
-      'Kiroku.Store.Subscription.Types.Retry' for the event at the indicated
-      'GlobalPosition' and the worker is about to redeliver it. The 'Int' is the
-      redelivery attempt count starting at @1@ (so @1@ is the first redelivery
-      after the initial delivery). Bounded by the subscription's
-      'Kiroku.Store.Subscription.Types.RetryPolicy'; exhaustion produces a
-      'KirokuEventSubscriptionDeadLettered' with
-      'Kiroku.Store.Subscription.Types.DeadLetterMaxAttempts'. The trailing
-      'SubscriptionGroupContext' identifies the consumer-group member (if any).
-      -}
-      KirokuEventSubscriptionRetrying !SubscriptionName !GlobalPosition !Int !SubscriptionGroupContext
-    | {- | The worker recorded the event at the indicated 'GlobalPosition' in
-      @kiroku.dead_letters@ with the given 'DeadLetterReason' and atomically
-      advanced the checkpoint past it. Emitted when a handler returns
-      'Kiroku.Store.Subscription.Types.DeadLetter' or when retry attempts are
-      exhausted. The trailing 'SubscriptionGroupContext' identifies the
-      consumer-group member (if any).
-      -}
-      KirokuEventSubscriptionDeadLettered !SubscriptionName !GlobalPosition !DeadLetterReason !SubscriptionGroupContext
-    | {- | A hard-delete transaction completed successfully. Operators
-      relying on a fail-safe audit log can capture this event;
-      compliance-grade audit should still record an application-level
-      event /before/ calling
-      'Kiroku.Store.Lifecycle.hardDeleteStream' (see
-      @docs\/PRODUCTION-DEPLOYMENT.md@). Not emitted when the named
-      stream did not exist.
-      -}
-      KirokuEventHardDeleteIssued !StreamName !StreamId
-    | {- | A lease acquisition committed. The lease row is the durable audit
-      evidence; this process-local event contains no event payload.
-      -}
-      KirokuEventHistoryRetentionLeaseAcquired !HistoryRetentionLeaseId !HistoryRetentionLeaseOwner !GlobalPosition !UTCTime
-    | -- | A live lease renewal committed; reason text is not copied into the event.
-      KirokuEventHistoryRetentionLeaseRenewed !HistoryRetentionLeaseId !HistoryRetentionLeaseOwner !UTCTime
-    | -- | A previously active lease was actually released and committed.
-      KirokuEventHistoryRetentionLeaseReleased !HistoryRetentionLeaseId !HistoryRetentionLeaseOwner !UTCTime
-    | -- | A prune operation committed with the reported terminal-row counts.
-      KirokuEventHistoryRetentionLeasesPruned !HistoryRetentionPruneResult
-    | -- | Supported hard delete was refused before changing history.
-      KirokuEventHardDeleteHistoryRetentionConflict !StreamName !HistoryRetentionConflict
-    deriving stock (Show)
-
-{- | Invoke the optional observability handler, dropping any synchronous exception
-it throws. Asynchronous exceptions, including thread cancellation, are rethrown.
-
-Store-internal threads must not die because a metrics or logging callback threw;
-the callback contract is that it should be fast and non-throwing.
--}
+-- | Invoke the optional observability handler, dropping any synchronous exception
+-- it throws. Asynchronous exceptions, including thread cancellation, are rethrown.
+--
+-- Store-internal threads must not die because a metrics or logging callback threw;
+-- the callback contract is that it should be fast and non-throwing.
 emitOrDrop :: Maybe (KirokuEvent -> IO ()) -> KirokuEvent -> IO ()
 emitOrDrop mHandler evt =
-    for_ mHandler $ \handler ->
-        handler evt `catch` \(e :: SomeException) ->
-            case asyncExceptionFromException e of
-                Just (ae :: SomeAsyncException) -> throwIO ae
-                Nothing -> pure ()
+  for_ mHandler $ \handler ->
+    handler evt `catch` \(e :: SomeException) ->
+      case asyncExceptionFromException e of
+        Just (ae :: SomeAsyncException) -> throwIO ae
+        Nothing -> pure ()
 
 -- | Which database phase a 'KirokuEventSubscriptionDbError' fired in.
 data SubscriptionDbPhase
-    = {- | 'Kiroku.Store.Subscription.Worker' failed to read the saved
-      checkpoint at subscription startup. The worker fails startup loudly
-      instead of silently re-processing from 'Kiroku.Store.Types.GlobalPosition'
-      @0@.
-      -}
-      LoadCheckpoint
-    | {- | The worker's catch-up or category-live database fetch
-      returned an error. The worker retries the same cursor with capped
-      backoff instead of treating the error as an empty result.
-      -}
-      FetchBatch
-    | {- | The worker's @saveCheckpoint@ statement failed. The
-      subscription continues running but the next restart with the
-      same name re-processes events the handler has already seen.
-      -}
-      SaveCheckpoint
-    deriving stock (Eq, Show)
+  = -- | 'Kiroku.Store.Subscription.Worker' failed to read the saved
+    --       checkpoint at subscription startup. The worker fails startup loudly
+    --       instead of silently re-processing from 'Kiroku.Store.Types.GlobalPosition'
+    --       @0@.
+    LoadCheckpoint
+  | -- | The worker's catch-up or category-live database fetch
+    --       returned an error. The worker retries the same cursor with capped
+    --       backoff instead of treating the error as an empty result.
+    FetchBatch
+  | -- | The worker's @saveCheckpoint@ statement failed. The
+    --       subscription continues running but the next restart with the
+    --       same name re-processes events the handler has already seen.
+    SaveCheckpoint
+  deriving stock (Eq, Show)
 
-{- | Which FSM phase a 'KirokuEventSubscriptionDelivered' batch was delivered in:
-the worker was either still catching up from history ('DeliveredCatchUp') or
-already live ('DeliveredLive'). Derived from the driving 'SubscriptionState' the
-worker wrote before the batch (see 'Kiroku.Store.Subscription.Worker.processEvents').
--}
+-- | Which FSM phase a 'KirokuEventSubscriptionDelivered' batch was delivered in:
+-- the worker was either still catching up from history ('DeliveredCatchUp') or
+-- already live ('DeliveredLive'). Derived from the driving 'SubscriptionState' the
+-- worker wrote before the batch (see 'Kiroku.Store.Subscription.Worker.processEvents').
 data SubscriptionDeliveryPhase
-    = -- | The batch was delivered while the worker was in 'CatchingUp'.
-      DeliveredCatchUp
-    | -- | The batch was delivered while the worker was 'Live'.
-      DeliveredLive
-    deriving stock (Eq, Show)
+  = -- | The batch was delivered while the worker was in 'CatchingUp'.
+    DeliveredCatchUp
+  | -- | The batch was delivered while the worker was 'Live'.
+    DeliveredLive
+  deriving stock (Eq, Show)
 
-{- | Consumer-group context attached to subscription lifecycle events. A plain
-(non-grouped) subscription reports 'NonGroup'; a member of a group reports
-@GroupMember member size@ so operators can attribute a lifecycle event to a
-specific @(member, size)@.
--}
+-- | Consumer-group context attached to subscription lifecycle events. A plain
+-- (non-grouped) subscription reports 'NonGroup'; a member of a group reports
+-- @GroupMember member size@ so operators can attribute a lifecycle event to a
+-- specific @(member, size)@.
 data SubscriptionGroupContext
-    = -- | Ordinary, non-grouped subscription.
-      NonGroup
-    | -- | Member of a group: @GroupMember member size@.
-      GroupMember !Int32 !Int32
-    deriving stock (Eq, Show)
+  = -- | Ordinary, non-grouped subscription.
+    NonGroup
+  | -- | Member of a group: @GroupMember member size@.
+    GroupMember !Int32 !Int32
+  deriving stock (Eq, Show)

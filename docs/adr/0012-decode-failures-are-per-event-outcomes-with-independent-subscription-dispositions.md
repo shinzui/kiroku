@@ -8,7 +8,7 @@ generated:
 docId: ADR-12
 status: Accepted
 date: 2026-10-09
-timestamp: "2026-10-10T00:23:58Z"
+timestamp: "2026-10-25T20:19:35Z"
 originatingPlan: docs/plans/83-contain-persistent-publisher-decode-hook-failures.md
 ---
 
@@ -43,8 +43,10 @@ An explicit callback receives the raw event and failure and uses existing `Subsc
 semantics: Continue skips, Stop checkpoints that event and ends cleanly, Retry re-applies the hook,
 and DeadLetter atomically records and checkpoints. Explicit callback retry exhaustion retains the
 existing `DeadLetterMaxAttempts` behavior. `DeadLetterDecodeFailure` stores a stable reason object
-with `kind`, `event_id` and `detail`. Filtered-out raw events bypass the callback. Both callbacks
-share the persistent effect environment when subscribed through the effect interpreter.
+with `kind`, `event_id` and `detail`. Filtered-out raw events bypass the callback.
+The filter decision is taken once, on the hook's output for decodable events and on the raw event
+otherwise, and does not change across retries. Both callbacks share the persistent effect
+environment when subscribed through the effect interpreter.
 
 Reads return `EventDecodeFailed` on the first typed failure and never expose a partial vector.
 Earlier hook side effects are not rolled back. Read decoding maps directly to successful values,

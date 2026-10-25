@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Breaking Changes
+
+- Target 0.12.0.0: `KirokuEvent` gains
+  `KirokuEventSubscriptionTargetMismatch`; update exhaustive observers.
+
+### Bug Fixes
+
+- Invalid stall intervals now emit one crashed `Stopped` before `wait` returns.
+  Target refusals emit their typed detail event followed by one crashed stop.
+- Preserve the initial event filter and selector decision across decode retries,
+  including recovery to an excluded rewritten type.
+- Low-level checkpoint initialization inherits uniform sibling size and binding
+  under the topology lock, preserving existing rows and missing-position policies.
+
 ## 0.11.0.1 — 2026-10-20
 
 ### Bug Fixes

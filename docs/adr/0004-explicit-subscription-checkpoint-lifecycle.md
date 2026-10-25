@@ -8,7 +8,7 @@ generated:
 docId: ADR-4
 status: Accepted
 date: 2026-08-11
-timestamp: "2026-10-09T22:49:20Z"
+timestamp: "2026-10-25T20:19:35Z"
 ---
 
 # ADR-0004: Subscription checkpoint initialization is explicit and reset is a separate transaction operation
@@ -48,7 +48,8 @@ Resolve every worker's exact checkpoint key before `Started` or handler delivery
 
 An existing row always wins for all policies. Concurrent initializers converge on the first
 committed row. Each consumer-group member resolves independently; Kiroku never infers or creates
-group topology from another member.
+other members or their positions from another member. The low-level initializer's
+metadata-inheritance rule below is limited to the requested exact key.
 
 `FromCurrentHead` deliberately does not use `visibleGlobalHeadPosition`. A future-only worker must
 skip every position allocated before initialization, including positions already removed by hard
@@ -130,3 +131,22 @@ new target and position. Repeating the operation is idempotent; condemning the
 transaction rolls back both identity and position. Resize preserves the target
 on newly created members, and ordinary reset changes progress alone. Runtime
 semantic startup refusals follow ADR-8’s exception hierarchy.
+
+## Amendment: low-level topology inheritance and lock coverage (2026-10-25)
+
+The low-level initializer acquires the per-name transaction advisory lock before
+reading siblings and inserting its exact key. A uniform sibling size and binding
+are inherited, including an unbound binding. Empty or inconsistent sets retain
+size-1/unbound defaults; initialization never repairs siblings. Existing-row
+precedence, missing policies and atomic authoritative-frontier seeding are unchanged.
+
+The per-name transaction advisory lock serializes worker initialization,
+low-level checkpoint initialization, resize and rebind. Reset does not acquire
+this advisory lock. None of these operations stops a running member: its next
+save writes its configured size and binding and can advance past a reset
+position. Stop every member, wait for exit, and prevent new starts during resize,
+rebind or reset.
+
+Target-mismatch detail events only describe refusal; the subsequent `Stopped`
+event owns crash counting and terminal tracing. Invalid stall intervals likewise
+emit one crashed stop before checkpoint initialization and the typed `wait` failure.

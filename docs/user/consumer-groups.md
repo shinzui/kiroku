@@ -118,6 +118,13 @@ The one rule you must uphold with static membership:
 > **Exactly one live process runs each member index, and all members use the
 > same `size`.**
 
+The per-name transaction advisory lock serializes worker initialization,
+low-level checkpoint initialization, resize and rebind. Reset does not acquire
+this advisory lock. None of these operations stops a running member: its next
+save writes its configured size and binding and can advance past a reset
+position. Stop every member, wait for exit, and prevent new starts during resize,
+rebind or reset.
+
 A missing or duplicate member remains an operational error:
 
 - **Two live processes share a member index.** Both read the same slice of

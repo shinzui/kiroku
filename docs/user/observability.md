@@ -62,6 +62,8 @@ regression. Keep a catch-all branch if you only care about specific events.
 | `KirokuEventSubscriptionDbError !SubscriptionName !SubscriptionDbPhase !UsageError !SubscriptionGroupContext` | A subscription worker hit a database error in a specific phase. Checkpoint initialization errors fail startup, fetch-batch errors retry at the same cursor with capped backoff, and save errors preserve at-least-once replay. | Investigate the phase (below), especially if emissions are sustained. |
 | `KirokuEventSubscriptionCheckpointResolved !CheckpointInitialization !SubscriptionGroupContext` | Startup found an existing exact member row or durably initialized one according to its missing-checkpoint policy. | Distinguish resume, zero seed, and current-head seed before `Started`. |
 | `KirokuEventSubscriptionTargetBound !SubscriptionName !SubscriptionTarget !SubscriptionGroupContext` | Startup atomically adopted all legacy unbound members under `AdoptUnbound`. | Record the adopted target; later conflicting starts refuse delivery. |
+| `KirokuEventSubscriptionGroupSizeMismatch !ConsumerGroupSizeMismatch !SubscriptionGroupContext` | Startup refused incompatible sibling sizes. | Correct the topology with all workers stopped; the following `Stopped` reports the crash. |
+| `KirokuEventSubscriptionTargetMismatch !SubscriptionTargetMismatch !SubscriptionGroupContext` | Startup refused incompatible or required-but-unbound sibling targets. | Inspect requested and stored bindings; the following `Stopped` reports the crash. |
 | `KirokuEventSubscriptionCheckpointMissing !SubscriptionCheckpointMissing !SubscriptionGroupContext` | `FailIfMissing` refused an absent exact member key. No row was inserted and the worker has not emitted `Started` or invoked the handler. | Treat as a provisioning or deployment-identity failure. |
 | `KirokuEventSubscriptionStarted !SubscriptionName !GlobalPosition !SubscriptionGroupContext` | Checkpoint resolution succeeded and the worker is beginning catch-up from that position. | Useful as a liveness signal; pair with the preceding resolution event to distinguish resume from initialization. |
 | `KirokuEventSubscriptionCaughtUp !SubscriptionName !GlobalPosition !SubscriptionGroupContext` | The subscription reached the publisher's last-published position and switched from catch-up to live. Fires at most once per run. | Track catch-up latency after a restart. |
@@ -115,6 +117,13 @@ Discriminates the `KirokuEventSubscriptionStopped` cause:
   [Subscriptions](subscriptions.md).
 - `StopWorkerCrashed !SomeException` — an uncaught exception (typically from
   the handler) killed the worker. The exception carries the cause.
+
+Startup refusals emit exactly one `KirokuEventSubscriptionStopped` with
+`StopWorkerCrashed` before `wait` returns the typed exception, even when no
+`Started` event occurred. Invalid `handlerStallWarnAfter` intervals report position
+zero before checkpoint initialization. Target and size mismatch events supply
+refusal details; built-in metrics count the crash and tracing emits its terminal
+span only from the following `Stopped`, so those details do not double-count it.
 
 ### `SubscriptionGroupContext`
 

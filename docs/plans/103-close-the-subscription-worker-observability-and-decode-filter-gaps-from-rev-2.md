@@ -22,6 +22,11 @@ provenance:
       at: 2026-10-25T19:43:51Z
       mode: "update"
       note: "Apply all five review findings: atomic topology inheritance, meaningful regression fixtures, single-stop observer accounting, and precise lock documentation; align validation and shell prerequisites."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-25T20:16:44Z
+      mode: "implement"
+      note: "Implement startup refusal observability, stable decode filtering, and serialized topology inheritance with regression coverage."
 ---
 
 # Close the subscription worker observability and decode-filter gaps from REV-2
@@ -55,12 +60,18 @@ corrupting it, and the guides say plainly what the lock does not protect.
 
 ## Progress
 
-- [ ] Milestone 1: invalid stall intervals and target mismatches emit exactly one `Stopped` event with `StopWorkerCrashed` before `wait` surfaces the refusal; target mismatches also emit their dedicated event; observer tests prove one crash count and one terminal span per refusal.
-- [ ] Milestone 2: retry decoding retains the first filter decision, including delivery when decoding recovers to an excluded type; regression tests pin that transition, and `docs/user/subscriptions.md` and ADR-12 state the raw-versus-decoded filter rule and the `Stop` disposition's checkpoint effect.
-- [ ] Milestone 3: the low-level initializer adopts uniform sibling topology under the per-name transaction lock; tests prove a previously absent member inherits size and binding, can start, and observes a concurrent rebind after waiting for the lock; both guides accurately distinguish startup/resize/rebind locking from reset and running-worker behavior.
+- [x] Milestone 1 (2026-10-25; store refusal tests and the complete 126-example metrics and 19-example tracing suites pass): invalid stall intervals and target mismatches emit exactly one `Stopped` event with `StopWorkerCrashed` before `wait` surfaces the refusal; target mismatches also emit their dedicated event; observer tests prove one crash count and one terminal span per refusal.
+- [x] Milestone 2 (2026-10-25; recovered-decode regression fails with the old guard and passes with the fix; ADR bundle validates strictly): retry decoding retains the first filter decision, including delivery when decoding recovers to an excluded type; regression tests pin that transition, and `docs/user/subscriptions.md` and ADR-12 state the raw-versus-decoded filter rule and the `Stop` disposition's checkpoint effect.
+- [x] Milestone 3 (2026-10-25; missing-member and concurrent-rebind regressions pass; all six repository suites and 41 structural checks pass): the low-level initializer adopts uniform sibling topology under the per-name transaction lock; tests prove a previously absent member inherits size and binding, can start, and observes a concurrent rebind after waiting for the lock; both guides accurately distinguish startup/resize/rebind locking from reset and running-worker behavior.
 
 
 ## Surprises & Discoveries
+
+The new initializer tests failed against the old implementation for the genuinely
+absent category-bound member, the uniform unbound size-2 set, and the concurrent
+rebind. With the fix, all pass. The rebind test holds a separate test gate after
+calling the public rebind transaction operation; PostgreSQL lock-state queries
+prove the initializer is blocked behind that transaction before the gate opens.
 
 The 2026-10-25 review found that resize materializes every member in the new
 range, while initialization uses `ON CONFLICT DO NOTHING`. A test that initializes
@@ -76,6 +87,13 @@ acquire the per-name advisory lock, unlike worker startup, resize and rebind.
 
 ## Decision Log
 
+- Decision: Prepare unreleased versions kiroku-store 0.12.0.0, kiroku-metrics
+  0.4.0.0 and kiroku-otel 0.3.0.0; allow both store 0.11 and 0.12 in the CLI
+  and adapter, which need no source changes.
+  Rationale: Hackage and upstream tags confirm the current released versions are
+  0.11.0.1, 0.3.0.1 and 0.2.0.12. The store's closed event type grows; its built-in
+  observers require the new constructor. No publication is part of this plan.
+  Date: 2026-10-25
 - Decision: Add `KirokuEventSubscriptionTargetMismatch` as a new `KirokuEvent`
   constructor rather than reusing an existing one.
   Rationale: Operators can distinguish a target refusal by constructor without
@@ -114,7 +132,47 @@ acquire the per-name advisory lock, unlike worker startup, resize and rebind.
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+Completed 2026-10-25. Invalid stall intervals now emit one crashed stop before
+checkpoint initialization; target refusals emit typed details followed by one
+crashed stop. Built-in metrics and tracing account for each refusal exactly once,
+even without a Started event. Decode retries preserve the original filter and
+selector decision. Explicit low-level initialization inherits only uniform sibling
+topology while holding the same name lock as startup, resize and rebind.
+
+The new recovered-decode regression failed with the original guard by timing out
+waiting for its ordinary handler. The original initializer failed the missing
+category-bound member, uniform unbound size and lock-wait regressions; all pass
+with the fixes. Available registry-discovered downstream event matches use a
+fallback (including `mori://shinzui/kotei`), so no downstream source change was
+needed here. Downstream bounds must still admit the new store major when adopted.
+
+Validation ran in `nix develop --no-write-lock-file` with GHC 9.12.4 and PostgreSQL
+18. `cabal build all` passed. `cabal test all --test-show-details=direct` passed all
+six suites: store 496, metrics 126, tracing 19, CLI 22, migrations 24 and adapter
+45 examples (732 total). After a final initializer-fixture cleanup, its focused
+suite passed 13 examples. `just perf-structure` passed 41 examples. Both ADR and
+friction bundles passed strict profile/log enforcement; `git diff --check` passed.
+Review confirmed `kiroku-store/src/Kiroku/Store/SQL.hs` is unchanged and checkpoint
+SQL changes only explicit initialization orchestration and documentation, plus
+required formatting. No append, event-read or per-batch statement changed, and no remote performance
+experiment was required or run. These checks establish correctness and structural
+invariants, not a new measured performance claim.
+
+ADRs 4 and 12 now retain the durable inheritance, lock-coverage, terminal-accounting
+and filter-decision rules. Both user guides and the observability catalogue agree
+with them. Unreleased changelogs and package metadata prepare store 0.12.0.0,
+metrics 0.4.0.0 and tracing 0.3.0.0; nothing was published.
+
+[FRIC-3](../friction-log/3-repository-formatter-rewrites-untouched-haskell-files.md)
+was accepted: tracked `fourmolu.yaml` selects a different style from existing
+source files, so the required `nix fmt` run rewrote unrelated files. Verified
+formatter-only changes in unrelated files were restored. Formatting was retained
+in the eleven edited Haskell files to satisfy the normal commit hook; the tracked
+configuration remains unchanged. Earlier attempts incorrectly classified the
+configuration as ignored; the friction entry records that correction. The formatter
+checks syntax-tree equivalence, and final structural checks cover the formatted
+sources. There are no untriaged friction entries or remaining implementation
+milestones.
 
 
 ## Context and Orientation
@@ -395,4 +453,4 @@ Revision note (2026-10-25): Applied the review findings by requiring name-locked
 topology inheritance, tests that exercise missing-member insertion and successful
 decode recovery to an excluded type, explicit single-stop observer accounting, and
 accurate reset-lock documentation. Added the development-shell prerequisite and
-aligned milestone acceptance with those checks. Implementation remains pending.
+aligned milestone acceptance with those checks. Implementation was pending at that revision; the completion evidence is now recorded above.

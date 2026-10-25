@@ -12,6 +12,10 @@
 
 ### Other Changes
 
+- Require kiroku-store 0.12 for its expanded operational events.
+- Handle target-mismatch detail events without duplicating the subsequent
+  crashed-stop counter, including startup refusals without `Started`.
+
 - `kiroku-inspect` reports redacted `bind`, `database`, `schema` or `other` failures.
   A first SIGINT/SIGTERM shuts down gracefully; a second, including mixed signals,
   forces exit 130. Document loopback-only `--port 0` and all-interface fixed ports.

@@ -1,6 +1,8 @@
 # Bundle Update Log
 
 ## 2026-10-25
+* **Amendment**: ADR-12 keeps the initial decoded-or-raw event filter decision unchanged across decode retries.
+* **Amendment**: ADR-4 clarifies locked low-level topology inheritance, precise reset and running-worker boundaries, and single-stop refusal accounting.
 * **amended**: ADR-18: classify redacted startup failures, retain loopback free ports and force exit on a second shutdown signal.
 * **amended**: ADR-16: refuse disabled-policy Origin-bearing upgrades and document same-origin proxy migration.
 * **Update**: ADR-5: retain the low-spread identical-SQL failure, batch unchanged append units to reduce timer perturbation, and expose adaptive workload counts without changing numeric bounds.
