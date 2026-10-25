@@ -88,6 +88,11 @@ Add an edge in the same change that cuts a release that needs one. Declare an
 edge only for releases requiring judgement work — undeclared gaps are legal and
 mean no agent intervention was needed.
 
+Write the edge for a released window in the release commit, before creating any
+release tags, so consumers upgrading on release day have the guidance available.
+The `0.9.0.1 -> 0.10.0.0` edge landed on 2026-10-12, two days after the
+2026-10-10 package publication; that gap is the reason for this timing rule.
+
 Write each edge's precondition explicitly, and write it to survive being run by a
 project that does not use Kiroku directly, which for this cohort is most of them.
 An edge that finds no direct usage and no affected database should report itself

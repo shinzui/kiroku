@@ -57,6 +57,18 @@
 - Byte-ordered stream browsing with exact category, literal prefix and exclusive
   name cursors; paged category enumeration and canonical event lookup by id.
 
+### Erratum — 2026-10-25
+
+The published 0.11.0.0 notes omitted this source-compatibility break; the Hackage
+copy cannot be updated:
+
+- `SubscriptionDeadLetter` and `SubscriptionDeadLetterQuery` add exported record
+  selectors `eventId`, `globalPosition`, `after` and `limit` through `Kiroku.Store`
+  under `DuplicateRecordFields`. Bare uses of those names on `RecordedEvent` or
+  `HistoryRetentionInventoryQuery` can now fail with ambiguous-occurrence errors.
+  Disambiguate field access or narrow imports; the repository's `Worker.hs` needed
+  `hiding (eventId, globalPosition)` on its conflicting import.
+
 
 ## 0.10.0.0 — 2026-10-10
 
@@ -100,6 +112,37 @@
   `DuplicateEvent` with a parseable caller ID. `ux_stream_events_stream_version`
   returns `UnexpectedServerError "23505"` with the original message for an
   invariant failure. Unknown append constraints retain the expected-version fallback.
+
+### Erratum — 2026-10-25
+
+The published 0.10.0.0 notes omitted or only implied the following breaking
+changes; the Hackage copy cannot be updated:
+
+- `SubscriptionConfigM` also gains `targetBindingPolicy` (default `AdoptUnbound`),
+  and `batchSize` changes from `Int32` to validated `BatchSize`. Complete record
+  constructors must supply the new field; construct batch sizes with `mkBatchSize`.
+- `subscriptionStream` and `subscriptionAckStream` take validated
+  `StreamBufferSize` in place of their previous numeric buffer-capacity parameter;
+  use `mkStreamBufferSize`.
+- `StoreError.EventDecodeFailed` and
+  `DeadLetterReason.DeadLetterDecodeFailure`, mentioned above as features, also
+  require updates to exhaustive matches. Observer matches must additionally
+  handle the new `KirokuEvent.KirokuEventSubscriptionTargetBound` constructor.
+- `InvalidConsumerGroup` and `InvalidStreamBufferSize` lose their `Exception`
+  instances. Handle construction failures as `Left` values from the validated
+  constructors; `subscribe`, `subscriptionAckStream` and
+  `kirokuConsumerGroupProcessors` no longer throw those errors.
+- Exposed `Kiroku.Store.Subscription.Fsm` constructors change payloads:
+  `ConnectionLost` carries a `GlobalPosition`, and `BatchFetched` and
+  `DeliverBatch` carry `DecodedBatch`.
+- In exposed `Kiroku.Store.Subscription.EventPublisher`, `subscribePublisher`
+  returns a `TBQueue DecodedBatch` in its result. Exposed
+  `Kiroku.Store.Subscription.Worker.LiveFromPublisherQueue` likewise takes a
+  `TBQueue DecodedBatch`.
+- In exposed `Kiroku.Store.SQL`, `saveCheckpointMemberStmt` takes the six-tuple
+  `(Text, Int32, Int64, Int32, Text, Maybe Text)`. `DeadLetterParams` gains
+  `dlTargetKind`, `dlTargetCategory` and `dlGroupSize`; update direct callers and
+  complete record constructors.
 
 ## 0.9.0.1 — 2026-09-25
 

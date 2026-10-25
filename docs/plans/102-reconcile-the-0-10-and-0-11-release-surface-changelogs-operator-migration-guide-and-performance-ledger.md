@@ -22,6 +22,11 @@ provenance:
       at: 2026-10-25T20:21:55Z
       mode: "update"
       note: "Apply review fixes for migration counts, EP97 evidence, existing CORS erratum and dates; depend only on Plan 100 documentation correction."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-25T23:09:37Z
+      mode: "implement"
+      note: "Implement release errata, migration operator guidance, retained performance ledger evidence and release-edge timing."
 ---
 
 # Reconcile the 0.10 and 0.11 release surface: changelogs, operator migration guide and performance ledger
@@ -52,18 +57,19 @@ blueprint's README states that an edge lands in the release commit, before any t
 
 ## Progress
 
-- [ ] Milestone 1: `kiroku-store/CHANGELOG.md` and `kiroku-metrics/CHANGELOG.md` carry dated errata under the 0.10.0.0, 0.11.0.0 and 0.3.0.0 entries listing every omission REV-2 and REV-3 recorded, and the files still render as one entry per version.
-- [ ] Milestone 2: `docs/user/schema-migrations.md` covers migrations 0013 through 0015 with the operator actions each requires and consistent manifest-derived counts, links to the upgrade edges and the consumer-group guide's incomplete-legacy warning, and no dependency on a new recovery API.
-- [ ] Milestone 3: `docs/perf-experiment-log.md` has rows for the MP13 rerun comparison and the EP97 paired metadata gate, its header admits protected-path experiments beyond appends, and `blueprints/kiroku-upgrade/README.md` states when an edge is written.
+- [x] (2026-10-25) Milestone 1: Added the missing store API breaks under dated 0.10.0.0 and 0.11.0.0 errata and extended the existing metrics 0.3.0.0 erratum with the dependency and default-route changes. Compared against REV-2/REV-3 and release source; heading lists remain identical (19 store, 14 metrics), and both Unreleased sections and the CORS correction are preserved.
+- [x] (2026-10-25) Milestone 2: The operator guide covers stopped workers for 0013–0014 and the write pause for 0015. Inventory/import counts match the fifteen-entry manifest (seven historical, eight additions); upgrade-edge links and the corrected incomplete-legacy warning resolve. Implemented Plan 100 milestone 1's documentation prerequisite; blueprint validation passes, with no new recovery API.
+- [x] (2026-10-25) Milestone 3: Appended two seven-column ledger rows with MP13 and EP97 evidence, preserving every prior row verbatim. Checked each trial/size/interval against the retained READMEs; practical MP13 acceptance remains distinct from its inconclusive statistics, and EP97 names the 1.10 limit. Widened the ledger scope and documented release-commit edge timing. Whitespace and structural checks pass.
 
 
 ## Surprises & Discoveries
 
 On 2026-10-25 the user confirmed that the consumer-group feature has never been
 used in production. Plan 100 now defers dedicated legacy recovery implementation
-and retains only documentation correction and bug triage. The current guide still
-contains the unsafe resize-only recommendation, so the link must wait for that
-small correction, not for a new API.
+and retains only documentation correction and bug triage. At implementation start,
+the guide still contained the unsafe resize-only recommendation. Plan 100's small
+documentation correction was implemented as this plan's prerequisite, without a
+new API; its BUG-5 triage remains pending.
 
 Plan 101 has completed: the metrics changelog already contains an Unreleased entry
 and a CORS erratum dated 2026-10-25, and ADR-16 describes the new default. Plan 99
@@ -103,7 +109,25 @@ evidence rather than copying the review's summary.
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+Completed on 2026-10-25. The repository release notes now expose the omitted API
+breaks and automatic metrics routes, the operator guide covers migrations through
+0015 with manifest-derived totals, and the ledger makes the retained October
+experiments discoverable without changing their verdicts. The upgrade blueprint
+now requires consumer guidance before release tags are created.
+
+Validation used `git diff --check`, the ledger column check, exact before/after
+heading and prior-row comparisons, manifest counts, and resolution of all nine
+added Markdown file links and warning anchors. Blueprint validation passed with
+`seihou validate-blueprint blueprints/kiroku-upgrade`. Content was checked against REV-2/REV-3, the
+released API source, migration SQL and both primary evidence READMEs. These are
+documentation-only changes; no compiler, database or new performance run was
+needed. No material workflow friction was encountered or recorded.
+
+ADR distillation found no changed architecture or performance policy: ADR-5,
+ADR-11, ADR-16 and ADR-17 already cover the preserved contracts. The release-edge
+timing rule is maintained directly in the blueprint README. No ADR amendment is
+needed. Plan 100 milestone 1 is complete as a prerequisite; its separate BUG-5
+triage milestone remains outside this plan's implementation.
 
 
 ## Context and Orientation
@@ -368,4 +392,5 @@ counts and import expectations, correcting EP97 trial/size attribution from prim
 evidence, preserving the existing CORS correction and dating new errata accurately.
 Reflected the user's no-production-use decision by depending only on Plan 100's
 small documentation correction. Replaced ineffective Markdown formatting evidence
-with content, link and structural checks. Implementation milestones remain pending.
+with content, link and structural checks. Implementation completion is recorded
+in Progress above.

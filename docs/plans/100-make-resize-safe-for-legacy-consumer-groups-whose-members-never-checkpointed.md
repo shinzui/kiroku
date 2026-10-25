@@ -27,6 +27,11 @@ provenance:
       at: 2026-10-25T20:21:55Z
       mode: "update"
       note: "User confirmed no production use; defer seeded recovery API and tests, retain only documentation correction and BUG-5 triage."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-25T23:09:38Z
+      mode: "implement"
+      note: "Implement milestone 1 documentation prerequisite for Plan 102; BUG-5 triage remains pending."
 ---
 
 # Make resize safe for legacy consumer groups whose members never checkpointed
@@ -60,11 +65,11 @@ recovery test matrix, release bump or performance experiment is required.
 
 ## Progress
 
-- [ ] Milestone 1: `docs/user/consumer-groups.md` and `blueprints/kiroku-upgrade/migrations/0.9.0.1-to-0.10.0.0.md` distinguish ordinary resizing from incomplete legacy recovery, remove the unsafe resize-only recommendation, and provide a stable warning section for Plan 102 to link.
+- [x] (2026-10-25) Milestone 1: Implemented as Plan 102's documentation prerequisite. `docs/user/consumer-groups.md` and the historical upgrade edge distinguish ordinary resize from incomplete legacy recovery, explain the skipped-backlog risk and deferred implementation, and provide the stable `#incomplete-legacy-groups` warning. Links resolve and `seihou validate-blueprint blueprints/kiroku-upgrade` passes; no recovery API or validated recipe is claimed.
 - [ ] Milestone 2: BUG-5 and its bundle log record the user's no-production-use statement, deferred recovery implementation and a concrete reopening condition; invalid per-member-reset and released-migration-edit advice is corrected, and bundle validation passes.
 
-The earlier implementation milestones are superseded, not completed. This revision
-changes the plan only; the documentation and bug-triage deliverables remain pending.
+The earlier API implementation milestones are superseded, not completed. The guide
+correction is complete; BUG-5 disposition and its bundle-log update remain pending.
 
 
 ## Surprises & Discoveries
@@ -112,8 +117,13 @@ the production recovery requirement was removed.
 ## Outcomes & Retrospective
 
 The plan was narrowed on 2026-10-25 before implementation. The proposed public API,
-SQL changes and recovery test work are removed from active scope. The two small
-remaining documentation deliverables have not yet been implemented or accepted.
+SQL changes and recovery test work are removed from active scope. Milestone 1 was
+then completed as Plan 102's prerequisite: both guides now warn that ordinary resize
+alone can lose a never-started member's backlog, distinguish retained data from
+disposable fixtures, and make no recovery guarantee. Blueprint validation and link
+checks pass. BUG-5 triage remains pending under milestone 2; the defect is not fixed.
+No material workflow friction was encountered in this documentation correction, and
+no architecture decision changed.
 
 
 ## Context and Orientation

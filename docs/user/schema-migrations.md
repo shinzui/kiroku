@@ -5,11 +5,11 @@ Kiroku ships one native `pg-migrate` component in
 the event-store library itself never runs schema DDL.
 
 The component is named `kiroku`, has no component dependencies, and currently
-contains twelve ordered native migrations. Its checked-in
+contains fifteen ordered native migrations. Its checked-in
 `kiroku-store-migrations/migrations/manifest` is authoritative. SQL bytes are
 embedded at compile time and deployed services do not discover migration files
 at runtime. The first seven entries preserve the historical Codd payloads
-byte-for-byte; `0008` through `0012` are native-only forward migrations.
+byte-for-byte; `0008` through `0015` are eight native-only forward migrations.
 
 ## Running the executable
 
@@ -60,8 +60,9 @@ migrations already appear in `codd.sql_migrations` or
 5. leaves the Codd source objects unchanged.
 
 After import, inspect strict `verify`: it must report the first seven entries as applied and only
-`0008` through `0012` as pending. Then run `up`; it must report seven `AlreadyApplied`
-outcomes and five `AppliedNow` outcomes. A final `verify` must be clean across all twelve native
+`0008` through `0015` as pending. Before running `up`, follow the stopped-worker
+and write-pause requirements below for the pending migrations. It must report seven `AlreadyApplied`
+outcomes and eight `AppliedNow` outcomes. A final `verify` must be clean across all fifteen native
 entries. A missing
 legacy row, checksum mismatch, partial nontransactional row, or any other unexpected issue is a
 cutover blocker.
@@ -138,3 +139,43 @@ VACUUM (ANALYZE) kiroku.stream_events;
 That reclaims the row versions the backfill replaced and refreshes planner
 statistics for the new index. A failure at any point rolls the whole migration
 back, including the temporarily disabled `no_update_stream_events` trigger.
+
+## Migrations 0013 and 0014 need stopped workers
+
+Stop every subscription worker and prevent restarts before running
+`kiroku-store-migrate up` for `0013` and `0014`
+(kiroku-store-migrations 0.7.0.0, required by kiroku-store 0.10.0.0).
+`0013` derives `consumer_group_size` for each subscription name as the highest
+stored member index plus one. `0014` adds `target_kind` and `target_category`,
+initially leaving legacy checkpoints unbound, and drops the legacy `stream_name`
+column. A running worker can save incompatible size or binding metadata, so keep
+all workers stopped through migration and configuration review.
+
+Before restarting, confirm the intended group size and historical subscription
+target. Startup validates persisted topology and binding before delivery; adopt
+an unbound legacy target explicitly through the configured target-binding policy
+only after verifying its identity. An incomplete legacy group can derive a smaller
+size and refuse startup with `ConsumerGroupSizeMismatch`. Ordinary resize alone
+can skip the backlog of a member that never checkpointed: its new row starts at
+the existing group's minimum, above events that member never processed. Read
+[Incomplete legacy groups](consumer-groups.md#incomplete-legacy-groups) before
+changing those checkpoints. Dedicated recovery implementation is deferred; no
+validated recovery procedure is provided. If history must be retained, keep the
+workers stopped and establish the recovery requirement first.
+
+The consumer upgrade instructions are in the
+[`0.9.0.1 -> 0.10.0.0` edge](../../blueprints/kiroku-upgrade/migrations/0.9.0.1-to-0.10.0.0.md).
+
+## Migration 0015 blocks appends during its index build
+
+`0015` (kiroku-store-migrations 0.7.1.0, required by kiroku-store 0.11.0.0)
+creates the byte-ordered stream-name index `ix_streams_browse_name` with a plain
+transactional `CREATE INDEX`. Its `SHARE` lock on `kiroku.streams` blocks writes
+to that table, so every append waits until the build commits. Build duration
+grows with the number of streams, rather than the number of events.
+
+For a large store, rehearse `kiroku-store-migrate up` on a restored clone to time
+the build, schedule a write pause, and stop appending processes before applying
+`0015`. Run `verify` and resume appends after the migration commits. See the
+[`0.10.0.0 -> 0.11.0.0` edge](../../blueprints/kiroku-upgrade/migrations/0-10-to-0-11.md)
+for the rest of the consumer upgrade.

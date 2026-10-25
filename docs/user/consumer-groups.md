@@ -193,12 +193,29 @@ operation composes with application-owned SQL in the same transaction and rolls
 back with it. After workers have resumed, another resize equalizes their current
 minimum and is a new operator action, so it also requires stopping them.
 
-Migration `0013.sql` derives existing topology as `max(member) + 1` per name.
-Apply it with workers stopped. A legacy group missing its higher member rows
-can derive a smaller size; startup refuses the configured size until you call
-resize with the intended size. There is no silent adoption on first start.
 Use resize to pre-provision a complete group rather than independently creating
 member checkpoints with the low-level size-1 initializer.
+
+### Incomplete legacy groups
+
+Migration `0013.sql` derives existing topology as `max(member) + 1` per name.
+Apply it with every worker stopped. A legacy group missing its higher member rows
+can derive a smaller size, and startup then refuses the configured size. There
+is no silent adoption on first start.
+
+**Ordinary resize alone is not a lossless repair for an incomplete legacy group.**
+It creates missing members at the existing group's minimum checkpoint. A member
+that never ran can have unprocessed events below that minimum, so those events
+would be skipped. The ordinary resize procedure above assumes the previous group
+covered those events. See
+[BUG-5](../bug-reports/post-migration-resize-skips-a-never-started-members-backlog.md)
+for the source-inspected defect; no validated recovery procedure is available.
+
+As of 2026-10-25, the project owner reports no production use of consumer groups,
+and dedicated legacy recovery implementation is deferred. This does not make
+retained data disposable. Disposable development fixtures may use their established
+rebuild workflow. If history must be retained, keep workers stopped and establish
+the recovery requirement before changing checkpoints.
 
 ## Ordering And Delivery Guarantees
 

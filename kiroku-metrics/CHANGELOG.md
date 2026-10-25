@@ -77,6 +77,12 @@ The original 0.3.0.0 notes omitted that WebSocket origin refusal required enable
 CORS; disabled-policy upgrades were open. This repository correction cannot update
 the published Hackage copy. See the Unreleased breaking migration note above.
 
+The same release also added the `effectful-core` library dependency. Store-backed
+starters automatically enable browse, dead-letter and checkpoint routes on
+upgrade; this is a change to their default route surface, not merely an opt-in
+API addition. Hosts that need selected providers must use explicit
+`ServerProviders` composition through the `...WithProviders` functions.
+
 ### Other Changes
 
 - Require `kiroku-store ^>=0.11.0.0` and `kiroku-cli ^>=0.2.0.10`. Construct the new `ServerProviders` from `defaultServerProviders`; full construction supplies all six fields.
