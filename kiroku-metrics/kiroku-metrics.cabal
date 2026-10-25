@@ -89,6 +89,7 @@ executable kiroku-inspect
   import:         common
   main-is:        Main.hs
   hs-source-dirs: app-inspect
+  other-modules:  InspectSignals
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N
   build-depends:
     , base                  >=4.18 && <5
@@ -140,6 +141,7 @@ test-suite kiroku-metrics-test
   build-tool-depends: kiroku-metrics:kiroku-inspect
   main-is:            Main.hs
   other-modules:
+    InspectSignals
     Test.BrowseSpec
     Test.CapabilitiesSpec
     Test.CheckpointsSpec
@@ -153,7 +155,7 @@ test-suite kiroku-metrics-test
     Test.WebSocketConvergenceSpec
     Test.WebSocketSpec
 
-  hs-source-dirs:     test
+  hs-source-dirs:     test app-inspect
   ghc-options:        -threaded -rtsopts -with-rtsopts=-N
   build-depends:
     , aeson                 >=2.1       && <2.3

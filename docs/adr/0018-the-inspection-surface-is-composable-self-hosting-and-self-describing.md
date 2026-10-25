@@ -8,7 +8,7 @@ generated:
 docId: ADR-18
 status: Accepted
 date: 2026-10-11
-timestamp: "2026-10-11T02:48:40Z"
+timestamp: "2026-10-25T19:55:30Z"
 originatingPlan: docs/plans/95-serve-the-kiroku-inspection-surface-standalone-and-make-it-self-describing.md
 ---
 
@@ -62,8 +62,15 @@ this record fixes hosting, discovery and provider ownership.
    It runs no subscriptions and says so. An empty live registry and metrics
    map describe this process; durable reads describe the database. Validated
    flags override environment values, including explicit credentials False.
-   Startup succeeds only after binding; signal shutdown releases bracketed
-   resources. Diagnostics never print a connection string.
+   Startup succeeds only after binding. A first SIGINT or SIGTERM joins shutdown
+   and releases bracketed resources; a second of either signal forces exit 130,
+   including mixed pairs, and can skip graceful cleanup. Both handlers share one
+   atomic persistent state independent of the consumed shutdown notification.
+   Diagnostics never print a connection string, SQL or server message: listener
+   setup IO failures carry a typed bind marker; notifier/pool/store errors classify
+   from structure as database or schema (SQLSTATE 42P01 or 3F000), with unrelated
+   failures classified as other. Hook and teardown IO errors are not bind failures.
+   Reuse store error mapping without a schema probe or changes to store lifetime.
 4. `GET`/`HEAD /capabilities` describes actual wiring regardless of enable
    switches, with no database reads. It publishes the compiled package version,
    nine route booleans, CORS enablement and a fixed `process_local` list including
@@ -73,8 +80,9 @@ this record fixes hosting, discovery and provider ownership.
    join ADR-9's frozen contract when released. Availability is not health.
 
 No authentication, TLS, rate limiting, operator mutation, static UI hosting or
-bind-address option is added in this cohort. Starters bind all interfaces; a
-controlled network/firewall or authenticating proxy supplies access restriction.
+bind-address option is added in this cohort. Fixed ports bind all interfaces;
+port 0 selects a loopback-only free port. A controlled network/firewall or
+authenticating proxy supplies access restriction.
 CORS remains browser policy. This child adds no store SQL, index or publisher
 work; cumulative performance acceptance and publication remain with plan 96.
 
@@ -88,8 +96,9 @@ Channel declarations are the host's responsibility; they cannot be inferred
 from an opaque function. `optparse-applicative` becomes a library dependency.
 Record labels remain ambiguous even under NoFieldSelectors when multiple record
 types use `port` or `cors`; consumers should qualify configuration updates.
-The listener binds all interfaces and the standalone process is not a view of
-other processes' live workers. Durable inventory remains the shared authority.
+Fixed-port listeners bind all interfaces; port 0 binds loopback only. The standalone
+process is not a view of other processes' live workers. Durable inventory remains
+the shared authority.
 
 ## Alternatives considered
 
@@ -102,3 +111,14 @@ Copying or aggregating durable state creates another authority and contradicts
 the direct-client convention. Broad per-child statistical experiments are
 unnecessary for pure startup/discovery metadata; release retains the cumulative
 observer-under-append gate without inferring acceptance from local checks.
+
+## Amendment: standalone startup and forced shutdown (2026-10-25)
+
+The free-port loopback behavior is retained and documented. Startup diagnostics
+expose only the classes `bind`, `database`, `schema` and `other` with details redacted.
+Classification inspects typed exceptions, never rendered messages; missing schema
+is observed by the existing publisher query, not an added compatibility probe.
+Bracketed supervision and first-signal graceful exit 0 remain. A second signal
+forces process exit 130 even during blocked cleanup, accepting skipped finalizers.
+The signal implementation is shared with a private test subprocess that confirms
+blocked teardown before exercising all four ordered SIGINT/SIGTERM pairs.

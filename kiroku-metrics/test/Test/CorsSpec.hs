@@ -204,6 +204,7 @@ spec = do
     it "upgrades allowed and absent origins but refuses an unlisted browser origin" $
       withInspection policy $ \port -> do
         assertSnapshot port [(hOrigin, ops)]
+        assertEventUpgrade port [(hOrigin, ops)]
         refused <- wsSnapshot port [(hOrigin, evil)]
         case refused of
           Left (WS.MalformedResponse _ _) -> pure ()
@@ -212,6 +213,7 @@ spec = do
     it "refuses browser event upgrades by default, preserving HTTP and origin-less clients" $
       withInspection corsDisabled $ \port -> do
         assertSnapshot port []
+        assertEventUpgrade port []
         refused <- timeout 15_000_000 $ try $ WS.runClientWith "127.0.0.1" port "/ws/events" WS.defaultConnectionOptions [(hOrigin, evil)] (\_ -> pure ())
         case refused of
           Just (Left (WS.MalformedResponse _ _)) -> pure ()
@@ -287,3 +289,12 @@ assertSnapshot port headers = do
   case result of
     Right value -> value `shouldBe` Just (String "snapshot")
     Left err -> expectationFailure (show err)
+
+-- Exercise the sensitive event channel's successful 101 handshake as well as
+-- metrics snapshots, for configured browser and default origin-less clients.
+assertEventUpgrade :: Int -> RequestHeaders -> Expectation
+assertEventUpgrade port headers = do
+  result <- timeout 15_000_000 $
+    WS.runClientWith "127.0.0.1" port "/ws/events" WS.defaultConnectionOptions headers $ \conn ->
+      WS.sendClose conn ("done" :: Text)
+  result `shouldBe` Just ()

@@ -73,7 +73,7 @@ documented as the safe loopback it already is.
 
 - [x] Milestone 1 (2026-10-25; full package suite: 118 examples, 0 failures): with `corsDisabled`, a WebSocket upgrade carrying any `Origin` header is refused with HTTP 403 and the `origin_not_allowed` envelope, an upgrade without `Origin` succeeds, and HTTP requests with `Origin` are unchanged; `CorsSpec` pins all three and the full kiroku-metrics suite passes.
 - [x] Milestone 2 (2026-10-25; strict ADR validation: 20 concepts; capabilities tests passed in the 118-example suite): ADR-16, `docs/user/metrics.md`, `docs/guides/building-an-inspection-ui.md` and the kiroku-metrics changelog describe the new default and same-origin proxy migration; the 0.3.0.0 claim is corrected in place and the next-version entry is marked breaking. Existing `cors.enabled` discovery remains compatible.
-- [ ] Milestone 3: `kiroku-inspect` distinguishes bind, database, schema and other failures without details; either signal starts graceful shutdown and a second SIGINT or SIGTERM forces exit, including mixed pairs. Tests cover actual startup failures and a deliberately blocked shutdown; the guides and ADR-18 document loopback-only `--port 0`.
+- [x] Milestone 3 (2026-10-25; final formatted candidate: 124 examples, 0 failures; all four blocked-teardown signal pairs exit 130 within one second; strict ADR validation passes): `kiroku-inspect` distinguishes bind, database, schema and other failures without details; either signal starts graceful shutdown and a second SIGINT or SIGTERM forces exit, including mixed pairs. Tests cover actual startup failures and a deliberately blocked shutdown; the guides and ADR-18 document loopback-only `--port 0`.
 
 
 ## Surprises & Discoveries
@@ -127,7 +127,42 @@ without CORS configuration; that WebSocket guidance needs a migration note.
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+Completed 2026-10-25. Disabled CORS now refuses every tested Origin-bearing
+upgrade with the existing 403 envelope before dispatch, while ordinary HTTP and
+origin-less clients retain their behavior. Real `/ws/events` tests verify refusal
+and successful handshakes both without Origin under the default and with an
+explicitly configured public origin. Capabilities retain their existing wire shape
+and configuration meaning. Both guides, ADR-16 and the changelog explain proxy
+migration and the historical erratum; the next release target remains 0.4.0.0.
+
+Standalone diagnostics classify typed listener, notifier, pool and store failures
+without rendering their details. Real occupied-port, refused-connection and absent-schema
+processes exit 1 with exact redacted lines and no success banner. Hook IO errors
+remain `other`; cancellation and supervised socket release continue to pass.
+Single SIGINT/SIGTERM exits 0. The shared-handler test fixture proves that all four
+ordered signal pairs force exit 130 within one second after teardown is confirmed
+blocked, including after the first notification is consumed. Help and ADR-18 document
+forced cleanup semantics and the unchanged loopback-only free port.
+
+Acceptance evidence from the repository root:
+
+```bash
+nix develop --no-write-lock-file -c cabal test kiroku-metrics:kiroku-metrics-test --test-show-details=direct
+okf validate docs/adr --strict --profile docs/adr/profile.dhall --profile-enforce --log-enforce
+```
+
+The final formatted candidate passed 124 examples with 0 failures in 8.9527 seconds;
+the initial CORS milestone passed the then-existing full 118-example suite before
+documentation work. Strict ADR validation passed all 20 concepts. `nix fmt` was run
+on the changed Haskell/Cabal files, and `git diff --check` passed. The built binary's
+`--help` was checked for loopback binding and both signal behaviors. The automated
+real-socket assertions supply the 403/101 handshake smoke evidence without a separate
+manually managed database or listener.
+
+Durable decisions are recorded in the dated ADR-16 and ADR-18 amendments. No new
+scope or dependency bounds were needed, and no performance experiment or publication
+was performed. The friction-log query for this plan returned no logged entries;
+no friction met the recording threshold during implementation.
 
 
 ## Context and Orientation
@@ -506,5 +541,5 @@ target remains 0.4.0.0.
 notifier/pool exceptions, defining shared signal state and blocked-teardown subprocess
 acceptance, updating conflicting CORS and signal tests, covering same-origin proxy
 migration, and preserving existing CORS discovery. Added the development-shell
-prerequisite and bounded manual checks so validation is reproducible. Implementation
-milestones remain pending.
+prerequisite and bounded manual checks so validation is reproducible. At that revision, implementation
+milestones remained pending.

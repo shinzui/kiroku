@@ -13,9 +13,9 @@ described in [Observability](observability.md)) plus a couple of public read
 accessors.
 
 > **Deployment assumption — no built-in auth or TLS.** The server has no
-> authentication, TLS, or rate limiting. The starters and `kiroku-inspect` bind all interfaces on fixed ports and loopback only
-> with port 0; use network
-> isolation or a sidecar/ingress that terminates TLS and authentication. Treat
+> authentication, TLS, or rate limiting. The starters and `kiroku-inspect` bind all
+> interfaces on fixed ports and loopback only with port 0. Use network isolation or
+> a sidecar/ingress that terminates TLS and authentication. Treat
 > `/metrics`, `/health`, `/subscriptions`, `/subscription-checkpoints`,
 > `/subscriptions/<name>/dead-letters`, browsing routes, and the WebSocket as you would any
 > internal scrape/admin surface. CORS only tells browsers which pages may read
