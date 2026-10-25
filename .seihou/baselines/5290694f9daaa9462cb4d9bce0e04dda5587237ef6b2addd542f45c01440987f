@@ -14,6 +14,7 @@ You are managing master plans (MasterPlans) — coordination documents for initi
 - [MASTERPLAN.md](MASTERPLAN.md) — requirements for MasterPlan documents
 - [ExecPlan specification](../exec-plan/PLANS.md) — requirements for child ExecPlan documents
 - [ExecPlan skill](../exec-plan/SKILL.md) — the ExecPlan skeleton and implementation protocol
+- [Friction log workflow](../exec-plan/FRICTION.md) — recording and triaging friction met while implementing
 
 The user's requested scope takes precedence over this skill's workflow defaults. Keep the MasterPlan focused on coordination; child ExecPlans own implementation detail and milestone progress.
 
@@ -38,6 +39,13 @@ When creating a MasterPlan, use that guide to inspect the local corpus and any r
 When implementing or updating a MasterPlan, update or create ADRs in the same change whenever the initiative changes durable project context. MasterPlans should especially identify cross-plan decisions that deserve ADR records: architecture boundaries, decomposition rationale that will matter later, shared interface ownership, durable integration constraints, and deliberate exclusions.
 
 At completion, distill durable context from the MasterPlan and child ExecPlans: review Decision Logs, Surprises & Discoveries, and Outcomes & Retrospectives, then promote project-level decisions or lessons into `docs/adr/`. Leave task-local execution details in the plans.
+
+
+## Friction Log
+
+Friction met while implementing a child ExecPlan is recorded as it occurs in the repository's friction-log bundle with `agents/skills/exec-plan/record-friction.ts`, naming the child plan in `--plan`; friction met while doing coordination work on the MasterPlan itself names the MasterPlan. Follow `agents/skills/exec-plan/FRICTION.md`, the shared contract installed by the exec-plan dependency, for the threshold, the fields, bootstrap, triage, and citation.
+
+A MasterPlan sees friction across its children. When a child plan completes, triage the entries recorded under it. When the same surface has cost effort under more than one child, record that in the MasterPlan's Surprises & Discoveries with the handles; recurrence is the strongest case for promoting an entry to a bug report or an improvement request. Child plans cite their own entries in their Outcomes & Retrospective; the MasterPlan's retrospective cites only recurring or initiative-level friction.
 
 
 ## Git Trailers
@@ -171,7 +179,7 @@ Implement child ExecPlans under an existing MasterPlan. The first argument is th
 
 3. Update the child plan's status to In Progress in the MasterPlan's Exec-Plan Registry.
 
-4. Read the child ExecPlan file. Follow `agents/skills/exec-plan/SKILL.md` (Mode: implement) within the selected child or scheduled milestone. Use the MasterPlan's integration points to check uncertain shared behavior with its consumer early. Update plans on milestone completion, material change, or handoff, and commit at meaningful working boundaries. Every commit must include both `MasterPlan:` and `ExecPlan:` git trailers.
+4. Read the child ExecPlan file. Follow `agents/skills/exec-plan/SKILL.md` (Mode: implement) within the selected child or scheduled milestone, recording friction as it occurs with the child plan's path. Use the MasterPlan's integration points to check uncertain shared behavior with its consumer early. Update plans on milestone completion, material change, or handoff, and commit at meaningful working boundaries. Every commit must include both `MasterPlan:` and `ExecPlan:` git trailers.
 
 5. After completing the child plan:
 
@@ -179,12 +187,13 @@ Implement child ExecPlans under an existing MasterPlan. The first argument is th
    - Update the MasterPlan's Exec-Plan Registry: mark the child plan Complete.
    - Update the MasterPlan's brief Progress snapshot for the new registry state and any remaining integration gate. Do not duplicate child milestones as checkboxes.
    - Record any cross-plan discoveries in the MasterPlan's Surprises & Discoveries section — especially anything that affects other child plans' assumptions, interfaces, or feasibility.
+   - Triage the friction entries recorded under the child per `agents/skills/exec-plan/FRICTION.md`. When the same surface has cost effort under more than one child, record that in the MasterPlan's Surprises & Discoveries with the handles and promote it.
    - Update or create ADRs in `docs/adr/` for durable cross-plan decisions, architecture boundaries, shared interface ownership, integration constraints, or deliberate exclusions revealed by the child plan.
    - Record provenance revision entries with `--mode implement` (see Provenance): one on the child ExecPlan for the implementation work, and one on the MasterPlan for the coordination edits. Record each at most once per session, even when several child plans are implemented back to back.
 
 6. After the selected milestone or child is accepted, return to step 2 and continue within the user's authorized scope. A commit or passing test suite is a checkpoint, not a reason to end implementation. Stop only when no authorized work can proceed, at a requested boundary, or at completion. When all child plans and integration gates are complete, fill in Outcomes & Retrospective.
 
-7. When the MasterPlan is complete, perform the ADR distillation pass across the MasterPlan and all child ExecPlans. Review Decision Logs, Surprises & Discoveries, and Outcomes & Retrospectives, then promote durable project context into `docs/adr/`.
+7. When the MasterPlan is complete, perform the ADR distillation pass across the MasterPlan and all child ExecPlans. Review Decision Logs, Surprises & Discoveries, and Outcomes & Retrospectives, then promote durable project context into `docs/adr/`. Triage any friction entries still `logged` under the initiative, and cite recurring friction in the MasterPlan's Outcomes & Retrospective.
 
 
 ### Mode: status
@@ -197,7 +206,7 @@ If a master plan path is given:
 
 2. Read child Progress sections as needed to identify current milestones and blockers. Treat the registry as the source of truth for child-plan status.
 
-3. Present a summary: the initiative title, child plans completed / total, remaining integration gates, and a table showing each child plan's number, title, status, current milestone, and any blockers. Do not infer effort percentages from checkbox counts.
+3. Present a summary: the initiative title, child plans completed / total, remaining integration gates, and a table showing each child plan's number, title, status, current milestone, and any blockers. Do not infer effort percentages from checkbox counts. When the repository has a friction-log bundle, note the entries still `logged` under each child, by handle.
 
 4. Highlight dependency bottlenecks — child plans that are blocked and what they are waiting on. If multiple plans can proceed in parallel, note this.
 

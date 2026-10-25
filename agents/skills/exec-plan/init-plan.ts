@@ -125,6 +125,7 @@ const skeleton = `# ${title}
 This ExecPlan is a living document. The sections Progress, Surprises & Discoveries,
 Decision Log, and Outcomes & Retrospective must be kept up to date as work proceeds.
 If durable project context changes, update or create ADRs in docs/adr/ in the same change.
+Record friction met while implementing in the friction-log bundle as it occurs (see FRICTION.md).
 
 
 ## Purpose / Big Picture
@@ -146,7 +147,9 @@ handoff during a milestone, add a short prose note stating the remaining outcome
 ## Surprises & Discoveries
 
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
-implementation. Provide concise evidence.
+implementation. Provide concise evidence. Friction with the tools, documents, and processes
+used to do the work belongs in the friction log (see FRICTION.md); cite an entry's FRIC-N
+handle here only when it also changed the plan.
 
 (None yet.)
 
@@ -164,7 +167,8 @@ future contributor should follow. Omit routine implementation choices.
 ## Outcomes & Retrospective
 
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
-Compare the result against the original purpose. Before marking the plan complete,
+Compare the result against the original purpose. Cite the friction entries recorded under
+this plan by handle with their triage outcome. Before marking the plan complete,
 distill durable project context from the Decision Log, Surprises & Discoveries, and
 this section into docs/adr/. Keep task-local execution details here.
 

@@ -191,7 +191,9 @@ Use a checkbox only for a cross-plan gate that has its own observable acceptance
 ## Surprises & Discoveries
 
 Document cross-plan insights, dependency changes, scope adjustments, or unexpected
-interactions between child plans. Provide concise evidence.
+interactions between child plans. Provide concise evidence. Friction recurring across child
+plans belongs here by FRIC-N handle; single occurrences stay in the friction log (see the
+exec-plan skill's FRICTION.md).
 
 (None yet.)
 

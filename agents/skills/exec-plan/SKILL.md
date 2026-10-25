@@ -9,11 +9,11 @@ user-invocable: true
 
 # ExecPlan Skill
 
-You are managing execution plans (ExecPlans) — self-contained living documents that guide implementation of features and system changes. Read [PLANS.md](PLANS.md) when creating, implementing, or reviewing a plan; for a narrow edit, consult the relevant sections. For ADR discovery, citation, creation, update, or validation, use [ADR.md](ADR.md). The user's requested scope takes precedence over this skill's workflow defaults.
+You are managing execution plans (ExecPlans) — self-contained living documents that guide implementation of features and system changes. Read [PLANS.md](PLANS.md) when creating, implementing, or reviewing a plan; for a narrow edit, consult the relevant sections. For ADR discovery, citation, creation, update, or validation, use [ADR.md](ADR.md). For recording and triaging friction met while implementing, use [FRICTION.md](FRICTION.md). The user's requested scope takes precedence over this skill's workflow defaults.
 
 ExecPlans live in the `docs/plans/` directory at the repository root. Each plan is a single Markdown file named with a sequential number prefix followed by a slug derived from its title (e.g., `docs/plans/1-add-template-engine.md`). Each plan begins with a YAML frontmatter block — `id`, `slug`, `title`, `kind: exec-plan`, `created_at`, optional `intention`, optional `master_plan`, optional `provenance` — so tooling can identify it without parsing prose.
 
-Create new plans with the bundled `init-plan.ts` script (see Mode: create). The script picks the next sequential number, derives the slug from the title, writes the frontmatter and skeleton, and refuses to overwrite an existing file. Record every later authorship event with the bundled `record-provenance.ts` script (see Provenance). Do not pick numbers, write skeletons, or hand-author frontmatter by hand.
+Create new plans with the bundled `init-plan.ts` script (see Mode: create). The script picks the next sequential number, derives the slug from the title, writes the frontmatter and skeleton, and refuses to overwrite an existing file. Record every later authorship event with the bundled `record-provenance.ts` script (see Provenance), and record friction with the bundled `record-friction.ts` script (see Friction Log). Do not pick numbers, allocate handles, write skeletons, or hand-author frontmatter by hand.
 
 
 ## Formatting
@@ -27,6 +27,18 @@ Architecture Decision Records (ADRs) hold durable project context. Follow `ADR.m
 conditional local-filesystem versus profiled-OKF workflow, stable `ADR-N` allocation, strict
 validation, and local versus cross-repository references. Plans remain self-contained: summarize
 the relevant decision context in the plan even when you also cite the ADR.
+
+
+## Friction Log
+
+Friction is the cost of doing the work: a document, interface, tool, environment, or house
+process that cost material effort while implementing. Record it as it happens, in the
+repository's friction-log bundle, with the bundled `record-friction.ts` script, and triage it
+when the plan completes. Follow `FRICTION.md` for the threshold, the fields, bootstrap of the
+bundle through `okf profile init`, triage, and citation. Friction is not Surprises & Discoveries,
+which holds only findings that changed the plan: when one event is both, record both and cite
+the entry's `FRIC-N` handle from the plan. Friction is in the surfaces you used, not in the thing
+you are building.
 
 
 ## Git Trailers
@@ -141,17 +153,31 @@ Implement an existing ExecPlan. The argument is the plan file path (e.g., `docs/
 
 3. Select an observable acceptance criterion, implement a cohesive set of changes toward it, and validate the result. Mark a milestone complete only when all its required acceptance criteria pass. Follow PLANS.md's early integration guidance when uncertain interfaces are involved. Continue through the implementation the user authorized; a commit or passing test suite is a checkpoint, not a reason to stop while authorized work can proceed.
 
-4. Update the ExecPlan when a milestone is verified, a material blocker or course change arises, or work is handed off. Keep Progress at milestone or substantial-deliverable scale: record the outcome, date, and concise evidence, and describe partial work in a short handoff note when needed. Do not add checkboxes for routine actions or split items merely to show session activity. Record consequential discoveries and decisions in their respective sections. Update or create ADRs when durable project context changes. The first time you write to the plan in this session, record one provenance revision entry with `--mode implement` (see Provenance).
+4. Record friction as it occurs. When a surface you used, rather than the thing you are building, costs more than a few minutes, forces a workaround, blocks progress, or will recur for the next contributor, run the bundled script while the command and the error are in front of you:
 
-5. Resolve routine ambiguities and defects within the accepted scope autonomously. Distinguish work needed to meet an existing criterion from a proposed new requirement; obtain a scope decision before adding the latter to acceptance. Record decisions only when they change the plan's scope, architecture, interfaces, acceptance, or future implementation path.
+    ```bash
+    bun agents/skills/exec-plan/record-friction.ts log --title "<what cost effort>" \
+      --description "<one sentence naming the surface and the cost>" \
+      --kind <documentation|interface|tooling|environment|process> \
+      --impact <blocked|detour|slowdown|nuisance> --affects <uri> --plan <plan-path> \
+      --attempted "<what you were doing>" --encountered "<what happened instead>" \
+      [--evidence "<error text>"] [--workaround "<what you did instead>"] \
+      --model <your-model-id> [--harness <name>]
+    ```
 
-6. Commit at meaningful working boundaries. Every commit must include an `ExecPlan:` git trailer linking to the plan file (see Git Trailers above).
+    One entry per occurrence, per `FRICTION.md`. The script bootstraps the bundle on first use, allocates the handle, and validates; it prints the entry path. Do not repeat the entry in the plan unless it also changed the plan; then cite its handle from Surprises & Discoveries.
 
-7. Use focused checks while developing and run the required milestone checks at a coherent boundary. Record concise acceptance evidence. Repeat checks when relevant changes, failures, or remaining risks invalidate that evidence; preserve applicable results while honoring any required final-candidate validation.
+5. Update the ExecPlan when a milestone is verified, a material blocker or course change arises, or work is handed off. Keep Progress at milestone or substantial-deliverable scale: record the outcome, date, and concise evidence, and describe partial work in a short handoff note when needed. Do not add checkboxes for routine actions or split items merely to show session activity. Record consequential discoveries and decisions in their respective sections. Update or create ADRs when durable project context changes. The first time you write to the plan in this session, record one provenance revision entry with `--mode implement` (see Provenance).
 
-8. At completion, fill in the Outcomes & Retrospective section.
+6. Resolve routine ambiguities and defects within the accepted scope autonomously. Distinguish work needed to meet an existing criterion from a proposed new requirement; obtain a scope decision before adding the latter to acceptance. Record decisions only when they change the plan's scope, architecture, interfaces, acceptance, or future implementation path.
 
-9. Distill durable context before declaring the plan complete: review the Decision Log, Surprises & Discoveries, and Outcomes & Retrospective, then update or create ADRs in `docs/adr/` for project-level decisions, constraints, gotchas, or architectural lessons that should survive beyond this plan.
+7. Commit at meaningful working boundaries. Every commit must include an `ExecPlan:` git trailer linking to the plan file (see Git Trailers above).
+
+8. Use focused checks while developing and run the required milestone checks at a coherent boundary. Record concise acceptance evidence. Repeat checks when relevant changes, failures, or remaining risks invalidate that evidence; preserve applicable results while honoring any required final-candidate validation.
+
+9. At completion, triage the friction entries recorded under this plan per `FRICTION.md` (`record-friction.ts update`), then fill in the Outcomes & Retrospective section, citing each entry by handle with its triage outcome.
+
+10. Distill durable context before declaring the plan complete: review the Decision Log, Surprises & Discoveries, and Outcomes & Retrospective, then update or create ADRs in `docs/adr/` for project-level decisions, constraints, gotchas, or architectural lessons that should survive beyond this plan.
 
 
 ### Mode: discuss
@@ -179,7 +205,7 @@ Review an existing ExecPlan against the specification and record the verdict. Th
 
 2. Read the plan's `provenance` block first. Note which model authored it and which models have already reviewed it, and say so in your report: a plan already reviewed by three models with the same verdict needs a different kind of attention than an unreviewed one. An absent block means the provenance is unknown, not that the plan is unreviewed.
 
-3. Audit the plan and gather concrete findings. At minimum check that: it is self-contained (a novice with only this file and the working tree could implement it); every milestone is independently verifiable and states its acceptance as observable behavior; the Context and Orientation section names real files by repository-relative path and its claims match the current working tree; ADR citations follow `ADR.md` and resolve; every fenced code block carries a language tag; and the living-document sections exist and are consistent with each other.
+3. Audit the plan and gather concrete findings. At minimum check that: it is self-contained (a novice with only this file and the working tree could implement it); every milestone is independently verifiable and states its acceptance as observable behavior; the Context and Orientation section names real files by repository-relative path and its claims match the current working tree; ADR citations follow `ADR.md` and resolve; friction handles the plan cites resolve in the repository's friction-log bundle; every fenced code block carries a language tag; and the living-document sections exist and are consistent with each other.
 
 4. Verify claims against the repository rather than trusting the prose. Open the files the plan names, run the commands it says to run when they are safe and cheap, and report anything that no longer matches reality.
 
@@ -215,7 +241,7 @@ Revise an existing ExecPlan to reflect new information or changed requirements. 
 
 Show the current state of one or all ExecPlans.
 
-If a plan path is given, read it and summarize its purpose, completed and remaining milestones, current work, and material blockers. Do not calculate a percentage from checkbox counts; checkboxes are outcomes, not units of effort.
+If a plan path is given, read it and summarize its purpose, completed and remaining milestones, current work, and material blockers. Do not calculate a percentage from checkbox counts; checkboxes are outcomes, not units of effort. When the repository has a friction-log bundle, list the entries recorded under the plan that are still `logged`, by handle (see `FRICTION.md` for the query).
 
 If no path is given, scan `docs/plans/` for all `.md` files and show a summary table of each plan's title and milestone state.
 

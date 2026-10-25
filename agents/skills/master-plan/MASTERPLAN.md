@@ -82,6 +82,8 @@ When a child plan's implementation reveals that the decomposition was wrong (a p
 
 When a living-document entry captures durable project context, update `docs/adr/` in the same change. This is especially important for cross-plan discoveries that alter shared interfaces, architectural boundaries, integration constraints, or deliberate exclusions.
 
+Friction met while implementing is recorded in the repository's friction-log bundle under the child plan being implemented, following `agents/skills/exec-plan/FRICTION.md`, not in MasterPlan sections. The MasterPlan's Surprises & Discoveries records friction with the same surface recurring across child plans, by `FRIC-N` handle, because recurrence is a coordination signal and the strongest case for promotion to a bug report or an improvement request.
+
 
 ## Writing Style and Formatting
 
