@@ -5,6 +5,13 @@ title: "Add originalStreamName to RecordedEvent"
 kind: exec-plan
 created_at: 2026-05-23T00:27:20Z
 intention: "intention_01ks93jge0eart0cyw9kttg4zf"
+provenance:
+  revisions:
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-25T23:26:53Z
+      mode: "update"
+      note: "Reconcile the completed lookup API and remove the stale checklist for the reverted field experiment."
 ---
 
 
@@ -15,6 +22,8 @@ Decision Log, and Outcomes & Retrospective must be kept up to date as work proce
 
 
 ## Purpose / Big Picture
+
+**Status: complete (2026-05-23; reconciled 2026-10-25).** The shipped solution is the on-demand lookup API. The field and denormalized-column experiments were rejected and reverted; no implementation or migration remains pending.
 
 > **Outcome note (2026-05-23):** the title goal — adding an `originalStreamName`
 > field to `RecordedEvent` — was implemented (Milestones 1–2), then **abandoned
@@ -67,9 +76,7 @@ new `originalStreamName` assertions.
 
 ## Progress
 
-Use a checklist to summarize granular steps. Every stopping point must be documented here,
-even if it requires splitting a partially completed task into two ("done" vs. "remaining").
-This section must always reflect the actual current state of the work.
+All milestones are resolved: Milestones 1–3 record the completed, reverted field experiments; Milestone 4 is the accepted implementation. No work remains under this plan.
 
 Milestone 1 — field plumbing (type, decoder, all read SQL, test stubs); project compiles and the existing suite stays green: **DONE 2026-05-23.**
 
@@ -102,16 +109,7 @@ Milestone 4 — revert the field entirely; ship an on-demand lookup API: **DONE 
 - [x] CHANGELOG entry describing the lookup API and why the field was rejected. (2026-05-23)
 - [x] All suites green: `kiroku-store` 158/0 (154 base + 4 lookup), `kiroku-otel` 6/0, `shibuya-kiroku-adapter` 8/0, `kiroku-store-migrations` PASS. Read SQL byte-identical to pre-field, so the read hot path is at baseline by construction. (2026-05-23)
 
-Milestone 3 detail (retained for the record):
-
-- [x] `kiroku-store/sql/schema.sql`: add `original_stream_name TEXT NOT NULL` inline to the `stream_events` `CREATE TABLE`, plus a guarded idempotent convergence `DO` block (ADD COLUMN / disable trigger / backfill from `streams` / SET NOT NULL) that no-ops once converged.
-- [ ] New codd migration `kiroku-store-migrations/sql-migrations/2026-05-23-00-00-00-add-original-stream-name.sql`: ADD COLUMN, disable `no_update_stream_events`, backfill from `streams`, re-enable, SET NOT NULL. Update the bootstrap header note to point at additive migrations.
-- [ ] `kiroku-store/src/Kiroku/Store/SQL.hs` append/link writes: add `original_stream_name` to all 9 `stream_events` INSERT column lists; source/`$all` link SELECTs supply `$8` (the stream-name param); the link insert supplies `orig.original_stream_name` (and its lateral selects `se.original_stream_name`).
-- [ ] `kiroku-store/src/Kiroku/Store/SQL.hs` reads: remove the 8 `JOIN streams os …` lines added in M1 and read `se.original_stream_name` directly; the 2 category templates keep their existing `streams` join and `s.stream_name` (no regression there). The decoder is unchanged (still a 12-column row).
-- [ ] `kiroku-store/bench/Main.hs` (and `bench/Explain.hs`) raw append shapes: supply `original_stream_name` so the experimental harness still inserts validly.
-- [ ] Update the CHANGELOG entry to describe denormalized storage + the migration.
-- [ ] Rebuild; `cabal test kiroku-store` and `cabal test kiroku-store-migrations` green (migration applies, backfills, is repeatable).
-- [ ] Re-benchmark: confirm `$all`/`stream` reads return to baseline AND the `append` group shows no regression vs a fresh pre-M3 baseline. Record numbers in Surprises & Discoveries.
+The duplicate Milestone-3 detail checklist was removed during the 2026-10-25 reconciliation because it incorrectly left reverted experiment steps unchecked. The schema, migration, SQL, benchmark, and changelog edits were trial work already accounted for above, not outstanding deliverables. The denormalization design remains recorded in Plan of Work.
 
 
 ## Surprises & Discoveries
@@ -199,6 +197,10 @@ implementation. Provide concise evidence.
 ## Decision Log
 
 Record every decision made while working on the plan.
+
+- Decision: Close the stale denormalization checklist and retain the lookup API as the final outcome.
+  Rationale: Milestone 4 and ADR-1 already record the accepted reversal. Current source, registered lookup tests, and the changelog confirm that outcome; the duplicate Milestone-3 checklist does not represent remaining work.
+  Date: 2026-10-25
 
 - Decision: Add a denormalized `originalStreamName` field to `RecordedEvent` rather than
   a separate id→name lookup API.
@@ -314,8 +316,9 @@ Record every decision made while working on the plan.
 
 ## Outcomes & Retrospective
 
-Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
-Compare the result against the original purpose.
+**Closure reconciled 2026-10-25:** nothing remains. Current source exports both lookup functions from `Kiroku.Store.Read` and re-exports them through `Kiroku.Store`. `LookupStreamNames` is interpreted using the batch SQL statement, with empty input returning `Map.empty` without a pool checkout. `RecordedEvent` retains `originalStreamId` without an `originalStreamName` field. `Test.StreamNameLookup` is registered and covers the four original lookup cases plus a later no-pool-checkout assertion for empty input. The changelog and [ADR-1](../adr/0001-resolve-stream-names-via-lookup-not-recordedevent-field.md) record the accepted design.
+
+This documentation update reuses the historical correctness and benchmark evidence below; it does not claim a fresh test run, performance measurement, or cost attribution. The durable decision is already distilled in ADR-1, so no ADR change is needed. No friction entries are recorded under this plan in `docs/friction-log/`.
 
 Completed 2026-05-23. The shipped result is **not** the title's field but an
 on-demand lookup API — `Kiroku.Store.Read.lookupStreamNames :: [StreamId] ->
@@ -359,6 +362,8 @@ Lessons:
 
 
 ## Context and Orientation
+
+The following context describes the original 2026-05-23 investigation. Schema paths, line numbers, decoder details, and category SQL shapes are historical; the accepted implementation is the lookup API described in Milestone 4 and Outcomes.
 
 Kiroku stores events in three PostgreSQL tables, defined in
 `kiroku-store/sql/schema.sql`:
@@ -461,6 +466,8 @@ Term definitions used in this plan:
 
 
 ## Plan of Work
+
+The field and denormalization instructions below are the historical designs that were implemented, benchmarked, and reverted. They are not pending work. The accepted Milestone-4 lookup implementation is recorded in Progress and Outcomes.
 
 The work is a single conceptual change — surface one already-available datum — split into
 two milestones so the first leaves the tree compiling and green and the second proves the
@@ -675,6 +682,8 @@ post-Milestone-3) shows `$all forward` back within noise of baseline and the
 
 ## Concrete Steps
 
+These are historical commands for the reverted field trial, not instructions to restore it or rerun the experiment for closure.
+
 All commands run from the repository root
 `/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku`.
 
@@ -729,6 +738,8 @@ the SQL/decoder edits (e.g. `git stash` only `kiroku-store/src/Kiroku/Store/SQL.
 
 ## Validation and Acceptance
 
+Final acceptance was met by Milestone 4: batch lookup resolves the source ids carried by `$all` reads, unknown ids are omitted, empty input returns an empty map, and singular lookup returns a name or `Nothing`. The recorded final suites passed: store 158 examples, OpenTelemetry 6, adapter 8, and migrations PASS. The field and migration were reverted, preserving the pre-trial read SQL at that time. The criteria below apply only to the rejected field trial and are retained as historical evidence, not requirements to add the field back.
+
 The change is internal (a new field on a read result), so acceptance is demonstrated by a
 behavior a human can verify through the test suite rather than a UI.
 
@@ -759,6 +770,8 @@ existing read or subscription behavior.
 
 ## Idempotence and Recovery
 
+No recovery action remains. The accepted lookup design requires no stream-name field migration. The reset instructions below belonged to the historical field trial and should not be used to discard current work.
+
 All edits are ordinary source changes under version control and can be repeated safely. If
 a build or test step fails midway, the working tree is never left in a damaging state — no
 data migration or destructive database operation is involved. The store schema is
@@ -773,6 +786,8 @@ fresh per run.
 
 
 ## Interfaces and Dependencies
+
+The accepted public interfaces are `lookupStreamNames :: (HasCallStack, Store :> es) => [StreamId] -> Eff es (Map StreamId StreamName)` and `lookupStreamName :: (HasCallStack, Store :> es) => StreamId -> Eff es (Maybe StreamName)` in `kiroku-store/src/Kiroku/Store/Read.hs`. They use the existing `Store` effect and batch lookup statement; `RecordedEvent` has no stream-name field. The field-era interfaces below describe the reverted experiment only.
 
 No new libraries or services. The change uses facilities already present:
 
@@ -828,6 +843,8 @@ entry and the expanded `RecordedEvent` Haddock.
 
 
 ## Revision Notes
+
+- 2026-10-25 — Reconciled the completed lookup-API outcome against current source, tests, changelog, and ADR-1. Removed the duplicate unfinished checklist from the abandoned denormalization trial and marked field-era instructions as historical. No implementation, migration, or new performance claim was added.
 
 - 2026-05-23 — Added Milestone 3 (denormalize `original_stream_name` onto
   `stream_events`). After Milestones 1–2 shipped the field via a read-time

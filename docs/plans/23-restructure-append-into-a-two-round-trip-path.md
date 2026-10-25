@@ -5,6 +5,13 @@ title: "Restructure append into a two-round-trip path"
 kind: exec-plan
 created_at: 2026-05-18T20:38:47Z
 intention: "intention_01krxrpv5heny9gs89seas59zm"
+provenance:
+  revisions:
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-25T23:28:03Z
+      mode: "update"
+      note: "Close the rejected two-round-trip experiment and reconcile abandoned milestones and completed follow-up."
 ---
 
 # Restructure append into a two-round-trip path
@@ -14,6 +21,8 @@ Decision Log, and Outcomes & Retrospective must be kept up to date as work proce
 
 
 ## Purpose / Big Picture
+
+**Status: complete; candidate rejected at the benchmark gate (2026-05-18; reconciled 2026-10-25).** The two-round-trip hot-stream variants were 9–28% slower than the production control, failing the required 30% speedup. The experiment ended at Milestone 1; Milestones 2–6 were deliberately abandoned without production rewiring. The proposal below is historical, not pending implementation.
 
 Kiroku's append is slow relative to the upstream Elixir EventStore (`/Users/shinzui/Keikaku/hub/event-sourcing/eventstore`) it was based on because Kiroku does the entire append — text-keyed stream lookup, version check, soft-delete check, event insertion, `$all` link, source link, version update — in **one round-trip** through a CTE that bakes every check into SQL. Plan `docs/plans/22-optimize-singleton-append-sql-path.md` demonstrated with raw-SQL benchmarks that reshaping that single CTE (arrays → scalars, batch → singleton) does not move the needle. The gap is structural, not in the SQL shape.
 
@@ -29,18 +38,16 @@ A caller of `appendToStream`, `appendToStreamTx`, or `runTransactionAppending` s
 ## Progress
 
 - [x] Create this ExecPlan from the repository skeleton with intention `intention_01krxrpv5heny9gs89seas59zm`. (Completed 2026-05-18.)
-- [x] Add a benchmark-only two-round-trip raw SQL variant to `kiroku-store/bench/Main.hs` alongside the existing `raw-append-shape` group and confirm the structural model is faster than the production array path before touching `Effect.hs`. **The acceptance gate failed.** (Completed 2026-05-18; the architectural read is wrong, see Surprises & Discoveries.)
-- [ ] ~~Capture a local pre-change benchmark slice~~ — abandoned. Milestone 1's gate failed, so the rest of the plan is moot per its own preamble.
-- [ ] ~~Introduce a `resolveStream` query and a `StreamResolution` record~~ — abandoned.
-- [ ] ~~Add new append statements `appendUpdateExistingStream` and `appendCreateNewStream`~~ — abandoned.
-- [ ] ~~Wire `appendToStream` in `kiroku-store/src/Kiroku/Store/Effect.hs` to the two-round-trip dispatch~~ — abandoned.
-- [ ] ~~Wire `AppendMultiStream`~~ — abandoned.
-- [ ] ~~Run focused and full `kiroku-store-test` suites~~ — abandoned.
-- [ ] ~~Re-run the local benchmark slice~~ — abandoned.
-- [x] Update `docs/plans/22-optimize-singleton-append-sql-path.md` Outcomes to record that the round-trip restructure was tested at the raw-SQL level and failed the gate. Propose the next experiment based on the new evidence: statement-level mutation triggers, advisory locks, or — most likely — accepting that Haskell/Hasql per-round-trip overhead is the dominant cost on this stack. (Pending — see Outcomes & Retrospective.)
+- [x] Add and measure four benchmark-only two-round-trip variants in `kiroku-store/bench/Main.hs`. The hot-stream cases measured 166/194 µs against the 152 µs production control, failing the required 30% improvement. (Completed 2026-05-18.)
+- [x] Resolve Milestones 2–6 as abandoned after Milestone 1 rejected the candidate. No production stream-resolution helpers, append dispatch changes, live-path correctness tests, or before/after production benchmark slice were required or delivered. (Decision recorded 2026-05-18; checklist reconciled 2026-10-25.)
+- [x] Record the rejected result in `docs/plans/22-optimize-singleton-append-sql-path.md` and hand off the overhead question to `docs/plans/24-localize-the-hasql-round-trip-overhead.md`. Further profiling and experiment tracking moved to `docs/masterplans/3-append-performance-profiling-and-experiment-tracking-methodology.md`. (Completed 2026-05-18; status reconciled 2026-10-25.)
+
+Nothing remains under this plan. Completion records the experiment's rejection and handoff, not delivery of the proposed production restructure.
 
 
 ## Surprises & Discoveries
+
+The measurement table below is the evidence for rejecting this candidate. The original causal explanations and follow-up shortlist that follow it are historical interpretations: Plan 24 subsequently measured a bare round-trip at about 13 µs and a marginal second round-trip at about 14–22 µs, superseding the 70–80 µs attribution below. These results do not establish a universal limit on SQL improvements or compare driver efficiency across language stacks.
 
 ### Milestone 1 result — the two-round-trip raw SQL is slower than production arrays/unnest, not faster
 
@@ -86,6 +93,10 @@ The upstream Elixir EventStore wins on its own stack because Elixir + Postgrex h
 
 ## Decision Log
 
+- Decision: Close this plan as a completed benchmark experiment with a rejected production candidate.
+  Rationale: The recorded Milestone-1 stop condition was met, the benchmark variants remain present, the predecessor records the result, and Plan 24 completed the follow-up investigation. The abandoned implementation steps are resolved scope, not outstanding work. The original design decisions below were proposals that were never promoted to production.
+  Date: 2026-10-25
+
 - Decision: Model the new append on the upstream Elixir EventStore's two-round-trip path, not on a fresh design.
   Rationale: Kiroku was originally based on that library. `EventStore.Streams.Stream.append_to_stream/5` (`lib/event_store/streams/stream.ex`) plus `EventStore.Streams.StreamInfo.validate_expected_version/2` (`lib/event_store/streams/stream_info.ex`) plus `EventStore.Storage.Appender.append/4` (`lib/event_store/storage/appender.ex`) form a coherent design that is known to perform well in production. The structural reading recorded in `docs/plans/22-optimize-singleton-append-sql-path.md` under "Why Kiroku cannot close the gap with upstream Elixir EventStore" already pinpointed this as the highest-leverage change.
   Date: 2026-05-18
@@ -129,6 +140,12 @@ The upstream Elixir EventStore wins on its own stack because Elixir + Postgrex h
 
 ## Outcomes & Retrospective
 
+**Closure reconciled 2026-10-25: no work remains.** Current source retains all four two-round-trip benchmark cases and their supporting runners in `kiroku-store/bench/Main.hs`. Production single-stream appends still dispatch to the existing `ExpectedVersion` SQL statements, and `appendToStreamTx` still uses `appendDispatchTx`; the proposed production resolution/validation helpers are absent. This update checked source and existing evidence without rerunning benchmarks or claiming correctness validation of the abandoned design.
+
+The follow-up is complete through Plan 24 and MasterPlan 3. The experiment history and durable performance discipline are already captured in `docs/perf-experiment-log.md`, `docs/PERF-METHODOLOGY.md`, and [ADR-5](../adr/0005-three-tier-performance-regression-gates.md). This closure introduces no architectural change. No friction entries are recorded under this plan in `docs/friction-log/`.
+
+The following retrospective preserves the original interpretation and its later correction. Its initial 70–80 µs attribution and recommendations for another optimization were superseded by the Plan-24 findings and methodology handoff recorded at the end.
+
 **Plan halted at Milestone 1's kill-switch.** The plan was built on the architectural reading in `docs/plans/22-optimize-singleton-append-sql-path.md` ("Why Kiroku cannot close the gap with upstream Elixir EventStore") that splitting append into two PostgreSQL round-trips — a small read followed by a simpler write keyed on integer `stream_id` — was the highest-leverage change. The plan's own Milestone 1 was a benchmark-only proof-of-concept designed to validate that read before investing source-level changes; the kill-switch fired.
 
 What was actually built and is retained:
@@ -158,6 +175,8 @@ After plan 24 the next move was tentatively named as "convert mutation triggers 
 
 ## Context and Orientation
 
+Historical context for the abandoned 2026-05-18 proposal follows. File paths, line numbers, public signatures, and transaction-safety assumptions describe that proposal, not a validated current implementation.
+
 Read these files before editing:
 
 - `docs/plans/22-optimize-singleton-append-sql-path.md` — predecessor plan. Section "Why Kiroku cannot close the gap with upstream Elixir EventStore" under Surprises & Discoveries is the architectural reading this plan acts on. Section "Outcomes & Retrospective" already names the two-round-trip restructure as the next candidate.
@@ -181,6 +200,8 @@ Definitions used in this plan:
 
 
 ## Plan of Work
+
+Milestone 1 was completed and rejected the candidate. Milestones 2–6 below are preserved as the abandoned design; their instructions and acceptance gates are not remaining work.
 
 Milestone 1 — benchmark-only proof. Before touching `appendToStream`, prove with raw SQL that the two-round-trip topology is actually faster on the same `Hasql.Pool` and the same ephemeral Kiroku schema the bench harness already uses. Extend the `raw-append-shape` benchmark group in `kiroku-store/bench/Main.hs` with two more cases:
 
@@ -256,6 +277,8 @@ If accepted, append a revision note to `docs/plans/22-optimize-singleton-append-
 
 
 ## Concrete Steps
+
+These are the original experiment and conditional implementation commands. Milestones 2–6 were never entered; no production test or benchmark rerun is needed for this documentation closure.
 
 Work from the repository root:
 
@@ -395,6 +418,8 @@ The `haskell-kiroku-store/appendToStream` rows should move toward the `raw-kirok
 
 ## Validation and Acceptance
 
+The governing Milestone-1 gate required the two-round-trip hot-stream case to be at least 30% faster than its production control. The recorded result was 9–28% slower, so the prescribed outcome was to stop before production implementation. That rejection completes the experiment. The compilation, semantic, and performance criteria below applied only if Milestone 1 passed; they are not claims of successful validation or unresolved obligations.
+
 Compilation acceptance:
 
 - `cabal build kiroku-store` passes after Milestone 3 and Milestone 4.
@@ -439,6 +464,8 @@ External corroboration (does not gate acceptance, but worth running):
 
 ## Idempotence and Recovery
 
+No production rollback remains: this plan stopped before source-level implementation. The following recovery and race-handling discussion belongs to the abandoned design and does not establish its concurrency safety.
+
 The baseline, after, and raw-shape benchmark commands are safe to repeat. They use ephemeral PostgreSQL through the bench harness and write CSV files under `/tmp`. Run each command at least twice before drawing conclusions; the local machine's load can shift `Mean (ps)` by several percent between runs.
 
 The implementation is additive and internal: new types (`StreamResolution`, `StreamTarget`), new statements (`resolveStreamStmt`, `appendUpdateExistingStream`, `appendCreateNewStream`), and a new validator (`validateExpectedVersion`) all live behind `Kiroku.Store.SQL` (private `other-modules`) and `Kiroku.Store.Effect` (internal helpers). If a milestone fails, revert the source-level commits while keeping the benchmark-only changes from Milestone 1 in place — those serve as durable evidence for the next attempt.
@@ -451,6 +478,8 @@ If the after benchmark in Milestone 6 fails the acceptance gate after at least t
 
 
 ## Interfaces and Dependencies
+
+Only the benchmark-side interfaces described in Outcomes were added. The proposed production interfaces below were not implemented, and the existing append statements remain in the production path.
 
 This plan uses existing dependencies only:
 
@@ -521,5 +550,6 @@ Schema dependencies (unchanged, listed for completeness):
 
 ## Revision Notes
 
+- 2026-10-25: Closed the rejected benchmark experiment, consolidated abandoned implementation steps into a resolved outcome, and reconciled the completed Plan-24/MasterPlan-3 handoff. Marked the original implementation and causal interpretations as historical; no production change, new measurement, or relaxed acceptance gate was introduced.
 - 2026-05-18: Plan created from the repository skeleton with intention `intention_01krxrpv5heny9gs89seas59zm`. The plan acts on the architectural reading recorded in `docs/plans/22-optimize-singleton-append-sql-path.md` under "Why Kiroku cannot close the gap with upstream Elixir EventStore" and adopts the two-round-trip topology of `EventStore.Streams.Stream.append_to_stream/5` at `/Users/shinzui/Keikaku/hub/event-sourcing/eventstore`.
 - 2026-05-18: Milestone 1 ran and **failed its own acceptance gate**. The two-roundtrip raw SQL variant is 9-28 % slower than the production arrays/unnest CTE, not 30 % faster as required. Per the plan's preamble the plan stops here; Milestones 2-6 are abandoned. Surprises & Discoveries records the bench numbers; Decision Log records the stop decision; Outcomes & Retrospective summarises the lesson (round-trip count dominates SQL shape on the Hasql stack) and proposes statement-level mutation triggers as the next experiment. The bench-only changes (new variants in `raw-append-shape/AnyVersion` and the `hasql-transaction` bench dependency) are retained as durable evidence for any future plan that proposes round-trip-topology changes.

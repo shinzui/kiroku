@@ -5,6 +5,13 @@ title: "Optimize singleton append SQL path"
 kind: exec-plan
 created_at: 2026-05-18T14:38:59Z
 intention: intention_01krxrpv5heny9gs89seas59zm
+provenance:
+  revisions:
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-25T23:23:46Z
+      mode: "update"
+      note: "Close the rejected singleton experiment and reconcile its completed follow-up handoff."
 ---
 
 # Optimize singleton append SQL path
@@ -13,6 +20,8 @@ This ExecPlan is a living document. The sections Progress, Surprises & Discoveri
 Decision Log, and Outcomes & Retrospective must be kept up to date as work proceeds.
 
 ## Purpose / Big Picture
+
+**Status: complete; candidate rejected and reverted.** The experiment finished on 2026-05-18. The scalar singleton trial passed correctness tests but failed its performance acceptance gate, so no production singleton path was retained. The original proposal below is historical; designing further optimizations is outside this completed plan.
 
 Most command-side Kiroku writes append exactly one event. Today those writes still use the general batch SQL shape: Haskell packs one event into seven arrays, PostgreSQL unnests those arrays with ordinality, and the CTEs repeatedly compute the count of the one-row input. The result is correct, but the raw Message DB versus raw Kiroku comparison shows that this shape is now the suspicious cost center.
 
@@ -29,7 +38,9 @@ After this change, a one-event append through `appendToStream`, `appendToStreamT
 - [x] Revert the scalar singleton trial because it did not make the append path measurably faster under the local benchmark gate. (Completed 2026-05-18.)
 - [x] Add a benchmark-only raw SQL shape comparison in `kiroku-store/bench/Main.hs` for scalar singleton AnyVersion versus production arrays/unnest AnyVersion. (Completed 2026-05-18.)
 - [x] Compare Kiroku's append path against the upstream Elixir EventStore (`/Users/shinzui/Keikaku/hub/event-sourcing/eventstore`) Kiroku was based on, and explain structurally why the singleton SQL shape cannot close the gap. (Completed 2026-05-18.)
-- [ ] Design a different optimization candidate before attempting another production implementation. Candidates carried forward to a follow-up plan: pre-resolve `stream_id` in a separate round-trip (eventstore-style two-trip path), templated SQL per event count, FOR EACH STATEMENT mutation triggers, in-process `stream_name → stream_id` cache, advisory-lock-based version reservation.
+- [x] Hand off further investigation to separate plans. The two-round-trip candidate was tested and rejected in `docs/plans/23-restructure-append-into-a-two-round-trip-path.md`; `docs/plans/24-localize-the-hasql-round-trip-overhead.md` investigated round-trip overhead. Profiling and experiment tracking moved to `docs/masterplans/3-append-performance-profiling-and-experiment-tracking-methodology.md`. (Handoff completed 2026-05-18; status reconciled 2026-10-25.)
+
+No work remains under this plan. Completion records the experiment and its keep-or-revert decision; the proposed optimization did not pass acceptance.
 
 ## Surprises & Discoveries
 
@@ -174,6 +185,10 @@ This is why the singleton SQL shape, on its own, is not enough — and why the n
 
 ## Decision Log
 
+- Decision: Close this plan as a completed, rejected optimization experiment.
+  Rationale: The trial, correctness checks, before/after comparison, and revert are already recorded. The sole unchecked item was a handoff already fulfilled by plans 23–24 and MasterPlan 3, rather than unfinished singleton implementation. The original two-round-trip recommendation below was superseded by those follow-up results.
+  Date: 2026-10-25
+
 - Decision: Do not target Effectful overhead in this plan.
   Rationale: `haskell-kiroku-store/appendToStream/.../single-runStoreIO` did not consistently improve over the normal Haskell path, while raw scalar SQL was much faster than production-shape SQL.
   Date: 2026-05-18
@@ -216,6 +231,12 @@ This is why the singleton SQL shape, on its own, is not enough — and why the n
 
 ## Outcomes & Retrospective
 
+**Closure reconciled 2026-10-25:** nothing remains in this plan. The recorded focused comparison showed `NoStream` +2.27% and `AnyVersion` +14.20% latency, failing the required 10% improvement; the trial's full store suite had 129 examples and zero failures. Current production source contains no `SingletonAppendParams` or singleton dispatch helpers, while the benchmark-only scalar comparison remains. These historical measurements support the rejection decision, not a general claim that every scalar rewrite or other single-round-trip optimization must fail.
+
+The follow-up handoff is complete through plans 23–24 and MasterPlan 3. The durable methodology and rejection history are already captured in `docs/PERF-METHODOLOGY.md`, `docs/perf-experiment-log.md`, and [ADR-5](../adr/0005-three-tier-performance-regression-gates.md); this status reconciliation introduces no new architectural decision. No friction entries are recorded under this plan in `docs/friction-log/`.
+
+The following narrative preserves the original investigation and subsequent corrections. Its recommendation to adopt two round-trips was a hypothesis, superseded by the negative follow-up result below.
+
 The first scalar singleton SQL implementation was not accepted. It added a `SingletonAppendParams` record, scalar Hasql encoders, four singleton append statements, and dispatch branches for `appendToStream`, `appendToStreamTx`, and `runTransactionAppending`. The code compiled and passed all semantic tests, including the full `kiroku-store` test suite, but local benchmark evidence did not show the required speedup. The implementation was reverted from the working tree, leaving this plan updated with the benchmark evidence.
 
 A subsequent benchmark-only comparison added to `kiroku-store/bench/Main.hs` confirmed the negative result at the raw-SQL level: a scalar singleton CTE in the same Kiroku shape was tied with the production array/unnest path on new-stream appends and slower on hot-stream appends. There is no remaining slack inside Kiroku's one-round-trip append CTE shape that a singleton rewrite can recover.
@@ -229,6 +250,8 @@ The next plan should therefore not try a third variant of the singleton SQL shap
 **Update 2026-05-18 — recommending another optimization plan from the "remaining candidates" list (statement-level triggers, dropping `streams.category`, advisory locks, templated SQL) was identified as the wrong move.** Several of those candidates have been informally tried before (this plan's Surprises & Discoveries records that `streams.category` removal was tested and helped less than disabling `stream_events_notify`, and neither closed the gap), and the list is being re-recommended across plans without an expected-impact model or profile-grounded reason to prefer one over another. The next work is a methodology plan that introduces Haskell-side profiling, PostgreSQL-side `EXPLAIN (ANALYZE, BUFFERS, TIMING)`, and a checked-in experiment ledger so subsequent optimization plans have a profile-grounded basis. That work is scoped as a master plan separate from this one.
 
 ## Context and Orientation
+
+Historical context from the 2026-05-18 trial follows. It describes the implementation investigated then, rather than asserting the current append architecture or requesting new work.
 
 `kiroku-store/src/Kiroku/Store/SQL.hs` owns the append SQL and Hasql encoders. It currently defines `AppendParams`, `appendParamsEncoder`, and statements such as `appendNoStream`, `appendStreamExists`, `appendExpectedVersion`, and `appendAnyVersion`. `AppendParams` stores seven vectors plus `streamName`, and each append SQL statement starts from:
 
@@ -266,6 +289,8 @@ Definitions used in this plan:
 
 ## Plan of Work
 
+The milestones below describe the completed trial. Milestones 2–3 were implemented and reverted after Milestone 5 rejected the candidate; they are not pending deliverables.
+
 Milestone 1 captures the current local baseline before implementation. Run a focused benchmark slice before editing SQL so the final result can be compared against this working tree, not only against the external cross-store harness. Record the date, branch or commit, machine context if known, exact command, CSV path, and relevant `Mean (ps)` values for single-event, batch, sequential, concurrent, and hot invoice-payment append benchmarks in `Surprises & Discoveries`. Do not start the SQL change until the baseline is recorded in this plan; without a local "before" value, there is no defensible way to prove this plan made anything faster.
 
 Milestone 2 adds scalar SQL machinery in `kiroku-store/src/Kiroku/Store/SQL.hs`. Add a `SingletonAppendParams` record with these fields:
@@ -292,6 +317,8 @@ Milestone 4 proves semantics. Run the existing store tests. If existing public t
 Milestone 5 measures and decides whether to keep the optimization. Re-run the focused Kiroku benchmarks with the same command filter used in Milestone 1 and write results to a separate after CSV. Add a before/after table to `Surprises & Discoveries` with benchmark name, before `Mean (ps)`, after `Mean (ps)`, percent change, and verdict. The singleton path is accepted only if the `Mean (ps)` for one-event append benchmarks improves by at least 10 percent, `hot invoice-payment 10 AnyVersion appends` improves, and `batch-10` and `batch-100` do not regress materially. If the result is within noise or slower after repeated runs, revert the singleton implementation and record why in Outcomes.
 
 ## Concrete Steps
+
+Historical trial commands follow, including the original filter that failed as documented in Surprises & Discoveries. This closure reuses the recorded evidence and requires no new test or benchmark run.
 
 Work from the repository root:
 
@@ -420,6 +447,8 @@ Record the before and after local benchmark means in `Surprises & Discoveries` a
 
 ## Validation and Acceptance
 
+These were the gates for retaining the proposed implementation. Correctness passed, performance failed, and the candidate was reverted. The experiment is complete through that rejection outcome; the criteria below are not claims of an accepted speedup or remaining implementation work.
+
 Compilation acceptance:
 
 - `cabal test kiroku-store:kiroku-store-test --test-options="-m appendToStream"` passes.
@@ -461,6 +490,8 @@ If benchmark results are noisy, repeat both the before and after focused benchma
 
 ## Interfaces and Dependencies
 
+The singleton interfaces below belonged to the reverted trial and are not present in production. They are retained as a record of the candidate design.
+
 This plan uses existing dependencies only:
 
 - `hasql` for `Statement`, encoders, decoders, and transaction execution.
@@ -501,6 +532,7 @@ The exact names may change to match local style, but the final implementation mu
 
 ## Revision Notes
 
+- 2026-10-25: Closed the completed experiment with its rejected-and-reverted outcome, reconciled the stale follow-up checkbox against plans 23–24 and MasterPlan 3, and marked the original design and acceptance instructions as historical. No new implementation or performance claim was added.
 - 2026-05-18: Added intention `intention_01krxrpv5heny9gs89seas59zm` to the plan frontmatter and clarified commit trailer expectations. Strengthened the benchmark requirements so implementation must record local before and after benchmark means from the `tasty-bench` CSV output, compare percent change from the same benchmark slice, and accept the optimization only when the measured result is faster without material batch regression.
 - 2026-05-18: Recorded the scalar singleton implementation trial, corrected the benchmark command details, captured local before/after/control benchmark evidence, and documented the decision to revert the trial because it failed the measurable-speedup gate.
 - 2026-05-18: Added a structural comparison against the upstream Elixir EventStore at `/Users/shinzui/Keikaku/hub/event-sourcing/eventstore` (`lib/event_store/streams/stream.ex`, `lib/event_store/storage/appender.ex`, `lib/event_store/sql/init.ex`, `lib/event_store/sql/statements/insert_events*.sql.eex`) to answer the question of why Kiroku cannot close the gap with the codebase it was originally based on. Recorded the round-trip topology, trigger model, schema, and version-validation-location differences in Surprises & Discoveries; logged the decision to stop reshaping the single-round-trip CTE; and updated Progress and Outcomes to redirect the next attempt toward an eventstore-style two-round-trip restructure carried into a follow-up plan.

@@ -4,6 +4,13 @@ slug: fix-category-subscription-live-loop-busy-spin
 title: "Fix Category subscription live-loop busy-spin (liveLoopDbDriven)"
 kind: exec-plan
 created_at: 2026-05-25T22:35:00Z
+provenance:
+  revisions:
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-25T23:25:14Z
+      mode: "update"
+      note: "Close the completed busy-spin fix after user confirmation of the downstream deployment."
 ---
 
 
@@ -14,6 +21,8 @@ Decision Log, and Outcomes & Retrospective must be kept up to date as work proce
 
 
 ## Purpose / Big Picture
+
+**Status: complete.** The Kiroku fix, regression tests, and changelog were completed on 2026-05-25. On 2026-10-25 the user confirmed that the downstream deployment and re-enable had also been completed long ago. No work remains under this plan; the incident and original implementation design below are historical.
 
 A live `Category` subscription (and any consumer-group member) busy-spins —
 re-issuing its category fetch query as fast as the CPU allows, doing zero useful
@@ -126,9 +135,7 @@ cover the consumer-group idle-partition path under its corrected gate.
 
 ## Progress
 
-Use a checklist to summarize granular steps. Every stopping point must be documented here,
-even if it requires splitting a partially completed task into two ("done" vs. "remaining").
-This section must always reflect the actual current state of the work.
+All milestones are complete. The implementation evidence below is from 2026-05-25; the downstream completion was confirmed by the user on 2026-10-25.
 
 Investigation — root cause + impact + load-test-gap analysis: **DONE 2026-05-25.**
 
@@ -205,19 +212,12 @@ Milestone 3 — regression tests: **DONE 2026-05-25.**
       pegging ~50 % CPU per process and never completing; killed via SIGTERM).
       Restored the fix via `git checkout`; suite green again. (2026-05-25)
 
-Milestone 4 — changelog + downstream re-enable: **CHANGELOG DONE 2026-05-25;
-downstream tracked out-of-repo.**
+Milestone 4 — changelog + downstream re-enable: **DONE.**
 
 - [x] Added a new `## Unreleased` section to `kiroku-store/CHANGELOG.md` with the
       Fixed (busy-spin) and Added (`KirokuEventSubscriptionFetched`) entries.
       (2026-05-25)
-- [ ] Downstream `rei`: rebuild `rei-cli` against the fixed pin, redeploy the
-      `com.shinzui.rei-worker-kiroku` agent, and re-enable it + the
-      `com.shinzui.rei-watchdog` agent (both were `launchctl disable`/`bootout`
-      as the 2026-05-25 mitigation). Confirm worker CPU is near-idle even under
-      cross-context flow. **Deferred — belongs to the downstream `rei` repo and
-      its deployment; the kiroku-repo work (Milestones 1–4 source + tests +
-      changelog) is complete and ready to pin.**
+- [x] Downstream deployment and re-enable in `mori://shinzui/rei` completed. The user confirmed on 2026-10-25 that this work was done long ago. The actual completion date and production CPU measurements are not recorded here; no new deployment or runtime verification is required for this closure.
 
 
 ## Surprises & Discoveries
@@ -328,6 +328,10 @@ implementation. Provide concise evidence.
 
 
 ## Decision Log
+
+- Decision: Close the plan, including the downstream deployment handoff.
+  Rationale: Source, tests, and changelog were already complete, and the user confirmed that the sole unchecked downstream item had been completed long ago. Record that confirmation without inventing a deployment date or new measurement.
+  Date: 2026-10-25
 
 Record every decision made while working on the plan.
 
@@ -521,9 +525,11 @@ Record every decision made while working on the plan.
 Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
 Compare the result against the original purpose.
 
-**Completed in this repo 2026-05-25 (Milestones 1–4 source/tests/changelog).**
-The downstream `rei` redeploy + re-enable is the only remaining item and lives
-out-of-repo.
+**Complete.** The source/tests/changelog were completed on 2026-05-25. On 2026-10-25 the user confirmed that the downstream redeploy and re-enable in `mori://shinzui/rei` had been completed long ago. Nothing remains under this plan.
+
+The current source still preserves category generation wakeups, the 30-second safety poll, and the separate last-observed-global-position gate. [Plan 91](91-evaluate-and-fix-partitioned-category-reads-that-scan-every-stream-in-the-category.md) subsequently extended category generation wakeups to consumer-group category members. `Test.CategoryIdleNoSpin` now covers three cases: plain category idle/liveness, consumer-group category idle/liveness, and bounded polling for an `AllStreams` consumer-group member. Its registration and the original changelog entry remain present. This closure checked the source and recorded evidence; it did not rerun the historical test suites or measure production CPU.
+
+The current category/group wake architecture is already documented in `docs/architecture/subscriptions.md`; [ADR-10](../adr/0010-category-reads-use-a-denormalized-category-index-on-all-rows.md) records the related category-read architecture introduced by Plan 91. Closing the stale deployment checkbox adds no architectural decision. No friction entries are recorded under this plan in `docs/friction-log/`.
 
 What shipped, against the original purpose (kill the `liveLoopDbDriven`
 busy-spin that pegged 581 % CPU on the downstream `rei worker kiroku`):
@@ -570,15 +576,12 @@ Gaps / deltas from the plan as written:
 - `pg_stat_statements` was confirmed unavailable and unused; the additive
   observability counter was the discriminator, as planned.
 
-Remaining (out-of-repo): bump the `rei` kiroku pin to this fixed SHA, rebuild
-`rei-cli`, redeploy `com.shinzui.rei-worker-kiroku`, and re-enable it plus
-`com.shinzui.rei-watchdog`; confirm the worker idles near 0 % CPU under
-cross-context flow. The investigation outcome (root cause + load-test-gap
-analysis + the discarded-payload architecture discovery) is recorded above and is
-the "keep the history" deliverable.
+The downstream handoff is complete per the user's 2026-10-25 confirmation. The investigation outcome (root cause, load-test-gap analysis, and discarded-payload architecture discovery) remains recorded above as the historical deliverable.
 
 
 ## Context and Orientation
+
+The following context describes the original defect and 2026-05-25 implementation. Line numbers, pre-fix examples, and consumer-group routing are historical; Plan 91 subsequently routed all category subscriptions through category generation wakeups.
 
 The subscription worker lives in
 `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs`. `runWorker` runs two
@@ -656,6 +659,8 @@ milestone after the fixed pin ships.
 
 
 ## Plan of Work
+
+The following milestones record the completed implementation and deployment. They are not instructions to redo the work.
 
 Adopt the per-category NOTIFY wake (Option H): stop discarding the Notifier
 payload, wake each `Category` subscriber on its own category, and keep the
@@ -1109,6 +1114,8 @@ Decision Log).
 
 
 ## Revision Notes
+
+- 2026-10-25 — Closed the plan after the user confirmed the downstream deployment and re-enable were completed long ago. Reconciled Progress and Outcomes, distinguished the historical design from Plan 91's later routing, and preserved the existing correctness evidence without inventing deployment measurements.
 
 - 2026-05-25 — Plan created to record the root-cause history of the
   `liveLoopDbDriven` busy-spin (found via a downstream `rei` 581 % CPU incident)
