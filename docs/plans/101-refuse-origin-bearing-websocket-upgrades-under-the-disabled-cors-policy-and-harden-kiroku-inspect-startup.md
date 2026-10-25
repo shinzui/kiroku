@@ -22,6 +22,11 @@ provenance:
       at: 2026-10-25T19:17:17Z
       mode: "update"
       note: "Apply review findings: typed startup failures, shared signal state and deterministic subprocess checks, conflicting-test updates, same-origin proxy migration, and existing CORS discovery."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-25T19:51:44Z
+      mode: "implement"
+      note: "Implement default WebSocket origin refusal and standalone startup and shutdown hardening."
 ---
 
 # Refuse Origin-bearing WebSocket upgrades under the disabled CORS policy and harden kiroku-inspect startup
@@ -66,7 +71,7 @@ documented as the safe loopback it already is.
 
 ## Progress
 
-- [ ] Milestone 1: with `corsDisabled`, a WebSocket upgrade carrying any `Origin` header is refused with HTTP 403 and the `origin_not_allowed` envelope, an upgrade without `Origin` succeeds, and HTTP requests with `Origin` are unchanged; `CorsSpec` pins all three and the full kiroku-metrics suite passes.
+- [x] Milestone 1 (2026-10-25; full package suite: 118 examples, 0 failures): with `corsDisabled`, a WebSocket upgrade carrying any `Origin` header is refused with HTTP 403 and the `origin_not_allowed` envelope, an upgrade without `Origin` succeeds, and HTTP requests with `Origin` are unchanged; `CorsSpec` pins all three and the full kiroku-metrics suite passes.
 - [ ] Milestone 2: ADR-16, `docs/user/metrics.md`, `docs/guides/building-an-inspection-ui.md` and the kiroku-metrics changelog describe the new default and same-origin proxy migration; the 0.3.0.0 claim is corrected in place and the next-version entry is marked breaking. Existing `cors.enabled` discovery remains compatible.
 - [ ] Milestone 3: `kiroku-inspect` distinguishes bind, database, schema and other failures without details; either signal starts graceful shutdown and a second SIGINT or SIGTERM forces exit, including mixed pairs. Tests cover actual startup failures and a deliberately blocked shutdown; the guides and ADR-18 document loopback-only `--port 0`.
 
