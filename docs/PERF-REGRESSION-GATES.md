@@ -17,7 +17,7 @@ telemetry.
 | Tier | Command | What it proves | What a failure means |
 | --- | --- | --- | --- |
 | Structural | `just perf-structure` | Protected production SQL still selects the intended indexes; dead-letter reads do not add a sort; notification cardinality and no-database-work paths remain exact. | A deterministic invariant changed. Inspect the named Hspec failure and its JSON plan or checkout count before changing code or migrations. |
-| Controlled workload | `just perf-workload-gate` | In one process and PostgreSQL server, the public pipelined `appendMultiStream` path remains at least 10% faster than an explicit sequential transaction control at four and eight streams. | A candidate/control ratio exceeded `0.90`, or a real store/database error occurred. Repeat the unchanged wall-time gate three times on a quiet host; investigate before changing the workload or threshold. |
+| Controlled workload | `just perf-workload-gate` | In one process and PostgreSQL server, pipelined `appendMultiStream` stays within `0.50–0.90x` of a sequential transaction control at four and eight streams; migration 0012's append path stays within `0.50–1.05x` of the pre-0012 control; category reads meet their existing `1.05x` or `0.20x` ceilings. Every compared arm has doubled standard deviation at most 20% of its mean. | A ratio is outside its bounds, an arm is too noisy, a CSV result is missing/invalid, or a store/database error occurred. The spread failure names the cell, mean, doubled deviation and 20% bound. Repeat the unchanged wall-time gate three times on a quiet host; investigate before changing the workload or threshold. |
 | Historical telemetry | `just perf-telemetry` | Every historical benchmark has exactly one CSV baseline row, and current absolute timings are reported against that older run. | Structural name mismatch or benchmark execution errors still fail. Timing movement is printed but does not fail this command; investigate repeated or corroborated movement. |
 
 `just bench-regression` retains the older strict historical comparison and fails
@@ -27,6 +27,30 @@ load, and benchmark layout can move an absolute historical comparison without a
 production regression. A strict timing-only failure is actionable evidence to
 investigate, not permission to refresh the baseline and not an automatic veto
 when both authoritative tiers pass.
+
+The workload recipe saves tasty-bench's CSV to
+`kiroku-store/bench/results/workload-gate.csv` and checks it with
+`kiroku-store/bench/check-gate-spread.sh`, using the `Name`, `Mean (ps)` and
+`2*Stdev (ps)` columns. It requires all 16 comparison arms, so a partial run or
+failed cell cannot silently pass. The recipe checks spread even when the benchmark
+comparison fails and retains the benchmark's nonzero exit status. Run these commands
+inside the repository development environment, for example
+`nix develop --no-write-lock-file -c just perf-check`.
+
+Before measurement, all three append stores run 20 workload iterations each (400
+fresh streams and 800 events), then the harness checkpoints PostgreSQL and runs
+`VACUUM (ANALYZE)` on the six databases. This primes growing tables and refreshes
+statistics before prepared statements are measured. No timed workload or frozen
+control SQL changes. The first cell, `append-category-column.warm-append-40`, is
+disposable: it absorbs post-setup effects using its own third append store. Its spread
+is exempt from the 20% check. A warm-up does not establish measurement quality;
+both control and candidate must pass the check themselves. The append ratios also
+have a `0.50x` plausibility floor, since a slow control can otherwise create a
+vacuous pass. Category reads retain a zero floor because their large speedups are
+expected. The 20% bound is a convergence safeguard, not a confidence interval or
+proof that a small write-cost difference has been resolved. The parser's failure
+cases can be checked without PostgreSQL with
+`python3 kiroku-store/bench/test-gate-spread.py`.
 
 ## Baseline coverage and updates
 

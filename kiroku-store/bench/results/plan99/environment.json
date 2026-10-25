@@ -1,0 +1,24 @@
+{
+  "recorded_at": "2026-10-25T13:50:02.289136+00:00",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "hardware": [
+    "Apple M5 Ultra",
+    "36",
+    "274877906944"
+  ],
+  "packages": [
+    {
+      "pkg-name": "ephemeral-pg",
+      "pkg-version": "0.3.1.0"
+    },
+    {
+      "pkg-name": "tasty-bench",
+      "pkg-version": "0.5.1"
+    }
+  ],
+  "compiler": "ghc-9.12.4",
+  "build_profile": "-O1",
+  "postgres": "18.6",
+  "host_policy": "User authorized continuing on active machine; actual load retained in journal.jsonl",
+  "stop_reason": "First converged append ratio 1.0584778484592603 exceeds unchanged 1.05 ceiling. No further timing trials."
+}

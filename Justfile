@@ -151,11 +151,19 @@ perf-structure:
         --test-show-details=direct \
         --test-options='--match "performance structure"'
 
-# Compare production appendMultiStream with the sequential control
+# Compare controlled write/read workloads and reject noisy comparison arms
 [group('benchmarks')]
 perf-workload-gate:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    results="$PWD/kiroku-store/bench/results/workload-gate.csv"
+    mkdir -p "$(dirname "$results")"
+    : > "$results"
+    status=0
     cabal bench kiroku-store:kiroku-store-bench-workload-gate \
-        --benchmark-options="--stdev 5"
+        --benchmark-options="--stdev 5 --csv $results" || status=$?
+    bash kiroku-store/bench/check-gate-spread.sh "$results" || status=1
+    exit "$status"
 
 # Optional extended original-control matrix; outside the default performance check
 [group('benchmarks')]

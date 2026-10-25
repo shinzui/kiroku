@@ -1,0 +1,21 @@
+$ python3 kiroku-store/bench/test-gate-spread.py
+.......
+----------------------------------------------------------------------
+Ran 7 tests in 0.908s
+
+OK
+exit=0
+
+$ bash -n kiroku-store/bench/check-gate-spread.sh
+exit=0
+
+$ git diff --check
+exit=0
+
+$ okf validate docs/adr --strict --profile docs/adr/profile.dhall --profile-enforce --log-enforce
+OK: 20 concepts (okf_version 0.2)
+exit=0
+
+$ okf validate docs/friction-log --strict --profile docs/friction-log/profile.dhall --profile-enforce --log-enforce
+OK: 1 concepts (okf_version 0.2)
+exit=0

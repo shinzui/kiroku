@@ -10,6 +10,12 @@ provenance:
     model: "claude-fable-5-1"
     harness: "claude-code"
     at: 2026-10-21T14:06:08Z
+  revisions:
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-25T13:36:13Z
+      mode: "implement"
+      note: "Implement bounded workload diagnosis, spread validation and measured write-cost evidence"
 ---
 
 # Repair the append-category-column workload cell and measure migration 0012's write cost
@@ -31,7 +37,7 @@ check constraint (the control) against the production statement on a fully migra
 database (the candidate), in one process against one PostgreSQL server, and fails
 when the candidate is more than 5% slower.
 
-That gate has never produced a valid measurement. On 2026-09-25 it reported 1.00x,
+Before this implementation, that gate had never produced a valid measurement. On 2026-09-25 it reported 1.00x,
 1.04x and 1.00x with a spread of about ±100% on a loaded host. On 2026-10-21, on a
 quiet host, it reported the control at 54 ms ± 61 ms and the candidate at
 3.62 ms ± 25 μs, a 0.07x "pass"; run with only the candidate arm selected the
@@ -52,18 +58,56 @@ appends gets a number instead of a shrug.
 
 ## Progress
 
-- [ ] Milestone 1: the position effect is characterized with evidence, and a repair is chosen by the stated criterion (both arms' doubled standard deviation within 20% of their means in three consecutive runs of the cell).
-- [ ] Milestone 2: the repaired gate is self-checking: a throwaway cell absorbs setup effects, the compared cells carry a lower bound, and a spread check fails the recipe when an arm is noisier than the stated bound; `just perf-workload-gate` passes three times in a row with both append arms plausible.
-- [ ] Milestone 3: the measured ratio and its spread are recorded as a new row in `docs/perf-experiment-log.md` that cites the 2026-09-25 G4 row, the gate documentation describes the new checks, and ADR-5 carries the lesson.
+- [ ] Milestone 1: the populated-and-analyzed setup removed the large effect in one focused run (2026-10-25), with spreads 8.33% / 7.53%; three consecutive confirmations remain unperformed because that run exceeded the ratio ceiling and triggered the adverse stop.
+- [ ] Milestone 2: the disposable cell, ratio floors, complete-CSV spread checker and recipe are implemented; seven parser/recipe tests and 41 structural examples pass. Three full gate passes and end-to-end `perf-check` acceptance remain unmet under the adverse stop.
+- [x] Milestone 3 (adverse-result branch, 2026-10-25): the failed 1.058478x ratio and its uncertainty are recorded in the ledger, the guide describes all checks, ADR-5 is amended, and strict ADR validation passes. Normal three-run performance acceptance was not achieved.
+
+Execution stopped under the explicit rule in Validation and Acceptance: the first
+converged candidate/control ratio exceeded 1.05. No more timing trials were run,
+no threshold changed, and no favorable retry replaced this result. The functional
+changes are delivered; the repair's repeated-run acceptance and migration write-cost
+acceptance remain outstanding for a separate decision. Evidence:
+`kiroku-store/bench/results/plan99/README.md`.
 
 
 ## Surprises & Discoveries
 
-(None yet beyond the observations in Purpose; add evidence snippets here as the
-characterization proceeds.)
+On 2026-10-25 the unchanged baseline again passed invalid measurements: control
+53.332 ms ±54.058 ms and candidate 28.614 ms ±13.063 ms (0.537x), with
+load above 3 and concurrent tests in other repositories. This is diagnostic
+evidence only. Raw CSV, command logs and a bounded run journal are retained under
+`kiroku-store/bench/results/plan99/`. The first relative CSV path failed because
+Cabal changes to the package directory; subsequent commands and the recipe use an
+absolute results path.
+
+The plain-shell build could not find GHC 9.12.4. Use
+`nix develop --no-write-lock-file -c` before the commands below unless already in
+the development shell; see FRIC-1 in `docs/friction-log/`.
+
+A disposable cell alone left spreads of 31.34% / 26.26%. Adding a checkpoint and
+vacuum/analyze alone produced a plausible 3.336 ms control but an invalid
+52.031 ms ±33.143 ms candidate. Neither attempt was accepted. The 45 one-second
+samples in `diagnostic.jsonl` observed zero completed checkpoints and an active
+vacuum only once, alongside append and publisher head queries. The root cause
+is not proven; setup effects are not merely a global delay absorbed by any first
+cell on this host.
+
+Priming all three append stores with 20 untimed workload iterations each, then
+checkpointing and vacuuming/analyzing all six databases, produced control
+3.327034 ms ±0.277265 ms and candidate 3.521592 ms ±0.265205 ms immediately.
+The disposable cell uses its own store so it cannot grow either append arm or
+bias the pipeline candidate's fixture. This is one successful convergence check,
+not the required three. Its 1.058478x ratio failed and ended the experiment.
 
 
 ## Decision Log
+
+- Decision: Continue measurements on the available machine, retaining actual host
+  load and the original spread and ratio bounds.
+  Rationale: On 2026-10-25 the user directed continuing because the machine is
+  powerful enough. The quiet-host precondition is waived for this execution;
+  convergence is still required, and uncertainty cannot be relabelled as a pass.
+  Date: 2026-10-25
 
 - Decision: The repair is accepted on the stated numeric criterion, not on a root cause.
   Rationale: The user's standing guidance (`AGENTS.md`) is to spend the minimum evidence
@@ -71,7 +115,8 @@ characterization proceeds.)
   effect in three consecutive runs, that is sufficient; attribution is recorded if it
   falls out of the diagnosis but is not required.
   Date: 2026-10-21
-- Decision: Timing evidence comes only from the same-process gate on a quiet host; the
+- Decision: Timing evidence comes only from the same-process gate under the host conditions
+  authorized for this execution; the
   historical CSV comparison (`just bench-regression`, `just perf-telemetry`) is not
   used to accept or reject anything in this plan.
   Rationale: ADR-5 makes the historical tier telemetry only, and the keiro review of
@@ -81,7 +126,32 @@ characterization proceeds.)
 
 ## Outcomes & Retrospective
 
-(To be filled during and after implementation.)
+On 2026-10-25 the gate gained a disposable first cell, a populated/analyzed setup,
+append ratio floors of 0.50x, and a fail-closed CSV check on all 16 compared arms.
+The frozen control and production statements are unchanged. Seven parser/recipe
+tests pass, including corruption of every arm and preservation of a benchmark's
+nonzero status; all 41 structural examples pass. Final benchmark compilation and
+strict ADR/friction bundle validation pass. The full timed recipe and aggregate
+were not rerun after the adverse result; neither has passing acceptance evidence.
+
+The first converged comparison observed +5.85%, above the unchanged +5% gate.
+The append timing experiment stopped at 13:46:22 UTC, about 11 minutes after its
+13:35:27 start, including builds and rejected attempts. This follows the explicit
+adverse-stop branch, not completion of the normal three-run criterion. A consumer
+adopting 0.9 now has a retained, plausible but single-run adverse measurement:
+3.327034 ms to 3.521592 ms per 40 appends, with doubled standard deviations of
+0.277265 ms and 0.265205 ms. The 8.33% / 7.53% spreads exceed the effect being
+estimated, so these are not a confidence interval, proof of a reproducible
+regression, or a universal 5.85% migration cost. Further performance acceptance
+requires a separate decision; do not raise the ceiling or discard this sample.
+
+ADR-5 now records why both arms and the ratio need safeguards. The new ledger
+row explicitly revisits the inconclusive 2026-09-25 G4 row. FRIC-1 in
+`docs/friction-log/` is resolved: the plan and gate guide now document the Nix
+environment required by the commands. FRIC-2 is accepted: whole-manifest Dhall
+validation fails on the pre-existing `versionConstraint` dependency-helper/schema
+mismatch, reproduced on the original HEAD manifest. Strict validation of both
+bundles passes; the unrelated dependency-schema migration is outside this plan.
 
 
 ## Context and Orientation
@@ -107,19 +177,20 @@ cabal bench kiroku-store:kiroku-store-bench-workload-gate --benchmark-options="-
 (`withSharedMigratedPostgres` from `kiroku-test-support/src/Kiroku/Test/Postgres.hs`,
 which uses the `ephemeral-pg` package's default configuration with the temporary root
 pinned under `/tmp/ephpg-kiroku-<uid>`), creates six migrated databases (two for the
-pipelined multi-append group, two for the append-category group through
+pipelined multi-append group, three for the append-category group (including the disposable store) through
 `withAppendCategoryStores`, and the category-scaling store through
 `withCategoryScalingStore`, which seeds 20,200 streams and tens of thousands of events
-from `Kiroku.Test.Fixtures.CategoryScaling`), runs one warm-up iteration of each
-workload, and only then calls `defaultMain`. The benchmark tree has three groups:
+from `Kiroku.Test.Fixtures.CategoryScaling`), runs 20 warm-up iterations on each append-category store and one on each pipeline
+workload, checkpoints and vacuums/analyzes the databases, and only then calls `defaultMain`. The benchmark tree has three groups:
 `append-multi-stream`, `append-category-column` and `category-read`. In the
 `append-category-column` group, `control-append-40` runs `runAppendWorkload` with
 `preCategoryAppendAnyVersion` (the pre-0012 statement copied verbatim from git
 `12d50d5`) against the control store, and `candidate-append-40` runs the production
 `SQL.appendAnyVersion` against the candidate store; each iteration appends one event to
-each of 20 fresh streams and then 20 events to one hot stream. The comparison is
-`bcompareWithin 0 1.05 "control-append-40"`, which makes `tasty-bench` fail the
-candidate when `candidate mean / control mean` is outside `[0, 1.05]`.
+each of 20 fresh streams and then 20 events to one hot stream. The disposable first cell
+uses its own sixth database; it cannot alter either measured arm. The comparison is
+`bcompareWithin 0.5 1.05 "control-append-40"`, which makes `tasty-bench` fail the
+candidate when `candidate mean / control mean` is outside `[0.5, 1.05]`.
 
 `tasty-bench` runs cells sequentially in tree order and reports `mean ± 2σ`. With
 `--stdev 5` it keeps iterating a cell until the estimated relative standard deviation
@@ -154,6 +225,12 @@ repeats, reported before a stage starts, and no silent weakening of a gate.
 
 
 ## Plan of Work
+
+Execution note (2026-10-25): the first converged ratio triggered the explicit
+adverse stop. The implementation additionally primes the growing append tables
+before analyze; the diagnostic evidence and incomplete acceptance are recorded
+above. The remaining normal-path instructions below are retained for a future
+separate decision and were not silently treated as passing.
 
 Milestone 1 characterizes the effect just enough to choose a repair. The first
 hypothesis to test is the cheapest: the first cell measured after `defaultMain` starts
@@ -190,9 +267,9 @@ state the bound and the offending cell in its failure message, and
 controlled-workload row of its table.
 
 Milestone 3 records the result. Run the repaired gate three times on a quiet host
-(load average below 3, no other builds), and add one row to
+(load average below 3, no other builds unless explicitly waived by the user (as on 2026-10-25); record actual load), and add one row to
 `docs/perf-experiment-log.md` with the three control and candidate means, their
-spreads and ratios, outcome `kept`, and a lesson that cites the 2026-09-25 G4 row and
+spreads and ratios, outcome `kept` only if accepted, and a lesson that cites the 2026-09-25 G4 row and
 states expected (at most 3%) against observed. Then amend ADR-5 with one dated
 paragraph under Consequences: a controlled workload gate must bound both arms'
 spread and the plausibility of the ratio, because an invalid control arm can produce a
@@ -203,7 +280,8 @@ consumer that adopted kiroku-store 0.9.
 
 ## Concrete Steps
 
-All commands run from the repository root. Build everything once; the first build
+All commands run from the repository root inside `nix develop --no-write-lock-file`
+(or prefix each command with `nix develop --no-write-lock-file -c`). Build everything once; the first build
 without a `dist-newstyle` directory takes several minutes.
 
 ```bash
@@ -289,8 +367,7 @@ Milestone 1 is accepted when Surprises & Discoveries holds the sampler or run ev
 and three consecutive focused runs of the repaired cell report both append arms with a
 doubled standard deviation at most 20% of their means.
 
-Milestone 2 is accepted when `just perf-workload-gate` passes three times in a row on a
-quiet host with the throwaway cell present, when deliberately corrupting one arm (for
+Milestone 2 is accepted when `just perf-workload-gate` passes three times in a row under the user-authorized host conditions with the throwaway cell present, when deliberately corrupting one arm (for
 example by running the recipe while a `cabal build` of another package is in progress)
 makes the spread check fail with a message naming the cell, and when
 `just perf-check` still passes end to end. Also run `cabal test kiroku-store:kiroku-store-test --test-options='--match "performance structure"'`
@@ -328,3 +405,12 @@ and `withMigratedTestDatabase` provide the server and databases. The `Justfile`
 recipes `perf-workload-gate` and `perf-check` are the public entry points that
 `docs/PERF-REGRESSION-GATES.md` documents and that release work runs. No new library
 dependency is expected; the spread check is a shell script reading CSV.
+
+Revision note (2026-10-25): use the Nix development environment and absolute CSV
+paths; retain the user's authorization to continue on the active host without
+weakening the numeric convergence or ratio criteria.
+
+Revision note (2026-10-25): retain the failed warm-only and quiescence-only
+attempts, prime each append store equally before analyze, isolate the disposable
+store, and record the first converged ratio as an adverse stop. Three-run and
+full-gate acceptance remain unclaimed.

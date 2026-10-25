@@ -8,7 +8,7 @@ generated:
 docId: ADR-5
 status: Accepted
 date: 2026-08-11
-timestamp: "2026-08-11T17:54:14Z"
+timestamp: "2026-10-25T13:43:30Z"
 originatingPlan: docs/plans/64-harden-benchmark-regression-detection-with-structural-checks-and-controlled-a-b-workload-gates.md
 ---
 
@@ -54,6 +54,18 @@ regression report green. Historical movement still requires investigation, espec
 overlaps a protected workload, but it does not override a passing controlled comparison by itself.
 
 ## Consequences
+
+On 2026-10-25, [Plan 99](../plans/99-repair-the-append-category-column-workload-cell-and-measure-migration-0012-s-write-cost.md)
+reproduced a vacuous pass from an unconverged control: a same-process comparison
+alone does not establish useful timing evidence. Controlled gates must bound the
+spread of **both** arms and reject implausible ratios. The workload recipe now
+checks every comparison arm's reported doubled standard deviation against 20% of
+its mean and rejects missing or invalid CSV results; append comparisons also have
+a 0.50x lower bound. A disposable warm-up may absorb setup effects, but cannot
+substitute for checking the measured arms. Category-read ratios keep a zero lower
+bound because large speedups are expected. These safeguards detect invalid
+measurements; they do not turn the reported spreads into confidence intervals or
+establish equivalence for differences smaller than the noise.
 
 **Positive**
 

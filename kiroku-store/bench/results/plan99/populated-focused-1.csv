@@ -1,0 +1,4 @@
+Name,Mean (ps),2*Stdev (ps)
+All.append-category-column.warm-append-40,3619092187,295681556
+All.append-category-column.control-append-40,3327034375,277265440
+All.append-category-column.candidate-append-40,3521592187,265204648

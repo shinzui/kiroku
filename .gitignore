@@ -29,6 +29,7 @@ cabal.project.local~
 # Benchmark results (generated)
 kiroku-store/bench/results/*.txt
 kiroku-store/bench/results/*.json
+kiroku-store/bench/results/workload-gate.csv
 # Seihou temp files
 .seihou/*.tmp
 

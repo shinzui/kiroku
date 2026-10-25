@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-10-25
+* **Update**: ADR-5: require bounded spread on both controlled-workload arms and plausible append ratios; reject incomplete measurements (Plan 99).
+
 ## 2026-10-20
 * **Update**: ADR-20: record structured script, statement and pool error boundaries under ExecPlan 98.
 
