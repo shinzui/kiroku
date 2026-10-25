@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-10-25
+* **Modification**: BUG-5 remains reported from source inspection, not a production incident or executed reproduction. The owner reports no production use of consumer groups; dedicated recovery implementation is deferred until a retained incomplete legacy group needs recovery or a concrete future consumer requirement establishes the need for a seed API. Corrected reset scope (all persisted members, no missing rows), removed released-migration-edit advice, and linked the corrected guides; no validated recovery procedure or defect fix is claimed.
+
 ## 2026-10-21
 * **Report**: BUG-5 reports that migration 0013 derives a consumer group's size from its highest checkpointed member, so a legacy group whose highest members never ran derives too small a size and the documented resize remedy seeds the missing members at the group minimum, permanently skipping their slices below it; found by REV-2 from code at 364ffa8, not yet executed.
 

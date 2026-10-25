@@ -8,7 +8,7 @@ generated:
 docId: ADR-2
 status: Accepted (recorded retroactively)
 date: 2026-05-20
-timestamp: "2026-10-10T15:06:38Z"
+timestamp: "2026-10-25T23:14:18Z"
 ---
 
 # ADR-0002: Consumer groups are static, hash-partitioned competing consumers
@@ -126,7 +126,13 @@ this operation does not perform dynamic rebalancing or live handoff.
 
 Migration `0013.sql` derives legacy size as `max(consumer_group_member) + 1`.
 Incomplete legacy membership yields an underestimate, refused at the next start
-and corrected by explicit resize rather than implicit adoption. The low-level
+without implicit adoption. Ordinary resize creates missing members at the old
+minimum; it can skip a never-started member's backlog below that position and is
+not a lossless repair for incomplete legacy membership. See the
+[incomplete legacy group warning](../user/consumer-groups.md#incomplete-legacy-groups)
+and [BUG-5](../bug-reports/post-migration-resize-skips-a-never-started-members-backlog.md).
+Dedicated recovery implementation is deferred pending a concrete recovery need;
+no validated recovery procedure is available. The low-level
 exact-checkpoint initializer remains a size-1 provisioning API; pre-provision
 whole groups through resize so their topology is explicit.
 

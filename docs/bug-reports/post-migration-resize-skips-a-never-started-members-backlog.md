@@ -12,6 +12,7 @@ generated:
   at: "2026-10-21T13:57:37Z"
 bugId: BUG-5
 status: reported
+timestamp: "2026-10-25T23:14:18Z"
 severity: data-loss
 origin: mori://shinzui/kiroku/okf/reviews/concepts/REV-2
 affects: mori://shinzui/kiroku/packages/kiroku-store
@@ -44,12 +45,32 @@ reproduction:
   - Run resizeConsumerGroupTx (SubscriptionName "g") size-4 as the comment and docs/user/consumer-groups.md prescribe; the rows are now (0,4,100), (1,4,100), (2,4,100), (3,4,100).
   - Start all four members; member 3 fetches from position 100 and the events in its slice below 100 are never delivered to any member. Test/ConsumerGroupResize.hs "refuses an underestimated derived topology until resized" asserts the seeded-at-minimum row shape as the intended outcome.
 workaround: >-
-  After resizing an incomplete legacy group, reset the newly created members to position 0 with
-  resetSubscriptionCheckpointsTx before starting them, or reset the whole group to 0 and accept
-  redelivery.
+  No validated recovery procedure is available. Keep all workers stopped if history must be
+  retained and establish the recovery requirement before changing checkpoints. Ordinary resize
+  alone can skip backlog. resetSubscriptionCheckpointsTx accepts subscription names, resets all
+  persisted members for those names, and creates no missing rows; it cannot select only newly
+  created members. Any eventual recovery must account for missing rows and possible whole-group
+  replay. Disposable development fixtures may follow their established rebuild workflow.
 ---
 
 # Resizing after migration 0013 skips the backlog of a member that never checkpointed
+
+## Disposition (2026-10-25)
+
+The project owner reports that consumer groups have never been used in production.
+Dedicated legacy recovery implementation is deferred under
+[ExecPlan 100](../plans/100-make-resize-safe-for-legacy-consumer-groups-whose-members-never-checkpointed.md).
+Reopen implementation when an actual retained incomplete legacy group needs
+recovery, or a concrete future consumer requirement establishes the need for a new
+seed API. Absence of production use does not make retained data disposable.
+
+This report remains `reported`: its evidence is source inspection, not an executed
+database reproduction or an observed production incident. The defect is not fixed.
+The reproduction and references below preserve the advice and behavior at report
+time. The [consumer guide](../user/consumer-groups.md#incomplete-legacy-groups) and
+[historical upgrade edge](../../blueprints/kiroku-upgrade/migrations/0.9.0.1-to-0.10.0.0.md)
+now distinguish ordinary resizing from this recovery case. Neither supplies a
+validated recovery procedure.
 
 ## Why it matters
 
@@ -85,17 +106,21 @@ the old larger size, and the forced resize rewinds the live members to the
 stale rows' positions. That is redelivery rather than loss and is not the
 subject of this report.
 
-## Suggested fix
+## Deferred implementation alternatives
 
-Either of these closes the loss; both are compatible with the current schema.
+Current documentation warns about incomplete legacy groups. Released migration
+`kiroku-store-migrations/migrations/0013.sql`, including its comment, must remain
+unchanged because its bytes are checksummed. Correcting current guidance does not
+repair the underlying behavior.
 
-1. Make the incomplete-legacy case explicit in the migration comment,
-   `docs/user/consumer-groups.md`, plan 81 and the `0.9.0.1 -> 0.10.0.0`
-   upgrade edge: when the derived size is smaller than the configured size
-   because members never ran, resize and then reset the new members to 0
-   before starting them. `Test/ConsumerGroupResize.hs` should gain a case that
-   appends into the new member's slice before the minimum and asserts
-   delivery after the documented procedure.
-2. Or give `resizeConsumerGroupTx` a seed-position argument, or a sibling
-   that seeds new members at 0, so the operator can choose replay for members
-   that have no history instead of the group minimum.
+If implementation is reopened, assess a transaction-composable recovery operation
+that accounts for missing rows and resets the complete group, accepting replay for
+existing members. `resetSubscriptionCheckpointsTx` alone creates no missing rows
+and cannot reset selected individual members. Any composed procedure needs
+version-compatible APIs, stopped workers, atomic checkpoint changes, and validation
+that the missing member's events below the old minimum are delivered.
+
+Alternatively, consider an explicit seed-position API that distinguishes new
+members from existing ones. Its replay and retry semantics would need design and
+tests against the actual recovery requirement. Neither alternative is implemented
+or validated by this plan; no new API or recovery guarantee is available.

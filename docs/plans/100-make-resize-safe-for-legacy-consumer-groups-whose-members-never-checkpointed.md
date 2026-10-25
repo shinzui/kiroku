@@ -32,6 +32,11 @@ provenance:
       at: 2026-10-25T23:09:38Z
       mode: "implement"
       note: "Implement milestone 1 documentation prerequisite for Plan 102; BUG-5 triage remains pending."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-25T23:15:00Z
+      mode: "implement"
+      note: "Complete BUG-5 deferred disposition and corrected advice; reconcile ADR-2 legacy warning and validate documentation."
 ---
 
 # Make resize safe for legacy consumer groups whose members never checkpointed
@@ -66,10 +71,10 @@ recovery test matrix, release bump or performance experiment is required.
 ## Progress
 
 - [x] (2026-10-25) Milestone 1: Implemented as Plan 102's documentation prerequisite. `docs/user/consumer-groups.md` and the historical upgrade edge distinguish ordinary resize from incomplete legacy recovery, explain the skipped-backlog risk and deferred implementation, and provide the stable `#incomplete-legacy-groups` warning. Links resolve and `seihou validate-blueprint blueprints/kiroku-upgrade` passes; no recovery API or validated recipe is claimed.
-- [ ] Milestone 2: BUG-5 and its bundle log record the user's no-production-use statement, deferred recovery implementation and a concrete reopening condition; invalid per-member-reset and released-migration-edit advice is corrected, and bundle validation passes.
+- [x] (2026-10-25) Milestone 2: BUG-5 and its bundle log record no production use, deferred recovery and the concrete reopening condition. Reset scope and released-migration advice are corrected; evidence and `status: reported` are preserved. Bug bundle validation passes (5 concepts). ADR-2's legacy guidance now links the warning, and strict ADR bundle validation passes (20 concepts). Blueprint validation, 16 relative-link/anchor checks and `git diff --check` pass.
 
-The earlier API implementation milestones are superseded, not completed. The guide
-correction is complete; BUG-5 disposition and its bundle-log update remain pending.
+The active documentation and triage scope is complete. The earlier API
+implementation milestones remain superseded, not completed; the defect is not fixed.
 
 
 ## Surprises & Discoveries
@@ -116,14 +121,21 @@ the production recovery requirement was removed.
 
 ## Outcomes & Retrospective
 
-The plan was narrowed on 2026-10-25 before implementation. The proposed public API,
-SQL changes and recovery test work are removed from active scope. Milestone 1 was
-then completed as Plan 102's prerequisite: both guides now warn that ordinary resize
-alone can lose a never-started member's backlog, distinguish retained data from
-disposable fixtures, and make no recovery guarantee. Blueprint validation and link
-checks pass. BUG-5 triage remains pending under milestone 2; the defect is not fixed.
-No material workflow friction was encountered in this documentation correction, and
-no architecture decision changed.
+Completed the active scope on 2026-10-25. Both guides warn that ordinary resize
+alone can skip a never-started member's backlog and distinguish retained data from
+disposable fixtures. BUG-5 preserves its source-inspected evidence and `reported`
+status, records deferred recovery with a concrete reopening condition, and no longer
+offers per-member reset or released-migration edits as remedies. No validated
+recovery procedure or defect fix is claimed. The proposed public API, SQL changes
+and recovery tests remain deferred.
+
+Bug bundle validation passes with 5 concepts, strict ADR bundle validation with
+20 concepts, and blueprint validation, 16 relative-link/anchor checks and
+`git diff --check` pass. No compilation, database test or benchmark was needed for
+these prose-only changes. The ADR distillation pass found the same unsafe legacy
+resize claim in ADR-2 and qualified it with the warning and BUG-5 links; no
+architecture contract changed. No material workflow friction was encountered, and
+the friction query found no logged entries under this plan.
 
 
 ## Context and Orientation
@@ -147,24 +159,25 @@ subscription names, updates every persisted member for those names, and creates 
 missing rows. Do not describe it as a per-member reset. Existing resize behavior and
 tests in `kiroku-store/test/Test/ConsumerGroupResize.hs` are unchanged by this plan.
 
-The current migration paragraph in `docs/user/consumer-groups.md`, under "Resizing
-The Group", directs an incomplete group to ordinary resize. The historical edge
-`blueprints/kiroku-upgrade/migrations/0.9.0.1-to-0.10.0.0.md` places its incomplete
-legacy warning next to ordinary topology-change advice without clearly separating
-the cases. BUG-5 is
+The "Incomplete legacy groups" subsection under "Resizing The Group" in
+`docs/user/consumer-groups.md` and the historical edge
+`blueprints/kiroku-upgrade/migrations/0.9.0.1-to-0.10.0.0.md` now distinguish
+incomplete legacy recovery from ordinary topology changes. BUG-5 is
 `docs/bug-reports/post-migration-resize-skips-a-never-started-members-backlog.md`;
-it records source inspection rather than an executed reproduction. Its workaround
-and suggested-fix sections also contain per-member-reset and migration-edit advice
-that must be corrected. Its profile is `docs/bug-reports/profile.dhall` and its update
-log is `docs/bug-reports/log.md`.
+it records source inspection rather than an executed reproduction. Its disposition
+and workaround now state the deferral and reset limitations; implementation
+alternatives are deferred without advice to edit released migrations. Its profile
+is `docs/bug-reports/profile.dhall` and its update log is `docs/bug-reports/log.md`.
 
 [ADR-2](../adr/0002-static-hash-partitioned-consumer-groups.md) explains the disjoint
 member assignments; [ADR-4](../adr/0004-explicit-subscription-checkpoint-lifecycle.md)
 requires explicit, transaction-composable checkpoint mutations; and
 [ADR-8](../adr/0008-subscription-configuration-validates-at-construction-and-runtime-refusals-share-one-parent.md)
 defines typed startup refusals and groups the lifecycle operations. These contracts
-remain unchanged. No new seed rule or architecture decision is introduced, so this
-scope revision requires no ADR amendment. No cross-repository dependency is needed.
+remain unchanged. No new seed rule or architecture decision is introduced. The
+completion distillation pass corrected ADR-2's legacy recovery guidance and updated
+`docs/adr/log.md` without changing its ordinary resize contract. No cross-repository
+dependency is needed.
 
 
 ## Plan of Work
@@ -208,11 +221,12 @@ rg -n 'Incomplete legacy|incomplete|resize|reset|production|defer'   docs/user/c
 ```
 
 Review the matches for the distinction between ordinary resizing and incomplete
-legacy recovery, and for accurate reset scope. Validate the two maintained surfaces:
+legacy recovery, and for accurate reset scope. Validate the maintained surfaces:
 
 ```bash
 okf validate docs/bug-reports --profile docs/bug-reports/profile.dhall --profile-enforce --log-enforce
 seihou validate-blueprint blueprints/kiroku-upgrade
+okf validate docs/adr --strict --profile docs/adr/profile.dhall --profile-enforce --log-enforce
 git diff --check
 ```
 
@@ -239,9 +253,9 @@ plan does not mean the underlying defect is fixed or runtime-confirmed.
 
 ## Idempotence and Recovery
 
-This plan edits prose and the bug bundle log only. Preserve historical evidence and
-append one dated disposition rather than duplicating it on each pass. No database
-is opened or modified. Released migration bytes remain unchanged. If implementation
+This plan edits prose and the bug and ADR bundle logs only. Preserve historical
+evidence and append one dated disposition rather than duplicating it on each pass.
+No database is opened or modified. Released migration bytes remain unchanged. If implementation
 is reopened, reassess the actual data and required replay behavior before restoring
 any earlier API proposal; the superseded design is not automatic authorization.
 
@@ -250,8 +264,9 @@ any earlier API proposal; the superseded design is not automatic authorization.
 
 No public API, runtime SQL, schema, package bound or downstream interface changes.
 The implementation touches the consumer guide, the historical upgrade edge, BUG-5
-and its log. Plan 102's migration guide depends only on milestone 1's accurate warning
-and anchor; it does not depend on legacy recovery implementation. No new changelog
+and its log, plus the matching guidance in ADR-2 and its bundle log. Plan 102's
+migration guide depends only on milestone 1's accurate warning and anchor; it does
+not depend on legacy recovery implementation. No new changelog
 entry is required by Plan 100, and ordinary release-surface errata remain Plan 102's
 responsibility.
 
