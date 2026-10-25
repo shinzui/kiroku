@@ -1,0 +1,52 @@
+Using saved setting for 'extra-substituters = https://shinzui.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = shinzui.cachix.org-1:QEmAoJrA9WwLP0uxfDgktLi2BRrcvQQWdz8NzcMg4/E=' from ~/.local/share/nix/trusted-settings.json.
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.11.0.1 (bench:kiroku-store-bench-workload-gate) (ephemeral targets)
+Preprocessing benchmark 'kiroku-store-bench-workload-gate' for kiroku-store-0.11.0.1...
+Building benchmark 'kiroku-store-bench-workload-gate' for kiroku-store-0.11.0.1...
+Running 1 benchmarks...
+Benchmark kiroku-store-bench-workload-gate: RUNNING...
+All
+  append-accepted-category
+    warm-append-40:                          OK
+      3.62 ms ± 207 μs
+    accepted-control-append-40x32:           OK
+      113  ms ± 1.3 ms
+    candidate-append-40x32:                  OK
+      112  ms ± 1.8 ms, 0.99x
+  append-multi-stream
+    sequential-control-4:                    OK
+      357  μs ± 5.3 μs
+    production-pipeline-4:                   OK
+      309  μs ± 3.3 μs, 0.86x
+    sequential-control-8:                    OK
+      636  μs ±  58 μs
+    production-pipeline-8:                   OK
+      553  μs ±  34 μs, 0.87x
+  category-read
+    control-exhausted-category:              OK
+      1.32 ms ± 108 μs
+    candidate-exhausted-category:            OK
+      515  μs ±  29 μs, 0.39x
+    control-page-200-streams-from-0:         OK
+      151  ms ±  14 ms
+    candidate-page-200-streams-from-0:       OK
+      4.88 ms ± 128 μs, 0.03x
+    control-page-20000-streams-from-0:       OK
+      201  ms ±  16 ms
+    candidate-page-20000-streams-from-0:     OK
+      4.92 ms ± 451 μs, 0.02x
+    control-plain-caught-up-20000-streams:   OK
+      65.7 ms ± 4.9 ms
+    candidate-plain-caught-up-20000-streams: OK
+      512  μs ±  29 μs, 0.01x
+    control-group-caught-up-20000-streams:   OK
+      44.2 ms ± 3.4 ms
+    candidate-group-caught-up-20000-streams: OK
+      568  μs ±  29 μs, 0.01x
+
+All 17 tests passed (93.56s)
+append workload counts including setup: [4084,4084]
+Benchmark kiroku-store-bench-workload-gate: FINISH
+gate spread OK: every compared arm within 20% of its mean

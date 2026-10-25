@@ -1,0 +1,26 @@
+{
+  "checked_at": "2026-10-25T17:17:26.659850+00:00",
+  "spread_parser_recipe_tests": {
+    "command": "python3 kiroku-store/bench/test-gate-spread.py",
+    "examples": 8,
+    "failures": 0
+  },
+  "transaction_correctness": {
+    "log": "transaction-correctness.log",
+    "examples": 18,
+    "failures": 0
+  },
+  "adr_bundle": {
+    "command": "okf validate docs/adr --strict --profile docs/adr/profile.dhall --profile-enforce --log-enforce",
+    "concepts": 20,
+    "exit_code": 0
+  },
+  "friction_bundle": {
+    "command": "okf validate docs/friction-log --strict --profile docs/friction-log/profile.dhall --profile-enforce --log-enforce",
+    "concepts": 2,
+    "exit_code": 0
+  },
+  "aggregate_structural_examples": 41,
+  "full_workload_passes": 3,
+  "completed_at": "2026-10-25T17:22:22.445359+00:00"
+}

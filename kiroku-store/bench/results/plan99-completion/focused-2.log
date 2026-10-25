@@ -1,0 +1,23 @@
+Using saved setting for 'extra-substituters = https://shinzui.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = shinzui.cachix.org-1:QEmAoJrA9WwLP0uxfDgktLi2BRrcvQQWdz8NzcMg4/E=' from ~/.local/share/nix/trusted-settings.json.
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.11.0.1 (bench:kiroku-store-bench-workload-gate) (ephemeral targets)
+Preprocessing benchmark 'kiroku-store-bench-workload-gate' for kiroku-store-0.11.0.1...
+Building benchmark 'kiroku-store-bench-workload-gate' for kiroku-store-0.11.0.1...
+Running 1 benchmarks...
+Benchmark kiroku-store-bench-workload-gate: RUNNING...
+All
+  append-accepted-category
+    warm-append-40:             OK
+      3.66 ms ± 217 μs
+    accepted-control-append-40: OK
+      3.97 ms ± 219 μs
+    candidate-append-40:        FAIL
+      4.20 ms ± 249 μs, 1.06x
+      Use -p '/append-40/&&/candidate-append-40/' to rerun this test only.
+
+1 out of 3 tests failed (21.59s)
+Benchmark kiroku-store-bench-workload-gate: ERROR
+Error: [Cabal-7125]
+Benchmarks failed for bench:kiroku-store-bench-workload-gate from kiroku-store-0.11.0.1.

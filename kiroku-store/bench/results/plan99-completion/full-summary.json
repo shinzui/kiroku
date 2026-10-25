@@ -1,0 +1,65 @@
+[
+  {
+    "label": "full-batched-1",
+    "ratios": {
+      "accepted_append": 1.0045943274190716,
+      "pipeline_4": 0.863721570531761,
+      "pipeline_8": 0.8662608334060788,
+      "exhausted-category": 0.38816879557602496,
+      "page-200-streams-from-0": 0.032986254830617935,
+      "page-20000-streams-from-0": 0.023455904838191984,
+      "plain-caught-up-20000-streams": 0.008275097574318832,
+      "group-caught-up-20000-streams": 0.012430510243706406
+    },
+    "max_doubled_spread_percent": 9.626971481992387,
+    "elapsed_seconds": 168.28,
+    "inputs": {
+      "kiroku-store/bench/RegressionGate.hs": "8e5675703b501e922a3accdcf967401110d8d6bb6bc772d3cfb00b5c0f044cc9",
+      "kiroku-store/bench/check-gate-spread.sh": "8b80f91b8e69a11bb499324a960279471aa06fdf11aff5d5ad0f54202434813b",
+      "kiroku-store/src/Kiroku/Store/Effect.hs": "6613d5ba7fa0e6b5419a1470cb1ada532db6381a71d2f5a9738ff15446b627bc",
+      "Justfile": "6ef8d120bc23f00c050742bf6611ee778643cdc9f654296ade5204374dd3af9b"
+    }
+  },
+  {
+    "label": "full-batched-2",
+    "ratios": {
+      "accepted_append": 0.9894611091271435,
+      "pipeline_4": 0.8645098384185195,
+      "pipeline_8": 0.8683235377545631,
+      "exhausted-category": 0.39047305156139206,
+      "page-200-streams-from-0": 0.03243771976807243,
+      "page-20000-streams-from-0": 0.024518426119714255,
+      "plain-caught-up-20000-streams": 0.0078038587202970385,
+      "group-caught-up-20000-streams": 0.012868984362985055
+    },
+    "max_doubled_spread_percent": 9.552187555199211,
+    "elapsed_seconds": 99.46,
+    "inputs": {
+      "kiroku-store/bench/RegressionGate.hs": "8e5675703b501e922a3accdcf967401110d8d6bb6bc772d3cfb00b5c0f044cc9",
+      "kiroku-store/bench/check-gate-spread.sh": "8b80f91b8e69a11bb499324a960279471aa06fdf11aff5d5ad0f54202434813b",
+      "kiroku-store/src/Kiroku/Store/Effect.hs": "6613d5ba7fa0e6b5419a1470cb1ada532db6381a71d2f5a9738ff15446b627bc",
+      "Justfile": "6ef8d120bc23f00c050742bf6611ee778643cdc9f654296ade5204374dd3af9b"
+    }
+  },
+  {
+    "label": "full-batched-3",
+    "ratios": {
+      "accepted_append": 0.9576884318684541,
+      "pipeline_4": 0.8561152864742086,
+      "pipeline_8": 0.8536138656099271,
+      "exhausted-category": 0.39519820226981067,
+      "page-200-streams-from-0": 0.03302109415114658,
+      "page-20000-streams-from-0": 0.023650700278532142,
+      "plain-caught-up-20000-streams": 0.007963741993327854,
+      "group-caught-up-20000-streams": 0.012747889767165324
+    },
+    "max_doubled_spread_percent": 9.057767277444755,
+    "elapsed_seconds": 138.08,
+    "inputs": {
+      "kiroku-store/bench/RegressionGate.hs": "8e5675703b501e922a3accdcf967401110d8d6bb6bc772d3cfb00b5c0f044cc9",
+      "kiroku-store/bench/check-gate-spread.sh": "8b80f91b8e69a11bb499324a960279471aa06fdf11aff5d5ad0f54202434813b",
+      "kiroku-store/src/Kiroku/Store/Effect.hs": "6613d5ba7fa0e6b5419a1470cb1ada532db6381a71d2f5a9738ff15446b627bc",
+      "Justfile": "6ef8d120bc23f00c050742bf6611ee778643cdc9f654296ade5204374dd3af9b"
+    }
+  }
+]

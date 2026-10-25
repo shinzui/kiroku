@@ -1,0 +1,23 @@
+Using saved setting for 'extra-substituters = https://shinzui.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = shinzui.cachix.org-1:QEmAoJrA9WwLP0uxfDgktLi2BRrcvQQWdz8NzcMg4/E=' from ~/.local/share/nix/trusted-settings.json.
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.11.0.1 (lib) (file src/Kiroku/Store/Effect.hs changed)
+ - kiroku-store-0.11.0.1 (bench:kiroku-store-bench-workload-gate) (dependency rebuilt)
+Preprocessing library for kiroku-store-0.11.0.1...
+Building library for kiroku-store-0.11.0.1...
+[20 of 31] Compiling Kiroku.Store.Effect ( src/Kiroku/Store/Effect.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.1/build/Kiroku/Store/Effect.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.1/build/Kiroku/Store/Effect.dyn_o ) [Source file changed]
+Preprocessing benchmark 'kiroku-store-bench-workload-gate' for kiroku-store-0.11.0.1...
+Building benchmark 'kiroku-store-bench-workload-gate' for kiroku-store-0.11.0.1...
+[2 of 2] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.1/b/kiroku-store-bench-workload-gate/build/kiroku-store-bench-workload-gate/kiroku-store-bench-workload-gate [Library changed]
+Running 1 benchmarks...
+Benchmark kiroku-store-bench-workload-gate: RUNNING...
+All
+  append-multi-stream
+    sequential-control-4:  OK
+      372  μs ±  72 μs
+    production-pipeline-4: OK
+      307  μs ± 4.7 μs, 0.83x
+
+All 2 tests passed (60.23s)
+Benchmark kiroku-store-bench-workload-gate: FINISH

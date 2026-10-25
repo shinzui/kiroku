@@ -1,0 +1,20 @@
+[
+  {
+    "run": "focused-batched-1",
+    "ratio": 0.9779574097303703,
+    "control_doubled_spread_percent": 3.323238561019867,
+    "candidate_doubled_spread_percent": 1.9589088078197843
+  },
+  {
+    "run": "focused-batched-2",
+    "ratio": 0.9987100198557731,
+    "control_doubled_spread_percent": 1.216516783978709,
+    "candidate_doubled_spread_percent": 1.6803808429919744
+  },
+  {
+    "run": "focused-batched-3",
+    "ratio": 0.9920387866135549,
+    "control_doubled_spread_percent": 1.7432550548143406,
+    "candidate_doubled_spread_percent": 1.3361917755695452
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "accepted_snapshot": "22ac4de:kiroku-store/src/Kiroku/Store/SQL.hs",
+  "accepted_literal_matches": true,
+  "historical_literal_unchanged": true,
+  "normalized_accepted_sql_sha256": "fc543f10270a8c95c7bd86356dfad8905caf3d305f20e466a98903dc5af15c91",
+  "production_effect_sha256": "08f2dbac4e2aa1a110f49568a0f3026fa1cf461a3db0b33434f2a483d1be253c",
+  "final_source_hashes": {
+    "kiroku-store/bench/RegressionGate.hs": "8e5675703b501e922a3accdcf967401110d8d6bb6bc772d3cfb00b5c0f044cc9",
+    "kiroku-store/src/Kiroku/Store/Effect.hs": "6613d5ba7fa0e6b5419a1470cb1ada532db6381a71d2f5a9738ff15446b627bc",
+    "kiroku-store/bench/check-gate-spread.sh": "8b80f91b8e69a11bb499324a960279471aa06fdf11aff5d5ad0f54202434813b"
+  },
+  "production_token_check": "Only the three intended statement preparability changes; comments/layout excluded.",
+  "formatted_final_literals_verified": true
+}

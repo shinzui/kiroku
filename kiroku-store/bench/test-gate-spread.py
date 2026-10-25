@@ -20,8 +20,8 @@ def valid_rows():
         for size in (4, 8)
         for arm in ("sequential-control", "production-pipeline")
     ] + [
-        ("append-category-column", f"{arm}-append-40")
-        for arm in ("control", "candidate")
+        ("append-accepted-category", f"{arm}-append-40x32")
+        for arm in ("accepted-control", "candidate")
     ] + [
         ("category-read", f"{arm}-{case}")
         for case in (
@@ -47,7 +47,7 @@ class GateSpreadTest(unittest.TestCase):
             )
 
     def test_bound_is_inclusive_and_warm_cell_is_exempt(self):
-        rows = valid_rows() + [["All.append-category-column.warm-append-40", "100", "200"]]
+        rows = valid_rows() + [["All.append-accepted-category.warm-append-40", "100", "200"]]
         result = self.check_csv(rows)
         self.assertEqual(result.returncode, 0, result.stderr)
 
@@ -65,6 +65,14 @@ class GateSpreadTest(unittest.TestCase):
         rows = valid_rows()
         for invalid in (rows[:-1], rows + rows[:1], rows + [["unknown", "100", "1"]], []):
             self.assertEqual(self.check_csv(invalid).returncode, 1)
+
+    def test_historical_control_cannot_replace_accepted_control(self):
+        rows = valid_rows()
+        for row in rows:
+            row[0] = row[0].replace("append-accepted-category.accepted-control-", "append-category-column.control-")
+        result = self.check_csv(rows)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("unexpected or duplicate cell", result.stderr)
 
     def test_invalid_numeric_data_fails(self):
         for mean, spread in (("0", "0"), ("-1", "0"), ("nan", "0"),

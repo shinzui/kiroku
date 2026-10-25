@@ -17,7 +17,7 @@ groups = {
         for size in (4, 8)
         for arm in ("sequential-control", "production-pipeline")
     ],
-    "append-category-column": ["control-append-40", "candidate-append-40"],
+    "append-accepted-category": ["accepted-control-append-40x32", "candidate-append-40x32"],
     "category-read": [
         f"{arm}-{case}"
         for case in (
@@ -29,7 +29,7 @@ groups = {
     ],
 }
 expected = {f"All.{group}.{cell}" for group, cells in groups.items() for cell in cells}
-warm = "All.append-category-column.warm-append-40"
+warm = "All.append-accepted-category.warm-append-40"
 
 try:
     with open(sys.argv[1], newline="") as source:

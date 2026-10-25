@@ -1,0 +1,48 @@
+Using saved setting for 'extra-substituters = https://shinzui.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = shinzui.cachix.org-1:QEmAoJrA9WwLP0uxfDgktLi2BRrcvQQWdz8NzcMg4/E=' from ~/.local/share/nix/trusted-settings.json.
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.11.0.1 (lib) (file src/Kiroku/Store/Effect.hs changed)
+ - kiroku-store-0.11.0.1 (test:kiroku-store-test) (dependency rebuilt)
+Preprocessing library for kiroku-store-0.11.0.1...
+Building library for kiroku-store-0.11.0.1...
+[20 of 31] Compiling Kiroku.Store.Effect ( src/Kiroku/Store/Effect.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.1/build/Kiroku/Store/Effect.o, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.1/build/Kiroku/Store/Effect.dyn_o ) [Source file changed]
+Preprocessing test suite 'kiroku-store-test' for kiroku-store-0.11.0.1...
+Building test suite 'kiroku-store-test' for kiroku-store-0.11.0.1...
+[58 of 58] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.1/t/kiroku-store-test/build/kiroku-store-test/kiroku-store-test [Library changed]
+Running 1 test suites...
+Test suite kiroku-store-test: RUNNING...
+
+kiroku-store concurrency (deterministic)
+  many AnyVersion writers to one stream preserve stream and global order [✔]
+  many AnyVersion writers to invoice-payment preserve stream and global order [✔]
+  many batched writers to different streams preserve batch-local and global order [✔]
+  large append batches return the final stream and global positions [✔]
+  overlapping appendMultiStream stress preserves all-or-nothing ordering [✔]
+  duplicate event failure leaves touched streams and $all unchanged [✔]
+  two concurrent appends to different streams both succeed (F9) [✔]
+  two concurrent ExactVersion appends to same stream — one wins (F10) [✔]
+  two concurrent multi-stream appends in opposite order do not deadlock (F11) [✔]
+  single-stream append retry does not leak transient SQLSTATEs [✔]
+InterpreterHooks
+  enrichEvent
+    applies enrichEvent across appendMultiStream per-stream batches [✔]
+performance structure
+  no-op paths use no pooled connection
+    returns an empty appendMultiStream result before pool checkout [✔]
+appendToStream
+  empty event batches
+    rejects an empty per-stream batch in appendMultiStream without committing any stream [✔]
+    treats an empty appendMultiStream operation list as a no-op [✔]
+appendMultiStream
+  atomically appends to two streams [✔]
+  rolls back all streams on version conflict [✔]
+  appends to three streams with different expected versions [✔]
+  preserves user-supplied ordering of global positions [✔]
+
+Finished in 3.4948 seconds
+18 examples, 0 failures
+Test suite kiroku-store-test: PASS
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.1/t/kiroku-store-test/test/kiroku-store-0.11.0.1-kiroku-store-test.log
+1 of 1 test suites (1 of 1 test cases) passed.

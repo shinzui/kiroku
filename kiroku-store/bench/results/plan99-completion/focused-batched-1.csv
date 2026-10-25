@@ -1,0 +1,4 @@
+Name,Mean (ps),2*Stdev (ps)
+All.append-accepted-category.warm-append-40,3514068750,213355824
+All.append-accepted-category.accepted-control-append-40x32,114354967187,3800288366
+All.append-accepted-category.candidate-append-40x32,111834287500,2190731708

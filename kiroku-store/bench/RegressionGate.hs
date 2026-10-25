@@ -2,6 +2,7 @@
 
 module Main where
 
+import Control.Exception (finally)
 import Control.Lens ((^.))
 import Control.Monad (forM, replicateM_, unless)
 import Data.Aeson qualified as Aeson
@@ -30,7 +31,7 @@ import Kiroku.Test.Fixtures.CategoryScaling (categoryScalingFixtureSql, category
 import Kiroku.Test.Postgres (withMigratedTestDatabase, withSharedMigratedPostgres)
 import System.Environment (lookupEnv)
 import System.Mem (performGC)
-import Test.Tasty (localOption)
+import Test.Tasty (localOption, withResource)
 import Test.Tasty.Bench
 
 main :: IO ()
@@ -76,37 +77,44 @@ main = do
                 case mode of
                   Nothing ->
                     defaultMain
-                      [ -- BUG-2 / plan 91 G4: carrying the category onto each $all
-                        -- row (migration 0012) adds a column and one partial-index
-                        -- insert per event. The control runs the pre-0012 append on
-                        -- a database without the index or CHECK.
-                        localOption WallTime $
-                          bgroup
-                            "append-category-column"
-                            [ -- Keep this group first: the disposable cell absorbs
-                              -- post-setup effects without growing either append arm.
-                              bench "warm-append-40" $
-                                whnfIO (runAppendWorkload SQL.appendAnyVersion appendWarmStore appendWarmCounter),
-                              bench "control-append-40" $
-                                whnfIO (runAppendWorkload controlStatement appendControlStore appendControlCounter),
-                              bcompareWithin 0.5 1.05 "control-append-40" $
-                                bench "candidate-append-40" $
-                                  whnfIO (runAppendWorkload candidateStatement appendCandidateStore appendCandidateCounter)
-                            ],
-                        localOption WallTime $
-                          bgroup
-                            "append-multi-stream"
-                            [ bench "sequential-control-4" $
-                                whnfIO (runSequentialMultiAppend controlStore fourStreams),
-                              bcompareWithin 0.5 0.90 "sequential-control-4" $
-                                bench "production-pipeline-4" $
-                                  whnfIO (runProductionMultiAppend candidateStore fourStreams),
-                              bench "sequential-control-8" $
-                                whnfIO (runSequentialMultiAppend controlStore eightStreams),
-                              bcompareWithin 0.5 0.90 "sequential-control-8" $
-                                bench "production-pipeline-8" $
-                                  whnfIO (runProductionMultiAppend candidateStore eightStreams)
-                            ],
+                      [ -- ADR-10: the user accepted migration 0012's write cost.
+                        -- Protect the accepted implementation against later SQL
+                        -- regressions, keeping the historical comparison diagnostic.
+                        localOption (RelStDev 0.01) $
+                          localOption WallTime $
+                            bgroup
+                              "append-accepted-category"
+                              [ -- Keep this group first: the disposable cell absorbs
+                                -- post-setup effects without growing either append arm.
+                                localOption (RelStDev 0.05) $
+                                  bench "warm-append-40" $
+                                    whnfIO (runAppendWorkload SQL.appendAnyVersion appendWarmStore appendWarmCounter),
+                                bench "accepted-control-append-40x32" $
+                                  whnfIO (replicateM_ 32 (runAppendWorkload controlStatement appendControlStore appendControlCounter)),
+                                bcompareWithin 0.5 1.05 "accepted-control-append-40x32" $
+                                  bench "candidate-append-40x32" $
+                                    whnfIO (replicateM_ 32 (runAppendWorkload candidateStatement appendCandidateStore appendCandidateCounter))
+                              ],
+                        withResource
+                          (warmPipelineStores controlStore candidateStore fourStreams eightStreams)
+                          (const (pure ()))
+                          $ \_ ->
+                            localOption WallTime $
+                              bgroup
+                                "append-multi-stream"
+                                [ localOption (RelStDev 0.01) $
+                                    bench "sequential-control-4" $
+                                      whnfIO (runSequentialMultiAppend controlStore fourStreams),
+                                  bcompareWithin 0.5 0.90 "sequential-control-4" $
+                                    localOption (RelStDev 0.01) $
+                                      bench "production-pipeline-4" $
+                                        whnfIO (runProductionMultiAppend candidateStore fourStreams),
+                                  bench "sequential-control-8" $
+                                    whnfIO (runSequentialMultiAppend controlStore eightStreams),
+                                  bcompareWithin 0.5 0.90 "sequential-control-8" $
+                                    bench "production-pipeline-8" $
+                                      whnfIO (runProductionMultiAppend candidateStore eightStreams)
+                                ],
                         -- BUG-2 / plan 91 G3: the index-range category reads against
                         -- the LATERAL statements they replaced, on one database seeded
                         -- with the category-scaling fixture. The unpartitioned read
@@ -142,6 +150,9 @@ main = do
                                   whnfIO (runGroupReads SQL.readCategoryForwardConsumerGroupStmt scalingStore "idle" categoryScalingHead)
                             ]
                       ]
+                      `finally` do
+                        counts <- mapM readIORef [appendControlCounter, appendCandidateCounter]
+                        putStrLn ("append workload counts including setup: " <> show counts)
                   Just "explain-combined-links" -> runAppendExplainDiagnostic True controlStatement candidateStatement appendControlStore appendCandidateStore
                   Just "explain" -> runAppendExplainDiagnostic False controlStatement candidateStatement appendControlStore appendCandidateStore
                   Just label -> runPairedAppendDiagnostic label controlStatement candidateStatement appendControlStore appendCandidateStore appendControlCounter appendCandidateCounter
@@ -153,6 +164,21 @@ runSetupScript store script = do
     Left err -> error ("workload gate quiescence failed: " <> show err)
     Right () -> pure ()
 
+-- | Refresh a group whose pools/plans have been idle during the append cells.
+-- No resource thunk reaches STM, and all setup stays outside measured actions.
+warmPipelineStores :: KirokuStore -> KirokuStore -> [(StreamName, Text)] -> [(StreamName, Text)] -> IO ()
+warmPipelineStores control candidate fourStreams eightStreams = do
+  replicateM_ 20 $ do
+    runSequentialMultiAppend control fourStreams
+    runProductionMultiAppend candidate fourStreams
+    runSequentialMultiAppend control eightStreams
+    runProductionMultiAppend candidate eightStreams
+  mapM_ (\store -> runSetupScript store "VACUUM (ANALYZE)") [control, candidate]
+  runSequentialMultiAppend control fourStreams
+  runProductionMultiAppend candidate fourStreams
+  runSequentialMultiAppend control eightStreams
+  runProductionMultiAppend candidate eightStreams
+
 -- | Diagnostic comparisons retain the default gate's SQL and bounds. Each
 -- invocation gets fresh stores. The A/A mode tests the harness with identical
 -- SQL and schema; the other modes separate column/statement from index/CHECK cost.
@@ -161,34 +187,34 @@ diagnosticStatements ::
   KirokuStore ->
   KirokuStore ->
   IO (Statement SQL.AppendParams (Maybe AppendResult), Statement SQL.AppendParams (Maybe AppendResult))
-diagnosticStatements mode _control candidate = case mode of
-  Nothing -> pure (preCategoryAppendAnyVersion, SQL.appendAnyVersion)
-  Just "paired" -> pure (preCategoryAppendAnyVersion, SQL.appendAnyVersion)
-  Just "explain" -> pure (preCategoryAppendAnyVersion, SQL.appendAnyVersion)
+diagnosticStatements mode control candidate = case mode of
+  Nothing -> pure (acceptedCategoryAppendAnyVersion, SQL.appendAnyVersion)
+  Just "paired-accepted" -> pure (acceptedCategoryAppendAnyVersion, SQL.appendAnyVersion)
+  Just "paired" -> historical
+  Just "explain" -> historical
   Just "paired-aa" -> do
+    runSetupScript control dropCategoryIndexAndCheck
     runSetupScript candidate dropCategoryIndexAndCheck
     pure (preCategoryAppendAnyVersion, preCategoryAppendAnyVersion)
   Just "paired-column" -> do
+    runSetupScript control dropCategoryIndexAndCheck
     runSetupScript candidate dropCategoryIndexAndCheck
     pure (preCategoryAppendAnyVersion, SQL.appendAnyVersion)
-  Just "paired-index-check" -> pure (SQL.appendAnyVersion, SQL.appendAnyVersion)
+  Just "paired-index-check" -> do
+    runSetupScript control dropCategoryIndexAndCheck
+    pure (SQL.appendAnyVersion, SQL.appendAnyVersion)
   Just "paired-no-publisher" -> do
-    runSetupScript _control fullCategoryIndexAndCheck
     -- Diagnostic upper bound only: there are no subscribers in this fixture.
     -- Stopping this worker is not a production optimization or valid subscriber mode.
     Publisher.stopPublisher (candidate ^. #publisher)
     pure (SQL.appendAnyVersion, SQL.appendAnyVersion)
-  Just "paired-combined-links" -> do
-    -- Both arms retain the fully migrated schema for an optimization comparison.
-    runSetupScript _control fullCategoryIndexAndCheck
-    pure (SQL.appendAnyVersion, combinedLinksAppend)
-  Just "explain-combined-links" -> do
-    runSetupScript _control fullCategoryIndexAndCheck
-    pure (SQL.appendAnyVersion, combinedLinksAppend)
+  Just "paired-combined-links" -> pure (SQL.appendAnyVersion, combinedLinksAppend)
+  Just "explain-combined-links" -> pure (SQL.appendAnyVersion, combinedLinksAppend)
   Just invalid -> error ("unknown KIROKU_GATE_DIAGNOSE mode: " <> invalid)
   where
-    fullCategoryIndexAndCheck =
-      "ALTER TABLE kiroku.stream_events ADD CONSTRAINT ck_stream_events_all_category CHECK (stream_id <> 0 OR category IS NOT NULL); CREATE INDEX ix_stream_events_all_by_category ON kiroku.stream_events (category, stream_version) INCLUDE (original_stream_id) WHERE stream_id = 0;"
+    historical = do
+      runSetupScript control dropCategoryIndexAndCheck
+      pure (preCategoryAppendAnyVersion, SQL.appendAnyVersion)
     dropCategoryIndexAndCheck =
       "DROP INDEX kiroku.ix_stream_events_all_by_category; ALTER TABLE kiroku.stream_events DROP CONSTRAINT ck_stream_events_all_category;"
 
@@ -455,10 +481,9 @@ lateralCategoryGroupReadSQL =
   LIMIT $5
   """
 
--- | Three freshly migrated stores for the append-category-column gate. The
--- control database has the category index and CHECK from migration 0012
--- dropped, so it pays exactly the pre-0012 write cost when driven by
--- 'preCategoryAppendAnyVersion'; candidate and disposable warm-up stores remain migrated.
+-- | Three fully migrated stores: the frozen accepted control, current
+-- production candidate, and disposable warm-up. Historical diagnostic modes
+-- explicitly remove the category index/CHECK from the appropriate arm.
 withAppendCategoryStores :: (KirokuStore -> KirokuStore -> KirokuStore -> IO a) -> IO a
 withAppendCategoryStores action =
   withMigratedTestDatabase $ \controlConnectionString ->
@@ -466,19 +491,8 @@ withAppendCategoryStores action =
       withMigratedTestDatabase $ \warmConnectionString ->
         withStore (defaultConnectionSettings warmConnectionString) $ \warmStore ->
           withStore (defaultConnectionSettings controlConnectionString) $ \controlStore ->
-            withStore (defaultConnectionSettings candidateConnectionString) $ \candidateStore -> do
-              dropped <-
-                Pool.use
-                  (controlStore ^. #pool)
-                  ( Session.script
-                      """
-                      DROP INDEX kiroku.ix_stream_events_all_by_category;
-                      ALTER TABLE kiroku.stream_events DROP CONSTRAINT ck_stream_events_all_category;
-                      """
-                  )
-              case dropped of
-                Left err -> error ("append-category control setup failed: " <> show err)
-                Right () -> action controlStore candidateStore warmStore
+            withStore (defaultConnectionSettings candidateConnectionString) $ \candidateStore ->
+              action controlStore candidateStore warmStore
 
 -- | One gate iteration: 20 single-event appends to fresh streams, then 20 to
 -- one hot stream. Each store gets its own counter, so control and candidate
@@ -509,6 +523,64 @@ runAppendWorkload statement store counter = do
           Left err -> error ("append-category gate append failed: " <> show err)
     )
     names
+
+-- | Frozen post-0012 append SQL from the user-accepted production source at
+-- git 22ac4de. Keep this literal independent of SQL.appendAnyVersion so later
+-- production changes are compared against the accepted implementation.
+acceptedCategoryAppendAnyVersion :: Statement SQL.AppendParams (Maybe AppendResult)
+acceptedCategoryAppendAnyVersion =
+  Statement.preparable acceptedCategoryAppendAnyVersionSQL SQL.appendParamsEncoder SQL.appendResultDecoder
+
+acceptedCategoryAppendAnyVersionSQL :: Text
+acceptedCategoryAppendAnyVersionSQL =
+  """
+  WITH
+    new_events AS (
+      SELECT *
+      FROM unnest($1::uuid[], $2::text[], $3::uuid[], $4::uuid[], $5::jsonb[], $6::jsonb[], $7::timestamptz[])
+      WITH ORDINALITY AS t(event_id, event_type, causation_id, correlation_id, data, metadata, created_at, idx)
+    ),
+    stream_upsert AS (
+      INSERT INTO streams (stream_name, stream_version)
+      VALUES ($8, (SELECT count(*) FROM new_events))
+      ON CONFLICT (stream_name)
+      DO UPDATE SET stream_version = streams.stream_version + (SELECT count(*) FROM new_events)
+        WHERE streams.deleted_at IS NULL
+      RETURNING stream_id, category, stream_version - (SELECT count(*) FROM new_events) AS initial_version
+    ),
+    inserted_events AS (
+      INSERT INTO events (event_id, event_type, causation_id, correlation_id, data, metadata, created_at)
+      SELECT event_id, event_type, causation_id, correlation_id, data, metadata, created_at
+      FROM new_events
+      WHERE EXISTS (SELECT 1 FROM stream_upsert)
+      ORDER BY idx
+    ),
+    source_links AS (
+      INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
+      SELECT ne.event_id, su.stream_id, su.initial_version + ne.idx, su.stream_id, su.initial_version + ne.idx
+      FROM new_events ne
+      CROSS JOIN stream_upsert su
+    ),
+    all_update AS (
+      UPDATE streams
+      SET stream_version = stream_version + (SELECT count(*) FROM new_events)
+      WHERE stream_id = 0
+        AND EXISTS (SELECT 1 FROM stream_upsert)
+      RETURNING stream_version - (SELECT count(*) FROM new_events) AS initial_global_version
+    ),
+    all_links AS (
+      INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version, category)
+      SELECT ne.event_id, 0, au.initial_global_version + ne.idx, su.stream_id, su.initial_version + ne.idx, su.category
+      FROM new_events ne
+      CROSS JOIN all_update au
+      CROSS JOIN stream_upsert su
+    )
+  SELECT su.stream_id,
+         su.initial_version + (SELECT count(*) FROM new_events),
+         au.initial_global_version + (SELECT count(*) FROM new_events)
+  FROM stream_upsert su
+  CROSS JOIN all_update au
+  """
 
 -- | 'SQL.appendAnyVersion' as it was before migration 0012 (git 12d50d5).
 preCategoryAppendAnyVersion :: Statement SQL.AppendParams (Maybe AppendResult)

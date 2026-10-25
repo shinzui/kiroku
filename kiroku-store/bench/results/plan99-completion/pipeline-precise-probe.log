@@ -1,0 +1,23 @@
+Using saved setting for 'extra-substituters = https://shinzui.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = shinzui.cachix.org-1:QEmAoJrA9WwLP0uxfDgktLi2BRrcvQQWdz8NzcMg4/E=' from ~/.local/share/nix/trusted-settings.json.
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.11.0.1 (bench:kiroku-store-bench-workload-gate) (file bench/RegressionGate.hs changed)
+Preprocessing benchmark 'kiroku-store-bench-workload-gate' for kiroku-store-0.11.0.1...
+Building benchmark 'kiroku-store-bench-workload-gate' for kiroku-store-0.11.0.1...
+[1 of 1] Compiling Main             ( bench/RegressionGate.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.1/b/kiroku-store-bench-workload-gate/build/kiroku-store-bench-workload-gate/kiroku-store-bench-workload-gate-tmp/Main.o ) [Source file changed]
+[2 of 2] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.1/b/kiroku-store-bench-workload-gate/build/kiroku-store-bench-workload-gate/kiroku-store-bench-workload-gate [Objects changed]
+Running 1 benchmarks...
+Benchmark kiroku-store-bench-workload-gate: RUNNING...
+All
+  append-multi-stream
+    sequential-control-4:  OK
+      361  μs ± 3.5 μs
+    production-pipeline-4: FAIL
+      330  μs ± 3.9 μs, 0.92x
+      Use -p '(/append-multi-stream/&&/-4/)&&/production-pipeline-4/' to rerun this test only.
+
+1 out of 2 tests failed (58.69s)
+Benchmark kiroku-store-bench-workload-gate: ERROR
+Error: [Cabal-7125]
+Benchmarks failed for bench:kiroku-store-bench-workload-gate from kiroku-store-0.11.0.1.

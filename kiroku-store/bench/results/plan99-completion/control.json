@@ -1,0 +1,11 @@
+{
+  "accepted_source_commit": "22ac4de",
+  "accepted_source_path": "kiroku-store/src/Kiroku/Store/SQL.hs",
+  "normalized_sql_sha256": "3ac4c6cef6e73b83cb88147c17d86d8bf2d0d1f3df9fad844036c0bd408986ed",
+  "historical_control_unchanged": true,
+  "ratio_bounds": [
+    0.5,
+    1.05
+  ],
+  "double_deviation_bound": 0.2
+}

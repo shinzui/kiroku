@@ -8,7 +8,7 @@ generated:
 docId: ADR-5
 status: Accepted
 date: 2026-08-11
-timestamp: "2026-10-25T14:17:04Z"
+timestamp: "2026-10-25T17:14:00Z"
 originatingPlan: docs/plans/64-harden-benchmark-regression-detection-with-structural-checks-and-controlled-a-b-workload-gates.md
 ---
 
@@ -77,6 +77,27 @@ their successful exit status means diagnostic completion, never promotion. This
 adds no replacement gate or relaxed threshold. The retained full comparisons
 were +4.89% and +6.44%, while the exact 5% boundary remained unresolved; see
 [the investigation](../../kiroku-store/bench/results/plan99-investigation/README.md).
+
+After the user accepted the existing migration cost and requested completion of
+Plan 99, the authoritative append comparison was rebased onto an independently
+frozen post-0012 SQL literal from git `22ac4de`, with both stores fully migrated.
+The historical pre-0012 SQL remains unchanged and diagnostic. This declared
+baseline change incorporates an explicitly accepted design trade-off without
+raising the 0.50–1.05 bounds or relabelling earlier failures. Future controls must
+not dynamically alias the production statement. The accepted SQL baseline tests
+later SQL changes; future schema/index costs still need schema-aware controls.
+Append cells use a tighter 1% convergence target after identical SQL produced a
+false 1.06x result at 5%. A later full run exposed another false 1.06x despite low
+reported spread, so timed append cells now batch 32 unchanged 40-append units.
+This reduces the relative impact of the estimator's fixed 1 ms perturbation;
+the 20% spread-rejection bound and ratio ceilings are unchanged. Actual workload
+counts are printed, because adaptive convergence still changes final database
+sizes. Three repeated passes validate this harness operationally, not a claim
+that these deviations quantify uncertainty in a small migration-cost estimate. Group-specific
+warm-up must also happen near that group's measurement: Plan 99's first full run
+rejected an unconverged pipeline arm after its early setup had waited through
+the append cells. A resource-scoped refresh now runs outside pipeline timing;
+its original ratio bounds and workload remain unchanged.
 
 **Positive**
 

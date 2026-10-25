@@ -1,0 +1,20 @@
+Using saved setting for 'extra-substituters = https://shinzui.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = shinzui.cachix.org-1:QEmAoJrA9WwLP0uxfDgktLi2BRrcvQQWdz8NzcMg4/E=' from ~/.local/share/nix/trusted-settings.json.
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.11.0.1 (bench:kiroku-store-bench-workload-gate) (ephemeral targets)
+Preprocessing benchmark 'kiroku-store-bench-workload-gate' for kiroku-store-0.11.0.1...
+Building benchmark 'kiroku-store-bench-workload-gate' for kiroku-store-0.11.0.1...
+Running 1 benchmarks...
+Benchmark kiroku-store-bench-workload-gate: RUNNING...
+All
+  append-accepted-category
+    warm-append-40:             OK
+      3.50 ms ± 254 μs
+    accepted-control-append-40: OK
+      3.63 ms ±  71 μs
+    candidate-append-40:        OK
+      3.69 ms ± 179 μs, 1.02x
+
+All 3 tests passed (121.57s)
+Benchmark kiroku-store-bench-workload-gate: FINISH

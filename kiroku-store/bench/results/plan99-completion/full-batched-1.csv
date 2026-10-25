@@ -1,0 +1,18 @@
+Name,Mean (ps),2*Stdev (ps)
+All.append-accepted-category.warm-append-40,3545835937,247085510
+All.append-accepted-category.accepted-control-append-40x32,113512262499,1789525204
+All.append-accepted-category.candidate-append-40x32,114033774999,5681198874
+All.append-multi-stream.sequential-control-4,356314526,4148516
+All.append-multi-stream.production-pipeline-4,307756542,3763974
+All.append-multi-stream.sequential-control-8,642776953,55931396
+All.append-multi-stream.production-pipeline-8,556812499,36986834
+All.category-read.control-exhausted-category,1329610937,55450990
+All.category-read.candidate-exhausted-category,516113476,29620912
+All.category-read.control-page-200-streams-from-0,152206200000,13896715266
+All.category-read.candidate-page-200-streams-from-0,5020712500,434020792
+All.category-read.control-page-20000-streams-from-0,207019299980,16032160212
+All.category-read.candidate-page-20000-streams-from-0,4855825000,440617194
+All.category-read.control-plain-caught-up-20000-streams,63774549999,5532144014
+All.category-read.candidate-plain-caught-up-20000-streams,527740624,32395908
+All.category-read.control-group-caught-up-20000-streams,44896462499,3124569580
+All.category-read.candidate-group-caught-up-20000-streams,558085937,53726774

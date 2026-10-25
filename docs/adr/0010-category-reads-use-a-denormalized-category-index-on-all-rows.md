@@ -8,7 +8,7 @@ generated:
 docId: ADR-10
 status: Accepted
 date: 2026-09-25
-timestamp: "2026-10-25T16:20:35Z"
+timestamp: "2026-10-25T16:39:12Z"
 originatingPlan: docs/plans/91-evaluate-and-fix-partitioned-category-reads-that-scan-every-stream-in-the-category.md
 ---
 
@@ -124,6 +124,15 @@ bytes for the `append` category and the sampled insert generates extra WAL.
 These are workload-specific measurements, not a universal migration penalty or
 permission to raise the gate. The denormalized category/index remains the read
 architecture; a production write optimization needs its own measured decision.
+
+To finish Plan 99 after this explicit acceptance, the default single-event SQL
+gate now compares production with the independently frozen accepted post-0012
+implementation on matching migrated stores. Its 0.50–1.05 ratio bounds remain
+unchanged. Historical pre-0012 cost comparisons and all adverse results remain
+available as diagnostics; their outcomes have not become retrospective passes.
+This baseline change implements the accepted design choice and does not grant
+additional write-cost budgets. Future schema/index changes require their own
+schema-aware comparison.
 
 ## Alternatives Considered
 
