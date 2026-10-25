@@ -1,0 +1,13 @@
+PAIR,variant,pair,first,control_ns,candidate_ns,control_before,candidate_before,control_after,candidate_after,pre_gc
+PAIR,paired-no-publisher,1,control,116508000,104002000,20,20,52,52,1
+PAIR,paired-no-publisher,2,candidate,117149000,103101000,52,52,84,84,1
+PAIR,paired-no-publisher,3,control,111657000,145663000,84,84,116,116,1
+PAIR,paired-no-publisher,4,candidate,117212000,108594000,116,116,148,148,1
+PAIR,paired-no-publisher,5,control,111425000,104919000,148,148,180,180,1
+PAIR,paired-no-publisher,6,candidate,114641000,110724000,180,180,212,212,1
+PAIR,paired-no-publisher,7,control,111200000,104348000,212,212,244,244,1
+PAIR,paired-no-publisher,8,candidate,112049000,112107000,244,244,276,276,1
+PAIR,paired-no-publisher,9,control,114211000,109864000,276,276,308,308,1
+PAIR,paired-no-publisher,10,candidate,111460000,109218000,308,308,340,340,1
+PAIR,paired-no-publisher,11,control,113783000,113388000,340,340,372,372,1
+PAIR,paired-no-publisher,12,candidate,113929000,102399000,372,372,404,404,1

@@ -1,0 +1,13 @@
+PAIR,variant,pair,first,control_ns,candidate_ns,control_before,candidate_before,control_after,candidate_after,pre_gc
+PAIR,paired-combined-links,1,control,115215000,111842000,20,20,52,52,1
+PAIR,paired-combined-links,2,candidate,115081000,109823000,52,52,84,84,1
+PAIR,paired-combined-links,3,control,111315000,112469000,84,84,116,116,1
+PAIR,paired-combined-links,4,candidate,116229000,111721000,116,116,148,148,1
+PAIR,paired-combined-links,5,control,121349000,116896000,148,148,180,180,1
+PAIR,paired-combined-links,6,candidate,113040000,114389000,180,180,212,212,1
+PAIR,paired-combined-links,7,control,113992000,115865000,212,212,244,244,1
+PAIR,paired-combined-links,8,candidate,116113000,111428000,244,244,276,276,1
+PAIR,paired-combined-links,9,control,116371000,116673000,276,276,308,308,1
+PAIR,paired-combined-links,10,candidate,117684000,116403000,308,308,340,340,1
+PAIR,paired-combined-links,11,control,113099000,130958000,340,340,372,372,1
+PAIR,paired-combined-links,12,candidate,117945000,113184000,372,372,404,404,1

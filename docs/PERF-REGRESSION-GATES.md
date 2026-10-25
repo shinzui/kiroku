@@ -67,6 +67,11 @@ collecting garbage before each timed batch as tasty-bench does. It checks equal
 work counts before/after each pair and verifies final database counts. Modes
 `paired-aa`, `paired-column`, `paired-index-check` and `explain` provide an
 identical-code/schema comparison, component comparisons and exact-statement plans.
+Benchmark-only `paired-combined-links` and `paired-no-publisher` modes retain
+negative/inconclusive append-speed probes. The latter deliberately stops an idle
+publisher in a subscriber-free fixture and is an upper bound, never a valid
+production subscriber configuration. `explain-combined-links` enables instrumented
+plans for the SQL prototype. See the [probe record](../kiroku-store/bench/results/plan99-append-probe/README.md).
 Use fresh output labels and retain every sample. A zero diagnostic exit status
 means completion and count validation, **not** performance acceptance. Unset
 `KIROKU_GATE_DIAGNOSE` when running the authoritative tasty gate.

@@ -1,0 +1,27 @@
+{
+  "label": "no-publisher-2",
+  "pairs": 12,
+  "pre_gc": true,
+  "ratio": 0.9689020453809175,
+  "ratio_sd": 0.11135291293098921,
+  "ratio_range": [
+    0.8800843370408625,
+    1.304557707980691
+  ],
+  "descriptive_t_interval": [
+    0.9077182802163388,
+    1.0342098358089538
+  ],
+  "by_order": {
+    "control": 0.9977143335292866,
+    "candidate": 0.9409218069690778
+  },
+  "mean_ms_per_workload": {
+    "control": 3.555270833333333,
+    "candidate": 3.4591848958333333
+  },
+  "counts": [
+    "COUNTS,paired-no-publisher,control,8082,16160,32320,8080,16160",
+    "COUNTS,paired-no-publisher,candidate,8082,16160,32320,8080,16160"
+  ]
+}

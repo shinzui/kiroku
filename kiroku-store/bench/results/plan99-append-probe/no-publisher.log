@@ -1,0 +1,27 @@
+Using saved setting for 'extra-substituters = https://shinzui.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = shinzui.cachix.org-1:QEmAoJrA9WwLP0uxfDgktLi2BRrcvQQWdz8NzcMg4/E=' from ~/.local/share/nix/trusted-settings.json.
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.11.0.1 (bench:kiroku-store-bench-workload-gate) (file bench/RegressionGate.hs changed)
+Preprocessing benchmark 'kiroku-store-bench-workload-gate' for kiroku-store-0.11.0.1...
+Building benchmark 'kiroku-store-bench-workload-gate' for kiroku-store-0.11.0.1...
+[1 of 1] Compiling Main             ( bench/RegressionGate.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.1/b/kiroku-store-bench-workload-gate/build/kiroku-store-bench-workload-gate/kiroku-store-bench-workload-gate-tmp/Main.o ) [Source file changed]
+[2 of 2] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.11.0.1/b/kiroku-store-bench-workload-gate/build/kiroku-store-bench-workload-gate/kiroku-store-bench-workload-gate [Objects changed]
+Running 1 benchmarks...
+Benchmark kiroku-store-bench-workload-gate: RUNNING...
+PAIR,variant,pair,first,control_ns,candidate_ns,control_before,candidate_before,control_after,candidate_after,pre_gc
+PAIR,paired-no-publisher,1,control,115716000,101501000,20,20,52,52,1
+PAIR,paired-no-publisher,2,candidate,117900000,104179000,52,52,84,84,1
+PAIR,paired-no-publisher,3,control,112044000,101069000,84,84,116,116,1
+PAIR,paired-no-publisher,4,candidate,116117000,107167000,116,116,148,148,1
+PAIR,paired-no-publisher,5,control,110592000,103849000,148,148,180,180,1
+PAIR,paired-no-publisher,6,candidate,114509000,111069000,180,180,212,212,1
+PAIR,paired-no-publisher,7,control,111016000,104414000,212,212,244,244,1
+PAIR,paired-no-publisher,8,candidate,112337000,110486000,244,244,276,276,1
+PAIR,paired-no-publisher,9,control,112682000,109309000,276,276,308,308,1
+PAIR,paired-no-publisher,10,candidate,112690000,107388000,308,308,340,340,1
+PAIR,paired-no-publisher,11,control,111886000,111920000,340,340,372,372,1
+PAIR,paired-no-publisher,12,candidate,112669000,101913000,372,372,404,404,1
+COUNTS,paired-no-publisher,control,8082,16160,32320,8080,16160
+COUNTS,paired-no-publisher,candidate,8082,16160,32320,8080,16160
+Benchmark kiroku-store-bench-workload-gate: FINISH

@@ -25,6 +25,7 @@ import Hasql.Transaction qualified as Tx
 import Hasql.Transaction.Sessions qualified as TxSessions
 import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
+import Kiroku.Store.Subscription.EventPublisher qualified as Publisher
 import Kiroku.Test.Fixtures.CategoryScaling (categoryScalingFixtureSql, categoryScalingHead)
 import Kiroku.Test.Postgres (withMigratedTestDatabase, withSharedMigratedPostgres)
 import System.Environment (lookupEnv)
@@ -52,7 +53,7 @@ main = do
                 runSequentialMultiAppend controlStore eightStreams
                 runProductionMultiAppend candidateStore eightStreams
 
-                (controlStatement, candidateStatement) <- diagnosticStatements mode appendCandidateStore
+                (controlStatement, candidateStatement) <- diagnosticStatements mode appendControlStore appendCandidateStore
                 appendWarmCounter <- newIORef 0
                 appendControlCounter <- newIORef 0
                 appendCandidateCounter <- newIORef 0
@@ -141,7 +142,8 @@ main = do
                                   whnfIO (runGroupReads SQL.readCategoryForwardConsumerGroupStmt scalingStore "idle" categoryScalingHead)
                             ]
                       ]
-                  Just "explain" -> runAppendExplainDiagnostic controlStatement candidateStatement appendControlStore appendCandidateStore
+                  Just "explain-combined-links" -> runAppendExplainDiagnostic True controlStatement candidateStatement appendControlStore appendCandidateStore
+                  Just "explain" -> runAppendExplainDiagnostic False controlStatement candidateStatement appendControlStore appendCandidateStore
                   Just label -> runPairedAppendDiagnostic label controlStatement candidateStatement appendControlStore appendCandidateStore appendControlCounter appendCandidateCounter
 
 runSetupScript :: KirokuStore -> Text -> IO ()
@@ -157,8 +159,9 @@ runSetupScript store script = do
 diagnosticStatements ::
   Maybe String ->
   KirokuStore ->
+  KirokuStore ->
   IO (Statement SQL.AppendParams (Maybe AppendResult), Statement SQL.AppendParams (Maybe AppendResult))
-diagnosticStatements mode candidate = case mode of
+diagnosticStatements mode _control candidate = case mode of
   Nothing -> pure (preCategoryAppendAnyVersion, SQL.appendAnyVersion)
   Just "paired" -> pure (preCategoryAppendAnyVersion, SQL.appendAnyVersion)
   Just "explain" -> pure (preCategoryAppendAnyVersion, SQL.appendAnyVersion)
@@ -169,10 +172,59 @@ diagnosticStatements mode candidate = case mode of
     runSetupScript candidate dropCategoryIndexAndCheck
     pure (preCategoryAppendAnyVersion, SQL.appendAnyVersion)
   Just "paired-index-check" -> pure (SQL.appendAnyVersion, SQL.appendAnyVersion)
+  Just "paired-no-publisher" -> do
+    runSetupScript _control fullCategoryIndexAndCheck
+    -- Diagnostic upper bound only: there are no subscribers in this fixture.
+    -- Stopping this worker is not a production optimization or valid subscriber mode.
+    Publisher.stopPublisher (candidate ^. #publisher)
+    pure (SQL.appendAnyVersion, SQL.appendAnyVersion)
+  Just "paired-combined-links" -> do
+    -- Both arms retain the fully migrated schema for an optimization comparison.
+    runSetupScript _control fullCategoryIndexAndCheck
+    pure (SQL.appendAnyVersion, combinedLinksAppend)
+  Just "explain-combined-links" -> do
+    runSetupScript _control fullCategoryIndexAndCheck
+    pure (SQL.appendAnyVersion, combinedLinksAppend)
   Just invalid -> error ("unknown KIROKU_GATE_DIAGNOSE mode: " <> invalid)
   where
+    fullCategoryIndexAndCheck =
+      "ALTER TABLE kiroku.stream_events ADD CONSTRAINT ck_stream_events_all_category CHECK (stream_id <> 0 OR category IS NOT NULL); CREATE INDEX ix_stream_events_all_by_category ON kiroku.stream_events (category, stream_version) INCLUDE (original_stream_id) WHERE stream_id = 0;"
     dropCategoryIndexAndCheck =
       "DROP INDEX kiroku.ix_stream_events_all_by_category; ALTER TABLE kiroku.stream_events DROP CONSTRAINT ck_stream_events_all_category;"
+
+-- | Benchmark-only hypothesis: one junction INSERT instead of two. This
+-- preserves the production bind parameters, row values and result decoder.
+combinedLinksAppend :: Statement SQL.AppendParams (Maybe AppendResult)
+combinedLinksAppend = Statement.preparable sql SQL.appendParamsEncoder SQL.appendResultDecoder
+  where
+    production = Statement.toSql SQL.appendAnyVersion
+    -- The exact production SQL is extracted below using stable CTE boundaries;
+    -- fail rather than silently producing a different candidate after an edit.
+    sql = combineJunctionInserts production
+
+combineJunctionInserts :: Text -> Text
+combineJunctionInserts production =
+  let (beforeSource, sourceAndRest) = T.breakOn "  source_links AS (" production
+      (_, allUpdateAndRest) = T.breakOn "  all_update AS (" sourceAndRest
+      (allUpdate, allLinksAndResult) = T.breakOn "  all_links AS (" allUpdateAndRest
+      (_, result) = T.breakOn "SELECT su.stream_id," allLinksAndResult
+      combined =
+        """
+        event_links AS (
+          INSERT INTO stream_events (event_id, stream_id, stream_version, original_stream_id, original_stream_version, category)
+          SELECT ne.event_id, su.stream_id, su.initial_version + ne.idx, su.stream_id, su.initial_version + ne.idx, NULL::text
+          FROM new_events ne
+          CROSS JOIN stream_upsert su
+          UNION ALL
+          SELECT ne.event_id, 0, au.initial_global_version + ne.idx, su.stream_id, su.initial_version + ne.idx, su.category
+          FROM new_events ne
+          CROSS JOIN all_update au
+          CROSS JOIN stream_upsert su
+        )
+        """
+   in if T.null beforeSource || T.null allUpdate || T.null result
+        then error "combined-links prototype could not identify production CTE boundaries"
+        else beforeSource <> allUpdate <> combined <> "\n" <> result
 
 -- | Twelve alternating pairs of equal-sized, growing workloads. Every round
 -- starts at the same logical stream/event counts in both databases. These are
@@ -252,12 +304,13 @@ runPairedAppendDiagnostic label controlStatement candidateStatement control cand
 -- | Use the exact statements under comparison, rather than a copied EXPLAIN
 -- query. These four plans show structure/buffers/WAL, not a latency estimate.
 runAppendExplainDiagnostic ::
+  Bool ->
   Statement SQL.AppendParams (Maybe AppendResult) ->
   Statement SQL.AppendParams (Maybe AppendResult) ->
   KirokuStore ->
   KirokuStore ->
   IO ()
-runAppendExplainDiagnostic controlStatement candidateStatement control candidate = do
+runAppendExplainDiagnostic timings controlStatement candidateStatement control candidate = do
   mapM_
     ( \(arm, statement, store) -> do
         mapM_ (explainOne arm statement store) [("fresh", "append-gate-explain-fresh"), ("hot", "append-gate-hot")]
@@ -280,7 +333,7 @@ runAppendExplainDiagnostic controlStatement candidateStatement control candidate
       now <- getCurrentTime
       let explain =
             Statement.unpreparable
-              ("EXPLAIN (ANALYZE, BUFFERS, WAL, TIMING OFF, FORMAT JSON) " <> Statement.toSql statement)
+              ("EXPLAIN (ANALYZE, BUFFERS, WAL, TIMING " <> (if timings then "ON" else "OFF") <> ", FORMAT JSON) " <> Statement.toSql statement)
               SQL.appendParamsEncoder
               jsonText
       result <- Pool.use (store ^. #pool) (Session.statement (buildAppendParams name now prepared) explain)

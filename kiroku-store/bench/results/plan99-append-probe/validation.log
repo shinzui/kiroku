@@ -1,0 +1,16 @@
+$ python3 kiroku-store/bench/test-gate-spread.py
+.......
+----------------------------------------------------------------------
+Ran 7 tests in 0.765s
+
+OK
+exit=0
+
+$ git diff --check
+exit=0
+
+Final benchmark compilation passed.
+Six measured invocations completed 12 pairs each and verified both database counts.
+No production source/schema changes. Frozen control and timed workload remain byte-identical to 92860a1.
+All earlier structural/ADR checks remain applicable; no new architectural decision was made.
+No production optimization or performance acceptance claimed.

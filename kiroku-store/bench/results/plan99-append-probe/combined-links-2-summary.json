@@ -1,0 +1,27 @@
+{
+  "label": "combined-links-2",
+  "pairs": 12,
+  "pre_gc": true,
+  "ratio": 0.997060704097846,
+  "ratio_sd": 0.022714823684204712,
+  "ratio_range": [
+    0.9617429948152895,
+    1.026406186692973
+  ],
+  "descriptive_t_interval": [
+    0.9827075807853303,
+    1.0116234646949946
+  ],
+  "by_order": {
+    "control": 1.007094727218409,
+    "candidate": 0.9871266533207605
+  },
+  "mean_ms_per_workload": {
+    "control": 3.5889895833333334,
+    "candidate": 3.5779140625
+  },
+  "counts": [
+    "COUNTS,paired-combined-links,control,8082,16160,32320,8080,16160",
+    "COUNTS,paired-combined-links,candidate,8082,16160,32320,8080,16160"
+  ]
+}

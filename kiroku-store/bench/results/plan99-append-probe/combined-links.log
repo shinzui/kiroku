@@ -1,0 +1,25 @@
+Using saved setting for 'extra-substituters = https://shinzui.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = shinzui.cachix.org-1:QEmAoJrA9WwLP0uxfDgktLi2BRrcvQQWdz8NzcMg4/E=' from ~/.local/share/nix/trusted-settings.json.
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.11.0.1 (bench:kiroku-store-bench-workload-gate) (ephemeral targets)
+Preprocessing benchmark 'kiroku-store-bench-workload-gate' for kiroku-store-0.11.0.1...
+Building benchmark 'kiroku-store-bench-workload-gate' for kiroku-store-0.11.0.1...
+Running 1 benchmarks...
+Benchmark kiroku-store-bench-workload-gate: RUNNING...
+PAIR,variant,pair,first,control_ns,candidate_ns,control_before,candidate_before,control_after,candidate_after,pre_gc
+PAIR,paired-combined-links,1,control,164415000,127514000,20,20,52,52,1
+PAIR,paired-combined-links,2,candidate,128646000,118290000,52,52,84,84,1
+PAIR,paired-combined-links,3,control,144975000,120557000,84,84,116,116,1
+PAIR,paired-combined-links,4,candidate,122674000,120136000,116,116,148,148,1
+PAIR,paired-combined-links,5,control,127251000,125748000,148,148,180,180,1
+PAIR,paired-combined-links,6,candidate,116559000,120995000,180,180,212,212,1
+PAIR,paired-combined-links,7,control,115863000,121197000,212,212,244,244,1
+PAIR,paired-combined-links,8,candidate,119352000,118384000,244,244,276,276,1
+PAIR,paired-combined-links,9,control,114428000,119022000,276,276,308,308,1
+PAIR,paired-combined-links,10,candidate,119200000,115033000,308,308,340,340,1
+PAIR,paired-combined-links,11,control,119223000,117718000,340,340,372,372,1
+PAIR,paired-combined-links,12,candidate,114489000,120282000,372,372,404,404,1
+COUNTS,paired-combined-links,control,8082,16160,32320,8080,16160
+COUNTS,paired-combined-links,candidate,8082,16160,32320,8080,16160
+Benchmark kiroku-store-bench-workload-gate: FINISH

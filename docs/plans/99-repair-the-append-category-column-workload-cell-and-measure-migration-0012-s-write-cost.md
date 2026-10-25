@@ -56,6 +56,15 @@ with its uncertainty. A consumer asking whether adopting kiroku-store 0.9 slowed
 appends gets a number instead of a shrug.
 
 
+The subsequent user question asks whether single-event append can be made faster
+while keeping the category-read benefit. A benchmark-only feasibility follow-up
+uses the current profile: the hot append's `source_links` node is about 7 µs
+against 148 µs whole-statement execution, suggesting only a few microseconds of
+possible savings from combining two junction INSERTs. A second probe measures
+idle-publisher work as an upper bound, preserving all database writes and checks.
+Neither probe authorizes disabling subscription behavior in production.
+
+
 ## Progress
 
 - [ ] Milestone 1: the populated-and-analyzed setup removed the large effect in one focused run (2026-10-25), with spreads 8.33% / 7.53%; three consecutive valid focused runs remain unmet. The authorized follow-up included one invalid control and two clean failed ratios, and added matched-work diagnostics.
@@ -134,7 +143,29 @@ therefore points to the SQL/category value path rather than index maintenance
 alone; the experiment does not separate RETURNING from tuple construction.
 
 
+The append-speed feasibility follow-up tested a merged junction INSERT three
+times: 0.9639x initially, then 0.9971x and 0.9951x. The initial benefit depended
+on early control spikes and did not reproduce meaningfully. Both arms retained
+the full category index/CHECK and all foreign keys. A separate subscriber-free
+upper-bound probe stopped only the candidate publisher worker: 0.9364x, 0.9689x,
+0.9945x across unchanged runs, also not a dependable gain. Stopping it violates
+the existing idle cursor advancement contract, so even its best sample cannot
+be promoted as an implementation. Every pair and database count check passed;
+these are negative/inconclusive performance findings, not a production change.
+
+
 ## Decision Log
+
+- Decision: Keep the append-speed follow-up benchmark-only and retain the category
+  index, CHECK, foreign keys, one-round-trip append and publisher contract.
+  Rationale: The user asked whether single-event append can be faster after
+  considering the category-read trade-off. Consulted the profiles and ledger;
+  rejected re-running scalar singleton and two-round-trip ideas already tested.
+  Tested merged junction INSERTs and the idle-publisher upper bound in 12-pair,
+  equal-work runs, three unchanged runs each. Neither demonstrated a dependable
+  shipping improvement. The budget was one hour from 14:27:10 UTC, including
+  profiling, build and repeats; measurements ended at 14:38:03 UTC.
+  Date: 2026-10-25
 
 - Decision: Resume diagnosis of the adverse result without changing promotion
   bounds or discarding the failed sample.
@@ -212,6 +243,21 @@ folder. Timing ended at 14:12:10 UTC, about 16 minutes into the single one-hour
 investigation budget; no further timing trials were needed to answer the user's
 question. Full-gate acceptance and a production optimization remain outside the
 completed diagnosis. No additional friction occurred.
+
+
+Append-speed follow-up (2026-10-25): the user's question was investigated with
+existing profiles/ledger, one current instrumented profile and two bounded
+benchmark-only probes. Neither showed a reliable improvement across three
+runs. No production code, schema, subscriber behavior or gate bound changed.
+The merged INSERT and stopped-publisher variants remain optional evidence, with
+all samples in `kiroku-store/bench/results/plan99-append-probe/README.md` and two
+new ledger rows. Further work needs a targeted profile/design, especially if
+optimizing idle publisher bookkeeping without weakening subscriber attachment.
+For callers, `appendToStream` already avoids an unnecessary explicit transaction
+when no atomic projection writes are needed. Timing ended about 11 minutes into
+the one-hour budget; no additional timing was needed. ADR-5 and ADR-10 were
+reviewed for distillation; no new architecture decision was made. No additional
+friction was recorded.
 
 
 ## Context and Orientation
@@ -479,3 +525,7 @@ Revision note (2026-10-25): follow the user's authorization to investigate the
 adverse result and try again; add matched-work/identical-code/component and
 exact-statement plan diagnostics, retaining every result and the unresolved
 promotion boundary. This does not replace the original adverse row or bounds.
+
+Revision note (2026-10-25): record the user's append-speed question, the
+profile-grounded merged-INSERT and publisher upper-bound probes, their three-run
+negative/inconclusive evidence and the unchanged production contracts.
