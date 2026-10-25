@@ -69,7 +69,7 @@ Neither probe authorizes disabling subscription behavior in production.
 
 - [ ] Milestone 1: the populated-and-analyzed setup removed the large effect in one focused run (2026-10-25), with spreads 8.33% / 7.53%; three consecutive valid focused runs remain unmet. The authorized follow-up included one invalid control and two clean failed ratios, and added matched-work diagnostics.
 - [ ] Milestone 2: the disposable cell, ratio floors, complete-CSV spread checker and recipe are implemented; seven parser/recipe tests and 41 structural examples pass. Three full gate passes and end-to-end `perf-check` acceptance remain unmet under the adverse stop.
-- [x] Milestone 3 (adverse-result branch, 2026-10-25): the failed 1.058478x ratio and its uncertainty are recorded in the ledger, the guide describes all checks, ADR-5 is amended, and strict ADR validation passes. Normal three-run performance acceptance was not achieved.
+- [x] Milestone 3 (accepted-compromise outcome, 2026-10-25): the adverse results and uncertainty are retained in the ledger; the user explicitly accepted the measured roughly 5–6% migration 0012 write cost for category-read scalability. ADR-10 and ADR-11 record this decision and the guide describes it. This is practical acceptance of the trade-off; normal three-run gate validation is not claimed.
 
 Initial execution stopped under the explicit rule in Validation and Acceptance: the first
 converged candidate/control ratio exceeded 1.05. No more timing trials were run during that initial execution;
@@ -83,7 +83,8 @@ requested repeat. It supports a real cost around 5–6%, plus harness noise;
 the exact 5% boundary remains unresolved. Fixed-work diagnostics and their
 count/plan checks are implemented, with evidence in
 `kiroku-store/bench/results/plan99-investigation/README.md`. This investigation
-is complete; normal full-gate performance acceptance remains unmet.
+is complete. The user subsequently accepted the measured write cost as a
+compromise; normal full-gate validation remains unverified.
 
 
 ## Surprises & Discoveries
@@ -156,6 +157,19 @@ these are negative/inconclusive performance findings, not a production change.
 
 ## Decision Log
 
+- Decision: Accept migration 0012's measured roughly 5–6% single-event append
+  latency cost as a compromise for the category-read improvement, and retain the
+  category column/index.
+  Rationale: After reviewing the measured cost and the unsuccessful small
+  optimization probes, the user explicitly directed: "let's mark the regression
+  as an accepted compromise then". The read benefit is bounded category reads
+  instead of probing every stream (about 60,000 to 6 buffers at 20,000 streams).
+  This closes the known write-cost acceptance decision. It preserves all adverse
+  measurements and uncertainty, the original 1.05 comparison ceiling, and the
+  distinction between accepted trade-off and passing gate evidence. Additional
+  regressions need their own decision; further optimization of this cost is optional.
+  Date: 2026-10-25
+
 - Decision: Keep the append-speed follow-up benchmark-only and retain the category
   index, CHECK, foreign keys, one-round-trip append and publisher contract.
   Rationale: The user asked whether single-event append can be faster after
@@ -200,6 +214,15 @@ these are negative/inconclusive performance findings, not a production change.
 
 
 ## Outcomes & Retrospective
+
+Final acceptance decision (2026-10-25): the user explicitly accepted the existing
+roughly 5–6% append cost as a compromise for the category-read improvement.
+Migration 0012's category column/index is retained, and further optimization is
+optional. ADR-10, ADR-11 and an appended ledger row record the decision. The
+adverse samples and statistical uncertainty remain unchanged. This closes the
+known regression's acceptance question; the original 1.05 comparison, outstanding
+harness convergence checks and absence of a full-gate pass remain accurately
+reported. No benchmark rerun or code/budget change was needed to record acceptance.
 
 On 2026-10-25 the gate gained a disposable first cell, a populated/analyzed setup,
 append ratio floors of 0.50x, and a fail-closed CSV check on all 16 compared arms.
@@ -529,3 +552,7 @@ promotion boundary. This does not replace the original adverse row or bounds.
 Revision note (2026-10-25): record the user's append-speed question, the
 profile-grounded merged-INSERT and publisher upper-bound probes, their three-run
 negative/inconclusive evidence and the unchanged production contracts.
+
+Revision note (2026-10-25): record the user's explicit acceptance of the
+existing migration 0012 write cost as a category-read trade-off. Preserve raw
+evidence, uncertainty, original gate bounds and unverified harness checks.

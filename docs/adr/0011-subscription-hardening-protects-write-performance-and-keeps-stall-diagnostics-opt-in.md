@@ -8,7 +8,7 @@ generated:
 docId: ADR-11
 status: Accepted
 date: 2026-10-09
-timestamp: "2026-10-10T15:06:38Z"
+timestamp: "2026-10-25T16:20:35Z"
 originatingPlan: docs/masterplans/12-harden-the-kiroku-event-store-and-subscription-machinery-surfaced-by-the-2026-07-kiroku-review.md
 ---
 
@@ -64,6 +64,14 @@ stated. The integrated cohort needs original-control evidence selected for the p
 changes, including real acknowledgement and opt-in diagnostic costs where applicable.
 PostgreSQL 18 is the required performance scope; the user's earlier correction excludes
 PostgreSQL 17 performance trials.
+
+On 2026-10-25 the user explicitly accepted the existing migration 0012
+category-denormalization cost, measured at roughly 5–6% higher single-event append
+latency, in return for bounded category reads; see
+[ADR-10](0010-category-reads-use-a-denormalized-category-index-on-all-rows.md).
+This is a specific accepted design trade-off, not an additional regression budget
+for subscription changes. Preserve the original measurements, uncertainty and
+comparison failure statuses.
 
 The user subsequently approved EP-2 practical completion with its statistical
 uncertainty retained and continuation to EP-3. Focused correctness, structural

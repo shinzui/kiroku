@@ -20,6 +20,14 @@ telemetry.
 | Controlled workload | `just perf-workload-gate` | In one process and PostgreSQL server, pipelined `appendMultiStream` stays within `0.50–0.90x` of a sequential transaction control at four and eight streams; migration 0012's append path stays within `0.50–1.05x` of the pre-0012 control; category reads meet their existing `1.05x` or `0.20x` ceilings. Every compared arm has doubled standard deviation at most 20% of its mean. | A ratio is outside its bounds, an arm is too noisy, a CSV result is missing/invalid, or a store/database error occurred. The spread failure names the cell, mean, doubled deviation and 20% bound. Repeat the unchanged wall-time gate three times on a quiet host; investigate before changing the workload or threshold. |
 | Historical telemetry | `just perf-telemetry` | Every historical benchmark has exactly one CSV baseline row, and current absolute timings are reported against that older run. | Structural name mismatch or benchmark execution errors still fail. Timing movement is printed but does not fail this command; investigate repeated or corroborated movement. |
 
+On 2026-10-25 the user accepted migration 0012's measured roughly 5–6% append
+latency cost as a compromise for category-read scalability; the decision is in
+[ADR-10](adr/0010-category-reads-use-a-denormalized-category-index-on-all-rows.md).
+The pre-0012 comparison retains its original 1.05 ceiling and can still fail for
+this accepted cost. Record that result alongside the explicit acceptance; it is
+not evidence of a passing gate or a new allowance for unrelated regressions.
+Spread, completeness and other workload checks retain their failure meanings.
+
 `just bench-regression` retains the older strict historical comparison and fails
 when any compared timing is more than 10% slower than the checked-in CSV. It is
 an opt-in smoke diagnostic, not part of `perf-check`: machine state, background

@@ -8,7 +8,7 @@ generated:
 docId: ADR-10
 status: Accepted
 date: 2026-09-25
-timestamp: "2026-10-25T14:17:04Z"
+timestamp: "2026-10-25T16:20:35Z"
 originatingPlan: docs/plans/91-evaluate-and-fix-partitioned-category-reads-that-scan-every-stream-in-the-category.md
 ---
 
@@ -55,6 +55,15 @@ a large store.
 
 Kiroku stores each source stream's category on its `$all` junction rows and serves both category
 statements from an index on `(category, global position)`.
+
+On 2026-10-25 the user explicitly accepted migration 0012's measured roughly
+5–6% single-event append latency cost as a compromise for the category-read
+improvement. Retain the denormalized category and its index: caught-up reads on
+20,000 streams fell from about 60,000 buffer accesses to 6. The balanced append
+comparisons measured +4.89% and +6.44%; their uncertainty and the original adverse
+results remain part of the evidence. This decision resolves acceptance of this
+known write cost. It does not establish statistical equivalence, change the
+original 1.05 comparison ceiling, or grant a budget for additional regressions.
 
 - Migration `0012` adds `kiroku.stream_events.category TEXT`, populated on `$all` rows
   (`stream_id = 0`) only. Source-stream rows and link rows leave it `NULL`; nothing reads them by

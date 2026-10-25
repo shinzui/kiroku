@@ -1,5 +1,11 @@
 # Plan 99 follow-up investigation — 2026-10-25
 
+**Decision update, 2026-10-25:** the user explicitly accepted the measured roughly
+5–6% append cost as a compromise for the category-read improvement. See
+[ADR-10](../../../../docs/adr/0010-category-reads-use-a-denormalized-category-index-on-all-rows.md).
+The measurements and gate outcomes below remain unchanged; this acceptance is a
+design decision, not a passing performance test.
+
 The evidence supports a real append cost around **5–6%** for migration 0012 in
 this workload, alongside substantial harness noise. It does **not** establish
 that the true cost exceeds exactly 5%, or establish a universal consumer cost.

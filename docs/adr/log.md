@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-25
+* **Update**: ADR-10 and ADR-11: record user acceptance of migration 0012 single-event append cost as a category-read trade-off; preserve measured uncertainty and original gate outcomes.
 * **Update**: ADR-5 and ADR-10: record order-balanced append diagnostics, identical-code controls, measured column/statement cost and unresolved 5% boundary from Plan 99 follow-up.
 * **Update**: ADR-5: require bounded spread on both controlled-workload arms and plausible append ratios; reject incomplete measurements (Plan 99).
 

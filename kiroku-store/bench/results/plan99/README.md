@@ -1,5 +1,11 @@
 # Plan 99 — adverse gate result, 2026-10-25
 
+**Decision update, 2026-10-25:** the user explicitly accepted the measured roughly
+5–6% append cost as a compromise for the category-read improvement. See
+[ADR-10](../../../../docs/adr/0010-category-reads-use-a-denormalized-category-index-on-all-rows.md).
+The measurements and gate outcomes below remain unchanged; this acceptance is a
+design decision, not a passing performance test.
+
 The first converged append comparison failed the unchanged 1.05 ceiling:
 **1.058478x**, or **+5.85%** in this run. Timing experiments stopped at that
 point under Plan 99's explicit adverse-result condition. No three-run acceptance
