@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-25
+* **amended**: ADR-16: refuse disabled-policy Origin-bearing upgrades and document same-origin proxy migration.
 * **Update**: ADR-5: retain the low-spread identical-SQL failure, batch unchanged append units to reduce timer perturbation, and expose adaptive workload counts without changing numeric bounds.
 * **Update**: ADR-5 and ADR-10: freeze the accepted post-0012 SQL control for the authoritative append gate, retain historical diagnostics and numeric bounds, and tighten append convergence after an identical-SQL false failure.
 * **Update**: ADR-10 and ADR-11: record user acceptance of migration 0012 single-event append cost as a category-read trade-off; preserve measured uncertainty and original gate outcomes.

@@ -218,7 +218,17 @@ For a separate page origin, pass repeatable `--cors-origin` options or configure
 `MetricsServerConfig.cors` with validated explicit origins. CORS defaults off.
 Credentials require `--cors-allow-credentials` with explicit origins; wildcard
 origins are refused. `--no-cors-allow-credentials` overrides an environment True.
-A reverse proxy serving page and API from one origin avoids CORS entirely.
+With CORS disabled, HTTP has no grants and WebSocket upgrades carrying any `Origin`
+header receive HTTP 403 `origin_not_allowed` before upgrade. Origin-less nonbrowser
+WebSocket clients still connect. `cors.enabled: false` indicates no configured origins,
+not unrestricted WebSocket access.
+
+A reverse proxy serving page and API from one origin avoids the need for HTTP CORS
+grants, but preserves the browser WebSocket's `Origin`. When migrating from the
+previously open default, configure `--cors-origin https://ops.example.com` on the
+backend for a page at that public origin, or use the equivalent `corsAllowOrigins`
+policy in an embedded host. Use the page's public origin, not the internal upstream
+address. See the [same-origin proxy example](../user/metrics.md#cross-origin-browser-access-cors).
 Use the configured base URL for both HTTP and WebSocket paths.
 
 ## What this surface does not do
@@ -228,6 +238,7 @@ mutations. It serves no static UI assets. There is no authentication, TLS or rat
 limiting, consistent with `mori://shinzui/keiro-ui/okf/adrs/concepts/ADR-7` and the
 shared conventions at `mori://shinzui/keiro-ui`,
 `docs/architecture/inspection-api-conventions.md` (artifact-level URI pending).
-The standalone listener binds all interfaces and has no bind-address option.
+The standalone listener binds all interfaces on fixed ports; `--port 0` selects a
+free port on loopback only. There is no bind-address option.
 Restrict it with a controlled network/firewall or an authenticating TLS proxy;
 CORS does not authenticate callers.

@@ -13,7 +13,8 @@ described in [Observability](observability.md)) plus a couple of public read
 accessors.
 
 > **Deployment assumption — no built-in auth or TLS.** The server has no
-> authentication, TLS, or rate limiting. The starters and `kiroku-inspect` bind all interfaces; use network
+> authentication, TLS, or rate limiting. The starters and `kiroku-inspect` bind all interfaces on fixed ports and loopback only
+> with port 0; use network
 > isolation or a sidecar/ingress that terminates TLS and authentication. Treat
 > `/metrics`, `/health`, `/subscriptions`, `/subscription-checkpoints`,
 > `/subscriptions/<name>/dead-letters`, browsing routes, and the WebSocket as you would any
@@ -107,7 +108,7 @@ port 9091:
 
 | Field | Default | Meaning |
 |-------|---------|---------|
-| `port` | `9091` | TCP port. `0` binds an OS-assigned free port (reported in `serverPort`). |
+| `port` | `9091` | TCP port. `0` binds an OS-assigned free port on loopback only (reported in `serverPort`); fixed ports bind all interfaces. |
 | `enableJSON` | `True` | Serve the JSON metrics and health endpoints. |
 | `enablePrometheus` | `True` | Serve `GET /metrics/prometheus`. |
 | `enableWebSocket` | `True` | Enable the WebSocket upgrade paths. |
@@ -116,7 +117,7 @@ port 9091:
 | `wsEventQueueCap` | `256` | Per-connection event-tail broadcast queue capacity (batches). |
 | `readinessMaxLag` | `10_000` | A subscription lagging beyond this fails readiness. |
 | `livenessTimeoutUs` | `1_000_000` | Snapshot time budget for the liveness probe (µs). |
-| `cors` | `corsDisabled` | Allowed browser origins for HTTP, preflight, and WebSocket upgrades. Disabled sends no CORS headers and leaves upgrades open. |
+| `cors` | `corsDisabled` | Allowed browser origins for HTTP, preflight, and WebSocket upgrades. Disabled sends no CORS headers and refuses upgrades carrying any `Origin` header; origin-less clients can connect. |
 
 Lifecycle: `withMetricsServerWithStore cfg metrics store deps` (bracketed,
 recommended) or `startMetricsServerWithStore … >>= … ; stopMetricsServer`. The
@@ -691,14 +692,21 @@ let policy = (corsAllowOrigins [origin]){allowCredentials = True, maxAgeSeconds 
 Browsers do not enforce HTTP CORS on WebSockets. When origins are configured, this
 middleware checks them before upgrade: unlisted, malformed or duplicate origins receive
 HTTP 403 `origin_not_allowed` before any frame. Allowed origins and nonbrowser clients
-with no Origin can connect. Under the default disabled policy every application response
-is unchanged and upgrades remain open to any origin. Every server starter applies the
+with no Origin can connect. Under the default disabled policy, ordinary HTTP responses
+are unchanged and have no CORS grants; WebSocket upgrades carrying any `Origin` header
+(including empty, `null` or duplicate values) receive the same 403 envelope. Origin-less
+nonbrowser clients can still connect. Every server starter applies the
 policy to HTTP and WebSocket dispatch. Hosts mounting the exported bare `httpApp` apply
 `corsMiddleware cfg.cors` themselves.
 
-A single-origin deployment needs no CORS policy. Serve the UI and proxy the API from the
-same origin; this illustrative Caddyfile strips `/kiroku` before forwarding, including
-WebSockets (configure authentication separately):
+A single-origin proxy removes the need for HTTP CORS grants, but a browser WebSocket
+still carries `Origin` when the proxy preserves it. Configure the backend with
+`--cors-origin https://ops.example.com`, or the equivalent
+`corsAllowOrigins [origin]` policy in an embedded host. Use the page's public origin,
+not the proxy's internal upstream address. This setting is required when migrating
+from the previously open disabled-policy WebSockets, even behind a same-origin proxy.
+Serve the UI and proxy the API from the same origin; this illustrative Caddyfile strips
+`/kiroku` before forwarding, including WebSockets (configure authentication separately):
 
 ```caddyfile
 ops.example.com {
@@ -714,7 +722,7 @@ ops.example.com {
 
 The new structured error keys become published when released, following
 [Wire-format stability](#wire-format-stability). Header values reflect host configuration.
-This CORS implementation ships in `kiroku-metrics` 0.3.0.0.
+CORS shipped in `kiroku-metrics` 0.3.0.0; disabled-policy WebSocket refusal targets 0.4.0.0.
 
 ## Dead letters over HTTP
 
@@ -831,7 +839,8 @@ the cohort release):
 package version (`kirokuMetricsVersion`), rather than a separately maintained
 string. Route booleans reflect switches and provider presence. An available
 route can still return a temporary failure; this is wiring discovery, not a
-readiness probe. `cors.enabled` means explicit origins are configured.
+readiness probe. `cors.enabled` means explicit origins are configured. A value of `false` does
+not imply unrestricted WebSockets: Origin-bearing upgrades are refused by default.
 
 `process_local` identifies answers about this process, including Prometheus.
 Live subscriptions and metrics in a standalone server are empty because it runs
@@ -866,8 +875,8 @@ kiroku-inspect: routes browse=on subscriptions_checkpoints=on dead_letters=on su
 kiroku-inspect: this process runs no subscriptions; /subscriptions, /metrics, and /health reflect only this process
 ```
 
-The banner appears only after successful binding. Port zero selects a free port
-and reports the actual port. The server runs no subscription workers:
+The banner appears only after successful binding. Port zero selects a free port on loopback only
+and reports the actual port; fixed ports listen on all interfaces. The server runs no subscription workers:
 `/subscriptions` answers `200 []`, `/metrics` has an empty `subscriptions` map,
 and readiness checks its own PostgreSQL connection. Browse, checkpoint,
 dead-letter and event-tail routes read the store. The executable does not apply
@@ -878,7 +887,7 @@ migrations or serve static UI files.
 | `--database-url URL` | `DATABASE_URL` | Required; libpq connection string passed verbatim |
 | `--schema NAME` | `KIROKU_INSPECT_SCHEMA` | `kiroku`; already migrated schema, including notification channel |
 | `--pool-size N` | `KIROKU_INSPECT_POOL_SIZE` | 10; positive connection pool size |
-| `--port N` | `KIROKU_INSPECT_PORT` | 9091; 0–65535, zero selects a free port |
+| `--port N` | `KIROKU_INSPECT_PORT` | 9091; 0–65535, zero selects a loopback-only free port; fixed ports bind all interfaces |
 | `--cors-origin ORIGIN` (repeatable) | `KIROKU_INSPECT_CORS_ORIGINS` (comma-separated) | None; explicit HTTP(S) origins, wildcard refused |
 | `--cors-allow-credentials` / `--no-cors-allow-credentials` | `KIROKU_INSPECT_CORS_ALLOW_CREDENTIALS` | false; environment accepts `true`, `false`, `1`, `0` |
 | `--ws-max-connections N` | `KIROKU_INSPECT_WS_MAX_CONNECTIONS` | 100; positive connection limit |
@@ -889,15 +898,20 @@ exclusive. Empty environment values count as unset. Numeric values require ASCII
 decimal digits and are range-checked before narrowing to machine integers.
 An explicitly empty database URL or schema is an error. URL-bearing records
 have no `Show` instance, startup banners omit the connection string and runtime
-failure diagnostics are redacted.
+failure diagnostics print only `kiroku-inspect: <class> failure (details redacted)`.
+Classes are `bind` for listener setup, `database` for connection/pool/server failures,
+`schema` for undefined tables or invalid schema names, and `other` for unrelated failures.
 
-SIGINT and SIGTERM request a joined shutdown, print
-`kiroku-inspect: shutting down`, release the server and store, and exit 0.
+The first SIGINT or SIGTERM requests a joined shutdown, prints
+`kiroku-inspect: shutting down`, releases the server and store, and exits 0.
+A second SIGINT or SIGTERM, including a mixed pair, forces immediate exit 130;
+forced exit skips graceful resource cleanup if teardown is hung.
 Usage/resolution errors exit 2; startup or runtime failure exits 1. No bind-address
-option is available: the listener binds every interface. Restrict access with a
-controlled network/firewall or an authenticating TLS proxy. CORS is browser
-access policy, not authentication. For one-origin deployments a reverse proxy
-can serve the page and API together without enabling CORS.
+option is available: fixed ports bind every interface and `--port 0` binds loopback only.
+Restrict access with a controlled network/firewall or an authenticating TLS proxy.
+CORS is browser access policy, not authentication. A proxy can serve page and API
+from one origin; configure that public origin on the backend for browser WebSockets
+as described in [Cross-origin browser access](#cross-origin-browser-access-cors).
 
 ## Try it
 

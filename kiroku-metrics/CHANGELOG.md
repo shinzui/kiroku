@@ -1,5 +1,21 @@
 # Revision history for kiroku-metrics
 
+## Unreleased
+
+### Breaking Changes
+
+- Target 0.4.0.0: with `corsDisabled`, WebSocket upgrades carrying any `Origin`
+  header now receive HTTP 403 `origin_not_allowed`. HTTP and origin-less WebSocket
+  clients retain their behavior. Configure `--cors-origin <public-page-origin>` or
+  `corsAllowOrigins` to restore browser access, including behind a same-origin
+  proxy that preserves the browser's Origin header.
+
+### Other Changes
+
+- `kiroku-inspect` reports redacted `bind`, `database`, `schema` or `other` failures.
+  A first SIGINT/SIGTERM shuts down gracefully; a second, including mixed signals,
+  forces exit 130. Document loopback-only `--port 0` and all-interface fixed ports.
+
 ## 0.3.0.1 — 2026-10-20
 
 ### Bug Fixes
@@ -45,10 +61,17 @@
 
 * `Kiroku.Metrics.Cors` provides validated `AllowedOrigin`, `CorsPolicy` and
   `corsMiddleware`: explicit default-off browser access with cache-correct
-  HTTP/preflight handling and WebSocket origin refusal before upgrade.
+  HTTP/preflight handling and WebSocket origin refusal before upgrade only when
+  CORS is enabled.
 * Shared `errorEnvelope`, `errorResponse` and sanitized `storeErrorResponse`
   helpers for new inspection routes. CORS refusals use `origin_not_allowed`,
   `cors_method_not_allowed` and `invalid_cors_request` codes.
+
+### Erratum — 2026-10-25
+
+The original 0.3.0.0 notes omitted that WebSocket origin refusal required enabled
+CORS; disabled-policy upgrades were open. This repository correction cannot update
+the published Hackage copy. See the Unreleased breaking migration note above.
 
 ### Other Changes
 
