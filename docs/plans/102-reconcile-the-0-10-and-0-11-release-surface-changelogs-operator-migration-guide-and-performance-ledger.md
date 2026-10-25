@@ -10,6 +10,18 @@ provenance:
     model: "claude-fable-5-1"
     harness: "claude-code"
     at: 2026-10-21T14:06:08Z
+  reviews:
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-25T20:15:37Z
+      verdict: "changes-requested"
+      note: "Gate legacy recovery on Plan 100; reconcile all migration counts; correct EP97 trial/size mapping; refresh existing CORS erratum and correction dates."
+  revisions:
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-25T20:21:55Z
+      mode: "update"
+      note: "Apply review fixes for migration counts, EP97 evidence, existing CORS erratum and dates; depend only on Plan 100 documentation correction."
 ---
 
 # Reconcile the 0.10 and 0.11 release surface: changelogs, operator migration guide and performance ledger
@@ -24,7 +36,7 @@ If durable project context changes, update or create ADRs in docs/adr/ in the sa
 The October 2026 release reviews (REV-2 and REV-3 under `docs/reviews/`) found that
 the code shipped in kiroku-store 0.10.0.0 and 0.11.0.0 is sound but that the words
 around it lag: the kiroku-store changelog omits several public API breaks, the
-kiroku-metrics changelog overstates what its CORS default does, the operator guide for
+kiroku-metrics changelog originally overstated what its CORS default did, the operator guide for
 schema migrations still ends at migration 0012 although 0013, 0014 and 0015 each need
 an operator action, the performance ledger that every optimization plan must consult
 has no record of the MP13 or EP97 experiments, and the consumer upgrade edge for
@@ -41,13 +53,25 @@ blueprint's README states that an edge lands in the release commit, before any t
 ## Progress
 
 - [ ] Milestone 1: `kiroku-store/CHANGELOG.md` and `kiroku-metrics/CHANGELOG.md` carry dated errata under the 0.10.0.0, 0.11.0.0 and 0.3.0.0 entries listing every omission REV-2 and REV-3 recorded, and the files still render as one entry per version.
-- [ ] Milestone 2: `docs/user/schema-migrations.md` covers migrations 0013 through 0015 with the operator actions each requires and links to the upgrade edges and to the consumer-group guide's incomplete-legacy procedure.
+- [ ] Milestone 2: `docs/user/schema-migrations.md` covers migrations 0013 through 0015 with the operator actions each requires and consistent manifest-derived counts, links to the upgrade edges and the consumer-group guide's incomplete-legacy warning, and no dependency on a new recovery API.
 - [ ] Milestone 3: `docs/perf-experiment-log.md` has rows for the MP13 rerun comparison and the EP97 paired metadata gate, its header admits protected-path experiments beyond appends, and `blueprints/kiroku-upgrade/README.md` states when an edge is written.
 
 
 ## Surprises & Discoveries
 
-(None yet.)
+On 2026-10-25 the user confirmed that the consumer-group feature has never been
+used in production. Plan 100 now defers dedicated legacy recovery implementation
+and retains only documentation correction and bug triage. The current guide still
+contains the unsafe resize-only recommendation, so the link must wait for that
+small correction, not for a new API.
+
+Plan 101 has completed: the metrics changelog already contains an Unreleased entry
+and a CORS erratum dated 2026-10-25, and ADR-16 describes the new default. Plan 99
+has also appended ledger rows dated 2026-10-25. Preserve those changes.
+
+The EP97 size-to-trial mapping in REV-3 is incorrect. The retained paired-run README
+assigns one 100-event and one 100,000-event result to each trial. Use that primary
+evidence rather than copying the review's summary.
 
 
 ## Decision Log
@@ -64,6 +88,17 @@ blueprint's README states that an edge lands in the release commit, before any t
   what was already measured; a read-path experiment that is absent from it will be
   repeated.
   Date: 2026-10-21
+- Decision: The migration guide links to Plan 100's corrected incomplete-legacy
+  warning, without requiring a seeded-resize API or a recovery test suite.
+  Rationale: The user confirmed no production use and removed that implementation
+  scope. A warning must still not endorse the existing unsafe resize-only remedy.
+  Date: 2026-10-25
+- Decision: Date errata when the correction is actually added and preserve Plan
+  101's existing CORS correction. Compare ledger numbers directly with retained
+  experiment evidence, including trial and stream-size labels.
+  Rationale: Publication history and measurement attribution are the purpose of
+  this reconciliation; neither should be reconstructed from stale planning prose.
+  Date: 2026-10-25
 
 
 ## Outcomes & Retrospective
@@ -78,7 +113,8 @@ Kiroku is a multi-package Haskell repository: `kiroku-store` (the event store),
 (the HTTP and WebSocket inspection surface), `kiroku-cli`, `kiroku-otel` and
 `shibuya-kiroku-adapter`. Each package has its own `CHANGELOG.md` with one `## <version>
 — <date>` entry per release and subsections "Breaking Changes", "New Features", "Bug
-Fixes" and "Other Changes"; there is no unreleased section today.
+Fixes" and "Other Changes". The metrics changelog already has an Unreleased section
+from Plan 101; preserve any additional unreleased entries present at implementation.
 
 The omissions to record, each verified against the code by the reviews:
 
@@ -106,22 +142,33 @@ used those names bare on `RecordedEvent` or `HistoryRetentionInventoryQuery` get
 ambiguous-occurrence error; the repository's own `Worker.hs` needed
 `hiding (eventId, globalPosition)`.
 
-For kiroku-metrics 0.3.0.0 (git `7394055`): the entry says the CORS policy provides
-"WebSocket origin refusal before upgrade", but with the default `corsDisabled` no origin
-is checked and upgrades stay open (plan 101 changes that behaviour for the next
-version); the library also gained an `effectful-core` dependency that the entry does
-not list; and the store-backed starters began wiring the browse, dead-letter and
-checkpoint routes automatically, which is a default change rather than only a feature.
+For kiroku-metrics 0.3.0.0 (git `7394055`): the original entry claimed "WebSocket
+origin refusal before upgrade" without saying it required enabled CORS. Disabled-policy
+upgrades were open in that release. Plan 101 has already corrected that sentence,
+added `### Erratum — 2026-10-25`, and documented the new default refusal under
+Unreleased (target 0.4.0.0). Preserve the distinction between historical behavior
+and the next release. The remaining omissions are the added `effectful-core` library
+dependency and the default change that store-backed starters automatically wire
+browse, dead-letter and checkpoint routes.
 
 The operator guide `docs/user/schema-migrations.md` has sections "Running the
 executable", "Existing Codd databases", "Authoring and recovery", "Upgrading from
 kiroku-store-migrations 0.3.2.x" and "Migration 0012 needs a maintenance window"; line
-12 says `0008` through `0012` are the native migrations, while
-`kiroku-store-migrations/README.md` line 7 already says `0015`. The facts to add: 0013
+12 says `0008` through `0012` are the native-only migrations. The introduction also
+says twelve total entries, and "Existing Codd databases" repeats that range, five
+`AppliedNow` outcomes and twelve total entries. The authoritative
+`kiroku-store-migrations/migrations/manifest` contains fifteen entries: seven imported
+historical entries and eight pending native-only entries, `0008` through `0015`.
+The import walkthrough must therefore expect seven `AlreadyApplied` and eight
+`AppliedNow` outcomes, with a final verify covering all fifteen. The facts to add: 0013
 rewrites `consumer_group_size` from existing rows and 0014 adds the target-binding
 columns and drops `stream_name`, both to be applied with every subscription worker
-stopped, with the incomplete-legacy resize procedure that plan 100 documents in
-`docs/user/consumer-groups.md`; 0015 creates `ix_streams_browse_name` with a plain
+stopped. Plan 100's reduced documentation milestone adds an "Incomplete legacy
+groups" warning to `docs/user/consumer-groups.md`: ordinary resize alone can skip
+an unstarted member's backlog. The user reports no production use; dedicated recovery
+implementation is deferred. This guide must not prescribe the removed seed API or
+claim a validated recovery procedure. Migration 0015 creates `ix_streams_browse_name`
+with a plain
 transactional `CREATE INDEX`, which holds a `SHARE` lock on `kiroku.streams` for the
 build so every append waits, with duration proportional to the number of streams, so
 large stores rehearse it on a restored clone and schedule a write pause (the migration
@@ -130,7 +177,9 @@ file comment, the migrations changelog and the `0.10.0.0 -> 0.11.0.0` edge in
 
 The ledger `docs/perf-experiment-log.md` is append-only, one Markdown table whose
 header defines the columns Date, Plan, Hypothesis, Variant, Bench Numbers, Outcome and
-Lesson; its last rows are dated 2026-09-25. The evidence to record: the MP13 rerun at
+Lesson. Plan 99 has appended rows through 2026-10-25; retain them and append the
+missing October 11 experiments at the end without sorting or rewriting prior rows.
+The evidence to record: the MP13 rerun at
 `bench/mp13-release/validation-2026-10-11-rerun/README.md` (candidate `109d58f` against
 released control `364ffa8`, five interleaved pairs per case with inspection disabled and
 active, 30 s measured appends per trial, 660,159 appends; throughput -1.544% with a
@@ -138,12 +187,19 @@ active, 30 s measured appends per trial, 660,159 appends; throughput -1.544% wit
 active; WAL per measured append +2.85% and +3.37%; every metric inconclusive under the
 zero-slowdown policy; practically accepted by the user on 2026-10-11), and the EP97
 paired metadata gate at `docs/bench/stream-head/2026-10-11-ep97-paired/README.md`
-(two trials, 40 rounds of 1,000 calls, 99% block-bootstrap intervals; production
-against frozen `getStream` 1.005 and 1.004 at 100 events with upper bounds 1.019 and
-1.014, 1.003 and 0.995 at 100,000; controls within 0.95 to 1.05; the 20% extra-work
-control detected at 1.204; PASS under the 1.10 limit; the earlier 1.17 short sequential
-estimate was a comparison-design flaw). The plans are `docs/plans/96-...md` and
-`docs/plans/97-...md`.
+(two trials, 40 rounds of 1,000 calls, 99% block-bootstrap intervals). Production
+latency divided by frozen `getStream` latency was 1.00503 at 100 events in trial 1
+(interval 0.99112–1.01932) and 1.00335 in trial 2 (0.98868–1.01924). At 100,000 events
+it was 1.00436 in trial 1 (0.99375–1.01356) and 0.99520 in trial 2
+(0.98101–1.00728). All identical-code intervals were within 0.95–1.05; the 20%
+extra-work controls measured 1.20386 and 1.20079. Both trials passed the unchanged
+1.10 upper-bound limit. The earlier 1.17 short sequential estimate remains retained
+as inconclusive; the comparison design did not establish uncertainty for that ratio.
+Block bootstrap here means resampling contiguous groups of observations to retain
+short-range timing dependence when estimating the interval. MP13 is MasterPlan 13's
+inspection release comparison; EP97 is ExecPlan 97's metadata comparison. The ledger
+plan links are `docs/plans/96-release-the-inspection-surface-cohort-and-complete-the-keiro-ui-requests.md`
+and `docs/plans/97-expose-stream-head-global-position-through-an-opt-in-metadata-read.md`.
 
 The upgrade blueprint lives in `blueprints/kiroku-upgrade/` (`blueprint.dhall`,
 `README.md`, `migrations/`), mirrored by `seihou-registry.dhall`. The `0.9.0.1 ->
@@ -153,9 +209,11 @@ their release commits.
 
 Relevant ADRs: [ADR-5](../adr/0005-three-tier-performance-regression-gates.md) and
 [ADR-11](../adr/0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md)
-govern what performance evidence means and how it is reported;
-[ADR-16](../adr/0016-browser-inspection-access-is-explicit-and-default-off.md) is the
-source of truth for the CORS erratum's wording (plan 101 amends it);
+govern what performance evidence means and how it is reported.
+[ADR-16](../adr/0016-browser-inspection-access-is-explicit-and-default-off.md)
+records the current CORS policy and its 2026-10-25 amendment. Use the release commit
+and existing erratum for historical 0.3.0.0 behavior, rather than projecting the
+amended default backwards.
 [ADR-17](../adr/0017-stream-browsing-uses-byte-order-and-one-shared-name-index.md)
 records the 0015 index. No ADR changes are expected from this plan; no
 cross-repository ADR applies.
@@ -163,31 +221,54 @@ cross-repository ADR applies.
 
 ## Plan of Work
 
-Milestone 1 writes the errata. Under the `## 0.10.0.0 — 2026-10-10` entry of
-`kiroku-store/CHANGELOG.md` add a subsection `### Erratum (2026-10-21)` listing, in the
-entry's own style, each omission above as the break it is; do the same under
-`## 0.11.0.0 — 2026-10-11` for the duplicate selectors, and under `## 0.3.0.0 —
-2026-10-11` in `kiroku-metrics/CHANGELOG.md` for the CORS wording, the dependency and
-the auto-wired routes, cross-referencing plan 101's forthcoming entry for the behaviour
-change. Keep every existing line unchanged. If plan 100 or 101 has already added an
-`## Unreleased` heading, leave it in place above the released entries.
+Milestone 1 completes the errata. Under `## 0.10.0.0 — 2026-10-10` and
+`## 0.11.0.0 — 2026-10-11` in `kiroku-store/CHANGELOG.md`, add an Erratum subsection
+dated with the actual correction date, listing the omissions in Context under the
+appropriate release. Do not use the plan's creation date as the erratum date. In
+`kiroku-metrics/CHANGELOG.md`, preserve the already-corrected CORS sentence and
+`### Erratum — 2026-10-25` under 0.3.0.0, together with the Unreleased breaking note.
+If implementing on October 25, extend that erratum with the missing dependency and
+automatically enabled route details; on a later date, add a separately dated erratum
+for those additions. Do not duplicate the completed CORS correction or restore its
+original wording. Preserve every unrelated released and Unreleased entry.
 
-Milestone 2 extends the operator guide. Change line 12 to `0008` through `0015`, add a
-section "Migrations 0013 and 0014 need stopped workers" after the 0012 section that
-states the two actions, the refusal an incomplete legacy group will see, and a link to
-the consumer-group guide's procedure for it, and a section "Migration 0015 blocks
-appends during its index build" with the lock, the duration driver, the rehearsal and
-window advice, and a link to the `0.10.0.0 -> 0.11.0.0` edge. Keep the guide's voice:
-it addresses an operator running `kiroku-store-migrate up`.
+Milestone 2 reconciles the whole operator guide with the manifest. Update both the
+introductory inventory and the "Existing Codd databases" walkthrough: fifteen total
+entries, native-only range `0008` through `0015`, seven `AlreadyApplied` and eight
+`AppliedNow` outcomes after import. Check every occurrence of the old range and
+counts; changing only line 12 is insufficient. These totals describe the current
+fifteen-entry manifest; if it grows before implementation, derive the counts again.
+
+Add "Migrations 0013 and 0014 need stopped workers" after the 0012 section, explaining
+the derived group size, target binding and incomplete-group startup refusal. Before
+linking to `consumer-groups.md#incomplete-legacy-groups`, verify that Plan 100's
+milestone 1 has replaced the unsafe resize-only advice and that the anchor exists.
+Coordinate that small documentation correction if needed; never substitute the
+currently misleading paragraph merely because the file exists. Explain the warning
+briefly in this guide too. No recovery API or recovery test is a prerequisite.
+Link the `0.9.0.1 -> 0.10.0.0` edge at
+`blueprints/kiroku-upgrade/migrations/0.9.0.1-to-0.10.0.0.md`.
+
+Add "Migration 0015 blocks appends during its index build" with the write-blocking
+lock, stream-count duration driver, clone rehearsal and write-pause advice, and link
+the `0.10.0.0 -> 0.11.0.0` edge at
+`blueprints/kiroku-upgrade/migrations/0-10-to-0-11.md`. Keep the guide's voice: it
+addresses an operator running `kiroku-store-migrate up`.
 
 Milestone 3 records the experiments and the edge rule. Append two rows to the ledger
 table, dated 2026-10-11, with the plan paths, a one-sentence hypothesis each (MP13: the
 inspection index, HTTP polling and name enrichment add no measurable append cost; EP97:
-the originated-head probe leaves `getStream` unchanged), the variant, the numbers quoted
-above verbatim, outcome `kept`, and a lesson each (MP13: a five-pair opaque probe bounds
+the originated-head probe leaves `getStream` unchanged), the variant, the measurements
+above checked against each retained README with their trial/size labels intact,
+outcome `kept`, and a lesson each (MP13: a five-pair opaque probe bounds
 but cannot certify zero regression; EP97: short sequential windows cannot establish a
-ratio's uncertainty, paired block-bootstrap trials can). Widen the header sentence per
-the Decision Log and keep the table's column count intact. In
+ratio's uncertainty, paired block-bootstrap trials can). Link each row to its retained
+evidence README as well as its full plan path. State MP13's statistical result as
+inconclusive and its release decision as practical user acceptance; `kept` must not
+imply a zero-regression pass. State EP97's pass against its 1.10 limit rather than
+claiming universal unchanged latency. Widen the ledger title to "Performance
+Experiment Log" and its introductory sentence per the Decision Log, keeping the
+table's column count intact. In
 `blueprints/kiroku-upgrade/README.md` add a short paragraph under its existing
 guidance on edges: an edge for a released window is written in the release commit,
 before the tags are created, because consumers who upgrade on release day need it;
@@ -196,29 +277,44 @@ cite the 0.10.0.0 case as the reason the rule exists.
 
 ## Concrete Steps
 
-All commands run from the repository root. There is no compiler involved; validation
-is formatting and a column check for the ledger table.
+All commands run from the repository root. These are documentation changes; no
+compiler, database or new performance experiment is needed. `nix fmt` currently
+configures only Nix, Haskell and Cabal formatters, so it does not validate these
+Markdown edits. Use the focused structural checks below plus the content review
+specified in Validation and Acceptance.
 
 ```bash
-nix fmt
+git diff --check
 awk -F'|' '/^\| 2026-/{ if (NF != 9) { print "bad column count on row: " $0; bad=1 } } END { exit bad }' docs/perf-experiment-log.md && echo "ledger rows OK"
 ```
 
-Expected: `nix fmt` makes no further changes on a second run, and `ledger rows OK`.
+Expected: a clean whitespace check and `ledger rows OK`. Confirm migration totals
+against the checked-in manifest and inspect any remaining stale counts:
+
+```bash
+cat -n kiroku-store-migrations/migrations/manifest
+rg -n '0012|twelve|fifteen|five|eight|AlreadyApplied|AppliedNow' docs/user/schema-migrations.md
+```
+
+Expected: fifteen manifest entries; the inventory and import walkthrough agree with
+seven historical and eight pending entries. References to 0012 in its own maintenance
+section remain valid. Inspect the guide's new relative links and warning anchor.
 
 Check the changelogs still parse as one entry per version:
 
 ```bash
-grep -c '^## ' kiroku-store/CHANGELOG.md kiroku-metrics/CHANGELOG.md
+rg -c '^## ' kiroku-store/CHANGELOG.md kiroku-metrics/CHANGELOG.md
 ```
 
-The counts must equal their values before the edit (plus one if an `## Unreleased`
-heading was added by another plan), because errata are `###` subsections.
+Record these counts before editing and compare afterwards; errata are `###`
+subsections and must not create duplicate version headings. Account separately for
+an Unreleased heading added by concurrent work. Also inspect `rg '^## ' <file>` for
+each changelog, since an unchanged total alone does not prove version uniqueness.
 
-Render check for the guide:
+Heading check for the guide:
 
 ```bash
-grep -n '^## ' docs/user/schema-migrations.md
+rg -n '^## ' docs/user/schema-migrations.md
 ```
 
 Expected to list the two new sections after "Migration 0012 needs a maintenance window".
@@ -227,11 +323,17 @@ Expected to list the two new sections after "Migration 0012 needs a maintenance 
 ## Validation and Acceptance
 
 Milestone 1 is accepted when every omission listed in Context appears under the right
-version's erratum and `grep -c '^## '` is unchanged. Milestone 2 is accepted when a
+version's erratum with the actual correction date, Plan 101's existing correction is
+preserved, and version headings remain unique with unchanged counts apart from
+concurrent Unreleased additions. Milestone 2 is accepted when a
 reader of `schema-migrations.md` alone can state, for each of 0013, 0014 and 0015, what
-to stop or pause and why, and the links resolve to existing files. Milestone 3 is
-accepted when the two ledger rows pass the column check, the header sentence covers
-read-path experiments, and the blueprint README carries the edge rule. A second pair of
+to stop or pause and why; every inventory/import count matches the manifest; the
+upgrade-edge links and corrected incomplete-legacy warning anchor resolve; and the
+warning no longer endorses resize-only recovery. Milestone 3 is accepted when the
+two ledger rows pass the column check, each trial/size/interval matches its primary
+evidence, MP13's inconclusive result remains distinct from practical acceptance,
+EP97's pass names its limit, the title and introductory sentence cover read-path
+experiments, and the blueprint README carries the edge rule. A second pair of
 eyes should read the errata against the review records
 `docs/reviews/kiroku-0-10-subscription-hardening-cohort.md` and
 `docs/reviews/kiroku-0-11-inspection-cohort.md`, which list the sources.
@@ -242,7 +344,8 @@ newest edge `to` version is older than the version being tagged.
 
 ## Idempotence and Recovery
 
-All edits are additive prose. Rerunning `nix fmt` is safe. If a ledger row is wrong,
+These edits add errata and reconcile existing explanatory prose. Preserve earlier
+correction dates and avoid duplicate errata on a second pass. If a ledger row is wrong,
 append a correcting row that cites it rather than editing it. Errata are dated so a
 second pass can add another dated line without ambiguity.
 
@@ -251,7 +354,18 @@ second pass can add another dated line without ambiguity.
 
 No code interfaces change. The files touched are `kiroku-store/CHANGELOG.md`,
 `kiroku-metrics/CHANGELOG.md`, `docs/user/schema-migrations.md`,
-`docs/perf-experiment-log.md` and `blueprints/kiroku-upgrade/README.md`. Plans 100 and
-101 touch the same changelogs with `## Unreleased` entries; apply this plan after or
-alongside them and keep the heading order "Unreleased, then released versions newest
-first". Plan 99 appends its own ledger row; rows are independent.
+`docs/perf-experiment-log.md` and `blueprints/kiroku-upgrade/README.md`. Plan 100 is
+`docs/plans/100-make-resize-safe-for-legacy-consumer-groups-whose-members-never-checkpointed.md`;
+its reduced milestone 1 owns the consumer-guide warning and historical edge
+clarification. Require those words before accepting the link, but do not wait for a
+new seed API or recovery tests. Plan 100 no longer owns a new API changelog entry.
+Plan 101's CORS change and erratum are already present; retain heading order
+"Unreleased, then released versions newest first". Plan 99's existing ledger rows
+are independent and must be preserved.
+
+Revision note (2026-10-25): Applied review findings by reconciling all migration
+counts and import expectations, correcting EP97 trial/size attribution from primary
+evidence, preserving the existing CORS correction and dating new errata accurately.
+Reflected the user's no-production-use decision by depending only on Plan 100's
+small documentation correction. Replaced ineffective Markdown formatting evidence
+with content, link and structural checks. Implementation milestones remain pending.
