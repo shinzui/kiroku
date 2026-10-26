@@ -71,6 +71,29 @@ def validate(path, arm, mode):
     return data
 
 
+def validate_namespace(data):
+    """Require the plan-54 extension, without accepting an old binary as proof."""
+    namespace = data.get('namespace')
+    active = data['arm'] == 'candidate' and data['mode'] == 'active'
+    if not active:
+        if namespace is not None:
+            raise ValueError('inactive namespace performed work')
+        return
+    if not isinstance(namespace, dict) or namespace.get('exact_ordered_delivery') is not True:
+        raise ValueError('namespace delivery proof missing')
+    matched = namespace.get('matched', 0)
+    if matched <= 0 or abs(matched - data['total_appends'] / 100) > 8:
+        raise ValueError('namespace sparse-match count differs from producer')
+    lags = namespace.get('raw_lag_us', [])
+    if len(lags) != matched or any(not math.isfinite(x) or x < 0 for x in lags):
+        raise ValueError('namespace lag samples incomplete')
+    if not 0 < namespace.get('checkpoint', 0) < data['durable_events']:
+        raise ValueError('namespace checkpoint outside store history')
+    catchup = namespace.get('catchup_us', 0)
+    if not math.isfinite(catchup) or catchup <= 0:
+        raise ValueError('namespace catch-up sample missing')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--control', type=Path, required=True)

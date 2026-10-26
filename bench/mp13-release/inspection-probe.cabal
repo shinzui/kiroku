@@ -3,16 +3,29 @@ name:          inspection-probe
 version:       0.1.0.0
 build-type:    Simple
 
+flag category-namespace
+  description:
+    Compile the plan-54 namespace diagnostic against the new target
+
+  default:     False
+  manual:      True
+
 executable inspection-probe
   main-is:            Main.hs
   hs-source-dirs:     src
-  other-modules:      Delivery
+  other-modules:
+    Delivery
+    Namespace
+
   default-language:   GHC2024
   default-extensions:
     DuplicateRecordFields
     NoFieldSelectors
     OverloadedRecordDot
     OverloadedStrings
+
+  if flag(category-namespace)
+    cpp-options: -DEP54_NAMESPACE
 
   ghc-options:        -Wall -O2 -threaded -rtsopts -with-rtsopts=-N4
   build-depends:

@@ -179,7 +179,9 @@ $fn$""", 'template-checkpoint-function')
             if data['warmup_seconds']!=work['warmup_seconds'] or data['measurement_seconds']!=work['measurement_seconds']:
                 raise ValueError('measurement phases differ from submitted work')
             row['trial_sha256']=digest(folder/'fetched/output/trial.json')
-            if getattr(self.args,'sequence',False):
+            if getattr(self.args,'namespace',False):
+                validation.validate_namespace(data)
+            if getattr(self.args,'sequence',False) or getattr(self.args,'namespace',False):
                 checkpoints=validate_checkpoints(folder/'fetched/output')
                 row['checkpoint_evidence']=checkpoints
         row.update(status='verified',finished=time.time(),manifest_sha256=digest(manifest))
@@ -253,6 +255,7 @@ def main():
     p.add_argument('--budget',type=Path,required=True)
     mode=p.add_mutually_exclusive_group();mode.add_argument('--proof',action='store_true');mode.add_argument('--gate',action='store_true')
     mode.add_argument('--sequence',action='store_true',help='Verify proof, then paired cases under the same lease; never retry a failed proof')
+    p.add_argument('--namespace',action='store_true',help='Require namespace delivery and checkpoint sampling evidence')
     p.add_argument('--seconds-per-trial',type=float,default=100)
     p.add_argument('--case',choices=['disabled','active','both'],default='both')
     p.add_argument('--proof-journal',type=Path)
