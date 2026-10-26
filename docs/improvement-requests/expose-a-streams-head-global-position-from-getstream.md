@@ -8,7 +8,7 @@ description: >-
 generated:
   by: anthropic/claude-fable-5-1
   at: "2026-10-06T23:32:09Z"
-timestamp: "2026-10-13T14:24:18Z"
+timestamp: "2026-10-26T02:29:20Z"
 requestId: IR-18
 status: completed
 completedAt: "2026-10-13T14:24:18Z"
@@ -205,7 +205,8 @@ stream-name text field on every event cost roughly 12-13% on `$all` reads, even 
 denormalization. That experiment charged each event row for transfer/decoding. No prior benchmark
 rejecting this precise stream-head API was found in repository history. The original stream-read
 decision to return zero global position is recorded in
-[Milestone 3](../plans/milestone-3-read-operations.md), with the extra `$all` join as its rationale.
+[Milestone 3 at its implementation commit](https://github.com/shinzui/kiroku/blob/f9d74d7d5def414300edba7717d09db0ec086c03/docs/plans/milestone-3-read-operations.md),
+with the extra `$all` join as its rationale. That legacy plan was later removed from the working tree.
 
 Recommendation: implement the combined operation only as an opt-in read. Keep ordinary
 `getStream`, event reads, append/link statements, and their result decoders unchanged; verify

@@ -7,10 +7,25 @@ description: >-
   every library built on stream reads — carries no position, while docs/user/reading-events.md
   says the field is the $all position. Report the real position on stream reads, or, if the join
   is too costly, document the 0 sentinel and expose the position another way.
-timestamp: 2026-10-21T23:30:00Z
+timestamp: "2026-10-26T02:29:20Z"
 requestId: IR-20
 status: proposed
 origin: mori://shinzui/keiro-ui
+reviews:
+  - kind: model
+    reviewer: codex
+    reviewed_at: "2026-10-26T02:29:20Z"
+    document_timestamp: "2026-10-26T02:29:20Z"
+    scope: status-and-plan-traceability
+    outcome: comments
+    provider: openai
+    model: gpt-6.1-sol
+    context: >-
+      Checked both stream-read SQL statements, the public reading guide and the
+      owning plan inventory. Both statements still return the zero sentinel;
+      Plan 97 supplies a stream head rather than each event's global position.
+      The proposed status is accurate and no dedicated implementation plan exists.
+      This review does not claim implementation or release acceptance.
 ---
 
 # Improvement Request: Report the Global Position on Single-Stream Reads
@@ -23,6 +38,14 @@ Proposed by the keiro runtime console initiative
 (found first through keiro's workflow journal in
 `mori://shinzui/keiro-ui/plans/15-build-the-workflows-screens`). An improvement, not a
 dependency.
+
+No dedicated Kiroku implementation plan exists as of 2026-10-25; status remains
+`proposed`. [ExecPlan 97](../plans/97-expose-stream-head-global-position-through-an-opt-in-metadata-read.md)
+completed [IR-18](expose-a-streams-head-global-position-from-getstream.md) by exposing
+an opt-in stream-head metadata read. It deliberately preserves the zero sentinel
+on per-event stream reads and does not fulfill this request. The browsing routes
+implemented by [ExecPlan 88](../plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md)
+also retain that sentinel through the existing Store reads.
 
 ## Context
 

@@ -9,10 +9,10 @@ description: >-
 generated:
   by: anthropic/claude-fable-5-1
   at: "2026-09-24T18:40:00Z"
-timestamp: "2026-10-10T16:10:46Z"
+timestamp: "2026-10-26T02:29:20Z"
 requestId: IR-15
 status: accepted
-origin: mori://shinzui/notification-hub
+origin: mori://tan/notification-hub
 reviews:
   - kind: model
     reviewer: codex
@@ -33,11 +33,11 @@ reviews:
 
 ## Status
 
-Proposed by Notification Hub (`mori://shinzui/notification-hub`), found while implementing worker replicas under
-`mori://shinzui/notification-hub/plans/75-run-delivery-queues-with-independent-truly-concurrent-capacity` on
+Proposed by Notification Hub (`mori://tan/notification-hub`), found while implementing worker replicas under
+`mori://tan/notification-hub/plans/75-run-delivery-queues-with-independent-truly-concurrent-capacity` on
 2026-09-24. The application works around it today by holding its own session-level lock with
-Kiroku's key (recorded in `mori://shinzui/notification-hub/adrs/application-owned-delivery-capacity`, artifact-level
-URI pending), so this request is non-blocking.
+Kiroku's key (recorded in `mori://tan/notification-hub` at project-relative
+`docs/adr/application-owned-delivery-capacity.md`, artifact-level URI pending), so this request is non-blocking.
 
 Accepted by kiroku on 2026-09-30. Implementation is planned by
 [ExecPlan 93, Hold the consumer-group member guard for the worker's lifetime](../plans/93-hold-the-consumer-group-member-guard-for-the-worker-s-lifetime.md)

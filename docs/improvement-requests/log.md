@@ -1,5 +1,10 @@
 # Bundle Update Log
 
+## 2026-10-26
+* **Audit**: Validated all 20 requests against their owning plans, MasterPlan registries, current source and retained release evidence. All lifecycle statuses remain correct: 13 `completed`, 3 `accepted`, 4 `proposed`, and none `in_progress`. IR-14 is accepted under MasterPlan 11 (plans 74–80); IR-15 and IR-17 are accepted under plans 93 and 92. IR-1, IR-7, IR-16 and IR-20 have no dedicated implementation plans. IR-13 was completed directly by ADR-9.
+* **Correction**: IR-18's removed legacy Milestone 3 plan now links to its verified implementation-commit snapshot. IR-15 and the original log entry use Notification Hub's canonical `mori://tan/notification-hub` namespace and plan URI; its unnumbered ADR uses the canonical project plus project-relative path while an artifact URI is pending. All referenced plan files were verified in their owning checkouts, including intended Mori handles absent from the stale registry.
+* **Correction**: IR-19 gains `completedAt` from Plan 98's recorded clean-consumer completion. IR-20 is now indexed, records this status/traceability review, and links related plans 97 and 88 with an explicit explanation that neither fulfills its per-event position request.
+
 ## 2026-10-21
 * **Addition**: IR-20 requests the real global position on single-stream reads (they select 0), filed by the keiro runtime console.
 
@@ -55,7 +60,7 @@
 * **Addition**: IR-16 requests bounded, prompt publisher retries after returned pool errors. PostgreSQL 17 and 18 verification runs kept the at-least-once guarantee but exceeded kenshou's local 60-second blackhole-recovery target; the diagnostic PostgreSQL 18 run recorded successive publisher pool errors separated by safety-poll waits. This is a recovery-latency request, not a bug report for a promised 60-second deadline.
 
 ## 2026-09-24
-* **Addition**: IR-15 asks consumerGroupGuard to hold a session-level advisory lock for the worker's lifetime instead of a transaction-scoped probe that cannot see a running peer. The request originates from mori://shinzui/notification-hub (plan 75) and is non-blocking: the application holds the lock itself with Kiroku's key.
+* **Addition**: IR-15 asks consumerGroupGuard to hold a session-level advisory lock for the worker's lifetime instead of a transaction-scoped probe that cannot see a running peer. The request originates from `mori://tan/notification-hub/plans/75-run-delivery-queues-with-independent-truly-concurrent-capacity` and is non-blocking: the application holds the lock itself with Kiroku's key.
 
 ## 2026-09-10
 * **Update**: IR-11 is accepted; [ExecPlan 90](../plans/90-add-configurable-cors-support-to-kiroku-metrics.md) (`mori://shinzui/kiroku/plans/90-add-configurable-cors-support-to-kiroku-metrics`) plans the default-off `cors` policy on `MetricsServerConfig`, the WAI middleware covering HTTP responses, preflights, and WebSocket upgrades, its tests and documentation, and the confirmation-gated major release that will complete the request.

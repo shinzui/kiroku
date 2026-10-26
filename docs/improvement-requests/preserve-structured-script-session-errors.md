@@ -4,11 +4,12 @@ title: Preserve structured script session errors
 description: Preserve structured PostgreSQL server errors from script-backed transactions so callers can classify permanent and retryable failures without parsing rendered diagnostics.
 requestId: IR-19
 status: completed
+completedAt: "2026-10-20T01:41:04Z"
 origin: mori://shinzui/rei
 generated:
   by: openai/gpt-6.1-sol
   at: "2026-10-19T20:25:45Z"
-timestamp: "2026-10-20T01:41:04Z"
+timestamp: "2026-10-26T02:29:20Z"
 reviews:
   - kind: model
     reviewer: "codex (author self-review)"
