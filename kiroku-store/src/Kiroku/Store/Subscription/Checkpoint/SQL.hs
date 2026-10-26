@@ -291,12 +291,15 @@ saveBoundCheckpointSession AllStreams name member position groupSize =
   Session.statement (name, member, position, groupSize) SQL.saveAllCheckpointMemberStmt
 saveBoundCheckpointSession (Category (CategoryName category)) name member position groupSize =
   Session.statement (name, member, position, groupSize, category) SQL.saveCategoryCheckpointMemberStmt
+saveBoundCheckpointSession (CategoryNamespace namespace) name member position groupSize =
+  Session.statement (name, member, position, groupSize, namespace) SQL.saveNamespaceCheckpointMemberStmt
 
 -- | One encoder for every checkpoint target write, including legacy provisioning.
 targetColumns :: Maybe SubscriptionTarget -> (Text, Maybe Text)
 targetColumns Nothing = ("unbound", Nothing)
 targetColumns (Just AllStreams) = ("all", Nothing)
 targetColumns (Just (Category (CategoryName category))) = ("category", Just category)
+targetColumns (Just (CategoryNamespace namespace)) = ("category_namespace", Just namespace)
 
 -- The CHECK constraints make this decoder total over valid database rows.
 targetBindingRow :: D.Row (Maybe SubscriptionTarget)
@@ -304,6 +307,7 @@ targetBindingRow = decode <$> D.column (D.nonNullable D.text) <*> D.column (D.nu
   where
     decode "all" Nothing = Just AllStreams
     decode "category" (Just category) = Just (Category (CategoryName category))
+    decode "category_namespace" (Just namespace) = Just (CategoryNamespace namespace)
     decode _ _ = Nothing
 
 adoptCheckpointTargetStmt :: Statement (Text, (Text, Maybe Text)) ()

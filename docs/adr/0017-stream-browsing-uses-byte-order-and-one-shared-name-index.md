@@ -8,7 +8,7 @@ generated:
 docId: ADR-17
 status: Accepted
 date: 2026-10-10
-timestamp: "2026-10-11T16:18:55Z"
+timestamp: "2026-10-26T16:23:48Z"
 originatingPlan: docs/plans/88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md
 ---
 
@@ -44,11 +44,30 @@ have separate lower-bound operators. Apply an upper bound outside an ordered
 LIMIT so generic prepared plans cannot choose an unbounded bitmap and sort.
 
 [Plan 54](../plans/54-add-prefix-matching-subscription-target-for-fan-in-subscriptions.md)
-should use bounded global event windows and filter existing denormalized
-categories for its proposed namespace semantics. The successful prototype needs
-no extra prefix index. Its future worker must distinguish scanned progress from
-matching events and checkpoint only completed dispositions. That worker and
-its final semantic choice remain plan 54's work.
+uses bounded global event windows and filters existing denormalized categories.
+`CategoryNamespace "pm"` includes category `pm` and literal `pm:` descendants;
+values are never normalized or interpreted as wildcards. Migration 0016 extends
+only subscription-binding constraints. No additional event/stream index, append
+column, trigger or publisher decoding is required. Each worker (including each
+group member) still scans global history independently.
+
+Production custom plans can select the partial category index at late cursors and
+sort metadata before LIMIT. Namespace SQL selects the integral range
+`0 <= stream_id < 1` in `(stream_id, stream_version)` index order before LIMIT;
+this is exactly stream ID zero and prevents that partial-index substitution.
+A per-event LATERAL probe with `OFFSET 0` keeps payloads behind bounded matching,
+avoiding full payload-table joins in custom/generic plans. This does not enumerate
+or probe source streams. Plan 54 retains production EXPLAIN evidence separately
+from the older metadata-only prototype.
+
+Active namespaces share reference-counted generation cells. The callback checks
+for an empty namespace registry before deriving colon ancestors, then looks up
+only the notified category and its ancestors. It does not scan active subscribers
+or retain a second historical-category map. Workers snapshot generation before
+capturing the database head and use it only as a wake hint, with a 30-second
+lost-notification safety poll. Sparse live namespaces still scan unrelated rows
+periodically. Functional/structural checks do not imply performance acceptance;
+the focused cumulative comparison remains a separate gate under ADR-15.
 
 Migration 0015 installs the selected index transactionally. Its build requires
 a write pause or maintenance window. The selected layout was measured separately

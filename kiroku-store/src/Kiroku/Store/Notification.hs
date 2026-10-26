@@ -1,22 +1,27 @@
-module Kiroku.Store.Notification (
-    Notifier (..),
+module Kiroku.Store.Notification
+  ( Notifier (..),
     NotifierStartError (..),
     startNotifier,
     stopNotifier,
-) where
+    NamespaceRegistry,
+    registerNamespace,
+    notifyNamespace,
+  )
+where
 
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (Async)
 import Control.Concurrent.Async qualified as Async
-import Control.Concurrent.STM (TChan, TVar, atomically, modifyTVar', newBroadcastTChanIO, newTVarIO, readTVarIO, writeTChan, writeTVar)
+import Control.Concurrent.STM (STM, TChan, TVar, atomically, modifyTVar', newBroadcastTChanIO, newTVar, newTVarIO, readTVar, readTVarIO, writeTChan, writeTVar)
 import Control.Exception (Exception, SomeAsyncException, SomeException, asyncExceptionFromException, bracketOnError, catch, throwIO, toException)
-import Control.Monad (void)
+import Control.Monad (forM_, unless, void)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.ByteString (ByteString)
 import Data.ByteString.Char8 qualified as BC
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
+import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8Lenient)
 import Data.Word (Word64)
 import Hasql.Connection (Connection)
@@ -32,46 +37,81 @@ import Hasql.Statement (Statement, unpreparable)
 import Kiroku.Store.Observability (KirokuEvent (..), emitOrDrop)
 import Kiroku.Store.Types (CategoryName (..), StreamName (..), categoryName)
 
-{- | A Notifier manages a dedicated PostgreSQL connection for LISTEN/NOTIFY.
-It writes a @()@ tick to a broadcast 'TChan' on every notification,
-allowing subscribers to wake without polling.
-
-The current connection is held in a 'TVar' so that
-'Kiroku.Store.Notification.stopNotifier' releases whichever connection
-the listener loop most recently acquired (rather than the original one,
-which may have been replaced by reconnection).
--}
+-- | A Notifier manages a dedicated PostgreSQL connection for LISTEN/NOTIFY.
+-- It writes a @()@ tick to a broadcast 'TChan' on every notification,
+-- allowing subscribers to wake without polling.
+--
+-- The current connection is held in a 'TVar' so that
+-- 'Kiroku.Store.Notification.stopNotifier' releases whichever connection
+-- the listener loop most recently acquired (rather than the original one,
+-- which may have been replaced by reconnection).
 data Notifier = Notifier
-    { tickChan :: !(TChan ())
-    -- ^ Broadcast channel; consumers must use 'dupTChan' to get a personal copy
-    , listenerThread :: !(Async ())
-    -- ^ The async thread running the LISTEN loop
-    , listenerConnRef :: !(TVar Connection)
-    {- ^ The /current/ dedicated listener connection. Updated by the loop on
-    each successful reconnection so 'stopNotifier' always releases the
-    live socket.
-    -}
-    , categoryGenerations :: !(TVar (Map Text Word64))
-    {- ^ Per-category wake counter. The listener callback increments a
-    category's entry on every NOTIFY for a stream in that category. A
-    'Kiroku.Store.Subscription.Types.Category' subscription worker blocks until
-    its category's counter advances, so an idle category does zero database work
-    while other categories receive traffic. Notifications lost across a listener
-    reconnect are reconciled by the worker's safety-poll timeout.
-    -}
-    }
+  { -- | Broadcast channel; consumers must use 'dupTChan' to get a personal copy
+    tickChan :: !(TChan ()),
+    -- | The async thread running the LISTEN loop
+    listenerThread :: !(Async ()),
+    -- | The /current/ dedicated listener connection. Updated by the loop on
+    --     each successful reconnection so 'stopNotifier' always releases the
+    --     live socket.
+    listenerConnRef :: !(TVar Connection),
+    namespaceRegistry :: !NamespaceRegistry,
+    -- | Per-category wake counter. The listener callback increments a
+    --     category's entry on every NOTIFY for a stream in that category. A
+    --     'Kiroku.Store.Subscription.Types.Category' subscription worker blocks until
+    --     its category's counter advances, so an idle category does zero database work
+    --     while other categories receive traffic. Notifications lost across a listener
+    --     reconnect are reconciled by the worker's safety-poll timeout.
+    categoryGenerations :: !(TVar (Map Text Word64))
+  }
 
-{- | Raised by 'startNotifier' when the initial dedicated @LISTEN@ setup fails.
+-- | Only active namespace keys are retained. Duplicate workers share one cell.
+type NamespaceRegistry = TVar (Map Text (Int, TVar Word64))
 
-Connection-acquire failures carry @hasql@'s underlying
-'Connection.ConnectionError'. LISTEN failures carry the exception thrown after
-the connection was acquired; that connection has already been released.
--}
+-- | Register before catch-up. The release is idempotent and cell-conditional,
+-- so an old release cannot remove a replacement registration.
+registerNamespace :: NamespaceRegistry -> Text -> STM (TVar Word64, STM ())
+registerNamespace registry namespace = do
+  entries <- readTVar registry
+  (count, cell) <- case Map.lookup namespace entries of
+    Just entry -> pure entry
+    Nothing -> (0,) <$> newTVar 0
+  writeTVar registry (Map.insert namespace (count + 1, cell) entries)
+  released <- newTVar False
+  let release = do
+        done <- readTVar released
+        unless done $ do
+          writeTVar released True
+          modifyTVar' registry $
+            Map.update
+              ( \(refs, current) ->
+                  if current /= cell
+                    then Just (refs, current)
+                    else if refs == 1 then Nothing else Just (refs - 1, current)
+              )
+              namespace
+  pure (cell, release)
+
+-- | Bump exact category and colon ancestors in the callback transaction.
+-- An empty registry does no ancestor construction or map mutation.
+notifyNamespace :: NamespaceRegistry -> Text -> STM ()
+notifyNamespace registry category = do
+  entries <- readTVar registry
+  unless (Map.null entries) $
+    forM_ (scanl1 (\prefix segment -> prefix <> ":" <> segment) (T.splitOn ":" category)) $ \candidate ->
+      case Map.lookup candidate entries of
+        Nothing -> pure ()
+        Just (_, cell) -> modifyTVar' cell (+ 1)
+
+-- | Raised by 'startNotifier' when the initial dedicated @LISTEN@ setup fails.
+--
+-- Connection-acquire failures carry @hasql@'s underlying
+-- 'Connection.ConnectionError'. LISTEN failures carry the exception thrown after
+-- the connection was acquired; that connection has already been released.
 data NotifierStartError
-    = NotifierConnectError !ConnectionError
-    | NotifierListenError !SomeException
-    deriving stock (Show)
-    deriving anyclass (Exception)
+  = NotifierConnectError !ConnectionError
+  | NotifierListenError !SomeException
+  deriving stock (Show)
+  deriving anyclass (Exception)
 
 -- Cap reconnect backoff at 30 seconds; the EventPublisher's safety poll
 -- runs at the same cadence, so the worst-case latency between a
@@ -85,69 +125,69 @@ maxReconnectDelayMicros = 30_000_000
 -- failure, @n >= 1@. Schedule: 1s, 2s, 4s, 8s, 16s, 30s, 30s, ...
 reconnectDelayMicros :: Int -> Int
 reconnectDelayMicros n
-    | n <= 0 = 1_000_000
-    | otherwise = min maxReconnectDelayMicros (1_000_000 * 2 ^ (min (n - 1) 30))
+  | n <= 0 = 1_000_000
+  | otherwise = min maxReconnectDelayMicros (1_000_000 * 2 ^ (min (n - 1) 30))
 
-{- | Start a Notifier. Acquires a dedicated connection, sets
-@application_name@ to @kiroku-listener@ for operator visibility, issues
-LISTEN on the @\<schema\>.events@ channel, and spawns a thread that
-writes @()@ to the broadcast TChan on every notification.
-
-On connection failure during the loop, releases the dead connection,
-waits a backoff interval (capped exponential: 1s, 2s, 4s, 8s, 16s, 30s
-thereafter), acquires a replacement, re-LISTENs, and resumes. The
-replacement is published into 'listenerConnRef' so 'stopNotifier'
-releases it on shutdown.
-
-If an 'eventHandler' callback is supplied, the notifier emits
-'Kiroku.Store.Observability.KirokuEventNotifierReconnecting' on each
-attempted reconnect (with the consecutive failure count and the
-underlying exception) and 'KirokuEventNotifierReconnected' on each
-successful reconnect. The failure counter resets after a successful
-reconnect.
-
-On 'Async.AsyncCancelled' (from cancellation), exits cleanly.
-
-Initial acquire or LISTEN failure raises 'NotifierStartError'.
--}
+-- | Start a Notifier. Acquires a dedicated connection, sets
+-- @application_name@ to @kiroku-listener@ for operator visibility, issues
+-- LISTEN on the @\<schema\>.events@ channel, and spawns a thread that
+-- writes @()@ to the broadcast TChan on every notification.
+--
+-- On connection failure during the loop, releases the dead connection,
+-- waits a backoff interval (capped exponential: 1s, 2s, 4s, 8s, 16s, 30s
+-- thereafter), acquires a replacement, re-LISTENs, and resumes. The
+-- replacement is published into 'listenerConnRef' so 'stopNotifier'
+-- releases it on shutdown.
+--
+-- If an 'eventHandler' callback is supplied, the notifier emits
+-- 'Kiroku.Store.Observability.KirokuEventNotifierReconnecting' on each
+-- attempted reconnect (with the consecutive failure count and the
+-- underlying exception) and 'KirokuEventNotifierReconnected' on each
+-- successful reconnect. The failure counter resets after a successful
+-- reconnect.
+--
+-- On 'Async.AsyncCancelled' (from cancellation), exits cleanly.
+--
+-- Initial acquire or LISTEN failure raises 'NotifierStartError'.
 startNotifier ::
-    (MonadIO m) =>
-    -- | libpq connection string
-    Text ->
-    -- | schema name (used to construct the LISTEN channel)
-    Text ->
-    -- | optional event handler for reconnect observability
-    Maybe (KirokuEvent -> IO ()) ->
-    m Notifier
+  (MonadIO m) =>
+  -- | libpq connection string
+  Text ->
+  -- | schema name (used to construct the LISTEN channel)
+  Text ->
+  -- | optional event handler for reconnect observability
+  Maybe (KirokuEvent -> IO ()) ->
+  m Notifier
 startNotifier connString schema mHandler = liftIO $ do
-    chan <- newBroadcastTChanIO
-    catGenVar <- newTVarIO Map.empty
-    let channel = toPgIdentifier (schema <> ".events")
-    bracketOnError (acquireOrThrow connString) Connection.release $ \conn -> do
-        Notifications.listen conn channel
-            `catch` \(e :: SomeException) ->
-                case asyncExceptionFromException e of
-                    Just (ae :: SomeAsyncException) -> throwIO ae
-                    Nothing -> throwIO (NotifierListenError e)
-        connRef <- newTVarIO conn
-        thread <- Async.async (listenerLoop chan catGenVar connRef channel connString mHandler)
-        pure
-            Notifier
-                { tickChan = chan
-                , listenerThread = thread
-                , listenerConnRef = connRef
-                , categoryGenerations = catGenVar
-                }
+  chan <- newBroadcastTChanIO
+  catGenVar <- newTVarIO Map.empty
+  namespaces <- newTVarIO Map.empty
+  let channel = toPgIdentifier (schema <> ".events")
+  bracketOnError (acquireOrThrow connString) Connection.release $ \conn -> do
+    Notifications.listen conn channel
+      `catch` \(e :: SomeException) ->
+        case asyncExceptionFromException e of
+          Just (ae :: SomeAsyncException) -> throwIO ae
+          Nothing -> throwIO (NotifierListenError e)
+    connRef <- newTVarIO conn
+    thread <- Async.async (listenerLoop chan catGenVar namespaces connRef channel connString mHandler)
+    pure
+      Notifier
+        { tickChan = chan,
+          listenerThread = thread,
+          listenerConnRef = connRef,
+          categoryGenerations = catGenVar,
+          namespaceRegistry = namespaces
+        }
 
-{- | Stop the Notifier. Cancels the listener thread, waits for it to
-finish, and releases whichever connection the loop is currently holding.
--}
+-- | Stop the Notifier. Cancels the listener thread, waits for it to
+-- finish, and releases whichever connection the loop is currently holding.
 stopNotifier :: (MonadIO m) => Notifier -> m ()
 stopNotifier notifier = liftIO $ do
-    Async.cancel (listenerThread notifier)
-    void $ Async.waitCatch (listenerThread notifier)
-    conn <- readTVarIO (listenerConnRef notifier)
-    Connection.release conn
+  Async.cancel (listenerThread notifier)
+  void $ Async.waitCatch (listenerThread notifier)
+  conn <- readTVarIO (listenerConnRef notifier)
+  Connection.release conn
 
 -- Internal: the listener loop. Calls 'waitForNotifications' on the current
 -- connection; that call blocks indefinitely under normal operation. If it
@@ -161,58 +201,59 @@ stopNotifier notifier = liftIO $ do
 -- on the 'KirokuEventNotifierReconnecting' event; the wait-returned-without-
 -- exception path uses a synthetic message.
 listenerLoop ::
-    TChan () ->
-    TVar (Map Text Word64) ->
-    TVar Connection ->
-    PgIdentifier ->
-    Text ->
-    Maybe (KirokuEvent -> IO ()) ->
-    IO ()
-listenerLoop chan catGenVar connRef channel connStr mHandler = go
+  TChan () ->
+  TVar (Map Text Word64) ->
+  NamespaceRegistry ->
+  TVar Connection ->
+  PgIdentifier ->
+  Text ->
+  Maybe (KirokuEvent -> IO ()) ->
+  IO ()
+listenerLoop chan catGenVar namespaces connRef channel connStr mHandler = go
   where
     go =
-        ( do
-            currentConn <- readTVarIO connRef
-            waitForNotifications (handleNotification chan catGenVar) currentConn
-            -- waitForNotifications returns only if the underlying connection
-            -- went bad and Hasql converted the error into a Left result; in
-            -- that case we must reconnect rather than spin re-invoking the
-            -- same dead conn.
-            reconnect 1 (toException ListenerWaitReturned)
-        )
-            `catch` \(e :: SomeException) ->
-                case asyncExceptionFromException e of
-                    Just (_ :: Async.AsyncCancelled) -> pure ()
-                    Nothing -> reconnect 1 e
+      ( do
+          currentConn <- readTVarIO connRef
+          waitForNotifications (handleNotification chan catGenVar namespaces) currentConn
+          -- waitForNotifications returns only if the underlying connection
+          -- went bad and Hasql converted the error into a Left result; in
+          -- that case we must reconnect rather than spin re-invoking the
+          -- same dead conn.
+          reconnect 1 (toException ListenerWaitReturned)
+      )
+        `catch` \(e :: SomeException) ->
+          case asyncExceptionFromException e of
+            Just (_ :: Async.AsyncCancelled) -> pure ()
+            Nothing -> reconnect 1 e
 
     reconnect attempt cause = do
-        emit (KirokuEventNotifierReconnecting attempt cause)
-        oldConn <- readTVarIO connRef
-        Connection.release oldConn
-        threadDelay (reconnectDelayMicros attempt)
-        -- bracketOnError releases the freshly acquired connection if an
-        -- async exception lands between acquire and the TVar write — without
-        -- it the new connection would be unreachable from stopNotifier and
-        -- would leak.
-        result <-
-            ( Right
-                <$> bracketOnError
-                    (acquireOrThrow connStr)
-                    Connection.release
-                    ( \newConn -> do
-                        Notifications.listen newConn channel
-                        atomically (writeTVar connRef newConn)
-                    )
-            )
-                `catch` (\(e :: SomeException) -> pure (Left e))
-        case result of
-            Left e ->
-                case asyncExceptionFromException e of
-                    Just (_ :: Async.AsyncCancelled) -> throwIO e
-                    Nothing -> reconnect (attempt + 1) e
-            Right () -> do
-                emit KirokuEventNotifierReconnected
-                go
+      emit (KirokuEventNotifierReconnecting attempt cause)
+      oldConn <- readTVarIO connRef
+      Connection.release oldConn
+      threadDelay (reconnectDelayMicros attempt)
+      -- bracketOnError releases the freshly acquired connection if an
+      -- async exception lands between acquire and the TVar write — without
+      -- it the new connection would be unreachable from stopNotifier and
+      -- would leak.
+      result <-
+        ( Right
+            <$> bracketOnError
+              (acquireOrThrow connStr)
+              Connection.release
+              ( \newConn -> do
+                  Notifications.listen newConn channel
+                  atomically (writeTVar connRef newConn)
+              )
+        )
+          `catch` (\(e :: SomeException) -> pure (Left e))
+      case result of
+        Left e ->
+          case asyncExceptionFromException e of
+            Just (_ :: Async.AsyncCancelled) -> throwIO e
+            Nothing -> reconnect (attempt + 1) e
+        Right () -> do
+          emit KirokuEventNotifierReconnected
+          go
 
     emit = emitOrDrop mHandler
 
@@ -222,11 +263,13 @@ listenerLoop chan catGenVar connRef channel connStr mHandler = go
 -- worker blocked on that category unblocks. Both updates happen in one STM
 -- transaction. The two callback arguments are the channel and the payload; we
 -- ignore the channel (we only LISTEN on one) and parse the payload.
-handleNotification :: TChan () -> TVar (Map Text Word64) -> ByteString -> ByteString -> IO ()
-handleNotification chan catGenVar _channel payload =
-    atomically $ do
-        writeTChan chan ()
-        modifyTVar' catGenVar (Map.insertWith (+) (categoryFromPayload payload) 1)
+handleNotification :: TChan () -> TVar (Map Text Word64) -> NamespaceRegistry -> ByteString -> ByteString -> IO ()
+handleNotification chan catGenVar namespaces _channel payload =
+  atomically $ do
+    writeTChan chan ()
+    let category = categoryFromPayload payload
+    modifyTVar' catGenVar (Map.insertWith (+) category 1)
+    notifyNamespace namespaces category
 
 -- Recover the originating stream's category from a @notify_events@ payload. The
 -- payload is @stream_name,stream_id,stream_version@; @stream_id@ and
@@ -237,34 +280,34 @@ handleNotification chan catGenVar _channel payload =
 -- the @streams.category GENERATED ALWAYS AS split_part(stream_name,'-',1)@ column.
 categoryFromPayload :: ByteString -> Text
 categoryFromPayload payload =
-    let fields = BC.split ',' payload
-        streamNameBytes = BC.intercalate "," (take (max 0 (length fields - 2)) fields)
-        CategoryName category = categoryName (StreamName (decodeUtf8Lenient streamNameBytes))
-     in category
+  let fields = BC.split ',' payload
+      streamNameBytes = BC.intercalate "," (take (max 0 (length fields - 2)) fields)
+      CategoryName category = categoryName (StreamName (decodeUtf8Lenient streamNameBytes))
+   in category
 
 -- A synthetic exception used when 'waitForNotifications' returns without
 -- raising (hasql-notifications turned a connection error into a Left
 -- result and dropped the diagnostic). The reconnect-event payload still
 -- needs an exception value — this is it.
 data ListenerWaitReturned = ListenerWaitReturned
-    deriving stock (Show)
-    deriving anyclass (Exception)
+  deriving stock (Show)
+  deriving anyclass (Exception)
 
 -- Internal: acquire a connection, set its application_name, or throw on failure.
 -- Throws 'NotifierStartError' (which derives 'Exception') for connection
 -- acquisition failures, so callers can match on a typed startup exception.
 acquireOrThrow :: Text -> IO Connection
 acquireOrThrow connStr = do
-    result <- Connection.acquire (Conn.connectionString connStr)
-    case result of
-        Left err -> throwIO (NotifierConnectError err)
-        Right conn -> do
-            -- Tag the connection so operators can identify the listener in
-            -- pg_stat_activity. Failures here are non-fatal — fall back to the
-            -- default application_name silently rather than aborting startup.
-            _ <- Connection.use conn (Session.statement () setAppNameStmt)
-            pure conn
+  result <- Connection.acquire (Conn.connectionString connStr)
+  case result of
+    Left err -> throwIO (NotifierConnectError err)
+    Right conn -> do
+      -- Tag the connection so operators can identify the listener in
+      -- pg_stat_activity. Failures here are non-fatal — fall back to the
+      -- default application_name silently rather than aborting startup.
+      _ <- Connection.use conn (Session.statement () setAppNameStmt)
+      pure conn
 
 setAppNameStmt :: Statement () ()
 setAppNameStmt =
-    unpreparable "SET application_name = 'kiroku-listener'" E.noParams D.noResult
+  unpreparable "SET application_name = 'kiroku-listener'" E.noParams D.noResult

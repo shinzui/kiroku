@@ -93,7 +93,7 @@ handler`):
 | Field | Default | Meaning |
 | --- | --- | --- |
 | `name :: SubscriptionName` | (required) | Stable name. This is the **checkpoint key** in the `subscriptions` table; reuse the same name across restarts to resume. |
-| `target :: SubscriptionTarget` | (required) | `AllStreams` or `Category categoryName`. |
+| `target :: SubscriptionTarget` | (required) | `AllStreams`, `Category categoryName`, or `CategoryNamespace namespace`. |
 | `handler` | (required) | `RecordedEvent -> m SubscriptionResult`, invoked once per event in order. |
 | `batchSize :: BatchSize` | `defaultBatchSize` | Events fetched per database round-trip during catch-up. |
 | `queueCapacity :: Natural` | `16` | Maximum number of *batches* the publisher may enqueue for this subscriber before applying the overflow policy. Effective event capacity is `queueCapacity * publisherBatchSize`. |
@@ -107,9 +107,58 @@ handler`):
 | `missingCheckpointPolicy :: MissingCheckpointPolicy` | `FromBeginning` | What startup does when the exact `(name, consumer-group member)` checkpoint row is absent: seed zero, atomically seed the authoritative current append frontier, or fail. Existing rows always win. See [Choosing A Startup Checkpoint](#choosing-a-startup-checkpoint). |
 
 `SubscriptionTarget` is `AllStreams` (every event in global position order)
-or `Category !CategoryName` (events whose source stream's name prefix matches
-the category). Category subscriptions still use `$all` global positions as
-their cursor.
+or `Category !CategoryName` (one exact category), or `CategoryNamespace !Text`
+(a category and its colon-separated descendants). All targets use `$all` global
+positions as their cursor.
+
+## Category Namespaces
+
+```haskell
+let cfg = defaultSubscriptionConfig
+      (SubscriptionName "process-managers")
+      (CategoryNamespace "pm")
+      handler
+```
+
+This target includes `pm-1`, `pm:fulfillment-1`, and `pm:billing-1`, including
+categories created after startup. It excludes `pmm-1` and `orders-1`. A category
+is the part of a stream name before its first hyphen. Use `"pm"` to follow the
+namespace; `Category (CategoryName "pm")` continues to select only category `pm`.
+Nested values such as `"pm:billing"` use the same boundary rule.
+
+Values are literal: no trimming, Unicode normalization, case folding, or wildcard
+interpretation. `%`, `_`, backslashes and commas have no special meaning. The empty
+namespace includes the empty category and categories starting with `:`; it does
+not include every category. `"pm:"` includes category `pm:` and descendants
+starting with `pm::`. A namespace containing a hyphen has no matching category.
+
+Catch-up and live sweeps capture the committed `$all` head and scan windows of
+`min 1024 batchSize` global rows. Only matches fetch payloads and run decoding.
+Events are delivered in global order. Consumer groups partition the namespace
+using the same source-stream hash as other targets, without overlapping deliveries.
+Each member independently scans global history, so total scan cost increases with
+member count and sparse namespaces still traverse unrelated history.
+
+Live workers wake on their namespace's notifications, including new categories.
+The 30-second safety poll recovers lost notifications. A quiet namespace in a busy
+store therefore does periodic scan work. Duplicate namespace registrations share
+one wake cell and the last exiting worker releases it.
+
+A checkpoint records **completed scan progress**, which can be beyond the last
+delivered matching event. It advances past unrelated rows only after every matching
+event in that window resolves. `Stop` still saves the stopping event; an unhandled
+decode failure or interrupted handler never saves the remaining window. Empty
+windows save once every 32 windows and at the captured head. Checkpoint failures
+can cause replay, preserving at-least-once delivery.
+
+Upgrade by stopping affected workers, applying migration 0016 with
+`kiroku-store-migrate up`, then starting the new binaries. The new durable binding
+is `category_namespace` with the literal namespace in `target_category`. Older
+binaries can decode unknown target kinds as unbound and must not manage namespace
+checkpoint rows. Reverting application source alone is not a safe downgrade once
+these rows exist. Deliberate rebind/reset requires stopped workers. Adding the
+constructor requires downstream exhaustive matches to be reviewed during the
+normal PVP release process; this change does not select package release versions.
 
 ## How It Works
 
@@ -125,8 +174,8 @@ The worker thread:
    subscriptions it bypasses the broadcast and re-queries the database when
    that category receives a `NOTIFY` signal, with a 30-second safety poll for
    missed notifications. Consumer-group members use a DB-driven live loop gated
-   by the publisher's global cursor because their partition predicate is computed
-   in SQL.
+   by their exact category's notifications for `Category`, or by the publisher's
+   global cursor for `AllStreams`. Namespace workers use the bounded sweeps above.
 
 Live wake-ups are driven by PostgreSQL `LISTEN`/`NOTIFY`; a 30-second safety
 poll covers any missed notification. Transient database errors during catch-up
@@ -267,7 +316,8 @@ is a separate proposed capability described by
 
 ## Checkpoint Target Identity
 
-A checkpoint name is bound to `AllStreams` or one specific `Category`, across
+A checkpoint name is bound to `AllStreams`, one exact `Category`, or one literal
+`CategoryNamespace`, across
 every member. Startup checks target identity and stored group size in the same
 initialization checkout before `Started` or any handler call. Ordinary and
 dead-letter saves persist the target in their existing single upsert.

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Migration 0016 permits `category_namespace` durable subscription bindings using
+  the existing `target_category` column. It changes only subscription constraints;
+  no event/stream index, append column, or trigger is added. Stop affected workers
+  before applying it; older binaries must not manage namespace bindings.
+
 ## 0.7.1.0 — 2026-10-11
 
 ### New Features

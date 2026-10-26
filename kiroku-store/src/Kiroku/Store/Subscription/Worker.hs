@@ -28,6 +28,8 @@ module Kiroku.Store.Subscription.Worker
     withFetchBatchHookForTest,
     withLoadCheckpointHookForTest,
     withSaveCheckpointHookForTest,
+    withNamespaceSafetyPollForTest,
+    withNamespaceWindowHookForTest,
   )
 where
 
@@ -160,6 +162,31 @@ withSaveCheckpointHookForTest hook action =
     (writeIORef saveCheckpointHookRef)
     (const action)
 
+-- | Test timing and fetch injection; production uses the normal safety interval.
+{-# NOINLINE namespaceSafetyPollRef #-}
+namespaceSafetyPollRef :: IORef Int
+namespaceSafetyPollRef = unsafePerformIO (newIORef categorySafetyPollMicros)
+
+withNamespaceSafetyPollForTest :: Int -> IO a -> IO a
+withNamespaceSafetyPollForTest micros action =
+  bracket
+    (readIORef namespaceSafetyPollRef <* writeIORef namespaceSafetyPollRef micros)
+    (writeIORef namespaceSafetyPollRef)
+    (const action)
+
+type NamespaceWindowHook = SubscriptionConfig -> GlobalPosition -> GlobalPosition -> IO (Maybe (Either Pool.UsageError SQL.NamespaceWindow))
+
+{-# NOINLINE namespaceWindowHookRef #-}
+namespaceWindowHookRef :: IORef (Maybe NamespaceWindowHook)
+namespaceWindowHookRef = unsafePerformIO (newIORef Nothing)
+
+withNamespaceWindowHookForTest :: NamespaceWindowHook -> IO a -> IO a
+withNamespaceWindowHookForTest hook action =
+  bracket
+    (readIORef namespaceWindowHookRef <* writeIORef namespaceWindowHookRef (Just hook))
+    (writeIORef namespaceWindowHookRef)
+    (const action)
+
 fetchRetryDelayMicros :: Int -> Int
 fetchRetryDelayMicros attempt =
   min categorySafetyPollMicros (100_000 * (2 ^ min attempt 9 :: Int))
@@ -177,6 +204,8 @@ data LiveSource
     --       category's NOTIFY generation counter and re-query the database (with the
     --       partition predicate, for a member).
     LiveFromCategoryNotify !Text
+  | -- | Namespace workers share only their active namespace's wake cell.
+    LiveFromNamespaceNotify !(TVar Word64)
   | -- | Consumer-group member of AllStreams: wake when the global position
     --       advances and re-query with the partition predicate.
     LiveFromGroupPolling
@@ -287,14 +316,29 @@ data StalledDelivery = StalledDelivery !GlobalPosition !EventId !Word64
 durationMicros :: NominalDiffTime -> Int
 durationMicros duration = fromInteger (max 1 (min (toInteger (maxBound :: Int)) (ceiling (duration * 1_000_000))))
 
+-- Allocated only for namespace workers; old targets keep their startup path.
+data NamespaceScanState = NamespaceScanState
+  { scanSweep :: !(IORef (Maybe GlobalPosition)),
+    scanGeneration :: !(IORef (Maybe Word64)),
+    scanEmptyWindows :: !(IORef Int),
+    scanSaved :: !(IORef GlobalPosition)
+  }
+
 runWorkerBody :: Pool -> LiveSource -> TVar SubscriptionState -> TVar GlobalPosition -> TVar (Map Text Word64) -> SubscriptionConfig -> Maybe (KirokuEvent -> IO ()) -> StoreSettings -> IO ()
 runWorkerBody pool liveSource stateVar pubPosVar catGenVar config mHandler stSettings = do
   let emit = emitOrDrop mHandler
       subName = name config
       groupCtx = groupCtxOf config
   posRef <- newIORef (GlobalPosition 0)
+  -- One captured database head per sweep and a generation snapshotted before it.
+  namespaceState <- case liveSource of
+    LiveFromNamespaceNotify _ -> Just <$> (NamespaceScanState <$> newIORef Nothing <*> newIORef Nothing <*> newIORef 0 <*> newIORef (GlobalPosition 0))
+    _ -> pure Nothing
 
-  let body = do
+  let namespaceScan = case namespaceState of
+        Just state -> state
+        Nothing -> error "namespace scan state requested for a legacy target"
+      body = do
         -- Optional startup guardrail: when consumerGroupGuard is on, fail fast
         -- if another holder currently holds this (name, member)'s advisory lock.
         case (consumerGroupGuard config, consumerGroup config) of
@@ -308,6 +352,7 @@ runWorkerBody pool liveSource stateVar pubPosVar catGenVar config mHandler stSet
           Right initialization -> do
             emit (KirokuEventSubscriptionCheckpointResolved initialization groupCtx)
             pure (checkpointInitializationPosition initialization)
+        mapM_ (\scan -> writeIORef (scanSaved scan) checkpoint) namespaceState
         writeIORef posRef checkpoint
         emit (KirokuEventSubscriptionStarted subName checkpoint groupCtx)
         -- Drive the explicit FSM from the catch-up state. The pure 'step'
@@ -317,6 +362,44 @@ runWorkerBody pool liveSource stateVar pubPosVar catGenVar config mHandler stSet
         -- three live strategies remain the *mechanism* for obtaining the next
         -- batch within the 'Live' state; the FSM governs the lifecycle.
         loop (CatchingUp checkpoint 0)
+
+      namespaceInput :: Bool -> GlobalPosition -> TVar Word64 -> IO Input
+      namespaceInput live cursor generation = do
+        sweep <- readIORef (scanSweep namespaceScan)
+        captured <- case sweep of
+          Just headPosition -> pure (Right headPosition)
+          Nothing -> do
+            previous <- readIORef (scanGeneration namespaceScan)
+            when live $ case previous of
+              Nothing -> pure ()
+              Just before -> do
+                micros <- readIORef namespaceSafetyPollRef
+                timer <- registerDelay micros
+                atomically $
+                  (readTVar generation >>= \g -> check (g /= before))
+                    `orElse` (readTVar timer >>= check)
+            -- Snapshot BEFORE the head read, including on initial catch-up.
+            before <- atomically (readTVar generation)
+            result <- Pool.use pool (Session.statement () SQL.currentGlobalPositionStmt)
+            case result of
+              Left err -> pure (Left err)
+              Right headPosition -> do
+                writeIORef (scanGeneration namespaceScan) (Just before)
+                writeIORef (scanSweep namespaceScan) (Just (GlobalPosition headPosition))
+                pure (Right (GlobalPosition headPosition))
+        result <- case captured of
+          Left err -> pure (Left err)
+          Right headPosition
+            | cursor >= headPosition -> pure (Right (SQL.NamespaceWindow V.empty cursor 0 True))
+            | otherwise -> fetchNamespaceWindow pool config cursor headPosition
+        case result of
+          Left err -> do
+            emit (KirokuEventSubscriptionDbError subName FetchBatch err groupCtx)
+            pure (if live then ConnectionLost cursor err else FetchFailed err)
+          Right window -> do
+            events <- decodeEvents stSettings (SQL.namespaceEvents window)
+            emit (KirokuEventSubscriptionFetched subName (decodedBatchLength events) groupCtx)
+            pure (NamespaceWindowFetched events (SQL.scannedThrough window) (SQL.exhausted window))
 
       -- One driver iteration: publish the current state for observability
       -- ('currentState'), discover the next 'Input' by performing the state's
@@ -356,6 +439,9 @@ runWorkerBody pool liveSource stateVar pubPosVar catGenVar config mHandler stSet
       --     gates and per-fetch retry, exactly as before.
       nextInput :: SubscriptionState -> IO Input
       nextInput = \case
+        CatchingUp c _
+          | LiveFromNamespaceNotify generation <- liveSource ->
+              namespaceInput False c generation
         CatchingUp c _ -> do
           writeIORef posRef c
           pubPos <- atomically (readTVar pubPosVar)
@@ -387,6 +473,7 @@ runWorkerBody pool liveSource stateVar pubPosVar catGenVar config mHandler stSet
                   pure (if decodedBatchLength fresh == 0 then FetchEmpty else BatchFetched fresh)
           LiveFromCategoryNotify cat ->
             liveExitToInput =<< liveLoopCategoryNotify pool config stateVar catGenVar cat emit posRef c stSettings
+          LiveFromNamespaceNotify generation -> namespaceInput True c generation
           LiveFromGroupPolling ->
             liveExitToInput =<< liveLoopDbDriven pool config stateVar pubPosVar emit posRef c stSettings
         -- Recoverable backpressure: the publisher set 'Paused' because this
@@ -407,11 +494,15 @@ runWorkerBody pool liveSource stateVar pubPosVar catGenVar config mHandler stSet
             -- QueueBackpressured, so DB-driven sources should never
             -- enter Paused.
             LiveFromCategoryNotify {} -> pure QueueDrained
+            LiveFromNamespaceNotify {} -> pure QueueDrained
             LiveFromGroupPolling -> pure QueueDrained
         -- Reconnecting: re-probe the database from the checkpoint. A success
         -- re-enters catch-up (delivering everything after the cursor); a
         -- failure stays in 'Reconnecting' for another backed-off attempt; an
         -- empty result means there is nothing new, so return to live.
+        Reconnecting c _
+          | LiveFromNamespaceNotify generation <- liveSource ->
+              namespaceInput False c generation
         Reconnecting c _ -> do
           writeIORef posRef c
           fetchResult <- fetchBatch pool config c emit stSettings
@@ -456,6 +547,29 @@ runWorkerBody pool liveSource stateVar pubPosVar catGenVar config mHandler stSet
             Checkpoint p -> saveCheckpoint pool config p emit >> go es
             FetchHistory _ -> go es
             RunLive -> go es
+            DeliverNamespaceWindow events frontier done -> do
+              result <-
+                if decodedBatchLength events == 0
+                  then do
+                    count <- readIORef (scanEmptyWindows namespaceScan)
+                    writeIORef (scanEmptyWindows namespaceScan) (count + 1)
+                    saved <- readIORef (scanSaved namespaceScan)
+                    when (frontier > saved && (done || count + 1 >= 32)) $ do
+                      success <- saveCheckpointResult pool config frontier emit
+                      when success $ do
+                        writeIORef (scanSaved namespaceScan) frontier
+                        writeIORef (scanEmptyWindows namespaceScan) 0
+                    writeIORef posRef frontier
+                    pure (Just frontier)
+                  else processEventsWithCompletion (Just (frontier, (scanSaved namespaceScan))) pool config stateVar events emit posRef stSettings
+              case result of
+                Nothing -> Just . HandlerStopped <$> readIORef posRef
+                Just completed -> do
+                  -- A nonempty window already attempted one tail save; remember
+                  -- pending progress after failures for a later empty sweep.
+                  when (decodedBatchLength events > 0) (writeIORef (scanEmptyWindows namespaceScan) 0)
+                  when done (writeIORef (scanSweep namespaceScan) Nothing)
+                  pure (Just (NamespaceWindowCompleted completed done))
             DeliverBatch events -> do
               result <- processEvents pool config stateVar events emit posRef stSettings
               case result of
@@ -742,6 +856,7 @@ fetchBatch pool config cursor@(GlobalPosition pos) emit stSettings = do
     Just result -> handle result
     Nothing ->
       case (consumerGroup config, target config) of
+        (_, CategoryNamespace _) -> error "namespace workers fetch bounded windows"
         (Nothing, AllStreams) -> do
           result <- Pool.use pool (Session.statement (pos, batchSizeValue (batchSize config)) SQL.readAllForwardStmt)
           handle result
@@ -765,6 +880,21 @@ fetchBatch pool config cursor@(GlobalPosition pos) emit stSettings = do
       -- transformed identically to live batches (which the publisher
       -- transforms once before fan-out).
       Right events -> Right <$> decodeEvents stSettings events
+
+-- Fetch only one bounded window. No request is made at/beyond the captured head.
+fetchNamespaceWindow :: Pool -> SubscriptionConfig -> GlobalPosition -> GlobalPosition -> IO (Either Pool.UsageError SQL.NamespaceWindow)
+fetchNamespaceWindow pool config cursor@(GlobalPosition position) headPosition@(GlobalPosition upper) = do
+  hook <- readIORef namespaceWindowHookRef
+  injected <- maybe (pure Nothing) (\f -> f config cursor headPosition) hook
+  case injected of
+    Just result -> pure result
+    Nothing -> case target config of
+      CategoryNamespace namespace ->
+        let width = min 1024 (batchSizeValue (batchSize config))
+         in Pool.use pool $ case consumerGroup config of
+              Nothing -> Session.statement (position, upper, namespace, width) SQL.readNamespaceWindowStmt
+              Just cg -> Session.statement (position, upper, namespace, width, member cg, size cg) SQL.readNamespaceGroupWindowStmt
+      _ -> error "fetchNamespaceWindow requires a namespace target"
 
 -- Process a batch of events through the handler, resolving each event's
 -- disposition. Returns the new cursor position if the batch was fully consumed
@@ -793,7 +923,12 @@ processEvents ::
   IORef GlobalPosition ->
   StoreSettings ->
   IO (Maybe GlobalPosition)
-processEvents pool config stateVar batch emit posRef stSettings = do
+processEvents = processEventsWithCompletion Nothing
+
+-- A fully resolved namespace window saves its completed scan frontier once.
+-- Stop and atomic dead letters retain their per-event positions.
+processEventsWithCompletion :: Maybe (GlobalPosition, IORef GlobalPosition) -> Pool -> SubscriptionConfig -> TVar SubscriptionState -> DecodedBatch -> (KirokuEvent -> IO ()) -> IORef GlobalPosition -> StoreSettings -> IO (Maybe GlobalPosition)
+processEventsWithCompletion completion pool config stateVar batch emit posRef stSettings = do
   driving <- atomically (readTVar stateVar)
   let phase = case driving of
         CatchingUp {} -> DeliveredCatchUp
@@ -814,9 +949,12 @@ processEvents pool config stateVar batch emit posRef stSettings = do
       where
         go i
           | i >= V.length events = do
-              let newPos = globalPosition (rawOf (V.last events))
+              let newPos = maybe (globalPosition (rawOf (V.last events))) fst completion
               writeIORef posRef newPos
-              saveCheckpoint pool config newPos emit
+              success <- saveCheckpointResult pool config newPos emit
+              when success $ case completion of
+                Nothing -> pure ()
+                Just (_, saved) -> writeIORef saved newPos
               pure (Just newPos)
           | otherwise = do
               let item = events V.! i
@@ -928,12 +1066,18 @@ saveCheckpoint ::
   GlobalPosition ->
   (KirokuEvent -> IO ()) ->
   IO ()
-saveCheckpoint pool config position@(GlobalPosition pos) emit = do
+saveCheckpoint pool config position emit = do
+  _ <- saveCheckpointResult pool config position emit
+  pure ()
+
+-- Failed empty-window flushes must remain pending rather than looking durable.
+saveCheckpointResult :: Pool -> SubscriptionConfig -> GlobalPosition -> (KirokuEvent -> IO ()) -> IO Bool
+saveCheckpointResult pool config position@(GlobalPosition pos) emit = do
   let subName@(SubscriptionName name') = name config
       mem = configMember config
   mHook <- readIORef saveCheckpointHookRef
   mapM_ (\hook -> hook config position) mHook
   result <- Pool.use pool (CheckpointSQL.saveBoundCheckpointSession (target config) name' mem pos (configSize config))
   case result of
-    Left err -> emit (KirokuEventSubscriptionDbError subName SaveCheckpoint err (groupCtxOf config))
-    Right () -> pure ()
+    Left err -> emit (KirokuEventSubscriptionDbError subName SaveCheckpoint err (groupCtxOf config)) >> pure False
+    Right () -> pure True

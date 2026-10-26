@@ -1,5 +1,5 @@
-module Kiroku.Store.Subscription (
-    -- * Subscribe
+module Kiroku.Store.Subscription
+  ( -- * Subscribe
     subscribe,
     withSubscription,
 
@@ -12,7 +12,8 @@ module Kiroku.Store.Subscription (
 
     -- * Types
     module Kiroku.Store.Subscription.Types,
-) where
+  )
+where
 
 import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.STM (atomically, modifyTVar', newTVarIO, readTVarIO)
@@ -39,313 +40,311 @@ import Kiroku.Store.Subscription.Types
 import Kiroku.Store.Subscription.Worker (LiveSource (..), configMember, runWorker)
 import Kiroku.Store.Types (CategoryName (..), GlobalPosition (..))
 
-{- | Start a subscription. Returns a handle for cancellation and waiting.
-
-The subscription spawns a worker thread that:
-
-1. Resolves the exact @(subscription name, consumer-group member)@ checkpoint.
-   An existing row always wins. If absent, 'missingCheckpointPolicy' durably
-   seeds zero, atomically seeds the current @$all@ head, or fails before the
-   handler runs. A database error fails the worker loudly through 'wait'; it
-   does not fall back to 0.
-2. Catches up by querying the database directly until it reaches the
-   'Kiroku.Store.Subscription.EventPublisher.lastPublished' cursor.
-3. Switches to live mode. For 'Kiroku.Store.Subscription.Types.AllStreams'
-   subscriptions outside a consumer group, the worker reads pre-broadcast
-   events from the publisher's bounded per-subscriber queue. For
-   'Kiroku.Store.Subscription.Types.Category' subscriptions and all
-   consumer-group subscriptions, no publisher queue is created; the worker
-   re-queries the database in live mode.
-
-The returned 'SubscriptionHandle' carries an implicit lifecycle contract:
-the worker thread runs until 'cancel' is called or the handler returns 'Stop'.
-Forgetting to cancel leaks the thread. Prefer 'withSubscription' for any
-non-trivial code path; use the bare 'subscribe' only when the caller already
-has a structured lifecycle (e.g., the Streamly 'subscriptionStream' bridge).
-
-=== Delivery semantics
-
-Events are delivered __at least once__. The store's checkpoint is advanced
-__per batch__, not per event: when the handler returns 'Continue' for every
-event in a batch the checkpoint is saved at the batch tail; when the handler
-returns 'Stop' for some event the checkpoint is saved at that event. The
-following events on the boundary therefore __replay__ on the next
-subscription with the same 'Kiroku.Store.Subscription.Types.SubscriptionName':
-
-* The handler returned 'Continue' but the worker was cancelled or the
-  process crashed before 'saveCheckpoint' completed. The events processed
-  by the handler are re-delivered.
-* The handler was interrupted between events (cancellation, crash) inside
-  one batch. The events already processed are re-delivered along with the
-  not-yet-processed ones.
-* The publisher could not reach the database for one cycle (transient
-  pool error). The next cycle re-fetches and re-broadcasts; subscribers
-  that had already exited catch-up may see those events delivered late
-  with no checkpoint advance in between, so a subsequent restart replays
-  them.
-
-Handlers must therefore be idempotent — process a duplicate event without
-producing a wrong-on-replay result — or be tolerant of duplicates by some
-domain-specific check (e.g., a unique key on the projection table).
-
-=== Failure modes
-
-The 'Kiroku.Store.Subscription.Types.SubscriptionHandleM.wait' on the
-returned handle resolves with one of:
-
-* @Right ()@ — the handler returned 'Stop' for some event and the worker
-  exited cleanly. The checkpoint is saved at that event.
-* @Left e@ where @e@ is 'Control.Concurrent.Async.AsyncCancelled' — the
-  caller invoked 'cancel'. No checkpoint advance is guaranteed; events
-  in flight at cancellation time will replay.
-* @Left e@ where @e@ is
-  'Kiroku.Store.Subscription.Types.SubscriptionOverflowed' — the publisher
-  marked this non-group 'Kiroku.Store.Subscription.Types.AllStreams'
-  subscription overflowed under
-  'Kiroku.Store.Subscription.Types.DropSubscription'. Category and
-  consumer-group subscriptions do not own publisher queues, so
-  'queueCapacity' and 'overflowPolicy' have no effect for them.
-  Investigate the slow handler and either fix the slowness, raise
-  'queueCapacity', or switch to 'Kiroku.Store.Subscription.Types.DropOldest'
-  if the consumer can tolerate event loss.
-* @Left e@ where @e@ is
-  'Kiroku.Store.Subscription.Types.SubscriptionUndecodable' — the default
-  decode retry policy exhausted. The exception carries 'DecodeFailure';
-  the checkpoint remains before the failed event. Fix the hook and restart
-  the same subscription to replay it.
-* @Left e@ where @e@ is a 'Hasql.Pool.UsageError' from checkpoint load —
-  startup could not read the saved checkpoint. The worker stops rather than
-  silently replaying from global position 0.
-* @Left e@ where @e@ is
-  'Kiroku.Store.Subscription.Types.SubscriptionCheckpointMissing' —
-  'Kiroku.Store.Subscription.Types.FailIfMissing' refused an absent exact key.
-  No checkpoint row was inserted and the handler did not run.
-* @Left e@ for any exception thrown by the handler — handler exceptions
-  are not caught; the worker thread dies and the original exception
-  propagates to the consumer. This is intentional: a handler that
-  throws is signalling that the subscription cannot proceed safely.
--}
+-- | Start a subscription. Returns a handle for cancellation and waiting.
+--
+-- The subscription spawns a worker thread that:
+--
+-- 1. Resolves the exact @(subscription name, consumer-group member)@ checkpoint.
+--    An existing row always wins. If absent, 'missingCheckpointPolicy' durably
+--    seeds zero, atomically seeds the current @$all@ head, or fails before the
+--    handler runs. A database error fails the worker loudly through 'wait'; it
+--    does not fall back to 0.
+-- 2. Catches up by querying the database directly until it reaches the
+--    'Kiroku.Store.Subscription.EventPublisher.lastPublished' cursor.
+-- 3. Switches to live mode. For 'Kiroku.Store.Subscription.Types.AllStreams'
+--    subscriptions outside a consumer group, the worker reads pre-broadcast
+--    events from the publisher's bounded per-subscriber queue. For
+--    'Kiroku.Store.Subscription.Types.Category' subscriptions and all
+--    consumer-group subscriptions, no publisher queue is created; the worker
+--    re-queries the database in live mode.
+--
+-- The returned 'SubscriptionHandle' carries an implicit lifecycle contract:
+-- the worker thread runs until 'cancel' is called or the handler returns 'Stop'.
+-- Forgetting to cancel leaks the thread. Prefer 'withSubscription' for any
+-- non-trivial code path; use the bare 'subscribe' only when the caller already
+-- has a structured lifecycle (e.g., the Streamly 'subscriptionStream' bridge).
+--
+-- === Delivery semantics
+--
+-- Events are delivered __at least once__. The store's checkpoint is advanced
+-- __per batch__, not per event: when the handler returns 'Continue' for every
+-- event in a batch the checkpoint is saved at the batch tail; when the handler
+-- returns 'Stop' for some event the checkpoint is saved at that event. The
+-- following events on the boundary therefore __replay__ on the next
+-- subscription with the same 'Kiroku.Store.Subscription.Types.SubscriptionName':
+--
+-- * The handler returned 'Continue' but the worker was cancelled or the
+--   process crashed before 'saveCheckpoint' completed. The events processed
+--   by the handler are re-delivered.
+-- * The handler was interrupted between events (cancellation, crash) inside
+--   one batch. The events already processed are re-delivered along with the
+--   not-yet-processed ones.
+-- * The publisher could not reach the database for one cycle (transient
+--   pool error). The next cycle re-fetches and re-broadcasts; subscribers
+--   that had already exited catch-up may see those events delivered late
+--   with no checkpoint advance in between, so a subsequent restart replays
+--   them.
+--
+-- Handlers must therefore be idempotent — process a duplicate event without
+-- producing a wrong-on-replay result — or be tolerant of duplicates by some
+-- domain-specific check (e.g., a unique key on the projection table).
+--
+-- === Failure modes
+--
+-- The 'Kiroku.Store.Subscription.Types.SubscriptionHandleM.wait' on the
+-- returned handle resolves with one of:
+--
+-- * @Right ()@ — the handler returned 'Stop' for some event and the worker
+--   exited cleanly. The checkpoint is saved at that event.
+-- * @Left e@ where @e@ is 'Control.Concurrent.Async.AsyncCancelled' — the
+--   caller invoked 'cancel'. No checkpoint advance is guaranteed; events
+--   in flight at cancellation time will replay.
+-- * @Left e@ where @e@ is
+--   'Kiroku.Store.Subscription.Types.SubscriptionOverflowed' — the publisher
+--   marked this non-group 'Kiroku.Store.Subscription.Types.AllStreams'
+--   subscription overflowed under
+--   'Kiroku.Store.Subscription.Types.DropSubscription'. Category and
+--   consumer-group subscriptions do not own publisher queues, so
+--   'queueCapacity' and 'overflowPolicy' have no effect for them.
+--   Investigate the slow handler and either fix the slowness, raise
+--   'queueCapacity', or switch to 'Kiroku.Store.Subscription.Types.DropOldest'
+--   if the consumer can tolerate event loss.
+-- * @Left e@ where @e@ is
+--   'Kiroku.Store.Subscription.Types.SubscriptionUndecodable' — the default
+--   decode retry policy exhausted. The exception carries 'DecodeFailure';
+--   the checkpoint remains before the failed event. Fix the hook and restart
+--   the same subscription to replay it.
+-- * @Left e@ where @e@ is a 'Hasql.Pool.UsageError' from checkpoint load —
+--   startup could not read the saved checkpoint. The worker stops rather than
+--   silently replaying from global position 0.
+-- * @Left e@ where @e@ is
+--   'Kiroku.Store.Subscription.Types.SubscriptionCheckpointMissing' —
+--   'Kiroku.Store.Subscription.Types.FailIfMissing' refused an absent exact key.
+--   No checkpoint row was inserted and the handler did not run.
+-- * @Left e@ for any exception thrown by the handler — handler exceptions
+--   are not caught; the worker thread dies and the original exception
+--   propagates to the consumer. This is intentional: a handler that
+--   throws is signalling that the subscription cannot proceed safely.
 subscribe :: (MonadIO m) => KirokuStore -> SubscriptionConfig -> m SubscriptionHandle
 subscribe store config = liftIO $ do
-    mask $ \_restore ->
+  mask $ \_restore ->
+    bracketOnError
+      ( case (consumerGroup config, target config) of
+          (Nothing, AllStreams) -> do
+            (queue, statusVar, unsubscribe) <-
+              atomically $
+                Pub.subscribePublisher
+                  (store ^. #publisher)
+                  (queueCapacity config)
+                  (overflowPolicy config)
+            pure (LiveFromPublisherQueue queue statusVar, unsubscribe)
+          -- Plain categories and consumer-group category members both wake
+          -- on the category's NOTIFY generation; a member's fetch applies
+          -- its partition predicate in SQL.
+          (_, Category (CategoryName cat)) ->
+            pure (LiveFromCategoryNotify cat, pure ())
+          (_, CategoryNamespace namespace) -> do
+            (generation, release) <-
+              atomically $
+                Notifier.registerNamespace (Notifier.namespaceRegistry (store ^. #notifier)) namespace
+            pure (LiveFromNamespaceNotify generation, atomically release)
+          (Just _, AllStreams) ->
+            pure (LiveFromGroupPolling, pure ())
+      )
+      (\(_, unsubscribe) -> unsubscribe)
+      $ \(liveSource, unsubscribe) -> do
+        -- The worker writes its current FSM state here on every transition; the
+        -- handle's 'currentState' reads it. Seeded with the catch-up entry state so
+        -- a read before the worker's first transition is sensible.
+        stateVar <- newTVarIO (CatchingUp (GlobalPosition 0) 0)
+        let pubPosVar = Pub.lastPublished (store ^. #publisher)
+            catGenVar = Notifier.categoryGenerations (store ^. #notifier)
+        -- Register this worker's state cell into the store's central registry under
+        -- (name, member). A fresh token identifies *this* worker so that an older
+        -- worker's cleanup cannot delete a newer worker's replacement entry under
+        -- the same key, and a held handle reads only the cell it registered.
+        token <- newUnique
+        let reg = store ^. #subscriptionRegistry
+            key = (name config, configMember config)
+            deregister =
+              atomically
+                ( modifyTVar' reg $
+                    Map.update
+                      ( \(tok', cell) ->
+                          if tok' == token
+                            then Nothing
+                            else Just (tok', cell)
+                      )
+                      key
+                )
+            -- `finally cleanup` removes this subscription from the publisher's
+            -- registry whenever the worker exits — gracefully on Stop, by
+            -- cancellation, or on any exception (including SubscriptionOverflowed).
+            -- Forgetting to unsubscribe would leave a registry entry with no
+            -- reader, and the publisher would needlessly trigger this subscriber's
+            -- overflow policy on the next batch. We extend the same `finally` to
+            -- also deregister from the subscription-state registry on ANY exit, so
+            -- the registry never leaks a stale entry. The delete is
+            -- token-conditional so stale cleanup from an older duplicate-key worker
+            -- cannot remove a newer worker's live entry.
+            cleanup = unsubscribe >> deregister
+        -- Insert before forking so a caller that reads a snapshot immediately after
+        -- `subscribe` returns already sees this subscription.
         bracketOnError
-            ( case (consumerGroup config, target config) of
-                (Nothing, AllStreams) -> do
-                    (queue, statusVar, unsubscribe) <-
-                        atomically $
-                            Pub.subscribePublisher
-                                (store ^. #publisher)
-                                (queueCapacity config)
-                                (overflowPolicy config)
-                    pure (LiveFromPublisherQueue queue statusVar, unsubscribe)
-                -- Plain categories and consumer-group category members both wake
-                -- on the category's NOTIFY generation; a member's fetch applies
-                -- its partition predicate in SQL.
-                (_, Category (CategoryName cat)) ->
-                    pure (LiveFromCategoryNotify cat, pure ())
-                (Just _, AllStreams) ->
-                    pure (LiveFromGroupPolling, pure ())
-            )
-            (\(_, unsubscribe) -> unsubscribe)
-            $ \(liveSource, unsubscribe) -> do
-                -- The worker writes its current FSM state here on every transition; the
-                -- handle's 'currentState' reads it. Seeded with the catch-up entry state so
-                -- a read before the worker's first transition is sensible.
-                stateVar <- newTVarIO (CatchingUp (GlobalPosition 0) 0)
-                let pubPosVar = Pub.lastPublished (store ^. #publisher)
-                    catGenVar = Notifier.categoryGenerations (store ^. #notifier)
-                -- Register this worker's state cell into the store's central registry under
-                -- (name, member). A fresh token identifies *this* worker so that an older
-                -- worker's cleanup cannot delete a newer worker's replacement entry under
-                -- the same key, and a held handle reads only the cell it registered.
-                token <- newUnique
-                let reg = store ^. #subscriptionRegistry
-                    key = (name config, configMember config)
-                    deregister =
-                        atomically
-                            ( modifyTVar' reg $
-                                Map.update
-                                    ( \(tok', cell) ->
-                                        if tok' == token
-                                            then Nothing
-                                            else Just (tok', cell)
-                                    )
-                                    key
-                            )
-                    -- `finally cleanup` removes this subscription from the publisher's
-                    -- registry whenever the worker exits — gracefully on Stop, by
-                    -- cancellation, or on any exception (including SubscriptionOverflowed).
-                    -- Forgetting to unsubscribe would leave a registry entry with no
-                    -- reader, and the publisher would needlessly trigger this subscriber's
-                    -- overflow policy on the next batch. We extend the same `finally` to
-                    -- also deregister from the subscription-state registry on ANY exit, so
-                    -- the registry never leaks a stale entry. The delete is
-                    -- token-conditional so stale cleanup from an older duplicate-key worker
-                    -- cannot remove a newer worker's live entry.
-                    cleanup = unsubscribe >> deregister
-                -- Insert before forking so a caller that reads a snapshot immediately after
-                -- `subscribe` returns already sees this subscription.
-                bracketOnError
-                    (atomically $ modifyTVar' reg (Map.insert key (token, stateVar)))
-                    (const deregister)
-                    $ \() -> do
-                        -- Every acquisition above is paired with a release in the
-                        -- pre-fork window; once asyncWithUnmask returns, ownership of
-                        -- both releases has transferred to the worker thread's cleanup.
-                        thread <-
-                            Async.asyncWithUnmask $ \unmask ->
-                                unmask
-                                    (runWorker (store ^. #pool) liveSource stateVar pubPosVar catGenVar config (store ^. #eventHandler) (store ^. #storeSettings))
-                                    `finally` cleanup
-                        pure
-                            SubscriptionHandle
-                                { cancel = Async.cancel thread
-                                , wait = Async.waitCatch thread
-                                , currentState = do
-                                    m <- readTVarIO reg
-                                    case Map.lookup key m of
-                                        Just (tok, cell) | tok == token -> Just <$> readTVarIO cell
-                                        _ -> pure Nothing
-                                }
+          (atomically $ modifyTVar' reg (Map.insert key (token, stateVar)))
+          (const deregister)
+          $ \() -> do
+            -- Every acquisition above is paired with a release in the
+            -- pre-fork window; once asyncWithUnmask returns, ownership of
+            -- both releases has transferred to the worker thread's cleanup.
+            thread <-
+              Async.asyncWithUnmask $ \unmask ->
+                unmask
+                  (runWorker (store ^. #pool) liveSource stateVar pubPosVar catGenVar config (store ^. #eventHandler) (store ^. #storeSettings))
+                  `finally` cleanup
+            pure
+              SubscriptionHandle
+                { cancel = Async.cancel thread,
+                  wait = Async.waitCatch thread,
+                  currentState = do
+                    m <- readTVarIO reg
+                    case Map.lookup key m of
+                      Just (tok, cell) | tok == token -> Just <$> readTVarIO cell
+                      _ -> pure Nothing
+                }
 
-{- | Bracket-style subscription lifecycle.
-
-Starts a subscription, runs the body, and ensures the underlying worker
-thread is cancelled on either normal exit or an exception thrown inside
-the body. This is the recommended way to use subscriptions: forgetting
-to call 'cancel' on a 'SubscriptionHandle' leaks the worker thread for
-the lifetime of the process.
-
-Equivalent to:
-
-    bracket (subscribe store config) cancel action
-
-but lifted to any 'MonadUnliftIO' so it composes with effectful stacks
-that already have an unlift in scope.
--}
+-- | Bracket-style subscription lifecycle.
+--
+-- Starts a subscription, runs the body, and ensures the underlying worker
+-- thread is cancelled on either normal exit or an exception thrown inside
+-- the body. This is the recommended way to use subscriptions: forgetting
+-- to call 'cancel' on a 'SubscriptionHandle' leaks the worker thread for
+-- the lifetime of the process.
+--
+-- Equivalent to:
+--
+--     bracket (subscribe store config) cancel action
+--
+-- but lifted to any 'MonadUnliftIO' so it composes with effectful stacks
+-- that already have an unlift in scope.
 withSubscription ::
-    (MonadUnliftIO m) =>
-    KirokuStore ->
-    SubscriptionConfig ->
-    (SubscriptionHandle -> m a) ->
-    m a
+  (MonadUnliftIO m) =>
+  KirokuStore ->
+  SubscriptionConfig ->
+  (SubscriptionHandle -> m a) ->
+  m a
 withSubscription store config action = withRunInIO $ \runInIO ->
-    bracket (subscribe store config) cancel (runInIO . action)
+  bracket (subscribe store config) cancel (runInIO . action)
 
-{- | Read the durable checkpoint inventory and global store position captured by
-one PostgreSQL statement snapshot.
-
-An empty 'checkpoints' vector means that no subscription checkpoint has yet
-been written. Unlike 'subscriptionStates', stopped subscriptions remain in this
-inventory because their committed rows are durable. Rows are sorted by
-subscription name and consumer-group member, and a new call is required to
-observe commits made after this snapshot.
-
-A live worker cursor may be ahead of its durable checkpoint while work is in
-flight. Member zero alone does not reveal whether a subscription is ungrouped
-or is member zero of a group. 'checkpointUpdatedAt' records the last successful
-checkpoint write, not proof that its position advanced. Finally, subtracting a
-'checkpointPosition' from 'storePosition' yields a global position distance,
-not an exact count of relevant events for filtered, category, or sharded
-consumers.
--}
+-- | Read the durable checkpoint inventory and global store position captured by
+-- one PostgreSQL statement snapshot.
+--
+-- An empty 'checkpoints' vector means that no subscription checkpoint has yet
+-- been written. Unlike 'subscriptionStates', stopped subscriptions remain in this
+-- inventory because their committed rows are durable. Rows are sorted by
+-- subscription name and consumer-group member, and a new call is required to
+-- observe commits made after this snapshot.
+--
+-- A live worker cursor may be ahead of its durable checkpoint while work is in
+-- flight. Member zero alone does not reveal whether a subscription is ungrouped
+-- or is member zero of a group. 'checkpointUpdatedAt' records the last successful
+-- checkpoint write, not proof that its position advanced. Finally, subtracting a
+-- 'checkpointPosition' from 'storePosition' yields a global position distance,
+-- not an exact count of relevant events for filtered, category, or sharded
+-- consumers.
 subscriptionCheckpointInventory ::
-    (HasCallStack, Store :> es) =>
-    Eff es SubscriptionCheckpointInventory
+  (HasCallStack, Store :> es) =>
+  Eff es SubscriptionCheckpointInventory
 subscriptionCheckpointInventory = send GetSubscriptionCheckpointInventory
 
-{- | Resolve the durable checkpoint for one exact @(subscription name,
-consumer-group member)@ key.
-
-An existing row is returned unchanged for every policy. When no row exists,
-'FromBeginning' atomically inserts position zero, 'FromCurrentHead' atomically
-inserts the current @$all@ store position, and 'FailIfMissing' returns
-'SubscriptionCheckpointMissing' without inserting. Concurrent initializers
-converge on the first committed row.
--}
+-- | Resolve the durable checkpoint for one exact @(subscription name,
+-- consumer-group member)@ key.
+--
+-- An existing row is returned unchanged for every policy. When no row exists,
+-- 'FromBeginning' atomically inserts position zero, 'FromCurrentHead' atomically
+-- inserts the current @$all@ store position, and 'FailIfMissing' returns
+-- 'SubscriptionCheckpointMissing' without inserting. Concurrent initializers
+-- converge on the first committed row.
 initializeSubscriptionCheckpoint ::
-    (HasCallStack, Store :> es) =>
-    SubscriptionName ->
-    Int32 ->
-    MissingCheckpointPolicy ->
-    Eff es (Either SubscriptionCheckpointMissing CheckpointInitialization)
+  (HasCallStack, Store :> es) =>
+  SubscriptionName ->
+  Int32 ->
+  MissingCheckpointPolicy ->
+  Eff es (Either SubscriptionCheckpointMissing CheckpointInitialization)
 initializeSubscriptionCheckpoint subscriptionName member policy =
-    send (InitializeSubscriptionCheckpoint subscriptionName member policy)
+  send (InitializeSubscriptionCheckpoint subscriptionName member policy)
 
-{- | A public, point-in-time view of one live subscription's state, as returned
-by 'subscriptionStates'. This is the committed observability surface external
-consumers (a future Prometheus exporter, an admin tool) read directly; it is
-intentionally a flat view, not the internal 'SubscriptionState' cell type.
-
-* 'subscriptionName' / 'member' identify the subscription (member 0 for a
-  non-group subscription), matching the registry/checkpoint key.
-* 'state' is the live 'SubscriptionState' read from the worker's registered cell.
-* 'statePhase' is a stable, low-cardinality label (via
-  'Kiroku.Store.Subscription.Fsm.stateName') suitable as a metric label value or
-  admin column; it does not drift if a constructor's fields change.
-* 'cursor' is the worker FSM cursor (via 'Kiroku.Store.Subscription.Fsm.stateCursor').
-  It is the cheap live progress signal for observability, not a guaranteed
-  durable checkpoint row.
-
-Read fields via the codebase's @generic-lens@ convention, e.g. @view ^. #state@.
--}
+-- | A public, point-in-time view of one live subscription's state, as returned
+-- by 'subscriptionStates'. This is the committed observability surface external
+-- consumers (a future Prometheus exporter, an admin tool) read directly; it is
+-- intentionally a flat view, not the internal 'SubscriptionState' cell type.
+--
+-- * 'subscriptionName' / 'member' identify the subscription (member 0 for a
+--   non-group subscription), matching the registry/checkpoint key.
+-- * 'state' is the live 'SubscriptionState' read from the worker's registered cell.
+-- * 'statePhase' is a stable, low-cardinality label (via
+--   'Kiroku.Store.Subscription.Fsm.stateName') suitable as a metric label value or
+--   admin column; it does not drift if a constructor's fields change.
+-- * 'cursor' is the worker FSM cursor (via 'Kiroku.Store.Subscription.Fsm.stateCursor').
+--   It is the cheap live progress signal for observability, not a guaranteed
+--   durable checkpoint row.
+--
+-- Read fields via the codebase's @generic-lens@ convention, e.g. @view ^. #state@.
 data SubscriptionStateView = SubscriptionStateView
-    { subscriptionName :: !SubscriptionName
-    , member :: !Int32
-    , state :: !SubscriptionState
-    , statePhase :: !Text
-    , cursor :: !GlobalPosition
-    }
-    deriving stock (Show, Generic)
+  { subscriptionName :: !SubscriptionName,
+    member :: !Int32,
+    state :: !SubscriptionState,
+    statePhase :: !Text,
+    cursor :: !GlobalPosition
+  }
+  deriving stock (Show, Generic)
 
-{- | A near-instant snapshot of every live subscription as a public
-'SubscriptionStateView', keyed by (subscription name, consumer-group member;
-0 for non-group).
-
-Snapshots the registry's outer map with 'readTVarIO', then reads each registered
-state cell with 'readTVarIO' __outside__ STM. This is deliberately not one STM
-transaction over all cells: a single transaction would put every subscription's
-state cell in the reader's STM read set, and since each worker writes its cell
-~once per batch, any such write would force the whole scan to re-run — a
-reader-side cost that scales with subscription count. The named consumers (a
-Prometheus scrape, an admin listing) read independent values and do not need a
-globally atomic snapshot, so each entry is read as its own freshest value.
-
-A subscription appears here from the moment 'subscribe' returns its handle until
-its worker exits (stop, cancel, or crash), at which point its key is removed; a
-stopped/cancelled/crashed subscription is represented by __absence__, never by a
-@"stopped"@ phase (the FSM never writes 'Stopped' into the cell). This map of
-view records is the committed surface the future Prometheus exporter and admin
-tool consume.
--}
+-- | A near-instant snapshot of every live subscription as a public
+-- 'SubscriptionStateView', keyed by (subscription name, consumer-group member;
+-- 0 for non-group).
+--
+-- Snapshots the registry's outer map with 'readTVarIO', then reads each registered
+-- state cell with 'readTVarIO' __outside__ STM. This is deliberately not one STM
+-- transaction over all cells: a single transaction would put every subscription's
+-- state cell in the reader's STM read set, and since each worker writes its cell
+-- ~once per batch, any such write would force the whole scan to re-run — a
+-- reader-side cost that scales with subscription count. The named consumers (a
+-- Prometheus scrape, an admin listing) read independent values and do not need a
+-- globally atomic snapshot, so each entry is read as its own freshest value.
+--
+-- A subscription appears here from the moment 'subscribe' returns its handle until
+-- its worker exits (stop, cancel, or crash), at which point its key is removed; a
+-- stopped/cancelled/crashed subscription is represented by __absence__, never by a
+-- @"stopped"@ phase (the FSM never writes 'Stopped' into the cell). This map of
+-- view records is the committed surface the future Prometheus exporter and admin
+-- tool consume.
 subscriptionStates :: KirokuStore -> IO (Map (SubscriptionName, Int32) SubscriptionStateView)
 subscriptionStates store = do
-    cells <- readTVarIO (store ^. #subscriptionRegistry)
-    Map.traverseWithKey
-        ( \(nm, mbr) (_tok, cell) -> do
-            st <- readTVarIO cell
-            pure
-                SubscriptionStateView
-                    { subscriptionName = nm
-                    , member = mbr
-                    , state = st
-                    , statePhase = stateName st
-                    , cursor = stateCursor st
-                    }
-        )
-        cells
+  cells <- readTVarIO (store ^. #subscriptionRegistry)
+  Map.traverseWithKey
+    ( \(nm, mbr) (_tok, cell) -> do
+        st <- readTVarIO cell
+        pure
+          SubscriptionStateView
+            { subscriptionName = nm,
+              member = mbr,
+              state = st,
+              statePhase = stateName st,
+              cursor = stateCursor st
+            }
+    )
+    cells
 
-{- | Read one subscription's dead letters, newest first by global position and
-then dead-letter id. Echo the page's 'nextCursor' as 'after' for an exclusive
-next page. 'consumerGroupMember' Nothing includes all historical members; Just
-selects one (ungrouped subscriptions use 0). All-member work is bounded by the
-number of historical members times the page size; use member-scoped polling for
-large groups. One statement and one pool checkout serve a page.
-
-The reason JSON is returned unchanged, without an event decoding hook. An empty
-page means no dead letters were recorded for this query. Hard-deleting source
-streams can remove rows, but their cursors remain valid. This operation neither
-writes a checkpoint nor changes the worker or cleanup paths.
--}
+-- | Read one subscription's dead letters, newest first by global position and
+-- then dead-letter id. Echo the page's 'nextCursor' as 'after' for an exclusive
+-- next page. 'consumerGroupMember' Nothing includes all historical members; Just
+-- selects one (ungrouped subscriptions use 0). All-member work is bounded by the
+-- number of historical members times the page size; use member-scoped polling for
+-- large groups. One statement and one pool checkout serve a page.
+--
+-- The reason JSON is returned unchanged, without an event decoding hook. An empty
+-- page means no dead letters were recorded for this query. Hard-deleting source
+-- streams can remove rows, but their cursors remain valid. This operation neither
+-- writes a checkpoint nor changes the worker or cleanup paths.
 subscriptionDeadLetters :: (HasCallStack, Store :> es) => SubscriptionDeadLetterQuery -> Eff es SubscriptionDeadLetterPage
 subscriptionDeadLetters = send . ListSubscriptionDeadLetters

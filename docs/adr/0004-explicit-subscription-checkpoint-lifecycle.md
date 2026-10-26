@@ -8,7 +8,7 @@ generated:
 docId: ADR-4
 status: Accepted
 date: 2026-08-11
-timestamp: "2026-10-25T20:19:35Z"
+timestamp: "2026-10-26T16:23:48Z"
 ---
 
 # ADR-0004: Subscription checkpoint initialization is explicit and reset is a separate transaction operation
@@ -150,3 +150,25 @@ rebind or reset.
 Target-mismatch detail events only describe refusal; the subsequent `Stopped`
 event owns crash counting and terminal tracing. Invalid stall intervals likewise
 emit one crashed stop before checkpoint initialization and the typed `wait` failure.
+
+## Amendment: namespace scan progress (2026-10-26)
+
+`CategoryNamespace namespace` binds as `category_namespace` with the literal value
+in `target_category`, distinct from an exact `Category` even for the same text.
+Initialization, adoption, ordinary/atomic saves, resize and explicit rebind retain
+that identity. Migration 0016 extends both CHECK constraints; the public checkpoint
+inventory relation keeps its existing shape.
+
+A namespace checkpoint means all applicable events through that global position
+have resolved, rather than identifying the last delivered match. Capture the
+committed `$all` head once per sweep, inspect bounded metadata windows, fetch and
+decode only matching payloads, and publish the completed frontier only after
+handlers/dispositions finish. Empty windows are progress rather than exhaustion;
+coalesce their saves every 32 windows and at the captured head. Preserve a failed
+flush for retry. Early Stop saves only its stopping event, and unresolved decode
+or atomic dead-letter failure cannot persist the rest of the window. Ordinary
+save failures may replay completed work, preserving at-least-once delivery.
+
+Stop affected workers before migration and start new binaries afterward. Earlier
+binaries can decode an unknown binding as unbound and must not manage namespace
+rows. Reverting source alone is not a safe downgrade after namespace rows exist.

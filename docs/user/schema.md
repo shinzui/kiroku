@@ -102,8 +102,8 @@ writes junction rows directly, such as a benchmark fixture, must set
 | --- | --- | --- |
 | `subscription_id` | `BIGSERIAL PRIMARY KEY` | Surrogate id for the checkpoint row. |
 | `subscription_name` | `TEXT NOT NULL` | Stable subscription name. With `consumer_group_member` it forms the composite checkpoint key (see below); each consumer-group member persists its own checkpoint under one shared name. |
-| `target_kind` | `TEXT NOT NULL DEFAULT 'unbound'` | Checkpoint binding: `unbound` legacy rows, `all`, or `category`. Validated before delivery. |
-| `target_category` | `TEXT` | Required exactly when `target_kind = 'category'`; null otherwise. Neither target column is indexed. |
+| `target_kind` | `TEXT NOT NULL DEFAULT 'unbound'` | Checkpoint binding: `unbound` legacy rows, `all`, `category`, or `category_namespace`. Validated before delivery. |
+| `target_category` | `TEXT` | Exact category or literal namespace, required for `category` and `category_namespace`; null otherwise. Neither target column is indexed. |
 | `last_seen` | `BIGINT NOT NULL DEFAULT 0` | Last processed global position. Checkpoint updates use `GREATEST(existing, new)` so the checkpoint does not move backward. |
 | `consumer_group_member` | `INT NOT NULL DEFAULT 0` | Zero-based member index and part of the composite checkpoint key. Member `0` can be either an ordinary subscription or member zero of a group; the row alone cannot distinguish them. |
 | `consumer_group_size` | `INT NOT NULL DEFAULT 1` | Authoritative configured group size, persisted on initialization and saves. Migration 0013 derives legacy sizes; incompatible restarts require explicit resize. |

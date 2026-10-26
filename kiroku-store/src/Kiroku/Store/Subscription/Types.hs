@@ -1,25 +1,24 @@
 {-# LANGUAGE ExistentialQuantification #-}
 
-{- | Core configuration and result types for subscriptions.
-
-This module defines the user-facing vocabulary for starting a subscription and
-controlling it per event:
-
-  * 'SubscriptionConfigM' (built with 'defaultSubscriptionConfig') — the
-    declarative config: target, handler, batch size, overflow policy
-    ('OverflowPolicy'), consumer-group membership, retry policy, and the two
-    delivery filters ('EventTypeFilter' plus the opaque 'selector').
-  * 'SubscriptionResult' — what the handler returns per event: 'Continue',
-    'Stop', or the per-event dispositions 'Retry' and 'DeadLetter'.
-  * 'SubscriptionHandleM' — the lifecycle handle ('cancel', 'wait', and the
-    observable 'currentState').
-
-The worker's state machine lives in "Kiroku.Store.Subscription.Fsm" (from which
-'SubscriptionState', 'RetryDelay', and 'DeadLetterReason' are re-exported here);
-this module is the configuration/result surface that drives it.
--}
-module Kiroku.Store.Subscription.Types (
-    SubscriptionName (..),
+-- | Core configuration and result types for subscriptions.
+--
+-- This module defines the user-facing vocabulary for starting a subscription and
+-- controlling it per event:
+--
+--   * 'SubscriptionConfigM' (built with 'defaultSubscriptionConfig') — the
+--     declarative config: target, handler, batch size, overflow policy
+--     ('OverflowPolicy'), consumer-group membership, retry policy, and the two
+--     delivery filters ('EventTypeFilter' plus the opaque 'selector').
+--   * 'SubscriptionResult' — what the handler returns per event: 'Continue',
+--     'Stop', or the per-event dispositions 'Retry' and 'DeadLetter'.
+--   * 'SubscriptionHandleM' — the lifecycle handle ('cancel', 'wait', and the
+--     observable 'currentState').
+--
+-- The worker's state machine lives in "Kiroku.Store.Subscription.Fsm" (from which
+-- 'SubscriptionState', 'RetryDelay', and 'DeadLetterReason' are re-exported here);
+-- this module is the configuration/result surface that drives it.
+module Kiroku.Store.Subscription.Types
+  ( SubscriptionName (..),
     MissingCheckpointPolicy (..),
     SubscriptionCheckpointKey (..),
     CheckpointInitialization (..),
@@ -87,7 +86,8 @@ module Kiroku.Store.Subscription.Types (
     ConsumerGroupSizeMismatch (..),
     InvalidConsumerGroup (..),
     ConsumerGroupGuardConflict (..),
-) where
+  )
+where
 
 import Control.Exception (Exception (..), SomeException)
 import Data.Aeson (Value)
@@ -101,325 +101,313 @@ import Data.Typeable (cast)
 import Data.Vector (Vector)
 import GHC.Generics (Generic)
 import Kiroku.Store.Settings (DecodeFailure)
-import Kiroku.Store.Subscription.Fsm (
-    DeadLetterReason (..),
+import Kiroku.Store.Subscription.Fsm
+  ( DeadLetterReason (..),
     RetryDelay (..),
     SubscriptionState,
     deadLetterReasonJson,
     deadLetterSummary,
     retryDelayMicros,
- )
+  )
 import Kiroku.Store.Types (CategoryName, EventId, EventType, GlobalPosition, RecordedEvent (..))
 import Numeric.Natural (Natural)
 
-{- | A declarative, closed filter over event types for a subscription.
-
-'AllEventTypes' (the default) delivers every event. @'OnlyEventTypes' s@
-delivers only events whose 'eventType' is in @s@; all other events are
-skipped (the handler is not called) but the subscription checkpoint still
-advances past them, so a highly selective subscription never stalls on a long
-run of filtered-out events.
-
-=== Why this is a closed sum and not @RecordedEvent -> Bool@
-
-EventStore's subscription @selector@ is an opaque @RecordedEvent -> Bool@.
-Kiroku deliberately models the /common/ case — \"deliver only these event
-types\" — as a closed, first-order value instead, and keeps the opaque
-predicate as a separate, optional escape hatch ('selector' on
-'SubscriptionConfigM'). The closed sum is preferred for the steady-state filter
-because it:
-
-  * stays __introspectable__ — an operator or a metrics endpoint can read which
-    types a subscription delivers (you cannot inspect a closure);
-  * is __'Eq'\/'Show'-able__ for tests and diagnostics; and
-  * leaves the door open to __SQL pushdown__ on fetching subscriptions
-    (@Category@ / consumer-group), where @event_type = ANY(...)@ can be lowered
-    into the catch-up read so the worker stops fetching-and-discarding. A
-    @RecordedEvent -> Bool@ can never be pushed down.
-
-Reach for 'selector' only when you need a predicate the type set cannot express
-(e.g. filtering on metadata during a one-off catch-up reprocess while
-investigating a problem). The two compose: an event is delivered only when it
-passes /both/ (see 'shouldDeliver').
-
-This is unrelated to 'Kiroku.Store.Types.EventFilter', which filters
-correlation\/causation /queries/.
--}
+-- | A declarative, closed filter over event types for a subscription.
+--
+-- 'AllEventTypes' (the default) delivers every event. @'OnlyEventTypes' s@
+-- delivers only events whose 'eventType' is in @s@; all other events are
+-- skipped (the handler is not called) but the subscription checkpoint still
+-- advances past them, so a highly selective subscription never stalls on a long
+-- run of filtered-out events.
+--
+-- === Why this is a closed sum and not @RecordedEvent -> Bool@
+--
+-- EventStore's subscription @selector@ is an opaque @RecordedEvent -> Bool@.
+-- Kiroku deliberately models the /common/ case — \"deliver only these event
+-- types\" — as a closed, first-order value instead, and keeps the opaque
+-- predicate as a separate, optional escape hatch ('selector' on
+-- 'SubscriptionConfigM'). The closed sum is preferred for the steady-state filter
+-- because it:
+--
+--   * stays __introspectable__ — an operator or a metrics endpoint can read which
+--     types a subscription delivers (you cannot inspect a closure);
+--   * is __'Eq'\/'Show'-able__ for tests and diagnostics; and
+--   * leaves the door open to __SQL pushdown__ on fetching subscriptions
+--     (@Category@ / consumer-group), where @event_type = ANY(...)@ can be lowered
+--     into the catch-up read so the worker stops fetching-and-discarding. A
+--     @RecordedEvent -> Bool@ can never be pushed down.
+--
+-- Reach for 'selector' only when you need a predicate the type set cannot express
+-- (e.g. filtering on metadata during a one-off catch-up reprocess while
+-- investigating a problem). The two compose: an event is delivered only when it
+-- passes /both/ (see 'shouldDeliver').
+--
+-- This is unrelated to 'Kiroku.Store.Types.EventFilter', which filters
+-- correlation\/causation /queries/.
 data EventTypeFilter
-    = -- | Deliver every event (the no-op default).
-      AllEventTypes
-    | -- | Deliver only events whose 'eventType' is in this set.
-      OnlyEventTypes !(Set EventType)
-    deriving stock (Eq, Show)
+  = -- | Deliver every event (the no-op default).
+    AllEventTypes
+  | -- | Deliver only events whose 'eventType' is in this set.
+    OnlyEventTypes !(Set EventType)
+  deriving stock (Eq, Show)
 
-{- | 'True' when an event passes the declarative type filter.
-The worker applies this /before/ calling the handler, so a non-matching event
-never reaches the handler (or the ack-coupled bridge) and is never retried or
-dead-lettered.
--}
+-- | 'True' when an event passes the declarative type filter.
+-- The worker applies this /before/ calling the handler, so a non-matching event
+-- never reaches the handler (or the ack-coupled bridge) and is never retried or
+-- dead-lettered.
 eventTypeMatches :: EventTypeFilter -> RecordedEvent -> Bool
 eventTypeMatches AllEventTypes _ = True
-eventTypeMatches (OnlyEventTypes s) RecordedEvent{eventType = t} = Set.member t s
+eventTypeMatches (OnlyEventTypes s) RecordedEvent {eventType = t} = Set.member t s
 
-{- | The complete per-event delivery predicate for a subscription: an event is
-delivered to the handler only when it passes __both__ the declarative
-'eventTypeFilter' and the optional opaque 'selector' (an absent selector always
-passes). The two compose as a logical AND — the type filter narrows by
-'eventType', the selector narrows further by any predicate over the whole
-'RecordedEvent'.
-
-The worker applies this /before/ calling the handler, so an event rejected by
-either filter never reaches the handler or the ack-coupled bridge (it is never
-retried or dead-lettered), yet the checkpoint still advances past it — the
-no-stall invariant holds for the selector exactly as it does for the type
-filter.
--}
+-- | The complete per-event delivery predicate for a subscription: an event is
+-- delivered to the handler only when it passes __both__ the declarative
+-- 'eventTypeFilter' and the optional opaque 'selector' (an absent selector always
+-- passes). The two compose as a logical AND — the type filter narrows by
+-- 'eventType', the selector narrows further by any predicate over the whole
+-- 'RecordedEvent'.
+--
+-- The worker applies this /before/ calling the handler, so an event rejected by
+-- either filter never reaches the handler or the ack-coupled bridge (it is never
+-- retried or dead-lettered), yet the checkpoint still advances past it — the
+-- no-stall invariant holds for the selector exactly as it does for the type
+-- filter.
 shouldDeliver :: EventTypeFilter -> Maybe (RecordedEvent -> Bool) -> RecordedEvent -> Bool
 shouldDeliver etf sel event =
-    eventTypeMatches etf event && maybe True ($ event) sel
+  eventTypeMatches etf event && maybe True ($ event) sel
 
 -- | Unique name for a subscription (e.g., @"inventory-projection"@).
 newtype SubscriptionName = SubscriptionName Text
-    deriving newtype (Eq, Ord, Show)
+  deriving newtype (Eq, Ord, Show)
 
-{- | What a subscription does when its exact
-@('SubscriptionName', consumer-group member)@ checkpoint key has no durable
-row. The policy is consulted only for absence; an existing row always wins and
-is never moved by initialization.
--}
+-- | What a subscription does when its exact
+-- @('SubscriptionName', consumer-group member)@ checkpoint key has no durable
+-- row. The policy is consulted only for absence; an existing row always wins and
+-- is never moved by initialization.
 data MissingCheckpointPolicy
-    = -- | Materialize position zero and replay retained history.
-      FromBeginning
-    | -- | Atomically materialize the current @$all@ store head.
-      FromCurrentHead
-    | -- | Refuse startup without inserting a row.
-      FailIfMissing
-    deriving stock (Eq, Show, Generic)
+  = -- | Materialize position zero and replay retained history.
+    FromBeginning
+  | -- | Atomically materialize the current @$all@ store head.
+    FromCurrentHead
+  | -- | Refuse startup without inserting a row.
+    FailIfMissing
+  deriving stock (Eq, Show, Generic)
 
 -- | The durable identity of one subscription checkpoint row.
 data SubscriptionCheckpointKey = SubscriptionCheckpointKey
-    { subscriptionName :: !SubscriptionName
-    , consumerGroupMember :: !Int32
-    }
-    deriving stock (Eq, Ord, Show, Generic)
+  { subscriptionName :: !SubscriptionName,
+    consumerGroupMember :: !Int32
+  }
+  deriving stock (Eq, Ord, Show, Generic)
 
-{- | The successful result of resolving one subscription checkpoint at
-startup. 'ExistingCheckpoint' means a durable row already existed;
-'InitializedCheckpoint' records the policy that created the row. In both
-cases the position is the durable position returned by PostgreSQL.
--}
+-- | The successful result of resolving one subscription checkpoint at
+-- startup. 'ExistingCheckpoint' means a durable row already existed;
+-- 'InitializedCheckpoint' records the policy that created the row. In both
+-- cases the position is the durable position returned by PostgreSQL.
 data CheckpointInitialization
-    = ExistingCheckpoint !SubscriptionCheckpointKey !GlobalPosition
-    | InitializedCheckpoint !MissingCheckpointPolicy !SubscriptionCheckpointKey !GlobalPosition
-    deriving stock (Eq, Show, Generic)
+  = ExistingCheckpoint !SubscriptionCheckpointKey !GlobalPosition
+  | InitializedCheckpoint !MissingCheckpointPolicy !SubscriptionCheckpointKey !GlobalPosition
+  deriving stock (Eq, Show, Generic)
 
 -- | Extract the durable position from either successful initialization result.
 checkpointInitializationPosition :: CheckpointInitialization -> GlobalPosition
 checkpointInitializationPosition = \case
-    ExistingCheckpoint _ position -> position
-    InitializedCheckpoint _ _ position -> position
+  ExistingCheckpoint _ position -> position
+  InitializedCheckpoint _ _ position -> position
 
-{- | A typed startup refusal produced by 'FailIfMissing'. No checkpoint row is
-inserted and a worker throws this exception before invoking its handler.
--}
+-- | A typed startup refusal produced by 'FailIfMissing'. No checkpoint row is
+-- inserted and a worker throws this exception before invoking its handler.
 newtype SubscriptionCheckpointMissing = SubscriptionCheckpointMissing
-    { checkpointKey :: SubscriptionCheckpointKey
-    }
-    deriving stock (Eq, Show, Generic)
+  { checkpointKey :: SubscriptionCheckpointKey
+  }
+  deriving stock (Eq, Show, Generic)
 
 instance Exception SubscriptionCheckpointMissing where
-    toException = toException . SomeSubscriptionStartupFailure
-    fromException exception = do
-        SomeSubscriptionStartupFailure refusal <- fromException exception
-        cast refusal
+  toException = toException . SomeSubscriptionStartupFailure
+  fromException exception = do
+    SomeSubscriptionStartupFailure refusal <- fromException exception
+    cast refusal
 
 -- | One checkpoint row that has been durably persisted by a subscription.
 data SubscriptionCheckpoint = SubscriptionCheckpoint
-    { subscriptionName :: !SubscriptionName
-    , consumerGroupMember :: !Int32
-    , checkpointPosition :: !GlobalPosition
-    , checkpointUpdatedAt :: !UTCTime
-    }
-    deriving stock (Eq, Show, Generic)
+  { subscriptionName :: !SubscriptionName,
+    consumerGroupMember :: !Int32,
+    checkpointPosition :: !GlobalPosition,
+    checkpointUpdatedAt :: !UTCTime
+  }
+  deriving stock (Eq, Show, Generic)
 
-{- | A point-in-time view of the global store position and every durable
-subscription checkpoint. The rows are ordered by 'subscriptionName' and then
-'consumerGroupMember'.
--}
+-- | A point-in-time view of the global store position and every durable
+-- subscription checkpoint. The rows are ordered by 'subscriptionName' and then
+-- 'consumerGroupMember'.
 data SubscriptionCheckpointInventory = SubscriptionCheckpointInventory
-    { storePosition :: !GlobalPosition
-    , checkpoints :: !(Vector SubscriptionCheckpoint)
-    }
-    deriving stock (Eq, Show, Generic)
+  { storePosition :: !GlobalPosition,
+    checkpoints :: !(Vector SubscriptionCheckpoint)
+  }
+  deriving stock (Eq, Show, Generic)
 
 -- | A durably parked event. The worker's structured reason JSON is unchanged.
 data SubscriptionDeadLetter = SubscriptionDeadLetter
-    { deadLetterId :: !Int64
-    , subscriptionName :: !SubscriptionName
-    , consumerGroupMember :: !Int32
-    , globalPosition :: !GlobalPosition
-    , eventId :: !EventId
-    , reason :: !Value
-    , reasonSummary :: !Text
-    , attemptCount :: !Int32
-    , createdAt :: !UTCTime
-    }
-    deriving stock (Eq, Show, Generic)
+  { deadLetterId :: !Int64,
+    subscriptionName :: !SubscriptionName,
+    consumerGroupMember :: !Int32,
+    globalPosition :: !GlobalPosition,
+    eventId :: !EventId,
+    reason :: !Value,
+    reasonSummary :: !Text,
+    attemptCount :: !Int32,
+    createdAt :: !UTCTime
+  }
+  deriving stock (Eq, Show, Generic)
 
-{- | Exclusive cursor in descending (global position, dead-letter id) order.
-It remains usable after the originating row is deleted.
--}
+-- | Exclusive cursor in descending (global position, dead-letter id) order.
+-- It remains usable after the originating row is deleted.
 data SubscriptionDeadLetterCursor = SubscriptionDeadLetterCursor
-    { cursorGlobalPosition :: !GlobalPosition
-    , cursorDeadLetterId :: !Int64
-    }
-    deriving stock (Eq, Ord, Show, Generic)
+  { cursorGlobalPosition :: !GlobalPosition,
+    cursorDeadLetterId :: !Int64
+  }
+  deriving stock (Eq, Ord, Show, Generic)
 
 subscriptionDeadLetterCursor :: SubscriptionDeadLetter -> SubscriptionDeadLetterCursor
-subscriptionDeadLetterCursor SubscriptionDeadLetter{globalPosition = position, deadLetterId = ident} =
-    SubscriptionDeadLetterCursor position ident
+subscriptionDeadLetterCursor SubscriptionDeadLetter {globalPosition = position, deadLetterId = ident} =
+  SubscriptionDeadLetterCursor position ident
 
-{- | Validated page size, 1 through 1,000. Use the smart constructor.
-No Generic or numeric instance exposes a construction bypass.
--}
+-- | Validated page size, 1 through 1,000. Use the smart constructor.
+-- No Generic or numeric instance exposes a construction bypass.
 newtype SubscriptionDeadLetterLimit = SubscriptionDeadLetterLimit Int32
-    deriving stock (Eq, Ord, Show)
+  deriving stock (Eq, Ord, Show)
 
 newtype SubscriptionDeadLetterLimitOutOfRange = SubscriptionDeadLetterLimitOutOfRange Int32
-    deriving stock (Eq, Show)
+  deriving stock (Eq, Show)
+
 mkSubscriptionDeadLetterLimit :: Int32 -> Either SubscriptionDeadLetterLimitOutOfRange SubscriptionDeadLetterLimit
 mkSubscriptionDeadLetterLimit value
-    | value < 1 || value > 1000 = Left (SubscriptionDeadLetterLimitOutOfRange value)
-    | otherwise = Right (SubscriptionDeadLetterLimit value)
+  | value < 1 || value > 1000 = Left (SubscriptionDeadLetterLimitOutOfRange value)
+  | otherwise = Right (SubscriptionDeadLetterLimit value)
+
 subscriptionDeadLetterLimitValue :: SubscriptionDeadLetterLimit -> Int32
 subscriptionDeadLetterLimitValue (SubscriptionDeadLetterLimit value) = value
+
 defaultSubscriptionDeadLetterLimit :: SubscriptionDeadLetterLimit
 defaultSubscriptionDeadLetterLimit = SubscriptionDeadLetterLimit 100
 
 -- | Nothing selects all historical members, or starts at the newest row.
 data SubscriptionDeadLetterQuery = SubscriptionDeadLetterQuery
-    { subscriptionName :: !SubscriptionName
-    , consumerGroupMember :: !(Maybe Int32)
-    , after :: !(Maybe SubscriptionDeadLetterCursor)
-    , limit :: !SubscriptionDeadLetterLimit
-    }
-    deriving stock (Eq, Show, Generic)
+  { subscriptionName :: !SubscriptionName,
+    consumerGroupMember :: !(Maybe Int32),
+    after :: !(Maybe SubscriptionDeadLetterCursor),
+    limit :: !SubscriptionDeadLetterLimit
+  }
+  deriving stock (Eq, Show, Generic)
 
 defaultSubscriptionDeadLetterQuery :: SubscriptionName -> SubscriptionDeadLetterQuery
 defaultSubscriptionDeadLetterQuery name = SubscriptionDeadLetterQuery name Nothing Nothing defaultSubscriptionDeadLetterLimit
 
 -- | Trimmed page; a cursor is present exactly when another row exists.
 data SubscriptionDeadLetterPage = SubscriptionDeadLetterPage
-    { deadLetters :: !(Vector SubscriptionDeadLetter)
-    , nextCursor :: !(Maybe SubscriptionDeadLetterCursor)
-    }
-    deriving stock (Eq, Show, Generic)
+  { deadLetters :: !(Vector SubscriptionDeadLetter),
+    nextCursor :: !(Maybe SubscriptionDeadLetterCursor)
+  }
+  deriving stock (Eq, Show, Generic)
 
--- | Which stream to subscribe to.
+-- | Which events to subscribe to.
 data SubscriptionTarget
-    = -- | Subscribe to all events in global position order.
-      AllStreams
-    | -- | Subscribe to events from streams matching a category prefix.
-      Category !CategoryName
-    deriving stock (Eq, Show)
+  = -- | Subscribe to all events in global position order.
+    AllStreams
+  | -- | Subscribe to one exact category.
+    Category !CategoryName
+  | -- | A literal category namespace: @"pm"@ includes @pm@ and @pm:*@,
+    -- but not @pmm@. No trimming, case folding or wildcard interpretation.
+    -- Empty and trailing-colon values are literal too. Each worker scans
+    -- bounded global windows; its checkpoint records completed scan progress.
+    CategoryNamespace !Text
+  deriving stock (Eq, Show)
 
 -- | What the handler returns to control the subscription lifecycle.
 data SubscriptionResult
-    = -- | Continue processing events.
-      Continue
-    | -- | Stop the subscription gracefully.
-      Stop
-    | {- | Redeliver /this same event/ after the given delay before the checkpoint
-      advances past it. Redelivery is bounded by the subscription's
-      'RetryPolicy' ('retryMaxAttempts'), which counts total deliveries, not
-      redeliveries; once the bound is reached the worker dead-letters the event
-      with 'DeadLetterMaxAttempts' and advances to the next event. The adapter
-      maps Shibuya's @AckRetry@ to this.
-      -}
-      Retry !RetryDelay
-    | {- | Record this event in @kiroku.dead_letters@ with the given reason and
-      atomically advance the checkpoint past it, then continue with the next
-      event. The adapter maps Shibuya's @AckDeadLetter@ to this.
-      -}
-      DeadLetter !DeadLetterReason
-    deriving stock (Eq, Show)
+  = -- | Continue processing events.
+    Continue
+  | -- | Stop the subscription gracefully.
+    Stop
+  | -- | Redeliver /this same event/ after the given delay before the checkpoint
+    --       advances past it. Redelivery is bounded by the subscription's
+    --       'RetryPolicy' ('retryMaxAttempts'), which counts total deliveries, not
+    --       redeliveries; once the bound is reached the worker dead-letters the event
+    --       with 'DeadLetterMaxAttempts' and advances to the next event. The adapter
+    --       maps Shibuya's @AckRetry@ to this.
+    Retry !RetryDelay
+  | -- | Record this event in @kiroku.dead_letters@ with the given reason and
+    --       atomically advance the checkpoint past it, then continue with the next
+    --       event. The adapter maps Shibuya's @AckDeadLetter@ to this.
+    DeadLetter !DeadLetterReason
+  deriving stock (Eq, Show)
 
-{- | Bounds how many total deliveries a single event gets before it is
-dead-lettered. The per-redelivery delay is carried by each
-'Retry' result (mirroring Shibuya's per-decision @AckRetry RetryDelay@), so the
-policy only carries the attempt bound.
--}
+-- | Bounds how many total deliveries a single event gets before it is
+-- dead-lettered. The per-redelivery delay is carried by each
+-- 'Retry' result (mirroring Shibuya's per-decision @AckRetry RetryDelay@), so the
+-- policy only carries the attempt bound.
 newtype RetryPolicy = RetryPolicy
-    { retryMaxAttempts :: Int
-    {- ^ Maximum total deliveries of one event before dead-lettering it. The
-    first delivery counts as attempt 1. A value @<= 1@ means the first 'Retry'
-    immediately dead-letters (no redelivery).
-    -}
-    }
-    deriving stock (Eq, Show)
+  { -- | Maximum total deliveries of one event before dead-lettering it. The
+    --     first delivery counts as attempt 1. A value @<= 1@ means the first 'Retry'
+    --     immediately dead-letters (no redelivery).
+    retryMaxAttempts :: Int
+  }
+  deriving stock (Eq, Show)
 
-{- | The default 'RetryPolicy': up to five total deliveries of a single event —
-the first delivery plus four redeliveries — before it is dead-lettered with
-'DeadLetterMaxAttempts'. Handlers that never return 'Retry' are unaffected by
-this default.
--}
+-- | The default 'RetryPolicy': up to five total deliveries of a single event —
+-- the first delivery plus four redeliveries — before it is dead-lettered with
+-- 'DeadLetterMaxAttempts'. Handlers that never return 'Retry' are unaffected by
+-- this default.
 defaultRetryPolicy :: RetryPolicy
-defaultRetryPolicy = RetryPolicy{retryMaxAttempts = 5}
+defaultRetryPolicy = RetryPolicy {retryMaxAttempts = 5}
 
-{- | What the publisher does when a subscriber's bounded queue is full.
-
-The default 'PauseAndResume' is recoverable and lossless: the publisher
-stops pushing to the full subscriber (and signals it), and the worker —
-once its slow handler catches up — drains the stale queue and re-reads the
-events it missed directly from the database from its checkpoint, so no
-event is lost and the checkpoint still advances monotonically. The
-fail-fast 'DropSubscription' (terminate with 'SubscriptionOverflowed') and
-the lossy 'DropOldest' remain available for consumers that prefer a hard
-error or best-effort delivery respectively.
--}
+-- | What the publisher does when a subscriber's bounded queue is full.
+--
+-- The default 'PauseAndResume' is recoverable and lossless: the publisher
+-- stops pushing to the full subscriber (and signals it), and the worker —
+-- once its slow handler catches up — drains the stale queue and re-reads the
+-- events it missed directly from the database from its checkpoint, so no
+-- event is lost and the checkpoint still advances monotonically. The
+-- fail-fast 'DropSubscription' (terminate with 'SubscriptionOverflowed') and
+-- the lossy 'DropOldest' remain available for consumers that prefer a hard
+-- error or best-effort delivery respectively.
 data OverflowPolicy
-    = {- | Recoverable backpressure (the default). When the queue is full the
-      publisher marks the subscriber 'Kiroku.Store.Subscription.EventPublisher.Paused'
-      and stops pushing (it does not drop). The worker observes the pause,
-      drains the stale queue, clears the flag, and re-catches-up from its
-      checkpoint so every skipped event is delivered. No loss; monotonic
-      checkpoint; other subscribers unaffected.
-      -}
-      PauseAndResume
-    | {- | Mark the subscription as overflowed; the worker observes this on
-      its next iteration and surfaces 'SubscriptionOverflowed' through
-      'wait'. The slow subscriber is terminated; other subscribers are
-      unaffected.
-      -}
-      DropSubscription
-    | {- | Drop the oldest queued batch and enqueue the new one. The
-      subscription continues but loses events. Choose only when at-least-once
-      semantics are not required for this consumer.
-      -}
-      DropOldest
-    deriving stock (Eq, Show)
+  = -- | Recoverable backpressure (the default). When the queue is full the
+    --       publisher marks the subscriber 'Kiroku.Store.Subscription.EventPublisher.Paused'
+    --       and stops pushing (it does not drop). The worker observes the pause,
+    --       drains the stale queue, clears the flag, and re-catches-up from its
+    --       checkpoint so every skipped event is delivered. No loss; monotonic
+    --       checkpoint; other subscribers unaffected.
+    PauseAndResume
+  | -- | Mark the subscription as overflowed; the worker observes this on
+    --       its next iteration and surfaces 'SubscriptionOverflowed' through
+    --       'wait'. The slow subscriber is terminated; other subscribers are
+    --       unaffected.
+    DropSubscription
+  | -- | Drop the oldest queued batch and enqueue the new one. The
+    --       subscription continues but loses events. Choose only when at-least-once
+    --       semantics are not required for this consumer.
+    DropOldest
+  deriving stock (Eq, Show)
 
-{- | Raised on a 'SubscriptionHandleM' wait when the publisher dropped the
-subscription because its bounded queue overflowed (overflow policy
-'DropSubscription'). The 'subscriptionName' identifies the subscription
-that overflowed; the consumer is expected to investigate the slow handler
-and either fix the slowness or switch to 'DropOldest'.
--}
+-- | Raised on a 'SubscriptionHandleM' wait when the publisher dropped the
+-- subscription because its bounded queue overflowed (overflow policy
+-- 'DropSubscription'). The 'subscriptionName' identifies the subscription
+-- that overflowed; the consumer is expected to investigate the slow handler
+-- and either fix the slowness or switch to 'DropOldest'.
 newtype SubscriptionOverflowed = SubscriptionOverflowed
-    { subscriptionName :: SubscriptionName
-    }
-    deriving stock (Show)
-    deriving anyclass (Exception)
+  { subscriptionName :: SubscriptionName
+  }
+  deriving stock (Show)
+  deriving anyclass (Exception)
 
-{- | Default decode retries exhausted. Wait returns this exception and the
-stopped event carries StopUndecodable; the durable checkpoint is still before
-the failed event. Fix the hook and restart to replay it.
--}
+-- | Default decode retries exhausted. Wait returns this exception and the
+-- stopped event carries StopUndecodable; the durable checkpoint is still before
+-- the failed event. Fix the hook and restart to replay it.
 newtype SubscriptionUndecodable = SubscriptionUndecodable
-    { subscriptionDecodeFailure :: DecodeFailure
-    }
-    deriving stock (Eq, Show)
-    deriving anyclass (Exception)
+  { subscriptionDecodeFailure :: DecodeFailure
+  }
+  deriving stock (Eq, Show)
+  deriving anyclass (Exception)
 
 -- | Handler callback invoked for each event, parameterized by monad.
 type EventHandlerM m = RecordedEvent -> m SubscriptionResult
@@ -429,191 +417,179 @@ type EventHandler = EventHandlerM IO
 
 -- | Configuration for starting a subscription, parameterized by monad.
 data SubscriptionConfigM m = SubscriptionConfig
-    { name :: !SubscriptionName
-    , target :: !SubscriptionTarget
-    , handler :: !(EventHandlerM m)
-    , undecodableHandler :: !(Maybe (RecordedEvent -> DecodeFailure -> m SubscriptionResult))
-    {- ^ Optional disposition of a raw undecodable event. Default Nothing:
-    retry at one-second spacing and then stop without skipping the event.
-    A callback uses the ordinary Continue/Stop/Retry/DeadLetter vocabulary.
-    -}
-    , handlerStallWarnAfter :: !(Maybe NominalDiffTime)
-    {- ^ Optional positive warning interval for a handler holding one event.
-    Default Nothing allocates no diagnostic cell, watchdog or timer and does
-    no diagnostic work per delivery. Warnings are advisory and never finalize
-    an acknowledgement or advance a checkpoint. Nonpositive values fail startup.
-    -}
-    , batchSize :: !BatchSize
-    -- ^ Number of events to fetch per batch during catch-up (default: 100)
-    , queueCapacity :: !Natural
-    {- ^ Maximum number of /batches/ the publisher may enqueue for this
-    subscriber before applying 'overflowPolicy'. Applies only to non-group
-    'AllStreams' subscriptions, because Category and consumer-group
-    subscriptions do not create publisher queues. Each batch is up to
-    'EventPublisher.publisherBatchSize' events, so the effective event
-    capacity is @queueCapacity * publisherBatchSize@. Default: 16 batches
-    (~16,000 events at the default publisher batch size).
-    -}
-    , overflowPolicy :: !OverflowPolicy
-    {- ^ What the publisher does when this subscriber's queue is full.
-    Applies only to non-group 'AllStreams' subscriptions, because Category
-    and consumer-group subscriptions are DB-driven and have no publisher
-    queue. Default: 'PauseAndResume' — a slow subscriber is paused and
-    then recovers losslessly (re-reading missed events from its checkpoint)
-    rather than being terminated or silently growing the publisher's fan-out
-    memory.
-    -}
-    , consumerGroup :: !(Maybe ConsumerGroup)
-    {- ^ 'Nothing' (the default) = ordinary single-consumer subscription.
-    'Just cg' = this worker is member 'member cg' of a group of size
-    'size cg'. The invariant @size >= 1@ and @0 <= member < size@ is
-    enforced at construction by 'mkConsumerGroupSize' and 'mkConsumerGroup'.
-    -}
-    , consumerGroupGuard :: !Bool
-    {- ^ When 'True' (default 'False'), the worker performs a one-shot
-    PostgreSQL advisory-lock conflict check at startup so two processes
-    cannot both run the same @(name, member)@ at once. See the worker's
-    @guardMember@ for the exact semantics and its documented limitation
-    (a startup detection probe, not a lifetime-held lock). Ignored when
-    'consumerGroup' is 'Nothing'.
-    -}
-    , missingCheckpointPolicy :: !MissingCheckpointPolicy
-    {- ^ What startup does only when the exact @(name, member)@ checkpoint row
-    is absent. 'FromBeginning' is the compatibility default and materializes
-    position zero. 'FromCurrentHead' atomically seeds the current store head,
-    and 'FailIfMissing' refuses startup before the handler runs. Existing rows
-    always take precedence, so changing this field never rewinds or advances
-    durable progress.
-    -}
-    , targetBindingPolicy :: !TargetBindingPolicy
-    -- ^ Adopt legacy unbound checkpoints (default) or require an existing binding.
-    , retryPolicy :: !RetryPolicy
-    {- ^ Bounds redelivery of an event for which the handler returned
-    'Retry' before the worker dead-letters it. Default: 'defaultRetryPolicy'
-    (five attempts). Handlers that only return 'Continue' / 'Stop' are
-    unaffected.
-    -}
-    , eventTypeFilter :: !EventTypeFilter
-    {- ^ Which event types this subscription delivers. Default
-    'AllEventTypes' (deliver everything). When 'OnlyEventTypes', the worker
-    skips the handler for non-matching events but still advances the
-    checkpoint past them, so the subscription never stalls on a long run of
-    filtered-out events. Applied worker-side before the handler/bridge, so a
-    filtered-out event is never retried or dead-lettered. Composed with
-    'selector' (an event must pass both — see 'shouldDeliver').
-    -}
-    , selector :: !(Maybe (RecordedEvent -> Bool))
-    {- ^ Optional opaque per-event predicate, the escape hatch for filtering
-    that 'eventTypeFilter' cannot express (e.g. on metadata, stream name, or
-    correlation\/causation ids). Default 'Nothing' (no extra filtering).
-
-    This is EventStore's @RecordedEvent -> Bool@ @selector@. It is intentionally
-    /separate/ from 'eventTypeFilter' rather than replacing it: because a
-    closure is not introspectable, not 'Eq'\/'Show'-able, and not SQL-pushable,
-    'eventTypeFilter' remains the preferred steady-state type filter (see its
-    note), and 'selector' is reserved for ad-hoc\/operational filtering — most
-    often a one-off catch-up reprocess that narrows by metadata while
-    investigating a problem.
-
-    Composes with 'eventTypeFilter' as a logical AND ('shouldDeliver'): an event
-    is delivered only when it passes both. Applied worker-side before the
-    handler\/bridge, so a rejected event is never retried or dead-lettered, yet
-    the checkpoint still advances past it (no stall).
-    -}
-    }
+  { name :: !SubscriptionName,
+    target :: !SubscriptionTarget,
+    handler :: !(EventHandlerM m),
+    -- | Optional disposition of a raw undecodable event. Default Nothing:
+    --     retry at one-second spacing and then stop without skipping the event.
+    --     A callback uses the ordinary Continue/Stop/Retry/DeadLetter vocabulary.
+    undecodableHandler :: !(Maybe (RecordedEvent -> DecodeFailure -> m SubscriptionResult)),
+    -- | Optional positive warning interval for a handler holding one event.
+    --     Default Nothing allocates no diagnostic cell, watchdog or timer and does
+    --     no diagnostic work per delivery. Warnings are advisory and never finalize
+    --     an acknowledgement or advance a checkpoint. Nonpositive values fail startup.
+    handlerStallWarnAfter :: !(Maybe NominalDiffTime),
+    -- | Number of events to fetch per batch during catch-up (default: 100)
+    batchSize :: !BatchSize,
+    -- | Maximum number of /batches/ the publisher may enqueue for this
+    --     subscriber before applying 'overflowPolicy'. Applies only to non-group
+    --     'AllStreams' subscriptions, because Category and consumer-group
+    --     subscriptions do not create publisher queues. Each batch is up to
+    --     'EventPublisher.publisherBatchSize' events, so the effective event
+    --     capacity is @queueCapacity * publisherBatchSize@. Default: 16 batches
+    --     (~16,000 events at the default publisher batch size).
+    queueCapacity :: !Natural,
+    -- | What the publisher does when this subscriber's queue is full.
+    --     Applies only to non-group 'AllStreams' subscriptions, because Category
+    --     and consumer-group subscriptions are DB-driven and have no publisher
+    --     queue. Default: 'PauseAndResume' — a slow subscriber is paused and
+    --     then recovers losslessly (re-reading missed events from its checkpoint)
+    --     rather than being terminated or silently growing the publisher's fan-out
+    --     memory.
+    overflowPolicy :: !OverflowPolicy,
+    -- | 'Nothing' (the default) = ordinary single-consumer subscription.
+    --     'Just cg' = this worker is member 'member cg' of a group of size
+    --     'size cg'. The invariant @size >= 1@ and @0 <= member < size@ is
+    --     enforced at construction by 'mkConsumerGroupSize' and 'mkConsumerGroup'.
+    consumerGroup :: !(Maybe ConsumerGroup),
+    -- | When 'True' (default 'False'), the worker performs a one-shot
+    --     PostgreSQL advisory-lock conflict check at startup so two processes
+    --     cannot both run the same @(name, member)@ at once. See the worker's
+    --     @guardMember@ for the exact semantics and its documented limitation
+    --     (a startup detection probe, not a lifetime-held lock). Ignored when
+    --     'consumerGroup' is 'Nothing'.
+    consumerGroupGuard :: !Bool,
+    -- | What startup does only when the exact @(name, member)@ checkpoint row
+    --     is absent. 'FromBeginning' is the compatibility default and materializes
+    --     position zero. 'FromCurrentHead' atomically seeds the current store head,
+    --     and 'FailIfMissing' refuses startup before the handler runs. Existing rows
+    --     always take precedence, so changing this field never rewinds or advances
+    --     durable progress.
+    missingCheckpointPolicy :: !MissingCheckpointPolicy,
+    -- | Adopt legacy unbound checkpoints (default) or require an existing binding.
+    targetBindingPolicy :: !TargetBindingPolicy,
+    -- | Bounds redelivery of an event for which the handler returned
+    --     'Retry' before the worker dead-letters it. Default: 'defaultRetryPolicy'
+    --     (five attempts). Handlers that only return 'Continue' / 'Stop' are
+    --     unaffected.
+    retryPolicy :: !RetryPolicy,
+    -- | Which event types this subscription delivers. Default
+    --     'AllEventTypes' (deliver everything). When 'OnlyEventTypes', the worker
+    --     skips the handler for non-matching events but still advances the
+    --     checkpoint past them, so the subscription never stalls on a long run of
+    --     filtered-out events. Applied worker-side before the handler/bridge, so a
+    --     filtered-out event is never retried or dead-lettered. Composed with
+    --     'selector' (an event must pass both — see 'shouldDeliver').
+    eventTypeFilter :: !EventTypeFilter,
+    -- | Optional opaque per-event predicate, the escape hatch for filtering
+    --     that 'eventTypeFilter' cannot express (e.g. on metadata, stream name, or
+    --     correlation\/causation ids). Default 'Nothing' (no extra filtering).
+    --
+    --     This is EventStore's @RecordedEvent -> Bool@ @selector@. It is intentionally
+    --     /separate/ from 'eventTypeFilter' rather than replacing it: because a
+    --     closure is not introspectable, not 'Eq'\/'Show'-able, and not SQL-pushable,
+    --     'eventTypeFilter' remains the preferred steady-state type filter (see its
+    --     note), and 'selector' is reserved for ad-hoc\/operational filtering — most
+    --     often a one-off catch-up reprocess that narrows by metadata while
+    --     investigating a problem.
+    --
+    --     Composes with 'eventTypeFilter' as a logical AND ('shouldDeliver'): an event
+    --     is delivered only when it passes both. Applied worker-side before the
+    --     handler\/bridge, so a rejected event is never retried or dead-lettered, yet
+    --     the checkpoint still advances past it (no stall).
+    selector :: !(Maybe (RecordedEvent -> Bool))
+  }
 
 -- | Configuration defaulting to 'IO'.
 type SubscriptionConfig = SubscriptionConfigM IO
 
-{- | Build a 'SubscriptionConfig' with the recommended defaults.
-
-The catch-up batch size defaults to 100 events per database fetch — large
-enough to amortise round-trip overhead on typical projection workloads,
-small enough that a single slow handler call does not stall the worker
-for long. Override the 'batchSize' field on the returned record if a
-different value suits the workload.
-
-The missing-checkpoint policy defaults to 'FromBeginning' for source
-compatibility. New call sites should override 'missingCheckpointPolicy'
-deliberately when a future-only or pre-provisioned worker is intended.
-
-@
-let cfg = (defaultSubscriptionConfig "my-projection" AllStreams handler)
-        { missingCheckpointPolicy = FromBeginning }
-withSubscription store cfg $ \\h -> wait h
-@
--}
+-- | Build a 'SubscriptionConfig' with the recommended defaults.
+--
+-- The catch-up batch size defaults to 100 events per database fetch — large
+-- enough to amortise round-trip overhead on typical projection workloads,
+-- small enough that a single slow handler call does not stall the worker
+-- for long. Override the 'batchSize' field on the returned record if a
+-- different value suits the workload.
+--
+-- The missing-checkpoint policy defaults to 'FromBeginning' for source
+-- compatibility. New call sites should override 'missingCheckpointPolicy'
+-- deliberately when a future-only or pre-provisioned worker is intended.
+--
+-- @
+-- let cfg = (defaultSubscriptionConfig "my-projection" AllStreams handler)
+--         { missingCheckpointPolicy = FromBeginning }
+-- withSubscription store cfg $ \\h -> wait h
+-- @
 defaultSubscriptionConfig ::
-    SubscriptionName ->
-    SubscriptionTarget ->
-    EventHandlerM m ->
-    SubscriptionConfigM m
+  SubscriptionName ->
+  SubscriptionTarget ->
+  EventHandlerM m ->
+  SubscriptionConfigM m
 defaultSubscriptionConfig name' target' handler' =
-    SubscriptionConfig
-        { name = name'
-        , target = target'
-        , handler = handler'
-        , undecodableHandler = Nothing
-        , handlerStallWarnAfter = Nothing
-        , batchSize = defaultBatchSize
-        , queueCapacity = 16
-        , overflowPolicy = PauseAndResume
-        , consumerGroup = Nothing
-        , consumerGroupGuard = False
-        , missingCheckpointPolicy = FromBeginning
-        , targetBindingPolicy = AdoptUnbound
-        , retryPolicy = defaultRetryPolicy
-        , eventTypeFilter = AllEventTypes
-        , selector = Nothing
-        }
+  SubscriptionConfig
+    { name = name',
+      target = target',
+      handler = handler',
+      undecodableHandler = Nothing,
+      handlerStallWarnAfter = Nothing,
+      batchSize = defaultBatchSize,
+      queueCapacity = 16,
+      overflowPolicy = PauseAndResume,
+      consumerGroup = Nothing,
+      consumerGroupGuard = False,
+      missingCheckpointPolicy = FromBeginning,
+      targetBindingPolicy = AdoptUnbound,
+      retryPolicy = defaultRetryPolicy,
+      eventTypeFilter = AllEventTypes,
+      selector = Nothing
+    }
 
 -- | Handle returned to the caller for lifecycle management, parameterized by monad.
 data SubscriptionHandleM m = SubscriptionHandle
-    { cancel :: !(m ())
-    -- ^ Cancel the subscription gracefully
-    , wait :: !(m (Either SomeException ()))
-    -- ^ Block until the subscription completes or fails
-    , currentState :: !(m (Maybe SubscriptionState))
-    {- ^ Read the worker's current FSM state
-    ('Kiroku.Store.Subscription.Fsm.SubscriptionState') as of this instant,
-    resolved through the store's central subscription-state registry.
-
-    @Just s@ means the worker is live and still owns its registry entry, in state
-    @s@ — one of @CatchingUp@, @Live@, @Paused@ (recoverable backpressure),
-    @Reconnecting@, or @Retrying@. @Nothing@ means the subscription is __not
-    currently live__: it has stopped, been cancelled, crashed (its registry key
-    was removed in the worker's @finally@ cleanup), was never started, or has
-    been superseded by a newer worker registered under the same @(name, member)@
-    key.
-
-    Note the invariant that a @Stopped@ state never appears here: the FSM never
-    writes @Stopped@ into the cell, so a not-live subscription is represented by
-    @Nothing@ — never by a @Just (Stopped …)@. This unifies one rule, "stopped =
-    absent", across 'currentState' and
-    'Kiroku.Store.Subscription.subscriptionStates'. For the stream of past
-    transitions (including the terminal stop reason) use the @KirokuEvent@
-    lifecycle events instead.
-    -}
-    }
+  { -- | Cancel the subscription gracefully
+    cancel :: !(m ()),
+    -- | Block until the subscription completes or fails
+    wait :: !(m (Either SomeException ())),
+    -- | Read the worker's current FSM state
+    --     ('Kiroku.Store.Subscription.Fsm.SubscriptionState') as of this instant,
+    --     resolved through the store's central subscription-state registry.
+    --
+    --     @Just s@ means the worker is live and still owns its registry entry, in state
+    --     @s@ — one of @CatchingUp@, @Live@, @Paused@ (recoverable backpressure),
+    --     @Reconnecting@, or @Retrying@. @Nothing@ means the subscription is __not
+    --     currently live__: it has stopped, been cancelled, crashed (its registry key
+    --     was removed in the worker's @finally@ cleanup), was never started, or has
+    --     been superseded by a newer worker registered under the same @(name, member)@
+    --     key.
+    --
+    --     Note the invariant that a @Stopped@ state never appears here: the FSM never
+    --     writes @Stopped@ into the cell, so a not-live subscription is represented by
+    --     @Nothing@ — never by a @Just (Stopped …)@. This unifies one rule, "stopped =
+    --     absent", across 'currentState' and
+    --     'Kiroku.Store.Subscription.subscriptionStates'. For the stream of past
+    --     transitions (including the terminal stop reason) use the @KirokuEvent@
+    --     lifecycle events instead.
+    currentState :: !(m (Maybe SubscriptionState))
+  }
 
 -- | Handle defaulting to 'IO'.
 type SubscriptionHandle = SubscriptionHandleM IO
 
 -- | A positive group size, validated once before starting any workers.
 newtype ConsumerGroupSize = ConsumerGroupSize Int32
-    deriving stock (Eq, Show)
+  deriving stock (Eq, Show)
 
 consumerGroupSizeValue :: ConsumerGroupSize -> Int32
 consumerGroupSizeValue (ConsumerGroupSize n) = n
 
 mkConsumerGroupSize :: Int32 -> Either InvalidConsumerGroup ConsumerGroupSize
 mkConsumerGroupSize n
-    | n >= 1 = Right (ConsumerGroupSize n)
-    | otherwise = Left (InvalidConsumerGroup 0 n)
+  | n >= 1 = Right (ConsumerGroupSize n)
+  | otherwise = Left (InvalidConsumerGroup 0 n)
 
 -- | Static membership. Use 'mkConsumerGroup'; accessors cannot update the pair.
 data ConsumerGroup = ConsumerGroup !Int32 !ConsumerGroupSize
-    deriving stock (Eq, Show)
+  deriving stock (Eq, Show)
 
 member :: ConsumerGroup -> Int32
 member (ConsumerGroup m _) = m
@@ -623,97 +599,95 @@ size (ConsumerGroup _ n) = consumerGroupSizeValue n
 
 mkConsumerGroup :: Int32 -> ConsumerGroupSize -> Either InvalidConsumerGroup ConsumerGroup
 mkConsumerGroup m n
-    | m >= 0 && m < consumerGroupSizeValue n = Right (ConsumerGroup m n)
-    | otherwise = Left (InvalidConsumerGroup m (consumerGroupSizeValue n))
+  | m >= 0 && m < consumerGroupSizeValue n = Right (ConsumerGroup m n)
+  | otherwise = Left (InvalidConsumerGroup m (consumerGroupSizeValue n))
 
 -- | Construction error; invalid configuration never reaches a worker.
 data InvalidConsumerGroup = InvalidConsumerGroup
-    { invalidMember :: !Int32
-    , invalidSize :: !Int32
-    }
-    deriving stock (Eq, Show)
+  { invalidMember :: !Int32,
+    invalidSize :: !Int32
+  }
+  deriving stock (Eq, Show)
 
-{- | Stored topology disagrees with the configured size. Stop all members and
-use 'Kiroku.Store.Subscription.Checkpoint.resizeConsumerGroupTx' before restart.
--}
+-- | Stored topology disagrees with the configured size. Stop all members and
+-- use 'Kiroku.Store.Subscription.Checkpoint.resizeConsumerGroupTx' before restart.
 data ConsumerGroupSizeMismatch = ConsumerGroupSizeMismatch
-    { mismatchName :: !SubscriptionName
-    , configuredSize :: !Int32
-    , observedSizes :: !(Vector Int32)
-    }
-    deriving stock (Eq, Show)
+  { mismatchName :: !SubscriptionName,
+    configuredSize :: !Int32,
+    observedSizes :: !(Vector Int32)
+  }
+  deriving stock (Eq, Show)
 
 instance Exception ConsumerGroupSizeMismatch where
-    toException = toException . SomeSubscriptionStartupFailure
-    fromException exception = do
-        SomeSubscriptionStartupFailure refusal <- fromException exception
-        cast refusal
+  toException = toException . SomeSubscriptionStartupFailure
+  fromException exception = do
+    SomeSubscriptionStartupFailure refusal <- fromException exception
+    cast refusal
 
-{- | Thrown at subscription startup when 'consumerGroupGuard' is 'True' and
-another holder currently holds the advisory lock for this @(name, member)@.
-Indicates two processes are configured as the same group member. This is a
-startup /detection/ probe, not a lifetime-held lock — see the worker's
-@guardMember@.
--}
+-- | Thrown at subscription startup when 'consumerGroupGuard' is 'True' and
+-- another holder currently holds the advisory lock for this @(name, member)@.
+-- Indicates two processes are configured as the same group member. This is a
+-- startup /detection/ probe, not a lifetime-held lock — see the worker's
+-- @guardMember@.
 data ConsumerGroupGuardConflict = ConsumerGroupGuardConflict
-    { conflictName :: !SubscriptionName
-    , conflictMember :: !Int32
-    }
-    deriving stock (Eq, Show)
+  { conflictName :: !SubscriptionName,
+    conflictMember :: !Int32
+  }
+  deriving stock (Eq, Show)
 
 instance Exception ConsumerGroupGuardConflict where
-    toException = toException . SomeSubscriptionStartupFailure
-    fromException exception = do
-        SomeSubscriptionStartupFailure refusal <- fromException exception
-        cast refusal
+  toException = toException . SomeSubscriptionStartupFailure
+  fromException exception = do
+    SomeSubscriptionStartupFailure refusal <- fromException exception
+    cast refusal
 
 -- | A nonpositive handler-stall warning interval was configured.
 newtype InvalidHandlerStallWarnAfter = InvalidHandlerStallWarnAfter NominalDiffTime
-    deriving stock (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance Exception InvalidHandlerStallWarnAfter where
-    toException = toException . SomeSubscriptionStartupFailure
-    fromException exception = do
-        SomeSubscriptionStartupFailure refusal <- fromException exception
-        cast refusal
+  toException = toException . SomeSubscriptionStartupFailure
+  fromException exception = do
+    SomeSubscriptionStartupFailure refusal <- fromException exception
+    cast refusal
 
 -- | A catchable family of subscription startup refusals. Concrete catches work too.
 data SomeSubscriptionStartupFailure = forall e. (Exception e) => SomeSubscriptionStartupFailure e
 
 instance Show SomeSubscriptionStartupFailure where
-    show (SomeSubscriptionStartupFailure e) = show e
+  show (SomeSubscriptionStartupFailure e) = show e
 
 instance Exception SomeSubscriptionStartupFailure
 
 -- | Policy for checkpoint rows created before target identity was persisted.
 data TargetBindingPolicy = AdoptUnbound | RequireBound
-    deriving stock (Eq, Show)
+  deriving stock (Eq, Show)
 
 -- | Stored bindings differ from the requested target, or strict startup found unbound rows.
 data SubscriptionTargetMismatch = SubscriptionTargetMismatch
-    { targetMismatchName :: !SubscriptionName
-    , configuredTarget :: !SubscriptionTarget
-    , observedTargets :: !(Vector (Maybe SubscriptionTarget))
-    }
-    deriving stock (Eq, Show)
+  { targetMismatchName :: !SubscriptionName,
+    configuredTarget :: !SubscriptionTarget,
+    observedTargets :: !(Vector (Maybe SubscriptionTarget))
+  }
+  deriving stock (Eq, Show)
 
 instance Exception SubscriptionTargetMismatch where
-    toException = toException . SomeSubscriptionStartupFailure
-    fromException exception = do
-        SomeSubscriptionStartupFailure refusal <- fromException exception
-        cast refusal
+  toException = toException . SomeSubscriptionStartupFailure
+  fromException exception = do
+    SomeSubscriptionStartupFailure refusal <- fromException exception
+    cast refusal
 
 -- | A positive catch-up fetch size. The constructor is deliberately hidden.
 newtype BatchSize = BatchSize Int32
-    deriving stock (Eq, Show)
+  deriving stock (Eq, Show)
 
 newtype InvalidBatchSize = InvalidBatchSize Int32
-    deriving stock (Eq, Show)
+  deriving stock (Eq, Show)
 
 mkBatchSize :: Int32 -> Either InvalidBatchSize BatchSize
 mkBatchSize n
-    | n >= 1 = Right (BatchSize n)
-    | otherwise = Left (InvalidBatchSize n)
+  | n >= 1 = Right (BatchSize n)
+  | otherwise = Left (InvalidBatchSize n)
 
 batchSizeValue :: BatchSize -> Int32
 batchSizeValue (BatchSize n) = n

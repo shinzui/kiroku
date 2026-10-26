@@ -1,5 +1,9 @@
 # Bundle Update Log
 
+## 2026-10-26
+* **Update**: Record namespace target identity, completed scan checkpoints, failure rules, and migration cutover.
+* **Update**: Record implemented bounded namespace queries, selective wakes, literal semantics, and separate performance gate.
+
 ## 2026-10-25
 * **Modification**: ADR-2 qualifies legacy topology guidance: ordinary resize can skip a never-started member backlog and is not a lossless repair of incomplete membership. Links the consumer warning and BUG-5; dedicated recovery remains deferred, with no validated procedure. The static membership and ordinary resize contracts are unchanged.
 * **Amendment**: ADR-12 keeps the initial decoded-or-raw event filter decision unchanged across decode retries.

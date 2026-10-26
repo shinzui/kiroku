@@ -22,6 +22,11 @@ provenance:
       at: 2026-10-26T14:13:28Z
       mode: "update"
       note: "Refresh current schema and subscription lifecycle; plan bounded namespace windows, selective wakeups, safe scan checkpoints, and focused cumulative performance validation."
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-26T16:08:29Z
+      mode: "implement"
+      note: "Implement namespace target, bounded scan checkpoints, selective wake routing, and acceptance tests."
 ---
 
 # Add prefix-matching subscription target for fan-in subscriptions
@@ -58,9 +63,8 @@ then prove the namespace subscription delivers precisely the first three in
 global order during catch-up and continues to include newly created categories
 in live operation. Consumer groups partition the same target without overlap.
 
-The authorized work in this session is the plan refresh and design investigation.
-Production implementation and new performance trials remain outstanding. The
-implementation scope is `kiroku-store`, its migration and test packages, and
+The 2026-10-26 implementation request authorizes production implementation and
+validation of this plan. The implementation scope is `kiroku-store`, its migration and test packages, and
 relevant user/adapter documentation. A public one-shot namespace read API is
 optional follow-up, not part of the required delivery.
 
@@ -76,22 +80,40 @@ optional follow-up, not part of the required delivery.
 - [x] (2026-10-26) Refresh against current source and ADRs; select namespace
   semantics, bounded global windows and selective wakeups as the implementation
   direction. Remove obsolete index installation and two-match-site instructions.
-- [ ] M1: Implement one end-to-end namespace worker with bounded windows, safe
-  progress, target binding/migration, and a catch-up/live/restart proof.
-- [ ] M2: Add selective, lifecycle-safe namespace wakeups for plain and grouped
-  subscriptions, with race, reconnect and idle-work tests.
+- [x] (2026-10-26) M1: Namespace workers use bounded windows, completed scan
+  frontiers and distinct bindings. Catch-up/live/restart and grouped paths pass;
+  migration 0016 fresh apply, upgrade from 0015 and rerun pass on PG 17/18.
+- [x] (2026-10-26) M2: Reference-counted selective wakes pass plain/grouped
+  delivery, snapshot/drain race, lost-notification safety tick, listener/worker
+  reconnect, failed-startup and idempotent final-release tests.
 - [ ] M3: Complete disposition, topology and structural-cost acceptance, then one
   focused performance comparison of the affected paths under ADR-15.
 - [ ] M4: Update documentation, compatibility guidance and durable decisions;
   retain final evidence and classify functional versus performance acceptance.
 
 The original M0–M5 breakdown is superseded by these four verifiable milestones.
-No namespace constructor, worker, wake registry or binding migration is currently
-implemented. The optional old M3 `readPrefix` combinator is deferred because a
+The namespace constructor, worker, wake registry and migration 0016 are
+implemented. The focused Hspec group passes 26 examples, including 96 production
+EXPLAIN cases. The full PG18 store suite passes 522 examples and the adapter suite
+passes 45 examples; migrations pass 25 examples on both PG17 and PG18. Performance
+comparison work is active; its budget is retained in
+`kiroku-store/bench/results/ep54-namespace/budget.json`. The optional old M3 `readPrefix` combinator is deferred because a
 vector-only result cannot express an empty but non-exhausted scan window.
 
 ## Surprises & Discoveries
 
+
+2026-10-26 implementation: custom plans near the tail could choose the partial
+category index and sort metadata before LIMIT; ordinary payload joins could also
+choose a full events scan. The production statement selects the integral range
+`0 <= stream_id < 1` and orders both global index keys before LIMIT, making the
+partial category index ineligible without changing the selected rows. A
+parameterized per-event LATERAL probe with `OFFSET 0` keeps payload work behind
+matching, including in generic plans. These are per-event probes, not the rejected
+per-stream discovery strategy. All 96 custom/generic cases at 1,000/20,000 rows,
+W=32/1024, dense/sparse/absent matches, beginning/tail cursors and plain/groups pass.
+The shared scan state is allocated only for namespace workers. Old targets retain
+their read statements and publisher decode path.
 
 The 2026-10-26 source audit found that `kiroku-store/kiroku-store.cabal` already
 sets `-Wall -Werror=incomplete-patterns`. Adding that flag is no longer work.
@@ -268,7 +290,7 @@ regressions. Coordinate changes with
 and [MasterPlan 13](../masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md);
 do not reopen their completed ordering choice or install another browse index.
 
-`kiroku-store/test/Main.hs` is the Tasty test driver. Reuse
+`kiroku-store/test/Main.hs` is the Hspec test driver. Reuse
 `Test.SubscriptionTarget`, `Test.SubscriptionReconnect`,
 `Test.SubscriptionRetryDeadLetter`, `Test.CategoryIdleNoSpin`,
 `Test.ConsumerGroup`, and `Test.Helpers` under `kiroku-store/test/Test/`.
@@ -282,10 +304,11 @@ the retained cumulative comparison infrastructure.
 ### Milestone 1 — Bounded windows and an end-to-end namespace worker
 
 
-Add `CategoryNamespace !Text` to `SubscriptionTarget`. Add internal
-`NamespaceWindow` and `DecodedNamespaceWindow` result types containing events,
-`scannedThrough :: GlobalPosition`, `scannedCount :: Int32`, and
-`exhausted :: Bool`. Capture H once per sweep. Initially choose
+Add `CategoryNamespace !Text` to `SubscriptionTarget`. Add internal `NamespaceWindow` containing events,
+`scannedThrough :: GlobalPosition`, `scannedCount :: Int32`, and `exhausted :: Bool`.
+Carry decoded events and completion fields in the FSM `NamespaceWindowFetched`
+input and `DeliverNamespaceWindow` effect; publish progress only through
+`NamespaceWindowCompleted` after processing. Capture H once per sweep. Initially choose
 W = min(1024, batchSizeValue (batchSize config)); batch size remains an upper
 bound on delivered events, while W also bounds unrelated rows inspected per
 fetch. Do not issue a request when the scan cursor is already at or beyond H.
@@ -559,13 +582,13 @@ cabal run kiroku-store-migrate -- new \
 cabal run kiroku-store-migrate -- check \
   --manifest kiroku-store-migrations/migrations/manifest
 cabal test kiroku-store-migrations:kiroku-store-migrations-test
-cabal test kiroku-store:kiroku-store-test --test-options='-p namespace'
+cabal test kiroku-store:kiroku-store-test --test-options='--match namespace'
 cabal test kiroku-store:kiroku-store-test
 ```
 
 Only run `new` once during M1; it mutates the manifest and allocates the file.
-The namespace test command is for the new Tasty group named `namespace`, not
-hspec `--match`. Compilation and tests must exit successfully; check output
+The namespace test command selects the new Hspec examples using `--match`.
+The earlier Tasty instruction was incorrect (FRIC-4 in `docs/friction-log/`). Compilation and tests must exit successfully; check output
 contains the new cases and zero failures. The migration suite must cover an
 upgrade from the preceding manifest as well as fresh apply and idempotent rerun.
 Follow the existing migration compatibility requirements for PostgreSQL 17 and 18

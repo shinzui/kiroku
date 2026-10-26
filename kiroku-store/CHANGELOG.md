@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Add `CategoryNamespace Text` subscription targets for exact category/colon-boundary
+  fan-in, including future categories and consumer groups. Uses bounded global
+  windows, matching-only payload decoding, completed-scan checkpoints and shared
+  selective namespace wakes. Sparse replay traverses global history per worker.
+- Requires migration 0016 before starting workers. The new constructor affects
+  exhaustive downstream matches; older binaries must not manage namespace rows.
+
+## Unreleased
+
 ### Breaking Changes
 
 - Target 0.12.0.0: `KirokuEvent` gains

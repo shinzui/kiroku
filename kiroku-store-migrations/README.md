@@ -2,9 +2,9 @@
 
 `kiroku-store-migrations` owns Kiroku's PostgreSQL schema as one native
 `pg-migrate` component named `kiroku`. The component embeds an ordered manifest
-and fifteen SQL payloads, so applications can compose it with other libraries
+and sixteen SQL payloads, so applications can compose it with other libraries
 without copying Kiroku SQL. The first seven payloads are immutable historical
-Codd bytes; `0008` through `0015` are native-only forward migrations.
+Codd bytes; `0008` through `0016` are native-only forward migrations.
 
 ## Public API
 

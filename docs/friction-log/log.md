@@ -1,5 +1,10 @@
 # Bundle Update Log
 
+## 2026-10-26
+* **Addition**: FRIC-5 records detour tooling friction with mori://shinzui/kiroku: Commit hook reformats edited Haskell files in a different repository style
+* **Update**: FRIC-4 resolved: Fix the documented runner instead of carrying a contributor workaround.
+* **Addition**: FRIC-4 records nuisance documentation friction with mori://shinzui/kiroku: Plan 54 validation commands name the wrong test runner
+
 ## 2026-10-25
 * **Update**: FRIC-3 accepted: Correct the earlier mistaken ignored-config diagnosis: git ls-files confirms the configuration is tracked; retain required formatting on edited files and run the normal hook.
 * **Update**: FRIC-3 accepted: The commit hook shares the same local override; validate under repository formatting defaults without retaining unrelated rewrites.

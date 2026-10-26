@@ -122,6 +122,7 @@ test-suite kiroku-store-test
     Test.HistoryRetention
     Test.HistoryRetentionMock
     Test.InterpreterHooks
+    Test.NamespaceQueryPlans
     Test.NotifyGuard
     Test.PerformanceStructure
     Test.Properties
@@ -146,6 +147,7 @@ test-suite kiroku-store-test
     Test.SubscriptionCheckpointWorker
     Test.SubscriptionDeadLetters
     Test.SubscriptionDeadLettersMock
+    Test.SubscriptionNamespace
     Test.SubscriptionPauseResume
     Test.SubscriptionReconnect
     Test.SubscriptionRegistry
