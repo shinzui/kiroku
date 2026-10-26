@@ -295,7 +295,7 @@ Kenshou already models that optional field; the outstanding release gate is
 namespace-aware performance coverage and verified comparison evidence. FRIC-9 is resolved by the user's Yujin migration follow-up: register its three
 existing public keys without expiration and verify direct IAP SSH and PostgreSQL
 admin access. The VM was stopped and the lease released after that check; FRIC-8
-remains the separate performance blocker.
+is retained as the superseded runner failure; current performance work uses Kenshou.
 
 ## Context and Orientation
 
@@ -773,3 +773,8 @@ acceptance remains blocked by the unrelated cell descriptor/client mismatch.
 this plan and AGENTS.md. Verified optional broker support in current Kenshou
 source and retained the legacy failure. M3 now names missing namespace-aware
 comparison evidence, rather than requiring a repair of the older direct client.
+
+2026-10-26 — Resumed M3 at the user’s request. Prepared matched Kenshou payloads
+and a bounded controller in `bench/ep54-cell`, preserving the original control
+and zero-slowdown policy. A fresh 60-minute budget includes all preparation;
+submission proof and measured comparisons remain pending.

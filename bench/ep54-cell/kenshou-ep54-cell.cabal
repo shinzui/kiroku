@@ -1,0 +1,84 @@
+cabal-version: 3.0
+name:          kenshou-ep54-cell
+version:       0.1.0.0
+build-type:    Simple
+
+flag category-namespace
+  description:
+    Compile the plan-54 namespace diagnostic against the new target
+
+  default:     False
+  manual:      True
+
+executable kenshou
+  main-is:            Main.hs
+  hs-source-dirs:     src
+  other-modules:
+    Delivery
+    Metadata
+    Namespace
+    Probe
+    Workload
+
+  default-language:   GHC2024
+  default-extensions:
+    BlockArguments
+    DuplicateRecordFields
+    ImportQualifiedPost
+    LambdaCase
+    NoFieldSelectors
+    OverloadedRecordDot
+    OverloadedStrings
+
+  if flag(category-namespace)
+    cpp-options: -DEP54_NAMESPACE
+
+  ghc-options:
+    -Wall -O2 -threaded -rtsopts "-with-rtsopts=-N4 -T -A32m"
+
+  build-depends:
+    , aeson
+    , async
+    , base
+    , bytestring
+    , containers
+    , directory
+    , filepath
+    , hasql
+    , hasql-pool
+    , http-client
+    , http-types
+    , kenshou-core
+    , kenshou-measure
+    , kenshou-remote
+    , kiroku-metrics
+    , kiroku-store
+    , kiroku-test-support
+    , process
+    , stm
+    , text
+    , vector
+    , websockets
+
+executable ep54-operator
+  if !os(osx)
+    buildable: False
+
+  main-is:            Operator.hs
+  hs-source-dirs:     src
+  other-modules:      Metadata
+  default-language:   GHC2024
+  default-extensions:
+    DuplicateRecordFields
+    ImportQualifiedPost
+    NoFieldSelectors
+    OverloadedRecordDot
+    OverloadedStrings
+
+  ghc-options:        -threaded -rtsopts -O2
+  build-depends:
+    , base
+    , kenshou-cli
+    , kenshou-core
+    , kenshou-measure
+    , text

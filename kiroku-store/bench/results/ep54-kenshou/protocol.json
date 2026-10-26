@@ -1,0 +1,26 @@
+{
+  "cases": [
+    "disabled",
+    "active"
+  ],
+  "pairs_per_case": 5,
+  "warmup_seconds": 10,
+  "measurement_seconds": 30,
+  "trial_reset_allowance_seconds": 40,
+  "proof_publish_setup_allowance_seconds": 420,
+  "cleanup_reserve_seconds": 180,
+  "estimated_remote_seconds": 2020,
+  "confidence": 0.95,
+  "max_ci_relative_width": 0.06,
+  "allowed_slowdown": 0,
+  "policy": "bench/mp12-cell/policy.json",
+  "original_control": "364ffa82136fcfc83d39ead1234abffaf500844b",
+  "candidate": "94c2839f4b9a51bff2bfead57b8e587389a7875f",
+  "stop_conditions": [
+    "240 seconds without changed remote phase, power or verified-slice count",
+    "correctness or infrastructure failure",
+    "consistent adverse comparison",
+    "cleanup reserve or total deadline reached"
+  ],
+  "status": "preparing"
+}

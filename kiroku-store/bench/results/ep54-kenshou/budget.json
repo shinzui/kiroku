@@ -1,0 +1,8 @@
+{
+  "started_epoch": 1793038771.414877,
+  "budget_seconds": 3600,
+  "deadline_epoch": 1793042371.414877,
+  "preflight_allowance_seconds": 180,
+  "accounting": "Conservative three-minute allowance includes initial inspection before recording the budget.",
+  "reason": "User resumed Plan 54 closeout through Kenshou; previous stopped attempt retained."
+}

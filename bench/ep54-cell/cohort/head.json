@@ -1,0 +1,49 @@
+{
+  "schema": "kenshou.cohort/v1",
+  "name": "head",
+  "description": "Plan 54 cumulative original-control namespace comparison; identical toolchain and shared producer/observer.",
+  "verifiedAt": "pending",
+  "compiler": "ghc-9.12.4",
+  "indexState": "2026-09-20T13:44:47Z",
+  "projectFile": "flake.nix",
+  "components": [
+    {
+      "id": "kiroku",
+      "moriUri": "mori://shinzui/kiroku",
+      "source": {
+        "type": "git",
+        "location": "https://github.com/shinzui/kiroku.git",
+        "rev": "94c2839f4b9a51bff2bfead57b8e587389a7875f"
+      },
+      "packages": [
+        {
+          "name": "kiroku-store",
+          "version": "0.12.0.0",
+          "subdir": "kiroku-store"
+        },
+        {
+          "name": "kiroku-store-migrations",
+          "version": "0.7.1.0",
+          "subdir": "kiroku-store-migrations"
+        },
+        {
+          "name": "kiroku-test-support",
+          "version": "0.1.0.0",
+          "subdir": "kiroku-test-support"
+        },
+        {
+          "name": "kiroku-cli",
+          "version": "0.2.0.10",
+          "subdir": "kiroku-cli"
+        },
+        {
+          "name": "kiroku-metrics",
+          "version": "0.4.0.0",
+          "subdir": "kiroku-metrics"
+        }
+      ]
+    }
+  ],
+  "allowNewer": [],
+  "exceptions": []
+}
