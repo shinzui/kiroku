@@ -17,1186 +17,658 @@ provenance:
       at: 2026-10-10T23:28:20Z
       mode: "implement"
       note: "Prototype shared browse access and bounded namespace windows; final ordering and layout remain under review."
+    - model: "gpt-6-astra"
+      harness: "codex-cli"
+      at: 2026-10-26T14:13:28Z
+      mode: "update"
+      note: "Refresh current schema and subscription lifecycle; plan bounded namespace windows, selective wakeups, safe scan checkpoints, and focused cumulative performance validation."
 ---
 
 # Add prefix-matching subscription target for fan-in subscriptions
 
-This ExecPlan is a living document. The sections Progress, Surprises & Discoveries,
-Decision Log, and Outcomes & Retrospective must be kept up to date as work proceeds.
-
+This ExecPlan is a living document. Keep Progress, Surprises & Discoveries,
+Decision Log, and Outcomes & Retrospective current. The 2026-10-26 revision
+replaces the obsolete implementation instructions; historical measurements below
+retain their original scope and uncertainty.
 
 ## Purpose / Big Picture
 
-A "subscription" in this repository is a worker that walks the event log forward
-and hands each stored event to a handler. Each subscription declares a "target"
-that says *which* streams it cares about. Today there are exactly two targets
-(defined in `kiroku-store/src/Kiroku/Store/Subscription/Types.hs` lines 140-145):
 
-```haskell
-data SubscriptionTarget
-    = AllStreams                 -- every event in global order
-    | Category !CategoryName     -- events whose stream's "category" matches
-```
+Allow one subscription to follow a family of categories, including categories
+created after the subscription starts. A category is the part of a stream name
+before its first hyphen: `pm:fulfillment-1` and `pm:billing-1` have different
+categories, so neither existing exact `Category` target covers both.
 
-A stream's "category" is the part of its name before the first hyphen — the
-column `streams.category` is generated as `split_part(stream_name, '-', 1)`
-(migration `kiroku-store-migrations/sql-migrations/2026-05-16-00-00-00-kiroku-bootstrap.sql`).
-So a stream named `orders-1` has category `orders`, and a `Category "orders"`
-subscription sees every `orders-*` stream.
+Use the previously recommended namespace semantics consistently in this plan:
+`CategoryNamespace "pm"` matches category `pm` and categories beginning with the
+literal `pm:`. It does not match `pmm`, `orders`, or `pmish`. Nested namespaces
+work the same way. Keep the existing exact `Category` and `AllStreams` semantics.
+This is a category namespace, not an arbitrary stream-name prefix; callers pass
+`"pm"`, not `"pm:"`. The title and filename retain the original plan identity.
 
-This breaks down for namespaced stream families. The `keiro` framework names its
-process-manager state streams `pm:<processName>-<correlationId>` — for example
-`pm:fulfillment-abc123` and `pm:billing-def456`. Under the "before first hyphen"
-rule those have *different* categories (`pm:fulfillment` and `pm:billing`), so
-there is no single `Category` target that observes "every process manager".
-An operator who wants one subscription over all `pm:` streams must register one
-subscription per process-manager name and re-register whenever a new process
-manager is added. The same problem will hit the future `wf:` workflow streams.
+Reduce performance impact through three concrete changes to the earlier design:
+read bounded windows from the existing global event index instead of probing every
+stream in the family; fetch event payloads only for matching rows; and wake live
+workers on their namespace rather than every global append. Add no event/stream
+index, append column, append trigger, or publisher decode work. A small forward
+migration is still required to allow the new durable subscription target kind.
 
-After this change there is a third target:
+A test will append to `pm-1`, `pm:fulfillment-1`, `pm:billing-1`, and `orders-1`,
+then prove the namespace subscription delivers precisely the first three in
+global order during catch-up and continues to include newly created categories
+in live operation. Consumer groups partition the same target without overlap.
 
-```haskell
-    | CategoryPrefix !Text       -- events whose stream_name starts with a literal prefix
-```
-
-A `CategoryPrefix "pm:"` subscription observes every stream whose name begins with
-`pm:`, regardless of what comes after the first hyphen. One subscription fans in
-the whole `pm:` family; adding a new process manager needs no new subscription.
-
-You will be able to see it working by running a new test that appends events to
-several differently-named streams that share a prefix (e.g. `pm:fulfillment-1`
-and `pm:billing-1`) plus an unrelated stream (`orders-1`), runs a
-`CategoryPrefix "pm:"` subscription, and asserts the subscription delivered
-exactly the `pm:`-prefixed events and none of the `orders-1` events — across both
-the historical catch-up phase and live delivery.
-
-This plan is scoped to the **kiroku-store** package (plus its migrations package).
-The `shibuya-kiroku-adapter` passes a `SubscriptionTarget` straight through and
-does not pattern-match its constructors, so a prefix target flows through it
-unchanged; this plan verifies that and adds no adapter code.
-
+The authorized work in this session is the plan refresh and design investigation.
+Production implementation and new performance trials remain outstanding. The
+implementation scope is `kiroku-store`, its migration and test packages, and
+relevant user/adapter documentation. A public one-shot namespace read API is
+optional follow-up, not part of the required delivery.
 
 ## Progress
 
-- [x] (2026-10-10) Shared research: implement a disposable shared-access prototype: one byte-ordered browse index, bounded category/literal-prefix pages, and namespace global windows using existing event indexes. All 224 TypeID/edge-case checks pass (176 browse, 48 namespace); retain preceding rejected plans/setup error and verify every owned cluster stopped.
-- [ ] Shared research: settle the new browsing-order preference (byte order versus deployment locale), then select the final shared layout and validate its own write cost before migration. The prior replacement's cost is not acceptance of a different layout.
 
-- [x] (2026-10-10) Shared research: retain the current-source matched replacement write experiment; fresh acceptance is inconclusive and active-observer evidence exploratory. No namespace access or cumulative combined-feature acceptance.
-- [x] (2026-10-10) Shared research: inspect Kenshou benchmark coverage and plan 88's disposable category/name replacement evidence; retain footprint and harness gaps. M0 semantics and M2 migration remain open.
-Use a checklist to summarize granular steps. Every stopping point must be documented here,
-even if it requires splitting a partially completed task into two ("done" vs. "remaining").
-This section must always reflect the actual current state of the work.
+- [x] (2026-10-10) Shared access research retained: 224 disposable SQL checks
+  passed, including 48 bounded namespace-window cases. These prove query
+  behavior, not subscription delivery or active-feature performance.
+- [x] (2026-10-11, reconciled 2026-10-26) Browsing order/layout settled in ADR-17:
+  migration 0015 installs the shared browse-name index. Its inspection cohort
+  received explicit practical acceptance; it does not certify this feature.
+- [x] (2026-10-26) Refresh against current source and ADRs; select namespace
+  semantics, bounded global windows and selective wakeups as the implementation
+  direction. Remove obsolete index installation and two-match-site instructions.
+- [ ] M1: Implement one end-to-end namespace worker with bounded windows, safe
+  progress, target binding/migration, and a catch-up/live/restart proof.
+- [ ] M2: Add selective, lifecycle-safe namespace wakeups for plain and grouped
+  subscriptions, with race, reconnect and idle-work tests.
+- [ ] M3: Complete disposition, topology and structural-cost acceptance, then one
+  focused performance comparison of the affected paths under ADR-15.
+- [ ] M4: Update documentation, compatibility guidance and durable decisions;
+  retain final evidence and classify functional versus performance acceptance.
 
-- [ ] M0 (decisions, before coding): settle the two open design choices recorded
-  in the Decision Log — (a) constructor name + semantics (`CategoryNamespace`
-  matching `category` on `:`, recommended, vs `StreamNamePrefix` matching
-  `stream_name`); (b) live-path strategy (accept-and-bound / `$all`-driven live
-  query / per-prefix NOTIFY gate). The rest of the plan substitutes the chosen
-  forms.
-- [ ] M0 (shared physical design): coordinate any index proposal with
-  [plan 88](88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md)
-  under ADR-15; reuse suitable structures and review cumulative writer cost before M2.
-- [ ] M1: Add `-Werror=incomplete-patterns` to the cabal `common common` stanza
-  (step 0), then add the constructor and the namespace SQL statements (non-group
-  and consumer-group); the now-strict build forces the two pattern-match sites
-  (`fetchBatch`, `nextInput`) to gain arms.
-- [ ] M2: Prove the selected namespace/prefix access path and, only if the shared
-  design review requires it, add the reviewed index migration. Record cumulative
-  append evidence for the combined schema and active workloads against one original
-  control; the illustrative `text_pattern_ops` migration below is not preapproved.
-- [ ] M3 (optional parity): expose a public `readPrefix` read combinator and a
-  `ReadPrefixForward` `Store`-effect constructor.
-- [ ] M4: Add the prefix-subscription test (catch-up + live, with a negative
-  case); green.
-- [ ] M5: Update `kiroku-store/CHANGELOG.md` and document the v1 live-delivery
-  tradeoff and the consumer-group story.
-
+The original M0–M5 breakdown is superseded by these four verifiable milestones.
+No namespace constructor, worker, wake registry or binding migration is currently
+implemented. The optional old M3 `readPrefix` combinator is deferred because a
+vector-only result cannot express an empty but non-exhausted scan window.
 
 ## Surprises & Discoveries
 
-- 2026-10-10 shared-access prototype: one partial C-collated name index can
-  serve global names, literal prefixes, exact categories and category-plus-prefix
-  pages without also installing the category/name replacement. Keep the original
-  unique-name constraint and small category index. Bound the ordered lower seek
-  before testing the upper range: generic plans otherwise chose a bitmap scan
-  and sort. Namespace reads can use migration 0012's denormalized event category
-  and the existing global-position index, with bounded scan progress rather than
-  per-stream probes. This requires new internal worker progress semantics; it is
-  not implemented by this SQL diagnostic. See
-  [shared-access research](../../kiroku-store/bench/results/mp13-ep3-shared-access/README.md).
-  New API byte order remains a product choice, not an imposed database collation.
 
-- 2026-10-10 matched replacement: fresh throughput estimate -0.677% (95%
-  interval -2.687% to +1.374%), with descriptive WAL/event +2.43%. Existing
-  subscriptions retained exact durable delivery under active browsing, but the
-  low-rate browser failed the operation sample-grade minimum. All three pairs
-  are retained as exploratory; they cannot establish subscription performance
-  acceptance or namespace access. See the [matched report](../../bench/mp13-index/evidence/2026-10-10/README.md).
-- 2026-10-10 shared index research: current category subscriptions use the
-  denormalized `stream_events` category/version index, not `streams.category`.
-  A default-opclass `(category, stream_name)` replacement preserved tested
-  category enumeration and bounded category pages, but its compact footprint
-  grew from 288 KiB to 2,672 KiB at 40,007 streams. This is not proof of namespace
-  event-order access or append cost. Kenshou's historical local store 0.8.0.1
-  results cannot measure this current candidate. Reuse the matched payload with
-  current-source arms and stream HOT/update observations; see the
-  [shared research](../../kiroku-store/bench/results/mp13-ep3-index-research/README.md).
+The 2026-10-26 source audit found that `kiroku-store/kiroku-store.cabal` already
+sets `-Wall -Werror=incomplete-patterns`. Adding that flag is no longer work.
+`kiroku-store/src/Kiroku/Store/Subscription.hs` now selects a `LiveSource` at
+registration, and exact-category consumer-group members also use category NOTIFY
+wakes. `Worker.hs` dispatches on `LiveSource`, rather than the old two-site target
+match described in the June draft. Target encoding, decoding and checkpoint-save
+dispatch in `Subscription/Checkpoint/SQL.hs` also need new arms. The decoder's
+fallback to unbound is particularly important: the compiler will not flag a new
+kind swallowed by that fallback.
 
-Document unexpected behaviors, bugs, optimizations, or insights discovered during
-implementation. Provide concise evidence.
+Category reads no longer enumerate `streams`. Migration 0012 stores category on
+`stream_events` rows for `$all`, and `SQL.hs` reads exact categories through
+`ix_stream_events_all_by_category`. Migration 0015 already installs
+`ix_streams_browse_name`; migration 0005 already tunes `streams` fillfactor.
+The old claims of three catalog indexes, default fillfactor 100 and a necessary
+new `text_pattern_ops` index are obsolete. The actual migration directory is
+`kiroku-store-migrations/migrations`, with a native manifest, not timestamped
+files in `sql-migrations` or a new Codd migration.
 
-Validation pass (2026-06-03), before implementation — findings from reading the
-working tree:
+Migration 0014 restricts `subscriptions.target_kind` to `unbound`, `all`, and
+`category`, and permits a non-null `target_category` only for `category`.
+Consequently the feature requires a forward constraint migration even though
+its reads need no additional index. Persisting a namespace as an ordinary
+category would silently change checkpoint identity and is forbidden.
 
-- The "warnings-as-errors safety net" the plan originally leaned on did not exist:
-  `kiroku-store/kiroku-store.cabal` `common common` (lines 23–30) sets only
-  `default-language: GHC2024` and four `default-extensions`; the `library` stanza
-  has no `ghc-options`. No `-Wall`/`-Werror`/`-Wincomplete-patterns` anywhere, so
-  missing match arms compiled silently and failed at runtime. **Resolved:** M1
-  step 0 now adds `-Werror=incomplete-patterns` to `common common`, making the net
-  real. Verified it is a clean switch: `cabal build kiroku-store
-  --ghc-options="-Werror=incomplete-patterns"` built the library, the test suite,
-  and all three benchmarks at **exit 0** with no newly-rejected patterns
-  (transcript: only "Building …" lines, no warnings/errors). (See Decision Log.)
+The existing worker interprets an empty fetched batch as caught-up. Its delivery
+primitive calls `V.last` on a nonempty batch and checkpoints the last event;
+neither behavior can consume an empty namespace window safely. `Stop` is an
+explicit disposition that checkpoints the stopping event in today's code;
+it must not checkpoint the rest of a prefetched window. Unhandled decode failure
+must leave durable progress before that event. These are implementation
+requirements, not properties proven by the SQL prototype.
 
-- Regression surface for non-users of the feature is a single item: the new
-  `text_pattern_ops` index on the shared `streams` table. The code-path additions
-  (constructor arm, new SQL, live-loop arm) are reached only by a namespace config,
-  and `streams` has no `fillfactor` set (defaults to 100), so appends to existing
-  streams are HOT updates that touch no indexes — the regression is confined to
-  new-stream INSERTs and non-HOT updates and must be benchmarked in M2 (see the
-  append-regression decision). Existing `streams` indexes before this change: PK
-  `stream_id`, UNIQUE `stream_name`, `ix_streams_category`.
+Retained research: the [shared-access report](../../kiroku-store/bench/results/mp13-ep3-shared-access/README.md)
+contains 176 browse and 48 namespace checks. Namespace diagnostics used windows
+of 32 and observed at most 38 examined rows / 9 buffers. Earlier generic-plan
+failures and a fixture repair remain retained. Its statements about a pending
+browse-order decision are historical; ADR-17 records the later selection.
+The prototype selects positions/category/source IDs, not production event
+payloads, and its limits cannot be reused as a full payload-query buffer budget.
 
-- Exactly two `case` sites match `SubscriptionTarget` constructors, confirming the
-  plan's enumeration. Evidence (repo-wide `rg`):
-  `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs:229,245` (`nextInput` Live
-  arm) and `…:556,559,562,565` (`fetchBatch`). Every other reference
-  (shibuya-kiroku-adapter, kiroku-jitsurei, benches, tests, kiroku-metrics) only
-  *constructs* a target or re-exports `SubscriptionTarget (..)`; none is an
-  exhaustive `case`. `kiroku-metrics` filters via the `readCategory` read
-  combinator and a `Maybe Text`, not via `SubscriptionTarget`, so it needs no
-  change.
-
-- The Shibuya adapter re-exports `SubscriptionTarget (..)`
-  (`shibuya-kiroku-adapter/src/Shibuya/Adapter/Kiroku.hs:121,139`), so the new
-  constructor is automatically exposed downstream — but the field Haddock at
-  lines 166 and 318 still says "'AllStreams' or @'Category' categoryName@" and
-  should be updated to mention the new constructor. No adapter *code* change is
-  needed (confirmed: only value construction + re-export).
-
-- The NOTIFY payload carries the full `stream_name`
-  (`notify_events()` in the bootstrap migration emits
-  `stream_name || ',' || stream_id || ',' || stream_version`), and
-  `Kiroku.Store.Notification.categoryFromPayload` already parses the stream name
-  out of it. This makes a future per-prefix NOTIFY gate cheaper than the plan
-  implied.
-
-- `readCategoryEncoder :: E.Params (Int64, Text, Int32)` and
-  `readCategoryConsumerGroupEncoder :: E.Params (Int64, Text, Int32, Int32, Int32)`
-  exist in `SQL.hs` (lines 743, 799) with the exact tuple shapes the plan reuses.
-  The existing SQL uses GHC `MultilineStrings` (`"""…"""`), not the
-  backslash-line-continuation string style shown in this plan's M1 snippets —
-  match the `"""` style and mind that a literal backslash for `ESCAPE '\'` needs
-  `'\\'` inside a multiline string. (`ESCAPE '\'` is redundant since `\` is
-  PostgreSQL's default `LIKE` escape, but stating it explicitly is harmless.)
-
-- The cited benchmark in `docs/plans/milestone-5-links-and-categories.md` is real
-  and is about *exact-category* equality vs `LIKE 'cat-%'` (lines 46–47, 90), not
-  about fixed-prefix scans — the plan's distinction holds.
-
-- There is an existing EXPLAIN harness, `kiroku-store/bench/Explain.hs`
-  (benchmark `kiroku-store-bench-explain`, ExecPlan 26), that the M2 evidence step
-  could mirror instead of hand-running psql.
-
+The [replacement-index report](../../bench/mp13-index/evidence/2026-10-10/README.md)
+measured fresh throughput -0.677% (95% interval -2.687% to +1.374%) and descriptive
+WAL/event +2.43%. Observer results were exploratory. The
+[selected browse-index report](../../bench/mp13-index/evidence/2026-10-10-byte-name/README.md)
+retains five pairs per workload: fresh throughput -2.980% [-6.128%, +0.274%] and
+existing appends with category subscription/browsing -1.722% [-4.631%, +1.276%].
+WAL/event rose 5.668% and 0.187%; the index added 3.180 MiB on 40,000 streams.
+The zero-slowdown statistical verdicts remained inconclusive. Later explicit
+inspection-cohort acceptance is recorded in ADR-15/17; it grants this feature
+no independent regression allowance. All historical owned clusters were reported
+stopped. No experiment was launched for this refresh.
 
 ## Decision Log
 
-- Decision (2026-10-10 approved continuation): pursue one shared physical design
-  after the user's approval of the measured replacement trade-off. Test a
-  byte-ordered name index as an alternative, with no separate namespace index.
-  Do not transfer the previous layout's confidence bounds to this new layout or
-  invent a new regression allowance. Keep its production migration unselected
-  with user-approved UTF-8 byte ordering for new stream pages. Existing published reads,
-  unique-name identity, database collation and event ordering remain unchanged.
-  The namespace window strategy trades sparse historical catch-up throughput
-  for bounded per-fetch work and no additional writer index. It needs distinct
-  scan progress and successful-disposition checkpoint tests before worker use.
 
-- Decision (2026-10-10 matched evidence): no physical design selected. Preserve
-  the inconclusive fresh comparison and exploratory observer diagnostics as
-  shared evidence; do not reuse them as a namespace migration allowance or
-  grant another independent write-cost budget. ADR-15 remains authoritative.
-- Decision (2026-10-10 research): keep namespace semantics and supporting
-  physical design open. The replacement candidate was tested only in disposable
-  databases, not installed as a migration. Do not infer namespace-prefix support
-  from ordinary category paging or reuse older benchmark writer-cost acceptance.
-  ADR-15's shared design and original-control cumulative cost rules still apply.
+2026-10-26 — Adopt the earlier recommended `CategoryNamespace !Text` semantics
+for this implementation plan: literal category equality or literal prefix
+`namespace <> ":"`. This resolves the old alternating `CategoryPrefix`,
+`StreamNamePrefix` and namespace examples. Do not trim, normalize Unicode, strip
+colons, or case-fold. `%`, `_`, backslashes and commas are literal characters.
+Empty namespace matches empty category and categories beginning with `:`; it
+never means all categories. A namespace containing a hyphen has no matches under
+the category extraction rule. A trailing colon is literal: `"pm:"` matches
+`pm:` and descendants beginning `pm::`. These choices keep the value total
+without a new invalid-configuration exception. Document them and test them.
 
-Record every decision made while working on the plan.
+2026-10-26 — Use the ADR-17 bounded-window direction for both catch-up and live.
+The global log already stores the category, so enumerate at most W global rows
+first, then filter by namespace and group, then join only survivors to `events`.
+Use `starts_with` on this bounded set, avoiding LIKE escaping and prefix indexes.
+Keep the existing exact-category statements and specialized paths intact. Reject
+the old per-stream LATERAL plan and an unrestricted global scan with a LIMIT
+applied only after matching: both have unbounded work for sparse/no matches.
 
-- Decision (2026-10-10 user clarification): coordinate physical access with
-  [plan 88](88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md)
-  and [MasterPlan 13](../masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md)
-  under [ADR-15](../adr/0015-inspection-observers-preserve-wire-contracts-and-bound-shared-work.md).
-  Reuse suitable indexes instead of independently adding redundant structures. If different
-  stream-name/global-event ordering needs require separate structures, justify them with
-  focused read evidence and assess their combined append overhead and active load against
-  the same original control. There is no separate additive regression allowance per feature.
-  Rationale: the user cannot pay ongoing writer overhead twice. This supersedes unconditional
-  index-creation instructions and independent before/after acceptance below; M2's migration
-  is conditional on that shared review. Neither feature becomes an implementation prerequisite
-  for the other. No index is authorized, no milestone is completed, and the older plan's
-  source/schema assumptions still need refreshing before implementation.
+2026-10-26 — Introduce explicit scan progress. A frontier is a global position
+through which every applicable event has been resolved. It can move past unrelated
+rows but not past an unresolved matching event. Do not infer exhaustion from an
+empty vector, use notification versions as global positions, or advance to the
+publisher position without scanning. Preserve existing at-least-once delivery:
+a checkpoint-save failure may cause replay, never a skip.
 
-- Decision: Add a new `CategoryPrefix !Text` constructor to `SubscriptionTarget`
-  rather than redefining `Category` to mean a prefix.
-  Rationale: `Category` has precise, tested semantics (exact match on the
-  generated `streams.category` column, backed by `ix_streams_category` and the
-  per-category NOTIFY wake-generation optimization in
-  `Kiroku.Store.Notification`). Changing it would break those guarantees and the
-  consumer-group partition tests. A new constructor is additive, and a repo-wide
-  search confirms exactly two sites pattern-match the target constructors
-  (`Worker.hs` `fetchBatch` and `nextInput`); both must gain a new arm.
-  Date: 2026-06-03.
+2026-10-26 — Add namespace wake registration as the second milestone, using the
+existing NOTIFY payload and safety-poll model. Generate only the notified
+category's colon ancestors and exact category, and look up active namespaces;
+do not scan every registered namespace or retain every historical category in
+a second unbounded map. No namespace registrations means no namespace parsing,
+ancestor generation or map mutation beyond the empty-registry check. This check
+is still shared callback work and must be acknowledged in disabled-path evidence.
 
-- Decision (validation correction, 2026-06-03): Do **not** rely on the compiler
-  to flag the two new match arms. An earlier draft of this plan asserted "the
-  worker is built with incomplete-pattern warnings as errors, so a missed arm
-  fails the build." That is false. `kiroku-store/kiroku-store.cabal` defines a
-  `common common` stanza (lines 23–30) that sets only `default-language` and
-  `default-extensions`; the `library` stanza carries **no** `ghc-options` at all
-  (only the test/bench stanzas add `-threaded …`). There is no `-Wall`, no
-  `-Werror`, and no `-Wincomplete-patterns`, and GHC's default warning set does
-  not enable incomplete-pattern checking. A missing arm in `fetchBatch` or
-  `nextInput` would therefore compile **silently** and fail at *runtime*.
-  **Resolution (adopted, replaces the prior "rely on grep + M4 test only"
-  stance):** add `-Werror=incomplete-patterns` to the cabal `common common` stanza
-  as the first step of M1, restoring the safety net the plan originally assumed.
-  `-Werror=incomplete-patterns` both *enables* the warning (it is off by default
-  here) and promotes it to an error, so no separate `-Wincomplete-patterns` is
-  needed. Verified safe before adopting: `cabal build kiroku-store
-  --ghc-options="-Werror=incomplete-patterns"` compiled the library, the test
-  suite, and all three benchmarks with exit 0 — there are **no** pre-existing
-  incomplete `case`/function patterns the flag would newly reject, so this is a
-  clean zero-fix switch today. It goes in `common common` (not library-only)
-  because test and bench stanzas were proven clean too; library-only is the
-  conservative fallback if a future test deliberately wants a partial match. With
-  the flag in place, a forgotten `CategoryPrefix` arm now fails the M1 build —
-  belt-and-braces with the M4 behavioural test.
-  Date: 2026-06-03.
+2026-10-26 — No additional writer index or append denormalization. Extend only
+subscription-target constraints and save dispatch. Defer shared scan caches,
+tries, per-namespace database channels, maintained category inventories and
+adaptive per-category query merging until a measured remaining bottleneck
+justifies their invalidation, lifecycle and ordering complexity.
 
-- Decision (validation correction, 2026-06-03): Standardize on the colon (`:`) as
-  a namespace delimiter and define the new target as a **category namespace**
-  match rather than a raw stream-name prefix. This resolves the naming/vision
-  question the team raised and the misnomer in the original draft (the constructor
-  was called `CategoryPrefix` but matched the whole `stream_name`, so
-  `CategoryPrefix "order"` would have unanchored-matched `ordering-1` and
-  `orderbook-1`).
+2026-10-26 — Keep evidence proportional. Reuse retained query research; verify the
+production payload query and worker invariants first. Measure namespace-disabled
+notification overhead and one active sparse namespace workload before expanding
+coverage. A bounded window limits one fetch, not total replay work or total work
+across workers. Preserve ADR-15's original-control cumulative comparison and
+report active-reader cost without claiming that unchanged append SQL proves
+neutrality.
 
-  Recommended design: `CategoryNamespace !Text`, where `CategoryNamespace "pm"`
-  matches every stream whose **category** (the generated `split_part(stream_name,
-  '-', 1)` column) is exactly `pm` or begins with `pm:` — i.e. the SQL predicate is
-  `s.category = $2 OR s.category LIKE $2 || ':%'` (with the literal escaped). For
-  `keiro`'s `pm:<processName>-<corr>` streams the category is `pm:<processName>`,
-  so `CategoryNamespace "pm"` fans in the whole family, and the scheme composes
-  (`CategoryNamespace "pm:fulfillment"` narrows to that sub-namespace). Anchoring
-  on `:` makes the match self-documenting, kills the `ordering`/`orderbook`
-  foot-gun, and stays aligned with Message-DB category semantics (the part before
-  the first `-`), which fits kiroku's vision better than an arbitrary substring.
-
-  Why category, not stream_name: matching the `category` column lets the supporting
-  `text_pattern_ops` index live on `category` instead of `stream_name`. `category`
-  has far lower cardinality (many streams per category), so its btree is smaller
-  and marginally cheaper to maintain on writes — directly relevant to the
-  append-path regression decision below. Functionally either column works for the
-  `pm:` case.
-
-  Tradeoff to accept consciously: this bakes the `:` convention into the store. A
-  user whose stream names use no `:` simply gets exact-category behaviour from
-  `CategoryNamespace` and continues to use `Category` for single categories;
-  nothing is lost, but the namespace feature only adds value for `:`-namespaced
-  families. If the team prefers a fully general, convention-free tool instead, the
-  fallback is `StreamNamePrefix !Text` matching `stream_name LIKE $2` (the original
-  raw-prefix semantics, correctly named). The plan's SQL/index/test sections are
-  written generically as "the namespace predicate"; pick `CategoryNamespace`
-  (recommended) or `StreamNamePrefix` before M1 and substitute the concrete
-  predicate (`category … LIKE 'pm:%'` vs `stream_name LIKE 'pm:%'`) and index
-  column accordingly.
-  Date: 2026-06-03.
-
-- Decision: Match prefixes with `stream_name LIKE <prefix>%` against a
-  `text_pattern_ops` btree index on `streams.stream_name`, with the prefix's LIKE
-  metacharacters escaped, rather than `starts_with()` or a trigram index.
-  Rationale: A plain `LIKE 'literal%'` with a fixed prefix is the canonical
-  index-using prefix scan in PostgreSQL, but only when the index opclass is
-  `text_pattern_ops` (the default-collation unique index on `stream_name` does not
-  serve `LIKE` prefix scans under a non-C collation). `text_pattern_ops` is the
-  standard, lowest-risk choice. Escaping `%`, `_`, and `\` in the supplied prefix
-  keeps a caller-supplied namespace marker from being interpreted as a wildcard
-  while preserving the fixed-prefix shape the planner needs. A historical
-  benchmark recorded in `docs/plans/milestone-5-links-and-categories.md` rejected
-  `LIKE` for the *exact-category* path because the generated column + equality
-  index is faster there; that finding is about equality, not prefix scans, and
-  does not apply to a genuine prefix target where `LIKE 'p%'` on a
-  `text_pattern_ops` index is the right tool.
-  Date: 2026-06-03.
-
-- Decision: For a non-consumer-group prefix subscription, drive live delivery
-  through the existing DB-driven live loop (`liveLoopDbDriven`, already used by
-  consumer-group subscriptions) rather than the category-specialized NOTIFY loop
-  (`liveLoopCategoryNotify`).
-  Rationale: `liveLoopCategoryNotify` gates on a *per-category* wake counter in
-  the Notifier (`categoryGenerations :: TVar (Map Text Word64)`), so an idle
-  category does zero DB work. A prefix spans many categories and has no single
-  counter; reusing the category loop would require new per-prefix Notifier state.
-  `liveLoopDbDriven` wakes on the global publisher-position advance and re-queries
-  with the prefix filter — correct. It also does **not** busy-spin: the loop gates
-  on `check (p > waitFrom)` where `waitFrom` is the *last observed* publisher
-  position (not the partition cursor), which is exactly the fix from
-  `docs/plans/37-fix-category-subscription-live-loop-busy-spin.md`. Reusing it is
-  sound on that axis.
-  Date: 2026-06-03.
-
-- Decision (validation correction, 2026-06-03): The live-path cost above is larger
-  than "polls/wakes on unrelated appends" and must be stated accurately. On every
-  global publisher advance, `liveLoopDbDriven` runs the *streams-driven* prefix
-  query (`readPrefixForwardStmt`), whose plan enumerates **every** prefix-matching
-  stream via the `text_pattern_ops` index and, for each, probes
-  `ix_stream_events_all_by_origin` for `stream_version > cursor`. The outer
-  `ORDER BY se.stream_version LIMIT $3` cannot short-circuit (it needs the
-  globally smallest positions across all matching streams), so each wake costs
-  O(number of prefix-matching streams) index probes **even when zero new events
-  match**. For the motivating single `pm:` dispatcher over a modest number of
-  streams this is fine. But `CategoryPrefix` exists specifically to fan in a
-  *large* family, so in a high-throughput store the cost is (publisher tick rate)
-  × (size of the prefix family) of empty work — the very thing the per-category
-  NOTIFY gate was built to avoid. Three options, to be chosen before M1:
-  (a) accept it for v1 but document the bound and advise the target be used for
-  bounded families; (b) give the *live* loop a separate `$all`-driven query
-  (`FROM stream_events se WHERE se.stream_id = 0 AND se.stream_version > $1 JOIN
-  streams s ON s.stream_id = se.original_stream_id WHERE s.stream_name LIKE $2`,
-  mirroring `readAllForwardSQL` plus a join), whose cost scales with *new global
-  events since the cursor* rather than family size — strictly better at the live
-  tail — while keeping the streams-driven query for sparse catch-up; or (c) a true
-  per-prefix NOTIFY gate. Note for (c): the existing NOTIFY payload already carries
-  the full `stream_name` (`Kiroku.Store.Notification.handleNotification` /
-  `categoryFromPayload` parse it out today), so a prefix gate is closer than "new
-  per-prefix Notifier state" implies — the listener would maintain prefix-keyed
-  wake generations much like `categoryGenerations`. Option (b) is the recommended
-  principled fix and fits kiroku's existing `readAllForward` pattern; it does,
-  however, mean the live loop no longer shares `fetchBatch`'s single statement.
-  Date: 2026-06-03.
-
-- Decision: Support consumer-group + prefix subscriptions in this plan.
-  Rationale: The consumer-group catch-up path is the same SQL with an added
-  `hashtextextended(stream_id) % size = member` partition filter, and the
-  consumer-group live path already uses `liveLoopDbDriven`. Supporting
-  `(Just group, CategoryPrefix p)` is a near-free symmetric addition that keeps
-  `fetchBatch`'s `(consumerGroup, target)` pattern total without an awkward
-  partial/`error` arm. The earlier research note suggesting "non-group only" was
-  about the NOTIFY-gate optimization, which we already sidestep by using the
-  DB-driven live loop for all prefix subscriptions.
-  Date: 2026-06-03.
-
-- Decision (validation correction, 2026-06-03): Account for — and measure — the one
-  way this feature can regress subscriptions and writers that never use it. The
-  team asked whether non-prefix users pay a cost; the answer is "only one change is
-  shared state, and it is on the write path, not the read path."
-
-  What does **not** regress: the new constructor is purely additive to the
-  `SubscriptionTarget` sum, so existing `AllStreams` / `Category` / consumer-group
-  `case` arms in `fetchBatch` and `nextInput` execute exactly as before (matching a
-  data constructor is O(1); extra arms do not slow the existing ones). The new SQL
-  statements and live-loop arm are reached only by a namespace config. The
-  `-Werror=incomplete-patterns` flag is compile-time only. The Notifier, publisher,
-  FSM, `shouldDeliver`, and every existing read statement are untouched. So no
-  existing subscription does any extra work at run time.
-
-  What can regress: the new `text_pattern_ops` index lives on the shared `streams`
-  table, so it adds write amplification to the append path for **all** writers,
-  feature or not. `streams` currently carries three indexes (PK `stream_id`, UNIQUE
-  `stream_name`, `ix_streams_category`); the append upsert (`stream_upsert` CTE)
-  does an INSERT for a new stream and an UPDATE (version bump) for an existing one.
-  (i) New-stream INSERTs gain one extra btree insert each — and process-manager
-  workloads that spin up many short-lived `pm:` streams create streams fastest, so
-  they feel this most (ironically the same workload the feature targets). (ii)
-  Version-bump UPDATEs touch the new index only on **non-HOT** updates: the updated
-  column (`stream_version`) is not indexed, so an update is HOT-eligible and updates
-  **no** indexes *when the page has free space*. The `streams` table sets no
-  `fillfactor` (defaults to 100, no reserved space), so once a page fills, later
-  updates go non-HOT and must touch every index, including the new one. The common
-  steady-state case (append to an existing stream, HOT update after pruning) is
-  unaffected; the regression concentrates in new-stream creation and
-  page-pressure/non-HOT updates.
-
-  Required action, not assumption: measure it. The repo has an append benchmark
-  (`kiroku-store/bench/Main.hs`, `tasty-bench`, including concurrent-writer and
-  new-stream-creation cases) — run the relevant groups before and after adding the
-  index and record the delta in Surprises & Discoveries (M2). The project's append
-  path is benchmark-gated by precedent (see ExecPlans 21/22/23). Mitigations if the
-  delta is material: put the index on the lower-cardinality `category` column (per
-  the namespace decision above — smaller btree, cheaper maintenance) rather than
-  `stream_name`; and/or consider `fillfactor` tuning on `streams` as a separate,
-  out-of-scope change. Do **not** ship the index without the before/after numbers.
-  Date: 2026-06-03.
-
+Historical decisions retained in substance: June's additive target, exact-category
+compatibility, consumer-group support and explicit performance accounting still
+apply. June's LIKE/index/per-stream SQL and global-wake recommendations are
+superseded. October 10's shared-cost requirement still applies; its unselected
+browse layout was resolved by ADR-17 and migration 0015 on October 11.
+ADR-10's October 25 acceptance of the existing category architecture likewise
+does not authorize another write-cost allowance.
 
 ## Outcomes & Retrospective
 
-2026-10-10 shared design continuation: a concrete disposable query prototype
-passes all 224 TypeID/edge-case checks for category-plus-literal-prefix browsing
-and bounded namespace windows. Browse work is at most 12 rows / 12 buffers;
-namespace work is at most 38 rows / 9 buffers. Owned clusters stopped.
-The retained research distinguishes successful read evidence from migration,
-worker and write-cost acceptance. The user accepted UTF-8 byte ordering for new stream pages;
-no durable architecture or production index is selected. ADR-15 already governs
-this shared review, so the distillation pass creates no new ADR yet.
 
-2026-10-10 shared research completed with retained matched evidence and verified
-cell cleanup. This plan remains unimplemented: namespace semantics/access and
-cumulative combined-feature acceptance are open. No migration or new durable
-architecture was selected; ADR-15 already governs coordination.
-
-2026-10-10 shared research stopping point: benchmark and footprint research
-is complete; no prefix target, migration or append acceptance was implemented.
-Current subscriptions retain their event-index path. General namespace/prefix
-access and matched writer evidence remain open; the older source/schema claims
-below remain historical pending M0 refresh. ADR-15 already covers these findings.
-
-Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
-Compare the result against the original purpose.
-
-(To be filled during and after implementation.)
-
+2026-10-26: the plan now describes the current code and a concrete design that
+removes per-family stream probes and extra writer indexes while suppressing
+unrelated live queries. This is a design outcome, not a measured speedup. The
+remaining cost is scanning global history for each namespace/group member,
+matching-row payload fetch/decode, checkpoint saves, and active notification
+routing. SQL production plans, worker correctness and performance acceptance
+remain open. No production source or schema was changed during this refresh.
 
 ## Context and Orientation
 
-Read this fully before editing. It assumes no prior knowledge of the repository.
 
-`kiroku-store` is a PostgreSQL event-store library rooted at
-`/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store`. Paths under
-`kiroku-store/` are relative to that directory. Run `cabal` from the repository
-root `/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku`. SQL migrations live
-in a sibling package at
-`/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/kiroku-store-migrations/sql-migrations/`
-and are embedded into the binary at build time, then applied in filename
-(lexicographic) order.
+All paths below are repository-relative. Run commands at the repository root.
+`kiroku-store/src/Kiroku/Store/Subscription/Types.hs` defines targets, validated
+batch/group sizes, dispositions and configuration. `Subscription.hs` registers
+live sources and owns cleanup. `Subscription/Worker.hs` implements `LiveSource`,
+`nextInput`, `fetchBatch`, `processEvents`, checkpoint saves and reconnect behavior.
+`Subscription/Fsm.hs` is the pure state machine: it describes lifecycle transitions
+and effects, while the worker executes them. The new window-completion protocol
+must connect these pieces rather than bypassing lifecycle/retry handling.
 
-The exact places that decide "which streams does a subscription see":
+`kiroku-store/src/Kiroku/Store/SQL.hs` owns event reads and specialized checkpoint
+save statements. `Subscription/Checkpoint/SQL.hs` owns startup target validation,
+`targetColumns`, `targetBindingRow`, `saveBoundCheckpointSession`, adoption,
+resize support and rebind SQL. `Subscription/Checkpoint.hs` exposes transactional
+checkpoint operations. Rebinding changes identity and position explicitly;
+ordinary saves stay monotonic. `Subscription/CheckpointInventory/SQL.hs` exposes
+positions, not target kinds; preserve the published inventory shape.
 
-1. **The target type.** `kiroku-store/src/Kiroku/Store/Subscription/Types.hs`
-   lines 140-145 — `data SubscriptionTarget = AllStreams | Category !CategoryName`.
-   `CategoryName` is `newtype CategoryName = CategoryName Text`
-   (`kiroku-store/src/Kiroku/Store/Types.hs` lines 262-268).
+`kiroku-store/src/Kiroku/Store/Notification.hs` already parses the full stream
+name from comma-containing notification payloads and derives category once.
+It updates category generation counters (monotonically changing wake tokens),
+not a trustworthy global position. `Subscription/EventPublisher.hs` tracks global
+publisher position and serves ungrouped `AllStreams` queues. Do not add category
+lookups or filtering to that publisher's default decode path.
 
-2. **The catch-up fetch.** `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs`,
-   function `fetchBatch` (lines 539-567). It pattern-matches the pair
-   `(consumerGroup config, target config)` over four cases and chooses the SQL
-   statement to run:
+`kiroku-store-migrations/migrations/0001-kiroku-bootstrap.sql` defines `$all`
+(stream ID 0), `stream_events` and `ux_stream_events_stream_version`.
+Migration `0012.sql` adds category to global rows; `0014.sql` binds subscription
+targets; `0015.sql` adds the browse index. The manifest and package README govern
+new migrations. Never edit released SQL bytes. Read the committed `$all` stream
+row's `stream_version` to capture an authoritative upper head H, following
+`FromCurrentHead` initialization in `Subscription/Checkpoint/SQL.hs`; this avoids
+depending on publisher decode progress. A sweep processes only positions up to H.
 
-   ```haskell
-   case (consumerGroup config, target config) of
-       (Nothing, AllStreams) ->
-           Pool.use pool (Session.statement (pos, batchSize config) SQL.readAllForwardStmt)
-       (Nothing, Category (CategoryName cat)) ->
-           Pool.use pool (Session.statement (pos, cat, batchSize config) SQL.readCategoryForwardStmt)
-       (Just (ConsumerGroup m n), AllStreams) ->
-           Pool.use pool (Session.statement (pos, m, n, batchSize config) SQL.readAllForwardConsumerGroupStmt)
-       (Just (ConsumerGroup m n), Category (CategoryName cat)) ->
-           Pool.use pool (Session.statement (pos, cat, m, n, batchSize config) SQL.readCategoryForwardConsumerGroupStmt)
-   ```
+Relevant durable decisions are [ADR-2](../adr/0002-static-hash-partitioned-consumer-groups.md)
+(stable SQL hash partitioning), [ADR-4](../adr/0004-explicit-subscription-checkpoint-lifecycle.md)
+(durable target identity and explicit rebind), [ADR-8](../adr/0008-subscription-configuration-validates-at-construction-and-runtime-refusals-share-one-parent.md)
+(configuration/refusal contracts), [ADR-10](../adr/0010-category-reads-use-a-denormalized-category-index-on-all-rows.md)
+(existing category storage/access), [ADR-11](../adr/0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md)
+(proportional evidence and default-path protection), [ADR-12](../adr/0012-decode-failures-are-per-event-outcomes-with-independent-subscription-dispositions.md)
+(per-event decode dispositions), [ADR-15](../adr/0015-inspection-observers-preserve-wire-contracts-and-bound-shared-work.md)
+(cumulative cost and frozen inspection contracts), and
+[ADR-17](../adr/0017-stream-browsing-uses-byte-order-and-one-shared-name-index.md)
+(one browse index and bounded namespace windows). Existing category write cost
+and browsing-cohort acceptance are baselines, not authorization for additional
+regressions. Coordinate changes with
+[plan 88](88-expose-a-rest-read-api-for-browsing-streams-categories-and-events.md)
+and [MasterPlan 13](../masterplans/13-expose-the-kiroku-inspection-surface-for-the-keiro-runtime-ui-and-a-standalone-kiroku-ui.md);
+do not reopen their completed ordering choice or install another browse index.
 
-   A new target constructor forces two new arms here (`(Nothing, CategoryPrefix p)`
-   and `(Just (ConsumerGroup m n), CategoryPrefix p)`).
-
-3. **The live-delivery dispatch.** Same file, function `nextInput` (lines
-   214-248). In the `Live` state it matches `(consumerGroup config, target config)`:
-
-   ```haskell
-   Live c -> case (consumerGroup config, target config) of
-       (Nothing, AllStreams) -> ...                         -- read from the in-memory live queue
-       (Nothing, Category (CategoryName cat)) ->
-           liveExitToInput =<< liveLoopCategoryNotify pool config stateVar catGenVar cat emit posRef c stSettings
-       (Just _, _) ->
-           liveExitToInput =<< liveLoopDbDriven pool config stateVar pubPosVar emit posRef c stSettings
-   ```
-
-   The `(Just _, _)` arm already covers *every* consumer-group target including a
-   new prefix one. You must add a non-group prefix arm
-   `(Nothing, CategoryPrefix p) -> liveExitToInput =<< liveLoopDbDriven ...`,
-   reusing the same DB-driven loop the group path uses (see Decision Log).
-
-4. **The category SQL to mirror.** `kiroku-store/src/Kiroku/Store/SQL.hs`:
-   - `readCategoryForwardStmt :: Statement (Int64, Text, Int32) (Vector RecordedEvent)`
-     (lines ~736-772). Its body joins the global `$all` stream to `streams s` and
-     filters `WHERE s.category = $2`, ordered by `stream_version`, `LIMIT $3`.
-   - `readCategoryForwardConsumerGroupStmt :: Statement (Int64, Text, Int32, Int32, Int32) (Vector RecordedEvent)`
-     (lines ~791-831). Same as above plus
-     `AND (((hashtextextended(s.stream_id::text, 0) % $4) + $4) % $4) = $3`
-     to keep one partition (member `$3` of `$4`).
-
-   You will add prefix twins of both, differing only in the stream-selection
-   predicate: `WHERE s.stream_name LIKE $2` (with the pattern carrying a trailing
-   `%`, see below) instead of `WHERE s.category = $2`.
-
-5. **Indexes.** Bootstrap migration lines ~87-115 create `ix_streams_category` on
-   the generated `category` column (serves `=`), and the `streams` table has a
-   unique index on `stream_name` from
-   `CONSTRAINT ix_streams_stream_name UNIQUE (stream_name)`. That unique index is a
-   default-collation btree, which does **not** serve `LIKE 'prefix%'` scans unless
-   the database collation is `C`. You will add a `text_pattern_ops` index so the
-   prefix scan is index-backed regardless of collation.
-
-6. **What is NOT involved.** Target matching is done entirely in SQL stream
-   selection; the per-event `shouldDeliver` filter
-   (`Kiroku.Store.Subscription.Types` lines 131-133) composes only
-   `eventTypeFilter` and `selector` and has no target branch — leave it alone. The
-   subscription worker FSM (`Kiroku/Store/Subscription/Fsm.hs`) is target-agnostic.
-   The `subscribe` entry point and `defaultSubscriptionConfig` take a whole
-   `SubscriptionTarget` value and need no signature change. The
-   `shibuya-kiroku-adapter` does not pattern-match `SubscriptionTarget`
-   constructors (it passes the target through from `KirokuAdapterConfig`); confirm
-   with a grep in M1 and add nothing there.
-
-Terms in plain language:
-
-- **Prefix** here means a literal leading substring of the full `stream_name`
-  (e.g. `pm:`), not the hyphen-delimited "category". The prefix is matched
-  against the entire stream name with `LIKE`.
-- **`text_pattern_ops`** is a PostgreSQL btree operator class that compares text
-  byte-by-byte, which is what makes `LIKE 'prefix%'` able to use the index even
-  when the column's normal collation would not allow it.
-- **Catch-up vs live**: a subscription first replays historical events up to the
-  current end of the log (catch-up), then switches to delivering new events as
-  they arrive (live). Both phases must honor the prefix.
-
+`kiroku-store/test/Main.hs` is the Tasty test driver. Reuse
+`Test.SubscriptionTarget`, `Test.SubscriptionReconnect`,
+`Test.SubscriptionRetryDeadLetter`, `Test.CategoryIdleNoSpin`,
+`Test.ConsumerGroup`, and `Test.Helpers` under `kiroku-store/test/Test/`.
+`kiroku-store/bench/Explain.hs` and `scripts/mp13-shared-name-index-probe.py`
+provide structural-query precedents. `bench/mp13-release/README.md` documents
+the retained cumulative comparison infrastructure.
 
 ## Plan of Work
 
-Five milestones. M1 + M2 deliver a working prefix subscription; M3 is optional
-parity for non-subscription reads; M4 proves it; M5 documents it.
 
-### Milestone 1 — Add the constructor, the prefix SQL, and the two match arms
+### Milestone 1 — Bounded windows and an end-to-end namespace worker
 
-Scope: a namespace subscription works end to end against the existing
-indexes (it will be correct but not yet index-optimized — M2 adds the index). At
-the end, the package compiles and the existing test suite is green. **Naming/SQL
-note — read before copying the snippets:** the code snippets in steps 1–4 below
-still show the original draft's spelling (`CategoryPrefix` constructor, `stream_name
-LIKE $2` predicate). Per the namespace decision in the Decision Log, the
-**recommended** form is the constructor `CategoryNamespace` and the predicate
-`(s.category = $2 OR s.category LIKE $2 || ':%')` against a `text_pattern_ops`
-index on `category`; the convention-free fallback is `StreamNamePrefix` with
-`stream_name LIKE $2`. Settle that decision first, then substitute the chosen name
-and predicate consistently as you apply each snippet. Step 0 adds
-`-Werror=incomplete-patterns`, so from this milestone on a forgotten match arm
-fails the build — the compiler safety net the rest of the plan relies on.
 
-Edits:
+Add `CategoryNamespace !Text` to `SubscriptionTarget`. Add internal
+`NamespaceWindow` and `DecodedNamespaceWindow` result types containing events,
+`scannedThrough :: GlobalPosition`, `scannedCount :: Int32`, and
+`exhausted :: Bool`. Capture H once per sweep. Initially choose
+W = min(1024, batchSizeValue (batchSize config)); batch size remains an upper
+bound on delivered events, while W also bounds unrelated rows inspected per
+fetch. Do not issue a request when the scan cursor is already at or beyond H.
 
-0. `kiroku-store/kiroku-store.cabal`, the `common common` stanza (lines 23–30):
-   add a `ghc-options` line so incomplete patterns become build errors.
-
-   ```cabal
-   common common
-     default-language:   GHC2024
-     ghc-options:        -Werror=incomplete-patterns
-     default-extensions:
-       DeriveAnyClass
-       DuplicateRecordFields
-       OverloadedLabels
-       OverloadedStrings
-   ```
-
-   Verified clean before this plan: `cabal build kiroku-store
-   --ghc-options="-Werror=incomplete-patterns"` built the library, tests, and all
-   benchmarks at exit 0, so this introduces no pre-existing-pattern fixes. Run
-   `cabal build kiroku-store` once now to confirm a clean baseline before adding the
-   constructor (so the *next* build's failure unambiguously points at the new arms).
-
-1. `kiroku-store/src/Kiroku/Store/Subscription/Types.hs` lines 140-145: add the
-   constructor. (Naming/semantics per the Decision Log — `CategoryNamespace`
-   recommended; `StreamNamePrefix` is the convention-free fallback.)
-
-   ```haskell
-   data SubscriptionTarget
-       = AllStreams
-       | Category !CategoryName
-       | -- | Subscribe to every stream in a category /namespace/ — its category
-         -- (the part before the first @-@) is exactly @ns@ or begins with @ns:@.
-         -- E.g. @CategoryNamespace "pm"@ matches @pm:fulfillment-1@ and
-         -- @pm:billing-2@ (categories @pm:fulfillment@ / @pm:billing@) but not
-         -- @orders-1@. Standardizes on @:@ as the namespace delimiter, so unlike a
-         -- raw stream-name prefix it will not match @ordering-1@ for @"order"@.
-         CategoryNamespace !Text
-       deriving stock (Eq, Show)
-   ```
-
-   Once `-Werror=incomplete-patterns` is in place (step 0), `cabal build
-   kiroku-store` now **fails** here until both `Worker.hs` arms (steps 3–4) are
-   added — pointing you straight at the two sites.
-
-2. `kiroku-store/src/Kiroku/Store/SQL.hs`: add two statements next to the category
-   ones. Add a small helper to turn a caller prefix into a safe `LIKE` pattern,
-   and export the new statements the same way the category statements are
-   exported.
-
-   ```haskell
-   -- Turn a literal prefix into a LIKE pattern that matches it at the start of
-   -- the string, escaping LIKE metacharacters so a namespace marker like "pm:"
-   -- (or one containing '%' or '_') is treated literally. Pair with "LIKE ... ESCAPE '\'".
-   likePrefixPattern :: Text -> Text
-   likePrefixPattern p = T.concatMap esc p <> "%"
-     where
-       esc c
-           | c == '\\' = "\\\\"
-           | c == '%'  = "\\%"
-           | c == '_'  = "\\_"
-           | otherwise = T.singleton c
-
-   readPrefixForwardStmt :: Statement (Int64, Text, Int32) (Vector RecordedEvent)
-   readPrefixForwardStmt =
-       preparable readPrefixForwardSQL readCategoryEncoder (D.rowVector recordedEventRow)
-
-   readPrefixForwardSQL :: Text
-   readPrefixForwardSQL =
-       -- identical to readCategoryForwardSQL but selecting by stream_name prefix
-       "SELECT e.event_id, e.event_type, \
-       \       se.stream_version, se.stream_version AS global_position, \
-       \       se.original_stream_id, se.original_stream_version, \
-       \       e.data, e.metadata, e.causation_id, e.correlation_id, e.created_at \
-       \FROM streams s \
-       \JOIN LATERAL ( \
-       \  SELECT se.* FROM stream_events se \
-       \  WHERE se.stream_id = 0 AND se.original_stream_id = s.stream_id \
-       \    AND se.stream_version > $1 \
-       \  ORDER BY se.stream_version ASC LIMIT $3 \
-       \) se ON true \
-       \JOIN events e ON e.event_id = se.event_id \
-       \WHERE s.stream_name LIKE $2 ESCAPE '\\' \
-       \ORDER BY se.stream_version ASC LIMIT $3"
-
-   readPrefixForwardConsumerGroupStmt :: Statement (Int64, Text, Int32, Int32, Int32) (Vector RecordedEvent)
-   readPrefixForwardConsumerGroupStmt =
-       preparable readPrefixForwardConsumerGroupSQL readCategoryConsumerGroupEncoder (D.rowVector recordedEventRow)
-
-   readPrefixForwardConsumerGroupSQL :: Text
-   readPrefixForwardConsumerGroupSQL =
-       -- readPrefixForwardSQL plus the partition predicate from
-       -- readCategoryForwardConsumerGroupSQL
-       "... WHERE s.stream_name LIKE $2 ESCAPE '\\' \
-       \  AND (((hashtextextended(s.stream_id::text, 0) % $4) + $4) % $4) = $3 \
-       \ORDER BY se.stream_version ASC LIMIT $5"
-   ```
-
-   Reuse the existing `readCategoryEncoder` (it encodes `(Int64, Text, Int32)`)
-   and `readCategoryConsumerGroupEncoder` (it encodes `(Int64, Text, Int32, Int32, Int32)`)
-   — the parameter tuples are identical to the category statements, only the SQL
-   text's predicate differs. Confirm the exact constant/encoder names against
-   `SQL.hs` lines ~736-831 and copy the surrounding `preparable`/`recordedEventRow`
-   idiom verbatim. Ensure `import qualified Data.Text as T` is in scope for
-   `likePrefixPattern`.
-
-3. `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs` `fetchBatch` (lines
-   539-567): add the two prefix arms. The prefix value passed as `$2` must be the
-   `likePrefixPattern p` form (so wrap at the call site, or store the pattern once):
-
-   ```haskell
-       (Nothing, CategoryPrefix p) -> do
-           result <- Pool.use pool (Session.statement (pos, SQL.likePrefixPattern p, batchSize config) SQL.readPrefixForwardStmt)
-           handle result
-       (Just (ConsumerGroup m n), CategoryPrefix p) -> do
-           result <- Pool.use pool (Session.statement (pos, SQL.likePrefixPattern p, m, n, batchSize config) SQL.readPrefixForwardConsumerGroupStmt)
-           handle result
-   ```
-
-   (`handle` / `pos` / `batchSize config` are the same locals the existing arms
-   use; match their exact spelling.)
-
-4. `kiroku-store/src/Kiroku/Store/Subscription/Worker.hs` `nextInput` `Live` arm
-   (lines 214-248): add the non-group prefix arm, routing to the DB-driven loop:
-
-   ```haskell
-       (Nothing, CategoryPrefix _) ->
-           liveExitToInput =<< liveLoopDbDriven pool config stateVar pubPosVar emit posRef c stSettings
-   ```
-
-   The `(Just _, _)` arm already handles `(Just group, CategoryPrefix p)`; no new
-   group arm is needed in `nextInput`.
-
-5. Grep the adapter to confirm no exhaustive match needs updating:
-
-   ```bash
-   rg -n "AllStreams|Category" /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/shibuya-kiroku-adapter/src
-   ```
-
-   Expect only pass-through uses (constructing/forwarding a target), not a `case`
-   that would now be non-exhaustive. (Validation confirmed this: the only matches
-   are value construction and the `SubscriptionTarget (..)` re-export.) While here,
-   update the now-stale field Haddock at
-   `shibuya-kiroku-adapter/src/Shibuya/Adapter/Kiroku.hs:166` and `:318`
-   ("'AllStreams' or @'Category' categoryName@") to also name the new constructor,
-   since the re-export exposes it downstream. Record the result in Surprises &
-   Discoveries.
-
-Acceptance for M1: `cabal build kiroku-store` compiles. Because step 0 added
-`-Werror=incomplete-patterns`, the build is now a real safety net: between adding
-the constructor (step 1) and adding the two `Worker.hs` arms (steps 3–4) the build
-**fails** with an incomplete-pattern error naming `fetchBatch`/`nextInput`, and
-goes green only once both arms are present. As a structural double-check,
-`rg -n "CategoryNamespace" kiroku-store/src/Kiroku/Store/Subscription/Worker.hs`
-should show one arm in `nextInput` (the `(Nothing, CategoryNamespace _)` Live arm)
-and two in `fetchBatch` (`(Nothing, …)` and `(Just (ConsumerGroup …), …)`).
-`cabal test kiroku-store` is green (existing behavior unchanged; the new arms are
-only reached by a namespace config, which nothing constructs yet).
-
-### Milestone 2 — Review the shared access path and any required migration
-
-**2026-10-10 coordination gate:** complete the shared physical design review in M0 first.
-The migration and benchmark commands below are historical candidate instructions, not
-authorization to add a separate index for this feature. First evaluate existing structures
-and the browsing design in plan 88. Only implement a migration selected by that review;
-acceptance must cover the resulting combined schema and active workloads against the same
-original control. A per-feature before/after delta alone cannot satisfy that gate.
-
-Scope: make the namespace `LIKE` scan index-backed so a namespace subscription
-over a large store does not sequential-scan `streams`, **and** measure the
-append-path cost the new index adds (it is on the shared `streams` table, so it
-affects every writer — see the append-regression decision in the Decision Log). At
-the end, `EXPLAIN` shows an index scan for the namespace predicate and the
-before/after append benchmark delta is recorded.
-
-If the shared review selects this candidate, create a migration at the current repository's
-actual migration location; the historical example was
-`kiroku-store-migrations/sql-migrations/2026-06-03-00-00-00-kiroku-prefix-subscription.sql`
-(the date prefix sorts after the existing migrations, so it applies last). Index
-the column the chosen predicate filters on — `category` for the recommended
-`CategoryNamespace` design (lower cardinality, smaller/cheaper btree), or
-`stream_name` for the `StreamNamePrefix` fallback:
+Add plain and grouped namespace statements in
+`kiroku-store/src/Kiroku/Store/SQL.hs`. The essential query shape is below;
+parameterize W, H and namespace in production. This position-only diagnostic
+illustrates progress independently of delivery. It is not the payload decoder.
 
 ```sql
--- Support namespace-matching subscription targets.
--- A default-collation btree does not serve LIKE 'ns:%' scans; text_pattern_ops
--- compares byte-by-byte so the planner can use it. Index the predicate column:
---   CategoryNamespace -> category ; StreamNamePrefix -> stream_name
-CREATE INDEX IF NOT EXISTS ix_streams_category_pattern
-    ON streams (category text_pattern_ops);
+WITH scanned AS MATERIALIZED (
+  SELECT event_id, stream_version, original_stream_id,
+         original_stream_version, category
+  FROM stream_events
+  WHERE stream_id = 0 AND stream_version > $1
+  ORDER BY stream_version
+  LIMIT $4
+), eligible AS MATERIALIZED (
+  SELECT * FROM scanned WHERE stream_version <= $2
+)
+SELECT count(*) AS scanned_count,
+       max(stream_version) AS last_scanned,
+       count(*) < $4 OR coalesce(max(stream_version) = $2, false) AS exhausted,
+       coalesce(array_agg(stream_version ORDER BY stream_version)
+         FILTER (WHERE category COLLATE "C" = $3
+                       OR starts_with(category, $3 || ':')), '{}') AS matches
+FROM eligible;
 ```
 
-Be aware of the embedded-migration build caveat: the migration set is embedded via
-Template Haskell, and adding a *new* `.sql` file may not trigger a recompile of
-the embedding module (cabal can report "Up to date" and skip it). After adding the
-file, force a rebuild of the migrations package before trusting it:
+Here `$1` is the exclusive cursor, `$2` is H, `$3` is the literal namespace and
+`$4` is W. Limiting the lower-bounded global scan before the upper-head and
+namespace predicates preserves the successful generic-plan prototype shape.
+If eligible count is less than W, or its final position equals H, the sweep is
+exhausted and its completed frontier is H. Otherwise the next scan cursor is
+its maximum position, even if no namespace rows matched. Gaps from hard deletion
+do not imply a missing event to wait for; an empty eligible set exhausts this
+captured head. A full final window may require one additional empty fetch.
 
-```bash
-cabal clean
-cabal build kiroku-store-migrations
-```
+Production SQL must return progress and payload rows in the same statement
+snapshot. Compute a single progress row from `eligible`, filter namespace and
+group membership in a bounded matching CTE, then join matching event IDs to
+`events` using the existing RecordedEvent projection. Return progress with a
+nullable event row (one sentinel row when there are no matches), and decode the
+sentinel explicitly. Sort only the bounded matching set by global position.
+Do not join all W rows to payloads before filtering, run a second snapshot to
+recover progress, or apply a smaller matching-event LIMIT and checkpoint past
+unreturned matches. Missing payloads for selected junction rows must be treated
+as an error, not silently counted as resolved. Retain normal delete semantics
+from existing reads.
 
-Acceptance for M2 has two parts — the read win and the write cost.
-
-Read win. First confirm the index exists after migration (this is the robust
-check — it does not depend on the planner's row-count heuristics):
+Apply the current group formula to `eligible.original_stream_id`, never reserved
+stream ID 0, and only after limiting the global scan:
 
 ```sql
-SELECT indexname FROM pg_indexes
-WHERE schemaname = 'kiroku' AND tablename = 'streams'
-  AND indexname = 'ix_streams_category_pattern';
+(((hashtextextended(original_stream_id::text, 0) % group_size)
+   + group_size) % group_size) = member
 ```
 
-To *also* show the planner uses it, be aware that on a fresh ephemeral test
-database with only a handful of `streams` rows the planner will correctly pick a
-`Seq Scan` regardless of the index — a bare `EXPLAIN` will **not** show the index
-and that is not a failure. Force a representative plan one of two ways: either
-insert several thousand `pm:*` and unrelated streams first, or disable sequential
-scans for the probe (substitute `stream_name` if you chose `StreamNamePrefix`):
+Use validated group values and `member`/`size` accessors. Every member scans the
+global windows independently; the union of deliveries covers the namespace,
+but the scan cost multiplies with member count. Apply `decodeEvents` only to
+matched events so unrelated payload/decode failures cannot stop this worker.
 
-```sql
-SET enable_seqscan = off;
-EXPLAIN SELECT 1 FROM streams s WHERE s.category LIKE 'pm:%' ESCAPE '\';
-RESET enable_seqscan;
-```
+Integrate the window path into `Subscription.hs`, `Worker.hs` and `Fsm.hs`.
+Introduce a namespace live source and namespace-specific fetch/completion input
+and effect handling as needed. Keep legacy vector fetch behavior for the old
+targets. A window with no matches is progress, not `CaughtUp`; only exhausted
+H permits the catch-up-to-live transition. Feed completed-window progress back
+after processing rather than putting the speculative frontier in the durable
+checkpoint or observable completed state before handlers finish. Never call the
+existing nonempty `processEvents` primitive with an empty vector.
 
-With either approach the plan shows `Index ... Scan using
-ix_streams_category_pattern` rather than a `Seq Scan` over `streams`. The existing
-EXPLAIN harness `kiroku-store/bench/Explain.hs` (benchmark
-`kiroku-store-bench-explain`) is a ready model if you prefer a harnessed run.
-Record the `EXPLAIN` line in Surprises & Discoveries as evidence.
+Extend the delivery primitive with an internal completion position so a fully
+resolved namespace window can save its frontier once, instead of saving the
+last matching event and then performing a second ordinary save. Existing targets
+retain last-event behavior. Preserve early `Stop` checkpointing at the stopping
+event, atomic DeadLetter/checkpoint transactions, Retry handling and decode
+refusal. On exceptions, cancellation or fetch failure, do not persist an
+uncompleted frontier. Reconnect/restart from the existing safe checkpoint rules;
+replaying completed events after a failed save is acceptable.
 
-Write cost (do not skip — this is the regression check for users who never touch
-the feature). The new index is on the shared `streams` table, so it adds
-write-amplification to the append path. Measure it with the existing append
-benchmark (`kiroku-store/bench/Main.hs`, `tasty-bench`):
+For consecutive empty-match windows, advance a volatile scan cursor and coalesce
+ordinary saves: flush on reaching H and every 32 completed empty windows during
+a long sweep, only if progress advanced. A nonempty window's successful completion
+also flushes pending safe progress. Thus empty history cannot cause one database
+write per fetch, while a restart rechecks a bounded amount of empty work. A
+failed flush retains the pending safe frontier for a subsequent retry; it must
+not masquerade as a successful durable save. Keep cancellation and reconnect
+checks between windows; do not drain unbounded history inside one uninterruptible
+effect. Preserve the existing save-failure observability and at-least-once policy.
 
-```bash
-# Baseline BEFORE creating the index (or with the migration file temporarily
-# removed), capturing the append + new-stream-creation groups:
-cabal bench kiroku-store:kiroku-store-bench --benchmark-options='--csv before.csv'
-# Then with the index present:
-cabal bench kiroku-store:kiroku-store-bench --benchmark-options='--csv after.csv'
-```
+Implement target identity before using any namespace worker: add
+`("category_namespace", Just namespace)` to `targetColumns`, its decoder, and
+`saveBoundCheckpointSession`, with a new specialized namespace save statement in
+`SQL.hs`. Preserve existing all/category save statements to avoid adding work to
+their frequent path. Audit initialization, adoption, dead-letter save, resize,
+rebind, target mismatch reporting and any consumer rendering with a repository
+search; wildcard decoders require explicit tests, not only exhaustive warnings.
 
-Compare the append and stream-creation groups before vs after and record the delta
-in Surprises & Discoveries. Acceptance: the regression on the common
-append-to-existing-stream path is within benchmark noise (expected — that path is a
-HOT update that touches no indexes), and any increase on new-stream creation is
-quantified and judged acceptable. If new-stream creation regresses materially,
-revisit the index-column choice (`category` is already the cheaper option) before
-shipping; per the Decision Log, the index must not ship without these numbers.
+Generate a new native migration with the standard CLI. Extend both CHECK
+constraints from migration 0014: allowed kinds include `category_namespace`, and
+`target_category IS NOT NULL` iff kind is `category` or `category_namespace`.
+Use the existing column for the namespace value; do not widen the public
+checkpoint-inventory relation or change existing bindings. Discover actual
+constraint names from the migrated schema and use schema-qualified ALTER TABLE.
+The generated migration is currently expected to follow 0015; use the allocator,
+not a hard-coded next number. No stream/event table or index is altered.
+Stop affected workers during upgrade and verify fresh apply, upgrade, and rerun.
 
-### Milestone 3 (optional parity) — Public `readPrefix` read combinator
+M1 acceptance is an early integrated test, not compilation alone: create a
+namespace worker, scan across multiple empty windows followed by a match, reach
+H, receive a live event in a newly created category, persist its namespace
+binding, and restart without skips. Test a grouped worker in the same path.
+A temporary global-generation wake is acceptable inside this development
+milestone; it is not the final M2 behavior or release acceptance.
 
-Scope: mirror the existing `readCategory` non-subscription read so callers can do
-a one-shot prefix read, not only a subscription. This is optional; the
-subscription path in M1/M2 does not depend on it (the worker calls the SQL
-statements directly through the pool, not through the `Store` effect).
+### Milestone 2 — Selective namespace wakeups without per-stream discovery
 
-If done, mirror the category surface:
-- `kiroku-store/src/Kiroku/Store/Effect.hs`: add a constructor
-  `ReadPrefixForward :: Text -> GlobalPosition -> Int32 -> Store m (Vector RecordedEvent)`
-  next to `ReadCategoryForward` (line 91) and an interpreter arm next to lines
-  196-200 that runs `SQL.readPrefixForwardStmt` with `SQL.likePrefixPattern`.
-- `kiroku-store/src/Kiroku/Store/Read.hs`: add `readPrefix :: (HasCallStack, Store :> es) => Text -> GlobalPosition -> Int32 -> Eff es (Vector RecordedEvent)`
-  mirroring `readCategory` (lines 128-142), and export it from `Kiroku.Store`.
-- Adding a `Store` constructor means every interpreter must cover it. Do not rely
-  on the compiler to find them — as with the worker arms, the library has no
-  `-Wincomplete-patterns`, so a missed interpreter arm compiles and fails at
-  runtime. Grep for every `ReadCategoryForward` handler
-  (`rg -n "ReadCategoryForward" --type haskell`, including any mock/test
-  interpreters) and add the parallel `ReadPrefixForward` arm at each.
 
-Acceptance for M3: `cabal build kiroku-store` green; a quick test reading a prefix
-returns the same events the subscription would.
+Add a registry in `kiroku-store/src/Kiroku/Store/Notification.hs` keyed by active
+namespace with a reference count and a per-namespace generation TVar. Return
+an idempotent registration release action. Share a cell for duplicate namespaces
+(including group members), and remove the entry only after the last registration
+releases it. Allocate/register before initial catch-up, release on failed startup,
+Stop, cancellation and exceptions through `Subscription.hs`'s existing cleanup.
+A stale release must not remove a later replacement registration.
 
-### Milestone 4 — Prove prefix fan-in with catch-up, live, and a negative case
+Reuse the callback's parsed category. For `pm:billing:retry`, inspect the exact
+category and ancestors `pm` and `pm:billing`; retain empty segments so the total
+semantics for empty/trailing-colon namespaces remain correct. Look up those
+candidates in the active registry and bump only their cells. Do not scan the
+whole registry or create entries for unsubscribed ancestors. Without namespace
+subscribers, take the empty-registry branch before ancestor generation. Publish
+namespace bumps with the existing callback transaction; avoid STM dependencies
+on unrelated namespace cells in workers so unrelated notifications do not wake
+all subscribers to recompute a sum over every category.
 
-Scope: a new test demonstrating that a `CategoryPrefix` subscription sees exactly
-the prefixed streams. At the end the test is green.
+For both plain and grouped namespace workers: snapshot generation **before**
+capturing H; drain bounded windows through H; then block on that generation
+changing or the existing 30-second safety interval. A notification arriving
+during the drain forces another sweep. The timeout reconciles lost notifications
+across listener reconnect. Capturing H directly from the database makes progress
+independent of publisher decode lag. Use namespace generation only as a wake
+hint; neither a stream-local NOTIFY version nor generation is a global checkpoint.
 
-Create `kiroku-store/test/Test/SubscriptionPrefix.hs`, modeled on the category and
-consumer-group tests (`kiroku-store/test/Test/CategoryIdleNoSpin.hs` and
-`kiroku-store/test/Test/ConsumerGroup.hs`) and using `kiroku-store/test/Test/Helpers.hs`
-(`withTestStore`, the append helpers, and the live/catch-up wait utilities).
-Register it in `kiroku-store/kiroku-store.cabal`'s test stanza and the spec
-driver, exactly as the existing subscription tests are registered.
+This gate suppresses notification-triggered reads for unrelated traffic but does
+not eliminate periodic safety work: each safety sweep still inspects new global
+rows since its safe cursor. A quiet namespace in a busy store consequently does
+batched periodic work, not zero lifetime database work. A busy namespace can
+still keep up to the global event rate busy; each group member repeats the scan.
+Do not claim the gate changes that asymptotic cost.
 
-Catch-up case:
-- Before subscribing, append events to `pm:fulfillment-1`, `pm:billing-1`, and the
-  unrelated `orders-1`.
-- Subscribe with `defaultSubscriptionConfig (SubscriptionName "pm-all") (CategoryPrefix "pm:") collectingHandler`,
-  where `collectingHandler` records each delivered event's stream name into a
-  `TVar [Text]` (or an `IORef`) and returns `Continue`.
-- Wait until the checkpoint reaches the position of the last appended event (reuse
-  the wait helper the other subscription tests use).
-- Assert the collected stream names are exactly `["pm:fulfillment-1", "pm:billing-1"]`
-  (order is global-position order), and that `orders-1` was never delivered. This
-  proves the prefix matches across differing categories and excludes non-matching
-  streams.
+M2 acceptance: after initial drain, unrelated category appends produce no
+namespace fetch until an injected safety tick, while matching notifications
+wake promptly. A notification between snapshot and drain completion is not lost.
+Lost notifications recover at the safety tick; reconnect, new categories,
+overlapping namespaces and reference-count cleanup retain exact delivery.
+Use injectable test timing rather than many real 30-second waits. Include the
+empty-registry fast path and ensure no namespace registration survives a failed
+worker startup or final release.
 
-Live case:
-- With the same subscription still running and caught up, append a new event to
-  `pm:shipping-9` and to `orders-2`.
-- Wait until the `pm:shipping-9` event is delivered (poll the collected list or
-  the checkpoint). Assert `pm:shipping-9` appears and `orders-2` never does. This
-  exercises the `liveLoopDbDriven` prefix path from M1.
+### Milestone 3 — Correctness and focused cost evidence
 
-Optional consumer-group case:
-- Append several `pm:*` streams; run two members
-  (`CategoryPrefix "pm:"` with `consumerGroup = Just (ConsumerGroup 0 2)` and
-  `... 1 2`); assert the union of delivered events equals all `pm:*` events with no
-  overlap (disjoint, complete) — mirroring `Test/ConsumerGroup.hs`'s partition
-  assertions.
 
-Acceptance for M4: `cabal test kiroku-store` runs the new module green; the
-catch-up assertion (exactly the two `pm:` streams, not `orders-1`) and the live
-assertion (`pm:shipping-9` yes, `orders-2` no) both pass.
+Add `kiroku-store/test/Test/SubscriptionNamespace.hs`, register it in the cabal
+stanza and `test/Main.hs`, and extend the existing target/reconnect/disposition
+tests where they already own the behavior. Assert event IDs or source IDs; use
+an explicit lookup only when asserting names, since RecordedEvent has no stream
+name field. Cover bare `pm`, distinct `pm:*` categories, exclusions, nested and
+literal metacharacter names, Unicode, comma-containing names, empty namespaces,
+and hard-deletion gaps. Retain global ordering and disjoint, complete grouped
+delivery, including a member with no matches in several successive windows.
 
-### Milestone 5 — Changelog and documentation
+Exercise batch size 1, a full matching window, partial/empty matching windows,
+a captured head followed by concurrent appends, and windows ending in unrelated
+rows. Test Stop in the middle, Retry, explicit dead-lettering, filtered events,
+unhandled decode failure, fetch failure and ordinary/atomic checkpoint failures.
+Durable progress must never pass the first unresolved matching event. Restart
+and reconnect must resume safely; full-window completion can advance beyond the
+last match only when every applicable disposition has completed. Extend target
+roundtrip, mismatch, legacy adoption, resize and explicit rebind tests so the
+new identity cannot silently decode as unbound or exact category.
 
-Scope: make the target discoverable and record the v1 tradeoff.
+Add namespace query-plan cases alongside the existing tests (a new
+`Test.NamespaceQueryPlans` module is suitable). Test production parameterized SQL
+with custom and generic plans, including payload joins, at W=32 and the maximum
+selected W=1024. Start with 1,000 and 20,000 global rows, dense/sparse/absent
+matches, and a long pre-cursor history. Both plan modes must seek the existing
+global index, inspect at most W visible global rows before filtering, and probe
+payloads only for survivors. Reject a streams scan, per-stream LATERAL probes,
+unbounded bitmap/sort, or payload work proportional to unrelated history.
+Logical row limits do not guarantee W physical buffers: visibility checks and
+dead tuples can add work. Record actual rows, loops, buffers and sort size and
+investigate growth with family/history size. Do not force `enable_seqscan=off`
+to manufacture acceptance. Reuse the prototype's 32-row evidence only for its
+metadata projection; do not assert its 9-buffer result for production payloads.
 
-Add an `### Unreleased` entry to `kiroku-store/CHANGELOG.md` under "New Features":
-the new `SubscriptionTarget` constructor (named per the naming decision in the
-Decision Log — `CategoryPrefix` or `StreamNamePrefix`), its semantics (matches
-`stream_name` by literal prefix, escaped, via a `text_pattern_ops` index),
-consumer-group support, and an accurate live-delivery note: non-group prefix
-subscriptions use the DB-driven live loop (global wake + prefix re-query) rather
-than the per-category NOTIFY gate, so on every global append the loop re-runs the
-prefix query, which probes every prefix-matching stream — cost scales with the
-size of the prefix family, not just "wakes on unrelated appends" (see the live
-performance decision in the Decision Log). State the chosen v1 option (a/b/c) and
-its bound. Mention the new migration
-`2026-06-03-00-00-00-kiroku-prefix-subscription.sql`, and that the
-`shibuya-kiroku-adapter` `subscriptionTarget` field Haddock now lists the new
-constructor.
+Then run the minimum useful performance comparison on PostgreSQL 18 using the
+existing controlled harness. First check structural diffs: unchanged append
+statements, event/stream schema and indexes, publisher decoding and existing
+category SQL; no namespace work when there are no namespace registrations beyond
+the recorded empty-registry check. The subscription constraint migration and
+notification callback still need their actual costs considered.
 
-Acceptance for M5: the CHANGELOG renders and names `CategoryPrefix`, the index,
-and the migration exactly.
+Select an inactive-namespace control comparison and one active workload with
+appends, existing category/browse activity and a sparse namespace subscriber.
+Choose new-stream creation versus existing-stream appends from the code and
+remaining regression risk; do not repeat a full writer/index matrix when those
+structures are unchanged. Include one small grouped diagnostic if member scan
+multiplication is the remaining question. Record writer throughput/latency,
+namespace catch-up time and delivery lag, fetch/checkpoint counts, scanned versus
+matched rows, and notification work. Preserve the original pre-inspection
+control from the release harness for cumulative reporting; a current-tree
+comparison may isolate the namespace increment but cannot replace that control
+or reset its cost allowance.
 
+Before any remote run, report cases, pair/trial count, warmup and measurement
+lengths, setup/calibration/reset allowance, uncertainty target, total estimate
+and stop conditions. Fit everything within one 60-minute ceiling unless the user
+sets a smaller one. Prove submission, verified result and lease release with one
+small run before expanding; reuse valid prior recovery evidence. Use a persistent
+bounded controller and owned journal, monitor remote phase/power/verified trials,
+retain interrupted/adverse samples, resume the same journal, start stopped owned
+instances when resuming, and release the lease on every exit. No statistical
+matrix or automatic precision escalation is prescribed here. Do not relabel
+inconclusive evidence as neutral or transfer older cohort acceptance. A consistent
+adverse signal blocks acceptance pending diagnosis; report a budget/precision
+conflict before more trials rather than weakening the gate.
+
+M3 acceptance combines the stated correctness/structural checks with a focused
+performance report under the existing ADR-15 policy. If sparse replay throughput
+or multi-member load is inadequate, report that measured limitation before
+reopening the design. More indexes, a shared dispatcher or category enumeration
+are separate evidence-driven choices, not automatic fallbacks hidden in this plan.
+
+### Milestone 4 — Documentation and compatibility handoff
+
+
+Update `kiroku-store/CHANGELOG.md`, `kiroku-store-migrations/CHANGELOG.md`,
+`docs/user/subscriptions.md`, `docs/user/schema.md`, and relevant target Haddocks
+in `shibuya-kiroku-adapter/src/Shibuya/Adapter/Kiroku.hs`. Confirm actual headings
+before editing. Explain `CategoryNamespace "pm"`, exact/boundary semantics,
+groups, periodic safety work, sparse replay tradeoff, and checkpoints that record
+completed scan progress rather than last delivered matching event. Do not promise
+constant total cost or zero shared overhead.
+
+Document stop-workers/migrate/start-new-workers cutover. Older binaries' target
+decoder can treat an unknown kind as unbound; older code must not manage namespace
+checkpoint rows. Reverting source alone is therefore not a safe downgrade after
+creating such rows. Choose package versions through the normal release process
+and PVP review; adding a constructor affects exhaustive downstream matches.
+Do not invent a version based on June's package state or change dependency bounds
+as an incidental plan task. Summarize final durable target/progress/wake decisions
+in the relevant ADRs using the repository's ADR workflow when implementation is
+accepted. Retain measured limits and evidence links in this plan.
 
 ## Concrete Steps
 
-All commands from the repository root
-`/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku`.
 
-Build after each edit:
-
-```bash
-cabal build kiroku-store
-```
-
-After adding the migration (M2), force the embedded-migration rebuild:
+Run at the repository root. Use `nix develop --no-write-lock-file` when the normal
+development tools and PostgreSQL are not already on PATH. Never search or read
+`/nix/store`; use Mori for dependency source/documentation.
 
 ```bash
-cabal clean && cabal build kiroku-store-migrations && cabal build kiroku-store
+rg -n 'SubscriptionTarget|AllStreams|Category|LiveSource|target_kind|targetBindingRow' \
+  kiroku-store/src shibuya-kiroku-adapter/src
+cabal build kiroku-store shibuya-kiroku-adapter
+cabal run kiroku-store-migrate -- new \
+  --manifest kiroku-store-migrations/migrations/manifest \
+  --description "allow category namespace subscription targets"
+cabal run kiroku-store-migrate -- check \
+  --manifest kiroku-store-migrations/migrations/manifest
+cabal test kiroku-store-migrations:kiroku-store-migrations-test
+cabal test kiroku-store:kiroku-store-test --test-options='-p namespace'
+cabal test kiroku-store:kiroku-store-test
 ```
 
-Run the test suite:
+Only run `new` once during M1; it mutates the manifest and allocates the file.
+The namespace test command is for the new Tasty group named `namespace`, not
+hspec `--match`. Compilation and tests must exit successfully; check output
+contains the new cases and zero failures. The migration suite must cover an
+upgrade from the preceding manifest as well as fresh apply and idempotent rerun.
+Follow the existing migration compatibility requirements for PostgreSQL 17 and 18
+in `kiroku-store-migrations/README.md`; performance evidence remains PostgreSQL 18.
+
+For a structural illustration, inspect the retained prototype before deciding
+whether a rerun answers a new question:
 
 ```bash
-cabal test kiroku-store
+python3 scripts/mp13-browse-sql-prototype.py --help
 ```
 
-Iterate on just the prefix spec (hspec match syntax shown; adjust to the suite's
-driver):
-
-```bash
-cabal test kiroku-store --test-options='--match "prefix"'
-```
-
-Expected success looks like (exact wording depends on the driver; what matters is
-zero failures):
-
-```text
-All N tests passed (… s)
-```
-
+The `--scope shared-name-index` experiment includes browsing work outside this
+feature. Reuse its retained results; prefer focused production namespace test
+cases over rerunning the full prototype by default. No `cabal clean` or full
+benchmark suite is required merely to refresh this document.
 
 ## Validation and Acceptance
 
-Behavioral acceptance, not compilation alone:
 
-1. Build is clean:
+The feature is functionally complete only when a namespace subscription catches
+up across empty windows, observes future category creation in live mode,
+partitions correctly, persists a distinct binding, and survives the disposition
+and reconnect cases without skipping an unresolved matching event. Existing
+AllStreams, exact-category, topology and checkpoint tests remain green. A clean
+exhaustive-pattern build is useful but does not prove wildcard decoders correct.
 
-```bash
-cabal build kiroku-store
-```
+It meets the performance design only when production EXPLAIN confirms the bounded
+ordered global seek before namespace filtering and bounded matching payload work,
+and runtime counters prove selective wakeups and coalesced empty-window saves.
+Unchanged event indexes eliminate a proposed new index-maintenance cost, not
+CPU, pool, cache or I/O contention from active readers. Full replay still costs
+O(global rows traversed) per worker, and live safety sweeps eventually traverse
+unrelated new rows too. These limitations must remain visible in acceptance.
 
-   With `-Werror=incomplete-patterns` added in M1 step 0, a clean build now does
-   prove every `SubscriptionTarget` `case` is exhaustive — a missing arm in
-   `fetchBatch`/`nextInput` fails the build with a named incomplete-pattern error.
-   This is necessary but not sufficient: it proves the arms *exist*, not that they
-   route correctly; the M4 behavioural test below proves the routing.
-
-2. `Test/SubscriptionPrefix.hs` catch-up assertion: a `CategoryPrefix "pm:"`
-   subscription over a store containing `pm:fulfillment-1`, `pm:billing-1`, and
-   `orders-1` delivers exactly the two `pm:` events in global order and never the
-   `orders-1` event.
-
-3. The same subscription's live assertion: after catch-up, a new `pm:shipping-9`
-   event is delivered and a new `orders-2` event is not.
-
-4. M2 evidence: `ix_streams_stream_name_pattern` exists after migration
-   (`pg_indexes` check), and with a representative row count or `SET enable_seqscan
-   = off`, `EXPLAIN` of `... WHERE stream_name LIKE 'pm:%' ESCAPE '\'` shows an
-   index scan on it rather than a sequential scan. (A bare `EXPLAIN` on a tiny
-   test DB legitimately shows a `Seq Scan`; that is not a failure — see M2.)
-
-5. Regression: the category and consumer-group suites
-   (`Test/CategoryIdleNoSpin.hs`, `Test/ConsumerGroup.hs`) remain green, proving
-   the existing targets are unaffected.
-
-Interpretation: if `orders-1` is delivered, the prefix predicate is wrong (likely
-an unescaped or missing trailing `%`, or matching `category` instead of
-`stream_name`). If the live `pm:shipping-9` event never arrives, the `nextInput`
-prefix arm is not routing to `liveLoopDbDriven`. If `EXPLAIN` shows a sequential
-scan, the `text_pattern_ops` index is missing or the pattern is not a fixed-prefix
-`LIKE`.
-
+The performance report must distinguish verified correctness, structural bounds,
+verified trial counts, active remote execution (if any), measured uncertainty,
+and accepted results. Historical prototype success and the inspection cohort's
+practical release decision cannot mark this feature's remaining milestones done.
 
 ## Idempotence and Recovery
 
-- The new constructor and SQL statements are additive; rebuilding re-applies the
-  same source with no side effects.
-- `CREATE INDEX IF NOT EXISTS` is idempotent; applying the migration twice is
-  safe, and codd/the migration runner records it as applied so it runs once per
-  database. The index creation takes a lock proportional to the `streams` table
-  size; on a large production table prefer `CREATE INDEX CONCURRENTLY` run
-  out-of-band, but for the embedded migration path the plain form is acceptable
-  and matches the existing bootstrap migration style.
-- If the embedded migration is not picked up (cabal "Up to date" after adding the
-  new `.sql`), recover with `cabal clean` then rebuild `kiroku-store-migrations`
-  — no data is affected because the migration had not yet applied.
-- Tests run against fresh ephemeral databases via `withTestStore`, so re-runs need
-  no manual cleanup.
 
+Use only a new manifest-allocated migration; preserve every released payload and
+all existing checkpoints. The migration changes subscription checks and may scan
+that table under DDL locks, so stop affected workers and schedule the upgrade
+appropriately. No rebuild of the global event history or new event index is part
+of this plan. Native migration reruns must verify the already-applied ledger.
+
+A namespace scan cursor is volatile until its completed frontier is saved. On
+failure, reconnect/restart from safe progress and tolerate replay. Never recover
+by setting the checkpoint to a notification's version, the latest publisher
+position or an unprocessed captured head. Use explicit reset/rebind with workers
+stopped when an operator intentionally changes target semantics.
+
+Test fixtures use ephemeral databases; never reset a shared database for these
+checks. Release every namespace registration and remote lease on all exits.
+Keep retained evidence, failed query plans and adverse samples. Do not attempt a
+destructive down migration or run old workers over new namespace bindings as an
+automatic recovery step.
 
 ## Interfaces and Dependencies
 
-No new library dependencies; all of this uses `hasql` statements and the existing
-migration tooling.
 
-Signatures/identifiers that must exist at the end of each milestone (full paths):
+The public addition is `CategoryNamespace !Text` on `SubscriptionTarget`.
+The required internal interfaces are window results with progress independent
+of events; plain/grouped namespace statements; completion-aware worker delivery;
+a namespace `LiveSource`; registry acquire/release plus generation handles; and
+the `category_namespace` target encode/decode/save path. No new public read
+effect or vector-only `readPrefix` API is required. Existing subscribe/config
+signatures and RecordedEvent payloads need no new stream-name field.
 
-- End of M1:
-  - `Kiroku.Store.Subscription.Types.SubscriptionTarget` gains
-    `CategoryPrefix !Text` (exported, `Eq`/`Show` derived).
-  - `Kiroku.Store.SQL.readPrefixForwardStmt :: Statement (Int64, Text, Int32) (Vector RecordedEvent)`
-  - `Kiroku.Store.SQL.readPrefixForwardConsumerGroupStmt :: Statement (Int64, Text, Int32, Int32, Int32) (Vector RecordedEvent)`
-  - `Kiroku.Store.SQL.likePrefixPattern :: Text -> Text`
-  - `Kiroku.Store.Subscription.Worker.fetchBatch` and `nextInput` handle the new
-    constructor (no incomplete-pattern warning).
+No new dependency or dependency-version selection is planned. Follow existing
+Hasql statement/decoder patterns after locating dependency sources through Mori.
+The notification API reference discovered for this refresh is
+[mori://hasql/hasql/docs/hasql-notifications](mori://hasql/hasql/docs/hasql-notifications).
+The design reuses the current callback and makes no dependency API change.
 
-- End of M2:
-  - Migration `kiroku-store-migrations/sql-migrations/2026-06-03-00-00-00-kiroku-prefix-subscription.sql`
-    creating `ix_streams_stream_name_pattern ON streams (stream_name text_pattern_ops)`.
-
-- End of M3 (optional):
-  - `Kiroku.Store.Effect.Store` gains `ReadPrefixForward :: Text -> GlobalPosition -> Int32 -> Store m (Vector RecordedEvent)`
-    with interpreter coverage everywhere `ReadCategoryForward` is handled.
-  - `Kiroku.Store.Read.readPrefix :: (HasCallStack, Store :> es) => Text -> GlobalPosition -> Int32 -> Eff es (Vector RecordedEvent)`,
-    re-exported from `Kiroku.Store`.
-
-- End of M4:
-  - `kiroku-store/test/Test/SubscriptionPrefix.hs` exists, is registered in
-    `kiroku-store/kiroku-store.cabal`, and passes.
-
-`subscribe`, `defaultSubscriptionConfig`, `runWorker`, the FSM, the Notifier, and
-the Shibuya adapter need no signature changes.
-
+PostgreSQL's [CTE materialization documentation](https://www.postgresql.org/docs/18/queries-with.html#QUERIES-WITH-CTE-MATERIALIZATION)
+explains the explicit evaluation boundary used by the bounded window;
+[`starts_with`](https://www.postgresql.org/docs/18/functions-string.html) supplies
+literal prefix matching. [Prepared statement documentation](https://www.postgresql.org/docs/18/sql-prepare.html)
+distinguishes generic and custom plans. The exact work bounds here are design
+requirements supported by the repository prototype, not guarantees inferred
+from those documents; the production statements still require EXPLAIN evidence.
 
 ## Revision Notes
 
-### 2026-06-03 — Validation pass against the working tree
 
-This plan was reviewed against the actual `kiroku-store` source by a reviewer
-familiar with the architecture. The work is well-scoped and the mechanical core
-(new constructor, two SQL twins, two `Worker.hs` arms, `text_pattern_ops` index,
-behavioural test) is sound and accurately located. Four corrections were folded
-in; the why for each is in the Decision Log / Surprises & Discoveries:
+2026-06-03 — Original validation corrected missing exhaustive-pattern warnings,
+misnamed stream-prefix semantics, per-family live-query cost, tiny-fixture EXPLAIN
+expectations, and index write amplification. A second pass recommended colon
+namespaces and required writer evidence. Those findings motivated this work;
+the old source paths and proposed index are no longer implementation guidance.
 
-1. **Removed a false safety net.** The plan claimed the worker is built with
-   incomplete-pattern warnings as errors. It is not — `kiroku-store.cabal` enables
-   no `-Wall`/`-Werror`/`-Wincomplete-patterns`, so a missed match arm compiles
-   silently and fails at runtime. Acceptance criteria in M1 and Validation that
-   relied on this were rewritten to lean on the M4 behavioural test plus an
-   explicit grep, and optional hardening (`-Werror=incomplete-patterns` on the
-   library) was suggested. The plan's two-site enumeration was independently
-   verified correct, so the mechanical risk is low for a careful implementer.
+2026-10-10 — Shared research coordinated plan 88 and this plan under ADR-15,
+retained replacement and byte-name layout evidence, and prototyped namespace
+windows without a separate index. The later byte-order decision and October 11
+release acceptance now appear in ADR-17/15 rather than remaining open here.
 
-2. **Flagged a naming/vision mismatch.** `CategoryPrefix` matches `stream_name`,
-   not the `category` column; the team should decide between renaming it
-   (`StreamNamePrefix`) or matching `category LIKE` instead. Added as a Decision
-   Log item to settle before M1.
-
-3. **Corrected the live-path performance framing.** Reusing `liveLoopDbDriven` for
-   non-group prefix subscriptions costs O(prefix-family size) index probes on
-   *every* global append, not merely "wakes on unrelated appends." Fine for a
-   single bounded `pm:` dispatcher; potentially significant for large families in
-   busy stores. Documented three options (accept-and-bound / `$all`-driven live
-   query / per-prefix NOTIFY gate, the last cheaper than implied since the NOTIFY
-   payload already carries `stream_name`) and recommended the `$all`-driven query.
-   Affirmed the reuse is free of the ExecPlan-37 busy-spin defect.
-
-4. **Fixed the M2 EXPLAIN acceptance.** A bare `EXPLAIN` on a fresh ephemeral test
-   DB legitimately shows a `Seq Scan` (tiny table); rewrote acceptance to check
-   the index exists via `pg_indexes` and to force the index plan with row volume
-   or `SET enable_seqscan = off`. Noted the existing `bench/Explain.hs` harness.
-
-Minor: adapter Haddock (`Shibuya/Adapter/Kiroku.hs:166,318`) should be updated to
-name the new constructor (no code change); match the existing `"""` MultilineString
-SQL style rather than backslash-continuation strings.
-
-### 2026-06-03 — Second pass: three team decisions folded in
-
-Following review feedback, three points were resolved and propagated:
-
-1. **Adopt `-Werror=incomplete-patterns`.** Promoted from "optional hardening" to
-   M1 step 0, added to the cabal `common common` stanza. Verified a clean switch:
-   `cabal build kiroku-store --ghc-options="-Werror=incomplete-patterns"` built the
-   library, test suite, and all three benchmarks at exit 0 — no pre-existing
-   incomplete patterns to fix first. This restores the real safety net the original
-   draft wrongly assumed; M1 acceptance and Validation §1 were rewritten to rely on
-   it again (build now fails on a forgotten arm), with the M4 test still proving
-   routing. Progress, Surprises, and the Decision Log updated accordingly.
-
-2. **Answered "any regression for non-users?"** Yes — exactly one shared-state
-   change: the new `text_pattern_ops` index on `streams`, which adds append-path
-   write amplification (new-stream INSERTs always; non-HOT version updates under
-   the default `fillfactor` 100). The code-path additions do not affect existing
-   subscriptions. Added a Decision Log entry and a Surprises note, and made M2
-   acceptance require a before/after append-benchmark delta (`kiroku-store/bench`)
-   — the index must not ship without numbers.
-
-3. **Standardize on the colon (`:`).** Recommended redefining the feature as a
-   category *namespace* match (`CategoryNamespace "pm"` → `category = 'pm' OR
-   category LIKE 'pm:%'`) rather than a raw stream-name prefix. This fixes the
-   `CategoryPrefix`-matches-`stream_name` misnomer, removes the
-   `order`→`ordering`/`orderbook` foot-gun, aligns with Message-DB category
-   semantics, and lets the supporting index sit on the lower-cardinality `category`
-   column (cheaper writes — ties into point 2). `StreamNamePrefix` remains the
-   convention-free fallback. The decision, the M0 gate, the constructor/SQL/index
-   snippets, and the migration (now `ix_streams_category_pattern ON streams
-   (category text_pattern_ops)`) were updated to carry both options with the
-   namespace form recommended. Final name/semantics is the team's call at M0.
-
-
-## Shared access-cost clarification (2026-10-10)
-
-Recorded the user's requirement to coordinate browsing and prefix-subscription physical
-access and cumulative writer cost under ADR-15. No index or implementation milestone is
-approved. Plan 88 also records the application's TypeID naming convention and its limits.
-
-
-## Index and benchmark research revision (2026-10-10)
-
-Recorded disposable replacement footprint/read evidence and verified cleanup,
-Kenshou source/run coverage, matched-harness instrumentation gaps, and the
-unchanged shared access/cumulative write-cost obligation. No migration or
-performance acceptance is selected; production milestones remain open.
-
-
-## Shared matched evidence revision (2026-10-10)
-
-Retained fresh uncertainty and exploratory observer diagnostics without granting
-namespace access, migration or another independent write-cost allowance.
-
-
-## Shared access prototype revision (2026-10-10)
-
-Implemented a bounded disposable probe for one byte-ordered name index and
-namespace windows over the current denormalized global log. Retained generic-plan
-failures, fixture repair and successful follow-up evidence. Recorded the pending
-new-API ordering choice and kept migration, worker and final-layout cost gates open.
-
-## Approved stream ordering revision (2026-10-10)
-
-The user accepted stable UTF-8 byte order for new stream browsing.
-[ADR-17](../adr/0017-stream-browsing-uses-byte-order-and-one-shared-name-index.md)
-selects one partial C-collated name index for category and literal-prefix pages,
-keeping existing unique name and category indexes. No separate category/name
-index or namespace event index is selected. Plan 88 now implements this design
-for isolated correctness and cost verification. Plan 54's future bounded global
-windows reuse existing event indexes and require independent scanned-frontier
-tracking; its worker and semantic decision remain unfinished. Final-layout cost
-and cumulative release acceptance remain open.
-
-
-## Shared selected-layout cost evidence (2026-10-10)
-
-Plan 88's selected partial C-collated browse index now has its own
-[matched report](../../bench/mp13-index/evidence/2026-10-10-byte-name/README.md).
-Proof plus five pairs per workload all verified, with raw recomputation and
-owned cell cleanup. Fresh throughput is -2.980% [-6.128%, +0.274%]; existing
-appends with a category subscriber and browsing are -1.722% [-4.631%, +1.276%].
-Fresh and observer WAL/event rise 5.668% and 0.187%, respectively, descriptively.
-The one browse index adds 3.180 MiB on 40,000 streams; original category and
-unique-name indexes remain intact. Both zero-slowdown verdicts are inconclusive,
-and most intervals miss the frozen precision target.
-
-This evidence does not implement or certify this plan's future namespace worker.
-Its proposed bounded global windows still need no additional prefix index;
-semantics, scan-frontier handling and cumulative active-feature acceptance remain
-open. Preserve the original-control baseline and review combined cost under
-ADR-15; do not grant this future feature another independent regression allowance.
+2026-10-26 — Replaced contradictory historical snippets with a current, coherent
+namespace plan. Added required binding migration, explicit scanned-frontier
+semantics, selective reference-counted wakes, payload filtering and coalesced
+checkpoint saves; refreshed source paths, test commands, ADR context and focused
+cumulative-cost acceptance. No production implementation or new benchmark result
+is claimed by this revision.
