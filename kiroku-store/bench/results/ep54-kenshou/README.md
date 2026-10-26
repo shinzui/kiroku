@@ -3,9 +3,11 @@
 Both original-control comparisons completed five valid interleaved pairs. Every
 comparison trial has benchmark grade, passes its correctness checks, retains full
 raw samples, and has no health warnings. The statistical zero-slowdown gate remains
-inconclusive; this report does not grant release acceptance or borrow the earlier
-inspection cohort's practical acceptance. Plan 54 M3 remains open pending a new
-cohort-specific acceptance decision.
+inconclusive. After reviewing both comparisons and the interval limits, the user
+explicitly chose “Accept practical performance; close Plan 54.” This new
+cohort-specific practical acceptance closes M3; it does not relabel the statistical
+verdicts, borrow the earlier cohort's acceptance or grant future slowdown allowance.
+The exact decision is retained in `acceptance.json`.
 
 | Case | Metric | Candidate change | 95% interval | Native status |
 | --- | --- | ---: | --- | --- |
@@ -87,3 +89,6 @@ comparisons, journals, source identities, controllers, setup failures and cleanu
 receipts. `evidence.sha256` verifies the archive. `summary.json` provides the
 reviewable metric and workload index. The original implementation/correctness
 and Yujin OS Login evidence remains in `../ep54-namespace/`.
+
+The checked archive preserves the collected evidence before the acceptance decision.
+The subsequent decision is stored separately in `acceptance.json`.

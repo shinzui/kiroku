@@ -93,6 +93,20 @@ the gate or silently adopting another cohort's practical acceptance.
 
 The inspection cohort completed functional and structural checks, all 16 dedicated-host workload gates, and ten original-control pairs with verified delivery, artifacts, health and checkpoint symmetry. The paired estimates remain statistically inconclusive. After reviewing their small throughput estimates and measurement limits, the user explicitly accepted the practical performance and instructed release. This cohort-specific judgment permits publication without relabeling the intervals as a pass or claiming a native benchmark-grade certificate. It grants no additive slowdown allowance to future features. Evidence and authorization are retained in [the release record](../../bench/mp13-release/publication-2026-10-11/authorization.json).
 
+## Namespace cohort acceptance — 2026-10-26
+
+[Plan 54](../plans/54-add-prefix-matching-subscription-target-for-fan-in-subscriptions.md)
+completed five original-control pairs in each of its disabled and active cases
+through Kenshou: 20 benchmark-grade trials with exact applicable delivery, matching
+append counts, verified cold resets and no health warnings. Both native
+zero-slowdown verdicts remain inconclusive. After reviewing the estimates and
+95% interval limits, the user explicitly chose “Accept practical performance;
+close Plan 54.” This new cohort-specific judgment closes its performance milestone;
+it does not turn the intervals into a pass or grant another feature a slowdown
+allowance. The [report](../../kiroku-store/bench/results/ep54-kenshou/README.md)
+and [acceptance record](../../kiroku-store/bench/results/ep54-kenshou/acceptance.json)
+retain the scope, uncertainty and exact decision.
+
 ## Consequences
 
 These constraints continue to apply after the inspection cohort ships. Functional

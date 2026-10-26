@@ -86,18 +86,18 @@ optional follow-up, not part of the required delivery.
 - [x] (2026-10-26) M2: Reference-counted selective wakes pass plain/grouped
   delivery, snapshot/drain race, lost-notification safety tick, listener/worker
   reconnect, failed-startup and idempotent final-release tests.
-- [ ] M3: Correctness/topology and 96 production query-plan cases pass. The scoped
-  Kenshou comparison completed five original-control pairs in each of the disabled
-  and active cases: all 20 trials have benchmark grade, exact applicable delivery
-  and matching append counts. Both zero-slowdown comparisons are statistically
-  inconclusive. The report is retained in
-  `kiroku-store/bench/results/ep54-kenshou/README.md`; a new cohort-specific
-  acceptance decision remains open. The historical direct-cell attempt's zero
-  remote-trial count remains separate.
+- [x] (2026-10-26) M3: Correctness/topology and 96 production query-plan cases
+  pass. Kenshou completed five original-control pairs per disabled/active case:
+  20 benchmark-grade trials, exact applicable delivery, matching append counts
+  and no health warnings. Both statistical verdicts remain inconclusive. After
+  reviewing estimates and 95% interval limits, the user explicitly accepted this
+  cohort's practical performance and directed closing Plan 54. The new acceptance
+  and full evidence are retained in `kiroku-store/bench/results/ep54-kenshou/`.
 - [x] (2026-10-26) M4: User/schema/adapter documentation, changelogs and ADR-4/17
   record semantics, cutover, downgrade limits and scan/wake contracts. Retained
-  evidence classifies functional/structural completion separately from blocked
-  performance acceptance; no package version or release verdict was invented.
+  evidence distinguishes functional/structural completion, inconclusive statistics
+  and the user's new practical acceptance; package version selection remains the
+  normal release handoff.
 
 The original M0–M5 breakdown is superseded by these four verifiable milestones.
 The namespace constructor, worker, wake registry and migration 0016 are
@@ -288,14 +288,16 @@ reference-counted wakes. The final store suite passes 522 examples; adapter 45;
 migrations 25 each on PG17/18; focused namespace 26 each on PG17/18, including
 96 production EXPLAIN cases per major. Append/category statements, publisher
 sources and released migration bytes are preserved. The feature is functionally
-and structurally complete, with cumulative performance acceptance still open.
+and structurally complete. The subsequent cumulative comparison remains
+statistically inconclusive and received explicit practical acceptance, as recorded
+below.
 The [evidence report](../../kiroku-store/bench/results/ep54-namespace/README.md)
 retains the production plans, local delivery proof, frozen candidate/control,
 failed client-side submission, and cleanup. That legacy attempt ran no remote
 benchmark and verified no pair. The subsequent Kenshou comparison completed all
 20 trials across ten pairs; both native verdicts are inconclusive. Its separate
 [evidence report](../../kiroku-store/bench/results/ep54-kenshou/README.md) retains
-full intervals and raw evidence, with release acceptance still open.
+full intervals, raw evidence and the user's subsequent practical acceptance.
 
 FRIC-4 in `docs/friction-log/` is resolved by correcting the Hspec commands.
 FRIC-5 is accepted: retain mandatory formatting on edited files and verify SQL
@@ -303,8 +305,8 @@ bodies independently. FRIC-6 is resolved by documenting the infrastructure shell
 FRIC-7 is resolved by documenting Python 3.14 and testing safe pre-acquire resume.
 FRIC-8 is accepted as a retained failure of the superseded direct-client path.
 Kenshou already models that optional field and now has verified namespace-aware
-comparison evidence. The outstanding release gate is acceptance of the two
-inconclusive comparison results. FRIC-9 is resolved by the user's Yujin migration follow-up: register its three
+comparison evidence. The user explicitly accepted the two inconclusive results
+as a practical judgment for this cohort. FRIC-9 is resolved by the user's Yujin migration follow-up: register its three
 existing public keys without expiration and verify direct IAP SSH and PostgreSQL
 admin access. The VM was stopped and the lease released after that check; FRIC-8
 is retained as the superseded runner failure; current performance work uses Kenshou.
@@ -816,3 +818,14 @@ sample was selectively discarded or replaced. Do not relabel these estimates as
 neutrality or transfer the previous inspection cohort's practical acceptance.
 Full intervals, limits, raw evidence and cleanup receipts are retained with the
 Kenshou report; M3 awaits an explicit acceptance decision for this cohort.
+
+2026-10-26 — The experiment finished in 86.6 minutes including preparation,
+recovery and cleanup. Fresh checks verified the lease absent and all four owned
+VMs stopped. After reviewing the full comparison and uncertainty (including p99
+upper interval limits of +9.18% disabled and +10.05% active), the user explicitly
+answered “Accept practical performance; close Plan 54.” All four milestones are
+complete under that new cohort-specific practical acceptance. Both native
+statistical verdicts remain inconclusive; no future allowance or statistical pass
+is inferred. The exact decision is retained in
+`kiroku-store/bench/results/ep54-kenshou/acceptance.json`. Normal release handoff
+still includes PVP version review and the documented stop/migrate/start cutover.

@@ -22,7 +22,7 @@
     "consistent adverse comparison",
     "cleanup reserve or total deadline reached"
   ],
-  "status": "completed; both native comparisons inconclusive; lease released and all four VMs stopped",
+  "status": "completed and practically accepted by the user; both native comparisons remain inconclusive; all resources released",
   "proof_measurement_seconds": 30,
   "original_measurement_seconds": 30,
   "observed_proof_full_trial_seconds": 116,

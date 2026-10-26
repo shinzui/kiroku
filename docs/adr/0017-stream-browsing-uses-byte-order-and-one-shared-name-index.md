@@ -84,3 +84,11 @@ not add an event or junction-row index; unchanged HOT eligibility does not prove
 zero end-to-end append cost. Keep performance uncertainty and measured adverse
 signals visible. Browsing is bounded live pagination, not a cross-request
 snapshot. Clients echo names verbatim as cursors.
+
+
+Plan 54's 2026-10-26 cumulative comparison subsequently completed ten verified
+pairs. Its native statistical verdicts remain inconclusive; the user explicitly
+accepted practical performance for that cohort and closed its milestone. The
+[acceptance record](../../kiroku-store/bench/results/ep54-kenshou/acceptance.json)
+preserves that distinction. The bounded scan contract and independent per-member
+work limits above remain unchanged; this acceptance creates no future allowance.
