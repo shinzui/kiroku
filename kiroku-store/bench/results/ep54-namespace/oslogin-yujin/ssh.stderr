@@ -1,0 +1,5 @@
+iap-ssh: tunnel for cell-alpha-postgres:22 exited prematurely:
+Testing if tunnel connection works.
+ERROR: (gcloud.compute.start-iap-tunnel) While checking if a connection can be made: Error while connecting [4003: 'failed to connect to backend']. (Failed to connect to port 22)
+2026/10/26 10:06:06 socat[78839] E _xiogetaddrinfo(): empty port and service
+[iap-ssh] transient failure (rc=255, attempt 1/3); sleeping 15s before retry

@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-26
+* **Update**: FRIC-9 resolved: Replace the temporary-key workaround with permanent authorization for Yujin as the replacement development machine.
 * **Update**: FRIC-9 accepted: Keep authentication scoped to an expiring task key and verify its removal on exit.
 * **Update**: FRIC-7 resolved: Use an explicit current interpreter when the infrastructure shell places Python 3.13 first.
 * **Update**: FRIC-6 resolved: Publish and IAP prerequisites are now explicit in the retained harness instructions.

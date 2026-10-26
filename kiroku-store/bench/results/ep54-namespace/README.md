@@ -70,3 +70,17 @@ The experiment stopped early on an unsupported interface; unused budget was not
 converted into retries or a weaker gate. A future attempt requires a compatible
 client/deployed descriptor and a new explicit experiment budget. Keep this
 failed attempt and its zero-trial count visible.
+
+## Yujin development-machine authorization follow-up
+
+At the user's request, the three Yujin public keys already authorized on
+Sungkyung were registered without expiration in the current OS Login account.
+A separate exclusive lease was used to start only the PostgreSQL machine and
+verify IAP SSH directly from Yujin using its existing identity. The remote commands
+returned the cell hostname, the expected OS Login username, and `postgres` from
+`sudo -n -u postgres psql`. No private keys were copied. The PostgreSQL machine
+was stopped again, the lease released, and all four cell machines verified
+stopped. `oslogin-yujin/registered-keys.json` and `verification.json` retain the
+public fingerprints and checks. FRIC-9 is now resolved. This fixes development
+SSH access; the distinct deployed-descriptor/client mismatch still blocks the
+performance comparison, and no additional benchmark was submitted.

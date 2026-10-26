@@ -276,8 +276,10 @@ FRIC-5 is accepted: retain mandatory formatting on edited files and verify SQL
 bodies independently. FRIC-6 is resolved by documenting the infrastructure shell.
 FRIC-7 is resolved by documenting Python 3.14 and testing safe pre-acquire resume.
 FRIC-8 remains logged and blocks performance acceptance outside this plan's
-production scope. FRIC-9 is accepted: use an explicit usable task-scoped SSH
-identity, then revoke it and remove its temporary files.
+production scope. FRIC-9 is resolved by the user's Yujin migration follow-up: register its three
+existing public keys without expiration and verify direct IAP SSH and PostgreSQL
+admin access. The VM was stopped and the lease released after that check; FRIC-8
+remains the separate performance blocker.
 
 ## Context and Orientation
 
@@ -742,3 +744,10 @@ is claimed by this revision.
 completed-frontier FSM protocol, selective wake registry, tests and documentation.
 Recorded custom-plan and payload-probe barriers, retained exact production evidence,
 and stopped performance acceptance at an incompatible external cell/client schema.
+
+
+2026-10-26 — Per the user's development-machine migration instruction, permanently
+authorized Yujin's three public keys found in Sungkyung's authorized keys and
+verified cell SSH and PostgreSQL admin access from Yujin. No private key transfer
+was needed. Updated FRIC-9 from accepted workaround to resolved; performance
+acceptance remains blocked by the unrelated cell descriptor/client mismatch.

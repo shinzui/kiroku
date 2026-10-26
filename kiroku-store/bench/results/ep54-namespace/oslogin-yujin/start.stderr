@@ -1,0 +1,4 @@
+Starting instance(s) cell-alpha-postgres...
+....................................done.
+Updated [https://compute.googleapis.com/compute/v1/projects/tan-nb-exp/zones/us-west1-a/instances/cell-alpha-postgres].
+Instance internal IP is 10.0.0.2

@@ -1,0 +1,23 @@
+{
+  "source_host": "sungkyung",
+  "development_host": "yujin",
+  "oslogin_user": "nadeem_topagentnetwork_com",
+  "keys": [
+    {
+      "comment": "yujin-sungkyung-client",
+      "fingerprint": "SHA256:mfEnM7YP3ZMuTYkzomqtofI710GgRcsUofr2aqQ0sQU",
+      "expires": false
+    },
+    {
+      "comment": "yujin-sungkyung-rei",
+      "fingerprint": "SHA256:DbHO7tCPqlD2ZZK1wg2cY9ufIcIGbk7036LIVLD+tGM",
+      "expires": false
+    },
+    {
+      "comment": "shinzui@yujin-github",
+      "fingerprint": "SHA256:1J1b+0mqzjXuevrc1N7W0DVYF3ilCVIU5saiWvVBNzY",
+      "expires": false
+    }
+  ],
+  "private_keys_copied": false
+}

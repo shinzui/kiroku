@@ -1,0 +1,16 @@
+{
+  "purpose": "Verify permanent Yujin OS Login keys; no benchmark execution",
+  "started_epoch": 1793034319.0079749,
+  "lease_id": "01a1792c-749f-72bd-9cc8-60f259162cdf",
+  "original_postgres_state": "TERMINATED",
+  "ssh_verified": true,
+  "stop_exit": 0,
+  "lease_release_exit": 0,
+  "finished_epoch": 1793034406.841453,
+  "prior_task_iap_tunnels_terminated": [
+    51606,
+    52324
+  ],
+  "all_four_instances_stopped": true,
+  "lease_object_absent": true
+}

@@ -1,0 +1,16 @@
+{
+  "generation": 1793034322011380,
+  "lease": {
+    "acquiredAt": "2026-10-26T17:05:20Z",
+    "cancelRequested": false,
+    "cell": "alpha",
+    "heartbeatAt": "2026-10-26T17:05:20Z",
+    "leaseId": "01a1792c-749f-72bd-9cc8-60f259162cdf",
+    "owner": "yujin-oslogin",
+    "purpose": "verify Yujin development SSH",
+    "runsStarted": 0,
+    "schema": "cell.lease/v1",
+    "ttlSeconds": 300
+  },
+  "outcome": "acquired"
+}
