@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Other Changes
+
+- Require [shibuya-core](mori://shinzui/shibuya/packages/shibuya-core)
+  `>=0.11 && <0.12` across the library, tests, lifecycle fixture, and benchmarks.
+  The adapter uses the existing default application configuration, so no adapter
+  API change is needed.
+
 ## 0.6.0.1 — 2026-10-11
 
 ### Other Changes

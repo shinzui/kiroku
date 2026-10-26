@@ -103,11 +103,11 @@ final: prev: {
   shibuya-core =
     let
       src = pkgs.fetchurl {
-        url = "https://hackage.haskell.org/package/shibuya-core-0.9.0.0/shibuya-core-0.9.0.0.tar.gz";
-        hash = "sha256-WdLBZcECEW67dmZ1tPUfzQvaQnZFy87JtIIAli6iBDI=";
+        url = "https://hackage.haskell.org/package/shibuya-core-0.11.0.0/shibuya-core-0.11.0.0.tar.gz";
+        hash = "sha256-+CkcWPUiNsGDKJ5l2dXwQ8Qkf5E2JI0q+0Ejuvep1Qw=";
       };
 
-      patched = pkgs.runCommand "shibuya-core-0.9.0.0-patched" { } ''
+      patched = pkgs.runCommand "shibuya-core-0.11.0.0-patched" { } ''
         mkdir -p $out
         tar -xzf ${src} --strip-components=1 -C $out
         chmod -R u+w $out
