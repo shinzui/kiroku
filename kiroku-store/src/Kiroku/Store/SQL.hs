@@ -1018,18 +1018,21 @@ namespaceWindowSQL grouped =
     <> (if grouped then " AND (((hashtextextended(original_stream_id::text, 0) % $6) + $6) % $6) = $5" else "")
     <> """
        )
-       SELECT p.frontier, p.scanned_count, p.exhausted,
-              CASE WHEN m.event_id IS NULL THEN NULL ELSE
+       , payloads AS MATERIALIZED (
+         SELECT m.stream_version,
                 ROW(e.event_id, e.event_type, m.stream_version, m.stream_version,
                     m.original_stream_id, m.original_stream_version,
-                    e.data, e.metadata, e.causation_id, e.correlation_id, e.created_at)
-              END
+                    e.data, e.metadata, e.causation_id, e.correlation_id, e.created_at) AS event
+         FROM matching m
+         -- OFFSET 0 keeps event-id probes behind matching in generic plans.
+         LEFT JOIN LATERAL (SELECT * FROM events WHERE event_id = m.event_id OFFSET 0) e ON true
+       )
+       SELECT p.frontier, p.scanned_count, p.exhausted, payloads.event
        FROM progress p
-       LEFT JOIN matching m ON true
-       -- OFFSET 0 preserves a parameterized event-id probe even when a generic
-       -- plan overestimates matches; unrelated payloads must never be scanned.
-       LEFT JOIN LATERAL (SELECT * FROM events WHERE event_id = m.event_id OFFSET 0) e ON true
-       ORDER BY m.stream_version
+       -- Generate the sentinel after payload probing, so an empty matching set
+       -- never invokes even a zero-I/O NULL event-id lookup.
+       LEFT JOIN payloads ON true
+       ORDER BY payloads.stream_version
        """
 
 -- The sentinel's NULL record is explicit. A selected junction without a payload

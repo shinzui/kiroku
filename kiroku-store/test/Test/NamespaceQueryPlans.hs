@@ -68,7 +68,7 @@ spec = describe "namespace production query bounds" $
                   verify (countRows "stream_events" <= fromIntegral width)
                   verify ([index | obj <- relation "stream_events", Just (String index) <- [KM.lookup "Index Name" obj]] == ["ux_stream_events_stream_version"])
                   verify (payloads <= fromIntegral (min width (total - cursor)))
-                  if namespace == "absent" then verify (payloads == 0) else pure ()
+                  if namespace == "absent" then verify (payloads == 0 && all (\obj -> num "Actual Loops" obj == 0) (relation "events")) else pure ()
                   forM_ (relation "events") $ \obj ->
                     verify (num "Actual Loops" obj == 0 || KM.lookup "Node Type" obj == Just (String "Index Scan"))
 

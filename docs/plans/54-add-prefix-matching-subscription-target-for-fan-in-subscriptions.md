@@ -112,7 +112,9 @@ parameterized per-event LATERAL probe with `OFFSET 0` keeps payload work behind
 matching, including in generic plans. These are per-event probes, not the rejected
 per-stream discovery strategy. All 96 custom/generic cases at 1,000/20,000 rows,
 W=32/1024, dense/sparse/absent matches, beginning/tail cursors and plain/groups pass.
-The shared scan state is allocated only for namespace workers. Old targets retain
+Materialize bounded matching payloads before adding the empty-result sentinel,
+so empty windows invoke zero payload-probe loops (rather than a zero-I/O NULL
+probe). The shared scan state is allocated only for namespace workers. Old targets retain
 their read statements and publisher decode path.
 
 The 2026-10-26 source audit found that `kiroku-store/kiroku-store.cabal` already
