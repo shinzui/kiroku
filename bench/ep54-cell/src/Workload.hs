@@ -4,8 +4,12 @@
 -- The shared producer and separate observer retain the inspection oracle.
 module Workload (bundle) where
 
-import Control.Monad (when)
+import Control.Concurrent (threadDelay)
+import Control.Concurrent.Async qualified as Async
+import Control.Exception (bracket)
+import Control.Monad (forever, when)
 import Data.Aeson qualified as Json
+import Data.IORef
 import Data.Text qualified as Text
 import Kenshou.Core.Bundle (LayerBundle (..))
 import Kenshou.Core.Context qualified as Core
@@ -13,6 +17,7 @@ import Kenshou.Core.Env.Postgres (PostgresEnv (..))
 import Kenshou.Core.Knob
 import Kenshou.Core.Phase qualified as CorePhase
 import Kenshou.Core.Scenario
+import Kenshou.Measure.Load.Series qualified as Load
 import Kenshou.Measure.Phase qualified as Phase
 import Kenshou.Measure.Recorder qualified as Recorder
 import Kenshou.Measure.Session qualified as Measure
@@ -46,15 +51,32 @@ runWorkload context = do
   (_, report) <- Measure.withMeasurement context config $ \measurement -> do
     handle <- Recorder.registerOp (Measure.measurementRecorder measurement) (Recorder.OpName "append")
     workers <- mapM (Recorder.newWorkerRecorder handle) [0 .. 3]
-    let record worker start finish _ = Recorder.recordOp (workers !! worker) start start finish (Recorder.OpOk 1)
-        phase steady action = do
-          Phase.enterPhase (Measure.measurementPhaseClock measurement) (if steady then Phase.Steady else Phase.WarmUp)
-          result <- Core.withPhase context (if steady then CorePhase.Steady else CorePhase.WarmUp) action
-          when steady $ Phase.enterPhase (Measure.measurementPhaseClock measurement) Phase.Drain
-          pure result
-    Probe.trialWith record phase arm mode output
-    Phase.enterPhase (Measure.measurementPhaseClock measurement) Phase.Drain
-    Core.withPhase context CorePhase.Drain (pure ())
+    bracket (Load.openLoadSeries measurement) Load.closeLoadSeries $ \series -> do
+      started <- newIORef 0
+      completed <- newIORef 0
+      failed <- newIORef 0
+      lag <- newIORef 0
+      -- Closed-loop capacity load offers each request when its worker starts it.
+      let sample = Load.sampleLoadSeries series measurement started started completed failed lag
+          record worker start finish _ = case finish of
+            Nothing -> atomicModifyIORef' started (\n -> (n + 1, ()))
+            Just end -> do
+              Recorder.recordOp (workers !! worker) start start end (Recorder.OpOk 1)
+              atomicModifyIORef' completed (\n -> (n + 1, ()))
+          phase steady action = do
+            Phase.enterPhase (Measure.measurementPhaseClock measurement) (if steady then Phase.Steady else Phase.WarmUp)
+            sample
+            result <- Core.withPhase context (if steady then CorePhase.Steady else CorePhase.WarmUp) action
+            when steady $ do
+              Phase.enterPhase (Measure.measurementPhaseClock measurement) Phase.Drain
+              sample
+            pure result
+      Async.withAsync (forever (sample >> threadDelay 100_000)) $ \sampler -> do
+        Async.link sampler
+        Probe.trialWith record phase arm mode output
+        Phase.enterPhase (Measure.measurementPhaseClock measurement) Phase.Drain
+        sample
+        Core.withPhase context CorePhase.Drain (pure ())
   trial <- Json.eitherDecodeFileStrict' output >>= either fail pure
   Core.putSummary context Core.Measurements "namespace-comparison" (trial :: Json.Value)
   Core.declareMediaType context "namespace-trial.json" "application/json"

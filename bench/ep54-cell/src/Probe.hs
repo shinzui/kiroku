@@ -54,7 +54,7 @@ main =
 trial :: String -> String -> FilePath -> IO ()
 trial = trialWith (\_ _ _ _ -> pure ()) (\_ action -> action)
 
-trialWith :: (Int -> Word64 -> Word64 -> Bool -> IO ()) -> (Bool -> IO ([Double], Double) -> IO ([Double], Double)) -> String -> String -> FilePath -> IO ()
+trialWith :: (Int -> Word64 -> Maybe Word64 -> Bool -> IO ()) -> (Bool -> IO ([Double], Double) -> IO ([Double], Double)) -> String -> String -> FilePath -> IO ()
 trialWith recordOp withPhase arm mode output = do
   unless (arm `elem` ["control", "candidate"] && mode `elem` ["disabled", "active"]) (fail "invalid probe arguments")
   ep54 <- (== Just "1") <$> lookupEnv "EP54_NAMESPACE"
@@ -224,7 +224,7 @@ statementStats store = do
     Left err | required -> fail (show err)
     Left _ -> pure A.Null
 
-writer :: (Int -> Word64 -> Word64 -> Bool -> IO ()) -> S.KirokuStore -> Bool -> IORef Int -> Word64 -> Int -> Bool -> Int -> IO [Double]
+writer :: (Int -> Word64 -> Maybe Word64 -> Bool -> IO ()) -> S.KirokuStore -> Bool -> IORef Int -> Word64 -> Int -> Bool -> Int -> IO [Double]
 writer recordOp store ep54 total begin seconds record worker = go 0 []
   where
     go :: Int -> [Double] -> IO [Double]
@@ -236,10 +236,11 @@ writer recordOp store ep54 total begin seconds record worker = go 0 []
           -- Interleave warm streams and new names in the same workload.
           let name = if ep54 && n `mod` 100 == 1 then "ns:" <> T.pack (show worker) <> ":" <> T.pack (show (n `div` 100)) <> "-" <> T.pack (show begin) else if even n then "warm-" <> T.pack (show worker) else "fresh-" <> T.pack (show worker) <> "-" <> T.pack (show begin) <> "-" <> T.pack (show n)
           let event = S.EventData Nothing (S.EventType "Probe") (A.object ["body" A..= T.replicate 512 "x", "source" A..= name, "sent_ns" A..= start]) Nothing Nothing Nothing
+          recordOp worker start Nothing record
           void (right =<< S.runStoreIO store (S.appendToStream (S.StreamName name) S.AnyVersion [event]))
           end <- getMonotonicTimeNSec
           atomicModifyIORef' total (\x -> (x + 1, ()))
-          recordOp worker start end record
+          recordOp worker start (Just end) record
           go (n + 1) (if record then fromIntegral (end - start) / 1000 : samples else samples)
 
 field :: A.Key -> A.Value -> Maybe A.Value

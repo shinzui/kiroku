@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-26
+* **Addition**: FRIC-10 records detour tooling friction with mori://shinzui/keiro-runtime-kenshou: Released Kenshou dependency bounds are bypassed by its assembled Nix cohort
 * **Update**: FRIC-8 accepted: Use the preferred Kenshou workflow for M3 instead of treating repair of the older direct client as a prerequisite.
 * **Update**: FRIC-9 resolved: Replace the temporary-key workaround with permanent authorization for Yujin as the replacement development machine.
 * **Update**: FRIC-9 accepted: Keep authentication scoped to an expiring task key and verify its removal on exit.

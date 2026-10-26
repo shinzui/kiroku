@@ -43,7 +43,7 @@ def observe():
                 for row in document.get('slices', [])]
         except (ValueError, OSError):
             pass
-    active = [row[0] for rows in snapshot.values() for row in rows if row[1] not in ['verified', 'rejected', 'SliceVerified', 'SliceRejected']]
+    active = [row[0] for rows in snapshot.values() for row in rows if row[1] in ['submitted', 'sealed', 'fetched']]
     commands = [
         ['gcloud', 'storage', 'cat', f'gs://tan-nb-exp-cells-control/cells/alpha/submissions/{active[-1] if active else "none"}/status.json', '--project=tan-nb-exp'],
         ['gcloud', 'compute', 'instances', 'list', '--project=tan-nb-exp', '--filter=name~^cell-alpha-', '--format=json(name,status)']]
@@ -112,19 +112,61 @@ def status(label):
 
 
 def cleanup():
-    # The operator releases trial leases on exit. Release only our setup lease.
-    lease_file = RESULTS / 'setup-lease.json'
-    if lease_file.exists():
-        lease = json.loads(lease_file.read_text())
-        subprocess.run(cell('release', '--cell', 'alpha', '--lease-id', lease['leaseId']), env=ENV, timeout=25)
-    # This experiment starts only a previously stopped, unleased alpha cell.
-    if (RESULTS / 'owned-cell.json').exists():
-        result = subprocess.run(['gcloud', 'compute', 'instances', 'stop',
-                                 'cell-alpha-postgres', 'cell-alpha-driver-0',
-                                 'cell-alpha-monitoring', 'cell-alpha-broker',
-                                 '--project=tan-nb-exp', '--zone=us-west1-a', '--quiet'],
-                                env=ENV, capture_output=True, text=True, timeout=90)
-        save('cleanup-power-command.json', dict(exit_code=result.returncode, stdout=result.stdout, stderr=result.stderr))
+    if not (RESULTS / 'owned-cell.json').exists():
+        journal('cleanup-no-owned-cell')
+        return
+    inspected = subprocess.run(cell('status', '--cell', 'alpha', '--json'), env=ENV,
+                               capture_output=True, text=True, timeout=25)
+    if inspected.returncode:
+        journal('cleanup-status-unavailable', error=inspected.stderr)
+        return
+    current = json.loads(inspected.stdout)
+    save('cleanup-status-before.json', current)
+    owned = set()
+    for path in RESULTS.rglob('session.json'):
+        try:
+            owned.add(json.loads(path.read_text())['leaseId'])
+        except (OSError, ValueError, KeyError):
+            pass
+    setup = RESULTS / 'setup-lease.json'
+    if setup.exists():
+        owned.add(json.loads(setup.read_text())['leaseId'])
+    if current['lease']:
+        identifier = current['lease']['leaseId']
+        if identifier not in owned:
+            journal('cleanup-refused-other-lease', lease=identifier)
+            return
+        released = subprocess.run(cell('release', '--cell', 'alpha', '--lease-id', identifier), env=ENV,
+                                  capture_output=True, text=True, timeout=25)
+        if released.returncode:
+            journal('cleanup-release-failed', error=released.stderr)
+            return
+    extension_log = RESULTS / 'setup-extension.log'
+    if extension_log.exists() and 'existed=false' in extension_log.read_text():
+        acquired = subprocess.run(cell('lease', '--cell', 'alpha', '--purpose', 'Plan 54 extension cleanup',
+                                       '--ttl', '120', '--json'), env=ENV, capture_output=True, text=True, timeout=25)
+        if acquired.returncode == 0:
+            identifier = json.loads(acquired.stdout)['leaseId']
+            try:
+                removed = subprocess.run(cell('debug', '--cell', 'alpha', 'ssh', 'postgres', '--', 'sudo', '-n', '-u', 'postgres',
+                                             'psql', '-XAt', '-v', 'ON_ERROR_STOP=1', '-d', 'template1', '-c',
+                                             'DROP EXTENSION IF EXISTS pg_stat_statements'), env=ENV, capture_output=True, text=True, timeout=45)
+                save('cleanup-extension.json', dict(exit_code=removed.returncode, stdout=removed.stdout, stderr=removed.stderr))
+            finally:
+                subprocess.run(cell('release', '--cell', 'alpha', '--lease-id', identifier), env=ENV, timeout=25)
+    result = subprocess.run(['gcloud', 'compute', 'instances', 'stop',
+                             'cell-alpha-postgres', 'cell-alpha-driver-0',
+                             'cell-alpha-monitoring', 'cell-alpha-broker',
+                             '--project=tan-nb-exp', '--zone=us-west1-a', '--quiet'],
+                            env=ENV, capture_output=True, text=True, timeout=150)
+    save('cleanup-power-command.json', dict(exit_code=result.returncode, stdout=result.stdout, stderr=result.stderr))
+    inspected = subprocess.run(cell('status', '--cell', 'alpha', '--json'), env=ENV, capture_output=True, text=True, timeout=25)
+    if inspected.returncode == 0:
+        save('cleanup-status-after.json', json.loads(inspected.stdout))
+    power = subprocess.run(['gcloud', 'compute', 'instances', 'list', '--project=tan-nb-exp', '--filter=name~^cell-alpha-',
+                            '--format=json(name,status)'], env=ENV, capture_output=True, text=True, timeout=25)
+    if power.returncode == 0:
+        save('cleanup-power-after.json', json.loads(power.stdout))
     journal('cleanup-finished')
 
 
@@ -132,14 +174,17 @@ def main():
     global OPERATOR
     parser = argparse.ArgumentParser()
     parser.add_argument('--operator', required=True)
-    parser.add_argument('--stage', choices=['prepare', 'measure'], required=True)
+    parser.add_argument('--stage', choices=['prepare', 'measure', 'all'], required=True)
     args = parser.parse_args()
     OPERATOR = args.operator
     try:
-        if args.stage == 'prepare':
+        if args.stage in ['prepare', 'all']:
             status('initial-status')
             for cohort in ['head', 'released']:
-                command(cell('payload', 'publish', '--cohort', cohort, '--root', 'bench/ep54-cell',
+                if (RESULTS / f'{cohort}-payload.json').exists():
+                    command(cell('payload', 'show', RESULTS / f'{cohort}-payload.json'), f'verify-published-{cohort}')
+                    continue
+                command(cell('payload', 'publish', '--cohort', cohort, '--root', str(ROOT / 'bench/ep54-cell'),
                              '--out', RESULTS / f'{cohort}-payload.json', '--allow-dirty'),
                         f'publish-{cohort}', minimum=300)
             power = subprocess.run(['gcloud', 'compute', 'instances', 'list', '--project=tan-nb-exp', '--filter=name~^cell-alpha-', '--format=json(name,status)'], env=ENV, capture_output=True, text=True, check=True, timeout=20)
@@ -148,7 +193,7 @@ def main():
                 raise RuntimeError('expected all four alpha instances stopped before taking ownership')
             save('owned-cell.json', dict(cell='alpha', initial_power=machines))
             lease = json.loads(command(cell('lease', '--cell', 'alpha', '--purpose', 'Plan 54 Kenshou setup',
-                                            '--ttl', '300', '--start', '--json'), 'setup-acquire', minimum=180))
+                                            '--ttl', '300', '--start', '--json'), 'setup-acquire', minimum=180).splitlines()[-1])
             save('setup-lease.json', lease)
             save('owned-cell.json', dict(cell='alpha', started_from='all stopped and no lease'))
             command(cell('debug', '--cell', 'alpha', 'ssh', 'postgres', '--', 'sudo', '-n', '-u', 'postgres',
@@ -159,7 +204,7 @@ def main():
                     'proof', minimum=180, monitor=True)
             status('proof-released-status')
             save('proof-completed.json', dict(verified=True, lease_released=True))
-        else:
+        if args.stage in ['measure', 'all']:
             if not (RESULTS / 'proof-completed.json').exists():
                 raise RuntimeError('verify submission and lease-release proof before expansion')
             if remaining() < 20 * 80 + 180:
@@ -173,7 +218,7 @@ def main():
                              '--policy', 'bench/mp12-cell/policy.json', '--pairs', '5', '--max-replacements', '0',
                              '--pg-setting', 'shared_buffers=128MB', '--pg-setting', 'fsync=on',
                              '--pg-setting', 'synchronous_commit=on', '--pg-setting', 'full_page_writes=on',
-                             '--out', RESULTS / mode), f'pair-{mode}', minimum=800, accepted=(0, 1, 2), monitor=True)
+                             '--out', RESULTS / mode), f'pair-{mode}', minimum=800, accepted=(0, 1, 3), monitor=True)
                 status(f'{mode}-released-status')
                 comparison = json.loads((RESULTS / mode / 'comparison.json').read_text())
                 if str(comparison.get('verdict', '')).lower() == 'regression':
