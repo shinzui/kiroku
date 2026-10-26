@@ -50,7 +50,9 @@ import Kiroku.Store.Types (CategoryName (..), GlobalPosition (..))
 --    handler runs. A database error fails the worker loudly through 'wait'; it
 --    does not fall back to 0.
 -- 2. Catches up by querying the database directly until it reaches the
---    'Kiroku.Store.Subscription.EventPublisher.lastPublished' cursor.
+--    'Kiroku.Store.Subscription.EventPublisher.lastPublished' cursor. Namespace
+--    targets instead capture the committed database head and drain bounded
+--    global windows through it, including windows without matching events.
 -- 3. Switches to live mode. For 'Kiroku.Store.Subscription.Types.AllStreams'
 --    subscriptions outside a consumer group, the worker reads pre-broadcast
 --    events from the publisher's bounded per-subscriber queue. For
@@ -68,7 +70,8 @@ import Kiroku.Store.Types (CategoryName (..), GlobalPosition (..))
 --
 -- Events are delivered __at least once__. The store's checkpoint is advanced
 -- __per batch__, not per event: when the handler returns 'Continue' for every
--- event in a batch the checkpoint is saved at the batch tail; when the handler
+-- event in a batch the checkpoint is saved at the batch tail (or the completed
+-- scan frontier for a namespace window); when the handler
 -- returns 'Stop' for some event the checkpoint is saved at that event. The
 -- following events on the boundary therefore __replay__ on the next
 -- subscription with the same 'Kiroku.Store.Subscription.Types.SubscriptionName':

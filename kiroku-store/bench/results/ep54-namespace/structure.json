@@ -1,0 +1,32 @@
+{
+  "appendExpectedVersionSQL": {
+    "unchanged": true,
+    "sha256": "f7171065f03e85728ba6a899a439c089305ae58448baa1bc9b58207d0be07793"
+  },
+  "appendStreamExistsSQL": {
+    "unchanged": true,
+    "sha256": "be1e6bc119b6afc958f61a41513e36375994f6a85de9c8af794f0aecebcfb638"
+  },
+  "appendNoStreamSQL": {
+    "unchanged": true,
+    "sha256": "be9e39746df4a1f18f9935272ab5924984c976568f5b6a3d5962c8bde48e134c"
+  },
+  "appendAnyVersionSQL": {
+    "unchanged": true,
+    "sha256": "3ac4c6cef6e73b83cb88147c17d86d8bf2d0d1f3df9fad844036c0bd408986ed"
+  },
+  "readCategoryForwardSQL": {
+    "unchanged": true,
+    "sha256": "bd23590adc38afcbd93382df14832fddbb4adaa06b9e359ff5b34456a70d70eb"
+  },
+  "readCategoryForwardConsumerGroupSQL": {
+    "unchanged": true,
+    "sha256": "60f92d29b62cf926a51616c6b5243ba79c2e46f4c81847e41525c4eda1dd8fee"
+  },
+  "unchanged_paths": [
+    "kiroku-store/src/Kiroku/Store/Append.hs",
+    "kiroku-store/src/Kiroku/Store/Subscription/EventPublisher.hs"
+  ],
+  "released_migrations_unchanged": true,
+  "migration_0016_scope": "subscriptions CHECK constraints and schema comment only"
+}

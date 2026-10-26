@@ -51,6 +51,23 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(resumed.deadline, original)
         self.assertEqual(module.read(self.args.out / "setup-attempt-0/journal.json")["error"], "fixture")
 
+    def test_resume_before_lease_call_preserves_failure_and_budget(self):
+        controller = module.Controller(self.args)
+        controller.journal.update(status="stopped", lease_acquire_attempted=False, error="runtime before cloud call")
+        controller.save()
+        self.args.resume=True
+        resumed=module.Controller(self.args)
+        self.assertEqual(resumed.deadline, controller.deadline)
+        self.assertEqual(module.read(self.args.out / "setup-attempt-0/journal.json")["error"], "runtime before cloud call")
+
+    def test_ambiguous_lease_attempt_cannot_be_resumed_without_release(self):
+        controller = module.Controller(self.args)
+        controller.journal.update(status="stopped", lease_acquire_attempted=True)
+        controller.save()
+        self.args.resume=True
+        with self.assertRaisesRegex(RuntimeError, "existing run"):
+            module.Controller(self.args)
+
     def test_submitted_trial_cannot_be_retried(self):
         controller = module.Controller(self.args)
         controller.journal.update(status="stopped", lease_release_exit=0, trials=[dict(status="failed")])

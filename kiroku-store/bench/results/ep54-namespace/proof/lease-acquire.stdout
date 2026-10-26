@@ -1,0 +1,16 @@
+{
+  "generation": 1793033322246589,
+  "lease": {
+    "acquiredAt": "2026-10-26T16:48:40Z",
+    "cancelRequested": false,
+    "cell": "alpha",
+    "heartbeatAt": "2026-10-26T16:48:40Z",
+    "leaseId": "01a1791d-3471-7099-ba66-d52169c6c095",
+    "owner": "kiroku-mp13",
+    "purpose": "inspection validation",
+    "runsStarted": 0,
+    "schema": "cell.lease/v1",
+    "ttlSeconds": 120
+  },
+  "outcome": "acquired"
+}

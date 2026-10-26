@@ -1,0 +1,14 @@
+{
+  "started": 1793032889.782776,
+  "deadline": 1793035478.906956,
+  "payload_sha256": "f90d2d1711b818b6c05087f1ff06bb997126e02a35add3f1d1217cf8b036b49e",
+  "trials": [],
+  "status": "stopped",
+  "lease_id": "01a17916-a5b6-70b8-a96d-9b14786a55d2",
+  "phase": "waiting-for-ssh-readiness",
+  "error": "template-create failed (2)",
+  "lease_release_exit": 0,
+  "stop_exit": 0,
+  "all_stopped": true,
+  "finished": 1793032958.17461
+}

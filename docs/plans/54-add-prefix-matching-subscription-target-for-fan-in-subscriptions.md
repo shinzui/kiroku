@@ -86,18 +86,22 @@ optional follow-up, not part of the required delivery.
 - [x] (2026-10-26) M2: Reference-counted selective wakes pass plain/grouped
   delivery, snapshot/drain race, lost-notification safety tick, listener/worker
   reconnect, failed-startup and idempotent final-release tests.
-- [ ] M3: Complete disposition, topology and structural-cost acceptance, then one
-  focused performance comparison of the affected paths under ADR-15.
-- [ ] M4: Update documentation, compatibility guidance and durable decisions;
-  retain final evidence and classify functional versus performance acceptance.
+- [ ] M3: Correctness/topology and 96 production query-plan cases pass; the
+  focused cumulative performance comparison remains blocked by incompatible
+  deployed cell/client schemas (FRIC-8). Zero remote trials or pairs executed.
+- [x] (2026-10-26) M4: User/schema/adapter documentation, changelogs and ADR-4/17
+  record semantics, cutover, downgrade limits and scan/wake contracts. Retained
+  evidence classifies functional/structural completion separately from blocked
+  performance acceptance; no package version or release verdict was invented.
 
 The original M0–M5 breakdown is superseded by these four verifiable milestones.
 The namespace constructor, worker, wake registry and migration 0016 are
 implemented. The focused Hspec group passes 26 examples, including 96 production
 EXPLAIN cases. The full PG18 store suite passes 522 examples and the adapter suite
 passes 45 examples; migrations pass 25 examples on both PG17 and PG18. Performance
-comparison work is active; its budget is retained in
-`kiroku-store/bench/results/ep54-namespace/budget.json`. The optional old M3 `readPrefix` combinator is deferred because a
+comparison stopped before upload on the cell descriptor/client mismatch. Its
+[report](../../kiroku-store/bench/results/ep54-namespace/README.md) retains the
+single budget, zero executed/verified trials, cleanup and exact remaining work. The optional old M3 `readPrefix` combinator is deferred because a
 vector-only result cannot express an empty but non-exhausted scan window.
 
 ## Surprises & Discoveries
@@ -116,6 +120,15 @@ Materialize bounded matching payloads before adding the empty-result sentinel,
 so empty windows invoke zero payload-probe loops (rather than a zero-I/O NULL
 probe). The shared scan state is allocated only for namespace workers. Old targets retain
 their read statements and publisher decode path.
+
+The remote proof could not reach execution: the client built from the registered
+`mori://shinzui/load-testing-infra` source rejects the deployed descriptor's
+`instances.broker` field before any submission upload (FRIC-8). The journal's
+failed row records a client-side submission intent, not an interrupted measured
+sample. The controller released its lease and removed its template; an explicit
+final check verified all four instances stopped and the temporary SSH identity
+revoked. No performance comparison was launched or accepted. Do not bypass the
+descriptor contract or restart this experiment's clock to obtain a verdict.
 
 The 2026-10-26 source audit found that `kiroku-store/kiroku-store.cabal` already
 sets `-Wall -Werror=incomplete-patterns`. Adding that flag is no longer work.
@@ -221,6 +234,12 @@ across workers. Preserve ADR-15's original-control cumulative comparison and
 report active-reader cost without claiming that unchanged append SQL proves
 neutrality.
 
+2026-10-26 — Stop the performance attempt at the incompatible deployed cell/client
+interface. Preserve the zero-trial journal and original budget; leave M3 performance
+acceptance open. Production correctness, documentation and structural completion
+stand independently. Resume performance work only with a compatible infrastructure
+contract and a new explicit budget, retaining this failed attempt.
+
 Historical decisions retained in substance: June's additive target, exact-category
 compatibility, consumer-group support and explicit performance accounting still
 apply. June's LIKE/index/per-stream SQL and global-wake recommendations are
@@ -232,13 +251,33 @@ does not authorize another write-cost allowance.
 ## Outcomes & Retrospective
 
 
-2026-10-26: the plan now describes the current code and a concrete design that
+Plan-refresh outcome, 2026-10-26: the plan now describes the current code and a concrete design that
 removes per-family stream probes and extra writer indexes while suppressing
 unrelated live queries. This is a design outcome, not a measured speedup. The
 remaining cost is scanning global history for each namespace/group member,
 matching-row payload fetch/decode, checkpoint saves, and active notification
 routing. SQL production plans, worker correctness and performance acceptance
 remain open. No production source or schema was changed during this refresh.
+
+Implementation outcome, 2026-10-26: `CategoryNamespace` is implemented with a
+manifest-allocated migration, safe completed-window checkpoints and selective
+reference-counted wakes. The final store suite passes 522 examples; adapter 45;
+migrations 25 each on PG17/18; focused namespace 26 each on PG17/18, including
+96 production EXPLAIN cases per major. Append/category statements, publisher
+sources and released migration bytes are preserved. The feature is functionally
+and structurally complete, with cumulative performance acceptance still open.
+The [evidence report](../../kiroku-store/bench/results/ep54-namespace/README.md)
+retains the production plans, local delivery proof, frozen candidate/control,
+failed client-side submission, and cleanup. No remote benchmark ran, no pair was
+verified, and no speedup or neutrality claim is made.
+
+FRIC-4 in `docs/friction-log/` is resolved by correcting the Hspec commands.
+FRIC-5 is accepted: retain mandatory formatting on edited files and verify SQL
+bodies independently. FRIC-6 is resolved by documenting the infrastructure shell.
+FRIC-7 is resolved by documenting Python 3.14 and testing safe pre-acquire resume.
+FRIC-8 remains logged and blocks performance acceptance outside this plan's
+production scope. FRIC-9 is accepted: use an explicit usable task-scoped SSH
+identity, then revoke it and remove its temporary files.
 
 ## Context and Orientation
 
@@ -697,3 +736,9 @@ semantics, selective reference-counted wakes, payload filtering and coalesced
 checkpoint saves; refreshed source paths, test commands, ADR context and focused
 cumulative-cost acceptance. No production implementation or new benchmark result
 is claimed by this revision.
+
+
+2026-10-26 — Implemented the target, constraint migration, bounded payload windows,
+completed-frontier FSM protocol, selective wake registry, tests and documentation.
+Recorded custom-plan and payload-probe barriers, retained exact production evidence,
+and stopped performance acceptance at an incompatible external cell/client schema.

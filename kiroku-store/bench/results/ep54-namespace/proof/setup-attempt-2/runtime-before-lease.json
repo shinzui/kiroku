@@ -1,0 +1,17 @@
+{
+  "started": 1793032889.782776,
+  "deadline": 1793035478.906956,
+  "payload_sha256": "f90d2d1711b818b6c05087f1ff06bb997126e02a35add3f1d1217cf8b036b49e",
+  "trials": [],
+  "status": "stopped",
+  "phase": "waiting-for-ssh-readiness",
+  "recoveries": [
+    {
+      "at": 1793032983.8447208,
+      "previous_journal": "kiroku-store/bench/results/ep54-namespace/proof/setup-attempt-0/journal.json",
+      "reason": "resume before any trial submission"
+    }
+  ],
+  "error": "module 'uuid' has no attribute 'uuid7'",
+  "finished": 1793032983.845867
+}

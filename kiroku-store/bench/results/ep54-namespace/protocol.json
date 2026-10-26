@@ -1,0 +1,40 @@
+{
+  "cases": [
+    "disabled",
+    "active"
+  ],
+  "pairs_per_case": 5,
+  "warmup_seconds": 10,
+  "measurement_seconds": 30,
+  "admission_seconds_per_trial": 100,
+  "proof_allowance_seconds": 420,
+  "cleanup_reserve_seconds": 180,
+  "total_budget_seconds": 3600,
+  "confidence": 0.95,
+  "max_ci_relative_width": 0.06,
+  "allowed_slowdown": 0,
+  "policy": "bench/mp12-cell/policy.json",
+  "original_control": "364ffa82136fcfc83d39ead1234abffaf500844b",
+  "candidate": "c5ca341",
+  "stop_conditions": [
+    "setup or execution failure",
+    "remote phase without progress for 240 seconds",
+    "fewer than 180 seconds remain for cleanup",
+    "consistent adverse result; no automatic retries or precision escalation"
+  ],
+  "measurement_scope": "Existing appends plus new stream creation in the established mixed inspection workload; active case adds one exact warm-category worker and one 1-percent namespace worker. Logical scanned progress is checkpoint position; SQL counts and EXPLAIN provide work evidence.",
+  "source_sha256": {
+    "bench/mp13-release/src/Main.hs": "73ed4282125f312edb26667feb59518a66fb67e8bbe3b25b5c42ec5d6b2a92ed",
+    "bench/mp13-release/src/Namespace.hs": "bba74b2cf0a97b0b59da8b9449491946d408e38995e514b8a9a6ac83cc583f63",
+    "bench/mp13-release/src/Delivery.hs": "36e1080e3bd67f2b43a7173a7e598e39651c98de7007e757cb01834a2e0b67c5",
+    "bench/mp13-release/cell-entry.py": "f1df645cae33fb76afcb7bd443e7f09c491ee5c8d70885f148907cc0549c6e96",
+    "bench/mp13-release/observer-cell/observe.py": "bb39f4fa4c62dcc702ffd21dc6d0be8e72267755bb4261f5ce265379dede3967",
+    "bench/mp13-release/run.py": "b7988844a19a145e7dd62a3600fe00537256c3502c4b93532e0d733591ef35dd",
+    "bench/mp13-release/run-cell.py": "692d1a7a9cb2be252441210f73cb699f49f02f9c1860b8d41139bb94b195cb70"
+  },
+  "controller_final_sha256": {
+    "bench/mp13-release/run.py": "b7988844a19a145e7dd62a3600fe00537256c3502c4b93532e0d733591ef35dd",
+    "bench/mp13-release/run-cell.py": "edb49c7b8f5f8b65a12244db8515ca2dbc24505cef72d18695b59fb38483e0e8"
+  },
+  "outcome": "Stopped at client descriptor validation; no remote work uploaded or executed. No measured retries or comparison queue."
+}

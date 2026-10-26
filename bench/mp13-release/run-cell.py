@@ -60,7 +60,7 @@ class Controller:
         if self.journal_path.exists():
             self.journal = read(self.journal_path)
             if self.journal['payload_sha256'] != digest(args.payload): raise ValueError('payload changed')
-            if args.resume and not self.journal['trials'] and self.journal.get('lease_release_exit')==0:
+            if args.resume and not self.journal['trials'] and (self.journal.get('lease_release_exit')==0 or self.journal.get('lease_acquire_attempted') is False):
                 archive=self.root/('setup-attempt-'+str(len(self.journal.get('recoveries',[]))))
                 archive.mkdir(exist_ok=False)
                 for path in self.root.iterdir():
@@ -98,7 +98,9 @@ class Controller:
         return result
 
     def acquire(self):
+        self.journal['lease_acquire_attempted']=False;self.save()
         self.lease = str(uuid.uuid7())
+        self.journal['lease_acquire_attempted']=True;self.save()
         result=self.command(self.ctl+['lease','acquire','--cell','alpha','--lease-id',self.lease,'--owner','kiroku-mp13','--purpose','inspection validation','--ttl-seconds','120'],'lease-acquire')
         if json.loads(result.stdout)['outcome'] != 'acquired': raise RuntimeError('lease not acquired')
         self.journal['lease_id']=self.lease;self.save()

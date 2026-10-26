@@ -1,0 +1,48 @@
+{
+  "started": 1793032889.782776,
+  "deadline": 1793035478.906956,
+  "payload_sha256": "f90d2d1711b818b6c05087f1ff06bb997126e02a35add3f1d1217cf8b036b49e",
+  "trials": [
+    {
+      "label": "proof",
+      "arm": "candidate",
+      "mode": "active",
+      "run_id": "01a1791e-3820-750e-b8ea-0957b11539a5",
+      "started": 1793033386.016777,
+      "status": "failed",
+      "error": "proof-submit failed (4)"
+    }
+  ],
+  "status": "stopped",
+  "phase": "waiting-for-ssh-readiness",
+  "recoveries": [
+    {
+      "at": 1793032983.8447208,
+      "previous_journal": "kiroku-store/bench/results/ep54-namespace/proof/setup-attempt-0/journal.json",
+      "reason": "resume before any trial submission"
+    },
+    {
+      "at": 1793033127.8302689,
+      "previous_journal": "kiroku-store/bench/results/ep54-namespace/proof/setup-attempt-1/journal.json",
+      "reason": "resume before any trial submission"
+    },
+    {
+      "at": 1793033319.5375638,
+      "previous_journal": "kiroku-store/bench/results/ep54-namespace/proof/setup-attempt-2/journal.json",
+      "reason": "resume before any trial submission"
+    }
+  ],
+  "lease_acquire_attempted": true,
+  "pre_call_audit": {
+    "at": 1793033126.663139,
+    "reason": "uuid.uuid7 raised before lease ID allocation or any cloud lease call; original journal retained in runtime-before-lease.json"
+  },
+  "lease_id": "01a1791d-3471-7099-ba66-d52169c6c095",
+  "template": "mp13_01a1791d34717099ba66d52169c6c095",
+  "error": "proof-submit failed (4)",
+  "template_removed": true,
+  "lease_release_exit": 0,
+  "stop_exit": 0,
+  "all_stopped": false,
+  "finished": 1793033445.5541859
+}

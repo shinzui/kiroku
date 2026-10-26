@@ -1,0 +1,25 @@
+{
+  "finished_epoch": 1793033578.99399,
+  "functional_complete": true,
+  "structural_complete": true,
+  "performance_acceptance": "blocked; no benchmark execution",
+  "local_namespace_proof": {
+    "total_appends": 25076,
+    "ordered_matches": 254,
+    "checkpoint": 24992,
+    "final_payload_query": true
+  },
+  "submission_intents": 1,
+  "remote_submissions_uploaded": 0,
+  "remote_trials_executed": 0,
+  "verified_remote_trials": 0,
+  "comparison_pairs": 0,
+  "active_remote_execution": false,
+  "lease_release_exit": 0,
+  "lease_object_absent": true,
+  "template_removed": true,
+  "all_four_instances_stopped": true,
+  "temporary_oslogin_key_removed": true,
+  "blocker": "cellctl rejects the deployed descriptor instances.broker field before any work upload",
+  "remaining_budget_seconds": 1899.9126329421997
+}

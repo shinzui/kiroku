@@ -69,3 +69,28 @@ inspection overhead.
 
 The latest [validation checkpoint](validation-2026-10-11/README.md) records what
 actually ran, including all failures and the remaining acceptance gap.
+
+## Category namespace comparison (plan 54)
+
+The optional `category-namespace` Cabal flag builds a namespace subscriber only
+against the new runtime. With `EP54_NAMESPACE=1`, both arms use the same producer
+(one percent literal `ns:*` categories) and existing exact-category activity.
+The candidate additionally drains one namespace worker. `#namespace-observed`
+wraps both arms with the retained checkpoint sampler. Ordinary MP13 runs keep
+their existing workload when the environment variable is unset.
+
+Pass `--namespace` to `run-cell.py` to require namespace exact ordered delivery,
+sparse match counts, complete lag samples, durable progress, and checkpoint
+sampling. An old candidate binary returning no namespace evidence is refused.
+Retain the same original control and comparison policy; these are diagnostic
+trials, and no formal benchmark-grade or zero-regression claim follows merely
+from successful execution.
+
+Run operator commands in the infrastructure development shell for
+`mori://shinzui/load-testing-infra`, which supplies `zstd` and `socat`. The
+controller requires Python 3.14 or newer (`uuid.uuid7`); retain an explicit path
+to that interpreter if the infrastructure shell places an older Python first.
+A setup failure before a lease call can resume only when the journal records
+that no acquire was attempted. An ambiguous lease attempt still needs verified
+release; submitted trials are never retried. All recovery shares the original
+budget.

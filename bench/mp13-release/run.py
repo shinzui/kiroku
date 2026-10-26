@@ -87,7 +87,7 @@ def validate_namespace(data):
     lags = namespace.get('raw_lag_us', [])
     if len(lags) != matched or any(not math.isfinite(x) or x < 0 for x in lags):
         raise ValueError('namespace lag samples incomplete')
-    if not 0 < namespace.get('checkpoint', 0) < data['durable_events']:
+    if not 0 < namespace.get('checkpoint', 0) <= data['durable_events']:
         raise ValueError('namespace checkpoint outside store history')
     catchup = namespace.get('catchup_us', 0)
     if not math.isfinite(catchup) or catchup <= 0:

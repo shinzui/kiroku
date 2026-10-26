@@ -58,6 +58,8 @@ class Validation(unittest.TestCase):
         data=fixture()
         data['namespace']=dict(exact_ordered_delivery=True,matched=60,raw_lag_us=[10.]*60,checkpoint=6000,catchup_us=100.)
         runner.validate_namespace(data)
+        data['namespace']['checkpoint']=data['durable_events']
+        runner.validate_namespace(data)
         for mutate in [lambda d:d.pop('namespace'), lambda d:d['namespace'].update(matched=1),
                        lambda d:d['namespace'].update(raw_lag_us=[]),
                        lambda d:d['namespace'].update(checkpoint=7000),
