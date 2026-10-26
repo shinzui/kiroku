@@ -84,3 +84,19 @@ stopped. `oslogin-yujin/registered-keys.json` and `verification.json` retain the
 public fingerprints and checks. FRIC-9 is now resolved. This fixes development
 SSH access; the distinct deployed-descriptor/client mismatch still blocks the
 performance comparison, and no additional benchmark was submitted.
+
+## Preferred performance path selected afterward
+
+The user selected `mori://shinzui/keiro-runtime-kenshou` as the preferred way to
+run performance tests. Its current master source
+`2129bb917da811ef1e90198d91db873cc8d05b7b` declares an optional broker on cell nodes,
+parses `instances.broker`, and includes the optional VM in lifecycle handling.
+Thus the rejection above belongs to the old direct `cellctl` path. Source
+inspection establishes field support, not a successful live Kenshou submission.
+
+Use the owner's exact-revision pairing and verification workflow. The current
+subscription benchmark covers all/category targets and the quick performance
+catalog contains uncalibrated Shibuya profiles. Namespace-specific coverage and
+an appropriate explicit comparison are still needed. No existing quick profile
+or earlier cohort acceptance can stand in for this feature's release evidence.
+No new benchmark was run and no experiment clock was restarted for this decision.

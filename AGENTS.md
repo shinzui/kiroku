@@ -1,5 +1,8 @@
 # Performance experiments
 
+- Prefer `mori://shinzui/keiro-runtime-kenshou` for performance tests and paired
+  comparisons. Use its current runner, evidence and recovery contracts while
+  keeping the affected-path scope and whole-experiment budget below.
 - Start with the minimum evidence needed for the actual change: existing valid
   correctness tests, structural invariants and a focused comparison of an affected
   path. Do not turn a small metadata or startup change into a statistical study.

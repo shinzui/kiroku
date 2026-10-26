@@ -86,9 +86,10 @@ optional follow-up, not part of the required delivery.
 - [x] (2026-10-26) M2: Reference-counted selective wakes pass plain/grouped
   delivery, snapshot/drain race, lost-notification safety tick, listener/worker
   reconnect, failed-startup and idempotent final-release tests.
-- [ ] M3: Correctness/topology and 96 production query-plan cases pass; the
-  focused cumulative performance comparison remains blocked by incompatible
-  deployed cell/client schemas (FRIC-8). Zero remote trials or pairs executed.
+- [ ] M3: Correctness/topology and 96 production query-plan cases pass. The
+  user selected `mori://shinzui/keiro-runtime-kenshou` for performance work;
+  a namespace-aware scoped comparison and verified paired evidence remain open.
+  The historical direct-cell attempt executed zero remote trials or pairs.
 - [x] (2026-10-26) M4: User/schema/adapter documentation, changelogs and ADR-4/17
   record semantics, cutover, downgrade limits and scan/wake contracts. Retained
   evidence classifies functional/structural completion separately from blocked
@@ -240,6 +241,20 @@ acceptance open. Production correctness, documentation and structural completion
 stand independently. Resume performance work only with a compatible infrastructure
 contract and a new explicit budget, retaining this failed attempt.
 
+2026-10-26 — The user selected `mori://shinzui/keiro-runtime-kenshou` as the
+preferred performance entry point. Its current source at
+`2129bb917da811ef1e90198d91db873cc8d05b7b` already parses optional
+`instances.broker` and manages the optional VM, so repairing the older direct
+`cellctl` path is not a prerequisite for the selected approach. Use Kenshou's
+owned pairing, retained evidence and verification. Its current subscription
+benchmark targets all/category; the quick performance catalog has only
+uncalibrated Shibuya profiles. Define or adapt an explicit Kiroku namespace
+workload before selecting a comparison. No existing quick profile, source
+inspection, or successful SSH check can certify this feature. The guide is
+`mori://shinzui/keiro-runtime-kenshou/okf/guides/concepts/DOC-6` (present in the
+owner checkout; current Mori registry resolution lags). No Kenshou trial was
+launched, and the prior budget was not reset.
+
 Historical decisions retained in substance: June's additive target, exact-category
 compatibility, consumer-group support and explicit performance accounting still
 apply. June's LIKE/index/per-stream SQL and global-wake recommendations are
@@ -275,8 +290,9 @@ FRIC-4 in `docs/friction-log/` is resolved by correcting the Hspec commands.
 FRIC-5 is accepted: retain mandatory formatting on edited files and verify SQL
 bodies independently. FRIC-6 is resolved by documenting the infrastructure shell.
 FRIC-7 is resolved by documenting Python 3.14 and testing safe pre-acquire resume.
-FRIC-8 remains logged and blocks performance acceptance outside this plan's
-production scope. FRIC-9 is resolved by the user's Yujin migration follow-up: register its three
+FRIC-8 is accepted as a retained failure of the superseded direct-client path.
+Kenshou already models that optional field; the outstanding release gate is
+namespace-aware performance coverage and verified comparison evidence. FRIC-9 is resolved by the user's Yujin migration follow-up: register its three
 existing public keys without expiration and verify direct IAP SSH and PostgreSQL
 admin access. The VM was stopped and the lease released after that check; FRIC-8
 remains the separate performance blocker.
@@ -751,3 +767,9 @@ authorized Yujin's three public keys found in Sungkyung's authorized keys and
 verified cell SSH and PostgreSQL admin access from Yujin. No private key transfer
 was needed. Updated FRIC-9 from accepted workaround to resolved; performance
 acceptance remains blocked by the unrelated cell descriptor/client mismatch.
+
+
+2026-10-26 — Recorded the user's preference for Kenshou-owned performance tests in
+this plan and AGENTS.md. Verified optional broker support in current Kenshou
+source and retained the legacy failure. M3 now names missing namespace-aware
+comparison evidence, rather than requiring a repair of the older direct client.

@@ -6,12 +6,17 @@ generated:
   by: "codex-cli/gpt-6.1-sol"
   at: "2026-10-26T16:51:41Z"
 frictionId: FRIC-8
-status: logged
+status: "accepted"
 impact: blocked
 kind: interface
 origin: "mori://shinzui/kiroku"
 affects: "mori://shinzui/load-testing-infra"
 plan: "docs/plans/54-add-prefix-matching-subscription-target-for-fan-in-subscriptions.md"
+resolution: "Preserve the rejected legacy cellctl attempt. The user selected Kenshou, whose current source supports optional instances.broker; the legacy client remains unchanged, and namespace performance evidence is still required."
+amended:
+  - by: "codex-cli/gpt-6.1-sol"
+    at: "2026-10-26T17:22:13Z"
+    change: "Use the preferred Kenshou workflow for M3 instead of treating repair of the older direct client as a prerequisite."
 ---
 # Deployed cell descriptor is incompatible with the available cell client
 
