@@ -1,0 +1,13 @@
+*
+!.gitignore
+!README.md
+!budget.json
+!protocol.json
+!sources.json
+!summary.json
+!completion.json
+!evidence.tar.gz
+!evidence.sha256
+!summarize.py
+!v4-controller.py
+!failure-watch.py

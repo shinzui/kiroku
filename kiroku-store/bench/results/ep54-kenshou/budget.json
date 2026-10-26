@@ -1,8 +1,16 @@
 {
   "started_epoch": 1793038771.414877,
-  "budget_seconds": 3600,
-  "deadline_epoch": 1793042371.414877,
+  "budget_seconds": 5400,
+  "deadline_epoch": 1793044171.414877,
   "preflight_allowance_seconds": 180,
   "accounting": "Conservative three-minute allowance includes initial inspection before recording the budget.",
-  "reason": "User resumed Plan 54 closeout through Kenshou; previous stopped attempt retained."
+  "reason": "User resumed Plan 54 closeout through Kenshou; previous stopped attempt retained.",
+  "original_budget_seconds": 3600,
+  "extension": {
+    "approved_at_epoch": 1793040829.550411,
+    "user_answer": "Extend to 90 minutes total",
+    "added_seconds": 1800
+  },
+  "completed_epoch": 1793043966.0085819,
+  "elapsed_seconds": 5194.593704938889
 }

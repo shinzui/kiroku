@@ -5,7 +5,7 @@
   ],
   "pairs_per_case": 5,
   "warmup_seconds": 10,
-  "measurement_seconds": 30,
+  "measurement_seconds": 20,
   "trial_reset_allowance_seconds": 40,
   "proof_publish_setup_allowance_seconds": 420,
   "cleanup_reserve_seconds": 180,
@@ -22,5 +22,16 @@
     "consistent adverse comparison",
     "cleanup reserve or total deadline reached"
   ],
-  "status": "preparing"
+  "status": "completed; both native comparisons inconclusive; lease released and all four VMs stopped",
+  "proof_measurement_seconds": 30,
+  "original_measurement_seconds": 30,
+  "observed_proof_full_trial_seconds": 116,
+  "admission_seconds_per_trial": 110,
+  "total_budget_seconds": 5400,
+  "scope_adjustment": {
+    "at_epoch": 1793041676.486967,
+    "reason": "Use 20-second steady windows to fit two five-pair cases plus setup/collection and cleanup inside the user-approved 90-minute total; no statistical criterion changed."
+  },
+  "verified_comparison_trials": 20,
+  "valid_pairs_per_case": 5
 }

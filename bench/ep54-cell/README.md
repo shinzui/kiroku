@@ -32,3 +32,14 @@ Prepare publishes both payloads, runs the environment proof, verifies collection
 and release, then stops the owned instances. Measure runs five interleaved pairs
 for each declared case with no replacement trials and the existing zero-slowdown
 policy. A stopped or failed session retains its journal for explicit recovery.
+
+
+The first measurement attempt lacked `series/load.csv`; its rejected sample and
+cancelled successor remain retained. Commit `ad4e527` supplies load-series samples
+and phase boundaries. Kenshou plans at least three benchmark trials, so the active
+candidate measurement proof contains three 30-second trials. Comparison plans
+explicitly override steady time to 20 seconds after 10 seconds warmup, preserving
+all five pairs and the existing statistical policy within the user's cumulative
+90-minute budget. Complete trial time includes about a minute of reset, collection
+and verification in addition to the producer window. The fetched run-result's
+`summaries.measurements.measurements` member is the measurement summary.

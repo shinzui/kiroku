@@ -1,0 +1,65 @@
+{
+  "schema": "kiroku.ep54.evidence-sources/v1",
+  "original_control": "364ffa82136fcfc83d39ead1234abffaf500844b",
+  "candidate_runtime": "94c2839f4b9a51bff2bfead57b8e587389a7875f",
+  "measurement_harness_commit": "ad4e527",
+  "kenshou": {
+    "project": "mori://shinzui/keiro-runtime-kenshou",
+    "revision": "2129bb917da811ef1e90198d91db873cc8d05b7b"
+  },
+  "compiler": "GHC 9.12.4",
+  "server": "PostgreSQL 18.3",
+  "shared_compatibility_pin": {
+    "package": "strict-mutable-base",
+    "version": "1.1.0.0",
+    "published_effectful_core_2_6_1_0_bound": ">=1.1.0.0 && <2",
+    "upstream_tag_commit": "beea8212f10c9b003e86b208a78de43de8f0442c"
+  },
+  "source_files": {
+    "bench/ep54-cell/src/Probe.hs": {
+      "sha256": "3f9c9dfb21c4ff05279cfeb0e0d67ad279e911942cf965840e4783a3de68c86c",
+      "matches_ad4e527": true
+    },
+    "bench/ep54-cell/src/Namespace.hs": {
+      "sha256": "bba74b2cf0a97b0b59da8b9449491946d408e38995e514b8a9a6ac83cc583f63",
+      "matches_ad4e527": true
+    },
+    "bench/ep54-cell/src/Main.hs": {
+      "sha256": "849f8046d1a4fd94ee97853f2fd653a14c669d1de36256f2fac7047a52de67d5",
+      "matches_ad4e527": true
+    },
+    "bench/ep54-cell/src/Metadata.hs": {
+      "sha256": "7ff426d498aaba0f5115fe57bd0814e94dfb868ddd6428077f3ce535054e00ee",
+      "matches_ad4e527": true
+    },
+    "bench/ep54-cell/src/Delivery.hs": {
+      "sha256": "cfa6384817dab122802f9aec0051ab48e2dec9aac831bd9a0afe43b2c6974ff6",
+      "matches_ad4e527": true
+    },
+    "bench/ep54-cell/src/Workload.hs": {
+      "sha256": "f60ede502cbbfde5136342d63762b31e35fefb8d96094542389ac03400b27039",
+      "matches_ad4e527": true
+    },
+    "bench/ep54-cell/src/Operator.hs": {
+      "sha256": "de84e959f031a4cbdde518bcdad5e6504ebd253e3cac1e65aeded1696cee176f",
+      "matches_ad4e527": true
+    },
+    "bench/ep54-cell/kenshou-ep54-cell.cabal": {
+      "sha256": "99c14a1d4dfbb402568b8fb1c5934278fc1effa2ae459e21e185ff0982e801d2",
+      "matches_ad4e527": true
+    },
+    "bench/ep54-cell/flake.nix": {
+      "sha256": "e586fdeb167f0cf6bc6e2ba5c9840ab00fa62fdc9cad70590b8fedd652e66b95",
+      "matches_ad4e527": true
+    },
+    "bench/ep54-cell/flake.lock": {
+      "sha256": "1599c0772b58c4b3b4b9b612a6c982104728ade514a73ad22e97db7623cb6b59",
+      "matches_ad4e527": true
+    }
+  },
+  "controller_files": {
+    "run.py": "f2c5794542f49f56336326b83944c12968de0c277e9907a6c3007dcfdb837254",
+    "v4-controller.py": "29aab2c45b715f3ecda60bf2cb746f422473c862ca2c98b34c3e91c78a7a8c01",
+    "failure-watch.py": "5b0fb519b3ad7583951cd5d2cf7e3ee8a1afd4c024e72a7660a1b4b622e3af5f"
+  }
+}

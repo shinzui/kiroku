@@ -6,7 +6,7 @@ generated:
   by: "codex-cli/gpt-6.1-sol"
   at: "2026-10-26T18:40:58Z"
 frictionId: FRIC-10
-status: logged
+status: "accepted"
 impact: detour
 kind: tooling
 origin: "mori://shinzui/kiroku"
@@ -14,6 +14,11 @@ affects: "mori://shinzui/keiro-runtime-kenshou"
 affectedVersion: "2129bb917da811ef1e90198d91db873cc8d05b7b"
 plan: "docs/plans/54-add-prefix-matching-subscription-target-for-fan-in-subscriptions.md"
 workaround: "Pin strict-mutable-base 1.1.0.0 identically in both arms, verified against Hackage and its upstream tag. Build a narrow operator retaining Kenshou commands and selftests plus Plan 54 metadata, omitting unrelated runtime suites."
+resolution: "Retain the matched strict-mutable-base 1.1.0.0 pin and narrow operator overlay for this scoped experiment; the upstream assembled cohort is unchanged. Environment and three benchmark-grade active measurement proofs verify the chosen route."
+amended:
+  - by: "codex-cli/gpt-6.1-sol"
+    at: "2026-10-26T19:16:40Z"
+    change: "The local compatibility overlay enables verified Kenshou execution without widening the runtime change or repairing unrelated suites."
 ---
 # Released Kenshou dependency bounds are bypassed by its assembled Nix cohort
 
@@ -23,7 +28,7 @@ Build kenshou-released at 2129bb917da811ef1e90198d91db873cc8d05b7b and prepare a
 
 ## Encountered
 
-Effectful 2.6.1.0 was assembled with strict-mutable-base 2.x despite its published <2 bound; compilation failed on IORef prime. An unrelated Shibuya metrics/core mismatch also prevented the stock operator build.
+Effectful 2.6.1.0 was assembled with strict-mutable-base 2.x despite its published <2 bound; compilation failed on IORef prime. The first custom operator overlay also combined newer Shibuya core with the older cohort’s metrics package, creating an unrelated constructor mismatch. Omitting unrelated runtime bundles avoided broadening the namespace payload into Shibuya compatibility work.
 
 ```text
 Retained build-operator.log and build-operator-fixed.log in kiroku-store/bench/results/ep54-kenshou.

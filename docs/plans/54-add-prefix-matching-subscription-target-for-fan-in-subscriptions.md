@@ -86,10 +86,14 @@ optional follow-up, not part of the required delivery.
 - [x] (2026-10-26) M2: Reference-counted selective wakes pass plain/grouped
   delivery, snapshot/drain race, lost-notification safety tick, listener/worker
   reconnect, failed-startup and idempotent final-release tests.
-- [ ] M3: Correctness/topology and 96 production query-plan cases pass. The
-  user selected `mori://shinzui/keiro-runtime-kenshou` for performance work;
-  a namespace-aware scoped comparison and verified paired evidence remain open.
-  The historical direct-cell attempt executed zero remote trials or pairs.
+- [ ] M3: Correctness/topology and 96 production query-plan cases pass. The scoped
+  Kenshou comparison completed five original-control pairs in each of the disabled
+  and active cases: all 20 trials have benchmark grade, exact applicable delivery
+  and matching append counts. Both zero-slowdown comparisons are statistically
+  inconclusive. The report is retained in
+  `kiroku-store/bench/results/ep54-kenshou/README.md`; a new cohort-specific
+  acceptance decision remains open. The historical direct-cell attempt's zero
+  remote-trial count remains separate.
 - [x] (2026-10-26) M4: User/schema/adapter documentation, changelogs and ADR-4/17
   record semantics, cutover, downgrade limits and scan/wake contracts. Retained
   evidence classifies functional/structural completion separately from blocked
@@ -100,7 +104,10 @@ The namespace constructor, worker, wake registry and migration 0016 are
 implemented. The focused Hspec group passes 26 examples, including 96 production
 EXPLAIN cases. The full PG18 store suite passes 522 examples and the adapter suite
 passes 45 examples; migrations pass 25 examples on both PG17 and PG18. Performance
-comparison stopped before upload on the cell descriptor/client mismatch. Its
+comparison originally stopped before upload on the legacy cell descriptor/client
+mismatch. Kenshou has since submitted and verified the environment and measurement
+proofs. Its current scoped experiment is retained in
+`kiroku-store/bench/results/ep54-kenshou/`; the historical
 [report](../../kiroku-store/bench/results/ep54-namespace/README.md) retains the
 single budget, zero executed/verified trials, cleanup and exact remaining work. The optional old M3 `readPrefix` combinator is deferred because a
 vector-only result cannot express an empty but non-exhausted scan window.
@@ -252,8 +259,9 @@ uncalibrated Shibuya profiles. Define or adapt an explicit Kiroku namespace
 workload before selecting a comparison. No existing quick profile, source
 inspection, or successful SSH check can certify this feature. The guide is
 `mori://shinzui/keiro-runtime-kenshou/okf/guides/concepts/DOC-6` (present in the
-owner checkout; current Mori registry resolution lags). No Kenshou trial was
-launched, and the prior budget was not reset.
+owner checkout; current Mori registry resolution lags). At that point no Kenshou
+trial had launched and the prior budget was not reset; the subsequent execution
+and user-approved budget extension are recorded below.
 
 Historical decisions retained in substance: June's additive target, exact-category
 compatibility, consumer-group support and explicit performance accounting still
@@ -283,16 +291,20 @@ sources and released migration bytes are preserved. The feature is functionally
 and structurally complete, with cumulative performance acceptance still open.
 The [evidence report](../../kiroku-store/bench/results/ep54-namespace/README.md)
 retains the production plans, local delivery proof, frozen candidate/control,
-failed client-side submission, and cleanup. No remote benchmark ran, no pair was
-verified, and no speedup or neutrality claim is made.
+failed client-side submission, and cleanup. That legacy attempt ran no remote
+benchmark and verified no pair. The subsequent Kenshou comparison completed all
+20 trials across ten pairs; both native verdicts are inconclusive. Its separate
+[evidence report](../../kiroku-store/bench/results/ep54-kenshou/README.md) retains
+full intervals and raw evidence, with release acceptance still open.
 
 FRIC-4 in `docs/friction-log/` is resolved by correcting the Hspec commands.
 FRIC-5 is accepted: retain mandatory formatting on edited files and verify SQL
 bodies independently. FRIC-6 is resolved by documenting the infrastructure shell.
 FRIC-7 is resolved by documenting Python 3.14 and testing safe pre-acquire resume.
 FRIC-8 is accepted as a retained failure of the superseded direct-client path.
-Kenshou already models that optional field; the outstanding release gate is
-namespace-aware performance coverage and verified comparison evidence. FRIC-9 is resolved by the user's Yujin migration follow-up: register its three
+Kenshou already models that optional field and now has verified namespace-aware
+comparison evidence. The outstanding release gate is acceptance of the two
+inconclusive comparison results. FRIC-9 is resolved by the user's Yujin migration follow-up: register its three
 existing public keys without expiration and verify direct IAP SSH and PostgreSQL
 admin access. The VM was stopped and the lease released after that check; FRIC-8
 is retained as the superseded runner failure; current performance work uses Kenshou.
@@ -778,3 +790,29 @@ comparison evidence, rather than requiring a repair of the older direct client.
 and a bounded controller in `bench/ep54-cell`, preserving the original control
 and zero-slowdown policy. A fresh 60-minute budget includes all preparation;
 submission proof and measured comparisons remain pending.
+
+2026-10-26 — Kenshou at `2129bb917da811ef1e90198d91db873cc8d05b7b` successfully
+read the optional broker descriptor, submitted an environment proof, verified its
+artifacts and released its lease. A matched namespace harness is committed in
+`bench/ep54-cell`. FRIC-10 records the common strict-mutable-base compatibility pin
+and narrow operator build, rather than treating the old Rust client as a prerequisite.
+The first append sample was rejected for an incomplete load-series window and the
+next trial was cancelled; both are retained. Commit `ad4e527` adds complete load
+markers. All three active candidate proof trials then passed with benchmark grade,
+exact namespace/observer delivery and equal independent/recorder append counts.
+The user explicitly extended the same cumulative budget to 90 minutes. Full proof
+trials took about 116 seconds including reset and collection; the comparison windows
+were reduced from 30 to 20 seconds (10 seconds warmup) before their queue began so
+both five-pair cases and cleanup could fit. The zero-slowdown limit, 95% confidence,
+6% maximum relative interval width, and original pre-inspection control are unchanged.
+
+2026-10-26 — Completed the two scoped original-control comparisons through
+Kenshou: five valid pairs per case, 20 benchmark-grade trials, no health warnings,
+and exact applicable delivery. Disabled estimates: throughput -0.39%, p50 -0.44%,
+p95 +0.07%, p99 +1.53%. Active estimates: throughput +0.80%, p50 +0.78%,
+p95 +0.77%, p99 +1.94%. Both native verdicts are inconclusive: the 95% intervals
+cross the zero-slowdown boundary and exceed the 6% relative-width target. No
+sample was selectively discarded or replaced. Do not relabel these estimates as
+neutrality or transfer the previous inspection cohort's practical acceptance.
+Full intervals, limits, raw evidence and cleanup receipts are retained with the
+Kenshou report; M3 awaits an explicit acceptance decision for this cohort.

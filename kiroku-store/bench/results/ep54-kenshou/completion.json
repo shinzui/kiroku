@@ -1,0 +1,15 @@
+{
+  "completed_epoch": 1793043966.0085819,
+  "elapsed_seconds": 5194.593704938889,
+  "budget_seconds": 5400,
+  "within_budget": true,
+  "lease_absent": true,
+  "all_instances_stopped": true,
+  "verified_comparison_trials": 20,
+  "valid_pairs": 10,
+  "statistical_verdicts": {
+    "disabled": "inconclusive",
+    "active": "inconclusive"
+  },
+  "acceptance": "pending cohort-specific decision"
+}

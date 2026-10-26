@@ -1,0 +1,2226 @@
+{
+  "schema": "kiroku.ep54.kenshou-summary/v1",
+  "trials": [
+    {
+      "case": "disabled",
+      "run_id": "01a1799c-c3f5-7769-a908-6cf26f177611",
+      "cell_run": "01a1799d-18f6-74bd-9a24-c36c98e191ca",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 0,
+        "trial": 0
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 62675451
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3627269.0257327957
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3583999
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 3979263
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 4122623
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 4526079
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 5844991
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 4526079
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1101.5654368381352
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1101.5654368381352
+        }
+      },
+      "arm": "control",
+      "total_appends": 32875,
+      "measured_appends": 22073,
+      "recorder_count": 22073,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": null,
+      "observer_events": null,
+      "distinct_source_streams": null,
+      "observer_p99_lag_us": null,
+      "namespace_exact": null,
+      "namespace_matched": null,
+      "namespace_catchup_us": null,
+      "namespace_logical_scanned_prefix": null,
+      "namespace_lag_p99_us": null,
+      "statement_deltas": [],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/disabled/01a1799d-18f6-74bd-9a24-c36c98e191ca/tree/output/01a1799c-c3f5-7769-a908-6cf26f177611"
+    },
+    {
+      "case": "disabled",
+      "run_id": "01a1799c-c3f5-7769-ae93-95a693b43a52",
+      "cell_run": "01a1799d-18f6-74bd-9d8b-dfcd9226270b",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 1,
+        "trial": 0
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 11295307
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3476048.686219942
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3438591
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 3807231
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 3954687
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 4489215
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 5853183
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 4489215
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1149.6618319163326
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1149.6618319163326
+        }
+      },
+      "arm": "candidate",
+      "total_appends": 34241,
+      "measured_appends": 22997,
+      "recorder_count": 22997,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": null,
+      "observer_events": null,
+      "distinct_source_streams": null,
+      "observer_p99_lag_us": null,
+      "namespace_exact": null,
+      "namespace_matched": null,
+      "namespace_catchup_us": null,
+      "namespace_logical_scanned_prefix": null,
+      "namespace_lag_p99_us": null,
+      "statement_deltas": [],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/disabled/01a1799d-18f6-74bd-9d8b-dfcd9226270b/tree/output/01a1799c-c3f5-7769-ae93-95a693b43a52"
+    },
+    {
+      "case": "disabled",
+      "run_id": "01a1799c-c3f5-7769-a2d4-cc48357f92a3",
+      "cell_run": "01a1799d-18f6-74bd-a17b-5402fe1defb0",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 2,
+        "trial": 1
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 10666373
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3484514.7910382706
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3459071
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 3801087
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 3923967
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 4206591
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 5931007
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 4206591
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1146.8825031950498
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1146.8825031950498
+        }
+      },
+      "arm": "candidate",
+      "total_appends": 34277,
+      "measured_appends": 22942,
+      "recorder_count": 22942,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": null,
+      "observer_events": null,
+      "distinct_source_streams": null,
+      "observer_p99_lag_us": null,
+      "namespace_exact": null,
+      "namespace_matched": null,
+      "namespace_catchup_us": null,
+      "namespace_logical_scanned_prefix": null,
+      "namespace_lag_p99_us": null,
+      "statement_deltas": [],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/disabled/01a1799d-18f6-74bd-a17b-5402fe1defb0/tree/output/01a1799c-c3f5-7769-a2d4-cc48357f92a3"
+    },
+    {
+      "case": "disabled",
+      "run_id": "01a1799c-c3f5-7769-a5b8-6aba019479a1",
+      "cell_run": "01a1799d-18f6-74bd-a430-da5c01a71eb6",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 3,
+        "trial": 1
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 11209430
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3437148.5246183616
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3405823
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 3766271
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 3889151
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 4139007
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 5177343
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 4139007
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1162.5410223233519
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1162.5410223233519
+        }
+      },
+      "arm": "control",
+      "total_appends": 34789,
+      "measured_appends": 23255,
+      "recorder_count": 23255,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": null,
+      "observer_events": null,
+      "distinct_source_streams": null,
+      "observer_p99_lag_us": null,
+      "namespace_exact": null,
+      "namespace_matched": null,
+      "namespace_catchup_us": null,
+      "namespace_logical_scanned_prefix": null,
+      "namespace_lag_p99_us": null,
+      "statement_deltas": [],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/disabled/01a1799d-18f6-74bd-a430-da5c01a71eb6/tree/output/01a1799c-c3f5-7769-a5b8-6aba019479a1"
+    },
+    {
+      "case": "disabled",
+      "run_id": "01a1799c-c3f5-7769-a369-6a5b2e213edd",
+      "cell_run": "01a1799d-18f6-74bd-a88c-6a65231ac4bc",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 4,
+        "trial": 2
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 11036677
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3820026.5683088833
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3788799
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 4222975
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 4407295
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 4943871
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 6270975
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 4943871
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1046.1705455539368
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1046.1705455539368
+        }
+      },
+      "arm": "control",
+      "total_appends": 31705,
+      "measured_appends": 20927,
+      "recorder_count": 20927,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": null,
+      "observer_events": null,
+      "distinct_source_streams": null,
+      "observer_p99_lag_us": null,
+      "namespace_exact": null,
+      "namespace_matched": null,
+      "namespace_catchup_us": null,
+      "namespace_logical_scanned_prefix": null,
+      "namespace_lag_p99_us": null,
+      "statement_deltas": [],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/disabled/01a1799d-18f6-74bd-a88c-6a65231ac4bc/tree/output/01a1799c-c3f5-7769-a369-6a5b2e213edd"
+    },
+    {
+      "case": "disabled",
+      "run_id": "01a1799c-c3f5-7769-a358-89b430f08eae",
+      "cell_run": "01a1799d-18f6-74bd-ac85-6cef9e93001f",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 5,
+        "trial": 2
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 11522916
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3708352.397318736
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3676159
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 4126719
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 4288511
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 4755455
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 6127615
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 4755455
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1077.6686390369696
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1077.6686390369696
+        }
+      },
+      "arm": "candidate",
+      "total_appends": 32224,
+      "measured_appends": 21557,
+      "recorder_count": 21557,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": null,
+      "observer_events": null,
+      "distinct_source_streams": null,
+      "observer_p99_lag_us": null,
+      "namespace_exact": null,
+      "namespace_matched": null,
+      "namespace_catchup_us": null,
+      "namespace_logical_scanned_prefix": null,
+      "namespace_lag_p99_us": null,
+      "statement_deltas": [],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/disabled/01a1799d-18f6-74bd-ac85-6cef9e93001f/tree/output/01a1799c-c3f5-7769-a358-89b430f08eae"
+    },
+    {
+      "case": "disabled",
+      "run_id": "01a1799c-c3f5-7769-a11b-8a8eb606d498",
+      "cell_run": "01a1799d-18f6-74bd-b1d4-cf3626be4122",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 6,
+        "trial": 3
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 9986562
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3706623.3054061574
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3659775
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 4112383
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 4296703
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 4796415
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 6143999
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 4796415
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1078.2289314863285
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1078.2289314863285
+        }
+      },
+      "arm": "candidate",
+      "total_appends": 32719,
+      "measured_appends": 21568,
+      "recorder_count": 21568,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": null,
+      "observer_events": null,
+      "distinct_source_streams": null,
+      "observer_p99_lag_us": null,
+      "namespace_exact": null,
+      "namespace_matched": null,
+      "namespace_catchup_us": null,
+      "namespace_logical_scanned_prefix": null,
+      "namespace_lag_p99_us": null,
+      "statement_deltas": [],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/disabled/01a1799d-18f6-74bd-b1d4-cf3626be4122/tree/output/01a1799c-c3f5-7769-a11b-8a8eb606d498"
+    },
+    {
+      "case": "disabled",
+      "run_id": "01a1799c-c3f5-7769-ac21-9c62de25773a",
+      "cell_run": "01a1799d-18f6-74bd-b605-fd2efa973917",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 7,
+        "trial": 3
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 8897007
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3496005.260287751
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3461119
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 3860479
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 3989503
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 4280319
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 5312511
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 4280319
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1143.1682112190322
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1143.1682112190322
+        }
+      },
+      "arm": "control",
+      "total_appends": 34148,
+      "measured_appends": 22867,
+      "recorder_count": 22867,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": null,
+      "observer_events": null,
+      "distinct_source_streams": null,
+      "observer_p99_lag_us": null,
+      "namespace_exact": null,
+      "namespace_matched": null,
+      "namespace_catchup_us": null,
+      "namespace_logical_scanned_prefix": null,
+      "namespace_lag_p99_us": null,
+      "statement_deltas": [],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/disabled/01a1799d-18f6-74bd-b605-fd2efa973917/tree/output/01a1799c-c3f5-7769-ac21-9c62de25773a"
+    },
+    {
+      "case": "disabled",
+      "run_id": "01a1799c-c3f5-7769-a056-e75f3ae3e838",
+      "cell_run": "01a1799d-18f6-74bd-bb2b-25115e502148",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 8,
+        "trial": 4
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 37813453
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3666622.807228363
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3635199
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 4012031
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 4143103
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 4501503
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 6017023
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 4501503
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1089.93721123127
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1089.93721123127
+        }
+      },
+      "arm": "control",
+      "total_appends": 32777,
+      "measured_appends": 21803,
+      "recorder_count": 21803,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": null,
+      "observer_events": null,
+      "distinct_source_streams": null,
+      "observer_p99_lag_us": null,
+      "namespace_exact": null,
+      "namespace_matched": null,
+      "namespace_catchup_us": null,
+      "namespace_logical_scanned_prefix": null,
+      "namespace_lag_p99_us": null,
+      "statement_deltas": [],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/disabled/01a1799d-18f6-74bd-bb2b-25115e502148/tree/output/01a1799c-c3f5-7769-a056-e75f3ae3e838"
+    },
+    {
+      "case": "disabled",
+      "run_id": "01a1799c-c3f5-7769-a696-33242d1bfe81",
+      "cell_run": "01a1799d-18f6-74bd-be37-cf6c54bc0a38",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 9,
+        "trial": 4
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 9703979
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3596487.359537416
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3557375
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 3962879
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 4098047
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 4468735
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 6017023
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 4468735
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1110.95922985831
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1110.95922985831
+        }
+      },
+      "arm": "candidate",
+      "total_appends": 33327,
+      "measured_appends": 22223,
+      "recorder_count": 22223,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": null,
+      "observer_events": null,
+      "distinct_source_streams": null,
+      "observer_p99_lag_us": null,
+      "namespace_exact": null,
+      "namespace_matched": null,
+      "namespace_catchup_us": null,
+      "namespace_logical_scanned_prefix": null,
+      "namespace_lag_p99_us": null,
+      "statement_deltas": [],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/disabled/01a1799d-18f6-74bd-be37-cf6c54bc0a38/tree/output/01a1799c-c3f5-7769-a696-33242d1bfe81"
+    },
+    {
+      "case": "active",
+      "run_id": "01a179ad-c156-777f-a7e7-53dd0f1e74a7",
+      "cell_run": "01a179ad-ea7f-75bc-95a8-9239983f4bf4",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 0,
+        "trial": 0
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 11750365
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3920272.974449512
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3885055
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 4407295
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 4575231
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 4943871
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 5545983
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 4943871
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1019.3859405364232
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1019.3859405364232
+        }
+      },
+      "arm": "control",
+      "total_appends": 30847,
+      "measured_appends": 20391,
+      "recorder_count": 20391,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": true,
+      "observer_events": 30847,
+      "distinct_source_streams": 15426,
+      "observer_p99_lag_us": 5396.067,
+      "namespace_exact": null,
+      "namespace_matched": null,
+      "namespace_catchup_us": null,
+      "namespace_logical_scanned_prefix": null,
+      "namespace_lag_p99_us": null,
+      "statement_deltas": [
+        {
+          "query": "INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at, consumer_group_size, target_kind, target_category) VALUES ($1, $2, $3, now(), $4, $6, $5) ON CONFLICT (subscription_name, consumer_group_member)\nDO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now(), consumer_group_size = EXCLUDED.consumer_group_size, target_kind = EXCLUDED.target_kind, target_category = EXCLUDED.target_category",
+          "calls": 10169,
+          "rows": 10169,
+          "shared_blks_hit": 50845,
+          "shared_blks_read": 0,
+          "wal_bytes": 1670712
+        }
+      ],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/active/01a179ad-ea7f-75bc-95a8-9239983f4bf4/tree/output/01a179ad-c156-777f-a7e7-53dd0f1e74a7"
+    },
+    {
+      "case": "active",
+      "run_id": "01a179ad-c156-777f-aa07-be5eee42a847",
+      "cell_run": "01a179ad-ea7f-75bc-9984-cb9630a66160",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 1,
+        "trial": 0
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 11730238
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3785911.700246282
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3764223
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 4161535
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 4296703
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 4632575
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 5554175
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 4632575
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1055.5099065184472
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1055.5099065184472
+        }
+      },
+      "arm": "candidate",
+      "total_appends": 31354,
+      "measured_appends": 21114,
+      "recorder_count": 21114,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": true,
+      "observer_events": 31354,
+      "distinct_source_streams": 15679,
+      "observer_p99_lag_us": 5665.182,
+      "namespace_exact": true,
+      "namespace_matched": 316,
+      "namespace_catchup_us": 4616.22,
+      "namespace_logical_scanned_prefix": 31055,
+      "namespace_lag_p99_us": 8556.828,
+      "statement_deltas": [
+        {
+          "query": "INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at, consumer_group_size, target_kind, target_category) VALUES ($1, $2, $3, now(), $4, $6, $5) ON CONFLICT (subscription_name, consumer_group_member)\nDO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now(), consumer_group_size = EXCLUDED.consumer_group_size, target_kind = EXCLUDED.target_kind, target_category = EXCLUDED.target_category",
+          "calls": 10747,
+          "rows": 10747,
+          "shared_blks_hit": 53735,
+          "shared_blks_read": 0,
+          "wal_bytes": 1766952
+        },
+        {
+          "query": "WITH scanned AS MATERIALIZED (\n  SELECT event_id, stream_version, original_stream_id, original_stream_version, category\n  FROM stream_events\n  -- stream_id is integral: this range selects exactly $all. Keeping both\n  -- index keys in the ordering prevents custom tail plans from choosing\n  -- the partial category index and sorting an unrestricted metadata scan.\n  WHERE stream_id >= $5 AND stream_id < $6 AND stream_version > $1\n  ORDER BY stream_id, stream_version LIMIT $4\n), eligible AS MATERIALIZED (\n  SELECT * FROM scanned WHERE stream_version <= $2\n), progress AS (\n  SELECT count(*)::int4 AS scanned_count,\n         count(*) < $4 OR coalesce(max(stream_version) = $2, $7) AS exhausted,\n         CASE WHEN count(*) < $4 OR coalesce(max(stream_version) = $2, $8)\n              THEN $2 ELSE max(stream_version) END AS frontier\n  FROM eligible\n), matching AS MATERIALIZED (\n  SELECT * FROM eligible\n  WHERE (category COLLATE \"C\" = $3 OR starts_with(category COLLATE \"C\", $3 || $9)))\n, payloads AS MATERIALIZED (\n  SELECT m.stream_version,\n         ROW(e.event_id, e.event_type, m.stream_version, m.stream_version,\n             m.original_stream_id, m.original_stream_version,\n             e.data, e.metadata, e.causation_id, e.correlation_id, e.created_at) AS event\n  FROM matching m\n  -- OFFSET 0 keeps event-id probes behind matching in generic plans.\n  LEFT JOIN LATERAL (SELECT * FROM events WHERE event_id = m.event_id OFFSET $10) e ON $11\n)\nSELECT p.frontier, p.scanned_count, p.exhausted, payloads.event\nFROM progress p\n-- Generate the sentinel after payload probing, so an empty matching set\n-- never invokes even a zero-I/O NULL event-id lookup.\nLEFT JOIN payloads ON $12\nORDER BY payloads.stream_version",
+          "calls": 366,
+          "rows": 370,
+          "shared_blks_hit": 22857,
+          "shared_blks_read": 0,
+          "wal_bytes": 0
+        }
+      ],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/active/01a179ad-ea7f-75bc-9984-cb9630a66160/tree/output/01a179ad-c156-777f-aa07-be5eee42a847"
+    },
+    {
+      "case": "active",
+      "run_id": "01a179ad-c156-777f-a5d2-e14d39dbe20d",
+      "cell_run": "01a179ad-ea7f-75bc-9dc1-22fdf08aa217",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 2,
+        "trial": 1
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 11863449
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3807034.3479068438
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3774463
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 4194303
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 4362239
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 4853759
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 6098943
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 4853759
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1049.66044386728
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1049.66044386728
+        }
+      },
+      "arm": "candidate",
+      "total_appends": 31422,
+      "measured_appends": 20997,
+      "recorder_count": 20997,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": true,
+      "observer_events": 31422,
+      "distinct_source_streams": 15714,
+      "observer_p99_lag_us": 5710.217,
+      "namespace_exact": true,
+      "namespace_matched": 320,
+      "namespace_catchup_us": 4698.984,
+      "namespace_logical_scanned_prefix": 31247,
+      "namespace_lag_p99_us": 9518.87,
+      "statement_deltas": [
+        {
+          "query": "WITH scanned AS MATERIALIZED (\n  SELECT event_id, stream_version, original_stream_id, original_stream_version, category\n  FROM stream_events\n  -- stream_id is integral: this range selects exactly $all. Keeping both\n  -- index keys in the ordering prevents custom tail plans from choosing\n  -- the partial category index and sorting an unrestricted metadata scan.\n  WHERE stream_id >= $5 AND stream_id < $6 AND stream_version > $1\n  ORDER BY stream_id, stream_version LIMIT $4\n), eligible AS MATERIALIZED (\n  SELECT * FROM scanned WHERE stream_version <= $2\n), progress AS (\n  SELECT count(*)::int4 AS scanned_count,\n         count(*) < $4 OR coalesce(max(stream_version) = $2, $7) AS exhausted,\n         CASE WHEN count(*) < $4 OR coalesce(max(stream_version) = $2, $8)\n              THEN $2 ELSE max(stream_version) END AS frontier\n  FROM eligible\n), matching AS MATERIALIZED (\n  SELECT * FROM eligible\n  WHERE (category COLLATE \"C\" = $3 OR starts_with(category COLLATE \"C\", $3 || $9)))\n, payloads AS MATERIALIZED (\n  SELECT m.stream_version,\n         ROW(e.event_id, e.event_type, m.stream_version, m.stream_version,\n             m.original_stream_id, m.original_stream_version,\n             e.data, e.metadata, e.causation_id, e.correlation_id, e.created_at) AS event\n  FROM matching m\n  -- OFFSET 0 keeps event-id probes behind matching in generic plans.\n  LEFT JOIN LATERAL (SELECT * FROM events WHERE event_id = m.event_id OFFSET $10) e ON $11\n)\nSELECT p.frontier, p.scanned_count, p.exhausted, payloads.event\nFROM progress p\n-- Generate the sentinel after payload probing, so an empty matching set\n-- never invokes even a zero-I/O NULL event-id lookup.\nLEFT JOIN payloads ON $12\nORDER BY payloads.stream_version",
+          "calls": 367,
+          "rows": 371,
+          "shared_blks_hit": 22654,
+          "shared_blks_read": 0,
+          "wal_bytes": 0
+        },
+        {
+          "query": "INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at, consumer_group_size, target_kind, target_category) VALUES ($1, $2, $3, now(), $4, $6, $5) ON CONFLICT (subscription_name, consumer_group_member)\nDO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now(), consumer_group_size = EXCLUDED.consumer_group_size, target_kind = EXCLUDED.target_kind, target_category = EXCLUDED.target_category",
+          "calls": 10689,
+          "rows": 10689,
+          "shared_blks_hit": 53445,
+          "shared_blks_read": 0,
+          "wal_bytes": 1757376
+        }
+      ],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/active/01a179ad-ea7f-75bc-9dc1-22fdf08aa217/tree/output/01a179ad-c156-777f-a5d2-e14d39dbe20d"
+    },
+    {
+      "case": "active",
+      "run_id": "01a179ad-c156-777f-acca-bbfd5977ecc1",
+      "cell_run": "01a179ad-ea7f-75bc-a0b9-275082cc4f9f",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 3,
+        "trial": 1
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 11949497
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3747562.2170019224
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3725311
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 4104191
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 4235263
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 4546559
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 5730303
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 4546559
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1066.1691168928269
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1066.1691168928269
+        }
+      },
+      "arm": "control",
+      "total_appends": 31846,
+      "measured_appends": 21327,
+      "recorder_count": 21327,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": true,
+      "observer_events": 31846,
+      "distinct_source_streams": 15926,
+      "observer_p99_lag_us": 5184.622,
+      "namespace_exact": null,
+      "namespace_matched": null,
+      "namespace_catchup_us": null,
+      "namespace_logical_scanned_prefix": null,
+      "namespace_lag_p99_us": null,
+      "statement_deltas": [
+        {
+          "query": "INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at, consumer_group_size, target_kind, target_category) VALUES ($1, $2, $3, now(), $4, $6, $5) ON CONFLICT (subscription_name, consumer_group_member)\nDO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now(), consumer_group_size = EXCLUDED.consumer_group_size, target_kind = EXCLUDED.target_kind, target_category = EXCLUDED.target_category",
+          "calls": 10632,
+          "rows": 10632,
+          "shared_blks_hit": 53160,
+          "shared_blks_read": 0,
+          "wal_bytes": 1746731
+        }
+      ],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/active/01a179ad-ea7f-75bc-a0b9-275082cc4f9f/tree/output/01a179ad-c156-777f-acca-bbfd5977ecc1"
+    },
+    {
+      "case": "active",
+      "run_id": "01a179ad-c156-777f-a5bd-38031b32ede9",
+      "cell_run": "01a179ad-ea7f-75bc-a707-521d897f97f8",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 4,
+        "trial": 2
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 11949072
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3803070.354597783
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3780607
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 4182015
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 4329471
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 4632575
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 5328895
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 4632575
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1050.8320331621023
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1050.8320331621023
+        }
+      },
+      "arm": "control",
+      "total_appends": 31683,
+      "measured_appends": 21021,
+      "recorder_count": 21021,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": true,
+      "observer_events": 31683,
+      "distinct_source_streams": 15844,
+      "observer_p99_lag_us": 5040.43,
+      "namespace_exact": null,
+      "namespace_matched": null,
+      "namespace_catchup_us": null,
+      "namespace_logical_scanned_prefix": null,
+      "namespace_lag_p99_us": null,
+      "statement_deltas": [
+        {
+          "query": "INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at, consumer_group_size, target_kind, target_category) VALUES ($1, $2, $3, now(), $4, $6, $5) ON CONFLICT (subscription_name, consumer_group_member)\nDO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now(), consumer_group_size = EXCLUDED.consumer_group_size, target_kind = EXCLUDED.target_kind, target_category = EXCLUDED.target_category",
+          "calls": 10494,
+          "rows": 10494,
+          "shared_blks_hit": 52470,
+          "shared_blks_read": 0,
+          "wal_bytes": 1724098
+        }
+      ],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/active/01a179ad-ea7f-75bc-a707-521d897f97f8/tree/output/01a179ad-c156-777f-a5bd-38031b32ede9"
+    },
+    {
+      "case": "active",
+      "run_id": "01a179ad-c156-777f-a789-a944e2768a13",
+      "cell_run": "01a179ad-ea7f-75bc-a8b4-2f10991c40f7",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 5,
+        "trial": 2
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 11545865
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3749557.3867911254
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3733503
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 4093951
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 4222975
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 4534271
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 5537791
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 4534271
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1065.7763950968256
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1065.7763950968256
+        }
+      },
+      "arm": "candidate",
+      "total_appends": 31871,
+      "measured_appends": 21319,
+      "recorder_count": 21319,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": true,
+      "observer_events": 31871,
+      "distinct_source_streams": 15936,
+      "observer_p99_lag_us": 5254.801,
+      "namespace_exact": true,
+      "namespace_matched": 324,
+      "namespace_catchup_us": 4654.524,
+      "namespace_logical_scanned_prefix": 31764,
+      "namespace_lag_p99_us": 8677.063,
+      "statement_deltas": [
+        {
+          "query": "WITH scanned AS MATERIALIZED (\n  SELECT event_id, stream_version, original_stream_id, original_stream_version, category\n  FROM stream_events\n  -- stream_id is integral: this range selects exactly $all. Keeping both\n  -- index keys in the ordering prevents custom tail plans from choosing\n  -- the partial category index and sorting an unrestricted metadata scan.\n  WHERE stream_id >= $5 AND stream_id < $6 AND stream_version > $1\n  ORDER BY stream_id, stream_version LIMIT $4\n), eligible AS MATERIALIZED (\n  SELECT * FROM scanned WHERE stream_version <= $2\n), progress AS (\n  SELECT count(*)::int4 AS scanned_count,\n         count(*) < $4 OR coalesce(max(stream_version) = $2, $7) AS exhausted,\n         CASE WHEN count(*) < $4 OR coalesce(max(stream_version) = $2, $8)\n              THEN $2 ELSE max(stream_version) END AS frontier\n  FROM eligible\n), matching AS MATERIALIZED (\n  SELECT * FROM eligible\n  WHERE (category COLLATE \"C\" = $3 OR starts_with(category COLLATE \"C\", $3 || $9)))\n, payloads AS MATERIALIZED (\n  SELECT m.stream_version,\n         ROW(e.event_id, e.event_type, m.stream_version, m.stream_version,\n             m.original_stream_id, m.original_stream_version,\n             e.data, e.metadata, e.causation_id, e.correlation_id, e.created_at) AS event\n  FROM matching m\n  -- OFFSET 0 keeps event-id probes behind matching in generic plans.\n  LEFT JOIN LATERAL (SELECT * FROM events WHERE event_id = m.event_id OFFSET $10) e ON $11\n)\nSELECT p.frontier, p.scanned_count, p.exhausted, payloads.event\nFROM progress p\n-- Generate the sentinel after payload probing, so an empty matching set\n-- never invokes even a zero-I/O NULL event-id lookup.\nLEFT JOIN payloads ON $12\nORDER BY payloads.stream_version",
+          "calls": 371,
+          "rows": 376,
+          "shared_blks_hit": 23208,
+          "shared_blks_read": 0,
+          "wal_bytes": 0
+        },
+        {
+          "query": "INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at, consumer_group_size, target_kind, target_category) VALUES ($1, $2, $3, now(), $4, $6, $5) ON CONFLICT (subscription_name, consumer_group_member)\nDO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now(), consumer_group_size = EXCLUDED.consumer_group_size, target_kind = EXCLUDED.target_kind, target_category = EXCLUDED.target_category",
+          "calls": 10849,
+          "rows": 10849,
+          "shared_blks_hit": 54245,
+          "shared_blks_read": 0,
+          "wal_bytes": 1783575
+        }
+      ],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/active/01a179ad-ea7f-75bc-a8b4-2f10991c40f7/tree/output/01a179ad-c156-777f-a789-a944e2768a13"
+    },
+    {
+      "case": "active",
+      "run_id": "01a179ad-c156-777f-a6a4-334943641923",
+      "cell_run": "01a179ad-ea7f-75bc-ae48-736b044a0420",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 6,
+        "trial": 3
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 11259062
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3944120.07356061
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3911679
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 4354047
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 4530175
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 5033983
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 6115327
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 5033983
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1013.2707335603975
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1013.2707335603975
+        }
+      },
+      "arm": "candidate",
+      "total_appends": 30044,
+      "measured_appends": 20269,
+      "recorder_count": 20269,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": true,
+      "observer_events": 30044,
+      "distinct_source_streams": 15025,
+      "observer_p99_lag_us": 5995.052,
+      "namespace_exact": true,
+      "namespace_matched": 304,
+      "namespace_catchup_us": 5050.939,
+      "namespace_logical_scanned_prefix": 29787,
+      "namespace_lag_p99_us": 9350.436,
+      "statement_deltas": [
+        {
+          "query": "INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at, consumer_group_size, target_kind, target_category) VALUES ($1, $2, $3, now(), $4, $6, $5) ON CONFLICT (subscription_name, consumer_group_member)\nDO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now(), consumer_group_size = EXCLUDED.consumer_group_size, target_kind = EXCLUDED.target_kind, target_category = EXCLUDED.target_category",
+          "calls": 10291,
+          "rows": 10291,
+          "shared_blks_hit": 51666,
+          "shared_blks_read": 0,
+          "wal_bytes": 1691931
+        },
+        {
+          "query": "WITH scanned AS MATERIALIZED (\n  SELECT event_id, stream_version, original_stream_id, original_stream_version, category\n  FROM stream_events\n  -- stream_id is integral: this range selects exactly $all. Keeping both\n  -- index keys in the ordering prevents custom tail plans from choosing\n  -- the partial category index and sorting an unrestricted metadata scan.\n  WHERE stream_id >= $5 AND stream_id < $6 AND stream_version > $1\n  ORDER BY stream_id, stream_version LIMIT $4\n), eligible AS MATERIALIZED (\n  SELECT * FROM scanned WHERE stream_version <= $2\n), progress AS (\n  SELECT count(*)::int4 AS scanned_count,\n         count(*) < $4 OR coalesce(max(stream_version) = $2, $7) AS exhausted,\n         CASE WHEN count(*) < $4 OR coalesce(max(stream_version) = $2, $8)\n              THEN $2 ELSE max(stream_version) END AS frontier\n  FROM eligible\n), matching AS MATERIALIZED (\n  SELECT * FROM eligible\n  WHERE (category COLLATE \"C\" = $3 OR starts_with(category COLLATE \"C\", $3 || $9)))\n, payloads AS MATERIALIZED (\n  SELECT m.stream_version,\n         ROW(e.event_id, e.event_type, m.stream_version, m.stream_version,\n             m.original_stream_id, m.original_stream_version,\n             e.data, e.metadata, e.causation_id, e.correlation_id, e.created_at) AS event\n  FROM matching m\n  -- OFFSET 0 keeps event-id probes behind matching in generic plans.\n  LEFT JOIN LATERAL (SELECT * FROM events WHERE event_id = m.event_id OFFSET $10) e ON $11\n)\nSELECT p.frontier, p.scanned_count, p.exhausted, payloads.event\nFROM progress p\n-- Generate the sentinel after payload probing, so an empty matching set\n-- never invokes even a zero-I/O NULL event-id lookup.\nLEFT JOIN payloads ON $12\nORDER BY payloads.stream_version",
+          "calls": 340,
+          "rows": 355,
+          "shared_blks_hit": 21779,
+          "shared_blks_read": 0,
+          "wal_bytes": 0
+        }
+      ],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/active/01a179ad-ea7f-75bc-ae48-736b044a0420/tree/output/01a179ad-c156-777f-a6a4-334943641923"
+    },
+    {
+      "case": "active",
+      "run_id": "01a179ad-c156-777f-a496-ea1b77695ab4",
+      "cell_run": "01a179ad-ea7f-75bc-b397-6af7e8680704",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 7,
+        "trial": 3
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 12286162
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3891671.0377762634
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3864575
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 4313087
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 4468735
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 4866047
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 6045695
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 4866047
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1026.9241098248167
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1026.9241098248167
+        }
+      },
+      "arm": "control",
+      "total_appends": 31332,
+      "measured_appends": 20542,
+      "recorder_count": 20542,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": true,
+      "observer_events": 31332,
+      "distinct_source_streams": 15668,
+      "observer_p99_lag_us": 5264.303,
+      "namespace_exact": null,
+      "namespace_matched": null,
+      "namespace_catchup_us": null,
+      "namespace_logical_scanned_prefix": null,
+      "namespace_lag_p99_us": null,
+      "statement_deltas": [
+        {
+          "query": "INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at, consumer_group_size, target_kind, target_category) VALUES ($1, $2, $3, now(), $4, $6, $5) ON CONFLICT (subscription_name, consumer_group_member)\nDO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now(), consumer_group_size = EXCLUDED.consumer_group_size, target_kind = EXCLUDED.target_kind, target_category = EXCLUDED.target_category",
+          "calls": 10250,
+          "rows": 10250,
+          "shared_blks_hit": 51250,
+          "shared_blks_read": 0,
+          "wal_bytes": 1684069
+        }
+      ],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/active/01a179ad-ea7f-75bc-b397-6af7e8680704/tree/output/01a179ad-c156-777f-a496-ea1b77695ab4"
+    },
+    {
+      "case": "active",
+      "run_id": "01a179ad-c156-777f-a259-e0d611baf1a0",
+      "cell_run": "01a179ad-ea7f-75bc-b679-587d842a99ec",
+      "comparison": {
+        "arm": "baseline",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 8,
+        "trial": 4
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 11324221
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3674838.5776408934
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3659775
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 4020223
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 4143103
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 4431871
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 5271551
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 4431871
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1087.4730950956734
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1087.4730950956734
+        }
+      },
+      "arm": "control",
+      "total_appends": 32400,
+      "measured_appends": 21754,
+      "recorder_count": 21754,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": true,
+      "observer_events": 32400,
+      "distinct_source_streams": 16203,
+      "observer_p99_lag_us": 4935.737,
+      "namespace_exact": null,
+      "namespace_matched": null,
+      "namespace_catchup_us": null,
+      "namespace_logical_scanned_prefix": null,
+      "namespace_lag_p99_us": null,
+      "statement_deltas": [
+        {
+          "query": "INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at, consumer_group_size, target_kind, target_category) VALUES ($1, $2, $3, now(), $4, $6, $5) ON CONFLICT (subscription_name, consumer_group_member)\nDO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now(), consumer_group_size = EXCLUDED.consumer_group_size, target_kind = EXCLUDED.target_kind, target_category = EXCLUDED.target_category",
+          "calls": 10862,
+          "rows": 10862,
+          "shared_blks_hit": 54310,
+          "shared_blks_read": 0,
+          "wal_bytes": 1784619
+        }
+      ],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/active/01a179ad-ea7f-75bc-b679-587d842a99ec/tree/output/01a179ad-c156-777f-a259-e0d611baf1a0"
+    },
+    {
+      "case": "active",
+      "run_id": "01a179ad-c156-777f-a9b5-14b39b3b97ae",
+      "cell_run": "01a179ad-ea7f-75bc-b82b-52e55f54358b",
+      "comparison": {
+        "arm": "candidate",
+        "group": "kiroku/append/benchmark/category-namespace/config-0",
+        "position": 9,
+        "trial": 4
+      },
+      "outcome": "passed",
+      "exit_code": 0,
+      "grade": "benchmark",
+      "grade_reasons": [],
+      "metrics": {
+        "op.append.error-rate": {
+          "unit": "ratio",
+          "value": 0
+        },
+        "op.append.latency.max": {
+          "unit": "ns",
+          "value": 9184356
+        },
+        "op.append.latency.mean": {
+          "unit": "ns",
+          "value": 3902180.568750915
+        },
+        "op.append.latency.p50": {
+          "unit": "ns",
+          "value": 3876863
+        },
+        "op.append.latency.p90": {
+          "unit": "ns",
+          "value": 4358143
+        },
+        "op.append.latency.p95": {
+          "unit": "ns",
+          "value": 4501503
+        },
+        "op.append.latency.p99": {
+          "unit": "ns",
+          "value": 4816895
+        },
+        "op.append.latency.p999": {
+          "unit": "ns",
+          "value": 5681151
+        },
+        "op.append.service.p99": {
+          "unit": "ns",
+          "value": 4816895
+        },
+        "op.append.throughput": {
+          "unit": "ops/s",
+          "value": 1024.1489050340126
+        },
+        "op.append.units-throughput": {
+          "unit": "units/s",
+          "value": 1024.1489050340126
+        }
+      },
+      "arm": "candidate",
+      "total_appends": 31170,
+      "measured_appends": 20487,
+      "recorder_count": 20487,
+      "warmup_seconds": 10,
+      "measurement_seconds": 20,
+      "observer_exact": true,
+      "observer_events": 31170,
+      "distinct_source_streams": 15586,
+      "observer_p99_lag_us": 5452.672,
+      "namespace_exact": true,
+      "namespace_matched": 316,
+      "namespace_catchup_us": 4684.768,
+      "namespace_logical_scanned_prefix": 31108,
+      "namespace_lag_p99_us": 8236.935,
+      "statement_deltas": [
+        {
+          "query": "WITH scanned AS MATERIALIZED (\n  SELECT event_id, stream_version, original_stream_id, original_stream_version, category\n  FROM stream_events\n  -- stream_id is integral: this range selects exactly $all. Keeping both\n  -- index keys in the ordering prevents custom tail plans from choosing\n  -- the partial category index and sorting an unrestricted metadata scan.\n  WHERE stream_id >= $5 AND stream_id < $6 AND stream_version > $1\n  ORDER BY stream_id, stream_version LIMIT $4\n), eligible AS MATERIALIZED (\n  SELECT * FROM scanned WHERE stream_version <= $2\n), progress AS (\n  SELECT count(*)::int4 AS scanned_count,\n         count(*) < $4 OR coalesce(max(stream_version) = $2, $7) AS exhausted,\n         CASE WHEN count(*) < $4 OR coalesce(max(stream_version) = $2, $8)\n              THEN $2 ELSE max(stream_version) END AS frontier\n  FROM eligible\n), matching AS MATERIALIZED (\n  SELECT * FROM eligible\n  WHERE (category COLLATE \"C\" = $3 OR starts_with(category COLLATE \"C\", $3 || $9)))\n, payloads AS MATERIALIZED (\n  SELECT m.stream_version,\n         ROW(e.event_id, e.event_type, m.stream_version, m.stream_version,\n             m.original_stream_id, m.original_stream_version,\n             e.data, e.metadata, e.causation_id, e.correlation_id, e.created_at) AS event\n  FROM matching m\n  -- OFFSET 0 keeps event-id probes behind matching in generic plans.\n  LEFT JOIN LATERAL (SELECT * FROM events WHERE event_id = m.event_id OFFSET $10) e ON $11\n)\nSELECT p.frontier, p.scanned_count, p.exhausted, payloads.event\nFROM progress p\n-- Generate the sentinel after payload probing, so an empty matching set\n-- never invokes even a zero-I/O NULL event-id lookup.\nLEFT JOIN payloads ON $12\nORDER BY payloads.stream_version",
+          "calls": 354,
+          "rows": 365,
+          "shared_blks_hit": 22388,
+          "shared_blks_read": 0,
+          "wal_bytes": 0
+        },
+        {
+          "query": "INSERT INTO subscriptions (subscription_name, consumer_group_member, last_seen, updated_at, consumer_group_size, target_kind, target_category) VALUES ($1, $2, $3, now(), $4, $6, $5) ON CONFLICT (subscription_name, consumer_group_member)\nDO UPDATE SET last_seen = GREATEST(subscriptions.last_seen, EXCLUDED.last_seen), updated_at = now(), consumer_group_size = EXCLUDED.consumer_group_size, target_kind = EXCLUDED.target_kind, target_category = EXCLUDED.target_category",
+          "calls": 10419,
+          "rows": 10419,
+          "shared_blks_hit": 52095,
+          "shared_blks_read": 0,
+          "wal_bytes": 1713063
+        }
+      ],
+      "reset_verified": true,
+      "cache_policy": "cold",
+      "relative_result_path": "v2/active/01a179ad-ea7f-75bc-b82b-52e55f54358b/tree/output/01a179ad-c156-777f-a9b5-14b39b3b97ae"
+    }
+  ],
+  "comparisons": {
+    "disabled": {
+      "algorithm": {
+        "confidenceLevel": 0.95,
+        "generator": "splitmix",
+        "iterations": 10000,
+        "name": "paired-bootstrap-t-envelope",
+        "seed": 20261009,
+        "version": 1
+      },
+      "baselineRuns": [
+        "01a1799c-c3f5-7769-a908-6cf26f177611",
+        "01a1799c-c3f5-7769-a5b8-6aba019479a1",
+        "01a1799c-c3f5-7769-a369-6a5b2e213edd",
+        "01a1799c-c3f5-7769-ac21-9c62de25773a",
+        "01a1799c-c3f5-7769-a056-e75f3ae3e838"
+      ],
+      "candidateRuns": [
+        "01a1799c-c3f5-7769-ae93-95a693b43a52",
+        "01a1799c-c3f5-7769-a2d4-cc48357f92a3",
+        "01a1799c-c3f5-7769-a358-89b430f08eae",
+        "01a1799c-c3f5-7769-a11b-8a8eb606d498",
+        "01a1799c-c3f5-7769-a696-33242d1bfe81"
+      ],
+      "comparisonId": "01a179ad-b77a-7268-8891-f016a7e1c0c3",
+      "design": "abba",
+      "exitCode": 3,
+      "finishedAt": "2026-10-26T19:26:30.331892Z",
+      "harnessDirty": true,
+      "harnessRevision": "ad4e52746e707ed3574eaa6cbe467d52db7b4f2f",
+      "metrics": {
+        "op.append.latency.p50": {
+          "absoluteFloor": 0,
+          "baselineCv": 0.042191720813346094,
+          "delta": {
+            "estimate": -16793.6,
+            "high": 159626.8915547484,
+            "low": -193214.09155474842
+          },
+          "message": "confidence interval crosses a policy limit or is too wide",
+          "metric": "op.append.latency.p50",
+          "pairs": [
+            {
+              "baseline": 3583999,
+              "candidate": 3438591
+            },
+            {
+              "baseline": 3405823,
+              "candidate": 3459071
+            },
+            {
+              "baseline": 3788799,
+              "candidate": 3676159
+            },
+            {
+              "baseline": 3461119,
+              "candidate": 3659775
+            },
+            {
+              "baseline": 3635199,
+              "candidate": 3557375
+            }
+          ],
+          "ratio": {
+            "estimate": 0.9956264273462848,
+            "high": 1.0461286979925066,
+            "low": 0.9475621734998302
+          },
+          "relativeLimit": 0,
+          "status": "inconclusive",
+          "unit": "ns"
+        },
+        "op.append.latency.p95": {
+          "absoluteFloor": 0,
+          "baselineCv": 0.04757107667124914,
+          "delta": {
+            "estimate": 2048,
+            "high": 234226.17802994399,
+            "low": -230130.17802994399
+          },
+          "message": "confidence interval crosses a policy limit or is too wide",
+          "metric": "op.append.latency.p95",
+          "pairs": [
+            {
+              "baseline": 4122623,
+              "candidate": 3954687
+            },
+            {
+              "baseline": 3889151,
+              "candidate": 3923967
+            },
+            {
+              "baseline": 4407295,
+              "candidate": 4288511
+            },
+            {
+              "baseline": 3989503,
+              "candidate": 4296703
+            },
+            {
+              "baseline": 4143103,
+              "candidate": 4098047
+            }
+          ],
+          "ratio": {
+            "estimate": 1.000650086772788,
+            "high": 1.0584192803479775,
+            "low": 0.9460339723112279
+          },
+          "relativeLimit": 0,
+          "status": "inconclusive",
+          "unit": "ns"
+        },
+        "op.append.latency.p99": {
+          "absoluteFloor": 0,
+          "baselineCv": 0.06827235245536231,
+          "delta": {
+            "estimate": 65126.4,
+            "high": 398043.1832578136,
+            "low": -267790.3832578136
+          },
+          "message": "confidence interval crosses a policy limit or is too wide",
+          "metric": "op.append.latency.p99",
+          "pairs": [
+            {
+              "baseline": 4526079,
+              "candidate": 4489215
+            },
+            {
+              "baseline": 4139007,
+              "candidate": 4206591
+            },
+            {
+              "baseline": 4943871,
+              "candidate": 4755455
+            },
+            {
+              "baseline": 4280319,
+              "candidate": 4796415
+            },
+            {
+              "baseline": 4501503,
+              "candidate": 4468735
+            }
+          ],
+          "ratio": {
+            "estimate": 1.0152546899604178,
+            "high": 1.0917815591484974,
+            "low": 0.9440918623781488
+          },
+          "relativeLimit": 0,
+          "status": "inconclusive",
+          "unit": "ns"
+        },
+        "op.append.throughput": {
+          "absoluteFloor": 0,
+          "baselineCv": 0.04133322720079278,
+          "delta": {
+            "estimate": -4.00374166545289,
+            "high": 51.96370894281916,
+            "low": -59.971192273724945
+          },
+          "message": "confidence interval crosses a policy limit or is too wide",
+          "metric": "op.append.throughput",
+          "pairs": [
+            {
+              "baseline": 1101.5654368381352,
+              "candidate": 1149.6618319163326
+            },
+            {
+              "baseline": 1162.5410223233519,
+              "candidate": 1146.8825031950498
+            },
+            {
+              "baseline": 1046.1705455539368,
+              "candidate": 1077.6686390369696
+            },
+            {
+              "baseline": 1143.1682112190322,
+              "candidate": 1078.2289314863285
+            },
+            {
+              "baseline": 1089.93721123127,
+              "candidate": 1110.95922985831
+            }
+          ],
+          "ratio": {
+            "estimate": 0.996115875215897,
+            "high": 1.0476355888283075,
+            "low": 0.9471297533590636
+          },
+          "relativeLimit": 0,
+          "status": "inconclusive",
+          "unit": "ops/s"
+        }
+      },
+      "pairCount": 5,
+      "policy": {
+        "bootstrapIterations": 10000,
+        "confidenceLevel": 0.95,
+        "maxCheckpointAsymmetry": 0,
+        "maxCiRelativeWidth": 0.06,
+        "metrics": [
+          {
+            "absoluteFloor": 0,
+            "direction": "higher-is-better",
+            "match": "op.append.throughput",
+            "relativeLimit": 0
+          },
+          {
+            "absoluteFloor": 0,
+            "direction": "lower-is-better",
+            "match": "op.append.latency.p50",
+            "relativeLimit": 0
+          },
+          {
+            "absoluteFloor": 0,
+            "direction": "lower-is-better",
+            "match": "op.append.latency.p95",
+            "relativeLimit": 0
+          },
+          {
+            "absoluteFloor": 0,
+            "direction": "lower-is-better",
+            "match": "op.append.latency.p99",
+            "relativeLimit": 0
+          }
+        ],
+        "minimumPairs": 5,
+        "name": "mp12-zero-write-regression",
+        "requireGrade": "benchmark",
+        "requireInterleaving": true,
+        "resamplingSeed": 20261009,
+        "schema": "kenshou.comparison-policy/v1"
+      },
+      "reasons": [],
+      "schema": "kenshou.comparison/v1",
+      "startedAt": "2026-10-26T19:26:30.265837Z",
+      "variedFactors": [
+        "cohort"
+      ],
+      "verdict": "inconclusive"
+    },
+    "active": {
+      "algorithm": {
+        "confidenceLevel": 0.95,
+        "generator": "splitmix",
+        "iterations": 10000,
+        "name": "paired-bootstrap-t-envelope",
+        "seed": 20261009,
+        "version": 1
+      },
+      "baselineRuns": [
+        "01a179ad-c156-777f-a7e7-53dd0f1e74a7",
+        "01a179ad-c156-777f-acca-bbfd5977ecc1",
+        "01a179ad-c156-777f-a5bd-38031b32ede9",
+        "01a179ad-c156-777f-a496-ea1b77695ab4",
+        "01a179ad-c156-777f-a259-e0d611baf1a0"
+      ],
+      "candidateRuns": [
+        "01a179ad-c156-777f-aa07-be5eee42a847",
+        "01a179ad-c156-777f-a5d2-e14d39dbe20d",
+        "01a179ad-c156-777f-a789-a944e2768a13",
+        "01a179ad-c156-777f-a6a4-334943641923",
+        "01a179ad-c156-777f-a9b5-14b39b3b97ae"
+      ],
+      "comparisonId": "01a179bd-a6b1-71b5-b872-0a1e98c7384a",
+      "design": "abba",
+      "exitCode": 3,
+      "finishedAt": "2026-10-26T19:43:54.641689Z",
+      "harnessDirty": true,
+      "harnessRevision": "ad4e52746e707ed3574eaa6cbe467d52db7b4f2f",
+      "metrics": {
+        "op.append.latency.p50": {
+          "absoluteFloor": 0,
+          "baselineCv": 0.024933141636553927,
+          "delta": {
+            "estimate": 29081.6,
+            "high": 186547.57557684826,
+            "low": -128384.37557684825
+          },
+          "message": "confidence interval crosses a policy limit or is too wide",
+          "metric": "op.append.latency.p50",
+          "pairs": [
+            {
+              "baseline": 3885055,
+              "candidate": 3764223
+            },
+            {
+              "baseline": 3725311,
+              "candidate": 3774463
+            },
+            {
+              "baseline": 3780607,
+              "candidate": 3733503
+            },
+            {
+              "baseline": 3864575,
+              "candidate": 3911679
+            },
+            {
+              "baseline": 3659775,
+              "candidate": 3876863
+            }
+          ],
+          "ratio": {
+            "estimate": 1.007772871892899,
+            "high": 1.0505977237264599,
+            "low": 0.966693662461895
+          },
+          "relativeLimit": 0,
+          "status": "inconclusive",
+          "unit": "ns"
+        },
+        "op.append.latency.p95": {
+          "absoluteFloor": 0,
+          "baselineCv": 0.04001562753098923,
+          "delta": {
+            "estimate": 32358.4,
+            "high": 331363.53182564763,
+            "low": -266646.7318256476
+          },
+          "message": "confidence interval crosses a policy limit or is too wide",
+          "metric": "op.append.latency.p95",
+          "pairs": [
+            {
+              "baseline": 4575231,
+              "candidate": 4296703
+            },
+            {
+              "baseline": 4235263,
+              "candidate": 4362239
+            },
+            {
+              "baseline": 4329471,
+              "candidate": 4222975
+            },
+            {
+              "baseline": 4468735,
+              "candidate": 4530175
+            },
+            {
+              "baseline": 4143103,
+              "candidate": 4501503
+            }
+          ],
+          "ratio": {
+            "estimate": 1.0077190058455048,
+            "high": 1.079270772808679,
+            "low": 0.9409108634523067
+          },
+          "relativeLimit": 0,
+          "status": "inconclusive",
+          "unit": "ns"
+        },
+        "op.append.latency.p99": {
+          "absoluteFloor": 0,
+          "baselineCv": 0.046007911839123866,
+          "delta": {
+            "estimate": 90112,
+            "high": 450343.238997084,
+            "low": -270119.238997084
+          },
+          "message": "confidence interval crosses a policy limit or is too wide",
+          "metric": "op.append.latency.p99",
+          "pairs": [
+            {
+              "baseline": 4943871,
+              "candidate": 4632575
+            },
+            {
+              "baseline": 4546559,
+              "candidate": 4853759
+            },
+            {
+              "baseline": 4632575,
+              "candidate": 4534271
+            },
+            {
+              "baseline": 4866047,
+              "candidate": 5033983
+            },
+            {
+              "baseline": 4431871,
+              "candidate": 4816895
+            }
+          ],
+          "ratio": {
+            "estimate": 1.0194131861243272,
+            "high": 1.1005116915227295,
+            "low": 0.9442909621489366
+          },
+          "relativeLimit": 0,
+          "status": "inconclusive",
+          "unit": "ns"
+        },
+        "op.append.throughput": {
+          "absoluteFloor": 0,
+          "baselineCv": 0.026662512630854767,
+          "delta": {
+            "estimate": 8.483582286975912,
+            "high": 55.08948510817845,
+            "low": -38.12232053422663
+          },
+          "message": "confidence interval crosses a policy limit or is too wide",
+          "metric": "op.append.throughput",
+          "pairs": [
+            {
+              "baseline": 1019.3859405364232,
+              "candidate": 1055.5099065184472
+            },
+            {
+              "baseline": 1066.1691168928269,
+              "candidate": 1049.66044386728
+            },
+            {
+              "baseline": 1050.8320331621023,
+              "candidate": 1065.7763950968256
+            },
+            {
+              "baseline": 1026.9241098248167,
+              "candidate": 1013.2707335603975
+            },
+            {
+              "baseline": 1087.4730950956734,
+              "candidate": 1024.1489050340126
+            }
+          ],
+          "ratio": {
+            "estimate": 1.0080401103010486,
+            "high": 1.0537927104410871,
+            "low": 0.9642739543628285
+          },
+          "relativeLimit": 0,
+          "status": "inconclusive",
+          "unit": "ops/s"
+        }
+      },
+      "pairCount": 5,
+      "policy": {
+        "bootstrapIterations": 10000,
+        "confidenceLevel": 0.95,
+        "maxCheckpointAsymmetry": 0,
+        "maxCiRelativeWidth": 0.06,
+        "metrics": [
+          {
+            "absoluteFloor": 0,
+            "direction": "higher-is-better",
+            "match": "op.append.throughput",
+            "relativeLimit": 0
+          },
+          {
+            "absoluteFloor": 0,
+            "direction": "lower-is-better",
+            "match": "op.append.latency.p50",
+            "relativeLimit": 0
+          },
+          {
+            "absoluteFloor": 0,
+            "direction": "lower-is-better",
+            "match": "op.append.latency.p95",
+            "relativeLimit": 0
+          },
+          {
+            "absoluteFloor": 0,
+            "direction": "lower-is-better",
+            "match": "op.append.latency.p99",
+            "relativeLimit": 0
+          }
+        ],
+        "minimumPairs": 5,
+        "name": "mp12-zero-write-regression",
+        "requireGrade": "benchmark",
+        "requireInterleaving": true,
+        "resamplingSeed": 20261009,
+        "schema": "kenshou.comparison-policy/v1"
+      },
+      "reasons": [],
+      "schema": "kenshou.comparison/v1",
+      "startedAt": "2026-10-26T19:43:54.544674Z",
+      "variedFactors": [
+        "cohort"
+      ],
+      "verdict": "inconclusive"
+    }
+  },
+  "limitations": [
+    "Namespace catch-up timing measures empty startup before producers begin, rather than historical replay throughput.",
+    "Scanned prefix is the safe logical checkpoint position; it is not a count of physical PostgreSQL tuple visits.",
+    "The three candidate proof trials are retained separately and excluded from paired comparison estimates."
+  ]
+}
