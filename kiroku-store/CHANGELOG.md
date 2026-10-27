@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Require [shibuya-core](mori://shinzui/shibuya/packages/shibuya-core)
+  `>=0.12 && <0.13` in the Shibuya overhead benchmark and mark its deliveries
+  current with the new delivery-status field.
+
 - Add `CategoryNamespace Text` subscription targets for exact category/colon-boundary
   fan-in, including future categories and consumer groups. Uses bounded global
   windows, matching-only payload decoding, completed-scan checkpoints and shared

@@ -229,7 +229,7 @@ consistently.
 
 ## Dependencies
 
-The adapter depends on `shibuya-core` (`>=0.10 && <0.11`) and `kiroku-store`.
+The adapter depends on `shibuya-core` (`>=0.12 && <0.13`) and `kiroku-store`.
 It does **not** pull in `kiroku-otel`; trace-context propagation works on the
 raw `metadata` JSON regardless of whether the producer uses `kiroku-otel`.
 

@@ -66,7 +66,7 @@ library
     , hs-opentelemetry-api                   ^>=1.0
     , hs-opentelemetry-semantic-conventions  ^>=1.40
     , kiroku-store                           ^>=0.11.0.0 || ^>=0.12.0.0
-    , shibuya-core                           >=0.11      && <0.12
+    , shibuya-core                           >=0.12      && <0.13
     , shibuya-kiroku-adapter-internal
     , stm                                    >=2.5       && <2.6
     , streamly-core                          >=0.3       && <0.4
@@ -99,7 +99,7 @@ test-suite shibuya-kiroku-adapter-test
     , kiroku-store                     ^>=0.11.0.0 || ^>=0.12.0.0
     , kiroku-test-support              ^>=0.1.0.0
     , lens                             >=5.2       && <5.4
-    , shibuya-core                     >=0.11      && <0.12
+    , shibuya-core                     >=0.12      && <0.13
     , shibuya-kiroku-adapter
     , shibuya-kiroku-adapter-internal
     , stm                              >=2.5       && <2.6
@@ -132,7 +132,7 @@ executable lifecycle-live
     , ephemeral-pg            >=0.3.1     && <0.4
     , kiroku-store            ^>=0.11.0.0 || ^>=0.12.0.0
     , kiroku-test-support     ^>=0.1.0.0
-    , shibuya-core            >=0.11      && <0.12
+    , shibuya-core            >=0.12      && <0.13
     , shibuya-kiroku-adapter
     , stm                     >=2.5       && <2.6
     , text                    >=2.0       && <2.2
@@ -159,7 +159,7 @@ benchmark kiroku-mp12-write-probe
     , hasql-pool              >=1.2   && <1.5
     , kiroku-store
     , kiroku-test-support
-    , shibuya-core            >=0.11  && <0.12
+    , shibuya-core            >=0.12  && <0.13
     , shibuya-kiroku-adapter
     , text                    >=2.0   && <2.2
     , vector                  >=0.13  && <0.14
