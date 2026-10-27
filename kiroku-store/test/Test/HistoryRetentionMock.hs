@@ -16,71 +16,71 @@ import Test.Hspec
 
 spec :: Spec
 spec = describe "history retention mock" $ do
-    it "dispatches every closed lease operation exactly once" $ do
-        calls <- newIORef ([] :: [Text])
-        actual <- runEff $ runMock calls $ do
-            acquired <- acquireHistoryRetentionLease sampleRequest
-            renewed <- renewHistoryRetentionLease sampleHandle sampleDuration
-            released <- releaseHistoryRetentionLease sampleHandle
-            inventory <- historyRetentionLeaseInventory sampleQuery
-            pruned <- pruneHistoryRetentionLeases sampleTime
-            pure (acquired, renewed, released, inventory, pruned)
-        actual
-            `shouldBe` ( sampleLease
-                       , Right sampleLease
-                       , HistoryRetentionReleased sampleLease
-                       , Vector.singleton sampleLease
-                       , HistoryRetentionPruneResult 2 3
-                       )
-        readIORef calls
-            `shouldReturn` ["acquire", "renew", "release", "inventory", "prune"]
+  it "dispatches every closed lease operation exactly once" $ do
+    calls <- newIORef ([] :: [Text])
+    actual <- runEff $ runMock calls $ do
+      acquired <- acquireHistoryRetentionLease sampleRequest
+      renewed <- renewHistoryRetentionLease sampleHandle sampleDuration
+      released <- releaseHistoryRetentionLease sampleHandle
+      inventory <- historyRetentionLeaseInventory sampleQuery
+      pruned <- pruneHistoryRetentionLeases sampleTime
+      pure (acquired, renewed, released, inventory, pruned)
+    actual
+      `shouldBe` ( sampleLease,
+                   Right sampleLease,
+                   HistoryRetentionReleased sampleLease,
+                   Vector.singleton sampleLease,
+                   HistoryRetentionPruneResult 2 3
+                 )
+    readIORef calls
+      `shouldReturn` ["acquire", "renew", "release", "inventory", "prune"]
 
 runMock :: (IOE :> es) => IORef [Text] -> Eff (Store : es) a -> Eff es a
 runMock calls = interpret_ $ \case
-    AcquireHistoryRetentionLease request -> do
-        liftIO $ request `shouldBe` sampleRequest
-        record calls "acquire"
-        pure sampleLease
-    RenewHistoryRetentionLease handle duration -> do
-        liftIO $ (handle, duration) `shouldBe` (sampleHandle, sampleDuration)
-        record calls "renew"
-        pure (Right sampleLease)
-    ReleaseHistoryRetentionLease handle -> do
-        liftIO $ handle `shouldBe` sampleHandle
-        record calls "release"
-        pure (HistoryRetentionReleased sampleLease)
-    GetHistoryRetentionLeaseInventory query -> do
-        liftIO $ query `shouldBe` sampleQuery
-        record calls "inventory"
-        pure (Vector.singleton sampleLease)
-    PruneHistoryRetentionLeases cutoff -> do
-        liftIO $ cutoff `shouldBe` sampleTime
-        record calls "prune"
-        pure (HistoryRetentionPruneResult 2 3)
-    _ -> error "unexpected Store operation in history retention mock"
+  AcquireHistoryRetentionLease request -> do
+    liftIO $ request `shouldBe` sampleRequest
+    record calls "acquire"
+    pure sampleLease
+  RenewHistoryRetentionLease handle duration -> do
+    liftIO $ (handle, duration) `shouldBe` (sampleHandle, sampleDuration)
+    record calls "renew"
+    pure (Right sampleLease)
+  ReleaseHistoryRetentionLease handle -> do
+    liftIO $ handle `shouldBe` sampleHandle
+    record calls "release"
+    pure (HistoryRetentionReleased sampleLease)
+  GetHistoryRetentionLeaseInventory query -> do
+    liftIO $ query `shouldBe` sampleQuery
+    record calls "inventory"
+    pure (Vector.singleton sampleLease)
+  PruneHistoryRetentionLeases cutoff -> do
+    liftIO $ cutoff `shouldBe` sampleTime
+    record calls "prune"
+    pure (HistoryRetentionPruneResult 2 3)
+  _ -> error "unexpected Store operation in history retention mock"
 
 record :: (IOE :> es) => IORef [Text] -> Text -> Eff es ()
 record calls name = liftIO $ modifyIORef' calls (<> [name])
 
 sampleRequest :: HistoryRetentionLeaseRequest
 sampleRequest =
-    HistoryRetentionLeaseRequest sampleOwner sampleReason sampleDuration
+  HistoryRetentionLeaseRequest sampleOwner sampleReason sampleDuration
 
 sampleHandle :: HistoryRetentionLeaseHandle
 sampleHandle = HistoryRetentionLeaseHandle sampleId sampleOwner
 
 sampleLease :: HistoryRetentionLease
 sampleLease =
-    HistoryRetentionLease
-        sampleId
-        sampleOwner
-        sampleReason
-        (GlobalPosition 17)
-        sampleTime
-        sampleTime
-        sampleExpiry
-        Nothing
-        HistoryRetentionLeaseActive
+  HistoryRetentionLease
+    sampleId
+    sampleOwner
+    sampleReason
+    (GlobalPosition 17)
+    sampleTime
+    sampleTime
+    sampleExpiry
+    Nothing
+    HistoryRetentionLeaseActive
 
 sampleId :: HistoryRetentionLeaseId
 sampleId = HistoryRetentionLeaseId UUID.nil
@@ -96,8 +96,8 @@ sampleDuration = either (error . show) (\value -> value) (mkHistoryRetentionLeas
 
 sampleQuery :: HistoryRetentionInventoryQuery
 sampleQuery =
-    HistoryRetentionInventoryQuery $
-        either (error . show) (\value -> value) (mkHistoryRetentionInventoryLimit 10)
+  HistoryRetentionInventoryQuery $
+    either (error . show) (\value -> value) (mkHistoryRetentionInventoryLimit 10)
 
 sampleTime :: UTCTime
 sampleTime = UTCTime (fromGregorian 2026 8 13) 0

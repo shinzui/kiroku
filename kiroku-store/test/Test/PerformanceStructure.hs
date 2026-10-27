@@ -33,611 +33,609 @@ import Test.Hspec
 
 spec :: Spec
 spec = do
-    noOpAppendSpec
-    queryPlanSpec
-    DeadLetterQueryPlans.spec
-    categoryReadCostSpec
-    streamHeadQuerySpec
+  noOpAppendSpec
+  queryPlanSpec
+  DeadLetterQueryPlans.spec
+  categoryReadCostSpec
+  streamHeadQuerySpec
 
 noOpAppendSpec :: Spec
 noOpAppendSpec =
-    describe "no-op paths use no pooled connection" $ do
-        it "rejects invalid dead-letter page sizes before pool checkout" $ do
-            checkouts <- newIORef (0 :: Int)
-            withObservedStore checkouts $ \_ -> do
-                before <- readIORef checkouts
-                forM_ [0, -1, 1001] $ \n -> mkSubscriptionDeadLetterLimit n `shouldBe` Left (SubscriptionDeadLetterLimitOutOfRange n)
-                after <- readIORef checkouts
-                after - before `shouldBe` 0
+  describe "no-op paths use no pooled connection" $ do
+    it "rejects invalid dead-letter page sizes before pool checkout" $ do
+      checkouts <- newIORef (0 :: Int)
+      withObservedStore checkouts $ \_ -> do
+        before <- readIORef checkouts
+        forM_ [0, -1, 1001] $ \n -> mkSubscriptionDeadLetterLimit n `shouldBe` Left (SubscriptionDeadLetterLimitOutOfRange n)
+        after <- readIORef checkouts
+        after - before `shouldBe` 0
 
-        it "rejects invalid batch and buffer sizes before pool checkout" $ do
-            checkouts <- newIORef (0 :: Int)
-            withObservedStore checkouts $ \_ -> do
-                before <- readIORef checkouts
-                mkBatchSize 0 `shouldBe` Left (InvalidBatchSize 0)
-                mkBatchSize (-1) `shouldBe` Left (InvalidBatchSize (-1))
-                Buffer.mkStreamBufferSize 0 `shouldBe` Left (Buffer.InvalidStreamBufferSize 0)
-                after <- readIORef checkouts
-                after - before `shouldBe` 0
+    it "rejects invalid batch and buffer sizes before pool checkout" $ do
+      checkouts <- newIORef (0 :: Int)
+      withObservedStore checkouts $ \_ -> do
+        before <- readIORef checkouts
+        mkBatchSize 0 `shouldBe` Left (InvalidBatchSize 0)
+        mkBatchSize (-1) `shouldBe` Left (InvalidBatchSize (-1))
+        Buffer.mkStreamBufferSize 0 `shouldBe` Left (Buffer.InvalidStreamBufferSize 0)
+        after <- readIORef checkouts
+        after - before `shouldBe` 0
 
-        it "rejects invalid consumer-group values before pool checkout" $ do
-            checkouts <- newIORef (0 :: Int)
-            withObservedStore checkouts $ \_ -> do
-                before <- readIORef checkouts
-                mkConsumerGroupSize 0 `shouldBe` Left (InvalidConsumerGroup 0 0)
-                let Right n = mkConsumerGroupSize 2
-                mkConsumerGroup 2 n `shouldBe` Left (InvalidConsumerGroup 2 2)
-                after <- readIORef checkouts
-                after - before `shouldBe` 0
+    it "rejects invalid consumer-group values before pool checkout" $ do
+      checkouts <- newIORef (0 :: Int)
+      withObservedStore checkouts $ \_ -> do
+        before <- readIORef checkouts
+        mkConsumerGroupSize 0 `shouldBe` Left (InvalidConsumerGroup 0 0)
+        let Right n = mkConsumerGroupSize 2
+        mkConsumerGroup 2 n `shouldBe` Left (InvalidConsumerGroup 2 2)
+        after <- readIORef checkouts
+        after - before `shouldBe` 0
 
-        it "refuses mismatched topology in exactly one initialization checkout with no handler" $ do
-            workerThread <- newIORef Nothing
-            checkouts <- newIORef (0 :: Int)
-            delivered <- newIORef False
-            let observe (ConnectionObservation _ InUseConnectionStatus) = do
-                    thread <- myThreadId
-                    selected <- readIORef workerThread
-                    if selected == Just thread then modifyIORef' checkouts (+ 1) else pure ()
-                observe _ = pure ()
-            withTestStoreSettings (\settings -> settings{observationHandler = Just observe}) $ \store -> do
-                seeded <- Pool.use (store ^. #pool) (Session.statement ("topology-checkout", 0, 0, 2, "unbound", Nothing) SQL.saveCheckpointMemberStmt)
-                seeded `shouldBe` Right ()
-                withLoadCheckpointHookForTest
-                    ( \_ -> do
-                        thread <- myThreadId
-                        writeIORef workerThread (Just thread)
-                        pure Nothing
-                    )
-                    $ do
-                        let cfg =
-                                (defaultSubscriptionConfig (SubscriptionName "topology-checkout") AllStreams (\_ -> writeIORef delivered True >> pure Continue))
-                                    { consumerGroup = Just (validConsumerGroup 0 3)
-                                    }
-                        handle <- subscribe store cfg
-                        waitWithTimeout 5_000_000 handle >>= \case
-                            Right (Left exception) ->
-                                (fromException exception :: Maybe ConsumerGroupSizeMismatch) `shouldSatisfy` maybe False (const True)
-                            other -> expectationFailure ("expected mismatch, got " <> show other)
-                readIORef checkouts `shouldReturn` 1
-                readIORef delivered `shouldReturn` False
+    it "refuses mismatched topology in exactly one initialization checkout with no handler" $ do
+      workerThread <- newIORef Nothing
+      checkouts <- newIORef (0 :: Int)
+      delivered <- newIORef False
+      let observe (ConnectionObservation _ InUseConnectionStatus) = do
+            thread <- myThreadId
+            selected <- readIORef workerThread
+            if selected == Just thread then modifyIORef' checkouts (+ 1) else pure ()
+          observe _ = pure ()
+      withTestStoreSettings (\settings -> settings {observationHandler = Just observe}) $ \store -> do
+        seeded <- Pool.use (store ^. #pool) (Session.statement ("topology-checkout", 0, 0, 2, "unbound", Nothing) SQL.saveCheckpointMemberStmt)
+        seeded `shouldBe` Right ()
+        withLoadCheckpointHookForTest
+          ( \_ -> do
+              thread <- myThreadId
+              writeIORef workerThread (Just thread)
+              pure Nothing
+          )
+          $ do
+            let cfg =
+                  (defaultSubscriptionConfig (SubscriptionName "topology-checkout") AllStreams (\_ -> writeIORef delivered True >> pure Continue))
+                    { consumerGroup = Just (validConsumerGroup 0 3)
+                    }
+            handle <- subscribe store cfg
+            waitWithTimeout 5_000_000 handle >>= \case
+              Right (Left exception) ->
+                (fromException exception :: Maybe ConsumerGroupSizeMismatch) `shouldSatisfy` maybe False (const True)
+              other -> expectationFailure ("expected mismatch, got " <> show other)
+        readIORef checkouts `shouldReturn` 1
+        readIORef delivered `shouldReturn` False
 
-        it "refuses mismatched target in exactly one initialization checkout with no handler" $ do
-            workerThread <- newIORef Nothing
-            checkouts <- newIORef (0 :: Int)
-            delivered <- newIORef False
-            let observe (ConnectionObservation _ InUseConnectionStatus) = do
-                    thread <- myThreadId
-                    selected <- readIORef workerThread
-                    if selected == Just thread then modifyIORef' checkouts (+ 1) else pure ()
-                observe _ = pure ()
-            withTestStoreSettings (\settings -> settings{observationHandler = Just observe}) $ \store -> do
-                seeded <- Pool.use (store ^. #pool) (Session.statement ("target-checkout", 0, 0, 1, "all", Nothing) SQL.saveCheckpointMemberStmt)
-                seeded `shouldBe` Right ()
-                withLoadCheckpointHookForTest
-                    ( \_ -> do
-                        thread <- myThreadId
-                        writeIORef workerThread (Just thread)
-                        pure Nothing
-                    )
-                    $ do
-                        let cfg =
-                                (defaultSubscriptionConfig (SubscriptionName "target-checkout") (Category (CategoryName "other")) (\_ -> writeIORef delivered True >> pure Continue))
+    it "refuses mismatched target in exactly one initialization checkout with no handler" $ do
+      workerThread <- newIORef Nothing
+      checkouts <- newIORef (0 :: Int)
+      delivered <- newIORef False
+      let observe (ConnectionObservation _ InUseConnectionStatus) = do
+            thread <- myThreadId
+            selected <- readIORef workerThread
+            if selected == Just thread then modifyIORef' checkouts (+ 1) else pure ()
+          observe _ = pure ()
+      withTestStoreSettings (\settings -> settings {observationHandler = Just observe}) $ \store -> do
+        seeded <- Pool.use (store ^. #pool) (Session.statement ("target-checkout", 0, 0, 1, "all", Nothing) SQL.saveCheckpointMemberStmt)
+        seeded `shouldBe` Right ()
+        withLoadCheckpointHookForTest
+          ( \_ -> do
+              thread <- myThreadId
+              writeIORef workerThread (Just thread)
+              pure Nothing
+          )
+          $ do
+            let cfg =
+                  (defaultSubscriptionConfig (SubscriptionName "target-checkout") (Category (CategoryName "other")) (\_ -> writeIORef delivered True >> pure Continue))
 
-                        handle <- subscribe store cfg
-                        waitWithTimeout 5_000_000 handle >>= \case
-                            Right (Left exception) ->
-                                (fromException exception :: Maybe SubscriptionTargetMismatch) `shouldSatisfy` maybe False (const True)
-                            other -> expectationFailure ("expected mismatch, got " <> show other)
-                readIORef checkouts `shouldReturn` 1
-                readIORef delivered `shouldReturn` False
+            handle <- subscribe store cfg
+            waitWithTimeout 5_000_000 handle >>= \case
+              Right (Left exception) ->
+                (fromException exception :: Maybe SubscriptionTargetMismatch) `shouldSatisfy` maybe False (const True)
+              other -> expectationFailure ("expected mismatch, got " <> show other)
+        readIORef checkouts `shouldReturn` 1
+        readIORef delivered `shouldReturn` False
 
-        it "keeps ordinary checkpoint saves as one unconditional monotonic upsert" $ do
-            forM_ [Statement.toSql SQL.saveCheckpointMemberStmt, Statement.toSql SQL.saveAllCheckpointMemberStmt, Statement.toSql SQL.saveCategoryCheckpointMemberStmt] $ \statement -> do
-                let sql = T.toLower statement
-                T.count "insert into" sql `shouldBe` 1
-                sql `shouldSatisfy` T.isInfixOf "greatest(subscriptions.last_seen, excluded.last_seen)"
-                sql `shouldNotSatisfy` T.isInfixOf "where"
-                sql `shouldNotSatisfy` T.isInfixOf "returning"
+    it "keeps ordinary checkpoint saves as one unconditional monotonic upsert" $ do
+      forM_ [Statement.toSql SQL.saveCheckpointMemberStmt, Statement.toSql SQL.saveAllCheckpointMemberStmt, Statement.toSql SQL.saveCategoryCheckpointMemberStmt] $ \statement -> do
+        let sql = T.toLower statement
+        T.count "insert into" sql `shouldBe` 1
+        sql `shouldSatisfy` T.isInfixOf "greatest(subscriptions.last_seen, excluded.last_seen)"
+        sql `shouldNotSatisfy` T.isInfixOf "where"
+        sql `shouldNotSatisfy` T.isInfixOf "returning"
 
-        it "rejects an empty appendToStream batch before pool checkout" $ do
-            checkouts <- newIORef (0 :: Int)
-            withObservedStore checkouts $ \store -> do
-                checkoutsBefore <- readIORef checkouts
-                result <- runStoreIO store $ appendToStream (StreamName "performance-empty-append") AnyVersion []
-                checkoutsAfter <- readIORef checkouts
-                result `shouldBe` Left (EmptyAppendBatch (StreamName "performance-empty-append"))
-                checkoutsAfter - checkoutsBefore `shouldBe` 0
+    it "rejects an empty appendToStream batch before pool checkout" $ do
+      checkouts <- newIORef (0 :: Int)
+      withObservedStore checkouts $ \store -> do
+        checkoutsBefore <- readIORef checkouts
+        result <- runStoreIO store $ appendToStream (StreamName "performance-empty-append") AnyVersion []
+        checkoutsAfter <- readIORef checkouts
+        result `shouldBe` Left (EmptyAppendBatch (StreamName "performance-empty-append"))
+        checkoutsAfter - checkoutsBefore `shouldBe` 0
 
-        it "returns an empty appendMultiStream result before pool checkout" $ do
-            checkouts <- newIORef (0 :: Int)
-            withObservedStore checkouts $ \store -> do
-                checkoutsBefore <- readIORef checkouts
-                result <- runStoreIO store $ appendMultiStream []
-                checkoutsAfter <- readIORef checkouts
-                result `shouldBe` Right []
-                checkoutsAfter - checkoutsBefore `shouldBe` 0
+    it "returns an empty appendMultiStream result before pool checkout" $ do
+      checkouts <- newIORef (0 :: Int)
+      withObservedStore checkouts $ \store -> do
+        checkoutsBefore <- readIORef checkouts
+        result <- runStoreIO store $ appendMultiStream []
+        checkoutsAfter <- readIORef checkouts
+        result `shouldBe` Right []
+        checkoutsAfter - checkoutsBefore `shouldBe` 0
 
-        it "rejects invalid retention requests before pool checkout" $ do
-            checkouts <- newIORef (0 :: Int)
-            withObservedStore checkouts $ \_store -> do
-                checkoutsBefore <- readIORef checkouts
-                mkHistoryRetentionLeaseOwner "" `shouldSatisfy` either (const True) (const False)
-                mkHistoryRetentionLeaseReason "" `shouldSatisfy` either (const True) (const False)
-                mkHistoryRetentionInventoryLimit 0 `shouldSatisfy` either (const True) (const False)
-                checkoutsAfter <- readIORef checkouts
-                checkoutsAfter - checkoutsBefore `shouldBe` 0
+    it "rejects invalid retention requests before pool checkout" $ do
+      checkouts <- newIORef (0 :: Int)
+      withObservedStore checkouts $ \_store -> do
+        checkoutsBefore <- readIORef checkouts
+        mkHistoryRetentionLeaseOwner "" `shouldSatisfy` either (const True) (const False)
+        mkHistoryRetentionLeaseReason "" `shouldSatisfy` either (const True) (const False)
+        mkHistoryRetentionInventoryLimit 0 `shouldSatisfy` either (const True) (const False)
+        checkoutsAfter <- readIORef checkouts
+        checkoutsAfter - checkoutsBefore `shouldBe` 0
 
-        it "keeps every ordinary statement free of retention coordination" $ do
-            let ordinarySql =
-                    [ Statement.toSql SQL.appendExpectedVersion
-                    , Statement.toSql SQL.appendStreamExists
-                    , Statement.toSql SQL.appendNoStream
-                    , Statement.toSql SQL.appendAnyVersion
-                    , Statement.toSql SQL.readStreamForwardStmt
-                    , Statement.toSql SQL.readAllForwardStmt
-                    , Statement.toSql SQL.softDeleteStreamStmt
-                    , Statement.toSql SQL.undeleteStreamStmt
-                    , Statement.toSql SQL.setStreamTruncateBeforeStmt
-                    ]
-            forM_ ordinarySql $ \sql ->
-                T.toLower sql `shouldNotSatisfy` T.isInfixOf "history_retention"
+    it "keeps every ordinary statement free of retention coordination" $ do
+      let ordinarySql =
+            [ Statement.toSql SQL.appendExpectedVersion,
+              Statement.toSql SQL.appendStreamExists,
+              Statement.toSql SQL.appendNoStream,
+              Statement.toSql SQL.appendAnyVersion,
+              Statement.toSql SQL.readStreamForwardStmt,
+              Statement.toSql SQL.readAllForwardStmt,
+              Statement.toSql SQL.softDeleteStreamStmt,
+              Statement.toSql SQL.undeleteStreamStmt,
+              Statement.toSql SQL.setStreamTruncateBeforeStmt
+            ]
+      forM_ ordinarySql $ \sql ->
+        T.toLower sql `shouldNotSatisfy` T.isInfixOf "history_retention"
 
 queryPlanSpec :: Spec
 queryPlanSpec =
-    describe "production query plans" $
-        aroundAll withQueryPlanStore $ do
-            it "visible global head lookup uses ux_stream_events_stream_version without Sort" $ \store -> do
-                plan <-
-                    explainProductionStatement
-                        store
-                        SQL.visibleGlobalHeadPositionStmt
-                        []
-                expectIndex "ux_stream_events_stream_version" plan
-                expectNoNodeType "Sort" plan
+  describe "production query plans" $
+    aroundAll withQueryPlanStore $ do
+      it "visible global head lookup uses ux_stream_events_stream_version without Sort" $ \store -> do
+        plan <-
+          explainProductionStatement
+            store
+            SQL.visibleGlobalHeadPositionStmt
+            []
+        expectIndex "ux_stream_events_stream_version" plan
+        expectNoNodeType "Sort" plan
 
-            it "dead-letter reads use ix_dead_letters_subscription_position without Sort" $ \store -> do
-                plan <-
-                    explainProductionStatement
-                        store
-                        SQL.readDeadLettersStmt
-                        [ ("$2", "0::int4")
-                        , ("$1", "'performance-read'::text")
-                        ]
-                expectIndex "ix_dead_letters_subscription_position" plan
-                expectNoNodeType "Sort" plan
+      it "dead-letter reads use ix_dead_letters_subscription_position without Sort" $ \store -> do
+        plan <-
+          explainProductionStatement
+            store
+            SQL.readDeadLettersStmt
+            [ ("$2", "0::int4"),
+              ("$1", "'performance-read'::text")
+            ]
+        expectIndex "ix_dead_letters_subscription_position" plan
+        expectNoNodeType "Sort" plan
 
-            it "orphan dead-letter cleanup uses ix_dead_letters_event_id" $ \store -> do
-                plan <-
-                    explainProductionStatement
-                        store
-                        SQL.deleteDeadLettersForOrphanedEventsStmt
-                        [("$1", "ARRAY['00000000-0000-0000-0000-000000000001'::uuid]::uuid[]")]
-                expectIndex "ix_dead_letters_event_id" plan
+      it "orphan dead-letter cleanup uses ix_dead_letters_event_id" $ \store -> do
+        plan <-
+          explainProductionStatement
+            store
+            SQL.deleteDeadLettersForOrphanedEventsStmt
+            [("$1", "ARRAY['00000000-0000-0000-0000-000000000001'::uuid]::uuid[]")]
+        expectIndex "ix_dead_letters_event_id" plan
 
-            it "active retention lookup uses ix_history_retention_leases_unreleased_expiry" $ \store -> do
-                plan <- explainProductionStatement store activeLeaseLookupStmt []
-                expectIndex "ix_history_retention_leases_unreleased_expiry" plan
+      it "active retention lookup uses ix_history_retention_leases_unreleased_expiry" $ \store -> do
+        plan <- explainProductionStatement store activeLeaseLookupStmt []
+        expectIndex "ix_history_retention_leases_unreleased_expiry" plan
 
-            it "installs no retention trigger for INSERT or UPDATE" $ \store -> do
-                result <- Pool.use (store ^. #pool) (Session.statement () retentionTriggerShapeStmt)
-                case result of
-                    Left err -> expectationFailure ("could not inspect retention triggers: " <> show err)
-                    Right shape -> shape `shouldBe` (6, 0)
+      it "installs no retention trigger for INSERT or UPDATE" $ \store -> do
+        result <- Pool.use (store ^. #pool) (Session.statement () retentionTriggerShapeStmt)
+        case result of
+          Left err -> expectationFailure ("could not inspect retention triggers: " <> show err)
+          Right shape -> shape `shouldBe` (6, 0)
 
-{- | BUG-2. A category read's cost must follow the rows it returns, not the
-number of streams in the category. The store holds the category-scaling
-fixture: @performance@ with 200 streams, @idle@ with 20,000 one-event streams,
-and @noise@, head at 'categoryScalingHead'.
--}
+-- | BUG-2. A category read's cost must follow the rows it returns, not the
+-- number of streams in the category. The store holds the category-scaling
+-- fixture: @performance@ with 200 streams, @idle@ with 20,000 one-event streams,
+-- and @noise@, head at 'categoryScalingHead'.
 categoryReadCostSpec :: Spec
 categoryReadCostSpec =
-    describe "category read cost" $
-        aroundAll withCategoryScalingStore $ do
-            it "category high-cursor reads use ix_stream_events_all_by_category without Sort" $ \store -> do
-                plan <-
-                    explainProductionStatement
-                        store
-                        SQL.readCategoryForwardStmt
-                        [ ("$3", "100::int4")
-                        , ("$2", "'performance'::text")
-                        , ("$1", "15000::bigint")
-                        ]
-                expectIndex "ix_stream_events_all_by_category" plan
-                expectNoNodeType "Sort" plan
+  describe "category read cost" $
+    aroundAll withCategoryScalingStore $ do
+      it "category high-cursor reads use ix_stream_events_all_by_category without Sort" $ \store -> do
+        plan <-
+          explainProductionStatement
+            store
+            SQL.readCategoryForwardStmt
+            [ ("$3", "100::int4"),
+              ("$2", "'performance'::text"),
+              ("$1", "15000::bigint")
+            ]
+        expectIndex "ix_stream_events_all_by_category" plan
+        expectNoNodeType "Sort" plan
 
-            it "consumer-group category reads use ix_stream_events_all_by_category without Sort" $ \store -> do
-                plan <-
-                    explainProductionStatement
-                        store
-                        SQL.readCategoryForwardConsumerGroupStmt
-                        [ ("$5", "100::int4")
-                        , ("$4", "2::int4")
-                        , ("$3", "1::int4")
-                        , ("$2", "'performance'::text")
-                        , ("$1", "15000::bigint")
-                        ]
-                expectIndex "ix_stream_events_all_by_category" plan
-                expectNoNodeType "Sort" plan
+      it "consumer-group category reads use ix_stream_events_all_by_category without Sort" $ \store -> do
+        plan <-
+          explainProductionStatement
+            store
+            SQL.readCategoryForwardConsumerGroupStmt
+            [ ("$5", "100::int4"),
+              ("$4", "2::int4"),
+              ("$3", "1::int4"),
+              ("$2", "'performance'::text"),
+              ("$1", "15000::bigint")
+            ]
+        expectIndex "ix_stream_events_all_by_category" plan
+        expectNoNodeType "Sort" plan
 
-            it "category caught-up poll on 20000 idle streams reads at most 32 buffers" $ \store -> do
-                let cursor = T.pack (show categoryScalingHead) <> "::bigint"
-                    plainAt =
-                        [ ("$3", "100::int4")
-                        , ("$2", "'idle'::text")
-                        , ("$1", cursor)
-                        ]
-                    groupAt member =
-                        [ ("$5", "100::int4")
-                        , ("$4", "2::int4")
-                        , ("$3", T.pack (show member) <> "::int4")
-                        , ("$2", "'idle'::text")
-                        , ("$1", cursor)
-                        ]
-                    groupMembers = [0, 1 :: Int]
+      it "category caught-up poll on 20000 idle streams reads at most 32 buffers" $ \store -> do
+        let cursor = T.pack (show categoryScalingHead) <> "::bigint"
+            plainAt =
+              [ ("$3", "100::int4"),
+                ("$2", "'idle'::text"),
+                ("$1", cursor)
+              ]
+            groupAt member =
+              [ ("$5", "100::int4"),
+                ("$4", "2::int4"),
+                ("$3", T.pack (show member) <> "::int4"),
+                ("$2", "'idle'::text"),
+                ("$1", cursor)
+              ]
+            groupMembers = [0, 1 :: Int]
 
-                plainIdle <- explainAnalyzeBuffers store SQL.readCategoryForwardStmt plainAt
-                expectBufferBudget "plain caught-up poll" plainIdle
-                snd plainIdle `shouldBe` 0
-                groupIdle <- mapM (explainAnalyzeBuffers store SQL.readCategoryForwardConsumerGroupStmt . groupAt) groupMembers
-                mapM_ (expectBufferBudget "group caught-up poll") groupIdle
-                map snd groupIdle `shouldBe` [0, 0]
+        plainIdle <- explainAnalyzeBuffers store SQL.readCategoryForwardStmt plainAt
+        expectBufferBudget "plain caught-up poll" plainIdle
+        snd plainIdle `shouldBe` 0
+        groupIdle <- mapM (explainAnalyzeBuffers store SQL.readCategoryForwardConsumerGroupStmt . groupAt) groupMembers
+        mapM_ (expectBufferBudget "group caught-up poll") groupIdle
+        map snd groupIdle `shouldBe` [0, 0]
 
-                appended <- runStoreIO store $ appendToStream (StreamName "idle-1") AnyVersion [makeEvent "IdleWake" Null]
-                appended `shouldSatisfy` either (const False) (const True)
+        appended <- runStoreIO store $ appendToStream (StreamName "idle-1") AnyVersion [makeEvent "IdleWake" Null]
+        appended `shouldSatisfy` either (const False) (const True)
 
-                plainOne <- explainAnalyzeBuffers store SQL.readCategoryForwardStmt plainAt
-                expectBufferBudget "plain poll after one append" plainOne
-                snd plainOne `shouldBe` 1
-                groupOne <- mapM (explainAnalyzeBuffers store SQL.readCategoryForwardConsumerGroupStmt . groupAt) groupMembers
-                mapM_ (expectBufferBudget "group poll after one append") groupOne
-                -- Exactly one member owns idle-1.
-                sum (map snd groupOne) `shouldBe` 1
+        plainOne <- explainAnalyzeBuffers store SQL.readCategoryForwardStmt plainAt
+        expectBufferBudget "plain poll after one append" plainOne
+        snd plainOne `shouldBe` 1
+        groupOne <- mapM (explainAnalyzeBuffers store SQL.readCategoryForwardConsumerGroupStmt . groupAt) groupMembers
+        mapM_ (expectBufferBudget "group poll after one append") groupOne
+        -- Exactly one member owns idle-1.
+        sum (map snd groupOne) `shouldBe` 1
 
 withCategoryScalingStore :: (KirokuStore -> IO ()) -> IO ()
 withCategoryScalingStore action =
-    withTestStore $ \store -> do
-        result <- Pool.use (store ^. #pool) (Session.script categoryScalingFixtureSql)
-        case result of
-            Left err -> expectationFailure ("failed to seed category-scaling fixture: " <> show err)
-            Right () -> action store
+  withTestStore $ \store -> do
+    result <- Pool.use (store ^. #pool) (Session.script categoryScalingFixtureSql)
+    case result of
+      Left err -> expectationFailure ("failed to seed category-scaling fixture: " <> show err)
+      Right () -> action store
 
 -- | The G1 budget: a category poll that returns at most one row.
 expectBufferBudget :: String -> (Int64, Int64) -> Expectation
 expectBufferBudget label (buffers, _) =
-    unless (buffers <= 32) $
-        expectationFailure $
-            label
-                <> ": expected at most 32 shared buffers, but the plan read "
-                <> show buffers
+  unless (buffers <= 32) $
+    expectationFailure $
+      label
+        <> ": expected at most 32 shared buffers, but the plan read "
+        <> show buffers
 
-{- | Execute a production statement under @EXPLAIN (ANALYZE, BUFFERS)@ and
-return the top plan node's shared buffers (hit plus read) and actual rows.
-Planning buffers are excluded; they are not paid by a prepared statement.
--}
+-- | Execute a production statement under @EXPLAIN (ANALYZE, BUFFERS)@ and
+-- return the top plan node's shared buffers (hit plus read) and actual rows.
+-- Planning buffers are excluded; they are not paid by a prepared statement.
 explainAnalyzeBuffers ::
-    KirokuStore ->
-    Statement params result ->
-    [(Text, Text)] ->
-    IO (Int64, Int64)
+  KirokuStore ->
+  Statement params result ->
+  [(Text, Text)] ->
+  IO (Int64, Int64)
 explainAnalyzeBuffers store productionStatement replacements = do
-    plan <-
-        explainWith
-            "EXPLAIN (ANALYZE, BUFFERS, COSTS OFF, TIMING OFF, FORMAT JSON)\n"
-            store
-            productionStatement
-            replacements
-    case plan of
-        Array entries
-            | Just (Object entry) <- headMay entries
-            , Just (Object top) <- KeyMap.lookup "Plan" entry ->
-                pure
-                    ( numberField "Shared Hit Blocks" top + numberField "Shared Read Blocks" top
-                    , numberField "Actual Rows" top
-                    )
-        _ -> expectationFailure ("unexpected EXPLAIN shape: " <> show plan) >> fail "unreachable"
+  plan <-
+    explainWith
+      "EXPLAIN (ANALYZE, BUFFERS, COSTS OFF, TIMING OFF, FORMAT JSON)\n"
+      store
+      productionStatement
+      replacements
+  case plan of
+    Array entries
+      | Just (Object entry) <- headMay entries,
+        Just (Object top) <- KeyMap.lookup "Plan" entry ->
+          pure
+            ( numberField "Shared Hit Blocks" top + numberField "Shared Read Blocks" top,
+              numberField "Actual Rows" top
+            )
+    _ -> expectationFailure ("unexpected EXPLAIN shape: " <> show plan) >> fail "unreachable"
   where
     headMay values = case foldr (:) [] values of
-        value : _ -> Just value
-        [] -> Nothing
+      value : _ -> Just value
+      [] -> Nothing
     numberField key object = case KeyMap.lookup key object of
-        Just value | Aeson.Success (number :: Double) <- Aeson.fromJSON value -> round number
-        _ -> 0
+      Just value | Aeson.Success (number :: Double) <- Aeson.fromJSON value -> round number
+      _ -> 0
 
 withObservedStore :: IORef Int -> (KirokuStore -> IO ()) -> IO ()
 withObservedStore checkouts =
-    withTestStoreSettings $ \settings ->
-        settings
-            { observationHandler =
-                Just $ \case
-                    ConnectionObservation _ InUseConnectionStatus -> modifyIORef' checkouts (+ 1)
-                    _ -> pure ()
-            }
+  withTestStoreSettings $ \settings ->
+    settings
+      { observationHandler =
+          Just $ \case
+            ConnectionObservation _ InUseConnectionStatus -> modifyIORef' checkouts (+ 1)
+            _ -> pure ()
+      }
 
 withQueryPlanStore :: (KirokuStore -> IO ()) -> IO ()
 withQueryPlanStore action =
-    withTestStore $ \store -> do
-        result <- Pool.use (store ^. #pool) (Session.script queryPlanFixture)
-        case result of
-            Left err -> expectationFailure ("failed to seed performance query-plan fixture: " <> show err)
-            Right () -> action store
+  withTestStore $ \store -> do
+    result <- Pool.use (store ^. #pool) (Session.script queryPlanFixture)
+    case result of
+      Left err -> expectationFailure ("failed to seed performance query-plan fixture: " <> show err)
+      Right () -> action store
 
 queryPlanFixture :: Text
 queryPlanFixture =
-    """
-    BEGIN;
+  """
+  BEGIN;
 
-    WITH new_streams AS (
-      INSERT INTO streams (stream_name, stream_version)
-      SELECT 'performance-' || n::text, 100
-      FROM generate_series(1, 200) AS n
-      RETURNING stream_id
-    ), fixture_events AS MATERIALIZED (
-      SELECT uuidv7() AS event_id,
-             s.stream_id,
-             per_stream_position::bigint AS stream_version,
-             row_number() OVER (ORDER BY per_stream_position, s.stream_id)::bigint AS global_position
-      FROM new_streams AS s
-      CROSS JOIN generate_series(1, 100) AS per_stream_position
-    ), inserted_events AS (
-      INSERT INTO events (event_id, event_type, data)
-      SELECT event_id, 'PerformanceFixture', '{}'::jsonb
-      FROM fixture_events
-      RETURNING event_id
-    ), source_links AS (
-      INSERT INTO stream_events
-        (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
-      SELECT fixture.event_id,
-             fixture.stream_id,
-             fixture.stream_version,
-             fixture.stream_id,
-             fixture.stream_version
-      FROM fixture_events AS fixture
-      JOIN inserted_events USING (event_id)
-      RETURNING event_id
-    ), all_links AS (
-      INSERT INTO stream_events
-        (event_id, stream_id, stream_version, original_stream_id, original_stream_version, category)
-      SELECT fixture.event_id,
-             0,
-             fixture.global_position,
-             fixture.stream_id,
-             fixture.stream_version,
-             'performance'
-      FROM fixture_events AS fixture
-      JOIN inserted_events USING (event_id)
-      RETURNING event_id
-    ), advanced_all AS (
-      UPDATE streams
-      SET stream_version = (SELECT max(global_position) FROM fixture_events)
-      WHERE stream_id = 0
-      RETURNING stream_id
-    ), inserted_dead_letters AS (
-      INSERT INTO dead_letters
-        (subscription_name, consumer_group_member, global_position, event_id,
-         reason, reason_summary, attempt_count)
-      SELECT CASE
-               WHEN fixture.global_position % 10 = 0 THEN 'performance-read'
-               ELSE 'performance-other-' || (fixture.global_position % 9)::text
-             END,
-             0,
-             fixture.global_position,
-             fixture.event_id,
-             '{}'::jsonb,
-             'performance fixture',
-             1
-      FROM fixture_events AS fixture
-      JOIN inserted_events USING (event_id)
-      RETURNING dead_letter_id
-    )
-    SELECT (SELECT count(*) FROM source_links),
-           (SELECT count(*) FROM all_links),
-           (SELECT count(*) FROM advanced_all),
-           (SELECT count(*) FROM inserted_dead_letters);
-
-    COMMIT;
-    ANALYZE streams;
-    ANALYZE events;
-    ANALYZE stream_events;
-    ANALYZE dead_letters;
-    INSERT INTO history_retention_leases
-      (owner, reason, protected_through, created_at, renewed_at, expires_at, released_at)
-    SELECT 'performance-owner',
-           'performance-reason',
+  WITH new_streams AS (
+    INSERT INTO streams (stream_name, stream_version)
+    SELECT 'performance-' || n::text, 100
+    FROM generate_series(1, 200) AS n
+    RETURNING stream_id
+  ), fixture_events AS MATERIALIZED (
+    SELECT uuidv7() AS event_id,
+           s.stream_id,
+           per_stream_position::bigint AS stream_version,
+           row_number() OVER (ORDER BY per_stream_position, s.stream_id)::bigint AS global_position
+    FROM new_streams AS s
+    CROSS JOIN generate_series(1, 100) AS per_stream_position
+  ), inserted_events AS (
+    INSERT INTO events (event_id, event_type, data)
+    SELECT event_id, 'PerformanceFixture', '{}'::jsonb
+    FROM fixture_events
+    RETURNING event_id
+  ), source_links AS (
+    INSERT INTO stream_events
+      (event_id, stream_id, stream_version, original_stream_id, original_stream_version)
+    SELECT fixture.event_id,
+           fixture.stream_id,
+           fixture.stream_version,
+           fixture.stream_id,
+           fixture.stream_version
+    FROM fixture_events AS fixture
+    JOIN inserted_events USING (event_id)
+    RETURNING event_id
+  ), all_links AS (
+    INSERT INTO stream_events
+      (event_id, stream_id, stream_version, original_stream_id, original_stream_version, category)
+    SELECT fixture.event_id,
            0,
-           clock_timestamp() - interval '1 day',
-           clock_timestamp() - interval '1 day',
-           clock_timestamp() + interval '1 hour',
-           CASE WHEN n <= 9900 THEN clock_timestamp() ELSE NULL END
-    FROM generate_series(1, 10000) AS n;
-    ANALYZE history_retention_leases;
-    """
+           fixture.global_position,
+           fixture.stream_id,
+           fixture.stream_version,
+           'performance'
+    FROM fixture_events AS fixture
+    JOIN inserted_events USING (event_id)
+    RETURNING event_id
+  ), advanced_all AS (
+    UPDATE streams
+    SET stream_version = (SELECT max(global_position) FROM fixture_events)
+    WHERE stream_id = 0
+    RETURNING stream_id
+  ), inserted_dead_letters AS (
+    INSERT INTO dead_letters
+      (subscription_name, consumer_group_member, global_position, event_id,
+       reason, reason_summary, attempt_count)
+    SELECT CASE
+             WHEN fixture.global_position % 10 = 0 THEN 'performance-read'
+             ELSE 'performance-other-' || (fixture.global_position % 9)::text
+           END,
+           0,
+           fixture.global_position,
+           fixture.event_id,
+           '{}'::jsonb,
+           'performance fixture',
+           1
+    FROM fixture_events AS fixture
+    JOIN inserted_events USING (event_id)
+    RETURNING dead_letter_id
+  )
+  SELECT (SELECT count(*) FROM source_links),
+         (SELECT count(*) FROM all_links),
+         (SELECT count(*) FROM advanced_all),
+         (SELECT count(*) FROM inserted_dead_letters);
+
+  COMMIT;
+  ANALYZE streams;
+  ANALYZE events;
+  ANALYZE stream_events;
+  ANALYZE dead_letters;
+  INSERT INTO history_retention_leases
+    (owner, reason, protected_through, created_at, renewed_at, expires_at, released_at)
+  SELECT 'performance-owner',
+         'performance-reason',
+         0,
+         clock_timestamp() - interval '1 day',
+         clock_timestamp() - interval '1 day',
+         clock_timestamp() + interval '1 hour',
+         CASE WHEN n <= 9900 THEN clock_timestamp() ELSE NULL END
+  FROM generate_series(1, 10000) AS n;
+  ANALYZE history_retention_leases;
+  """
 
 explainProductionStatement ::
-    KirokuStore ->
-    Statement params result ->
-    [(Text, Text)] ->
-    IO Value
+  KirokuStore ->
+  Statement params result ->
+  [(Text, Text)] ->
+  IO Value
 explainProductionStatement = explainWith "EXPLAIN (FORMAT JSON, COSTS OFF)\n"
 
 explainWith ::
-    Text ->
-    KirokuStore ->
-    Statement params result ->
-    [(Text, Text)] ->
-    IO Value
+  Text ->
+  KirokuStore ->
+  Statement params result ->
+  [(Text, Text)] ->
+  IO Value
 explainWith explainPrefix store productionStatement replacements = do
-    let productionSql = Statement.toSql productionStatement
-        explainedSql =
-            explainPrefix
-                <> foldl' (\sql (placeholder, literal) -> T.replace placeholder literal sql) productionSql replacements
-        explainStatement :: Statement () ByteString
-        explainStatement =
-            unpreparable
-                explainedSql
-                E.noParams
-                (D.singleRow (D.column (D.nonNullable (D.jsonBytes Right))))
-    result <- Pool.use (store ^. #pool) (Session.statement () explainStatement)
-    bytes <- case result of
-        Left err -> expectationFailure ("EXPLAIN failed: " <> show err) >> fail "unreachable"
-        Right value -> pure value
-    case Aeson.eitherDecodeStrict' bytes of
-        Left err -> expectationFailure ("could not decode EXPLAIN JSON: " <> err) >> fail "unreachable"
-        Right value -> pure value
+  let productionSql = Statement.toSql productionStatement
+      explainedSql =
+        explainPrefix
+          <> foldl' (\sql (placeholder, literal) -> T.replace placeholder literal sql) productionSql replacements
+      explainStatement :: Statement () ByteString
+      explainStatement =
+        unpreparable
+          explainedSql
+          E.noParams
+          (D.singleRow (D.column (D.nonNullable (D.jsonBytes Right))))
+  result <- Pool.use (store ^. #pool) (Session.statement () explainStatement)
+  bytes <- case result of
+    Left err -> expectationFailure ("EXPLAIN failed: " <> show err) >> fail "unreachable"
+    Right value -> pure value
+  case Aeson.eitherDecodeStrict' bytes of
+    Left err -> expectationFailure ("could not decode EXPLAIN JSON: " <> err) >> fail "unreachable"
+    Right value -> pure value
 
 data PlanFacts = PlanFacts
-    { nodeTypes :: [Text]
-    , indexNames :: [Text]
-    }
-    deriving stock (Show)
+  { nodeTypes :: [Text],
+    indexNames :: [Text]
+  }
+  deriving stock (Show)
 
 instance Semigroup PlanFacts where
-    PlanFacts nodeTypesA indexNamesA <> PlanFacts nodeTypesB indexNamesB =
-        PlanFacts (nodeTypesA <> nodeTypesB) (indexNamesA <> indexNamesB)
+  PlanFacts nodeTypesA indexNamesA <> PlanFacts nodeTypesB indexNamesB =
+    PlanFacts (nodeTypesA <> nodeTypesB) (indexNamesA <> indexNamesB)
 
 instance Monoid PlanFacts where
-    mempty = PlanFacts [] []
+  mempty = PlanFacts [] []
 
 collectPlanFacts :: Value -> PlanFacts
 collectPlanFacts (Object object) =
-    PlanFacts
-        { nodeTypes = maybe [] pure (textField "Node Type" object)
-        , indexNames = maybe [] pure (textField "Index Name" object)
-        }
-        <> foldMap collectPlanFacts (KeyMap.elems object)
+  PlanFacts
+    { nodeTypes = maybe [] pure (textField "Node Type" object),
+      indexNames = maybe [] pure (textField "Index Name" object)
+    }
+    <> foldMap collectPlanFacts (KeyMap.elems object)
 collectPlanFacts (Array values) = foldMap collectPlanFacts values
 collectPlanFacts _ = mempty
 
 textField :: Aeson.Key -> Aeson.Object -> Maybe Text
 textField key object = case KeyMap.lookup key object of
-    Just (String value) -> Just value
-    _ -> Nothing
+  Just (String value) -> Just value
+  _ -> Nothing
 
 expectIndex :: Text -> Value -> Expectation
 expectIndex expected plan = do
-    let facts = collectPlanFacts plan
-    unless (expected `elem` indexNames facts) $
-        expectationFailure $
-            "expected plan to use index "
-                <> T.unpack expected
-                <> ", but collected "
-                <> show facts
-                <> " from:\n"
-                <> show plan
+  let facts = collectPlanFacts plan
+  unless (expected `elem` indexNames facts) $
+    expectationFailure $
+      "expected plan to use index "
+        <> T.unpack expected
+        <> ", but collected "
+        <> show facts
+        <> " from:\n"
+        <> show plan
 
 expectNoNodeType :: Text -> Value -> Expectation
 expectNoNodeType forbidden plan = do
-    let facts = collectPlanFacts plan
-    unless (forbidden `notElem` nodeTypes facts) $
-        expectationFailure $
-            "expected plan not to contain node type "
-                <> T.unpack forbidden
-                <> ", but collected "
-                <> show facts
-                <> " from:\n"
-                <> show plan
+  let facts = collectPlanFacts plan
+  unless (forbidden `notElem` nodeTypes facts) $
+    expectationFailure $
+      "expected plan not to contain node type "
+        <> T.unpack forbidden
+        <> ", but collected "
+        <> show facts
+        <> " from:\n"
+        <> show plan
 
 activeLeaseLookupStmt :: Statement () ()
 activeLeaseLookupStmt =
-    Statement.preparable
-        """
-        SELECT count(*), min(expires_at)
-        FROM history_retention_leases
-        WHERE released_at IS NULL
-          AND expires_at > clock_timestamp()
-        HAVING count(*) > 0
-        """
-        E.noParams
-        D.noResult
+  Statement.preparable
+    """
+    SELECT count(*), min(expires_at)
+    FROM history_retention_leases
+    WHERE released_at IS NULL
+      AND expires_at > clock_timestamp()
+    HAVING count(*) > 0
+    """
+    E.noParams
+    D.noResult
 
 retentionTriggerShapeStmt :: Statement () (Int64, Int64)
 retentionTriggerShapeStmt =
-    Statement.preparable
-        """
-        SELECT count(*),
-               count(*) FILTER (WHERE (trigger.tgtype & 4) <> 0 OR (trigger.tgtype & 16) <> 0)
-        FROM pg_catalog.pg_trigger AS trigger
-        JOIN pg_catalog.pg_class AS relation ON relation.oid = trigger.tgrelid
-        JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
-        WHERE namespace.nspname = 'kiroku'
-          AND relation.relname IN ('events', 'stream_events', 'streams')
-          AND trigger.tgname IN ('protect_replay_history_delete', 'protect_replay_history_truncate')
-          AND NOT trigger.tgisinternal
-        """
-        E.noParams
-        ( D.singleRow
-            ( (,)
-                <$> D.column (D.nonNullable D.int8)
-                <*> D.column (D.nonNullable D.int8)
-            )
+  Statement.preparable
+    """
+    SELECT count(*),
+           count(*) FILTER (WHERE (trigger.tgtype & 4) <> 0 OR (trigger.tgtype & 16) <> 0)
+    FROM pg_catalog.pg_trigger AS trigger
+    JOIN pg_catalog.pg_class AS relation ON relation.oid = trigger.tgrelid
+    JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+    WHERE namespace.nspname = 'kiroku'
+      AND relation.relname IN ('events', 'stream_events', 'streams')
+      AND trigger.tgname IN ('protect_replay_history_delete', 'protect_replay_history_truncate')
+      AND NOT trigger.tgisinternal
+    """
+    E.noParams
+    ( D.singleRow
+        ( (,)
+            <$> D.column (D.nonNullable D.int8)
+            <*> D.column (D.nonNullable D.int8)
         )
+    )
 
 streamHeadQuerySpec :: Spec
 streamHeadQuerySpec = describe "stream head query work" $
-    aroundAll withStreamHeadStore $
-        forM_ ["bench-1", "long-1", "empty-1", "missing-1"] $ \name ->
-            it ("bounds literal and warmed prepared probes for " <> T.unpack name) $ \store -> do
-                let literal = "'" <> name <> "'"
-                    prefix = "EXPLAIN (ANALYZE, BUFFERS, TIMING OFF, FORMAT JSON) "
-                direct <- explainWith prefix store SQL.getStreamWithHeadStmt [("$1", literal)]
-                prepared <- explainStreamHeadPrepared store literal
-                forM_ [("literal", direct), ("prepared", prepared)] $ \(kind, plan) -> do
-                    -- Emit complete JSON into retained test logs, including buffers and loops.
-                    putStrLn ("STREAM_HEAD_PLAN " <> T.unpack name <> " " <> kind <> " " <> show (Aeson.encode plan))
-                    expectIndex "ix_stream_events_all_by_origin" plan
-                    expectNoNodeType "Sort" plan
-                    let nodes = planObjects plan
-                        probes = filter ((== Just "stream_events") . textField "Relation Name") nodes
-                        limits = filter ((== Just "Limit") . textField "Node Type") nodes
-                    length probes `shouldBe` 1
-                    length limits `shouldBe` 1
-                    forM_ probes $ \probe -> do
-                        textField "Node Type" probe `shouldSatisfy` (`elem` [Just "Index Scan", Just "Index Only Scan"])
-                        textField "Scan Direction" probe `shouldBe` Just "Backward"
-                        planNumber "Actual Rows" probe `shouldSatisfy` (<= 1)
-                        if name == "missing-1" then planNumber "Actual Loops" probe `shouldBe` 0 else pure ()
-                    forM_ limits $ \limit -> do
-                        expectIndex "ix_stream_events_all_by_origin" (Object limit)
-                        planNumber "Actual Rows" limit `shouldSatisfy` (<= 1)
-                    map (textField "Relation Name") nodes `shouldNotContain` [Just "events"]
-                    case plan of
-                        Array entries
-                            | Object entry : _ <- foldr (:) [] entries
-                            , Just (Object top) <- KeyMap.lookup "Plan" entry -> do
-                                planNumber "Shared Hit Blocks" top + planNumber "Shared Read Blocks" top `shouldSatisfy` (<= 32)
-                                planNumber "Actual Rows" top `shouldBe` (if name == "missing-1" then 0 else 1)
-                        _ -> expectationFailure (show plan)
-                actual <- runStoreIO store (getStreamWithHead (StreamName name))
-                case name of
-                    "missing-1" -> actual `shouldBe` Right Nothing
-                    "empty-1" -> case actual of
-                        Right (Just (_, headPosition)) -> headPosition `shouldBe` Nothing
-                        _ -> expectationFailure (show actual)
-                    _ -> case actual of
-                        Right (Just (_, Just _)) -> pure ()
-                        _ -> expectationFailure (show actual)
+  aroundAll withStreamHeadStore $
+    forM_ ["bench-1", "long-1", "empty-1", "missing-1"] $ \name ->
+      it ("bounds literal and warmed prepared probes for " <> T.unpack name) $ \store -> do
+        let literal = "'" <> name <> "'"
+            prefix = "EXPLAIN (ANALYZE, BUFFERS, TIMING OFF, FORMAT JSON) "
+        direct <- explainWith prefix store SQL.getStreamWithHeadStmt [("$1", literal)]
+        prepared <- explainStreamHeadPrepared store literal
+        forM_ [("literal", direct), ("prepared", prepared)] $ \(kind, plan) -> do
+          -- Emit complete JSON into retained test logs, including buffers and loops.
+          putStrLn ("STREAM_HEAD_PLAN " <> T.unpack name <> " " <> kind <> " " <> show (Aeson.encode plan))
+          expectIndex "ix_stream_events_all_by_origin" plan
+          expectNoNodeType "Sort" plan
+          let nodes = planObjects plan
+              probes = filter ((== Just "stream_events") . textField "Relation Name") nodes
+              limits = filter ((== Just "Limit") . textField "Node Type") nodes
+          length probes `shouldBe` 1
+          length limits `shouldBe` 1
+          forM_ probes $ \probe -> do
+            textField "Node Type" probe `shouldSatisfy` (`elem` [Just "Index Scan", Just "Index Only Scan"])
+            textField "Scan Direction" probe `shouldBe` Just "Backward"
+            planNumber "Actual Rows" probe `shouldSatisfy` (<= 1)
+            if name == "missing-1" then planNumber "Actual Loops" probe `shouldBe` 0 else pure ()
+          forM_ limits $ \limit -> do
+            expectIndex "ix_stream_events_all_by_origin" (Object limit)
+            planNumber "Actual Rows" limit `shouldSatisfy` (<= 1)
+          map (textField "Relation Name") nodes `shouldNotContain` [Just "events"]
+          case plan of
+            Array entries
+              | Object entry : _ <- foldr (:) [] entries,
+                Just (Object top) <- KeyMap.lookup "Plan" entry -> do
+                  planNumber "Shared Hit Blocks" top + planNumber "Shared Read Blocks" top `shouldSatisfy` (<= 32)
+                  planNumber "Actual Rows" top `shouldBe` (if name == "missing-1" then 0 else 1)
+            _ -> expectationFailure (show plan)
+        actual <- runStoreIO store (getStreamWithHead (StreamName name))
+        case name of
+          "missing-1" -> actual `shouldBe` Right Nothing
+          "empty-1" -> case actual of
+            Right (Just (_, headPosition)) -> headPosition `shouldBe` Nothing
+            _ -> expectationFailure (show actual)
+          _ -> case actual of
+            Right (Just (_, Just _)) -> pure ()
+            _ -> expectationFailure (show actual)
 
 withStreamHeadStore :: (KirokuStore -> IO ()) -> IO ()
 withStreamHeadStore action = withTestStore $ \store -> do
-    forM_ [streamHeadFixtureSql, "VACUUM (ANALYZE) stream_events"] $ \command ->
-        Pool.use (store ^. #pool) (Session.script command) >>= either (fail . show) pure
-    action store
+  forM_ [streamHeadFixtureSql, "VACUUM (ANALYZE) stream_events"] $ \command ->
+    Pool.use (store ^. #pool) (Session.script command) >>= either (fail . show) pure
+  action store
 
 explainStreamHeadPrepared :: KirokuStore -> Text -> IO Value
 explainStreamHeadPrepared store literal = do
-    result <- Pool.use (store ^. #pool) $ do
-        Session.script ("PREPARE ep97_head(text) AS " <> Statement.toSql SQL.getStreamWithHeadStmt)
-        -- Default auto policy, past PostgreSQL's first five custom executions.
-        Session.script (T.replicate 6 ("EXECUTE ep97_head(" <> literal <> ");"))
-        bytes <-
-            Session.statement () $
-                unpreparable
-                    ("EXPLAIN (ANALYZE, BUFFERS, TIMING OFF, FORMAT JSON) EXECUTE ep97_head(" <> literal <> ")")
-                    E.noParams
-                    (D.singleRow (D.column (D.nonNullable (D.jsonBytes Right))))
-        Session.script "DEALLOCATE ep97_head"
-        pure bytes
-    bytes <- either (fail . show) pure result
-    either fail pure (Aeson.eitherDecodeStrict' bytes)
+  result <- Pool.use (store ^. #pool) $ do
+    Session.script ("PREPARE ep97_head(text) AS " <> Statement.toSql SQL.getStreamWithHeadStmt)
+    -- Default auto policy, past PostgreSQL's first five custom executions.
+    Session.script (T.replicate 6 ("EXECUTE ep97_head(" <> literal <> ");"))
+    bytes <-
+      Session.statement () $
+        unpreparable
+          ("EXPLAIN (ANALYZE, BUFFERS, TIMING OFF, FORMAT JSON) EXECUTE ep97_head(" <> literal <> ")")
+          E.noParams
+          (D.singleRow (D.column (D.nonNullable (D.jsonBytes Right))))
+    Session.script "DEALLOCATE ep97_head"
+    pure bytes
+  bytes <- either (fail . show) pure result
+  either fail pure (Aeson.eitherDecodeStrict' bytes)
 
 planObjects :: Value -> [Aeson.Object]
 planObjects (Object fields) = fields : concatMap planObjects (KeyMap.elems fields)
@@ -646,5 +644,5 @@ planObjects _ = []
 
 planNumber :: Aeson.Key -> Aeson.Object -> Double
 planNumber key fields = case KeyMap.lookup key fields of
-    Just (Number n) -> realToFrac n
-    _ -> 0
+  Just (Number n) -> realToFrac n
+  _ -> 0

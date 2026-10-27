@@ -15,14 +15,14 @@ import Kiroku.Store.Subscription.Types (SomeSubscriptionStartupFailure (..), def
 import Shibuya.Adapter.Kiroku (KirokuAdapterConfig (..), SubscriptionName (..), SubscriptionTarget (..), defaultKirokuAdapterConfig, kirokuProcessor)
 
 typedHook :: StoreSettings
-typedHook = defaultStoreSettings{decodeHook = Just (pure . Right)}
+typedHook = defaultStoreSettings {decodeHook = Just (pure . Right)}
 
 adapter :: KirokuAdapterConfig
 adapter =
-    (defaultKirokuAdapterConfig (SubscriptionName "release-verification") AllStreams)
-        { retryPolicy = defaultRetryPolicy
-        , handlerStallWarnAfter = Nothing
-        }
+  (defaultKirokuAdapterConfig (SubscriptionName "release-verification") AllStreams)
+    { retryPolicy = defaultRetryPolicy,
+      handlerStallWarnAfter = Nothing
+    }
 
 main :: IO ()
 main = putStrLn "Published hardening cohort APIs compiled."

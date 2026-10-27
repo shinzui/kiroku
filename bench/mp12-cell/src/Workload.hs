@@ -54,111 +54,111 @@ import Kenshou.Measure.Session qualified as Measure
 import Kenshou.Suite.Kiroku.Bench.Hardening qualified as Hardening
 
 data Workload = Workload
-    { seconds :: !Int
-    , mode :: !String
-    , width :: !Int
-    , appendBatch :: !Int
-    , checkpointBatch :: !Int32
-    , fresh :: !Bool
-    , offered :: !Int
-    , warmupSeconds :: !Int
-    , maxBacklog :: !Int
-    , subscribers :: !Int
-    , hookEnabled :: !Bool
-    , diagnosticsEnabled :: !Bool
-    , indexResearch :: !(Maybe Index.Config)
-    }
+  { seconds :: !Int,
+    mode :: !String,
+    width :: !Int,
+    appendBatch :: !Int,
+    checkpointBatch :: !Int32,
+    fresh :: !Bool,
+    offered :: !Int,
+    warmupSeconds :: !Int,
+    maxBacklog :: !Int,
+    subscribers :: !Int,
+    hookEnabled :: !Bool,
+    diagnosticsEnabled :: !Bool,
+    indexResearch :: !(Maybe Index.Config)
+  }
 
 bundle :: LayerBundle
 bundle = LayerBundle Kiroku [scenario] []
 
 scenario :: Scenario
 scenario =
-    Hardening.scenario
-        { run = runWorkload
-        , revision = 6
-        , knobs =
-            Hardening.scenario.knobs
-                <> Index.knobs
-                <> [ KnobSpec (knobName "mp12.subscribers") "Independent all-stream subscribers" KnobInt (VInt 1) (IntRange 1 2) []
-                   , KnobSpec (knobName "mp12.hook") "Successful identity decode hook" KnobBool (VBool False) AnyValue []
-                   ]
-        }
+  Hardening.scenario
+    { run = runWorkload,
+      revision = 6,
+      knobs =
+        Hardening.scenario.knobs
+          <> Index.knobs
+          <> [ KnobSpec (knobName "mp12.subscribers") "Independent all-stream subscribers" KnobInt (VInt 1) (IntRange 1 2) [],
+               KnobSpec (knobName "mp12.hook") "Successful identity decode hook" KnobBool (VBool False) AnyValue []
+             ]
+    }
 
 knobName :: Text -> KnobName
 knobName = either (error . show) id . mkKnobName
 
 runWorkload :: Core.RunContext -> IO ScenarioReport
 runWorkload context = do
-    diagnostics <- maybe False (== "1") <$> lookupEnv "KENSHOU_MP12_STALL_DIAGNOSTICS"
-    let integer :: (Integral n) => Text -> n
-        integer key = fromIntegral (knobInt context.knobs (knobName key))
-        workload =
-            Workload
-                (floor context.phases.steadySeconds)
-                (Text.unpack (knobText context.knobs (knobName "mp12.mode")))
-                (integer "mp12.width")
-                (integer "mp12.append-batch")
-                (integer "mp12.checkpoint-batch")
-                (knobBool context.knobs (knobName "mp12.fresh"))
-                (integer "mp12.offered")
-                (floor context.phases.warmUpSeconds)
-                (integer "mp12.max-backlog")
-                (integer "mp12.subscribers")
-                (knobBool context.knobs (knobName "mp12.hook"))
-                diagnostics
-                (Index.configuration context.knobs)
-    unless (workload.seconds >= 60 && workload.warmupSeconds >= 2) (fail "benchmark requires >=60s steady and >=2s warmup")
-    unless (workload.subscribers == 1 || workload.mode == "all") (fail "independent fan-out requires all-stream mode")
-    validateDiagnostics diagnostics
-    live <- newIORef (0 :: Int)
-    failures <- newIORef (0 :: Int)
-    batches <- newIORef (0 :: Int)
-    let observe = \case
-            KirokuEventSubscriptionCaughtUp{} -> atomicModifyIORef' live (\n -> (n + 1, ()))
-            KirokuEventSubscriptionDbError{} -> atomicModifyIORef' failures (\n -> (n + 1, ()))
-            KirokuEventSubscriptionDelivered{} -> atomicModifyIORef' batches (\n -> (n + 1, ()))
-            _ -> pure ()
-        settings = (defaultConnectionSettings ((Core.requirePostgres context).connectionString)){poolSize = 10, eventHandler = Just observe, storeSettings = configuredStoreSettings workload.hookEnabled}
-    withStore settings $ \store -> do
-        case workload.indexResearch of
-            Nothing -> pure ()
-            Just config -> setupIndex context store config
-        let event = EventData Nothing (EventType "Probe") (object ["body" .= Text.replicate 512 "x"]) Nothing Nothing Nothing
-        -- Identical existing-stream fixtures and explicit future-only live entry.
-        forM_ [0 .. 3] $ \writer -> forM_ [0 .. workload.width - 1] $ \slot ->
-            void $ append store [(stream workload writer slot 0 False, AnyVersion, [event])]
-        delivered <- newIORef (0 :: Int)
-        startup <- newIORef 0
-        let handler _ = atomicModifyIORef' delivered (\n -> (n + 1, ())) >> pure Continue
-            config m =
-                (configureNativeDiagnostics diagnostics (defaultSubscriptionConfig (SubscriptionName (if workload.subscribers > 1 then "probe-fanout-" <> Text.pack (show m) else "probe")) (workloadTarget workload) handler))
-                    { missingCheckpointPolicy = FromCurrentHead
-                    , batchSize = configuredCheckpointBatch workload.checkpointBatch
-                    , consumerGroup = if workload.mode `elem` ["group-all", "group-category"] then Just (membership m) else Nothing
-                    }
-            members = if workload.mode `elem` ["group-all", "group-category"] then [0, 1, 2, 3] else map fromIntegral [0 .. workload.subscribers - 1]
-            native = do
-                getMonotonicTimeNSec >>= writeIORef startup
-                bracket (mapM (subscribe store . config) members) (mapM_ cancel) $ \_ -> measure context workload store event delivered live failures batches (length members) startup
-        case workload.mode of
-            "none" -> measure context workload store event delivered live failures batches 0 startup
-            "adapter" -> runEff $ runTracingNoop $ do
-                liftIO $ getMonotonicTimeNSec >>= writeIORef startup
-                adapter <-
-                    kirokuAdapter store $
-                        (configureAdapterDiagnostics diagnostics (defaultKirokuAdapterConfig (SubscriptionName "probe") AllStreams))
-                            { Adapter.missingCheckpointPolicy = FromCurrentHead
-                            , Adapter.batchSize = configuredCheckpointBatch workload.checkpointBatch
-                            }
-                app <- runApp defaultAppConfig [(ProcessorId "probe", mkProcessor adapter (\_ -> liftIO (atomicModifyIORef' delivered (\n -> (n + 1, ()))) >> pure AckOk))]
-                case app of
-                    Left err -> liftIO $ fail (show err)
-                    Right handle -> do
-                        report <- liftIO $ measure context workload store event delivered live failures batches 1 startup
-                        stopApp handle
-                        pure report
-            _ -> native
+  diagnostics <- maybe False (== "1") <$> lookupEnv "KENSHOU_MP12_STALL_DIAGNOSTICS"
+  let integer :: (Integral n) => Text -> n
+      integer key = fromIntegral (knobInt context.knobs (knobName key))
+      workload =
+        Workload
+          (floor context.phases.steadySeconds)
+          (Text.unpack (knobText context.knobs (knobName "mp12.mode")))
+          (integer "mp12.width")
+          (integer "mp12.append-batch")
+          (integer "mp12.checkpoint-batch")
+          (knobBool context.knobs (knobName "mp12.fresh"))
+          (integer "mp12.offered")
+          (floor context.phases.warmUpSeconds)
+          (integer "mp12.max-backlog")
+          (integer "mp12.subscribers")
+          (knobBool context.knobs (knobName "mp12.hook"))
+          diagnostics
+          (Index.configuration context.knobs)
+  unless (workload.seconds >= 60 && workload.warmupSeconds >= 2) (fail "benchmark requires >=60s steady and >=2s warmup")
+  unless (workload.subscribers == 1 || workload.mode == "all") (fail "independent fan-out requires all-stream mode")
+  validateDiagnostics diagnostics
+  live <- newIORef (0 :: Int)
+  failures <- newIORef (0 :: Int)
+  batches <- newIORef (0 :: Int)
+  let observe = \case
+        KirokuEventSubscriptionCaughtUp {} -> atomicModifyIORef' live (\n -> (n + 1, ()))
+        KirokuEventSubscriptionDbError {} -> atomicModifyIORef' failures (\n -> (n + 1, ()))
+        KirokuEventSubscriptionDelivered {} -> atomicModifyIORef' batches (\n -> (n + 1, ()))
+        _ -> pure ()
+      settings = (defaultConnectionSettings ((Core.requirePostgres context).connectionString)) {poolSize = 10, eventHandler = Just observe, storeSettings = configuredStoreSettings workload.hookEnabled}
+  withStore settings $ \store -> do
+    case workload.indexResearch of
+      Nothing -> pure ()
+      Just config -> setupIndex context store config
+    let event = EventData Nothing (EventType "Probe") (object ["body" .= Text.replicate 512 "x"]) Nothing Nothing Nothing
+    -- Identical existing-stream fixtures and explicit future-only live entry.
+    forM_ [0 .. 3] $ \writer -> forM_ [0 .. workload.width - 1] $ \slot ->
+      void $ append store [(stream workload writer slot 0 False, AnyVersion, [event])]
+    delivered <- newIORef (0 :: Int)
+    startup <- newIORef 0
+    let handler _ = atomicModifyIORef' delivered (\n -> (n + 1, ())) >> pure Continue
+        config m =
+          (configureNativeDiagnostics diagnostics (defaultSubscriptionConfig (SubscriptionName (if workload.subscribers > 1 then "probe-fanout-" <> Text.pack (show m) else "probe")) (workloadTarget workload) handler))
+            { missingCheckpointPolicy = FromCurrentHead,
+              batchSize = configuredCheckpointBatch workload.checkpointBatch,
+              consumerGroup = if workload.mode `elem` ["group-all", "group-category"] then Just (membership m) else Nothing
+            }
+        members = if workload.mode `elem` ["group-all", "group-category"] then [0, 1, 2, 3] else map fromIntegral [0 .. workload.subscribers - 1]
+        native = do
+          getMonotonicTimeNSec >>= writeIORef startup
+          bracket (mapM (subscribe store . config) members) (mapM_ cancel) $ \_ -> measure context workload store event delivered live failures batches (length members) startup
+    case workload.mode of
+      "none" -> measure context workload store event delivered live failures batches 0 startup
+      "adapter" -> runEff $ runTracingNoop $ do
+        liftIO $ getMonotonicTimeNSec >>= writeIORef startup
+        adapter <-
+          kirokuAdapter store $
+            (configureAdapterDiagnostics diagnostics (defaultKirokuAdapterConfig (SubscriptionName "probe") AllStreams))
+              { Adapter.missingCheckpointPolicy = FromCurrentHead,
+                Adapter.batchSize = configuredCheckpointBatch workload.checkpointBatch
+              }
+        app <- runApp defaultAppConfig [(ProcessorId "probe", mkProcessor adapter (\_ -> liftIO (atomicModifyIORef' delivered (\n -> (n + 1, ()))) >> pure AckOk))]
+        case app of
+          Left err -> liftIO $ fail (show err)
+          Right handle -> do
+            report <- liftIO $ measure context workload store event delivered live failures batches 1 startup
+            stopApp handle
+            pure report
+      _ -> native
 
 setupIndex :: Core.RunContext -> KirokuStore -> Index.Config -> IO ()
 #ifdef LEGACY_TOPOLOGY
@@ -169,8 +169,8 @@ setupIndex context store config = Index.setup config store >>= Core.putSummary c
 
 hasIndexResearch :: Workload -> Bool
 hasIndexResearch workload = case workload.indexResearch of
-    Nothing -> False
-    Just _ -> True
+  Nothing -> False
+  Just _ -> True
 
 membership :: Int32 -> ConsumerGroup
 #ifdef LEGACY_TOPOLOGY
@@ -181,7 +181,7 @@ membership m = either (error . show) Prelude.id (mkConsumerGroupSize 4 >>= mkCon
 
 configuredStoreSettings :: Bool -> StoreSettings
 configuredStoreSettings False = defaultStoreSettings
-configuredStoreSettings True = defaultStoreSettings{decodeHook = Just successfulHook}
+configuredStoreSettings True = defaultStoreSettings {decodeHook = Just successfulHook}
   where
 #ifdef LEGACY_TOPOLOGY
     successfulHook = pure
@@ -212,156 +212,156 @@ configureAdapterDiagnostics enabled config = config{Adapter.handlerStallWarnAfte
 
 workloadTarget :: Workload -> SubscriptionTarget
 workloadTarget workload
-    | workload.mode == "idle" = Category (CategoryName "quiet")
-    | workload.mode `elem` ["category", "group-category"] = Category (CategoryName "probe")
-    | otherwise = AllStreams
+  | workload.mode == "idle" = Category (CategoryName "quiet")
+  | workload.mode `elem` ["category", "group-category"] = Category (CategoryName "probe")
+  | otherwise = AllStreams
 
 stream :: Workload -> Int -> Int -> Int -> Bool -> StreamName
 stream workload writer slot iteration fresh
-    | Just _ <- workload.indexResearch = Index.streamName writer slot iteration fresh
-    | otherwise = StreamName ("probe-" <> Text.pack (show writer <> "-" <> show slot <> if fresh then "-" <> show iteration else ""))
+  | Just _ <- workload.indexResearch = Index.streamName writer slot iteration fresh
+  | otherwise = StreamName ("probe-" <> Text.pack (show writer <> "-" <> show slot <> if fresh then "-" <> show iteration else ""))
 
 append :: KirokuStore -> [(StreamName, ExpectedVersion, [EventData])] -> IO [AppendResult]
 append store operations = runStoreIO store (appendMultiStream operations) >>= either (fail . show) pure
 
 measure :: Core.RunContext -> Workload -> KirokuStore -> EventData -> IORef Int -> IORef Int -> IORef Int -> IORef Int -> Int -> IORef Word64 -> IO ScenarioReport
 measure context workload store event delivered live failures batches members startup = do
-    appended <- newIORef (0 :: Int)
-    backlog <- newIORef []
-    when (members > 0) $ do
-        await "live entry" (fmap (>= members) (readIORef live))
-        begin <- readIORef startup
+  appended <- newIORef (0 :: Int)
+  backlog <- newIORef []
+  when (members > 0) $ do
+    await "live entry" (fmap (>= members) (readIORef live))
+    begin <- readIORef startup
+    finish <- getMonotonicTimeNSec
+    Core.putSummary context Core.Measurements "startup" (object ["workers" .= members, "mode" .= workload.mode, "milliseconds" .= (secondsBetween begin finish * 1000)])
+  config0 <- either (fail . Text.unpack) pure (Measure.measureConfigFromKnobs context (Measure.phasePlanFromCore context.phases))
+  let config = (config0 {Measure.postgres = fmap (\pg -> (pg {relations = ["kiroku.subscriptions", "kiroku.stream_events"] <> ["kiroku.streams" | Just _ <- [workload.indexResearch]]} :: PgSamplerConfig)) config0.postgres} :: Measure.MeasureConfig)
+  ((_result, _), report) <- Measure.withMeasurement context config $ \measurement -> do
+    bracket (LoadSeries.openLoadSeries measurement) LoadSeries.closeLoadSeries $ \series -> do
+      offeredCalls <- newIORef 0
+      startedCalls <- newIORef 0
+      completedCalls <- newIORef 0
+      failedCalls <- newIORef 0
+      maxLag <- newIORef 0
+      let sample = LoadSeries.sampleLoadSeries series measurement offeredCalls startedCalls completedCalls failedCalls maxLag
+          clock = Measure.measurementPhaseClock measurement
+      handle <- Recorder.registerOp (Measure.measurementRecorder measurement) (Recorder.OpName "append")
+      recorders <- mapM (Recorder.newWorkerRecorder handle) [0 .. 3]
+      browser <- Index.newBrowser workload.indexResearch
+      let withBrowse phase = Index.withBrowser workload.indexResearch browser phase store
+      Async.withAsync (sampleBacklog appended delivered backlog sample (if members == 0 then pure Nothing else Just <$> scalarInt store pendingSQL)) $ \sampler -> do
+        Async.link sampler
+        Phase.enterPhase clock Phase.WarmUp
+        sample
+        void $ Core.withPhase context CorePhase.WarmUp (withBrowse "warmup" (writers appended (offeredCalls, startedCalls, completedCalls, maxLag) recorders workload.warmupSeconds 0))
+        when (members > 0) $ await "warmup checkpoint drain" durable
+        flushStats store
+        writeIORef appended 0
+        writeIORef backlog []
+        writeIORef delivered 0
+        writeIORef batches 0
+        performMajorGC
+        sql0 <- checkpointStatementStats store
+        stats0 <- getRTSStats
+        wal0 <- scalar store "SELECT pg_current_wal_insert_lsn()::text"
+        tables0 <- tableStats store
+        when (hasIndexResearch workload) $ Index.snapshot store >>= Core.putSummary context Core.Measurements "streams-before"
+        start <- getMonotonicTimeNSec
+        Phase.enterPhase clock Phase.Steady
+        sample
+        samples <- Core.withPhase context CorePhase.Steady $ withBrowse "steady" do
+          result <- writers appended (offeredCalls, startedCalls, completedCalls, maxLag) recorders workload.seconds 1
+          -- Capacity includes the outstanding durable work in its
+          -- elapsed time. Fixed-load latency retains its arrival window.
+          when (workload.offered == 0 && members > 0) $ await "capacity durable drain" durable
+          pure result
+        Phase.enterPhase clock Phase.Drain
+        sample
         finish <- getMonotonicTimeNSec
-        Core.putSummary context Core.Measurements "startup" (object ["workers" .= members, "mode" .= workload.mode, "milliseconds" .= (secondsBetween begin finish * 1000)])
-    config0 <- either (fail . Text.unpack) pure (Measure.measureConfigFromKnobs context (Measure.phasePlanFromCore context.phases))
-    let config = (config0{Measure.postgres = fmap (\pg -> (pg{relations = ["kiroku.subscriptions", "kiroku.stream_events"] <> ["kiroku.streams" | Just _ <- [workload.indexResearch]]} :: PgSamplerConfig)) config0.postgres} :: Measure.MeasureConfig)
-    ((_result, _), report) <- Measure.withMeasurement context config $ \measurement -> do
-        bracket (LoadSeries.openLoadSeries measurement) LoadSeries.closeLoadSeries $ \series -> do
-            offeredCalls <- newIORef 0
-            startedCalls <- newIORef 0
-            completedCalls <- newIORef 0
-            failedCalls <- newIORef 0
-            maxLag <- newIORef 0
-            let sample = LoadSeries.sampleLoadSeries series measurement offeredCalls startedCalls completedCalls failedCalls maxLag
-                clock = Measure.measurementPhaseClock measurement
-            handle <- Recorder.registerOp (Measure.measurementRecorder measurement) (Recorder.OpName "append")
-            recorders <- mapM (Recorder.newWorkerRecorder handle) [0 .. 3]
-            browser <- Index.newBrowser workload.indexResearch
-            let withBrowse phase = Index.withBrowser workload.indexResearch browser phase store
-            Async.withAsync (sampleBacklog appended delivered backlog sample (if members == 0 then pure Nothing else Just <$> scalarInt store pendingSQL)) $ \sampler -> do
-                Async.link sampler
-                Phase.enterPhase clock Phase.WarmUp
-                sample
-                void $ Core.withPhase context CorePhase.WarmUp (withBrowse "warmup" (writers appended (offeredCalls, startedCalls, completedCalls, maxLag) recorders workload.warmupSeconds 0))
-                when (members > 0) $ await "warmup checkpoint drain" durable
-                flushStats store
-                writeIORef appended 0
-                writeIORef backlog []
-                writeIORef delivered 0
-                writeIORef batches 0
-                performMajorGC
-                sql0 <- checkpointStatementStats store
-                stats0 <- getRTSStats
-                wal0 <- scalar store "SELECT pg_current_wal_insert_lsn()::text"
-                tables0 <- tableStats store
-                when (hasIndexResearch workload) $ Index.snapshot store >>= Core.putSummary context Core.Measurements "streams-before"
-                start <- getMonotonicTimeNSec
-                Phase.enterPhase clock Phase.Steady
-                sample
-                samples <- Core.withPhase context CorePhase.Steady $ withBrowse "steady" do
-                    result <- writers appended (offeredCalls, startedCalls, completedCalls, maxLag) recorders workload.seconds 1
-                    -- Capacity includes the outstanding durable work in its
-                    -- elapsed time. Fixed-load latency retains its arrival window.
-                    when (workload.offered == 0 && members > 0) $ await "capacity durable drain" durable
-                    pure result
-                Phase.enterPhase clock Phase.Drain
-                sample
-                finish <- getMonotonicTimeNSec
-                let calls = sum [length latencies | (latencies, _) <- samples]
-                    events = calls * workload.width * workload.appendBatch
-                    elapsed = secondsBetween start finish
-                    sorted = sort (concat [latencies | (latencies, _) <- samples])
-                Core.withPhase context CorePhase.Drain $ when (members > 0) $ do
-                    await "delivery drain" (fmap (== if consuming then events * deliveryFactor else 0) (readIORef delivered))
-                    await "durable progress drain" durable
-                performMajorGC
-                stats1 <- getRTSStats
-                sql1 <- checkpointStatementStats store
-                errors <- readIORef failures
-                unless (errors == 0) (fail "database errors during workload")
-                flushStats store
-                wal1 <- scalar store "SELECT pg_current_wal_insert_lsn()::text"
-                walBytes <- scalarInt store ("SELECT pg_wal_lsn_diff('" <> wal1 <> "'::pg_lsn, '" <> wal0 <> "'::pg_lsn)::bigint")
-                tables1 <- tableStats store
-                when (hasIndexResearch workload) $ Index.snapshot store >>= Core.putSummary context Core.Measurements "streams-after"
-                Index.browserSummary browser >>= mapM_ (Core.putSummary context Core.Measurements "browse-diagnostics")
-                count <- readIORef delivered
-                batchCount <- readIORef batches
-                server <- scalar store "SELECT version()"
-                durability <- scalar store "SELECT current_setting('fsync') || ',' || current_setting('synchronous_commit') || ',' || current_setting('full_page_writes')"
-                unless (durability == "on,on,on") (fail "cell PostgreSQL durability is disabled")
-                backlogRows <- readIORef backlog
-                unless (length backlogRows >= workload.seconds * 5) (fail "handler backlog sampling is incomplete")
-                when (members > 0) $ unless (length [() | (_, _, _, Just _) <- backlogRows] >= workload.seconds `div` 2) (fail "durable backlog sampling is incomplete")
-                let peak = if not consuming then 0 else maximum (0 : [max 0 (issued * deliveryFactor - handled) | (_, issued, handled, _) <- backlogRows])
-                    peakDurable = maximum (0 : [pending | (_, _, _, Just pending) <- backlogRows])
-                unless (peak <= backlogLimit && peakDurable <= fromIntegral backlogLimit) (fail "subscriber backlog exceeded the predeclared limit")
-                unless (workload.offered == 0 || calls == workload.offered * workload.seconds) (fail "fixed-load schedule did not complete every declared arrival")
-                Core.putSummary context Core.Measurements "backlog" (object ["peakHandlerPending" .= peak, "peakDurablePending" .= peakDurable, "limit" .= backlogLimit, "samples" .= reverse backlogRows])
-                let (saves0, hot0) = tables0
-                    (saves1, hot1) = tables1
-                when (members > 0) $ do
-                    let updates = saves1 - saves0
-                        -- Healthy Continue/AckOk handlers save once per delivered
-                        -- batch. AllStreams live batches come from the publisher,
-                        -- whose batch size is independent of the fetch limit.
-                        minimumUpdates = fromIntegral batchCount
-                        maximumUpdates = fromIntegral batchCount
-                    Core.putSummary context Core.Measurements "checkpoint-validation" $
-                        object
-                            [ "events" .= events
-                            , "expected_delivered" .= (events * deliveryFactor)
-                            , "delivered" .= count
-                            , "delivery_batches" .= batchCount
-                            , "table_updates_before" .= saves0
-                            , "table_updates_after" .= saves1
-                            , "checkpoint_updates" .= updates
-                            , "minimum_updates" .= minimumUpdates
-                            , "maximum_updates" .= maximumUpdates
-                            , "checkpoint_sql_before" .= sql0
-                            , "checkpoint_sql_after" .= sql1
-                            , "durability" .= durability
-                            ]
-                    unless (updates >= minimumUpdates && updates <= maximumUpdates) (fail "checkpoint frequency differs from the declared batch policy")
-                Core.putSummary context Core.Measurements "write-probe" $
-                    object
-                        [ "workload" .= object ["mode" .= workload.mode, "width" .= workload.width, "append_batch" .= workload.appendBatch, "checkpoint_batch" .= workload.checkpointBatch, "fresh" .= workload.fresh, "offered" .= workload.offered, "seconds" .= workload.seconds, "warmup_seconds" .= workload.warmupSeconds, "subscribers" .= workload.subscribers, "hook" .= workload.hookEnabled, "diagnostics" .= workload.diagnosticsEnabled]
-                        , "expected_delivered" .= (if consuming then events * deliveryFactor else 0)
-                        , "fixture_preview" .= [let StreamName name = stream workload writer slot (2 * iteration + phase) workload.fresh in name | phase <- [0, 1], writer <- [0 .. 3], slot <- [0 .. workload.width - 1], iteration <- [0, 1]]
-                        , "server" .= server
-                        , "durability" .= durability
-                        , "calls" .= calls
-                        , "events" .= events
-                        , "elapsed" .= elapsed
-                        , "events_per_second" .= (fromIntegral events / elapsed :: Double)
-                        , "append_p50_ms" .= percentile sorted 0.50
-                        , "append_p95_ms" .= percentile sorted 0.95
-                        , "append_p99_ms" .= percentile sorted 0.99
-                        , "delivered" .= count
-                        , "delivery_batches" .= batchCount
-                        , "durable_drained" .= True
-                        , "wal_bytes" .= walBytes
-                        , "checkpoint_sql_before" .= sql0
-                        , "checkpoint_sql_after" .= sql1
-                        , "checkpoint_updates" .= (saves1 - saves0)
-                        , "checkpoint_hot_updates" .= (hot1 - hot0)
-                        , "allocated_bytes" .= (stats1.allocated_bytes - stats0.allocated_bytes)
-                        , "gc_cpu_ns" .= (stats1.gc_cpu_ns - stats0.gc_cpu_ns)
-                        , "gc_elapsed_ns" .= (stats1.gc_elapsed_ns - stats0.gc_elapsed_ns)
-                        , "max_live_bytes" .= stats1.max_live_bytes
-                        ]
-                pure ((), ())
-    pure (passed{outcome = Measure.measuredOutcome report passed.outcome})
+        let calls = sum [length latencies | (latencies, _) <- samples]
+            events = calls * workload.width * workload.appendBatch
+            elapsed = secondsBetween start finish
+            sorted = sort (concat [latencies | (latencies, _) <- samples])
+        Core.withPhase context CorePhase.Drain $ when (members > 0) $ do
+          await "delivery drain" (fmap (== if consuming then events * deliveryFactor else 0) (readIORef delivered))
+          await "durable progress drain" durable
+        performMajorGC
+        stats1 <- getRTSStats
+        sql1 <- checkpointStatementStats store
+        errors <- readIORef failures
+        unless (errors == 0) (fail "database errors during workload")
+        flushStats store
+        wal1 <- scalar store "SELECT pg_current_wal_insert_lsn()::text"
+        walBytes <- scalarInt store ("SELECT pg_wal_lsn_diff('" <> wal1 <> "'::pg_lsn, '" <> wal0 <> "'::pg_lsn)::bigint")
+        tables1 <- tableStats store
+        when (hasIndexResearch workload) $ Index.snapshot store >>= Core.putSummary context Core.Measurements "streams-after"
+        Index.browserSummary browser >>= mapM_ (Core.putSummary context Core.Measurements "browse-diagnostics")
+        count <- readIORef delivered
+        batchCount <- readIORef batches
+        server <- scalar store "SELECT version()"
+        durability <- scalar store "SELECT current_setting('fsync') || ',' || current_setting('synchronous_commit') || ',' || current_setting('full_page_writes')"
+        unless (durability == "on,on,on") (fail "cell PostgreSQL durability is disabled")
+        backlogRows <- readIORef backlog
+        unless (length backlogRows >= workload.seconds * 5) (fail "handler backlog sampling is incomplete")
+        when (members > 0) $ unless (length [() | (_, _, _, Just _) <- backlogRows] >= workload.seconds `div` 2) (fail "durable backlog sampling is incomplete")
+        let peak = if not consuming then 0 else maximum (0 : [max 0 (issued * deliveryFactor - handled) | (_, issued, handled, _) <- backlogRows])
+            peakDurable = maximum (0 : [pending | (_, _, _, Just pending) <- backlogRows])
+        unless (peak <= backlogLimit && peakDurable <= fromIntegral backlogLimit) (fail "subscriber backlog exceeded the predeclared limit")
+        unless (workload.offered == 0 || calls == workload.offered * workload.seconds) (fail "fixed-load schedule did not complete every declared arrival")
+        Core.putSummary context Core.Measurements "backlog" (object ["peakHandlerPending" .= peak, "peakDurablePending" .= peakDurable, "limit" .= backlogLimit, "samples" .= reverse backlogRows])
+        let (saves0, hot0) = tables0
+            (saves1, hot1) = tables1
+        when (members > 0) $ do
+          let updates = saves1 - saves0
+              -- Healthy Continue/AckOk handlers save once per delivered
+              -- batch. AllStreams live batches come from the publisher,
+              -- whose batch size is independent of the fetch limit.
+              minimumUpdates = fromIntegral batchCount
+              maximumUpdates = fromIntegral batchCount
+          Core.putSummary context Core.Measurements "checkpoint-validation" $
+            object
+              [ "events" .= events,
+                "expected_delivered" .= (events * deliveryFactor),
+                "delivered" .= count,
+                "delivery_batches" .= batchCount,
+                "table_updates_before" .= saves0,
+                "table_updates_after" .= saves1,
+                "checkpoint_updates" .= updates,
+                "minimum_updates" .= minimumUpdates,
+                "maximum_updates" .= maximumUpdates,
+                "checkpoint_sql_before" .= sql0,
+                "checkpoint_sql_after" .= sql1,
+                "durability" .= durability
+              ]
+          unless (updates >= minimumUpdates && updates <= maximumUpdates) (fail "checkpoint frequency differs from the declared batch policy")
+        Core.putSummary context Core.Measurements "write-probe" $
+          object
+            [ "workload" .= object ["mode" .= workload.mode, "width" .= workload.width, "append_batch" .= workload.appendBatch, "checkpoint_batch" .= workload.checkpointBatch, "fresh" .= workload.fresh, "offered" .= workload.offered, "seconds" .= workload.seconds, "warmup_seconds" .= workload.warmupSeconds, "subscribers" .= workload.subscribers, "hook" .= workload.hookEnabled, "diagnostics" .= workload.diagnosticsEnabled],
+              "expected_delivered" .= (if consuming then events * deliveryFactor else 0),
+              "fixture_preview" .= [let StreamName name = stream workload writer slot (2 * iteration + phase) workload.fresh in name | phase <- [0, 1], writer <- [0 .. 3], slot <- [0 .. workload.width - 1], iteration <- [0, 1]],
+              "server" .= server,
+              "durability" .= durability,
+              "calls" .= calls,
+              "events" .= events,
+              "elapsed" .= elapsed,
+              "events_per_second" .= (fromIntegral events / elapsed :: Double),
+              "append_p50_ms" .= percentile sorted 0.50,
+              "append_p95_ms" .= percentile sorted 0.95,
+              "append_p99_ms" .= percentile sorted 0.99,
+              "delivered" .= count,
+              "delivery_batches" .= batchCount,
+              "durable_drained" .= True,
+              "wal_bytes" .= walBytes,
+              "checkpoint_sql_before" .= sql0,
+              "checkpoint_sql_after" .= sql1,
+              "checkpoint_updates" .= (saves1 - saves0),
+              "checkpoint_hot_updates" .= (hot1 - hot0),
+              "allocated_bytes" .= (stats1.allocated_bytes - stats0.allocated_bytes),
+              "gc_cpu_ns" .= (stats1.gc_cpu_ns - stats0.gc_cpu_ns),
+              "gc_elapsed_ns" .= (stats1.gc_elapsed_ns - stats0.gc_elapsed_ns),
+              "max_live_bytes" .= stats1.max_live_bytes
+            ]
+        pure ((), ())
+  pure (passed {outcome = Measure.measuredOutcome report passed.outcome})
   where
     consuming = members > 0 && workload.mode /= "idle"
     deliveryFactor = if workload.mode == "all" then workload.subscribers else 1
@@ -370,66 +370,66 @@ measure context workload store event delivered live failures batches members sta
     backlogLimit = min workload.maxBacklog (8 * max (workload.width * workload.appendBatch) (fromIntegral workload.checkpointBatch * max 1 members))
     pendingSQL = "SELECT count(*) FROM kiroku.stream_events se JOIN kiroku.subscriptions s ON s.subscription_name LIKE 'probe%' WHERE se.stream_id=0 AND se.stream_version>s.last_seen" <> (if workload.mode == "idle" then " AND se.category='quiet'" else "") <> if workload.mode `elem` ["group-all", "group-category"] then " AND (((hashtextextended(se.original_stream_id::text,0)%4)+4)%4)=s.consumer_group_member" else ""
     durable = do
-        Right inventory <- runStoreIO store subscriptionCheckpointInventory
-        unless (Vector.length inventory.checkpoints == members) (fail "durable checkpoint row count does not match the declared subscribers")
-        -- Group members have sparse partitions, so their own final event may
-        -- precede the global head; verify against the last matching fetch below.
-        if workload.mode == "idle"
-            then (== 0) <$> scalarInt store pendingSQL
+      Right inventory <- runStoreIO store subscriptionCheckpointInventory
+      unless (Vector.length inventory.checkpoints == members) (fail "durable checkpoint row count does not match the declared subscribers")
+      -- Group members have sparse partitions, so their own final event may
+      -- precede the global head; verify against the last matching fetch below.
+      if workload.mode == "idle"
+        then (== 0) <$> scalarInt store pendingSQL
+        else
+          if workload.mode `notElem` ["group-all", "group-category"]
+            then pure (all (\row -> row.checkpointPosition >= inventory.storePosition) (Vector.toList inventory.checkpoints))
             else
-                if workload.mode `notElem` ["group-all", "group-category"]
-                    then pure (all (\row -> row.checkpointPosition >= inventory.storePosition) (Vector.toList inventory.checkpoints))
-                    else
-                        and
-                            <$> mapM
-                                ( \row -> do
-                                    n <- runSession store $ Session.statement (let { GlobalPosition p = row.checkpointPosition } in p, row.consumerGroupMember) groupRemaining
-                                    pure (n == 0)
-                                )
-                                (Vector.toList inventory.checkpoints)
+              and
+                <$> mapM
+                  ( \row -> do
+                      n <- runSession store $ Session.statement (let { GlobalPosition p = row.checkpointPosition } in p, row.consumerGroupMember) groupRemaining
+                      pure (n == 0)
+                  )
+                  (Vector.toList inventory.checkpoints)
     writers appended counters recorders duration phase = do
-        begin <- getMonotonicTimeNSec
-        let end = begin + fromIntegral duration * 1_000_000_000
-        Async.mapConcurrently (writer appended counters recorders begin end phase) [0 .. 3]
+      begin <- getMonotonicTimeNSec
+      let end = begin + fromIntegral duration * 1_000_000_000
+      Async.mapConcurrently (writer appended counters recorders begin end phase) [0 .. 3]
     writer appended (offeredCalls, startedCalls, completedCalls, maxLag) recorders begin end phase writerId = loop 0 []
       where
         capacityWait = do
-            issued <- readIORef appended
-            handled <- readIORef delivered
-            now <- getMonotonicTimeNSec
-            let limit = min (workload.maxBacklog `div` 2) (max (workload.width * workload.appendBatch) (fromIntegral workload.checkpointBatch * members * 2))
-            when (issued * deliveryFactor - handled >= max 1 limit && now < end) $ Posix.nanosleep 200_000 >> capacityWait
+          issued <- readIORef appended
+          handled <- readIORef delivered
+          now <- getMonotonicTimeNSec
+          let limit = min (workload.maxBacklog `div` 2) (max (workload.width * workload.appendBatch) (fromIntegral workload.checkpointBatch * members * 2))
+          when (issued * deliveryFactor - handled >= max 1 limit && now < end) $ Posix.nanosleep 200_000 >> capacityWait
         loop i collected = do
-            when (workload.offered == 0 && consuming) $ capacityWait
-            now <- getMonotonicTimeNSec
-            let scheduled = if workload.offered == 0 then now else begin + (fromIntegral (4 * i + writerId) * 1_000_000_000) `div` fromIntegral workload.offered
-            if now >= end || scheduled >= end
-                then pure (collected, ())
-                else do
-                    waitUntil scheduled
-                    atomicModifyIORef' offeredCalls (\n -> (n + 1, ()))
-                    actual <- getMonotonicTimeNSec
-                    atomicModifyIORef' startedCalls (\n -> (n + 1, ()))
-                    atomicModifyIORef' maxLag (\n -> (max n (actual - scheduled), ()))
-                    -- Even warmup / odd steady names are deterministic and
-                    -- disjoint. Clock-derived names would change hash partition
-                    -- membership between matched fresh-stream trials.
-                    void $ append store [(stream workload writerId slot (2 * i + phase) workload.fresh, AnyVersion, replicate workload.appendBatch event) | slot <- [0 .. workload.width - 1]]
-                    completed <- getMonotonicTimeNSec
-                    atomicModifyIORef' completedCalls (\n -> (n + 1, ()))
-                    atomicModifyIORef' appended (\n -> (n + workload.width * workload.appendBatch, ()))
-                    Recorder.recordOp (recorders !! writerId) scheduled actual completed (Recorder.OpOk (workload.width * workload.appendBatch))
-                    loop (i + 1) (fromIntegral (completed - scheduled) / 1_000_000 : collected)
+          when (workload.offered == 0 && consuming) $ capacityWait
+          now <- getMonotonicTimeNSec
+          let scheduled = if workload.offered == 0 then now else begin + (fromIntegral (4 * i + writerId) * 1_000_000_000) `div` fromIntegral workload.offered
+          if now >= end || scheduled >= end
+            then pure (collected, ())
+            else do
+              waitUntil scheduled
+              atomicModifyIORef' offeredCalls (\n -> (n + 1, ()))
+              actual <- getMonotonicTimeNSec
+              atomicModifyIORef' startedCalls (\n -> (n + 1, ()))
+              atomicModifyIORef' maxLag (\n -> (max n (actual - scheduled), ()))
+              -- Even warmup / odd steady names are deterministic and
+              -- disjoint. Clock-derived names would change hash partition
+              -- membership between matched fresh-stream trials.
+              void $ append store [(stream workload writerId slot (2 * i + phase) workload.fresh, AnyVersion, replicate workload.appendBatch event) | slot <- [0 .. workload.width - 1]]
+              completed <- getMonotonicTimeNSec
+              atomicModifyIORef' completedCalls (\n -> (n + 1, ()))
+              atomicModifyIORef' appended (\n -> (n + workload.width * workload.appendBatch, ()))
+              Recorder.recordOp (recorders !! writerId) scheduled actual completed (Recorder.OpOk (workload.width * workload.appendBatch))
+              loop (i + 1) (fromIntegral (completed - scheduled) / 1_000_000 : collected)
 
 -- A monotonic deadline avoids RTS timer quantisation becoming append latency.
 -- Recheck after the POSIX wait so neither rounding nor an early wakeup can
 -- start an arrival before its deadline and underflow the unsigned lag counter.
 waitUntil :: Word64 -> IO ()
 waitUntil deadline = do
-    now <- getMonotonicTimeNSec
-    when (deadline > now) $ do
-        Posix.nanosleep (toInteger (deadline - now))
-        waitUntil deadline
+  now <- getMonotonicTimeNSec
+  when (deadline > now) $ do
+    Posix.nanosleep (toInteger (deadline - now))
+    waitUntil deadline
 
 secondsBetween :: Word64 -> Word64 -> Double
 secondsBetween start finish = fromIntegral (finish - start) / 1_000_000_000
@@ -457,10 +457,10 @@ tableStats store = runSession store $ Session.statement () (preparable "SELECT n
 
 groupRemaining :: Statement (Int64, Int32) Int64
 groupRemaining =
-    preparable
-        "SELECT count(*) FROM kiroku.stream_events WHERE stream_id = 0 AND category = 'probe' AND stream_version > $1 AND (((hashtextextended(original_stream_id::text, 0) % 4) + 4) % 4) = $2"
-        (contrazip2 (E.param (E.nonNullable E.int8)) (E.param (E.nonNullable E.int4)))
-        (D.singleRow (D.column (D.nonNullable D.int8)))
+  preparable
+    "SELECT count(*) FROM kiroku.stream_events WHERE stream_id = 0 AND category = 'probe' AND stream_version > $1 AND (((hashtextextended(original_stream_id::text, 0) % 4) + 4) % 4) = $2"
+    (contrazip2 (E.param (E.nonNullable E.int8)) (E.param (E.nonNullable E.int4)))
+    (D.singleRow (D.column (D.nonNullable D.int8)))
 
 -- Flush backend-local table statistics outside the timed interval. Ten
 -- concurrent sessions occupy the ten pool slots, including idle writer and
@@ -468,20 +468,20 @@ groupRemaining =
 -- into the measured HOT-update deltas.
 flushStats :: KirokuStore -> IO ()
 flushStats store =
-    Async.replicateConcurrently_ 10 $
-        runSession store $
-            Session.script "SELECT pg_stat_force_next_flush(); SELECT pg_sleep(0.2)"
+  Async.replicateConcurrently_ 10 $
+    runSession store $
+      Session.script "SELECT pg_stat_force_next_flush(); SELECT pg_sleep(0.2)"
 
 -- Same SQL snapshots in both arms; query text maps changing query IDs back to
 -- checkpoint statements. Deltas expose execution time and WAL per save.
 checkpointStatementStats :: KirokuStore -> IO Json.Value
 checkpointStatementStats store =
-    runSession store $
-        Session.statement () $
-            preparable
-                "SELECT COALESCE(jsonb_agg(jsonb_build_object('queryid', queryid::text, 'query', query, 'calls', calls, 'exec_ms', total_exec_time, 'wal_bytes', wal_bytes)), '[]'::jsonb) FROM public.pg_stat_statements WHERE dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND query ILIKE '%INSERT INTO subscriptions%'"
-                E.noParams
-                (D.singleRow (D.column (D.nonNullable D.jsonb)))
+  runSession store $
+    Session.statement () $
+      preparable
+        "SELECT COALESCE(jsonb_agg(jsonb_build_object('queryid', queryid::text, 'query', query, 'calls', calls, 'exec_ms', total_exec_time, 'wal_bytes', wal_bytes)), '[]'::jsonb) FROM public.pg_stat_statements WHERE dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND query ILIKE '%INSERT INTO subscriptions%'"
+        E.noParams
+        (D.singleRow (D.column (D.nonNullable D.jsonb)))
 
 -- Handler progress at 10 Hz and durable pending work at 1 Hz. The
 -- durable query uses the declared hash topology, including the old control
@@ -490,14 +490,14 @@ sampleBacklog :: IORef Int -> IORef Int -> IORef [(Word64, Int, Int, Maybe Int64
 sampleBacklog appended delivered rows sample durablePending = loop (0 :: Int)
   where
     loop iteration = do
-        pending <- if iteration `mod` 10 == 0 then durablePending else pure Nothing
-        now <- getMonotonicTimeNSec
-        issued <- readIORef appended
-        handled <- readIORef delivered
-        atomicModifyIORef' rows (\values -> ((now, issued, handled, pending) : values, ()))
-        sample
-        threadDelay 100_000
-        loop (iteration + 1)
+      pending <- if iteration `mod` 10 == 0 then durablePending else pure Nothing
+      now <- getMonotonicTimeNSec
+      issued <- readIORef appended
+      handled <- readIORef delivered
+      atomicModifyIORef' rows (\values -> ((now, issued, handled, pending) : values, ()))
+      sample
+      threadDelay 100_000
+      loop (iteration + 1)
 
 -- Keep the same workload input while each source revision uses its own API.
 #ifdef LEGACY_TOPOLOGY

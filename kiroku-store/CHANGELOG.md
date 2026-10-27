@@ -1,33 +1,52 @@
 # Changelog
 
-## Unreleased
-
-- Require [shibuya-core](mori://shinzui/shibuya/packages/shibuya-core)
-  `>=0.12 && <0.13` in the Shibuya overhead benchmark and mark its deliveries
-  current with the new delivery-status field.
-
-- Add `CategoryNamespace Text` subscription targets for exact category/colon-boundary
-  fan-in, including future categories and consumer groups. Uses bounded global
-  windows, matching-only payload decoding, completed-scan checkpoints and shared
-  selective namespace wakes. Sparse replay traverses global history per worker.
-- Requires migration 0016 before starting workers. The new constructor affects
-  exhaustive downstream matches; older binaries must not manage namespace rows.
-
-## Unreleased
+## 0.12.0.0 — 2026-10-26
 
 ### Breaking Changes
 
-- Target 0.12.0.0: `KirokuEvent` gains
-  `KirokuEventSubscriptionTargetMismatch`; update exhaustive observers.
+- `SubscriptionTarget` gains `CategoryNamespace Text`; update exhaustive matches.
+  Apply migration 0016 from kiroku-store-migrations 0.7.2.0 with affected workers
+  stopped before using namespace subscriptions. Older binaries must not manage
+  namespace bindings.
+- `KirokuEvent` gains `KirokuEventSubscriptionTargetMismatch`; update exhaustive
+  observers.
+- In the exposed low-level modules, `Notifier` gains `namespaceRegistry`;
+  complete record constructors must supply it. FSM `Input` gains
+  `NamespaceWindowFetched` and `NamespaceWindowCompleted`, and FSM `Effect` gains
+  `DeliverNamespaceWindow`; update exhaustive custom drivers.
+
+### New Features
+
+- Add exact-category/colon-boundary namespace fan-in, including future categories
+  and consumer groups. Workers scan bounded global windows, decode matching
+  payloads only, checkpoint completed scans, and share selective namespace wakes.
+- Expose namespace registration and notification helpers and bounded namespace
+  window/checkpoint SQL statements for low-level integrations.
 
 ### Bug Fixes
 
-- Invalid stall intervals now emit one crashed `Stopped` before `wait` returns.
+- Invalid stall intervals emit one crashed `Stopped` before `wait` returns.
   Target refusals emit their typed detail event followed by one crashed stop.
 - Preserve the initial event filter and selector decision across decode retries,
   including recovery to an excluded rewritten type.
 - Low-level checkpoint initialization inherits uniform sibling size and binding
   under the topology lock, preserving existing rows and missing-position policies.
+- Avoid payload probes for empty namespace windows.
+
+### Other Changes
+
+- Sparse namespace replay traverses global history independently per worker;
+  namespace checkpoints can advance beyond the last delivered matching event.
+- Retain the namespace cohort's explicit practical performance acceptance:
+  20 verified comparison trials, five pairs per case. The statistical
+  zero-slowdown verdicts remain inconclusive; historical replay throughput was
+  not measured. See `bench/results/ep54-kenshou/README.md` and `acceptance.json`.
+- Tighten append workload measurement validation and retain the inspection
+  cohort's accepted write-cost evidence.
+- Correct omitted source-compatibility changes in the 0.10.0.0 and 0.11.0.0 notes.
+- Require [shibuya-core](mori://shinzui/shibuya/packages/shibuya-core)
+  `>=0.12 && <0.13` in the Shibuya overhead benchmark and initialize its deliveries
+  with `DeliveryCurrent`.
 
 ## 0.11.0.1 — 2026-10-20
 

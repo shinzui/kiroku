@@ -1,8 +1,13 @@
 # kiroku-otel changelog
 
-## Unreleased
+## 0.3.0.0 — 2026-10-26
 
-- Target 0.3.0.0: require kiroku-store 0.12 for its expanded operational events.
+### Breaking Changes
+
+- Require `kiroku-store ^>=0.12.0.0` for its expanded operational event surface.
+
+### Bug Fixes
+
 - Handle target-mismatch detail events without duplicating the subsequent
   terminal span, including startup refusals without `Started`.
 

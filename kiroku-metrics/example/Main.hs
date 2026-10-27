@@ -1,18 +1,17 @@
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-{- | A self-verifying runnable demo of @kiroku-metrics@ (EP-4).
-
-Boots an ephemeral, migrated PostgreSQL, opens a store with the metrics collector
-wired into its callbacks /before/ @withStore@, starts the combined HTTP+WebSocket
-server, appends a few events, then checks its own endpoints over real HTTP and a
-real WebSocket. Prints a step transcript and exits non-zero if any check fails, so
-running it is a test that the documented behavior holds:
-
-@
-cabal run kiroku-metrics-example
-@
--}
+-- | A self-verifying runnable demo of @kiroku-metrics@ (EP-4).
+--
+-- Boots an ephemeral, migrated PostgreSQL, opens a store with the metrics collector
+-- wired into its callbacks /before/ @withStore@, starts the combined HTTP+WebSocket
+-- server, appends a few events, then checks its own endpoints over real HTTP and a
+-- real WebSocket. Prints a step transcript and exits non-zero if any check fails, so
+-- running it is a test that the documented behavior holds:
+--
+-- @
+-- cabal run kiroku-metrics-example
+-- @
 module Main (main) where
 
 import Control.Concurrent (threadDelay)
@@ -30,8 +29,8 @@ import Data.Scientific (toRealFloat)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
-import Network.HTTP.Client (
-    Manager,
+import Network.HTTP.Client
+  ( Manager,
     defaultManagerSettings,
     httpLbs,
     method,
@@ -41,15 +40,15 @@ import Network.HTTP.Client (
     responseBody,
     responseHeaders,
     responseStatus,
- )
+  )
 import Network.HTTP.Types (statusCode)
 import Network.WebSockets qualified as WS
 import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr)
 import System.Timeout (timeout)
 
-import Kiroku.Metrics (
-    Capabilities (..),
+import Kiroku.Metrics
+  ( Capabilities (..),
     CheckpointInventoryResponse (..),
     MetricsServer (..),
     MetricsSnapshot (..),
@@ -64,10 +63,10 @@ import Kiroku.Metrics (
     postgresPing,
     snapshotMetrics,
     withMetricsServerWithStore,
- )
+  )
 import Kiroku.Metrics.Config (MetricsServerConfig (..))
-import Kiroku.Store (
-    EventData (..),
+import Kiroku.Store
+  ( EventData (..),
     EventType (..),
     ExpectedVersion (..),
     KirokuStore (..),
@@ -76,128 +75,128 @@ import Kiroku.Store (
     defaultConnectionSettings,
     runStoreIO,
     withStore,
- )
+  )
 import Kiroku.Store.Subscription.EventPublisher (EventPublisher (..), publisherPosition)
 import Kiroku.Store.Types (GlobalPosition (..))
 import Kiroku.Test.Postgres (withMigratedTestDatabase)
 
 main :: IO ()
 main = withMigratedTestDatabase $ \connStr -> do
-    step "[1/11] ephemeral postgres ready"
+  step "[1/11] ephemeral postgres ready"
 
-    -- The collector must observe events from the first append, so its callbacks
-    -- go on ConnectionSettings BEFORE withStore. But snapshots read store-level
-    -- gauges from the live handle — so the collector is built from STM readers
-    -- over a TVar that holds the store once it is open (the deferral pattern).
-    storeVar <- newTVarIO Nothing
-    metrics <- newKirokuMetricsWith (readPosition storeVar) (readSubscribers storeVar)
-    let settings =
-            defaultConnectionSettings connStr
-                & #eventHandler .~ Just (metricsEventHandler metrics Nothing)
-                & #observationHandler .~ Just (metricsObservationHandler metrics Nothing)
+  -- The collector must observe events from the first append, so its callbacks
+  -- go on ConnectionSettings BEFORE withStore. But snapshots read store-level
+  -- gauges from the live handle — so the collector is built from STM readers
+  -- over a TVar that holds the store once it is open (the deferral pattern).
+  storeVar <- newTVarIO Nothing
+  metrics <- newKirokuMetricsWith (readPosition storeVar) (readSubscribers storeVar)
+  let settings =
+        defaultConnectionSettings connStr
+          & #eventHandler .~ Just (metricsEventHandler metrics Nothing)
+          & #observationHandler .~ Just (metricsObservationHandler metrics Nothing)
 
-    withStore settings $ \store -> do
-        atomically (writeTVar storeVar (Just store))
-        origin <- either (fail . show) pure (allowedOrigin "https://ops.example.com")
-        withMetricsServerWithStore (defaultConfig{port = 0, cors = corsAllowOrigins [origin]}) metrics store [postgresPing store] $ \srv -> do
-            threadDelay 300_000
-            let port = srv.serverPort
-                base = "http://127.0.0.1:" <> show port
-            step ("[2/11] store + collector + metrics server on port " <> show port)
+  withStore settings $ \store -> do
+    atomically (writeTVar storeVar (Just store))
+    origin <- either (fail . show) pure (allowedOrigin "https://ops.example.com")
+    withMetricsServerWithStore (defaultConfig {port = 0, cors = corsAllowOrigins [origin]}) metrics store [postgresPing store] $ \srv -> do
+      threadDelay 300_000
+      let port = srv.serverPort
+          base = "http://127.0.0.1:" <> show port
+      step ("[2/11] store + collector + metrics server on port " <> show port)
 
-            appendEvents store (StreamName "orders-1") ["OrderCreated", "OrderPaid", "OrderShipped"]
-            step "[3/11] appended 3 events to orders-1"
+      appendEvents store (StreamName "orders-1") ["OrderCreated", "OrderPaid", "OrderShipped"]
+      step "[3/11] appended 3 events to orders-1"
 
-            mgr <- newManager defaultManagerSettings
+      mgr <- newManager defaultManagerSettings
 
-            (sMetrics, bMetrics) <- httpGet mgr (base <> "/metrics")
-            check "GET /metrics is 200" (sMetrics == 200)
-            let gpos = globalPositionOf bMetrics
-            check ("GET /metrics store.global_position >= 3 (got " <> show gpos <> ")") (gpos >= 3)
+      (sMetrics, bMetrics) <- httpGet mgr (base <> "/metrics")
+      check "GET /metrics is 200" (sMetrics == 200)
+      let gpos = globalPositionOf bMetrics
+      check ("GET /metrics store.global_position >= 3 (got " <> show gpos <> ")") (gpos >= 3)
 
-            (sProm, bProm) <- httpGet mgr (base <> "/metrics/prometheus")
-            check "GET /metrics/prometheus is 200" (sProm == 200)
-            check
-                "Prometheus body contains kiroku_events_appended_total"
-                (T.isInfixOf "kiroku_events_appended_total" (bodyText bProm))
+      (sProm, bProm) <- httpGet mgr (base <> "/metrics/prometheus")
+      check "GET /metrics/prometheus is 200" (sProm == 200)
+      check
+        "Prometheus body contains kiroku_events_appended_total"
+        (T.isInfixOf "kiroku_events_appended_total" (bodyText bProm))
 
-            (sLive, _) <- httpGet mgr (base <> "/health/live")
-            check "GET /health/live is 200" (sLive == 200)
-            (sReady, _) <- httpGet mgr (base <> "/health/ready")
-            check "GET /health/ready is 200" (sReady == 200)
-            step "[4/11] HTTP /metrics, /prometheus, /health/live, /health/ready all OK"
+      (sLive, _) <- httpGet mgr (base <> "/health/live")
+      check "GET /health/live is 200" (sLive == 200)
+      (sReady, _) <- httpGet mgr (base <> "/health/ready")
+      check "GET /health/ready is 200" (sReady == 200)
+      step "[4/11] HTTP /metrics, /prometheus, /health/live, /health/ready all OK"
 
-            -- Browser preflight and ordinary reads share the host's allowlist.
-            request <- parseRequest (base <> "/metrics")
-            let ops = "https://ops.example.com"
-                evil = "https://evil.example.com"
-            preflight <- httpLbs (request{method = "OPTIONS", requestHeaders = [("Origin", ops), ("Access-Control-Request-Method", "GET")]}) mgr
-            check "CORS preflight is 204" (statusCode (responseStatus preflight) == 204)
-            check "CORS preflight echoes origin" (lookup "Access-Control-Allow-Origin" (responseHeaders preflight) == Just ops)
-            allowed <- httpLbs (request{requestHeaders = [("Origin", ops)]}) mgr
-            check "CORS GET echoes origin" (lookup "Access-Control-Allow-Origin" (responseHeaders allowed) == Just ops)
-            denied <- httpLbs (request{requestHeaders = [("Origin", evil)]}) mgr
-            check "CORS denied GET is unchanged" (statusCode (responseStatus denied) == 200)
-            check "CORS denied GET grants nothing" (all (\(name, _) -> name `notElem` ["Access-Control-Allow-Origin", "Access-Control-Allow-Credentials", "Access-Control-Allow-Methods", "Access-Control-Allow-Headers", "Access-Control-Max-Age"]) (responseHeaders denied))
-            step "[5/11] CORS: preflight and GET from https://ops.example.com allowed; https://evil.example.com undecorated"
+      -- Browser preflight and ordinary reads share the host's allowlist.
+      request <- parseRequest (base <> "/metrics")
+      let ops = "https://ops.example.com"
+          evil = "https://evil.example.com"
+      preflight <- httpLbs (request {method = "OPTIONS", requestHeaders = [("Origin", ops), ("Access-Control-Request-Method", "GET")]}) mgr
+      check "CORS preflight is 204" (statusCode (responseStatus preflight) == 204)
+      check "CORS preflight echoes origin" (lookup "Access-Control-Allow-Origin" (responseHeaders preflight) == Just ops)
+      allowed <- httpLbs (request {requestHeaders = [("Origin", ops)]}) mgr
+      check "CORS GET echoes origin" (lookup "Access-Control-Allow-Origin" (responseHeaders allowed) == Just ops)
+      denied <- httpLbs (request {requestHeaders = [("Origin", evil)]}) mgr
+      check "CORS denied GET is unchanged" (statusCode (responseStatus denied) == 200)
+      check "CORS denied GET grants nothing" (all (\(name, _) -> name `notElem` ["Access-Control-Allow-Origin", "Access-Control-Allow-Credentials", "Access-Control-Allow-Methods", "Access-Control-Allow-Headers", "Access-Control-Max-Age"]) (responseHeaders denied))
+      step "[5/11] CORS: preflight and GET from https://ops.example.com allowed; https://evil.example.com undecorated"
 
-            (sCheckpoints, bCheckpoints) <- httpGet mgr (base <> "/subscription-checkpoints")
-            check "GET /subscription-checkpoints is 200" (sCheckpoints == 200)
-            case decode bCheckpoints of
-                Just (CheckpointInventoryResponse position rows) -> do
-                    check "durable store_position >= 3" (position >= 3)
-                    check "no durable checkpoints without subscriptions" (null rows)
-                    step ("[6/11] GET /subscription-checkpoints store_position=" <> show position <> " with no durable checkpoints (this example runs no subscription)")
-                Nothing -> check "durable inventory decodes" False
+      (sCheckpoints, bCheckpoints) <- httpGet mgr (base <> "/subscription-checkpoints")
+      check "GET /subscription-checkpoints is 200" (sCheckpoints == 200)
+      case decode bCheckpoints of
+        Just (CheckpointInventoryResponse position rows) -> do
+          check "durable store_position >= 3" (position >= 3)
+          check "no durable checkpoints without subscriptions" (null rows)
+          step ("[6/11] GET /subscription-checkpoints store_position=" <> show position <> " with no durable checkpoints (this example runs no subscription)")
+        Nothing -> check "durable inventory decodes" False
 
-            (sStreams, bStreams) <- httpGet mgr (base <> "/streams?category=orders")
-            check "GET /streams is 200" (sStreams == 200)
-            check "stream page has items" (maybe False (\v -> case lookKey ["items"] v of Just (Array rows) -> not (null rows); _ -> False) (decode bStreams))
-            (sEvents, bEvents) <- httpGet mgr (base <> "/events?from=0&limit=10")
-            check "GET /events is 200" (sEvents == 200)
-            case decode bEvents of
-                Just value | Just (Array rows) <- lookKey ["items"] value -> do
-                    check "event page includes original names" (all (\row -> lookKey ["original_stream_name"] row == Just (String "orders-1")) rows)
-                    case foldr (:) [] rows of
-                        first : _ | Just (String uuid) <- lookKey ["eventId"] first -> do
-                            (status, _) <- httpGet mgr (base <> "/events/" <> T.unpack uuid)
-                            check "GET event by id is 200" (status == 200)
-                        _ -> check "event page is nonempty" False
-                _ -> check "event page decodes" False
-            step "[7/11] Stream browsing and historical events resolve original stream names"
+      (sStreams, bStreams) <- httpGet mgr (base <> "/streams?category=orders")
+      check "GET /streams is 200" (sStreams == 200)
+      check "stream page has items" (maybe False (\v -> case lookKey ["items"] v of Just (Array rows) -> not (null rows); _ -> False) (decode bStreams))
+      (sEvents, bEvents) <- httpGet mgr (base <> "/events?from=0&limit=10")
+      check "GET /events is 200" (sEvents == 200)
+      case decode bEvents of
+        Just value | Just (Array rows) <- lookKey ["items"] value -> do
+          check "event page includes original names" (all (\row -> lookKey ["original_stream_name"] row == Just (String "orders-1")) rows)
+          case foldr (:) [] rows of
+            first : _ | Just (String uuid) <- lookKey ["eventId"] first -> do
+              (status, _) <- httpGet mgr (base <> "/events/" <> T.unpack uuid)
+              check "GET event by id is 200" (status == 200)
+            _ -> check "event page is nonempty" False
+        _ -> check "event page decodes" False
+      step "[7/11] Stream browsing and historical events resolve original stream names"
 
-            (sDeadLetters, bDeadLetters) <- httpGet mgr (base <> "/subscriptions/example/dead-letters?limit=10")
-            check "dead-letter page status" (sDeadLetters == 200)
-            check "dead-letter page is empty without a cursor" (decode bDeadLetters == Just (object ["items" .= ([] :: [Value])]))
-            step "[8/11] GET /subscriptions/example/dead-letters returned an empty page (this example runs no subscription)"
+      (sDeadLetters, bDeadLetters) <- httpGet mgr (base <> "/subscriptions/example/dead-letters?limit=10")
+      check "dead-letter page status" (sDeadLetters == 200)
+      check "dead-letter page is empty without a cursor" (decode bDeadLetters == Just (object ["items" .= ([] :: [Value])]))
+      step "[8/11] GET /subscriptions/example/dead-letters returned an empty page (this example runs no subscription)"
 
-            (sCaps, bCaps) <- httpGet mgr (base <> "/capabilities")
-            check "discovery status" (sCaps == 200)
-            case decode bCaps of
-                Just (caps :: Capabilities) ->
-                    check
-                        "discovery reflects legacy store wiring"
-                        (caps.routes.browse && caps.routes.subscriptionsCheckpoints && caps.routes.deadLetters && caps.routes.websocketEvents && not caps.routes.subscriptionsLive)
-                Nothing -> check "discovery decodes" False
-            step "[9/11] GET /capabilities reports browse, checkpoints, dead letters, and the event tail"
+      (sCaps, bCaps) <- httpGet mgr (base <> "/capabilities")
+      check "discovery status" (sCaps == 200)
+      case decode bCaps of
+        Just (caps :: Capabilities) ->
+          check
+            "discovery reflects legacy store wiring"
+            (caps.routes.browse && caps.routes.subscriptionsCheckpoints && caps.routes.deadLetters && caps.routes.websocketEvents && not caps.routes.subscriptionsLive)
+        Nothing -> check "discovery decodes" False
+      step "[9/11] GET /capabilities reports browse, checkpoints, dead letters, and the event tail"
 
-            -- WebSocket: subscribe to the live event tail, then append one more
-            -- event and assert it arrives over the socket as a JSON event message.
-            evType <-
-                requireJust "WebSocket /ws/events round-trip timed out" $
-                    timeout 15_000_000 $
-                        WS.runClient "127.0.0.1" port "/ws/events" $ \conn -> do
-                            WS.sendTextData conn (encode (object ["type" .= ("subscribe_events" :: Text)]))
-                            _ <- waitForType conn "event_stream_started"
-                            appendThread <- async (appendEvents store (StreamName "orders-2") ["OrderRefunded"])
-                            ev <- waitForType conn "event"
-                            wait appendThread
-                            pure (eventTypeOf ev)
-            check ("WebSocket event eventType == OrderRefunded (got " <> T.unpack evType <> ")") (evType == "OrderRefunded")
-            step ("[10/11] WebSocket /ws/events received event eventType=" <> T.unpack evType)
+      -- WebSocket: subscribe to the live event tail, then append one more
+      -- event and assert it arrives over the socket as a JSON event message.
+      evType <-
+        requireJust "WebSocket /ws/events round-trip timed out" $
+          timeout 15_000_000 $
+            WS.runClient "127.0.0.1" port "/ws/events" $ \conn -> do
+              WS.sendTextData conn (encode (object ["type" .= ("subscribe_events" :: Text)]))
+              _ <- waitForType conn "event_stream_started"
+              appendThread <- async (appendEvents store (StreamName "orders-2") ["OrderRefunded"])
+              ev <- waitForType conn "event"
+              wait appendThread
+              pure (eventTypeOf ev)
+      check ("WebSocket event eventType == OrderRefunded (got " <> T.unpack evType <> ")") (evType == "OrderRefunded")
+      step ("[10/11] WebSocket /ws/events received event eventType=" <> T.unpack evType)
 
-            snap <- snapshotMetrics metrics
-            step ("[11/11] kiroku-metrics-example: all checks passed (snapshot global position = " <> show snap.store.globalPosition <> ")")
+      snap <- snapshotMetrics metrics
+      step ("[11/11] kiroku-metrics-example: all checks passed (snapshot global position = " <> show snap.store.globalPosition <> ")")
 
 --------------------------------------------------------------------------------
 -- Helpers
@@ -210,47 +209,47 @@ step = putStrLn
 -- | Assert a condition; on failure print to stderr and exit non-zero.
 check :: String -> Bool -> IO ()
 check label ok =
-    unless ok $ do
-        hPutStrLn stderr ("kiroku-metrics-example: FAILED: " <> label)
-        exitFailure
+  unless ok $ do
+    hPutStrLn stderr ("kiroku-metrics-example: FAILED: " <> label)
+    exitFailure
 
 -- | Require a timed action to have produced a result; else fail the example.
 requireJust :: String -> IO (Maybe a) -> IO a
 requireJust label act =
-    act >>= \case
-        Just a -> pure a
-        Nothing -> do
-            hPutStrLn stderr ("kiroku-metrics-example: FAILED: " <> label)
-            exitFailure
+  act >>= \case
+    Just a -> pure a
+    Nothing -> do
+      hPutStrLn stderr ("kiroku-metrics-example: FAILED: " <> label)
+      exitFailure
 
 -- | GET a URL, returning the status code and the body (no throwing on non-2xx).
 httpGet :: Manager -> String -> IO (Int, ByteString)
 httpGet mgr url = do
-    req <- parseRequest url
-    resp <- httpLbs req mgr
-    pure (statusCode (responseStatus resp), responseBody resp)
+  req <- parseRequest url
+  resp <- httpLbs req mgr
+  pure (statusCode (responseStatus resp), responseBody resp)
 
 -- | Read server messages until one with the given @"type"@ arrives; return it.
 waitForType :: WS.Connection -> Text -> IO Value
 waitForType conn want = go
   where
     go = do
-        raw <- WS.receiveData conn :: IO ByteString
-        case decode raw of
-            Just v | lookKey ["type"] v == Just (String want) -> pure v
-            _ -> go
+      raw <- WS.receiveData conn :: IO ByteString
+      case decode raw of
+        Just v | lookKey ["type"] v == Just (String want) -> pure v
+        _ -> go
 
 -- | Extract @event.eventType@ from an @event@ message ("" if absent).
 eventTypeOf :: Value -> Text
 eventTypeOf v = case lookKey ["event", "eventType"] v of
-    Just (String t) -> t
-    _ -> ""
+  Just (String t) -> t
+  _ -> ""
 
 -- | Extract @store.global_position@ from a @/metrics@ JSON body.
 globalPositionOf :: ByteString -> Int
 globalPositionOf body = case decode body of
-    Just v | Just (Number n) <- lookKey ["store", "global_position"] v -> truncate (toRealFloat n :: Double)
-    _ -> -1
+  Just v | Just (Number n) <- lookKey ["store", "global_position"] v -> truncate (toRealFloat n :: Double)
+  _ -> -1
 
 -- | Navigate nested object keys.
 lookKey :: [Text] -> Value -> Maybe Value
@@ -263,28 +262,28 @@ bodyText = TE.decodeUtf8 . LBS.toStrict
 
 appendEvents :: KirokuStore -> StreamName -> [Text] -> IO ()
 appendEvents store stream types = do
-    let events =
-            [ EventData
-                { eventId = Nothing
-                , eventType = EventType t
-                , payload = Null
-                , metadata = Nothing
-                , causationId = Nothing
-                , correlationId = Nothing
-                }
-            | t <- types
-            ]
-    result <- runStoreIO store (appendToStream stream NoStream events)
-    case result of
-        Right _ -> pure ()
-        Left err -> do
-            hPutStrLn stderr ("kiroku-metrics-example: append failed: " <> show err)
-            exitFailure
+  let events =
+        [ EventData
+            { eventId = Nothing,
+              eventType = EventType t,
+              payload = Null,
+              metadata = Nothing,
+              causationId = Nothing,
+              correlationId = Nothing
+            }
+        | t <- types
+        ]
+  result <- runStoreIO store (appendToStream stream NoStream events)
+  case result of
+    Right _ -> pure ()
+    Left err -> do
+      hPutStrLn stderr ("kiroku-metrics-example: append failed: " <> show err)
+      exitFailure
 
 readPosition :: TVar (Maybe KirokuStore) -> STM GlobalPosition
 readPosition storeVar =
-    readTVar storeVar >>= maybe (pure (GlobalPosition 0)) (publisherPosition . (.publisher))
+  readTVar storeVar >>= maybe (pure (GlobalPosition 0)) (publisherPosition . (.publisher))
 
 readSubscribers :: TVar (Maybe KirokuStore) -> STM Int
 readSubscribers storeVar =
-    readTVar storeVar >>= maybe (pure 0) (\s -> IntMap.size <$> readTVar (subscribers s.publisher))
+  readTVar storeVar >>= maybe (pure 0) (\s -> IntMap.size <$> readTVar (subscribers s.publisher))

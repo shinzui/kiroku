@@ -21,101 +21,101 @@ import Test.Hspec
 
 spec :: Spec
 spec =
-    describe "NOTIFY trigger guard" $
-        around withNotifyStore $ do
-            it "emits one unchanged append payload and no lifecycle or $all payloads" $ \(store, listenerConn) -> do
-                payloads <- newTVarIO []
+  describe "NOTIFY trigger guard" $
+    around withNotifyStore $ do
+      it "emits one unchanged append payload and no lifecycle or $all payloads" $ \(store, listenerConn) -> do
+        payloads <- newTVarIO []
 
-                Notifications.listen listenerConn (Notifications.toPgIdentifier "kiroku.events")
-                Async.withAsync
-                    (Notifications.waitForNotifications (\_ payload -> atomically (modifyTVar' payloads (<> [payload]))) listenerConn)
-                    $ \_listener -> do
-                        let firstStream = StreamName "notify-guard-1"
-                            secondStream = StreamName "notify-guard-2"
+        Notifications.listen listenerConn (Notifications.toPgIdentifier "kiroku.events")
+        Async.withAsync
+          (Notifications.waitForNotifications (\_ payload -> atomically (modifyTVar' payloads (<> [payload]))) listenerConn)
+          $ \_listener -> do
+            let firstStream = StreamName "notify-guard-1"
+                secondStream = StreamName "notify-guard-2"
 
-                        Right first <-
-                            runStoreIO store $
-                                appendToStream firstStream NoStream [makeEvent "NotifyGuardFirst" (Aeson.object [])]
-                        waitForPayload payloads (expectedPayload firstStream first)
+            Right first <-
+              runStoreIO store $
+                appendToStream firstStream NoStream [makeEvent "NotifyGuardFirst" (Aeson.object [])]
+            waitForPayload payloads (expectedPayload firstStream first)
 
-                        Right _ <- runStoreIO store $ softDeleteStream firstStream
-                        Right _ <- runStoreIO store $ undeleteStream firstStream
+            Right _ <- runStoreIO store $ softDeleteStream firstStream
+            Right _ <- runStoreIO store $ undeleteStream firstStream
 
-                        Right second <-
-                            runStoreIO store $
-                                appendToStream secondStream NoStream [makeEvent "NotifyGuardSecond" (Aeson.object [])]
-                        waitForPayload payloads (expectedPayload secondStream second)
+            Right second <-
+              runStoreIO store $
+                appendToStream secondStream NoStream [makeEvent "NotifyGuardSecond" (Aeson.object [])]
+            waitForPayload payloads (expectedPayload secondStream second)
 
-                        actual <- atomically (readTVar payloads)
-                        actual
-                            `shouldBe` [ expectedPayload firstStream first
-                                       , expectedPayload secondStream second
-                                       ]
-                        map payloadFieldCount actual `shouldBe` [3, 3]
-                        actual `shouldSatisfy` all (not . BS.isPrefixOf "$all,")
+            actual <- atomically (readTVar payloads)
+            actual
+              `shouldBe` [ expectedPayload firstStream first,
+                           expectedPayload secondStream second
+                         ]
+            map payloadFieldCount actual `shouldBe` [3, 3]
+            actual `shouldSatisfy` all (not . BS.isPrefixOf "$all,")
 
-            it "emits the unchanged payload for a 512-byte stream name" $ \(store, listenerConn) -> do
-                payloads <- newTVarIO []
+      it "emits the unchanged payload for a 512-byte stream name" $ \(store, listenerConn) -> do
+        payloads <- newTVarIO []
 
-                Notifications.listen listenerConn (Notifications.toPgIdentifier "kiroku.events")
-                Async.withAsync
-                    (Notifications.waitForNotifications (\_ payload -> atomically (modifyTVar' payloads (<> [payload]))) listenerConn)
-                    $ \_listener -> do
-                        let stream = StreamName (T.replicate 512 "n")
+        Notifications.listen listenerConn (Notifications.toPgIdentifier "kiroku.events")
+        Async.withAsync
+          (Notifications.waitForNotifications (\_ payload -> atomically (modifyTVar' payloads (<> [payload]))) listenerConn)
+          $ \_listener -> do
+            let stream = StreamName (T.replicate 512 "n")
 
-                        Right result <-
-                            runStoreIO store $
-                                appendToStream stream NoStream [makeEvent "NotifyGuardMaxName" (Aeson.object [])]
-                        let expected = expectedPayload stream result
-                        waitForPayload payloads expected
+            Right result <-
+              runStoreIO store $
+                appendToStream stream NoStream [makeEvent "NotifyGuardMaxName" (Aeson.object [])]
+            let expected = expectedPayload stream result
+            waitForPayload payloads expected
 
-                        actual <- atomically (readTVar payloads)
-                        actual `shouldBe` [expected]
-                        payloadFieldCount expected `shouldBe` 3
+            actual <- atomically (readTVar payloads)
+            actual `shouldBe` [expected]
+            payloadFieldCount expected `shouldBe` 3
 
 withNotifyStore :: ((KirokuStore, Connection.Connection) -> IO ()) -> IO ()
 withNotifyStore action =
-    withMigratedTestDatabase $ \connStr ->
-        withStore (defaultConnectionSettings connStr) $ \store ->
-            withConnection connStr $ \listenerConn ->
-                action (store, listenerConn)
+  withMigratedTestDatabase $ \connStr ->
+    withStore (defaultConnectionSettings connStr) $ \store ->
+      withConnection connStr $ \listenerConn ->
+        action (store, listenerConn)
 
 withConnection :: T.Text -> (Connection.Connection -> IO a) -> IO a
 withConnection connStr =
-    bracket acquire Connection.release
+  bracket acquire Connection.release
   where
     acquire = do
-        result <- Connection.acquire (Conn.connectionString connStr)
-        case result of
-            Left err -> throwIO (userError ("failed to acquire LISTEN connection: " <> show err))
-            Right conn -> pure conn
+      result <- Connection.acquire (Conn.connectionString connStr)
+      case result of
+        Left err -> throwIO (userError ("failed to acquire LISTEN connection: " <> show err))
+        Right conn -> pure conn
 
 expectedPayload :: StreamName -> AppendResult -> ByteString
 expectedPayload (StreamName name) result =
-    let StreamId sid = result ^. #streamId
-        StreamVersion version = result ^. #streamVersion
-     in T.encodeUtf8 $
-            T.intercalate
-                ","
-                [ name
-                , T.pack (show sid)
-                , T.pack (show version)
-                ]
+  let StreamId sid = result ^. #streamId
+      StreamVersion version = result ^. #streamVersion
+   in T.encodeUtf8 $
+        T.intercalate
+          ","
+          [ name,
+            T.pack (show sid),
+            T.pack (show version)
+          ]
 
 payloadFieldCount :: ByteString -> Int
 payloadFieldCount = length . BS.split 44
 
 waitForPayload :: TVar [ByteString] -> ByteString -> IO ()
 waitForPayload payloads expected = do
-    result <-
-        Async.race
-            (threadDelay 5_000_000)
-            ( atomically $ do
-                seen <- readTVar payloads
-                check (expected `elem` seen)
-            )
-    case result of
-        Left () -> do
-            seen <- atomically (readTVar payloads)
-            expectationFailure ("timed out waiting for notification " <> show expected <> "; saw " <> show seen)
-        Right () -> pure ()
+  result <-
+    Async.race
+      (threadDelay 5_000_000)
+      ( atomically $ do
+          seen <- readTVar payloads
+          check (expected `elem` seen)
+      )
+  case result of
+    Left () -> do
+      seen <- atomically (readTVar payloads)
+      expectationFailure ("timed out waiting for notification " <> show expected <> "; saw " <> show seen)
+    Right () -> pure ()

@@ -1,24 +1,30 @@
 # Revision history for kiroku-metrics
 
-## Unreleased
+## 0.4.0.0 — 2026-10-26
 
 ### Breaking Changes
 
-- Target 0.4.0.0: with `corsDisabled`, WebSocket upgrades carrying any `Origin`
-  header now receive HTTP 403 `origin_not_allowed`. HTTP and origin-less WebSocket
-  clients retain their behavior. Configure `--cors-origin <public-page-origin>` or
+- With `corsDisabled`, WebSocket upgrades carrying any `Origin` header now receive
+  HTTP 403 `origin_not_allowed`. Configure `--cors-origin <public-page-origin>` or
   `corsAllowOrigins` to restore browser access, including behind a same-origin
-  proxy that preserves the browser's Origin header.
+  proxy that preserves the browser's Origin header. HTTP and origin-less WebSocket
+  clients retain their behavior.
+- Require `kiroku-store ^>=0.12.0.0` for its expanded operational event surface.
+
+### Bug Fixes
+
+- Handle target-mismatch detail events without duplicating the subsequent
+  crashed-stop counter, including startup refusals without `Started`.
+- `kiroku-inspect` reports redacted `bind`, `database`, `schema`, or `other`
+  startup failures. A first SIGINT/SIGTERM shuts down gracefully; a second,
+  including mixed signals, forces exit 130.
 
 ### Other Changes
 
-- Require kiroku-store 0.12 for its expanded operational events.
-- Handle target-mismatch detail events without duplicating the subsequent
-  crashed-stop counter, including startup refusals without `Started`.
-
-- `kiroku-inspect` reports redacted `bind`, `database`, `schema` or `other` failures.
-  A first SIGINT/SIGTERM shuts down gracefully; a second, including mixed signals,
-  forces exit 130. Document loopback-only `--port 0` and all-interface fixed ports.
+- Document loopback-only `--port 0` and all-interface fixed ports.
+- Require `kiroku-cli ^>=0.2.0.11` in library and test dependencies.
+- Correct the 0.3.0.0 notes to describe its public collector and standalone API
+  changes.
 
 ## 0.3.0.1 — 2026-10-20
 

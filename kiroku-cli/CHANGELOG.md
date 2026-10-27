@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0.11 — 2026-10-26
+
+### Other Changes
+
+- Support `kiroku-store ^>=0.12.0.0` while retaining `^>=0.11.0.0` compatibility
+  in library and test dependencies. The CLI API and runtime behavior are unchanged.
+
 ## 0.2.0.10 — 2026-10-11
 
 ### Other Changes

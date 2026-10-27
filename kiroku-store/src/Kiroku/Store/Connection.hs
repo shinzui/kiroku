@@ -1,10 +1,11 @@
-module Kiroku.Store.Connection (
-    KirokuStore (..),
+module Kiroku.Store.Connection
+  ( KirokuStore (..),
     ConnectionSettingsM (..),
     ConnectionSettings,
     defaultConnectionSettings,
     withStore,
-) where
+  )
+where
 
 import Control.Concurrent.STM (TVar, newTVarIO)
 import Control.Exception (bracket, onException)
@@ -35,90 +36,84 @@ import Kiroku.Store.Subscription.Types (SubscriptionName)
 
 -- | Connection settings for the store, parameterized by monad.
 data ConnectionSettingsM m = ConnectionSettings
-    { connString :: !Text
-    {- ^ PostgreSQL connection string (libpq URI or key=value format).
-    Reaches libpq verbatim; no application-level parsing or
-    substitution. May contain a password.
-    -}
-    , poolSize :: !Int
-    -- ^ Connection pool size (default: 10)
-    , schema :: !Text
-    {- ^ PostgreSQL schema that owns every Kiroku object
-    (default: @"kiroku"@).
-
-    This field is authoritative for two things, kept in lockstep:
-
-    * __Table resolution.__ Every pooled connection runs
-      @SET search_path TO \<schema\>, pg_catalog@ before any statement,
-      so the unqualified names in "Kiroku.Store.SQL" resolve to this
-      schema.
-    * __Notification channel.__ The
-      'Kiroku.Store.Notification.Notifier' issues
-      @LISTEN \<schema\>.events@ on its dedicated connection, matching the
-      channel published by the migration-created @notify_events()@
-      trigger.
-
-    To run more than one isolated 'KirokuStore' against the same database
-    (for example schema-per-tenant), migrate each schema and give each
-    store a distinct 'schema'; each gets its own set of Kiroku tables and
-    its own notification channel.
-    -}
-    , extraSearchPath :: ![Text]
-    {- ^ Additional schemas appended to every pooled connection's
-    @search_path@, after 'schema' and before @pg_catalog@ (default: @[]@).
-
-    The store's own unqualified names always resolve to 'schema' first.
-    This is for consumers whose /application/ objects — typically inline
-    projections' read-model tables, queried on the same pool as the event
-    store — live in another schema (commonly @public@). Without it those
-    unqualified application tables are unreachable on the store pool, since
-    'schema' replaces the default @search_path@. Entries are quoted as
-    identifiers; like 'schema' they are not validated at connection time
-    (PostgreSQL does not validate @search_path@ entries).
-    -}
-    , idleInTransactionTimeout :: !Int
-    -- ^ idle_in_transaction_session_timeout in seconds (default: 30)
-    , statementTimeout :: !(Maybe Int)
-    {- ^ When @Just s@, set @statement_timeout = 's'@ (in seconds) on
-    every pooled connection via @initSession@. Bounds the wall-clock
-    runtime of any single statement; protects against pathological
-    queries holding pool slots indefinitely. Default 'Nothing'
-    (PostgreSQL's session default applies — typically @0@,
-    meaning no timeout).
-
-    A reasonable starting value for typical workloads is @Just 30@
-    (30 seconds) — long enough to absorb GC pauses and transient
-    slow disks, short enough to free the pool slot under genuine
-    pathology. See @docs\/PRODUCTION-TUNING.md@ for sizing
-    guidance.
-    -}
-    , observationHandler :: !(Maybe (Observation -> m ()))
-    -- ^ Optional callback for pool connection lifecycle events
-    , eventHandler :: !(Maybe (KirokuEvent -> m ()))
-    {- ^ Optional callback for store-emitted operational events. See
-    "Kiroku.Store.Observability" for the event taxonomy. Covers
-    notifier reconnection, publisher pool errors, subscription
-    lifecycle and per-phase database errors, and hard-delete
-    issuance — events that 'observationHandler' (which surfaces
-    @hasql-pool@'s connection-lifecycle observations) does not
-    cover.
-
-    Invoked synchronously from the originating thread (notifier
-    loop, publisher loop, worker loop, store interpreter); slow
-    callbacks stall those loops. For callbacks that may block, fan
-    out asynchronously (e.g., write to a 'TBQueue' and drain in a
-    separate thread).
-    -}
-    , storeSettings :: !StoreSettings
-    {- ^ Interpreter-level hooks applied to 'EventData' on the append
-    path and to 'RecordedEvent' on the read and subscription paths.
-    Defaults to 'defaultStoreSettings' (no-op).
-
-    See "Kiroku.Store.Settings" for the hook semantics and the
-    OpenTelemetry trace-context use case that motivates this seam.
-    -}
-    }
-    deriving stock (Generic)
+  { -- | PostgreSQL connection string (libpq URI or key=value format).
+    --     Reaches libpq verbatim; no application-level parsing or
+    --     substitution. May contain a password.
+    connString :: !Text,
+    -- | Connection pool size (default: 10)
+    poolSize :: !Int,
+    -- | PostgreSQL schema that owns every Kiroku object
+    --     (default: @"kiroku"@).
+    --
+    --     This field is authoritative for two things, kept in lockstep:
+    --
+    --     * __Table resolution.__ Every pooled connection runs
+    --       @SET search_path TO \<schema\>, pg_catalog@ before any statement,
+    --       so the unqualified names in "Kiroku.Store.SQL" resolve to this
+    --       schema.
+    --     * __Notification channel.__ The
+    --       'Kiroku.Store.Notification.Notifier' issues
+    --       @LISTEN \<schema\>.events@ on its dedicated connection, matching the
+    --       channel published by the migration-created @notify_events()@
+    --       trigger.
+    --
+    --     To run more than one isolated 'KirokuStore' against the same database
+    --     (for example schema-per-tenant), migrate each schema and give each
+    --     store a distinct 'schema'; each gets its own set of Kiroku tables and
+    --     its own notification channel.
+    schema :: !Text,
+    -- | Additional schemas appended to every pooled connection's
+    --     @search_path@, after 'schema' and before @pg_catalog@ (default: @[]@).
+    --
+    --     The store's own unqualified names always resolve to 'schema' first.
+    --     This is for consumers whose /application/ objects — typically inline
+    --     projections' read-model tables, queried on the same pool as the event
+    --     store — live in another schema (commonly @public@). Without it those
+    --     unqualified application tables are unreachable on the store pool, since
+    --     'schema' replaces the default @search_path@. Entries are quoted as
+    --     identifiers; like 'schema' they are not validated at connection time
+    --     (PostgreSQL does not validate @search_path@ entries).
+    extraSearchPath :: ![Text],
+    -- | idle_in_transaction_session_timeout in seconds (default: 30)
+    idleInTransactionTimeout :: !Int,
+    -- | When @Just s@, set @statement_timeout = 's'@ (in seconds) on
+    --     every pooled connection via @initSession@. Bounds the wall-clock
+    --     runtime of any single statement; protects against pathological
+    --     queries holding pool slots indefinitely. Default 'Nothing'
+    --     (PostgreSQL's session default applies — typically @0@,
+    --     meaning no timeout).
+    --
+    --     A reasonable starting value for typical workloads is @Just 30@
+    --     (30 seconds) — long enough to absorb GC pauses and transient
+    --     slow disks, short enough to free the pool slot under genuine
+    --     pathology. See @docs\/PRODUCTION-TUNING.md@ for sizing
+    --     guidance.
+    statementTimeout :: !(Maybe Int),
+    -- | Optional callback for pool connection lifecycle events
+    observationHandler :: !(Maybe (Observation -> m ())),
+    -- | Optional callback for store-emitted operational events. See
+    --     "Kiroku.Store.Observability" for the event taxonomy. Covers
+    --     notifier reconnection, publisher pool errors, subscription
+    --     lifecycle and per-phase database errors, and hard-delete
+    --     issuance — events that 'observationHandler' (which surfaces
+    --     @hasql-pool@'s connection-lifecycle observations) does not
+    --     cover.
+    --
+    --     Invoked synchronously from the originating thread (notifier
+    --     loop, publisher loop, worker loop, store interpreter); slow
+    --     callbacks stall those loops. For callbacks that may block, fan
+    --     out asynchronously (e.g., write to a 'TBQueue' and drain in a
+    --     separate thread).
+    eventHandler :: !(Maybe (KirokuEvent -> m ())),
+    -- | Interpreter-level hooks applied to 'EventData' on the append
+    --     path and to 'RecordedEvent' on the read and subscription paths.
+    --     Defaults to 'defaultStoreSettings' (no-op).
+    --
+    --     See "Kiroku.Store.Settings" for the hook semantics and the
+    --     OpenTelemetry trace-context use case that motivates this seam.
+    storeSettings :: !StoreSettings
+  }
+  deriving stock (Generic)
 
 -- | Connection settings defaulting to 'IO'.
 type ConnectionSettings = ConnectionSettingsM IO
@@ -126,154 +121,149 @@ type ConnectionSettings = ConnectionSettingsM IO
 -- | Default connection settings.
 defaultConnectionSettings :: Text -> ConnectionSettings
 defaultConnectionSettings cs =
-    ConnectionSettings
-        { connString = cs
-        , poolSize = 10
-        , schema = "kiroku"
-        , extraSearchPath = []
-        , idleInTransactionTimeout = 30
-        , statementTimeout = Nothing
-        , observationHandler = Nothing
-        , eventHandler = Nothing
-        , storeSettings = defaultStoreSettings
-        }
+  ConnectionSettings
+    { connString = cs,
+      poolSize = 10,
+      schema = "kiroku",
+      extraSearchPath = [],
+      idleInTransactionTimeout = 30,
+      statementTimeout = Nothing,
+      observationHandler = Nothing,
+      eventHandler = Nothing,
+      storeSettings = defaultStoreSettings
+    }
 
 -- | The store handle. Holds a connection pool, schema name, and subscription infrastructure.
 data KirokuStore = KirokuStore
-    { pool :: !Pool
-    , schema :: !Text
-    , notifier :: !Notifier
-    , publisher :: !EventPublisher
-    , eventHandler :: !(Maybe (KirokuEvent -> IO ()))
-    {- ^ Effective event handler captured from
-    'ConnectionSettingsM.eventHandler' when 'withStore' acquires
-    the store. Surfaces hard-delete events emitted by
-    'Kiroku.Store.Effect.runStorePool' and is the channel
-    'Kiroku.Store.Subscription.subscribe' threads through to
-    'Kiroku.Store.Subscription.Worker.runWorker'.
-    -}
-    , storeSettings :: !StoreSettings
-    {- ^ Interpreter-level hooks captured from
-    'ConnectionSettingsM.storeSettings' when 'withStore' acquires
-    the store. Reached by 'Kiroku.Store.Effect.runStorePool' and the
-    subscription publisher\/worker for every event flowing through.
-    -}
-    , subscriptionRegistry :: !(TVar (Map (SubscriptionName, Int32) (Unique, TVar SubscriptionState)))
-    {- ^ Central registry of every live subscription worker's FSM-state cell,
-    keyed by (subscription name, consumer-group member; 0 for non-group).
-    Each entry also carries the worker's registry token, so cleanup from an
-    older worker cannot delete a newer worker's replacement entry for the same
-    key.
-    Each 'Kiroku.Store.Subscription.subscribe' call registers its worker's
-    'stateVar' here on start and removes it on any exit (stop, cancel, crash)
-    via the worker's @finally@ cleanup. The cell is the same 'TVar' the worker
-    writes on every transition and 'currentState' reads — it is registered, not
-    copied — so the registry observes the live value with no extra write path.
-    A subscription is represented in the snapshot by /presence/ while live and
-    by /absence/ once it has stopped, been cancelled, or crashed; the FSM never
-    writes 'Kiroku.Store.Subscription.Fsm.Stopped' into the cell, so a not-live
-    subscription is never represented by a @"stopped"@ phase.
-    Read a consistent snapshot with
-    'Kiroku.Store.Subscription.subscriptionStates'.
-    -}
-    }
-    deriving stock (Generic)
+  { pool :: !Pool,
+    schema :: !Text,
+    notifier :: !Notifier,
+    publisher :: !EventPublisher,
+    -- | Effective event handler captured from
+    --     'ConnectionSettingsM.eventHandler' when 'withStore' acquires
+    --     the store. Surfaces hard-delete events emitted by
+    --     'Kiroku.Store.Effect.runStorePool' and is the channel
+    --     'Kiroku.Store.Subscription.subscribe' threads through to
+    --     'Kiroku.Store.Subscription.Worker.runWorker'.
+    eventHandler :: !(Maybe (KirokuEvent -> IO ())),
+    -- | Interpreter-level hooks captured from
+    --     'ConnectionSettingsM.storeSettings' when 'withStore' acquires
+    --     the store. Reached by 'Kiroku.Store.Effect.runStorePool' and the
+    --     subscription publisher\/worker for every event flowing through.
+    storeSettings :: !StoreSettings,
+    -- | Central registry of every live subscription worker's FSM-state cell,
+    --     keyed by (subscription name, consumer-group member; 0 for non-group).
+    --     Each entry also carries the worker's registry token, so cleanup from an
+    --     older worker cannot delete a newer worker's replacement entry for the same
+    --     key.
+    --     Each 'Kiroku.Store.Subscription.subscribe' call registers its worker's
+    --     'stateVar' here on start and removes it on any exit (stop, cancel, crash)
+    --     via the worker's @finally@ cleanup. The cell is the same 'TVar' the worker
+    --     writes on every transition and 'currentState' reads — it is registered, not
+    --     copied — so the registry observes the live value with no extra write path.
+    --     A subscription is represented in the snapshot by /presence/ while live and
+    --     by /absence/ once it has stopped, been cancelled, or crashed; the FSM never
+    --     writes 'Kiroku.Store.Subscription.Fsm.Stopped' into the cell, so a not-live
+    --     subscription is never represented by a @"stopped"@ phase.
+    --     Read a consistent snapshot with
+    --     'Kiroku.Store.Subscription.subscriptionStates'.
+    subscriptionRegistry :: !(TVar (Map (SubscriptionName, Int32) (Unique, TVar SubscriptionState)))
+  }
+  deriving stock (Generic)
 
-{- | Bracket-style store lifecycle.
-
-Acquire phase, in order:
-
-1. Acquire the connection pool from @hasql-pool@ with the configured
-   size and the @idle_in_transaction_session_timeout@ init session.
-2. Start the 'Kiroku.Store.Notification.Notifier' on a dedicated
-   connection: @LISTEN \<schema\>.events@.
-3. Start the 'Kiroku.Store.Subscription.EventPublisher' which consumes
-   notifier ticks and broadcasts new events to subscribers.
-
-Release phase, in reverse order:
-
-1. Cancel the 'Kiroku.Store.Subscription.EventPublisher' worker.
-2. Stop the 'Kiroku.Store.Notification.Notifier' (cancel listener,
-   release connection).
-3. Release the pool.
-
-The @bracket@ semantics guarantee release runs on either normal exit
-or an exception in the body. The 'MonadUnliftIO' constraint matches
-'Control.Exception.bracket'; consumers in pure 'IO' get an exact match,
-consumers in effectful monads with an unlift in scope (e.g., a
-'ReaderT'-like stack) get the same guarantee transparently.
--}
+-- | Bracket-style store lifecycle.
+--
+-- Acquire phase, in order:
+--
+-- 1. Acquire the connection pool from @hasql-pool@ with the configured
+--    size and the @idle_in_transaction_session_timeout@ init session.
+-- 2. Start the 'Kiroku.Store.Notification.Notifier' on a dedicated
+--    connection: @LISTEN \<schema\>.events@.
+-- 3. Start the 'Kiroku.Store.Subscription.EventPublisher' which consumes
+--    notifier ticks and broadcasts new events to subscribers.
+--
+-- Release phase, in reverse order:
+--
+-- 1. Cancel the 'Kiroku.Store.Subscription.EventPublisher' worker.
+-- 2. Stop the 'Kiroku.Store.Notification.Notifier' (cancel listener,
+--    release connection).
+-- 3. Release the pool.
+--
+-- The @bracket@ semantics guarantee release runs on either normal exit
+-- or an exception in the body. The 'MonadUnliftIO' constraint matches
+-- 'Control.Exception.bracket'; consumers in pure 'IO' get an exact match,
+-- consumers in effectful monads with an unlift in scope (e.g., a
+-- 'ReaderT'-like stack) get the same guarantee transparently.
 withStore :: (MonadUnliftIO m) => ConnectionSettings -> (KirokuStore -> m a) -> m a
 withStore settings action = withRunInIO $ \runInIO ->
-    bracket acquire release (runInIO . action)
+  bracket acquire release (runInIO . action)
   where
     initScript :: Text
     initScript =
-        T.intercalate "; " $
-            -- Resolve unqualified Kiroku table names (see "Kiroku.Store.SQL")
-            -- to the configured schema on every pooled connection, followed by
-            -- any 'extraSearchPath' schemas (for application objects such as
-            -- inline-projection read-model tables queried on the same pool).
-            -- Setting a not-yet-created schema is harmless: PostgreSQL does not
-            -- validate search_path entries. Runtime queries still require
-            -- migrations to have created the schemas before the store is opened.
-            ( "SET search_path TO "
-                <> T.intercalate
-                    ", "
-                    (quoteIdentifier (settings ^. #schema) : map quoteIdentifier (settings ^. #extraSearchPath))
-                <> ", pg_catalog"
-            )
-                : ("SET idle_in_transaction_session_timeout = '" <> T.pack (show (settings ^. #idleInTransactionTimeout)) <> "s'")
-                : maybe
-                    []
-                    (\t -> ["SET statement_timeout = '" <> T.pack (show t) <> "s'"])
-                    (settings ^. #statementTimeout)
+      T.intercalate "; " $
+        -- Resolve unqualified Kiroku table names (see "Kiroku.Store.SQL")
+        -- to the configured schema on every pooled connection, followed by
+        -- any 'extraSearchPath' schemas (for application objects such as
+        -- inline-projection read-model tables queried on the same pool).
+        -- Setting a not-yet-created schema is harmless: PostgreSQL does not
+        -- validate search_path entries. Runtime queries still require
+        -- migrations to have created the schemas before the store is opened.
+        ( "SET search_path TO "
+            <> T.intercalate
+              ", "
+              (quoteIdentifier (settings ^. #schema) : map quoteIdentifier (settings ^. #extraSearchPath))
+            <> ", pg_catalog"
+        )
+          : ("SET idle_in_transaction_session_timeout = '" <> T.pack (show (settings ^. #idleInTransactionTimeout)) <> "s'")
+          : maybe
+            []
+            (\t -> ["SET statement_timeout = '" <> T.pack (show t) <> "s'"])
+            (settings ^. #statementTimeout)
 
     poolConfig :: Pool.Config.Config
     poolConfig =
-        Pool.Config.settings $
-            [ Pool.Config.staticConnectionSettings (Conn.connectionString (settings ^. #connString))
-            , Pool.Config.size (settings ^. #poolSize)
-            , Pool.Config.initSession (Session.script initScript)
-            ]
-                ++ maybe [] (\h -> [Pool.Config.observationHandler h]) (settings ^. #observationHandler)
+      Pool.Config.settings $
+        [ Pool.Config.staticConnectionSettings (Conn.connectionString (settings ^. #connString)),
+          Pool.Config.size (settings ^. #poolSize),
+          Pool.Config.initSession (Session.script initScript)
+        ]
+          ++ maybe [] (\h -> [Pool.Config.observationHandler h]) (settings ^. #observationHandler)
 
     acquire = do
-        p <- Pool.acquire poolConfig
-        flip onException (Pool.release p) $ do
-            let s = settings ^. #schema
-                cs = settings ^. #connString
-                evtHandler = settings ^. #eventHandler
-                stSettings = settings ^. #storeSettings
-            -- Start Notifier (dedicated LISTEN connection)
-            n <- Notifier.startNotifier cs s evtHandler
-            flip onException (Notifier.stopNotifier n) $ do
-                -- Start EventPublisher (depends on Notifier's TChan)
-                pub <- Publisher.startPublisher p (Notifier.tickChan n) evtHandler stSettings
-                -- Central, in-memory subscription-state registry: starts empty
-                -- and is populated/cleaned by each `subscribe` call's worker
-                -- lifecycle. Purely in-memory; discarded when the store closes.
-                reg <- newTVarIO Map.empty
-                pure
-                    KirokuStore
-                        { pool = p
-                        , schema = s
-                        , notifier = n
-                        , publisher = pub
-                        , eventHandler = evtHandler
-                        , storeSettings = stSettings
-                        , subscriptionRegistry = reg
-                        }
+      p <- Pool.acquire poolConfig
+      flip onException (Pool.release p) $ do
+        let s = settings ^. #schema
+            cs = settings ^. #connString
+            evtHandler = settings ^. #eventHandler
+            stSettings = settings ^. #storeSettings
+        -- Start Notifier (dedicated LISTEN connection)
+        n <- Notifier.startNotifier cs s evtHandler
+        flip onException (Notifier.stopNotifier n) $ do
+          -- Start EventPublisher (depends on Notifier's TChan)
+          pub <- Publisher.startPublisher p (Notifier.tickChan n) evtHandler stSettings
+          -- Central, in-memory subscription-state registry: starts empty
+          -- and is populated/cleaned by each `subscribe` call's worker
+          -- lifecycle. Purely in-memory; discarded when the store closes.
+          reg <- newTVarIO Map.empty
+          pure
+            KirokuStore
+              { pool = p,
+                schema = s,
+                notifier = n,
+                publisher = pub,
+                eventHandler = evtHandler,
+                storeSettings = stSettings,
+                subscriptionRegistry = reg
+              }
 
     release store = do
-        -- Stop in reverse order: Publisher first, then Notifier, then pool
-        Publisher.stopPublisher (store ^. #publisher)
-        Notifier.stopNotifier (store ^. #notifier)
-        Pool.release (store ^. #pool)
+      -- Stop in reverse order: Publisher first, then Notifier, then pool
+      Publisher.stopPublisher (store ^. #publisher)
+      Notifier.stopNotifier (store ^. #notifier)
+      Pool.release (store ^. #pool)
 
-{- | Quote a 'Text' as a PostgreSQL identifier: wrap it in double quotes and
-double any embedded double quote. Used to set the configured schema in
-@search_path@ without risking SQL injection from a hostile schema setting.
--}
+-- | Quote a 'Text' as a PostgreSQL identifier: wrap it in double quotes and
+-- double any embedded double quote. Used to set the configured schema in
+-- @search_path@ without risking SQL injection from a hostile schema setting.
 quoteIdentifier :: Text -> Text
 quoteIdentifier ident = "\"" <> T.replace "\"" "\"\"" ident <> "\""

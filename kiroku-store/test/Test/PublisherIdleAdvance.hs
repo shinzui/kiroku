@@ -27,149 +27,149 @@ timeoutMicros = 10_000_000
 
 within :: String -> IO a -> IO a
 within label action = do
-    result <- Async.race (threadDelay timeoutMicros) action
-    case result of
-        Left () -> fail ("timed out waiting for " <> label)
-        Right a -> pure a
+  result <- Async.race (threadDelay timeoutMicros) action
+  case result of
+    Left () -> fail ("timed out waiting for " <> label)
+    Right a -> pure a
 
 countingSettings :: IORef Int -> ConnectionSettings -> ConnectionSettings
 countingSettings counter settings =
-    settings
-        & #storeSettings
-            .~ defaultStoreSettings
-                { decodeHook =
-                    Just $ \event -> do
-                        atomicModifyIORef' counter (\n -> (n + 1, ()))
-                        pure (Right event)
-                }
+  settings
+    & #storeSettings
+      .~ defaultStoreSettings
+        { decodeHook =
+            Just $ \event -> do
+              atomicModifyIORef' counter (\n -> (n + 1, ()))
+              pure (Right event)
+        }
 
 appendEvents :: KirokuStore -> Int -> String -> IO GlobalPosition
 appendEvents store n prefix = do
-    results <-
-        traverse
-            ( \i ->
-                runStoreIO store $
-                    appendToStream
-                        (StreamName (fromString (prefix <> "-" <> show i)))
-                        NoStream
-                        [makeEvent (fromString ("E" <> show i)) (Aeson.object [])]
-            )
-            [1 .. n]
-    case sequence results of
-        Left err -> fail ("append failed: " <> show err)
-        Right [] -> fail "appendEvents called with zero events"
-        Right xs -> pure (last xs ^. #globalPosition)
+  results <-
+    traverse
+      ( \i ->
+          runStoreIO store $
+            appendToStream
+              (StreamName (fromString (prefix <> "-" <> show i)))
+              NoStream
+              [makeEvent (fromString ("E" <> show i)) (Aeson.object [])]
+      )
+      [1 .. n]
+  case sequence results of
+    Left err -> fail ("append failed: " <> show err)
+    Right [] -> fail "appendEvents called with zero events"
+    Right xs -> pure (last xs ^. #globalPosition)
 
 publisherSubscriberCount :: KirokuStore -> IO Int
 publisherSubscriberCount store =
-    IntMap.size <$> readTVarIO (Pub.subscribers (store ^. #publisher))
+  IntMap.size <$> readTVarIO (Pub.subscribers (store ^. #publisher))
 
 sampleLargeObjects :: IO Integer
 sampleLargeObjects = do
-    enabled <- getRTSStatsEnabled
-    when (not enabled) (fail "publisher retention test requires RTS statistics")
-    performMajorGC
-    fromIntegral . gcdetails_large_objects_bytes . gc <$> getRTSStats
+  enabled <- getRTSStatsEnabled
+  when (not enabled) (fail "publisher retention test requires RTS statistics")
+  performMajorGC
+  fromIntegral . gcdetails_large_objects_bytes . gc <$> getRTSStats
 
 spec :: Spec
 spec = describe "publisher idle advance" $ do
-    it "does not retain append results while advancing with no queue subscribers" $ do
-        withTestStore $ \store -> do
-            let blockSize :: Int
-                blockSize = 2_000
-                blocks :: Int
-                blocks = 6
-                event = makeEvent "Retention" (Aeson.object [])
-                appendOne = do
-                    result <- runStoreIO store $ appendToStream (StreamName "pubidle-retention") AnyVersion [event]
-                    case result of
-                        Left err -> fail ("append failed: " <> show err)
-                        Right _ -> pure ()
-            samples <- forM [1 .. blocks] $ \_ -> do
-                sequence_ (replicate blockSize appendOne)
-                -- Allow the notification-driven publisher to finish its tail
-                -- query without reading (and thereby forcing) its position.
-                threadDelay 100_000
-                sampleLargeObjects
-            publisherSubscriberCount store `shouldReturn` 0
-            case samples of
-                firstSample : _ -> do
-                    let growth = last samples - firstSample
-                    when (growth >= 3 * 1024 * 1024) $
-                        expectationFailure ("large-object bytes grew by " <> show growth <> "; samples: " <> show samples)
-                [] -> expectationFailure "publisher retention test collected no heap samples"
+  it "does not retain append results while advancing with no queue subscribers" $ do
+    withTestStore $ \store -> do
+      let blockSize :: Int
+          blockSize = 2_000
+          blocks :: Int
+          blocks = 6
+          event = makeEvent "Retention" (Aeson.object [])
+          appendOne = do
+            result <- runStoreIO store $ appendToStream (StreamName "pubidle-retention") AnyVersion [event]
+            case result of
+              Left err -> fail ("append failed: " <> show err)
+              Right _ -> pure ()
+      samples <- forM [1 .. blocks] $ \_ -> do
+        sequence_ (replicate blockSize appendOne)
+        -- Allow the notification-driven publisher to finish its tail
+        -- query without reading (and thereby forcing) its position.
+        threadDelay 100_000
+        sampleLargeObjects
+      publisherSubscriberCount store `shouldReturn` 0
+      case samples of
+        firstSample : _ -> do
+          let growth = last samples - firstSample
+          when (growth >= 3 * 1024 * 1024) $
+            expectationFailure ("large-object bytes grew by " <> show growth <> "; samples: " <> show samples)
+        [] -> expectationFailure "publisher retention test collected no heap samples"
 
-    it "advances lastPublished without decoding any rows when no subscriber is registered" $ do
-        counter <- newIORef 0
-        withTestStoreSettings (countingSettings counter) $ \store -> do
-            tailPos <- appendEvents store 25 "pubidle-empty"
-            waitForPublisher store tailPos
-            readIORef counter `shouldReturn` 0
+  it "advances lastPublished without decoding any rows when no subscriber is registered" $ do
+    counter <- newIORef 0
+    withTestStoreSettings (countingSettings counter) $ \store -> do
+      tailPos <- appendEvents store 25 "pubidle-empty"
+      waitForPublisher store tailPos
+      readIORef counter `shouldReturn` 0
 
-    it "does not fetch full rows while only a category subscriber exists" $ do
-        counter <- newIORef 0
-        caughtUp <- newEmptyMVar
-        delivered <- newEmptyMVar
-        let subName = SubscriptionName "pubidle-category"
-            observe = caughtUpEventHandler subName caughtUp Nothing
-            handler event = do
-                case event ^. #eventType of
-                    EventType "Wake" -> () <$ tryPutMVar delivered ()
-                    _ -> pure ()
-                pure Continue
-            tweak settings =
-                countingSettings counter settings
-                    & #eventHandler .~ Just observe
-        withTestStoreSettings tweak $ \store ->
-            bracket
-                (subscribe store (defaultSubscriptionConfig subName (Category (CategoryName "pubidlea")) handler))
-                cancel
-                $ \_handle -> do
-                    within "category subscription live" (waitForSubscriptionLive caughtUp)
-                    countBefore <- readIORef counter
-                    tailPos <- appendEvents store 30 "pubidleb"
-                    waitForPublisher store tailPos
-                    countAfter <- readIORef counter
-                    (countAfter - countBefore) `shouldBe` 0
-                    publisherSubscriberCount store `shouldReturn` 0
+  it "does not fetch full rows while only a category subscriber exists" $ do
+    counter <- newIORef 0
+    caughtUp <- newEmptyMVar
+    delivered <- newEmptyMVar
+    let subName = SubscriptionName "pubidle-category"
+        observe = caughtUpEventHandler subName caughtUp Nothing
+        handler event = do
+          case event ^. #eventType of
+            EventType "Wake" -> () <$ tryPutMVar delivered ()
+            _ -> pure ()
+          pure Continue
+        tweak settings =
+          countingSettings counter settings
+            & #eventHandler .~ Just observe
+    withTestStoreSettings tweak $ \store ->
+      bracket
+        (subscribe store (defaultSubscriptionConfig subName (Category (CategoryName "pubidlea")) handler))
+        cancel
+        $ \_handle -> do
+          within "category subscription live" (waitForSubscriptionLive caughtUp)
+          countBefore <- readIORef counter
+          tailPos <- appendEvents store 30 "pubidleb"
+          waitForPublisher store tailPos
+          countAfter <- readIORef counter
+          (countAfter - countBefore) `shouldBe` 0
+          publisherSubscriberCount store `shouldReturn` 0
 
-                    Right wakePos <-
-                        runStoreIO store $
-                            appendToStream
-                                (StreamName "pubidlea-1")
-                                NoStream
-                                [makeEvent "Wake" (Aeson.object [])]
-                    waitForPublisher store (wakePos ^. #globalPosition)
-                    within "category wake event" (waitForSubscriptionLive delivered)
+          Right wakePos <-
+            runStoreIO store $
+              appendToStream
+                (StreamName "pubidlea-1")
+                NoStream
+                [makeEvent "Wake" (Aeson.object [])]
+          waitForPublisher store (wakePos ^. #globalPosition)
+          within "category wake event" (waitForSubscriptionLive delivered)
 
-    it "switches from cheap advance to all-stream delivery without gaps" $ do
-        counter <- newIORef 0
-        caughtUp <- newEmptyMVar
-        seenRef <- newIORef ([] :: [GlobalPosition])
-        seenEnough <- newEmptyMVar
-        let subName = SubscriptionName "pubidle-transition"
-            observe = caughtUpEventHandler subName caughtUp Nothing
-            handler event = do
-                let pos = event ^. #globalPosition
-                count <-
-                    atomicModifyIORef' seenRef $ \old ->
-                        let new = pos : old
-                         in (new, length new)
-                when (count >= 35) (() <$ tryPutMVar seenEnough ())
-                pure Continue
-            tweak settings =
-                countingSettings counter settings
-                    & #eventHandler .~ Just observe
-        withTestStoreSettings tweak $ \store -> do
-            tailBefore <- appendEvents store 20 "pubidle-before"
-            waitForPublisher store tailBefore
-            bracket
-                (subscribe store (defaultSubscriptionConfig subName AllStreams handler))
-                cancel
-                $ \_handle -> do
-                    within "all-stream subscription live" (waitForSubscriptionLive caughtUp)
-                    tailAfter <- appendEvents store 15 "pubidle-after"
-                    waitForPublisher store tailAfter
-                    within "all-stream events" (waitForSubscriptionLive seenEnough)
-                    seen <- sort <$> readIORef seenRef
-                    seen `shouldBe` fmap GlobalPosition [1 .. 35]
+  it "switches from cheap advance to all-stream delivery without gaps" $ do
+    counter <- newIORef 0
+    caughtUp <- newEmptyMVar
+    seenRef <- newIORef ([] :: [GlobalPosition])
+    seenEnough <- newEmptyMVar
+    let subName = SubscriptionName "pubidle-transition"
+        observe = caughtUpEventHandler subName caughtUp Nothing
+        handler event = do
+          let pos = event ^. #globalPosition
+          count <-
+            atomicModifyIORef' seenRef $ \old ->
+              let new = pos : old
+               in (new, length new)
+          when (count >= 35) (() <$ tryPutMVar seenEnough ())
+          pure Continue
+        tweak settings =
+          countingSettings counter settings
+            & #eventHandler .~ Just observe
+    withTestStoreSettings tweak $ \store -> do
+      tailBefore <- appendEvents store 20 "pubidle-before"
+      waitForPublisher store tailBefore
+      bracket
+        (subscribe store (defaultSubscriptionConfig subName AllStreams handler))
+        cancel
+        $ \_handle -> do
+          within "all-stream subscription live" (waitForSubscriptionLive caughtUp)
+          tailAfter <- appendEvents store 15 "pubidle-after"
+          waitForPublisher store tailAfter
+          within "all-stream events" (waitForSubscriptionLive seenEnough)
+          seen <- sort <$> readIORef seenRef
+          seen `shouldBe` fmap GlobalPosition [1 .. 35]

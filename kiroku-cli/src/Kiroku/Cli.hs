@@ -1,12 +1,13 @@
-module Kiroku.Cli (
-    KirokuCommand (..),
+module Kiroku.Cli
+  ( KirokuCommand (..),
     kirokuCommandParser,
     kirokuParserInfo,
     kirokuSubparser,
     runKirokuCommand,
     runKirokuCommandWithStore,
     renderKirokuCommandWithStore,
-) where
+  )
+where
 
 import Kiroku.Cli.Command (KirokuCommand (..))
 import Kiroku.Cli.Parser (kirokuCommandParser, kirokuParserInfo, kirokuSubparser)

@@ -1,14 +1,13 @@
-{- | Kiroku Store — high-performance PostgreSQL event store.
-
-Public API re-exports.
-
-Note: The effectful @subscribe@ wrapper from "Kiroku.Store.Subscription.Effect"
-is /not/ re-exported here to avoid a name clash with
-"Kiroku.Store.Subscription.subscribe". Import @Kiroku.Store.Subscription.Effect@
-explicitly to use the effectful version.
--}
-module Kiroku.Store (
-    module Kiroku.Store.Types,
+-- | Kiroku Store — high-performance PostgreSQL event store.
+--
+-- Public API re-exports.
+--
+-- Note: The effectful @subscribe@ wrapper from "Kiroku.Store.Subscription.Effect"
+-- is /not/ re-exported here to avoid a name clash with
+-- "Kiroku.Store.Subscription.subscribe". Import @Kiroku.Store.Subscription.Effect@
+-- explicitly to use the effectful version.
+module Kiroku.Store
+  ( module Kiroku.Store.Types,
     module Kiroku.Store.Connection,
     module Kiroku.Store.Effect,
     module Kiroku.Store.Effect.Resource,
@@ -47,7 +46,8 @@ module Kiroku.Store (
     ConnectionStatus (..),
     ConnectionReadyForUseReason (..),
     ConnectionTerminationReason (..),
-) where
+  )
+where
 
 import Hasql.Pool.Observation (ConnectionReadyForUseReason (..), ConnectionStatus (..), ConnectionTerminationReason (..), Observation (..))
 import Kiroku.Store.Append

@@ -1,13 +1,28 @@
 # Changelog
 
-## Unreleased
+## 0.7.0.0 — 2026-10-26
+
+### Breaking Changes
+
+- Require `kiroku-store ^>=0.12.0.0`. Re-exported `SubscriptionTarget` gains
+  `CategoryNamespace Text`; update exhaustive matches.
+- Require [shibuya-core](mori://shinzui/shibuya/packages/shibuya-core)
+  `>=0.12 && <0.13` across the library, tests, lifecycle fixture, and benchmarks.
+  Downstream direct `Ingested` record constructors must supply Shibuya's new
+  `deliveryStatus` field.
+
+### New Features
+
+- Support namespace targets in single and grouped configurations through the
+  underlying store worker. Namespace checkpoints may advance beyond the last
+  matching delivery; each member scans bounded global windows. Apply migration
+  0016 from kiroku-store-migrations 0.7.2.0 before starting namespace workers.
 
 ### Other Changes
 
-- Require [shibuya-core](mori://shinzui/shibuya/packages/shibuya-core)
-  `>=0.12 && <0.13` across the library, tests, lifecycle fixture, and benchmarks.
-  Initialize Shibuya's new `deliveryStatus` field to `DeliveryCurrent` for
-  ack-coupled Kiroku deliveries. The adapter API is unchanged.
+- Initialize `deliveryStatus` to `pure DeliveryCurrent` for ack-coupled Kiroku
+  deliveries. Adapter-specific function signatures and configuration fields are
+  unchanged.
 
 ## 0.6.0.1 — 2026-10-11
 

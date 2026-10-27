@@ -37,8 +37,8 @@ import Kiroku.Store.Subscription.Worker (withFetchBatchHookForTest, withSaveChec
 import Kiroku.Test.Postgres (withMigratedTestDatabase, withSharedMigratedPostgres)
 import OpenTelemetry.Attributes (toAttribute)
 import Shibuya.Adapter (Adapter (..))
-import Shibuya.Adapter.Kiroku (
-    consumerGroupPolicy,
+import Shibuya.Adapter.Kiroku
+  ( consumerGroupPolicy,
     defaultConsumerGroupConfig,
     defaultKirokuAdapterConfig,
     guardKirokuHandlerWith,
@@ -46,17 +46,17 @@ import Shibuya.Adapter.Kiroku (
     kirokuConsumerGroupProcessors,
     kirokuConsumerGroupProcessorsWith,
     kirokuProcessor,
- )
-import Shibuya.Adapter.Kiroku.Convert (
-    KirokuEnvelopeAttrs,
+  )
+import Shibuya.Adapter.Kiroku.Convert
+  ( KirokuEnvelopeAttrs,
     kirokuEnvelopeAttrs,
     toEnvelope,
     toIngestedAck,
     toKirokuDeadLetterReason,
- )
+  )
 import Shibuya.Adapter.Kiroku.Internal (acquireAllAndTransfer)
-import Shibuya.App (
-    ProcessorId (..),
+import Shibuya.App
+  ( ProcessorId (..),
     QueueProcessor (..),
     defaultAppConfig,
     getAppMetrics,
@@ -65,7 +65,7 @@ import Shibuya.App (
     stopApp,
     stopAppGracefully,
     waitApp,
- )
+  )
 import Shibuya.App qualified as Shibuya
 import Shibuya.Core.Ack (AckDecision (..), DeadLetterReason (..), HaltReason (..))
 import Shibuya.Core.Ack qualified as Ack
@@ -83,1217 +83,1212 @@ import Test.Hspec
 
 main :: IO ()
 main = withSharedMigratedPostgres $ hspec $ do
-    describe "toEnvelope" $ do
-        it "copies W3C trace metadata into Shibuya trace headers" $ do
-            let traceparent :: Text
-                traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
-                tracestate :: Text
-                tracestate = "rojo=00f067aa0ba902b7"
-                Envelope{traceContext} =
-                    toEnvelope
-                        sampleEnvelopeAttrs
-                        ( makeRecordedEvent
-                            ( Just $
-                                Aeson.object
-                                    [ "traceparent" Aeson..= traceparent
-                                    , "tracestate" Aeson..= tracestate
-                                    , "other" Aeson..= ("preserved" :: Text)
-                                    ]
-                            )
-                        )
+  describe "toEnvelope" $ do
+    it "copies W3C trace metadata into Shibuya trace headers" $ do
+      let traceparent :: Text
+          traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+          tracestate :: Text
+          tracestate = "rojo=00f067aa0ba902b7"
+          Envelope {traceContext} =
+            toEnvelope
+              sampleEnvelopeAttrs
+              ( makeRecordedEvent
+                  ( Just $
+                      Aeson.object
+                        [ "traceparent" Aeson..= traceparent,
+                          "tracestate" Aeson..= tracestate,
+                          "other" Aeson..= ("preserved" :: Text)
+                        ]
+                  )
+              )
 
-            traceContext
-                `shouldBe` Just
-                    [ ("traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
-                    , ("tracestate", "rojo=00f067aa0ba902b7")
+      traceContext
+        `shouldBe` Just
+          [ ("traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"),
+            ("tracestate", "rojo=00f067aa0ba902b7")
+          ]
+
+    it "omits trace headers when traceparent is absent or not a string" $ do
+      let Envelope {traceContext = missingTraceparent} =
+            toEnvelope sampleEnvelopeAttrs (makeRecordedEvent (Just (Aeson.object ["tracestate" Aeson..= ("state" :: Text)])))
+          Envelope {traceContext = nonStringTraceparent} =
+            toEnvelope sampleEnvelopeAttrs (makeRecordedEvent (Just (Aeson.object ["traceparent" Aeson..= Aeson.Number 1])))
+
+      missingTraceparent `shouldBe` Nothing
+      nonStringTraceparent `shouldBe` Nothing
+
+    it "does not surface broker headers (headers is Nothing), even with trace metadata" $ do
+      let Envelope {headers = noMeta} =
+            toEnvelope sampleEnvelopeAttrs (makeRecordedEvent Nothing)
+          Envelope {headers = withTraceMeta} =
+            toEnvelope
+              sampleEnvelopeAttrs
+              (makeRecordedEvent (Just (Aeson.object ["traceparent" Aeson..= ("00-abc-def-01" :: Text)])))
+
+      noMeta `shouldBe` Nothing
+      withTraceMeta `shouldBe` Nothing
+
+    it "stamps kiroku identity attributes for a non-grouped subscription (EP-5 M2)" $ do
+      let attrs = kirokuEnvelopeAttrs "orders-proj" Nothing
+          Envelope {attributes} = toEnvelope attrs (makeRecordedEvent Nothing)
+      -- makeRecordedEvent: eventType "TraceEvent", globalPosition 1.
+      HashMap.lookup "kiroku.subscription.name" attributes
+        `shouldBe` Just (toAttribute ("orders-proj" :: Text))
+      HashMap.lookup "messaging.system" attributes
+        `shouldBe` Just (toAttribute ("kiroku" :: Text))
+      HashMap.lookup "messaging.destination.name" attributes
+        `shouldBe` Just (toAttribute ("orders-proj" :: Text))
+      HashMap.lookup "kiroku.event.type" attributes
+        `shouldBe` Just (toAttribute ("TraceEvent" :: Text))
+      HashMap.lookup "kiroku.event.global_position" attributes
+        `shouldBe` Just (toAttribute (1 :: Int64))
+      -- No member key for a non-grouped subscription.
+      HashMap.lookup "kiroku.consumer_group.member" attributes `shouldBe` Nothing
+
+    it "stamps the consumer-group member attribute for a grouped subscription (EP-5 M2)" $ do
+      let attrs = kirokuEnvelopeAttrs "orders-proj" (Just 2)
+          Envelope {attributes} = toEnvelope attrs (makeRecordedEvent Nothing)
+      HashMap.lookup "kiroku.subscription.name" attributes
+        `shouldBe` Just (toAttribute ("orders-proj" :: Text))
+      HashMap.lookup "kiroku.consumer_group.member" attributes
+        `shouldBe` Just (toAttribute (2 :: Int64))
+
+  describe "toKirokuDeadLetterReason" $ do
+    it "keeps the framework reasons on their dedicated Kiroku constructors" $ do
+      toKirokuDeadLetterReason 3 (PoisonPill "bad event")
+        `shouldBe` KTypes.DeadLetterPoison "bad event"
+      toKirokuDeadLetterReason 3 (InvalidPayload "not json")
+        `shouldBe` KTypes.DeadLetterInvalid "not json"
+      toKirokuDeadLetterReason 3 MaxRetriesExceeded
+        `shouldBe` KTypes.DeadLetterMaxAttempts 3
+
+    it "maps an application failure to DeadLetterOther with a queryable code (shibuya-core 0.9)" $ do
+      code <-
+        either (E.throwIO . userError . T.unpack) pure $
+          Ack.mkDeadLetterCode "billing.card_declined"
+      let reason =
+            toKirokuDeadLetterReason 1 (Ack.ApplicationFailure code "card declined by issuer")
+
+      KTypes.deadLetterSummary reason
+        `shouldBe` "billing.card_declined: card declined by issuer"
+      KTypes.deadLetterReasonJson reason
+        `shouldBe` Aeson.object
+          [ "kind" Aeson..= ("other" :: Text),
+            "summary" Aeson..= ("billing.card_declined: card declined by issuer" :: Text),
+            "detail"
+              Aeson..= Aeson.object
+                [ "code" Aeson..= ("billing.card_declined" :: Text),
+                  "detail" Aeson..= ("card declined by issuer" :: Text)
+                ]
+          ]
+
+  describe "consumer group policy" $ do
+    it "accepts Serial member concurrency as (PartitionedInOrder, Serial)" $
+      consumerGroupPolicy Serial `shouldBe` Right (PartitionedInOrder, Serial)
+
+    it "rejects Ahead member concurrency with a PolicyError" $
+      consumerGroupPolicy (Ahead 4)
+        `shouldBe` Left (InvalidPolicyCombo "StrictInOrder requires Serial concurrency")
+
+    it "rejects Async member concurrency with a PolicyError" $
+      consumerGroupPolicy (Async 4)
+        `shouldBe` Left (InvalidPolicyCombo "StrictInOrder requires Serial concurrency")
+
+  acknowledgementSpec
+  around withTestStore $ do
+    describe "kirokuAdapter" $ do
+      it "delivers only matching event types when an eventTypeFilter is set (EP-43)" $ \store -> do
+        -- A, B, A, B, A on one stream (global positions 1..5). The adapter
+        -- is filtered to type A; the Shibuya handler must see only the As.
+        let events =
+              [ makeEvent "A" (Aeson.object []),
+                makeEvent "B" (Aeson.object []),
+                makeEvent "A" (Aeson.object []),
+                makeEvent "B" (Aeson.object []),
+                makeEvent "A" (Aeson.object [])
+              ]
+        Right _ <- runStoreIO store $ appendToStream (StreamName "etf-adapter-1") NoStream events
+        ref <- newIORef ([] :: [RecordedEvent])
+        countVar <- newTVarIO (0 :: Int)
+        runEff $ runTracingNoop $ do
+          adapter <-
+            kirokuAdapter store $
+              defaultKirokuAdapterConfig (SubscriptionName "etf-adapter") AllStreams
+                & #eventTypeFilter .~ OnlyEventTypes (Set.fromList [EventType "A"])
+          let handler ingested = do
+                liftIO $ do
+                  modifyIORef' ref (envelopePayload ingested :)
+                  atomically $ do
+                    c <- readTVar countVar
+                    writeTVar countVar (c + 1)
+                pure AckOk
+          res <- runApp defaultAppConfig [(ProcessorId "etf", mkProcessor adapter handler)]
+          case res of
+            Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+            Right appHandle -> do
+              liftIO $ waitForCount countVar 3 10_000_000
+              stopApp appHandle
+
+        collected <- readIORef ref
+        -- Only the three A events reached the handler; no Bs.
+        map (^. #eventType) collected `shouldBe` replicate 3 (EventType "A")
+        map globalPos (reverse collected) `shouldBe` [1, 3, 5]
+
+      it "delivers only matching types across a filtered consumer group (EP-43)" $ \store -> do
+        -- 20 streams in category "etfg", each [A, B]; A at odd global
+        -- positions 1,3,..,39. A size-4 group filtered to type A must
+        -- deliver exactly the 20 As, disjoint and complete.
+        let streams = [0 .. 19 :: Int]
+        mapM_
+          ( \i -> do
+              let sn = StreamName ("etfg-" <> T.pack (show i))
+              Right _ <-
+                runStoreIO store $
+                  appendToStream sn NoStream [makeEvent "A" (Aeson.object []), makeEvent "B" (Aeson.object [])]
+              pure ()
+          )
+          streams
+        ref <- newIORef ([] :: [RecordedEvent])
+        countVar <- newTVarIO (0 :: Int)
+        runEff $ runTracingNoop $ do
+          let cfg =
+                defaultConsumerGroupConfig (SubscriptionName "etfg") (Category (CategoryName "etfg")) (validGroupSize 4)
+                  & #eventTypeFilter .~ OnlyEventTypes (Set.fromList [EventType "A"])
+              handler ingested = do
+                liftIO $ do
+                  modifyIORef' ref (envelopePayload ingested :)
+                  atomically $ do
+                    c <- readTVar countVar
+                    writeTVar countVar (c + 1)
+                pure AckOk
+          res <- kirokuConsumerGroupProcessors store cfg handler
+          case res of
+            Left err -> liftIO $ expectationFailure ("kirokuConsumerGroupProcessors failed: " <> show err)
+            Right processors -> do
+              appRes <- runApp defaultAppConfig processors
+              case appRes of
+                Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                Right appHandle -> do
+                  liftIO $ waitForCount countVar 20 15_000_000
+                  stopApp appHandle
+
+        collected <- readIORef ref
+        -- Every delivered event is an A (filter honored per member)...
+        map (^. #eventType) collected `shouldBe` replicate 20 (EventType "A")
+        -- ...and the union over members is the complete, disjoint set of A
+        -- positions [1,3,..,39] — no A dropped, none delivered twice.
+        sort (map globalPos collected) `shouldBe` [1, 3 .. 39]
+
+      it "delivers only events matching an opaque selector (EP-43 follow-up)" $ \store -> do
+        -- All one type "A" (so eventTypeFilter cannot distinguish them);
+        -- only the payload tag {keep} differs. keep, skip, keep, skip, keep
+        -- at positions 1..5. The selector admits only keep=True.
+        let keepObj = Aeson.object [("keep", Aeson.Bool True)]
+            skipObj = Aeson.object [("keep", Aeson.Bool False)]
+            events =
+              [ makeEvent "A" keepObj,
+                makeEvent "A" skipObj,
+                makeEvent "A" keepObj,
+                makeEvent "A" skipObj,
+                makeEvent "A" keepObj
+              ]
+        Right _ <- runStoreIO store $ appendToStream (StreamName "sel-adapter-1") NoStream events
+        ref <- newIORef ([] :: [RecordedEvent])
+        countVar <- newTVarIO (0 :: Int)
+        runEff $ runTracingNoop $ do
+          adapter <-
+            kirokuAdapter store $
+              defaultKirokuAdapterConfig (SubscriptionName "sel-adapter") AllStreams
+                & #selector .~ Just (\e -> (e ^. #payload) == keepObj)
+          let handler ingested = do
+                liftIO $ do
+                  modifyIORef' ref (envelopePayload ingested :)
+                  atomically $ do
+                    c <- readTVar countVar
+                    writeTVar countVar (c + 1)
+                pure AckOk
+          res <- runApp defaultAppConfig [(ProcessorId "sel", mkProcessor adapter handler)]
+          case res of
+            Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+            Right appHandle -> do
+              liftIO $ waitForCount countVar 3 10_000_000
+              stopApp appHandle
+
+        collected <- readIORef ref
+        -- Only the three keep events reached the handler (positions 1,3,5);
+        -- the two skip events were filtered worker-side and never delivered.
+        map globalPos (reverse collected) `shouldBe` [1, 3, 5]
+
+      it "delivers catch-up events through Shibuya pipeline" $ \store -> do
+        let events = map (\i -> makeEvent ("CU" <> T.pack (show i)) (Aeson.object [])) [1 .. 10 :: Int]
+        Right _ <- runStoreIO store $ appendToStream (StreamName "shibuya-catchup-1") NoStream events
+        threadDelay 200_000
+
+        ref <- newIORef ([] :: [RecordedEvent])
+        countVar <- newTVarIO (0 :: Int)
+
+        runEff $ runTracingNoop $ do
+          adapter <-
+            kirokuAdapter store $
+              defaultKirokuAdapterConfig (SubscriptionName "shibuya-catchup-test") AllStreams
+
+          let handler ingested = do
+                liftIO $ do
+                  modifyIORef' ref (envelopePayload ingested :)
+                  atomically $ do
+                    c <- readTVar countVar
+                    writeTVar countVar (c + 1)
+                pure AckOk
+
+          res <- runApp defaultAppConfig [(ProcessorId "catchup", mkProcessor adapter handler)]
+          case res of
+            Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+            Right appHandle -> do
+              liftIO $ waitForCount countVar 10 10_000_000
+              stopApp appHandle
+
+        collected <- readIORef ref
+        length collected `shouldBe` 10
+
+      it "supports a future-only FromCurrentHead adapter" $ \store -> do
+        Right _ <-
+          runStoreIO store $
+            appendToStream
+              (StreamName "shibuya-future-only-events")
+              NoStream
+              (map (\i -> makeEvent ("Historical" <> T.pack (show i)) (Aeson.object [])) [1 .. 4 :: Int])
+        ref <- newIORef ([] :: [RecordedEvent])
+        countVar <- newTVarIO (0 :: Int)
+
+        runEff $ runTracingNoop $ do
+          adapter <-
+            kirokuAdapter store $
+              defaultKirokuAdapterConfig (SubscriptionName "shibuya-future-only") AllStreams
+                & #missingCheckpointPolicy .~ FromCurrentHead
+          liftIO $
+            waitForCheckpointPosition
+              store
+              (SubscriptionCheckpointKey (SubscriptionName "shibuya-future-only") 0)
+              (GlobalPosition 4)
+          liftIO $ do
+            Right _ <-
+              runStoreIO store $
+                appendToStream
+                  (StreamName "shibuya-future-only-events")
+                  StreamExists
+                  [makeEvent "Future" (Aeson.object [])]
+            pure ()
+          let handler ingested = do
+                liftIO $ do
+                  modifyIORef' ref (envelopePayload ingested :)
+                  atomically $ do
+                    count <- readTVar countVar
+                    writeTVar countVar (count + 1)
+                pure AckOk
+          result <- runApp defaultAppConfig [(ProcessorId "future-only", mkProcessor adapter handler)]
+          case result of
+            Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+            Right appHandle -> do
+              liftIO $ waitForCount countVar 1 10_000_000
+              stopApp appHandle
+
+        collected <- reverse <$> readIORef ref
+        map globalPos collected `shouldBe` [5]
+
+      it "preserves an existing checkpoint when restarted with FromCurrentHead" $ \store -> do
+        let subscriptionName = SubscriptionName "shibuya-existing-checkpoint"
+            checkpointKey = SubscriptionCheckpointKey subscriptionName 0
+            config policy =
+              defaultKirokuAdapterConfig subscriptionName AllStreams
+                & #missingCheckpointPolicy .~ policy
+        Right _ <- runStoreIO store $ appendToStream (StreamName "shibuya-existing-checkpoint-events") NoStream [makeEvent "First" (Aeson.object [])]
+        firstSeen <- newTVarIO (0 :: Int)
+
+        runEff $ runTracingNoop $ do
+          adapter <- kirokuAdapter store (config FromBeginning)
+          result <-
+            runApp
+              defaultAppConfig
+              [ ( ProcessorId "existing-checkpoint-first",
+                  mkProcessor adapter $ \_ -> do
+                    liftIO $ atomically $ writeTVar firstSeen 1
+                    pure AckOk
+                )
+              ]
+          case result of
+            Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+            Right appHandle -> do
+              liftIO $ waitForCount firstSeen 1 10_000_000
+              liftIO $ waitForCheckpointPosition store checkpointKey (GlobalPosition 1)
+              stopApp appHandle
+
+        Right _ <-
+          runStoreIO store $
+            appendToStream
+              (StreamName "shibuya-existing-checkpoint-events")
+              StreamExists
+              [makeEvent "Second" (Aeson.object [])]
+        replayed <- newIORef ([] :: [Int64])
+        within "existing checkpoint restart" $
+          runEff $
+            runTracingNoop $ do
+              adapter <- kirokuAdapter store (config FromCurrentHead)
+              result <-
+                runApp
+                  defaultAppConfig
+                  [ ( ProcessorId "existing-checkpoint-restart",
+                      mkProcessor adapter $ \ingested -> do
+                        liftIO $ modifyIORef' replayed (globalPos (envelopePayload ingested) :)
+                        pure (AckHalt (HaltFatal "existing checkpoint observed"))
+                    )
+                  ]
+              case result of
+                Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                Right appHandle -> waitApp appHandle
+
+        readIORef replayed `shouldReturn` [2]
+
+      it "surfaces FailIfMissing without leaving a subscription registered" $ \store -> do
+        let subscriptionName = SubscriptionName "shibuya-required-checkpoint"
+            checkpointKey = SubscriptionCheckpointKey subscriptionName 0
+            config =
+              defaultKirokuAdapterConfig subscriptionName AllStreams
+                & #missingCheckpointPolicy .~ FailIfMissing
+        outcome <-
+          E.try $
+            within "FailIfMissing adapter refusal" $
+              runEff $
+                runTracingNoop $ do
+                  adapter <- kirokuAdapter store config
+                  let Adapter {source = sourceStream} = adapter
+                  Stream.fold Fold.drain sourceStream
+        case outcome of
+          Left exception
+            | Just (SubscriptionCheckpointMissing actual) <- E.fromException (exception :: E.SomeException) ->
+                actual `shouldBe` checkpointKey
+          Left exception -> expectationFailure ("expected SubscriptionCheckpointMissing, got: " <> show exception)
+          Right () -> expectationFailure "expected a missing-checkpoint refusal"
+        Map.null <$> subscriptionStates store `shouldReturn` True
+
+      it "delivers live events through Shibuya pipeline" $ \store -> do
+        ref <- newIORef ([] :: [RecordedEvent])
+        countVar <- newTVarIO (0 :: Int)
+
+        runEff $ runTracingNoop $ do
+          adapter <-
+            kirokuAdapter store $
+              defaultKirokuAdapterConfig (SubscriptionName "shibuya-live-test") AllStreams
+
+          let handler ingested = do
+                liftIO $ do
+                  modifyIORef' ref (envelopePayload ingested :)
+                  atomically $ do
+                    c <- readTVar countVar
+                    writeTVar countVar (c + 1)
+                pure AckOk
+
+          res <- runApp defaultAppConfig [(ProcessorId "live", mkProcessor adapter handler)]
+          case res of
+            Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+            Right appHandle -> do
+              liftIO $ threadDelay 200_000
+              liftIO $ do
+                let events = map (\i -> makeEvent ("Live" <> T.pack (show i)) (Aeson.object [])) [1 .. 5 :: Int]
+                Right _ <- runStoreIO store $ appendToStream (StreamName "shibuya-live-1") NoStream events
+                pure ()
+              liftIO $ waitForCount countVar 5 10_000_000
+              stopApp appHandle
+
+        collected <- readIORef ref
+        length collected `shouldBe` 5
+
+      it "survives an append burst while the handler is paused" $ \store -> do
+        firstSeen <- newEmptyMVar
+        release <- newEmptyMVar
+        countVar <- newTVarIO (0 :: Int)
+        seenRef <- newIORef ([] :: [RecordedEvent])
+
+        runEff $ runTracingNoop $ do
+          adapter <-
+            kirokuAdapter store $
+              defaultKirokuAdapterConfig (SubscriptionName "burst-pause-resume") AllStreams
+                & #queueCapacity .~ 1
+
+          let handler ingested = do
+                n <- liftIO $ do
+                  modifyIORef' seenRef (envelopePayload ingested :)
+                  atomically $ do
+                    c <- readTVar countVar
+                    let c' = c + 1
+                    writeTVar countVar c'
+                    pure c'
+                if n == 1
+                  then liftIO $ putMVar firstSeen () >> takeMVar release
+                  else pure ()
+                pure AckOk
+
+          res <- runApp defaultAppConfig [(ProcessorId "burst", mkProcessor adapter handler)]
+          case res of
+            Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+            Right appHandle -> do
+              liftIO $ do
+                let appendOne i =
+                      runStoreIO store $
+                        appendToStream
+                          (StreamName ("burst-" <> T.pack (show (i :: Int))))
+                          NoStream
+                          [makeEvent ("Burst" <> T.pack (show i)) (Aeson.object [])]
+                Right _ <- appendOne 1
+                takeMVar firstSeen
+                mapM_ (\i -> appendOne i >>= (`shouldSatisfy` either (const False) (const True))) [2 .. 40 :: Int]
+                putMVar release ()
+                waitForCount countVar 40 15_000_000
+              stopApp appHandle
+
+        seen <- readIORef seenRef
+        sort (map globalPos seen) `shouldBe` [1 .. 40]
+
+      it "ends adapter.source cleanly after shutdown" $ \store -> do
+        within "adapter source clean shutdown" $
+          runEff $
+            runTracingNoop $ do
+              adapter <- kirokuAdapter store $ defaultKirokuAdapterConfig (SubscriptionName "source-clean-end") AllStreams
+              let Adapter {source = sourceStream, shutdown = shutdownAction} = adapter
+              shutdownAction
+              Stream.fold Fold.drain sourceStream
+
+      it "rethrows worker crashes through adapter.source" $ \store -> do
+        Right _ <- runStoreIO store $ appendToStream (StreamName "source-crash-1") NoStream [makeEvent "SourceCrash" (Aeson.object [])]
+        threadDelay 200_000
+        let injectBoom _ _ = E.throwIO (userError "adapter source worker boom")
+        result <-
+          withFetchBatchHookForTest injectBoom $
+            E.try $
+              within "adapter source worker crash" $
+                runEff $
+                  runTracingNoop $ do
+                    adapter <- kirokuAdapter store $ defaultKirokuAdapterConfig (SubscriptionName "source-crash") AllStreams
+                    let Adapter {source = sourceStream} = adapter
+                    Stream.fold Fold.drain sourceStream
+        case result of
+          Left (e :: E.SomeException) -> show e `shouldContain` "adapter source worker boom"
+          Right _ -> expectationFailure "expected adapter.source to rethrow the worker exception"
+
+      it "runs multiple category subscriptions concurrently" $ \store -> do
+        Right _ <- runStoreIO store $ appendToStream (StreamName "orders-s1") NoStream [makeEvent "OrderCreated" (Aeson.object [])]
+        Right _ <- runStoreIO store $ appendToStream (StreamName "orders-s2") NoStream [makeEvent "OrderShipped" (Aeson.object [])]
+        Right _ <- runStoreIO store $ appendToStream (StreamName "payments-s1") NoStream [makeEvent "PaymentReceived" (Aeson.object [])]
+        Right _ <- runStoreIO store $ appendToStream (StreamName "inventory-s1") NoStream [makeEvent "StockUpdated" (Aeson.object [])]
+        Right _ <- runStoreIO store $ appendToStream (StreamName "inventory-s2") NoStream [makeEvent "StockDepleted" (Aeson.object [])]
+        threadDelay 200_000
+
+        ordersRef <- newIORef ([] :: [RecordedEvent])
+        paymentsRef <- newIORef ([] :: [RecordedEvent])
+        inventoryRef <- newIORef ([] :: [RecordedEvent])
+        ordersCount <- newTVarIO (0 :: Int)
+        paymentsCount <- newTVarIO (0 :: Int)
+        inventoryCount <- newTVarIO (0 :: Int)
+
+        runEff $ runTracingNoop $ do
+          let mkCatAdapter nm cat =
+                kirokuAdapter store $
+                  defaultKirokuAdapterConfig (SubscriptionName nm) (Category (CategoryName cat))
+          let mkHandler ref' cVar ingested = do
+                liftIO $ do
+                  modifyIORef' ref' (envelopePayload ingested :)
+                  atomically $ do
+                    c <- readTVar cVar
+                    writeTVar cVar (c + 1)
+                pure AckOk
+
+          ordersAdapter <- mkCatAdapter "orders-proj" "orders"
+          paymentsAdapter <- mkCatAdapter "payments-proj" "payments"
+          inventoryAdapter <- mkCatAdapter "inventory-proj" "inventory"
+
+          res <-
+            runApp
+              defaultAppConfig
+              [ (ProcessorId "orders", mkProcessor ordersAdapter (mkHandler ordersRef ordersCount)),
+                (ProcessorId "payments", mkProcessor paymentsAdapter (mkHandler paymentsRef paymentsCount)),
+                (ProcessorId "inventory", mkProcessor inventoryAdapter (mkHandler inventoryRef inventoryCount))
+              ]
+          case res of
+            Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+            Right appHandle -> do
+              liftIO $ do
+                waitForCount ordersCount 2 10_000_000
+                waitForCount paymentsCount 1 10_000_000
+                waitForCount inventoryCount 2 10_000_000
+              stopApp appHandle
+
+        ordersCollected <- readIORef ordersRef
+        paymentsCollected <- readIORef paymentsRef
+        inventoryCollected <- readIORef inventoryRef
+        length ordersCollected `shouldBe` 2
+        length paymentsCollected `shouldBe` 1
+        length inventoryCollected `shouldBe` 2
+
+      it "isolates a failing subscription from healthy ones" $ \store -> do
+        Right _ <- runStoreIO store $ appendToStream (StreamName "good-s1") NoStream (map (\i -> makeEvent ("Good" <> T.pack (show i)) (Aeson.object [])) [1 .. 3 :: Int])
+        Right _ <- runStoreIO store $ appendToStream (StreamName "bad-s1") NoStream [makeEvent "Bad1" (Aeson.object []), makeEvent "Bad2" (Aeson.object [])]
+        Right _ <- runStoreIO store $ appendToStream (StreamName "other-s1") NoStream [makeEvent "Other1" (Aeson.object []), makeEvent "Other2" (Aeson.object [])]
+        threadDelay 200_000
+
+        goodRef <- newIORef ([] :: [RecordedEvent])
+        otherRef <- newIORef ([] :: [RecordedEvent])
+        goodCount <- newTVarIO (0 :: Int)
+        otherCount <- newTVarIO (0 :: Int)
+
+        runEff $ runTracingNoop $ do
+          goodAdapter <-
+            kirokuAdapter store $
+              defaultKirokuAdapterConfig (SubscriptionName "good-proj") (Category (CategoryName "good"))
+          badAdapter <-
+            kirokuAdapter store $
+              defaultKirokuAdapterConfig (SubscriptionName "bad-proj") (Category (CategoryName "bad"))
+          otherAdapter <-
+            kirokuAdapter store $
+              defaultKirokuAdapterConfig (SubscriptionName "other-proj") (Category (CategoryName "other"))
+
+          let goodHandler ingested = do
+                liftIO $ do
+                  modifyIORef' goodRef (envelopePayload ingested :)
+                  atomically $ do
+                    c <- readTVar goodCount
+                    writeTVar goodCount (c + 1)
+                pure AckOk
+
+          let badHandler _ingested = do
+                liftIO $ error "handler crash!"
+
+          let otherHandler ingested = do
+                liftIO $ do
+                  modifyIORef' otherRef (envelopePayload ingested :)
+                  atomically $ do
+                    c <- readTVar otherCount
+                    writeTVar otherCount (c + 1)
+                pure AckOk
+
+          res <-
+            runApp
+              defaultAppConfig
+              [ (ProcessorId "good", mkProcessor goodAdapter goodHandler),
+                (ProcessorId "bad", mkProcessor badAdapter badHandler),
+                (ProcessorId "other", mkProcessor otherAdapter otherHandler)
+              ]
+          case res of
+            Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+            Right appHandle -> do
+              liftIO $ do
+                waitForCount goodCount 3 10_000_000
+                waitForCount otherCount 2 10_000_000
+                threadDelay 500_000
+              metrics <- getAppMetrics appHandle
+              case Map.lookup (ProcessorId "bad") metrics of
+                Just m -> case m ^. #state of
+                  Failed _ _ -> pure ()
+                  other -> liftIO $ expectationFailure ("Expected Failed state, got: " <> show other)
+                Nothing -> liftIO $ expectationFailure "No metrics for bad processor"
+              stopApp appHandle
+
+        goodCollected <- readIORef goodRef
+        otherCollected <- readIORef otherRef
+        length goodCollected `shouldBe` 3
+        length otherCollected `shouldBe` 2
+
+      it "shuts down all subscriptions coordinately" $ \store -> do
+        Right _ <- runStoreIO store $ appendToStream (StreamName "shut-a") NoStream [makeEvent "A" (Aeson.object [])]
+        Right _ <- runStoreIO store $ appendToStream (StreamName "shut-b") NoStream [makeEvent "B" (Aeson.object [])]
+        threadDelay 200_000
+
+        countA <- newTVarIO (0 :: Int)
+        countB <- newTVarIO (0 :: Int)
+
+        runEff $ runTracingNoop $ do
+          adapterA <-
+            kirokuAdapter store $
+              defaultKirokuAdapterConfig (SubscriptionName "shut-a-proj") (Category (CategoryName "shut"))
+          adapterB <-
+            kirokuAdapter store $
+              defaultKirokuAdapterConfig (SubscriptionName "shut-b-proj") (Category (CategoryName "shut"))
+
+          let handlerA _ingested = do
+                liftIO $ atomically $ do
+                  c <- readTVar countA
+                  writeTVar countA (c + 1)
+                pure AckOk
+
+          let handlerB _ingested = do
+                liftIO $ atomically $ do
+                  c <- readTVar countB
+                  writeTVar countB (c + 1)
+                pure AckOk
+
+          res <-
+            runApp
+              defaultAppConfig
+              [ (ProcessorId "a", mkProcessor adapterA handlerA),
+                (ProcessorId "b", mkProcessor adapterB handlerB)
+              ]
+          case res of
+            Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+            Right appHandle -> do
+              liftIO $ do
+                waitForCount countA 2 10_000_000
+                waitForCount countB 2 10_000_000
+              drained <- stopAppGracefully Shibuya.defaultShutdownConfig appHandle
+              liftIO $ drained `shouldBe` True
+
+    describe "ack dispositions" $ do
+      it "keeps the first Kiroku reply when an ack is finalized twice" $ \_store -> do
+        reply <- newEmptyTMVarIO
+        cancellations <- newIORef (0 :: Int)
+        let Ingested {ack = AckHandle {finalize}} =
+              toIngestedAck
+                sampleEnvelopeAttrs
+                (modifyIORef' cancellations (+ 1))
+                (AckItem (makeRecordedEvent Nothing) 0 reply)
+
+        runEff $ do
+          finalize AckOk
+          finalize (AckDeadLetter (PoisonPill "late duplicate"))
+
+        atomically (readTMVar reply) `shouldReturn` Continue
+        readIORef cancellations `shouldReturn` 0
+
+      it "AckRetry redelivers the same event, then AckOk advances (EP-40 M3)" $ \store -> do
+        Right _ <- runStoreIO store $ appendToStream (StreamName "ackretry-1") NoStream [makeEvent "R1" (Aeson.object [])]
+        threadDelay 200_000
+
+        deliveries <- newIORef (0 :: Int)
+        countVar <- newTVarIO (0 :: Int)
+
+        runEff $ runTracingNoop $ do
+          adapter <-
+            kirokuAdapter store $
+              defaultKirokuAdapterConfig (SubscriptionName "ackretry-proj") AllStreams
+
+          let handler _ingested = do
+                n <- liftIO $ do
+                  modifyIORef' deliveries (+ 1)
+                  atomically $ do
+                    c <- readTVar countVar
+                    writeTVar countVar (c + 1)
+                    pure (c + 1)
+                -- Retry the first delivery, accept the second.
+                pure (if n == 1 then AckRetry (Ack.RetryDelay 0) else AckOk)
+
+          res <- runApp defaultAppConfig [(ProcessorId "ackretry", mkProcessor adapter handler)]
+          case res of
+            Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+            Right appHandle -> do
+              liftIO $ waitForCount countVar 2 10_000_000
+              stopApp appHandle
+
+        -- The one event was delivered twice (initial + one retry).
+        n <- readIORef deliveries
+        n `shouldBe` 2
+        -- It was not dead-lettered (the retry succeeded).
+        dls <- readDeadLetters store "ackretry-proj"
+        length dls `shouldBe` 0
+
+      it "AckHalt leaves the checkpoint behind the event and restart replays it" $ \store -> do
+        let subscriptionName = SubscriptionName "ackhalt-replay-proj"
+            checkpointKey = SubscriptionCheckpointKey subscriptionName 0
+        Right _ <- runStoreIO store $ appendToStream (StreamName "ackhalt-replay-1") NoStream [makeEvent "H1" (Aeson.object [])]
+        threadDelay 200_000
+
+        deliveries <- newIORef ([] :: [Int64])
+        let runHaltingProcessor label =
+              within label $
+                runEff $
+                  runTracingNoop $ do
+                    adapter <-
+                      kirokuAdapter store $
+                        defaultKirokuAdapterConfig subscriptionName AllStreams
+                    result <-
+                      runApp
+                        defaultAppConfig
+                        [ ( ProcessorId "ackhalt-replay",
+                            mkProcessor adapter $ \ingested -> do
+                              liftIO $ modifyIORef' deliveries (globalPos (envelopePayload ingested) :)
+                              pure (AckHalt (HaltFatal "intentional halt"))
+                          )
+                        ]
+                    case result of
+                      Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                      Right appHandle -> waitApp appHandle
+
+        runHaltingProcessor "first AckHalt"
+        readCheckpointPosition store checkpointKey `shouldReturn` Just (GlobalPosition 0)
+
+        runHaltingProcessor "AckHalt restart"
+        reverse <$> readIORef deliveries `shouldReturn` [1, 1]
+        readCheckpointPosition store checkpointKey `shouldReturn` Just (GlobalPosition 0)
+
+      it "shutdown after an ack but before checkpoint persistence replays without leaking" $ \store -> do
+        let subscriptionName = SubscriptionName "checkpoint-cancel-replay-proj"
+            checkpointKey = SubscriptionCheckpointKey subscriptionName 0
+        Right _ <- runStoreIO store $ appendToStream (StreamName "checkpoint-cancel-replay-1") NoStream [makeEvent "C1" (Aeson.object [])]
+        threadDelay 200_000
+
+        saveStarted <- newEmptyMVar
+        holdSave <- newEmptyMVar
+        firstDelivery <- newTVarIO (0 :: Int)
+        let pauseSave config _
+              | KTypes.name config == subscriptionName = putMVar saveStarted () >> takeMVar holdSave
+              | otherwise = pure ()
+
+        withSaveCheckpointHookForTest pauseSave $
+          within "shutdown during checkpoint persistence" $
+            runEff $
+              runTracingNoop $ do
+                adapter <-
+                  kirokuAdapter store $
+                    defaultKirokuAdapterConfig subscriptionName AllStreams
+                result <-
+                  runApp
+                    defaultAppConfig
+                    [ ( ProcessorId "checkpoint-cancel",
+                        mkProcessor adapter $ \_ -> do
+                          liftIO $ atomically $ do
+                            count <- readTVar firstDelivery
+                            writeTVar firstDelivery (count + 1)
+                          pure AckOk
+                      )
                     ]
+                case result of
+                  Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                  Right appHandle -> do
+                    liftIO $ waitForCount firstDelivery 1 10_000_000
+                    liftIO $ takeMVar saveStarted
+                    stopApp appHandle
 
-        it "omits trace headers when traceparent is absent or not a string" $ do
-            let Envelope{traceContext = missingTraceparent} =
-                    toEnvelope sampleEnvelopeAttrs (makeRecordedEvent (Just (Aeson.object ["tracestate" Aeson..= ("state" :: Text)])))
-                Envelope{traceContext = nonStringTraceparent} =
-                    toEnvelope sampleEnvelopeAttrs (makeRecordedEvent (Just (Aeson.object ["traceparent" Aeson..= Aeson.Number 1])))
+        readCheckpointPosition store checkpointKey `shouldReturn` Just (GlobalPosition 0)
+        Map.null <$> subscriptionStates store `shouldReturn` True
 
-            missingTraceparent `shouldBe` Nothing
-            nonStringTraceparent `shouldBe` Nothing
+        replayed <- newIORef ([] :: [Int64])
+        within "restart after interrupted checkpoint" $
+          runEff $
+            runTracingNoop $ do
+              adapter <-
+                kirokuAdapter store $
+                  defaultKirokuAdapterConfig subscriptionName AllStreams
+              result <-
+                runApp
+                  defaultAppConfig
+                  [ ( ProcessorId "checkpoint-replay",
+                      mkProcessor adapter $ \ingested -> do
+                        liftIO $ modifyIORef' replayed (globalPos (envelopePayload ingested) :)
+                        pure (AckHalt (HaltFatal "replay observed"))
+                    )
+                  ]
+              case result of
+                Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                Right appHandle -> waitApp appHandle
 
-        it "does not surface broker headers (headers is Nothing), even with trace metadata" $ do
-            let Envelope{headers = noMeta} =
-                    toEnvelope sampleEnvelopeAttrs (makeRecordedEvent Nothing)
-                Envelope{headers = withTraceMeta} =
-                    toEnvelope
-                        sampleEnvelopeAttrs
-                        (makeRecordedEvent (Just (Aeson.object ["traceparent" Aeson..= ("00-abc-def-01" :: Text)])))
+        readIORef replayed `shouldReturn` [1]
+        readCheckpointPosition store checkpointKey `shouldReturn` Just (GlobalPosition 0)
+        Map.null <$> subscriptionStates store `shouldReturn` True
 
-            noMeta `shouldBe` Nothing
-            withTraceMeta `shouldBe` Nothing
+      it "AckDeadLetter records the event and the next event continues (EP-40 M3)" $ \store -> do
+        Right _ <- runStoreIO store $ appendToStream (StreamName "ackdl-1") NoStream [makeEvent "D1" (Aeson.object [])]
+        Right _ <- runStoreIO store $ appendToStream (StreamName "ackdl-2") NoStream [makeEvent "D2" (Aeson.object [])]
+        threadDelay 200_000
 
-        it "stamps kiroku identity attributes for a non-grouped subscription (EP-5 M2)" $ do
-            let attrs = kirokuEnvelopeAttrs "orders-proj" Nothing
-                Envelope{attributes} = toEnvelope attrs (makeRecordedEvent Nothing)
-            -- makeRecordedEvent: eventType "TraceEvent", globalPosition 1.
-            HashMap.lookup "kiroku.subscription.name" attributes
-                `shouldBe` Just (toAttribute ("orders-proj" :: Text))
-            HashMap.lookup "messaging.system" attributes
-                `shouldBe` Just (toAttribute ("kiroku" :: Text))
-            HashMap.lookup "messaging.destination.name" attributes
-                `shouldBe` Just (toAttribute ("orders-proj" :: Text))
-            HashMap.lookup "kiroku.event.type" attributes
-                `shouldBe` Just (toAttribute ("TraceEvent" :: Text))
-            HashMap.lookup "kiroku.event.global_position" attributes
-                `shouldBe` Just (toAttribute (1 :: Int64))
-            -- No member key for a non-grouped subscription.
-            HashMap.lookup "kiroku.consumer_group.member" attributes `shouldBe` Nothing
+        okPayloads <- newIORef ([] :: [RecordedEvent])
+        countVar <- newTVarIO (0 :: Int)
 
-        it "stamps the consumer-group member attribute for a grouped subscription (EP-5 M2)" $ do
-            let attrs = kirokuEnvelopeAttrs "orders-proj" (Just 2)
-                Envelope{attributes} = toEnvelope attrs (makeRecordedEvent Nothing)
-            HashMap.lookup "kiroku.subscription.name" attributes
-                `shouldBe` Just (toAttribute ("orders-proj" :: Text))
-            HashMap.lookup "kiroku.consumer_group.member" attributes
-                `shouldBe` Just (toAttribute (2 :: Int64))
+        runEff $ runTracingNoop $ do
+          adapter <-
+            kirokuAdapter store $
+              defaultKirokuAdapterConfig (SubscriptionName "ackdl-proj") AllStreams
 
-    describe "toKirokuDeadLetterReason" $ do
-        it "keeps the framework reasons on their dedicated Kiroku constructors" $ do
-            toKirokuDeadLetterReason 3 (PoisonPill "bad event")
-                `shouldBe` KTypes.DeadLetterPoison "bad event"
-            toKirokuDeadLetterReason 3 (InvalidPayload "not json")
-                `shouldBe` KTypes.DeadLetterInvalid "not json"
-            toKirokuDeadLetterReason 3 MaxRetriesExceeded
-                `shouldBe` KTypes.DeadLetterMaxAttempts 3
+          let handler ingested = do
+                n <- liftIO $ atomically $ do
+                  c <- readTVar countVar
+                  writeTVar countVar (c + 1)
+                  pure (c + 1)
+                -- Dead-letter the first event; accept the second.
+                if n == 1
+                  then pure (AckDeadLetter (PoisonPill "poison"))
+                  else do
+                    liftIO $ modifyIORef' okPayloads (envelopePayload ingested :)
+                    pure AckOk
 
-        it "maps an application failure to DeadLetterOther with a queryable code (shibuya-core 0.9)" $ do
-            code <-
-                either (E.throwIO . userError . T.unpack) pure $
-                    Ack.mkDeadLetterCode "billing.card_declined"
-            let reason =
-                    toKirokuDeadLetterReason 1 (Ack.ApplicationFailure code "card declined by issuer")
+          res <- runApp defaultAppConfig [(ProcessorId "ackdl", mkProcessor adapter handler)]
+          case res of
+            Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+            Right appHandle -> do
+              liftIO $ waitForCount countVar 2 10_000_000
+              stopApp appHandle
 
-            KTypes.deadLetterSummary reason
-                `shouldBe` "billing.card_declined: card declined by issuer"
-            KTypes.deadLetterReasonJson reason
-                `shouldBe` Aeson.object
-                    [ "kind" Aeson..= ("other" :: Text)
-                    , "summary" Aeson..= ("billing.card_declined: card declined by issuer" :: Text)
-                    , "detail"
-                        Aeson..= Aeson.object
-                            [ "code" Aeson..= ("billing.card_declined" :: Text)
-                            , "detail" Aeson..= ("card declined by issuer" :: Text)
-                            ]
-                    ]
+        -- The first event (global position 1) is recorded as dead-letter.
+        dls <- readDeadLetters store "ackdl-proj"
+        map SQL.deadLetterGlobalPosition dls `shouldBe` [1]
+        -- The second event was delivered and accepted.
+        oks <- readIORef okPayloads
+        map globalPos oks `shouldBe` [2]
+
+      it "guardKirokuHandlerWith retries a transient handler exception and preserves attempts" $ \store -> do
+        Right _ <- runStoreIO store $ appendToStream (StreamName "guardretry-1") NoStream [makeEvent "GR1" (Aeson.object [])]
+        threadDelay 200_000
+
+        deliveries <- newIORef (0 :: Int)
+        attempts <- newIORef ([] :: [Maybe Attempt])
+        countVar <- newTVarIO (0 :: Int)
+
+        runEff $ runTracingNoop $ do
+          adapter <-
+            kirokuAdapter store $
+              defaultKirokuAdapterConfig (SubscriptionName "guardretry-proj") AllStreams
+
+          let throwingOnce ingested = do
+                let Message {envelope = Envelope {attempt = deliveryAttempt}} = ingested
+                n <- liftIO $ do
+                  modifyIORef' attempts (deliveryAttempt :)
+                  modifyIORef' deliveries (+ 1)
+                  atomically $ do
+                    c <- readTVar countVar
+                    let c' = c + 1
+                    writeTVar countVar c'
+                    pure c'
+                if n == 1
+                  then liftIO $ E.throwIO (userError "transient projection failure")
+                  else pure AckOk
+              handler = guardKirokuHandlerWith (const (AckRetry (Ack.RetryDelay 0))) throwingOnce
+
+          res <- runApp defaultAppConfig [(ProcessorId "guardretry", mkProcessor adapter handler)]
+          case res of
+            Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+            Right appHandle -> do
+              liftIO $ waitForCount countVar 2 10_000_000
+              stopApp appHandle
+
+        n <- readIORef deliveries
+        n `shouldBe` 2
+        reverse <$> readIORef attempts `shouldReturn` [Just (Attempt 0), Just (Attempt 1)]
+        dls <- readDeadLetters store "guardretry-proj"
+        length dls `shouldBe` 0
+
+      it "guardKirokuHandlerWith dead-letters a persistent handler exception and continues" $ \store -> do
+        Right _ <- runStoreIO store $ appendToStream (StreamName "guarddl-1") NoStream [makeEvent "GDL1" (Aeson.object [])]
+        Right _ <- runStoreIO store $ appendToStream (StreamName "guarddl-2") NoStream [makeEvent "GDL2" (Aeson.object [])]
+        threadDelay 200_000
+
+        nextSeen <- newTVarIO (0 :: Int)
+
+        runEff $ runTracingNoop $ do
+          adapter <-
+            kirokuAdapter store $
+              defaultKirokuAdapterConfig (SubscriptionName "guarddl-proj") AllStreams
+
+          let alwaysThrowFirst ingested =
+                if globalPos (envelopePayload ingested) == 1
+                  then liftIO $ E.throwIO (userError "persistent projection failure")
+                  else do
+                    liftIO $ atomically $ do
+                      c <- readTVar nextSeen
+                      writeTVar nextSeen (c + 1)
+                    pure AckOk
+              handler = guardKirokuHandlerWith (const (AckRetry (Ack.RetryDelay 0))) alwaysThrowFirst
+
+          res <- runApp defaultAppConfig [(ProcessorId "guarddl", mkProcessor adapter handler)]
+          case res of
+            Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+            Right appHandle -> do
+              liftIO $ waitForCount nextSeen 1 15_000_000
+              stopApp appHandle
+
+        dls <- readDeadLetters store "guarddl-proj"
+        map SQL.deadLetterGlobalPosition dls `shouldBe` [1]
+
+    describe "consumer groups" $ do
+      it "four-member group delivers a disjoint, complete partition of the stream" $ \store -> do
+        -- 20 streams × 2 events = 40 events, global positions 1..40, category "cg".
+        let streams = ["cg-" <> T.pack (show i) | i <- [1 .. 20 :: Int]]
+        mapM_
+          ( \sn -> do
+              let evs = [makeEvent ("EV" <> T.pack (show k)) (Aeson.object []) | k <- [1 .. 2 :: Int]]
+              Right _ <- runStoreIO store $ appendToStream (StreamName sn) NoStream evs
+              pure ()
+          )
+          streams
+        threadDelay 200_000
+
+        -- One IORef + one TVar counter per member.
+        refs <- mapM (const (newIORef ([] :: [RecordedEvent]))) [0 .. 3 :: Int]
+        cvars <- mapM (const (newTVarIO (0 :: Int))) [0 .. 3 :: Int]
+
+        runEff $ runTracingNoop $ do
+          -- Build one adapter per member index; each carries the same
+          -- subscriptionName and a distinct member of a size-4 group.
+          adapters <-
+            mapM
+              ( \m ->
+                  kirokuAdapter store $
+                    defaultKirokuAdapterConfig (SubscriptionName "cg-shibuya-group") (Category (CategoryName "cg"))
+                      & #consumerGroup .~ Just (validConsumerGroup m 4)
+              )
+              [0, 1, 2, 3]
+
+          let mkHandler ref' cvar ingested = do
+                liftIO $ do
+                  modifyIORef' ref' (envelopePayload ingested :)
+                  atomically $ do
+                    c <- readTVar cvar
+                    writeTVar cvar (c + 1)
+                pure AckOk
+
+              processors =
+                [ ( ProcessorId ("cg-member-" <> T.pack (show m)),
+                    mkProcessor (adapters !! m) (mkHandler (refs !! m) (cvars !! m))
+                  )
+                | m <- [0 .. 3 :: Int]
+                ]
+
+          res <- runApp defaultAppConfig processors
+          case res of
+            Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+            Right appHandle -> do
+              liftIO $ waitForTotal cvars 40 15_000_000
+              stopApp appHandle
+
+        collected <- mapM readIORef refs
+        -- Disjoint + complete: the union of every member's delivered global
+        -- positions is exactly [1..40] — no event dropped, none delivered twice.
+        let allPositions = sort (concatMap (map globalPos) collected)
+        allPositions `shouldBe` [1 .. 40]
+        -- No member starved: 20 streams over 4 members gives each ≥ 1 stream.
+        mapM_ (\c -> length c `shouldSatisfy` (>= 1)) collected
 
     describe "consumer group policy" $ do
-        it "accepts Serial member concurrency as (PartitionedInOrder, Serial)" $
-            consumerGroupPolicy Serial `shouldBe` Right (PartitionedInOrder, Serial)
-
-        it "rejects Ahead member concurrency with a PolicyError" $
-            consumerGroupPolicy (Ahead 4)
-                `shouldBe` Left (InvalidPolicyCombo "StrictInOrder requires Serial concurrency")
-
-        it "rejects Async member concurrency with a PolicyError" $
-            consumerGroupPolicy (Async 4)
-                `shouldBe` Left (InvalidPolicyCombo "StrictInOrder requires Serial concurrency")
-
-    acknowledgementSpec
-    around withTestStore $ do
-        describe "kirokuAdapter" $ do
-            it "delivers only matching event types when an eventTypeFilter is set (EP-43)" $ \store -> do
-                -- A, B, A, B, A on one stream (global positions 1..5). The adapter
-                -- is filtered to type A; the Shibuya handler must see only the As.
-                let events =
-                        [ makeEvent "A" (Aeson.object [])
-                        , makeEvent "B" (Aeson.object [])
-                        , makeEvent "A" (Aeson.object [])
-                        , makeEvent "B" (Aeson.object [])
-                        , makeEvent "A" (Aeson.object [])
-                        ]
-                Right _ <- runStoreIO store $ appendToStream (StreamName "etf-adapter-1") NoStream events
-                ref <- newIORef ([] :: [RecordedEvent])
-                countVar <- newTVarIO (0 :: Int)
-                runEff $ runTracingNoop $ do
-                    adapter <-
-                        kirokuAdapter store $
-                            defaultKirokuAdapterConfig (SubscriptionName "etf-adapter") AllStreams
-                                & #eventTypeFilter .~ OnlyEventTypes (Set.fromList [EventType "A"])
-                    let handler ingested = do
-                            liftIO $ do
-                                modifyIORef' ref (envelopePayload ingested :)
-                                atomically $ do
-                                    c <- readTVar countVar
-                                    writeTVar countVar (c + 1)
-                            pure AckOk
-                    res <- runApp defaultAppConfig [(ProcessorId "etf", mkProcessor adapter handler)]
-                    case res of
-                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                        Right appHandle -> do
-                            liftIO $ waitForCount countVar 3 10_000_000
-                            stopApp appHandle
-
-                collected <- readIORef ref
-                -- Only the three A events reached the handler; no Bs.
-                map (^. #eventType) collected `shouldBe` replicate 3 (EventType "A")
-                map globalPos (reverse collected) `shouldBe` [1, 3, 5]
-
-            it "delivers only matching types across a filtered consumer group (EP-43)" $ \store -> do
-                -- 20 streams in category "etfg", each [A, B]; A at odd global
-                -- positions 1,3,..,39. A size-4 group filtered to type A must
-                -- deliver exactly the 20 As, disjoint and complete.
-                let streams = [0 .. 19 :: Int]
-                mapM_
-                    ( \i -> do
-                        let sn = StreamName ("etfg-" <> T.pack (show i))
-                        Right _ <-
-                            runStoreIO store $
-                                appendToStream sn NoStream [makeEvent "A" (Aeson.object []), makeEvent "B" (Aeson.object [])]
-                        pure ()
-                    )
-                    streams
-                ref <- newIORef ([] :: [RecordedEvent])
-                countVar <- newTVarIO (0 :: Int)
-                runEff $ runTracingNoop $ do
-                    let cfg =
-                            defaultConsumerGroupConfig (SubscriptionName "etfg") (Category (CategoryName "etfg")) (validGroupSize 4)
-                                & #eventTypeFilter .~ OnlyEventTypes (Set.fromList [EventType "A"])
-                        handler ingested = do
-                            liftIO $ do
-                                modifyIORef' ref (envelopePayload ingested :)
-                                atomically $ do
-                                    c <- readTVar countVar
-                                    writeTVar countVar (c + 1)
-                            pure AckOk
-                    res <- kirokuConsumerGroupProcessors store cfg handler
-                    case res of
-                        Left err -> liftIO $ expectationFailure ("kirokuConsumerGroupProcessors failed: " <> show err)
-                        Right processors -> do
-                            appRes <- runApp defaultAppConfig processors
-                            case appRes of
-                                Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                                Right appHandle -> do
-                                    liftIO $ waitForCount countVar 20 15_000_000
-                                    stopApp appHandle
-
-                collected <- readIORef ref
-                -- Every delivered event is an A (filter honored per member)...
-                map (^. #eventType) collected `shouldBe` replicate 20 (EventType "A")
-                -- ...and the union over members is the complete, disjoint set of A
-                -- positions [1,3,..,39] — no A dropped, none delivered twice.
-                sort (map globalPos collected) `shouldBe` [1, 3 .. 39]
-
-            it "delivers only events matching an opaque selector (EP-43 follow-up)" $ \store -> do
-                -- All one type "A" (so eventTypeFilter cannot distinguish them);
-                -- only the payload tag {keep} differs. keep, skip, keep, skip, keep
-                -- at positions 1..5. The selector admits only keep=True.
-                let keepObj = Aeson.object [("keep", Aeson.Bool True)]
-                    skipObj = Aeson.object [("keep", Aeson.Bool False)]
-                    events =
-                        [ makeEvent "A" keepObj
-                        , makeEvent "A" skipObj
-                        , makeEvent "A" keepObj
-                        , makeEvent "A" skipObj
-                        , makeEvent "A" keepObj
-                        ]
-                Right _ <- runStoreIO store $ appendToStream (StreamName "sel-adapter-1") NoStream events
-                ref <- newIORef ([] :: [RecordedEvent])
-                countVar <- newTVarIO (0 :: Int)
-                runEff $ runTracingNoop $ do
-                    adapter <-
-                        kirokuAdapter store $
-                            defaultKirokuAdapterConfig (SubscriptionName "sel-adapter") AllStreams
-                                & #selector .~ Just (\e -> (e ^. #payload) == keepObj)
-                    let handler ingested = do
-                            liftIO $ do
-                                modifyIORef' ref (envelopePayload ingested :)
-                                atomically $ do
-                                    c <- readTVar countVar
-                                    writeTVar countVar (c + 1)
-                            pure AckOk
-                    res <- runApp defaultAppConfig [(ProcessorId "sel", mkProcessor adapter handler)]
-                    case res of
-                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                        Right appHandle -> do
-                            liftIO $ waitForCount countVar 3 10_000_000
-                            stopApp appHandle
-
-                collected <- readIORef ref
-                -- Only the three keep events reached the handler (positions 1,3,5);
-                -- the two skip events were filtered worker-side and never delivered.
-                map globalPos (reverse collected) `shouldBe` [1, 3, 5]
-
-            it "delivers catch-up events through Shibuya pipeline" $ \store -> do
-                let events = map (\i -> makeEvent ("CU" <> T.pack (show i)) (Aeson.object [])) [1 .. 10 :: Int]
-                Right _ <- runStoreIO store $ appendToStream (StreamName "shibuya-catchup-1") NoStream events
-                threadDelay 200_000
-
-                ref <- newIORef ([] :: [RecordedEvent])
-                countVar <- newTVarIO (0 :: Int)
-
-                runEff $ runTracingNoop $ do
-                    adapter <-
-                        kirokuAdapter store $
-                            defaultKirokuAdapterConfig (SubscriptionName "shibuya-catchup-test") AllStreams
-
-                    let handler ingested = do
-                            liftIO $ do
-                                modifyIORef' ref (envelopePayload ingested :)
-                                atomically $ do
-                                    c <- readTVar countVar
-                                    writeTVar countVar (c + 1)
-                            pure AckOk
-
-                    res <- runApp defaultAppConfig [(ProcessorId "catchup", mkProcessor adapter handler)]
-                    case res of
-                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                        Right appHandle -> do
-                            liftIO $ waitForCount countVar 10 10_000_000
-                            stopApp appHandle
-
-                collected <- readIORef ref
-                length collected `shouldBe` 10
-
-            it "supports a future-only FromCurrentHead adapter" $ \store -> do
-                Right _ <-
-                    runStoreIO store $
-                        appendToStream
-                            (StreamName "shibuya-future-only-events")
-                            NoStream
-                            (map (\i -> makeEvent ("Historical" <> T.pack (show i)) (Aeson.object [])) [1 .. 4 :: Int])
-                ref <- newIORef ([] :: [RecordedEvent])
-                countVar <- newTVarIO (0 :: Int)
-
-                runEff $ runTracingNoop $ do
-                    adapter <-
-                        kirokuAdapter store $
-                            defaultKirokuAdapterConfig (SubscriptionName "shibuya-future-only") AllStreams
-                                & #missingCheckpointPolicy .~ FromCurrentHead
-                    liftIO $
-                        waitForCheckpointPosition
-                            store
-                            (SubscriptionCheckpointKey (SubscriptionName "shibuya-future-only") 0)
-                            (GlobalPosition 4)
-                    liftIO $ do
-                        Right _ <-
-                            runStoreIO store $
-                                appendToStream
-                                    (StreamName "shibuya-future-only-events")
-                                    StreamExists
-                                    [makeEvent "Future" (Aeson.object [])]
-                        pure ()
-                    let handler ingested = do
-                            liftIO $ do
-                                modifyIORef' ref (envelopePayload ingested :)
-                                atomically $ do
-                                    count <- readTVar countVar
-                                    writeTVar countVar (count + 1)
-                            pure AckOk
-                    result <- runApp defaultAppConfig [(ProcessorId "future-only", mkProcessor adapter handler)]
-                    case result of
-                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                        Right appHandle -> do
-                            liftIO $ waitForCount countVar 1 10_000_000
-                            stopApp appHandle
-
-                collected <- reverse <$> readIORef ref
-                map globalPos collected `shouldBe` [5]
-
-            it "preserves an existing checkpoint when restarted with FromCurrentHead" $ \store -> do
-                let subscriptionName = SubscriptionName "shibuya-existing-checkpoint"
-                    checkpointKey = SubscriptionCheckpointKey subscriptionName 0
-                    config policy =
-                        defaultKirokuAdapterConfig subscriptionName AllStreams
-                            & #missingCheckpointPolicy .~ policy
-                Right _ <- runStoreIO store $ appendToStream (StreamName "shibuya-existing-checkpoint-events") NoStream [makeEvent "First" (Aeson.object [])]
-                firstSeen <- newTVarIO (0 :: Int)
-
-                runEff $ runTracingNoop $ do
-                    adapter <- kirokuAdapter store (config FromBeginning)
-                    result <-
-                        runApp
-                            defaultAppConfig
-                            [
-                                ( ProcessorId "existing-checkpoint-first"
-                                , mkProcessor adapter $ \_ -> do
-                                    liftIO $ atomically $ writeTVar firstSeen 1
-                                    pure AckOk
-                                )
-                            ]
-                    case result of
-                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                        Right appHandle -> do
-                            liftIO $ waitForCount firstSeen 1 10_000_000
-                            liftIO $ waitForCheckpointPosition store checkpointKey (GlobalPosition 1)
-                            stopApp appHandle
-
-                Right _ <-
-                    runStoreIO store $
-                        appendToStream
-                            (StreamName "shibuya-existing-checkpoint-events")
-                            StreamExists
-                            [makeEvent "Second" (Aeson.object [])]
-                replayed <- newIORef ([] :: [Int64])
-                within "existing checkpoint restart" $
-                    runEff $
-                        runTracingNoop $ do
-                            adapter <- kirokuAdapter store (config FromCurrentHead)
-                            result <-
-                                runApp
-                                    defaultAppConfig
-                                    [
-                                        ( ProcessorId "existing-checkpoint-restart"
-                                        , mkProcessor adapter $ \ingested -> do
-                                            liftIO $ modifyIORef' replayed (globalPos (envelopePayload ingested) :)
-                                            pure (AckHalt (HaltFatal "existing checkpoint observed"))
-                                        )
-                                    ]
-                            case result of
-                                Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                                Right appHandle -> waitApp appHandle
-
-                readIORef replayed `shouldReturn` [2]
-
-            it "surfaces FailIfMissing without leaving a subscription registered" $ \store -> do
-                let subscriptionName = SubscriptionName "shibuya-required-checkpoint"
-                    checkpointKey = SubscriptionCheckpointKey subscriptionName 0
-                    config =
-                        defaultKirokuAdapterConfig subscriptionName AllStreams
-                            & #missingCheckpointPolicy .~ FailIfMissing
-                outcome <-
-                    E.try $
-                        within "FailIfMissing adapter refusal" $
-                            runEff $
-                                runTracingNoop $ do
-                                    adapter <- kirokuAdapter store config
-                                    let Adapter{source = sourceStream} = adapter
-                                    Stream.fold Fold.drain sourceStream
-                case outcome of
-                    Left exception
-                        | Just (SubscriptionCheckpointMissing actual) <- E.fromException (exception :: E.SomeException) ->
-                            actual `shouldBe` checkpointKey
-                    Left exception -> expectationFailure ("expected SubscriptionCheckpointMissing, got: " <> show exception)
-                    Right () -> expectationFailure "expected a missing-checkpoint refusal"
-                Map.null <$> subscriptionStates store `shouldReturn` True
-
-            it "delivers live events through Shibuya pipeline" $ \store -> do
-                ref <- newIORef ([] :: [RecordedEvent])
-                countVar <- newTVarIO (0 :: Int)
-
-                runEff $ runTracingNoop $ do
-                    adapter <-
-                        kirokuAdapter store $
-                            defaultKirokuAdapterConfig (SubscriptionName "shibuya-live-test") AllStreams
-
-                    let handler ingested = do
-                            liftIO $ do
-                                modifyIORef' ref (envelopePayload ingested :)
-                                atomically $ do
-                                    c <- readTVar countVar
-                                    writeTVar countVar (c + 1)
-                            pure AckOk
-
-                    res <- runApp defaultAppConfig [(ProcessorId "live", mkProcessor adapter handler)]
-                    case res of
-                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                        Right appHandle -> do
-                            liftIO $ threadDelay 200_000
-                            liftIO $ do
-                                let events = map (\i -> makeEvent ("Live" <> T.pack (show i)) (Aeson.object [])) [1 .. 5 :: Int]
-                                Right _ <- runStoreIO store $ appendToStream (StreamName "shibuya-live-1") NoStream events
-                                pure ()
-                            liftIO $ waitForCount countVar 5 10_000_000
-                            stopApp appHandle
-
-                collected <- readIORef ref
-                length collected `shouldBe` 5
-
-            it "survives an append burst while the handler is paused" $ \store -> do
-                firstSeen <- newEmptyMVar
-                release <- newEmptyMVar
-                countVar <- newTVarIO (0 :: Int)
-                seenRef <- newIORef ([] :: [RecordedEvent])
-
-                runEff $ runTracingNoop $ do
-                    adapter <-
-                        kirokuAdapter store $
-                            defaultKirokuAdapterConfig (SubscriptionName "burst-pause-resume") AllStreams
-                                & #queueCapacity .~ 1
-
-                    let handler ingested = do
-                            n <- liftIO $ do
-                                modifyIORef' seenRef (envelopePayload ingested :)
-                                atomically $ do
-                                    c <- readTVar countVar
-                                    let c' = c + 1
-                                    writeTVar countVar c'
-                                    pure c'
-                            if n == 1
-                                then liftIO $ putMVar firstSeen () >> takeMVar release
-                                else pure ()
-                            pure AckOk
-
-                    res <- runApp defaultAppConfig [(ProcessorId "burst", mkProcessor adapter handler)]
-                    case res of
-                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                        Right appHandle -> do
-                            liftIO $ do
-                                let appendOne i =
-                                        runStoreIO store $
-                                            appendToStream
-                                                (StreamName ("burst-" <> T.pack (show (i :: Int))))
-                                                NoStream
-                                                [makeEvent ("Burst" <> T.pack (show i)) (Aeson.object [])]
-                                Right _ <- appendOne 1
-                                takeMVar firstSeen
-                                mapM_ (\i -> appendOne i >>= (`shouldSatisfy` either (const False) (const True))) [2 .. 40 :: Int]
-                                putMVar release ()
-                                waitForCount countVar 40 15_000_000
-                            stopApp appHandle
-
-                seen <- readIORef seenRef
-                sort (map globalPos seen) `shouldBe` [1 .. 40]
-
-            it "ends adapter.source cleanly after shutdown" $ \store -> do
-                within "adapter source clean shutdown" $
-                    runEff $
-                        runTracingNoop $ do
-                            adapter <- kirokuAdapter store $ defaultKirokuAdapterConfig (SubscriptionName "source-clean-end") AllStreams
-                            let Adapter{source = sourceStream, shutdown = shutdownAction} = adapter
-                            shutdownAction
-                            Stream.fold Fold.drain sourceStream
-
-            it "rethrows worker crashes through adapter.source" $ \store -> do
-                Right _ <- runStoreIO store $ appendToStream (StreamName "source-crash-1") NoStream [makeEvent "SourceCrash" (Aeson.object [])]
-                threadDelay 200_000
-                let injectBoom _ _ = E.throwIO (userError "adapter source worker boom")
-                result <-
-                    withFetchBatchHookForTest injectBoom $
-                        E.try $
-                            within "adapter source worker crash" $
-                                runEff $
-                                    runTracingNoop $ do
-                                        adapter <- kirokuAdapter store $ defaultKirokuAdapterConfig (SubscriptionName "source-crash") AllStreams
-                                        let Adapter{source = sourceStream} = adapter
-                                        Stream.fold Fold.drain sourceStream
-                case result of
-                    Left (e :: E.SomeException) -> show e `shouldContain` "adapter source worker boom"
-                    Right _ -> expectationFailure "expected adapter.source to rethrow the worker exception"
-
-            it "runs multiple category subscriptions concurrently" $ \store -> do
-                Right _ <- runStoreIO store $ appendToStream (StreamName "orders-s1") NoStream [makeEvent "OrderCreated" (Aeson.object [])]
-                Right _ <- runStoreIO store $ appendToStream (StreamName "orders-s2") NoStream [makeEvent "OrderShipped" (Aeson.object [])]
-                Right _ <- runStoreIO store $ appendToStream (StreamName "payments-s1") NoStream [makeEvent "PaymentReceived" (Aeson.object [])]
-                Right _ <- runStoreIO store $ appendToStream (StreamName "inventory-s1") NoStream [makeEvent "StockUpdated" (Aeson.object [])]
-                Right _ <- runStoreIO store $ appendToStream (StreamName "inventory-s2") NoStream [makeEvent "StockDepleted" (Aeson.object [])]
-                threadDelay 200_000
-
-                ordersRef <- newIORef ([] :: [RecordedEvent])
-                paymentsRef <- newIORef ([] :: [RecordedEvent])
-                inventoryRef <- newIORef ([] :: [RecordedEvent])
-                ordersCount <- newTVarIO (0 :: Int)
-                paymentsCount <- newTVarIO (0 :: Int)
-                inventoryCount <- newTVarIO (0 :: Int)
-
-                runEff $ runTracingNoop $ do
-                    let mkCatAdapter nm cat =
-                            kirokuAdapter store $
-                                defaultKirokuAdapterConfig (SubscriptionName nm) (Category (CategoryName cat))
-                    let mkHandler ref' cVar ingested = do
-                            liftIO $ do
-                                modifyIORef' ref' (envelopePayload ingested :)
-                                atomically $ do
-                                    c <- readTVar cVar
-                                    writeTVar cVar (c + 1)
-                            pure AckOk
-
-                    ordersAdapter <- mkCatAdapter "orders-proj" "orders"
-                    paymentsAdapter <- mkCatAdapter "payments-proj" "payments"
-                    inventoryAdapter <- mkCatAdapter "inventory-proj" "inventory"
-
-                    res <-
-                        runApp
-                            defaultAppConfig
-                            [ (ProcessorId "orders", mkProcessor ordersAdapter (mkHandler ordersRef ordersCount))
-                            , (ProcessorId "payments", mkProcessor paymentsAdapter (mkHandler paymentsRef paymentsCount))
-                            , (ProcessorId "inventory", mkProcessor inventoryAdapter (mkHandler inventoryRef inventoryCount))
-                            ]
-                    case res of
-                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                        Right appHandle -> do
-                            liftIO $ do
-                                waitForCount ordersCount 2 10_000_000
-                                waitForCount paymentsCount 1 10_000_000
-                                waitForCount inventoryCount 2 10_000_000
-                            stopApp appHandle
-
-                ordersCollected <- readIORef ordersRef
-                paymentsCollected <- readIORef paymentsRef
-                inventoryCollected <- readIORef inventoryRef
-                length ordersCollected `shouldBe` 2
-                length paymentsCollected `shouldBe` 1
-                length inventoryCollected `shouldBe` 2
-
-            it "isolates a failing subscription from healthy ones" $ \store -> do
-                Right _ <- runStoreIO store $ appendToStream (StreamName "good-s1") NoStream (map (\i -> makeEvent ("Good" <> T.pack (show i)) (Aeson.object [])) [1 .. 3 :: Int])
-                Right _ <- runStoreIO store $ appendToStream (StreamName "bad-s1") NoStream [makeEvent "Bad1" (Aeson.object []), makeEvent "Bad2" (Aeson.object [])]
-                Right _ <- runStoreIO store $ appendToStream (StreamName "other-s1") NoStream [makeEvent "Other1" (Aeson.object []), makeEvent "Other2" (Aeson.object [])]
-                threadDelay 200_000
-
-                goodRef <- newIORef ([] :: [RecordedEvent])
-                otherRef <- newIORef ([] :: [RecordedEvent])
-                goodCount <- newTVarIO (0 :: Int)
-                otherCount <- newTVarIO (0 :: Int)
-
-                runEff $ runTracingNoop $ do
-                    goodAdapter <-
-                        kirokuAdapter store $
-                            defaultKirokuAdapterConfig (SubscriptionName "good-proj") (Category (CategoryName "good"))
-                    badAdapter <-
-                        kirokuAdapter store $
-                            defaultKirokuAdapterConfig (SubscriptionName "bad-proj") (Category (CategoryName "bad"))
-                    otherAdapter <-
-                        kirokuAdapter store $
-                            defaultKirokuAdapterConfig (SubscriptionName "other-proj") (Category (CategoryName "other"))
-
-                    let goodHandler ingested = do
-                            liftIO $ do
-                                modifyIORef' goodRef (envelopePayload ingested :)
-                                atomically $ do
-                                    c <- readTVar goodCount
-                                    writeTVar goodCount (c + 1)
-                            pure AckOk
-
-                    let badHandler _ingested = do
-                            liftIO $ error "handler crash!"
-
-                    let otherHandler ingested = do
-                            liftIO $ do
-                                modifyIORef' otherRef (envelopePayload ingested :)
-                                atomically $ do
-                                    c <- readTVar otherCount
-                                    writeTVar otherCount (c + 1)
-                            pure AckOk
-
-                    res <-
-                        runApp
-                            defaultAppConfig
-                            [ (ProcessorId "good", mkProcessor goodAdapter goodHandler)
-                            , (ProcessorId "bad", mkProcessor badAdapter badHandler)
-                            , (ProcessorId "other", mkProcessor otherAdapter otherHandler)
-                            ]
-                    case res of
-                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                        Right appHandle -> do
-                            liftIO $ do
-                                waitForCount goodCount 3 10_000_000
-                                waitForCount otherCount 2 10_000_000
-                                threadDelay 500_000
-                            metrics <- getAppMetrics appHandle
-                            case Map.lookup (ProcessorId "bad") metrics of
-                                Just m -> case m ^. #state of
-                                    Failed _ _ -> pure ()
-                                    other -> liftIO $ expectationFailure ("Expected Failed state, got: " <> show other)
-                                Nothing -> liftIO $ expectationFailure "No metrics for bad processor"
-                            stopApp appHandle
-
-                goodCollected <- readIORef goodRef
-                otherCollected <- readIORef otherRef
-                length goodCollected `shouldBe` 3
-                length otherCollected `shouldBe` 2
-
-            it "shuts down all subscriptions coordinately" $ \store -> do
-                Right _ <- runStoreIO store $ appendToStream (StreamName "shut-a") NoStream [makeEvent "A" (Aeson.object [])]
-                Right _ <- runStoreIO store $ appendToStream (StreamName "shut-b") NoStream [makeEvent "B" (Aeson.object [])]
-                threadDelay 200_000
-
-                countA <- newTVarIO (0 :: Int)
-                countB <- newTVarIO (0 :: Int)
-
-                runEff $ runTracingNoop $ do
-                    adapterA <-
-                        kirokuAdapter store $
-                            defaultKirokuAdapterConfig (SubscriptionName "shut-a-proj") (Category (CategoryName "shut"))
-                    adapterB <-
-                        kirokuAdapter store $
-                            defaultKirokuAdapterConfig (SubscriptionName "shut-b-proj") (Category (CategoryName "shut"))
-
-                    let handlerA _ingested = do
-                            liftIO $ atomically $ do
-                                c <- readTVar countA
-                                writeTVar countA (c + 1)
-                            pure AckOk
-
-                    let handlerB _ingested = do
-                            liftIO $ atomically $ do
-                                c <- readTVar countB
-                                writeTVar countB (c + 1)
-                            pure AckOk
-
-                    res <-
-                        runApp
-                            defaultAppConfig
-                            [ (ProcessorId "a", mkProcessor adapterA handlerA)
-                            , (ProcessorId "b", mkProcessor adapterB handlerB)
-                            ]
-                    case res of
-                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                        Right appHandle -> do
-                            liftIO $ do
-                                waitForCount countA 2 10_000_000
-                                waitForCount countB 2 10_000_000
-                            drained <- stopAppGracefully Shibuya.defaultShutdownConfig appHandle
-                            liftIO $ drained `shouldBe` True
-
-        describe "ack dispositions" $ do
-            it "keeps the first Kiroku reply when an ack is finalized twice" $ \_store -> do
-                reply <- newEmptyTMVarIO
-                cancellations <- newIORef (0 :: Int)
-                let Ingested{ack = AckHandle{finalize}} =
-                        toIngestedAck
-                            sampleEnvelopeAttrs
-                            (modifyIORef' cancellations (+ 1))
-                            (AckItem (makeRecordedEvent Nothing) 0 reply)
-
-                runEff $ do
-                    finalize AckOk
-                    finalize (AckDeadLetter (PoisonPill "late duplicate"))
-
-                atomically (readTMVar reply) `shouldReturn` Continue
-                readIORef cancellations `shouldReturn` 0
-
-            it "AckRetry redelivers the same event, then AckOk advances (EP-40 M3)" $ \store -> do
-                Right _ <- runStoreIO store $ appendToStream (StreamName "ackretry-1") NoStream [makeEvent "R1" (Aeson.object [])]
-                threadDelay 200_000
-
-                deliveries <- newIORef (0 :: Int)
-                countVar <- newTVarIO (0 :: Int)
-
-                runEff $ runTracingNoop $ do
-                    adapter <-
-                        kirokuAdapter store $
-                            defaultKirokuAdapterConfig (SubscriptionName "ackretry-proj") AllStreams
-
-                    let handler _ingested = do
-                            n <- liftIO $ do
-                                modifyIORef' deliveries (+ 1)
-                                atomically $ do
-                                    c <- readTVar countVar
-                                    writeTVar countVar (c + 1)
-                                    pure (c + 1)
-                            -- Retry the first delivery, accept the second.
-                            pure (if n == 1 then AckRetry (Ack.RetryDelay 0) else AckOk)
-
-                    res <- runApp defaultAppConfig [(ProcessorId "ackretry", mkProcessor adapter handler)]
-                    case res of
-                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                        Right appHandle -> do
-                            liftIO $ waitForCount countVar 2 10_000_000
-                            stopApp appHandle
-
-                -- The one event was delivered twice (initial + one retry).
-                n <- readIORef deliveries
-                n `shouldBe` 2
-                -- It was not dead-lettered (the retry succeeded).
-                dls <- readDeadLetters store "ackretry-proj"
-                length dls `shouldBe` 0
-
-            it "AckHalt leaves the checkpoint behind the event and restart replays it" $ \store -> do
-                let subscriptionName = SubscriptionName "ackhalt-replay-proj"
-                    checkpointKey = SubscriptionCheckpointKey subscriptionName 0
-                Right _ <- runStoreIO store $ appendToStream (StreamName "ackhalt-replay-1") NoStream [makeEvent "H1" (Aeson.object [])]
-                threadDelay 200_000
-
-                deliveries <- newIORef ([] :: [Int64])
-                let runHaltingProcessor label =
-                        within label $
-                            runEff $
-                                runTracingNoop $ do
-                                    adapter <-
-                                        kirokuAdapter store $
-                                            defaultKirokuAdapterConfig subscriptionName AllStreams
-                                    result <-
-                                        runApp
-                                            defaultAppConfig
-                                            [
-                                                ( ProcessorId "ackhalt-replay"
-                                                , mkProcessor adapter $ \ingested -> do
-                                                    liftIO $ modifyIORef' deliveries (globalPos (envelopePayload ingested) :)
-                                                    pure (AckHalt (HaltFatal "intentional halt"))
-                                                )
-                                            ]
-                                    case result of
-                                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                                        Right appHandle -> waitApp appHandle
-
-                runHaltingProcessor "first AckHalt"
-                readCheckpointPosition store checkpointKey `shouldReturn` Just (GlobalPosition 0)
-
-                runHaltingProcessor "AckHalt restart"
-                reverse <$> readIORef deliveries `shouldReturn` [1, 1]
-                readCheckpointPosition store checkpointKey `shouldReturn` Just (GlobalPosition 0)
-
-            it "shutdown after an ack but before checkpoint persistence replays without leaking" $ \store -> do
-                let subscriptionName = SubscriptionName "checkpoint-cancel-replay-proj"
-                    checkpointKey = SubscriptionCheckpointKey subscriptionName 0
-                Right _ <- runStoreIO store $ appendToStream (StreamName "checkpoint-cancel-replay-1") NoStream [makeEvent "C1" (Aeson.object [])]
-                threadDelay 200_000
-
-                saveStarted <- newEmptyMVar
-                holdSave <- newEmptyMVar
-                firstDelivery <- newTVarIO (0 :: Int)
-                let pauseSave config _
-                        | KTypes.name config == subscriptionName = putMVar saveStarted () >> takeMVar holdSave
-                        | otherwise = pure ()
-
-                withSaveCheckpointHookForTest pauseSave $
-                    within "shutdown during checkpoint persistence" $
-                        runEff $
-                            runTracingNoop $ do
-                                adapter <-
-                                    kirokuAdapter store $
-                                        defaultKirokuAdapterConfig subscriptionName AllStreams
-                                result <-
-                                    runApp
-                                        defaultAppConfig
-                                        [
-                                            ( ProcessorId "checkpoint-cancel"
-                                            , mkProcessor adapter $ \_ -> do
-                                                liftIO $ atomically $ do
-                                                    count <- readTVar firstDelivery
-                                                    writeTVar firstDelivery (count + 1)
-                                                pure AckOk
-                                            )
-                                        ]
-                                case result of
-                                    Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                                    Right appHandle -> do
-                                        liftIO $ waitForCount firstDelivery 1 10_000_000
-                                        liftIO $ takeMVar saveStarted
-                                        stopApp appHandle
-
-                readCheckpointPosition store checkpointKey `shouldReturn` Just (GlobalPosition 0)
-                Map.null <$> subscriptionStates store `shouldReturn` True
-
-                replayed <- newIORef ([] :: [Int64])
-                within "restart after interrupted checkpoint" $
-                    runEff $
-                        runTracingNoop $ do
-                            adapter <-
-                                kirokuAdapter store $
-                                    defaultKirokuAdapterConfig subscriptionName AllStreams
-                            result <-
-                                runApp
-                                    defaultAppConfig
-                                    [
-                                        ( ProcessorId "checkpoint-replay"
-                                        , mkProcessor adapter $ \ingested -> do
-                                            liftIO $ modifyIORef' replayed (globalPos (envelopePayload ingested) :)
-                                            pure (AckHalt (HaltFatal "replay observed"))
-                                        )
-                                    ]
-                            case result of
-                                Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                                Right appHandle -> waitApp appHandle
-
-                readIORef replayed `shouldReturn` [1]
-                readCheckpointPosition store checkpointKey `shouldReturn` Just (GlobalPosition 0)
-                Map.null <$> subscriptionStates store `shouldReturn` True
-
-            it "AckDeadLetter records the event and the next event continues (EP-40 M3)" $ \store -> do
-                Right _ <- runStoreIO store $ appendToStream (StreamName "ackdl-1") NoStream [makeEvent "D1" (Aeson.object [])]
-                Right _ <- runStoreIO store $ appendToStream (StreamName "ackdl-2") NoStream [makeEvent "D2" (Aeson.object [])]
-                threadDelay 200_000
-
-                okPayloads <- newIORef ([] :: [RecordedEvent])
-                countVar <- newTVarIO (0 :: Int)
-
-                runEff $ runTracingNoop $ do
-                    adapter <-
-                        kirokuAdapter store $
-                            defaultKirokuAdapterConfig (SubscriptionName "ackdl-proj") AllStreams
-
-                    let handler ingested = do
-                            n <- liftIO $ atomically $ do
-                                c <- readTVar countVar
-                                writeTVar countVar (c + 1)
-                                pure (c + 1)
-                            -- Dead-letter the first event; accept the second.
-                            if n == 1
-                                then pure (AckDeadLetter (PoisonPill "poison"))
-                                else do
-                                    liftIO $ modifyIORef' okPayloads (envelopePayload ingested :)
-                                    pure AckOk
-
-                    res <- runApp defaultAppConfig [(ProcessorId "ackdl", mkProcessor adapter handler)]
-                    case res of
-                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                        Right appHandle -> do
-                            liftIO $ waitForCount countVar 2 10_000_000
-                            stopApp appHandle
-
-                -- The first event (global position 1) is recorded as dead-letter.
-                dls <- readDeadLetters store "ackdl-proj"
-                map SQL.deadLetterGlobalPosition dls `shouldBe` [1]
-                -- The second event was delivered and accepted.
-                oks <- readIORef okPayloads
-                map globalPos oks `shouldBe` [2]
-
-            it "guardKirokuHandlerWith retries a transient handler exception and preserves attempts" $ \store -> do
-                Right _ <- runStoreIO store $ appendToStream (StreamName "guardretry-1") NoStream [makeEvent "GR1" (Aeson.object [])]
-                threadDelay 200_000
-
-                deliveries <- newIORef (0 :: Int)
-                attempts <- newIORef ([] :: [Maybe Attempt])
-                countVar <- newTVarIO (0 :: Int)
-
-                runEff $ runTracingNoop $ do
-                    adapter <-
-                        kirokuAdapter store $
-                            defaultKirokuAdapterConfig (SubscriptionName "guardretry-proj") AllStreams
-
-                    let throwingOnce ingested = do
-                            let Message{envelope = Envelope{attempt = deliveryAttempt}} = ingested
-                            n <- liftIO $ do
-                                modifyIORef' attempts (deliveryAttempt :)
-                                modifyIORef' deliveries (+ 1)
-                                atomically $ do
-                                    c <- readTVar countVar
-                                    let c' = c + 1
-                                    writeTVar countVar c'
-                                    pure c'
-                            if n == 1
-                                then liftIO $ E.throwIO (userError "transient projection failure")
-                                else pure AckOk
-                        handler = guardKirokuHandlerWith (const (AckRetry (Ack.RetryDelay 0))) throwingOnce
-
-                    res <- runApp defaultAppConfig [(ProcessorId "guardretry", mkProcessor adapter handler)]
-                    case res of
-                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                        Right appHandle -> do
-                            liftIO $ waitForCount countVar 2 10_000_000
-                            stopApp appHandle
-
-                n <- readIORef deliveries
-                n `shouldBe` 2
-                reverse <$> readIORef attempts `shouldReturn` [Just (Attempt 0), Just (Attempt 1)]
-                dls <- readDeadLetters store "guardretry-proj"
-                length dls `shouldBe` 0
-
-            it "guardKirokuHandlerWith dead-letters a persistent handler exception and continues" $ \store -> do
-                Right _ <- runStoreIO store $ appendToStream (StreamName "guarddl-1") NoStream [makeEvent "GDL1" (Aeson.object [])]
-                Right _ <- runStoreIO store $ appendToStream (StreamName "guarddl-2") NoStream [makeEvent "GDL2" (Aeson.object [])]
-                threadDelay 200_000
-
-                nextSeen <- newTVarIO (0 :: Int)
-
-                runEff $ runTracingNoop $ do
-                    adapter <-
-                        kirokuAdapter store $
-                            defaultKirokuAdapterConfig (SubscriptionName "guarddl-proj") AllStreams
-
-                    let alwaysThrowFirst ingested =
-                            if globalPos (envelopePayload ingested) == 1
-                                then liftIO $ E.throwIO (userError "persistent projection failure")
-                                else do
-                                    liftIO $ atomically $ do
-                                        c <- readTVar nextSeen
-                                        writeTVar nextSeen (c + 1)
-                                    pure AckOk
-                        handler = guardKirokuHandlerWith (const (AckRetry (Ack.RetryDelay 0))) alwaysThrowFirst
-
-                    res <- runApp defaultAppConfig [(ProcessorId "guarddl", mkProcessor adapter handler)]
-                    case res of
-                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                        Right appHandle -> do
-                            liftIO $ waitForCount nextSeen 1 15_000_000
-                            stopApp appHandle
-
-                dls <- readDeadLetters store "guarddl-proj"
-                map SQL.deadLetterGlobalPosition dls `shouldBe` [1]
-
-        describe "consumer groups" $ do
-            it "four-member group delivers a disjoint, complete partition of the stream" $ \store -> do
-                -- 20 streams × 2 events = 40 events, global positions 1..40, category "cg".
-                let streams = ["cg-" <> T.pack (show i) | i <- [1 .. 20 :: Int]]
-                mapM_
-                    ( \sn -> do
-                        let evs = [makeEvent ("EV" <> T.pack (show k)) (Aeson.object []) | k <- [1 .. 2 :: Int]]
-                        Right _ <- runStoreIO store $ appendToStream (StreamName sn) NoStream evs
-                        pure ()
-                    )
-                    streams
-                threadDelay 200_000
-
-                -- One IORef + one TVar counter per member.
-                refs <- mapM (const (newIORef ([] :: [RecordedEvent]))) [0 .. 3 :: Int]
-                cvars <- mapM (const (newTVarIO (0 :: Int))) [0 .. 3 :: Int]
-
-                runEff $ runTracingNoop $ do
-                    -- Build one adapter per member index; each carries the same
-                    -- subscriptionName and a distinct member of a size-4 group.
-                    adapters <-
-                        mapM
-                            ( \m ->
-                                kirokuAdapter store $
-                                    defaultKirokuAdapterConfig (SubscriptionName "cg-shibuya-group") (Category (CategoryName "cg"))
-                                        & #consumerGroup .~ Just (validConsumerGroup m 4)
-                            )
-                            [0, 1, 2, 3]
-
-                    let mkHandler ref' cvar ingested = do
-                            liftIO $ do
-                                modifyIORef' ref' (envelopePayload ingested :)
-                                atomically $ do
-                                    c <- readTVar cvar
-                                    writeTVar cvar (c + 1)
-                            pure AckOk
-
-                        processors =
-                            [ ( ProcessorId ("cg-member-" <> T.pack (show m))
-                              , mkProcessor (adapters !! m) (mkHandler (refs !! m) (cvars !! m))
-                              )
-                            | m <- [0 .. 3 :: Int]
-                            ]
-
-                    res <- runApp defaultAppConfig processors
-                    case res of
-                        Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                        Right appHandle -> do
-                            liftIO $ waitForTotal cvars 40 15_000_000
-                            stopApp appHandle
-
-                collected <- mapM readIORef refs
-                -- Disjoint + complete: the union of every member's delivered global
-                -- positions is exactly [1..40] — no event dropped, none delivered twice.
-                let allPositions = sort (concatMap (map globalPos) collected)
-                allPositions `shouldBe` [1 .. 40]
-                -- No member starved: 20 streams over 4 members gives each ≥ 1 stream.
-                mapM_ (\c -> length c `shouldSatisfy` (>= 1)) collected
-
-        describe "consumer group policy" $ do
-            it "rejects an invalid member concurrency before opening any subscription" $ \store -> do
-                -- A request the helper cannot honor per member returns Left without
-                -- starting any worker. The (unused) store proves no subscription opens.
-                result <-
-                    runEff $
-                        runTracingNoop $
-                            kirokuConsumerGroupProcessors
-                                store
-                                ( defaultConsumerGroupConfig (SubscriptionName "cgp-reject") (Category (CategoryName "cgp-reject")) (validGroupSize 4)
-                                    & #memberConcurrency .~ Async 4
-                                )
-                                ( \ingested -> do
-                                    let _ = envelopePayload ingested
-                                    pure AckOk
-                                )
-                case result of
-                    Left err -> err `shouldBe` InvalidPolicyCombo "StrictInOrder requires Serial concurrency"
-                    Right _ -> expectationFailure "expected Left PolicyError for Async member concurrency"
-
-                withResult <-
-                    runEff $
-                        runTracingNoop $
-                            kirokuConsumerGroupProcessorsWith
-                                ( \_ -> do
-                                    liftIO $ expectationFailure "factory should not be called for an invalid policy"
-                                    pure stubAdapter
-                                )
-                                ( defaultConsumerGroupConfig (SubscriptionName "cgp-reject-with") (Category (CategoryName "cgp-reject-with")) (validGroupSize 4)
-                                    & #memberConcurrency .~ Async 4
-                                )
-                                ( \ingested -> do
-                                    let _ = envelopePayload ingested
-                                    pure AckOk
-                                )
-                case withResult of
-                    Left err -> err `shouldBe` InvalidPolicyCombo "StrictInOrder requires Serial concurrency"
-                    Right _ -> expectationFailure "expected Left PolicyError for Async member concurrency"
-
-            it "rejects non-positive group sizes at construction" $ \_store -> do
-                mkConsumerGroupSize 0 `shouldBe` Left (InvalidConsumerGroup 0 0)
-                mkConsumerGroupSize (-1) `shouldBe` Left (InvalidConsumerGroup 0 (-1))
-
-            it "shuts down every created member and preserves the factory failure when cleanup throws" $ \_store -> do
-                shutdowns <- newIORef ([] :: [Int32])
-                let sentinel = userError "member 2 failed"
-                    factory m
-                        | m == 2 = liftIO $ E.throwIO sentinel
-                        | otherwise =
-                            pure
-                                Adapter
-                                    { adapterName = "stub-kiroku"
-                                    , source = Stream.nil
-                                    , shutdown = liftIO $ do
-                                        modifyIORef' shutdowns (<> [m])
-                                        if m == 1
-                                            then E.throwIO (userError "member 1 cleanup failed")
-                                            else pure ()
-                                    }
-                    handler ingested = do
-                        let _ = envelopePayload ingested
-                        pure AckOk
-                result <-
-                    E.try $
-                        runEff $
-                            runTracingNoop $
-                                kirokuConsumerGroupProcessorsWith
-                                    factory
-                                    (defaultConsumerGroupConfig (SubscriptionName "cgp-partial-cleanup") AllStreams (validGroupSize 3))
-                                    handler
-                case result of
-                    Left (e :: E.SomeException) -> show e `shouldContain` "member 2 failed"
-                    Right _ -> expectationFailure "expected the member factory failure to rethrow"
-                readIORef shutdowns `shouldReturn` [1, 0]
-
-            it "owns a returned member before cancellation can interrupt construction" $ \_store -> do
-                acquired <- newEmptyMVar
-                holdTransfer <- newEmptyMVar
-                finished <- newEmptyMVar
-                shutdowns <- newIORef ([] :: [Int32])
-                maskingStates <- newIORef ([] :: [E.MaskingState])
-                worker <-
-                    forkIO $ do
-                        outcome <-
-                            E.try $
-                                runEff $
-                                    acquireAllAndTransfer
-                                        2
-                                        pure
-                                        (\member -> liftIO $ modifyIORef' shutdowns (<> [member]))
-                                        ( \member _ -> liftIO $ do
-                                            state <- E.getMaskingState
-                                            modifyIORef' maskingStates (<> [state])
-                                            if member == 0
-                                                then putMVar acquired () >> takeMVar holdTransfer
-                                                else pure ()
-                                        )
-                                        pure
-                        putMVar finished (outcome :: Either E.SomeException [Int32])
-
-                takeMVar acquired
-                killThread worker
-                outcome <- takeMVar finished
-                case outcome of
-                    Left exception ->
-                        E.fromException exception `shouldBe` Just E.ThreadKilled
-                    Right _ -> expectationFailure "expected cancellation during ownership transfer"
-                readIORef maskingStates `shouldReturn` [E.MaskedInterruptible]
-                readIORef shutdowns `shouldReturn` [0]
-
-            it "wraps consumer-group handlers so exceptions finalize a retry decision" $ \store -> do
-                Right _ <- runStoreIO store $ appendToStream (StreamName "cgp-guard-1") NoStream [makeEvent "CGGuard" (Aeson.object [])]
-                threadDelay 200_000
-
-                countVar <- newTVarIO (0 :: Int)
+      it "rejects an invalid member concurrency before opening any subscription" $ \store -> do
+        -- A request the helper cannot honor per member returns Left without
+        -- starting any worker. The (unused) store proves no subscription opens.
+        result <-
+          runEff $
+            runTracingNoop $
+              kirokuConsumerGroupProcessors
+                store
+                ( defaultConsumerGroupConfig (SubscriptionName "cgp-reject") (Category (CategoryName "cgp-reject")) (validGroupSize 4)
+                    & #memberConcurrency .~ Async 4
+                )
+                ( \ingested -> do
+                    let _ = envelopePayload ingested
+                    pure AckOk
+                )
+        case result of
+          Left err -> err `shouldBe` InvalidPolicyCombo "StrictInOrder requires Serial concurrency"
+          Right _ -> expectationFailure "expected Left PolicyError for Async member concurrency"
+
+        withResult <-
+          runEff $
+            runTracingNoop $
+              kirokuConsumerGroupProcessorsWith
+                ( \_ -> do
+                    liftIO $ expectationFailure "factory should not be called for an invalid policy"
+                    pure stubAdapter
+                )
+                ( defaultConsumerGroupConfig (SubscriptionName "cgp-reject-with") (Category (CategoryName "cgp-reject-with")) (validGroupSize 4)
+                    & #memberConcurrency .~ Async 4
+                )
+                ( \ingested -> do
+                    let _ = envelopePayload ingested
+                    pure AckOk
+                )
+        case withResult of
+          Left err -> err `shouldBe` InvalidPolicyCombo "StrictInOrder requires Serial concurrency"
+          Right _ -> expectationFailure "expected Left PolicyError for Async member concurrency"
+
+      it "rejects non-positive group sizes at construction" $ \_store -> do
+        mkConsumerGroupSize 0 `shouldBe` Left (InvalidConsumerGroup 0 0)
+        mkConsumerGroupSize (-1) `shouldBe` Left (InvalidConsumerGroup 0 (-1))
+
+      it "shuts down every created member and preserves the factory failure when cleanup throws" $ \_store -> do
+        shutdowns <- newIORef ([] :: [Int32])
+        let sentinel = userError "member 2 failed"
+            factory m
+              | m == 2 = liftIO $ E.throwIO sentinel
+              | otherwise =
+                  pure
+                    Adapter
+                      { adapterName = "stub-kiroku",
+                        source = Stream.nil,
+                        shutdown = liftIO $ do
+                          modifyIORef' shutdowns (<> [m])
+                          if m == 1
+                            then E.throwIO (userError "member 1 cleanup failed")
+                            else pure ()
+                      }
+            handler ingested = do
+              let _ = envelopePayload ingested
+              pure AckOk
+        result <-
+          E.try $
+            runEff $
+              runTracingNoop $
+                kirokuConsumerGroupProcessorsWith
+                  factory
+                  (defaultConsumerGroupConfig (SubscriptionName "cgp-partial-cleanup") AllStreams (validGroupSize 3))
+                  handler
+        case result of
+          Left (e :: E.SomeException) -> show e `shouldContain` "member 2 failed"
+          Right _ -> expectationFailure "expected the member factory failure to rethrow"
+        readIORef shutdowns `shouldReturn` [1, 0]
+
+      it "owns a returned member before cancellation can interrupt construction" $ \_store -> do
+        acquired <- newEmptyMVar
+        holdTransfer <- newEmptyMVar
+        finished <- newEmptyMVar
+        shutdowns <- newIORef ([] :: [Int32])
+        maskingStates <- newIORef ([] :: [E.MaskingState])
+        worker <-
+          forkIO $ do
+            outcome <-
+              E.try $
                 runEff $
-                    runTracingNoop $ do
-                        result <-
-                            kirokuConsumerGroupProcessors
-                                store
-                                (defaultConsumerGroupConfig (SubscriptionName "cgp-guard") AllStreams (validGroupSize 1))
-                                ( \_ -> do
-                                    n <- liftIO $ atomically $ do
-                                        c <- readTVar countVar
-                                        let c' = c + 1
-                                        writeTVar countVar c'
-                                        pure c'
-                                    if n == 1
-                                        then liftIO $ E.throwIO (userError "guard me")
-                                        else pure AckOk
-                                )
-                        case result of
-                            Left err -> liftIO $ expectationFailure ("kirokuConsumerGroupProcessors failed: " <> show err)
-                            Right processors -> do
-                                appRes <- runApp defaultAppConfig processors
-                                case appRes of
-                                    Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                                    Right appHandle -> do
-                                        liftIO $ waitForCount countVar 2 15_000_000
-                                        stopApp appHandle
-
-            it "one call yields N PartitionedInOrder processors; members partition the stream disjointly" $ \store -> do
-                -- 20 streams × 2 events = 40 events, global positions 1..40, category "cgp".
-                let streams = ["cgp-" <> T.pack (show i) | i <- [1 .. 20 :: Int]]
-                mapM_
-                    ( \sn -> do
-                        let evs = [makeEvent ("EV" <> T.pack (show k)) (Aeson.object []) | k <- [1 .. 2 :: Int]]
-                        Right _ <- runStoreIO store $ appendToStream (StreamName sn) NoStream evs
-                        pure ()
+                  acquireAllAndTransfer
+                    2
+                    pure
+                    (\member -> liftIO $ modifyIORef' shutdowns (<> [member]))
+                    ( \member _ -> liftIO $ do
+                        state <- E.getMaskingState
+                        modifyIORef' maskingStates (<> [state])
+                        if member == 0
+                          then putMVar acquired () >> takeMVar holdTransfer
+                          else pure ()
                     )
-                    streams
-                threadDelay 200_000
+                    pure
+            putMVar finished (outcome :: Either E.SomeException [Int32])
 
-                -- A single shared handler records every delivery (consumer-group
-                -- members all run the same handler). One counter for the whole group.
-                ref <- newIORef ([] :: [RecordedEvent])
-                countVar <- newTVarIO (0 :: Int)
+        takeMVar acquired
+        killThread worker
+        outcome <- takeMVar finished
+        case outcome of
+          Left exception ->
+            E.fromException exception `shouldBe` Just E.ThreadKilled
+          Right _ -> expectationFailure "expected cancellation during ownership transfer"
+        readIORef maskingStates `shouldReturn` [E.MaskedInterruptible]
+        readIORef shutdowns `shouldReturn` [0]
 
-                let cfg =
-                        defaultConsumerGroupConfig
-                            (SubscriptionName "cgp-shibuya-group")
-                            (Category (CategoryName "cgp"))
-                            (validGroupSize 4)
+      it "wraps consumer-group handlers so exceptions finalize a retry decision" $ \store -> do
+        Right _ <- runStoreIO store $ appendToStream (StreamName "cgp-guard-1") NoStream [makeEvent "CGGuard" (Aeson.object [])]
+        threadDelay 200_000
 
-                runEff $ runTracingNoop $ do
-                    let handler ingested = do
-                            liftIO $ do
-                                modifyIORef' ref (envelopePayload ingested :)
-                                atomically $ do
-                                    c <- readTVar countVar
-                                    writeTVar countVar (c + 1)
-                            pure AckOk
+        countVar <- newTVarIO (0 :: Int)
+        runEff $
+          runTracingNoop $ do
+            result <-
+              kirokuConsumerGroupProcessors
+                store
+                (defaultConsumerGroupConfig (SubscriptionName "cgp-guard") AllStreams (validGroupSize 1))
+                ( \_ -> do
+                    n <- liftIO $ atomically $ do
+                      c <- readTVar countVar
+                      let c' = c + 1
+                      writeTVar countVar c'
+                      pure c'
+                    if n == 1
+                      then liftIO $ E.throwIO (userError "guard me")
+                      else pure AckOk
+                )
+            case result of
+              Left err -> liftIO $ expectationFailure ("kirokuConsumerGroupProcessors failed: " <> show err)
+              Right processors -> do
+                appRes <- runApp defaultAppConfig processors
+                case appRes of
+                  Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                  Right appHandle -> do
+                    liftIO $ waitForCount countVar 2 15_000_000
+                    stopApp appHandle
 
-                    -- One call replaces the manual `mapM mkMemberAdapter [0..3]` wiring.
-                    res <- kirokuConsumerGroupProcessors store cfg handler
-                    case res of
-                        Left err -> liftIO $ expectationFailure ("kirokuConsumerGroupProcessors failed: " <> show err)
-                        Right processors -> do
-                            -- The group is presented as N processors, each pinned to the
-                            -- group-level PartitionedInOrder contract + per-member Serial.
-                            liftIO $ length processors `shouldBe` 4
-                            -- 'Nothing' marks a batching processor, which the
-                            -- consumer group must never produce.
-                            let policies =
-                                    map
-                                        ( \(_, p) -> case p of
-                                            QueueProcessor{ordering, concurrency} -> Just (ordering, concurrency)
-                                            BatchingProcessor{} -> Nothing
-                                        )
-                                        processors
-                            liftIO $ policies `shouldBe` replicate 4 (Just (PartitionedInOrder, Serial))
-                            -- The member index is readable off the ProcessorId.
-                            let pids = map (\(ProcessorId p, _) -> p) processors
-                            liftIO $
-                                pids
-                                    `shouldBe` ["cgp-shibuya-group-member-" <> T.pack (show m) | m <- [0 .. 3 :: Int]]
+      it "one call yields N PartitionedInOrder processors; members partition the stream disjointly" $ \store -> do
+        -- 20 streams × 2 events = 40 events, global positions 1..40, category "cgp".
+        let streams = ["cgp-" <> T.pack (show i) | i <- [1 .. 20 :: Int]]
+        mapM_
+          ( \sn -> do
+              let evs = [makeEvent ("EV" <> T.pack (show k)) (Aeson.object []) | k <- [1 .. 2 :: Int]]
+              Right _ <- runStoreIO store $ appendToStream (StreamName sn) NoStream evs
+              pure ()
+          )
+          streams
+        threadDelay 200_000
 
-                            appRes <- runApp defaultAppConfig processors
-                            case appRes of
-                                Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
-                                Right appHandle -> do
-                                    liftIO $ waitForCount countVar 40 15_000_000
-                                    stopApp appHandle
+        -- A single shared handler records every delivery (consumer-group
+        -- members all run the same handler). One counter for the whole group.
+        ref <- newIORef ([] :: [RecordedEvent])
+        countVar <- newTVarIO (0 :: Int)
 
-                collected <- readIORef ref
-                -- Disjoint + complete through the helper: the union of every member's
-                -- delivered global positions is exactly [1..40] — no event dropped, none
-                -- delivered twice. No duplicates ⇒ the member partitions are disjoint;
-                -- ==[1..40] ⇒ the union is the complete source. This is the same
-                -- disjoint-complete property MasterPlan 4 used, now asserted through the
-                -- single-call helper and the Shibuya pipeline.
-                sort (map globalPos collected) `shouldBe` [1 .. 40]
-                -- Every one of the 20 originating streams was covered.
-                length (nub (map origStreamId collected)) `shouldBe` 20
+        let cfg =
+              defaultConsumerGroupConfig
+                (SubscriptionName "cgp-shibuya-group")
+                (Category (CategoryName "cgp"))
+                (validGroupSize 4)
+
+        runEff $ runTracingNoop $ do
+          let handler ingested = do
+                liftIO $ do
+                  modifyIORef' ref (envelopePayload ingested :)
+                  atomically $ do
+                    c <- readTVar countVar
+                    writeTVar countVar (c + 1)
+                pure AckOk
+
+          -- One call replaces the manual `mapM mkMemberAdapter [0..3]` wiring.
+          res <- kirokuConsumerGroupProcessors store cfg handler
+          case res of
+            Left err -> liftIO $ expectationFailure ("kirokuConsumerGroupProcessors failed: " <> show err)
+            Right processors -> do
+              -- The group is presented as N processors, each pinned to the
+              -- group-level PartitionedInOrder contract + per-member Serial.
+              liftIO $ length processors `shouldBe` 4
+              -- 'Nothing' marks a batching processor, which the
+              -- consumer group must never produce.
+              let policies =
+                    map
+                      ( \(_, p) -> case p of
+                          QueueProcessor {ordering, concurrency} -> Just (ordering, concurrency)
+                          BatchingProcessor {} -> Nothing
+                      )
+                      processors
+              liftIO $ policies `shouldBe` replicate 4 (Just (PartitionedInOrder, Serial))
+              -- The member index is readable off the ProcessorId.
+              let pids = map (\(ProcessorId p, _) -> p) processors
+              liftIO $
+                pids
+                  `shouldBe` ["cgp-shibuya-group-member-" <> T.pack (show m) | m <- [0 .. 3 :: Int]]
+
+              appRes <- runApp defaultAppConfig processors
+              case appRes of
+                Left err -> liftIO $ expectationFailure ("runApp failed: " <> show err)
+                Right appHandle -> do
+                  liftIO $ waitForCount countVar 40 15_000_000
+                  stopApp appHandle
+
+        collected <- readIORef ref
+        -- Disjoint + complete through the helper: the union of every member's
+        -- delivered global positions is exactly [1..40] — no event dropped, none
+        -- delivered twice. No duplicates ⇒ the member partitions are disjoint;
+        -- ==[1..40] ⇒ the union is the complete source. This is the same
+        -- disjoint-complete property MasterPlan 4 used, now asserted through the
+        -- single-call helper and the Shibuya pipeline.
+        sort (map globalPos collected) `shouldBe` [1 .. 40]
+        -- Every one of the 20 originating streams was covered.
+        length (nub (map origStreamId collected)) `shouldBe` 20
 
 -- Helpers
 
 envelopePayload :: Message es RecordedEvent -> RecordedEvent
-envelopePayload ing = let Message{envelope = env} = ing in env ^. #payload
+envelopePayload ing = let Message {envelope = env} = ing in env ^. #payload
 
 stubAdapter :: Adapter es RecordedEvent
 stubAdapter =
-    Adapter
-        { adapterName = "stub-kiroku"
-        , source = Stream.nil
-        , shutdown = pure ()
-        }
+  Adapter
+    { adapterName = "stub-kiroku",
+      source = Stream.nil,
+      shutdown = pure ()
+    }
 
 -- | Read the dead letters recorded for a non-group subscription (member 0).
 readDeadLetters :: KirokuStore -> Text -> IO [SQL.DeadLetterRecord]
@@ -1301,10 +1296,10 @@ readDeadLetters store subName = readMemberDeadLetters store subName 0
 
 readMemberDeadLetters :: KirokuStore -> Text -> Int32 -> IO [SQL.DeadLetterRecord]
 readMemberDeadLetters store subName memberIndex = do
-    result <- Pool.use (store ^. #pool) (Session.statement (subName, memberIndex) SQL.readDeadLettersStmt)
-    case result of
-        Left err -> error ("readDeadLetters failed: " <> show err)
-        Right v -> pure (toList v)
+  result <- Pool.use (store ^. #pool) (Session.statement (subName, memberIndex) SQL.readDeadLettersStmt)
+  case result of
+    Left err -> error ("readDeadLetters failed: " <> show err)
+    Right v -> pure (toList v)
 
 -- | The raw global position of a recorded event (for disjoint/complete checks).
 globalPos :: RecordedEvent -> Int64
@@ -1317,112 +1312,111 @@ origStreamId e = case e ^. #originalStreamId of StreamId p -> p
 -- | Wait until the sum of all TVar counts reaches the target or the timeout fires.
 waitForTotal :: [STM.TVar Int] -> Int -> Int -> IO ()
 waitForTotal vars target timeoutMicros = do
-    timeoutVar <- registerDelay timeoutMicros
-    result <-
-        atomically $
-            ( do
-                total <- sum <$> mapM readTVar vars
-                STM.check (total >= target)
-                pure True
-            )
-                `STM.orElse` ( do
-                                t <- readTVar timeoutVar
-                                STM.check t
-                                pure False
-                             )
-    unless result $ do
-        actual <- atomically $ sum <$> mapM readTVar vars
-        expectationFailure ("Timed out waiting for total " <> show target <> ", got " <> show actual)
+  timeoutVar <- registerDelay timeoutMicros
+  result <-
+    atomically $
+      ( do
+          total <- sum <$> mapM readTVar vars
+          STM.check (total >= target)
+          pure True
+      )
+        `STM.orElse` ( do
+                         t <- readTVar timeoutVar
+                         STM.check t
+                         pure False
+                     )
+  unless result $ do
+    actual <- atomically $ sum <$> mapM readTVar vars
+    expectationFailure ("Timed out waiting for total " <> show target <> ", got " <> show actual)
 
 waitForCount :: STM.TVar Int -> Int -> Int -> IO ()
 waitForCount countVar target timeoutMicros = do
-    timeoutVar <- registerDelay timeoutMicros
-    result <-
-        atomically $
-            ( do
-                c <- readTVar countVar
-                STM.check (c >= target)
-                pure True
-            )
-                `STM.orElse` ( do
-                                t <- readTVar timeoutVar
-                                STM.check t
-                                pure False
-                             )
-    unless result $ do
-        actual <- atomically $ readTVar countVar
-        expectationFailure ("Timed out waiting for count " <> show target <> ", got " <> show actual)
+  timeoutVar <- registerDelay timeoutMicros
+  result <-
+    atomically $
+      ( do
+          c <- readTVar countVar
+          STM.check (c >= target)
+          pure True
+      )
+        `STM.orElse` ( do
+                         t <- readTVar timeoutVar
+                         STM.check t
+                         pure False
+                     )
+  unless result $ do
+    actual <- atomically $ readTVar countVar
+    expectationFailure ("Timed out waiting for count " <> show target <> ", got " <> show actual)
 
 within :: String -> IO a -> IO a
 within label action = do
-    result <- timeout 10_000_000 action
-    case result of
-        Nothing -> fail ("Timed out waiting for " <> label)
-        Just a -> pure a
+  result <- timeout 10_000_000 action
+  case result of
+    Nothing -> fail ("Timed out waiting for " <> label)
+    Just a -> pure a
 
 waitForCheckpointPosition :: KirokuStore -> SubscriptionCheckpointKey -> GlobalPosition -> IO ()
 waitForCheckpointPosition store expectedKey expectedPosition =
-    within "subscription checkpoint initialization" loop
+  within "subscription checkpoint initialization" loop
   where
     loop = do
-        Right (SubscriptionCheckpointInventory _ checkpoints) <-
-            runStoreIO store subscriptionCheckpointInventory
-        let positions =
-                [ (SubscriptionCheckpointKey name member, position)
-                | SubscriptionCheckpoint name member position _ <- toList checkpoints
-                ]
-        if (expectedKey, expectedPosition) `elem` positions
-            then pure ()
-            else threadDelay 20_000 >> loop
+      Right (SubscriptionCheckpointInventory _ checkpoints) <-
+        runStoreIO store subscriptionCheckpointInventory
+      let positions =
+            [ (SubscriptionCheckpointKey name member, position)
+            | SubscriptionCheckpoint name member position _ <- toList checkpoints
+            ]
+      if (expectedKey, expectedPosition) `elem` positions
+        then pure ()
+        else threadDelay 20_000 >> loop
 
 readCheckpointPosition :: KirokuStore -> SubscriptionCheckpointKey -> IO (Maybe GlobalPosition)
 readCheckpointPosition store expectedKey = do
-    Right (SubscriptionCheckpointInventory _ checkpoints) <-
-        runStoreIO store subscriptionCheckpointInventory
-    pure $ case [ position
-                | SubscriptionCheckpoint name member position _ <- toList checkpoints
-                , SubscriptionCheckpointKey name member == expectedKey
-                ] of
-        position : _ -> Just position
-        [] -> Nothing
+  Right (SubscriptionCheckpointInventory _ checkpoints) <-
+    runStoreIO store subscriptionCheckpointInventory
+  pure $ case [ position
+              | SubscriptionCheckpoint name member position _ <- toList checkpoints,
+                SubscriptionCheckpointKey name member == expectedKey
+              ] of
+    position : _ -> Just position
+    [] -> Nothing
 
 makeEvent :: Text -> Value -> EventData
 makeEvent typ p =
-    EventData
-        { eventId = Nothing
-        , eventType = EventType typ
-        , payload = p
-        , metadata = Nothing
-        , causationId = Nothing
-        , correlationId = Nothing
-        }
+  EventData
+    { eventId = Nothing,
+      eventType = EventType typ,
+      payload = p,
+      metadata = Nothing,
+      causationId = Nothing,
+      correlationId = Nothing
+    }
 
-{- | A throwaway attribute source for the trace-header tests, whose assertions
-do not depend on the kiroku identity attributes.
--}
+-- | A throwaway attribute source for the trace-header tests, whose assertions
+-- do not depend on the kiroku identity attributes.
 sampleEnvelopeAttrs :: KirokuEnvelopeAttrs
 sampleEnvelopeAttrs = kirokuEnvelopeAttrs "test-sub" Nothing
 
 makeRecordedEvent :: Maybe Value -> RecordedEvent
 makeRecordedEvent meta =
-    RecordedEvent
-        { eventId = EventId UUID.nil
-        , eventType = EventType "TraceEvent"
-        , streamVersion = StreamVersion 1
-        , globalPosition = GlobalPosition 1
-        , originalStreamId = StreamId 1
-        , originalVersion = StreamVersion 1
-        , payload = Aeson.object []
-        , metadata = meta
-        , causationId = Nothing
-        , correlationId = Nothing
-        , createdAt = UTCTime (fromGregorian 2026 5 16) 0
-        }
+  RecordedEvent
+    { eventId = EventId UUID.nil,
+      eventType = EventType "TraceEvent",
+      streamVersion = StreamVersion 1,
+      globalPosition = GlobalPosition 1,
+      originalStreamId = StreamId 1,
+      originalVersion = StreamVersion 1,
+      payload = Aeson.object [],
+      metadata = meta,
+      causationId = Nothing,
+      correlationId = Nothing,
+      createdAt = UTCTime (fromGregorian 2026 5 16) 0
+    }
 
 withTestStore :: (KirokuStore -> IO ()) -> IO ()
 withTestStore action =
-    withMigratedTestDatabase $ \connStr ->
-        withStore (defaultConnectionSettings connStr) action
+  withMigratedTestDatabase $ \connStr ->
+    withStore (defaultConnectionSettings connStr) action
 
 validGroupSize :: Int32 -> ConsumerGroupSize
 validGroupSize = either (error . show) Prelude.id . mkConsumerGroupSize
@@ -1432,152 +1426,152 @@ validConsumerGroup m n = either (error . show) Prelude.id (mkConsumerGroup m (va
 
 acknowledgementSpec :: Spec
 acknowledgementSpec = do
-    describe "acknowledgement liveness" $ do
-        forM_ [False, True] $ \guarded ->
-            it (if guarded then "guarded single processor retries with pacing and continues" else "standard Shibuya handler exceptions are finalized") $
-                withTestStore $ \store -> do
-                    Right _ <-
-                        runStoreIO store $
-                            appendToStream
-                                (StreamName "ack-liveness")
-                                NoStream
-                                [makeEvent "First" (Aeson.object []), makeEvent "Second" (Aeson.object [])]
-                    attempts <- newIORef ([] :: [(Int64, Maybe Attempt, Word64)])
-                    count <- newTVarIO (0 :: Int)
-                    within "runner finalization" $ runEff $ runTracingNoop $ do
-                        adapter <- kirokuAdapter store (defaultKirokuAdapterConfig (SubscriptionName "ack-liveness") AllStreams)
-                        let handler ingested = do
-                                now <- liftIO getMonotonicTimeNSec
-                                let pos = globalPos (envelopePayload ingested)
-                                    Message{envelope = Envelope{attempt = attempt'}} = ingested
-                                n <- liftIO $ do
-                                    modifyIORef' attempts ((pos, attempt', now) :)
-                                    atomically $ do
-                                        old <- readTVar count
-                                        writeTVar count (old + 1)
-                                        pure old
-                                if n == 0 then liftIO (E.throwIO (userError "one-shot handler failure")) else pure AckOk
-                            processor = if guarded then kirokuProcessor adapter handler else mkProcessor adapter handler
-                        app <- runApp defaultAppConfig [(ProcessorId "ack-liveness", processor)] >>= either (liftIO . fail . show) pure
-                        liftIO $ waitForCount count 3 5_000_000
-                        liftIO $ waitForCheckpointPosition store (SubscriptionCheckpointKey (SubscriptionName "ack-liveness") 0) (GlobalPosition 2)
-                        stopApp app
-                    recorded <- reverse <$> readIORef attempts
-                    map (\(pos, attempt', _) -> (pos, attempt')) recorded
-                        `shouldBe` [(1, Just (Attempt 0)), (1, Just (Attempt 1)), (2, Just (Attempt 0))]
-                    case recorded of
-                        (_, _, firstAt) : (_, _, retriedAt) : _ ->
-                            if guarded
-                                then retriedAt - firstAt `shouldSatisfy` (>= 900_000_000)
-                                else retriedAt - firstAt `shouldSatisfy` (< 900_000_000)
-                        _ -> expectationFailure "expected three finalized deliveries"
+  describe "acknowledgement liveness" $ do
+    forM_ [False, True] $ \guarded ->
+      it (if guarded then "guarded single processor retries with pacing and continues" else "standard Shibuya handler exceptions are finalized") $
+        withTestStore $ \store -> do
+          Right _ <-
+            runStoreIO store $
+              appendToStream
+                (StreamName "ack-liveness")
+                NoStream
+                [makeEvent "First" (Aeson.object []), makeEvent "Second" (Aeson.object [])]
+          attempts <- newIORef ([] :: [(Int64, Maybe Attempt, Word64)])
+          count <- newTVarIO (0 :: Int)
+          within "runner finalization" $ runEff $ runTracingNoop $ do
+            adapter <- kirokuAdapter store (defaultKirokuAdapterConfig (SubscriptionName "ack-liveness") AllStreams)
+            let handler ingested = do
+                  now <- liftIO getMonotonicTimeNSec
+                  let pos = globalPos (envelopePayload ingested)
+                      Message {envelope = Envelope {attempt = attempt'}} = ingested
+                  n <- liftIO $ do
+                    modifyIORef' attempts ((pos, attempt', now) :)
+                    atomically $ do
+                      old <- readTVar count
+                      writeTVar count (old + 1)
+                      pure old
+                  if n == 0 then liftIO (E.throwIO (userError "one-shot handler failure")) else pure AckOk
+                processor = if guarded then kirokuProcessor adapter handler else mkProcessor adapter handler
+            app <- runApp defaultAppConfig [(ProcessorId "ack-liveness", processor)] >>= either (liftIO . fail . show) pure
+            liftIO $ waitForCount count 3 5_000_000
+            liftIO $ waitForCheckpointPosition store (SubscriptionCheckpointKey (SubscriptionName "ack-liveness") 0) (GlobalPosition 2)
+            stopApp app
+          recorded <- reverse <$> readIORef attempts
+          map (\(pos, attempt', _) -> (pos, attempt')) recorded
+            `shouldBe` [(1, Just (Attempt 0)), (1, Just (Attempt 1)), (2, Just (Attempt 0))]
+          case recorded of
+            (_, _, firstAt) : (_, _, retriedAt) : _ ->
+              if guarded
+                then retriedAt - firstAt `shouldSatisfy` (>= 900_000_000)
+                else retriedAt - firstAt `shouldSatisfy` (< 900_000_000)
+            _ -> expectationFailure "expected three finalized deliveries"
 
-        forM_ [Nothing, Just 0.05] $ \warnAfter ->
-            it ("keeps a raw unfinalized item pending and forwards warning policy " <> show warnAfter) $ do
-                warnings <- newTVarIO (0 :: Int)
-                warning <- STM.newEmptyTMVarIO
-                let observe event = case event of
-                        KirokuEventSubscriptionHandlerStalled _ pos _ elapsed _ -> atomically $ do
-                            STM.modifyTVar' warnings (+ 1)
-                            _ <- STM.tryPutTMVar warning (pos, elapsed)
-                            pure ()
-                        _ -> pure ()
-                withMigratedTestDatabase $ \connStr ->
-                    withStore (defaultConnectionSettings connStr & #eventHandler .~ Just observe) $ \store -> do
-                        Right _ <-
-                            runStoreIO store $
-                                appendToStream
-                                    (StreamName "ack-raw")
-                                    NoStream
-                                    [makeEvent "First" (Aeson.object []), makeEvent "Second" (Aeson.object [])]
-                        within "raw acknowledgement ownership" $ runEff $ runTracingNoop $ Timeout.runTimeout $ do
-                            adapter <-
-                                kirokuAdapter
-                                    store
-                                    ( (defaultKirokuAdapterConfig (SubscriptionName "ack-raw") AllStreams)
-                                        & #handlerStallWarnAfter .~ warnAfter
-                                    )
-                            let Adapter{source = sourceStream, shutdown = shutdownAction} = adapter
-                            first <- Stream.uncons sourceStream
-                            case first of
-                                Nothing -> liftIO (expectationFailure "expected first item")
-                                Just (item, rest) -> do
-                                    -- The raw consumer intentionally leaves item unfinalized.
-                                    secondRead <- Timeout.timeout 150_000 (Stream.uncons rest)
-                                    liftIO (isNothing secondRead `shouldBe` True)
-                                    liftIO $ readCheckpointPosition store (SubscriptionCheckpointKey (SubscriptionName "ack-raw") 0) `shouldReturn` Just (GlobalPosition 0)
-                                    case warnAfter of
-                                        Nothing -> liftIO $ STM.readTVarIO warnings `shouldReturn` 0
-                                        Just threshold -> liftIO $ do
-                                            (pos, elapsed) <- within "raw ack warning" (atomically (STM.readTMVar warning))
-                                            pos `shouldBe` GlobalPosition 1
-                                            elapsed `shouldSatisfy` (>= threshold)
-                                    -- Finalization remains explicitly owned by this consumer.
-                                    let Ingested{ack = AckHandle{finalize = finalizeFirst}} = item
-                                    finalizeFirst AckOk
-                                    (second, _) <- Stream.uncons rest >>= maybe (liftIO (fail "expected second item")) pure
-                                    let Ingested{envelope = Envelope{payload = secondEvent}} = second
-                                    liftIO $ globalPos secondEvent `shouldBe` 2
-                                    let Ingested{ack = AckHandle{finalize = finalizeSecond}} = second
-                                    finalizeSecond AckOk
-                                    liftIO $ waitForCheckpointPosition store (SubscriptionCheckpointKey (SubscriptionName "ack-raw") 0) (GlobalPosition 2)
-                            shutdownAction
-                        stoppedCount <- STM.readTVarIO warnings
-                        threadDelay 100_000
-                        STM.readTVarIO warnings `shouldReturn` stoppedCount
+    forM_ [Nothing, Just 0.05] $ \warnAfter ->
+      it ("keeps a raw unfinalized item pending and forwards warning policy " <> show warnAfter) $ do
+        warnings <- newTVarIO (0 :: Int)
+        warning <- STM.newEmptyTMVarIO
+        let observe event = case event of
+              KirokuEventSubscriptionHandlerStalled _ pos _ elapsed _ -> atomically $ do
+                STM.modifyTVar' warnings (+ 1)
+                _ <- STM.tryPutTMVar warning (pos, elapsed)
+                pure ()
+              _ -> pure ()
+        withMigratedTestDatabase $ \connStr ->
+          withStore (defaultConnectionSettings connStr & #eventHandler .~ Just observe) $ \store -> do
+            Right _ <-
+              runStoreIO store $
+                appendToStream
+                  (StreamName "ack-raw")
+                  NoStream
+                  [makeEvent "First" (Aeson.object []), makeEvent "Second" (Aeson.object [])]
+            within "raw acknowledgement ownership" $ runEff $ runTracingNoop $ Timeout.runTimeout $ do
+              adapter <-
+                kirokuAdapter
+                  store
+                  ( (defaultKirokuAdapterConfig (SubscriptionName "ack-raw") AllStreams)
+                      & #handlerStallWarnAfter .~ warnAfter
+                  )
+              let Adapter {source = sourceStream, shutdown = shutdownAction} = adapter
+              first <- Stream.uncons sourceStream
+              case first of
+                Nothing -> liftIO (expectationFailure "expected first item")
+                Just (item, rest) -> do
+                  -- The raw consumer intentionally leaves item unfinalized.
+                  secondRead <- Timeout.timeout 150_000 (Stream.uncons rest)
+                  liftIO (isNothing secondRead `shouldBe` True)
+                  liftIO $ readCheckpointPosition store (SubscriptionCheckpointKey (SubscriptionName "ack-raw") 0) `shouldReturn` Just (GlobalPosition 0)
+                  case warnAfter of
+                    Nothing -> liftIO $ STM.readTVarIO warnings `shouldReturn` 0
+                    Just threshold -> liftIO $ do
+                      (pos, elapsed) <- within "raw ack warning" (atomically (STM.readTMVar warning))
+                      pos `shouldBe` GlobalPosition 1
+                      elapsed `shouldSatisfy` (>= threshold)
+                  -- Finalization remains explicitly owned by this consumer.
+                  let Ingested {ack = AckHandle {finalize = finalizeFirst}} = item
+                  finalizeFirst AckOk
+                  (second, _) <- Stream.uncons rest >>= maybe (liftIO (fail "expected second item")) pure
+                  let Ingested {envelope = Envelope {payload = secondEvent}} = second
+                  liftIO $ globalPos secondEvent `shouldBe` 2
+                  let Ingested {ack = AckHandle {finalize = finalizeSecond}} = second
+                  finalizeSecond AckOk
+                  liftIO $ waitForCheckpointPosition store (SubscriptionCheckpointKey (SubscriptionName "ack-raw") 0) (GlobalPosition 2)
+              shutdownAction
+            stoppedCount <- STM.readTVarIO warnings
+            threadDelay 100_000
+            STM.readTVarIO warnings `shouldReturn` stoppedCount
 
-    describe "retry policy" $ do
-        forM_ [Nothing, Just 2] $ \attemptLimit ->
-            it ("honors single-adapter total delivery limit " <> show attemptLimit) $ withTestStore $ \store -> do
-                Right _ <- runStoreIO store $ appendToStream (StreamName "ack-policy") NoStream [makeEvent "Retry" (Aeson.object [])]
-                count <- newTVarIO (0 :: Int)
-                runEff $ runTracingNoop $ do
-                    let config =
-                            (defaultKirokuAdapterConfig (SubscriptionName "ack-policy") AllStreams)
-                                & #retryPolicy .~ maybe defaultRetryPolicy RetryPolicy attemptLimit
-                    adapter <- kirokuAdapter store config
-                    let handler _ = liftIO (atomically (STM.modifyTVar' count (+ 1))) >> pure (AckRetry (Ack.RetryDelay 0))
-                    app <- runApp defaultAppConfig [(ProcessorId "ack-policy", kirokuProcessor adapter handler)] >>= either (liftIO . fail . show) pure
-                    liftIO $ waitForCheckpointPosition store (SubscriptionCheckpointKey (SubscriptionName "ack-policy") 0) (GlobalPosition 1)
-                    stopApp app
-                STM.readTVarIO count `shouldReturn` maybe 5 Prelude.id attemptLimit
-                letters <- readDeadLetters store "ack-policy"
-                map SQL.deadLetterAttemptCount letters `shouldBe` [fromIntegral (maybe 5 Prelude.id attemptLimit)]
+  describe "retry policy" $ do
+    forM_ [Nothing, Just 2] $ \attemptLimit ->
+      it ("honors single-adapter total delivery limit " <> show attemptLimit) $ withTestStore $ \store -> do
+        Right _ <- runStoreIO store $ appendToStream (StreamName "ack-policy") NoStream [makeEvent "Retry" (Aeson.object [])]
+        count <- newTVarIO (0 :: Int)
+        runEff $ runTracingNoop $ do
+          let config =
+                (defaultKirokuAdapterConfig (SubscriptionName "ack-policy") AllStreams)
+                  & #retryPolicy .~ maybe defaultRetryPolicy RetryPolicy attemptLimit
+          adapter <- kirokuAdapter store config
+          let handler _ = liftIO (atomically (STM.modifyTVar' count (+ 1))) >> pure (AckRetry (Ack.RetryDelay 0))
+          app <- runApp defaultAppConfig [(ProcessorId "ack-policy", kirokuProcessor adapter handler)] >>= either (liftIO . fail . show) pure
+          liftIO $ waitForCheckpointPosition store (SubscriptionCheckpointKey (SubscriptionName "ack-policy") 0) (GlobalPosition 1)
+          stopApp app
+        STM.readTVarIO count `shouldReturn` maybe 5 Prelude.id attemptLimit
+        letters <- readDeadLetters store "ack-policy"
+        map SQL.deadLetterAttemptCount letters `shouldBe` [fromIntegral (maybe 5 Prelude.id attemptLimit)]
 
-        it "forwards two attempts and stall policy to both consumer-group members" $ do
-            warned <- newTVarIO Set.empty
-            release <- STM.newEmptyTMVarIO
-            let observe event = case event of
-                    KirokuEventSubscriptionHandlerStalled _ _ _ _ (GroupMember member' 2) -> atomically (STM.modifyTVar' warned (Set.insert member'))
-                    _ -> pure ()
-            withMigratedTestDatabase $ \connStr ->
-                withStore (defaultConnectionSettings connStr & #eventHandler .~ Just observe) $ \store -> do
-                    -- Enough distinct streams to exercise both PostgreSQL hash slots;
-                    -- require both warnings before release so an empty slot fails.
-                    forM_ [1 .. 20 :: Int] $ \i -> do
-                        Right _ <- runStoreIO store $ appendToStream (StreamName ("ack-group-" <> T.pack (show i))) NoStream [makeEvent "Retry" (Aeson.object [])]
-                        pure ()
-                    seen <- newIORef Map.empty
-                    runEff $ runTracingNoop $ do
-                        let config =
-                                (defaultConsumerGroupConfig (SubscriptionName "ack-policy-group") AllStreams (validGroupSize 2))
-                                    & #retryPolicy .~ RetryPolicy 2
-                                    & #handlerStallWarnAfter .~ Just 0.05
-                            handler ingested = do
-                                liftIO $ atomically (STM.readTMVar release)
-                                liftIO $ atomicModifyIORef' seen (\old -> (Map.insertWith (+) (globalPos (envelopePayload ingested)) (1 :: Int) old, ()))
-                                pure (AckRetry (Ack.RetryDelay 0))
-                        processors <- kirokuConsumerGroupProcessors store config handler >>= either (liftIO . fail . show) pure
-                        app <- runApp defaultAppConfig processors >>= either (liftIO . fail . show) pure
-                        liftIO $ within "both group members stalled" $ atomically $ readTVar warned >>= STM.check . (== Set.fromList [0, 1])
-                        liftIO $ atomically (STM.putTMVar release ())
-                        liftIO $ within "all group dead letters" $ do
-                            let loop = do
-                                    letters <- concat <$> mapM (readMemberDeadLetters store "ack-policy-group") [0, 1]
-                                    if length letters == 20 then pure () else threadDelay 10_000 >> loop
-                            loop
-                        stopApp app
-                    Map.elems <$> readIORef seen `shouldReturn` replicate 20 2
+    it "forwards two attempts and stall policy to both consumer-group members" $ do
+      warned <- newTVarIO Set.empty
+      release <- STM.newEmptyTMVarIO
+      let observe event = case event of
+            KirokuEventSubscriptionHandlerStalled _ _ _ _ (GroupMember member' 2) -> atomically (STM.modifyTVar' warned (Set.insert member'))
+            _ -> pure ()
+      withMigratedTestDatabase $ \connStr ->
+        withStore (defaultConnectionSettings connStr & #eventHandler .~ Just observe) $ \store -> do
+          -- Enough distinct streams to exercise both PostgreSQL hash slots;
+          -- require both warnings before release so an empty slot fails.
+          forM_ [1 .. 20 :: Int] $ \i -> do
+            Right _ <- runStoreIO store $ appendToStream (StreamName ("ack-group-" <> T.pack (show i))) NoStream [makeEvent "Retry" (Aeson.object [])]
+            pure ()
+          seen <- newIORef Map.empty
+          runEff $ runTracingNoop $ do
+            let config =
+                  (defaultConsumerGroupConfig (SubscriptionName "ack-policy-group") AllStreams (validGroupSize 2))
+                    & #retryPolicy .~ RetryPolicy 2
+                    & #handlerStallWarnAfter .~ Just 0.05
+                handler ingested = do
+                  liftIO $ atomically (STM.readTMVar release)
+                  liftIO $ atomicModifyIORef' seen (\old -> (Map.insertWith (+) (globalPos (envelopePayload ingested)) (1 :: Int) old, ()))
+                  pure (AckRetry (Ack.RetryDelay 0))
+            processors <- kirokuConsumerGroupProcessors store config handler >>= either (liftIO . fail . show) pure
+            app <- runApp defaultAppConfig processors >>= either (liftIO . fail . show) pure
+            liftIO $ within "both group members stalled" $ atomically $ readTVar warned >>= STM.check . (== Set.fromList [0, 1])
+            liftIO $ atomically (STM.putTMVar release ())
+            liftIO $ within "all group dead letters" $ do
+              let loop = do
                     letters <- concat <$> mapM (readMemberDeadLetters store "ack-policy-group") [0, 1]
-                    sort (map SQL.deadLetterGlobalPosition letters) `shouldBe` [1 .. 20]
-                    map SQL.deadLetterAttemptCount letters `shouldBe` replicate 20 2
+                    if length letters == 20 then pure () else threadDelay 10_000 >> loop
+              loop
+            stopApp app
+          Map.elems <$> readIORef seen `shouldReturn` replicate 20 2
+          letters <- concat <$> mapM (readMemberDeadLetters store "ack-policy-group") [0, 1]
+          sort (map SQL.deadLetterGlobalPosition letters) `shouldBe` [1 .. 20]
+          map SQL.deadLetterAttemptCount letters `shouldBe` replicate 20 2

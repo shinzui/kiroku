@@ -7,24 +7,25 @@
 -- reports "Up to date" and never invokes GHC. A clean build revalidates.
 {-# OPTIONS_GHC -fplugin=Database.PostgreSQL.Migrate.Embed.RecompilePlugin #-}
 
-module Kiroku.Store.Migrations.Internal.Definition (
-    embeddedMigrationEntries,
+module Kiroku.Store.Migrations.Internal.Definition
+  ( embeddedMigrationEntries,
     kirokuMigrations,
-) where
+  )
+where
 
 import Data.ByteString (ByteString)
 import Data.List.NonEmpty (NonEmpty)
-import Database.PostgreSQL.Migrate (
-    DefinitionError,
+import Database.PostgreSQL.Migrate
+  ( DefinitionError,
     MigrationComponent,
     migrationComponentFromEmbeddedSql,
- )
+  )
 import Database.PostgreSQL.Migrate.Embed (embedMigrationManifest)
 
 embeddedMigrationEntries :: NonEmpty (FilePath, ByteString)
 embeddedMigrationEntries =
-    $(embedMigrationManifest "migrations/manifest")
+  $(embedMigrationManifest "migrations/manifest")
 
 kirokuMigrations :: Either DefinitionError MigrationComponent
 kirokuMigrations =
-    migrationComponentFromEmbeddedSql "kiroku" mempty embeddedMigrationEntries
+  migrationComponentFromEmbeddedSql "kiroku" mempty embeddedMigrationEntries

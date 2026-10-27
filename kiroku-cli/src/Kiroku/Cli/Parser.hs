@@ -1,15 +1,16 @@
-module Kiroku.Cli.Parser (
-    kirokuCommandParser,
+module Kiroku.Cli.Parser
+  ( kirokuCommandParser,
     kirokuParserInfo,
     kirokuSubparser,
-) where
+  )
+where
 
 import Control.Applicative (optional)
 import Data.Text qualified as T
 import Kiroku.Cli.Command (KirokuCommand (..))
 import Kiroku.Cli.Command qualified as Command
-import Options.Applicative (
-    CommandFields,
+import Options.Applicative
+  ( CommandFields,
     Mod,
     Parser,
     ParserInfo,
@@ -28,53 +29,53 @@ import Options.Applicative (
     subparser,
     value,
     (<**>),
- )
+  )
 
 kirokuCommandParser :: Parser KirokuCommand
 kirokuCommandParser =
-    maybe KirokuNoCommand id
-        <$> optional
-            ( subparser
-                ( command
-                    "subscriptions"
-                    ( info
-                        (KirokuSubscriptions <$> subscriptionCommandParser)
-                        (fullDesc <> progDesc "Inspect live subscriptions in this process's KirokuStore registry.")
-                    )
-                )
-            )
+  maybe KirokuNoCommand id
+    <$> optional
+      ( subparser
+          ( command
+              "subscriptions"
+              ( info
+                  (KirokuSubscriptions <$> subscriptionCommandParser)
+                  (fullDesc <> progDesc "Inspect live subscriptions in this process's KirokuStore registry.")
+              )
+          )
+      )
 
 subscriptionCommandParser :: Parser Command.SubscriptionCommand
 subscriptionCommandParser =
-    subparser
-        ( command
-            "status"
-            ( info
-                (Command.SubscriptionStatus <$> statusOptionsParser <**> helper)
-                (fullDesc <> progDesc "List live subscription phases and global cursor positions.")
-            )
+  subparser
+    ( command
+        "status"
+        ( info
+            (Command.SubscriptionStatus <$> statusOptionsParser <**> helper)
+            (fullDesc <> progDesc "List live subscription phases and global cursor positions.")
         )
+    )
 
 statusOptionsParser :: Parser Command.StatusOptions
 statusOptionsParser =
-    Command.StatusOptions
-        <$> option
-            (eitherReader parseOutputFormat)
-            ( long "format"
-                <> metavar "table|json"
-                <> value Command.OutputTable
-                <> help "Render as a human table or script-friendly JSON."
+  Command.StatusOptions
+    <$> option
+      (eitherReader parseOutputFormat)
+      ( long "format"
+          <> metavar "table|json"
+          <> value Command.OutputTable
+          <> help "Render as a human table or script-friendly JSON."
+      )
+    <*> optional
+      ( Command.RemoteEndpoint . T.pack
+          <$> strOption
+            ( long "remote-url"
+                <> metavar "URL"
+                <> help
+                  "Query a running worker's kiroku-metrics /subscriptions endpoint \
+                  \(e.g. http://worker:9091) instead of this process's local registry."
             )
-        <*> optional
-            ( Command.RemoteEndpoint . T.pack
-                <$> strOption
-                    ( long "remote-url"
-                        <> metavar "URL"
-                        <> help
-                            "Query a running worker's kiroku-metrics /subscriptions endpoint \
-                            \(e.g. http://worker:9091) instead of this process's local registry."
-                    )
-            )
+      )
 
 parseOutputFormat :: String -> Either String Command.OutputFormat
 parseOutputFormat "table" = Right Command.OutputTable
@@ -83,20 +84,20 @@ parseOutputFormat other = Left ("unsupported output format " <> show other <> ";
 
 kirokuParserInfo :: ParserInfo KirokuCommand
 kirokuParserInfo =
-    info
-        (kirokuCommandParser <**> helper)
-        ( fullDesc
-            <> progDesc "Run Kiroku operator commands."
-            <> header "kiroku - operator commands for Kiroku event stores"
-        )
+  info
+    (kirokuCommandParser <**> helper)
+    ( fullDesc
+        <> progDesc "Run Kiroku operator commands."
+        <> header "kiroku - operator commands for Kiroku event stores"
+    )
 
 kirokuSubparser :: (KirokuCommand -> command) -> Mod CommandFields command
 kirokuSubparser wrap =
-    command
-        "kiroku"
-        ( info
-            (wrap <$> kirokuCommandParser <**> helper)
-            ( fullDesc
-                <> progDesc "Run Kiroku operator commands."
-            )
+  command
+    "kiroku"
+    ( info
+        (wrap <$> kirokuCommandParser <**> helper)
+        ( fullDesc
+            <> progDesc "Run Kiroku operator commands."
         )
+    )

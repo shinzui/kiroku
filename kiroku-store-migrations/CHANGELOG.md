@@ -1,11 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.7.2.0 — 2026-10-26
+
+### New Features
 
 - Migration 0016 permits `category_namespace` durable subscription bindings using
-  the existing `target_category` column. It changes only subscription constraints;
-  no event/stream index, append column, or trigger is added. Stop affected workers
-  before applying it; older binaries must not manage namespace bindings.
+  the existing `target_category` column. It changes subscription constraints only;
+  no event/stream index, append column, or trigger is added. Existing all/category
+  bindings remain valid.
+
+### Other Changes
+
+- Stop affected workers before applying migration 0016 and restart with
+  kiroku-store 0.12.0.0 before using namespace targets. Older binaries must not
+  manage namespace bindings.
 
 ## 0.7.1.0 — 2026-10-11
 

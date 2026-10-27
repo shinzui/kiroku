@@ -1,10 +1,9 @@
-{- | Umbrella re-export for the @kiroku-metrics@ package. Importing
-@Kiroku.Metrics@ brings the in-process metrics collector, the JSON-encodable
-snapshot type, the server configuration and lifecycle, and the health-check
-types into scope.
--}
-module Kiroku.Metrics (
-    module Kiroku.Metrics.Browse,
+-- | Umbrella re-export for the @kiroku-metrics@ package. Importing
+-- @Kiroku.Metrics@ brings the in-process metrics collector, the JSON-encodable
+-- snapshot type, the server configuration and lifecycle, and the health-check
+-- types into scope.
+module Kiroku.Metrics
+  ( module Kiroku.Metrics.Browse,
     module Kiroku.Metrics.Capabilities,
     module Kiroku.Metrics.Types,
     module Kiroku.Metrics.Collector,
@@ -17,7 +16,8 @@ module Kiroku.Metrics (
     module Kiroku.Metrics.Standalone,
     module Kiroku.Metrics.Subscriptions,
     module Kiroku.Metrics.WebSocket,
-) where
+  )
+where
 
 import Kiroku.Metrics.Browse
 import Kiroku.Metrics.Capabilities

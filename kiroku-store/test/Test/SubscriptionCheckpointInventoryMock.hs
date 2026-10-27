@@ -15,31 +15,31 @@ import Test.Hspec
 
 spec :: Spec
 spec = describe "SubscriptionCheckpointInventory mock interpreter" $ do
-    it "returns a public inventory through one Store effect call" $ do
-        calls <- newIORef (0 :: Int)
-        let updatedAt = UTCTime (fromGregorian 2026 8 9) 0
-            expected =
-                SubscriptionCheckpointInventory
-                    (GlobalPosition 17)
-                    ( V.singleton $
-                        SubscriptionCheckpoint
-                            (SubscriptionName "mock")
-                            3
-                            (GlobalPosition 11)
-                            updatedAt
-                    )
-        actual <- runEff $ runInventoryMock calls expected subscriptionCheckpointInventory
-        actual `shouldBe` expected
-        readIORef calls `shouldReturn` 1
+  it "returns a public inventory through one Store effect call" $ do
+    calls <- newIORef (0 :: Int)
+    let updatedAt = UTCTime (fromGregorian 2026 8 9) 0
+        expected =
+          SubscriptionCheckpointInventory
+            (GlobalPosition 17)
+            ( V.singleton $
+                SubscriptionCheckpoint
+                  (SubscriptionName "mock")
+                  3
+                  (GlobalPosition 11)
+                  updatedAt
+            )
+    actual <- runEff $ runInventoryMock calls expected subscriptionCheckpointInventory
+    actual `shouldBe` expected
+    readIORef calls `shouldReturn` 1
 
 runInventoryMock ::
-    (IOE :> es) =>
-    IORef Int ->
-    SubscriptionCheckpointInventory ->
-    Eff (Store : es) a ->
-    Eff es a
+  (IOE :> es) =>
+  IORef Int ->
+  SubscriptionCheckpointInventory ->
+  Eff (Store : es) a ->
+  Eff es a
 runInventoryMock calls expected = interpret_ $ \case
-    GetSubscriptionCheckpointInventory -> do
-        liftIO $ modifyIORef' calls (+ 1)
-        pure expected
-    _ -> error "unexpected Store operation in inventory mock"
+  GetSubscriptionCheckpointInventory -> do
+    liftIO $ modifyIORef' calls (+ 1)
+    pure expected
+  _ -> error "unexpected Store operation in inventory mock"

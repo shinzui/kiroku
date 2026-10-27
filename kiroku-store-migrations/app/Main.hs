@@ -14,32 +14,32 @@ import System.Exit qualified as Exit
 
 main :: IO ()
 main = do
-    plan <- either (fail . show) pure kirokuMigrationPlan
-    cmd <-
-        execParser
-            ( info
-                (migrationCommandParser plan <**> helper)
-                (fullDesc <> progDesc "Manage the Kiroku migration component")
-            )
-    defaultDatabaseUrl <- lookupEnv "DATABASE_URL"
-    let defaultSettings =
-            Settings.connectionString (Text.pack (maybe "" id defaultDatabaseUrl))
-        environment = cliEnvironment defaultSettings plan defaultRunOptions
-    outcome <- runMigrationCommand environment cmd
-    case commandOutputFormat cmd of
-        TextOutput -> Text.IO.putStrLn (renderMigrationCommandText outcome)
-        JsonOutput -> LazyByteString.putStrLn (Aeson.encode (renderMigrationCommandJson outcome))
-    Exit.exitWith
-        (case exitClass outcome of ExitSucceeded -> Exit.ExitSuccess; _ -> Exit.ExitFailure 1)
+  plan <- either (fail . show) pure kirokuMigrationPlan
+  cmd <-
+    execParser
+      ( info
+          (migrationCommandParser plan <**> helper)
+          (fullDesc <> progDesc "Manage the Kiroku migration component")
+      )
+  defaultDatabaseUrl <- lookupEnv "DATABASE_URL"
+  let defaultSettings =
+        Settings.connectionString (Text.pack (maybe "" id defaultDatabaseUrl))
+      environment = cliEnvironment defaultSettings plan defaultRunOptions
+  outcome <- runMigrationCommand environment cmd
+  case commandOutputFormat cmd of
+    TextOutput -> Text.IO.putStrLn (renderMigrationCommandText outcome)
+    JsonOutput -> LazyByteString.putStrLn (Aeson.encode (renderMigrationCommandJson outcome))
+  Exit.exitWith
+    (case exitClass outcome of ExitSucceeded -> Exit.ExitSuccess; _ -> Exit.ExitFailure 1)
 
 commandOutputFormat :: MigrationCommand -> OutputFormat
 commandOutputFormat cmd =
-    case cmd of
-        Plan PlanOptions{output = OutputOptions format} -> format
-        List ListOptions{output = OutputOptions format} -> format
-        Check CheckOptions{output = OutputOptions format} -> format
-        Status StatusOptions{output = OutputOptions format} -> format
-        Verify VerifyOptions{output = OutputOptions format} -> format
-        Up UpOptions{output = OutputOptions format} -> format
-        Repair RepairOptions{output = OutputOptions format} -> format
-        New NewOptions{output = OutputOptions format} -> format
+  case cmd of
+    Plan PlanOptions {output = OutputOptions format} -> format
+    List ListOptions {output = OutputOptions format} -> format
+    Check CheckOptions {output = OutputOptions format} -> format
+    Status StatusOptions {output = OutputOptions format} -> format
+    Verify VerifyOptions {output = OutputOptions format} -> format
+    Up UpOptions {output = OutputOptions format} -> format
+    Repair RepairOptions {output = OutputOptions format} -> format
+    New NewOptions {output = OutputOptions format} -> format

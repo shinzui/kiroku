@@ -1,10 +1,11 @@
-module Kiroku.Store.Lifecycle (
-    softDeleteStream,
+module Kiroku.Store.Lifecycle
+  ( softDeleteStream,
     hardDeleteStream,
     undeleteStream,
     setStreamTruncateBefore,
     clearStreamTruncateBefore,
-) where
+  )
+where
 
 import Effectful (Eff, (:>))
 import Effectful.Dispatch.Dynamic (send)
@@ -12,153 +13,148 @@ import GHC.Stack (HasCallStack)
 import Kiroku.Store.Effect (Store (..))
 import Kiroku.Store.Types
 
-{- | Mark a stream as deleted without removing its rows.
-
-Soft-deleted streams are invisible to 'Kiroku.Store.Read.readStreamForward'
-(returns empty), to 'Kiroku.Store.Read.readStreamBackward', and to
-'Kiroku.Store.Append.appendToStream' (returns
-'Kiroku.Store.Error.StreamNotFound' or
-'Kiroku.Store.Error.StreamAlreadyExists' depending on
-'Kiroku.Store.Types.ExpectedVersion'). They remain visible in the
-@$all@ stream — the global event log is append-only — and to
-'Kiroku.Store.Read.readCategory'. Use 'undeleteStream' to restore.
-
-The exact stream name @$all@ is reserved for the global read stream.
-Lifecycle operations reject it with
-'Kiroku.Store.Error.ReservedStreamName' so callers cannot hide, remove,
-or restore the internal global stream row.
-
-Returns @Just streamId@ on success, or @Nothing@ if the stream did not
-exist or was already soft-deleted. Reverse with 'undeleteStream' or
-'hardDeleteStream'.
--}
+-- | Mark a stream as deleted without removing its rows.
+--
+-- Soft-deleted streams are invisible to 'Kiroku.Store.Read.readStreamForward'
+-- (returns empty), to 'Kiroku.Store.Read.readStreamBackward', and to
+-- 'Kiroku.Store.Append.appendToStream' (returns
+-- 'Kiroku.Store.Error.StreamNotFound' or
+-- 'Kiroku.Store.Error.StreamAlreadyExists' depending on
+-- 'Kiroku.Store.Types.ExpectedVersion'). They remain visible in the
+-- @$all@ stream — the global event log is append-only — and to
+-- 'Kiroku.Store.Read.readCategory'. Use 'undeleteStream' to restore.
+--
+-- The exact stream name @$all@ is reserved for the global read stream.
+-- Lifecycle operations reject it with
+-- 'Kiroku.Store.Error.ReservedStreamName' so callers cannot hide, remove,
+-- or restore the internal global stream row.
+--
+-- Returns @Just streamId@ on success, or @Nothing@ if the stream did not
+-- exist or was already soft-deleted. Reverse with 'undeleteStream' or
+-- 'hardDeleteStream'.
 softDeleteStream ::
-    (HasCallStack, Store :> es) =>
-    StreamName ->
-    Eff es (Maybe StreamId)
+  (HasCallStack, Store :> es) =>
+  StreamName ->
+  Eff es (Maybe StreamId)
 softDeleteStream name = send (SoftDeleteStream name)
 
-{- | Permanently remove a stream, its events (where they are not
-referenced by other streams), and its links.
-
-== Authorization model
-
-Hard delete is gated by a session-local PostgreSQL GUC
-(@kiroku.enable_hard_deletes@) that the interpreter sets inside its
-transaction. Direct @DELETE@ or @TRUNCATE@ against the underlying
-tables without setting that GUC raises an exception via the
-@protect_deletion@ and @protect_truncation@ triggers in
-@kiroku-store-migrations/migrations@.
-
-/The GUC is an advisory protection, not a security boundary./ Any
-PostgreSQL session with @DELETE@ privilege on @events@,
-@stream_events@, and @streams@ can issue @SET LOCAL
-kiroku.enable_hard_deletes = \'on\'@ before its own @DELETE@ —
-PostgreSQL grants @SET LOCAL@ to every session. The trigger exists
-to make accidental issuance of @DELETE@ (a typo, an ad-hoc operator
-query, an ORM that does not know the table is meant to be
-append-only) fail loudly rather than to enforce role-based access
-control.
-
-In practice the model is "applications running with full @DELETE@
-privilege on the data tables are trusted to call hard-delete
-correctly". Production deployments that need stricter control should:
-
-* Run the application as a low-privileged role with only @INSERT,
-  UPDATE, SELECT@ on the data tables (not @DELETE@); soft-delete
-  via 'softDeleteStream' is unaffected. Issue hard-deletes from a
-  separate, more privileged role gated by your own access controls.
-
-* /Or/ wrap calls to 'hardDeleteStream' in your application's
-  authorization layer before they reach this function. Reading the
-  @protect_deletion@ trigger as a security boundary is incorrect.
-
-Replay-history retention is an independent safety layer. While any
-'Kiroku.Store.HistoryRetention.Types.HistoryRetentionLease' is active,
-supported hard delete returns
-'Kiroku.Store.Error.HistoryRetentionActive' before changing rows. A
-GUC-enabled direct @DELETE@ or @TRUNCATE@ receives SQLSTATE @KR001@. There is
-no ordinary bypass: release the lease or wait for its database-derived expiry.
-
-== Event preservation semantics
-
-The interpreter cleans up junction rows ('stream_events') first,
-then deletes orphaned 'events' rows — events still linked to other
-streams from this one's hard-deleted source junctions are removed;
-events linked to streams /not/ owned by this deletion are preserved.
-
-Before deletion, Kiroku locks the target and every stream containing a link to
-one of the target's originated events in ascending internal ID order. This
-serializes hard delete with
-'Kiroku.Store.HistoryRetention.lockStreamHistoryForReplayTx' guards, including
-a guard held on a linked stream.
-
-== Result
-
-Returns @Just streamId@ on success, @Nothing@ if the stream did not
-exist. The exact stream name @$all@ is rejected with
-'Kiroku.Store.Error.ReservedStreamName'. There is no \"undo\" — for reversible deletes use
-'softDeleteStream' instead. The deletion emits no in-band audit row;
-operators relying on an audit log must capture hard-deletes through
-the store event handler (see
-'Kiroku.Store.Connection.ConnectionSettingsM.eventHandler') or
-record an application-level event /before/ calling this function.
--}
+-- | Permanently remove a stream, its events (where they are not
+-- referenced by other streams), and its links.
+--
+-- == Authorization model
+--
+-- Hard delete is gated by a session-local PostgreSQL GUC
+-- (@kiroku.enable_hard_deletes@) that the interpreter sets inside its
+-- transaction. Direct @DELETE@ or @TRUNCATE@ against the underlying
+-- tables without setting that GUC raises an exception via the
+-- @protect_deletion@ and @protect_truncation@ triggers in
+-- @kiroku-store-migrations/migrations@.
+--
+-- /The GUC is an advisory protection, not a security boundary./ Any
+-- PostgreSQL session with @DELETE@ privilege on @events@,
+-- @stream_events@, and @streams@ can issue @SET LOCAL
+-- kiroku.enable_hard_deletes = \'on\'@ before its own @DELETE@ —
+-- PostgreSQL grants @SET LOCAL@ to every session. The trigger exists
+-- to make accidental issuance of @DELETE@ (a typo, an ad-hoc operator
+-- query, an ORM that does not know the table is meant to be
+-- append-only) fail loudly rather than to enforce role-based access
+-- control.
+--
+-- In practice the model is "applications running with full @DELETE@
+-- privilege on the data tables are trusted to call hard-delete
+-- correctly". Production deployments that need stricter control should:
+--
+-- * Run the application as a low-privileged role with only @INSERT,
+--   UPDATE, SELECT@ on the data tables (not @DELETE@); soft-delete
+--   via 'softDeleteStream' is unaffected. Issue hard-deletes from a
+--   separate, more privileged role gated by your own access controls.
+--
+-- * /Or/ wrap calls to 'hardDeleteStream' in your application's
+--   authorization layer before they reach this function. Reading the
+--   @protect_deletion@ trigger as a security boundary is incorrect.
+--
+-- Replay-history retention is an independent safety layer. While any
+-- 'Kiroku.Store.HistoryRetention.Types.HistoryRetentionLease' is active,
+-- supported hard delete returns
+-- 'Kiroku.Store.Error.HistoryRetentionActive' before changing rows. A
+-- GUC-enabled direct @DELETE@ or @TRUNCATE@ receives SQLSTATE @KR001@. There is
+-- no ordinary bypass: release the lease or wait for its database-derived expiry.
+--
+-- == Event preservation semantics
+--
+-- The interpreter cleans up junction rows ('stream_events') first,
+-- then deletes orphaned 'events' rows — events still linked to other
+-- streams from this one's hard-deleted source junctions are removed;
+-- events linked to streams /not/ owned by this deletion are preserved.
+--
+-- Before deletion, Kiroku locks the target and every stream containing a link to
+-- one of the target's originated events in ascending internal ID order. This
+-- serializes hard delete with
+-- 'Kiroku.Store.HistoryRetention.lockStreamHistoryForReplayTx' guards, including
+-- a guard held on a linked stream.
+--
+-- == Result
+--
+-- Returns @Just streamId@ on success, @Nothing@ if the stream did not
+-- exist. The exact stream name @$all@ is rejected with
+-- 'Kiroku.Store.Error.ReservedStreamName'. There is no \"undo\" — for reversible deletes use
+-- 'softDeleteStream' instead. The deletion emits no in-band audit row;
+-- operators relying on an audit log must capture hard-deletes through
+-- the store event handler (see
+-- 'Kiroku.Store.Connection.ConnectionSettingsM.eventHandler') or
+-- record an application-level event /before/ calling this function.
 hardDeleteStream ::
-    (HasCallStack, Store :> es) =>
-    StreamName ->
-    Eff es (Maybe StreamId)
+  (HasCallStack, Store :> es) =>
+  StreamName ->
+  Eff es (Maybe StreamId)
 hardDeleteStream name = send (HardDeleteStream name)
 
-{- | Restore a soft-deleted stream by clearing its @deleted_at@ row.
-
-Reads of the restored stream return its full event history. Subsequent
-appends behave as if the soft-delete never happened. Returns
-@Just streamId@ on success, @Nothing@ if the stream is missing or was
-not soft-deleted (already live). The exact stream name @$all@ is
-rejected with 'Kiroku.Store.Error.ReservedStreamName'.
--}
+-- | Restore a soft-deleted stream by clearing its @deleted_at@ row.
+--
+-- Reads of the restored stream return its full event history. Subsequent
+-- appends behave as if the soft-delete never happened. Returns
+-- @Just streamId@ on success, @Nothing@ if the stream is missing or was
+-- not soft-deleted (already live). The exact stream name @$all@ is
+-- rejected with 'Kiroku.Store.Error.ReservedStreamName'.
 undeleteStream ::
-    (HasCallStack, Store :> es) =>
-    StreamName ->
-    Eff es (Maybe StreamId)
+  (HasCallStack, Store :> es) =>
+  StreamName ->
+  Eff es (Maybe StreamId)
 undeleteStream name = send (UndeleteStream name)
 
-{- | Set the logical truncate-before marker for a stream. After this call,
-'Kiroku.Store.Read.readStreamForward' and 'readStreamBackward' return only the
-events whose per-stream version is >= @before@; earlier events are hidden from
-ordered stream reads but are NOT deleted.
-
-This is the close-the-book / snapshot-and-compact primitive: append a snapshot
-event (it lands at version @V@), then call @setStreamTruncateBefore name V@ so
-rehydration starts from the snapshot.
-
-The marker does NOT affect the @$all@ global log, 'Kiroku.Store.Read.readCategory',
-subscriptions, or existence probes — the global history stays complete, so
-projections (including ones not yet written) can still be built from it. The
-operation is fully reversible: lower the marker or call
-'clearStreamTruncateBefore' to re-expose hidden events.
-
-Returns @Just streamId@ on success, @Nothing@ if the stream does not exist or is
-soft-deleted. The reserved stream @$all@ is rejected with
-'Kiroku.Store.Error.ReservedStreamName'. Per-stream versions are 1-based, so a
-@before@ of 0 or 1 keeps the whole stream. Idempotent: setting the same value
-again returns the same result and changes nothing.
--}
+-- | Set the logical truncate-before marker for a stream. After this call,
+-- 'Kiroku.Store.Read.readStreamForward' and 'readStreamBackward' return only the
+-- events whose per-stream version is >= @before@; earlier events are hidden from
+-- ordered stream reads but are NOT deleted.
+--
+-- This is the close-the-book / snapshot-and-compact primitive: append a snapshot
+-- event (it lands at version @V@), then call @setStreamTruncateBefore name V@ so
+-- rehydration starts from the snapshot.
+--
+-- The marker does NOT affect the @$all@ global log, 'Kiroku.Store.Read.readCategory',
+-- subscriptions, or existence probes — the global history stays complete, so
+-- projections (including ones not yet written) can still be built from it. The
+-- operation is fully reversible: lower the marker or call
+-- 'clearStreamTruncateBefore' to re-expose hidden events.
+--
+-- Returns @Just streamId@ on success, @Nothing@ if the stream does not exist or is
+-- soft-deleted. The reserved stream @$all@ is rejected with
+-- 'Kiroku.Store.Error.ReservedStreamName'. Per-stream versions are 1-based, so a
+-- @before@ of 0 or 1 keeps the whole stream. Idempotent: setting the same value
+-- again returns the same result and changes nothing.
 setStreamTruncateBefore ::
-    (HasCallStack, Store :> es) =>
-    StreamName ->
-    StreamVersion ->
-    Eff es (Maybe StreamId)
+  (HasCallStack, Store :> es) =>
+  StreamName ->
+  StreamVersion ->
+  Eff es (Maybe StreamId)
 setStreamTruncateBefore name before = send (SetStreamTruncateBefore name before)
 
-{- | Clear a stream's truncate-before marker, re-exposing the full history to
-ordered stream reads. Equivalent to @setStreamTruncateBefore name 0@. Returns
-@Just streamId@ on success, @Nothing@ for a missing or soft-deleted stream.
-Rejects @$all@ with 'Kiroku.Store.Error.ReservedStreamName'.
--}
+-- | Clear a stream's truncate-before marker, re-exposing the full history to
+-- ordered stream reads. Equivalent to @setStreamTruncateBefore name 0@. Returns
+-- @Just streamId@ on success, @Nothing@ for a missing or soft-deleted stream.
+-- Rejects @$all@ with 'Kiroku.Store.Error.ReservedStreamName'.
 clearStreamTruncateBefore ::
-    (HasCallStack, Store :> es) =>
-    StreamName ->
-    Eff es (Maybe StreamId)
+  (HasCallStack, Store :> es) =>
+  StreamName ->
+  Eff es (Maybe StreamId)
 clearStreamTruncateBefore name = setStreamTruncateBefore name (StreamVersion 0)

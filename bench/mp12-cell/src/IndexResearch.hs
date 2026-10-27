@@ -29,17 +29,17 @@ data Config = Config {layout :: !Text, catalog :: !Int, browseHz :: !Int}
 
 knobs :: [KnobSpec]
 knobs =
-    [ KnobSpec (name "mp13.index-layout") "Disposable stream-index layout" KnobText (VText "unchanged") (OneOf (VText "unchanged" :| map VText ["category-only", "category-name", "byte-name"])) []
-    , KnobSpec (name "mp13.catalog") "TypeID streams per fixture category" KnobInt (VInt 20000) (IntRange 1 200000) []
-    , KnobSpec (name "mp13.browse-hz") "Category browse cycles per second; first, late and absent pages" KnobInt (VInt 0) (IntRange 0 10) []
-    ]
+  [ KnobSpec (name "mp13.index-layout") "Disposable stream-index layout" KnobText (VText "unchanged") (OneOf (VText "unchanged" :| map VText ["category-only", "category-name", "byte-name"])) [],
+    KnobSpec (name "mp13.catalog") "TypeID streams per fixture category" KnobInt (VInt 20000) (IntRange 1 200000) [],
+    KnobSpec (name "mp13.browse-hz") "Category browse cycles per second; first, late and absent pages" KnobInt (VInt 0) (IntRange 0 10) []
+  ]
   where
     name = either (error . show) id . mkKnobName
 
 configuration :: ResolvedKnobs -> Maybe Config
 configuration values
-    | selected == "unchanged" = Nothing
-    | otherwise = Just (Config selected (integer "mp13.catalog") (integer "mp13.browse-hz"))
+  | selected == "unchanged" = Nothing
+  | otherwise = Just (Config selected (integer "mp13.catalog") (integer "mp13.browse-hz"))
   where
     name = either (error . show) id . mkKnobName
     selected = knobText values (name "mp13.index-layout")
@@ -47,100 +47,101 @@ configuration values
 
 setup :: Config -> KirokuStore -> IO Json.Value
 setup config store = do
-    -- The cell executor supplies an isolated, freshly migrated run database.
-    -- Refuse a populated database instead of modifying a real store.
-    initial <- scalarInt store "SELECT count(*) FROM kiroku.streams"
-    events <- scalarInt store "SELECT count(*) FROM kiroku.events"
-    subscriptions <- scalarInt store "SELECT count(*) FROM kiroku.subscriptions"
-    unless (initial == 1 && events == 0 && subscriptions == 0) (fail "index research requires an empty isolated store")
-    let ddl = case config.layout of
-            "category-only" -> "DROP INDEX kiroku.ix_streams_browse_name;" -- Original pre-0015 layout.
-            "byte-name" -> "" -- Migration 0015 already installs the selected layout.
-            "category-name" -> "DROP INDEX kiroku.ix_streams_browse_name; CREATE INDEX ix_streams_category_name ON kiroku.streams(category,stream_name); DROP INDEX kiroku.ix_streams_category;"
-            _ -> error "unvalidated layout"
-    unless (Text.null ddl) $ session store (Session.script ddl)
-    let names = [category <> "-" <> fixtureId n | category <- ["probe", "noise"], n <- [1 .. config.catalog]]
-    session store $
-        Session.statement names $
-            preparable "INSERT INTO kiroku.streams(stream_name) SELECT unnest($1::text[])" (E.param (E.nonNullable (E.foldableArray (E.nonNullable E.text)))) D.noResult
-    session store (Session.script "ANALYZE kiroku.streams")
-    count <- scalarInt store "SELECT count(*) FROM kiroku.streams"
-    unless (count == fromIntegral (2 * config.catalog + 1)) (fail "catalog fixture count differs")
-    inventory <- snapshot store
-    pure $ object ["layout" .= config.layout, "ddl" .= ddl, "catalog_per_category" .= config.catalog, "fixture" .= ("deterministic UUIDv7 TypeIDs; probe/noise categories" :: Text), "inventory" .= inventory]
+  -- The cell executor supplies an isolated, freshly migrated run database.
+  -- Refuse a populated database instead of modifying a real store.
+  initial <- scalarInt store "SELECT count(*) FROM kiroku.streams"
+  events <- scalarInt store "SELECT count(*) FROM kiroku.events"
+  subscriptions <- scalarInt store "SELECT count(*) FROM kiroku.subscriptions"
+  unless (initial == 1 && events == 0 && subscriptions == 0) (fail "index research requires an empty isolated store")
+  let ddl = case config.layout of
+        "category-only" -> "DROP INDEX kiroku.ix_streams_browse_name;" -- Original pre-0015 layout.
+        "byte-name" -> "" -- Migration 0015 already installs the selected layout.
+        "category-name" -> "DROP INDEX kiroku.ix_streams_browse_name; CREATE INDEX ix_streams_category_name ON kiroku.streams(category,stream_name); DROP INDEX kiroku.ix_streams_category;"
+        _ -> error "unvalidated layout"
+  unless (Text.null ddl) $ session store (Session.script ddl)
+  let names = [category <> "-" <> fixtureId n | category <- ["probe", "noise"], n <- [1 .. config.catalog]]
+  session store $
+    Session.statement names $
+      preparable "INSERT INTO kiroku.streams(stream_name) SELECT unnest($1::text[])" (E.param (E.nonNullable (E.foldableArray (E.nonNullable E.text)))) D.noResult
+  session store (Session.script "ANALYZE kiroku.streams")
+  count <- scalarInt store "SELECT count(*) FROM kiroku.streams"
+  unless (count == fromIntegral (2 * config.catalog + 1)) (fail "catalog fixture count differs")
+  inventory <- snapshot store
+  pure $ object ["layout" .= config.layout, "ddl" .= ddl, "catalog_per_category" .= config.catalog, "fixture" .= ("deterministic UUIDv7 TypeIDs; probe/noise categories" :: Text), "inventory" .= inventory]
 
 -- Valid UUIDv7 version/variant and a sortable, deterministic 26-digit encoding.
 -- Fixture timestamps are disjoint from append timestamps. This is not an ID API.
 fixtureId :: Int -> Text
 fixtureId serial =
-    let value :: Integer
-        value = ((1700000000000 + fromIntegral serial) `shiftL` 80) .|. (7 `shiftL` 76) .|. (2 `shiftL` 62) .|. fromIntegral serial
-        alphabet = "0123456789abcdefghjkmnpqrstvwxyz"
-     in "order_" <> Text.pack [alphabet !! fromIntegral ((value `shiftR` offset) .&. 31) | offset <- [125, 120 .. 0]]
+  let value :: Integer
+      value = ((1700000000000 + fromIntegral serial) `shiftL` 80) .|. (7 `shiftL` 76) .|. (2 `shiftL` 62) .|. fromIntegral serial
+      alphabet = "0123456789abcdefghjkmnpqrstvwxyz"
+   in "order_" <> Text.pack [alphabet !! fromIntegral ((value `shiftR` offset) .&. 31) | offset <- [125, 120 .. 0]]
 
 streamName :: Int -> Int -> Int -> Bool -> StreamName
 streamName writer slot iteration fresh =
-    StreamName ("probe-" <> fixtureId (1000000 + (if fresh then iteration * 16 else 0) + writer * 4 + slot))
+  StreamName ("probe-" <> fixtureId (1000000 + (if fresh then iteration * 16 else 0) + writer * 4 + slot))
 
 snapshot :: KirokuStore -> IO Json.Value
 snapshot store =
-    json store $
-        "SELECT jsonb_build_object('stats_reset',(SELECT stats_reset FROM pg_stat_database WHERE datname=current_database()),"
-            <> "'inserted',s.n_tup_ins,'updated',s.n_tup_upd,'hot_updated',s.n_tup_hot_upd,'newpage_updated',s.n_tup_newpage_upd,"
-            <> "'stream_rows',(SELECT count(*) FROM kiroku.streams),'all_version',(SELECT stream_version FROM kiroku.streams WHERE stream_id=0),"
-            <> "'table_bytes',pg_relation_size(s.relid),'indexes_bytes',pg_indexes_size(s.relid),"
-            <> "'indexes',(SELECT jsonb_agg(jsonb_build_object('name',indexname,'definition',indexdef,'bytes',pg_relation_size((schemaname||'.'||indexname)::regclass)) ORDER BY indexname) FROM pg_indexes WHERE schemaname='kiroku' AND tablename='streams'),"
-            <> "'append_statements',(SELECT COALESCE(jsonb_agg(jsonb_build_object('queryid',queryid::text,'query',query,'calls',calls,'exec_ms',total_exec_time,'wal_bytes',wal_bytes)), '[]'::jsonb) FROM public.pg_stat_statements WHERE dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND (query ILIKE '%UPDATE streams%' OR query ILIKE '%INSERT INTO streams%'))) "
-            <> "FROM pg_stat_user_tables s WHERE schemaname='kiroku' AND relname='streams'"
+  json store $
+    "SELECT jsonb_build_object('stats_reset',(SELECT stats_reset FROM pg_stat_database WHERE datname=current_database()),"
+      <> "'inserted',s.n_tup_ins,'updated',s.n_tup_upd,'hot_updated',s.n_tup_hot_upd,'newpage_updated',s.n_tup_newpage_upd,"
+      <> "'stream_rows',(SELECT count(*) FROM kiroku.streams),'all_version',(SELECT stream_version FROM kiroku.streams WHERE stream_id=0),"
+      <> "'table_bytes',pg_relation_size(s.relid),'indexes_bytes',pg_indexes_size(s.relid),"
+      <> "'indexes',(SELECT jsonb_agg(jsonb_build_object('name',indexname,'definition',indexdef,'bytes',pg_relation_size((schemaname||'.'||indexname)::regclass)) ORDER BY indexname) FROM pg_indexes WHERE schemaname='kiroku' AND tablename='streams'),"
+      <> "'append_statements',(SELECT COALESCE(jsonb_agg(jsonb_build_object('queryid',queryid::text,'query',query,'calls',calls,'exec_ms',total_exec_time,'wal_bytes',wal_bytes)), '[]'::jsonb) FROM public.pg_stat_statements WHERE dbid=(SELECT oid FROM pg_database WHERE datname=current_database()) AND (query ILIKE '%UPDATE streams%' OR query ILIKE '%INSERT INTO streams%'))) "
+      <> "FROM pg_stat_user_tables s WHERE schemaname='kiroku' AND relname='streams'"
 
 -- Sparse observer timings are diagnostics, not append-recorder operations.
 -- Keeping the realistic 1 Hz load must not lower the primary evidence grade.
 data BrowseSample = BrowseSample !Text !Text !Word64 !Word64 !Int
+
 newtype Browser = Browser (IORef [BrowseSample])
 
 newBrowser :: Maybe Config -> IO (Maybe Browser)
 newBrowser Nothing = pure Nothing
 newBrowser (Just config)
-    | config.browseHz == 0 = pure Nothing
-    | otherwise = Just . Browser <$> newIORef []
+  | config.browseHz == 0 = pure Nothing
+  | otherwise = Just . Browser <$> newIORef []
 
 browserSummary :: Maybe Browser -> IO (Maybe Json.Value)
 browserSummary Nothing = pure Nothing
 browserSummary (Just (Browser samples)) = do
-    rows <- reverse <$> readIORef samples
-    pure $
-        Just $
-            object
-                [ "schema" .= ("mp13.browse-diagnostics/v1" :: Text)
-                , "classification" .= ("sparse observer diagnostics; excluded from primary append grade" :: Text)
-                , "samples" .= [object ["phase" .= phase, "page" .= page, "started_ns" .= started, "duration_ns" .= elapsed, "rows" .= count] | BrowseSample phase page started elapsed count <- rows]
-                ]
+  rows <- reverse <$> readIORef samples
+  pure $
+    Just $
+      object
+        [ "schema" .= ("mp13.browse-diagnostics/v1" :: Text),
+          "classification" .= ("sparse observer diagnostics; excluded from primary append grade" :: Text),
+          "samples" .= [object ["phase" .= phase, "page" .= page, "started_ns" .= started, "duration_ns" .= elapsed, "rows" .= count] | BrowseSample phase page started elapsed count <- rows]
+        ]
 
 withBrowser :: Maybe Config -> Maybe Browser -> Text -> KirokuStore -> IO a -> IO a
 withBrowser (Just config) (Just (Browser samples)) phase store action = do
-    begin <- getMonotonicTimeNSec
-    Async.withAsync (loop begin 0) $ \reader -> Async.link reader >> action
+  begin <- getMonotonicTimeNSec
+  Async.withAsync (loop begin 0) $ \reader -> Async.link reader >> action
   where
     late = "probe-" <> fixtureId (max 1 (config.catalog - 10))
     loop begin iteration = do
-        let scheduled = begin + (iteration * 1000000000) `div` fromIntegral config.browseHz
-        now <- getMonotonicTimeNSec
-        when (scheduled > now) $ threadDelay (fromIntegral ((scheduled - now + 999) `div` 1000))
-        forPages
-        loop begin (iteration + 1)
+      let scheduled = begin + (iteration * 1000000000) `div` fromIntegral config.browseHz
+      now <- getMonotonicTimeNSec
+      when (scheduled > now) $ threadDelay (fromIntegral ((scheduled - now + 999) `div` 1000))
+      forPages
+      loop begin (iteration + 1)
     forPages = do
-        page "first" (Just (CategoryName "probe")) Nothing Nothing
-        page "late" (Just (CategoryName "probe")) Nothing (Just (StreamName late))
-        page "absent" Nothing (Just "missing-") Nothing
+      page "first" (Just (CategoryName "probe")) Nothing Nothing
+      page "late" (Just (CategoryName "probe")) Nothing (Just (StreamName late))
+      page "absent" Nothing (Just "missing-") Nothing
     page shape category prefix cursor = do
-        started <- getMonotonicTimeNSec
-        let size = either (error . show) id (mkBrowsePageSize 11)
-        rows <- session store (SQL.listStreamsSession category prefix cursor size)
-        finished <- getMonotonicTimeNSec
-        let names = [name | row <- V.toList rows, let StreamName name = row.name]
-        unless (V.length rows <= 11 && all (Text.isPrefixOf "probe-") names) (fail "browse returned invalid category page")
-        when (shape == "absent") $ unless (V.null rows) (fail "absent prefix returned rows")
-        atomicModifyIORef' samples (\rows0 -> (BrowseSample phase shape started (finished - started) (V.length rows) : rows0, ()))
+      started <- getMonotonicTimeNSec
+      let size = either (error . show) id (mkBrowsePageSize 11)
+      rows <- session store (SQL.listStreamsSession category prefix cursor size)
+      finished <- getMonotonicTimeNSec
+      let names = [name | row <- V.toList rows, let StreamName name = row.name]
+      unless (V.length rows <= 11 && all (Text.isPrefixOf "probe-") names) (fail "browse returned invalid category page")
+      when (shape == "absent") $ unless (V.null rows) (fail "absent prefix returned rows")
+      atomicModifyIORef' samples (\rows0 -> (BrowseSample phase shape started (finished - started) (V.length rows) : rows0, ()))
 withBrowser _ _ _ _ action = action
 
 session :: KirokuStore -> Session.Session a -> IO a

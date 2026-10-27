@@ -1,6 +1,6 @@
 cabal-version:   3.0
 name:            shibuya-kiroku-adapter
-version:         0.6.0.1
+version:         0.7.0.0
 synopsis:
   Kiroku event store adapter for the Shibuya queue processing framework
 
@@ -62,10 +62,10 @@ library
   build-depends:
     , aeson                                  >=2.1       && <2.3
     , base                                   >=4.18      && <5
-    , effectful-core                         >=2.6.1     && <2.7        || >=2.7.1.1 && <2.8
+    , effectful-core                         >=2.6.1     && <2.7  || >=2.7.1.1 && <2.8
     , hs-opentelemetry-api                   ^>=1.0
     , hs-opentelemetry-semantic-conventions  ^>=1.40
-    , kiroku-store                           ^>=0.11.0.0 || ^>=0.12.0.0
+    , kiroku-store                           ^>=0.12.0.0
     , shibuya-core                           >=0.12      && <0.13
     , shibuya-kiroku-adapter-internal
     , stm                                    >=2.5       && <2.6
@@ -89,14 +89,14 @@ test-suite shibuya-kiroku-adapter-test
     , containers                       >=0.6       && <0.8
     , directory
     , effectful                        >=2.6.1     && <2.8
-    , effectful-core                   >=2.6.1     && <2.7        || >=2.7.1.1 && <2.8
+    , effectful-core                   >=2.6.1     && <2.7  || >=2.7.1.1 && <2.8
     , ephemeral-pg                     >=0.3.1     && <0.4
     , generic-lens                     >=2.2       && <2.4
     , hasql                            >=1.10      && <1.11
     , hasql-pool                       >=1.2       && <1.5
     , hs-opentelemetry-api             ^>=1.0
     , hspec                            >=2.10      && <2.12
-    , kiroku-store                     ^>=0.11.0.0 || ^>=0.12.0.0
+    , kiroku-store                     ^>=0.12.0.0
     , kiroku-test-support              ^>=0.1.0.0
     , lens                             >=5.2       && <5.4
     , shibuya-core                     >=0.12      && <0.13
@@ -128,9 +128,9 @@ executable lifecycle-live
     , base                    >=4.18      && <5
     , bytestring              >=0.11      && <0.13
     , containers              >=0.6       && <0.8
-    , effectful-core          >=2.6.1     && <2.7        || >=2.7.1.1 && <2.8
+    , effectful-core          >=2.6.1     && <2.7  || >=2.7.1.1 && <2.8
     , ephemeral-pg            >=0.3.1     && <0.4
-    , kiroku-store            ^>=0.11.0.0 || ^>=0.12.0.0
+    , kiroku-store            ^>=0.12.0.0
     , kiroku-test-support     ^>=0.1.0.0
     , shibuya-core            >=0.12      && <0.13
     , shibuya-kiroku-adapter
@@ -148,18 +148,18 @@ benchmark kiroku-mp12-write-probe
   default-extensions: OverloadedRecordDot
   ghc-options:        -threaded -rtsopts "-with-rtsopts=-N4 -T -A32m" -O2
   build-depends:
-    , aeson                   >=2.1   && <2.3
-    , async                   >=2.2   && <2.3
-    , base                    >=4.18  && <5
-    , bytestring              >=0.11  && <0.13
+    , aeson                   >=2.1       && <2.3
+    , async                   >=2.2       && <2.3
+    , base                    >=4.18      && <5
+    , bytestring              >=0.11      && <0.13
     , contravariant-extras    >=0.3
-    , effectful-core          >=2.6.1 && <2.7  || >=2.7.1.1 && <2.8
-    , ephemeral-pg            >=0.3.1 && <0.4
-    , hasql                   >=1.10  && <1.11
-    , hasql-pool              >=1.2   && <1.5
-    , kiroku-store
+    , effectful-core          >=2.6.1     && <2.7  || >=2.7.1.1 && <2.8
+    , ephemeral-pg            >=0.3.1     && <0.4
+    , hasql                   >=1.10      && <1.11
+    , hasql-pool              >=1.2       && <1.5
+    , kiroku-store            ^>=0.12.0.0
     , kiroku-test-support
-    , shibuya-core            >=0.12  && <0.13
+    , shibuya-core            >=0.12      && <0.13
     , shibuya-kiroku-adapter
-    , text                    >=2.0   && <2.2
-    , vector                  >=0.13  && <0.14
+    , text                    >=2.0       && <2.2
+    , vector                  >=0.13      && <0.14

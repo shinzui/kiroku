@@ -1,9 +1,8 @@
-{- | Tests for "Kiroku.Store.Read".'readStreamForwardStream' — the
-Streamly-shaped sibling of 'readStreamForward'. The streaming wrapper
-must yield the same events in the same order as the @Vector@-returning
-form, page transparently across the configured @pageSize@, terminate on
-empty / nonexistent streams, and honor a non-zero starting cursor.
--}
+-- | Tests for "Kiroku.Store.Read".'readStreamForwardStream' — the
+-- Streamly-shaped sibling of 'readStreamForward'. The streaming wrapper
+-- must yield the same events in the same order as the @Vector@-returning
+-- form, page transparently across the configured @pageSize@, terminate on
+-- empty / nonexistent streams, and honor a non-zero starting cursor.
 module Test.ReadStream (spec) where
 
 import Control.Lens ((^.))
@@ -22,132 +21,132 @@ import Test.Hspec
 
 spec :: Spec
 spec = do
-    describe "readStreamForwardStream" $ do
-        around withTestStore $ do
-            it "matches readStreamForward on a single-page stream" $ \store -> do
-                let name = StreamName "rsfs-single-page"
-                    events = [makeEvent (T.pack ("E" <> show i)) (Aeson.object []) | i <- [1 .. 5 :: Int]]
-                Right _ <- runStoreIO store $ appendToStream name NoStream events
-                streamed <- runStoreIO store $ Stream.toList (readStreamForwardStream name (StreamVersion 0) 256)
-                vectored <- runStoreIO store $ readStreamForward name (StreamVersion 0) 256
-                case (streamed, vectored) of
-                    (Right xs, Right v) -> xs `shouldBe` V.toList v
-                    _ -> expectationFailure ("Unexpected error: " <> show streamed <> " / " <> show vectored)
+  describe "readStreamForwardStream" $ do
+    around withTestStore $ do
+      it "matches readStreamForward on a single-page stream" $ \store -> do
+        let name = StreamName "rsfs-single-page"
+            events = [makeEvent (T.pack ("E" <> show i)) (Aeson.object []) | i <- [1 .. 5 :: Int]]
+        Right _ <- runStoreIO store $ appendToStream name NoStream events
+        streamed <- runStoreIO store $ Stream.toList (readStreamForwardStream name (StreamVersion 0) 256)
+        vectored <- runStoreIO store $ readStreamForward name (StreamVersion 0) 256
+        case (streamed, vectored) of
+          (Right xs, Right v) -> xs `shouldBe` V.toList v
+          _ -> expectationFailure ("Unexpected error: " <> show streamed <> " / " <> show vectored)
 
-            it "folds 1000 events end-to-end with Fold.length across multiple pages" $ \store -> do
-                let name = StreamName "rsfs-multi-page"
-                    total = 1000 :: Int
-                    events = [makeEvent (T.pack ("E" <> show i)) (Aeson.object []) | i <- [1 .. total]]
-                Right _ <- runStoreIO store $ appendToStream name NoStream events
-                countResult <-
-                    runStoreIO store $
-                        Stream.fold Fold.length (readStreamForwardStream name (StreamVersion 0) 256)
-                countResult `shouldBe` Right total
-                allEvents <-
-                    runStoreIO store $
-                        Stream.toList (readStreamForwardStream name (StreamVersion 0) 256)
-                case allEvents of
-                    Right xs -> case NE.nonEmpty xs of
-                        Just ne -> do
-                            let h = NE.head ne
-                                l = NE.last ne
-                            (h ^. #streamVersion) `shouldBe` StreamVersion 1
-                            (h ^. #eventType) `shouldBe` EventType (T.pack "E1")
-                            (l ^. #streamVersion) `shouldBe` StreamVersion (fromIntegral total)
-                            (l ^. #eventType) `shouldBe` EventType (T.pack ("E" <> show total))
-                        Nothing -> expectationFailure "Expected non-empty events list"
-                    Left err -> expectationFailure ("Unexpected error: " <> show err)
+      it "folds 1000 events end-to-end with Fold.length across multiple pages" $ \store -> do
+        let name = StreamName "rsfs-multi-page"
+            total = 1000 :: Int
+            events = [makeEvent (T.pack ("E" <> show i)) (Aeson.object []) | i <- [1 .. total]]
+        Right _ <- runStoreIO store $ appendToStream name NoStream events
+        countResult <-
+          runStoreIO store $
+            Stream.fold Fold.length (readStreamForwardStream name (StreamVersion 0) 256)
+        countResult `shouldBe` Right total
+        allEvents <-
+          runStoreIO store $
+            Stream.toList (readStreamForwardStream name (StreamVersion 0) 256)
+        case allEvents of
+          Right xs -> case NE.nonEmpty xs of
+            Just ne -> do
+              let h = NE.head ne
+                  l = NE.last ne
+              (h ^. #streamVersion) `shouldBe` StreamVersion 1
+              (h ^. #eventType) `shouldBe` EventType (T.pack "E1")
+              (l ^. #streamVersion) `shouldBe` StreamVersion (fromIntegral total)
+              (l ^. #eventType) `shouldBe` EventType (T.pack ("E" <> show total))
+            Nothing -> expectationFailure "Expected non-empty events list"
+          Left err -> expectationFailure ("Unexpected error: " <> show err)
 
-            it "preserves order and avoids duplicates / gaps when paging at pageSize 2" $ \store -> do
-                let name = StreamName "rsfs-page-boundary"
-                    events = [makeEvent (T.pack ("E" <> show i)) (Aeson.object []) | i <- [1 .. 5 :: Int]]
-                Right _ <- runStoreIO store $ appendToStream name NoStream events
-                versions <-
-                    runStoreIO store $
-                        Stream.toList $
-                            fmap (^. #streamVersion) (readStreamForwardStream name (StreamVersion 0) 2)
-                versions
-                    `shouldBe` Right
-                        [ StreamVersion 1
-                        , StreamVersion 2
-                        , StreamVersion 3
-                        , StreamVersion 4
-                        , StreamVersion 5
-                        ]
+      it "preserves order and avoids duplicates / gaps when paging at pageSize 2" $ \store -> do
+        let name = StreamName "rsfs-page-boundary"
+            events = [makeEvent (T.pack ("E" <> show i)) (Aeson.object []) | i <- [1 .. 5 :: Int]]
+        Right _ <- runStoreIO store $ appendToStream name NoStream events
+        versions <-
+          runStoreIO store $
+            Stream.toList $
+              fmap (^. #streamVersion) (readStreamForwardStream name (StreamVersion 0) 2)
+        versions
+          `shouldBe` Right
+            [ StreamVersion 1,
+              StreamVersion 2,
+              StreamVersion 3,
+              StreamVersion 4,
+              StreamVersion 5
+            ]
 
-            it "terminates immediately on a nonexistent stream" $ \store -> do
-                let name = StreamName "rsfs-never-created"
-                result <-
-                    runStoreIO store $
-                        Stream.toList (readStreamForwardStream name (StreamVersion 0) 256)
-                result `shouldBe` Right []
+      it "terminates immediately on a nonexistent stream" $ \store -> do
+        let name = StreamName "rsfs-never-created"
+        result <-
+          runStoreIO store $
+            Stream.toList (readStreamForwardStream name (StreamVersion 0) 256)
+        result `shouldBe` Right []
 
-            it "honors a non-zero starting cursor with exclusivity" $ \store -> do
-                let name = StreamName "rsfs-non-zero-cursor"
-                    events = [makeEvent (T.pack ("E" <> show i)) (Aeson.object []) | i <- [1 .. 5 :: Int]]
-                Right _ <- runStoreIO store $ appendToStream name NoStream events
-                tailEvents <-
-                    runStoreIO store $
-                        Stream.toList (readStreamForwardStream name (StreamVersion 2) 256)
-                case tailEvents of
-                    Right xs -> do
-                        length xs `shouldBe` 3
-                        map (^. #streamVersion) xs
-                            `shouldBe` [StreamVersion 3, StreamVersion 4, StreamVersion 5]
-                    Left err -> expectationFailure ("Unexpected error: " <> show err)
+      it "honors a non-zero starting cursor with exclusivity" $ \store -> do
+        let name = StreamName "rsfs-non-zero-cursor"
+            events = [makeEvent (T.pack ("E" <> show i)) (Aeson.object []) | i <- [1 .. 5 :: Int]]
+        Right _ <- runStoreIO store $ appendToStream name NoStream events
+        tailEvents <-
+          runStoreIO store $
+            Stream.toList (readStreamForwardStream name (StreamVersion 2) 256)
+        case tailEvents of
+          Right xs -> do
+            length xs `shouldBe` 3
+            map (^. #streamVersion) xs
+              `shouldBe` [StreamVersion 3, StreamVersion 4, StreamVersion 5]
+          Left err -> expectationFailure ("Unexpected error: " <> show err)
 
-        it "uses one pool checkout per non-empty page when the final page is short" $ do
-            ref <- newIORef (0 :: Int)
-            let handler (ConnectionObservation _ InUseConnectionStatus) =
-                    modifyIORef' ref (+ 1)
-                handler _ =
-                    pure ()
-            withTestStoreSettings (\settings -> settings{observationHandler = Just handler}) $ \store -> do
-                let name = StreamName "rsfs-short-page-count"
-                    events = [makeEvent (T.pack ("E" <> show i)) (Aeson.object []) | i <- [1 .. 5 :: Int]]
-                Right appendResult <- runStoreIO store $ appendToStream name NoStream events
-                waitForPublisher store (appendResult ^. #globalPosition)
-                countBefore <- readIORef ref
-                streamed <- runStoreIO store $ Stream.toList (readStreamForwardStream name (StreamVersion 0) 2)
-                countAfter <- readIORef ref
-                case streamed of
-                    Right xs -> do
-                        map (^. #streamVersion) xs
-                            `shouldBe` [StreamVersion 1, StreamVersion 2, StreamVersion 3, StreamVersion 4, StreamVersion 5]
-                        countAfter - countBefore `shouldBe` 3
-                    Left err -> expectationFailure ("Unexpected error: " <> show err)
+    it "uses one pool checkout per non-empty page when the final page is short" $ do
+      ref <- newIORef (0 :: Int)
+      let handler (ConnectionObservation _ InUseConnectionStatus) =
+            modifyIORef' ref (+ 1)
+          handler _ =
+            pure ()
+      withTestStoreSettings (\settings -> settings {observationHandler = Just handler}) $ \store -> do
+        let name = StreamName "rsfs-short-page-count"
+            events = [makeEvent (T.pack ("E" <> show i)) (Aeson.object []) | i <- [1 .. 5 :: Int]]
+        Right appendResult <- runStoreIO store $ appendToStream name NoStream events
+        waitForPublisher store (appendResult ^. #globalPosition)
+        countBefore <- readIORef ref
+        streamed <- runStoreIO store $ Stream.toList (readStreamForwardStream name (StreamVersion 0) 2)
+        countAfter <- readIORef ref
+        case streamed of
+          Right xs -> do
+            map (^. #streamVersion) xs
+              `shouldBe` [StreamVersion 1, StreamVersion 2, StreamVersion 3, StreamVersion 4, StreamVersion 5]
+            countAfter - countBefore `shouldBe` 3
+          Left err -> expectationFailure ("Unexpected error: " <> show err)
 
-    describe "eventExistsInStream" $
-        around withTestStore $ do
-            it "finds an existing event id in its live stream" $ \store -> do
-                eid <- EventId <$> V7.genUUID
-                let name = StreamName "event-exists-present"
-                Right _ <- runStoreIO store $ appendToStream name NoStream [eventWithId eid]
-                runStoreIO store (eventExistsInStream name eid) `shouldReturn` Right True
+  describe "eventExistsInStream" $
+    around withTestStore $ do
+      it "finds an existing event id in its live stream" $ \store -> do
+        eid <- EventId <$> V7.genUUID
+        let name = StreamName "event-exists-present"
+        Right _ <- runStoreIO store $ appendToStream name NoStream [eventWithId eid]
+        runStoreIO store (eventExistsInStream name eid) `shouldReturn` Right True
 
-            it "returns False for absent ids and ids linked only to another stream" $ \store -> do
-                eid <- EventId <$> V7.genUUID
-                otherEid <- EventId <$> V7.genUUID
-                let source = StreamName "event-exists-source"
-                    target = StreamName "event-exists-target"
-                Right _ <- runStoreIO store $ appendToStream source NoStream [eventWithId eid]
-                runStoreIO store (eventExistsInStream source otherEid) `shouldReturn` Right False
-                runStoreIO store (eventExistsInStream target eid) `shouldReturn` Right False
+      it "returns False for absent ids and ids linked only to another stream" $ \store -> do
+        eid <- EventId <$> V7.genUUID
+        otherEid <- EventId <$> V7.genUUID
+        let source = StreamName "event-exists-source"
+            target = StreamName "event-exists-target"
+        Right _ <- runStoreIO store $ appendToStream source NoStream [eventWithId eid]
+        runStoreIO store (eventExistsInStream source otherEid) `shouldReturn` Right False
+        runStoreIO store (eventExistsInStream target eid) `shouldReturn` Right False
 
-            it "treats soft-deleted streams as absent" $ \store -> do
-                eid <- EventId <$> V7.genUUID
-                let name = StreamName "event-exists-soft-deleted"
-                Right _ <- runStoreIO store $ appendToStream name NoStream [eventWithId eid]
-                Right (Just _) <- runStoreIO store $ softDeleteStream name
-                runStoreIO store (eventExistsInStream name eid) `shouldReturn` Right False
+      it "treats soft-deleted streams as absent" $ \store -> do
+        eid <- EventId <$> V7.genUUID
+        let name = StreamName "event-exists-soft-deleted"
+        Right _ <- runStoreIO store $ appendToStream name NoStream [eventWithId eid]
+        Right (Just _) <- runStoreIO store $ softDeleteStream name
+        runStoreIO store (eventExistsInStream name eid) `shouldReturn` Right False
 
 eventWithId :: EventId -> EventData
 eventWithId eid =
-    EventData
-        { eventId = Just eid
-        , eventType = EventType "Created"
-        , payload = Aeson.object []
-        , metadata = Nothing
-        , causationId = Nothing
-        , correlationId = Nothing
-        }
+  EventData
+    { eventId = Just eid,
+      eventType = EventType "Created",
+      payload = Aeson.object [],
+      metadata = Nothing,
+      causationId = Nothing,
+      correlationId = Nothing
+    }
