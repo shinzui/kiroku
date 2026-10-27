@@ -18,7 +18,7 @@
        }
 , blueprints =
   [ { name = "kiroku-upgrade"
-    , version = Some "0.4.0"
+    , version = Some "0.5.0"
     , path = "blueprints/kiroku-upgrade"
     , description = Some
         "Upgrade guidance for Kiroku consumers: one agent-guided edge per released version window that needs judgement work"
