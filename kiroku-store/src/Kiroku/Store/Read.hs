@@ -5,6 +5,7 @@ module Kiroku.Store.Read
     readAllForward,
     readAllBackward,
     visibleGlobalHeadPosition,
+    storeIdentity,
     readCategory,
     getStream,
     getStreamWithHead,
@@ -289,3 +290,8 @@ listCategories after limit = send (ListCategories after limit)
 -- | An event as seen in the global log, using the configured typed decode hook.
 getEvent :: (HasCallStack, Store :> es) => EventId -> Eff es (Maybe RecordedEvent)
 getEvent eid = send (GetEvent eid)
+
+-- | Read the immutable store identity in one statement. Restored clones share
+-- their source identity; requires migration 0017.
+storeIdentity :: (HasCallStack, Store :> es) => Eff es StoreIdentity
+storeIdentity = send GetStoreIdentity

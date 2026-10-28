@@ -180,7 +180,8 @@ noOpAppendSpec =
               Statement.toSql SQL.setStreamTruncateBeforeStmt
             ]
       forM_ ordinarySql $ \sql ->
-        T.toLower sql `shouldNotSatisfy` T.isInfixOf "history_retention"
+        forM_ ["history_retention", "store_identity", "event_compactions"] $ \name ->
+          T.toLower sql `shouldNotSatisfy` T.isInfixOf name
 
 queryPlanSpec :: Spec
 queryPlanSpec =

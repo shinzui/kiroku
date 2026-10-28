@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+* Add `StoreIdentity`, `storeIdentity` and `storeIdentityTx` for the immutable, clone-shared identity installed by migration `0017`. Requires that migration; older schemas report a missing relation.
+
 ## 0.12.0.0 — 2026-10-26
 
 ### Breaking Changes

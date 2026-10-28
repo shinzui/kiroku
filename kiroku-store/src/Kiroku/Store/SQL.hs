@@ -35,6 +35,7 @@ module Kiroku.Store.SQL
     getEventStmt,
     currentGlobalPositionStmt,
     visibleGlobalHeadPositionStmt,
+    storeIdentityStmt,
 
     -- * Consumer-group read statements
     readCategoryForwardConsumerGroupStmt,
@@ -1653,3 +1654,11 @@ getEventStmt =
     "SELECT e.event_id,e.event_type,se.stream_version,se.stream_version AS global_position, se.original_stream_id,se.original_stream_version,e.data,e.metadata,e.causation_id,e.correlation_id,e.created_at FROM events e JOIN stream_events se ON se.event_id=e.event_id AND se.stream_id=0 WHERE e.event_id=$1"
     (E.param (E.nonNullable E.uuid))
     (D.rowMaybe recordedEventRow)
+
+-- | The singleton identity installed by migration 0017.
+storeIdentityStmt :: Statement () StoreIdentity
+storeIdentityStmt =
+  preparable
+    "SELECT store_id FROM store_identity WHERE singleton"
+    E.noParams
+    (D.singleRow (StoreIdentity <$> D.column (D.nonNullable D.uuid)))

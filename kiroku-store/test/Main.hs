@@ -56,6 +56,8 @@ import Test.PublisherRestartNoRebroadcast qualified as PublisherRestartNoRebroad
 import Test.ReadStream qualified as ReadStream
 import Test.ScriptSessionErrors qualified as ScriptSessionErrors
 import Test.StartupFailureSurfacing qualified as StartupFailureSurfacing
+import Test.StoreIdentity qualified as StoreIdentity
+import Test.StoreIdentityMock qualified as StoreIdentityMock
 import Test.StreamBridgeTermination qualified as StreamBridgeTermination
 import Test.StreamHead qualified as StreamHead
 import Test.StreamHeadIsolation qualified as StreamHeadIsolation
@@ -85,6 +87,8 @@ import Test.VisibleGlobalHeadPositionMock qualified as VisibleGlobalHeadPosition
 
 main :: IO ()
 main = withSharedMigratedPostgres $ hspec $ do
+  StoreIdentity.spec
+  StoreIdentityMock.spec
   BrowseReads.spec
   BrowseReadsMock.spec
   SubscriptionDeadLetters.spec

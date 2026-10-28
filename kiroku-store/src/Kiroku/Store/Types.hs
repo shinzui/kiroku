@@ -5,6 +5,7 @@ module Kiroku.Store.Types
     EventType (..),
     StreamVersion (..),
     GlobalPosition (..),
+    StoreIdentity (..),
     ExpectedVersion (..),
     EventData (..),
     RecordedEvent (..),
@@ -323,3 +324,8 @@ mkBrowsePageSize n
 
 browsePageSizeValue :: BrowsePageSize -> Int32
 browsePageSizeValue (BrowsePageSize n) = n
+
+-- | Immutable, migration-installed store identity. Restored clones share the
+-- source identity so the same maintenance manifest can be rehearsed on a clone.
+newtype StoreIdentity = StoreIdentity UUID
+  deriving stock (Eq, Ord, Show, Generic)

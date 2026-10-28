@@ -42,6 +42,7 @@ module Kiroku.Store.Transaction
   ( -- * Bare escape hatch
     runTransaction,
     runTransactionNoRetry,
+    storeIdentityTx,
 
     -- * Tx-flavored append building block
     appendToStreamTx,
@@ -76,6 +77,7 @@ import Kiroku.Store.Connection (KirokuStore)
 import Kiroku.Store.Effect (PreparedEvent, Store (..), appendDispatchTx, buildAppendParams, prepareEvents)
 import Kiroku.Store.Effect.Resource (KirokuStoreResource, getKirokuStore)
 import Kiroku.Store.Error (AppendConflict (..), StoreError (..), appendConflictToStoreError, emptyResultConflict, validateStreamName)
+import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Settings qualified as Settings
 import Kiroku.Store.Types
 
@@ -361,3 +363,7 @@ runTransactionAppendingWith ctor sn@(StreamName _) expected events k
               Right ar ->
                 Right <$> k ar
       send (ctor body)
+
+-- | Read the immutable store identity inside the caller's transaction.
+storeIdentityTx :: Tx.Transaction StoreIdentity
+storeIdentityTx = Tx.statement () SQL.storeIdentityStmt

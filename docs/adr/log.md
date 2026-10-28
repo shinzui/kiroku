@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-10-28
+* **Addition**: ADR-21 establishes the schema-installed clone-shared identity and append-only compaction ledger.
+
 ## 2026-10-26
 * **Update**: [ADR-17](0017-stream-browsing-uses-byte-order-and-one-shared-name-index.md) — Link Plan 54’s completed cumulative comparison and explicit practical acceptance without changing its bounded-scan or independent-member cost contracts.
 * **Update**: [ADR-15](0015-inspection-observers-preserve-wire-contracts-and-bound-shared-work.md) — Record the user’s new practical acceptance for Plan 54 after two five-pair Kenshou comparisons; retain both inconclusive statistical verdicts and prohibit future allowance transfer.

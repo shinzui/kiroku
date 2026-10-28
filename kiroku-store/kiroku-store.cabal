@@ -133,6 +133,8 @@ test-suite kiroku-store-test
     Test.ReadStream
     Test.ScriptSessionErrors
     Test.StartupFailureSurfacing
+    Test.StoreIdentity
+    Test.StoreIdentityMock
     Test.StreamBridgeTermination
     Test.StreamHead
     Test.StreamHeadIsolation

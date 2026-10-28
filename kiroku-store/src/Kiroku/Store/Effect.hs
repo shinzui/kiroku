@@ -89,6 +89,8 @@ data Store :: Effect where
   --
   --     Surfaced as 'Kiroku.Store.Read.visibleGlobalHeadPosition'.
   GetVisibleGlobalHeadPosition :: Store m GlobalPosition
+  -- | Read the immutable store identity installed by migration 0017.
+  GetStoreIdentity :: Store m StoreIdentity
   GetStream :: StreamName -> Store m (Maybe StreamInfo)
   -- | One-statement metadata and newest surviving originated head observation.
   --     Outer 'Nothing' means absent; inner 'Nothing' means no originated events,
@@ -262,6 +264,8 @@ runStorePool store = interpret_ $ \case
       usePool (store ^. #pool) $
         Session.statement (cursor, limit) SQL.readAllBackwardStmt
     decodeReadEvents (store ^. #storeSettings) evs
+  GetStoreIdentity ->
+    usePool (store ^. #pool) $ Session.statement () SQL.storeIdentityStmt
   GetVisibleGlobalHeadPosition ->
     usePool (store ^. #pool) $
       Session.statement () SQL.visibleGlobalHeadPositionStmt

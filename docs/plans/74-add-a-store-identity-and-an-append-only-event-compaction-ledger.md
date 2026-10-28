@@ -12,13 +12,18 @@ provenance:
       harness: "claude-code"
       at: 2026-09-10T00:36:16Z
       verdict: "comments"
-      note: "Migration, fixtures, scaffolder, and trigger claims verified; three (not two) migrations-suite example titles say eleven"
+      note: "Migration, fixtures, scaffolder, and trigger claims verified; three (not two) migrations-suite example titles say sixteen"
   revisions:
     - model: "claude-fable-5-1"
       harness: "claude-code"
       at: 2026-09-10T00:45:20Z
       mode: "update"
-      note: "Three migrations-suite example titles say eleven, not two"
+      note: "Three migrations-suite example titles say sixteen, not two"
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-28T04:36:30Z
+      mode: "implement"
+      note: "Implement schema and identity foundation as forward migration 0017"
 ---
 
 # Add a store identity and an append-only event-compaction ledger
@@ -66,23 +71,13 @@ with `Immutable table: store_identity cannot be updated`.
 
 ## Progress
 
-Use a checklist to summarize granular steps. Every stopping point must be documented here,
-even if it requires splitting a partially completed task into two ("done" vs. "remaining").
-This section must always reflect the actual current state of the work.
+- [ ] M1: Migration `0017` installs the protected identity and ledger; catalog and upgrade tests pass on PostgreSQL 17 and 18.
+- [ ] M2: Public identity reads, effect dispatch and clone semantics pass integration tests; the full structural run is still active.
+- [ ] M3: Identity ADR, changelogs and schema guide reflect the accepted behavior; repository checks pass.
 
-- [ ] M1: Scaffold `kiroku-store-migrations/migrations/0012.sql` with the scaffolder and verify the manifest gained the line.
-- [ ] M1: Write the migration body: `kiroku.store_identity`, `kiroku.event_compactions`, named constraints, index, protection triggers, comments, and the closing schema comment.
-- [ ] M1: Update the hard-coded fixtures in `kiroku-store-migrations/test/Main.hs` (file list, example titles, pending ids, outcome counts, schema-comment literal).
-- [ ] M1: Add `describe "compaction schema"` with exact-column and named-constraint assertions and the unchanged `(6, 0)` hot-table trigger shape.
-- [ ] M1: Run the migrations suite on the default PostgreSQL and on the 17/18 matrix.
-- [ ] M2: Add `StoreIdentity` to `Kiroku.Store.Types`, `storeIdentityStmt` to `Kiroku.Store.SQL`, `GetStoreIdentity` to the `Store` effect and interpreter.
-- [ ] M2: Add `Kiroku.Store.Read.storeIdentity` and `Kiroku.Store.Transaction.storeIdentityTx` with Haddock.
-- [ ] M2: Write `kiroku-store/test/Test/StoreIdentity.hs` and `Test/StoreIdentityMock.hs`; register both in the cabal file and `test/Main.hs`.
-- [ ] M2: Extend the `Test/PerformanceStructure.hs` ordinary-statement example so no ordinary statement mentions `event_compactions` or `store_identity`.
-- [ ] M2: Run the store suite and `just perf-structure`.
-- [ ] M3: Allocate the ADR handle with `okf id next`, write the store-identity ADR, update `docs/adr/index.md` and `docs/adr/log.md`, run `just adr-validate`.
-- [ ] M3: Add unreleased changelog sections to `kiroku-store/CHANGELOG.md` and `kiroku-store-migrations/CHANGELOG.md`; update `docs/user/schema-migrations.md`.
-- [ ] M3: Run `cabal build all`, `cabal test all`, `nix fmt`, `nix flake check`; commit with trailers.
+Implementation uses the current sixteen-migration baseline. Historical examples
+below that enumerate pending files must include the existing `0012`–`0016` tail;
+no released migration is changed.
 
 
 ## Surprises & Discoveries
@@ -90,7 +85,12 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+- 2026-10-27: Migration numbers 0012–0016 are already released; the schema
+  foundation uses forward migration 0017. Existing upgrade fixtures also pinned
+  a sixteen-entry rerun; it now derives its count from the manifest.
+- Separate test databases are real PostgreSQL clones of the shared migrated
+  template. Comparing their public identity reads directly proves clone semantics.
+
 
 
 ## Decision Log
@@ -101,7 +101,7 @@ Record every decision made while working on the plan.
   the store identity, with its complete column and constraint contract, even though no code in
   this plan writes to it.
   Rationale: A migration payload can never be edited once released (pg-migrate verifies its
-  SHA-256 forever), and each migration should be released once. Putting both tables in `0012`
+  SHA-256 forever), and each migration should be released once. Putting both tables in `0017`
   means the compaction feature needs exactly one schema release and the later apply plan
   (`docs/plans/78-...`) is purely a `kiroku-store` change. The contract is fixed in the
   MasterPlan's Integration Points so this plan and the apply plan cannot drift.
@@ -157,7 +157,11 @@ Compare the result against the original purpose. Before marking the plan complet
 distill durable project context from the Decision Log, Surprises & Discoveries, and
 this section into docs/adr/. Keep task-local execution details here.
 
-(To be filled during and after implementation.)
+The schema and public identity API are implemented. PostgreSQL 17 migrations:
+27 examples, zero failures. Strict ADR validation: 21 concepts. Nix formatting
+and flake checks pass. The PostgreSQL 18 migration rerun and full store suite
+remain active; do not mark the child complete until their results are verified.
+
 
 
 ## Context and Orientation
@@ -180,7 +184,7 @@ needs a `DATABASE_URL`; they bring their own server.
 Kiroku's migrations are applied by the `pg-migrate` library. A migration is identified by the
 pair (component `kiroku`, file basename without `.sql`) and by the SHA-256 of its bytes.
 Ordering is the line order of `kiroku-store-migrations/migrations/manifest`, which currently
-lists eleven files ending in `0009.sql`, `0010.sql`, `0011.sql`. Files since `0009` are bare
+lists sixteen files ending in `0009.sql`, `0010.sql`, `0011.sql`. Files since `0009` are bare
 zero-padded numbers without a slug. You never hand-edit the manifest; the scaffolder creates
 the next file and appends its line atomically:
 
@@ -190,7 +194,7 @@ cabal run kiroku-store-migrate -- new \
   --description "add store identity and event-compaction ledger"
 ```
 
-This prints `Created kiroku-store-migrations/migrations/0012.sql` and leaves a file containing
+This prints `Created kiroku-store-migrations/migrations/0017.sql` and leaves a file containing
 only the comment line `-- add store identity and event-compaction ledger` followed by a blank
 line. A released migration payload is never edited again; a mistake is fixed by a new forward
 migration. Two older ExecPlans (66 and 67) describe a timestamped scaffolder and a codd
@@ -204,7 +208,7 @@ Conventions every migration after `0001` must follow, all visible in
 PostgreSQL 17 and 18; put triggers only on `DELETE`, `TRUNCATE`, and (for immutability) `UPDATE`,
 never on `INSERT`; give every constraint an explicit `chk_...` name so tests can assert the
 names; add `COMMENT ON TABLE` / `COMMENT ON COLUMN` for every published object; and end with
-`COMMENT ON SCHEMA kiroku IS 'Managed by pg-migrate component kiroku through 0012';`, which the
+`COMMENT ON SCHEMA kiroku IS 'Managed by pg-migrate component kiroku through 0017';`, which the
 test suite pins.
 
 The trigger functions you will reuse already exist in the `kiroku` schema since `0001`:
@@ -218,24 +222,24 @@ accidental-mutation guard, not a security boundary; PostgreSQL privileges remain
 
 `kiroku-store-migrations/test/Main.hs` is a plain `hspec` suite (target
 `kiroku-store-migrations:kiroku-store-migrations-test`). It hard-codes the migration inventory
-in several places that you must update for a twelfth file:
+in several places that you must update for a seventeenth file:
 
-The list `nativeMigrationFiles` (near line 420) enumerates the eleven basenames; append
-`"0012.sql"`. Three example titles say "eleven" — `"tracks the eleven native files in manifest
-order"`, `"builds component kiroku and an eleven-migration plan"`, and `"applies all eleven,
-verifies strictly, and reports AlreadyApplied on rerun"` — rename all three to "twelve". In the
+The list `nativeMigrationFiles` (near line 420) enumerates the sixteen basenames; append
+`"0017.sql"`. Three example titles say "sixteen" — `"tracks the sixteen native files in manifest
+order"`, `"builds component kiroku and an sixteen-migration plan"`, and `"applies all sixteen,
+verifies strictly, and reports AlreadyApplied on rerun"` — rename all three to "seventeen". In the
 Codd-history import fixture (near line 391) the `pendingIds`
-list `["0008-schema-management-comment", "0009", "0010", "0011"]` gains `"0012"`, and the
+list `["0008-schema-management-comment", "0009", "0010", "0011"]` gains `"0017"`, and the
 assertion `replicate 7 AlreadyApplied <> replicate 4 AppliedNow` becomes
 `replicate 7 AlreadyApplied <> replicate 5 AppliedNow` (the seven Codd-imported rows stay
 imported; the native tail grows from four to five). The block `describe "upgrades of already-bootstrapped databases"` (near line 284)
 uses `planThrough (length nativeMigrationFiles - 2)` and `replicate 2 AppliedNow`; it models a
 database bootstrapped two releases ago and applying the pending tail in a session with no
-`search_path`. Keep the shape: with twelve files the tail is still the last two (`0011`,
-`0012`), which is the right thing to test, so the arithmetic needs no change — but read the
+`search_path`. Keep the shape: with seventeen files the tail is still the last two (`0011`,
+`0017`), which is the right thing to test, so the arithmetic needs no change — but read the
 block and confirm the trailing `replicate 2 AppliedNow` still describes the tail. Finally
 `schemaFactsStatement` (near line 553) contains the literal
-`'Managed by pg-migrate component kiroku through 0011'`; change it to `0012`.
+`'Managed by pg-migrate component kiroku through 0011'`; change it to `0017`.
 
 The model for a focused schema block is `describe "history retention schema"` (near line 253):
 one example compares the exact ordered `(relname, attname, format_type, attnotnull)` rows for
@@ -337,7 +341,7 @@ applies without reading private tables.
 
 ## Plan of Work
 
-### Milestone 1 — Migration `0012` installs the identity and the ledger
+### Milestone 1 — Migration `0017` installs the identity and the ledger
 
 Scope: the schema change and its tests. At the end, a freshly migrated database contains
 `kiroku.store_identity` with one row and `kiroku.event_compactions` with zero rows, both
@@ -345,7 +349,7 @@ protected; the migrations suite asserts their exact contract; and the PostgreSQL
 passes.
 
 Run the scaffolder from the repository root (command in Context and Orientation). Open the new
-`kiroku-store-migrations/migrations/0012.sql` and replace its body with the following. Keep the
+`kiroku-store-migrations/migrations/0017.sql` and replace its body with the following. Keep the
 description comment as the first line.
 
 ```sql
@@ -442,7 +446,7 @@ CREATE TRIGGER no_truncate_event_compactions
 COMMENT ON TABLE kiroku.store_identity IS
   'Single immutable row identifying this store; a restored clone shares its source identity.';
 COMMENT ON COLUMN kiroku.store_identity.store_id IS
-  'UUIDv7 generated once by migration 0012; never updated.';
+  'UUIDv7 generated once by migration 0017; never updated.';
 
 COMMENT ON TABLE kiroku.event_compactions IS
   'Append-only ledger of applied selective compactions keyed by manifest digest; rows are audit evidence and are never updated.';
@@ -456,7 +460,7 @@ COMMENT ON COLUMN kiroku.event_compactions.applied_by IS
   'PostgreSQL session_user that applied the manifest; recorded by default, not supplied by the caller.';
 
 COMMENT ON SCHEMA kiroku IS
-  'Managed by pg-migrate component kiroku through 0012';
+  'Managed by pg-migrate component kiroku through 0017';
 ```
 
 Next update `kiroku-store-migrations/test/Main.hs` as described in Context and Orientation, then
@@ -520,7 +524,7 @@ added to the hot tables). Write it with one `SELECT` of six scalar subqueries, e
 `historyRetentionFactsStatement`, and decode with `Decoders.singleRow` of a six-tuple.
 
 Run the suite, then the matrix. Acceptance: every example passes on PostgreSQL 17 and 18, and
-the output shows twelve `AppliedNow` outcomes on a fresh database.
+the output shows seventeen `AppliedNow` outcomes on a fresh database.
 
 ### Milestone 2 — The public `storeIdentity` API
 
@@ -533,7 +537,7 @@ the declaration, placed after `GlobalPosition`:
 
 ```haskell
 {- | The immutable identity of one Kiroku store, installed once by migration
-@0012@ in @kiroku.store_identity@. A database restored from a backup or created
+@0017@ in @kiroku.store_identity@. A database restored from a backup or created
 with @CREATE DATABASE ... TEMPLATE@ carries the same identity as its source;
 this is intended so maintenance manifests rehearsed on a clone still name the
 production store. Read it with 'Kiroku.Store.Read.storeIdentity' or
@@ -547,7 +551,7 @@ In `kiroku-store/src/Kiroku/Store/SQL.hs`, add an export group `-- * Store ident
 `storeIdentityStmt` and the definition:
 
 ```haskell
--- | Read the single store identity row installed by migration 0012.
+-- | Read the single store identity row installed by migration 0017.
 storeIdentityStmt :: Statement () StoreIdentity
 storeIdentityStmt =
     preparable
@@ -563,7 +567,7 @@ In `kiroku-store/src/Kiroku/Store/Effect.hs`, add the constructor next to
 `GetVisibleGlobalHeadPosition`:
 
 ```haskell
-    {- | Read the immutable identity installed by migration @0012@.
+    {- | Read the immutable identity installed by migration @0017@.
     Surfaced as 'Kiroku.Store.Read.storeIdentity'.
     -}
     GetStoreIdentity :: Store m StoreIdentity
@@ -675,7 +679,7 @@ extended ordinary-statement example passes.
 
 Scope: durable context and the release-facing notes. At the end, the store-identity decision is
 an accepted ADR, both changelogs carry an "Unreleased" section, and the schema guide counts
-twelve migrations.
+seventeen migrations.
 
 Allocate the handle:
 
@@ -717,7 +721,7 @@ In `kiroku-store/CHANGELOG.md`, add at the top:
 
 * `Kiroku.Store.Types.StoreIdentity`, `Kiroku.Store.Read.storeIdentity`, and
   `Kiroku.Store.Transaction.storeIdentityTx` read the immutable store identity
-  installed by `kiroku-store-migrations` migration `0012`. Requires that
+  installed by `kiroku-store-migrations` migration `0017`. Requires that
   migration; a store migrated only through `0011` fails the read with a missing
   relation error.
 ```
@@ -729,20 +733,20 @@ In `kiroku-store-migrations/CHANGELOG.md`, add:
 
 ### New Features
 
-* Migration `0012` installs `kiroku.store_identity` (one immutable UUID row,
+* Migration `0017` installs `kiroku.store_identity` (one immutable UUID row,
   shared by restored clones) and the empty append-only
   `kiroku.event_compactions` ledger with its complete constraint contract. Both
   reuse the `0001` mutation, deletion, and truncation guards. No trigger,
   statement, or column is added to `events`, `stream_events`, or `streams`. The
-  plan now has twelve migrations and the schema comment reads
-  `Managed by pg-migrate component kiroku through 0012`; consumers whose tests
+  plan now has seventeen migrations and the schema comment reads
+  `Managed by pg-migrate component kiroku through 0017`; consumers whose tests
   pin the count or the comment must update them.
 ```
 
-Update `docs/user/schema-migrations.md`: "eleven ordered native migrations" becomes "twelve",
+Update `docs/user/schema-migrations.md`: "sixteen ordered native migrations" becomes "seventeen",
 and "`0008` through `0011` are native-only forward migrations" becomes "`0008` through
-`0012`"; search the file for every `0011` and update the ones that describe the current tail.
-Add a short paragraph under the authoring section noting that `0012` installed the store
+`0017`"; search the file for every `0011` and update the ones that describe the current tail.
+Add a short paragraph under the authoring section noting that `0017` installed the store
 identity and the compaction ledger.
 
 Acceptance: `just adr-validate` passes; `cabal build all`, `cabal test all`, `nix fmt`, and
@@ -766,10 +770,10 @@ tail -3 kiroku-store-migrations/migrations/manifest
 Expected:
 
 ```text
-Created kiroku-store-migrations/migrations/0012.sql
+Created kiroku-store-migrations/migrations/0017.sql
 0010.sql
 0011.sql
-0012.sql
+0017.sql
 ```
 
 Edit the SQL body and the test fixtures, then run the migrations suite. Because the SQL is
@@ -831,11 +835,11 @@ Commit at each milestone boundary with a message of this shape:
 ```text
 feat(migrations): install store identity and event-compaction ledger
 
-Add migration 0012 creating kiroku.store_identity and the append-only
+Add migration 0017 creating kiroku.store_identity and the append-only
 kiroku.event_compactions ledger with named constraints, protection
 triggers, and comments. Extend the migrations suite with exact column,
 constraint, index, and trigger assertions and update the fixtures for
-twelve migrations.
+seventeen migrations.
 
 MasterPlan: docs/masterplans/11-manifest-driven-selective-event-compaction.md
 ExecPlan: docs/plans/74-add-a-store-identity-and-an-append-only-event-compaction-ledger.md
@@ -855,7 +859,7 @@ UPDATE kiroku.store_identity SET created_at = now();   -- ERROR: Immutable table
 DELETE FROM kiroku.store_identity;                     -- ERROR: Hard deletes require: SET LOCAL kiroku.enable_hard_deletes = 'on'
 TRUNCATE kiroku.event_compactions;                     -- ERROR: TRUNCATE requires: SET LOCAL kiroku.enable_hard_deletes = 'on'
 SELECT obj_description(to_regnamespace('kiroku'), 'pg_namespace');
--- Managed by pg-migrate component kiroku through 0012
+-- Managed by pg-migrate component kiroku through 0017
 ```
 
 (`kiroku.protect_deletion()` is a row trigger, so a `DELETE` against the still-empty ledger
@@ -878,7 +882,7 @@ expectations (this migration fires no notification).
 
 ## Idempotence and Recovery
 
-The scaffolder refuses to overwrite an existing `0012.sql` and appends to the manifest
+The scaffolder refuses to overwrite an existing `0017.sql` and appends to the manifest
 atomically, so rerunning it after a failure either succeeds once or fails loudly; never edit
 the manifest by hand. The migration body is applied to ephemeral test databases only, which are
 created from a template per example and dropped afterwards; rerunning the suites is always safe.
@@ -904,7 +908,7 @@ plan.
 At the end of Milestone 1 these SQL objects exist in every migrated database:
 `kiroku.store_identity` and `kiroku.event_compactions` exactly as written above,
 `ix_event_compactions_applied_at`, the six `no_*` triggers, and the schema comment through
-`0012`.
+`0017`.
 
 At the end of Milestone 2 these declarations exist and are re-exported by `Kiroku.Store`:
 
@@ -937,6 +941,6 @@ this plan finds it present.
 ## Revision Notes
 
 - 2026-09-09 (claude-fable-5-1, update cascaded from the MasterPlan review): Corrected the
-  migrations-suite fixture inventory — three example titles say "eleven", not two. Every other
+  migrations-suite fixture inventory — three example titles say "sixteen", not two. Every other
   claim (scaffolder command, fixture line numbers, trigger functions, template fixture, ADR
   handle `ADR-8`) was verified against the working tree unchanged.

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+* Migration `0017` installs the immutable store identity and empty append-only event-compaction ledger, with named constraints and mutation guards. The manifest now has seventeen entries; ordinary hot tables are unchanged.
+
 ## 0.7.2.0 — 2026-10-26
 
 ### New Features

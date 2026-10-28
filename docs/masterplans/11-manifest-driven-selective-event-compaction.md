@@ -18,6 +18,11 @@ provenance:
       at: 2026-09-10T00:45:20Z
       mode: "update"
       note: "Applied 2026-09-09 review: witness validation via eventMembershipsStmt, identity-first and ledger-before-stream-locks apply order, KRCMP mapped in Kiroku.Store.Error, applyCompactionTxWith seam, operator-guide consequences"
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-28T04:36:30Z
+      mode: "implement"
+      note: "Implement initiative against current sixteen-migration baseline; compaction uses 0017"
 ---
 
 # Manifest-driven selective event compaction
@@ -134,7 +139,7 @@ compaction was deferred to "a possible Phase 2"; this MasterPlan is that phase.
 
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
-| 1 | Add a store identity and an append-only event-compaction ledger | docs/plans/74-add-a-store-identity-and-an-append-only-event-compaction-ledger.md | None | None | Not Started |
+| 1 | Add a store identity and an append-only event-compaction ledger | docs/plans/74-add-a-store-identity-and-an-append-only-event-compaction-ledger.md | None | None | In Progress |
 | 2 | Expose an event membership and reference inventory read API | docs/plans/75-expose-an-event-membership-and-reference-inventory-read-api.md | None | None | Not Started |
 | 3 | Define the compaction manifest, canonical digest, refusal vocabulary, and report types | docs/plans/76-define-the-compaction-manifest-canonical-digest-refusal-vocabulary-and-report-types.md | None | EP-1 (`StoreIdentity` newtype) | Not Started |
 | 4 | Preview a compaction manifest read-only with deterministic witnesses | docs/plans/77-preview-a-compaction-manifest-read-only-with-deterministic-witnesses.md | EP-1, EP-2, EP-3 | None | Not Started |
@@ -188,7 +193,7 @@ Owner: EP-1. Consumers: EP-3 (manifest field), EP-4 and EP-5 (identity check), E
 `store identity` command and manifest JSON), EP-7 (clean-consumer witness).
 
 `Kiroku.Store.Types` gains `newtype StoreIdentity = StoreIdentity UUID` deriving
-`Eq, Ord, Show, Generic`. Migration `0012.sql` creates
+`Eq, Ord, Show, Generic`. Migration `0017.sql` creates
 `kiroku.store_identity (singleton BOOLEAN PRIMARY KEY DEFAULT TRUE, store_id UUID NOT NULL
 DEFAULT kiroku.uuidv7(), created_at TIMESTAMPTZ NOT NULL DEFAULT now(), CONSTRAINT
 chk_store_identity_singleton CHECK (singleton))`
@@ -721,28 +726,17 @@ deliberate exclusions listed in Vision & Scope are recorded in that same ADR.
 
 ## Progress
 
-Track milestone-level progress across all child plans. Each entry names the child plan
-and the milestone. This section provides an at-a-glance view of the entire initiative.
-
-- [ ] EP-1: Migration `0012` installs `kiroku.store_identity` and `kiroku.event_compactions` with protection triggers and passes the migrations suite on PostgreSQL 17 and 18
-- [ ] EP-1: `storeIdentity` / `storeIdentityTx` exposed, tested, mock-dispatched; store-identity ADR recorded
-- [ ] EP-2: Inventory SQL statements with plan-shape assertions
-- [ ] EP-2: `lookupEventReferences` / `lookupEventReferencesTx` exposed, tested against home, `$all`, link, dead-letter, and causation cases
-- [ ] EP-3: Types, smart constructor, canonical encoding, digests, and JSON codec implemented
-- [ ] EP-3: Hedgehog properties for determinism, order independence, corruption detection, and JSON round trip pass
-- [ ] EP-4: `previewCompactionTx` validates every witness class and returns all refusals
-- [ ] EP-4: `previewCompaction` effect, events, adapter arms, mock, and integration tests complete
-- [ ] EP-5: `applyCompactionTx` deletes exactly the accounted rows under ADR-7 locks and writes the ledger
-- [ ] EP-5: Idempotent reapply, partial-store refusal, lease refusal, head-drift race, concurrent-link/dead-letter injection, rollback injection, and gap-tolerant reads/appends proven
-- [ ] EP-5: Apply benchmarked at 10k/50k/100k selections with lock-hold wall time recorded; `maxCompactionSelections` confirmed or revised from that evidence
-- [ ] EP-5: Structural gates extended and `just perf-check` unchanged; compaction ADR recorded
-- [ ] EP-6: Operator guide, capability record, Haddock, and production guidance published and validated
-- [ ] EP-6: `kiroku compaction preview|apply|ledger` and `kiroku store identity` embeddable commands with non-zero refusal exit codes
-- [ ] EP-7: Versions, changelogs, blueprint edge, tags, Hackage uploads, GitHub releases
-- [ ] EP-7: Clean external consumer proves the released API; IR-14 marked completed
+EP-1 is In Progress; EP-2 through EP-7 are Not Started. The schema foundation is
+being implemented as migration `0017`, after the sixteen existing migrations.
+The remaining integration gates are preview/apply correctness, concurrency and
+structural checks, the operator surface, and released clean-consumer proof.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-27: The working tree has sixteen migrations and `kiroku-store` 0.12.0.0.
+  Compaction uses the next forward migration `0017`; release versions will be
+  selected against the current registry instead of the historical 0.9 proposal.
 
 Document cross-plan insights, dependency changes, scope adjustments, or unexpected
 interactions between child plans. Provide concise evidence.
@@ -750,7 +744,7 @@ interactions between child plans. Provide concise evidence.
 - The migrations package no longer has a codd expected-schema drift gate or a timestamped
   scaffolder; ExecPlans 66 and 67 describe a superseded world. Authoring is now
   `cabal run kiroku-store-migrate -- new --manifest kiroku-store-migrations/migrations/manifest
-  --description "..."`, which emits the next bare number (`0012.sql`), and the schema gate is the
+  --description "..."`, which emits the next bare number (`0017.sql`), and the schema gate is the
   catalog assertions in `kiroku-store-migrations/test/Main.hs`. EP-1 is written against the
   current tooling.
 - The standalone `kiroku` binary has had no database connectivity since `kiroku-cli` 0.2.0.0; it

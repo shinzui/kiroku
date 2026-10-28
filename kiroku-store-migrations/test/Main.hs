@@ -44,7 +44,7 @@ import Test.Hspec
 main :: IO ()
 main = hspec $ do
   describe "native Kiroku migration definition" $ do
-    it "tracks the sixteen native files in manifest order" $ do
+    it "tracks the seventeen native files in manifest order" $ do
       directory <- findMigrationsDirectory
       manifest <- Text.lines <$> Text.IO.readFile (directory </> "manifest")
       manifest `shouldBe` Text.pack <$> nativeMigrationFiles
@@ -57,7 +57,7 @@ main = hspec $ do
         bytes <- ByteString.readFile (directory </> nativeName)
         lookup legacyName lockEntries `shouldBe` Just (checksumText bytes)
 
-    it "builds component kiroku and a sixteen-migration plan" $ do
+    it "builds component kiroku and a seventeen-migration plan" $ do
       component <- requireRight kirokuMigrations
       component `seq` pure ()
       plan <- requirePlan
@@ -93,7 +93,7 @@ main = hspec $ do
           `shouldReturn` "0007-existing.sql\n"
 
   describe "fresh native databases" $ do
-    it "applies all sixteen, verifies strictly, and reports AlreadyApplied on rerun" $ do
+    it "applies all seventeen, verifies strictly, and reports AlreadyApplied on rerun" $ do
       plan <- requirePlan
       result <- withMigratedDatabase plan $ \connection -> do
         assertSchema connection
@@ -246,6 +246,43 @@ main = hspec $ do
         Text.isInfixOf "CTE Scan" planText `shouldBe` False
       either (expectationFailure . show) pure result
 
+  describe "compaction schema" $ do
+    it "publishes the exact store identity and ledger columns" $ do
+      plan <- requirePlan
+      result <- withMigratedDatabase plan $ \connection -> do
+        columns <- useSession connection (Session.statement () compactionColumnsStatement)
+        columns
+          `shouldBe` [ ("event_compactions", "compaction_id", "uuid", True),
+                       ("event_compactions", "manifest_digest", "bytea", True),
+                       ("event_compactions", "report_digest", "bytea", True),
+                       ("event_compactions", "store_id", "uuid", True),
+                       ("event_compactions", "operation", "text", True),
+                       ("event_compactions", "dead_letter_policy", "text", True),
+                       ("event_compactions", "causation_policy", "text", True),
+                       ("event_compactions", "selected_events", "bigint", True),
+                       ("event_compactions", "home_memberships", "bigint", True),
+                       ("event_compactions", "global_memberships", "bigint", True),
+                       ("event_compactions", "link_memberships", "bigint", True),
+                       ("event_compactions", "dead_letters_removed", "bigint", True),
+                       ("event_compactions", "causation_dependents", "bigint", True),
+                       ("event_compactions", "lowest_global_position", "bigint", True),
+                       ("event_compactions", "highest_global_position", "bigint", True),
+                       ("event_compactions", "affected_streams", "jsonb", True),
+                       ("event_compactions", "applied_at", "timestamp with time zone", True),
+                       ("event_compactions", "applied_by", "text", True),
+                       ("store_identity", "singleton", "boolean", True),
+                       ("store_identity", "store_id", "uuid", True),
+                       ("store_identity", "created_at", "timestamp with time zone", True)
+                     ]
+      either (expectationFailure . show) pure result
+
+    it "installs one identity row, named constraints, the ledger index, six protection triggers, and leaves hot tables unchanged" $ do
+      plan <- requirePlan
+      result <- withMigratedDatabase plan $ \connection -> do
+        facts <- useSession connection (Session.statement () compactionFactsStatement)
+        facts `shouldBe` (1, 0, 10, True, 6, 6)
+      either (expectationFailure . show) pure result
+
   describe "history retention schema" $ do
     it "publishes the exact coordinator and lease table columns" $ do
       plan <- requirePlan
@@ -287,11 +324,11 @@ main = hspec $ do
         withConnection settings $ \connection ->
           useSession connection (Session.script "INSERT INTO kiroku.subscriptions(subscription_name, last_seen, target_kind, target_category) VALUES ('legacy-category', 42, 'category', 'pm')")
         upgraded <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
-        reportOutcomes upgraded `shouldBe` replicate 15 AlreadyApplied <> [AppliedNow]
+        reportOutcomes upgraded `shouldBe` replicate 15 AlreadyApplied <> replicate (length nativeMigrationFiles - 15) AppliedNow
         withConnection settings $ \connection ->
           useSession connection (Session.script "INSERT INTO kiroku.subscriptions(subscription_name, last_seen, target_kind, target_category) VALUES ('namespace', 0, 'category_namespace', 'pm'); DO $$ BEGIN IF NOT EXISTS(SELECT FROM kiroku.subscriptions WHERE subscription_name='legacy-category' AND last_seen=42 AND target_kind='category' AND target_category='pm') THEN RAISE EXCEPTION 'binding changed'; END IF; END $$")
         rerun <- runMigrationPlan defaultRunOptions settings plan >>= requireMigration
-        reportOutcomes rerun `shouldBe` replicate 16 AlreadyApplied
+        reportOutcomes rerun `shouldBe` replicate (length nativeMigrationFiles) AlreadyApplied
 
     it "applies the pending tail in a session that never ran the bootstrap" $ do
       plan <- requirePlan
@@ -473,7 +510,7 @@ importFixture sourceSchema = do
     pendingIds <-
       traverse
         (requireRight . migrationId "kiroku")
-        ["0008-schema-management-comment", "0009", "0010", "0011", "0012", "0013", "0014", "0015", "0016"]
+        ["0008-schema-management-comment", "0009", "0010", "0011", "0012", "0013", "0014", "0015", "0016", "0017"]
     verifiedBeforeCanary <- verifyMigrationPlan defaultRunOptions settings plan >>= requireMigration
     case verifiedBeforeCanary of
       VerificationReport verificationIssues _ _ _ ->
@@ -515,7 +552,8 @@ nativeMigrationFiles =
     "0013.sql",
     "0014.sql",
     "0015.sql",
-    "0016.sql"
+    "0016.sql",
+    "0017.sql"
   ]
 
 -- | The plan truncated to its first @count@ migrations, read from the checked-in
@@ -658,7 +696,7 @@ schemaFactsStatement =
       (EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'chk_streams_stream_name_length')),
       (EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a JOIN pg_catalog.pg_class c ON c.oid = a.attrelid JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'kiroku' AND c.relname = 'streams' AND a.attname = 'truncate_before' AND NOT a.attisdropped)),
       (EXISTS (SELECT 1 FROM pg_catalog.pg_indexes WHERE schemaname = 'kiroku' AND indexname = 'ix_streams_browse_name' AND indexdef LIKE '%COLLATE "C"%' AND indexdef LIKE '%WHERE (stream_id <> 0)%')),
-      (obj_description(to_regnamespace('kiroku'), 'pg_namespace') = 'Managed by pg-migrate component kiroku through 0016')
+      (obj_description(to_regnamespace('kiroku'), 'pg_namespace') = 'Managed by pg-migrate component kiroku through 0017')
     ) AS checks(ok)
     """
     Encoders.noParams
@@ -1268,3 +1306,71 @@ targetBindingFactsStatement =
     """
     Encoders.noParams
     (Decoders.singleRow ((,,,) <$> Decoders.column (Decoders.nonNullable Decoders.text) <*> Decoders.column (Decoders.nullable Decoders.text) <*> Decoders.column (Decoders.nonNullable Decoders.int8) <*> Decoders.column (Decoders.nonNullable Decoders.bool)))
+
+compactionColumnsStatement :: Statement () [(Text, Text, Text, Bool)]
+compactionColumnsStatement =
+  Statement.preparable
+    """
+    SELECT relation.relname::text,
+           attribute.attname::text,
+           pg_catalog.format_type(attribute.atttypid, attribute.atttypmod),
+           attribute.attnotnull
+    FROM pg_catalog.pg_class AS relation
+    JOIN pg_catalog.pg_namespace AS namespace
+      ON namespace.oid = relation.relnamespace
+    JOIN pg_catalog.pg_attribute AS attribute
+      ON attribute.attrelid = relation.oid
+    WHERE namespace.nspname = 'kiroku'
+      AND relation.relname IN ('event_compactions', 'store_identity')
+      AND attribute.attnum > 0
+      AND NOT attribute.attisdropped
+    ORDER BY relation.relname, attribute.attnum
+    """
+    Encoders.noParams
+    ( Decoders.rowList
+        ( (,,,)
+            <$> column Decoders.text
+            <*> column Decoders.text
+            <*> column Decoders.text
+            <*> column Decoders.bool
+        )
+    )
+  where
+    column = Decoders.column . Decoders.nonNullable
+
+compactionFactsStatement :: Statement () (Int64, Int64, Int64, Bool, Int64, Int64)
+compactionFactsStatement =
+  Statement.preparable
+    """
+    SELECT
+      (SELECT count(*) FROM kiroku.store_identity WHERE singleton),
+      (SELECT count(*) FROM kiroku.event_compactions),
+      (SELECT count(*) FROM pg_catalog.pg_constraint
+       WHERE connamespace = 'kiroku'::regnamespace AND conname IN (
+        'store_identity_pkey', 'chk_store_identity_singleton',
+        'event_compactions_pkey', 'event_compactions_manifest_digest_key',
+        'chk_event_compactions_manifest_digest_bytes', 'chk_event_compactions_report_digest_bytes',
+        'chk_event_compactions_operation_bytes', 'chk_event_compactions_policies',
+        'chk_event_compactions_counts', 'chk_event_compactions_positions')),
+      EXISTS (SELECT 1 FROM pg_catalog.pg_indexes WHERE schemaname = 'kiroku'
+        AND indexname = 'ix_event_compactions_applied_at' AND indexdef LIKE '%applied_at DESC%'),
+      (SELECT count(*) FROM pg_catalog.pg_trigger
+       WHERE tgrelid IN ('kiroku.store_identity'::regclass, 'kiroku.event_compactions'::regclass)
+         AND NOT tgisinternal AND tgname LIKE 'no_%'),
+      (SELECT count(*) FROM pg_catalog.pg_trigger
+       WHERE tgrelid IN ('kiroku.events'::regclass, 'kiroku.stream_events'::regclass, 'kiroku.streams'::regclass)
+         AND NOT tgisinternal AND tgname IN ('protect_replay_history_delete', 'protect_replay_history_truncate'))
+    """
+    Encoders.noParams
+    ( Decoders.singleRow
+        ( (,,,,,)
+            <$> col Decoders.int8
+            <*> col Decoders.int8
+            <*> col Decoders.int8
+            <*> col Decoders.bool
+            <*> col Decoders.int8
+            <*> col Decoders.int8
+        )
+    )
+  where
+    col = Decoders.column . Decoders.nonNullable
