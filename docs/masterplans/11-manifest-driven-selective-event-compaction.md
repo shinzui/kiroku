@@ -142,7 +142,7 @@ compaction was deferred to "a possible Phase 2"; this MasterPlan is that phase.
 | 1 | Add a store identity and an append-only event-compaction ledger | docs/plans/74-add-a-store-identity-and-an-append-only-event-compaction-ledger.md | None | None | Complete |
 | 2 | Expose an event membership and reference inventory read API | docs/plans/75-expose-an-event-membership-and-reference-inventory-read-api.md | None | None | Complete |
 | 3 | Define the compaction manifest, canonical digest, refusal vocabulary, and report types | docs/plans/76-define-the-compaction-manifest-canonical-digest-refusal-vocabulary-and-report-types.md | None | EP-1 (`StoreIdentity` newtype) | Complete |
-| 4 | Preview a compaction manifest read-only with deterministic witnesses | docs/plans/77-preview-a-compaction-manifest-read-only-with-deterministic-witnesses.md | EP-1, EP-2, EP-3 | None | Not Started |
+| 4 | Preview a compaction manifest read-only with deterministic witnesses | docs/plans/77-preview-a-compaction-manifest-read-only-with-deterministic-witnesses.md | EP-1, EP-2, EP-3 | None | In Progress |
 | 5 | Apply a compaction manifest transactionally with ledgered idempotence | docs/plans/78-apply-a-compaction-manifest-transactionally-with-ledgered-idempotence.md | EP-4 | None | Not Started |
 | 6 | Document compaction for operators and add embeddable kiroku-cli compaction commands | docs/plans/79-document-compaction-for-operators-and-add-embeddable-kiroku-cli-compaction-commands.md | EP-5 | None | Not Started |
 | 7 | Release the compaction cohort and prove it from a clean external consumer | docs/plans/80-release-the-compaction-cohort-and-prove-it-from-a-clean-external-consumer.md | EP-6 | None | Not Started |
@@ -726,12 +726,13 @@ deliberate exclusions listed in Vision & Scope are recorded in that same ADR.
 
 ## Progress
 
-EP-1 through EP-3 are Complete; EP-4 through EP-7 are Not Started. The foundation
+EP-1 through EP-3 are Complete; EP-4 is In Progress; EP-5 through EP-7 are
+Not Started. The expanded two-link ordering fixture also passes all 200 cases. The foundation
 passes the full repository suite (555 store examples and all five other suites),
 44 structural checks, strict ADR validation, formatting and Nix flake checks.
 The identity migration passes on PostgreSQL 17 and 18. SHA-256 byte conversion
 is verified against both the cached crypton 1.1.5 and current released 2.2.5 API.
-The next eligible work is EP-4 preview; its remaining consumers are locked apply,
+The active work is EP-4 preview; its remaining consumers are locked apply,
 operator documentation/CLI, then release and clean-consumer acceptance.
 
 

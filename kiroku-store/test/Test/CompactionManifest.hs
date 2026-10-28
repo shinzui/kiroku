@@ -141,7 +141,7 @@ spec = describe "compaction manifest" $ do
                 & #selections .~ ((s & #originStream .~ swapped) : ss)
                 & #streamHeads .~ (StreamHeadWitness swapped (StreamVersion 1) : filter (\headValue -> headValue.stream /= s.originStream) input.streamHeads),
               input
-                & #selections .~ ((s & #acknowledgedLinks .~ V.empty) : ss)
+                & #selections .~ ((s & #acknowledgedLinks .~ V.filter (\l -> l.stream /= target) s.acknowledgedLinks) : ss)
                 & #streamHeads .~ filter (\headValue -> headValue.stream /= target) input.streamHeads
             ]
       forM_ variants $ \variant -> assert (compactionManifestDigest (manifest variant) /= compactionManifestDigest m)

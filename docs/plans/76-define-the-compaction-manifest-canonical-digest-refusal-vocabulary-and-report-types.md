@@ -161,7 +161,7 @@ Record every decision made while working on the plan.
 
 The pure public vocabulary is implemented with explicit JSON codecs, all typed
 construction errors and canonical SHA-256 encodings. The independent 134-byte
-worked example and digest match exactly. Four properties pass 200 cases each;
+worked example and digest match exactly. Four properties pass 200 cases each, including shuffled two-link selections;
 refusals, reports, records and manifests round-trip, while corrupt digests fail.
 Full repository tests pass, including 555 store examples. Hash conversion also
 passes an isolated current crypton 2.2.5 / ram compatibility fixture; the main
