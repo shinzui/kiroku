@@ -25,7 +25,7 @@ module Kiroku.Store.Types
   )
 where
 
-import Data.Aeson (Value)
+import Data.Aeson (FromJSON (..), ToJSON (..), Value)
 import Data.Int (Int32, Int64)
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -358,3 +358,9 @@ data EventReferenceInventory = EventReferenceInventory
     causationDependentCount :: !Int64
   }
   deriving stock (Eq, Show, Generic)
+
+instance ToJSON StoreIdentity where
+  toJSON (StoreIdentity uid) = toJSON uid
+
+instance FromJSON StoreIdentity where
+  parseJSON value = StoreIdentity <$> parseJSON value

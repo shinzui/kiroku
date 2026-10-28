@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* Add `Kiroku.Store.Compaction.Types`: bounded immutable manifests with explicit
+  reference policies and stream/event witnesses, deterministic canonical SHA-256
+  digests, typed refusals, reports and ledger records. JSON manifests require a
+  digest and validate it on decoding; report JSON also verifies its digest.
+
 * Add `lookupEventReferences` and `lookupEventReferencesTx`: per-event home,
   global and link memberships, dead-letter counts and causation dependents
   outside the requested set. Unknown IDs are omitted, duplicates are deduplicated,

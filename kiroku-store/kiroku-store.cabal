@@ -38,6 +38,7 @@ library
     Kiroku.Store
     Kiroku.Store.Append
     Kiroku.Store.Causation
+    Kiroku.Store.Compaction.Types
     Kiroku.Store.Connection
     Kiroku.Store.Effect
     Kiroku.Store.Effect.Resource
@@ -76,6 +77,7 @@ library
     , bytestring            >=0.11  && <0.13
     , containers            >=0.6   && <0.8
     , contravariant-extras  >=0.3   && <0.4
+    , crypton               >=1.1.5 && <2.3
     , effectful-core        >=2.6.1 && <2.7  || >=2.7.1.1 && <2.8
     , generic-lens          >=2.2   && <2.4
     , hasql                 >=1.10  && <1.11
@@ -85,6 +87,7 @@ library
     , lens                  >=5.2   && <5.4
     , mmzk-typeid           >=0.6   && <0.8
     , mtl                   >=2.3   && <2.4
+    , ram                   >=0.22  && <0.23
     , stm                   >=2.5   && <2.6
     , streamly-core         >=0.3   && <0.4
     , text                  >=2.0   && <2.2
@@ -109,6 +112,7 @@ test-suite kiroku-store-test
     Test.Category
     Test.CategoryIdleNoSpin
     Test.Causation
+    Test.CompactionManifest
     Test.Concurrency
     Test.ConsumerGroup
     Test.ConsumerGroupEffect

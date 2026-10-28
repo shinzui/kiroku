@@ -19,6 +19,11 @@ provenance:
       at: 2026-09-10T00:45:20Z
       mode: "update"
       note: "Identity-first and ledger-before-stream-locks apply order, applyCompactionTxWith seam, KRCMP with digest in DETAIL mapped in Kiroku.Store.Error, benchmark records coordinator hold time"
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-28T04:48:29Z
+      mode: "implement"
+      note: "Cascade original_stream_version inventory witness and migration 0017 contract"
 ---
 
 # Apply a compaction manifest transactionally with ledgered idempotence
@@ -34,7 +39,7 @@ It has one hard dependency: the preview plan
 must be Complete, because apply reuses preview's validation function and statements verbatim.
 Transitively that means the foundations —
 [docs/plans/74-add-a-store-identity-and-an-append-only-event-compaction-ledger.md](74-add-a-store-identity-and-an-append-only-event-compaction-ledger.md)
-(migration `0012`, `StoreIdentity`),
+(migration `0017`, `StoreIdentity`),
 [docs/plans/75-expose-an-event-membership-and-reference-inventory-read-api.md](75-expose-an-event-membership-and-reference-inventory-read-api.md)
 (reference inventory statements), and
 [docs/plans/76-define-the-compaction-manifest-canonical-digest-refusal-vocabulary-and-report-types.md](76-define-the-compaction-manifest-canonical-digest-refusal-vocabulary-and-report-types.md)
@@ -124,6 +129,10 @@ This section must always reflect the actual current state of the work.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-27: The shared membership row now also returns `original_stream_version`.
+  This is required to validate every origin witness, including absent-home-row
+  cases; the public inventory value is unchanged and no extra query is added.
 
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.

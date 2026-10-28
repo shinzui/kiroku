@@ -8,6 +8,7 @@
 -- explicitly to use the effectful version.
 module Kiroku.Store
   ( module Kiroku.Store.Types,
+    module Kiroku.Store.Compaction.Types,
     module Kiroku.Store.Connection,
     module Kiroku.Store.Effect,
     module Kiroku.Store.Effect.Resource,
@@ -52,6 +53,7 @@ where
 import Hasql.Pool.Observation (ConnectionReadyForUseReason (..), ConnectionStatus (..), ConnectionTerminationReason (..), Observation (..))
 import Kiroku.Store.Append
 import Kiroku.Store.Causation
+import Kiroku.Store.Compaction.Types
 import Kiroku.Store.Connection
 import Kiroku.Store.Effect
 import Kiroku.Store.Effect.Resource

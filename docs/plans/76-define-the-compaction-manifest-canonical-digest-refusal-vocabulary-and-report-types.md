@@ -19,6 +19,11 @@ provenance:
       at: 2026-09-10T00:45:20Z
       mode: "update"
       note: "Pinned the worked-example SHA-256; memory is a required direct dependency"
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-28T04:45:02Z
+      mode: "implement"
+      note: "Implement pure manifest vocabulary and canonical codec against verified crypton/ram API"
 ---
 
 # Define the compaction manifest, canonical digest, refusal vocabulary, and report types
@@ -51,26 +56,22 @@ changes in this plan; the preview and apply plans build on these types without m
 
 ## Progress
 
-Use a checklist to summarize granular steps. Every stopping point must be documented here,
-even if it requires splitting a partially completed task into two ("done" vs. "remaining").
-This section must always reflect the actual current state of the work.
-
-- [ ] M1: Confirm `crypton` availability through Mori and the cached build plan; add `crypton` and `memory` to `kiroku-store` build-depends.
-- [ ] M1: Ensure `StoreIdentity` exists in `kiroku-store/src/Kiroku/Store/Types.hs` (add it if `docs/plans/74-...` has not landed).
-- [ ] M1: Create `kiroku-store/src/Kiroku/Store/Compaction/Types.hs` with all newtypes, records, sum types, and deriving clauses.
-- [ ] M1: Implement validated constructors (`mkCompactionOperation`, `mkCompactionDigest`, `parseCompactionDigestHex`, `compactionDigestHex`, `mkCompactionLedgerLimit`).
-- [ ] M1: Implement `mkCompactionManifest` with every `CompactionManifestError` branch and canonical ordering.
-- [ ] M1: Register the module in `exposed-modules` and re-export it from `Kiroku.Store`; `cabal build kiroku-store` passes with `-Wall`.
-- [ ] M2: Implement `canonicalCompactionManifestBytes`, `compactionManifestDigest`, `canonicalCompactionReportBytes`, `compactionReportDigest`.
-- [ ] M2: Add the worked single-selection byte example as a unit test with the exact expected hex digest.
-- [ ] M3: Implement hand-written `ToJSON`/`FromJSON` for `CompactionManifest`, `CompactionReport`, `CompactionRecord`, `CompactionRefusal`, and the small enums; `FromJSON CompactionManifest` requires `digest`.
-- [ ] M4: Create `kiroku-store/test/Test/CompactionManifest.hs` with unit examples for each error branch and Hedgehog properties.
-- [ ] M4: Register `Test.CompactionManifest` in `other-modules` and in `kiroku-store/test/Main.hs`; suite passes.
-- [ ] M4: Add the `kiroku-store/CHANGELOG.md` entry under an unreleased heading.
-- [ ] M4: Final `cabal build all`, `cabal test kiroku-store:kiroku-store-test`, `nix fmt`, commit with trailers.
+- [x] M1 (2026-10-27): Public types and abstract validated constructors compile against crypton 1.1.5 / ram 0.22.1, with bounds covering the verified current crypton 2.2.5 interface.
+- [x] M2 (2026-10-27): Canonical bytes match the independent 134-byte example and pinned SHA-256 `965e364734a98abdc509ceb0b4f082ab7a2dbd66713d56ce77d2071e55589d08`.
+- [x] M3 (2026-10-27): Explicit JSON codecs round-trip manifests, reports, records and all refusal constructors; malformed format, missing digest and corrupt digests are rejected.
+- [x] M4 (2026-10-27): All 19 focused examples pass, including four 200-case properties. Full repository tests pass (555 store examples); Nix formatting and flake checks pass.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-27: Re-exporting the new ledger query introduces a second `limit`
+  record field. Three existing dead-letter tests required their existing
+  generic-lens update style to avoid ambiguous GHC record updates.
+- A separate fixture compiled and ran SHA-256 byte conversion against current
+  crypton 2.2.5 / ram; the standard `abc` vector passes alongside the main
+  build using crypton 1.1.5.
+- The canonical digest is recomputed from the immutable canonical content;
+  no redundant digest cache can disagree with the manifest's bytes.
 
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
@@ -83,6 +84,16 @@ implementation. Provide concise evidence.
 
 
 ## Decision Log
+
+- Decision (2026-10-27): Replace the historical crypton/memory bounds with
+  crypton `>=1.1.5 && <2.3` and `ram >=0.22 && <0.23`. The cached closure has
+  crypton 1.1.5 and ram 0.22.1; Hackage and upstream tags confirm latest crypton
+  2.2.5, whose byte-array interface still uses ram. Importing memory's unrelated
+  class would fail. The StoreIdentity JSON instances live beside the type to
+  avoid orphan instances. The pure manifest module cannot import Store.Error
+  because that module must consume CompactionDigest in EP-5; validate the same
+  stream-name rules locally. The manifest digest is computed from its canonical
+  content, rather than keeping a redundant stored digest.
 
 Record every decision made while working on the plan.
 
@@ -148,12 +159,16 @@ Record every decision made while working on the plan.
 
 ## Outcomes & Retrospective
 
-Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
-Compare the result against the original purpose. Before marking the plan complete,
-distill durable project context from the Decision Log, Surprises & Discoveries, and
-this section into docs/adr/. Keep task-local execution details here.
-
-(To be filled during and after implementation.)
+The pure public vocabulary is implemented with explicit JSON codecs, all typed
+construction errors and canonical SHA-256 encodings. The independent 134-byte
+worked example and digest match exactly. Four properties pass 200 cases each;
+refusals, reports, records and manifests round-trip, while corrupt digests fail.
+Full repository tests pass, including 555 store examples. Hash conversion also
+passes an isolated current crypton 2.2.5 / ram compatibility fixture; the main
+build uses crypton 1.1.5. Stream validation stays below Store.Error in the import
+graph, and identity JSON instances live with their type. The later compaction
+ADR will own the durable full operation contract. No friction entry met the
+recording threshold.
 
 
 ## Context and Orientation
@@ -492,7 +507,7 @@ Check whether `newtype StoreIdentity` already exists in `kiroku-store/src/Kiroku
 may land later), add it in the identity-newtypes section, exactly:
 
 ```haskell
--- | Identity of one Kiroku store installation, installed by migration @0012@.
+-- | Identity of one Kiroku store installation, installed by migration @0017@.
 newtype StoreIdentity = StoreIdentity UUID
     deriving stock (Eq, Ord, Show, Generic)
 ```

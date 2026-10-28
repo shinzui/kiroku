@@ -32,6 +32,7 @@ import Test.CatchupDbErrorNoPrematureSwitch qualified as CatchupDbErrorNoPrematu
 import Test.Category qualified as Category
 import Test.CategoryIdleNoSpin qualified as CategoryIdleNoSpin
 import Test.Causation qualified as Causation
+import Test.CompactionManifest qualified as CompactionManifest
 import Test.Concurrency qualified as Concurrency
 import Test.ConsumerGroup qualified as ConsumerGroup
 import Test.ConsumerGroupEffect qualified as ConsumerGroupEffect
@@ -89,6 +90,7 @@ import Test.VisibleGlobalHeadPositionMock qualified as VisibleGlobalHeadPosition
 
 main :: IO ()
 main = withSharedMigratedPostgres $ hspec $ do
+  CompactionManifest.spec
   EventReferences.spec
   EventReferencesMock.spec
   StoreIdentity.spec

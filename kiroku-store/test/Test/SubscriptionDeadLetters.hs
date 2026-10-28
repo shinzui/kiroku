@@ -35,7 +35,7 @@ spec = describe "SubscriptionDeadLetters" $ do
       events <- seedEvents store 7
       mapM_ (insertDeadLetterForEvent store "page") (take 5 events)
       mapM_ (insertDeadLetterForEvent store "other") (drop 5 events)
-      let query = (defaultSubscriptionDeadLetterQuery (SubscriptionName "page")) {limit = validLimit 2}
+      let query = defaultSubscriptionDeadLetterQuery (SubscriptionName "page") & #limit .~ validLimit 2
       first <- page store query
       second <- page store query {after = first ^. #nextCursor}
       third <- page store query {after = second ^. #nextCursor}
@@ -50,7 +50,7 @@ spec = describe "SubscriptionDeadLetters" $ do
     it "merges historical members and resolves same-position ties with an exclusive cursor" $ \store -> do
       [event] <- seedEvents store 1
       forM_ [0, 1, 9] $ \member -> insertDeadLetterWith store "ties" member (object []) "tie" 2 event
-      let query = (defaultSubscriptionDeadLetterQuery (SubscriptionName "ties")) {limit = validLimit 1}
+      let query = defaultSubscriptionDeadLetterQuery (SubscriptionName "ties") & #limit .~ validLimit 1
       first <- page store query
       second <- page store query {after = first ^. #nextCursor}
       third <- page store query {after = second ^. #nextCursor}
@@ -79,7 +79,7 @@ spec = describe "SubscriptionDeadLetters" $ do
     it "keeps a cursor valid after its event and row are hard-deleted" $ \store -> do
       events <- seedEvents store 3
       mapM_ (insertDeadLetterForEvent store "delete") events
-      let query = (defaultSubscriptionDeadLetterQuery (SubscriptionName "delete")) {limit = validLimit 1}
+      let query = defaultSubscriptionDeadLetterQuery (SubscriptionName "delete") & #limit .~ validLimit 1
       first <- page store query
       Right _ <- runStoreIO store $ hardDeleteStream (StreamName "dead-3")
       older <- page store query {after = first ^. #nextCursor, limit = validLimit 10}

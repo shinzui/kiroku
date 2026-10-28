@@ -140,8 +140,8 @@ compaction was deferred to "a possible Phase 2"; this MasterPlan is that phase.
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
 | 1 | Add a store identity and an append-only event-compaction ledger | docs/plans/74-add-a-store-identity-and-an-append-only-event-compaction-ledger.md | None | None | Complete |
-| 2 | Expose an event membership and reference inventory read API | docs/plans/75-expose-an-event-membership-and-reference-inventory-read-api.md | None | None | In Progress |
-| 3 | Define the compaction manifest, canonical digest, refusal vocabulary, and report types | docs/plans/76-define-the-compaction-manifest-canonical-digest-refusal-vocabulary-and-report-types.md | None | EP-1 (`StoreIdentity` newtype) | Not Started |
+| 2 | Expose an event membership and reference inventory read API | docs/plans/75-expose-an-event-membership-and-reference-inventory-read-api.md | None | None | Complete |
+| 3 | Define the compaction manifest, canonical digest, refusal vocabulary, and report types | docs/plans/76-define-the-compaction-manifest-canonical-digest-refusal-vocabulary-and-report-types.md | None | EP-1 (`StoreIdentity` newtype) | Complete |
 | 4 | Preview a compaction manifest read-only with deterministic witnesses | docs/plans/77-preview-a-compaction-manifest-read-only-with-deterministic-witnesses.md | EP-1, EP-2, EP-3 | None | Not Started |
 | 5 | Apply a compaction manifest transactionally with ledgered idempotence | docs/plans/78-apply-a-compaction-manifest-transactionally-with-ledgered-idempotence.md | EP-4 | None | Not Started |
 | 6 | Document compaction for operators and add embeddable kiroku-cli compaction commands | docs/plans/79-document-compaction-for-operators-and-add-embeddable-kiroku-cli-compaction-commands.md | EP-5 | None | Not Started |
@@ -271,8 +271,8 @@ lookup set and the exclusion set, so batching it would silently change "dependen
 input set" into "dependents outside the batch" and overcount dependents that are themselves
 selected in another batch of the same call. The SQL statements live in
 `Kiroku.Store.SQL` under a new export group `-- * Event reference inventory statements`:
-`eventMembershipsStmt :: Statement (Vector UUID) (Vector (UUID, Int64, Text, Int64, Int64))`
-returning `(event_id, stream_id, stream_name, stream_version, original_stream_id)`,
+`eventMembershipsStmt :: Statement (Vector UUID) (Vector (UUID, Int64, Text, Int64, Int64, Int64))`
+returning `(event_id, stream_id, stream_name, stream_version, original_stream_id, original_stream_version)`,
 `deadLetterCountsStmt :: Statement (Vector UUID) (Vector (UUID, Int64))`, and
 `causationDependentCountsStmt :: Statement (Vector UUID) (Vector (UUID, Int64))` (dependents
 outside the input set). The "outside the input set" exclusion must be written as an anti-join
@@ -726,11 +726,13 @@ deliberate exclusions listed in Vision & Scope are recorded in that same ADR.
 
 ## Progress
 
-EP-1 is Complete; EP-2 is In Progress; EP-3 through EP-7 are Not Started.
-Migration `0017` passes the 27-example migration suite on PostgreSQL 17 and 18;
-the full store suite passes 526 examples. ADR-21 records the identity contract.
-The remaining integration gates are preview/apply correctness, concurrency and
-structural checks, the operator surface, and released clean-consumer proof.
+EP-1 through EP-3 are Complete; EP-4 through EP-7 are Not Started. The foundation
+passes the full repository suite (555 store examples and all five other suites),
+44 structural checks, strict ADR validation, formatting and Nix flake checks.
+The identity migration passes on PostgreSQL 17 and 18. SHA-256 byte conversion
+is verified against both the cached crypton 1.1.5 and current released 2.2.5 API.
+The next eligible work is EP-4 preview; its remaining consumers are locked apply,
+operator documentation/CLI, then release and clean-consumer acceptance.
 
 
 ## Surprises & Discoveries
@@ -801,6 +803,20 @@ interactions between child plans. Provide concise evidence.
 
 
 ## Decision Log
+
+- Decision (2026-10-27): The inventory statement returns six columns, adding
+  `original_stream_version` to its existing five. Preview's required witness
+  comparison cannot validate a column the query omits, especially if a home row
+  is absent. The public inventory API is unchanged; EP-2's SQL row contract and
+  EP-4/EP-5 consumers carry the extra fact in the same single membership pass.
+
+- Decision (2026-10-27): Use crypton `>=1.1.5 && <2.3` and direct dependency
+  `ram >=0.22 && <0.23` for SHA-256 byte conversion. Hackage and upstream tags
+  confirm crypton 2.2.5; the existing build closure uses 1.1.5. Both use `ram`,
+  so the historical `memory` dependency proposal is obsolete. Keep manifest
+  validation below `Store.Error` in the import graph: Error must consume
+  `CompactionDigest` for retryable apply failures, so the pure module validates
+  the identical reserved-name and 512-byte rules without importing Error.
 
 Record every decomposition or coordination decision made while working on the master
 plan.

@@ -72,10 +72,14 @@ at version 1), `deadLetterCount = 1`, and `causationDependentCount = 1`.
 
 - [x] M1 (2026-10-27): Public inventory types, three indexed statements, effect and transaction combinators are implemented. Input IDs are deduplicated before batching.
 - [x] M2 (2026-10-27): Seven focused behavioral and mock examples pass, covering all membership/reference classes, soft-deleted links, unknown and repeated IDs, cross-batch causation exclusion, transaction equivalence and zero/one checkout behavior. All 44 structural examples pass, including the three inventory plans with 500-ID arrays.
-- [ ] M3: Full store/repository checks pass; unreleased changelog documents the accepted API.
+- [x] M3 (2026-10-27): Full repository tests pass: store 555 examples, migrations 27, CLI 22, adapters 45, telemetry 19 and metrics 126, all with zero failures. Nix formatting and flake checks pass. The unreleased changelog documents the API.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-27: The shared membership row now also returns `original_stream_version`.
+  This is required to validate every origin witness, including absent-home-row
+  cases; the public inventory value is unchanged and no extra query is added.
 
 - 2026-10-27: Pool observations include the background publisher. The checkout
   assertion filters observations to the calling thread to measure this API's
@@ -164,12 +168,14 @@ Record every decision made while working on the plan.
 
 ## Outcomes & Retrospective
 
-Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
-Compare the result against the original purpose. Before marking the plan complete,
-distill durable project context from the Decision Log, Surprises & Discoveries, and
-this section into docs/adr/. Keep task-local execution details here.
-
-(To be filled during and after implementation.)
+The public inventory and transaction combinator expose every membership and both
+reference counts without private-table queries. Seven focused tests cover the
+physical reference classes, duplicates, unknown IDs, soft deletion and the
+cross-batch causation exclusion. The full repository run passes (555 store
+examples); all 44 structural checks pass. Membership rows include the extra
+`original_stream_version` fact required by preview without adding another probe.
+No new architectural decision beyond ADR-1/ADR-3/ADR-7 was needed. No friction
+entry met the recording threshold.
 
 
 ## Context and Orientation
@@ -374,12 +380,12 @@ Served by @stream_events_pkey@ on @(event_id, stream_id)@; the join to
 @streams@ is a primary-key lookup per row. Rows are returned in ascending
 @(event_id, stream_id)@ order so callers can group without sorting.
 -}
-eventMembershipsStmt :: Statement (Vector UUID) (Vector (UUID, Int64, Text, Int64, Int64))
+eventMembershipsStmt :: Statement (Vector UUID) (Vector (UUID, Int64, Text, Int64, Int64, Int64))
 eventMembershipsStmt =
     preparable
         """
         SELECT se.event_id, se.stream_id, s.stream_name,
-               se.stream_version, se.original_stream_id
+               se.stream_version, se.original_stream_id, se.original_stream_version
         FROM stream_events se
         JOIN streams s ON s.stream_id = se.stream_id
         WHERE se.event_id = ANY($1::uuid[])
@@ -387,10 +393,11 @@ eventMembershipsStmt =
         """
         (E.param (E.nonNullable (E.foldableArray (E.nonNullable E.uuid))))
         ( D.rowVector
-            ( (,,,,)
+            ( (,,,,,)
                 <$> D.column (D.nonNullable D.uuid)
                 <*> D.column (D.nonNullable D.int8)
                 <*> D.column (D.nonNullable D.text)
+                <*> D.column (D.nonNullable D.int8)
                 <*> D.column (D.nonNullable D.int8)
                 <*> D.column (D.nonNullable D.int8)
             )
@@ -462,7 +469,7 @@ position), 'HomeMembership' (@stream_id = original_stream_id@), or
 'LinkMembership'.
 -}
 assembleEventReferences ::
-    Vector (UUID, Int64, Text, Int64, Int64) ->
+    Vector (UUID, Int64, Text, Int64, Int64, Int64) ->
     Vector (UUID, Int64) ->
     Vector (UUID, Int64) ->
     Map EventId EventReferenceInventory
@@ -472,7 +479,7 @@ assembleEventReferences memberships deadLetters dependents =
     grouped =
         Map.fromListWith (flip (<>))
             [ (EventId eid, V.singleton (membership sid name version origin))
-            | (eid, sid, name, version, origin) <- V.toList memberships
+            | (eid, sid, name, version, origin, _originVersion) <- V.toList memberships
             ]
     membership sid name version origin
         | sid == 0 = GlobalMembership (GlobalPosition version)
@@ -820,14 +827,14 @@ data EventReferenceInventory = EventReferenceInventory
     { memberships :: !(Vector EventMembership), deadLetterCount :: !Int64, causationDependentCount :: !Int64 }
 
 -- Kiroku.Store.SQL
-eventMembershipsStmt :: Statement (Vector UUID) (Vector (UUID, Int64, Text, Int64, Int64))
+eventMembershipsStmt :: Statement (Vector UUID) (Vector (UUID, Int64, Text, Int64, Int64, Int64))
 deadLetterCountsStmt :: Statement (Vector UUID) (Vector (UUID, Int64))
 causationDependentCountsStmt :: Statement (Vector UUID) (Vector (UUID, Int64))
 
 -- Kiroku.Store.Effect
 LookupEventReferences :: [EventId] -> Store m (Map EventId EventReferenceInventory)
 assembleEventReferences ::
-    Vector (UUID, Int64, Text, Int64, Int64) -> Vector (UUID, Int64) -> Vector (UUID, Int64)
+    Vector (UUID, Int64, Text, Int64, Int64, Int64) -> Vector (UUID, Int64) -> Vector (UUID, Int64)
     -> Map EventId EventReferenceInventory
 maxEventReferenceBatch :: Int   -- 10000
 chunkUuids :: Int -> Vector UUID -> [Vector UUID]

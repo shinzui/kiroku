@@ -741,7 +741,7 @@ chunkUuids size values
 -- position), 'HomeMembership' (@stream_id = original_stream_id@), or
 -- 'LinkMembership'.
 assembleEventReferences ::
-  Vector (UUID, Int64, Text, Int64, Int64) ->
+  Vector (UUID, Int64, Text, Int64, Int64, Int64) ->
   Vector (UUID, Int64) ->
   Vector (UUID, Int64) ->
   Map EventId EventReferenceInventory
@@ -752,7 +752,7 @@ assembleEventReferences memberships deadLetters dependents =
       Map.fromListWith
         (<>)
         [ (EventId eid, [membership sid name version origin])
-        | (eid, sid, name, version, origin) <- V.toList memberships
+        | (eid, sid, name, version, origin, _originVersion) <- V.toList memberships
         ]
     membership sid name version origin
       | sid == 0 = GlobalMembership (GlobalPosition version)

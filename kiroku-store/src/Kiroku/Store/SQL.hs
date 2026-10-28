@@ -1672,12 +1672,12 @@ storeIdentityStmt =
 -- Served by @stream_events_pkey@ on @(event_id, stream_id)@; the join to
 -- @streams@ is a primary-key lookup per row. Rows are returned in ascending
 -- @(event_id, stream_id)@ order so callers can group without sorting.
-eventMembershipsStmt :: Statement (Vector UUID) (Vector (UUID, Int64, Text, Int64, Int64))
+eventMembershipsStmt :: Statement (Vector UUID) (Vector (UUID, Int64, Text, Int64, Int64, Int64))
 eventMembershipsStmt =
   preparable
     """
     SELECT se.event_id, se.stream_id, s.stream_name,
-           se.stream_version, se.original_stream_id
+           se.stream_version, se.original_stream_id, se.original_stream_version
     FROM stream_events se
     JOIN streams s ON s.stream_id = se.stream_id
     WHERE se.event_id = ANY($1::uuid[])
@@ -1685,10 +1685,11 @@ eventMembershipsStmt =
     """
     (E.param (E.nonNullable (E.foldableArray (E.nonNullable E.uuid))))
     ( D.rowVector
-        ( (,,,,)
+        ( (,,,,,)
             <$> D.column (D.nonNullable D.uuid)
             <*> D.column (D.nonNullable D.int8)
             <*> D.column (D.nonNullable D.text)
+            <*> D.column (D.nonNullable D.int8)
             <*> D.column (D.nonNullable D.int8)
             <*> D.column (D.nonNullable D.int8)
         )

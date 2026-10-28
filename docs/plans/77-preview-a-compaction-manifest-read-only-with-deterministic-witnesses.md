@@ -19,6 +19,11 @@ provenance:
       at: 2026-09-10T00:45:20Z
       mode: "update"
       note: "Dropped selectionWitnessesStmt in favour of one eventMembershipsStmt pass; exported ledgerOutcomeTx; D.refine in the ledger decoder"
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-28T04:48:29Z
+      mode: "implement"
+      note: "Reconcile six-column witness source and migration 0017 before preview implementation"
 ---
 
 # Preview a compaction manifest read-only with deterministic witnesses
@@ -73,6 +78,10 @@ This section must always reflect the actual current state of the work.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-27: The shared membership row now also returns `original_stream_version`.
+  This is required to validate every origin witness, including absent-home-row
+  cases; the public inventory value is unchanged and no extra query is added.
 
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
@@ -227,7 +236,7 @@ report_digest BYTEA, store_id, operation, dead_letter_policy, causation_policy,
 selected_events, home_memberships, global_memberships, link_memberships,
 dead_letters_removed, causation_dependents, lowest_global_position,
 highest_global_position, affected_streams JSONB, applied_at, applied_by`) are created by
-migration `0012` from
+migration `0017` from
 `docs/plans/74-add-a-store-identity-and-an-append-only-event-compaction-ledger.md`. That plan
 also provides `Kiroku.Store.Transaction.storeIdentityTx :: Tx.Transaction StoreIdentity`. In
 this plan the ledger is only read; nothing writes it until the apply plan.
@@ -273,8 +282,8 @@ constructor without adding arms there fails the build.
 
 `Kiroku.Store.SQL` already exports the event-reference inventory statements from
 `docs/plans/75-expose-an-event-membership-and-reference-inventory-read-api.md`:
-`eventMembershipsStmt :: Statement (Vector UUID) (Vector (UUID, Int64, Text, Int64, Int64))`
-returning `(event_id, stream_id, stream_name, stream_version, original_stream_id)` for every
+`eventMembershipsStmt :: Statement (Vector UUID) (Vector (UUID, Int64, Text, Int64, Int64, Int64))`
+returning `(event_id, stream_id, stream_name, stream_version, original_stream_id, original_stream_version)` for every
 junction row of the given events; `deadLetterCountsStmt :: Statement (Vector UUID) (Vector
 (UUID, Int64))`; and `causationDependentCountsStmt :: Statement (Vector UUID) (Vector (UUID,
 Int64))` counting events outside the input set whose `causation_id` is in it. Their types
@@ -768,7 +777,7 @@ Verify the hard dependencies landed (all three must print a match):
 grep -n "storeIdentityTx" kiroku-store/src/Kiroku/Store/Transaction.hs
 grep -n "eventMembershipsStmt\|deadLetterCountsStmt\|causationDependentCountsStmt" kiroku-store/src/Kiroku/Store/SQL.hs
 grep -n "mkCompactionManifest" kiroku-store/src/Kiroku/Store/Compaction/Types.hs
-grep -n "0012.sql" kiroku-store-migrations/migrations/manifest
+grep -n "0017.sql" kiroku-store-migrations/migrations/manifest
 ```
 
 Build and test per milestone:
@@ -842,7 +851,7 @@ Behavioural acceptance, observable in a test or a `cabal repl` session against a
 
 Preview is read-only by construction; every test can be re-run against a fresh ephemeral
 database. If an integration example fails because the ledger or identity table is missing,
-migration `0012` from `docs/plans/74-...` has not been applied: that plan is a hard
+migration `0017` from `docs/plans/74-...` has not been applied: that plan is a hard
 dependency and must be completed first. If the adapters fail to compile after adding the
 events, add the missing `pure ()` arms in `kiroku-otel` and `kiroku-metrics` — nothing else in
 those packages changes. `runTxOnPool` is deliberately untouched; if a diff shows its signature
@@ -852,7 +861,7 @@ changing, revert it and route preview through `runReadOnlyTxOnPool` instead.
 ## Interfaces and Dependencies
 
 Hard dependencies (must be Complete): `docs/plans/74-add-a-store-identity-and-an-append-only-event-compaction-ledger.md`
-(migration `0012`, `StoreIdentity`, `storeIdentityTx`),
+(migration `0017`, `StoreIdentity`, `storeIdentityTx`),
 `docs/plans/75-expose-an-event-membership-and-reference-inventory-read-api.md` (the three
 inventory statements and `EventMembership` types), and
 `docs/plans/76-define-the-compaction-manifest-canonical-digest-refusal-vocabulary-and-report-types.md`
