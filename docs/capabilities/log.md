@@ -1,5 +1,8 @@
 # Capability Catalog Log
 
+## 2026-10-28
+* **Addition**: CAP-22 records manifest-driven selective event compaction with store identity, reference inventory and an embeddable operator workflow.
+
 ## 2026-10-11
 * **Update**: CAP-12: public paginated dead-letter reads now ship in store 0.11.0.0.
 * **Update**: CAP-17: record the published metrics 0.3.0.0 inspection surface and release evidence.

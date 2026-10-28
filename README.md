@@ -17,6 +17,8 @@ workflows.
 - `kiroku-store`: the core event store library, built on `hasql`; includes
   append, read, link, lifecycle, replay-history retention, transaction,
   subscription, consumer-group, and observability APIs.
+- Manifest-driven selective physical compaction with read-only preview, exact
+  witness validation and a durable audit ledger; retained positions stay unchanged.
 - `kiroku-store-migrations`: a native `pg-migrate` component, Codd history
   import mapping, and the `kiroku-store-migrate` executable.
 - `kiroku-cli`: an embeddable operator CLI library plus the standalone
@@ -30,9 +32,9 @@ stream-event links, and maintains a totally ordered `$all` stream for global
 event ordering. Global positions are strictly increasing, opaque cursors;
 consumers must not assume they are dense (`pos + 1` may not exist) or derive
 them by arithmetic. The current implementation happens to assign contiguous,
-gap-free positions via an atomic row-level counter claimed in the same
+positions without gaps during append via an atomic row-level counter claimed in the same
 transaction that appends events, but contiguity is an implementation detail
-rather than an API guarantee — see
+rather than an API guarantee; physical deletion can leave gaps — see
 `docs/architecture/global-position-migration-path.md`.
 
 ## Repository Layout
@@ -112,6 +114,8 @@ the full command set (`plan`, `list`, `check`, `up`, `verify`, `status`,
   workflow.
 - [`docs/user/operator-cli.md`](docs/user/operator-cli.md): standalone and
   embedded operator CLI usage.
+
+- [`docs/user/compaction.md`](docs/user/compaction.md): selective physical event compaction with reviewed manifests and durable audit.
 
 ## Status
 

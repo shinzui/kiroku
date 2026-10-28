@@ -170,12 +170,20 @@ Like the other lifecycle operations, `setStreamTruncateBefore` returns
 `Just streamId` on success, `Nothing` for a missing or soft-deleted stream, and
 rejects the reserved name `$all` with `ReservedStreamName`.
 
-Physical storage reclamation (actually shrinking the `events` table by removing
-the hidden prefix, the equivalent of a database "scavenge") is a separate,
-more dangerous concern and is **not** provided here — it would mutate the
-append-only `$all` log. Use the logical marker for bounded rehydration; if a
-real disk-pressure need ever arises, physical reclamation would be a distinct,
-separately-guarded operation.
+Logical truncation does not delete its hidden prefix. To physically remove a
+reviewed subset, use the separately authorized manifest workflow below. Returning
+relation-file space to the operating system still requires PostgreSQL maintenance.
+
+## Selective Physical Compaction
+
+Use [selective event compaction](compaction.md) to remove a reviewed subset of
+originated events while keeping streams live. Logical truncate-before hides rows
+without deleting them; hard delete removes the whole stream. Compaction deletes
+only witnessed events and acknowledged links. It leaves gaps and preserves heads,
+retained versions and positions, so an append at head 412 still produces 413 after
+removing version 207. The consumer must prove redundancy and archive the selected
+envelopes; Kiroku validates the manifest and records the apply in an append-only
+ledger. None of these operations alone returns relation-file space to the OS.
 
 ## Choosing Soft vs. Hard
 
@@ -189,6 +197,8 @@ separately-guarded operation.
 
 Default to soft delete. Reach for hard delete only when data must genuinely
 be removed, and route it through privilege separation and auditing as above.
+Use selective compaction when only a proven redundant subset should disappear
+while its stream remains live.
 
 ## See Also
 
@@ -198,3 +208,4 @@ be removed, and route it through privilege separation and auditing as above.
 - [Observability](observability.md) — the hard-delete audit event.
 - [Replay-History Retention](history-retention.md) — protect a long rebuild or
   one-transaction stream repair from concurrent lifecycle mutation.
+- [Selective Event Compaction](compaction.md) — reviewed physical deletion and durable ledger audit.

@@ -29,6 +29,7 @@ import Options.Applicative
     (<**>),
   )
 import Options.Applicative qualified as Options
+import Test.Compaction qualified as Compaction
 import Test.Hspec
 
 data HostCommand
@@ -39,6 +40,7 @@ data HostCommand
 main :: IO ()
 main =
   hspec $ do
+    Compaction.spec
     describe "kirokuParserInfo" $ do
       it "renders top-level help" $ do
         let result = execParserPure defaultPrefs kirokuParserInfo ["--help"]

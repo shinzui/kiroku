@@ -128,3 +128,27 @@ host-cli kiroku subscriptions status --format json
 
 and Kiroku status reads the same store handle that owns the host service's live
 subscriptions.
+
+## Compaction And Store Identity
+
+A host owning a store can also expose selective physical compaction:
+
+```bash
+host-cli kiroku store identity --format json
+host-cli kiroku compaction preview --manifest manifest.json
+host-cli kiroku compaction apply --manifest manifest.json --confirm-digest REVIEWED_SHA256
+host-cli kiroku compaction ledger --limit 50 --format json
+```
+
+The manifest codec verifies the file's digest. Apply requires the reviewed digest
+again and checks it before accessing the database. Exit 0 means success or already
+applied, 2 means a refusal (including confirmation mismatch), and 1 means invalid
+input, file failure or store failure. JSON output is a single JSON document.
+`executeKirokuCommandWithStore` returns `KirokuCommandOutcome` with output and an
+`ExitCode`, allowing hosts to choose how to print and exit; the existing rendering
+facade continues to return text.
+
+The standalone `kiroku` remote client refuses these commands with exit 1 because
+it owns no store. The host supplies authorization and database credentials; there
+is no HTTP apply endpoint. Read the [compaction guide](compaction.md) before
+constructing a manifest or granting maintenance privileges.

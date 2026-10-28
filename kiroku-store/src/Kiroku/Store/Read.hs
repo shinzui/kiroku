@@ -313,7 +313,8 @@ storeIdentity = send GetStoreIdentity
 -- causation statement executes once over the full request (its input is also its
 -- exclusion set). This is an operator and maintenance read, not a hot path; it
 -- is the inventory a caller consults before asking Kiroku to remove events (see
--- "Kiroku.Store.Compaction" once available).
+-- "Kiroku.Store.Compaction"). Inventory is advisory under concurrent mutation;
+-- preview validates one repeatable-read snapshot and apply revalidates under locks.
 lookupEventReferences ::
   (HasCallStack, Store :> es) =>
   [EventId] ->

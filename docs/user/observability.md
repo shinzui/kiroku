@@ -81,6 +81,14 @@ regression. Keep a catch-all branch if you only care about specific events.
 | `KirokuEventHistoryRetentionLeaseReleased !HistoryRetentionLeaseId !HistoryRetentionLeaseOwner !UTCTime` | A previously active lease was actually released and committed. | Clear rebuild-protection state. Repeated release emits no event. |
 | `KirokuEventHistoryRetentionLeasesPruned !HistoryRetentionPruneResult` | Terminal retention evidence was pruned. | Record the expired/released row counts as operator hygiene. |
 | `KirokuEventHardDeleteHistoryRetentionConflict !StreamName !HistoryRetentionConflict` | Supported hard delete was refused before mutation because one or more leases were active. | Do not retry tightly; inspect inventory, coordinate with owners, or wait for earliest expiry. |
+| `KirokuEventCompactionPreviewed !CompactionDigest !Int64` | Read-only preview completed ready or already applied. | Digest and selected count; review the full report separately. |
+| `KirokuEventCompactionRefused !CompactionDigest !CompactionRefusal !Int` | Preview or apply refused. | First finding and total count; no mutation committed. |
+| `KirokuEventCompactionApplied !CompactionId !CompactionDigest !Int64 !Int64` | Apply committed; counts are selected events and removed memberships. | Keep the manifest and archived envelopes; this signal contains no payloads. |
+| `KirokuEventCompactionAlreadyApplied !CompactionId !CompactionDigest` | Apply recognized a recorded no-op. Preview emits `CompactionPreviewed` for either successful outcome. | The original ledger record remains authoritative. |
+
+Compaction events are emitted after the transaction finishes. The built-in metrics
+and OpenTelemetry handlers explicitly ignore these events; applications can route
+them to an audit sink. See [selective compaction](compaction.md).
 
 Retention events never contain the free-form lease reason. Keep reasons in the
 durable inventory rather than turning them into high-cardinality metrics

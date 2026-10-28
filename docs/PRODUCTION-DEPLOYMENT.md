@@ -258,3 +258,24 @@ PostgreSQL 17 or newer. PostgreSQL 18 provides the built-in
 On PostgreSQL 17, Kiroku creates a schema-local PL/pgSQL `uuidv7()`
 fallback during schema initialization or migration application, before
 the `events` table default is parsed.
+
+## Selective Event Compaction
+
+Apply migration `0017` before enabling compaction. Use an authorized maintenance
+host and role; the standalone remote CLI cannot perform it. The role needs SELECT
+on the identity, ledger and reference/lease inventory, UPDATE on the coordinator
+and streams locked by apply, DELETE on events and stream memberships, INSERT on
+`event_compactions`, and DELETE on dead letters only when that policy is selected.
+Do not grant UPDATE, DELETE or TRUNCATE on the immutable identity and ledger tables.
+The session GUC protects against accidents; PostgreSQL privileges authorize deletion.
+
+Archive the selected envelopes and reviewed manifest, rehearse against a restore,
+then preview and apply with its confirmed digest. A clone retains its source store
+identity. Apply holds the retention coordinator and ordered stream locks; size
+chunks so queued lease renewals retain ample lifetime. Start with 10,000 selections
+by stream and measure deployment-specific link fan-out and coordinator duration.
+
+The ledger stores counts, heads and digests rather than deleted event IDs or payloads.
+Preserve the manifest and archive alongside it. Plan VACUUM/ANALYZE and any physical
+reclamation separately, watching WAL and replication lag. Full workflow, refusal
+recovery and consumer consequences are in the [compaction guide](user/compaction.md).

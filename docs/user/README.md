@@ -62,3 +62,5 @@ tuning see `docs/PRODUCTION-DEPLOYMENT.md` and `docs/PRODUCTION-TUNING.md`.
   (GDPR-style erasure).
 - [Replay-History Retention](history-retention.md) — durable renewable leases
   for long rebuilds and transaction-scoped guards for one-stream repair.
+
+- [Selective Event Compaction](compaction.md) — reviewed manifest-driven physical deletion, reference inventory, durable audit and storage maintenance.

@@ -373,8 +373,8 @@ storeIdentityTx :: Tx.Transaction StoreIdentity
 storeIdentityTx = Tx.statement () SQL.storeIdentityStmt
 
 -- | 'Kiroku.Store.Read.lookupEventReferences' inside the caller's transaction,
--- so the inventory and any decision taken on it share one snapshot. Empty input
--- runs no statement. Batching mirrors the interpreter: membership and
+-- with caller-chosen isolation. Use repeatable read when inventory statements
+-- and decisions must share one snapshot. Empty input runs no statement. Batching mirrors the interpreter: membership and
 -- dead-letter statements at most 10000 ids per execution, the causation
 -- statement once over the full request.
 lookupEventReferencesTx :: [EventId] -> Tx.Transaction (Map EventId EventReferenceInventory)

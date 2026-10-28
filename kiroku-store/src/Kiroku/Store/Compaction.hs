@@ -1,6 +1,10 @@
 -- | Explicit selective physical compaction. Preview is read-only, takes no row
 -- locks, and reports discrepancies under one snapshot. Apply revalidates under
 -- the retention coordinator and ordered stream locks before deleting anything.
+-- Unlike logical truncate-before, compaction physically removes selected events;
+-- unlike whole-stream hard delete, it keeps streams live and never renumbers
+-- retained history. PostgreSQL vacuum/rewrite work controls space reclamation;
+-- apply does not shrink relation files. See @docs/user/compaction.md@.
 module Kiroku.Store.Compaction
   ( module Kiroku.Store.Compaction.Types,
     previewCompaction,

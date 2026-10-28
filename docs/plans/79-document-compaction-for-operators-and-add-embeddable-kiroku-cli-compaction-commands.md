@@ -19,6 +19,11 @@ provenance:
       at: 2026-09-10T00:45:20Z
       mode: "update"
       note: "Record patterns instead of OverloadedRecordDot; guide covers lease margin, lock_timeout, starting chunk, visible-head decrease, archive locator"
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-28T05:22:55Z
+      mode: "implement"
+      note: "Deliver operator documentation and embeddable commands for accepted migration 0017 and compaction API"
 ---
 
 # Document compaction for operators and add embeddable kiroku-cli compaction commands
@@ -57,19 +62,19 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] M1: Write `docs/user/compaction.md` with the four-way distinction, the consumer workflow, the manifest JSON example, the refusal vocabulary, lease interaction, chunking, storage/WAL/reclamation guidance, consumer consequences, authorization, and audit guidance.
-- [ ] M1: Update `docs/user/lifecycle.md`, `docs/user/observability.md`, `docs/user/schema-migrations.md`, `docs/user/README.md`, `docs/PRODUCTION-DEPLOYMENT.md`, and `README.md`.
-- [ ] M1: Review Haddock on `Kiroku.Store.Compaction`, `Kiroku.Store.Compaction.Types`, `Kiroku.Store.Read`, and `Kiroku.Store.Transaction` for the same distinctions; fix gaps.
-- [ ] M2: Allocate a capability handle with `okf id next`, write `docs/capabilities/selective-event-compaction.md`, update `docs/capabilities/index.md` and `log.md`, run `just capabilities-validate` and `just adr-validate`.
-- [ ] M3: Add `KirokuCompaction`, `KirokuStore`, `CompactionCommand`, `StoreCommand`, and option records to `Kiroku.Cli.Command`.
-- [ ] M3: Extend `Kiroku.Cli.Parser` with the `compaction` and `store` subcommands and their flags.
-- [ ] M3: Create `Kiroku.Cli.Compaction` with manifest loading, `--confirm-digest` check, and table/JSON renderers for reports, refusals, ledger records, and the store identity.
-- [ ] M3: Add `KirokuCommandOutcome` and `executeKirokuCommandWithStore` to `Kiroku.Cli.Run`; route `runKirokuCommandWithStore` through it with non-zero exits; keep `renderKirokuCommandWithStore`.
-- [ ] M3: Make `resolveStandaloneOptions` refuse compaction and store commands with the exact guidance text; extend `runStandaloneCommand` exhaustively.
-- [ ] M3: Register the new module in `kiroku-cli/kiroku-cli.cabal`; add the `kiroku-cli` changelog entry; add the `docs/user/operator-cli.md` section.
-- [ ] M4: Parser tests, host-embedding test, manifest decode failure, confirm-digest mismatch, renderer golden strings, standalone refusal.
-- [ ] M4: Live `withTestStore` tests: preview refusal exit 2, preview success, apply success, apply already-applied, ledger listing, store identity.
-- [ ] M4: `cabal build all`, `cabal test kiroku-cli:kiroku-cli-test`, `cabal test all`, `nix fmt`, `nix flake check` green; commit with trailers.
+- [x] M1: Write `docs/user/compaction.md` with the four-way distinction, the consumer workflow, the manifest JSON example, the refusal vocabulary, lease interaction, chunking, storage/WAL/reclamation guidance, consumer consequences, authorization, and audit guidance.
+- [x] M1: Update `docs/user/lifecycle.md`, `docs/user/observability.md`, `docs/user/schema-migrations.md`, `docs/user/README.md`, `docs/PRODUCTION-DEPLOYMENT.md`, and `README.md`.
+- [x] M1: Review Haddock on `Kiroku.Store.Compaction`, `Kiroku.Store.Compaction.Types`, `Kiroku.Store.Read`, and `Kiroku.Store.Transaction` for the same distinctions; fix gaps.
+- [x] M2: Allocate a capability handle with `okf id next`, write `docs/capabilities/selective-event-compaction.md`, update `docs/capabilities/index.md` and `log.md`, run `just capabilities-validate` and `just adr-validate`.
+- [x] M3: Add `KirokuCompaction`, `KirokuStore`, `CompactionCommand`, `StoreCommand`, and option records to `Kiroku.Cli.Command`.
+- [x] M3: Extend `Kiroku.Cli.Parser` with the `compaction` and `store` subcommands and their flags.
+- [x] M3: Create `Kiroku.Cli.Compaction` with manifest loading, `--confirm-digest` check, and table/JSON renderers for reports, refusals, ledger records, and the store identity.
+- [x] M3: Add `KirokuCommandOutcome` and `executeKirokuCommandWithStore` to `Kiroku.Cli.Run`; route `runKirokuCommandWithStore` through it with non-zero exits; keep `renderKirokuCommandWithStore`.
+- [x] M3: Make `resolveStandaloneOptions` refuse compaction and store commands with the exact guidance text; extend `runStandaloneCommand` exhaustively.
+- [x] M3: Register the new module in `kiroku-cli/kiroku-cli.cabal`; add the `kiroku-cli` changelog entry; add the `docs/user/operator-cli.md` section.
+- [x] M4: Parser tests, host-embedding test, manifest decode failure, confirm-digest mismatch, renderer golden strings, standalone refusal.
+- [x] M4: Live `withTestStore` tests: preview refusal exit 2, preview success, apply success, apply already-applied, ledger listing, store identity.
+- [x] M4: `cabal build all`, `cabal test kiroku-cli:kiroku-cli-test`, `cabal test all`, `nix fmt`, `nix flake check` green; commit with trailers.
 
 
 ## Surprises & Discoveries
@@ -77,7 +82,8 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+- 2026-10-28: JSON output must remain one valid document even for applied/already-applied outcomes. Human status prefixes would make the planned JSON undecodable; `renderCompactionResult` instead returns a result tag and record object for JSON, retaining the specified prefixes in table output.
+- 2026-10-28: The existing Tx inventory Haddock incorrectly implied one snapshot regardless of transaction isolation. It now requires caller-selected repeatable read for that guarantee.
 
 
 ## Decision Log
@@ -161,13 +167,9 @@ Record every decision made while working on the plan.
 
 ## Outcomes & Retrospective
 
-Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
-Compare the result against the original purpose. Before marking the plan complete,
-distill durable project context from the Decision Log, Surprises & Discoveries, and
-this section into docs/adr/. Keep task-local execution details here.
+Operator guide, discovery links, production privileges, canonical protocol Haddock and CAP-22 are implemented. The CLI adds all four embeddable maintenance commands, verified manifest loading, digest confirmation before checkout, typed exit codes and pure table/JSON renderers. The standalone client rejects maintenance commands with the specified guidance.
 
-(To be filled during and after implementation.)
-
+Verification on 2026-10-28: `cabal build all` passes; `cabal test all` passes on PostgreSQL 18 (store 605, migrations 27, CLI 29, telemetry 19, metrics 126 and adapter 45 examples). The preceding apply milestone already verified all suites on PostgreSQL 17. Nix formatting and flake checks, capabilities and ADR validation pass. The final CLI rerun passes all 29 examples, including ready/refused JSON, and standalone executable checks return exit 1 with the exact guidance on stderr. `cabal haddock kiroku-store` succeeds. Haddock reports established generated `Rep_*` link warnings (including new Generic-derived types), with no unresolved hand-authored compaction reference. Whole-bundle optional strict capability validation also reports pre-existing missing review recommendations; the required catalogue validation passes and CAP-22 includes its review provenance. No new friction met the recording threshold.
 
 ## Context and Orientation
 
@@ -191,7 +193,7 @@ without writing anything and returns either a non-empty list of typed *refusals*
 validation under locks inside one transaction, deletes exactly the accounted rows, writes a
 *ledger* record into `kiroku.event_compactions`, and returns the record; applying the same
 manifest again returns the stored record as `CompactionAlreadyApplied`. The *store identity*
-(`storeIdentity`) is a UUID installed by migration `0012`. The *reference inventory*
+(`storeIdentity`) is a UUID installed by migration `0017`. The *reference inventory*
 (`lookupEventReferences`) lists an event's memberships (home stream row, `$all` row, link rows),
 dead-letter count, and causation dependents; consumers use it to build manifests. All of these
 are delivered by the sibling plans
@@ -514,10 +516,10 @@ paragraph after "Close-the-Book Compaction" that points to `compaction.md`, exte
 two existing options, and add a "See Also" link. In `docs/user/observability.md`, document the
 four events with their fields and when they fire (after the transaction ends; refusals carry the
 first refusal and the total count; payloads never appear). In `docs/user/schema-migrations.md`,
-change `0008` through `0011` to `0008` through `0012`, describe migration `0012` (the
+change `0008` through `0011` to `0008` through `0017`, describe migration `0017` (the
 `kiroku.store_identity` singleton and the append-only `kiroku.event_compactions` ledger, both
 protected by the existing mutation/deletion/truncation triggers), and note the schema comment
-`Managed by pg-migrate component kiroku through 0012`. In `docs/user/README.md`, add a
+`Managed by pg-migrate component kiroku through 0017`. In `docs/user/README.md`, add a
 "Selective Compaction" bullet to "Schema And Lifecycle". In `docs/PRODUCTION-DEPLOYMENT.md`, add
 a privilege bullet for compaction and a short runbook paragraph ("Compaction runbook": rehearse
 on a restored clone, which shares the store identity; confirm no lease is active; preview; record
@@ -530,8 +532,8 @@ Finally review Haddock. Open `kiroku-store/src/Kiroku/Store/Compaction.hs`,
 function comments state the same four-way distinction, the lock order, the lease rule, and the
 no-renumbering guarantee in the same words as the guide. Fix omissions in this plan's commits.
 
-Result and proof: the files exist; `cabal haddock kiroku-store` builds without warnings about
-the touched modules; a reviewer can answer "what happens to stream version 207 after compaction"
+Result and proof: the files exist; `cabal haddock kiroku-store` builds with no unresolved hand-authored references
+(the repository-wide Generic `Rep_*` link warnings are recorded in Outcomes); a reviewer can answer "what happens to stream version 207 after compaction"
 from the guide alone (it is gone from reads; version 208 keeps its number; the head stays 412).
 
 ### Milestone 2 — Capability record and bundle validation
@@ -544,7 +546,7 @@ the printed handle (expected `CAP-22`). Create `docs/capabilities/selective-even
 with frontmatter modelled on `protected-replay-history.md`: `title: "Selective event
 compaction"`, `type: Capability`, a one-sentence `description`, `generated.by` naming the
 authoring model and `generated.at` now, the allocated `capabilityId`, `provider:
-mori://shinzui/kiroku`, `status: shipped`, `stability: experimental`, `since: "0.9.0.0"` (the
+mori://shinzui/kiroku`, `status: shipped`, `stability: experimental`, `since: "0.13.0.0"` (the
 `kiroku-store` version the release plan will publish; the release plan corrects it if the number
 changes), `packages: [kiroku-store, kiroku-store-migrations, kiroku-cli]`, `interface:
 [Kiroku.Store.Compaction, Kiroku.Store.Compaction.Types, Kiroku.Store.Read,
@@ -735,7 +737,7 @@ change: a `Left` already exits 1.
 
 `kiroku-cli/kiroku-cli.cabal`: add `Kiroku.Cli.Compaction` to `exposed-modules`; add `vector`
 and `time` to the library `build-depends` if the renderers need them (check `cabal build` for
-"could not find module"); keep `kiroku-store ^>=0.8` for now — the release plan moves every
+"could not find module"); keep `kiroku-store ^>=0.12.0.0` for now — the release plan moves every
 bound.
 
 `kiroku-cli/CHANGELOG.md`: add an `## Unreleased` section describing the new commands, the
@@ -912,7 +914,7 @@ version 207 of a stream whose head is 412, `readStreamForward` returns 206 then 
 still reports version 412, `appendToStream name (ExactVersion 412)` succeeds and lands at 413,
 and disk space is not returned to the operating system until a `VACUUM FULL` or equivalent. The
 guide names every `CompactionRefusal` constructor. `docs/user/observability.md` names all four
-compaction events. `docs/user/schema-migrations.md` names migration `0012` and its two tables.
+compaction events. `docs/user/schema-migrations.md` names migration `0017` and its two tables.
 
 Catalogue: `just capabilities-validate` and `just adr-validate` exit 0; the new capability file
 carries the handle printed by `okf id next`, `requires` `CAP-8`, `CAP-9`, and `CAP-21`, and
@@ -960,7 +962,7 @@ fails on the capability frontmatter, compare field by field with
 Libraries: `optparse-applicative >=0.19 && <0.20` (already a dependency), `aeson` (already),
 `vector` and `time` (add to `kiroku-cli` library `build-depends` if needed for `Vector
 CompactionRecord` and `UTCTime` rendering), `temporary` (test suite only, for manifest files),
-`kiroku-test-support` (already in the test suite). The `kiroku-store` bound stays `^>=0.8` in
+`kiroku-test-support` (already in the test suite). The `kiroku-store` bound stays `^>=0.12.0.0` in
 this plan; the release plan raises it together with the version.
 
 Signatures that must exist at the end of Milestone 3:

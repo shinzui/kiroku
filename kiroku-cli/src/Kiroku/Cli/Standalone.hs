@@ -55,7 +55,7 @@ standaloneParserInfo =
         <> progDesc
           "Inspect a running Kiroku worker over HTTP. Subscription status queries the worker's \
           \kiroku-metrics /subscriptions endpoint (--remote-url or KIROKU_REMOTE_URL); the binary \
-          \opens no store of its own."
+          \opens no store of its own. Compaction commands are embeddable-only."
         <> header "kiroku - remote operator client for Kiroku event stores"
     )
 
@@ -71,6 +71,8 @@ resolveStandaloneOptions :: [(String, String)] -> StandaloneOptions -> Either Te
 resolveStandaloneOptions env (StandaloneOptions cmd) =
   case cmd of
     KirokuNoCommand -> Right (StandaloneRuntime KirokuNoCommand)
+    KirokuCompaction _ -> Left embeddableOnlyMessage
+    KirokuStore _ -> Left embeddableOnlyMessage
     KirokuSubscriptions (SubscriptionStatus (StatusOptions format mEndpoint)) ->
       case mEndpoint <|> envEndpoint of
         Just ep ->
@@ -93,9 +95,14 @@ runStandaloneCommand :: StandaloneRuntime -> IO Text
 runStandaloneCommand (StandaloneRuntime cmd) =
   case cmd of
     KirokuNoCommand -> pure "No Kiroku operator command was selected."
+    KirokuCompaction _ -> pure embeddableOnlyMessage
+    KirokuStore _ -> pure embeddableOnlyMessage
     KirokuSubscriptions (SubscriptionStatus (StatusOptions format (Just ep))) ->
       renderRemoteSubscriptionStatus ep format
     KirokuSubscriptions (SubscriptionStatus (StatusOptions _ Nothing)) ->
       -- Unreachable: resolveStandaloneOptions fills the endpoint or fails.
       pure
         "kiroku: no worker endpoint; pass --remote-url or set KIROKU_REMOTE_URL."
+
+embeddableOnlyMessage :: Text
+embeddableOnlyMessage = "kiroku: compaction and store identity commands run only inside a host that owns a KirokuStore; the standalone binary is a remote client"

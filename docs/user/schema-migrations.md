@@ -188,3 +188,5 @@ empty append-only `kiroku.event_compactions` ledger. Read the identity through
 so a maintenance manifest can be rehearsed against the clone. Both new tables
 reuse the existing mutation and hard-delete guards, with no change to ordinary
 append or read paths.
+
+See [selective compaction](compaction.md) for migration `0017` runtime requirements, identity semantics and append-only ledger operations.

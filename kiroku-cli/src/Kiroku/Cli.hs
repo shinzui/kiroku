@@ -6,9 +6,11 @@ module Kiroku.Cli
     runKirokuCommand,
     runKirokuCommandWithStore,
     renderKirokuCommandWithStore,
+    KirokuCommandOutcome (..),
+    executeKirokuCommandWithStore,
   )
 where
 
 import Kiroku.Cli.Command (KirokuCommand (..))
 import Kiroku.Cli.Parser (kirokuCommandParser, kirokuParserInfo, kirokuSubparser)
-import Kiroku.Cli.Run (renderKirokuCommandWithStore, runKirokuCommand, runKirokuCommandWithStore)
+import Kiroku.Cli.Run (KirokuCommandOutcome (..), executeKirokuCommandWithStore, renderKirokuCommandWithStore, runKirokuCommand, runKirokuCommandWithStore)

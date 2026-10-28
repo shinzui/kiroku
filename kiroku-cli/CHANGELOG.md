@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Breaking Changes
+
+- Add `KirokuCompaction` and `KirokuStore` constructors to `KirokuCommand`; exhaustive host matches need new arms.
+
+### New Features
+
+- Embed manifest preview, digest-confirmed apply, ledger listing and store identity commands in a host owning a `KirokuStore`. The standalone remote client refuses these commands with guidance.
+- Return structured exit codes with `KirokuCommandOutcome` and `executeKirokuCommandWithStore`; expose validated manifest loading and table/JSON renderers in `Kiroku.Cli.Compaction`.
+
 ## 0.2.0.11 — 2026-10-26
 
 ### Other Changes

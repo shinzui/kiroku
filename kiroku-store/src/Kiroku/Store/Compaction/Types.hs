@@ -3,6 +3,10 @@
 {-# LANGUAGE NoFieldSelectors #-}
 
 -- | Digest-sealed, explicitly witnessed selective compaction inputs and outcomes.
+-- The consumer proves redundancy and archives envelopes. These types describe
+-- physical deletion of exact events while preserving stream heads and retained
+-- versions; logical truncate-before and whole-stream hard delete are separate
+-- lifecycle operations. File-space reclamation is PostgreSQL maintenance.
 -- Canonical bytes are a versioned cross-language contract, independent of JSON.
 module Kiroku.Store.Compaction.Types
   ( CompactionOperation,
@@ -369,6 +373,14 @@ linkBytes (LinkWitness (StreamName name) (StreamVersion ver)) = lengthPrefixed n
 policyBytes :: DeadLetterPolicy -> CausationPolicy -> Builder
 policyBytes dead cause = word8 (if dead == RefuseDeadLetters then 0 else 1) <> word8 (if cause == RefuseCausationDependents then 0 else 1)
 
+-- | Version-1 digest protocol, independent of JSON: ASCII format tag plus LF,
+-- raw 16-byte store UUID, length-prefixed UTF-8 operation, two policy bytes
+-- (0 refuses, 1 allows/removes), counted heads, then counted selections. Text
+-- lengths and vector counts are unsigned big-endian Word32; versions and
+-- positions are signed big-endian Int64. Heads sort by UTF-8 name; selections
+-- by global position; links by UTF-8 name then version. A head/link is name
+-- then version. A selection is raw UUID, origin name, origin version, global
+-- position and counted links. See @docs/user/compaction.md@ for the test vector.
 canonicalCompactionManifestBytes :: CompactionManifest -> ByteString
 canonicalCompactionManifestBytes m =
   LBS.toStrict . toLazyByteString $
@@ -390,6 +402,11 @@ canonicalCompactionManifestBytes m =
 compactionManifestDigest :: CompactionManifest -> CompactionDigest
 compactionManifestDigest = sha256 . canonicalCompactionManifestBytes
 
+-- | Version-1 report protocol: format tag plus LF, raw manifest digest, store
+-- UUID, operation and policies, then eight Int64 values: selected, home, global,
+-- link, removed dead-letter and causation counts, lowest and highest position.
+-- Counted affected heads follow, using the manifest encoding. The report's own
+-- digest is excluded. Stored ledger digests remain verbatim audit evidence.
 canonicalCompactionReportBytes :: CompactionReport -> ByteString
 canonicalCompactionReportBytes r =
   LBS.toStrict . toLazyByteString $
