@@ -16,6 +16,8 @@ module Kiroku.Store.Types
     categoryName,
     streamNameInCategory,
     EventFilter (..),
+    EventMembership (..),
+    EventReferenceInventory (..),
     BrowsePageSize,
     BrowsePageSizeError (..),
     mkBrowsePageSize,
@@ -29,6 +31,7 @@ import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Time (UTCTime)
 import Data.UUID (UUID)
+import Data.Vector (Vector)
 import GHC.Generics (Generic)
 
 -- Stream identification
@@ -329,3 +332,29 @@ browsePageSizeValue (BrowsePageSize n) = n
 -- source identity so the same maintenance manifest can be rehearsed on a clone.
 newtype StoreIdentity = StoreIdentity UUID
   deriving stock (Eq, Ord, Show, Generic)
+
+-- | How an event is visible in one stream. Every event has exactly one
+-- 'HomeMembership' (the stream it was appended to, with the version it holds
+-- there) and one 'GlobalMembership' (the @$all@ log, carrying the event's global
+-- position); each 'Kiroku.Store.Link.linkToStream' adds one 'LinkMembership'
+-- naming the target stream and the version the event holds in it. Each
+-- constructor carries exactly the identity its membership class has, so a global
+-- position is never smuggled through a 'StreamVersion' field.
+data EventMembership
+  = HomeMembership !StreamName !StreamId !StreamVersion
+  | GlobalMembership !GlobalPosition
+  | LinkMembership !StreamName !StreamId !StreamVersion
+  deriving stock (Eq, Show, Generic)
+
+-- | Everything in the store that refers to one event: its memberships — the
+-- 'GlobalMembership' first (its junction row is stream id 0), then home and link
+-- entries in ascending stream-id order — the number of @dead_letters@ rows that
+-- reference it (across all subscriptions), and the number of /other/ events
+-- whose @causation_id@ is this event. Produced by
+-- 'Kiroku.Store.Read.lookupEventReferences'.
+data EventReferenceInventory = EventReferenceInventory
+  { memberships :: !(Vector EventMembership),
+    deadLetterCount :: !Int64,
+    causationDependentCount :: !Int64
+  }
+  deriving stock (Eq, Show, Generic)

@@ -43,6 +43,7 @@ module Kiroku.Store.Transaction
     runTransaction,
     runTransactionNoRetry,
     storeIdentityTx,
+    lookupEventReferencesTx,
 
     -- * Tx-flavored append building block
     appendToStreamTx,
@@ -68,13 +69,16 @@ import Control.Lens ((^.))
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Functor (($>))
 import Data.Generics.Labels ()
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
 import Data.Time.Clock (UTCTime, getCurrentTime)
+import Data.Vector qualified as V
 import Effectful (Eff, IOE, (:>))
 import Effectful.Dispatch.Dynamic (send)
 import GHC.Stack (HasCallStack)
 import Hasql.Transaction qualified as Tx
 import Kiroku.Store.Connection (KirokuStore)
-import Kiroku.Store.Effect (PreparedEvent, Store (..), appendDispatchTx, buildAppendParams, prepareEvents)
+import Kiroku.Store.Effect (PreparedEvent, Store (..), appendDispatchTx, assembleEventReferences, buildAppendParams, chunkUuids, maxEventReferenceBatch, prepareEvents)
 import Kiroku.Store.Effect.Resource (KirokuStoreResource, getKirokuStore)
 import Kiroku.Store.Error (AppendConflict (..), StoreError (..), appendConflictToStoreError, emptyResultConflict, validateStreamName)
 import Kiroku.Store.SQL qualified as SQL
@@ -367,3 +371,25 @@ runTransactionAppendingWith ctor sn@(StreamName _) expected events k
 -- | Read the immutable store identity inside the caller's transaction.
 storeIdentityTx :: Tx.Transaction StoreIdentity
 storeIdentityTx = Tx.statement () SQL.storeIdentityStmt
+
+-- | 'Kiroku.Store.Read.lookupEventReferences' inside the caller's transaction,
+-- so the inventory and any decision taken on it share one snapshot. Empty input
+-- runs no statement. Batching mirrors the interpreter: membership and
+-- dead-letter statements at most 10000 ids per execution, the causation
+-- statement once over the full request.
+lookupEventReferencesTx :: [EventId] -> Tx.Transaction (Map EventId EventReferenceInventory)
+lookupEventReferencesTx [] = pure Map.empty
+lookupEventReferencesTx eventIds = do
+  let uuids = V.fromList (Map.keys (Map.fromList [(uid, ()) | EventId uid <- eventIds]))
+      batches = chunkUuids maxEventReferenceBatch uuids
+  perBatch <-
+    traverse
+      ( \batch ->
+          (,)
+            <$> Tx.statement batch SQL.eventMembershipsStmt
+            <*> Tx.statement batch SQL.deadLetterCountsStmt
+      )
+      batches
+  dependents <- Tx.statement uuids SQL.causationDependentCountsStmt
+  let (memberships, deadLetters) = unzip perBatch
+  pure (assembleEventReferences (V.concat memberships) (V.concat deadLetters) dependents)

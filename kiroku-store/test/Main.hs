@@ -37,6 +37,8 @@ import Test.ConsumerGroup qualified as ConsumerGroup
 import Test.ConsumerGroupEffect qualified as ConsumerGroupEffect
 import Test.ConsumerGroupResize qualified as ConsumerGroupResize
 import Test.ConsumerGroupSql qualified as ConsumerGroupSql
+import Test.EventReferences qualified as EventReferences
+import Test.EventReferencesMock qualified as EventReferencesMock
 import Test.EventTypeFilter qualified as EventTypeFilter
 import Test.FailureInjection qualified as FailureInjection
 import Test.HandlerStall qualified as HandlerStall
@@ -87,6 +89,8 @@ import Test.VisibleGlobalHeadPositionMock qualified as VisibleGlobalHeadPosition
 
 main :: IO ()
 main = withSharedMigratedPostgres $ hspec $ do
+  EventReferences.spec
+  EventReferencesMock.spec
   StoreIdentity.spec
   StoreIdentityMock.spec
   BrowseReads.spec

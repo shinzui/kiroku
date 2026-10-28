@@ -115,6 +115,8 @@ test-suite kiroku-store-test
     Test.ConsumerGroupResize
     Test.ConsumerGroupSql
     Test.DeadLetterQueryPlans
+    Test.EventReferences
+    Test.EventReferencesMock
     Test.EventTypeFilter
     Test.FailureInjection
     Test.HandlerStall

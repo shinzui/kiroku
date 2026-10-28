@@ -187,6 +187,18 @@ queryPlanSpec :: Spec
 queryPlanSpec =
   describe "production query plans" $
     aroundAll withQueryPlanStore $ do
+      it "event membership inventory uses stream_events_pkey" $ \store -> do
+        plan <- explainProductionStatement store SQL.eventMembershipsStmt [("$1::uuid[]", inventoryUuidArray)]
+        expectIndex "stream_events_pkey" plan
+
+      it "dead-letter counts use ix_dead_letters_event_id" $ \store -> do
+        plan <- explainProductionStatement store SQL.deadLetterCountsStmt [("$1::uuid[]", inventoryUuidArray)]
+        expectIndex "ix_dead_letters_event_id" plan
+
+      it "causation dependent counts use ix_events_causation_id" $ \store -> do
+        plan <- explainProductionStatement store SQL.causationDependentCountsStmt [("$1::uuid[]", inventoryUuidArray)]
+        expectIndex "ix_events_causation_id" plan
+
       it "visible global head lookup uses ux_stream_events_stream_version without Sort" $ \store -> do
         plan <-
           explainProductionStatement
@@ -647,3 +659,7 @@ planNumber :: Aeson.Key -> Aeson.Object -> Double
 planNumber key fields = case KeyMap.lookup key fields of
   Just (Number n) -> realToFrac n
   _ -> 0
+
+-- Hundreds of distinct IDs exercise the actual maintenance-array plan shape.
+inventoryUuidArray :: Text
+inventoryUuidArray = "ARRAY[" <> T.intercalate "," ["'00000000-0000-0000-0000-" <> T.justifyRight 12 '0' (T.pack (show n)) <> "'" | n <- [1 .. 500 :: Int]] <> "]::uuid[]"

@@ -17,6 +17,9 @@ module Kiroku.Store.Effect
     prepareEvents,
     buildAppendParams,
     appendDispatchTx,
+    assembleEventReferences,
+    chunkUuids,
+    maxEventReferenceBatch,
   )
 where
 
@@ -25,7 +28,7 @@ import Control.Monad.Except qualified as Except
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Aeson (Value)
 import Data.Generics.Labels ()
-import Data.Int (Int32)
+import Data.Int (Int32, Int64)
 import Data.List (find)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
@@ -122,6 +125,8 @@ data Store :: Effect where
   --     the distinct ids from a batch and resolve them once, rather than per event.
   --     Surfaced as 'Kiroku.Store.Read.lookupStreamNames' (and the singular
   --     'Kiroku.Store.Read.lookupStreamName').
+  -- | Inventory of memberships and references outside the requested event set.
+  LookupEventReferences :: [EventId] -> Store m (Map EventId EventReferenceInventory)
   LookupStreamNames :: [StreamId] -> Store m (Map StreamId StreamName)
   -- | Byte-ordered names; optional exact category, literal prefix and exclusive cursor.
   --     Includes soft-deleted streams, excludes only the reserved stream row.
@@ -282,6 +287,23 @@ runStorePool store = interpret_ $ \case
   EventExistsInStream (StreamName name) (EventId eid) ->
     usePool (store ^. #pool) $
       Session.statement (name, eid) SQL.eventExistsInStreamStmt
+  LookupEventReferences [] ->
+    pure Map.empty
+  LookupEventReferences eventIds -> do
+    let uuids = V.fromList (Map.keys (Map.fromList [(uid, ()) | EventId uid <- eventIds]))
+        batches = chunkUuids maxEventReferenceBatch uuids
+    usePool (store ^. #pool) $ do
+      perBatch <-
+        traverse
+          ( \batch ->
+              (,)
+                <$> Session.statement batch SQL.eventMembershipsStmt
+                <*> Session.statement batch SQL.deadLetterCountsStmt
+          )
+          batches
+      dependents <- Session.statement uuids SQL.causationDependentCountsStmt
+      let (memberships, deadLetters) = unzip perBatch
+      pure (assembleEventReferences (V.concat memberships) (V.concat deadLetters) dependents)
   LookupStreamNames [] ->
     pure Map.empty
   LookupStreamNames sids ->
@@ -698,3 +720,49 @@ decodeReadEvents :: (IOE :> es, Error StoreError :> es) => StoreSettings -> Vect
 decodeReadEvents settings events = case decodeHook settings of
   Nothing -> pure events
   Just hook -> V.mapM (\event -> liftIO (hook event) >>= either (throwError . EventDecodeFailed) pure) events
+
+-- | Ids per execution of the membership and dead-letter statements. The
+-- causation-dependent statement is exempt: its array is also its exclusion set,
+-- so it always runs once over the full request.
+maxEventReferenceBatch :: Int
+maxEventReferenceBatch = 10000
+
+-- | Split a request into batches of at most 'maxEventReferenceBatch' ids.
+chunkUuids :: Int -> Vector UUID -> [Vector UUID]
+chunkUuids size values
+  | V.null values = []
+  | otherwise =
+      let (batch, rest) = V.splitAt (max 1 size) values
+       in batch : chunkUuids size rest
+
+-- | Fold the three inventory statements' rows into one map. Memberships keep
+-- statement order (ascending stream id, so the global row's entry comes first);
+-- each row becomes 'GlobalMembership' (@stream_id = 0@, carrying the global
+-- position), 'HomeMembership' (@stream_id = original_stream_id@), or
+-- 'LinkMembership'.
+assembleEventReferences ::
+  Vector (UUID, Int64, Text, Int64, Int64) ->
+  Vector (UUID, Int64) ->
+  Vector (UUID, Int64) ->
+  Map EventId EventReferenceInventory
+assembleEventReferences memberships deadLetters dependents =
+  Map.mapWithKey attach grouped
+  where
+    grouped =
+      Map.fromListWith
+        (<>)
+        [ (EventId eid, [membership sid name version origin])
+        | (eid, sid, name, version, origin) <- V.toList memberships
+        ]
+    membership sid name version origin
+      | sid == 0 = GlobalMembership (GlobalPosition version)
+      | sid == origin = HomeMembership (StreamName name) (StreamId sid) (StreamVersion version)
+      | otherwise = LinkMembership (StreamName name) (StreamId sid) (StreamVersion version)
+    deadLetterMap = Map.fromList [(EventId eid, n) | (eid, n) <- V.toList deadLetters]
+    dependentMap = Map.fromList [(EventId eid, n) | (eid, n) <- V.toList dependents]
+    attach eid ms =
+      EventReferenceInventory
+        { memberships = V.fromList (reverse ms),
+          deadLetterCount = Map.findWithDefault 0 eid deadLetterMap,
+          causationDependentCount = Map.findWithDefault 0 eid dependentMap
+        }

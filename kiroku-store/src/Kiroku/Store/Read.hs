@@ -16,6 +16,7 @@ module Kiroku.Store.Read
     eventExistsInStream,
     lookupStreamName,
     lookupStreamNames,
+    lookupEventReferences,
   )
 where
 
@@ -295,3 +296,26 @@ getEvent eid = send (GetEvent eid)
 -- their source identity; requires migration 0017.
 storeIdentity :: (HasCallStack, Store :> es) => Eff es StoreIdentity
 storeIdentity = send GetStoreIdentity
+
+-- | Everything that refers to each of the given events. For every id that
+-- exists, the result holds its 'EventReferenceInventory': memberships (the
+-- @$all@ 'GlobalMembership' first, then home and link entries in ascending
+-- stream-id order), the count of @dead_letters@ rows referencing it, and the
+-- count of other events whose @causationId@ is it (events in the request are
+-- not counted as each other's dependents). Ids that name no event are absent.
+--
+-- Soft-deleted streams are reported like live ones: the rows physically exist.
+-- Use 'getStream' when stream state matters.
+--
+-- Passing @[]@ returns an empty map without a database round trip. Non-empty
+-- input of any size runs on one pooled connection: the membership and
+-- dead-letter statements execute in batches of at most 10000 ids, and the
+-- causation statement executes once over the full request (its input is also its
+-- exclusion set). This is an operator and maintenance read, not a hot path; it
+-- is the inventory a caller consults before asking Kiroku to remove events (see
+-- "Kiroku.Store.Compaction" once available).
+lookupEventReferences ::
+  (HasCallStack, Store :> es) =>
+  [EventId] ->
+  Eff es (Map EventId EventReferenceInventory)
+lookupEventReferences eventIds = send (LookupEventReferences eventIds)

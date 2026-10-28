@@ -19,6 +19,11 @@ provenance:
       at: 2026-09-10T00:45:20Z
       mode: "update"
       note: "Recorded unbatched reuse of eventMembershipsStmt as the compaction plans' only witness source"
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-28T04:39:45Z
+      mode: "implement"
+      note: "Implement reference inventory with deduplicated batch inputs and indexed counts"
 ---
 
 # Expose an event membership and reference inventory read API
@@ -65,22 +70,20 @@ at version 1), `deadLetterCount = 1`, and `causationDependentCount = 1`.
 
 ## Progress
 
-Use a checklist to summarize granular steps. Every stopping point must be documented here,
-even if it requires splitting a partially completed task into two ("done" vs. "remaining").
-This section must always reflect the actual current state of the work.
-
-- [ ] M1: Add `EventMembership` (home/global/link sum type) and `EventReferenceInventory` to `Kiroku.Store.Types` with Haddock.
-- [ ] M1: Add `eventMembershipsStmt`, `deadLetterCountsStmt`, `causationDependentCountsStmt` (anti-join exclusion) to `Kiroku.Store.SQL` under a new export group.
-- [ ] M1: Add `LookupEventReferences` to the `Store` effect and its interpreter arm (empty input short-circuits; membership/dead-letter statements batched at `maxEventReferenceBatch`; one checkout).
-- [ ] M1: Add `Kiroku.Store.Read.lookupEventReferences` and `Kiroku.Store.Transaction.lookupEventReferencesTx`, sharing one pure assembly function and the batching helper.
-- [ ] M2: Write `kiroku-store/test/Test/EventReferences.hs` covering every membership and reference case, the no-checkout property, and the multi-batch merge.
-- [ ] M2: Write `kiroku-store/test/Test/EventReferencesMock.hs`; register both modules in the cabal file and `test/Main.hs`.
-- [ ] M2: Add query-plan examples for all three inventory statements (realistically large input arrays) to `Test.PerformanceStructure` under the `performance structure` describe.
-- [ ] M2: Run the store suite and `just perf-structure`.
-- [ ] M3: Add the unreleased changelog entry, run `cabal build all`, `cabal test all`, `nix fmt`, `nix flake check`; commit with trailers.
+- [x] M1 (2026-10-27): Public inventory types, three indexed statements, effect and transaction combinators are implemented. Input IDs are deduplicated before batching.
+- [x] M2 (2026-10-27): Seven focused behavioral and mock examples pass, covering all membership/reference classes, soft-deleted links, unknown and repeated IDs, cross-batch causation exclusion, transaction equivalence and zero/one checkout behavior. All 44 structural examples pass, including the three inventory plans with 500-ID arrays.
+- [ ] M3: Full store/repository checks pass; unreleased changelog documents the accepted API.
 
 
 ## Surprises & Discoveries
+
+- 2026-10-27: Pool observations include the background publisher. The checkout
+  assertion filters observations to the calling thread to measure this API's
+  work without a scheduling-dependent extra checkout.
+- Duplicate input IDs must be deduplicated before batching: otherwise an ID
+  repeated across batches duplicates memberships. Both public paths normalize
+  IDs once. Grouped memberships accumulate lists and convert once to avoid
+  repeated Vector copying for events with many links.
 
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.

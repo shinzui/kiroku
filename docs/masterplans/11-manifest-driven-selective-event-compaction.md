@@ -139,8 +139,8 @@ compaction was deferred to "a possible Phase 2"; this MasterPlan is that phase.
 
 | # | Title | Path | Hard Deps | Soft Deps | Status |
 |---|-------|------|-----------|-----------|--------|
-| 1 | Add a store identity and an append-only event-compaction ledger | docs/plans/74-add-a-store-identity-and-an-append-only-event-compaction-ledger.md | None | None | In Progress |
-| 2 | Expose an event membership and reference inventory read API | docs/plans/75-expose-an-event-membership-and-reference-inventory-read-api.md | None | None | Not Started |
+| 1 | Add a store identity and an append-only event-compaction ledger | docs/plans/74-add-a-store-identity-and-an-append-only-event-compaction-ledger.md | None | None | Complete |
+| 2 | Expose an event membership and reference inventory read API | docs/plans/75-expose-an-event-membership-and-reference-inventory-read-api.md | None | None | In Progress |
 | 3 | Define the compaction manifest, canonical digest, refusal vocabulary, and report types | docs/plans/76-define-the-compaction-manifest-canonical-digest-refusal-vocabulary-and-report-types.md | None | EP-1 (`StoreIdentity` newtype) | Not Started |
 | 4 | Preview a compaction manifest read-only with deterministic witnesses | docs/plans/77-preview-a-compaction-manifest-read-only-with-deterministic-witnesses.md | EP-1, EP-2, EP-3 | None | Not Started |
 | 5 | Apply a compaction manifest transactionally with ledgered idempotence | docs/plans/78-apply-a-compaction-manifest-transactionally-with-ledgered-idempotence.md | EP-4 | None | Not Started |
@@ -726,8 +726,9 @@ deliberate exclusions listed in Vision & Scope are recorded in that same ADR.
 
 ## Progress
 
-EP-1 is In Progress; EP-2 through EP-7 are Not Started. The schema foundation is
-being implemented as migration `0017`, after the sixteen existing migrations.
+EP-1 is Complete; EP-2 is In Progress; EP-3 through EP-7 are Not Started.
+Migration `0017` passes the 27-example migration suite on PostgreSQL 17 and 18;
+the full store suite passes 526 examples. ADR-21 records the identity contract.
 The remaining integration gates are preview/apply correctness, concurrency and
 structural checks, the operator surface, and released clean-consumer proof.
 

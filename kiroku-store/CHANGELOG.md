@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+* Add `lookupEventReferences` and `lookupEventReferencesTx`: per-event home,
+  global and link memberships, dead-letter counts and causation dependents
+  outside the requested set. Unknown IDs are omitted, duplicates are deduplicated,
+  and empty input uses no connection. Membership and dead-letter reads batch at
+  10,000 IDs on one checkout; causation exclusions span the entire input.
+
 * Add `StoreIdentity`, `storeIdentity` and `storeIdentityTx` for the immutable, clone-shared identity installed by migration `0017`. Requires that migration; older schemas report a missing relation.
 
 ## 0.12.0.0 — 2026-10-26

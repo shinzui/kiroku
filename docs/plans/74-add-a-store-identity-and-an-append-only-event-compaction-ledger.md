@@ -71,13 +71,9 @@ with `Immutable table: store_identity cannot be updated`.
 
 ## Progress
 
-- [ ] M1: Migration `0017` installs the protected identity and ledger; catalog and upgrade tests pass on PostgreSQL 17 and 18.
-- [ ] M2: Public identity reads, effect dispatch and clone semantics pass integration tests; the full structural run is still active.
-- [ ] M3: Identity ADR, changelogs and schema guide reflect the accepted behavior; repository checks pass.
-
-Implementation uses the current sixteen-migration baseline. Historical examples
-below that enumerate pending files must include the existing `0012`–`0016` tail;
-no released migration is changed.
+- [x] M1 (2026-10-27): Migration `0017` installs the protected identity and ledger. All 27 migration examples pass on both PostgreSQL 17 and 18, including exact catalogs, fresh install and upgrade/rerun checks.
+- [x] M2 (2026-10-27): Public identity reads, single effect dispatch and real template-clone semantics pass; the full store suite reports 526 examples, zero failures, including structural invariants.
+- [x] M3 (2026-10-27): ADR-21, changelogs and schema guide are updated. Strict ADR validation, formatting and Nix flake checks pass. All other package suites passed in the full run; its one stale migration-count failure was fixed and the complete migration suite rerun successfully on both majors.
 
 
 ## Surprises & Discoveries
@@ -152,16 +148,15 @@ Record every decision made while working on the plan.
 
 ## Outcomes & Retrospective
 
-Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
-Compare the result against the original purpose. Before marking the plan complete,
-distill durable project context from the Decision Log, Surprises & Discoveries, and
-this section into docs/adr/. Keep task-local execution details here.
-
-The schema and public identity API are implemented. PostgreSQL 17 migrations:
-27 examples, zero failures. Strict ADR validation: 21 concepts. Nix formatting
-and flake checks pass. The PostgreSQL 18 migration rerun and full store suite
-remain active; do not mark the child complete until their results are verified.
-
+The immutable store identity and complete empty ledger schema are implemented in
+migration `0017`, committed as `f340673`. The public effect and transaction reads
+return the same clone-shared UUID. The migration adds no hot-table trigger;
+ordinary statements remain free of identity, ledger and retention coordination.
+ADR-21 records the durable identity and restore contract. PostgreSQL 17 and 18
+migration suites each pass 27 examples; the full store suite passes 526 examples.
+Strict ADR validation, formatting and Nix checks pass. No friction met the
+recording threshold. Preview and apply are intentionally left to their owning
+children.
 
 
 ## Context and Orientation

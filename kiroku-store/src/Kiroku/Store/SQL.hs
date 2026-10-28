@@ -37,6 +37,11 @@ module Kiroku.Store.SQL
     visibleGlobalHeadPositionStmt,
     storeIdentityStmt,
 
+    -- * Event reference inventory statements
+    eventMembershipsStmt,
+    deadLetterCountsStmt,
+    causationDependentCountsStmt,
+
     -- * Consumer-group read statements
     readCategoryForwardConsumerGroupStmt,
     readCategoryConsumerGroupEncoder,
@@ -1662,3 +1667,68 @@ storeIdentityStmt =
     "SELECT store_id FROM store_identity WHERE singleton"
     E.noParams
     (D.singleRow (StoreIdentity <$> D.column (D.nonNullable D.uuid)))
+
+-- | Every junction row for the given event ids, with the stream name resolved.
+-- Served by @stream_events_pkey@ on @(event_id, stream_id)@; the join to
+-- @streams@ is a primary-key lookup per row. Rows are returned in ascending
+-- @(event_id, stream_id)@ order so callers can group without sorting.
+eventMembershipsStmt :: Statement (Vector UUID) (Vector (UUID, Int64, Text, Int64, Int64))
+eventMembershipsStmt =
+  preparable
+    """
+    SELECT se.event_id, se.stream_id, s.stream_name,
+           se.stream_version, se.original_stream_id
+    FROM stream_events se
+    JOIN streams s ON s.stream_id = se.stream_id
+    WHERE se.event_id = ANY($1::uuid[])
+    ORDER BY se.event_id, se.stream_id
+    """
+    (E.param (E.nonNullable (E.foldableArray (E.nonNullable E.uuid))))
+    ( D.rowVector
+        ( (,,,,)
+            <$> D.column (D.nonNullable D.uuid)
+            <*> D.column (D.nonNullable D.int8)
+            <*> D.column (D.nonNullable D.text)
+            <*> D.column (D.nonNullable D.int8)
+            <*> D.column (D.nonNullable D.int8)
+        )
+    )
+
+-- | Dead-letter rows per referenced event, across all subscriptions and
+-- members. Served by @ix_dead_letters_event_id@. Events with no dead letters are
+-- absent from the result.
+deadLetterCountsStmt :: Statement (Vector UUID) (Vector (UUID, Int64))
+deadLetterCountsStmt =
+  preparable
+    """
+    SELECT dl.event_id, count(*)
+    FROM dead_letters dl
+    WHERE dl.event_id = ANY($1::uuid[])
+    GROUP BY dl.event_id
+    """
+    (E.param (E.nonNullable (E.foldableArray (E.nonNullable E.uuid))))
+    (D.rowVector ((,) <$> D.column (D.nonNullable D.uuid) <*> D.column (D.nonNullable D.int8)))
+
+-- | Per referenced event, the number of other events whose @causation_id@ is
+-- that event, excluding events that are themselves in the input set. Served by
+-- the partial index @ix_events_causation_id@. The exclusion is an anti-join over
+-- @unnest($1)@ — never @NOT (event_id = ANY($1))@, which degrades to a linear
+-- scan of the array per candidate row at large input sizes. The input array is
+-- simultaneously the lookup set and the exclusion set, so callers always execute
+-- this statement once over the full request (batching it would silently change
+-- "outside the input set" into "outside the batch"). Events with no dependents
+-- are absent from the result.
+causationDependentCountsStmt :: Statement (Vector UUID) (Vector (UUID, Int64))
+causationDependentCountsStmt =
+  preparable
+    """
+    SELECT e.causation_id, count(*)
+    FROM events e
+    LEFT JOIN unnest($1::uuid[]) AS excluded(event_id)
+      ON excluded.event_id = e.event_id
+    WHERE e.causation_id = ANY($1::uuid[])
+      AND excluded.event_id IS NULL
+    GROUP BY e.causation_id
+    """
+    (E.param (E.nonNullable (E.foldableArray (E.nonNullable E.uuid))))
+    (D.rowVector ((,) <$> D.column (D.nonNullable D.uuid) <*> D.column (D.nonNullable D.int8)))
