@@ -32,6 +32,8 @@ import Test.CatchupDbErrorNoPrematureSwitch qualified as CatchupDbErrorNoPrematu
 import Test.Category qualified as Category
 import Test.CategoryIdleNoSpin qualified as CategoryIdleNoSpin
 import Test.Causation qualified as Causation
+import Test.CompactionApply qualified as CompactionApply
+import Test.CompactionApplyMock qualified as CompactionApplyMock
 import Test.CompactionManifest qualified as CompactionManifest
 import Test.CompactionPreview qualified as CompactionPreview
 import Test.CompactionPreviewMock qualified as CompactionPreviewMock
@@ -92,6 +94,8 @@ import Test.VisibleGlobalHeadPositionMock qualified as VisibleGlobalHeadPosition
 
 main :: IO ()
 main = withSharedMigratedPostgres $ hspec $ do
+  CompactionApply.spec
+  CompactionApplyMock.spec
   CompactionPreview.spec
   CompactionPreviewMock.spec
   CompactionManifest.spec

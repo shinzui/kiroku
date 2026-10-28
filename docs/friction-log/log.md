@@ -1,5 +1,9 @@
 # Bundle Update Log
 
+## 2026-10-28
+* **Update**: FRIC-11 resolved: Resolve the adapter test collector race after verifying the corrected fixture on both supported PostgreSQL majors.
+* **Addition**: FRIC-11 records detour tooling friction with mori://shinzui/kiroku/packages/shibuya-kiroku-adapter: Concurrent adapter test collection loses an event despite completed callbacks
+
 ## 2026-10-26
 * **Update**: FRIC-10 accepted: The local compatibility overlay enables verified Kenshou execution without widening the runtime change or repairing unrelated suites.
 * **Addition**: FRIC-10 records detour tooling friction with mori://shinzui/keiro-runtime-kenshou: Released Kenshou dependency bounds are bypassed by its assembled Nix cohort

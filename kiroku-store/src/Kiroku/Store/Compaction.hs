@@ -5,10 +5,18 @@ module Kiroku.Store.Compaction
   ( module Kiroku.Store.Compaction.Types,
     previewCompaction,
     previewCompactionTx,
+    applyCompaction,
+    applyCompactionTx,
+    compactionLedger,
+    compactionLedgerTx,
+
+    -- * Failure-injection seam
+    applyCompactionTxWith,
   )
 where
 
 import Data.List.NonEmpty (NonEmpty)
+import Data.Vector (Vector)
 import Effectful (Eff, (:>))
 import Effectful.Dispatch.Dynamic (send)
 import Hasql.Transaction qualified as Tx
@@ -27,3 +35,36 @@ previewCompaction = send . PreviewCompaction
 -- nothing. The caller chooses isolation; use repeatable read for one snapshot.
 previewCompactionTx :: CompactionManifest -> Tx.Transaction (Either (NonEmpty CompactionRefusal) CompactionPreview)
 previewCompactionTx = Internal.previewCompactionTx
+
+-- | Apply one manifest atomically. Takes the retention coordinator first,
+-- refuses active leases, recognizes recorded digests before locking streams,
+-- then locks affected streams by ascending internal ID and revalidates every
+-- witness before deletion. Retained rows and stream heads are unchanged; no
+-- NOTIFY fires. A repeated recorded manifest returns its original ledger record.
+-- Concurrent references abort the whole transaction: re-preview and re-apply.
+applyCompaction :: (Store :> es) => CompactionManifest -> Eff es (Either (NonEmpty CompactionRefusal) CompactionApplyResult)
+applyCompaction = send . ApplyCompaction
+
+-- | Apply inside the caller's write transaction. Lease work must precede stream
+-- guards to preserve the coordinator-before-stream lock order. Count races
+-- raise 'Kiroku.Store.Error.CompactionConcurrentMutation'; a concurrent foreign
+-- key reference may surface as 'Kiroku.Store.Error.UnexpectedServerError' with
+-- SQLSTATE @23503@ for direct composers. Both mean rollback and retry after a
+-- fresh preview. Causation refusal is validation-time best-effort.
+applyCompactionTx :: CompactionManifest -> Tx.Transaction (Either (NonEmpty CompactionRefusal) CompactionApplyResult)
+applyCompactionTx = Internal.applyCompactionTx
+
+-- | Newest durable audit records first, with a validated limit of 1–1000.
+-- Records preserve stored digests verbatim for audit; the ledger omits event IDs.
+compactionLedger :: (Store :> es) => CompactionLedgerQuery -> Eff es (Vector CompactionRecord)
+compactionLedger = send . GetCompactionLedger
+
+-- | Ledger inventory inside the caller's transaction.
+compactionLedgerTx :: CompactionLedgerQuery -> Tx.Transaction (Vector CompactionRecord)
+compactionLedgerTx = Internal.compactionLedgerTx
+
+-- | Failure-injection barrier after validation and before the first DELETE.
+-- Production 'applyCompactionTx' uses @pure ()@ and adds no statement. A barrier
+-- must remain SQL-only when the caller enables automatic transaction retries.
+applyCompactionTxWith :: Tx.Transaction () -> CompactionManifest -> Tx.Transaction (Either (NonEmpty CompactionRefusal) CompactionApplyResult)
+applyCompactionTxWith = Internal.applyCompactionTxWith

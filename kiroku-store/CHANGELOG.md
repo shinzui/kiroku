@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+* Add atomic `applyCompaction` / `applyCompactionTx` and the bounded
+  `compactionLedger` / `compactionLedgerTx` audit reads. Apply revalidates under
+  ADR-7 locks, deletes only accounted memberships, preserves high-water versions
+  and records a digest-keyed ledger entry; identical reapply returns that entry.
+* Breaking: `StoreError` gains retryable `CompactionConcurrentMutation`;
+  `KirokuEvent` gains `KirokuEventCompactionApplied` and
+  `KirokuEventCompactionAlreadyApplied`. Direct transaction composers may also
+  receive SQLSTATE 23503 for an in-flight foreign-key reference and should retry
+  after preview. No ordinary append/read statement or trigger is changed.
+
 * Add `previewCompaction` and `previewCompactionTx`: shared witness validation,
   typed accumulated refusals, deterministic sealed reports and ledger-aware
   already-applied recognition. The effect uses one read-only repeatable-read

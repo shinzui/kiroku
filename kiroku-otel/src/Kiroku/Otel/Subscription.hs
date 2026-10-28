@@ -377,6 +377,8 @@ onEvent tracer cell = \case
   -- Compaction evidence belongs to the ledger, outside subscription telemetry.
   KirokuEventCompactionPreviewed {} -> pure ()
   KirokuEventCompactionRefused {} -> pure ()
+  KirokuEventCompactionApplied {} -> pure ()
+  KirokuEventCompactionAlreadyApplied {} -> pure ()
 
 -- Span / state-cell helpers ---------------------------------------------------
 

@@ -84,51 +84,27 @@ the ordinary append and read paths gained no statement, trigger, lock, or round 
 
 ## Progress
 
-Use a checklist to summarize granular steps. Every stopping point must be documented here,
-even if it requires splitting a partially completed task into two ("done" vs. "remaining").
-This section must always reflect the actual current state of the work.
-
-- [ ] M1: Add `lockCompactionStreamsStmt`,
-  `deleteJunctionRowsStmt`, `deleteSelectedDeadLettersStmt`,
-  `deleteSelectedEventsStmt`, `insertCompactionRecordStmt` (with its
-  `CompactionRecordInsert` parameter record), and
-  `compactionLedgerStmt` to `kiroku-store/src/Kiroku/Store/Compaction/SQL.hs`
-- [ ] M1: Implement `applyCompactionTxWith` (with `applyCompactionTx = applyCompactionTxWith
-  (pure ())`) and `compactionLedgerTx` in
-  `kiroku-store/src/Kiroku/Store/Compaction/Internal.hs` in the exact lock order
-- [ ] M1: Export `applyCompactionTx`, `applyCompactionTxWith` (failure-injection seam), and
-  `compactionLedgerTx` from `Kiroku.Store.Compaction` with Haddock; build clean with
-  `cabal build kiroku-store`
-- [ ] M1: `Test.CompactionApply` transaction-level examples (happy path, refusals leave rows
-  unchanged, condemned wrapper transaction leaves rows and ledger unchanged) pass
-- [ ] M2: Add `ApplyCompaction` and `GetCompactionLedger` to `data Store`, interpret them in
-  `runStorePool`, emit the three events after the transaction
-- [ ] M2: Add `KirokuEventCompactionApplied` and `KirokuEventCompactionAlreadyApplied` to
-  `KirokuEvent`; add no-op arms in `kiroku-otel` and `kiroku-metrics`
-- [ ] M2: Public wrappers `applyCompaction` and `compactionLedger`; `Test.CompactionApplyMock`;
-  event-handler examples pass
-- [ ] M3: Concurrency and lifecycle examples: head-drift refusal, append blocked then succeeds,
-  lease refusal, already-applied no-op, ledger conflict, concurrent unlisted-stream link and
-  concurrent dead letter surfacing `CompactionConcurrentMutation` with full rollback,
-  dead-letter and causation policies, multi-stream manifest, gap-tolerant reads (forward,
-  backward, `$all` both directions, category, consumer-group, cursor and checkpoint on a
-  removed position, compacted tail), subscription continuation, expected-version append,
-  ledger digest integrity
-- [ ] M3: Hedgehog property `compactingARandomSubsetPreservesTheRest` passes
-- [ ] M4: `Test.PerformanceStructure` extended (`(6, 0)` unchanged,
-  `compactionTriggerShapeStmt`, ledger and delete query plans over large arrays, one checkout
-  per apply); `Test.NotifyGuard` extended; `just perf-check` passes with unchanged workload
-  ratio recorded here
-- [ ] M4: Apply benchmarked at 10k/50k/100k selections on the ADR-5 harness with lock-hold
-  wall time recorded here; `maxCompactionSelections` confirmed or revised and the recommended
-  chunk size documented from that evidence
-- [ ] M4: Compaction-contract ADR created with an `okf id next` handle, index and log updated,
-  `just adr-validate` passes
-- [ ] M4: CHANGELOG entries (unreleased) for `kiroku-store`, `kiroku-otel`, `kiroku-metrics`
-- [ ] M4: `cabal test all` and `just test-matrix` green; Outcomes & Retrospective written
+- [x] M1 (2026-10-27): Apply uses coordinator then ascending stream locks, exact pair-key deletion, checked counts and an atomic ledger insert; condemned transactions restore every row.
+- [x] M2 (2026-10-27): Effect wrappers, ledger reads, typed retryable errors, outcome events and explicit telemetry arms are implemented and mock-dispatched.
+- [x] M3 (2026-10-27): All 27 focused examples pass (26 behavioral/property examples and one mock), including concurrent links/dead letters, append/guard blocking, identity/no-op lock avoidance, gap and tail reads, subscription continuation for global/category and grouped consumers, expected-version appends, ledger integrity and a 20-case random-subset property.
+- [x] M4 (2026-10-27): All 52 structural checks pass. The sizing run at 10k/50k/100k with 10% links and 10% dead letters measured 0.207270s / 1.179964s / 2.352701s end-to-end apply wall time (conservative coordinator-hold upper bounds), with ledger/count/digest/reapply checks passing. Keep the 100,000 ceiling and recommend starting at 10,000 per stream-grouped chunk. Evidence is retained in `docs/bench/compaction/2026-10-27/`. ADR-22 validates strictly. The unchanged controlled-workload gate passes all 17 cases and all 20% spread gates (accepted-category append 0.98x; four-stream pipeline 0.84x; complete ratios retained in the evidence). Full PostgreSQL 17/18 repository verification passes: 605 store examples plus migrations 27, telemetry 19, CLI 22, metrics 126 and adapters 45 on each major. The initial PostgreSQL 17 adapter collector failure was corrected and that complete suite rerun; FRIC-11 is resolved. Nix flake checks pass. All executable and benchmark build targets also pass.
 
 
 ## Surprises & Discoveries
+
+- PostgreSQL 17's full run exposed an existing adapter-test data race: the
+  callback count reached 40 while non-atomic list collection lost position 3.
+  The affected four-processor test now collects atomically. FRIC-11 in
+  `docs/friction-log/` records the surface, evidence and corrective rerun.
+
+- 2026-10-27: Real post-validation link and dead-letter inserts reach the
+  documented concurrency guards. Direct composer FK races produce 23503;
+  the standard effect produces the typed retryable error. Remove-dead-letter
+  count races raise KRCMP through the shared transaction mapper and roll back.
+- Sizing evidence is local and single-trial per size, not a statistical throughput
+  guarantee. The measured apply wall time includes pool/transaction overhead and
+  conservatively bounds coordinator hold time. Link fan-out and stream count
+  require deployment-specific measurements even below the selection ceiling.
 
 - 2026-10-27: The shared membership row now also returns `original_stream_version`.
   This is required to validate every origin witness, including absent-home-row
@@ -141,6 +117,16 @@ implementation. Provide concise evidence.
 
 
 ## Decision Log
+
+- Decision (2026-10-27): Direct composers retain the documented generic 23503
+  foreign-key error, while KRCMP count guards are mapped by the shared transaction
+  mapper and the standard ApplyCompaction effect maps its own 23503 to the typed
+  retryable error. The race tests prove all three paths. A test-only PostgreSQL
+  DELETE trigger pauses the real effect after validation to exercise its FK
+  mapping; the public barrier seam proves direct-composer rollback and counts.
+- Decision (2026-10-27): Timing records end-to-end apply wall time as a conservative
+  upper bound for coordinator hold time, including acquisition/commit overhead.
+  It is not mislabeled as an instrumented exact lock-duration measurement.
 
 Record every decision made while working on the plan.
 
@@ -237,12 +223,22 @@ Record every decision made while working on the plan.
 
 ## Outcomes & Retrospective
 
-Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
-Compare the result against the original purpose. Before marking the plan complete,
-distill durable project context from the Decision Log, Surprises & Discoveries, and
-this section into docs/adr/. Keep task-local execution details here.
+Apply and ledger APIs are implemented with exact pair-key deletion, locked shared
+validation and atomic audit insertion. The tests prove unchanged retained event
+records and high-water versions, gapped reads and subscription continuation,
+expected-version appends, ledger idempotence, full rollback and real concurrency
+guards. All 605 store examples pass on PostgreSQL 17 and 18, alongside every
+other package suite. All 52 structural checks and the unchanged 17-case workload
+ratio/spread gate pass; Nix flake checks pass. Local sizing at 10k/50k/100k took
+0.207270s / 1.179964s / 2.352701s with 10% links and dead letters; these wall times
+conservatively bound coordinator hold on this fixture. Keep the 100k ceiling,
+start operational chunks at 10k and measure deployment-specific fan-out/margins.
+ADR-22 records the durable contract, deliberate exclusions and direct-composer
+23503 caveat. The operator/release children still own their delivery.
 
-(To be filled during and after implementation.)
+FRIC-11 in `docs/friction-log/` is resolved: atomic collection fixes an existing
+four-processor adapter test race, verified by its full 45-example suite on both
+majors. No production adapter behavior was changed.
 
 
 ## Context and Orientation

@@ -57,7 +57,7 @@ import Data.Int (Int32, Int64)
 import Data.Time (NominalDiffTime)
 import Data.Time.Clock (UTCTime)
 import Hasql.Pool (UsageError)
-import Kiroku.Store.Compaction.Types (CompactionDigest, CompactionRefusal)
+import Kiroku.Store.Compaction.Types (CompactionDigest, CompactionId, CompactionRefusal)
 import Kiroku.Store.HistoryRetention.Types (HistoryRetentionConflict, HistoryRetentionLeaseId, HistoryRetentionLeaseOwner, HistoryRetentionPruneResult)
 import Kiroku.Store.Settings (DecodeFailure)
 import Kiroku.Store.Subscription.Fsm (DeadLetterReason (..), SubscriptionStopReason (..))
@@ -231,6 +231,10 @@ data KirokuEvent
     KirokuEventCompactionPreviewed !CompactionDigest !Int64
   | -- | Expected refusal: digest, first refusal and total refusal count.
     KirokuEventCompactionRefused !CompactionDigest !CompactionRefusal !Int
+  | -- | Committed apply: ledger ID, manifest digest, events and memberships removed.
+    KirokuEventCompactionApplied !CompactionId !CompactionDigest !Int64 !Int64
+  | -- | Recorded manifest recognized; no row changed.
+    KirokuEventCompactionAlreadyApplied !CompactionId !CompactionDigest
   deriving stock (Show)
 
 -- | Invoke the optional observability handler, dropping any synchronous exception

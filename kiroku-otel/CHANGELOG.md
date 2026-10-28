@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* Explicitly ignore apply/already-applied maintenance events in subscription
+  telemetry; durable compaction evidence remains in the store ledger.
+
 * Handle compaction preview/refusal events explicitly without changing the
   published subscription tracing or metrics schema.
 

@@ -11,11 +11,13 @@ import Data.ByteString qualified as BS
 import Data.Generics.Labels ()
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as T
+import Data.Vector qualified as V
 import Hasql.Connection qualified as Connection
 import Hasql.Connection.Settings qualified as Conn
 import Hasql.Notifications qualified as Notifications
 import Kiroku.Store
 import Kiroku.Test.Postgres (withMigratedTestDatabase)
+import Test.CompactionHelpers qualified as CompactionHelpers
 import Test.Helpers (makeEvent)
 import Test.Hspec
 
@@ -45,6 +47,10 @@ spec =
               runStoreIO store $
                 appendToStream secondStream NoStream [makeEvent "NotifyGuardSecond" (Aeson.object [])]
             waitForPayload payloads (expectedPayload secondStream second)
+
+            Right allEvents <- runStoreIO store (readAllForward (GlobalPosition 0) 10)
+            input <- CompactionHelpers.inputFor store [V.head allEvents]
+            Right (Right (CompactionAppliedNow _)) <- runStoreIO store (applyCompaction (CompactionHelpers.manifest input))
 
             actual <- atomically (readTVar payloads)
             actual

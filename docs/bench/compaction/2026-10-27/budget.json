@@ -1,0 +1,10 @@
+{
+  "started_at": "2026-10-28T05:11:02.865890+00:00",
+  "deadline_epoch": 1793167862.8660219,
+  "wall_clock_budget_seconds": 3600,
+  "scope": "one sizing apply at each of 10000, 50000, 100000 selections; unchanged controlled workload gate",
+  "sizing_timeout_seconds": 1200,
+  "completed_at": "2026-10-28T05:15:56.332759+00:00",
+  "elapsed_seconds": 293.467,
+  "outcome": "three verified sizing trials; unchanged workload ratio/spread gate passed"
+}

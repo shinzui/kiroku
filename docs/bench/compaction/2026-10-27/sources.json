@@ -1,0 +1,10 @@
+{
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "source_sha256": {
+    "kiroku-store/bench/CompactionCost.hs": "60e56bea50d87abc98adfa1fcfc172ba44c1538721f23ffd1e632573347d59e3",
+    "kiroku-store/src/Kiroku/Store/Compaction/Internal.hs": "b21b9f99be78240cdfb2cbe146c6423910cdeb39e59b39b68e00dcb674ec2299",
+    "kiroku-store/src/Kiroku/Store/Compaction/SQL.hs": "a2871366306d38ec0512ccbef2ba961f0c0fb36bb83931d0fdcb1a5ccd9b7348",
+    "kiroku-store/src/Kiroku/Store/Compaction/Types.hs": "d0fb5e003114b13a05c32e8ad2c4910c6d15693ac34ef71b754513db77072796"
+  }
+}

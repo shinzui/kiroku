@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-28
+* **Addition**: ADR-22 records manifest-driven, witness-validated and ledgered physical compaction with reference and concurrency contracts.
 * **Addition**: ADR-21 establishes the schema-installed clone-shared identity and append-only compaction ledger.
 
 ## 2026-10-26

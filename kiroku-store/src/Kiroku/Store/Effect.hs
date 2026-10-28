@@ -43,7 +43,7 @@ import Data.Vector (Vector)
 import Data.Vector qualified as V
 import Effectful (Dispatch (..), DispatchOf, Eff, Effect, IOE, runEff, (:>))
 import Effectful.Dispatch.Dynamic (interpret_)
-import Effectful.Error.Static (Error, runErrorNoCallStack, throwError)
+import Effectful.Error.Static (Error, catchError, runErrorNoCallStack, throwError)
 import GHC.Generics (Generic)
 import Hasql.Decoders qualified as D
 import Hasql.Encoders qualified as E
@@ -100,6 +100,8 @@ data Store :: Effect where
   GetStoreIdentity :: Store m StoreIdentity
   -- | Read-only manifest preview on one repeatable-read snapshot, without row locks.
   PreviewCompaction :: CompactionManifest -> Store m (Either (NonEmpty CompactionRefusal) CompactionPreview)
+  ApplyCompaction :: CompactionManifest -> Store m (Either (NonEmpty CompactionRefusal) CompactionApplyResult)
+  GetCompactionLedger :: CompactionLedgerQuery -> Store m (Vector CompactionRecord)
   GetStream :: StreamName -> Store m (Maybe StreamInfo)
   -- | One-statement metadata and newest surviving originated head observation.
   --     Outer 'Nothing' means absent; inner 'Nothing' means no originated events,
@@ -275,6 +277,27 @@ runStorePool store = interpret_ $ \case
       usePool (store ^. #pool) $
         Session.statement (cursor, limit) SQL.readAllBackwardStmt
     decodeReadEvents (store ^. #storeSettings) evs
+  ApplyCompaction manifest -> do
+    result <-
+      catchError
+        (runTxOnPool (store ^. #pool) TxSessions.transaction (Compaction.applyCompactionTx manifest))
+        ( \_ err -> case err of
+            UnexpectedServerError "23503" message -> throwError (CompactionConcurrentMutation (compactionManifestDigest manifest) message)
+            _ -> throwError err
+        )
+    let digest = compactionManifestDigest manifest
+    liftIO $ case result of
+      Right (CompactionAppliedNow record) -> do
+        let report = record ^. #report
+            memberships = report ^. #homeMemberships + report ^. #globalMemberships + report ^. #linkMemberships
+        emitOrDrop (store ^. #eventHandler) (KirokuEventCompactionApplied (record ^. #compactionId) digest (report ^. #selectedEvents) memberships)
+      Right (CompactionAlreadyApplied record) ->
+        emitOrDrop (store ^. #eventHandler) (KirokuEventCompactionAlreadyApplied (record ^. #compactionId) digest)
+      Left refusals ->
+        emitOrDrop (store ^. #eventHandler) (KirokuEventCompactionRefused digest (NonEmpty.head refusals) (NonEmpty.length refusals))
+    pure result
+  GetCompactionLedger query ->
+    runTxOnPool (store ^. #pool) TxSessions.transaction (Compaction.compactionLedgerTx query)
   PreviewCompaction manifest -> do
     result <- runReadOnlyTxOnPool (store ^. #pool) (Compaction.previewCompactionTx manifest)
     let digest = compactionManifestDigest manifest

@@ -9,15 +9,20 @@ module Kiroku.Store.Compaction.Internal
     validateCompactionTx,
     buildReport,
     previewCompactionTx,
+    applyCompactionTx,
+    applyCompactionTxWith,
+    compactionLedgerTx,
   )
 where
 
+import Control.Monad (unless, void)
 import Data.Int (Int64)
 import Data.List (find)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
+import Data.Text.Encoding qualified as TE
 import Data.UUID (UUID)
 import Data.Vector (Vector)
 import Data.Vector qualified as V
@@ -178,3 +183,82 @@ previewCompactionTx manifest =
     ValidationRefused refusals -> pure (Left refusals)
     ValidationAlreadyApplied record -> pure (Right (CompactionPreviewAlreadyApplied record))
     ValidationReady validated -> pure (Right (CompactionPreviewReady validated.report))
+
+applyCompactionTx :: CompactionManifest -> Tx.Transaction (Either (NonEmpty CompactionRefusal) CompactionApplyResult)
+applyCompactionTx = applyCompactionTxWith (pure ())
+
+applyCompactionTxWith :: Tx.Transaction () -> CompactionManifest -> Tx.Transaction (Either (NonEmpty CompactionRefusal) CompactionApplyResult)
+applyCompactionTxWith barrier manifest = do
+  identity <- Tx.statement () StoreSQL.storeIdentityStmt
+  if identity /= manifestStoreIdentity manifest
+    then pure (Left (CompactionStoreIdentityMismatch (manifestStoreIdentity manifest) identity :| []))
+    else do
+      Tx.sql "SET LOCAL kiroku.enable_hard_deletes = 'on'"
+      Retention.lockHistoryRetentionCoordinatorTx
+      conflict <- Retention.activeHistoryRetentionConflictTx
+      case conflict of
+        Just active -> pure (Left (CompactionHistoryRetentionActive active :| []))
+        Nothing ->
+          ledgerOutcomeTx manifest >>= \case
+            LedgerAlreadyApplied record -> pure (Right (CompactionAlreadyApplied record))
+            LedgerConflict cid count -> pure (Left (CompactionLedgerConflict cid count :| []))
+            LedgerUnrecorded -> do
+              void (Tx.statement (manifestStreamNames manifest) SQL.lockCompactionStreamsStmt)
+              validateCompactionTx manifest >>= \case
+                ValidationRefused refusals -> pure (Left refusals)
+                ValidationAlreadyApplied record -> pure (Right (CompactionAlreadyApplied record))
+                ValidationReady validated -> do
+                  barrier
+                  Right . CompactionAppliedNow <$> deleteAndRecord validated
+  where
+    deleteAndRecord validated = do
+      let r = validated.report
+          (eventKeys, streamKeys) = V.unzip validated.junctionRows
+      removed <- Tx.statement (eventKeys, streamKeys) SQL.deleteJunctionRowsStmt
+      guardCount "junction count" (fromIntegral (V.length validated.junctionRows)) (fromIntegral (V.length removed))
+      let home = V.length (V.filter (\(sid, origin) -> sid /= 0 && sid == origin) removed)
+          global = V.length (V.filter (\(sid, _) -> sid == 0) removed)
+          links = V.length removed - home - global
+      guardCount "home membership count" r.homeMemberships (fromIntegral home)
+      guardCount "global membership count" r.globalMemberships (fromIntegral global)
+      guardCount "link membership count" r.linkMemberships (fromIntegral links)
+      if manifestDeadLetterPolicy manifest == RemoveDeadLetters
+        then Tx.statement validated.selectedEventIds SQL.deleteSelectedDeadLettersStmt >>= guardCount "dead-letter count" r.deadLettersRemoved
+        else pure ()
+      Tx.statement validated.selectedEventIds SQL.deleteSelectedEventsStmt >>= guardCount "events count" r.selectedEvents
+      let inserted =
+            SQL.CompactionRecordInsert
+              r.manifestDigest
+              r.reportDigest
+              r.storeIdentity
+              r.operation
+              r.deadLetterPolicy
+              r.causationPolicy
+              r.selectedEvents
+              r.homeMemberships
+              r.globalMemberships
+              r.linkMemberships
+              r.deadLettersRemoved
+              r.causationDependents
+              r.lowestGlobalPosition
+              r.highestGlobalPosition
+              r.affectedStreams
+      (cid, applied, actor) <- Tx.statement inserted SQL.insertCompactionRecordStmt
+      pure (CompactionRecord (CompactionId cid) r applied actor)
+    -- Only fixed guard labels and a validated lowercase hex digest enter SQL.
+    -- PostgreSQL aborts the transaction itself; returning Left here would commit
+    -- earlier deletes in a composer that kept running after the result.
+    guardCount label expected actual =
+      unless (expected == actual) $
+        Tx.sql
+          ( TE.encodeUtf8
+              ( "DO $$ BEGIN RAISE EXCEPTION USING ERRCODE='KRCMP', MESSAGE='"
+                  <> label
+                  <> "', DETAIL='"
+                  <> compactionDigestHex (compactionManifestDigest manifest)
+                  <> "'; END $$"
+              )
+          )
+
+compactionLedgerTx :: CompactionLedgerQuery -> Tx.Transaction (Vector CompactionRecord)
+compactionLedgerTx query = Tx.statement (compactionLedgerLimitValue query.limit) SQL.compactionLedgerStmt

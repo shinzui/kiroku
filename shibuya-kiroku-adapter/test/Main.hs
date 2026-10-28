@@ -1229,7 +1229,7 @@ main = withSharedMigratedPostgres $ hspec $ do
         runEff $ runTracingNoop $ do
           let handler ingested = do
                 liftIO $ do
-                  modifyIORef' ref (envelopePayload ingested :)
+                  atomicModifyIORef' ref (\events -> (envelopePayload ingested : events, ()))
                   atomically $ do
                     c <- readTVar countVar
                     writeTVar countVar (c + 1)

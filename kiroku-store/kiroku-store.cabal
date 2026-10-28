@@ -115,6 +115,8 @@ test-suite kiroku-store-test
     Test.Category
     Test.CategoryIdleNoSpin
     Test.Causation
+    Test.CompactionApply
+    Test.CompactionApplyMock
     Test.CompactionHelpers
     Test.CompactionManifest
     Test.CompactionPreview
@@ -375,3 +377,21 @@ benchmark kiroku-stream-head-paired
     , text                 >=2.0   && <2.2
     , time                 >=1.12  && <1.15
     , vector               >=0.13  && <0.14
+
+benchmark kiroku-compaction-cost
+  import:         common
+  type:           exitcode-stdio-1.0
+  main-is:        CompactionCost.hs
+  hs-source-dirs: bench
+  ghc-options:    -threaded -rtsopts "-with-rtsopts=-N2 -A32m"
+  build-depends:
+    , aeson
+    , base
+    , generic-lens
+    , hasql
+    , hasql-pool
+    , kiroku-store
+    , kiroku-test-support
+    , lens
+    , text
+    , vector

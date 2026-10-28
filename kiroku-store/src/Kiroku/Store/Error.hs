@@ -33,6 +33,7 @@ import Data.UUID qualified as UUID
 import GHC.Generics (Generic)
 import Hasql.Errors qualified as Errors
 import Hasql.Pool (UsageError (..))
+import Kiroku.Store.Compaction.Types (CompactionDigest, parseCompactionDigestHex)
 import Kiroku.Store.HistoryRetention.Types (HistoryRetentionConflict)
 import Kiroku.Store.Settings (DecodeFailure)
 import Kiroku.Store.Types
@@ -149,6 +150,10 @@ data StoreError
     --       human-readable message. This is *not* generally retryable —
     --       investigate.
     UnexpectedServerError !Text !Text
+  | -- | Retryable concurrent reference/count mutation during compaction. The
+    -- transaction committed nothing; re-preview and re-apply. Carries the
+    -- manifest digest and the guard or foreign-key failure that aborted it.
+    CompactionConcurrentMutation !CompactionDigest !Text
   | -- | Catch-all for everything not matched by a more specific
     --       constructor above. Retained for backward compatibility with
     --       consumers that already pattern-match on it; new code should
@@ -215,6 +220,9 @@ mapUsageError streamName expected = \case
 mapTransactionUsageError :: UsageError -> StoreError
 mapTransactionUsageError usageErr =
   case extractServerError usageErr of
+    Just (Errors.ServerError "KRCMP" message (Just detail) _ _)
+      | Just digest <- parseCompactionDigestHex detail ->
+          CompactionConcurrentMutation digest message
     Just (Errors.ServerError "23505" message detail _ _)
       | uniqueConstraintName message detail == Just "events_pkey" ->
           DuplicateEvent (EventId <$> (detail >>= extractUuidFromDetail))

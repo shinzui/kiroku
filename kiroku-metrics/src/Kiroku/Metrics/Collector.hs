@@ -240,6 +240,8 @@ applyEvent km = \case
   -- Compaction evidence belongs to the ledger, outside subscription telemetry.
   KirokuEventCompactionPreviewed {} -> pure ()
   KirokuEventCompactionRefused {} -> pure ()
+  KirokuEventCompactionApplied {} -> pure ()
+  KirokuEventCompactionAlreadyApplied {} -> pure ()
 
 bumpDbPhase :: SubscriptionDbPhase -> LifecycleCounters -> LifecycleCounters
 bumpDbPhase phase c = case phase of

@@ -143,8 +143,8 @@ compaction was deferred to "a possible Phase 2"; this MasterPlan is that phase.
 | 2 | Expose an event membership and reference inventory read API | docs/plans/75-expose-an-event-membership-and-reference-inventory-read-api.md | None | None | Complete |
 | 3 | Define the compaction manifest, canonical digest, refusal vocabulary, and report types | docs/plans/76-define-the-compaction-manifest-canonical-digest-refusal-vocabulary-and-report-types.md | None | EP-1 (`StoreIdentity` newtype) | Complete |
 | 4 | Preview a compaction manifest read-only with deterministic witnesses | docs/plans/77-preview-a-compaction-manifest-read-only-with-deterministic-witnesses.md | EP-1, EP-2, EP-3 | None | Complete |
-| 5 | Apply a compaction manifest transactionally with ledgered idempotence | docs/plans/78-apply-a-compaction-manifest-transactionally-with-ledgered-idempotence.md | EP-4 | None | In Progress |
-| 6 | Document compaction for operators and add embeddable kiroku-cli compaction commands | docs/plans/79-document-compaction-for-operators-and-add-embeddable-kiroku-cli-compaction-commands.md | EP-5 | None | Not Started |
+| 5 | Apply a compaction manifest transactionally with ledgered idempotence | docs/plans/78-apply-a-compaction-manifest-transactionally-with-ledgered-idempotence.md | EP-4 | None | Complete |
+| 6 | Document compaction for operators and add embeddable kiroku-cli compaction commands | docs/plans/79-document-compaction-for-operators-and-add-embeddable-kiroku-cli-compaction-commands.md | EP-5 | None | In Progress |
 | 7 | Release the compaction cohort and prove it from a clean external consumer | docs/plans/80-release-the-compaction-cohort-and-prove-it-from-a-clean-external-consumer.md | EP-6 | None | Not Started |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
@@ -726,12 +726,14 @@ deliberate exclusions listed in Vision & Scope are recorded in that same ADR.
 
 ## Progress
 
-EP-1 through EP-4 are Complete; EP-5 is In Progress; EP-6 and EP-7 are Not
-Started. Preview passes 15 focused examples and the full repository suite
-(573 store examples); all build targets pass. Structural checks prove its
-read-only, lock-free, single-checkout path and large-catalog stream resolution.
-The next gate is apply correctness, rollback/concurrency evidence and bounded
-apply timing, followed by the operator surface and released clean-consumer proof.
+EP-1 through EP-5 are Complete; EP-6 is In Progress; EP-7 is Not Started. The
+store suite passes 605 examples on PostgreSQL 17 and 18, and all other package
+suites pass on both majors. All build targets, 52 structural checks, the unchanged
+17-case workload ratio/spread gate and Nix checks pass. ADR-21/ADR-22 record the
+identity and compaction contracts. Verified local apply timing is retained in
+`docs/bench/compaction/2026-10-27/`; the 100k ceiling remains and 10k is the initial
+operational chunk recommendation. Remaining work is operator documentation and
+CLI, then versioned publication and clean external consumer acceptance.
 
 
 ## Surprises & Discoveries

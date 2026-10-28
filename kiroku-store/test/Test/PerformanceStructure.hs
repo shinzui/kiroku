@@ -169,6 +169,29 @@ noOpAppendSpec =
         checkoutsAfter <- readIORef checkouts
         checkoutsAfter - checkoutsBefore `shouldBe` 0
 
+    it "applies a manifest with one caller pool checkout" $ do
+      owner <- myThreadId
+      checkouts <- newIORef (0 :: Int)
+      let tweak settings =
+            settings
+              { observationHandler = Just $ \case
+                  ConnectionObservation _ InUseConnectionStatus -> do
+                    current <- myThreadId
+                    when (current == owner) (modifyIORef' checkouts (+ 1))
+                  _ -> pure ()
+              }
+      withTestStoreSettings tweak $ \store -> do
+        events <- CompactionHelpers.seed store (StreamName "apply-checkout") 1
+        input <- CompactionHelpers.inputFor store events
+        beforeApply <- readIORef checkouts
+        Right (Right (CompactionAppliedNow _)) <- runStoreIO store (applyCompaction (CompactionHelpers.manifest input))
+        readIORef checkouts `shouldReturn` (beforeApply + 1)
+
+    it "guards compaction UPDATE, DELETE and TRUNCATE while leaving INSERT unguarded" $
+      withTestStore $ \store -> do
+        Right shape <- Pool.use (store ^. #pool) (Session.statement () compactionTriggerShapeStmt)
+        shape `shouldBe` (6, 2, 0)
+
     it "previews a manifest with one caller pool checkout" $ do
       owner <- myThreadId
       checkouts <- newIORef (0 :: Int)
@@ -219,6 +242,20 @@ queryPlanSpec :: Spec
 queryPlanSpec =
   describe "production query plans" $
     aroundAll withQueryPlanStore $ do
+      it "serves the ledger digest lookup through its unique index" $ \store -> do
+        plan <- explainProductionStatement store CompactionSQL.ledgerRecordByDigestStmt [("$1", "decode(repeat('00',32),'hex')")]
+        expectIndex "event_compactions_manifest_digest_key" plan
+
+      it "serves newest ledger records through ix_event_compactions_applied_at without Sort" $ \store -> do
+        plan <- explainProductionStatement store CompactionSQL.compactionLedgerStmt [("$1", "10")]
+        expectIndex "ix_event_compactions_applied_at" plan
+        expectNoNodeType "Sort" plan
+
+      it "serves a 500-pair junction delete through stream_events_pkey" $ \store -> do
+        let streamKeys = "ARRAY[" <> T.intercalate "," (replicate 500 "1") <> "]::bigint[]"
+        plan <- explainProductionStatement store CompactionSQL.deleteJunctionRowsStmt [("$1::uuid[]", inventoryUuidArray), ("$2::bigint[]", streamKeys)]
+        expectIndex "stream_events_pkey" plan
+
       it "resolves a 500-name compaction inventory through ix_streams_stream_name" $ \_ ->
         withTestStore $ \store -> do
           seeded <- Pool.use (store ^. #pool) (Session.script "INSERT INTO streams(stream_name,stream_version) SELECT 'compaction-plan-' || n,0 FROM generate_series(1,50000) n; ANALYZE streams")
@@ -501,6 +538,15 @@ queryPlanFixture =
          CASE WHEN n <= 9900 THEN clock_timestamp() ELSE NULL END
   FROM generate_series(1, 10000) AS n;
   ANALYZE history_retention_leases;
+  INSERT INTO event_compactions(manifest_digest,report_digest,store_id,operation,
+    dead_letter_policy,causation_policy,selected_events,home_memberships,global_memberships,
+    link_memberships,dead_letters_removed,causation_dependents,lowest_global_position,
+    highest_global_position,affected_streams,applied_at)
+  SELECT decode(lpad(to_hex(n),64,'0'),'hex'),decode(repeat('01',32),'hex'),uuidv7(),
+    'structural-fixture','refuse','refuse',1,1,1,0,0,0,1,1,'[]'::jsonb,
+    clock_timestamp() - n * interval '1 second'
+  FROM generate_series(1,500) n;
+  ANALYZE event_compactions;
   """
 
 explainProductionStatement ::
@@ -703,3 +749,12 @@ planNumber key fields = case KeyMap.lookup key fields of
 -- Hundreds of distinct IDs exercise the actual maintenance-array plan shape.
 inventoryUuidArray :: Text
 inventoryUuidArray = "ARRAY[" <> T.intercalate "," ["'00000000-0000-0000-0000-" <> T.justifyRight 12 '0' (T.pack (show n)) <> "'" | n <- [1 .. 500 :: Int]] <> "]::uuid[]"
+
+compactionTriggerShapeStmt :: Statement () (Int64, Int64, Int64)
+compactionTriggerShapeStmt =
+  unpreparable
+    "SELECT count(*),count(*) FILTER (WHERE (tgtype & 16) <> 0),count(*) FILTER (WHERE (tgtype & 4) <> 0) FROM pg_trigger WHERE NOT tgisinternal AND tgrelid IN ('kiroku.store_identity'::regclass,'kiroku.event_compactions'::regclass)"
+    E.noParams
+    (D.singleRow ((,,) <$> col D.int8 <*> col D.int8 <*> col D.int8))
+  where
+    col = D.column . D.nonNullable
