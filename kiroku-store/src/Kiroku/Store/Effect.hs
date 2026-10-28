@@ -30,6 +30,8 @@ import Data.Aeson (Value)
 import Data.Generics.Labels ()
 import Data.Int (Int32, Int64)
 import Data.List (find)
+import Data.List.NonEmpty (NonEmpty)
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (isNothing)
@@ -52,6 +54,8 @@ import Hasql.Session qualified as Session
 import Hasql.Statement (Statement, preparable)
 import Hasql.Transaction qualified as Tx
 import Hasql.Transaction.Sessions qualified as TxSessions
+import Kiroku.Store.Compaction.Internal qualified as Compaction
+import Kiroku.Store.Compaction.Types
 import Kiroku.Store.Connection (KirokuStore (..))
 import Kiroku.Store.Effect.Resource (KirokuStoreResource, getKirokuStore)
 import Kiroku.Store.Error (StoreError (..), attributeMultiStreamError, emptyResultError, isTransientSerializationError, mapGenericUsageError, mapLinkUsageError, mapTransactionUsageError, mapUsageError, validateStreamName)
@@ -94,6 +98,8 @@ data Store :: Effect where
   GetVisibleGlobalHeadPosition :: Store m GlobalPosition
   -- | Read the immutable store identity installed by migration 0017.
   GetStoreIdentity :: Store m StoreIdentity
+  -- | Read-only manifest preview on one repeatable-read snapshot, without row locks.
+  PreviewCompaction :: CompactionManifest -> Store m (Either (NonEmpty CompactionRefusal) CompactionPreview)
   GetStream :: StreamName -> Store m (Maybe StreamInfo)
   -- | One-statement metadata and newest surviving originated head observation.
   --     Outer 'Nothing' means absent; inner 'Nothing' means no originated events,
@@ -269,6 +275,17 @@ runStorePool store = interpret_ $ \case
       usePool (store ^. #pool) $
         Session.statement (cursor, limit) SQL.readAllBackwardStmt
     decodeReadEvents (store ^. #storeSettings) evs
+  PreviewCompaction manifest -> do
+    result <- runReadOnlyTxOnPool (store ^. #pool) (Compaction.previewCompactionTx manifest)
+    let digest = compactionManifestDigest manifest
+    liftIO $ case result of
+      Right (CompactionPreviewReady report) ->
+        emitOrDrop (store ^. #eventHandler) (KirokuEventCompactionPreviewed digest (report ^. #selectedEvents))
+      Right (CompactionPreviewAlreadyApplied record) ->
+        emitOrDrop (store ^. #eventHandler) (KirokuEventCompactionPreviewed digest (record ^. #report . #selectedEvents))
+      Left refusals ->
+        emitOrDrop (store ^. #eventHandler) (KirokuEventCompactionRefused digest (NonEmpty.head refusals) (NonEmpty.length refusals))
+    pure result
   GetStoreIdentity ->
     usePool (store ^. #pool) $ Session.statement () SQL.storeIdentityStmt
   GetVisibleGlobalHeadPosition ->
@@ -766,3 +783,11 @@ assembleEventReferences memberships deadLetters dependents =
           deadLetterCount = Map.findWithDefault 0 eid deadLetterMap,
           causationDependentCount = Map.findWithDefault 0 eid dependentMap
         }
+
+-- | One stable snapshot for maintenance reads, without writes or row locks.
+runReadOnlyTxOnPool :: (IOE :> es, Error StoreError :> es) => Pool -> Tx.Transaction a -> Eff es a
+runReadOnlyTxOnPool pool tx = do
+  result <- liftIO $ Pool.use pool $ TxSessions.transaction TxSessions.RepeatableRead TxSessions.Read tx
+  case result of
+    Left usageErr -> throwError (mapTransactionUsageError usageErr)
+    Right value -> pure value

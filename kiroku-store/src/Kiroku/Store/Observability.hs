@@ -53,10 +53,11 @@ where
 
 import Control.Exception (SomeAsyncException, SomeException, asyncExceptionFromException, catch, throwIO)
 import Data.Foldable (for_)
-import Data.Int (Int32)
+import Data.Int (Int32, Int64)
 import Data.Time (NominalDiffTime)
 import Data.Time.Clock (UTCTime)
 import Hasql.Pool (UsageError)
+import Kiroku.Store.Compaction.Types (CompactionDigest, CompactionRefusal)
 import Kiroku.Store.HistoryRetention.Types (HistoryRetentionConflict, HistoryRetentionLeaseId, HistoryRetentionLeaseOwner, HistoryRetentionPruneResult)
 import Kiroku.Store.Settings (DecodeFailure)
 import Kiroku.Store.Subscription.Fsm (DeadLetterReason (..), SubscriptionStopReason (..))
@@ -226,6 +227,10 @@ data KirokuEvent
     KirokuEventHistoryRetentionLeasesPruned !HistoryRetentionPruneResult
   | -- | Supported hard delete was refused before changing history.
     KirokuEventHardDeleteHistoryRetentionConflict !StreamName !HistoryRetentionConflict
+  | -- | Preview completed: manifest digest and selection count; no payload data.
+    KirokuEventCompactionPreviewed !CompactionDigest !Int64
+  | -- | Expected refusal: digest, first refusal and total refusal count.
+    KirokuEventCompactionRefused !CompactionDigest !CompactionRefusal !Int
   deriving stock (Show)
 
 -- | Invoke the optional observability handler, dropping any synchronous exception

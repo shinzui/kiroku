@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+* Add `previewCompaction` and `previewCompactionTx`: shared witness validation,
+  typed accumulated refusals, deterministic sealed reports and ledger-aware
+  already-applied recognition. The effect uses one read-only repeatable-read
+  snapshot and one checkout, with no row locks or writes. Causation refusal is
+  validation-time best-effort.
+* Breaking: exhaustive `KirokuEvent` matches must handle
+  `KirokuEventCompactionPreviewed` and `KirokuEventCompactionRefused`.
+
 * Add `Kiroku.Store.Compaction.Types`: bounded immutable manifests with explicit
   reference policies and stream/event witnesses, deterministic canonical SHA-256
   digests, typed refusals, reports and ledger records. JSON manifests require a

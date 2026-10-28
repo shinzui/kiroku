@@ -1,5 +1,10 @@
 # Revision history for kiroku-metrics
 
+## Unreleased
+
+* Handle compaction preview/refusal events explicitly without changing the
+  published subscription tracing or metrics schema.
+
 ## 0.4.0.0 — 2026-10-26
 
 ### Breaking Changes

@@ -5,7 +5,7 @@ module Test.PerformanceStructure (spec) where
 import Control.Concurrent (myThreadId)
 import Control.Exception (fromException)
 import Control.Lens ((^.))
-import Control.Monad (forM_, unless)
+import Control.Monad (forM_, unless, when)
 import Data.Aeson (Value (..))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
@@ -22,11 +22,13 @@ import Hasql.Session qualified as Session
 import Hasql.Statement (Statement, unpreparable)
 import Hasql.Statement qualified as Statement
 import Kiroku.Store
+import Kiroku.Store.Compaction.SQL qualified as CompactionSQL
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Subscription.Stream qualified as Buffer
 import Kiroku.Store.Subscription.Worker (withLoadCheckpointHookForTest)
 import Kiroku.Test.Fixtures.CategoryScaling (categoryScalingFixtureSql, categoryScalingHead)
 import Kiroku.Test.Fixtures.StreamHead (streamHeadFixtureSql)
+import Test.CompactionHelpers qualified as CompactionHelpers
 import Test.DeadLetterQueryPlans qualified as DeadLetterQueryPlans
 import Test.Helpers (makeEvent, validConsumerGroup, waitWithTimeout, withTestStore, withTestStoreSettings)
 import Test.Hspec
@@ -167,6 +169,36 @@ noOpAppendSpec =
         checkoutsAfter <- readIORef checkouts
         checkoutsAfter - checkoutsBefore `shouldBe` 0
 
+    it "previews a manifest with one caller pool checkout" $ do
+      owner <- myThreadId
+      checkouts <- newIORef (0 :: Int)
+      let tweak settings =
+            settings
+              { observationHandler = Just $ \case
+                  ConnectionObservation _ InUseConnectionStatus -> do
+                    current <- myThreadId
+                    when (current == owner) (modifyIORef' checkouts (+ 1))
+                  _ -> pure ()
+              }
+      withTestStoreSettings tweak $ \store -> do
+        events <- CompactionHelpers.seed store (StreamName "preview-checkout") 1
+        input <- CompactionHelpers.inputFor store events
+        beforePreview <- readIORef checkouts
+        _ <- CompactionHelpers.readyReport store (CompactionHelpers.manifest input)
+        readIORef checkouts `shouldReturn` (beforePreview + 1)
+
+    it "keeps preview SQL free of row locks and writes" $ do
+      let statements =
+            [ Statement.toSql CompactionSQL.resolveStreamsStmt,
+              Statement.toSql CompactionSQL.ledgerRecordByDigestStmt,
+              Statement.toSql CompactionSQL.survivingSelectedEventsStmt,
+              Statement.toSql SQL.eventMembershipsStmt,
+              Statement.toSql SQL.deadLetterCountsStmt,
+              Statement.toSql SQL.causationDependentCountsStmt
+            ]
+      forM_ statements $ \sql -> forM_ ["FOR UPDATE", "FOR SHARE", "DELETE FROM", "INSERT INTO", "UPDATE ", "SET LOCAL"] $ \forbidden ->
+        T.toUpper sql `shouldNotSatisfy` T.isInfixOf forbidden
+
     it "keeps every ordinary statement free of retention coordination" $ do
       let ordinarySql =
             [ Statement.toSql SQL.appendExpectedVersion,
@@ -187,6 +219,14 @@ queryPlanSpec :: Spec
 queryPlanSpec =
   describe "production query plans" $
     aroundAll withQueryPlanStore $ do
+      it "resolves a 500-name compaction inventory through ix_streams_stream_name" $ \_ ->
+        withTestStore $ \store -> do
+          seeded <- Pool.use (store ^. #pool) (Session.script "INSERT INTO streams(stream_name,stream_version) SELECT 'compaction-plan-' || n,0 FROM generate_series(1,50000) n; ANALYZE streams")
+          seeded `shouldBe` Right ()
+          let names = "ARRAY[" <> T.intercalate "," ["'compaction-plan-" <> T.pack (show n) <> "'" | n <- [1 .. 500 :: Int]] <> "]::text[]"
+          plan <- explainProductionStatement store CompactionSQL.resolveStreamsStmt [("$1::text[]", names)]
+          expectIndex "ix_streams_stream_name" plan
+
       it "event membership inventory uses stream_events_pkey" $ \store -> do
         plan <- explainProductionStatement store SQL.eventMembershipsStmt [("$1::uuid[]", inventoryUuidArray)]
         expectIndex "stream_events_pkey" plan

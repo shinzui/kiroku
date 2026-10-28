@@ -60,21 +60,9 @@ witness before the first delete" property is implemented.
 
 ## Progress
 
-Use a checklist to summarize granular steps. Every stopping point must be documented here,
-even if it requires splitting a partially completed task into two ("done" vs. "remaining").
-This section must always reflect the actual current state of the work.
-
-- [ ] M1: Create `Kiroku.Store.Compaction.SQL` with the stream-resolution and ledger statements and re-exports of the EP-2 inventory statements.
-- [ ] M1: Create `Kiroku.Store.Compaction.Internal` with `ledgerOutcomeTx`, `validateCompactionTx`, `ValidatedCompaction`, and `previewCompactionTx`.
-- [ ] M1: Register `Kiroku.Store.Compaction.SQL` as an exposed module and `Kiroku.Store.Compaction.Internal` as an other-module; `cabal build kiroku-store` passes.
-- [ ] M2: Add `PreviewCompaction` to `Store`, `runReadOnlyTxOnPool`, the interpreter arm with one checkout, and the two `KirokuEvent` constructors.
-- [ ] M2: Add explicit no-op arms in `kiroku-otel` and `kiroku-metrics`; `cabal build all` passes.
-- [ ] M2: Create public `Kiroku.Store.Compaction` exporting `previewCompaction` and `previewCompactionTx`, re-exporting Types; switch the `Kiroku.Store` re-export.
-- [ ] M3: `Test.CompactionPreview` integration suite covering the happy path and every refusal constructor.
-- [ ] M3: `Test.CompactionPreviewMock` dispatch test.
-- [ ] M3: Structural assertions (one checkout per preview; preview SQL text contains no `FOR UPDATE`, `DELETE`, `SET LOCAL`; `EXPLAIN` plan shape for `resolveStreamsStmt` with a large array) registered under `describe "performance structure"`.
-- [ ] M3: Haddock for `Kiroku.Store.Compaction` distinguishing preview from apply; `kiroku-store/CHANGELOG.md` entry.
-- [ ] M3: `cabal test all`, `just perf-structure`, `nix fmt`, commit with trailers.
+- [x] M1 (2026-10-27): Shared transaction validator, indexed stream/ledger queries and total ledger decoder are implemented. All witness facts come from the single six-column membership pass.
+- [x] M2 (2026-10-27): Preview effect uses one read-only repeatable-read transaction and emits typed outcomes; public wrappers and explicit telemetry adapter arms are implemented.
+- [x] M3 (2026-10-27): Fifteen focused integration/mock examples pass, including every refusal class, corruption/missing membership cases, unchanged rows, clone identity, ledger conflicts and stored-digest preservation. Full repository and structural verification passes: 573 store examples and all other suites, including the indexed 500-name resolution, no-write/no-lock SQL and one-checkout gates. All executable and benchmark targets also build successfully.
 
 
 ## Surprises & Discoveries
@@ -86,10 +74,28 @@ This section must always reflect the actual current state of the work.
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+- Preview validates origin metadata from every returned row, not only the home
+  membership, and resolves actual origin names in at most one fallback batch.
+  Corrupted original-version and missing home/global rows are all refused.
+- The read-only path calls the shared identity statement directly to avoid the
+  Store.Transaction → Effect → Compaction.Internal import cycle.
+
 
 
 ## Decision Log
+
+- Decision (2026-10-27): Validation reads identity through the shared SQL
+  statement directly. Importing Store.Transaction would create a cycle through
+  Effect back to Compaction.Internal. Causation exclusions use every manifest
+  event ID, with findings emitted only for verified selections, so an invalid
+  selection cannot create a fabricated surviving dependent. Preview preserves
+  an active-lease refusal when the ledger already records the manifest, matching
+  apply's lease-first refusal order. SQL write checks use operation tokens such
+  as `DELETE FROM`, since `deleted_at` contains the letters DELETE.
+- Decision (2026-10-27): The 500-name stream-resolution plan is verified against
+  a separate 50,000-stream catalog. The old 200-stream fixture legitimately
+  favors a sequential scan for hundreds of requested names and cannot prove the
+  large-catalog access path.
 
 Record every decision made while working on the plan.
 
@@ -176,12 +182,19 @@ Record every decision made while working on the plan.
 
 ## Outcomes & Retrospective
 
-Summarize outcomes, gaps, and lessons learned at major milestones or at completion.
-Compare the result against the original purpose. Before marking the plan complete,
-distill durable project context from the Decision Log, Surprises & Discoveries, and
-this section into docs/adr/. Keep task-local execution details here.
+Read-only preview is implemented with one repeatable-read snapshot, one checkout,
+no writes or row locks and a shared validator for the apply child. Fifteen
+focused examples cover every refusal, deterministic reports, corruption/missing
+memberships, policy handling, ledger recognition, stored-digest preservation and
+mock dispatch. The full repository suite passes (573 store examples); all build
+targets pass. Structural checks prove the 500-name indexed lookup against a
+50,000-stream catalog, write/lock-free SQL and the one-checkout path.
 
-(To be filled during and after implementation.)
+The validator calls the shared identity SQL directly to preserve an acyclic module
+graph. It excludes the entire selected set from causation counting, even when
+another selection is invalid. The future physical-compaction ADR, owned by
+EP-5, will record the shared validation/locking contract. No friction entry met
+the recording threshold.
 
 
 ## Context and Orientation

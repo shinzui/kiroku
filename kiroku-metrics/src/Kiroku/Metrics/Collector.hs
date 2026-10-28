@@ -237,6 +237,9 @@ applyEvent km = \case
   KirokuEventHistoryRetentionLeaseReleased {} -> pure ()
   KirokuEventHistoryRetentionLeasesPruned {} -> pure ()
   KirokuEventHardDeleteHistoryRetentionConflict {} -> pure ()
+  -- Compaction evidence belongs to the ledger, outside subscription telemetry.
+  KirokuEventCompactionPreviewed {} -> pure ()
+  KirokuEventCompactionRefused {} -> pure ()
 
 bumpDbPhase :: SubscriptionDbPhase -> LifecycleCounters -> LifecycleCounters
 bumpDbPhase phase c = case phase of

@@ -33,6 +33,8 @@ import Test.Category qualified as Category
 import Test.CategoryIdleNoSpin qualified as CategoryIdleNoSpin
 import Test.Causation qualified as Causation
 import Test.CompactionManifest qualified as CompactionManifest
+import Test.CompactionPreview qualified as CompactionPreview
+import Test.CompactionPreviewMock qualified as CompactionPreviewMock
 import Test.Concurrency qualified as Concurrency
 import Test.ConsumerGroup qualified as ConsumerGroup
 import Test.ConsumerGroupEffect qualified as ConsumerGroupEffect
@@ -90,6 +92,8 @@ import Test.VisibleGlobalHeadPositionMock qualified as VisibleGlobalHeadPosition
 
 main :: IO ()
 main = withSharedMigratedPostgres $ hspec $ do
+  CompactionPreview.spec
+  CompactionPreviewMock.spec
   CompactionManifest.spec
   EventReferences.spec
   EventReferencesMock.spec

@@ -374,6 +374,9 @@ onEvent tracer cell = \case
   KirokuEventHistoryRetentionLeaseReleased {} -> pure ()
   KirokuEventHistoryRetentionLeasesPruned {} -> pure ()
   KirokuEventHardDeleteHistoryRetentionConflict {} -> pure ()
+  -- Compaction evidence belongs to the ledger, outside subscription telemetry.
+  KirokuEventCompactionPreviewed {} -> pure ()
+  KirokuEventCompactionRefused {} -> pure ()
 
 -- Span / state-cell helpers ---------------------------------------------------
 

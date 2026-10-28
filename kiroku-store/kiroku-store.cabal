@@ -38,6 +38,8 @@ library
     Kiroku.Store
     Kiroku.Store.Append
     Kiroku.Store.Causation
+    Kiroku.Store.Compaction
+    Kiroku.Store.Compaction.SQL
     Kiroku.Store.Compaction.Types
     Kiroku.Store.Connection
     Kiroku.Store.Effect
@@ -64,6 +66,7 @@ library
     Kiroku.Store.Types
 
   other-modules:
+    Kiroku.Store.Compaction.Internal
     Kiroku.Store.HistoryRetention.Internal
     Kiroku.Store.HistoryRetention.SQL
     Kiroku.Store.Subscription.Checkpoint.SQL
@@ -112,7 +115,10 @@ test-suite kiroku-store-test
     Test.Category
     Test.CategoryIdleNoSpin
     Test.Causation
+    Test.CompactionHelpers
     Test.CompactionManifest
+    Test.CompactionPreview
+    Test.CompactionPreviewMock
     Test.Concurrency
     Test.ConsumerGroup
     Test.ConsumerGroupEffect
