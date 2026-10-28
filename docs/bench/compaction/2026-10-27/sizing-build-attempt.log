@@ -1,0 +1,193 @@
+Using saved setting for 'extra-substituters = https://shinzui.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = shinzui.cachix.org-1:QEmAoJrA9WwLP0uxfDgktLi2BRrcvQQWdz8NzcMg4/E=' from ~/.local/share/nix/trusted-settings.json.
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.12.0.0 (bench:kiroku-compaction-cost) (first run)
+Configuring benchmark 'kiroku-compaction-cost' for kiroku-store-0.12.0.0...
+Preprocessing benchmark 'kiroku-compaction-cost' for kiroku-store-0.12.0.0...
+Building benchmark 'kiroku-compaction-cost' for kiroku-store-0.12.0.0...
+[1 of 1] Compiling Main             ( bench/CompactionCost.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.12.0.0/b/kiroku-compaction-cost/build/kiroku-compaction-cost/kiroku-compaction-cost-tmp/Main.o )
+bench/CompactionCost.hs:22:10: error: [GHC-39999]
+    • Ambiguous type variable ‘a0’ arising from the literal ‘10000’
+      prevents the constraint ‘(Num a0)’ from being solved.
+      Probable fix: use a type annotation to specify what ‘a0’ should be.
+      Potentially matching instances:
+        instance Num Integer
+          -- Defined in ‘ghc-internal-9.1204.0:GHC.Internal.Num’
+        instance Num Double
+          -- Defined in ‘ghc-internal-9.1204.0:GHC.Internal.Float’
+        ...plus three others
+        ...plus 15 instances involving out-of-scope types
+        (use -fprint-potential-instances to see them all)
+    • In the expression: 10000
+      In the first argument of ‘forM_’, namely ‘[10000, 50000, 100000]’
+      In the first argument of ‘($)’, namely
+        ‘forM_ [10000, 50000, 100000]’
+   |
+22 |   forM_ [10000, 50000, 100000] $ \size ->
+   |          ^^^^^
+
+bench/CompactionCost.hs:26:13: error: [GHC-39999]
+    • Ambiguous type variable ‘a0’ arising from the arithmetic sequence ‘0, 2500 .. size
+                                                                                      - 1’
+      prevents the constraint ‘(Enum a0)’ from being solved.
+      Relevant bindings include
+        size :: a0 (bound at bench/CompactionCost.hs:22:35)
+      Probable fix: use a type annotation to specify what ‘a0’ should be.
+      Potentially matching instances:
+        instance Enum Ordering
+          -- Defined in ‘ghc-internal-9.1204.0:GHC.Internal.Enum’
+        instance Enum CausationPolicy
+          -- Defined in ‘Kiroku.Store.Compaction.Types’
+        ...plus 10 others
+        ...plus 28 instances involving out-of-scope types
+        (use -fprint-potential-instances to see them all)
+    • In the first argument of ‘forM_’, namely ‘[0, 2500 .. size - 1]’
+      In the first argument of ‘($)’, namely
+        ‘forM_ [0, 2500 .. size - 1]’
+      In a stmt of a 'do' block:
+        forM_ [0, 2500 .. size - 1]
+          $ \ offset
+              -> do let ...
+                    _ <- require
+                           =<< runStoreIO store (appendToStream origin AnyVersion events)
+                    ....
+   |
+26 |       forM_ [0, 2500 .. size - 1] $ \offset -> do
+   |             ^^^^^^^^^^^^^^^^^^^^^
+
+bench/CompactionCost.hs:31:38: error: [GHC-39999]
+    • Ambiguous type variable ‘a0’ arising from a use of ‘.=’
+      prevents the constraint ‘(aeson-2.2.5.1:Data.Aeson.Types.ToJSON.ToJSON
+                                  a0)’ from being solved.
+      Relevant bindings include
+        n :: a0 (bound at bench/CompactionCost.hs:35:17)
+        offset :: a0 (bound at bench/CompactionCost.hs:26:38)
+        size :: a0 (bound at bench/CompactionCost.hs:22:35)
+      Probable fix: use a type annotation to specify what ‘a0’ should be.
+      Potentially matching instances:
+        instance (aeson-2.2.5.1:Data.Aeson.Types.ToJSON.ToJSON a,
+                  aeson-2.2.5.1:Data.Aeson.Types.ToJSON.ToJSON b) =>
+                 aeson-2.2.5.1:Data.Aeson.Types.ToJSON.ToJSON (Either a b)
+          -- Defined in ‘aeson-2.2.5.1:Data.Aeson.Types.ToJSON’
+        instance aeson-2.2.5.1:Data.Aeson.Types.ToJSON.ToJSON Ordering
+          -- Defined in ‘aeson-2.2.5.1:Data.Aeson.Types.ToJSON’
+        ...plus 41 others
+        ...plus 84 instances involving out-of-scope types
+        (use -fprint-potential-instances to see them all)
+    • In the expression: "ordinal" .= n
+      In the first argument of ‘object’, namely
+        ‘["ordinal" .= n, "payload" .= T.replicate 256 "x"]’
+      In the third argument of ‘EventData’, namely
+        ‘(object ["ordinal" .= n, "payload" .= T.replicate 256 "x"])’
+   |
+31 |                   (object ["ordinal" .= n, "payload" .= T.replicate 256 "x"])
+   |                                      ^^
+
+bench/CompactionCost.hs:35:37: error: [GHC-39999]
+    • Ambiguous type variable ‘a0’ arising from a use of ‘min’
+      prevents the constraint ‘(Ord a0)’ from being solved.
+      Relevant bindings include
+        offset :: a0 (bound at bench/CompactionCost.hs:26:38)
+        size :: a0 (bound at bench/CompactionCost.hs:22:35)
+      Probable fix: use a type annotation to specify what ‘a0’ should be.
+      Potentially matching instances:
+        instance (Ord a, Ord b) => Ord (Either a b)
+          -- Defined in ‘ghc-internal-9.1204.0:GHC.Internal.Data.Either’
+        instance Ord Ordering -- Defined in ‘ghc-prim-0.13.0:GHC.Classes’
+        ...plus 51 others
+        ...plus 158 instances involving out-of-scope types
+        (use -fprint-potential-instances to see them all)
+    • In the expression: min size (offset + 2500)
+      In the expression: [offset + 1 .. min size (offset + 2500)]
+      In a stmt of a list comprehension:
+        n <- [offset + 1 .. min size (offset + 2500)]
+   |
+35 |               | n <- [offset + 1 .. min size (offset + 2500)]
+   |                                     ^^^
+
+bench/CompactionCost.hs:39:82: error: [GHC-39999]
+    • Ambiguous type variable ‘a0’ arising from a use of ‘fromIntegral’
+      prevents the constraint ‘(Integral a0)’ from being solved.
+      Relevant bindings include
+        size :: a0 (bound at bench/CompactionCost.hs:22:35)
+      Probable fix: use a type annotation to specify what ‘a0’ should be.
+      Potentially matching instances:
+        instance Integral Integer
+          -- Defined in ‘ghc-internal-9.1204.0:GHC.Internal.Real’
+        instance Integral Int
+          -- Defined in ‘ghc-internal-9.1204.0:GHC.Internal.Real’
+        ...plus one other
+        ...plus 10 instances involving out-of-scope types
+        (use -fprint-potential-instances to see them all)
+    • In the second argument of ‘readAllForward’, namely
+        ‘(fromIntegral size)’
+      In the second argument of ‘runStoreIO’, namely
+        ‘(readAllForward (GlobalPosition 0) (fromIntegral size))’
+      In the second argument of ‘(=<<)’, namely
+        ‘runStoreIO
+           store (readAllForward (GlobalPosition 0) (fromIntegral size))’
+   |
+39 |       events <- require =<< runStoreIO store (readAllForward (GlobalPosition 0) (fromIntegral size))
+   |                                                                                  ^^^^^^^^^^^^
+
+bench/CompactionCost.hs:49:82: error: [GHC-39999]
+    • Ambiguous type variable ‘a0’ arising from a use of ‘show’
+      prevents the constraint ‘(Show a0)’ from being solved.
+      Relevant bindings include
+        size :: a0 (bound at bench/CompactionCost.hs:22:35)
+      Probable fix: use a type annotation to specify what ‘a0’ should be.
+      Potentially matching instances:
+        instance (Show a, Show b) => Show (Either a b)
+          -- Defined in ‘ghc-internal-9.1204.0:GHC.Internal.Data.Either’
+        instance Show Ordering
+          -- Defined in ‘ghc-internal-9.1204.0:GHC.Internal.Show’
+        ...plus 136 others
+        ...plus 270 instances involving out-of-scope types
+        (use -fprint-potential-instances to see them all)
+    • In the first argument of ‘T.pack’, namely ‘(show size)’
+      In the second argument of ‘(<>)’, namely ‘T.pack (show size)’
+      In the first argument of ‘mkCompactionOperation’, namely
+        ‘("cost-" <> T.pack (show size))’
+   |
+49 |       op <- either (fail . show) pure (mkCompactionOperation ("cost-" <> T.pack (show size)))
+   |                                                                                  ^^^^
+
+bench/CompactionCost.hs:74:7: error: [GHC-39999]
+    • Ambiguous type variable ‘a0’ arising from a use of ‘printf’
+      prevents the constraint ‘(Text.Printf.PrintfArg
+                                  a0)’ from being solved.
+      Relevant bindings include
+        size :: a0 (bound at bench/CompactionCost.hs:22:35)
+      Probable fix: use a type annotation to specify what ‘a0’ should be.
+      Potentially matching instances:
+        instance Text.Printf.PrintfArg T.Text -- Defined in ‘Data.Text’
+        instance [safe] Text.Printf.PrintfArg Integer
+          -- Defined in ‘Text.Printf’
+        ...plus six others
+        ...plus 10 instances involving out-of-scope types
+        (use -fprint-potential-instances to see them all)
+    • In a stmt of a 'do' block:
+        printf
+          "%d,%d,%d,%.6f,%.6f,%.3f,%s\n" size (size `div` 10) (size `div` 10)
+          seconds seconds (seconds * 1e6 / fromIntegral size)
+          (T.unpack (compactionDigestHex report.reportDigest))
+      In the expression:
+        do let origin = StreamName "cost-origin"
+               target = StreamName "cost-links"
+           forM_ [0, 2500 .. size - 1] $ \ offset -> do ...
+           events <- require
+                       =<<
+                         runStoreIO
+                           store (readAllForward (GlobalPosition 0) (fromIntegral size))
+           let linked = V.filter (\ e -> ...) events
+           ....
+      In the second argument of ‘($)’, namely
+        ‘\ store
+           -> do let ...
+                 forM_ [0, 2500 .. size - 1] $ \ offset -> ...
+                 ....’
+   |
+74 |       printf "%d,%d,%d,%.6f,%.6f,%.3f,%s\n" size (size `div` 10) (size `div` 10) seconds seconds (seconds * 1e6 / fromIntegral size) (T.unpack (compactionDigestHex report.reportDigest))
+   |       ^^^^^^
+

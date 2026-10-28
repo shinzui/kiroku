@@ -1,0 +1,24 @@
+Using saved setting for 'extra-substituters = https://shinzui.cachix.org' from ~/.local/share/nix/trusted-settings.json.
+Using saved setting for 'extra-trusted-public-keys = shinzui.cachix.org-1:QEmAoJrA9WwLP0uxfDgktLi2BRrcvQQWdz8NzcMg4/E=' from ~/.local/share/nix/trusted-settings.json.
+Build profile: -w ghc-9.12.4 -O1
+In order, the following will be built (use -v for more details):
+ - kiroku-store-0.12.0.0 (bench:kiroku-compaction-cost) (first run)
+Preprocessing benchmark 'kiroku-compaction-cost' for kiroku-store-0.12.0.0...
+Building benchmark 'kiroku-compaction-cost' for kiroku-store-0.12.0.0...
+[1 of 1] Compiling Main             ( bench/CompactionCost.hs, /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.12.0.0/b/kiroku-compaction-cost/build/kiroku-compaction-cost/kiroku-compaction-cost-tmp/Main.o )
+bench/CompactionCost.hs:22:42: warning: [GHC-63397] [-Wname-shadowing]
+    This binding for ‘size’ shadows the existing binding
+      imported from ‘Kiroku.Store’ at bench/CompactionCost.hs:15:1-31
+      (and originally defined in ‘Kiroku.Store.Subscription.Types’)
+   |
+22 |   forM_ [10000, 50000, 100000 :: Int] $ \size ->
+   |                                          ^^^^
+
+[2 of 2] Linking /Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.12.0.0/b/kiroku-compaction-cost/build/kiroku-compaction-cost/kiroku-compaction-cost
+Running 1 benchmarks...
+Benchmark kiroku-compaction-cost: RUNNING...
+selections,link_memberships,dead_letters,apply_wall_seconds,coordinator_hold_upper_bound_seconds,microseconds_per_selection,report_digest
+10000,1000,1000,0.207270,0.207270,20.727,538b19b9e1f17d019f2c8e83674b8ed7d8c1801b89413a3351c9bb70b01324ba
+50000,5000,5000,1.179964,1.179964,23.599,2f6483789f7ef162549071b4aa1c12425b3f52d7eff9a64e9b5a20b828f3c6e4
+100000,10000,10000,2.352701,2.352701,23.527,c0f5815a25df36325ac245dfac3cf1b8ad7eb12f1524b692080eaa7c65f4e369
+Benchmark kiroku-compaction-cost: FINISH
