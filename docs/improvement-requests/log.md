@@ -1,5 +1,9 @@
 # Bundle Update Log
 
+## 2026-10-28
+* **Completion**: IR-14 completed: all six compaction packages and documentation are published; source hashes and tags match, and the fresh registry-only consumer passed exact apply, reapply, unchanged survivors/head and append at version 4.
+* **Update**: IR-14 implemented: published the approved selective compaction cohort with source/documentation archives and annotated tags; fresh registry-only consumer verification is in progress.
+
 ## 2026-10-26
 * **Audit**: Validated all 20 requests against their owning plans, MasterPlan registries, current source and retained release evidence. All lifecycle statuses remain correct: 13 `completed`, 3 `accepted`, 4 `proposed`, and none `in_progress`. IR-14 is accepted under MasterPlan 11 (plans 74–80); IR-15 and IR-17 are accepted under plans 93 and 92. IR-1, IR-7, IR-16 and IR-20 have no dedicated implementation plans. IR-13 was completed directly by ADR-9.
 * **Correction**: IR-18's removed legacy Milestone 3 plan now links to its verified implementation-commit snapshot. IR-15 and the original log entry use Notification Hub's canonical `mori://tan/notification-hub` namespace and plan URI; its unnumbered ADR uses the canonical project plus project-relative path while an artifact URI is pending. All referenced plan files were verified in their owning checkouts, including intended Mori handles absent from the stale registry.

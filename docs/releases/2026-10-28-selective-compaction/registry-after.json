@@ -1,0 +1,170 @@
+{
+  "checked_at": "2026-10-28T11:42:14.564285+00:00",
+  "release_commit": "7511adf7ed57bc30a330bfb6431451e5004fd9f0",
+  "packages": {
+    "kiroku-store": {
+      "version": "0.13.0.0",
+      "preferred": {
+        "normal-version": [
+          "0.13.0.0",
+          "0.12.0.0",
+          "0.11.0.1",
+          "0.11.0.0",
+          "0.10.0.0",
+          "0.9.0.1",
+          "0.9.0.0",
+          "0.8.0.2",
+          "0.8.0.1",
+          "0.8.0.0",
+          "0.7.0.1",
+          "0.7.0.0",
+          "0.6.0.0",
+          "0.5.0.0",
+          "0.4.0.0",
+          "0.3.1.0",
+          "0.3.0.1",
+          "0.3.0.0",
+          "0.2.0.0",
+          "0.1.0.0"
+        ]
+      },
+      "source_url": "https://hackage.haskell.org/package/kiroku-store-0.13.0.0/kiroku-store-0.13.0.0.tar.gz",
+      "source_sha256": "85f2648e86ea27280f1c67693d739e0625ba8004c6a3fbcea7c5c31a457994d1",
+      "matches_pre_upload": true
+    },
+    "kiroku-store-migrations": {
+      "version": "0.7.3.0",
+      "preferred": {
+        "deprecated-version": [
+          "0.3.2.1",
+          "0.3.2.0"
+        ],
+        "normal-version": [
+          "0.7.3.0",
+          "0.7.2.0",
+          "0.7.1.0",
+          "0.7.0.0",
+          "0.6.0.0",
+          "0.5.0.0",
+          "0.4.0.0",
+          "0.3.1.0",
+          "0.3.0.0",
+          "0.2.0.0",
+          "0.1.1.0",
+          "0.1.0.0"
+        ]
+      },
+      "source_url": "https://hackage.haskell.org/package/kiroku-store-migrations-0.7.3.0/kiroku-store-migrations-0.7.3.0.tar.gz",
+      "source_sha256": "341c85dcf024fd62c297e5a2a42605dcd2cb1cb8660fb72ee85b6f5530b24b0d",
+      "matches_pre_upload": true,
+      "manifest_entries": 17,
+      "manifest_last": "0017.sql"
+    },
+    "kiroku-cli": {
+      "version": "0.3.0.0",
+      "preferred": {
+        "normal-version": [
+          "0.3.0.0",
+          "0.2.0.11",
+          "0.2.0.10",
+          "0.2.0.9",
+          "0.2.0.8",
+          "0.2.0.7",
+          "0.2.0.6",
+          "0.2.0.5",
+          "0.2.0.4",
+          "0.2.0.3",
+          "0.2.0.2",
+          "0.2.0.1",
+          "0.2.0.0",
+          "0.1.0.0"
+        ]
+      },
+      "source_url": "https://hackage.haskell.org/package/kiroku-cli-0.3.0.0/kiroku-cli-0.3.0.0.tar.gz",
+      "source_sha256": "66d948df1ad9fa5c3fb5bf35a795a6caa29f18e0f2198e493e290fdc786c6044",
+      "matches_pre_upload": true
+    },
+    "kiroku-otel": {
+      "version": "0.3.0.1",
+      "preferred": {
+        "normal-version": [
+          "0.3.0.1",
+          "0.3.0.0",
+          "0.2.0.12",
+          "0.2.0.11",
+          "0.2.0.10",
+          "0.2.0.9",
+          "0.2.0.8",
+          "0.2.0.7",
+          "0.2.0.6",
+          "0.2.0.5",
+          "0.2.0.4",
+          "0.2.0.3",
+          "0.2.0.2",
+          "0.2.0.1",
+          "0.2.0.0",
+          "0.1.0.0"
+        ]
+      },
+      "source_url": "https://hackage.haskell.org/package/kiroku-otel-0.3.0.1/kiroku-otel-0.3.0.1.tar.gz",
+      "source_sha256": "88632fcff02748d77c04eedef1659d0903d4e448223bf2b9b25e881284e12c6f",
+      "matches_pre_upload": true
+    },
+    "kiroku-metrics": {
+      "version": "0.4.0.1",
+      "preferred": {
+        "normal-version": [
+          "0.4.0.1",
+          "0.4.0.0",
+          "0.3.0.1",
+          "0.3.0.0",
+          "0.2.0.0",
+          "0.1.0.10",
+          "0.1.0.9",
+          "0.1.0.8",
+          "0.1.0.7",
+          "0.1.0.6",
+          "0.1.0.5",
+          "0.1.0.4",
+          "0.1.0.3",
+          "0.1.0.1",
+          "0.1.0.0"
+        ]
+      },
+      "source_url": "https://hackage.haskell.org/package/kiroku-metrics-0.4.0.1/kiroku-metrics-0.4.0.1.tar.gz",
+      "source_sha256": "f3478fc4f8ca212010d665f6e3a755d8a5ed1185fad7fd38e5a148842d305929",
+      "matches_pre_upload": true
+    },
+    "shibuya-kiroku-adapter": {
+      "version": "0.7.0.1",
+      "preferred": {
+        "normal-version": [
+          "0.7.0.1",
+          "0.7.0.0",
+          "0.6.0.1",
+          "0.6.0.0",
+          "0.5.1.5",
+          "0.5.1.4",
+          "0.5.1.3",
+          "0.5.1.2",
+          "0.5.1.1",
+          "0.5.1.0",
+          "0.5.0.2",
+          "0.5.0.1",
+          "0.5.0.0",
+          "0.4.0.1",
+          "0.4.0.0",
+          "0.2.0.0",
+          "0.1.0.0"
+        ]
+      },
+      "source_url": "https://hackage.haskell.org/package/shibuya-kiroku-adapter-0.7.0.1/shibuya-kiroku-adapter-0.7.0.1.tar.gz",
+      "source_sha256": "56850756e5a0012fe578a6bfd003a3f27726a235645ed6f85993205aedc564f7",
+      "matches_pre_upload": true
+    }
+  },
+  "documentation_pages": [
+    "https://hackage.haskell.org/package/kiroku-store-0.13.0.0/docs/Kiroku-Store-Compaction.html",
+    "https://hackage.haskell.org/package/kiroku-store-0.13.0.0/docs/Kiroku-Store-Compaction-Types.html"
+  ]
+}

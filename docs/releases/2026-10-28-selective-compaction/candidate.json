@@ -1,6 +1,6 @@
 {
   "prepared_at": "2026-10-28T05:40:30.033777+00:00",
-  "status": "approved for release",
+  "status": "released and verified",
   "baseline_commit": "01792b8",
   "versions": {
     "kiroku-store": {

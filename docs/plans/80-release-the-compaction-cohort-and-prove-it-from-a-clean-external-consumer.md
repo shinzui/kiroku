@@ -60,12 +60,12 @@ This section must always reflect the actual current state of the work.
 - [x] M2: Changelog sections dated for each released package; `docs/capabilities/selective-event-compaction.md` `since` confirmed.
 - [x] M2: Blueprint edge `blueprints/kiroku-upgrade/migrations/0-12-to-0-13.md` written and registered in `blueprint.dhall`.
 - [x] Approval: User confirmed with “go ahead” on 2026-10-28; approval recorded in `docs/releases/2026-10-28-selective-compaction/authorization.json`. This approves the prepared per-package versions and changelogs required by `agents/skills/release/SKILL.md`.
-- [ ] M3: Single `chore(release)` commit with per-package justification and the three trailers; six annotated tags; pushed.
+- [x] M3: Single `chore(release)` commit with per-package justification and the three trailers; six annotated tags; pushed.
 - [x] M4 preparation: Six source and Hackage-documentation archives built, source entries byte-checked, new public HTML verified and SHA-256 recorded in `docs/releases/2026-10-28-selective-compaction/artifacts.json`.
-- [ ] M4 publication: Packages uploaded in dependency order with documentation; GitHub releases created.
-- [ ] M5: Hackage `preferred.json`, tag peel, tarball hash and listing recorded.
-- [ ] M5: Clean isolated consumer resolved the exact released versions, built, migrated ephemeral PostgreSQL to `0017`, previewed a manifest, applied it, reapplied it as a recognised no-op, re-read the gapped stream, appended from the unchanged head, and printed the witness line; transcript recorded here.
-- [ ] M5: IR-14 status `implemented` after upload, then `completed` with `completedAt` after the consumer proof; improvement-request `log.md` entry added.
+- [x] M4 publication: Packages uploaded in dependency order with documentation; GitHub releases created.
+- [x] M5: Hackage `preferred.json`, tag peel, tarball hash and listing recorded.
+- [x] M5: Clean isolated consumer resolved the exact released versions, built, migrated ephemeral PostgreSQL to `0017`, previewed a manifest, applied it, reapplied it as a recognised no-op, re-read the gapped stream, appended from the unchanged head, and printed the witness line; transcript recorded here.
+- [x] M5: IR-14 status `implemented` after upload, then `completed` with `completedAt` after the consumer proof; improvement-request `log.md` entry added.
 
 
 ### Candidate evidence (2026-10-28)
@@ -93,8 +93,18 @@ notes, registry checks, consumer recipe and retained evidence are under
 `docs/releases/2026-10-28-selective-compaction/`.
 
 The user approved the prepared versions and changelogs with “go ahead” on
-2026-10-28. Release commit/tags, uploads, registry verification and the clean
-external consumer are now authorized and in progress.
+2026-10-28. Release commit `7511adf7ed57bc30a330bfb6431451e5004fd9f0` and all six
+annotated tags are pushed. All six source/documentation pairs and non-draft GitHub
+releases are published. Downloaded Hackage source hashes match every pre-upload
+archive; both public compaction Haddock pages render; migration manifest has
+seventeen entries ending in 0017. Exact tag objects and registry facts are in
+`remote-tags.txt`, `registry-after.json`, `publication.json` and `github-releases.json`
+under the release evidence directory. The fresh registry consumer initially waited for
+the signed index to include the complete cohort: first update stopped at
+07:55:25Z, second at 11:40:43Z (the first upload). No constraints were weakened. The fifth authenticated update reaches 11:40:47Z
+and includes both exact releases; the fresh store build and database witness pass. The plan
+has only the consumer as a local package and all configured dependencies come
+from the secure Hackage repository.
 
 ## Surprises & Discoveries
 
@@ -102,7 +112,7 @@ Document unexpected behaviors, bugs, optimizations, or insights discovered durin
 implementation. Provide concise evidence.
 
 - 2026-10-28: Authoritative Hackage preferred versions and upstream annotated tags agree with the current tree: Store 0.12.0.0, migrations 0.7.2.0, CLI 0.2.0.11, OTel 0.3.0.0, metrics 0.4.0.0 and adapter 0.7.0.0. Historical proposal versions are already published for unrelated features. Apply the original PVP reasoning from these current versions; migration 0017 is the new additive step.
-- 2026-10-28: The release skill explicitly requires version/changelog approval before the release commit and tags. All reversible candidate edits, archive preparation and checks precede that final approval boundary; publication and the registry-only consumer proof remain pending until approval.
+- 2026-10-28: The release skill explicitly requires version/changelog approval before the release commit and tags. All reversible candidate edits, archive preparation and checks preceded that final approval boundary. The user then approved the reviewed cohort, followed by publication and the passing registry-only consumer proof.
 
 
 ## Decision Log
@@ -177,12 +187,36 @@ Compare the result against the original purpose. Before marking the plan complet
 distill durable project context from the Decision Log, Surprises & Discoveries, and
 this section into docs/adr/. Keep task-local execution details here.
 
-Candidate preparation is complete and validated, including the PostgreSQL matrix,
-authoritative structural/workload gates, source/documentation archives and a local
-archive-consumer run. The release skill requires explicit version/changelog
-approval before the release commit and tags. Pending that approval, nothing was
-pushed or published, IR-14 remains proposed, and this child remains In Progress.
-The registry-only consumer and request closure follow publication, not this preflight.
+Approved publication is complete: six source/documentation pairs, annotated tags
+at `7511adf` and non-draft GitHub releases. Hackage source hashes match the
+approved archives, public compaction Haddock renders and migration 0017 is present.
+The fresh registry-only consumer passes with a new config, index, cache and
+package store. The only local package is the proof consumer; all configured
+dependencies are secure Hackage sources. It verifies migration 0017, identity,
+reference inventory, preview, exact apply, original-record reapply, ledger,
+byte-equivalent retained envelopes, unchanged head and append at version 4.
+Its fresh-cache source hashes equal the approved Store and migrations archives.
+IR-14 is completed, and all acceptance gates of this child are satisfied.
+
+The consumer resolved GHC 9.12.4, effectful-core 2.7.1.2, crypton 1.1.5 and ram
+0.22.1 without source overrides or bound exceptions. Full build/run logs, origins,
+paths, hashes and the compressed plan are retained in the release record.
+
+```text
+clean consumer verified: kiroku-store 0.13.0.0, kiroku-store-migrations 0.7.3.0, store StoreIdentity 01a1825a-8900-7579-aaff-49b8206eee12, manifest "b15157c4728297ca8d3475fcd9303a3e5c526cf87f889bdc1b1b1acbcf0bfec6", selected 1, applied CompactionId 01a1825a-8911-7f5d-9ac1-cbf2f8763e40, surviving versions [1,3], appended at version 4
+disposable PostgreSQL stopped cleanly
+```
+
+ADR distillation reviewed the MasterPlan and all six implementation children.
+ADR-21/ADR-22 already capture the durable identity, canonical manifest,
+reference/lock/race, archive, authorization and deliberate-exclusion decisions;
+release execution adds no new architecture decision. The standalone Keiro
+operator follow-up is recorded in IR-14's Delivery section and remains outside
+this initiative.
+
+FRIC-12 is triaged accepted: authenticated signed-index propagation took five
+updates, reaching 11:40:47Z before the fresh registry-only build. Every attempt is
+retained; exact pins and secure repository verification remain unchanged.
 
 
 ## Context and Orientation
@@ -260,8 +294,8 @@ program exercising the new surface. Plan 72's recorded evidence is the target sh
 object and the commit it peels to, identical SHA-256 for sdist and Hackage archive, the tarball
 contents, and the witness line the program printed.
 
-**Improvement request lifecycle.** `docs/improvement-requests/add-manifest-driven-selective-event-compaction.md`
-is IR-14 with frontmatter `status: proposed`. Completed requests (for example
+**Improvement request lifecycle (baseline when this plan was drafted).** `docs/improvement-requests/add-manifest-driven-selective-event-compaction.md`
+is IR-14 with frontmatter `status: accepted` at implementation start. Completed requests (for example
 `expose-the-visible-global-head.md`) carry `status: completed` and `completedAt: "<UTC
 timestamp>"`, and also advance `timestamp`. The convention from plan 72 is: `implemented` once
 the packages are uploaded, `completed` only once authoritative Hackage artifacts and the

@@ -1,0 +1,43 @@
+{
+  "status": "passed",
+  "index_state": "2026-10-28T11:40:47Z",
+  "index_updates": 5,
+  "configured_components": 119,
+  "only_local_package": "kiroku-compaction-consumer",
+  "dependency_source": "all configured dependencies are secure Hackage repo-tar sources",
+  "cabal_isolation": {
+    "cabal-version": "3.16.1.0",
+    "compiler": {
+      "flavour": "ghc",
+      "id": "ghc-9.12.4",
+      "abi-tag": "ghc-9.12.4-8bff",
+      "path": "/nix/store/g1qpr9sf56sr9znrqk05wxqrbgnnyanj-ghc-9.12.4/bin/ghc-9.12.4",
+      "store-path": "/var/folders/xf/z_902qyd0dg5m6n8pjv1vk300000gn/T/kiroku-mp11-registry-consumer-k9zobd5m/cabal-isolated/store/ghc-9.12.4-8bff"
+    },
+    "cache-home": "/var/folders/xf/z_902qyd0dg5m6n8pjv1vk300000gn/T/kiroku-mp11-registry-consumer-k9zobd5m/cabal-isolated",
+    "remote-repo-cache": "/var/folders/xf/z_902qyd0dg5m6n8pjv1vk300000gn/T/kiroku-mp11-registry-consumer-k9zobd5m/cabal-isolated/packages",
+    "logs-dir": "/var/folders/xf/z_902qyd0dg5m6n8pjv1vk300000gn/T/kiroku-mp11-registry-consumer-k9zobd5m/cabal-isolated/logs",
+    "store-dir": "/var/folders/xf/z_902qyd0dg5m6n8pjv1vk300000gn/T/kiroku-mp11-registry-consumer-k9zobd5m/cabal-isolated/store",
+    "config-file": "/var/folders/xf/z_902qyd0dg5m6n8pjv1vk300000gn/T/kiroku-mp11-registry-consumer-k9zobd5m/cabal-isolated/config",
+    "installdir": "/var/folders/xf/z_902qyd0dg5m6n8pjv1vk300000gn/T/kiroku-mp11-registry-consumer-k9zobd5m/cabal-isolated/bin"
+  },
+  "compiler": "ghc-9.12.4",
+  "targets": {
+    "kiroku-store": [
+      "0.13.0.0"
+    ],
+    "kiroku-store-migrations": [
+      "0.7.3.0"
+    ]
+  },
+  "build_exit_code": 0,
+  "fresh_download_hashes": {
+    "kiroku-store": "85f2648e86ea27280f1c67693d739e0625ba8004c6a3fbcea7c5c31a457994d1",
+    "kiroku-store-migrations": "341c85dcf024fd62c297e5a2a42605dcd2cb1cb8660fb72ee85b6f5530b24b0d"
+  },
+  "run_exit_code": 0,
+  "completed_at": "2026-10-28T11:52:14.298426+00:00",
+  "witness": "clean consumer verified: kiroku-store 0.13.0.0, kiroku-store-migrations 0.7.3.0, store StoreIdentity 01a1825a-8900-7579-aaff-49b8206eee12, manifest \"b15157c4728297ca8d3475fcd9303a3e5c526cf87f889bdc1b1b1acbcf0bfec6\", selected 1, applied CompactionId 01a1825a-8911-7f5d-9ac1-cbf2f8763e40, surviving versions [1,3], appended at version 4\ndisposable PostgreSQL stopped cleanly",
+  "exact_project_sha256": "c1c2ad2593f552dafb1c3b73919adab937bf474581f3e776d24ca2a076a4342b",
+  "main_source_sha256": "576c931c363bcea76665dc221602dd838ce4d28afcfec548e894a80cdcf1a021"
+}

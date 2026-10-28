@@ -1,0 +1,12 @@
+6a8300e41acf2ecf51db86add2512f3e3bc9779b	refs/tags/kiroku-cli-v0.3.0.0
+7511adf7ed57bc30a330bfb6431451e5004fd9f0	refs/tags/kiroku-cli-v0.3.0.0^{}
+6d74a34c1b597b73afc443dd3dbd380478bdd455	refs/tags/kiroku-metrics-v0.4.0.1
+7511adf7ed57bc30a330bfb6431451e5004fd9f0	refs/tags/kiroku-metrics-v0.4.0.1^{}
+2bfbb0f9405a3d747a1f181bd829d62c804fc7df	refs/tags/kiroku-otel-v0.3.0.1
+7511adf7ed57bc30a330bfb6431451e5004fd9f0	refs/tags/kiroku-otel-v0.3.0.1^{}
+69555c4ace7a58e642686f5eaf2975768fd9c36c	refs/tags/kiroku-store-migrations-v0.7.3.0
+7511adf7ed57bc30a330bfb6431451e5004fd9f0	refs/tags/kiroku-store-migrations-v0.7.3.0^{}
+4d5f39320db76e8518d6e350430f40f12926b69d	refs/tags/kiroku-store-v0.13.0.0
+7511adf7ed57bc30a330bfb6431451e5004fd9f0	refs/tags/kiroku-store-v0.13.0.0^{}
+9a6341e08487531dc66d3e70a55ba57aee6506da	refs/tags/shibuya-kiroku-adapter-v0.7.0.1
+7511adf7ed57bc30a330bfb6431451e5004fd9f0	refs/tags/shibuya-kiroku-adapter-v0.7.0.1^{}

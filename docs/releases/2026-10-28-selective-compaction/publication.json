@@ -1,0 +1,49 @@
+{
+  "release_commit": "7511adf7ed57bc30a330bfb6431451e5004fd9f0",
+  "started_at": "2026-10-28T11:40:42.822901+00:00",
+  "packages": {
+    "kiroku-store": {
+      "version": "0.13.0.0",
+      "status": "published with documentation",
+      "source_published_at": "2026-10-28T11:40:43.634281+00:00",
+      "hackage_url": "https://hackage.haskell.org/package/kiroku-store-0.13.0.0",
+      "completed_at": "2026-10-28T11:40:44.354809+00:00"
+    },
+    "kiroku-store-migrations": {
+      "version": "0.7.3.0",
+      "status": "published with documentation",
+      "source_published_at": "2026-10-28T11:40:44.766404+00:00",
+      "hackage_url": "https://hackage.haskell.org/package/kiroku-store-migrations-0.7.3.0",
+      "completed_at": "2026-10-28T11:40:45.071243+00:00"
+    },
+    "kiroku-otel": {
+      "version": "0.3.0.1",
+      "status": "published with documentation",
+      "source_published_at": "2026-10-28T11:40:45.421235+00:00",
+      "hackage_url": "https://hackage.haskell.org/package/kiroku-otel-0.3.0.1",
+      "completed_at": "2026-10-28T11:40:45.789553+00:00"
+    },
+    "kiroku-cli": {
+      "version": "0.3.0.0",
+      "status": "published with documentation",
+      "source_published_at": "2026-10-28T11:40:46.253870+00:00",
+      "hackage_url": "https://hackage.haskell.org/package/kiroku-cli-0.3.0.0",
+      "completed_at": "2026-10-28T11:40:46.621419+00:00"
+    },
+    "kiroku-metrics": {
+      "version": "0.4.0.1",
+      "status": "published with documentation",
+      "source_published_at": "2026-10-28T11:40:47.038786+00:00",
+      "hackage_url": "https://hackage.haskell.org/package/kiroku-metrics-0.4.0.1",
+      "completed_at": "2026-10-28T11:40:47.534619+00:00"
+    },
+    "shibuya-kiroku-adapter": {
+      "version": "0.7.0.1",
+      "status": "published with documentation",
+      "source_published_at": "2026-10-28T11:40:47.998087+00:00",
+      "hackage_url": "https://hackage.haskell.org/package/shibuya-kiroku-adapter-0.7.0.1",
+      "completed_at": "2026-10-28T11:40:48.374370+00:00"
+    }
+  },
+  "completed_at": "2026-10-28T11:40:48.375113+00:00"
+}

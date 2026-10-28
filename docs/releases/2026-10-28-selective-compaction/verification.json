@@ -35,8 +35,11 @@
       "kiroku-store-test"
     ]
   },
-  "publication": "pending version/changelog approval",
-  "registry_only_consumer": "pending publication",
+  "publication": "six packages and documentation published; annotated tags verified at 7511adf",
+  "registry_only_consumer": "passed: fresh CABAL_DIR, index, package cache and store; exact released secure Hackage sources; only the proof consumer is local",
   "archive_consumer": "passed: source archives outside repository; shared Cabal store, not registry-only proof",
-  "documentation": "all six Hackage archives built and verified"
+  "documentation": "all six Hackage archives built and verified",
+  "github_releases": "all six published and verified non-draft",
+  "registry_source_hashes": "all six downloaded Hackage archives match approved pre-upload SHA-256",
+  "completed_at": "2026-10-28T11:52:14.298426+00:00"
 }

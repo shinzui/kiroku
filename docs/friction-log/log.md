@@ -1,6 +1,8 @@
 # Bundle Update Log
 
 ## 2026-10-28
+* **Update**: FRIC-12 accepted: Accept propagation latency after the exact pinned registry consumer began building from the refreshed signed index.
+* **Addition**: FRIC-12 records slowdown environment friction with https://hackage.haskell.org: Signed Hackage index lags already published compaction packages
 * **Update**: FRIC-11 resolved: Resolve the adapter test collector race after verifying the corrected fixture on both supported PostgreSQL majors.
 * **Addition**: FRIC-11 records detour tooling friction with mori://shinzui/kiroku/packages/shibuya-kiroku-adapter: Concurrent adapter test collection loses an event despite completed callbacks
 

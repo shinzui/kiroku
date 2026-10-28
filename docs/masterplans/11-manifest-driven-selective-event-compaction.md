@@ -145,7 +145,7 @@ compaction was deferred to "a possible Phase 2"; this MasterPlan is that phase.
 | 4 | Preview a compaction manifest read-only with deterministic witnesses | docs/plans/77-preview-a-compaction-manifest-read-only-with-deterministic-witnesses.md | EP-1, EP-2, EP-3 | None | Complete |
 | 5 | Apply a compaction manifest transactionally with ledgered idempotence | docs/plans/78-apply-a-compaction-manifest-transactionally-with-ledgered-idempotence.md | EP-4 | None | Complete |
 | 6 | Document compaction for operators and add embeddable kiroku-cli compaction commands | docs/plans/79-document-compaction-for-operators-and-add-embeddable-kiroku-cli-compaction-commands.md | EP-5 | None | Complete |
-| 7 | Release the compaction cohort and prove it from a clean external consumer | docs/plans/80-release-the-compaction-cohort-and-prove-it-from-a-clean-external-consumer.md | EP-6 | None | In Progress |
+| 7 | Release the compaction cohort and prove it from a clean external consumer | docs/plans/80-release-the-compaction-cohort-and-prove-it-from-a-clean-external-consumer.md | EP-6 | None | Complete |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
 Hard Deps and Soft Deps reference other rows by their # prefix (e.g., EP-1, EP-3).
@@ -726,7 +726,7 @@ deliberate exclusions listed in Vision & Scope are recorded in that same ADR.
 
 ## Progress
 
-EP-1 through EP-6 are Complete; EP-7 is In Progress. The
+All seven child ExecPlans are Complete. The
 store suite passes 605 examples on PostgreSQL 17 and 18, and all other package
 suites pass on both majors. All build targets, 52 structural checks, the unchanged
 17-case workload ratio/spread gate and Nix checks pass. ADR-21/ADR-22 record the
@@ -737,8 +737,12 @@ CLI are complete; CLI passes 29 examples and all suites pass on PostgreSQL 18.
 EP-7 has prepared the current version cohort, changelogs and upgrade edge.
 Its final structural/workload gates and all six suites on PostgreSQL 17/18 pass.
 Source and documentation archives are prepared and verified; the local
-archive-consumer preflight passes. Release-skill version/changelog approval,
-publication and clean external consumer acceptance remain.
+archive-consumer preflight passes. The user approved publication; all six packages,
+documentation, annotated tags and GitHub releases are published and verified at
+`7511adf`. The fresh registry-only consumer passes exact published-source migration,
+identity/inventory, preview, apply/reapply, unchanged survivors/head and append.
+IR-14 is completed; the release record retains the signed-index, hashes, tags,
+source origins, build plan and database witness.
 
 
 ## Surprises & Discoveries
@@ -1080,13 +1084,26 @@ archives are verified, and an outside-repository archive consumer proves exact
 apply, identical reapply, retained-envelope equality and append at the unchanged
 head. These are local candidate results, not published-consumer acceptance.
 
-EP-7 remains In Progress at the release skill's explicit version/changelog approval
-boundary. Nothing has been pushed or published under this initiative. Registry-only
-consumer acceptance and IR-14 closure follow approved publication; the MasterPlan
-is not complete until those gates pass.
+All seven children and integration gates are complete. The approved six-package
+cohort and documentation are published at `7511adf`; all downloaded archive hashes
+and annotated tags match. A fresh registry-only external consumer verifies the
+released API and prints surviving versions `[1,3]` with append at version 4.
+IR-14 is completed. The release evidence is retained under
+`docs/releases/2026-10-28-selective-compaction/`.
+
+The completion distillation pass reviewed all child Decisions, Discoveries and
+Outcomes. ADR-21/ADR-22 capture the durable ownership and safety boundaries; no
+additional architectural change emerged during release. The standalone consumer
+operator command remains a Keiro-owned hand-off recorded in IR-14, outside this
+initiative. No consumer production compaction was performed.
 
 
 ## Revision Notes
+
+- 2026-10-28: Completed all seven children, approved and published the current
+  six-package cohort, verified exact Hackage bytes and annotated tags at
+  `7511adf`, passed the fresh registry-only consumer and completed IR-14. Final
+  ADR distillation confirms ADR-21/ADR-22 cover the durable contract.
 
 - 2026-10-27: Reconciled the initiative with the sixteen-migration baseline
   (`0017` for compaction), current crypton/ram interfaces and the complete

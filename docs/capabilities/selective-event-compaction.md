@@ -42,6 +42,9 @@ evidence:
   - kind: guide
     resource: docs/user/compaction.md
     proves: Reviewed workflow, archive responsibility, refusal recovery, lease margins, sizing and storage maintenance.
+  - kind: guide
+    resource: docs/releases/2026-10-28-selective-compaction/README.md
+    proves: Exact published archives, annotated tags and a fresh registry-only consumer verify migration, identity, inventory, preview, apply, reapply, ledger, retained envelopes and append.
 reviews:
   - kind: model
     reviewer: codex

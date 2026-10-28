@@ -8,9 +8,10 @@ description: >-
 generated:
   by: openai/gpt-5
   at: "2026-08-22T13:40:36Z"
-timestamp: "2026-10-13T14:28:09Z"
+timestamp: "2026-10-28T11:52:14.298426+00:00"
 requestId: IR-14
-status: accepted
+status: completed
+completedAt: "2026-10-28T11:52:14.298426+00:00"
 origin: mori://shinzui/mori
 reviews:
   - kind: model
@@ -32,19 +33,15 @@ reviews:
 
 ## Status
 
-Accepted for implementation under
+Completed under
 [MasterPlan 11](../masterplans/11-manifest-driven-selective-event-compaction.md).
-Implementation has not started: all seven children remain `Not Started`, and the public
-compaction API is absent from the working tree. The children own
-[store identity and ledger](../plans/74-add-a-store-identity-and-an-append-only-event-compaction-ledger.md),
-[reference inventory](../plans/75-expose-an-event-membership-and-reference-inventory-read-api.md),
-[manifest and report types](../plans/76-define-the-compaction-manifest-canonical-digest-refusal-vocabulary-and-report-types.md),
-[read-only preview](../plans/77-preview-a-compaction-manifest-read-only-with-deterministic-witnesses.md),
-[transactional apply](../plans/78-apply-a-compaction-manifest-transactionally-with-ledgered-idempotence.md),
-[operator documentation and CLI](../plans/79-document-compaction-for-operators-and-add-embeddable-kiroku-cli-compaction-commands.md),
-and [release with a clean external consumer](../plans/80-release-the-compaction-cohort-and-prove-it-from-a-clean-external-consumer.md).
-The request stays `accepted` until implementation begins and moves to `completed` only after
-publication and the release consumer proof.
+The typed identity, reference inventory, manifest, read-only preview, atomic apply,
+ledger, operator guide and embeddable CLI are released. All six coordinated
+packages and documentation are published with annotated tags and GitHub releases.
+The fresh registry-only external consumer passed migration, preview, apply,
+identical reapply, ledger, unchanged retained envelopes/head and append at version 4.
+[Release evidence](../releases/2026-10-28-selective-compaction/README.md) records the
+exact sources, hashes, tags, isolated build plan and witness.
 
 Proposed by
 `mori://shinzui/mori/masterplans/27-record-event-provenance-and-manage-the-store-lifecycle`
@@ -163,3 +160,40 @@ migration; lifecycle observability; focused property, concurrency, failure-injec
 release-consumer tests; and user/operator documentation. An embeddable `kiroku-cli` preview/apply
 surface may be included, but higher-level selection policy and production authorization remain in
 the consuming project.
+
+
+## Delivery
+
+Released at commit `7511adf7ed57bc30a330bfb6431451e5004fd9f0`:
+
+- [kiroku-store 0.13.0.0](https://hackage.haskell.org/package/kiroku-store-0.13.0.0)
+- [kiroku-store-migrations 0.7.3.0](https://hackage.haskell.org/package/kiroku-store-migrations-0.7.3.0)
+- [kiroku-cli 0.3.0.0](https://hackage.haskell.org/package/kiroku-cli-0.3.0.0)
+- [kiroku-otel 0.3.0.1](https://hackage.haskell.org/package/kiroku-otel-0.3.0.1)
+- [kiroku-metrics 0.4.0.1](https://hackage.haskell.org/package/kiroku-metrics-0.4.0.1)
+- [shibuya-kiroku-adapter 0.7.0.1](https://hackage.haskell.org/package/shibuya-kiroku-adapter-0.7.0.1)
+
+The Store annotated tag object is `4d5f39320db76e8518d6e350430f40f12926b69d`
+and peels to that commit. All six tag objects and peeled commits are retained in
+[remote-tags.txt](../releases/2026-10-28-selective-compaction/remote-tags.txt).
+Downloaded Hackage source SHA-256 values match every pre-upload archive in
+[artifacts.json](../releases/2026-10-28-selective-compaction/artifacts.json); the
+migration archive contains all seventeen manifest entries ending in `0017.sql`.
+The fresh Cabal consumer pins Store 0.13.0.0 and migrations 0.7.3.0, has no local
+dependency override, and produces this witness:
+
+```text
+clean consumer verified: kiroku-store 0.13.0.0, kiroku-store-migrations 0.7.3.0, store StoreIdentity 01a1825a-8900-7579-aaff-49b8206eee12, manifest "b15157c4728297ca8d3475fcd9303a3e5c526cf87f889bdc1b1b1acbcf0bfec6", selected 1, applied CompactionId 01a1825a-8911-7f5d-9ac1-cbf2f8763e40, surviving versions [1,3], appended at version 4
+disposable PostgreSQL stopped cleanly
+```
+
+All repository suites pass on PostgreSQL 17/18, alongside 52 structural checks,
+the unchanged 17-case controlled workload/spread gate, Nix/package checks and
+catalogue/ADR validation. ADR-21 and ADR-22 record the durable contract.
+
+The downstream standalone `stream compact ...` operator surface belongs to
+`mori://shinzui/keiro/packages/keiro-ops`. A Keiro-owned improvement request should
+reuse `Kiroku.Cli.Compaction` renderers and the digest-confirmed outcome runner.
+That follow-up is outside this Kiroku MasterPlan; this release and proof supply
+its prerequisite without adding an HTTP mutation endpoint or authorizing any
+production compaction.
