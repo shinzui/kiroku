@@ -1,0 +1,62 @@
+{
+  "kiroku-store": {
+    "version": "0.13.0.0",
+    "source_sha256": "85f2648e86ea27280f1c67693d739e0625ba8004c6a3fbcea7c5c31a457994d1",
+    "source_entries_verified": 126,
+    "source_archive": "dist-newstyle/sdist/kiroku-store-0.13.0.0.tar.gz",
+    "documentation_status": "prepared and HTML verified",
+    "documentation_archive": "dist-newstyle/kiroku-store-0.13.0.0-docs.tar.gz",
+    "documentation_sha256": "eed9df1c4c7da752a0cd02c4f2414faa49207295c66a5f8c32790c24b58f883c",
+    "documentation_entries_verified": 102
+  },
+  "kiroku-store-migrations": {
+    "version": "0.7.3.0",
+    "source_sha256": "341c85dcf024fd62c297e5a2a42605dcd2cb1cb8660fb72ee85b6f5530b24b0d",
+    "source_entries_verified": 32,
+    "source_archive": "dist-newstyle/sdist/kiroku-store-migrations-0.7.3.0.tar.gz",
+    "documentation_status": "prepared and HTML verified",
+    "documentation_archive": "dist-newstyle/kiroku-store-migrations-0.7.3.0-docs.tar.gz",
+    "documentation_sha256": "da5861f02ec68476287d114983f10ee32c296bb8802cd3bbd92ef9eb11b65263",
+    "documentation_entries_verified": 23
+  },
+  "kiroku-cli": {
+    "version": "0.3.0.0",
+    "source_sha256": "66d948df1ad9fa5c3fb5bf35a795a6caa29f18e0f2198e493e290fdc786c6044",
+    "source_entries_verified": 13,
+    "source_archive": "dist-newstyle/sdist/kiroku-cli-0.3.0.0.tar.gz",
+    "documentation_status": "prepared and HTML verified",
+    "documentation_archive": "dist-newstyle/kiroku-cli-0.3.0.0-docs.tar.gz",
+    "documentation_sha256": "2589b32e4ec0084c530182a8eb381985939aebbac4e0701ef82899d10136d70b",
+    "documentation_entries_verified": 29
+  },
+  "kiroku-otel": {
+    "version": "0.3.0.1",
+    "source_sha256": "88632fcff02748d77c04eedef1659d0903d4e448223bf2b9b25e881284e12c6f",
+    "source_entries_verified": 6,
+    "source_archive": "dist-newstyle/sdist/kiroku-otel-0.3.0.1.tar.gz",
+    "documentation_status": "prepared and HTML verified",
+    "documentation_archive": "dist-newstyle/kiroku-otel-0.3.0.1-docs.tar.gz",
+    "documentation_sha256": "2fa582137d80e60875a4239847a726e737eddc97dfcbfcba314bd9103b496cb0",
+    "documentation_entries_verified": 19
+  },
+  "kiroku-metrics": {
+    "version": "0.4.0.1",
+    "source_sha256": "f3478fc4f8ca212010d665f6e3a755d8a5ed1185fad7fd38e5a148842d305929",
+    "source_entries_verified": 36,
+    "source_archive": "dist-newstyle/sdist/kiroku-metrics-0.4.0.1.tar.gz",
+    "documentation_status": "prepared and HTML verified",
+    "documentation_archive": "dist-newstyle/kiroku-metrics-0.4.0.1-docs.tar.gz",
+    "documentation_sha256": "94548972bc1dac72d9cc01a3722c54f7de685e2cb1648a0571279d9016c700b2",
+    "documentation_entries_verified": 69
+  },
+  "shibuya-kiroku-adapter": {
+    "version": "0.7.0.1",
+    "source_sha256": "56850756e5a0012fe578a6bfd003a3f27726a235645ed6f85993205aedc564f7",
+    "source_entries_verified": 9,
+    "source_archive": "dist-newstyle/sdist/shibuya-kiroku-adapter-0.7.0.1.tar.gz",
+    "documentation_status": "prepared and HTML verified",
+    "documentation_archive": "dist-newstyle/shibuya-kiroku-adapter-0.7.0.1-docs.tar.gz",
+    "documentation_sha256": "fbe2c19e059e17d47e58afeb2bc9837eb8691aa27eeb69dbda4d1fe893f59f30",
+    "documentation_entries_verified": 19
+  }
+}

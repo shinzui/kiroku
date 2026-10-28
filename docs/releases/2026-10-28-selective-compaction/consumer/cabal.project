@@ -1,0 +1,7 @@
+packages: .
+with-compiler: ghc-9.12.4
+tests: False
+benchmarks: False
+constraints:
+  kiroku-store ==0.13.0.0,
+  kiroku-store-migrations ==0.7.3.0

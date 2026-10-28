@@ -30,7 +30,7 @@ library
     , ephemeral-pg             >=0.3.1    && <0.4
     , hasql                    >=1.10
     , hasql-pool               >=1.2
-    , kiroku-store-migrations
+    , kiroku-store-migrations  ^>=0.7.3.0
     , pg-migrate               ^>=1.2.0.0
     , stm
     , text                     >=2.0

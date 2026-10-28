@@ -145,7 +145,7 @@ compaction was deferred to "a possible Phase 2"; this MasterPlan is that phase.
 | 4 | Preview a compaction manifest read-only with deterministic witnesses | docs/plans/77-preview-a-compaction-manifest-read-only-with-deterministic-witnesses.md | EP-1, EP-2, EP-3 | None | Complete |
 | 5 | Apply a compaction manifest transactionally with ledgered idempotence | docs/plans/78-apply-a-compaction-manifest-transactionally-with-ledgered-idempotence.md | EP-4 | None | Complete |
 | 6 | Document compaction for operators and add embeddable kiroku-cli compaction commands | docs/plans/79-document-compaction-for-operators-and-add-embeddable-kiroku-cli-compaction-commands.md | EP-5 | None | Complete |
-| 7 | Release the compaction cohort and prove it from a clean external consumer | docs/plans/80-release-the-compaction-cohort-and-prove-it-from-a-clean-external-consumer.md | EP-6 | None | Not Started |
+| 7 | Release the compaction cohort and prove it from a clean external consumer | docs/plans/80-release-the-compaction-cohort-and-prove-it-from-a-clean-external-consumer.md | EP-6 | None | In Progress |
 
 Status values: Not Started, In Progress, Complete, Cancelled.
 Hard Deps and Soft Deps reference other rows by their # prefix (e.g., EP-1, EP-3).
@@ -710,7 +710,7 @@ lifecycle operations today — `soft-delete`, `hard-delete` behind stream-name c
 `mori://shinzui/mori/plans/237-compact-legacy-repository-history-without-discarding-facts`
 mounts keiro-ops rather than building its own confirmation surface. The intended shape is
 therefore: EP-6 ships the embeddable `compaction preview|apply|ledger` commands and their
-renderers in `kiroku-cli`; after EP-7 releases `kiroku-store` 0.9, a keiro improvement request
+renderers in `kiroku-cli`; after EP-7 releases `kiroku-store` 0.13, a keiro improvement request
 adds a `stream compact …` command to keiro-ops that reuses those renderers (the same way
 `kiroku-metrics` reuses `SubscriptionStatusRow`) behind keiro-ops' existing destructive-command
 rails. That request belongs to keiro and is not a deliverable of this MasterPlan; EP-7's
@@ -726,7 +726,7 @@ deliberate exclusions listed in Vision & Scope are recorded in that same ADR.
 
 ## Progress
 
-EP-1 through EP-6 are Complete; EP-7 is Not Started. The
+EP-1 through EP-6 are Complete; EP-7 is In Progress. The
 store suite passes 605 examples on PostgreSQL 17 and 18, and all other package
 suites pass on both majors. All build targets, 52 structural checks, the unchanged
 17-case workload ratio/spread gate and Nix checks pass. ADR-21/ADR-22 record the
@@ -734,7 +734,11 @@ identity and compaction contracts. Verified local apply timing is retained in
 `docs/bench/compaction/2026-10-27/`; the 100k ceiling remains and 10k is the initial
 operational chunk recommendation. Operator guidance, CAP-22 and the embeddable
 CLI are complete; CLI passes 29 examples and all suites pass on PostgreSQL 18.
-Remaining work is versioned publication and clean external consumer acceptance.
+EP-7 has prepared the current version cohort, changelogs and upgrade edge.
+Its final structural/workload gates and all six suites on PostgreSQL 17/18 pass.
+Source and documentation archives are prepared and verified; the local
+archive-consumer preflight passes. Release-skill version/changelog approval,
+publication and clean external consumer acceptance remain.
 
 
 ## Surprises & Discoveries
@@ -1062,7 +1066,24 @@ Compare the result against the original vision. Before marking the MasterPlan co
 distill durable project context from this MasterPlan and its child ExecPlans into
 docs/adr/. Keep task-local execution and coordination details here.
 
-(To be filled during and after implementation.)
+The six implementation children deliver the reviewed selective-deletion contract:
+immutable identity, complete reference inventory, canonical manifests, stable
+read-only preview, atomic guarded apply, durable idempotence and an embeddable
+operator workflow. ADR-21 and ADR-22 distill the durable identity, lock-order,
+reference-race, archive and authorization boundaries. The public 100k ceiling is
+retained with measured local sizing and a 10k initial operational recommendation.
+
+The release candidate passes all six suites on PostgreSQL 17/18, all build targets,
+52 structural checks, the unchanged 17-case workload/spread gate, package checks,
+Nix checks and documentation/catalogue validation. Source and documentation
+archives are verified, and an outside-repository archive consumer proves exact
+apply, identical reapply, retained-envelope equality and append at the unchanged
+head. These are local candidate results, not published-consumer acceptance.
+
+EP-7 remains In Progress at the release skill's explicit version/changelog approval
+boundary. Nothing has been pushed or published under this initiative. Registry-only
+consumer acceptance and IR-14 closure follow approved publication; the MasterPlan
+is not complete until those gates pass.
 
 
 ## Revision Notes

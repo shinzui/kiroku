@@ -2,9 +2,9 @@
 
 `kiroku-store-migrations` owns Kiroku's PostgreSQL schema as one native
 `pg-migrate` component named `kiroku`. The component embeds an ordered manifest
-and sixteen SQL payloads, so applications can compose it with other libraries
+and seventeen SQL payloads, so applications can compose it with other libraries
 without copying Kiroku SQL. The first seven payloads are immutable historical
-Codd bytes; `0008` through `0016` are native-only forward migrations.
+Codd bytes; `0008` through `0017` are native-only forward migrations.
 
 ## Public API
 
@@ -183,3 +183,8 @@ running it; each states exactly which databases need it.
   checksum for databases that applied the withdrawn 0.3.2.0/0.3.2.1 payload.
   Required before migrating such a database onto 0.4.0.0 or later; see the
   changelog.
+
+Migration `0017` adds the immutable, clone-shared store identity and append-only
+compaction ledger. Apply it before using Store 0.13 compaction or identity APIs.
+Existing sixteen-entry native stores gain one pending migration. See
+[selective compaction](../docs/user/compaction.md) for the operator workflow.

@@ -13,6 +13,12 @@ provenance:
       at: 2026-09-10T00:36:16Z
       verdict: "approved"
       note: "Versions, PVP reasoning, release skill, blueprint edge, ephemeral-pg and pg-migrate API names, and record field names verified against the working tree"
+  revisions:
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-28T05:38:20Z
+      mode: "implement"
+      note: "Prepare current compaction cohort, validate archives and release gates, then publish and prove the isolated consumer after required release approval"
 ---
 
 # Release the compaction cohort and prove it from a clean external consumer
@@ -29,9 +35,9 @@ this repository's working tree. The consuming project
 `mori://shinzui/mori/plans/237-compact-legacy-repository-history-without-discarding-facts`
 consumes `kiroku-store` from Hackage by version bound and is explicitly blocked "until this
 request is implemented, released, and inspected from the released source". After this plan, a
-team anywhere can add `kiroku-store ^>=0.9`, `kiroku-store-migrations ^>=0.4.1`, and
+team anywhere can add `kiroku-store ^>=0.13`, `kiroku-store-migrations ^>=0.7.3`, and
 `kiroku-cli ^>=0.3` to a Cabal project, download them from Hackage, migrate a database to
-`0012`, read the store identity, build and preview a compaction manifest, and apply it — and
+`0017`, read the store identity, build and preview a compaction manifest, and apply it — and
 this plan proves that is true by doing exactly that from an isolated throwaway project that
 cannot see this repository. The improvement request IR-14 moves to `completed` only when that
 proof is recorded.
@@ -48,31 +54,66 @@ Use a checklist to summarize granular steps. Every stopping point must be docume
 even if it requires splitting a partially completed task into two ("done" vs. "remaining").
 This section must always reflect the actual current state of the work.
 
-- [ ] M1: `nix fmt` clean, `cabal build all`, `cabal test all`, `just perf-check`, `just test-matrix`, `nix flake check`, `just adr-validate`, `just capabilities-validate` all green on the release candidate commit.
-- [ ] M1: `cabal check` clean for each of the six publishable packages, run before any tag exists.
-- [ ] M2: Versions chosen and justified; `.cabal` versions and every internal bound updated in library, executable, and test stanzas.
-- [ ] M2: Changelog sections dated for each released package; `docs/capabilities/selective-event-compaction.md` `since` confirmed.
-- [ ] M2: Blueprint edge `blueprints/kiroku-upgrade/migrations/0-8-to-0-9.md` written and registered in `blueprint.dhall`.
+- [x] M1: `nix fmt` clean, `cabal build all`, `cabal test all`, `just perf-check`, `just test-matrix`, `nix flake check`, `just adr-validate`, `just capabilities-validate` all green on the prepared release candidate; no release commit before approval.
+- [x] M1: `cabal check` succeeds (adapter retains its existing advisory `-O2` warning) for each of the six publishable packages, run before any tag exists.
+- [x] M2: Candidate versions chosen and justified against Hackage/upstream tags; `.cabal` versions and every internal bound updated in library, executable, and test stanzas.
+- [x] M2: Changelog sections dated for each released package; `docs/capabilities/selective-event-compaction.md` `since` confirmed.
+- [x] M2: Blueprint edge `blueprints/kiroku-upgrade/migrations/0-12-to-0-13.md` written and registered in `blueprint.dhall`.
+- [x] Approval: User confirmed with “go ahead” on 2026-10-28; approval recorded in `docs/releases/2026-10-28-selective-compaction/authorization.json`. This approves the prepared per-package versions and changelogs required by `agents/skills/release/SKILL.md`.
 - [ ] M3: Single `chore(release)` commit with per-package justification and the three trailers; six annotated tags; pushed.
-- [ ] M4: Pre-upload sdist SHA-256 recorded for each package; packages uploaded in dependency order with documentation; GitHub releases created.
+- [x] M4 preparation: Six source and Hackage-documentation archives built, source entries byte-checked, new public HTML verified and SHA-256 recorded in `docs/releases/2026-10-28-selective-compaction/artifacts.json`.
+- [ ] M4 publication: Packages uploaded in dependency order with documentation; GitHub releases created.
 - [ ] M5: Hackage `preferred.json`, tag peel, tarball hash and listing recorded.
-- [ ] M5: Clean isolated consumer resolved the exact released versions, built, migrated ephemeral PostgreSQL to `0012`, previewed a manifest, applied it, reapplied it as a recognised no-op, re-read the gapped stream, appended from the unchanged head, and printed the witness line; transcript recorded here.
+- [ ] M5: Clean isolated consumer resolved the exact released versions, built, migrated ephemeral PostgreSQL to `0017`, previewed a manifest, applied it, reapplied it as a recognised no-op, re-read the gapped stream, appended from the unchanged head, and printed the witness line; transcript recorded here.
 - [ ] M5: IR-14 status `implemented` after upload, then `completed` with `completedAt` after the consumer proof; improvement-request `log.md` entry added.
 
+
+### Candidate evidence (2026-10-28)
+
+All prior children are committed through `01792b8`. The six candidate package
+checks exit 0, `cabal build all` passes, the blueprint validator passes and native
+Nix checks pass. `just perf-check` passes 52 structural examples and all 17
+controlled cases with every compared arm inside the unchanged 20% spread limit.
+Ratios: accepted category append 0.99x; pipeline-4 0.86x; pipeline-8 0.85x;
+exhausted category 0.39x; category pages 0.03x/0.02x; plain/group caught-up 0.01x.
+This final gate reused the original whole-experiment deadline, with 1798 seconds
+remaining at submission; it did not reset the performance budget or repeat sizing.
+The versioned candidate passes all six suites on PostgreSQL 17.11 and 18.6: store
+605, migrations 27, CLI 29, telemetry 19, metrics 126 and adapter 45 examples per
+major. All six sdists are byte-checked against every packaged working file, with
+126/32/13/6/36/9 source entries respectively (store/migrations/CLI/OTel/metrics/adapter).
+Archive hashes and the 0017/manifest assertions are retained in `artifacts.json`.
+All six Hackage documentation archives build and their indices, interfaces and
+new compaction pages are verified. The archive-consumer preflight builds outside
+the repository against the exact sdists and passes migration, identity, inventory,
+preview, apply, identical reapply, ledger, unchanged survivors/head and append at
+version 4. This uses the shared Cabal store and is not the registry-only acceptance
+proof. The published proof still requires a fresh isolated `CABAL_DIR`. Candidate
+notes, registry checks, consumer recipe and retained evidence are under
+`docs/releases/2026-10-28-selective-compaction/`.
+
+The user approved the prepared versions and changelogs with “go ahead” on
+2026-10-28. Release commit/tags, uploads, registry verification and the clean
+external consumer are now authorized and in progress.
 
 ## Surprises & Discoveries
 
 Document unexpected behaviors, bugs, optimizations, or insights discovered during
 implementation. Provide concise evidence.
 
-(None yet.)
+- 2026-10-28: Authoritative Hackage preferred versions and upstream annotated tags agree with the current tree: Store 0.12.0.0, migrations 0.7.2.0, CLI 0.2.0.11, OTel 0.3.0.0, metrics 0.4.0.0 and adapter 0.7.0.0. Historical proposal versions are already published for unrelated features. Apply the original PVP reasoning from these current versions; migration 0017 is the new additive step.
+- 2026-10-28: The release skill explicitly requires version/changelog approval before the release commit and tags. All reversible candidate edits, archive preparation and checks precede that final approval boundary; publication and the registry-only consumer proof remain pending until approval.
 
 
 ## Decision Log
 
+- Decision: Prepare Store 0.13.0.0, migrations 0.7.3.0, CLI 0.3.0.0, OTel 0.3.0.1, metrics 0.4.0.1 and adapter 0.7.0.1 against the current release baseline. The historical decisions below retain their rationale with current numbers substituted. The new blueprint edge is 0.12.0.0 → 0.13.0.0 and blueprint version 0.6.0; existing edges remain unchanged.
+  Date: 2026-10-28
+
+
 Record every decision made while working on the plan.
 
-- Decision: `kiroku-store` 0.8.0.0 → 0.9.0.0 (major).
+- Decision: `kiroku-store` 0.12.0.0 → 0.13.0.0 (major).
   Rationale: `KirokuEvent` gains four constructors and `Store` gains five; `kiroku-otel` and
   `kiroku-metrics` match `KirokuEvent` exhaustively under `-Werror=incomplete-patterns`, so
   the change breaks downstream builds (the same situation that made 0.7.0.0 a major release in
@@ -82,22 +123,22 @@ Record every decision made while working on the plan.
   PVP takes the strictest component.
   Date: 2026-08-22
 
-- Decision: `kiroku-store-migrations` 0.4.0.0 → 0.4.1.0 (minor).
-  Rationale: Migration `0012` is additive, forward-only, needs no operator ledger step, and
+- Decision: `kiroku-store-migrations` 0.7.2.0 → 0.7.3.0 (minor).
+  Rationale: Migration `0017` is additive, forward-only, needs no operator ledger step, and
   changes no exported Haskell declaration. The precedent is 0.3.0.0 → 0.3.1.0 for migration
   `0009` in `docs/plans/72-publish-a-stable-sql-subscription-checkpoint-relation.md`. This
   package has no dependency on `kiroku-store` (the release skill's overview says otherwise and is
   wrong; the Cabal file is authoritative), so its bump is driven solely by the migration.
   Date: 2026-08-22
 
-- Decision: `kiroku-cli` 0.2.0.6 → 0.3.0.0 (major).
+- Decision: `kiroku-cli` 0.2.0.11 → 0.3.0.0 (major).
   Rationale: `KirokuCommand` is exported with `(..)` and gains two constructors; any downstream
   exhaustive match breaks. `kiroku-metrics` imports only `SubscriptionStatusRow` and
   `subscriptionStatusRows`, so it compiles unchanged but must widen its bound to `^>=0.3`.
   Date: 2026-08-22
 
 - Decision: `kiroku-otel`, `kiroku-metrics`, and `shibuya-kiroku-adapter` take patch bumps with
-  `kiroku-store ^>=0.9` (and `kiroku-cli ^>=0.3` for `kiroku-metrics`).
+  `kiroku-store ^>=0.13` (and `kiroku-cli ^>=0.3` for `kiroku-metrics`).
   Rationale: Their only source change is the no-op `KirokuEvent` arms added by the preview and
   apply plans, invisible to their own consumers; the precedent is release commit `7726d23`,
   where bound widening alone was a patch.
@@ -109,18 +150,18 @@ Record every decision made while working on the plan.
   afterwards; public tags are never moved, so the check must come first.
   Date: 2026-08-22
 
-- Decision: Add a `kiroku-upgrade` blueprint edge `0.8.0.0 → 0.9.0.0`.
+- Decision: Add a `kiroku-upgrade` blueprint edge `0.12.0.0 → 0.13.0.0`.
   Rationale: Consumers need judgement work Kiroku cannot perform for them: new `KirokuEvent`
   arms, new `KirokuCommand` arms for hosts that match the command tree, migration-count fixtures
-  growing from eleven to twelve, and the schema comment changing to `through 0012`. The
-  blueprint's version space is `kiroku-store`, and the previous edge is `0.7.0.1 → 0.8.0.0`.
+  growing from sixteen to seventeen, and the schema comment changing to `through 0017`. The
+  blueprint's version space is `kiroku-store`, and the previous edge is `0.11.0.1 → 0.12.0.0`.
   Date: 2026-08-22
 
 - Decision: The clean-consumer proof exercises preview *and* apply against ephemeral PostgreSQL
   migrated with the released migration plan: preview (`CompactionPreviewReady`), apply
   (`CompactionAppliedNow`), reapply (`CompactionAlreadyApplied` with the same compaction id),
   then a gap-tolerant read and an expected-version append from the unchanged head.
-  Rationale: Preview alone reaches identity, manifest construction, digest, the `0012` tables,
+  Rationale: Preview alone reaches identity, manifest construction, digest, the `0017` tables,
   and the `Store` effect, but leaves the headline destructive operation unproven from the
   released packages — and `docs/plans/78-apply-a-compaction-manifest-transactionally-with-ledgered-idempotence.md`
   promises the clean consumer exercises `applyCompaction`. Grants are not a concern: the
@@ -136,7 +177,12 @@ Compare the result against the original purpose. Before marking the plan complet
 distill durable project context from the Decision Log, Surprises & Discoveries, and
 this section into docs/adr/. Keep task-local execution details here.
 
-(To be filled during and after implementation.)
+Candidate preparation is complete and validated, including the PostgreSQL matrix,
+authoritative structural/workload gates, source/documentation archives and a local
+archive-consumer run. The release skill requires explicit version/changelog
+approval before the release commit and tags. Pending that approval, nothing was
+pushed or published, IR-14 remains proposed, and this child remains In Progress.
+The registry-only consumer and request closure follow publication, not this preflight.
 
 
 ## Context and Orientation
@@ -144,18 +190,18 @@ this section into docs/adr/. Keep task-local execution details here.
 This repository is a Cabal multi-package project at
 `/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku` (`cabal.project`, GHC 9.12.4). Six
 packages are published to Hackage and versioned independently: `kiroku-store` (the event-store
-library, currently 0.8.0.0), `kiroku-store-migrations` (the schema as an embedded, numbered
-`pg-migrate` plan, 0.4.0.0), `kiroku-otel` (0.2.0.7), `kiroku-cli` (0.2.0.6), `kiroku-metrics`
-(0.1.0.8), and `shibuya-kiroku-adapter` (0.5.1.1). `kiroku-test-support` and `kiroku-jitsurei`
+library, currently 0.12.0.0), `kiroku-store-migrations` (the schema as an embedded, numbered
+`pg-migrate` plan, 0.7.2.0), `kiroku-otel` (0.3.0.0), `kiroku-cli` (0.2.0.11), `kiroku-metrics`
+(0.4.0.0), and `shibuya-kiroku-adapter` (0.7.0.0). `kiroku-test-support` and `kiroku-jitsurei`
 are internal and never released. Each package's version is the `version:` line of
 `<package>/<package>.cabal`; each has a `CHANGELOG.md` whose newest section is first, headed
 `## A.B.C.D — YYYY-MM-DD`, with subsections such as `### Breaking Changes`, `### New Features`,
 `### Fixes`, and `### Other Changes`, written as explanatory paragraphs rather than one-liners.
-Release tags are annotated and named `<package>-v<version>` (for example `kiroku-store-v0.8.0.0`;
+Release tags are annotated and named `<package>-v<version>` (for example `kiroku-store-v0.12.0.0`;
 list them with `git tag --list 'kiroku-store-v*'`).
 
 **What this plan releases.** The preceding plans of the MasterPlan delivered, in the working
-tree: migration `kiroku-store-migrations/migrations/0012.sql` installing the
+tree: migration `kiroku-store-migrations/migrations/0017.sql` installing the
 `kiroku.store_identity` singleton and the append-only `kiroku.event_compactions` ledger
 (`docs/plans/74-add-a-store-identity-and-an-append-only-event-compaction-ledger.md`); the
 `lookupEventReferences` read API
@@ -193,14 +239,12 @@ resolves to the library target in this multi-package project and is rejected —
 18 through `nix develop .#postgresql17` / `.#postgresql18`) before releasing that package,
 because `cabal test all` runs only against whichever server is on `PATH`.
 
-**The consumer blueprint.** `blueprints/kiroku-upgrade/` is a Seihou blueprint that tells a
-consuming project how to move across a released version window that needs judgement. Its
-`blueprint.dhall` lists `migrations = [ S.BlueprintMigration::{ from = "0.7.0.1", to =
-"0.8.0.0", prompt = ./migrations/0-7-to-0-8.md as Text } ]`; the version space is
-`kiroku-store` even when the work is migration-related. The edge document
-`migrations/0-7-to-0-8.md` is the model: a heading `# kiroku-store X → Y`, a summary of which
-packages the edge covers, a "Precondition" section saying when the edge is not applicable, then
-one "Part" per kind of consumer work with "What changed" and "What to do" subsections.
+**The consumer blueprint.** `blueprints/kiroku-upgrade/` carries version edges in the
+`kiroku-store` version space. Its current version is 0.5.0 and latest edge is
+`0.11.0.1 → 0.12.0.0`; preserve every existing edge. Add the new
+`0.12.0.0 → 0.13.0.0` edge and advance the blueprint to 0.6.0. The edge covers
+exhaustive Store/StoreError/KirokuEvent/KirokuCommand matches, unprefixed record
+labels, migration 0017/count fixtures, optional grants and the reviewed workflow.
 
 **The clean external consumer.** There is no script for this; it is a documented manual
 procedure whose evidence is recorded in the plan and in the improvement request. The pattern,
@@ -222,7 +266,7 @@ is IR-14 with frontmatter `status: proposed`. Completed requests (for example
 timestamp>"`, and also advance `timestamp`. The convention from plan 72 is: `implemented` once
 the packages are uploaded, `completed` only once authoritative Hackage artifacts and the
 clean-consumer evidence agree. The bundle's `log.md` receives a dated entry for each transition.
-`docs/capabilities/selective-event-compaction.md` carries `since: "0.9.0.0"` written by plan 79;
+`docs/capabilities/selective-event-compaction.md` carries `since: "0.13.0.0"` written by plan 79;
 confirm it matches the released version and run `just capabilities-validate` after any edit.
 
 **Relevant ADRs.** [ADR-5](../adr/0005-three-tier-performance-regression-gates.md) makes the
@@ -251,7 +295,7 @@ Work. From the repository root run, in order, `nix fmt` (must change nothing; ch
 --short`), `cabal build all`, `cabal test all`, `just perf-check` (structural tier then the
 controlled workload gate; record the two ratios it prints, which must be at most `0.90x`, and if
 a run is boundary-noisy repeat it on an idle host per ADR-5 rather than editing thresholds),
-`just test-matrix` (fourteen suite runs across PostgreSQL 17 and 18; the migrations suite prints
+`just test-matrix` (twelve suite runs across PostgreSQL 17 and 18; the migrations suite prints
 which `uuidv7()` route it exercised on each), `nix flake check`, `just adr-validate`, and `just
 capabilities-validate`. Then, for each of the six packages, `cd <package> && cabal check`. Any
 failure stops the plan; fix it in an ordinary commit under the owning ExecPlan's trailer and
@@ -265,21 +309,22 @@ matrix outcome, and the workload ratios.
 Goal: every released artifact carries its new version, every dependent admits it, and consumers
 have a written upgrade path.
 
-Work. Edit `version:` in `kiroku-store/kiroku-store.cabal` to `0.9.0.0`,
-`kiroku-store-migrations/kiroku-store-migrations.cabal` to `0.4.1.0`,
-`kiroku-cli/kiroku-cli.cabal` to `0.3.0.0`, `kiroku-otel/kiroku-otel.cabal` to `0.2.0.8`,
-`kiroku-metrics/kiroku-metrics.cabal` to `0.1.0.9`, and
-`shibuya-kiroku-adapter/shibuya-kiroku-adapter.cabal` to `0.5.1.2`. Confirm each current value
+Work. Edit `version:` in `kiroku-store/kiroku-store.cabal` to `0.13.0.0`,
+`kiroku-store-migrations/kiroku-store-migrations.cabal` to `0.7.3.0`,
+`kiroku-cli/kiroku-cli.cabal` to `0.3.0.0`, `kiroku-otel/kiroku-otel.cabal` to `0.3.0.1`,
+`kiroku-metrics/kiroku-metrics.cabal` to `0.4.0.1`, and
+`shibuya-kiroku-adapter/shibuya-kiroku-adapter.cabal` to `0.7.0.1`. Confirm each current value
 first with `grep -n '^version' */*.cabal`; if any package has moved since this plan was written,
-apply the same PVP reasoning from the current number. Then change every `kiroku-store ^>=0.8`
-to `^>=0.9` in `kiroku-otel`, `kiroku-cli`, `kiroku-metrics`, and `shibuya-kiroku-adapter`
+apply the same PVP reasoning from the current number. Then change every `kiroku-store ^>=0.12`
+to `^>=0.13` in `kiroku-otel`, `kiroku-cli`, `kiroku-metrics`, and `shibuya-kiroku-adapter`
 (library and test stanzas — `grep -rn 'kiroku-store *\^>=' */*.cabal` lists all of them), and
 every `kiroku-cli ^>=0.2` to `^>=0.3` in `kiroku-metrics` (library and test stanzas).
-`kiroku-test-support` and `kiroku-jitsurei` also depend on `kiroku-store`; update their bounds
-too so the project solves, even though they are not released.
+`kiroku-jitsurei` has an unbounded `kiroku-store` dependency; pin it to the new
+caret range. `kiroku-test-support` depends on migrations rather than store; pin
+that existing dependency to `^>=0.7.3.0`. Neither internal package is released.
 
 Write the changelog sections, dated with the release day. `kiroku-store/CHANGELOG.md` gets `##
-0.9.0.0 — <date>` with "Breaking Changes" (four `KirokuEvent` constructors:
+0.13.0.0 — <date>` with "Breaking Changes" (four `KirokuEvent` constructors:
 `KirokuEventCompactionPreviewed`, `KirokuEventCompactionRefused`,
 `KirokuEventCompactionApplied`, `KirokuEventCompactionAlreadyApplied`; five `Store`
 constructors) and "New Features" (the `Kiroku.Store.Compaction` and
@@ -289,35 +334,34 @@ witness-validated, refuses rather than widens, never renumbers, one transaction 
 refuses under an active history-retention lease, ledgered idempotence; a pointer to
 `docs/user/compaction.md`). The preceding plans left their text under an `## Unreleased`
 heading; fold that text into the dated section rather than rewriting it.
-`kiroku-store-migrations/CHANGELOG.md` gets `## 0.4.1.0 — <date>` with "New Features"
-describing migration `0012` (both tables, their triggers, the schema comment through `0012`,
+`kiroku-store-migrations/CHANGELOG.md` gets `## 0.7.3.0 — <date>` with "New Features"
+describing migration `0017` (both tables, their triggers, the schema comment through `0017`,
 the fact that existing databases gain one pending migration and that consumer fixtures asserting
-eleven migrations must become twelve). `kiroku-cli/CHANGELOG.md` gets `## 0.3.0.0 — <date>` with
+sixteen migrations must become seventeen). `kiroku-cli/CHANGELOG.md` gets `## 0.3.0.0 — <date>` with
 "Breaking Changes" (`KirokuCommand` gains `KirokuCompaction` and `KirokuStore`) and "New
 Features" (the four commands, `KirokuCommandOutcome`, `executeKirokuCommandWithStore`, the exit
 codes, the standalone refusal). The three patch packages get `## <version> — <date>` with
 "Other Changes": the no-op event arms and the widened bounds.
 
-Open `docs/capabilities/selective-event-compaction.md` and confirm `since: "0.9.0.0"` and
+Open `docs/capabilities/selective-event-compaction.md` and confirm `since: "0.13.0.0"` and
 `status: shipped`; change nothing else unless the version differs.
 
-Create `blueprints/kiroku-upgrade/migrations/0-8-to-0-9.md`, modelled on `0-7-to-0-8.md`, with
-heading `# kiroku-store 0.8.0.0 → 0.9.0.0`, a summary covering the four released packages that
-changed shape (`kiroku-store` 0.9.0.0, `kiroku-store-migrations` 0.4.1.0, `kiroku-cli` 0.3.0.0,
+Create `blueprints/kiroku-upgrade/migrations/0-12-to-0-13.md`, modelled on `0-7-to-0-8.md`, with
+heading `# kiroku-store 0.12.0.0 → 0.13.0.0`, a summary covering the released packages in this cohort (`kiroku-store` 0.13.0.0, `kiroku-store-migrations` 0.7.3.0, `kiroku-cli` 0.3.0.0,
 and the patch releases), a "Precondition" (not applicable only when the project neither matches
 `KirokuEvent` or `KirokuCommand` exhaustively nor runs Kiroku migrations against a persistent
 database nor asserts migration counts), and parts: Part A `KirokuEvent` gains four constructors
 (what changed, what to do: add explicit arms, typically no-ops, and decide whether to surface the
 compaction events in the project's own metrics); Part B `KirokuCommand` gains two constructors
 (hosts that `case` on the tree add arms or delegate to `executeKirokuCommandWithStore`; hosts
-that only embed `kirokuSubparser` need nothing); Part C migration `0012` (the plan grows from
-eleven to twelve, the pending-id fixtures and `drop N` offsets move, the schema comment becomes
-`Managed by pg-migrate component kiroku through 0012`, `migrate up` on an existing database
+that only embed `kirokuSubparser` need nothing); Part C migration `0017` (the plan grows from
+sixteen to seventeen, the pending-id fixtures and `drop N` offsets move, the schema comment becomes
+`Managed by pg-migrate component kiroku through 0017`, `migrate up` on an existing database
 applies one migration, and the project's role needs no new grant unless it will run compaction);
 Part D grants for compaction (optional; point to `docs/PRODUCTION-DEPLOYMENT.md`). Register it
-in `blueprint.dhall` by appending `, S.BlueprintMigration::{ from = "0.8.0.0", to = "0.9.0.0",
-prompt = ./migrations/0-8-to-0-9.md as Text }` to the `migrations` list and bump the blueprint's
-`version` to `Some "0.2.0"`. Check the Dhall parses with `dhall --file
+in `blueprint.dhall` by appending `, S.BlueprintMigration::{ from = "0.12.0.0", to = "0.13.0.0",
+prompt = ./migrations/0-12-to-0-13.md as Text }` to the `migrations` list and bump the blueprint's
+`version` to `Some "0.6.0"`. Check the Dhall parses with `dhall --file
 blueprints/kiroku-upgrade/blueprint.dhall > /dev/null` (the `dhall` binary is in the dev shell;
 if it is absent, `nix flake check` covers the file through the formatter hook — confirm by
 looking at `.pre-commit-config.yaml`).
@@ -335,17 +379,17 @@ Work. Stage everything from Milestone 2 and commit with a message whose body jus
 in one sentence per package, then the three trailers. Example:
 
 ```text
-chore(release): kiroku-store 0.9.0.0, kiroku-store-migrations 0.4.1.0, kiroku-cli 0.3.0.0, kiroku-otel 0.2.0.8, kiroku-metrics 0.1.0.9, shibuya-kiroku-adapter 0.5.1.2
+chore(release): kiroku-store 0.13.0.0, kiroku-store-migrations 0.7.3.0, kiroku-cli 0.3.0.0, kiroku-otel 0.3.0.1, kiroku-metrics 0.4.0.1, shibuya-kiroku-adapter 0.7.0.1
 
-kiroku-store 0.9.0.0: major because KirokuEvent and Store gain constructors that
+kiroku-store 0.13.0.0: major because KirokuEvent and Store gain constructors that
 downstream adapters match exhaustively; adds Kiroku.Store.Compaction,
 Kiroku.Store.Compaction.Types, storeIdentity, and lookupEventReferences.
-kiroku-store-migrations 0.4.1.0: minor for the additive forward migration 0012
+kiroku-store-migrations 0.7.3.0: minor for the additive forward migration 0017
 (store_identity singleton and event_compactions ledger); no operator ledger step.
 kiroku-cli 0.3.0.0: major because KirokuCommand gains KirokuCompaction and
 KirokuStore; adds compaction preview/apply/ledger and store identity commands.
-kiroku-otel 0.2.0.8, kiroku-metrics 0.1.0.9, shibuya-kiroku-adapter 0.5.1.2:
-patch for the no-op event arms and kiroku-store ^>=0.9 (kiroku-cli ^>=0.3) bounds.
+kiroku-otel 0.3.0.1, kiroku-metrics 0.4.0.1, shibuya-kiroku-adapter 0.7.0.1:
+patch for the no-op event arms and kiroku-store ^>=0.13 (kiroku-cli ^>=0.3) bounds.
 
 Verified: nix fmt clean, cabal build all, cabal test all (<N> examples),
 just perf-check (<ratio-4>/<ratio-8>), just test-matrix on PostgreSQL 17 and 18,
@@ -359,17 +403,18 @@ Intention: intention_01m0mwdmnfex3tv9fg0t57htfv
 Then create the tags and push:
 
 ```bash
-git tag -a kiroku-store-v0.9.0.0 -m "kiroku-store 0.9.0.0"
-git tag -a kiroku-store-migrations-v0.4.1.0 -m "kiroku-store-migrations 0.4.1.0"
-git tag -a kiroku-otel-v0.2.0.8 -m "kiroku-otel 0.2.0.8"
+git tag -a kiroku-store-v0.13.0.0 -m "kiroku-store 0.13.0.0"
+git tag -a kiroku-store-migrations-v0.7.3.0 -m "kiroku-store-migrations 0.7.3.0"
+git tag -a kiroku-otel-v0.3.0.1 -m "kiroku-otel 0.3.0.1"
 git tag -a kiroku-cli-v0.3.0.0 -m "kiroku-cli 0.3.0.0"
-git tag -a kiroku-metrics-v0.1.0.9 -m "kiroku-metrics 0.1.0.9"
-git tag -a shibuya-kiroku-adapter-v0.5.1.2 -m "shibuya-kiroku-adapter 0.5.1.2"
-git push && git push --tags
+git tag -a kiroku-metrics-v0.4.0.1 -m "kiroku-metrics 0.4.0.1"
+git tag -a shibuya-kiroku-adapter-v0.7.0.1 -m "shibuya-kiroku-adapter 0.7.0.1"
+git push origin master
+git push origin kiroku-store-v0.13.0.0 kiroku-store-migrations-v0.7.3.0 kiroku-otel-v0.3.0.1 kiroku-cli-v0.3.0.0 kiroku-metrics-v0.4.0.1 shibuya-kiroku-adapter-v0.7.0.1
 ```
 
 Before tagging, confirm no version is already published: `curl -fsSL
-https://hackage.haskell.org/package/kiroku-store/preferred.json` must not list `0.9.0.0`, and
+https://hackage.haskell.org/package/kiroku-store/preferred.json` must not list `0.13.0.0`, and
 likewise for the other five. Result and proof: `git for-each-ref refs/tags/*-v* --format '%(refname:short) %(objecttype) %(*objectname)'`
 shows six `tag` objects peeling to the release commit.
 
@@ -386,10 +431,10 @@ cd kiroku-store
 cabal check
 cabal test kiroku-store:kiroku-store-test
 cabal sdist
-shasum -a 256 dist-newstyle/sdist/kiroku-store-0.9.0.0.tar.gz   # record in Progress
-cabal upload --publish dist-newstyle/sdist/kiroku-store-0.9.0.0.tar.gz
+shasum -a 256 dist-newstyle/sdist/kiroku-store-0.13.0.0.tar.gz   # record in Progress
+cabal upload --publish dist-newstyle/sdist/kiroku-store-0.13.0.0.tar.gz
 cabal haddock --haddock-for-hackage --haddock-hyperlink-source --haddock-quickjump
-cabal upload --publish --documentation dist-newstyle/kiroku-store-0.9.0.0-docs.tar.gz
+cabal upload --publish --documentation dist-newstyle/kiroku-store-0.13.0.0-docs.tar.gz
 cd ..
 ```
 
@@ -397,14 +442,14 @@ The explicit test targets are `kiroku-store-migrations:kiroku-store-migrations-t
 `kiroku-otel:kiroku-otel-test`, `kiroku-cli:kiroku-cli-test`,
 `kiroku-metrics:kiroku-metrics-test`, and `shibuya-kiroku-adapter:shibuya-kiroku-adapter-test`
 (confirm names with `grep -n '^test-suite' */*.cabal`). For `kiroku-store-migrations`, also
-confirm `tar tzf dist-newstyle/sdist/kiroku-store-migrations-0.4.1.0.tar.gz | grep
-migrations/0012.sql` prints the file before uploading — the sdist is governed by the
+confirm `tar tzf dist-newstyle/sdist/kiroku-store-migrations-0.7.3.0.tar.gz | grep
+migrations/0017.sql` prints the file before uploading — the sdist is governed by the
 `extra-source-files: migrations/*.sql` glob, so the new file is included automatically, but the
 listing is the evidence. If any upload fails, stop; do not upload its dependents; record the
 state in Progress. Then create the GitHub releases:
 
 ```bash
-gh release create kiroku-store-v0.9.0.0 --title "kiroku-store 0.9.0.0" --notes-file /path/to/notes.md
+gh release create kiroku-store-v0.13.0.0 --title "kiroku-store 0.13.0.0" --notes-file /path/to/notes.md
 ```
 
 with one invocation per tag and notes extracted from that package's changelog section (a
@@ -415,7 +460,7 @@ releases, recorded in Progress with the sdist hashes.
 ### Milestone 5 — Clean external consumer, evidence, and request closure
 
 Goal: an isolated project that cannot see this repository downloads the released packages,
-builds, migrates a fresh database to `0012`, reads the store identity, constructs a manifest,
+builds, migrates a fresh database to `0017`, reads the store identity, constructs a manifest,
 previews it, applies it, reapplies it as a recognised no-op, re-reads the gapped stream,
 appends from the unchanged head, and prints a witness line; the authoritative artifacts agree
 with the pre-upload hashes; IR-14 is closed with that evidence.
@@ -426,7 +471,7 @@ Work. Wait for the Hackage index to refresh (minutes), then gather the authorita
 for p in kiroku-store kiroku-store-migrations kiroku-otel kiroku-cli kiroku-metrics shibuya-kiroku-adapter; do
   echo "$p: $(curl -fsSL https://hackage.haskell.org/package/$p/preferred.json)"
 done
-git ls-remote --tags https://github.com/shinzui/kiroku.git 'refs/tags/kiroku-store-v0.9.0.0*'
+git ls-remote --tags https://github.com/shinzui/kiroku.git 'refs/tags/kiroku-store-v0.13.0.0*'
 ```
 
 The second command prints two lines: the annotated tag object and the `^{}` peeled commit,
@@ -438,16 +483,16 @@ create an isolated Cabal environment and project:
 export CABAL_DIR="$PWD/cabal-isolated"
 mkdir -p "$CABAL_DIR" kiroku-compaction-consumer && cd kiroku-compaction-consumer
 cabal update
-cabal get kiroku-store-0.9.0.0 --destdir=../downloaded
-cabal get kiroku-store-migrations-0.4.1.0 --destdir=../downloaded
-tar tzf "$CABAL_DIR/packages/hackage.haskell.org/kiroku-store-migrations/0.4.1.0/kiroku-store-migrations-0.4.1.0.tar.gz" | grep 'migrations/0012.sql'
-shasum -a 256 "$CABAL_DIR/packages/hackage.haskell.org/kiroku-store/0.9.0.0/kiroku-store-0.9.0.0.tar.gz"
-shasum -a 256 "$CABAL_DIR/packages/hackage.haskell.org/kiroku-store-migrations/0.4.1.0/kiroku-store-migrations-0.4.1.0.tar.gz"
+cabal get kiroku-store-0.13.0.0 --destdir=../downloaded
+cabal get kiroku-store-migrations-0.7.3.0 --destdir=../downloaded
+tar tzf "$CABAL_DIR/packages/hackage.haskell.org/kiroku-store-migrations/0.7.3.0/kiroku-store-migrations-0.7.3.0.tar.gz" | grep 'migrations/0017.sql'
+shasum -a 256 "$CABAL_DIR/packages/hackage.haskell.org/kiroku-store/0.13.0.0/kiroku-store-0.13.0.0.tar.gz"
+shasum -a 256 "$CABAL_DIR/packages/hackage.haskell.org/kiroku-store-migrations/0.7.3.0/kiroku-store-migrations-0.7.3.0.tar.gz"
 ```
 
 Both hashes must equal the pre-upload sdist hashes recorded in Milestone 4. (If `cabal get`
 does not populate the package cache at that path on the installed Cabal version, download the
-tarballs with `curl -fsSLO https://hackage.haskell.org/package/kiroku-store-0.9.0.0/kiroku-store-0.9.0.0.tar.gz`
+tarballs with `curl -fsSLO https://hackage.haskell.org/package/kiroku-store-0.13.0.0/kiroku-store-0.13.0.0.tar.gz`
 and hash those.) Write the project files:
 
 `cabal.project`:
@@ -456,149 +501,34 @@ and hash those.) Write the project files:
 packages: .
 
 constraints:
-  kiroku-store == 0.9.0.0,
-  kiroku-store-migrations == 0.4.1.0
+  kiroku-store == 0.13.0.0,
+  kiroku-store-migrations == 0.7.3.0
 ```
 
-`kiroku-compaction-consumer.cabal`:
-
-```text
-cabal-version: 3.0
-name:          kiroku-compaction-consumer
-version:       0.1.0.0
-build-type:    Simple
-
-executable kiroku-compaction-consumer
-  main-is:          Main.hs
-  default-language: GHC2024
-  default-extensions: OverloadedRecordDot OverloadedStrings
-  ghc-options:      -Wall
-  build-depends:
-    , base
-    , aeson
-    , containers
-    , ephemeral-pg          >=0.2
-    , hasql
-    , kiroku-store          ==0.9.0.0
-    , kiroku-store-migrations ==0.4.1.0
-    , pg-migrate            ^>=1.1.0.0
-    , text
-    , vector
-```
-
-`Main.hs` — adjust the exact accessor and constructor names to the released Haddock at
-`https://hackage.haskell.org/package/kiroku-store-0.9.0.0/docs/Kiroku-Store-Compaction-Types.html`;
-the shape is:
-
-```haskell
-module Main (main) where
-
-import Data.Map.Strict qualified as Map
-import Data.Text qualified as T
-import Data.Text.IO qualified as TIO
-import Data.Vector qualified as V
-import Database.PostgreSQL.Migrate (defaultRunOptions, runMigrationPlan)
-import EphemeralPg qualified as Pg
-import Kiroku.Store
-import Kiroku.Store.Compaction
-import Kiroku.Store.Migrations (kirokuMigrationPlan)
-
-main :: IO ()
-main = Pg.withCached $ \db -> do
-    let connStr = Pg.connectionString db
-    plan <- either (fail . show) pure kirokuMigrationPlan
-    _ <- runMigrationPlan defaultRunOptions connStr plan
-    withStore (defaultConnectionSettings connStr) $ \store -> do
-        Right events <- runStoreIO store $ do
-            _ <- appendToStream (StreamName "consumer-proof") NoStream [sample "One", sample "Two", sample "Three"]
-            readStreamForward (StreamName "consumer-proof") (StreamVersion 0) 10
-        let middle = events V.! 1   -- versions 1..3; the middle event is version 2
-        Right identity <- runStoreIO store storeIdentity
-        -- readStreamForward reports global_position 0 by design; the reference
-        -- inventory's GlobalMembership carries the real position.
-        Right references <- runStoreIO store (lookupEventReferences [middle.eventId])
-        globalPos <- case Map.lookup middle.eventId references of
-            Nothing -> fail "middle event missing from the reference inventory"
-            Just inventory ->
-                case [p | GlobalMembership p <- V.toList inventory.memberships] of
-                    [p] -> pure p
-                    other -> fail ("expected one $all membership: " <> show other)
-        let Right operation = mkCompactionOperation "clean-consumer/proof"
-            input =
-                CompactionManifestInput
-                    { storeIdentity = identity
-                    , operation = operation
-                    , deadLetterPolicy = RefuseDeadLetters
-                    , causationPolicy = RefuseCausationDependents
-                    , streamHeads = [StreamHeadWitness (StreamName "consumer-proof") (StreamVersion 3)]
-                    , selections =
-                        [ CompactionSelection
-                            { eventId = middle.eventId
-                            , originStream = StreamName "consumer-proof"
-                            , originVersion = middle.streamVersion
-                            , globalPosition = globalPos
-                            , acknowledgedLinks = mempty
-                            }
-                        ]
-                    , expectedDigest = Nothing
-                    }
-        manifest <- either (fail . show) pure (mkCompactionManifest input)
-        Right previewed <- runStoreIO store (previewCompaction manifest)
-        report <- case previewed of
-            Left refusals -> fail ("unexpected refusal: " <> show refusals)
-            Right (CompactionPreviewAlreadyApplied record) -> fail ("fresh store, yet already applied: " <> show record)
-            Right (CompactionPreviewReady report) -> pure report
-        Right applied <- runStoreIO store (applyCompaction manifest)
-        record <- case applied of
-            Right (CompactionAppliedNow record) -> pure record
-            other -> fail ("expected CompactionAppliedNow: " <> show other)
-        Right reapplied <- runStoreIO store (applyCompaction manifest)
-        case reapplied of
-            Right (CompactionAlreadyApplied record')
-                | record'.compactionId == record.compactionId -> pure ()
-            other -> fail ("expected CompactionAlreadyApplied with the same id: " <> show other)
-        Right (survivors, appendResult) <- runStoreIO store $ do
-            survivors <- readStreamForward (StreamName "consumer-proof") (StreamVersion 0) 10
-            appendResult <- appendToStream (StreamName "consumer-proof") (ExactVersion (StreamVersion 3)) [sample "Four"]
-            pure (survivors, appendResult)
-        let survivingVersions = [v | e <- V.toList survivors, let StreamVersion v = e.streamVersion]
-        TIO.putStrLn $
-            "clean consumer verified: kiroku-store 0.9.0.0, kiroku-store-migrations 0.4.1.0, store "
-                <> T.pack (show identity)
-                <> ", manifest "
-                <> compactionDigestHex (compactionManifestDigest manifest)
-                <> ", selected "
-                <> T.pack (show report.selectedEvents)
-                <> ", applied "
-                <> T.pack (show record.compactionId)
-                <> ", surviving versions "
-                <> T.pack (show survivingVersions)
-                <> ", appended at version "
-                <> T.pack (show appendResult.streamVersion)
-  where
-    sample name = EventData { eventId = Nothing, eventType = EventType name, payload = "{}", metadata = Nothing, causationId = Nothing, correlationId = Nothing }
-```
-
-(Set the `payload` to an Aeson `Value` such as `Data.Aeson.object []`, name fields exactly as
-the released `EventData` and `RecordedEvent` declare them, and take the expected-version
-constructor name from the released `ExpectedVersion` — the repository's
-`kiroku-store/src/Kiroku/Store/Types.hs` is a reliable guide, but the released Haddock is
-authoritative. The record-dot reads rely on `OverloadedRecordDot`, which works against the
-`NoFieldSelectors` compaction types through `HasField`.) Run:
+The exact consumer project and source are now retained in
+`docs/releases/2026-10-28-selective-compaction/consumer/`. Copy those three files
+into the outside-repository scratch directory. Its Cabal file pins Store 0.13.0.0
+and migrations 0.7.3.0 and admits current released ephemeral-pg 0.3.1.0 and
+pg-migrate 1.2.0.0. These versions were checked against Hackage and upstream tags;
+their APIs were inspected through Mori-located source. Migration uses Hasql
+connection settings, not a raw connection-string argument. The program checks the
+original ledger record, byte-equivalent retained envelopes, unchanged head and
+post-compaction append, and bounds database execution to 120 seconds.
 
 ```bash
 cabal build
 cabal run kiroku-compaction-consumer
 ```
 
-Expected:
+Expected witness shape:
 
 ```text
-clean consumer verified: kiroku-store 0.9.0.0, kiroku-store-migrations 0.4.1.0, store StoreIdentity 0199…, manifest 5b1e…(64 hex)…, selected 1, applied CompactionId 0199…, surviving versions [1,3], appended at version 4
+clean consumer verified: kiroku-store 0.13.0.0, kiroku-store-migrations 0.7.3.0, store StoreIdentity ..., manifest "<64 lowercase hex>", selected 1, applied CompactionId ..., surviving versions [1,3], appended at version 4
+disposable PostgreSQL stopped cleanly
 ```
 
-`cabal build` must show the solver downloading and building `kiroku-store-0.9.0.0` and
-`kiroku-store-migrations-0.4.1.0` from `hackage.haskell.org` (the build log names the source);
+`cabal build` must show the solver downloading and building `kiroku-store-0.13.0.0` and
+`kiroku-store-migrations-0.7.3.0` from `hackage.haskell.org` (the build log names the source);
 if it reports using a local package or an in-place package from this repository, the isolation
 failed — delete `CABAL_DIR` and the scratch directory and start Milestone 5 again. Record in
 Progress: the `preferred.json` outputs, the tag object and peeled commit, both hash comparisons,
@@ -614,7 +544,7 @@ entry to `docs/improvement-requests/log.md` with `okf log add docs/improvement-r
 hand-off the MasterPlan's Integration Points ("Downstream standalone operator surface") calls
 for: the standalone, database-connected `stream compact ...` command belongs to
 `mori://shinzui/keiro/packages/keiro-ops` and is to be filed as a keiro improvement request now
-that `kiroku-store` 0.9 and `kiroku-cli` 0.3 are on Hackage, reusing `Kiroku.Cli.Compaction`'s
+that `kiroku-store` 0.13 and `kiroku-cli` 0.3 are on Hackage, reusing `Kiroku.Cli.Compaction`'s
 renderers. Commit with the trailers. Do not edit the MasterPlan's registry here; the master-plan
 skill updates it when this plan is marked complete, but note in Progress that it is due.
 
@@ -663,7 +593,7 @@ $EDITOR kiroku-store/kiroku-store.cabal kiroku-store-migrations/kiroku-store-mig
   kiroku-jitsurei/kiroku-jitsurei.cabal
 $EDITOR kiroku-store/CHANGELOG.md kiroku-store-migrations/CHANGELOG.md kiroku-cli/CHANGELOG.md \
   kiroku-otel/CHANGELOG.md kiroku-metrics/CHANGELOG.md shibuya-kiroku-adapter/CHANGELOG.md
-$EDITOR blueprints/kiroku-upgrade/migrations/0-8-to-0-9.md blueprints/kiroku-upgrade/blueprint.dhall
+$EDITOR blueprints/kiroku-upgrade/migrations/0-12-to-0-13.md blueprints/kiroku-upgrade/blueprint.dhall
 cabal build all && cabal test all
 for p in kiroku-store kiroku-store-migrations kiroku-otel kiroku-cli kiroku-metrics shibuya-kiroku-adapter; do
   echo "$p: $(curl -fsSL https://hackage.haskell.org/package/$p/preferred.json)"
@@ -692,23 +622,23 @@ git push
 
 The release is accepted when all of the following are observable from outside this repository.
 
-`curl -fsSL https://hackage.haskell.org/package/kiroku-store/preferred.json` lists `0.9.0.0`
-as a normal version, and the same holds for `kiroku-store-migrations` `0.4.1.0`, `kiroku-cli`
-`0.3.0.0`, `kiroku-otel` `0.2.0.8`, `kiroku-metrics` `0.1.0.9`, and `shibuya-kiroku-adapter`
-`0.5.1.2`. `https://hackage.haskell.org/package/kiroku-store-0.9.0.0/docs/Kiroku-Store-Compaction.html`
+`curl -fsSL https://hackage.haskell.org/package/kiroku-store/preferred.json` lists `0.13.0.0`
+as a normal version, and the same holds for `kiroku-store-migrations` `0.7.3.0`, `kiroku-cli`
+`0.3.0.0`, `kiroku-otel` `0.3.0.1`, `kiroku-metrics` `0.4.0.1`, and `shibuya-kiroku-adapter`
+`0.7.0.1`. `https://hackage.haskell.org/package/kiroku-store-0.13.0.0/docs/Kiroku-Store-Compaction.html`
 renders the Haddock for `previewCompaction` and `applyCompaction`. `git ls-remote --tags
-https://github.com/shinzui/kiroku.git 'refs/tags/kiroku-store-v0.9.0.0*'` prints a tag object
+https://github.com/shinzui/kiroku.git 'refs/tags/kiroku-store-v0.13.0.0*'` prints a tag object
 and a peeled commit equal to the release commit recorded in this plan. `gh release view
-kiroku-store-v0.9.0.0` shows a non-draft release whose notes match the changelog. The SHA-256 of
+kiroku-store-v0.13.0.0` shows a non-draft release whose notes match the changelog. The SHA-256 of
 each Hackage tarball equals the pre-upload sdist hash recorded in Progress, and `tar tzf` of the
-migrations tarball lists `migrations/0012.sql` with a manifest whose last line is `0012.sql`.
+migrations tarball lists `migrations/0017.sql` with a manifest whose last line is `0017.sql`.
 An isolated consumer with its own `CABAL_DIR`, pinned to the exact versions, builds from the
-downloaded packages and prints a line beginning `clean consumer verified: kiroku-store 0.9.0.0`
+downloaded packages and prints a line beginning `clean consumer verified: kiroku-store 0.13.0.0`
 that includes a 64-character lowercase-hex manifest digest, `selected 1`, the applied
 compaction id, `surviving versions [1,3]`, and `appended at version 4`.
 `docs/improvement-requests/add-manifest-driven-selective-event-compaction.md` has `status:
 completed` and a `completedAt` timestamp, and `okf validate docs/improvement-requests` exits 0.
-`docs/capabilities/selective-event-compaction.md` says `since: "0.9.0.0"` and `just
+`docs/capabilities/selective-event-compaction.md` says `since: "0.13.0.0"` and `just
 capabilities-validate` exits 0.
 
 
@@ -717,8 +647,8 @@ capabilities-validate` exits 0.
 Milestones 1 and 2 are freely repeatable: verification is read-only and the edits converge on
 the same file contents. Milestone 3 is repeatable until the push; if a mistake is found before
 pushing, amend the commit and re-create the local tags with `git tag -d` then `git tag -a`.
-After `git push --tags`, tags are public and are never moved or deleted; a mistake discovered
-afterwards is fixed by a new commit and a higher version (for example 0.9.0.1 or 0.9.1.0),
+After the explicit cohort-tag push, tags are public and are never moved or deleted; a mistake discovered
+afterwards is fixed by a new commit and a higher version (for example 0.13.0.1 or 0.13.1.0),
 never by force-pushing a tag. Milestone 4 is irreversible per package: Hackage does not allow
 replacing a published version's source. Before each upload, rerun `cabal check` and confirm the
 version is absent from `preferred.json`; if an upload succeeds but later verification fails, do
@@ -743,20 +673,20 @@ Versions released by this plan (adjust only if the working tree's current versio
 those recorded in Context and Orientation):
 
 ```text
-kiroku-store             0.8.0.0 -> 0.9.0.0   (major: KirokuEvent and Store constructors)
-kiroku-store-migrations  0.4.0.0 -> 0.4.1.0   (minor: additive migration 0012)
-kiroku-cli               0.2.0.6 -> 0.3.0.0   (major: KirokuCommand constructors)
-kiroku-otel              0.2.0.7 -> 0.2.0.8   (patch: event arms, bounds)
-kiroku-metrics           0.1.0.8 -> 0.1.0.9   (patch: event arms, bounds)
-shibuya-kiroku-adapter   0.5.1.1 -> 0.5.1.2   (patch: event arms, bounds)
+kiroku-store             0.12.0.0 -> 0.13.0.0   (major: KirokuEvent and Store constructors)
+kiroku-store-migrations  0.7.2.0 -> 0.7.3.0   (minor: additive migration 0017)
+kiroku-cli               0.2.0.11 -> 0.3.0.0   (major: KirokuCommand constructors)
+kiroku-otel              0.3.0.0 -> 0.3.0.1   (patch: event arms, bounds)
+kiroku-metrics           0.4.0.0 -> 0.4.0.1   (patch: event arms, bounds)
+shibuya-kiroku-adapter   0.7.0.0 -> 0.7.0.1   (patch: event arms, bounds)
 ```
 
-Bounds after the release: every released dependent declares `kiroku-store ^>=0.9`;
-`kiroku-metrics` declares `kiroku-cli ^>=0.3`; `kiroku-test-support` and `kiroku-jitsurei`
-declare `kiroku-store ^>=0.9`.
+Bounds after the release: every released dependent declares `kiroku-store ^>=0.13`;
+`kiroku-metrics` declares `kiroku-cli ^>=0.3`; `kiroku-jitsurei` declares `kiroku-store ^>=0.13`; internal
+`kiroku-test-support` declares `kiroku-store-migrations ^>=0.7.3`.
 
 Public surfaces the clean consumer exercises and which must therefore be exported from the
-released `kiroku-store` 0.9.0.0: `Kiroku.Store` (re-exporting `withStore`,
+released `kiroku-store` 0.13.0.0: `Kiroku.Store` (re-exporting `withStore`,
 `defaultConnectionSettings`, `runStoreIO`, `appendToStream`, `readStreamForward`,
 `storeIdentity`, `lookupEventReferences`, `Kiroku.Store.Compaction`, and `Kiroku.Store.Types`);
 `Kiroku.Store.Compaction` (`previewCompaction`, `applyCompaction`, `mkCompactionManifest`,
@@ -764,11 +694,11 @@ released `kiroku-store` 0.9.0.0: `Kiroku.Store` (re-exporting `withStore`,
 `CompactionManifestInput`, `CompactionSelection`, `StreamHeadWitness`, `DeadLetterPolicy`,
 `CausationPolicy`, `CompactionPreview`, `CompactionApplyResult`, `CompactionRecord`, and
 `CompactionReport` types); the `EventReferenceInventory` and `EventMembership` types from
-`Kiroku.Store.Types`; and from `kiroku-store-migrations` 0.4.1.0,
-`Kiroku.Store.Migrations.kirokuMigrationPlan` whose plan ends in `0012`.
+`Kiroku.Store.Types`; and from `kiroku-store-migrations` 0.7.3.0,
+`Kiroku.Store.Migrations.kirokuMigrationPlan` whose plan ends in `0017`.
 
 Artifacts this plan edits: the eight `.cabal` files, six `CHANGELOG.md` files,
-`blueprints/kiroku-upgrade/blueprint.dhall`, `blueprints/kiroku-upgrade/migrations/0-8-to-0-9.md`,
+`blueprints/kiroku-upgrade/blueprint.dhall`, `blueprints/kiroku-upgrade/migrations/0-12-to-0-13.md`,
 `docs/improvement-requests/add-manifest-driven-selective-event-compaction.md`,
 `docs/improvement-requests/log.md`, possibly `docs/capabilities/selective-event-compaction.md`,
 and this plan.

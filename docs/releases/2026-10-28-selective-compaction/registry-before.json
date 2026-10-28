@@ -1,0 +1,151 @@
+{
+  "checked_at": "2026-10-28T05:42:30.857294+00:00",
+  "packages": {
+    "kiroku-store": {
+      "preferred": {
+        "normal-version": [
+          "0.12.0.0",
+          "0.11.0.1",
+          "0.11.0.0",
+          "0.10.0.0",
+          "0.9.0.1",
+          "0.9.0.0",
+          "0.8.0.2",
+          "0.8.0.1",
+          "0.8.0.0",
+          "0.7.0.1",
+          "0.7.0.0",
+          "0.6.0.0",
+          "0.5.0.0",
+          "0.4.0.0",
+          "0.3.1.0",
+          "0.3.0.1",
+          "0.3.0.0",
+          "0.2.0.0",
+          "0.1.0.0"
+        ]
+      },
+      "baseline_tag": "kiroku-store-v0.12.0.0",
+      "remote_tag_evidence": "ad79d7499bd4d6735a4d6df63b1ce08093b509f7\trefs/tags/kiroku-store-v0.12.0.0\n22d103e4f424caab06c6a2b76ad92b408c262bc0\trefs/tags/kiroku-store-v0.12.0.0^{}\n",
+      "commits_since_tag": 7
+    },
+    "kiroku-store-migrations": {
+      "preferred": {
+        "deprecated-version": [
+          "0.3.2.1",
+          "0.3.2.0"
+        ],
+        "normal-version": [
+          "0.7.2.0",
+          "0.7.1.0",
+          "0.7.0.0",
+          "0.6.0.0",
+          "0.5.0.0",
+          "0.4.0.0",
+          "0.3.1.0",
+          "0.3.0.0",
+          "0.2.0.0",
+          "0.1.1.0",
+          "0.1.0.0"
+        ]
+      },
+      "baseline_tag": "kiroku-store-migrations-v0.7.2.0",
+      "remote_tag_evidence": "e9a58242ffb3581eb60c7b63ac14cdeab918b2b2\trefs/tags/kiroku-store-migrations-v0.7.2.0\n22d103e4f424caab06c6a2b76ad92b408c262bc0\trefs/tags/kiroku-store-migrations-v0.7.2.0^{}\n",
+      "commits_since_tag": 1
+    },
+    "kiroku-cli": {
+      "preferred": {
+        "normal-version": [
+          "0.2.0.11",
+          "0.2.0.10",
+          "0.2.0.9",
+          "0.2.0.8",
+          "0.2.0.7",
+          "0.2.0.6",
+          "0.2.0.5",
+          "0.2.0.4",
+          "0.2.0.3",
+          "0.2.0.2",
+          "0.2.0.1",
+          "0.2.0.0",
+          "0.1.0.0"
+        ]
+      },
+      "baseline_tag": "kiroku-cli-v0.2.0.11",
+      "remote_tag_evidence": "ca775b304afdcd194e692da8ee82a7bacdbf3142\trefs/tags/kiroku-cli-v0.2.0.11\n22d103e4f424caab06c6a2b76ad92b408c262bc0\trefs/tags/kiroku-cli-v0.2.0.11^{}\n",
+      "commits_since_tag": 1
+    },
+    "kiroku-otel": {
+      "preferred": {
+        "normal-version": [
+          "0.3.0.0",
+          "0.2.0.12",
+          "0.2.0.11",
+          "0.2.0.10",
+          "0.2.0.9",
+          "0.2.0.8",
+          "0.2.0.7",
+          "0.2.0.6",
+          "0.2.0.5",
+          "0.2.0.4",
+          "0.2.0.3",
+          "0.2.0.2",
+          "0.2.0.1",
+          "0.2.0.0",
+          "0.1.0.0"
+        ]
+      },
+      "baseline_tag": "kiroku-otel-v0.3.0.0",
+      "remote_tag_evidence": "316b300d28fd4423e4d10ed44b679543369b849f\trefs/tags/kiroku-otel-v0.3.0.0\n22d103e4f424caab06c6a2b76ad92b408c262bc0\trefs/tags/kiroku-otel-v0.3.0.0^{}\n",
+      "commits_since_tag": 2
+    },
+    "kiroku-metrics": {
+      "preferred": {
+        "normal-version": [
+          "0.4.0.0",
+          "0.3.0.1",
+          "0.3.0.0",
+          "0.2.0.0",
+          "0.1.0.10",
+          "0.1.0.9",
+          "0.1.0.8",
+          "0.1.0.7",
+          "0.1.0.6",
+          "0.1.0.5",
+          "0.1.0.4",
+          "0.1.0.3",
+          "0.1.0.1",
+          "0.1.0.0"
+        ]
+      },
+      "baseline_tag": "kiroku-metrics-v0.4.0.0",
+      "remote_tag_evidence": "c19cb32ef187350317be20c919c8e70aa2ff0eeb\trefs/tags/kiroku-metrics-v0.4.0.0\n22d103e4f424caab06c6a2b76ad92b408c262bc0\trefs/tags/kiroku-metrics-v0.4.0.0^{}\n",
+      "commits_since_tag": 2
+    },
+    "shibuya-kiroku-adapter": {
+      "preferred": {
+        "normal-version": [
+          "0.7.0.0",
+          "0.6.0.1",
+          "0.6.0.0",
+          "0.5.1.5",
+          "0.5.1.4",
+          "0.5.1.3",
+          "0.5.1.2",
+          "0.5.1.1",
+          "0.5.1.0",
+          "0.5.0.2",
+          "0.5.0.1",
+          "0.5.0.0",
+          "0.4.0.1",
+          "0.4.0.0",
+          "0.2.0.0",
+          "0.1.0.0"
+        ]
+      },
+      "baseline_tag": "shibuya-kiroku-adapter-v0.7.0.0",
+      "remote_tag_evidence": "3bce5fddce713d50d41c4ac3d3a576eaf1bfcc9a\trefs/tags/shibuya-kiroku-adapter-v0.7.0.0\n22d103e4f424caab06c6a2b76ad92b408c262bc0\trefs/tags/shibuya-kiroku-adapter-v0.7.0.0^{}\n",
+      "commits_since_tag": 1
+    }
+  }
+}

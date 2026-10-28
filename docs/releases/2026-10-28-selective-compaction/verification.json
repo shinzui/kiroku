@@ -1,0 +1,42 @@
+{
+  "all_build_targets": "passed",
+  "package_checks": {
+    "exit_status": "all six returned 0",
+    "advisory": "adapter retains existing -O2 warning"
+  },
+  "nix_checks": "passed on aarch64-darwin",
+  "blueprint": "passed",
+  "capabilities": "passed",
+  "adrs": "passed",
+  "performance": {
+    "structural_examples": 52,
+    "controlled_cases": 17,
+    "spread": "all compared arms <=20%",
+    "pipeline_ratios": [
+      0.86,
+      0.85
+    ]
+  },
+  "postgresql_matrix": {
+    "17": [
+      "kiroku-otel-test",
+      "kiroku-cli-test",
+      "shibuya-kiroku-adapter-test",
+      "kiroku-metrics-test",
+      "kiroku-store-migrations-test",
+      "kiroku-store-test"
+    ],
+    "18": [
+      "kiroku-otel-test",
+      "kiroku-cli-test",
+      "shibuya-kiroku-adapter-test",
+      "kiroku-metrics-test",
+      "kiroku-store-migrations-test",
+      "kiroku-store-test"
+    ]
+  },
+  "publication": "pending version/changelog approval",
+  "registry_only_consumer": "pending publication",
+  "archive_consumer": "passed: source archives outside repository; shared Cabal store, not registry-only proof",
+  "documentation": "all six Hackage archives built and verified"
+}

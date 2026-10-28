@@ -1,0 +1,37 @@
+{
+  "prepared_at": "2026-10-28T05:40:30.033777+00:00",
+  "status": "approved for release",
+  "baseline_commit": "01792b8",
+  "versions": {
+    "kiroku-store": {
+      "from": "0.12.0.0",
+      "to": "0.13.0.0",
+      "bump": "major: expanded Store, StoreError and KirokuEvent sums"
+    },
+    "kiroku-store-migrations": {
+      "from": "0.7.2.0",
+      "to": "0.7.3.0",
+      "bump": "minor: additive migration 0017"
+    },
+    "kiroku-cli": {
+      "from": "0.2.0.11",
+      "to": "0.3.0.0",
+      "bump": "major: expanded KirokuCommand sum"
+    },
+    "kiroku-otel": {
+      "from": "0.3.0.0",
+      "to": "0.3.0.1",
+      "bump": "patch: maintenance event no-ops and bounds"
+    },
+    "kiroku-metrics": {
+      "from": "0.4.0.0",
+      "to": "0.4.0.1",
+      "bump": "patch: maintenance event no-ops and bounds"
+    },
+    "shibuya-kiroku-adapter": {
+      "from": "0.7.0.0",
+      "to": "0.7.0.1",
+      "bump": "patch: bounds and atomic test collector"
+    }
+  }
+}

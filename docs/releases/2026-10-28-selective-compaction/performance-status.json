@@ -1,0 +1,9 @@
+{
+  "started_at": "2026-10-28T05:41:05.167864+00:00",
+  "deadline_epoch": 1793167862.8660219,
+  "remaining_budget_seconds": 1797.6981618404388,
+  "scope": "release-candidate 52 structural checks and unchanged 17-case controlled workload gate; no sizing repeats",
+  "stop_condition": "first command failure or original experiment deadline",
+  "completed_at": "2026-10-28T05:42:51.923410+00:00",
+  "exit_code": 0
+}

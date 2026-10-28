@@ -1,37 +1,48 @@
 # Changelog
 
-## Unreleased
+## 0.13.0.0 — 2026-10-28
 
-* Add atomic `applyCompaction` / `applyCompactionTx` and the bounded
-  `compactionLedger` / `compactionLedgerTx` audit reads. Apply revalidates under
-  ADR-7 locks, deletes only accounted memberships, preserves high-water versions
-  and records a digest-keyed ledger entry; identical reapply returns that entry.
-* Breaking: `StoreError` gains retryable `CompactionConcurrentMutation`;
-  `KirokuEvent` gains `KirokuEventCompactionApplied` and
-  `KirokuEventCompactionAlreadyApplied`. Direct transaction composers may also
-  receive SQLSTATE 23503 for an in-flight foreign-key reference and should retry
-  after preview. No ordinary append/read statement or trigger is changed.
+### Breaking Changes
 
-* Add `previewCompaction` and `previewCompactionTx`: shared witness validation,
-  typed accumulated refusals, deterministic sealed reports and ledger-aware
-  already-applied recognition. The effect uses one read-only repeatable-read
-  snapshot and one checkout, with no row locks or writes. Causation refusal is
-  validation-time best-effort.
-* Breaking: exhaustive `KirokuEvent` matches must handle
-  `KirokuEventCompactionPreviewed` and `KirokuEventCompactionRefused`.
+- The closed `Store` effect gains `GetStoreIdentity`, `LookupEventReferences`,
+  `PreviewCompaction`, `ApplyCompaction` and `GetCompactionLedger`; exhaustive
+  custom interpreters must add arms.
+- `StoreError` gains retryable `CompactionConcurrentMutation`. An affected apply
+  transaction rolled back; preview again before retrying. Direct transaction
+  composers can also receive existing `UnexpectedServerError` SQLSTATE `23503`
+  for a concurrent foreign-key reference and must treat it identically.
+- Exhaustive `KirokuEvent` observers must handle `KirokuEventCompactionPreviewed`,
+  `KirokuEventCompactionRefused`, `KirokuEventCompactionApplied` and
+  `KirokuEventCompactionAlreadyApplied`.
 
-* Add `Kiroku.Store.Compaction.Types`: bounded immutable manifests with explicit
-  reference policies and stream/event witnesses, deterministic canonical SHA-256
-  digests, typed refusals, reports and ledger records. JSON manifests require a
-  digest and validate it on decoding; report JSON also verifies its digest.
+### New Features
 
-* Add `lookupEventReferences` and `lookupEventReferencesTx`: per-event home,
-  global and link memberships, dead-letter counts and causation dependents
-  outside the requested set. Unknown IDs are omitted, duplicates are deduplicated,
-  and empty input uses no connection. Membership and dead-letter reads batch at
-  10,000 IDs on one checkout; causation exclusions span the entire input.
-
-* Add `StoreIdentity`, `storeIdentity` and `storeIdentityTx` for the immutable, clone-shared identity installed by migration `0017`. Requires that migration; older schemas report a missing relation.
+- Add `Kiroku.Store.Compaction`, `.Types` and `.SQL`: immutable digest-sealed
+  manifests, explicit reference policies, typed refusals, canonical SHA-256
+  encodings, deterministic reports and durable ledger records. JSON decoding
+  verifies manifest and report digests.
+- Add read-only `previewCompaction` / `previewCompactionTx`. The effect uses one
+  pooled connection and one repeatable-read snapshot without row locks or writes.
+- Add atomic `applyCompaction` / `applyCompactionTx`: revalidate exact witnesses
+  under the retention coordinator then ascending stream-ID locks, refuse active
+  replay-history leases, and delete only selected events and acknowledged links.
+  Retained envelopes, versions, positions and stream heads stay unchanged; ordinary
+  append/read SQL and triggers gain no work. Causation refusal is validation-time
+  best-effort. Reference/count races roll back the whole transaction.
+- Add `compactionLedger` / `compactionLedgerTx`. The append-only record commits
+  with deletion; an identical reapply returns that original record. Keep the
+  reviewed manifest and archived envelopes because the ledger omits event IDs.
+- Add `StoreIdentity`, `storeIdentity` and `storeIdentityTx`. Restored clones share
+  their source identity. These APIs and compaction require migration `0017` from
+  `kiroku-store-migrations` 0.7.3.0; older schemas report a missing relation.
+- Add `lookupEventReferences` / `lookupEventReferencesTx`: home/global/link
+  memberships, dead-letter counts and causation dependents outside the requested
+  set. Unknown IDs are omitted, duplicates deduplicated and empty input uses no
+  connection. Membership and dead-letter reads batch at 10,000 IDs on one checkout;
+  causation exclusions cover the complete request.
+- Document the reviewed workflow, lease margins, 10k initial operational chunks,
+  audit and separate PostgreSQL space reclamation in the
+  [operator guide](https://github.com/shinzui/kiroku/blob/master/docs/user/compaction.md).
 
 ## 0.12.0.0 — 2026-10-26
 
