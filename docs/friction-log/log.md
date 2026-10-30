@@ -1,5 +1,9 @@
 # Bundle Update Log
 
+## 2026-10-30
+* **Update**: FRIC-13 resolved: Reconciled the prescribed evidence path and fixed-report metadata with the pinned recursive bundle contract.
+* **Addition**: FRIC-13 records detour documentation friction with mori://shinzui/kiroku: BUG-6 evidence path conflicts with recursive bundle validation
+
 ## 2026-10-28
 * **Update**: FRIC-12 accepted: Accept propagation latency after the exact pinned registry consumer began building from the refreshed signed index.
 * **Addition**: FRIC-12 records slowdown environment friction with https://hackage.haskell.org: Signed Hackage index lags already published compaction packages

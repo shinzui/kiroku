@@ -1,0 +1,104 @@
+# Current-source BUG-6 validation
+
+Plan: [104](../../../plans/104-preserve-asynchronous-cancellation-across-observability-and-recovery.md).
+Validation date: 2026-10-30. Native aarch64-darwin, GHC 9.12.4, PostgreSQL 18.6,
+kiroku-store 0.13.0.0. No package version bump or publication is part of this work.
+
+## Baseline and regression sensitivity
+
+Before production corrections, `git apply --check` accepted `current-head.patch`.
+The probe loaded relative to the package directory with Cabal GHCi printed:
+
+```text
+Nothing
+Just AsyncCancelled
+Right ()
+Right ()
+Right ()
+Right ()
+```
+
+With the startup injection hook and new tests, but all three original classifiers,
+the focused command failed: **27 examples, 24 failures**, in 71.57 seconds. The
+three success/synchronous controls passed. The existing one-shot synchronous
+publisher recovery example separately passed: **1 example, 0 failures**. Full
+assertion failures are retained in [current-head-baseline.txt](current-head-baseline.txt).
+
+```bash
+nix develop --no-write-lock-file -c cabal test kiroku-store:test:kiroku-store-test --test-show-details=direct --test-options=--match=asynchronous
+```
+
+After correction the same 27 examples passed in 1.45 seconds. They cover direct
+AsyncCancelled, ThreadKilled, UserInterrupt and a custom asynchronous payload at
+each boundary; publisher callback cancellation through both nested handlers;
+real cross-thread cancel and throwTo delivery at barrier-confirmed blocked actions;
+and notifier connection acquisition and return to baseline after failure.
+All sender/join waits are bounded by ten seconds, with fallback release and scoped
+thread or queue cleanup. A timeout is a failure, not cancellation evidence.
+
+With the other two corrections retained, independently reverting the emitter produced
+**4 examples, 4 failures** (`--match="preserves observation"`); reverting publisher
+recovery produced **1 example, 1 failure** (`--match="preserves AsyncCancelled, callback=True"`);
+reverting notifier startup produced **4 examples, 4 failures**
+(`--match="preserves notifier startup"`). Each failure was an assertion about the
+lost exception or a publisher loop error, rather than a compile failure or empty
+selection. Full outputs are retained in [current-head-sensitivity.txt](current-head-sensitivity.txt).
+Pass these filters inside the quoted `--test-options` value so Cabal preserves spaces.
+
+## Final candidate
+
+Production and regression-test commit: `46b5cd6` (`fix(store): preserve asynchronous
+cancellation through recovery`). The final focused check passed **27 examples,
+0 failures** in 1.47 seconds. Publisher resilience passed **36 examples, 0 failures**
+in 6.35 seconds; the subsequent test-only strengthening additionally checks that no
+loop-error event remains after publisher termination. Full suite verification includes
+that assertion.
+
+The following commands ran from the repository root against that candidate:
+
+```bash
+nix fmt
+nix develop --no-write-lock-file -c cabal test kiroku-store:test:kiroku-store-test --test-show-details=direct
+nix develop --no-write-lock-file -c cabal test all --test-show-details=direct
+nix develop --no-write-lock-file -c just perf-structure
+git diff --check
+```
+
+The store suite passed **632 examples, 0 failures** in 81.01 seconds. `cabal test all`
+passed all six suites: store 632, metrics 126, adapter 45, CLI 29, migrations 27 and
+OpenTelemetry 19 (**878 examples total, zero failures**). The store repeat in that
+run took 85.98 seconds. Structural checks passed **52 examples, 0 failures** in
+9.14 seconds. Formatting and whitespace checks passed.
+
+The final GHCi probe printed `Nothing`, `Just AsyncCancelled`, then
+`Left AsyncCancelled`, `Left thread killed`, `Left user interrupt`, `Right ()`.
+Its load succeeded; acceptance is based on the output, not merely GHCi's exit code.
+
+Strict ADR validation and `just adr-validate` pass. Strict bug-report validation
+retains exactly four pre-existing missing-`reviews` diagnostics on BUG-1, BUG-2,
+BUG-4 and BUG-5; none names BUG-6. No unrelated reports were changed.
+
+## Scope and limitations
+
+The three production classifiers follow the reviewed patch, preserving each ordinary
+error branch and rethrowing the caught SomeException on asynchronous family membership.
+The publisher queue is registered directly to force full fetch and bracket unsubscribe.
+The existing synchronous publisher recovery example additionally verifies checkpoint
+and publisher progress after retry.
+
+The test-only notifier seam reads an optional IORef once at startup, inside the real
+LISTEN catch and connection bracket. There is no changed event-append SQL, pool
+checkout, checkpoint statement, per-event allocation, or callback-free emit path.
+No remote benchmark is warranted by this exceptional-path fix and single startup read;
+structural performance checks provide the proportional performance evidence.
+
+Adjacent notifier handlers retain their concrete AsyncCancelled policy. Wait cancellation
+exits normally; reacquisition cancellation is rethrown. Callback cancellation either
+reaches that wait handler or escapes a recovery handler. stopNotifier still owns final
+connection release. Other asynchronous types can still trigger reconnect in those later
+handlers; this change makes no broader notifier-policy guarantee.
+
+This evidence does not establish all shutdown interleavings, consumer SIGTERM deployment
+symptoms, or the separate consumer OpenTelemetry issue resolved. Historical compatibility
+patches and their evidence remain unchanged. See [ADR-23](../../../adr/0023-recovery-boundaries-preserve-asynchronous-exception-family-membership.md)
+for the durable policy.

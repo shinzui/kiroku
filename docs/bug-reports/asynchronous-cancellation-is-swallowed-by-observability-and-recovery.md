@@ -8,9 +8,14 @@ description: >-
 generated:
   by: codex-cli/gpt-6.1-sol
   at: "2026-10-30T14:56:23Z"
-timestamp: "2026-10-30T14:56:23Z"
+timestamp: "2026-10-30T18:42:38Z"
 bugId: BUG-6
-status: confirmed
+status: fixed
+fixedVersion: unreleased
+resolution: >-
+  Fixed in commit 46b5cd6279021892b9e66168e29f7f1cd2fb4e68 by correcting all three
+  classifiers with independently sensitive direct and cross-thread regressions.
+  All six repository suites and structural checks pass. No release contains this fix yet.
 severity: degraded
 origin: mori://shinzui/kotei/okf/friction-log/concepts/FRIC-5
 affects: mori://shinzui/kiroku/packages/kiroku-store
@@ -21,7 +26,8 @@ environment: >-
   checkout at 084fd8359850342447cdda8e632b7dc456c7fca4 using GHC 9.12.4 on
   native aarch64-darwin. The same three checks are present in kiroku-store
   0.13.0.0 source at b9442820bb18636023ae6a18161ad01b576dd425; that current
-  version was inspected, not executed for this report.
+  version was initially inspected only. Current source with the correction at
+  46b5cd6 was subsequently validated on GHC 9.12.4 and PostgreSQL 18.6.
 observed: >-
   emitOrDrop returns normally when its callback throws AsyncCancelled instead
   of propagating cancellation. A deterministic regression fails on released
@@ -50,6 +56,18 @@ workaround: >-
 reviews:
   - kind: model
     reviewer: codex-cli/gpt-6.1-sol
+    reviewed_at: "2026-10-30T18:42:38Z"
+    document_timestamp: "2026-10-30T18:42:38Z"
+    scope: technical-accuracy
+    outcome: commented
+    provider: OpenAI
+    model: gpt-6.1-sol
+    effort: high
+    context: >-
+      Implementer verification of current-source boundary regressions, independent
+      classifier sensitivity and all repository suites; not an independent review.
+  - kind: model
+    reviewer: codex-cli/gpt-6.1-sol
     reviewed_at: "2026-10-30T15:00:26Z"
     document_timestamp: "2026-10-30T14:56:23Z"
     scope: technical-accuracy
@@ -65,8 +83,10 @@ reviews:
 
 # Asynchronous cancellation is swallowed by observability and recovery
 
-The defect is confirmed, with a suggested patch; it is not fixed on the default
-branch or in a release. The report originates in
+The defect is fixed in source commit `46b5cd6`; no release contains the fix yet.
+[Current-source validation](evidence/BUG-6/current-head-validation.txt) records
+independent regressions for all three boundaries and passing repository suites.
+The report originates in
 `mori://shinzui/kotei/okf/friction-log/concepts/FRIC-5` while implementing
 `mori://shinzui/kotei/plans/104-execute-steps-on-declared-remote-hosts`.
 
@@ -127,9 +147,9 @@ Right ()
 This reproducer does not need PostgreSQL. The existing complete test executable
 acquires its shared migrated PostgreSQL fixture even for a filtered regression.
 
-## Suggested patch
+## Original candidate patch (historical)
 
-[Current HEAD patch](evidence/BUG-6/current-head.patch) applies cleanly to
+[Original current-HEAD patch](evidence/BUG-6/current-head.patch) applied cleanly to
 `b9442820bb18636023ae6a18161ad01b576dd425`. It changes the three incorrect
 existential checks and adds a regression in
 [`Test.PublisherCallbackResilience`](../../kiroku-store/test/Test/PublisherCallbackResilience.hs).
@@ -153,7 +173,8 @@ preserve its type and context. Notification's existing checks that decode the
 concrete `Async.AsyncCancelled` type already use the helper correctly and are
 left intact. The report does not qualify other notifier cancellation boundaries.
 
-Review and exercise the current-HEAD patch with:
+The following commands describe the original pre-fix checkout; do not reapply
+the historical patch to the corrected source. Review that candidate with:
 
 ```bash
 git apply --check docs/bug-reports/evidence/BUG-6/current-head.patch
@@ -177,11 +198,16 @@ one example and one failure: `did not get expected exception: AsyncCancelled`.
 With the compatibility correction restored, all 22 callback resilience examples
 pass after formatting. An earlier `--match=preserves` selection passed 38
 examples; that broader selection includes unrelated cases and is not 38
-cancellation tests. The current-HEAD adaptation is apply-checked only.
+cancellation tests. The original current-HEAD adaptation was initially apply-checked only.
+The subsequent [implementation evidence](evidence/BUG-6/current-head-validation.txt)
+supersedes that limitation: 27 focused cases, 632 store cases, all six repository
+suites (878 cases total), and 52 structural cases pass on the corrected source.
 
 The pure regression directly establishes the emitter failure and its correction.
 The other two edits correct the identical classifier misuse by source inspection;
-the report does not claim a separately fault-injected notifier or publisher run.
+that initial evidence did not separately fault-inject notifier or publisher runs.
+Plan 104 now supplies both, including real cross-thread cancellation, preserved
+custom payloads, independent classifier-revert failures and connection cleanup.
 
 Kotei's subscription finalizer hang is a consumer impact, not proof that every
 shutdown failure has this cause. OpenTelemetry SDK span hooks independently

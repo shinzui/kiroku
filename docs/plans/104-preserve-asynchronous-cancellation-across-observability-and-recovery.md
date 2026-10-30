@@ -45,12 +45,17 @@ This is a plan for implementation. Creating it does not establish that the patch
 
 - [x] Milestone 1 (2026-10-30): The unchanged-source probe reproduced swallowed cancellation; 27 new examples produced 24 expected failures and three passing synchronous/success controls. The existing synchronous publisher recovery control also passed (one example).
 - [x] Milestone 2 (2026-10-30): All 27 boundary examples pass with corrected classifiers; independent reverts fail observation (4/4), nested publisher callback (1/1), and notifier startup (4/4). Concrete payloads, real cancellation, connection cleanup and synchronous controls are covered.
-- [ ] Milestone 3: Final candidate passes focused and repository regression checks; evidence, bug status, changelog, and durable cancellation policy are reconciled.
+- [x] Milestone 3 (2026-10-30): Candidate `46b5cd6` passes 27 focused cases, 36 publisher resilience cases, 632 store cases, all six repository suites (878 examples), and 52 structural cases. BUG-6 is fixed and unreleased, current-source evidence is retained, the changelog is updated, and ADR-23 records the policy. ADR checks pass; bug-bundle validation retains only its four known older-report findings.
 
 ## Surprises & Discoveries
 
 
-2026-10-30: All 27 boundary examples pass after the three production corrections (1.45 seconds); the unchanged classifiers failed 24 of them (71.57 seconds). Direct queue registration forces publisher full fetch without a subscription worker obscuring the target boundary. Independent classifier reverts fail the corresponding assertions (4 observation, one nested publisher, four notifier startup). Final regression checks remain in progress.
+2026-10-30: All 27 boundary examples pass after the three production corrections (1.45 seconds); the unchanged classifiers failed 24 of them (71.57 seconds). Direct queue registration forces publisher full fetch without a subscription worker obscuring the target boundary. Independent classifier reverts fail the corresponding assertions (4 observation, one nested publisher, four notifier startup). Final regression checks pass; the corrected probe propagates all three cancellation values and still suppresses the synchronous control.
+
+2026-10-30: Strict validation revealed that the prescribed evidence Markdown file
+became another Bug Report concept, and fixed reports require `fixedVersion` as well
+as `resolution`. Retained the evidence as `.txt` and set `fixedVersion: unreleased`;
+see FRIC-13 in `docs/friction-log/`. No validation gate was weakened.
 
 ## Decision Log
 
@@ -68,7 +73,20 @@ This is a plan for implementation. Creating it does not establish that the patch
 ## Outcomes & Retrospective
 
 
-Implementation in progress; final regression and sensitivity evidence pending.
+Implemented in `46b5cd6` without dependency changes, schema changes or a version bump.
+All three original classifiers have independently sensitive regressions, and direct
+and real cross-thread cancellation preserves concrete types and custom payloads.
+Synchronous publisher retry now also checks durable checkpoint progress. No listener
+connections remain after tested startup failures.
+
+[Current-source evidence](../bug-reports/evidence/BUG-6/current-head-validation.txt)
+records the commands, environment, counts, baseline failures and sensitivity results.
+[ADR-23](../adr/0023-recovery-boundaries-preserve-asynchronous-exception-family-membership.md)
+distills the exception-family policy and remaining notifier-policy limit. BUG-6 is
+fixed in source and unreleased; consumer deployment and OpenTelemetry symptoms remain
+outside this claim. [FRIC-13](../friction-log/13-bug-6-evidence-path-conflicts-with-recursive-bundle-validation.md)
+was resolved by correcting this plan’s evidence suffix and the fixed-report metadata;
+strict bug-bundle validation now adds no findings for BUG-6.
 
 ## Context and Orientation
 
@@ -96,7 +114,7 @@ asyncExceptionFromException x = do
 
 `kiroku-store/test/Test/PublisherCallbackResilience.hs` already covers one-shot decode-hook recovery and throwing event handlers. `kiroku-store/test/Test/StartupFailureSurfacing.hs`, `kiroku-store/test/Test/SubscriptionReconnect.hs`, `kiroku-store/test/Test/HandlerStall.hs`, and lifecycle/notifier cases in `kiroku-store/test/Main.hs` cover adjacent behavior. `kiroku-store/test/Test/Helpers.hs` provides isolated store fixtures, synchronization helpers, listener PID lookup and listener counts. `kiroku-test-support/src/Kiroku/Test/Postgres.hs` supplies ephemeral PostgreSQL. The test executable acquires its shared migrated database before Hspec filtering (`main = withSharedMigratedPostgres $ hspec $ do` in `kiroku-store/test/Main.hs`), so even pure filtered examples require PostgreSQL on PATH. Use the Nix development shell; no external database setup is needed. Hspec runs examples sequentially here because no test module uses `parallel`. No existing example description contains the word `asynchronous`, so a `--match=asynchronous` filter selects only the new boundary examples.
 
-The bug report lives in the profile-governed OKF bundle `docs/bug-reports/`. Its `status` vocabulary is `reported`, `confirmed`, `in-progress`, `fixed`, `wont-fix`, `duplicate`, `not-a-bug` and `cannot-reproduce`; `fixed` is terminal and requires a `resolution` field under strict validation. There is no verified or released status, so release state is recorded in `resolution` and the body, as the four existing `fixed` reports do. Strict validation of the bundle currently fails on four older reports that lack `reviews` metadata; no diagnostic names BUG-6 and this plan does not repair those reports. The `index.md` files under `docs/bug-reports/` are generated listings that `okf index` rewrites.
+The bug report lives in the profile-governed OKF bundle `docs/bug-reports/`. Its `status` vocabulary is `reported`, `confirmed`, `in-progress`, `fixed`, `wont-fix`, `duplicate`, `not-a-bug` and `cannot-reproduce`; `fixed` is terminal and requires `resolution` and `fixedVersion` fields under strict validation; use `fixedVersion: unreleased` until publication. There is no verified or released status, so release state is recorded in `resolution` and the body, as the four existing `fixed` reports do. Strict validation of the bundle currently fails on four older reports that lack `reviews` metadata; no diagnostic names BUG-6 and this plan does not repair those reports. The `index.md` files under `docs/bug-reports/` are generated listings that `okf index` rewrites.
 
 Relevant ADRs consulted are [ADR-11](../adr/0011-subscription-hardening-protects-write-performance-and-keeps-stall-diagnostics-opt-in.md), which requires proportional evidence and cheap default paths, and [ADR-13](../adr/0013-handler-stall-diagnostics-are-worker-owned-and-advisory.md), which preserves consumer acknowledgement ownership, scoped watchdog cleanup and cancellation propagation. Preserve those contracts. No ADR specifically defines these three exception classifiers.
 
@@ -132,7 +150,7 @@ Demonstrate each test's sensitivity by temporarily reverting one production clas
 
 Run the focused tests, then the entire store suite and repository suites in the configured development shell. Run existing structural performance tests. Review the diff for unchanged success-path SQL, pool operations, checkpoint semantics, callback-free paths, and per-event allocations. A classifier-only exceptional-path change needs no remote benchmark matrix; if the test seam or implementation introduces ordinary-path work, remove it or justify a focused affected-path measurement under ADR-11 and the repository's whole-experiment budget.
 
-Record commands, compiler/PostgreSQL versions, candidate commit, example counts and failure summaries in `docs/bug-reports/evidence/BUG-6/current-head-validation.md`, then run `okf index docs/bug-reports --write` so `docs/bug-reports/evidence/BUG-6/index.md` lists the new file. Preserve historical evidence. Move the bug report from `confirmed` to `fixed` only when the acceptance evidence is complete, adding a `resolution` that names the fixing commit and states that no release contains it yet; the profile has no verified or released status, so that distinction lives in `resolution` and the body. Re-run strict bundle validation afterwards and confirm that the only remaining diagnostics are the four pre-existing `reviews` findings on older reports. Add an unreleased note in `kiroku-store/CHANGELOG.md`. Do not bump versions or publish as part of this plan. Distill the durable classification and cancellation policy into an ADR using `agents/skills/exec-plan/ADR.md`, including the repository's profiled validation and log requirements. Triage implementation friction and fill Outcomes only when the acceptance evidence is complete.
+Record commands, compiler/PostgreSQL versions, candidate commit, example counts and failure summaries in `docs/bug-reports/evidence/BUG-6/current-head-validation.txt`, then run `okf index docs/bug-reports --write` so `docs/bug-reports/evidence/BUG-6/index.md` lists the new file. Preserve historical evidence. Move the bug report from `confirmed` to `fixed` only when the acceptance evidence is complete, setting `fixedVersion: unreleased` and adding a `resolution` that names the fixing commit and states that no release contains it yet; the profile has no verified or released status, so that distinction lives in `resolution` and the body. Re-run strict bundle validation afterwards and confirm that the only remaining diagnostics are the four pre-existing `reviews` findings on older reports. Add an unreleased note in `kiroku-store/CHANGELOG.md`. Do not bump versions or publish as part of this plan. Distill the durable classification and cancellation policy into an ADR using `agents/skills/exec-plan/ADR.md`, including the repository's profiled validation and log requirements. Triage implementation friction and fill Outcomes only when the acceptance evidence is complete.
 
 ## Concrete Steps
 
@@ -206,5 +224,7 @@ Tests use ephemeral databases and are repeatable. Save baseline and candidate re
 
 
 Keep `emitOrDrop`, `startNotifier`, `stopNotifier`, publisher lifecycle functions, exception types and synchronous recovery behavior source-compatible. The intended production correction uses existing `Control.Exception` functions and needs no new package. `mori://simonmar/async/packages/async` supplies real thread cancellation for tests. Discover any additional dependency API with Mori before use; verify registry releases and upstream tags before choosing any new bound or workaround. Avoid adding a public test-only API without explicitly recording and reviewing that tradeoff. Keep production resource ownership with the existing notifier brackets and stop functions.
+
+Revision note (2026-10-30, implementation): Use `current-head-validation.txt` because every non-reserved Markdown file inside the bug bundle is validated as a Bug Report concept; fixed reports also require `fixedVersion: unreleased`. This reconciles the prescribed evidence with the pinned bundle contract without adding another bug concept.
 
 Revision note (2026-10-30): Applied review findings before implementation. Named the deterministic publisher-thread callback trigger (`KirokuEventPublisherDecodeFailed`), the publisher thread handle and the blocked-worker cleanup; chose the `withListenHookForTest` seam for notifier startup after verifying both modules are exposed; recorded the bug-report status vocabulary, the evidence index regeneration step and the pre-existing bundle validation failures; replaced an ephemeral GHC artifact link with the decoder definition; aligned the cancellation deadline with the existing ten-second test bound; and recorded the review re-verification of the probe and patch apply-check.

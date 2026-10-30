@@ -1,6 +1,7 @@
 # Bundle Update Log
 
 ## 2026-10-30
+* **Fix**: Fix cancellation classifiers in 46b5cd6; retain sensitive current-source regressions, six passing repository suites and structural evidence. Unreleased.
 * **Report**: BUG-6 confirms swallowed asynchronous cancellation in three existential exception checks; includes a standalone reproduction, current-HEAD suggested patch, tested 0.11.0.1 compatibility patch and explicit qualification limits.
 
 ## 2026-10-25
