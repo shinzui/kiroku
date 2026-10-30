@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-10-30
+* **Report**: BUG-6 confirms swallowed asynchronous cancellation in three existential exception checks; includes a standalone reproduction, current-HEAD suggested patch, tested 0.11.0.1 compatibility patch and explicit qualification limits.
+
 ## 2026-10-25
 * **Modification**: BUG-5 remains reported from source inspection, not a production incident or executed reproduction. The owner reports no production use of consumer groups; dedicated recovery implementation is deferred until a retained incomplete legacy group needs recovery or a concrete future consumer requirement establishes the need for a seed API. Corrected reset scope (all persisted members, no missing rows), removed released-migration-edit advice, and linked the corrected guides; no validated recovery procedure or defect fix is claimed.
 

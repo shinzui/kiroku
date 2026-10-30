@@ -1,0 +1,56 @@
+Compatibility validation on kiroku-store 0.11.0.1 with GHC 9.12.4, native aarch64-darwin:
+
+Base commit: 084fd8359850342447cdda8e632b7dc456c7fca4
+Suggested compatibility commit: dbe29166f8b38f842759e685555df55d5c1f0fb4 (local, unpublished)
+
+Regression added, original Observability.hs restored:
+  cabal test kiroku-store:test:kiroku-store-test --test-show-details=direct --test-options=--match=asynchronous
+  1 example, 1 failure
+  did not get expected exception: AsyncCancelled
+
+Compatibility patch restored:
+  cabal test kiroku-store:test:kiroku-store-test --test-show-details=direct --test-options=--match=resilience
+  22 examples, 0 failures
+
+Earlier broader focused selection with compatibility patch:
+  cabal test kiroku-store:test:kiroku-store-test --test-show-details=direct --test-options=--match=preserves
+  38 examples, 0 failures
+  This selection includes unrelated examples; it is not 38 cancellation cases.
+
+Direct probe, original released dependency:
+  asyncExceptionFromException (toException AsyncCancelled) :: Maybe SomeAsyncException
+  Nothing
+  fromException (toException AsyncCancelled) :: Maybe SomeAsyncException
+  Just AsyncCancelled
+  try @SomeException (emitOrDrop (Just (const (throwIO AsyncCancelled))) KirokuEventNotifierReconnected)
+  Right ()
+
+Direct probe after correcting the emitter classifier:
+  AsyncCancelled -> Left AsyncCancelled
+  ThreadKilled -> Left thread killed
+  synchronous callback failure -> Right ()
+
+Current producer HEAD b9442820bb18636023ae6a18161ad01b576dd425:
+  The same three incorrect existential checks are present by source inspection.
+  current-head.patch is a contextual adaptation; validated with git apply --check.
+  The current-HEAD adaptation has not been compiled or executed.
+
+The dependency correction does not establish that the entire Kotei native shutdown
+issue is resolved. Its SDK span hooks independently catch asynchronous cancellation,
+and the earlier lost-signal symptom remains a separate unqualified observation.
+
+Report bundle validation:
+  okf validate docs/bug-reports --strict --profile docs/bug-reports/profile.dhall --profile-enforce --log-enforce
+  Fails on pre-existing missing reviews metadata in BUG-1, BUG-2, BUG-4 and BUG-5.
+  No diagnostics name BUG-6. The older reports were left unchanged.
+
+Attached standalone reproduce.hs executed against Kotei's accepted kiroku-store
+0.11.0.0 dependency in GHCi on 2026-10-30:
+  Nothing
+  Just AsyncCancelled
+  Right ()
+  Right ()
+  Right ()
+  Right ()
+This verifies the attached probe compiles and reproduces all three swallowed
+asynchronous exceptions, while the synchronous callback failure remains dropped.
