@@ -1,9 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.13.0.1 — 2026-10-30
+
+### Bug Fixes
 
 - Preserve asynchronous cancellation through observability callbacks, publisher
   recovery and initial notifier LISTEN setup, including concrete exception payloads.
+- Release the acquired notifier connection when startup LISTEN is cancelled;
+  retain synchronous callback suppression and publisher recovery behavior.
+
+### Other Changes
+
+- Export `withListenHookForTest` from `Kiroku.Store.Notification` for sequential,
+  process-local startup LISTEN injection. The previous hook is restored on exit;
+  production leaves it unset.
 
 ## 0.13.0.0 — 2026-10-28
 
