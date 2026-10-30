@@ -29,7 +29,7 @@ index 473eac9..5fe86db 100644
 @@ -51,7 +51,7 @@ module Kiroku.Store.Observability (
      emitOrDrop,
  ) where
- 
+
 -import Control.Exception (SomeAsyncException, SomeException, asyncExceptionFromException, catch, throwIO)
 +import Control.Exception (SomeAsyncException, SomeException, catch, fromException, throwIO)
  import Data.Foldable (for_)
@@ -44,7 +44,7 @@ index 473eac9..5fe86db 100644
 +            case fromException e of
 +                Just (_ :: SomeAsyncException) -> throwIO e
                  Nothing -> pure ()
- 
+
  -- | Which database phase a 'KirokuEventSubscriptionDbError' fired in.
 diff --git a/kiroku-store/src/Kiroku/Store/Subscription/EventPublisher.hs b/kiroku-store/src/Kiroku/Store/Subscription/EventPublisher.hs
 index d984bfe..53d4ce5 100644
@@ -69,7 +69,7 @@ index d984bfe..53d4ce5 100644
 +                Just (_ :: SomeAsyncException) -> throwIO e
                  Nothing -> emitOrDrop mHandler (KirokuEventPublisherLoopError e)
          loop
- 
+
 diff --git a/kiroku-store/test/Test/PublisherCallbackResilience.hs b/kiroku-store/test/Test/PublisherCallbackResilience.hs
 index bca70c5..48acf6f 100644
 --- a/kiroku-store/test/Test/PublisherCallbackResilience.hs
@@ -92,7 +92,7 @@ index bca70c5..48acf6f 100644
  import Kiroku.Store.Subscription.Effect qualified as SubEff
  import Kiroku.Store.Subscription.Fsm (SubscriptionState (..))
 @@ -90,6 +91,13 @@ awaitCheckpoint store name' expected = within "durable checkpoint" loop
- 
+
  spec :: Spec
  spec = describe "publisher callback resilience" $ do
 +    it "preserves cancellation and runtime asynchronous exceptions in observability callbacks" $ do

@@ -3,7 +3,7 @@
 @@ -51,7 +51,7 @@
    )
  where
- 
+
 -import Control.Exception (SomeAsyncException, SomeException, asyncExceptionFromException, catch, throwIO)
 +import Control.Exception (SomeAsyncException, SomeException, catch, fromException, throwIO)
  import Data.Foldable (for_)
@@ -18,7 +18,7 @@
 +      case fromException e of
 +        Just (_ :: SomeAsyncException) -> throwIO e
          Nothing -> pure ()
- 
+
  -- | Which database phase a 'KirokuEventSubscriptionDbError' fired in.
 --- a/kiroku-store/src/Kiroku/Store/Notification.hs
 +++ b/kiroku-store/src/Kiroku/Store/Notification.hs
@@ -63,7 +63,7 @@
 +          Just (_ :: SomeAsyncException) -> throwIO e
            Nothing -> emitOrDrop mHandler (KirokuEventPublisherLoopError e)
        loop
- 
+
 --- a/kiroku-store/test/Test/PublisherCallbackResilience.hs
 +++ b/kiroku-store/test/Test/PublisherCallbackResilience.hs
 @@ -7,7 +7,7 @@
@@ -84,7 +84,7 @@
  import Kiroku.Store.Subscription.Effect qualified as SubEff
  import Kiroku.Store.Subscription.Fsm (SubscriptionState (..))
 @@ -90,6 +91,13 @@
- 
+
  spec :: Spec
  spec = describe "publisher callback resilience" $ do
 +  it "preserves cancellation and runtime asynchronous exceptions in observability callbacks" $ do
