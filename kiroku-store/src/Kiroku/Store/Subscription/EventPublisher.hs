@@ -53,7 +53,7 @@ import Control.Concurrent.STM
     writeTVar,
   )
 import Control.Concurrent.STM qualified as STM
-import Control.Exception (SomeAsyncException, SomeException, asyncExceptionFromException, catch, throwIO)
+import Control.Exception (SomeAsyncException, SomeException, catch, fromException, throwIO)
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Foldable (for_)
@@ -232,8 +232,8 @@ publisherLoop pool tickChan subsVar posVar mHandler stSettings = loop
       -- partial delivery, lastPublished is not advanced, so the next tick
       -- re-fetches under Kiroku's at-least-once delivery contract.
       fetchAndBroadcast `catch` \(e :: SomeException) ->
-        case asyncExceptionFromException e of
-          Just (ae :: SomeAsyncException) -> throwIO ae
+        case fromException e of
+          Just (_ :: SomeAsyncException) -> throwIO e
           Nothing -> emitOrDrop mHandler (KirokuEventPublisherLoopError e)
       loop
 

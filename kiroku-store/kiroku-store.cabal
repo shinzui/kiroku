@@ -108,6 +108,7 @@ test-suite kiroku-store-test
   hs-source-dirs:  test
   other-modules:
     Paths_kiroku_store
+    Test.AsyncCancellation
     Test.BrowseQueryPlans
     Test.BrowseReads
     Test.BrowseReadsMock

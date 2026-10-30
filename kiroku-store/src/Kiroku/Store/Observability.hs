@@ -51,7 +51,7 @@ module Kiroku.Store.Observability
   )
 where
 
-import Control.Exception (SomeAsyncException, SomeException, asyncExceptionFromException, catch, throwIO)
+import Control.Exception (SomeAsyncException, SomeException, catch, fromException, throwIO)
 import Data.Foldable (for_)
 import Data.Int (Int32, Int64)
 import Data.Time (NominalDiffTime)
@@ -246,8 +246,8 @@ emitOrDrop :: Maybe (KirokuEvent -> IO ()) -> KirokuEvent -> IO ()
 emitOrDrop mHandler evt =
   for_ mHandler $ \handler ->
     handler evt `catch` \(e :: SomeException) ->
-      case asyncExceptionFromException e of
-        Just (ae :: SomeAsyncException) -> throwIO ae
+      case fromException e of
+        Just (_ :: SomeAsyncException) -> throwIO e
         Nothing -> pure ()
 
 -- | Which database phase a 'KirokuEventSubscriptionDbError' fired in.

@@ -22,6 +22,11 @@ provenance:
       at: 2026-10-30T17:55:46Z
       mode: "update"
       note: "Applied review findings: publisher trigger, notifier seam decision, bug-report status and index steps, stable decoder reference, deadline alignment"
+    - model: "gpt-6.1-sol"
+      harness: "codex-cli"
+      at: 2026-10-30T18:32:12Z
+      mode: "implement"
+      note: "Implement boundary regressions, classifier corrections and final validation"
 ---
 
 # Preserve asynchronous cancellation across observability and recovery
@@ -38,17 +43,19 @@ This is a plan for implementation. Creating it does not establish that the patch
 ## Progress
 
 
-- [ ] Milestone 1: Current-source reproductions and deterministic tests expose all three faulty boundaries, with recorded failures before the fix.
-- [ ] Milestone 2: Reviewed classifier corrections pass direct and cross-thread cancellation tests while synchronous recovery and cleanup remain correct.
+- [x] Milestone 1 (2026-10-30): The unchanged-source probe reproduced swallowed cancellation; 27 new examples produced 24 expected failures and three passing synchronous/success controls. The existing synchronous publisher recovery control also passed (one example).
+- [x] Milestone 2 (2026-10-30): All 27 boundary examples pass with corrected classifiers; independent reverts fail observation (4/4), nested publisher callback (1/1), and notifier startup (4/4). Concrete payloads, real cancellation, connection cleanup and synchronous controls are covered.
 - [ ] Milestone 3: Final candidate passes focused and repository regression checks; evidence, bug status, changelog, and durable cancellation policy are reconciled.
 
 ## Surprises & Discoveries
 
 
-None yet during implementation.
+2026-10-30: All 27 boundary examples pass after the three production corrections (1.45 seconds); the unchanged classifiers failed 24 of them (71.57 seconds). Direct queue registration forces publisher full fetch without a subscription worker obscuring the target boundary. Independent classifier reverts fail the corresponding assertions (4 observation, one nested publisher, four notifier startup). Final regression checks remain in progress.
 
 ## Decision Log
 
+
+2026-10-30: Register the publisher queue directly with a bracketed unsubscribe action in the new regressions. This exercises the same full-fetch recovery boundary without creating an idle subscription worker that needs independent cancellation. The existing resilience control now explicitly verifies checkpoint and publisher progress after synchronous recovery.
 
 2026-10-30: Treat the attached patch as a candidate correction, not sufficient acceptance evidence. Its three production edits address the reported misuse, but its one added example exercises only `emitOrDrop`. Require independently sensitive tests of publisher recovery and notifier startup before accepting the change.
 
@@ -61,7 +68,7 @@ None yet during implementation.
 ## Outcomes & Retrospective
 
 
-Pending implementation.
+Implementation in progress; final regression and sensitivity evidence pending.
 
 ## Context and Orientation
 

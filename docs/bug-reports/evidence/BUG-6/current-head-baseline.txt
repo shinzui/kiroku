@@ -1,0 +1,197 @@
+Plan 104 baseline: original three classifiers, startup injection seam and new boundary tests.
+
+asynchronous cancellation
+  allows absent and successful observation callbacks [✔]
+  suppresses synchronous observation failures [✔]
+  preserves observation AsyncCancelled [✘]
+  preserves notifier startup AsyncCancelled and releases its connection [✘]
+  preserves observation ThreadKilled [✘]
+  preserves notifier startup ThreadKilled and releases its connection [✘]
+  preserves observation UserInterrupt [✘]
+  preserves notifier startup UserInterrupt and releases its connection [✘]
+  preserves observation custom payload [✘]
+  preserves notifier startup custom payload and releases its connection [✘]
+  wraps synchronous notifier startup failure with its original cause and releases the connection [✔]
+  terminates a blocked observation callback, custom=False [✘]
+  terminates blocked notifier startup and releases its connection, custom=False [✘]
+  terminates a blocked observation callback, custom=True [✘]
+  terminates blocked notifier startup and releases its connection, custom=True [✘]
+publisher callback resilience
+  asynchronous publisher recovery
+    preserves AsyncCancelled, callback=False [✘]
+    preserves ThreadKilled, callback=False [✘]
+    preserves UserInterrupt, callback=False [✘]
+    preserves custom payload, callback=False [✘]
+    terminates blocked action, callback=False, custom=False [✘]
+    terminates blocked action, callback=False, custom=True [✘]
+    preserves AsyncCancelled, callback=True [✘]
+    preserves ThreadKilled, callback=True [✘]
+    preserves UserInterrupt, callback=True [✘]
+    preserves custom payload, callback=True [✘]
+    terminates blocked action, callback=True, custom=False [✘]
+    terminates blocked action, callback=True, custom=True [✘]
+
+Failures:
+
+  test/Test/AsyncCancellation.hs:50:14: 
+  1) asynchronous cancellation preserves observation AsyncCancelled
+       expected asynchronous exception; action returned normally
+
+  To rerun use: --match "/asynchronous cancellation/preserves observation AsyncCancelled/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:49:15: 
+  2) asynchronous cancellation preserves notifier startup AsyncCancelled and releases its connection
+       predicate failed on: NotifierListenError AsyncCancelled
+
+  To rerun use: --match "/asynchronous cancellation/preserves notifier startup AsyncCancelled and releases its connection/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:50:14: 
+  3) asynchronous cancellation preserves observation ThreadKilled
+       expected asynchronous exception; action returned normally
+
+  To rerun use: --match "/asynchronous cancellation/preserves observation ThreadKilled/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:49:15: 
+  4) asynchronous cancellation preserves notifier startup ThreadKilled and releases its connection
+       predicate failed on: NotifierListenError thread killed
+
+  To rerun use: --match "/asynchronous cancellation/preserves notifier startup ThreadKilled and releases its connection/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:50:14: 
+  5) asynchronous cancellation preserves observation UserInterrupt
+       expected asynchronous exception; action returned normally
+
+  To rerun use: --match "/asynchronous cancellation/preserves observation UserInterrupt/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:49:15: 
+  6) asynchronous cancellation preserves notifier startup UserInterrupt and releases its connection
+       predicate failed on: NotifierListenError user interrupt
+
+  To rerun use: --match "/asynchronous cancellation/preserves notifier startup UserInterrupt and releases its connection/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:50:14: 
+  7) asynchronous cancellation preserves observation custom payload
+       expected asynchronous exception; action returned normally
+
+  To rerun use: --match "/asynchronous cancellation/preserves observation custom payload/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:49:15: 
+  8) asynchronous cancellation preserves notifier startup custom payload and releases its connection
+       predicate failed on: NotifierListenError (PayloadCancellation 73)
+
+  To rerun use: --match "/asynchronous cancellation/preserves notifier startup custom payload and releases its connection/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:50:14: 
+  9) asynchronous cancellation terminates a blocked observation callback, custom=False
+       expected asynchronous exception; action returned normally
+
+  To rerun use: --match "/asynchronous cancellation/terminates a blocked observation callback, custom=False/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:49:15: 
+  10) asynchronous cancellation terminates blocked notifier startup and releases its connection, custom=False
+       predicate failed on: NotifierListenError AsyncCancelled
+
+  To rerun use: --match "/asynchronous cancellation/terminates blocked notifier startup and releases its connection, custom=False/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:50:14: 
+  11) asynchronous cancellation terminates a blocked observation callback, custom=True
+       expected asynchronous exception; action returned normally
+
+  To rerun use: --match "/asynchronous cancellation/terminates a blocked observation callback, custom=True/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:49:15: 
+  12) asynchronous cancellation terminates blocked notifier startup and releases its connection, custom=True
+       predicate failed on: NotifierListenError (PayloadCancellation 73)
+
+  To rerun use: --match "/asynchronous cancellation/terminates blocked notifier startup and releases its connection, custom=True/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:157:20: 
+  13) publisher callback resilience, asynchronous publisher recovery, preserves AsyncCancelled, callback=False
+       asynchronous exception became a publisher loop error
+
+  To rerun use: --match "/publisher callback resilience/asynchronous publisher recovery/preserves AsyncCancelled, callback=False/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:157:20: 
+  14) publisher callback resilience, asynchronous publisher recovery, preserves ThreadKilled, callback=False
+       asynchronous exception became a publisher loop error
+
+  To rerun use: --match "/publisher callback resilience/asynchronous publisher recovery/preserves ThreadKilled, callback=False/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:157:20: 
+  15) publisher callback resilience, asynchronous publisher recovery, preserves UserInterrupt, callback=False
+       asynchronous exception became a publisher loop error
+
+  To rerun use: --match "/publisher callback resilience/asynchronous publisher recovery/preserves UserInterrupt, callback=False/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:157:20: 
+  16) publisher callback resilience, asynchronous publisher recovery, preserves custom payload, callback=False
+       asynchronous exception became a publisher loop error
+
+  To rerun use: --match "/publisher callback resilience/asynchronous publisher recovery/preserves custom payload, callback=False/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:128:7: 
+  17) publisher callback resilience, asynchronous publisher recovery, terminates blocked action, callback=False, custom=False
+       uncaught exception: IOException of type UserError
+       user error (asynchronous boundary timed out)
+
+  To rerun use: --match "/publisher callback resilience/asynchronous publisher recovery/terminates blocked action, callback=False, custom=False/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:157:20: 
+  18) publisher callback resilience, asynchronous publisher recovery, terminates blocked action, callback=False, custom=True
+       asynchronous exception became a publisher loop error
+
+  To rerun use: --match "/publisher callback resilience/asynchronous publisher recovery/terminates blocked action, callback=False, custom=True/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:125:7: 
+  19) publisher callback resilience, asynchronous publisher recovery, preserves AsyncCancelled, callback=True
+       uncaught exception: IOException of type UserError
+       user error (asynchronous boundary timed out)
+
+  To rerun use: --match "/publisher callback resilience/asynchronous publisher recovery/preserves AsyncCancelled, callback=True/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:125:7: 
+  20) publisher callback resilience, asynchronous publisher recovery, preserves ThreadKilled, callback=True
+       uncaught exception: IOException of type UserError
+       user error (asynchronous boundary timed out)
+
+  To rerun use: --match "/publisher callback resilience/asynchronous publisher recovery/preserves ThreadKilled, callback=True/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:125:7: 
+  21) publisher callback resilience, asynchronous publisher recovery, preserves UserInterrupt, callback=True
+       uncaught exception: IOException of type UserError
+       user error (asynchronous boundary timed out)
+
+  To rerun use: --match "/publisher callback resilience/asynchronous publisher recovery/preserves UserInterrupt, callback=True/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:125:7: 
+  22) publisher callback resilience, asynchronous publisher recovery, preserves custom payload, callback=True
+       uncaught exception: IOException of type UserError
+       user error (asynchronous boundary timed out)
+
+  To rerun use: --match "/publisher callback resilience/asynchronous publisher recovery/preserves custom payload, callback=True/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:128:7: 
+  23) publisher callback resilience, asynchronous publisher recovery, terminates blocked action, callback=True, custom=False
+       uncaught exception: IOException of type UserError
+       user error (asynchronous boundary timed out)
+
+  To rerun use: --match "/publisher callback resilience/asynchronous publisher recovery/terminates blocked action, callback=True, custom=False/" --seed 424030041
+
+  test/Test/AsyncCancellation.hs:128:7: 
+  24) publisher callback resilience, asynchronous publisher recovery, terminates blocked action, callback=True, custom=True
+       uncaught exception: IOException of type UserError
+       user error (asynchronous boundary timed out)
+
+  To rerun use: --match "/publisher callback resilience/asynchronous publisher recovery/terminates blocked action, callback=True, custom=True/" --seed 424030041
+
+Randomized with seed 424030041
+
+Finished in 71.5684 seconds
+27 examples, 24 failures
+Test suite kiroku-store-test: FAIL
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.13.0.0/t/kiroku-store-test/test/kiroku-store-0.13.0.0-kiroku-store-test.log
+0 of 1 test suites (0 of 1 test cases) passed.
+Error: [Cabal-7125]
+Tests failed for test:kiroku-store-test from kiroku-store-0.13.0.0.
+

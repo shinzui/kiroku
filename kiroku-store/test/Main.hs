@@ -25,6 +25,7 @@ import Kiroku.Store.Subscription.Effect qualified as SubEff
 import Kiroku.Store.Subscription.EventPublisher (publisherPosition)
 import Kiroku.Store.Subscription.Fsm qualified as Fsm
 import Kiroku.Test.Postgres (withMigratedTestDatabase)
+import Test.AsyncCancellation qualified as AsyncCancellation
 import Test.BrowseQueryPlans qualified as BrowseQueryPlans
 import Test.BrowseReads qualified as BrowseReads
 import Test.BrowseReadsMock qualified as BrowseReadsMock
@@ -138,6 +139,7 @@ main = withSharedMigratedPostgres $ hspec $ do
     StreamNameLookup.noOpSpec
   CategoryIdleNoSpin.spec
   HandlerStall.spec
+  AsyncCancellation.spec
   PublisherCallbackResilience.spec
   PublisherDropCounter.spec
   PublisherIdleAdvance.spec

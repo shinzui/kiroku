@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-10-30
+* **Decision**: Record cancellation family classification and preserved synchronous recovery policy for BUG-6.
+
 ## 2026-10-28
 * **Addition**: ADR-22 records manifest-driven, witness-validated and ledgered physical compaction with reference and concurrency contracts.
 * **Addition**: ADR-21 establishes the schema-installed clone-shared identity and append-only compaction ledger.

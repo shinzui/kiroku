@@ -29,6 +29,7 @@ import Kiroku.Store
 import Kiroku.Store.SQL qualified as SQL
 import Kiroku.Store.Subscription.Effect qualified as SubEff
 import Kiroku.Store.Subscription.Fsm (SubscriptionState (..))
+import Test.AsyncCancellation qualified as AsyncCancellation
 import Test.Helpers (caughtUpEventHandler, makeEvent, validConsumerGroup, waitForPublisher, waitForSubscriptionLive, waitWithTimeout, withTestStoreSettings)
 import Test.Hspec
 
@@ -90,6 +91,7 @@ awaitCheckpoint store name' expected = within "durable checkpoint" loop
 
 spec :: Spec
 spec = describe "publisher callback resilience" $ do
+  AsyncCancellation.publisherSpec
   it "stops only the default subscriber while a sibling dead-letters and continues live" $ do
     defaultLive <- newEmptyMVar
     siblingLive <- newEmptyMVar
@@ -553,6 +555,8 @@ spec = describe "publisher callback resilience" $ do
         Right (Right ()) -> pure ()
         Left timeout -> expectationFailure timeout
         Right (Left e) -> expectationFailure ("expected clean stop, got: " <> show e)
+      awaitCheckpoint store "publisher-decode-hook-resilience" 2
+      waitForPublisher store (GlobalPosition 2)
 
     seen <- reverse <$> readIORef delivered
     seen `shouldBe` [EventType "Boom", EventType "Ok"]

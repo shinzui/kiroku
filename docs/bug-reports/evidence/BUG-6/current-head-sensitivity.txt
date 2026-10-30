@@ -1,0 +1,119 @@
+emitter classifier reverted independently; other two corrections retained.
+
+asynchronous cancellation
+  preserves observation AsyncCancelled [✘]
+  preserves observation ThreadKilled [✘]
+  preserves observation UserInterrupt [✘]
+  preserves observation custom payload [✘]
+
+Failures:
+
+  test/Test/AsyncCancellation.hs:52:14: 
+  1) asynchronous cancellation preserves observation AsyncCancelled
+       expected asynchronous exception; action returned normally
+
+  To rerun use: --match "/asynchronous cancellation/preserves observation AsyncCancelled/" --seed 685371563
+
+  test/Test/AsyncCancellation.hs:52:14: 
+  2) asynchronous cancellation preserves observation ThreadKilled
+       expected asynchronous exception; action returned normally
+
+  To rerun use: --match "/asynchronous cancellation/preserves observation ThreadKilled/" --seed 685371563
+
+  test/Test/AsyncCancellation.hs:52:14: 
+  3) asynchronous cancellation preserves observation UserInterrupt
+       expected asynchronous exception; action returned normally
+
+  To rerun use: --match "/asynchronous cancellation/preserves observation UserInterrupt/" --seed 685371563
+
+  test/Test/AsyncCancellation.hs:52:14: 
+  4) asynchronous cancellation preserves observation custom payload
+       expected asynchronous exception; action returned normally
+
+  To rerun use: --match "/asynchronous cancellation/preserves observation custom payload/" --seed 685371563
+
+Randomized with seed 685371563
+
+Finished in 0.0005 seconds
+4 examples, 4 failures
+Test suite kiroku-store-test: FAIL
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.13.0.0/t/kiroku-store-test/test/kiroku-store-0.13.0.0-kiroku-store-test.log
+0 of 1 test suites (0 of 1 test cases) passed.
+Error: [Cabal-7125]
+Tests failed for test:kiroku-store-test from kiroku-store-0.13.0.0.
+
+
+
+publisher classifier reverted independently; other two corrections retained.
+
+publisher callback resilience
+  asynchronous publisher recovery
+    preserves AsyncCancelled, callback=True [✘]
+
+Failures:
+
+  test/Test/AsyncCancellation.hs:167:22: 
+  1) publisher callback resilience, asynchronous publisher recovery, preserves AsyncCancelled, callback=True
+       asynchronous exception became a publisher loop error
+
+  To rerun use: --match "/publisher callback resilience/asynchronous publisher recovery/preserves AsyncCancelled, callback=True/" --seed 458625932
+
+Randomized with seed 458625932
+
+Finished in 0.1459 seconds
+1 example, 1 failure
+Test suite kiroku-store-test: FAIL
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.13.0.0/t/kiroku-store-test/test/kiroku-store-0.13.0.0-kiroku-store-test.log
+0 of 1 test suites (0 of 1 test cases) passed.
+Error: [Cabal-7125]
+Tests failed for test:kiroku-store-test from kiroku-store-0.13.0.0.
+
+
+
+notifier classifier reverted independently; other two corrections retained.
+
+asynchronous cancellation
+  preserves notifier startup AsyncCancelled and releases its connection [✘]
+  preserves notifier startup ThreadKilled and releases its connection [✘]
+  preserves notifier startup UserInterrupt and releases its connection [✘]
+  preserves notifier startup custom payload and releases its connection [✘]
+
+Failures:
+
+  test/Test/AsyncCancellation.hs:51:15: 
+  1) asynchronous cancellation preserves notifier startup AsyncCancelled and releases its connection
+       predicate failed on: NotifierListenError AsyncCancelled
+
+  To rerun use: --match "/asynchronous cancellation/preserves notifier startup AsyncCancelled and releases its connection/" --seed 1700121043
+
+  test/Test/AsyncCancellation.hs:51:15: 
+  2) asynchronous cancellation preserves notifier startup ThreadKilled and releases its connection
+       predicate failed on: NotifierListenError thread killed
+
+  To rerun use: --match "/asynchronous cancellation/preserves notifier startup ThreadKilled and releases its connection/" --seed 1700121043
+
+  test/Test/AsyncCancellation.hs:51:15: 
+  3) asynchronous cancellation preserves notifier startup UserInterrupt and releases its connection
+       predicate failed on: NotifierListenError user interrupt
+
+  To rerun use: --match "/asynchronous cancellation/preserves notifier startup UserInterrupt and releases its connection/" --seed 1700121043
+
+  test/Test/AsyncCancellation.hs:51:15: 
+  4) asynchronous cancellation preserves notifier startup custom payload and releases its connection
+       predicate failed on: NotifierListenError (PayloadCancellation 73)
+
+  To rerun use: --match "/asynchronous cancellation/preserves notifier startup custom payload and releases its connection/" --seed 1700121043
+
+Randomized with seed 1700121043
+
+Finished in 0.5393 seconds
+4 examples, 4 failures
+Test suite kiroku-store-test: FAIL
+Test suite logged to:
+/Users/shinzui/Keikaku/bokuno/kiroku-project/kiroku/dist-newstyle/build/aarch64-osx/ghc-9.12.4/kiroku-store-0.13.0.0/t/kiroku-store-test/test/kiroku-store-0.13.0.0-kiroku-store-test.log
+0 of 1 test suites (0 of 1 test cases) passed.
+Error: [Cabal-7125]
+Tests failed for test:kiroku-store-test from kiroku-store-0.13.0.0.
+

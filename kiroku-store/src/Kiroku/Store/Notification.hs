@@ -3,6 +3,7 @@ module Kiroku.Store.Notification
     NotifierStartError (..),
     startNotifier,
     stopNotifier,
+    withListenHookForTest,
     NamespaceRegistry,
     registerNamespace,
     notifyNamespace,
@@ -13,11 +14,12 @@ import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (Async)
 import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.STM (STM, TChan, TVar, atomically, modifyTVar', newBroadcastTChanIO, newTVar, newTVarIO, readTVar, readTVarIO, writeTChan, writeTVar)
-import Control.Exception (Exception, SomeAsyncException, SomeException, asyncExceptionFromException, bracketOnError, catch, throwIO, toException)
+import Control.Exception (Exception, SomeAsyncException, SomeException, asyncExceptionFromException, bracket, bracketOnError, catch, fromException, throwIO, toException)
 import Control.Monad (forM_, unless, void)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.ByteString (ByteString)
 import Data.ByteString.Char8 qualified as BC
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
@@ -36,6 +38,7 @@ import Hasql.Session qualified as Session
 import Hasql.Statement (Statement, unpreparable)
 import Kiroku.Store.Observability (KirokuEvent (..), emitOrDrop)
 import Kiroku.Store.Types (CategoryName (..), StreamName (..), categoryName)
+import System.IO.Unsafe (unsafePerformIO)
 
 -- | A Notifier manages a dedicated PostgreSQL connection for LISTEN/NOTIFY.
 -- It writes a @()@ tick to a broadcast 'TChan' on every notification,
@@ -128,6 +131,28 @@ reconnectDelayMicros n
   | n <= 0 = 1_000_000
   | otherwise = min maxReconnectDelayMicros (1_000_000 * 2 ^ (min (n - 1) 30))
 
+{-# NOINLINE listenHookRef #-}
+listenHookRef :: IORef (Maybe (IO () -> IO ()))
+listenHookRef = unsafePerformIO (newIORef Nothing)
+
+-- | Test-only process-local startup LISTEN hook. Use sequentially; the previous
+-- hook is restored even if the test throws. Production leaves it unset.
+withListenHookForTest :: (IO () -> IO ()) -> IO a -> IO a
+withListenHookForTest hook action =
+  bracket
+    ( do
+        previous <- readIORef listenHookRef
+        writeIORef listenHookRef (Just hook)
+        pure previous
+    )
+    (writeIORef listenHookRef)
+    (const action)
+
+startupListen :: IO () -> IO ()
+startupListen action = do
+  hook <- readIORef listenHookRef
+  maybe action ($ action) hook
+
 -- | Start a Notifier. Acquires a dedicated connection, sets
 -- @application_name@ to @kiroku-listener@ for operator visibility, issues
 -- LISTEN on the @\<schema\>.events@ channel, and spawns a thread that
@@ -148,7 +173,8 @@ reconnectDelayMicros n
 --
 -- On 'Async.AsyncCancelled' (from cancellation), exits cleanly.
 --
--- Initial acquire or LISTEN failure raises 'NotifierStartError'.
+-- Synchronous initial acquire or LISTEN failure raises 'NotifierStartError'.
+-- Asynchronous LISTEN exceptions propagate unchanged after releasing the connection.
 startNotifier ::
   (MonadIO m) =>
   -- | libpq connection string
@@ -164,10 +190,10 @@ startNotifier connString schema mHandler = liftIO $ do
   namespaces <- newTVarIO Map.empty
   let channel = toPgIdentifier (schema <> ".events")
   bracketOnError (acquireOrThrow connString) Connection.release $ \conn -> do
-    Notifications.listen conn channel
+    startupListen (Notifications.listen conn channel)
       `catch` \(e :: SomeException) ->
-        case asyncExceptionFromException e of
-          Just (ae :: SomeAsyncException) -> throwIO ae
+        case fromException e of
+          Just (_ :: SomeAsyncException) -> throwIO e
           Nothing -> throwIO (NotifierListenError e)
     connRef <- newTVarIO conn
     thread <- Async.async (listenerLoop chan catGenVar namespaces connRef channel connString mHandler)

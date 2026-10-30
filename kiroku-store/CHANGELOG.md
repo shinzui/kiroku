@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Preserve asynchronous cancellation through observability callbacks, publisher
+  recovery and initial notifier LISTEN setup, including concrete exception payloads.
+
 ## 0.13.0.0 — 2026-10-28
 
 ### Breaking Changes
