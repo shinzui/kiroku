@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Accept `http-client-tls >=0.3 && <0.5` in library and test dependencies.
+  The remote client uses the unchanged `tlsManagerSettings` API; this permits
+  consumers selecting 0.4.0 without `allow-newer`.
+
 ## 0.3.0.0 — 2026-10-28
 
 ### Breaking Changes

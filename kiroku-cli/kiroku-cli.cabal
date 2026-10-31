@@ -49,7 +49,7 @@ library
     , containers            >=0.6       && <0.8
     , generic-lens          >=2.2       && <2.4
     , http-client           >=0.7       && <0.8
-    , http-client-tls       >=0.3       && <0.4
+    , http-client-tls       >=0.3       && <0.5
     , http-types            >=0.12      && <0.13
     , kiroku-store          ^>=0.13.0.0
     , lens                  >=5.2       && <5.4
@@ -85,7 +85,7 @@ test-suite kiroku-cli-test
     , generic-lens          >=2.2       && <2.4
     , hspec                 >=2.10      && <2.12
     , http-client           >=0.7       && <0.8
-    , http-client-tls       >=0.3       && <0.4
+    , http-client-tls       >=0.3       && <0.5
     , kiroku-cli
     , kiroku-store          ^>=0.13.0.0
     , kiroku-test-support

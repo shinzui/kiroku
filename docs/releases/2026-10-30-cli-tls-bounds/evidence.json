@@ -1,0 +1,42 @@
+{
+  "checkedAt": "2026-10-30",
+  "sourceCommit": "20134e58929290429e05b6e821ab18ea75539f32",
+  "candidateRevisions": {
+    "0.2.0.11": {
+      "sha256": "f9c2ec968b6235a524b60f4e7251d9367eec18f836ec4e194bdb4c83457763d9",
+      "tagCommit": "22d103e4f424caab06c6a2b76ad92b408c262bc0"
+    },
+    "0.3.0.0": {
+      "sha256": "64033652ae926d5631cca1eedb67eb844d73249fbcf0d2ecae072041d19f0f63",
+      "tagCommit": "7511adf7ed57bc30a330bfb6431451e5004fd9f0"
+    }
+  },
+  "plans": {
+    "current": {
+      "http-client-tls": "0.4.0",
+      "kiroku-cli": "0.3.0.0",
+      "kiroku-metrics": "0.4.0.1",
+      "kiroku-store": "0.13.0.1",
+      "kiroku-store-migrations": "0.7.3.0"
+    },
+    "legacy": {
+      "http-client-tls": "0.4.0",
+      "kiroku-cli": "0.2.0.11",
+      "kiroku-metrics": "0.4.0.0",
+      "kiroku-store": "0.12.0.0",
+      "kiroku-store-migrations": "0.7.2.0"
+    }
+  },
+  "testResults": {
+    "current": {
+      "cli": 29,
+      "metrics": 126,
+      "failures": 0
+    },
+    "legacy": {
+      "cli": 22,
+      "metricsSubscriptions": 4,
+      "failures": 0
+    }
+  }
+}
