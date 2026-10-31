@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.3.0.1 — 2026-10-30
+
+### Bug Fixes
 
 - Accept `http-client-tls >=0.3 && <0.5` in library and test dependencies.
   The remote client uses the unchanged `tlsManagerSettings` API; this permits
