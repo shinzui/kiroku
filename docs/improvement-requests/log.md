@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-11-12
+* **Addition**: IR-21 requests that the delivery phase (catch-up or live) of each subscription event reach the Shibuya adapter and appear on its processing span as `kiroku.subscription.state`. It originates from `mori://shinzui/shibuya/masterplans/8-configurable-trace-correlation-for-consumer-spans` and is explicitly non-blocking.
+
 ## 2026-10-28
 * **Completion**: IR-14 completed: all six compaction packages and documentation are published; source hashes and tags match, and the fresh registry-only consumer passed exact apply, reapply, unchanged survivors/head and append at version 4.
 * **Update**: IR-14 implemented: published the approved selective compaction cohort with source/documentation archives and annotated tags; fresh registry-only consumer verification is in progress.
