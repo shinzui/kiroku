@@ -8,6 +8,7 @@ import Control.Exception qualified as E
 import Control.Lens ((&), (.~), (^.))
 import Control.Monad (forM_, unless)
 import Control.Monad.IO.Class (liftIO)
+import CorrelationSpec qualified
 import Data.Aeson (Value)
 import Data.Aeson qualified as Aeson
 import Data.Foldable (toList)
@@ -36,7 +37,7 @@ import Kiroku.Store.Subscription.Types qualified as KTypes
 import Kiroku.Store.Subscription.Worker (withFetchBatchHookForTest, withSaveCheckpointHookForTest)
 import Kiroku.Test.Postgres (withMigratedTestDatabase, withSharedMigratedPostgres)
 import OpenTelemetry.Attributes (toAttribute)
-import Shibuya.Adapter (Adapter (..))
+import Shibuya.Adapter (Adapter (..), defaultAdapterTelemetry)
 import Shibuya.Adapter.Kiroku
   ( consumerGroupPolicy,
     defaultConsumerGroupConfig,
@@ -195,6 +196,7 @@ main = withSharedMigratedPostgres $ hspec $ do
         `shouldBe` Left (InvalidPolicyCombo "StrictInOrder requires Serial concurrency")
 
   acknowledgementSpec
+  around withTestStore CorrelationSpec.spec
   around withTestStore $ do
     describe "kirokuAdapter" $ do
       it "delivers only matching event types when an eventTypeFilter is set (EP-43)" $ \store -> do
@@ -1119,7 +1121,8 @@ main = withSharedMigratedPostgres $ hspec $ do
                           modifyIORef' shutdowns (<> [m])
                           if m == 1
                             then E.throwIO (userError "member 1 cleanup failed")
-                            else pure ()
+                            else pure (),
+                        telemetry = defaultAdapterTelemetry
                       }
             handler ingested = do
               let _ = envelopePayload ingested
@@ -1287,7 +1290,8 @@ stubAdapter =
   Adapter
     { adapterName = "stub-kiroku",
       source = Stream.nil,
-      shutdown = pure ()
+      shutdown = pure (),
+      telemetry = defaultAdapterTelemetry
     }
 
 -- | Read the dead letters recorded for a non-group subscription (member 0).

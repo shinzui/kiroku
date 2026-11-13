@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-11-13
+* **Addition**: ADR-24 records that Shibuya processing spans link to the appending span by default (LinkOnly), with ParentAndLink per adapter or consumer group.
+
 ## 2026-10-30
 * **Decision**: Record cancellation family classification and preserved synchronous recovery policy for BUG-6.
 

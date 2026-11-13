@@ -30,7 +30,7 @@ import Kiroku.Store
 import Kiroku.Store.Subscription.Stream (subscriptionStream)
 import Kiroku.Store.Subscription.Stream qualified as Buffer
 import Kiroku.Test.Postgres (ephemeralConfig, migrateTestDatabase)
-import Shibuya.Adapter (Adapter (..))
+import Shibuya.Adapter (Adapter (..), defaultAdapterTelemetry)
 import Shibuya.App (ProcessorId (..), defaultAppConfig, mkProcessor, runApp, stopApp)
 import Shibuya.Core.Ack (AckDecision (..))
 import Shibuya.Core.AckHandle (AckHandle (..))
@@ -209,7 +209,8 @@ benchShibuyaAdapter store n nextId = do
           Adapter
             { adapterName = "kiroku-bench",
               source = ingestedStream,
-              shutdown = liftIO cancelAction
+              shutdown = liftIO cancelAction,
+              telemetry = defaultAdapterTelemetry
             }
 
     let handler :: (IOE :> es) => Message es RecordedEvent -> Eff es AckDecision

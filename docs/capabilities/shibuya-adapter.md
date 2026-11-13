@@ -66,3 +66,8 @@ adapter <- kirokuAdapter store (defaultKirokuAdapterConfig "orders" AllStreams)
 - Ack decisions became load-bearing in `0.2.0.0`; in `0.1.0.0` `AckRetry`/`AckDeadLetter` were
   no-ops. Consumer-group presentation and filter forwarding arrived in `0.2.0.0`.
 - `Envelope` carries no raw broker headers (`headers = Nothing`); Kiroku events have none.
+- Trace correlation defaults to `LinkOnly` from `0.8.0.0`: each processed event's Shibuya span is a
+  new trace linked to the appending span in the event metadata, because subscriptions replay old
+  events and several subscriptions read the same event. `telemetry = defaultAdapterTelemetry`
+  restores parent-child correlation (`ParentAndLink`); consumer groups apply one value to every
+  member. Batch spans are always roots with bounded links, whatever the setting.

@@ -1,5 +1,8 @@
 # Capability Catalog Log
 
+## 2026-11-13
+* **Update**: Shibuya adapter, OpenTelemetry trace context and subscription tracing describe the adapter's `LinkOnly` default (each processed event its own trace linked to the append), the `ParentAndLink` override, and that native subscription spans are independent roots.
+
 ## 2026-10-28
 * **Update**: CAP-22 is released in Store 0.13.0.0, migrations 0.7.3.0 and CLI 0.3.0.0, with exact artifact verification and a passing fresh registry-only consumer.
 * **Addition**: CAP-22 records manifest-driven selective event compaction with store identity, reference inventory and an embeddable operator workflow.

@@ -117,6 +117,21 @@
 -- @handlerStallWarnAfter@ to receive advisory store handler-stall events; warnings
 -- never finalize, retry or checkpoint the item. @retryPolicy@ controls total
 -- deliveries independently of the delay chosen by 'AckRetry'.
+--
+-- == Trace Correlation
+--
+-- When an event's metadata carries a W3C @traceparent@ (written, for example,
+-- by @kiroku-otel@'s @injectTraceContext@ on append), Shibuya opens a
+-- Consumer span named @process \<processor\>@ around the handler and always
+-- adds a link to the appending span. By default ('kirokuDefaultTelemetry',
+-- 'LinkOnly') that span is the root of a new trace: subscriptions replay and
+-- catch up on events written long ago and several subscriptions read the
+-- same event, so making each handler a child of the appending span would
+-- stretch the writer's trace indefinitely. Set @telemetry@ to
+-- 'defaultAdapterTelemetry' ('ParentAndLink') to make processing the
+-- appending span's child instead; a consumer group applies its one value to
+-- every member. @kiroku-otel@'s own subscription spans are separate roots,
+-- correlated with these spans by the shared @kiroku.*@ attributes.
 module Shibuya.Adapter.Kiroku
   ( -- * Adapter
     kirokuAdapter,
@@ -127,6 +142,12 @@ module Shibuya.Adapter.Kiroku
     -- * Configuration
     KirokuAdapterConfig (..),
     defaultKirokuAdapterConfig,
+
+    -- * Telemetry
+    AdapterTelemetry (traceCorrelation),
+    defaultAdapterTelemetry,
+    kirokuDefaultTelemetry,
+    TraceCorrelation (..),
 
     -- * Consumer-group helpers
     KirokuConsumerGroupConfig (..),
@@ -178,7 +199,7 @@ import Kiroku.Store.Subscription.Types
 import Kiroku.Store.Subscription.Types qualified as Sub
 import Kiroku.Store.Types (RecordedEvent)
 import Numeric.Natural (Natural)
-import Shibuya.Adapter (Adapter (..))
+import Shibuya.Adapter (Adapter (..), AdapterTelemetry (traceCorrelation), TraceCorrelation (..), defaultAdapterTelemetry)
 import Shibuya.Adapter.Kiroku.Convert (kirokuEnvelopeAttrs, toIngestedAck)
 import Shibuya.Adapter.Kiroku.Internal (acquireAllAndTransfer)
 import Shibuya.App (ProcessorId (..), QueueProcessor (..), mkProcessor)
@@ -257,7 +278,18 @@ data KirokuAdapterConfig = KirokuAdapterConfig
     --     dead-lettered and the checkpoint still advances past it. See
     --     'Kiroku.Store.Subscription.Types.selector' for when to prefer it over the
     --     introspectable 'eventTypeFilter'.
-    selector :: !(Maybe (RecordedEvent -> Bool))
+    selector :: !(Maybe (RecordedEvent -> Bool)),
+    -- | Telemetry options copied unchanged into the 'Shibuya.Adapter.Adapter'.
+    --
+    -- The default is @'defaultAdapterTelemetry' {traceCorrelation = 'LinkOnly'}@:
+    -- each processed event's span starts its own trace and links to the span
+    -- that appended the event. This differs from queue adapters, which default
+    -- to 'ParentAndLink', because a subscription replays and catches up on
+    -- events written long ago and several subscriptions read the same event,
+    -- so parenting would stretch the writer's trace indefinitely and attach
+    -- every subscriber's work to it. Set @telemetry = 'defaultAdapterTelemetry'@
+    -- ('ParentAndLink') to make processing a child of the appending span again.
+    telemetry :: !AdapterTelemetry
   }
   deriving stock (Generic)
 
@@ -265,8 +297,8 @@ data KirokuAdapterConfig = KirokuAdapterConfig
 -- @bufferSize = defaultStreamBufferSize@, @queueCapacity = 16@, @consumerGroup = 'Nothing'@
 -- (ordinary single-consumer subscription), @missingCheckpointPolicy =
 -- 'FromBeginning'@, @eventTypeFilter = 'AllEventTypes'@
--- (deliver every type), and @selector = 'Nothing'@ (no extra predicate
--- filtering). Supply the subscription name and target; override individual fields
+-- (deliver every type), @selector = 'Nothing'@ (no extra predicate
+-- filtering), and @telemetry = 'kirokuDefaultTelemetry'@ ('LinkOnly'). Supply the subscription name and target; override individual fields
 -- with record-update syntax.
 --
 -- Prefer this over a full record literal so that any field added to
@@ -292,8 +324,16 @@ defaultKirokuAdapterConfig name target =
       consumerGroup = Nothing,
       missingCheckpointPolicy = FromBeginning,
       eventTypeFilter = AllEventTypes,
-      selector = Nothing
+      selector = Nothing,
+      telemetry = kirokuDefaultTelemetry
     }
+
+-- | The adapter's default telemetry: 'defaultAdapterTelemetry' with
+-- @traceCorrelation = 'LinkOnly'@, so each processed event is its own trace
+-- linked to the appending span. Shared by 'defaultKirokuAdapterConfig' and
+-- 'defaultConsumerGroupConfig'.
+kirokuDefaultTelemetry :: AdapterTelemetry
+kirokuDefaultTelemetry = defaultAdapterTelemetry {traceCorrelation = LinkOnly}
 
 -- | Convert any synchronous exception thrown by a Shibuya handler into an
 -- 'AckDecision'.
@@ -341,7 +381,7 @@ kirokuAdapter ::
   KirokuStore ->
   KirokuAdapterConfig ->
   Eff es (Adapter es RecordedEvent)
-kirokuAdapter store KirokuAdapterConfig {subscriptionName = subName, subscriptionTarget = subTarget, batchSize = bs, bufferSize = buf, queueCapacity = qCap, retryPolicy = attempts, handlerStallWarnAfter = stallWarn, consumerGroup = cg, missingCheckpointPolicy = checkpointPolicy, eventTypeFilter = etf, selector = sel} = do
+kirokuAdapter store KirokuAdapterConfig {subscriptionName = subName, subscriptionTarget = subTarget, batchSize = bs, bufferSize = buf, queueCapacity = qCap, retryPolicy = attempts, handlerStallWarnAfter = stallWarn, consumerGroup = cg, missingCheckpointPolicy = checkpointPolicy, eventTypeFilter = etf, selector = sel, telemetry = tel} = do
   -- Build from 'defaultSubscriptionConfig' and override only the non-default
   -- fields. Using the smart constructor (rather than a full record literal)
   -- means any future field added to 'SubscriptionConfigM' is inherited at its
@@ -378,7 +418,8 @@ kirokuAdapter store KirokuAdapterConfig {subscriptionName = subName, subscriptio
     Adapter
       { adapterName = "kiroku",
         source = ingestedStream,
-        shutdown = liftIO cancelAction
+        shutdown = liftIO cancelAction,
+        telemetry = tel
       }
 
 -- | Configuration for a whole kiroku consumer group presented as a single
@@ -439,7 +480,10 @@ data KirokuConsumerGroupConfig = KirokuConsumerGroupConfig
     --     selector-filtered single subscription (worker-side, per member, checkpoint
     --     still advances past rejected events). See
     --     'Kiroku.Store.Subscription.Types.selector'.
-    selector :: !(Maybe (RecordedEvent -> Bool))
+    selector :: !(Maybe (RecordedEvent -> Bool)),
+    -- | Telemetry options given unchanged to /every/ member adapter. Defaults to
+    --     'kirokuDefaultTelemetry' ('LinkOnly'); see 'KirokuAdapterConfig'.telemetry.
+    telemetry :: !AdapterTelemetry
   }
   deriving stock (Generic)
 
@@ -447,7 +491,8 @@ data KirokuConsumerGroupConfig = KirokuConsumerGroupConfig
 -- 'Serial'@ (the only legal per-member concurrency), @batchSize = Sub.defaultBatchSize@,
 -- @bufferSize = defaultStreamBufferSize@, @queueCapacity = 16@, @missingCheckpointPolicy =
 -- 'FromBeginning'@, @eventTypeFilter = 'AllEventTypes'@
--- (deliver every type), @selector = 'Nothing'@ (no extra predicate filtering).
+-- (deliver every type), @selector = 'Nothing'@ (no extra predicate filtering),
+-- @telemetry = 'kirokuDefaultTelemetry'@ ('LinkOnly').
 -- Supply the subscription name, target, and group size.
 defaultConsumerGroupConfig ::
   SubscriptionName -> SubscriptionTarget -> ConsumerGroupSize -> KirokuConsumerGroupConfig
@@ -464,7 +509,8 @@ defaultConsumerGroupConfig name target n =
       memberConcurrency = Serial,
       missingCheckpointPolicy = FromBeginning,
       eventTypeFilter = AllEventTypes,
-      selector = Nothing
+      selector = Nothing,
+      telemetry = kirokuDefaultTelemetry
     }
 
 -- | Map a requested per-member concurrency onto the group's validated Shibuya
@@ -506,7 +552,7 @@ kirokuConsumerGroupProcessors ::
   KirokuConsumerGroupConfig ->
   Handler es RecordedEvent ->
   Eff es (Either PolicyError [(ProcessorId, QueueProcessor es)])
-kirokuConsumerGroupProcessors store cfg@KirokuConsumerGroupConfig {subscriptionName = subName, subscriptionTarget = subTarget, groupSize = n, batchSize = bs, bufferSize = buf, queueCapacity = qCap, retryPolicy = attempts, handlerStallWarnAfter = stallWarn, missingCheckpointPolicy = checkpointPolicy, eventTypeFilter = etf, selector = sel} handler =
+kirokuConsumerGroupProcessors store cfg@KirokuConsumerGroupConfig {subscriptionName = subName, subscriptionTarget = subTarget, groupSize = n, batchSize = bs, bufferSize = buf, queueCapacity = qCap, retryPolicy = attempts, handlerStallWarnAfter = stallWarn, missingCheckpointPolicy = checkpointPolicy, eventTypeFilter = etf, selector = sel, telemetry = tel} handler =
   kirokuConsumerGroupProcessorsWith mkMemberAdapter cfg handler
   where
     mkMemberAdapter m =
@@ -523,7 +569,8 @@ kirokuConsumerGroupProcessors store cfg@KirokuConsumerGroupConfig {subscriptionN
             consumerGroup = Just (either (error . show) Prelude.id (mkConsumerGroup m n)),
             missingCheckpointPolicy = checkpointPolicy,
             eventTypeFilter = etf,
-            selector = sel
+            selector = sel,
+            telemetry = tel
           }
 
 -- | Factory-parameterized core for 'kirokuConsumerGroupProcessors'.

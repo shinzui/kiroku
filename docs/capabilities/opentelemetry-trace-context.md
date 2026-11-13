@@ -51,6 +51,11 @@ storeSettings = defaultStoreSettings
 
 - `extractTraceContext` returns `Nothing` (rather than failing) when `metadata` is absent, is not a
   JSON object, lacks `traceparent`, or carries an unparseable value.
+- Read side in Shibuya: `shibuya-kiroku-adapter` turns the extracted `traceparent` into the
+  processing span's creation context. From 0.8.0.0 that span is, by default, a new root that
+  *links* to the appending span (`LinkOnly`); `telemetry = defaultAdapterTelemetry`
+  (`ParentAndLink`) makes it the appending span's child instead. Events without a parseable
+  `traceparent` produce a processing span with no link.
 - `injectTraceContext` is observably pure over an `IO`-typed OTel 1.0 encoder; it does not read
   ambient context — the caller supplies the `SpanContext`.
 - Requires the OpenTelemetry 1.0 package family (`hs-opentelemetry-api ^>=1.0` and the W3C

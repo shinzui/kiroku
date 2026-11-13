@@ -52,5 +52,10 @@ let settings = defaultConnectionSettings connString & #eventHandler .~ handler
   export — the observability handler contract is synchronous.
 - Spans are short and prompt-ending because the SDK only exports on `endSpan`; there is no
   worker-lifetime span. In-progress episodes are not visible until they end.
+- Every subscription span is a root (`createSpan` on an empty context): it is neither a child of
+  the span that appended the events nor a parent of any handler span. The Shibuya adapter's
+  per-event processing spans are therefore separate traces, correlated with these spans by the
+  shared `kiroku.*` attributes; by default (`LinkOnly`, shibuya-kiroku-adapter 0.8.0.0) each
+  processing span also links to the appending span carried in the event metadata.
 - Subscription-span coverage arrived in `0.2.0.0` (kiroku-otel); the `0.1.0.0` release provided
   only trace-context propagation (CAP-15), a separate capability in the same package.

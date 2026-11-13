@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.8.0.0 — Unreleased
+
+### Breaking Changes
+
+- **Default trace shape changed: each processed event is now its own trace,
+  linked to the span that appended it.** `KirokuAdapterConfig` and
+  `KirokuConsumerGroupConfig` gain a strict `telemetry :: AdapterTelemetry`
+  field, defaulting to `kirokuDefaultTelemetry`
+  (`defaultAdapterTelemetry {traceCorrelation = LinkOnly}`). A subscription
+  replays and catches up on events written long ago, and several subscriptions
+  read the same event, so making processing a child of the appending span
+  stretched the writer's trace indefinitely. Restore the previous single-trace
+  shape, now with an added link, with `telemetry = defaultAdapterTelemetry`
+  (`ParentAndLink`). Every consumer-group member uses the group's value.
+- Require `shibuya-core >=0.13 && <0.14` (also in `kiroku-store`). Core 0.13
+  renames processing spans from `<processor> process` to `process <processor>`
+  and adds `messaging.operation.name = "process"`; update trace queries that
+  match the old name. Full `KirokuAdapterConfig` and `KirokuConsumerGroupConfig`
+  literals must set `telemetry`.
+
+### New Features
+
+- Re-export `AdapterTelemetry (traceCorrelation)`, `defaultAdapterTelemetry`,
+  `TraceCorrelation (..)` and the new `kirokuDefaultTelemetry` from
+  `Shibuya.Adapter.Kiroku`.
+
+### Other Changes
+
+- Add PostgreSQL-backed correlation tests: both policies, two subscriptions to
+  one event, consumer-group members, and events without `traceparent`.
+- Correct the 0.5.0.0 note below: `kiroku-otel`'s native subscription spans are
+  independent roots, not part of the writer's or Shibuya's trace. They and
+  Shibuya's processing spans are separate traces correlated by matching
+  `kiroku.*` attributes.
+
 ## 0.7.0.1 — 2026-10-28
 
 ### Other Changes
@@ -261,9 +296,10 @@
   kiroku identity so it appears on Shibuya's per-message span:
   `kiroku.subscription.name`, `kiroku.event.type`, `kiroku.event.global_position`,
   and — for a consumer-group member — `kiroku.consumer_group.member`. Combined
-  with `kiroku-otel`'s native subscription spans, a single trace is followable
-  from a kiroku subscription into Shibuya's processing; the keys match on both
-  sides.
+  with `kiroku-otel`'s native subscription spans, a kiroku subscription can be
+  followed into Shibuya's processing: the keys match on both sides. (Corrected
+  in 0.8.0.0: these are separate traces correlated by those attributes, not a
+  single trace.)
 * `Shibuya.Adapter.Kiroku.Convert` exposes `KirokuEnvelopeAttrs`; `toEnvelope`
   and `toIngestedAck` take it. `kirokuAdapter` derives the subscription name and
   member from its config, so the single-adapter and consumer-group paths are both
