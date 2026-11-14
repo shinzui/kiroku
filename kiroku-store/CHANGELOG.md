@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.13.0.2 — 2026-11-14
+
+### Other Changes
+
+- The `kiroku-shibuya-overhead` benchmark requires `shibuya-core >=0.13 && <0.14`
+  and sets the new `Adapter` `telemetry` field. No library changes.
+
 ## 0.13.0.1 — 2026-10-30
 
 ### Bug Fixes
