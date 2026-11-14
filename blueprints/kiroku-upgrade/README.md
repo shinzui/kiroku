@@ -68,6 +68,12 @@ rather than a declared bound. A project without a configured Cabal build, or
 without `jq`, gets a warning and is asked for `--to` — the intended degradation,
 since a guessed window runs the wrong edges against real source.
 
+Adapter-only breaks are not keyed here. `shibuya-kiroku-adapter` changes that
+come from Shibuya can ship while `kiroku-store` moves only by a patch, so they
+live in the
+[`shibuya-kiroku-adapter-upgrade`](../shibuya-kiroku-adapter-upgrade/README.md)
+blueprint, which probes the adapter's own version.
+
 ## What edges here may and may not do
 
 Kiroku owns SQL migrations, so its edges routinely have a **database half** as
