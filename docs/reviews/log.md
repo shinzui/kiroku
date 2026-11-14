@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-11-14
+* **Addition**: REV-5 approves the kiroku-store 0.13.0.2 and shibuya-kiroku-adapter 0.8.0.0 cohort: no kiroku-store library change, the strict `telemetry` field reaches every adapter the package builds with a `LinkOnly` default proven by the new PostgreSQL correlation suite, and shibuya-core's same-process allocation gate shows `LinkOnly` cheaper than parent-child. Follow-ups: the store-keyed upgrade blueprint has no edge for the adapter's 0.7 to 0.8 break, and the `shibuya-core >=0.13` lower bound still admits 0.13.0.0's Async allocation increase. The 0.12.0.0 to 0.13.0.1 window between REV-4 and this base has no review record.
+
 ## 2026-10-21
 * **Modification**: REV-1, REV-2 and REV-3 record the ExecPlans their findings produced (plans 99 to 103) in `produced`.
 * **Addition**: REV-4 approves the 0.11.0.1 structured script error patch: SQLSTATE and server messages survive every mapper for script and statement failures, no hot path changed, the new store suite and updated sanitization specs cover it, and the typed-constructor change on pool-backed reads is documented and already handled by keiro's transient classification.
