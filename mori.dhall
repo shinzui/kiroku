@@ -56,6 +56,7 @@ let packageRef =
 
 in  Schema.Project::{
     , project = Schema.ProjectIdentity::{
+      , stableId = Some "project_01m7k1v8vte6jr0cx3bwgf9w82"
       , name = "kiroku"
       , namespace = "shinzui"
       , type = Schema.PackageType.Library
